@@ -115,3 +115,26 @@ We'll explore two forms:
 #### URL style:
 - `[ChangeID in this repo, /.jj/ must exist](./knxzszwu)`
 - `[ChangeID in a local repo, /.claude/.jj/ must exist](.claude/ponzrznv)`
+
+## Create a binary that lists jj info
+
+This binary should list the changeID, commitID, and description title
+and using `jj-lib`
+
+### Implementation
+
+Created a Rust binary (`src/main.rs`) using `jj-lib` 0.39.0 that:
+
+1. Opens the jj workspace from the current directory (or a path argument)
+2. Loads the repo at head via `Workspace::load()` and `RepoLoader::load_at_head()`
+3. Evaluates `RevsetExpression::all()` to iterate all commits
+4. For each commit (excluding the root), prints: changeID (reverse hex, 12 chars),
+   commitID (hex, 12 chars), and first line of description
+
+Key dependencies: `jj-lib = "0.39.0"`, `pollster = "0.4"` (for async `.block_on()`).
+
+Usage:
+```
+cargo run            # uses current directory
+cargo run -- /path   # uses specified path
+```
