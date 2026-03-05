@@ -92,3 +92,19 @@ Working copy  (@) : kttvktmm 0c376c25 (empty) (no description set)
 Parent commit (@-): ponzrznv 90244032 main | Initial Commit
 wink@3900x 26-03-04T19:00:56.656Z:~/data/prgs/rust/vc-x1.ok/.claude ((main))
 ```
+
+## Use footers to track changeIDs or notes
+
+This is more general as we can have multiple footers for multiple related
+bits of information, such changeId, or URLs to files in this repo or other places.
+In particular URLs to the naratives in chores-xx.md files and changeID (chid).
+
+Since jj information is not stored in a repo but generated when `jj git init` is run
+the changeID markdown URLs are only valid when using a yet to be implemented tool
+vc-x1 (vibe coding) tool.
+
+- [[ChangeID in this repo, /.jj/ must exist](./knxzszwu)](./knxzszwu)
+- [[ChangeID in a local repo, /.claude/.jj/ must exist](.claude/ponzrznv)](.claude/ponzrznkv)
+- [[https markdown: chore-01-use-footers](https://github.com/winksaville/vc-x1/tree/main/notes/chores-01.md#use-footers-to-track-changeids-or-notes)](https://github.com/winksaville/vc-x1/tree/main/notes/chores-01.md#use-footers-to-track-changeids-or-notes)
+- [[local-file: chore-01-use-footers](./chores-01.md#use-footers-to-track-changeids-or-notes)](./chores-01.md#use-footers-to-track-changeids-or-notes)
+- [[this-file: chore-01-use-footers](#use-footers-to-track-changeids-or-notes)](#use-footers-to-track-changeids-or-notes)
