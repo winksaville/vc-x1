@@ -103,8 +103,15 @@ Since jj information is not stored in a repo but generated when `jj git init` is
 the changeID markdown URLs are only valid when using a yet to be implemented tool
 vc-x1 (vibe coding) tool.
 
-- [[ChangeID in this repo, /.jj/ must exist](./knxzszwu)](./knxzszwu)
-- [[ChangeID in a local repo, /.claude/.jj/ must exist](.claude/ponzrznv)](.claude/ponzrznkv)
-- [[https markdown: chore-01-use-footers](https://github.com/winksaville/vc-x1/tree/main/notes/chores-01.md#use-footers-to-track-changeids-or-notes)](https://github.com/winksaville/vc-x1/tree/main/notes/chores-01.md#use-footers-to-track-changeids-or-notes)
-- [[local-file: chore-01-use-footers](./chores-01.md#use-footers-to-track-changeids-or-notes)](./chores-01.md#use-footers-to-track-changeids-or-notes)
-- [[this-file: chore-01-use-footers](#use-footers-to-track-changeids-or-notes)](#use-footers-to-track-changeids-or-notes)
+### Example of changeID footers
+
+We'll explore two forms:
+
+#### footer style:
+
+- `[1]: .knxzszwu`
+- `[2]: .claude/ponzrznv`
+
+#### URL style:
+- `[ChangeID in this repo, /.jj/ must exist](./knxzszwu)`
+- `[ChangeID in a local repo, /.claude/.jj/ must exist](.claude/ponzrznv)`
