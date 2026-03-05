@@ -23,12 +23,21 @@ own IDE for vc.
 Initial creation steps is below, these were followed by creating this README.md.
 
 A **critical item** in this experiment is each commit can contain the changeID
-of the other commit. This is written on the last line description body as
-"ocid: xxxxyyyy". The intent is that these are the cross-references to the
-other commit allowing for guaranteed synchronization between the two repos.
+of the other commit. Here I'm trying out providing both "this commit id" (tcid)
+and "other commit id" (ocid) in the commit title to make it easier for tools to
+navigate and synchronize the two repos.
+
+title syntax: `<tcid>-<ocid>-<short description>`
+
+ - `<tcid>` is the jj change ID of this commit and is never `none`.
+ - `<ocid>` is the jj change ID of the other commit and may be `none` if the bot was not involved.
+ - `<short description>` is a brief one line description of the chore.
+
+The intent is that these might be able ot make the tool that shows the
+evolution of the code more clear by showing the relationship between the two repos
 
 Note: the two .gitignore files are explicitly ignoring .jj and .git
-to be obvious although it maybe unnecessary.
+to be obvious although they maybe unnecessary.
 
 ```
 wink@3900x 26-03-04T16:08:16.365Z:~/data/prgs/rust
@@ -76,14 +85,14 @@ A .gitignore
 Working copy  (@) : ponzrznv 526882d0 (no description set)
 Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
 wink@3900x 26-03-04T17:20:46.906Z:~/data/prgs/rust/vc-x1/.claude (main)
-$ jj describe -m "Initial Commit" -m $'Future commits will contain claude-code session files\n\nocid: qvnyrzox'
-Working copy  (@) now at: ponzrznv 90244032 Initial Commit
+$ jj describe -m "ponzrznv-qvnyrzox-Initial Commit" -m $'Future commits will contain claude-code session files`
+Working copy  (@) now at: ponzrznv 90244032 ponzrznv-qvnyrzox-Initial Commit
 Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
 wink@3900x 26-03-04T17:55:06.459Z:~/data/prgs/rust/vc-x1/.claude (main)
 $ cd ..
 wink@3900x 26-03-04T17:55:11.933Z:~/data/prgs/rust/vc-x1 (main)
-$ jj describe -m "Initial Commit" -m $'An experiment on creating a Vibe Coding environment\n\nocid: ponzrznv'
-Working copy  (@) now at: qvnyrzox 9d954685 Initial Commit
+$ jj describe -m "qvnyrzox-ponzrznv-Initial Commit" -m $'An experiment on creating a Vibe Coding environment'
+Working copy  (@) now at: qvnyrzox 9d954685 qvnyrzox-ponzrznv-Initial Commit
 Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
 wink@3900x 26-03-04T17:56:04.166Z:~/data/prgs/rust/vc-x1 (main)
 ```
@@ -98,7 +107,7 @@ wink@3900x 26-03-04T17:56:04.166Z:~/data/prgs/rust/vc-x1 (main)
 $ jj git remote add origin git@github.com:winksaville/vc-x1.git
 wink@3900x 26-03-04T18:09:48.521Z:~/data/prgs/rust/vc-x1 (main)
 $ jj bookmark create main -r @
-Created 1 bookmarks pointing to qvnyrzox 7517ee24 main | Initial Commit
+Created 1 bookmarks pointing to qvnyrzox 7517ee24 main | qvnyrzox-ponzrznv-Initial Commit
 wink@3900x 26-03-04T18:10:03.265Z:~/data/prgs/rust/vc-x1 (refs/jj/root)
 $ jj git push --bookmark main
 Changes to push to origin:
@@ -111,7 +120,7 @@ git: Writing objects: 100% (7/7), 7.69 KiB | 7.69 MiB/s, done.
 git: Total 7 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
 Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
 Working copy  (@) now at: sxwktqsz a1103fe8 (empty) (no description set)
-Parent commit (@-)      : qvnyrzox 7517ee24 main | Initial Commit
+Parent commit (@-)      : qvnyrzox 7517ee24 main | qvnyrzox-ponzrznv-Initial Commit
 wink@3900x 26-03-04T18:10:17.354Z:~/data/prgs/rust/vc-x1 ((main))
 ```
 
@@ -123,7 +132,7 @@ wink@3900x 26-03-04T18:13:17.830Z:~/data/prgs/rust/vc-x1/.claude (main)
 $ jj git remote add origin git@github.com:winksaville/vc-x1.claude.git
 wink@3900x 26-03-04T18:13:41.018Z:~/data/prgs/rust/vc-x1/.claude (main)
 $ jj bookmark create main -r @
-Created 1 bookmarks pointing to ponzrznv 90244032 main | Initial Commit
+Created 1 bookmarks pointing to ponzrznv 90244032 main | ponzrznv-qvnyrzox-Initial Commit
 wink@3900x 26-03-04T18:13:49.904Z:~/data/prgs/rust/vc-x1/.claude (refs/jj/root)
 $ jj git push --bookmark main
 Changes to push to origin:
@@ -134,7 +143,7 @@ git: Writing objects: 100% (3/3), 307 bytes | 307.00 KiB/s, done.
 git: Total 3 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
 Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
 Working copy  (@) now at: kttvktmm 0c376c25 (empty) (no description set)
-Parent commit (@-)      : ponzrznv 90244032 main | Initial Commit
+Parent commit (@-)      : ponzrznv 90244032 main | ponzrznv-qvnyrzox-Initial Commit
 wink@3900x 26-03-04T18:14:05.349Z:~/data/prgs/rust/vc-x1/.claude ((main))
 ```
 
