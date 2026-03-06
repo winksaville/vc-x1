@@ -26,6 +26,6 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 # References
 
 A set of markdown references for tasks and details including vc changeID URLs.
-See [ChangeID and Note footers](chores-01.md#use-footers-to-track-changeids-or-notes).
+See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 
 [1]: /notes/chores-01.md#create-a-binary-that-lists-jj-info
