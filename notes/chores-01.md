@@ -1,10 +1,14 @@
 # Chores-01
 
-title syntax: `<tcid>-<ocid>-<short description>`
+## ChangeID footer syntax
 
- - `<tcid>` is the jj change ID of this commit and is never `none`.
- - `<ocid>` is the jj change ID of the other commit and may be `none` if the bot was not involved.
- - `<short description>` is a brief one line description of the chore.
+Commit footers use markdown reference-link syntax to cross-reference
+jj changeIDs across repos:
+
+- `/changeID` — workspace-root repo (e.g. `/upxmvpyz`)
+- `/<path>/changeID` — sub-repo within the workspace (e.g. `/.claude/vxmpmzsy`)
+
+All changeID references must be workspace-root relative (start with `/`).
 
 ## zznknssm-none-Validate changeID consistency
 
@@ -95,26 +99,13 @@ wink@3900x 26-03-04T19:00:56.656Z:~/data/prgs/rust/vc-x1.ok/.claude ((main))
 
 ## Use footers to track changeIDs or notes
 
-This is more general as we can have multiple footers for multiple related
-bits of information, such changeId, or URLs to files in this repo or other places.
-In particular URLs to the naratives in chores-xx.md files and changeID (chid).
+Commit footers can reference changeIDs and notes files using markdown
+reference-link syntax. See [ChangeID footer syntax](#changeid-footer-syntax)
+for the path rules.
 
-Since jj information is not stored in a repo but generated when `jj git init` is run
-the changeID markdown URLs are only valid when using a yet to be implemented tool
-vc-x1 (vibe coding) tool.
-
-### Example of changeID footers
-
-We'll explore two forms:
-
-#### footer style:
-
-- `[1]: .knxzszwu`
-- `[2]: .claude/ponzrznv`
-
-#### URL style:
-- `[ChangeID in this repo, /.jj/ must exist](./knxzszwu)`
-- `[ChangeID in a local repo, /.claude/.jj/ must exist](.claude/ponzrznv)`
+Since jj changeIDs are generated at `jj git init` time (not stored in the
+repo), changeID references are only resolvable by tools that have access
+to the local jj repo (e.g. vc-x1).
 
 ## Create a binary that lists jj info
 
