@@ -16,8 +16,7 @@ fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let store_factories = StoreFactories::default();
     let working_copy_factories = default_working_copy_factories();
 
-    let workspace =
-        Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
+    let workspace = Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
     let repo = workspace.repo_loader().load_at_head().block_on()?;
 
     let expression = RevsetExpression::all();
@@ -52,7 +51,7 @@ fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 fn main() -> ExitCode {
     let path = std::env::args()
         .nth(1)
-        .map(|s| std::path::PathBuf::from(s))
+        .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().expect("cannot get current directory"));
 
     if let Err(e) = run(&path) {

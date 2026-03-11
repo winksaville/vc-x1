@@ -42,6 +42,30 @@ jj commit -m "title" -m "body" -R .claude
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
 
+## Pre-commit Requirements
+
+### User approval
+
+Never execute commit commands without the user's explicit approval.
+Present the full commands for review first; only run them after the
+user confirms.
+
+### Versioning
+
+Every change must start with a version bump. See
+[Versioning during development](notes/README.md#versioning-during-development)
+for details. Get user approval on single-step vs multi-step before starting.
+
+### Pre-commit checklist
+
+Before proposing a commit, run all of the following and fix any issues:
+
+1. `cargo fmt`
+2. `cargo clippy`
+3. `cargo test`
+4. `cargo install --path .` (if applicable)
+5. Retest after install
+
 ## Session End Workflows
 
 When the user asks to "commit both repos" or says they're done, commit
