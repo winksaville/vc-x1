@@ -21,6 +21,7 @@ See older [done.md](done.md).
 
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed.
 
+- Add --version and -V flags using std lib (clap not a dependency)
 - Use git trailers for inter/intra repo info: ochid trailer, changeID path syntax, .vc-config.toml[[2]]
 - Document git trailer convention (ochid:) and .vc-config.toml for workspace identity
 - Document why jj log shows fewer commits than gitk (refs/jj/keep, obslog, ::@ revset)

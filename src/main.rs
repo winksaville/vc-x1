@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use jj_lib::config::StackedConfig;
@@ -9,6 +9,30 @@ use jj_lib::revset::{RevsetExpression, SymbolResolver};
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
 use pollster::FutureExt;
+
+#[derive(Debug, PartialEq)]
+enum Command {
+    Version,
+    ListCommits { path: PathBuf },
+}
+
+fn parse_args<I>(args: I) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut args = args.into_iter();
+    let _program = args.next();
+
+    match args.next().as_deref() {
+        Some("--version" | "-V") => Ok(Command::Version),
+        Some(path) => Ok(Command::ListCommits {
+            path: PathBuf::from(path),
+        }),
+        None => Ok(Command::ListCommits {
+            path: std::env::current_dir().map_err(|e| e.to_string())?,
+        }),
+    }
+}
 
 fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
@@ -49,14 +73,68 @@ fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() -> ExitCode {
-    let path = std::env::args()
-        .nth(1)
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().expect("cannot get current directory"));
+    let cmd = match parse_args(std::env::args()) {
+        Ok(cmd) => cmd,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
 
-    if let Err(e) = run(&path) {
-        eprintln!("error: {e}");
-        return ExitCode::FAILURE;
+    match cmd {
+        Command::Version => {
+            println!("vc-x1 {}", env!("CARGO_PKG_VERSION"));
+            ExitCode::SUCCESS
+        }
+        Command::ListCommits { path } => {
+            if let Err(e) = run(&path) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
     }
-    ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(strs: &[&str]) -> Vec<String> {
+        strs.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_version_long() {
+        assert_eq!(
+            parse_args(args(&["vc-x1", "--version"])),
+            Ok(Command::Version)
+        );
+    }
+
+    #[test]
+    fn parse_version_short() {
+        assert_eq!(parse_args(args(&["vc-x1", "-V"])), Ok(Command::Version));
+    }
+
+    #[test]
+    fn parse_path_arg() {
+        assert_eq!(
+            parse_args(args(&["vc-x1", "/some/path"])),
+            Ok(Command::ListCommits {
+                path: PathBuf::from("/some/path")
+            })
+        );
+    }
+
+    #[test]
+    fn parse_no_args_uses_cwd() {
+        let result = parse_args(args(&["vc-x1"]));
+        assert!(result.is_ok());
+        if let Ok(Command::ListCommits { path }) = result {
+            assert!(path.is_absolute());
+        } else {
+            panic!("expected ListCommits");
+        }
+    }
 }
