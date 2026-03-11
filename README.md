@@ -50,6 +50,28 @@ shows the current version of each change.
 In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
 the same result. Use `all()` when you have multiple branches or heads.
 
+## Cross-repo Linking with Git Trailers
+
+Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers)
+to cross-reference their counterpart in the other repo. The `ochid`
+(Other Change ID) trailer contains a workspace-root-relative path
+and jj changeID:
+
+```
+ochid: /.claude/xvzvruqo   # points to a .claude repo change
+ochid: /wtpmottv            # points to an app repo change
+```
+
+Paths always start with `/` (the workspace root, i.e. vc-x1).
+Each repo has a `.vc-config.toml` that identifies its location
+within the workspace, so tools can resolve these paths locally.
+
+For full details see:
+- [Git trailer convention](./notes/chores-01.md#git-trailer-convention)
+  — [ochid (Other Change ID)](./notes/chores-01.md#ochid-other-change-id)
+  — [ChangeID path syntax](./notes/chores-01.md#changeid-path-syntax)
+  — [.vc-config.toml](./notes/chores-01.md#vc-configtoml)
+
 ## License
 
 Licensed under either of
