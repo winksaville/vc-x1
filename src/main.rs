@@ -10,10 +10,21 @@ use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
 use pollster::FutureExt;
 
+const USAGE: &str = "\
+Usage: vc-x1 [OPTIONS] <COMMAND>
+
+Commands:
+  list [<path>]  List commits in a jj repo (defaults to current directory)
+
+Options:
+  -V, --version  Print version
+  -h, --help     Print this help message";
+
 #[derive(Debug, PartialEq)]
 enum Command {
     Version,
-    ListCommits { path: PathBuf },
+    Help,
+    List { path: PathBuf },
 }
 
 fn parse_args<I>(args: I) -> Result<Command, String>
@@ -25,16 +36,20 @@ where
 
     match args.next().as_deref() {
         Some("--version" | "-V") => Ok(Command::Version),
-        Some(path) => Ok(Command::ListCommits {
-            path: PathBuf::from(path),
-        }),
-        None => Ok(Command::ListCommits {
-            path: std::env::current_dir().map_err(|e| e.to_string())?,
-        }),
+        Some("--help" | "-h" | "help") => Ok(Command::Help),
+        Some("list") => {
+            let path = match args.next() {
+                Some(p) => PathBuf::from(p),
+                None => std::env::current_dir().map_err(|e| e.to_string())?,
+            };
+            Ok(Command::List { path })
+        }
+        Some(other) => Err(format!("unknown command: {other}\n\n{USAGE}")),
+        None => Ok(Command::Help),
     }
 }
 
-fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn list(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
     let settings = UserSettings::from_config(config)?;
     let store_factories = StoreFactories::default();
@@ -86,8 +101,12 @@ fn main() -> ExitCode {
             println!("vc-x1 {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
-        Command::ListCommits { path } => {
-            if let Err(e) = run(&path) {
+        Command::Help => {
+            println!("{USAGE}");
+            ExitCode::SUCCESS
+        }
+        Command::List { path } => {
+            if let Err(e) = list(&path) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
@@ -118,23 +137,50 @@ mod tests {
     }
 
     #[test]
-    fn parse_path_arg() {
+    fn parse_help_flag() {
+        assert_eq!(parse_args(args(&["vc-x1", "--help"])), Ok(Command::Help));
+    }
+
+    #[test]
+    fn parse_help_short() {
+        assert_eq!(parse_args(args(&["vc-x1", "-h"])), Ok(Command::Help));
+    }
+
+    #[test]
+    fn parse_help_subcommand() {
+        assert_eq!(parse_args(args(&["vc-x1", "help"])), Ok(Command::Help));
+    }
+
+    #[test]
+    fn parse_no_args_shows_help() {
+        assert_eq!(parse_args(args(&["vc-x1"])), Ok(Command::Help));
+    }
+
+    #[test]
+    fn parse_list_with_path() {
         assert_eq!(
-            parse_args(args(&["vc-x1", "/some/path"])),
-            Ok(Command::ListCommits {
+            parse_args(args(&["vc-x1", "list", "/some/path"])),
+            Ok(Command::List {
                 path: PathBuf::from("/some/path")
             })
         );
     }
 
     #[test]
-    fn parse_no_args_uses_cwd() {
-        let result = parse_args(args(&["vc-x1"]));
+    fn parse_list_no_path_uses_cwd() {
+        let result = parse_args(args(&["vc-x1", "list"]));
         assert!(result.is_ok());
-        if let Ok(Command::ListCommits { path }) = result {
+        if let Ok(Command::List { path }) = result {
             assert!(path.is_absolute());
         } else {
-            panic!("expected ListCommits");
+            panic!("expected List");
         }
+    }
+
+    #[test]
+    fn parse_unknown_command() {
+        let result = parse_args(args(&["vc-x1", "bogus"]));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown command: bogus"));
     }
 }
