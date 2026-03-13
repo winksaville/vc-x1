@@ -308,3 +308,59 @@ Usage:
 cargo run            # uses current directory
 cargo run -- /path   # uses specified path
 ```
+
+## Finalize subcommand for session repo coherence
+
+### Problem
+
+When the bot commits and pushes the `.claude` session repo as its last action,
+the act of committing itself generates more `.jsonl` session data. This means
+the commit is always missing the trailing writes — information from commit N
+shows up in commit N+1.
+
+### Discovery
+
+We tested a `nohup bash -c "sleep N; jj squash; ..." &` pattern to delay the
+squash until after trailing writes settle. Findings:
+
+- **0.5s** is the minimum reliable delay; 0.25s also worked, 0.1s did not
+- **Shell `&` operator** triggers Claude Code's safety prompt ("shell operators
+  that require approval") — cannot be auto-approved via permission rules
+- **`run_in_background`** (Claude Code's built-in) doesn't help because it
+  blocks the bash slot and waits, so the session finishes writing before the
+  sleep even starts — no trailing writes to capture
+
+### Solution: `vc-x1 finalize` subcommand
+
+A Rust binary can daemonize itself via `std::process::Command` (detached spawn)
+without needing shell `&`. The permission rule `Bash(vc-x1 finalize *)` works
+cleanly.
+
+**Usage:**
+```
+vc-x1 finalize --repo .claude --delay 1 --push
+```
+
+**Options:**
+- `--repo <path>` — path to jj repo (default: `.`)
+- `--source <revset>` — revision to squash (default: `@`)
+- `--target <revset>` — revision to squash into (default: `@-`)
+- `--delay <seconds>` — seconds to wait before squashing (default: `1`)
+- `--push` — push after squashing
+- `--log <path>` — log file (default: `/tmp/vc-x1-finalize.log`)
+- `--foreground` — skip daemonization, run in foreground
+
+### Implementation plan
+
+- **0.6.0-dev1** (done): arg parsing for finalize subcommand
+- **0.6.0-dev2**: daemonize — binary re-spawns itself detached with internal
+  `--exec` flag, parent returns immediately
+- **0.6.0**: implement finalize logic — daemonized child sleeps, then shells
+  out to `jj squash`, `jj bookmark set`, `jj git push`
+
+### BREAKING-CHANGE trailer
+
+During this work we confirmed that `BREAKING CHANGE:` (with space) is the only
+space-separated git trailer key allowed per the Conventional Commits spec. We
+adopted the hyphenated form `BREAKING-CHANGE:` as it's also valid and avoids
+the space ambiguity.
