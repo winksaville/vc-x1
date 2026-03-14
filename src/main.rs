@@ -42,6 +42,7 @@ Options:
 enum Command {
     Version,
     Help,
+    FinalizeHelp,
     List { path: PathBuf },
     Finalize(FinalizeOpts),
 }
@@ -73,7 +74,7 @@ impl Default for FinalizeOpts {
     }
 }
 
-fn parse_finalize_args<I>(args: &mut I) -> Result<FinalizeOpts, String>
+fn parse_finalize_args<I>(args: &mut I) -> Result<Command, String>
 where
     I: Iterator<Item = String>,
 {
@@ -81,7 +82,7 @@ where
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--help" | "-h" => return Err(FINALIZE_USAGE.to_string()),
+            "--help" | "-h" => return Ok(Command::FinalizeHelp),
             "--repo" => {
                 opts.repo = PathBuf::from(
                     args.next()
@@ -123,7 +124,7 @@ where
         }
     }
 
-    Ok(opts)
+    Ok(Command::Finalize(opts))
 }
 
 fn parse_args<I>(args: I) -> Result<Command, String>
@@ -143,10 +144,7 @@ where
             };
             Ok(Command::List { path })
         }
-        Some("finalize") => {
-            let opts = parse_finalize_args(&mut args)?;
-            Ok(Command::Finalize(opts))
-        }
+        Some("finalize") => parse_finalize_args(&mut args),
         Some(other) => Err(format!("unknown command: {other}\n\n{USAGE}")),
         None => Ok(Command::Help),
     }
@@ -206,10 +204,68 @@ fn log_msg(log: &Path, msg: &str) {
     }
 }
 
+fn run_jj(args: &[&str], log: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let args_str = args.join(" ");
+    log_msg(log, &format!("run_jj: jj {args_str}"));
+    let output = std::process::Command::new("jj")
+        .args(args)
+        .output()
+        .map_err(|e| format!("failed to run jj: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stdout.is_empty() {
+        log_msg(log, &format!("run_jj: stdout: {stdout}"));
+    }
+    if !stderr.is_empty() {
+        log_msg(log, &format!("run_jj: stderr: {stderr}"));
+    }
+    if !output.status.success() {
+        return Err(format!("jj {args_str} failed (exit {}): {stderr}", output.status).into());
+    }
+    Ok(())
+}
+
 fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     log_msg(&opts.log, &format!("finalize_exec: starting opts={opts:?}"));
-    // TODO 0.6.0: implement squash + push logic
-    log_msg(&opts.log, "finalize_exec: done (stub)");
+
+    // Sleep to let trailing writes settle
+    let delay = std::time::Duration::from_secs_f64(opts.delay_secs);
+    log_msg(&opts.log, &format!("finalize_exec: sleeping {delay:?}"));
+    std::thread::sleep(delay);
+
+    // Squash source into target
+    let repo_str = opts.repo.to_string_lossy();
+    run_jj(
+        &[
+            "squash",
+            "--from",
+            &opts.source,
+            "--into",
+            &opts.target,
+            "-R",
+            &repo_str,
+        ],
+        &opts.log,
+    )?;
+
+    if opts.push {
+        // Advance main bookmark to target, then push
+        run_jj(
+            &[
+                "bookmark",
+                "set",
+                "main",
+                "-r",
+                &opts.target,
+                "-R",
+                &repo_str,
+            ],
+            &opts.log,
+        )?;
+        run_jj(&["git", "push", "-R", &repo_str], &opts.log)?;
+    }
+
+    log_msg(&opts.log, "finalize_exec: done");
     Ok(())
 }
 
@@ -304,6 +360,10 @@ fn main() -> ExitCode {
         }
         Command::Help => {
             println!("{USAGE}");
+            ExitCode::SUCCESS
+        }
+        Command::FinalizeHelp => {
+            println!("{FINALIZE_USAGE}");
             ExitCode::SUCCESS
         }
         Command::List { path } => {

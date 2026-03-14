@@ -6,7 +6,7 @@ and reference links to more details.
 ## In Progress
 
 - Implement `vc-x1 finalize` subcommand for session repo coherence [3]
-  - 0.6.0: implement finalize logic — sleep, `jj squash`, `jj bookmark set`, `jj git push`
+  - 0.6.0-dev3: implement finalize logic — sleep, `jj squash`, `jj bookmark set`, `jj git push`
 
 ## Todo
 
