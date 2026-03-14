@@ -1,5 +1,6 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{ExitCode, Stdio};
 
 use jj_lib::config::StackedConfig;
 use jj_lib::hex_util::encode_reverse_hex;
@@ -54,6 +55,7 @@ struct FinalizeOpts {
     push: bool,
     log: PathBuf,
     foreground: bool,
+    exec: bool,
 }
 
 impl Default for FinalizeOpts {
@@ -66,6 +68,7 @@ impl Default for FinalizeOpts {
             push: false,
             log: PathBuf::from("/tmp/vc-x1-finalize.log"),
             foreground: false,
+            exec: false,
         }
     }
 }
@@ -111,6 +114,7 @@ where
                 );
             }
             "--foreground" => opts.foreground = true,
+            "--exec" => opts.exec = true,
             other => {
                 return Err(format!(
                     "unknown finalize option: {other}\n\n{FINALIZE_USAGE}"
@@ -186,11 +190,102 @@ fn list(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn finalize(_opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO dev2: daemonize
-    // TODO dev3: implement squash + push logic
-    eprintln!("finalize: not yet implemented");
+fn log_msg(log: &Path, msg: &str) {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let pid = std::process::id();
+    let line = format!("[{nanos}] pid={pid} {msg}\n");
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log)
+    {
+        let _ = f.write_all(line.as_bytes());
+    }
+}
+
+fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    log_msg(&opts.log, &format!("finalize_exec: starting opts={opts:?}"));
+    // TODO 0.6.0: implement squash + push logic
+    log_msg(&opts.log, "finalize_exec: done (stub)");
     Ok(())
+}
+
+fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
+    let mut args = vec![
+        "finalize".to_string(),
+        "--exec".to_string(),
+        "--repo".to_string(),
+        opts.repo.to_string_lossy().to_string(),
+        "--source".to_string(),
+        opts.source.clone(),
+        "--target".to_string(),
+        opts.target.clone(),
+        "--delay".to_string(),
+        opts.delay_secs.to_string(),
+        "--log".to_string(),
+        opts.log.to_string_lossy().to_string(),
+    ];
+    if opts.push {
+        args.push("--push".to_string());
+    }
+    args
+}
+
+/// Spawn a detached child process with `--exec` and return immediately.
+/// The child re-enters `main()`, parses `--exec`, and `finalize()` routes
+/// it to `finalize_exec()` where the actual work happens.
+fn daemonize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    log_msg(
+        &opts.log,
+        &format!("daemonize: parent starting opts={opts:?}"),
+    );
+
+    let exe = std::env::current_exe()?;
+    let args = build_exec_args(opts);
+    log_msg(&opts.log, &format!("daemonize: exe={exe:?} args={args:?}"));
+
+    let mut cmd = std::process::Command::new(exe);
+    cmd.args(&args).stdin(Stdio::null());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe {
+            cmd.pre_exec(|| {
+                libc::setsid();
+                Ok(())
+            });
+        }
+    }
+
+    let child = cmd.spawn()?;
+    log_msg(
+        &opts.log,
+        &format!("daemonize: spawned child pid={}", child.id()),
+    );
+    eprintln!(
+        "finalize: daemonized (pid {}), log: {}",
+        child.id(),
+        opts.log.display()
+    );
+    Ok(())
+}
+
+fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    log_msg(&opts.log, &format!("finalize: entry opts={opts:?}"));
+    let result = if opts.foreground || opts.exec {
+        finalize_exec(opts)
+    } else {
+        daemonize(opts)
+    };
+    match &result {
+        Ok(()) => log_msg(&opts.log, "finalize: exit ok"),
+        Err(e) => log_msg(&opts.log, &format!("finalize: exit err={e}")),
+    }
+    result
 }
 
 fn main() -> ExitCode {
@@ -219,11 +314,18 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Finalize(opts) => {
-            if let Err(e) = finalize(&opts) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
+            log_msg(&opts.log, "main: finalize entry");
+            match finalize(&opts) {
+                Ok(()) => {
+                    log_msg(&opts.log, "main: finalize exit ok");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    log_msg(&opts.log, &format!("main: finalize exit err={e}"));
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
             }
-            ExitCode::SUCCESS
         }
     }
 }
@@ -332,6 +434,7 @@ mod tests {
                 push: true,
                 log: PathBuf::from("/tmp/test.log"),
                 foreground: true,
+                exec: false,
             }))
         );
     }
@@ -360,6 +463,48 @@ mod tests {
         let result = parse_args(args(&["vc-x1", "finalize", "--delay", "abc"]));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid delay value"));
+    }
+
+    #[test]
+    fn parse_finalize_exec_flag() {
+        assert_eq!(
+            parse_args(args(&["vc-x1", "finalize", "--exec", "--repo", ".claude"])),
+            Ok(Command::Finalize(FinalizeOpts {
+                repo: PathBuf::from(".claude"),
+                exec: true,
+                ..FinalizeOpts::default()
+            }))
+        );
+    }
+
+    #[test]
+    fn build_exec_args_roundtrip() {
+        let opts = FinalizeOpts {
+            repo: PathBuf::from(".claude"),
+            source: "@".to_string(),
+            target: "@-".to_string(),
+            delay_secs: 2.0,
+            push: true,
+            log: PathBuf::from("/tmp/test.log"),
+            foreground: false,
+            exec: false,
+        };
+        let exec_args = build_exec_args(&opts);
+        // Parse them back (prepend program name)
+        let mut full_args = vec!["vc-x1".to_string()];
+        full_args.extend(exec_args);
+        let result = parse_args(full_args).unwrap();
+        if let Command::Finalize(parsed) = result {
+            assert_eq!(parsed.repo, opts.repo);
+            assert_eq!(parsed.source, opts.source);
+            assert_eq!(parsed.target, opts.target);
+            assert_eq!(parsed.delay_secs, opts.delay_secs);
+            assert_eq!(parsed.push, opts.push);
+            assert_eq!(parsed.log, opts.log);
+            assert!(parsed.exec);
+        } else {
+            panic!("expected Finalize");
+        }
     }
 
     #[test]

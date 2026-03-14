@@ -353,8 +353,9 @@ vc-x1 finalize --repo .claude --delay 1 --push
 ### Implementation plan
 
 - **0.6.0-dev1** (done): arg parsing for finalize subcommand
-- **0.6.0-dev2**: daemonize — binary re-spawns itself detached with internal
-  `--exec` flag, parent returns immediately
+- **0.6.0-dev2** (done): daemonize — binary re-spawns itself detached with
+  internal `--exec` flag, parent returns immediately. Added `log_msg` helper
+  for nanosecond-timestamped append-mode logging throughout the flow.
 - **0.6.0**: implement finalize logic — daemonized child sleeps, then shells
   out to `jj squash`, `jj bookmark set`, `jj git push`
 

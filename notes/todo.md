@@ -5,8 +5,8 @@ and reference links to more details.
 
 ## In Progress
 
-A markdown list of Tasks currently in progress
-
+- Implement `vc-x1 finalize` subcommand for session repo coherence [3]
+  - 0.6.0: implement finalize logic — sleep, `jj squash`, `jj bookmark set`, `jj git push`
 
 ## Todo
 
@@ -21,6 +21,7 @@ A markdown list of task to do in the near feature
        the user. After approval and the bot executes an external program which then "merges" the
        final set of changes in .claude/* into the current .claude commit and optionally pushes
        the commit.
+ - Add integration tests for `finalize` subcommand using temp jj repos (tempfile crate)
  - Determine the organization of the commits in jj and determine how we can iterate over them.
    - I'd like to beable to see "all" commits organized appropriately, `gitk --all` sees many
      more commits than any jj command I've found
@@ -36,6 +37,9 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Document git trailer convention (ochid:) and .vc-config.toml for workspace identity
 - Document why jj log shows fewer commits than gitk (refs/jj/keep, obslog, ::@ revset)
 - Create a binary that lists jj info[[1]]
+- Convert CLI to subcommand structure with `list` command
+- Add finalize subcommand arg parsing (0.6.0-dev1) [3]
+- Add finalize daemonize with debug logging (0.6.0-dev2) [3]
 
 
 # References
@@ -45,3 +49,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 
 [1]: /notes/chores-01.md#create-a-binary-that-lists-jj-info
 [2]: /notes/chores-01.md#git-trailer-convention
+[3]: /notes/chores-01.md#finalize-subcommand-for-session-repo-coherence

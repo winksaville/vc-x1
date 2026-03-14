@@ -50,6 +50,54 @@ shows the current version of each change.
 In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
 the same result. Use `all()` when you have multiple branches or heads.
 
+## Usage
+
+```
+vc-x1 list [<path>]        # List commits in a jj repo
+vc-x1 finalize [OPTIONS]   # Squash working copy into target (daemonizes by default)
+vc-x1 --version             # Print version
+vc-x1 --help                # Print help
+```
+
+### finalize
+
+Solves the session repo coherence problem: when the bot commits `.claude`,
+the act of committing generates more session data. `finalize` daemonizes,
+waits, then squashes the trailing writes into the target commit.
+
+```
+vc-x1 finalize --repo .claude --delay 1 --push
+```
+
+See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
+for full option reference and design details.
+
+### Testing finalize
+
+Always test against a throwaway jj repo, never the live workspace.
+Use `mktemp -d` for unique directories so results can't be confused
+with a previous run:
+
+```bash
+# Create and init a temp repo
+dir=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
+(cd "$dir" && jj git init)
+
+# Foreground (blocks, logs to test dir)
+vc-x1 finalize --foreground --repo "$dir" --log "$dir/finalize.log"
+cat "$dir/finalize.log"
+
+# Daemonized (returns immediately, child logs to test dir)
+dir2=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
+(cd "$dir2" && jj git init)
+vc-x1 finalize --repo "$dir2" --log "$dir2/finalize.log"
+cat "$dir2/finalize.log"
+```
+
+The log file shows timestamped (nanoseconds) entries with PIDs, covering
+the full flow: `main` entry/exit, `finalize` entry/exit, `daemonize`
+spawn, and `finalize_exec` in the child process.
+
 ## Cross-repo Linking with Git Trailers
 
 Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers)

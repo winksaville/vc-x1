@@ -1,8 +1,11 @@
 [package]
 name = "vc-x1"
-version = "0.6.0-dev1"
+version = "0.6.0-dev2"
 edition = "2024"
 
 [dependencies]
 jj-lib = "0.39.0"
 pollster = "0.4"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
