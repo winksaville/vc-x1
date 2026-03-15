@@ -5,7 +5,11 @@ and reference links to more details.
 
 ## In Progress
 
-(none)
+- Refactor and add `desc` subcommand (0.7.0) [4]
+  - Extract `common.rs` and refactor `list` into `src/list.rs` (0.7.0-dev1)
+  - Refactor `finalize` into `src/finalize.rs` (0.7.0-dev2)
+  - Implement `desc` in `src/desc.rs` (0.7.0-dev3)
+  - Final release (0.7.0)
 
 ## Todo
 
@@ -43,3 +47,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [1]: /notes/chores-01.md#create-a-binary-that-lists-jj-info
 [2]: /notes/chores-01.md#git-trailer-convention
 [3]: /notes/chores-01.md#finalize-subcommand-for-session-repo-coherence
+[4]: /notes/chores-01.md#refactor-and-add-desc-subcommand

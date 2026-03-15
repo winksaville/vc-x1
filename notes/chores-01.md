@@ -368,3 +368,51 @@ During this work we confirmed that `BREAKING CHANGE:` (with space) is the only
 space-separated git trailer key allowed per the Conventional Commits spec. We
 adopted the hyphenated form `BREAKING-CHANGE:` as it's also valid and avoids
 the space ambiguity.
+
+## Refactor and add `desc` subcommand
+
+### Motivation
+
+`main.rs` has grown to ~585 lines with list, finalize, and all parsing in one
+file. Before adding more subcommands we should split into modules. The first
+new subcommand, `desc`, displays a commit's full description by changeID —
+a building block toward a jj-lib interface layer.
+
+### `desc` subcommand
+
+```
+Usage: vc-x1 desc <chid> [OPTIONS]
+
+Display the full description of a commit identified by its changeID.
+
+Arguments:
+  <chid>            The jj changeID (or prefix) to look up
+
+Options:
+  --repo <path>     Path to jj repo (default: current directory)
+  -h, --help        Print this help message
+```
+
+Uses jj-lib to resolve the changeID via revset, then prints the commit's full
+description text.
+
+### File layout after refactor
+
+```
+src/
+  main.rs       — USAGE, Command enum, parse_args(), main()
+  common.rs     — shared jj-lib helpers (load workspace/repo, resolve revset)
+  list.rs       — list() and its tests
+  finalize.rs   — FinalizeOpts, parsing, finalize/daemonize/exec, tests
+  desc.rs       — desc() and its tests
+```
+
+`common.rs` will start small (workspace+repo loading) and grow into a jj
+interface layer as we add more subcommands.
+
+### Implementation plan
+
+- **0.7.0-dev1**: extract `common.rs` and refactor `list` into `src/list.rs`
+- **0.7.0-dev2**: refactor `finalize` into `src/finalize.rs`
+- **0.7.0-dev3**: implement `desc` in `src/desc.rs`
+- **0.7.0**: final release — remove `-devN`, update todo/chores
