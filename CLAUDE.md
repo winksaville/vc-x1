@@ -88,3 +88,21 @@ jj bookmark set main -r @- -R .claude
 jj git push -R .
 jj git push -R .claude
 ```
+
+### Finalize the .claude repo
+
+The last action in a session is to finalize the `.claude` repo. This
+squashes the working copy into the session commit and pushes. The delay
+gives a safety margin against any pending writes. Always use a short
+relative path for `--repo`.
+
+```
+vc-x1 finalize --repo .claude --delay 5 --push
+```
+
+Always end with a status line so the user knows the background process
+is running:
+
+```
+Finalize is running (pid <PID>, log `/tmp/vc-x1-finalize-<TIMESTAMP>.log`)
+```

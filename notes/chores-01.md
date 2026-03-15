@@ -347,7 +347,7 @@ vc-x1 finalize --repo .claude --delay 1 --push
 - `--target <revset>` — revision to squash into (default: `@-`)
 - `--delay <seconds>` — seconds to wait before squashing (default: `1`)
 - `--push` — push after squashing
-- `--log <path>` — log file (default: `/tmp/vc-x1-finalize.log`)
+- `--log <path>` — log file (default: `/tmp/vc-x1-finalize-<timestamp-millis>.log`)
 - `--foreground` — skip daemonization, run in foreground
 
 ### Implementation plan
@@ -356,9 +356,11 @@ vc-x1 finalize --repo .claude --delay 1 --push
 - **0.6.0-dev2** (done): daemonize — binary re-spawns itself detached with
   internal `--exec` flag, parent returns immediately. Added `log_msg` helper
   for nanosecond-timestamped append-mode logging throughout the flow.
-- **0.6.0-dev3**: implement finalize logic — daemonized child sleeps, then shells
-  out to `jj squash`, `jj bookmark set`, `jj git push`
-- **0.6.0**: finalize release — remove `-devN`, update todo/chores
+- **0.6.0-dev3** (done): implement finalize logic — daemonized child sleeps,
+  then shells out to `jj squash`, `jj bookmark set`, `jj git push`
+- **0.6.0-dev4** (done): add `--ignore-immutable` to squash, unique log paths
+  per invocation using timestamp-millis
+- **0.6.0**: finalize release — remove `-devN`, update docs/todo/chores
 
 ### BREAKING-CHANGE trailer
 

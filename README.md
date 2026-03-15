@@ -65,8 +65,16 @@ Solves the session repo coherence problem: when the bot commits `.claude`,
 the act of committing generates more session data. `finalize` daemonizes,
 waits, then squashes the trailing writes into the target commit.
 
+The last action in a session is always:
+
 ```
-vc-x1 finalize --repo .claude --delay 1 --push
+vc-x1 finalize --repo .claude --delay 5 --push
+```
+
+The command returns immediately and prints a status line:
+
+```
+Finalize is running (pid 12345, log `/tmp/vc-x1-finalize-1710412800000.log`)
 ```
 
 See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
