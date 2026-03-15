@@ -424,3 +424,36 @@ and dev2. This caused all three sessions' data to be squashed into the
 previous 0.6.0 commit instead of getting their own properly-titled commits.
 Only dev3 was committed correctly. The .claude history may be fixable by
 splitting the 0.6.0 commit, but this is deferred for now.
+
+## Migrate CLI parsing to clap (0.8.0)
+
+### Why
+
+With 3 subcommands (list, finalize, desc) and more planned as the jj
+interface layer grows, the hand-rolled arg parsing is becoming a
+maintenance burden:
+
+- ~40% of main.rs is parsing boilerplate
+- Each new subcommand needs 20-30 lines of match/parsing code
+- Help strings are manually maintained and can drift
+- Validation (required args, types, conflicts) is reimplemented each time
+
+### Tradeoffs considered
+
+**Hand-rolled (current):**
+- Zero dependencies for parsing — was a deliberate early choice
+- Full control over help output and error messages
+- Gets increasingly verbose as subcommands multiply
+
+**clap with derive macros:**
+- Declarative subcommand structure via `#[derive(Parser)]` enum
+- Auto-generated help, version, and error messages
+- Built-in validation for types, required args, conflicts
+- Heavy dependency but jj-lib already pulls in a large dep tree,
+  so marginal compile-time impact is small
+
+### Decision
+
+Adopt clap derive. The parsing boilerplate cost now outweighs the
+zero-dependency benefit, and the subcommand count will only grow.
+Single-step release as 0.8.0 since the external behavior is unchanged.

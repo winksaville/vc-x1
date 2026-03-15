@@ -2,23 +2,44 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-pub const USAGE: &str = "\
-Usage: vc-x1 finalize [OPTIONS]
+use clap::Args;
 
-Squash source revision into target revision, optionally push afterward.
-By default, daemonizes and returns immediately.
+#[derive(Args, Debug)]
+pub struct FinalizeArgs {
+    /// Path to jj repo
+    #[arg(long, default_value = ".")]
+    pub repo: PathBuf,
 
-Options:
-  --repo <path>      Path to jj repo (default: current directory)
-  --source <revset>  Source revision to squash (default: @)
-  --target <revset>  Target revision to squash into (default: @-)
-  --delay <seconds>  Seconds to wait before squashing (default: 1)
-  --push             Push after squashing
-  --log <path>       Log file path (default: /tmp/vc-x1-finalize-<timestamp-millis>.log)
-  --foreground       Run in foreground instead of daemonizing
-  -h, --help         Print this help message";
+    /// Source revision to squash
+    #[arg(long, default_value = "@")]
+    pub source: String,
 
-#[derive(Debug, PartialEq)]
+    /// Target revision to squash into
+    #[arg(long, default_value = "@-")]
+    pub target: String,
+
+    /// Seconds to wait before squashing
+    #[arg(long, default_value_t = 1.0)]
+    pub delay: f64,
+
+    /// Push after squashing
+    #[arg(long)]
+    pub push: bool,
+
+    /// Log file path (default: /tmp/vc-x1-finalize-<timestamp-millis>.log)
+    #[arg(long)]
+    pub log: Option<PathBuf>,
+
+    /// Run in foreground instead of daemonizing
+    #[arg(long)]
+    pub foreground: bool,
+
+    /// Internal: run exec path (used by daemonize)
+    #[arg(long, hide = true)]
+    pub exec: bool,
+}
+
+#[derive(Debug)]
 pub struct FinalizeOpts {
     pub repo: PathBuf,
     pub source: String,
@@ -30,77 +51,28 @@ pub struct FinalizeOpts {
     pub exec: bool,
 }
 
-impl Default for FinalizeOpts {
-    fn default() -> Self {
-        Self {
-            repo: PathBuf::from("."),
-            source: "@".to_string(),
-            target: "@-".to_string(),
-            delay_secs: 1.0,
-            push: false,
-            log: PathBuf::from(format!(
+impl FinalizeArgs {
+    pub fn into_opts(self) -> FinalizeOpts {
+        let log = self.log.unwrap_or_else(|| {
+            PathBuf::from(format!(
                 "/tmp/vc-x1-finalize-{}.log",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_millis()
-            )),
-            foreground: false,
-            exec: false,
+            ))
+        });
+        FinalizeOpts {
+            repo: self.repo,
+            source: self.source,
+            target: self.target,
+            delay_secs: self.delay,
+            push: self.push,
+            log,
+            foreground: self.foreground,
+            exec: self.exec,
         }
     }
-}
-
-/// Parse finalize subcommand args. Returns `Ok(None)` when help is requested.
-pub fn parse_args<I>(args: &mut I) -> Result<Option<FinalizeOpts>, String>
-where
-    I: Iterator<Item = String>,
-{
-    let mut opts = FinalizeOpts::default();
-
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--help" | "-h" => return Ok(None),
-            "--repo" => {
-                opts.repo = PathBuf::from(
-                    args.next()
-                        .ok_or_else(|| "--repo requires a value".to_string())?,
-                );
-            }
-            "--source" => {
-                opts.source = args
-                    .next()
-                    .ok_or_else(|| "--source requires a value".to_string())?;
-            }
-            "--target" => {
-                opts.target = args
-                    .next()
-                    .ok_or_else(|| "--target requires a value".to_string())?;
-            }
-            "--delay" => {
-                let val = args
-                    .next()
-                    .ok_or_else(|| "--delay requires a value".to_string())?;
-                opts.delay_secs = val
-                    .parse()
-                    .map_err(|_| format!("invalid delay value: {val}"))?;
-            }
-            "--push" => opts.push = true,
-            "--log" => {
-                opts.log = PathBuf::from(
-                    args.next()
-                        .ok_or_else(|| "--log requires a value".to_string())?,
-                );
-            }
-            "--foreground" => opts.foreground = true,
-            "--exec" => opts.exec = true,
-            other => {
-                return Err(format!("unknown finalize option: {other}\n\n{USAGE}"));
-            }
-        }
-    }
-
-    Ok(Some(opts))
 }
 
 pub fn log_msg(log: &Path, msg: &str) {
@@ -264,89 +236,8 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn args(strs: &[&str]) -> Vec<String> {
-        strs.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[test]
-    fn parse_defaults() {
-        let result = parse_args(&mut std::iter::empty::<String>());
-        assert_eq!(result, Ok(Some(FinalizeOpts::default())));
-    }
-
-    #[test]
-    fn parse_all_opts() {
-        let a = args(&[
-            "--repo",
-            ".claude",
-            "--source",
-            "@",
-            "--target",
-            "@-",
-            "--delay",
-            "2.5",
-            "--push",
-            "--log",
-            "/tmp/test.log",
-            "--foreground",
-        ]);
-        let result = parse_args(&mut a.into_iter()).unwrap().unwrap();
-        assert_eq!(result.repo, PathBuf::from(".claude"));
-        assert_eq!(result.source, "@");
-        assert_eq!(result.target, "@-");
-        assert_eq!(result.delay_secs, 2.5);
-        assert!(result.push);
-        assert_eq!(result.log, PathBuf::from("/tmp/test.log"));
-        assert!(result.foreground);
-        assert!(!result.exec);
-    }
-
-    #[test]
-    fn parse_help() {
-        let a = args(&["--help"]);
-        assert_eq!(parse_args(&mut a.into_iter()), Ok(None));
-    }
-
-    #[test]
-    fn parse_partial_opts() {
-        let a = args(&["--repo", ".claude", "--push"]);
-        let result = parse_args(&mut a.into_iter()).unwrap().unwrap();
-        assert_eq!(result.repo, PathBuf::from(".claude"));
-        assert!(result.push);
-    }
-
-    #[test]
-    fn parse_missing_value() {
-        let a = args(&["--repo"]);
-        let result = parse_args(&mut a.into_iter());
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("--repo requires a value"));
-    }
-
-    #[test]
-    fn parse_bad_delay() {
-        let a = args(&["--delay", "abc"]);
-        let result = parse_args(&mut a.into_iter());
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("invalid delay value"));
-    }
-
-    #[test]
-    fn parse_exec_flag() {
-        let a = args(&["--exec", "--repo", ".claude"]);
-        let result = parse_args(&mut a.into_iter()).unwrap().unwrap();
-        assert_eq!(result.repo, PathBuf::from(".claude"));
-        assert!(result.exec);
-    }
-
-    #[test]
-    fn parse_unknown_opt() {
-        let a = args(&["--bogus"]);
-        let result = parse_args(&mut a.into_iter());
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unknown finalize option"));
-    }
+    use crate::Cli;
+    use clap::Parser;
 
     #[test]
     fn build_exec_args_roundtrip() {
@@ -361,14 +252,20 @@ mod tests {
             exec: false,
         };
         let exec_args = build_exec_args(&opts);
-        // Skip "finalize" and "--exec" to feed back into parse_args
-        let mut iter = exec_args.into_iter().skip(2);
-        let parsed = parse_args(&mut iter).unwrap().unwrap();
-        assert_eq!(parsed.repo, opts.repo);
-        assert_eq!(parsed.source, opts.source);
-        assert_eq!(parsed.target, opts.target);
-        assert_eq!(parsed.delay_secs, opts.delay_secs);
-        assert_eq!(parsed.push, opts.push);
-        assert_eq!(parsed.log, opts.log);
+        let mut full_args = vec!["vc-x1".to_string()];
+        full_args.extend(exec_args);
+        let cli = Cli::try_parse_from(full_args).unwrap();
+        if let crate::Commands::Finalize(args) = cli.command {
+            let parsed = args.into_opts();
+            assert_eq!(parsed.repo, opts.repo);
+            assert_eq!(parsed.source, opts.source);
+            assert_eq!(parsed.target, opts.target);
+            assert_eq!(parsed.delay_secs, opts.delay_secs);
+            assert_eq!(parsed.push, opts.push);
+            assert_eq!(parsed.log, opts.log);
+            assert!(parsed.exec);
+        } else {
+            panic!("expected Finalize");
+        }
     }
 }

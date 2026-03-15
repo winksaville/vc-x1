@@ -1,9 +1,10 @@
 [package]
 name = "vc-x1"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
 jj-lib = "0.39.0"
 pollster = "0.4"
 

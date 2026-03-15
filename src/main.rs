@@ -6,122 +6,58 @@ mod list;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "\
-Usage: vc-x1 [OPTIONS] <COMMAND>
+use clap::{Parser, Subcommand};
 
-Commands:
-  desc <chid> [OPTIONS]  Show full description of a commit by changeID
-  list [<path>]          List commits in a jj repo (defaults to current directory)
-  finalize [OPTIONS]     Squash working copy into target commit (daemonizes by default)
-
-Options:
-  -V, --version  Print version
-  -h, --help     Print this help message";
-
-#[derive(Debug, PartialEq)]
-enum Command {
-    Version,
-    Help,
-    DescHelp,
-    FinalizeHelp,
-    Desc { chid: String, repo: PathBuf },
-    List { path: PathBuf },
-    Finalize(finalize::FinalizeOpts),
+#[derive(Parser, Debug)]
+#[command(version, about = "vc-x1: jj workspace tooling")]
+pub struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-fn parse_args<I>(args: I) -> Result<Command, String>
-where
-    I: IntoIterator<Item = String>,
-{
-    let mut args = args.into_iter();
-    let _program = args.next();
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Show full description of a commit by changeID
+    Desc {
+        /// The jj changeID (or prefix) to look up
+        chid: String,
 
-    match args.next().as_deref() {
-        Some("--version" | "-V") => Ok(Command::Version),
-        Some("--help" | "-h" | "help") => Ok(Command::Help),
-        Some("desc") => {
-            let mut chid: Option<String> = None;
-            let mut repo = std::env::current_dir().map_err(|e| e.to_string())?;
-            while let Some(arg) = args.next() {
-                match arg.as_str() {
-                    "--help" | "-h" => return Ok(Command::DescHelp),
-                    "--repo" => {
-                        repo = PathBuf::from(
-                            args.next()
-                                .ok_or_else(|| "--repo requires a value".to_string())?,
-                        );
-                    }
-                    other if other.starts_with('-') => {
-                        return Err(format!("unknown desc option: {other}\n\n{}", desc::USAGE));
-                    }
-                    _ => {
-                        if chid.is_some() {
-                            return Err(format!("unexpected argument: {arg}\n\n{}", desc::USAGE));
-                        }
-                        chid = Some(arg);
-                    }
-                }
-            }
-            let chid = chid.ok_or_else(|| format!("missing <chid> argument\n\n{}", desc::USAGE))?;
-            Ok(Command::Desc { chid, repo })
-        }
-        Some("list") => {
-            let path = match args.next() {
-                Some(p) => PathBuf::from(p),
-                None => std::env::current_dir().map_err(|e| e.to_string())?,
-            };
-            Ok(Command::List { path })
-        }
-        Some("finalize") => match finalize::parse_args(&mut args)? {
-            Some(opts) => Ok(Command::Finalize(opts)),
-            None => Ok(Command::FinalizeHelp),
-        },
-        Some(other) => Err(format!("unknown command: {other}\n\n{USAGE}")),
-        None => Ok(Command::Help),
-    }
+        /// Path to jj repo (default: current directory)
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+    },
+
+    /// List commits in a jj repo
+    List {
+        /// Path to jj repo (defaults to current directory)
+        path: Option<PathBuf>,
+    },
+
+    /// Squash working copy into target commit (daemonizes by default)
+    Finalize(finalize::FinalizeArgs),
 }
 
 fn main() -> ExitCode {
-    let cmd = match parse_args(std::env::args()) {
-        Ok(cmd) => cmd,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let cli = Cli::parse();
 
-    match cmd {
-        Command::Version => {
-            println!("vc-x1 {}", env!("CARGO_PKG_VERSION"));
-            ExitCode::SUCCESS
-        }
-        Command::Help => {
-            println!("{USAGE}");
-            ExitCode::SUCCESS
-        }
-        Command::DescHelp => {
-            println!("{}", desc::USAGE);
-            ExitCode::SUCCESS
-        }
-        Command::FinalizeHelp => {
-            println!("{}", finalize::USAGE);
-            ExitCode::SUCCESS
-        }
-        Command::Desc { chid, repo } => {
+    match cli.command {
+        Commands::Desc { chid, repo } => {
             if let Err(e) = desc::desc(&chid, &repo) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
             ExitCode::SUCCESS
         }
-        Command::List { path } => {
+        Commands::List { path } => {
+            let path = path.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
             if let Err(e) = list::list(&path) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
             ExitCode::SUCCESS
         }
-        Command::Finalize(opts) => {
+        Commands::Finalize(args) => {
+            let opts = args.into_opts();
             finalize::log_msg(&opts.log, "main: finalize entry");
             match finalize::finalize(&opts) {
                 Ok(()) => {
@@ -142,141 +78,134 @@ fn main() -> ExitCode {
 mod tests {
     use super::*;
 
-    fn args(strs: &[&str]) -> Vec<String> {
-        strs.iter().map(|s| s.to_string()).collect()
+    fn parse(args: &[&str]) -> Cli {
+        Cli::try_parse_from(args).unwrap()
+    }
+
+    fn parse_err(args: &[&str]) -> String {
+        Cli::try_parse_from(args).unwrap_err().to_string()
     }
 
     #[test]
-    fn parse_version_long() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "--version"])),
-            Ok(Command::Version)
-        );
-    }
-
-    #[test]
-    fn parse_version_short() {
-        assert_eq!(parse_args(args(&["vc-x1", "-V"])), Ok(Command::Version));
-    }
-
-    #[test]
-    fn parse_help_flag() {
-        assert_eq!(parse_args(args(&["vc-x1", "--help"])), Ok(Command::Help));
-    }
-
-    #[test]
-    fn parse_help_short() {
-        assert_eq!(parse_args(args(&["vc-x1", "-h"])), Ok(Command::Help));
-    }
-
-    #[test]
-    fn parse_help_subcommand() {
-        assert_eq!(parse_args(args(&["vc-x1", "help"])), Ok(Command::Help));
-    }
-
-    #[test]
-    fn parse_no_args_shows_help() {
-        assert_eq!(parse_args(args(&["vc-x1"])), Ok(Command::Help));
-    }
-
-    #[test]
-    fn parse_list_with_path() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "list", "/some/path"])),
-            Ok(Command::List {
-                path: PathBuf::from("/some/path")
-            })
-        );
-    }
-
-    #[test]
-    fn parse_list_no_path_uses_cwd() {
-        let result = parse_args(args(&["vc-x1", "list"]));
-        assert!(result.is_ok());
-        if let Ok(Command::List { path }) = result {
-            assert!(path.is_absolute());
-        } else {
-            panic!("expected List");
-        }
-    }
-
-    #[test]
-    fn parse_unknown_command() {
-        let result = parse_args(args(&["vc-x1", "bogus"]));
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unknown command: bogus"));
-    }
-
-    #[test]
-    fn parse_desc_with_chid() {
-        let result = parse_args(args(&["vc-x1", "desc", "wmuxkqwu"]));
-        assert!(result.is_ok());
-        if let Ok(Command::Desc { chid, repo }) = result {
+    fn desc_with_chid() {
+        let cli = parse(&["vc-x1", "desc", "wmuxkqwu"]);
+        if let Commands::Desc { chid, repo } = cli.command {
             assert_eq!(chid, "wmuxkqwu");
-            assert!(repo.is_absolute());
+            assert_eq!(repo, PathBuf::from("."));
         } else {
             panic!("expected Desc");
         }
     }
 
     #[test]
-    fn parse_desc_with_repo() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "desc", "wmuxkqwu", "--repo", "/tmp"])),
-            Ok(Command::Desc {
-                chid: "wmuxkqwu".to_string(),
-                repo: PathBuf::from("/tmp"),
-            })
-        );
+    fn desc_with_repo() {
+        let cli = parse(&["vc-x1", "desc", "wmuxkqwu", "--repo", "/tmp"]);
+        if let Commands::Desc { chid, repo } = cli.command {
+            assert_eq!(chid, "wmuxkqwu");
+            assert_eq!(repo, PathBuf::from("/tmp"));
+        } else {
+            panic!("expected Desc");
+        }
     }
 
     #[test]
-    fn parse_desc_help() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "desc", "--help"])),
-            Ok(Command::DescHelp)
-        );
+    fn desc_missing_chid() {
+        let err = parse_err(&["vc-x1", "desc"]);
+        assert!(err.contains("CHID"));
     }
 
     #[test]
-    fn parse_desc_missing_chid() {
-        let result = parse_args(args(&["vc-x1", "desc"]));
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("missing <chid>"));
+    fn list_with_path() {
+        let cli = parse(&["vc-x1", "list", "/some/path"]);
+        if let Commands::List { path } = cli.command {
+            assert_eq!(path, Some(PathBuf::from("/some/path")));
+        } else {
+            panic!("expected List");
+        }
     }
 
     #[test]
-    fn parse_desc_unknown_opt() {
-        let result = parse_args(args(&["vc-x1", "desc", "--bogus"]));
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unknown desc option"));
+    fn list_no_path() {
+        let cli = parse(&["vc-x1", "list"]);
+        if let Commands::List { path } = cli.command {
+            assert!(path.is_none());
+        } else {
+            panic!("expected List");
+        }
     }
 
     #[test]
-    fn parse_finalize_defaults() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "finalize"])),
-            Ok(Command::Finalize(finalize::FinalizeOpts::default()))
-        );
+    fn finalize_defaults() {
+        let cli = parse(&["vc-x1", "finalize"]);
+        if let Commands::Finalize(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from("."));
+            assert_eq!(args.source, "@");
+            assert_eq!(args.target, "@-");
+            assert_eq!(args.delay, 1.0);
+            assert!(!args.push);
+            assert!(!args.foreground);
+        } else {
+            panic!("expected Finalize");
+        }
     }
 
     #[test]
-    fn parse_finalize_help() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "finalize", "--help"])),
-            Ok(Command::FinalizeHelp)
-        );
+    fn finalize_all_opts() {
+        let cli = parse(&[
+            "vc-x1",
+            "finalize",
+            "--repo",
+            ".claude",
+            "--source",
+            "@",
+            "--target",
+            "@-",
+            "--delay",
+            "2.5",
+            "--push",
+            "--log",
+            "/tmp/test.log",
+            "--foreground",
+        ]);
+        if let Commands::Finalize(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.source, "@");
+            assert_eq!(args.target, "@-");
+            assert_eq!(args.delay, 2.5);
+            assert!(args.push);
+            assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
+            assert!(args.foreground);
+        } else {
+            panic!("expected Finalize");
+        }
     }
 
     #[test]
-    fn parse_finalize_via_main() {
-        assert_eq!(
-            parse_args(args(&["vc-x1", "finalize", "--repo", ".claude", "--push"])),
-            Ok(Command::Finalize(finalize::FinalizeOpts {
-                repo: PathBuf::from(".claude"),
-                push: true,
-                ..finalize::FinalizeOpts::default()
-            }))
-        );
+    fn finalize_partial_opts() {
+        let cli = parse(&["vc-x1", "finalize", "--repo", ".claude", "--push"]);
+        if let Commands::Finalize(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert!(args.push);
+        } else {
+            panic!("expected Finalize");
+        }
+    }
+
+    #[test]
+    fn finalize_bad_delay() {
+        let err = parse_err(&["vc-x1", "finalize", "--delay", "abc"]);
+        assert!(err.contains("invalid value"));
+    }
+
+    #[test]
+    fn finalize_unknown_opt() {
+        let err = parse_err(&["vc-x1", "finalize", "--bogus"]);
+        assert!(err.contains("--bogus"));
+    }
+
+    #[test]
+    fn unknown_command() {
+        let err = parse_err(&["vc-x1", "bogus"]);
+        assert!(err.contains("bogus"));
     }
 }

@@ -6,18 +6,6 @@ use jj_lib::repo::Repo;
 
 use crate::common;
 
-pub const USAGE: &str = "\
-Usage: vc-x1 desc <chid> [OPTIONS]
-
-Display the full description of a commit identified by its changeID.
-
-Arguments:
-  <chid>            The jj changeID (or prefix) to look up
-
-Options:
-  --repo <path>     Path to jj repo (default: current directory)
-  -h, --help        Print this help message";
-
 pub fn desc(chid: &str, repo_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let (_workspace, repo) = common::load_repo(repo_path)?;
 

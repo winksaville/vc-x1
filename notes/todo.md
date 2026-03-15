@@ -39,6 +39,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Refactor finalize into src/finalize.rs (0.7.0-dev2) [4],[5]
 - Implement desc subcommand (0.7.0-dev3) [4]
 - Refactor and desc subcommand complete (0.7.0) [4]
+- Migrate CLI parsing to clap derive (0.8.0) [6]
 
 
 # References
@@ -51,3 +52,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [3]: /notes/chores-01.md#finalize-subcommand-for-session-repo-coherence
 [4]: /notes/chores-01.md#refactor-and-add-desc-subcommand
 [5]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2
+[6]: /notes/chores-01.md#migrate-cli-parsing-to-clap-080
