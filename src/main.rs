@@ -1,4 +1,5 @@
 mod common;
+mod desc;
 mod finalize;
 mod list;
 
@@ -9,8 +10,9 @@ const USAGE: &str = "\
 Usage: vc-x1 [OPTIONS] <COMMAND>
 
 Commands:
-  list [<path>]       List commits in a jj repo (defaults to current directory)
-  finalize [OPTIONS]  Squash working copy into target commit (daemonizes by default)
+  desc <chid> [OPTIONS]  Show full description of a commit by changeID
+  list [<path>]          List commits in a jj repo (defaults to current directory)
+  finalize [OPTIONS]     Squash working copy into target commit (daemonizes by default)
 
 Options:
   -V, --version  Print version
@@ -20,7 +22,9 @@ Options:
 enum Command {
     Version,
     Help,
+    DescHelp,
     FinalizeHelp,
+    Desc { chid: String, repo: PathBuf },
     List { path: PathBuf },
     Finalize(finalize::FinalizeOpts),
 }
@@ -35,6 +39,32 @@ where
     match args.next().as_deref() {
         Some("--version" | "-V") => Ok(Command::Version),
         Some("--help" | "-h" | "help") => Ok(Command::Help),
+        Some("desc") => {
+            let mut chid: Option<String> = None;
+            let mut repo = std::env::current_dir().map_err(|e| e.to_string())?;
+            while let Some(arg) = args.next() {
+                match arg.as_str() {
+                    "--help" | "-h" => return Ok(Command::DescHelp),
+                    "--repo" => {
+                        repo = PathBuf::from(
+                            args.next()
+                                .ok_or_else(|| "--repo requires a value".to_string())?,
+                        );
+                    }
+                    other if other.starts_with('-') => {
+                        return Err(format!("unknown desc option: {other}\n\n{}", desc::USAGE));
+                    }
+                    _ => {
+                        if chid.is_some() {
+                            return Err(format!("unexpected argument: {arg}\n\n{}", desc::USAGE));
+                        }
+                        chid = Some(arg);
+                    }
+                }
+            }
+            let chid = chid.ok_or_else(|| format!("missing <chid> argument\n\n{}", desc::USAGE))?;
+            Ok(Command::Desc { chid, repo })
+        }
         Some("list") => {
             let path = match args.next() {
                 Some(p) => PathBuf::from(p),
@@ -69,8 +99,19 @@ fn main() -> ExitCode {
             println!("{USAGE}");
             ExitCode::SUCCESS
         }
+        Command::DescHelp => {
+            println!("{}", desc::USAGE);
+            ExitCode::SUCCESS
+        }
         Command::FinalizeHelp => {
             println!("{}", finalize::USAGE);
+            ExitCode::SUCCESS
+        }
+        Command::Desc { chid, repo } => {
+            if let Err(e) = desc::desc(&chid, &repo) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
             ExitCode::SUCCESS
         }
         Command::List { path } => {
@@ -164,6 +205,51 @@ mod tests {
         let result = parse_args(args(&["vc-x1", "bogus"]));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown command: bogus"));
+    }
+
+    #[test]
+    fn parse_desc_with_chid() {
+        let result = parse_args(args(&["vc-x1", "desc", "wmuxkqwu"]));
+        assert!(result.is_ok());
+        if let Ok(Command::Desc { chid, repo }) = result {
+            assert_eq!(chid, "wmuxkqwu");
+            assert!(repo.is_absolute());
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn parse_desc_with_repo() {
+        assert_eq!(
+            parse_args(args(&["vc-x1", "desc", "wmuxkqwu", "--repo", "/tmp"])),
+            Ok(Command::Desc {
+                chid: "wmuxkqwu".to_string(),
+                repo: PathBuf::from("/tmp"),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_desc_help() {
+        assert_eq!(
+            parse_args(args(&["vc-x1", "desc", "--help"])),
+            Ok(Command::DescHelp)
+        );
+    }
+
+    #[test]
+    fn parse_desc_missing_chid() {
+        let result = parse_args(args(&["vc-x1", "desc"]));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing <chid>"));
+    }
+
+    #[test]
+    fn parse_desc_unknown_opt() {
+        let result = parse_args(args(&["vc-x1", "desc", "--bogus"]));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown desc option"));
     }
 
     #[test]
