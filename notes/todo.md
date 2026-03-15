@@ -5,16 +5,13 @@ and reference links to more details.
 
 ## In Progress
 
-- Refactor and add `desc` subcommand (0.7.0) [4]
-  - Extract `common.rs` and refactor `list` into `src/list.rs` (0.7.0-dev1)
-  - Refactor `finalize` into `src/finalize.rs` (0.7.0-dev2)
-  - Implement `desc` in `src/desc.rs` (0.7.0-dev3)
-  - Final release (0.7.0)
+(none)
 
 ## Todo
 
 A markdown list of task to do in the near feature
 
+ - Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
  - Add integration tests for `finalize` subcommand using temp jj repos (tempfile crate)
  - Determine the organization of the commits in jj and determine how we can iterate over them.
    - I'd like to beable to see "all" commits organized appropriately, `gitk --all` sees many
@@ -37,6 +34,11 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Implement finalize exec with squash/push logic (0.6.0-dev3) [3]
 - Add --ignore-immutable and unique log paths (0.6.0-dev4) [3]
 - Finalize subcommand complete (0.6.0) [3]
+- Plan refactor and desc subcommand (0.7.0-dev0) [4],[5]
+- Extract common.rs and refactor list (0.7.0-dev1) [4],[5]
+- Refactor finalize into src/finalize.rs (0.7.0-dev2) [4],[5]
+- Implement desc subcommand (0.7.0-dev3) [4]
+- Refactor and desc subcommand complete (0.7.0) [4]
 
 
 # References
@@ -48,3 +50,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [2]: /notes/chores-01.md#git-trailer-convention
 [3]: /notes/chores-01.md#finalize-subcommand-for-session-repo-coherence
 [4]: /notes/chores-01.md#refactor-and-add-desc-subcommand
+[5]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2

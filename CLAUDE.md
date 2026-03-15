@@ -50,6 +50,11 @@ Never execute commit commands without the user's explicit approval.
 Present the full commands for review first; only run them after the
 user confirms.
 
+### Notes references
+
+Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
+See [Todo format](notes/README.md#todo-format) for details.
+
 ### Versioning
 
 Every change must start with a version bump. See

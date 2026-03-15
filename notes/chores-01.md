@@ -416,3 +416,11 @@ interface layer as we add more subcommands.
 - **0.7.0-dev2**: refactor `finalize` into `src/finalize.rs`
 - **0.7.0-dev3**: implement `desc` in `src/desc.rs`
 - **0.7.0**: final release — remove `-devN`, update todo/chores
+
+### .claude repo issue (0.7.0-dev0 through dev2)
+
+The .claude repo was finalized without committing first during dev0, dev1,
+and dev2. This caused all three sessions' data to be squashed into the
+previous 0.6.0 commit instead of getting their own properly-titled commits.
+Only dev3 was committed correctly. The .claude history may be fixable by
+splitting the 0.6.0 commit, but this is deferred for now.

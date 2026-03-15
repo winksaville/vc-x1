@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use jj_lib::object_id::PrefixResolution;
 use jj_lib::object_id::HexPrefix;
+use jj_lib::object_id::PrefixResolution;
 use jj_lib::repo::Repo;
 
 use crate::common;
