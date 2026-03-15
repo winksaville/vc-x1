@@ -3,7 +3,6 @@ mod desc;
 mod finalize;
 mod list;
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -18,20 +17,10 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Show full description of a commit by changeID
-    Desc {
-        /// The jj changeID (or prefix) to look up
-        chid: String,
-
-        /// Path to jj repo (default: current directory)
-        #[arg(long, default_value = ".")]
-        repo: PathBuf,
-    },
+    Desc(desc::DescArgs),
 
     /// List commits in a jj repo
-    List {
-        /// Path to jj repo (defaults to current directory)
-        path: Option<PathBuf>,
-    },
+    List(list::ListArgs),
 
     /// Squash working copy into target commit (daemonizes by default)
     Finalize(finalize::FinalizeArgs),
@@ -41,15 +30,17 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Desc { chid, repo } => {
-            if let Err(e) = desc::desc(&chid, &repo) {
+        Commands::Desc(args) => {
+            if let Err(e) = desc::desc(&args.chid, &args.repo) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
             ExitCode::SUCCESS
         }
-        Commands::List { path } => {
-            let path = path.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        Commands::List(args) => {
+            let path = args
+                .path
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
             if let Err(e) = list::list(&path) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
@@ -76,6 +67,8 @@ fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     fn parse(args: &[&str]) -> Cli {
@@ -89,9 +82,9 @@ mod tests {
     #[test]
     fn desc_with_chid() {
         let cli = parse(&["vc-x1", "desc", "wmuxkqwu"]);
-        if let Commands::Desc { chid, repo } = cli.command {
-            assert_eq!(chid, "wmuxkqwu");
-            assert_eq!(repo, PathBuf::from("."));
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.chid, "wmuxkqwu");
+            assert_eq!(args.repo, PathBuf::from("."));
         } else {
             panic!("expected Desc");
         }
@@ -100,9 +93,9 @@ mod tests {
     #[test]
     fn desc_with_repo() {
         let cli = parse(&["vc-x1", "desc", "wmuxkqwu", "--repo", "/tmp"]);
-        if let Commands::Desc { chid, repo } = cli.command {
-            assert_eq!(chid, "wmuxkqwu");
-            assert_eq!(repo, PathBuf::from("/tmp"));
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.chid, "wmuxkqwu");
+            assert_eq!(args.repo, PathBuf::from("/tmp"));
         } else {
             panic!("expected Desc");
         }
@@ -117,8 +110,8 @@ mod tests {
     #[test]
     fn list_with_path() {
         let cli = parse(&["vc-x1", "list", "/some/path"]);
-        if let Commands::List { path } = cli.command {
-            assert_eq!(path, Some(PathBuf::from("/some/path")));
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.path, Some(PathBuf::from("/some/path")));
         } else {
             panic!("expected List");
         }
@@ -127,8 +120,8 @@ mod tests {
     #[test]
     fn list_no_path() {
         let cli = parse(&["vc-x1", "list"]);
-        if let Commands::List { path } = cli.command {
-            assert!(path.is_none());
+        if let Commands::List(args) = cli.command {
+            assert!(args.path.is_none());
         } else {
             panic!("expected List");
         }

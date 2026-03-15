@@ -1,10 +1,21 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use clap::Args;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::PrefixResolution;
 use jj_lib::repo::Repo;
 
 use crate::common;
+
+#[derive(Args, Debug)]
+pub struct DescArgs {
+    /// The jj changeID (or prefix) to look up
+    pub chid: String,
+
+    /// Path to jj repo (default: current directory)
+    #[arg(long, default_value = ".")]
+    pub repo: PathBuf,
+}
 
 pub fn desc(chid: &str, repo_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let (_workspace, repo) = common::load_repo(repo_path)?;

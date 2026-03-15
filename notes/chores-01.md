@@ -425,6 +425,55 @@ previous 0.6.0 commit instead of getting their own properly-titled commits.
 Only dev3 was committed correctly. The .claude history may be fixable by
 splitting the 0.6.0 commit, but this is deferred for now.
 
+## Move subcommand args into modules (0.9.0)
+
+### Why
+
+The `Commands` enum in `main.rs` defined args inline for `Desc` and `List`,
+while `Finalize` already used a separate `FinalizeArgs` struct in its module.
+This inconsistency means parameter handling for `Desc` and `List` lives in
+`main.rs` rather than in their own modules, coupling the CLI definition to
+the dispatch layer.
+
+### Change
+
+Moved args into per-module structs following the `FinalizeArgs` pattern:
+
+- `desc::DescArgs` in `src/desc.rs`
+- `list::ListArgs` in `src/list.rs`
+
+The `Commands` enum now references all three as tuple variants:
+```rust
+enum Commands {
+    Desc(desc::DescArgs),
+    List(list::ListArgs),
+    Finalize(finalize::FinalizeArgs),
+}
+```
+
+Main just matches and dispatches. Each module owns its arg definitions.
+Single-step release as 0.9.0 — no behavioral change.
+
+## Add revision and repo options to list and desc (0.10.0)
+
+### Planned changes
+
+Add `--revision` / `-r` and `--repo` / `-R` flags to both `list` and `desc`,
+replacing positional arguments with named options:
+
+**`list`:**
+- `-r` / `--revision` — revset expression (default: `@`)
+- `-R` / `--repo` — path to jj repo (default: `.`)
+- `-l` / `--limit` — cap output count
+
+**`desc`:**
+- `-r` / `--revision` — revision specifier: `@`, `@-`, changeID, commitID
+  (default: `@`) — replaces the `chid` positional
+- `-R` / `--repo` — path to jj repo (default: `.`)
+
+Both commands will use the jj revset engine to resolve revisions, enabling
+`@`, `@-`, and other revset expressions alongside changeID/commitID prefixes.
+
 ## Migrate CLI parsing to clap (0.8.0)
 
 ### Why

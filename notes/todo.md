@@ -11,11 +11,12 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
- - Add integration tests for `finalize` subcommand using temp jj repos (tempfile crate)
+ - Add --revision/-r, --repo/-R, --limit/-l to list and desc using revset engine [8]
  - Determine the organization of the commits in jj and determine how we can iterate over them.
    - I'd like to beable to see "all" commits organized appropriately, `gitk --all` sees many
      more commits than any jj command I've found
+ - Add integration tests for `finalize` subcommand using temp jj repos (tempfile crate)
+ - Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
 
 ## Done
 
@@ -40,6 +41,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Implement desc subcommand (0.7.0-dev3) [4]
 - Refactor and desc subcommand complete (0.7.0) [4]
 - Migrate CLI parsing to clap derive (0.8.0) [6]
+- Move subcommand args into per-module structs (0.9.0) [7]
 
 
 # References
@@ -53,3 +55,5 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [4]: /notes/chores-01.md#refactor-and-add-desc-subcommand
 [5]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2
 [6]: /notes/chores-01.md#migrate-cli-parsing-to-clap-080
+[7]: /notes/chores-01.md#move-subcommand-args-into-modules-090
+[8]: /notes/chores-01.md#add-revision-and-repo-options-to-list-and-desc-0100

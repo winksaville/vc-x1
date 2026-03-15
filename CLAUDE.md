@@ -85,28 +85,43 @@ jj commit -m "shared title" -m "session body" -R .claude
 ```
 
 When the user also asks to push, advance the `main` bookmarks to the
-new commits first, then push.
+new commits first, then push the app repo. Do **not** push `.claude`
+here — `finalize` handles that push after squashing trailing writes.
 
 ```
 jj bookmark set main -r @- -R .
 jj bookmark set main -r @- -R .claude
 jj git push -R .
-jj git push -R .claude
+```
+
+### Late changes after push
+
+If changes are made to the app repo after it has been pushed (e.g.
+updating CLAUDE.md or memory), the commit is now immutable. Use
+`--ignore-immutable` to squash the changes in, then re-push:
+
+```
+jj squash --ignore-immutable -R .
+jj bookmark set main -r @- -R .
+jj git push -R .
 ```
 
 ### Finalize the .claude repo
 
-The last action in a session is to finalize the `.claude` repo. This
-squashes the working copy into the session commit and pushes. The delay
-gives a safety margin against any pending writes. Always use a short
-relative path for `--repo`.
+The **very last action** in a session is to finalize the `.claude` repo.
+This squashes the working copy into the session commit and pushes. The
+delay gives a safety margin against any pending writes. Always use a
+short relative path for `--repo`.
+
+**Nothing should happen after finalize** — no memory writes, no tool
+calls, no additional output. If any work is done after finalize, run
+finalize again so the trailing writes are captured.
 
 ```
 vc-x1 finalize --repo .claude --delay 5 --push
 ```
 
-Always end with a status line so the user knows the background process
-is running:
+End with only the status line — no other output:
 
 ```
 Finalize is running (pid <PID>, log `/tmp/vc-x1-finalize-<TIMESTAMP>.log`)

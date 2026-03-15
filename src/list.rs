@@ -1,11 +1,18 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use clap::Args;
 use jj_lib::hex_util::encode_reverse_hex;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use jj_lib::revset::{RevsetExpression, SymbolResolver};
 
 use crate::common;
+
+#[derive(Args, Debug)]
+pub struct ListArgs {
+    /// Path to jj repo (defaults to current directory)
+    pub path: Option<PathBuf>,
+}
 
 pub fn list(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let (_workspace, repo) = common::load_repo(path)?;
