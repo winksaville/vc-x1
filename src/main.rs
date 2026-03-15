@@ -34,7 +34,7 @@ Options:
   --target <revset>  Target revision to squash into (default: @-)
   --delay <seconds>  Seconds to wait before squashing (default: 1)
   --push             Push after squashing
-  --log <path>       Log file path (default: /tmp/vc-x1-finalize.log)
+  --log <path>       Log file path (default: /tmp/vc-x1-finalize-<timestamp-millis>.log)
   --foreground       Run in foreground instead of daemonizing
   -h, --help         Print this help message";
 
@@ -67,7 +67,13 @@ impl Default for FinalizeOpts {
             target: "@-".to_string(),
             delay_secs: 1.0,
             push: false,
-            log: PathBuf::from("/tmp/vc-x1-finalize.log"),
+            log: PathBuf::from(format!(
+                "/tmp/vc-x1-finalize-{}.log",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis()
+            )),
             foreground: false,
             exec: false,
         }
@@ -238,6 +244,8 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
     run_jj(
         &[
             "squash",
+            "--ignore-immutable",
+            "--use-destination-message",
             "--from",
             &opts.source,
             "--into",
