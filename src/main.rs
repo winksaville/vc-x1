@@ -31,7 +31,7 @@ fn main() -> ExitCode {
 
     match cli.command {
         Commands::Desc(args) => {
-            if let Err(e) = desc::desc(&args.chid, &args.repo) {
+            if let Err(e) = desc::desc(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
@@ -77,10 +77,10 @@ mod tests {
     }
 
     #[test]
-    fn desc_with_chid() {
-        let cli = parse(&["vc-x1", "desc", "wmuxkqwu"]);
+    fn desc_defaults() {
+        let cli = parse(&["vc-x1", "desc"]);
         if let Commands::Desc(args) = cli.command {
-            assert_eq!(args.chid, "wmuxkqwu");
+            assert_eq!(args.revision, "@");
             assert_eq!(args.repo, PathBuf::from("."));
         } else {
             panic!("expected Desc");
@@ -88,10 +88,19 @@ mod tests {
     }
 
     #[test]
-    fn desc_with_repo() {
-        let cli = parse(&["vc-x1", "desc", "wmuxkqwu", "--repo", "/tmp"]);
+    fn desc_with_revision() {
+        let cli = parse(&["vc-x1", "desc", "-r", "wmuxkqwu"]);
         if let Commands::Desc(args) = cli.command {
-            assert_eq!(args.chid, "wmuxkqwu");
+            assert_eq!(args.revision, "wmuxkqwu");
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn desc_with_repo() {
+        let cli = parse(&["vc-x1", "desc", "-R", "/tmp"]);
+        if let Commands::Desc(args) = cli.command {
             assert_eq!(args.repo, PathBuf::from("/tmp"));
         } else {
             panic!("expected Desc");
@@ -99,9 +108,25 @@ mod tests {
     }
 
     #[test]
-    fn desc_missing_chid() {
-        let err = parse_err(&["vc-x1", "desc"]);
-        assert!(err.contains("CHID"));
+    fn desc_with_limit() {
+        let cli = parse(&["vc-x1", "desc", "-l", "3"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.limit, Some(3));
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn desc_all_opts() {
+        let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.revision, "@-");
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.limit, Some(5));
+        } else {
+            panic!("expected Desc");
+        }
     }
 
     #[test]
