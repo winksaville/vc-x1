@@ -93,6 +93,7 @@ mod tests {
         if let Commands::Chid(args) = cli.command {
             assert_eq!(args.revision, "@");
             assert_eq!(args.repo, PathBuf::from("."));
+            assert_eq!(args.limit, None);
         } else {
             panic!("expected Chid");
         }
@@ -119,11 +120,22 @@ mod tests {
     }
 
     #[test]
-    fn chid_all_opts() {
-        let cli = parse(&["vc-x1", "chid", "-r", "@-", "-R", ".claude"]);
+    fn chid_with_limit() {
+        let cli = parse(&["vc-x1", "chid", "-l", "5"]);
         if let Commands::Chid(args) = cli.command {
-            assert_eq!(args.revision, "@-");
+            assert_eq!(args.limit, Some(5));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_all_opts() {
+        let cli = parse(&["vc-x1", "chid", "-r", "@--", "-R", ".claude", "-l", "3"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.revision, "@--");
             assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.limit, Some(3));
         } else {
             panic!("expected Chid");
         }

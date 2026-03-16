@@ -517,3 +517,15 @@ maintenance burden:
 Adopt clap derive. The parsing boilerplate cost now outweighs the
 zero-dependency benefit, and the subcommand count will only grow.
 Single-step release as 0.8.0 since the external behavior is unchanged.
+
+## Add --limit to chid subcommand (0.13.0)
+
+Enhance chid to show multiple changeIDs. When `--limit/-l` is given,
+chid resolves `ancestors(revision)` and prints up to N changeIDs.
+Without `--limit`, behavior is unchanged (prints one changeID).
+
+Examples:
+- `vc-x1 chid -l 5` — 5 changeIDs starting at @
+- `vc-x1 chid -r @-- -l 3` — 3 changeIDs starting at @--
+
+Single-step release as 0.13.0.

@@ -16,23 +16,47 @@ pub struct ChidArgs {
     /// Path to jj repo (default: current directory)
     #[arg(short = 'R', long, default_value = ".")]
     pub repo: PathBuf,
+
+    /// Maximum number of changeIDs to show
+    #[arg(short, long)]
+    pub limit: Option<usize>,
 }
 
 pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
     let (workspace, repo) = common::load_repo(&args.repo)?;
 
-    let commit_ids = common::resolve_revset(&workspace, &repo, &args.revision)?;
+    let limit = args.limit.unwrap_or(1);
+
+    let revset_str = if limit > 1 {
+        format!("ancestors({})", args.revision)
+    } else {
+        args.revision.clone()
+    };
+
+    let commit_ids = common::resolve_revset(&workspace, &repo, &revset_str)?;
 
     if commit_ids.is_empty() {
         return Err(format!("no commit found for revision '{}'", args.revision).into());
     }
 
-    let commit_id = &commit_ids[0];
-    let commit = repo.store().get_commit(commit_id)?;
-    let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
-    let change_short = &change_hex[..change_hex.len().min(12)];
+    let root_commit_id = repo.store().root_commit_id().clone();
 
-    println!("{change_short}");
+    let mut count = 0;
+    for commit_id in &commit_ids {
+        if *commit_id == root_commit_id {
+            continue;
+        }
+        let commit = repo.store().get_commit(commit_id)?;
+        let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
+        let change_short = &change_hex[..change_hex.len().min(12)];
+
+        println!("{change_short}");
+
+        count += 1;
+        if count >= limit {
+            break;
+        }
+    }
 
     Ok(())
 }
