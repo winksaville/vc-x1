@@ -45,6 +45,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Add --revision/-r, --repo/-R, --limit/-l to desc (0.10.0-dev2) [8]
 - Revision and repo options complete (0.10.0) [8]
 - Show changeID and commitID in desc output (0.11.0) [9]
+- Add chid subcommand (0.12.0) [10]
 
 
 # References
@@ -61,3 +62,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [7]: /notes/chores-01.md#move-subcommand-args-into-modules-090
 [8]: /notes/chores-01.md#add-revision-and-repo-options-to-list-and-desc-0100
 [9]: /notes/chores-01.md#show-changeid-and-commitid-in-desc-output-0110
+[10]: /notes/chores-01.md#add-chid-subcommand-0120

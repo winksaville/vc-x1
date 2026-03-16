@@ -1,3 +1,4 @@
+mod chid;
 mod common;
 mod desc;
 mod finalize;
@@ -16,6 +17,9 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Print the changeID for a revision
+    Chid(chid::ChidArgs),
+
     /// Show full description of a commit
     Desc(desc::DescArgs),
 
@@ -30,6 +34,13 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Chid(args) => {
+            if let Err(e) = chid::chid(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
         Commands::Desc(args) => {
             if let Err(e) = desc::desc(&args) {
                 eprintln!("error: {e}");
@@ -74,6 +85,48 @@ mod tests {
 
     fn parse_err(args: &[&str]) -> String {
         Cli::try_parse_from(args).unwrap_err().to_string()
+    }
+
+    #[test]
+    fn chid_defaults() {
+        let cli = parse(&["vc-x1", "chid"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.revision, "@");
+            assert_eq!(args.repo, PathBuf::from("."));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_with_revision() {
+        let cli = parse(&["vc-x1", "chid", "-r", "@-"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.revision, "@-");
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_with_repo() {
+        let cli = parse(&["vc-x1", "chid", "-R", ".claude"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_all_opts() {
+        let cli = parse(&["vc-x1", "chid", "-r", "@-", "-R", ".claude"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.revision, "@-");
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+        } else {
+            panic!("expected Chid");
+        }
     }
 
     #[test]
