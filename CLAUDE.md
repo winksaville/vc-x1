@@ -86,14 +86,17 @@ jj commit -m "shared title" -m "app body" -R .
 jj commit -m "shared title" -m "session body" -R .claude
 ```
 
-When the user also asks to push, advance the `main` bookmarks to the
-new commits first, then push the app repo. Do **not** push `.claude`
-here — `finalize` handles that push after squashing trailing writes.
+When the user also asks to push, advance the current bookmark on both
+repos, then push the app repo. Do **not** push `.claude` here —
+`finalize` handles that push after squashing trailing writes.
+
+Replace `<bookmark>` with the active bookmark (e.g. `main`,
+`dev-0.14.0`).
 
 ```
-jj bookmark set main -r @- -R .
-jj bookmark set main -r @- -R .claude
-jj git push -R .
+jj bookmark set <bookmark> -r @- -R .
+jj bookmark set <bookmark> -r @- -R .claude
+jj git push --bookmark <bookmark> -R .
 ```
 
 ### Late changes after push
@@ -104,8 +107,8 @@ updating CLAUDE.md or memory), the commit is now immutable. Use
 
 ```
 jj squash --ignore-immutable -R .
-jj bookmark set main -r @- -R .
-jj git push -R .
+jj bookmark set <bookmark> -r @- -R .
+jj git push --bookmark <bookmark> -R .
 ```
 
 ### Finalize the .claude repo
@@ -119,8 +122,10 @@ short relative path for `--repo`.
 calls, no additional output. If any work is done after finalize, run
 finalize again so the trailing writes are captured.
 
+`--bookmark` is required — use the active bookmark for the session.
+
 ```
-vc-x1 finalize --repo .claude --delay 5 --push
+vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 5 --push
 ```
 
 End with only the status line — no other output:

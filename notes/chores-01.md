@@ -557,4 +557,20 @@ Named flags `-r`/`-l`/`-R` still work and take precedence.
 - **0.14.0-dev1**: implement for `chid` (simplest subcommand)
 - **0.14.0-dev2**: implement for `desc`
 - **0.14.0-dev3**: implement for `list`
+- **0.14.0-dev4**: add required `--bookmark` to finalize, remove hardcoded `main`
 - **0.14.0**: final release — remove `-dev`, update todo/chores
+
+## Add required --bookmark to finalize (0.14.0)
+
+The `finalize` subcommand hardcodes `bookmark set main` and does a bare
+`jj git push` which pushes all tracked bookmarks. This caused `main` to
+be incorrectly advanced when working on a dev branch.
+
+Fix: add a required `--bookmark` flag. After squash, finalize advances
+that bookmark to `--target`. If `--push` is set, only that bookmark is
+pushed. No more implicit `main` assumption.
+
+Usage:
+```
+vc-x1 finalize --repo .claude --bookmark dev-0.14.0 --delay 5 --push
+```

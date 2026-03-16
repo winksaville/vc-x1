@@ -283,11 +283,12 @@ mod tests {
 
     #[test]
     fn finalize_defaults() {
-        let cli = parse(&["vc-x1", "finalize"]);
+        let cli = parse(&["vc-x1", "finalize", "--bookmark", "main"]);
         if let Commands::Finalize(args) = cli.command {
             assert_eq!(args.repo, PathBuf::from("."));
             assert_eq!(args.source, "@");
             assert_eq!(args.target, "@-");
+            assert_eq!(args.bookmark, "main");
             assert_eq!(args.delay, 1.0);
             assert!(!args.push);
             assert!(!args.foreground);
@@ -307,6 +308,8 @@ mod tests {
             "@",
             "--target",
             "@-",
+            "--bookmark",
+            "dev-0.14.0",
             "--delay",
             "2.5",
             "--push",
@@ -318,6 +321,7 @@ mod tests {
             assert_eq!(args.repo, PathBuf::from(".claude"));
             assert_eq!(args.source, "@");
             assert_eq!(args.target, "@-");
+            assert_eq!(args.bookmark, "dev-0.14.0");
             assert_eq!(args.delay, 2.5);
             assert!(args.push);
             assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
@@ -329,13 +333,28 @@ mod tests {
 
     #[test]
     fn finalize_partial_opts() {
-        let cli = parse(&["vc-x1", "finalize", "--repo", ".claude", "--push"]);
+        let cli = parse(&[
+            "vc-x1",
+            "finalize",
+            "--bookmark",
+            "main",
+            "--repo",
+            ".claude",
+            "--push",
+        ]);
         if let Commands::Finalize(args) = cli.command {
             assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.bookmark, "main");
             assert!(args.push);
         } else {
             panic!("expected Finalize");
         }
+    }
+
+    #[test]
+    fn finalize_missing_bookmark() {
+        let err = parse_err(&["vc-x1", "finalize"]);
+        assert!(err.contains("--bookmark"));
     }
 
     #[test]

@@ -22,6 +22,10 @@ pub struct FinalizeArgs {
     #[arg(long, default_value_t = 1.0)]
     pub delay: f64,
 
+    /// Bookmark to advance to target after squash
+    #[arg(long)]
+    pub bookmark: String,
+
     /// Push after squashing
     #[arg(long)]
     pub push: bool,
@@ -44,6 +48,7 @@ pub struct FinalizeOpts {
     pub repo: PathBuf,
     pub source: String,
     pub target: String,
+    pub bookmark: String,
     pub delay_secs: f64,
     pub push: bool,
     pub log: PathBuf,
@@ -66,6 +71,7 @@ impl FinalizeArgs {
             repo: self.repo,
             source: self.source,
             target: self.target,
+            bookmark: self.bookmark,
             delay_secs: self.delay,
             push: self.push,
             log,
@@ -137,21 +143,25 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
         &opts.log,
     )?;
 
+    // Advance bookmark to target
+    run_jj(
+        &[
+            "bookmark",
+            "set",
+            &opts.bookmark,
+            "-r",
+            &opts.target,
+            "-R",
+            &repo_str,
+        ],
+        &opts.log,
+    )?;
+
     if opts.push {
-        // Advance main bookmark to target, then push
         run_jj(
-            &[
-                "bookmark",
-                "set",
-                "main",
-                "-r",
-                &opts.target,
-                "-R",
-                &repo_str,
-            ],
+            &["git", "push", "--bookmark", &opts.bookmark, "-R", &repo_str],
             &opts.log,
         )?;
-        run_jj(&["git", "push", "-R", &repo_str], &opts.log)?;
     }
 
     log_msg(&opts.log, "finalize_exec: done");
@@ -168,6 +178,8 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
         opts.source.clone(),
         "--target".to_string(),
         opts.target.clone(),
+        "--bookmark".to_string(),
+        opts.bookmark.clone(),
         "--delay".to_string(),
         opts.delay_secs.to_string(),
         "--log".to_string(),
@@ -245,6 +257,7 @@ mod tests {
             repo: PathBuf::from(".claude"),
             source: "@".to_string(),
             target: "@-".to_string(),
+            bookmark: "dev-0.14.0".to_string(),
             delay_secs: 2.0,
             push: true,
             log: PathBuf::from("/tmp/test.log"),
@@ -260,6 +273,7 @@ mod tests {
             assert_eq!(parsed.repo, opts.repo);
             assert_eq!(parsed.source, opts.source);
             assert_eq!(parsed.target, opts.target);
+            assert_eq!(parsed.bookmark, opts.bookmark);
             assert_eq!(parsed.delay_secs, opts.delay_secs);
             assert_eq!(parsed.push, opts.push);
             assert_eq!(parsed.log, opts.log);

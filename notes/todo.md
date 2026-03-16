@@ -6,6 +6,7 @@ and reference links to more details.
 ## In Progress
 
 - Add positional `..` revision notation (0.14.0) [12]
+- Add required `--bookmark` to finalize (0.14.0) [13]
 
 ## Todo
 
@@ -66,3 +67,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [10]: /notes/chores-01.md#add-chid-subcommand-0120
 [11]: /notes/chores-01.md#add---limit-to-chid-subcommand-0130
 [12]: /notes/chores-01.md#add-positional--revision-notation-0140
+[13]: /notes/chores-01.md#add-required---bookmark-to-finalize-0140
