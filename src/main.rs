@@ -142,6 +142,39 @@ mod tests {
     }
 
     #[test]
+    fn chid_positional_rev() {
+        let cli = parse(&["vc-x1", "chid", "@-"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@-".to_string()));
+            assert_eq!(args.pos_count, None);
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_positional_rev_and_count() {
+        let cli = parse(&["vc-x1", "chid", "@..", "5"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@..".to_string()));
+            assert_eq!(args.pos_count, Some(5));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_positional_both_dots() {
+        let cli = parse(&["vc-x1", "chid", "..abcd..", "3"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+            assert_eq!(args.pos_count, Some(3));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
     fn desc_defaults() {
         let cli = parse(&["vc-x1", "desc"]);
         if let Commands::Desc(args) = cli.command {
