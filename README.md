@@ -53,11 +53,15 @@ the same result. Use `all()` when you have multiple branches or heads.
 ## Usage
 
 ```
-vc-x1 list [<path>]        # List commits in a jj repo
+vc-x1 list [OPTIONS]       # List commits in a jj repo
+vc-x1 desc [OPTIONS]       # Show full description of a commit
 vc-x1 finalize [OPTIONS]   # Squash working copy into target (daemonizes by default)
 vc-x1 --version             # Print version
 vc-x1 --help                # Print help
 ```
+
+All subcommands support `-r`/`--revision` (default `@`), `-R`/`--repo`
+(default `.`), and `-l`/`--limit` for consistent revision selection.
 
 ### finalize
 

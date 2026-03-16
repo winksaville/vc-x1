@@ -16,7 +16,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Show full description of a commit by changeID
+    /// Show full description of a commit
     Desc(desc::DescArgs),
 
     /// List commits in a jj repo
