@@ -53,15 +53,44 @@ the same result. Use `all()` when you have multiple branches or heads.
 ## Usage
 
 ```
-vc-x1 list [OPTIONS]       # List commits in a jj repo
-vc-x1 desc [OPTIONS]       # Show full description of a commit
-vc-x1 finalize [OPTIONS]   # Squash working copy into target (daemonizes by default)
-vc-x1 --version             # Print version
-vc-x1 --help                # Print help
+vc-x1 list [REV [COUNT]] [OPTIONS]   # List commits in a jj repo
+vc-x1 desc [REV [COUNT]] [OPTIONS]   # Show full description of a commit
+vc-x1 chid [REV [COUNT]] [OPTIONS]   # Print changeID(s) for a revision
+vc-x1 finalize [OPTIONS]             # Squash working copy into target (daemonizes by default)
+vc-x1 --version                       # Print version
+vc-x1 --help                          # Print help
 ```
 
-All subcommands support `-r`/`--revision` (default `@`), `-R`/`--repo`
-(default `.`), and `-l`/`--limit` for consistent revision selection.
+### Revision shortcuts
+
+`list`, `desc`, and `chid` accept up to two positional arguments as
+shorthand for `-r` (revision) and `-l` (limit).
+
+**The `..` notation:** dots show where the list continues from the
+revision:
+
+- `x..` — x at top, ancestors below (older commits)
+- `..x` — descendants above (newer commits), x at bottom
+- `..x..` — both directions, x in the middle
+
+COUNT is the number of commits on each dotted side (x is always
+included and not counted). Bare `x COUNT` defaults to `x..` (ancestors),
+the common case. Bare `x` without COUNT shows just that one commit.
+
+```
+vc-x1 list x                # just x (1 commit)
+vc-x1 list x 5              # x.. 5 → x + 5 ancestors (6 commits, x at top)
+vc-x1 list x.. 5            # x + 5 ancestors (6 commits, x at top)
+vc-x1 list ..x 3            # 3 descendants + x (4 commits, x at bottom)
+vc-x1 list ..x.. 3          # 3 descendants, x, 3 ancestors (7 commits)
+vc-x1 list ..x.. 0          # just x (1 commit)
+```
+
+**Defaults:** with no arguments, REV is `@` and COUNT is 0 (just the
+working copy).
+
+Named flags `-r`/`--revision`, `-l`/`--limit`, and `-R`/`--repo` still
+work and take precedence over positional arguments.
 
 ### finalize
 

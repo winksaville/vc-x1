@@ -529,3 +529,32 @@ Examples:
 - `vc-x1 chid -r @-- -l 3` — 3 changeIDs starting at @--
 
 Single-step release as 0.13.0.
+
+## Add positional `..` revision notation (0.14.0)
+
+Add positional arguments and a `..` notation to `chid`, `desc`, and
+`list` for concise revision+count selection. The dots show where the
+list continues from the revision:
+
+- `x..` — x at top, ancestors below (older commits)
+- `..x` — descendants above (newer commits), x at bottom
+- `..x..` — both directions, x in the middle
+
+COUNT is the number of commits on each dotted side (x is always
+included and not counted). Bare `x COUNT` defaults to `x..` (ancestors).
+Bare `x` shows just that one commit.
+
+Internally, `..` notation is translated to jj revsets:
+- `x.. N` → resolve `::x`, take x + N ancestors (newest first)
+- `..x N` → resolve `x::`, take N descendants + x (oldest first)
+- `..x.. N` → resolve `::x | x::`, take N each side + x
+
+Named flags `-r`/`-l`/`-R` still work and take precedence.
+
+### Implementation plan
+
+- **0.14.0-dev0**: version bump, plan in chores/todo, README update
+- **0.14.0-dev1**: implement for `chid` (simplest subcommand)
+- **0.14.0-dev2**: implement for `desc`
+- **0.14.0-dev3**: implement for `list`
+- **0.14.0**: final release — remove `-dev`, update todo/chores
