@@ -38,10 +38,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Commands::List(args) => {
-            let path = args
-                .path
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-            if let Err(e) = list::list(&path) {
+            if let Err(e) = list::list(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
@@ -108,20 +105,54 @@ mod tests {
     }
 
     #[test]
-    fn list_with_path() {
-        let cli = parse(&["vc-x1", "list", "/some/path"]);
+    fn list_defaults() {
+        let cli = parse(&["vc-x1", "list"]);
         if let Commands::List(args) = cli.command {
-            assert_eq!(args.path, Some(PathBuf::from("/some/path")));
+            assert_eq!(args.revision, "@");
+            assert_eq!(args.repo, PathBuf::from("."));
+            assert!(args.limit.is_none());
         } else {
             panic!("expected List");
         }
     }
 
     #[test]
-    fn list_no_path() {
-        let cli = parse(&["vc-x1", "list"]);
+    fn list_with_revision() {
+        let cli = parse(&["vc-x1", "list", "-r", "@-"]);
         if let Commands::List(args) = cli.command {
-            assert!(args.path.is_none());
+            assert_eq!(args.revision, "@-");
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_with_repo() {
+        let cli = parse(&["vc-x1", "list", "-R", "/some/path"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from("/some/path"));
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_with_limit() {
+        let cli = parse(&["vc-x1", "list", "-l", "5"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.limit, Some(5));
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_all_opts() {
+        let cli = parse(&["vc-x1", "list", "-r", "all()", "-R", ".claude", "-l", "10"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.revision, "all()");
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.limit, Some(10));
         } else {
             panic!("expected List");
         }

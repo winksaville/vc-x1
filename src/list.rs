@@ -1,36 +1,40 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
 use jj_lib::hex_util::encode_reverse_hex;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
-use jj_lib::revset::{RevsetExpression, SymbolResolver};
 
 use crate::common;
 
 #[derive(Args, Debug)]
 pub struct ListArgs {
-    /// Path to jj repo (defaults to current directory)
-    pub path: Option<PathBuf>,
+    /// Revision to list (default: @)
+    #[arg(short, long, default_value = "@")]
+    pub revision: String,
+
+    /// Path to jj repo (default: current directory)
+    #[arg(short = 'R', long, default_value = ".")]
+    pub repo: PathBuf,
+
+    /// Maximum number of commits to show
+    #[arg(short, long)]
+    pub limit: Option<usize>,
 }
 
-pub fn list(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let (_workspace, repo) = common::load_repo(path)?;
+pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
+    let (workspace, repo) = common::load_repo(&args.repo)?;
 
-    let expression = RevsetExpression::all();
-    let no_extensions: &[Box<dyn jj_lib::revset::SymbolResolverExtension>] = &[];
-    let symbol_resolver = SymbolResolver::new(repo.as_ref(), no_extensions);
-    let resolved = expression.resolve_user_expression(repo.as_ref(), &symbol_resolver)?;
-    let revset = resolved.evaluate(repo.as_ref())?;
+    let commit_ids = common::resolve_revset(&workspace, &repo, &args.revision)?;
 
     let root_commit_id = repo.store().root_commit_id().clone();
 
-    for result in revset.iter() {
-        let commit_id = result?;
-        if commit_id == root_commit_id {
+    let mut count = 0;
+    for commit_id in &commit_ids {
+        if *commit_id == root_commit_id {
             continue;
         }
-        let commit = repo.store().get_commit(&commit_id)?;
+        let commit = repo.store().get_commit(commit_id)?;
 
         let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
         let change_short = &change_hex[..change_hex.len().min(12)];
@@ -41,6 +45,13 @@ pub fn list(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         let first_line = commit.description().lines().next().unwrap_or("");
 
         println!("{} {} {}", change_short, commit_short, first_line);
+
+        count += 1;
+        if let Some(limit) = args.limit
+            && count >= limit
+        {
+            break;
+        }
     }
 
     Ok(())
