@@ -425,6 +425,11 @@ previous 0.6.0 commit instead of getting their own properly-titled commits.
 Only dev3 was committed correctly. The .claude history may be fixable by
 splitting the 0.6.0 commit, but this is deferred for now.
 
+## Show changeID and commitID in desc output (0.11.0)
+
+Prepend the short changeID and commitID to the first line of `desc`
+output, matching the format used by `list`. Single-step release.
+
 ## Move subcommand args into modules (0.9.0)
 
 ### Why
