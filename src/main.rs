@@ -216,6 +216,39 @@ mod tests {
     }
 
     #[test]
+    fn desc_positional_rev() {
+        let cli = parse(&["vc-x1", "desc", "@-"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@-".to_string()));
+            assert_eq!(args.pos_count, None);
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn desc_positional_rev_and_count() {
+        let cli = parse(&["vc-x1", "desc", "@..", "5"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@..".to_string()));
+            assert_eq!(args.pos_count, Some(5));
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn desc_positional_both_dots() {
+        let cli = parse(&["vc-x1", "desc", "..abcd..", "3"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+            assert_eq!(args.pos_count, Some(3));
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
     fn desc_all_opts() {
         let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5"]);
         if let Commands::Desc(args) = cli.command {
