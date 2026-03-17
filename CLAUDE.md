@@ -86,6 +86,9 @@ jj commit -m "shared title" -m "app body" -R .
 jj commit -m "shared title" -m "session body" -R .claude
 ```
 
+After both commits, **pause and ask for user approval** before
+proceeding to bookmark/push/finalize.
+
 When the user also asks to push, advance the current bookmark on both
 repos, then push the app repo. Do **not** push `.claude` here —
 `finalize` handles that push after squashing trailing writes.
@@ -125,7 +128,7 @@ finalize again so the trailing writes are captured.
 `--bookmark` is required — use the active bookmark for the session.
 
 ```
-vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --push
+vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --detach --push
 ```
 
 Do **not** echo or restate the finalize output — the Bash tool

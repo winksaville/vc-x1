@@ -39,7 +39,7 @@ doing so and I then created this README.md file.
 vc-x1 list [REV [COUNT]] [OPTIONS]   # List commits in a jj repo
 vc-x1 desc [REV [COUNT]] [OPTIONS]   # Show full description of a commit
 vc-x1 chid [REV [COUNT]] [OPTIONS]   # Print changeID(s) for a revision
-vc-x1 finalize --bookmark <B> [OPTS]  # Squash working copy into target (daemonizes by default)
+vc-x1 finalize --bookmark <B> [OPTS]  # Squash working copy into target (foreground by default)
 vc-x1 --version                       # Print version
 vc-x1 --help                          # Print help
 ```
@@ -78,20 +78,26 @@ work and take precedence over positional arguments.
 ### finalize
 
 Solves the session repo coherence problem: when the bot commits `.claude`,
-the act of committing generates more session data. `finalize` daemonizes,
-waits, then squashes the trailing writes into the target commit.
+the act of committing generates more session data. `finalize` waits,
+then squashes the trailing writes into the target commit.
 
-The last action in a session is always:
+By default finalize runs in the foreground. Use `--detach` to run in
+the background (the bot uses this so the session can end immediately).
 
-```
-vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 5 --push
-```
-
-The command returns immediately and prints a status line:
+The bot's last action in a session:
 
 ```
-Finalize is running (pid 12345, log `/tmp/vc-x1-finalize-1710412800000.log`)
+vc-x1 finalize --repo .claude --bookmark main --delay 10 --detach --push
 ```
+
+If there is non-written session data after a session ends (e.g.
+finalize failed or was skipped), run it manually:
+
+```
+vc-x1 finalize --repo .claude --bookmark main --push
+```
+
+This runs in the foreground, squashes, advances the bookmark, and pushes.
 
 See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
 for full option reference and design details.
@@ -107,19 +113,19 @@ with a previous run:
 dir=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
 (cd "$dir" && jj git init)
 
-# Foreground (blocks, logs to test dir)
-vc-x1 finalize --foreground --repo "$dir" --log "$dir/finalize.log"
+# Foreground (default, blocks, logs to test dir)
+vc-x1 finalize --repo "$dir" --bookmark main --log "$dir/finalize.log"
 cat "$dir/finalize.log"
 
-# Daemonized (returns immediately, child logs to test dir)
+# Detached (returns immediately, child logs to test dir)
 dir2=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
 (cd "$dir2" && jj git init)
-vc-x1 finalize --repo "$dir2" --log "$dir2/finalize.log"
+vc-x1 finalize --detach --repo "$dir2" --bookmark main --log "$dir2/finalize.log"
 cat "$dir2/finalize.log"
 ```
 
 The log file shows timestamped (nanoseconds) entries with PIDs, covering
-the full flow: `main` entry/exit, `finalize` entry/exit, `daemonize`
+the full flow: `main` entry/exit, `finalize` entry/exit, `detach`
 spawn, and `finalize_exec` in the child process.
 
 ## Cross-repo Linking with Git Trailers

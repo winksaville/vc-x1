@@ -22,7 +22,7 @@ pub struct FinalizeArgs {
     #[arg(long, default_value_t = 10.0)]
     pub delay: f64,
 
-    /// Bookmark to advance to target after squash
+    /// Bookmark to advance to target after squash (required)
     #[arg(long)]
     pub bookmark: String,
 
@@ -34,11 +34,11 @@ pub struct FinalizeArgs {
     #[arg(long)]
     pub log: Option<PathBuf>,
 
-    /// Run in foreground instead of daemonizing
+    /// Detach and run in the background
     #[arg(long)]
-    pub foreground: bool,
+    pub detach: bool,
 
-    /// Internal: run exec path (used by daemonize)
+    /// Internal: run exec path (used by detach)
     #[arg(long, hide = true)]
     pub exec: bool,
 }
@@ -52,7 +52,7 @@ pub struct FinalizeOpts {
     pub delay_secs: f64,
     pub push: bool,
     pub log: PathBuf,
-    pub foreground: bool,
+    pub detach: bool,
     pub exec: bool,
 }
 
@@ -75,7 +75,7 @@ impl FinalizeArgs {
             delay_secs: self.delay,
             push: self.push,
             log,
-            foreground: self.foreground,
+            detach: self.detach,
             exec: self.exec,
         }
     }
@@ -194,15 +194,12 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
 /// Spawn a detached child process with `--exec` and return immediately.
 /// The child re-enters `main()`, parses `--exec`, and `finalize()` routes
 /// it to `finalize_exec()` where the actual work happens.
-fn daemonize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    log_msg(
-        &opts.log,
-        &format!("daemonize: parent starting opts={opts:?}"),
-    );
+fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    log_msg(&opts.log, &format!("detach: parent starting opts={opts:?}"));
 
     let exe = std::env::current_exe()?;
     let args = build_exec_args(opts);
-    log_msg(&opts.log, &format!("daemonize: exe={exe:?} args={args:?}"));
+    log_msg(&opts.log, &format!("detach: exe={exe:?} args={args:?}"));
 
     let mut cmd = std::process::Command::new(exe);
     cmd.args(&args).stdin(Stdio::null());
@@ -221,10 +218,10 @@ fn daemonize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     let child = cmd.spawn()?;
     log_msg(
         &opts.log,
-        &format!("daemonize: spawned child pid={}", child.id()),
+        &format!("detach: spawned child pid={}", child.id()),
     );
     eprintln!(
-        "finalize: daemonized (pid {}), log: {}",
+        "finalize: detached (pid {}), log: {}",
         child.id(),
         opts.log.display()
     );
@@ -233,10 +230,10 @@ fn daemonize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     log_msg(&opts.log, &format!("finalize: entry opts={opts:?}"));
-    let result = if opts.foreground || opts.exec {
-        finalize_exec(opts)
+    let result = if opts.detach && !opts.exec {
+        detach(opts)
     } else {
-        daemonize(opts)
+        finalize_exec(opts)
     };
     match &result {
         Ok(()) => log_msg(&opts.log, "finalize: exit ok"),
@@ -261,7 +258,7 @@ mod tests {
             delay_secs: 2.0,
             push: true,
             log: PathBuf::from("/tmp/test.log"),
-            foreground: false,
+            detach: false,
             exec: false,
         };
         let exec_args = build_exec_args(&opts);

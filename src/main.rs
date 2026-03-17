@@ -26,7 +26,7 @@ enum Commands {
     /// List commits in a jj repo
     List(list::ListArgs),
 
-    /// Squash working copy into target commit (daemonizes by default)
+    /// Squash working copy into target commit
     Finalize(finalize::FinalizeArgs),
 }
 
@@ -371,7 +371,7 @@ mod tests {
             assert_eq!(args.bookmark, "main");
             assert_eq!(args.delay, 10.0);
             assert!(!args.push);
-            assert!(!args.foreground);
+            assert!(!args.detach);
         } else {
             panic!("expected Finalize");
         }
@@ -395,7 +395,7 @@ mod tests {
             "--push",
             "--log",
             "/tmp/test.log",
-            "--foreground",
+            "--detach",
         ]);
         if let Commands::Finalize(args) = cli.command {
             assert_eq!(args.repo, PathBuf::from(".claude"));
@@ -405,7 +405,7 @@ mod tests {
             assert_eq!(args.delay, 2.5);
             assert!(args.push);
             assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
-            assert!(args.foreground);
+            assert!(args.detach);
         } else {
             panic!("expected Finalize");
         }

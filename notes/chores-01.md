@@ -611,3 +611,28 @@ Changes:
   `indent_body()` when printing in both normal and `..x..` paths
 
 Single-step release as 0.16.0.
+
+## Finalize: --detach and manual recovery (0.17.0)
+
+Replace `--foreground` with `--detach`, flipping the default behavior:
+finalize now runs in the foreground by default. Use `--detach` to
+daemonize (the bot uses this so the session can end immediately).
+
+This makes manual recovery simpler for users — when there's non-written
+session data after a session ends, just run:
+
+```
+vc-x1 finalize --repo .claude --bookmark main --push
+```
+
+No need to remember `--foreground`.
+
+Changes:
+- `finalize.rs`: replace `--foreground` flag with `--detach`, flip
+  dispatch logic, add "(required)" to `--bookmark` help text
+- `main.rs`: update subcommand description, update tests
+- `README.md`: rewrite finalize section with manual recovery docs,
+  update test examples
+- `CLAUDE.md`: add `--detach` to finalize command
+
+Single-step release as 0.17.0.
