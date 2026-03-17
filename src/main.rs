@@ -355,7 +355,7 @@ mod tests {
             assert_eq!(args.source, "@");
             assert_eq!(args.target, "@-");
             assert_eq!(args.bookmark, "main");
-            assert_eq!(args.delay, 1.0);
+            assert_eq!(args.delay, 10.0);
             assert!(!args.push);
             assert!(!args.foreground);
         } else {

@@ -5,9 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
-- Add positional `..` revision notation (0.14.0) [12]
-- Add required `--bookmark` to finalize (0.14.0) [13]
-
 ## Todo
 
 A markdown list of task to do in the near feature
@@ -48,6 +45,8 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Show changeID and commitID in desc output (0.11.0) [9]
 - Add chid subcommand (0.12.0) [10]
 - Add --limit to chid subcommand (0.13.0) [11]
+- Add positional `..` revision notation (0.14.0) [12]
+- Add required `--bookmark` to finalize (0.14.0) [13]
 
 
 # References

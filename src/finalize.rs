@@ -19,7 +19,7 @@ pub struct FinalizeArgs {
     pub target: String,
 
     /// Seconds to wait before squashing
-    #[arg(long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = 10.0)]
     pub delay: f64,
 
     /// Bookmark to advance to target after squash

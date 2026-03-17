@@ -1,5 +1,14 @@
 # vc-x1
 
+- [Overview](#vc-x1)
+- [Usage](#usage)
+  - [Revision shortcuts](#revision-shortcuts)
+  - [finalize](#finalize)
+  - [Testing finalize](#testing-finalize)
+- [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
+- [jj Tips for Git Users](#jj-tips-for-git-users)
+- [License](#license)
+
 This is experiment 1 to explore creating a Vibe Coding (vc) environment.
 We will investigate ways of using the dual jj-git repo concept, explored
 in [hw-jjg-bot](https://github.com/winksaville/hw-jjg-bot.git) to
@@ -23,32 +32,6 @@ own IDE for vc.
 See [Initial commit with dual jj-git repos](./notes/chores-01.md#initial-commit-with-dual-jj-git-repos)
 for how the initial commit was created with the dual jj-git repos. After
 doing so and I then created this README.md file.
-
-## jj Tips for Git Users
-
-If you're coming from git, jj's log output can be surprising compared to
-tools like `gitk --all`.
-
-### Why `jj log` shows fewer commits than `gitk`
-
-jj tracks *changes* (identified by change IDs), not individual git commits.
-When you rewrite a change (`jj describe`, `jj rebase`, `jj squash`, etc.),
-jj creates a new git commit and keeps the old one under `refs/jj/keep/*` as
-undo history. `gitk --all` sees all of these obsolete commits; `jj log` only
-shows the current version of each change.
-
-### Useful commands
-
-| Command | Description |
-|---------|-------------|
-| `jj log` | Show recent visible commits (default revset) |
-| `jj log -r ::@` | Show **all** ancestors of the working copy |
-| `jj log -r 'all()'` | Show all non-hidden commits (needed if you have multiple heads/branches) |
-| `jj obslog -r <change-id>` | Show the evolution history of a single change |
-| `jj op log` | Show operation history (each rewrite operation) |
-
-In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
-the same result. Use `all()` when you have multiple branches or heads.
 
 ## Usage
 
@@ -160,6 +143,32 @@ For full details see:
   — [ochid (Other Change ID)](./notes/chores-01.md#ochid-other-change-id)
   — [ChangeID path syntax](./notes/chores-01.md#changeid-path-syntax)
   — [.vc-config.toml](./notes/chores-01.md#vc-configtoml)
+
+## jj Tips for Git Users
+
+If you're coming from git, jj's log output can be surprising compared to
+tools like `gitk --all`.
+
+### Why `jj log` shows fewer commits than `gitk`
+
+jj tracks *changes* (identified by change IDs), not individual git commits.
+When you rewrite a change (`jj describe`, `jj rebase`, `jj squash`, etc.),
+jj creates a new git commit and keeps the old one under `refs/jj/keep/*` as
+undo history. `gitk --all` sees all of these obsolete commits; `jj log` only
+shows the current version of each change.
+
+### Useful commands
+
+| Command | Description |
+|---------|-------------|
+| `jj log` | Show recent visible commits (default revset) |
+| `jj log -r ::@` | Show **all** ancestors of the working copy |
+| `jj log -r 'all()'` | Show all non-hidden commits (needed if you have multiple heads/branches) |
+| `jj obslog -r <change-id>` | Show the evolution history of a single change |
+| `jj op log` | Show operation history (each rewrite operation) |
+
+In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
+the same result. Use `all()` when you have multiple branches or heads.
 
 ## License
 
