@@ -55,6 +55,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Add positional `..` revision notation (0.14.0) [12]
 - Add required `--bookmark` to finalize (0.14.0) [13]
 - Bold primary revision in chid, list, desc output (0.15.0) [14]
+- Indent desc body lines with --indent/-i, default 3 spaces (0.16.0) [15]
 
 
 # References
@@ -76,3 +77,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [12]: /notes/chores-01.md#add-positional--revision-notation-0140
 [13]: /notes/chores-01.md#add-required---bookmark-to-finalize-0140
 [14]: /notes/chores-01.md#bold-primary-revision-in-output-0150
+[15]: /notes/chores-01.md#indent-desc-body-lines-0160

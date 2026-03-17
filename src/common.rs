@@ -208,6 +208,29 @@ pub fn bold_first_line(s: &str) -> String {
     }
 }
 
+/// Indent all lines after the first by `n` spaces.
+///
+/// Returns the string unchanged if `n == 0` or there is only one line.
+pub fn indent_body(s: &str, n: usize) -> String {
+    if n == 0 {
+        return s.to_string();
+    }
+    let pad = " ".repeat(n);
+    let mut lines = s.lines();
+    let mut result = match lines.next() {
+        Some(first) => first.to_string(),
+        None => return String::new(),
+    };
+    for line in lines {
+        result.push('\n');
+        if !line.is_empty() {
+            result.push_str(&pad);
+        }
+        result.push_str(line);
+    }
+    result
+}
+
 /// Format: just the short changeID.
 pub fn format_chid(commit: &Commit) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
@@ -476,6 +499,34 @@ mod tests {
         let r = resolve_dot_args(Some("@.."), None, "@", None, "@");
         assert_eq!(r.revset, "::@");
         assert!(r.limit.is_none()); // no count, no limit
+    }
+
+    #[test]
+    fn indent_body_zero() {
+        let s = "first\nsecond\nthird";
+        assert_eq!(indent_body(s, 0), s);
+    }
+
+    #[test]
+    fn indent_body_single_line() {
+        assert_eq!(indent_body("only", 3), "only");
+    }
+
+    #[test]
+    fn indent_body_multi_line() {
+        let s = "first\nsecond\nthird";
+        assert_eq!(indent_body(s, 3), "first\n   second\n   third");
+    }
+
+    #[test]
+    fn indent_body_empty_lines_preserved() {
+        let s = "first\n\nthird";
+        assert_eq!(indent_body(s, 3), "first\n\n   third");
+    }
+
+    #[test]
+    fn indent_body_empty_string() {
+        assert_eq!(indent_body("", 3), "");
     }
 
     #[test]

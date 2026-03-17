@@ -593,3 +593,21 @@ Changes:
 - `desc.rs`: resolve primary commit ID, bold only first line
 
 Single-step release as 0.15.0.
+
+## Indent desc body lines (0.16.0)
+
+Add `--indent` / `-i` flag to `desc` subcommand to indent description
+body lines by a specifiable number of spaces (default 3). `-i 0` gives
+no indent for backward compatibility.
+
+A separator line between descriptions was considered but deemed
+unnecessary once indentation was in place — the visual grouping is
+clear enough without it.
+
+Changes:
+- `common.rs`: add `indent_body()` helper that indents all lines
+  after the first
+- `desc.rs`: add `--indent` / `-i` arg (default 3), apply
+  `indent_body()` when printing in both normal and `..x..` paths
+
+Single-step release as 0.16.0.

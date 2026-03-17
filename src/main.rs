@@ -180,6 +180,7 @@ mod tests {
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@");
             assert_eq!(args.repo, PathBuf::from("."));
+            assert_eq!(args.indent, 3);
         } else {
             panic!("expected Desc");
         }
@@ -249,12 +250,25 @@ mod tests {
     }
 
     #[test]
+    fn desc_with_indent() {
+        let cli = parse(&["vc-x1", "desc", "-i", "6"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(args.indent, 6);
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
     fn desc_all_opts() {
-        let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5"]);
+        let cli = parse(&[
+            "vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5", "-i", "4",
+        ]);
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@-");
             assert_eq!(args.repo, PathBuf::from(".claude"));
             assert_eq!(args.limit, Some(5));
+            assert_eq!(args.indent, 4);
         } else {
             panic!("expected Desc");
         }
