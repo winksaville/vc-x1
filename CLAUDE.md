@@ -128,8 +128,6 @@ finalize again so the trailing writes are captured.
 vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 5 --push
 ```
 
-End with only the status line — no other output:
-
-```
-Finalize is running (pid <PID>, log `/tmp/vc-x1-finalize-<TIMESTAMP>.log`)
-```
+Do **not** echo or restate the finalize output — the Bash tool
+already displays it. Any trailing text output creates writes that
+miss the finalize squash window.
