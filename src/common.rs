@@ -85,6 +85,8 @@ pub struct ResolvedArgs {
     pub limit: Option<usize>,
     /// For `..x..`, the count per side.
     pub both_count: Option<usize>,
+    /// The bare primary revision (for highlighting).
+    pub primary_rev: String,
 }
 
 /// Resolve positional `..` args with named flag overrides.
@@ -109,8 +111,8 @@ pub fn resolve_dot_args(
         return ResolvedArgs {
             revset: flag_rev.to_string(),
             limit: flag_limit,
-
             both_count: None,
+            primary_rev: flag_rev.to_string(),
         };
     }
 
@@ -128,6 +130,8 @@ pub fn resolve_dot_args(
         spec.count = flag_limit.unwrap();
     }
 
+    let primary = spec.rev.clone();
+
     match spec.direction {
         DotDirection::None => {
             if spec.count > 0 {
@@ -135,15 +139,15 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: Some(spec.count + 1), // +1 for x itself
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             } else {
                 ResolvedArgs {
                     revset: spec.rev,
                     limit: Some(1),
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             }
         }
@@ -152,15 +156,15 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: Some(spec.count + 1),
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             } else {
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: None,
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             }
         }
@@ -169,24 +173,38 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("{}::", spec.rev),
                     limit: Some(spec.count + 1),
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             } else {
                 ResolvedArgs {
                     revset: format!("{}::", spec.rev),
                     limit: None,
-
                     both_count: None,
+                    primary_rev: primary,
                 }
             }
         }
         DotDirection::Both => ResolvedArgs {
             revset: format!("::{}|{}::", spec.rev, spec.rev),
             limit: None,
-
             both_count: Some(spec.count),
+            primary_rev: primary,
         },
+    }
+}
+
+/// Wrap text in ANSI bold escape codes.
+pub fn bold(s: &str) -> String {
+    format!("\x1b[1m{s}\x1b[0m")
+}
+
+/// Bold only the first line of a multi-line string.
+pub fn bold_first_line(s: &str) -> String {
+    if let Some(pos) = s.find('\n') {
+        format!("\x1b[1m{}\x1b[0m{}", &s[..pos], &s[pos..])
+    } else {
+        bold(s)
     }
 }
 
@@ -234,15 +252,16 @@ pub fn format_commit_full(commit: &Commit) -> String {
 /// Collect formatted lines for `..x..` (both directions).
 ///
 /// `formatter` converts a `Commit` into a display string.
-/// Returns the lines in display order: descendants (newest first),
-/// anchor, ancestors (newest first).
+/// Returns `(lines, anchor_index)` — the lines in display order
+/// (descendants newest first, anchor, ancestors newest first)
+/// and the index of the anchor commit within the lines.
 pub fn collect_both<F>(
     repo: &Arc<ReadonlyRepo>,
     repo_path: &Path,
     pos_rev: Option<&str>,
     both_count: usize,
     formatter: F,
-) -> Result<Vec<String>, Box<dyn std::error::Error>>
+) -> Result<(Vec<String>, usize), Box<dyn std::error::Error>>
 where
     F: Fn(&Commit) -> String,
 {
@@ -295,10 +314,11 @@ where
         }
     }
 
+    let anchor_index = desc_lines.len();
     let mut result = desc_lines;
     result.push(formatter(&anchor_commit));
     result.extend(anc_lines);
-    Ok(result)
+    Ok((result, anchor_index))
 }
 
 pub fn load_repo(
@@ -412,8 +432,8 @@ mod tests {
         let r = resolve_dot_args(None, None, "@", None, "@");
         assert_eq!(r.revset, "@");
         assert_eq!(r.limit, Some(1));
-
         assert!(r.both_count.is_none());
+        assert_eq!(r.primary_rev, "@");
     }
 
     #[test]

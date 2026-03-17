@@ -48,27 +48,36 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
     let root_commit_id = repo.store().root_commit_id().clone();
 
     if let Some(both_count) = resolved.both_count {
-        let lines = common::collect_both(
+        let (lines, anchor) = common::collect_both(
             &repo,
             &args.repo,
             args.pos_rev.as_deref(),
             both_count,
             common::format_commit_short,
         )?;
-        for line in &lines {
-            println!("{line}");
+        for (i, line) in lines.iter().enumerate() {
+            if i == anchor {
+                println!("{}", common::bold(line));
+            } else {
+                println!("{line}");
+            }
         }
         return Ok(());
     }
 
-    let mut results: Vec<String> = Vec::new();
+    // Resolve the primary commit ID for highlighting
+    let primary_ids = common::resolve_revset(&workspace, &repo, &resolved.primary_rev)?;
+    let primary_id = primary_ids.first();
+
+    let mut results: Vec<(String, bool)> = Vec::new();
     let mut count = 0;
     for commit_id in &commit_ids {
         if *commit_id == root_commit_id {
             continue;
         }
         let commit = repo.store().get_commit(commit_id)?;
-        results.push(common::format_commit_short(&commit));
+        let is_primary = primary_id == Some(commit_id);
+        results.push((common::format_commit_short(&commit), is_primary));
 
         count += 1;
         if let Some(limit) = resolved.limit
@@ -78,8 +87,12 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    for line in &results {
-        println!("{line}");
+    for (line, is_primary) in &results {
+        if *is_primary {
+            println!("{}", common::bold(line));
+        } else {
+            println!("{line}");
+        }
     }
 
     Ok(())

@@ -574,3 +574,22 @@ Usage:
 ```
 vc-x1 finalize --repo .claude --bookmark dev-0.14.0 --delay 5 --push
 ```
+
+## Bold primary revision in output (0.15.0)
+
+Add ANSI bold highlighting to the primary revision in `chid`, `list`,
+and `desc` output. The "primary revision" is the revision the user
+specified (default `@`) — in `..x..` mode it's the anchor commit.
+
+- **chid** and **list**: bold the entire output line for the primary
+- **desc**: bold only the first line (changeID + commitID + title),
+  leaving the description body unstyled
+
+Changes:
+- `common.rs`: add `bold()` and `bold_first_line()` ANSI helpers,
+  add `primary_rev` field to `ResolvedArgs`, change `collect_both()`
+  return type to `(Vec<String>, usize)` with anchor index
+- `chid.rs`, `list.rs`: resolve primary commit ID, bold its line
+- `desc.rs`: resolve primary commit ID, bold only first line
+
+Single-step release as 0.15.0.

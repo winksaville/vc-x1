@@ -125,7 +125,7 @@ finalize again so the trailing writes are captured.
 `--bookmark` is required — use the active bookmark for the session.
 
 ```
-vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 5 --push
+vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --push
 ```
 
 Do **not** echo or restate the finalize output — the Bash tool
