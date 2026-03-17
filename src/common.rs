@@ -3,9 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
 use jj_lib::config::StackedConfig;
 use jj_lib::fileset::FilesetAliasesMap;
-use jj_lib::repo::{ReadonlyRepo, StoreFactories};
+use jj_lib::hex_util::encode_reverse_hex;
+use jj_lib::object_id::ObjectId;
+use jj_lib::repo::{ReadonlyRepo, Repo, StoreFactories};
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::{
     RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions, RevsetParseContext,
@@ -80,8 +83,6 @@ pub struct ResolvedArgs {
     pub revset: String,
     /// Maximum number of commits to return (None = unlimited).
     pub limit: Option<usize>,
-    /// Whether to reverse the results (for descendants/both).
-    pub reverse: bool,
     /// For `..x..`, the count per side.
     pub both_count: Option<usize>,
 }
@@ -108,7 +109,7 @@ pub fn resolve_dot_args(
         return ResolvedArgs {
             revset: flag_rev.to_string(),
             limit: flag_limit,
-            reverse: false,
+
             both_count: None,
         };
     }
@@ -134,14 +135,14 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: Some(spec.count + 1), // +1 for x itself
-                    reverse: false,
+
                     both_count: None,
                 }
             } else {
                 ResolvedArgs {
                     revset: spec.rev,
                     limit: Some(1),
-                    reverse: false,
+
                     both_count: None,
                 }
             }
@@ -151,14 +152,14 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: Some(spec.count + 1),
-                    reverse: false,
+
                     both_count: None,
                 }
             } else {
                 ResolvedArgs {
                     revset: format!("::{}", spec.rev),
                     limit: None,
-                    reverse: false,
+
                     both_count: None,
                 }
             }
@@ -168,14 +169,14 @@ pub fn resolve_dot_args(
                 ResolvedArgs {
                     revset: format!("{}::", spec.rev),
                     limit: Some(spec.count + 1),
-                    reverse: false,
+
                     both_count: None,
                 }
             } else {
                 ResolvedArgs {
                     revset: format!("{}::", spec.rev),
                     limit: None,
-                    reverse: false,
+
                     both_count: None,
                 }
             }
@@ -183,10 +184,121 @@ pub fn resolve_dot_args(
         DotDirection::Both => ResolvedArgs {
             revset: format!("::{}|{}::", spec.rev, spec.rev),
             limit: None,
-            reverse: false,
+
             both_count: Some(spec.count),
         },
     }
+}
+
+/// Format: just the short changeID.
+pub fn format_chid(commit: &Commit) -> String {
+    let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
+    change_hex[..change_hex.len().min(12)].to_string()
+}
+
+/// Format: changeID commitID first-line (single line).
+pub fn format_commit_short(commit: &Commit) -> String {
+    let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
+    let change_short = &change_hex[..change_hex.len().min(12)];
+    let commit_hex = commit.id().hex();
+    let commit_short = &commit_hex[..commit_hex.len().min(12)];
+    let first_line = commit.description().lines().next().unwrap_or("");
+    if first_line.is_empty() {
+        format!("{change_short} {commit_short} (no description set)")
+    } else {
+        format!("{change_short} {commit_short} {first_line}")
+    }
+}
+
+/// Format: changeID commitID first-line, then remaining description lines.
+pub fn format_commit_full(commit: &Commit) -> String {
+    let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
+    let change_short = &change_hex[..change_hex.len().min(12)];
+    let commit_hex = commit.id().hex();
+    let commit_short = &commit_hex[..commit_hex.len().min(12)];
+    let desc = commit.description();
+    if desc.is_empty() {
+        format!("{change_short} {commit_short} (no description set)")
+    } else {
+        let mut lines = desc.lines();
+        let first_line = lines.next().unwrap_or("");
+        let mut result = format!("{change_short} {commit_short} {first_line}");
+        for line in lines {
+            result.push('\n');
+            result.push_str(line);
+        }
+        result
+    }
+}
+
+/// Collect formatted lines for `..x..` (both directions).
+///
+/// `formatter` converts a `Commit` into a display string.
+/// Returns the lines in display order: descendants (newest first),
+/// anchor, ancestors (newest first).
+pub fn collect_both<F>(
+    repo: &Arc<ReadonlyRepo>,
+    repo_path: &Path,
+    pos_rev: Option<&str>,
+    both_count: usize,
+    formatter: F,
+) -> Result<Vec<String>, Box<dyn std::error::Error>>
+where
+    F: Fn(&Commit) -> String,
+{
+    let bare_rev = pos_rev.unwrap_or("@");
+    let spec = parse_dot_rev(bare_rev);
+    let (workspace, _) = load_repo(repo_path)?;
+    let anchor_ids = resolve_revset(&workspace, repo, &spec.rev)?;
+    if anchor_ids.is_empty() {
+        return Err(format!("no commit found for revision '{}'", spec.rev).into());
+    }
+    let anchor_id = &anchor_ids[0];
+    let root_commit_id = repo.store().root_commit_id().clone();
+
+    let ancestor_ids = resolve_revset(&workspace, repo, &format!("::{}", spec.rev))?;
+    let descendant_ids = resolve_revset(&workspace, repo, &format!("{}::", spec.rev))?;
+
+    // Descendants (newest first from jj), excluding anchor
+    let mut desc_lines: Vec<String> = Vec::new();
+    for commit_id in &descendant_ids {
+        if *commit_id == root_commit_id || *commit_id == *anchor_id {
+            continue;
+        }
+        let commit = repo.store().get_commit(commit_id)?;
+        desc_lines.push(formatter(&commit));
+    }
+    if both_count > 0 {
+        let start = desc_lines.len().saturating_sub(both_count);
+        desc_lines = desc_lines[start..].to_vec();
+    } else {
+        desc_lines.clear();
+    }
+
+    // Anchor
+    let anchor_commit = repo.store().get_commit(anchor_id)?;
+
+    // Ancestors (newest first from jj), excluding anchor
+    let mut anc_lines: Vec<String> = Vec::new();
+    if both_count > 0 {
+        let mut count = 0;
+        for commit_id in &ancestor_ids {
+            if root_commit_id == *commit_id || *commit_id == *anchor_id {
+                continue;
+            }
+            let commit = repo.store().get_commit(commit_id)?;
+            anc_lines.push(formatter(&commit));
+            count += 1;
+            if count >= both_count {
+                break;
+            }
+        }
+    }
+
+    let mut result = desc_lines;
+    result.push(formatter(&anchor_commit));
+    result.extend(anc_lines);
+    Ok(result)
 }
 
 pub fn load_repo(
@@ -300,7 +412,7 @@ mod tests {
         let r = resolve_dot_args(None, None, "@", None, "@");
         assert_eq!(r.revset, "@");
         assert_eq!(r.limit, Some(1));
-        assert!(!r.reverse);
+
         assert!(r.both_count.is_none());
     }
 
@@ -309,7 +421,6 @@ mod tests {
         let r = resolve_dot_args(Some("@"), Some(5), "@", None, "@");
         assert_eq!(r.revset, "::@");
         assert_eq!(r.limit, Some(6)); // 5 + 1 for x
-        assert!(!r.reverse);
     }
 
     #[test]
@@ -317,7 +428,6 @@ mod tests {
         let r = resolve_dot_args(Some("@.."), Some(3), "@", None, "@");
         assert_eq!(r.revset, "::@");
         assert_eq!(r.limit, Some(4)); // 3 + 1
-        assert!(!r.reverse);
     }
 
     #[test]
@@ -325,7 +435,6 @@ mod tests {
         let r = resolve_dot_args(Some("..@"), Some(3), "@", None, "@");
         assert_eq!(r.revset, "@::");
         assert_eq!(r.limit, Some(4)); // 3 + 1
-        assert!(!r.reverse);
     }
 
     #[test]

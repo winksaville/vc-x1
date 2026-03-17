@@ -56,7 +56,7 @@ the same result. Use `all()` when you have multiple branches or heads.
 vc-x1 list [REV [COUNT]] [OPTIONS]   # List commits in a jj repo
 vc-x1 desc [REV [COUNT]] [OPTIONS]   # Show full description of a commit
 vc-x1 chid [REV [COUNT]] [OPTIONS]   # Print changeID(s) for a revision
-vc-x1 finalize [OPTIONS]             # Squash working copy into target (daemonizes by default)
+vc-x1 finalize --bookmark <B> [OPTS]  # Squash working copy into target (daemonizes by default)
 vc-x1 --version                       # Print version
 vc-x1 --help                          # Print help
 ```
@@ -101,7 +101,7 @@ waits, then squashes the trailing writes into the target commit.
 The last action in a session is always:
 
 ```
-vc-x1 finalize --repo .claude --delay 5 --push
+vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 5 --push
 ```
 
 The command returns immediately and prints a status line:

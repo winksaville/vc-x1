@@ -315,6 +315,39 @@ mod tests {
     }
 
     #[test]
+    fn list_positional_rev() {
+        let cli = parse(&["vc-x1", "list", "@-"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@-".to_string()));
+            assert_eq!(args.pos_count, None);
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_positional_rev_and_count() {
+        let cli = parse(&["vc-x1", "list", "@..", "5"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@..".to_string()));
+            assert_eq!(args.pos_count, Some(5));
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_positional_both_dots() {
+        let cli = parse(&["vc-x1", "list", "..abcd..", "3"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+            assert_eq!(args.pos_count, Some(3));
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
     fn finalize_defaults() {
         let cli = parse(&["vc-x1", "finalize", "--bookmark", "main"]);
         if let Commands::Finalize(args) = cli.command {
