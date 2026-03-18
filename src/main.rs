@@ -191,7 +191,6 @@ mod tests {
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@");
             assert_eq!(args.repo, PathBuf::from("."));
-            assert_eq!(args.indent, 3);
         } else {
             panic!("expected Desc");
         }
@@ -261,25 +260,12 @@ mod tests {
     }
 
     #[test]
-    fn desc_with_indent() {
-        let cli = parse(&["vc-x1", "desc", "-i", "6"]);
-        if let Commands::Desc(args) = cli.command {
-            assert_eq!(args.indent, 6);
-        } else {
-            panic!("expected Desc");
-        }
-    }
-
-    #[test]
     fn desc_all_opts() {
-        let cli = parse(&[
-            "vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5", "-i", "4",
-        ]);
+        let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5"]);
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@-");
             assert_eq!(args.repo, PathBuf::from(".claude"));
             assert_eq!(args.limit, Some(5));
-            assert_eq!(args.indent, 4);
         } else {
             panic!("expected Desc");
         }
@@ -378,6 +364,10 @@ mod tests {
         if let Commands::Show(args) = cli.command {
             assert_eq!(args.revision, "@");
             assert_eq!(args.repo, PathBuf::from("."));
+            assert_eq!(args.files, "50");
+            assert_eq!(args.pos_rev, None);
+            assert_eq!(args.pos_count, None);
+            assert_eq!(args.limit, None);
         } else {
             panic!("expected Show");
         }
@@ -404,11 +394,67 @@ mod tests {
     }
 
     #[test]
+    fn show_positional_rev() {
+        let cli = parse(&["vc-x1", "show", "@-"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@-".to_string()));
+            assert_eq!(args.pos_count, None);
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_positional_rev_and_count() {
+        let cli = parse(&["vc-x1", "show", "@..", "3"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.pos_rev, Some("@..".to_string()));
+            assert_eq!(args.pos_count, Some(3));
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_with_file_limit_flag() {
+        let cli = parse(&["vc-x1", "show", "-f", "0"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.files, "0");
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_with_file_limit_all() {
+        let cli = parse(&["vc-x1", "show", "-f", "all"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.files, "all");
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_with_commit_limit() {
+        let cli = parse(&["vc-x1", "show", "-l", "5"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.limit, Some(5));
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
     fn show_all_opts() {
-        let cli = parse(&["vc-x1", "show", "-r", "@--", "-R", "/tmp"]);
+        let cli = parse(&[
+            "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-l", "3",
+        ]);
         if let Commands::Show(args) = cli.command {
             assert_eq!(args.revision, "@--");
             assert_eq!(args.repo, PathBuf::from("/tmp"));
+            assert_eq!(args.files, "100");
+            assert_eq!(args.limit, Some(3));
         } else {
             panic!("expected Show");
         }

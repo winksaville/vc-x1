@@ -26,10 +26,6 @@ pub struct DescArgs {
     /// Maximum number of commits to describe
     #[arg(short, long)]
     pub limit: Option<usize>,
-
-    /// Number of spaces to indent description body lines (default: 3)
-    #[arg(short, long, default_value = "3")]
-    pub indent: usize,
 }
 
 pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -60,7 +56,7 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
             common::format_commit_full,
         )?;
         for (i, line) in lines.iter().enumerate() {
-            let indented = common::indent_body(line, args.indent);
+            let indented = common::indent_body(line, 4);
             if i == anchor {
                 println!("{}", common::bold_first_line(&indented));
             } else {
@@ -93,7 +89,7 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for (line, is_primary) in &results {
-        let indented = common::indent_body(line, args.indent);
+        let indented = common::indent_body(line, 4);
         if *is_primary {
             println!("{}", common::bold_first_line(&indented));
         } else {
