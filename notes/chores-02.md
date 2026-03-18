@@ -219,6 +219,174 @@ evolog data could be extracted and persisted via `walk_predecessors()`
 before it's lost to a clone. This would preserve the full provenance
 chain: not just what changed, but how the change was assembled.
 
+## Interactive DAG navigation: the missing feature (2026-03-18)
+
+### The problem
+
+When working with jj-git repos, especially complex ones, you need to
+navigate the commit DAG interactively — click a parent or child and
+jump to it instantly. This is table-stakes in gitk but absent from
+jj-native tooling.
+
+### gitk: still the best for DAG traversal
+
+gitk's killer feature: the parent/child list lets you **click-to-jump**
+to any commit, even if it's far off-screen. True graph traversal, not
+scrolling. Works in colocated jj repos via `jj git export`.
+
+**Downsides:** Shows Git's view only — no change IDs, no revsets, no
+jj bookmarks. Detached HEAD display is confusing. Cannot perform jj
+operations. Does not work with non-colocated jj repos.
+
+### gg-cli: close but not there
+
+Renders a true graphical DAG. Can show parents in the detail pane and
+click to select a parent — but **only if that parent is already visible
+in the left panel**. If the parent is off-screen, there is no jump-to
+behavior; you must manually scroll using the slider. This makes it
+**useless on large/complex repos** for DAG traversal.
+
+Drag-and-drop rebase is nice, but the lack of click-to-jump is a
+dealbreaker for navigation.
+
+### Other tools: list navigators, not graph navigators
+
+- **jj-fzf** — displays `jj log` graph in fzf with live revset editing.
+  Navigation is list-based (up/down), not graph-based (follow edges).
+- **jjui** — revision tree view, growing fast, but still fundamentally
+  a list navigator with a graph drawn alongside.
+- **lazyjj** — operations-focused TUI, not DAG-focused.
+- **jjdag** — pre-alpha, explicitly DAG-focused (Magit-style keys,
+  foldable tree). Worth watching.
+- **jj log** — revset language is powerful for querying (`children(x)`,
+  `ancestors(main..@)`) but output is static, not interactive.
+
+### Comparison
+
+| Tool     | DAG display | Click-to-jump parent/child | Native jj |
+|----------|-------------|---------------------------|-----------|
+| gitk     | graphical   | **yes** (both directions)  | no        |
+| gg-cli   | graphical   | parent only, no jump if off-screen | yes |
+| jj-fzf   | ASCII       | no                         | yes       |
+| jjui     | ASCII       | no                         | yes       |
+| jj log   | ASCII       | n/a (not interactive)      | yes       |
+
+### Conclusion
+
+**gitk remains the best tool for interactive DAG traversal** despite
+its jj blindspots. The jj ecosystem is missing a tool that combines
+jj-native concepts (change IDs, revsets, bookmarks) with gitk-style
+click-to-jump on parent/child links. This would be a strong feature
+request for gg-cli, which already has the infrastructure but lacks the
+jump-to behavior.
+
+### Cautionary tale: multi-tool dangers
+
+While testing jj-fzf and gg-cli simultaneously (with Zed editor also
+open), it's easy to accidentally move `@` to an unexpected commit via
+one tool without noticing. When Zed then sees files disappear from the
+working copy, closing a "changed" file and declining to save effectively
+deletes it. Recovery: `jj new main` to repoint `@`, or
+`jj file show <path> -r <rev> --at-op <op>` to extract from history.
+
+## jj-lib Commit API and tree storage model (2026-03-18)
+
+### What's on the Commit type
+
+Given a `Commit` (from `repo.store().get_commit(&commit_id)?`), the
+public API includes:
+
+| Method | Returns | Cost |
+|--------|---------|------|
+| `id()` | `&CommitId` | zero — stored in struct |
+| `change_id()` | `&ChangeId` | zero |
+| `description()` | `&str` | zero |
+| `author()` / `committer()` | `&Signature` | zero |
+| `parent_ids()` | `&[CommitId]` | zero — stored in commit data |
+| `parents()` | `Vec<Commit>` | async, loads parent commits |
+| `tree()` | `MergedTree` | near-zero — wraps tree IDs, no I/O |
+| `tree_ids()` | `&Merge<TreeId>` | zero |
+| `parent_tree(repo)` | `MergedTree` | async, merges parent trees |
+| `is_empty(repo)` | `bool` | compares tree to parent tree |
+| `has_conflict()` | `bool` | checks if tree IDs are conflicted |
+
+### What's NOT on Commit
+
+- **Children** — parent→child is a reverse lookup. Requires revsets:
+  ```rust
+  resolve_revset(&workspace, &repo, &format!("children({})", change_id))?
+  ```
+  Parents are stored in the commit; children require scanning the DAG.
+
+- **Diff/changes** — no method returns "what changed in this commit."
+  Must be computed by comparing two tree snapshots.
+
+### Getting diffs between a commit and its parent
+
+```rust
+use jj_lib::matchers::EverythingMatcher;
+
+let parent_tree = commit.parent_tree(repo).await?;
+let commit_tree = commit.tree();
+
+let mut diff_stream = parent_tree.diff_stream(&commit_tree, &EverythingMatcher);
+while let Some(entry) = diff_stream.next().await {
+    // entry.path  — RepoPathBuf (the file that changed)
+    // entry.values — Diff { before, after } of MergedTreeValue
+}
+```
+
+`parent_tree()` handles merge commits by merging multiple parent trees.
+
+### What's stored on disk
+
+jj uses git as its backend. On disk: git's content-addressable objects.
+
+- **Blobs** — file contents, deduplicated by SHA
+- **Trees** — directory listings (pointers to blobs and sub-trees)
+- **Commits** — pointer to root tree + parent IDs + metadata
+
+Each commit points to a **full tree snapshot**, but the tree is composed
+of shared objects. If a file didn't change, both commits' trees point to
+the same blob. Git also delta-compresses objects in packfiles.
+
+The "full snapshot" is **logical, not physical**. `commit.tree()` just
+wraps the root tree hash — no I/O happens until you traverse.
+
+### Cost model for tree operations
+
+| Operation | Cost | Why |
+|-----------|------|-----|
+| `commit.tree()` | near zero | wraps tree IDs, no I/O |
+| `tree.path_value(&path)` | O(path depth) | walks ~4-5 tree nodes |
+| `tree.diff_stream(&other)` | O(changed subtrees) | skips identical subtrees by hash |
+| `tree.entries()` | O(entire repo) | walks everything — avoid on large repos |
+
+The diff algorithm compares tree entries level by level. If a subtree
+hash matches, it's skipped entirely — never descended into. On a Linux
+monorepo commit that touches 5 files, it loads ~20-30 tree objects out
+of millions.
+
+The expensive part of a gitk-style patch view is reading **blob
+contents** for the line-by-line diff, but only for changed files.
+
+### jj-lib vs gitk efficiency
+
+jj-lib is a separate Rust implementation reading the same `.git/objects/`
+and packfiles — it does NOT shell out to git or link libgit2.
+
+The tree diff uses the **same hash-based short-circuiting** as git:
+`TreeDiffIterator` (in `merged_tree.rs`) checks `is_changed()` on
+`MergedTreeValue` (which compares tree hashes) and only recurses into
+directories that differ.
+
+jj-lib also has a feature gitk lacks: **concurrent tree loading**. When
+`store.concurrency() > 1`, it uses `TreeDiffStreamImpl` with async
+parallel I/O for loading tree objects, potentially faster than gitk on
+large repos.
+
+Source: `jj-lib-0.39.0/src/merged_tree.rs`, lines 260-690.
+
 ### Key jj-lib source files (0.39.0)
 
 - `src/revset.rs` — revset expression types, builders, parsing

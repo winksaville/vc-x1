@@ -3,6 +3,7 @@ mod common;
 mod desc;
 mod finalize;
 mod list;
+mod show;
 
 use std::process::ExitCode;
 
@@ -25,6 +26,9 @@ enum Commands {
 
     /// List commits in a jj repo
     List(list::ListArgs),
+
+    /// Show commit details and diff summary
+    Show(show::ShowArgs),
 
     /// Squash working copy into target commit
     Finalize(finalize::FinalizeArgs),
@@ -50,6 +54,13 @@ fn main() -> ExitCode {
         }
         Commands::List(args) => {
             if let Err(e) = list::list(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Show(args) => {
+            if let Err(e) = show::show(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
@@ -358,6 +369,48 @@ mod tests {
             assert_eq!(args.pos_count, Some(3));
         } else {
             panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn show_defaults() {
+        let cli = parse(&["vc-x1", "show"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.revision, "@");
+            assert_eq!(args.repo, PathBuf::from("."));
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_with_revision() {
+        let cli = parse(&["vc-x1", "show", "-r", "@-"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.revision, "@-");
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_with_repo() {
+        let cli = parse(&["vc-x1", "show", "-R", ".claude"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_all_opts() {
+        let cli = parse(&["vc-x1", "show", "-r", "@--", "-R", "/tmp"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(args.revision, "@--");
+            assert_eq!(args.repo, PathBuf::from("/tmp"));
+        } else {
+            panic!("expected Show");
         }
     }
 
