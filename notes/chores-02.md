@@ -469,3 +469,82 @@ no_label) into `CommonArgs` struct in common.rs using clap `#[command(flatten)]`
 All four read-only subcommands (chid, desc, list, show) flatten it; list adds
 `width`, show adds `files`. Eliminates ~30 lines of duplicated arg definitions
 per subcommand. Tests updated to access fields via `.common`.
+
+### 0.22.0 — Add fix-ochid subcommand
+
+New `fix-ochid` subcommand to validate and fix ochid trailers in commit
+descriptions. Validates three properties: correct path prefix (derived from
+`--other-repo`), correct changeID length (`--id-len`, default 12), and that
+the ID resolves in the other repo. Supports `..` notation for revision ranges.
+Default is dry-run; `--no-dry-run` to actually write. `--fallback` provides a
+replacement value for IDs not found in the other repo (e.g. `/.claude/lost`
+for commits whose `.claude` history was lost to squashing). Optional `--title`
+to fix commit titles at the same time. Uses `jj describe --ignore-immutable`
+to rewrite descriptions.
+
+## Git commit headers and jj change-id preservation
+
+### How jj stores change IDs in git
+
+jj stores the change ID as a non-standard git commit header called
+`change-id`. This is part of the raw commit object, visible with
+`git cat-file commit <hash>`:
+
+```
+$ git cat-file commit f22d6c45b9d9
+tree 55d1626ba2ad932a568fd669d18cc19eb38510fa
+parent 432b7494734a5bbe549cd796335d9e67756f07bc
+author Wink Saville <wink@saville.com> 1773950107 -0700
+committer Wink Saville <wink@saville.com> 1773950107 -0700
+change-id mkoooktqrrqpllrkwxvosunuywplqsyq
+
+Deduplicate common CLI flags with #[command(flatten)] (0.21.1)
+
+Extract CommonArgs struct in common.rs shared by chid, desc, list, show.
+List adds width, show adds files on top. Update tests to access via .common.
+
+ochid: /.claude/lwwsmvroqzly
+```
+
+The `change-id` header sits alongside standard git headers (tree, parent,
+author, committer). The value is the full reverse-hex encoding of the
+change ID — jj's short form (`mkoooktqrrqp`) is a 12-char prefix of
+the full value (`mkoooktqrrqpllrkwxvosunuywplqsyq`).
+
+### Preservation guarantees
+
+From the [jj Git compatibility docs](https://jj-vcs.github.io/jj/latest/git-compatibility/):
+
+> Change IDs are stored in git commit headers as reverse hex encodings.
+> This is a non-standard header and is not preserved by all git tooling.
+> For example, the header is preserved by a `git commit --amend`, but is
+> not preserved through a rebase operation. GitHub and other major forges
+> seem to preserve them for the most part.
+
+**What preserves change IDs:**
+- `git push` / `git fetch` / `git clone` — the header is part of the
+  commit object, transferred as-is
+- `git commit --amend` — preserves non-standard headers
+- GitHub / major forges — preserve them in storage and API
+
+**What can strip change IDs:**
+- `git rebase` — rewrites commits, drops non-standard headers
+- `git cherry-pick` — creates new commits without the header
+- GitHub merge-squash / rebase-merge — creates new commits server-side
+
+### Configuration
+
+Controlled by `git.write-change-id-header` (default `true` since jj 0.29.0).
+Verify with:
+
+```
+$ jj config get git.write-change-id-header
+true
+```
+
+### Implications for ochid cross-references
+
+Since our ochid trailers reference change IDs in the *other* repo, the
+cross-references are only as stable as the change-id headers in both repos.
+A regular `git push` to GitHub and `git clone` back will preserve them,
+but any git tooling that rewrites commits could break the chain.

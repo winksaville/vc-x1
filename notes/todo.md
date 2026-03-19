@@ -9,8 +9,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - fix ochid in in both repos, since the bot won't be able to change it's own repo
-   we may want to add a sub-command to fix them programmatically, likely less errors.
+ - Run fix-ochid on both repos to fix ochid trailers (use --fallback for lost IDs)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -33,6 +32,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Disperse CLI parsing tests from main.rs into per-subcommand files (0.20.1) [19]
 - Show ochid in list output, clean up CLI help defaults (0.21.0) [19]
 - Deduplicate common CLI flags with `#[command(flatten)]` (0.21.1) [19]
+- Add fix-ochid subcommand with validation and --fallback (0.22.0) [19]
 
 
 # References

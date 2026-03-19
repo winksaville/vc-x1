@@ -2,6 +2,7 @@ mod chid;
 mod common;
 mod desc;
 mod finalize;
+mod fix_ochid;
 mod list;
 mod show;
 
@@ -29,6 +30,9 @@ pub(crate) enum Commands {
 
     /// Show commit details and diff summary
     Show(show::ShowArgs),
+
+    /// Fix ochid trailers in commit descriptions
+    FixOchid(fix_ochid::FixOchidArgs),
 
     /// Squash working copy into target commit
     Finalize(finalize::FinalizeArgs),
@@ -61,6 +65,13 @@ fn main() -> ExitCode {
         }
         Commands::Show(args) => {
             if let Err(e) = show::show(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::FixOchid(args) => {
+            if let Err(e) = fix_ochid::fix_ochid(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
