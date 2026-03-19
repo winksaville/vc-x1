@@ -11,7 +11,7 @@ A markdown list of task to do in the near feature
 
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
- - Add integration tests for `finalize` subcommand using temp jj repos (tempfile crate)
+ - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
  - Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
 
 ## Done
@@ -28,10 +28,13 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Unify `..` notation and CLI across all subcommands (0.19.0) [18]
 - Reorganize notes: move older done items to done.md (0.19.1)
 - Multi-repo `-R` support with `-l`/`--label` and `-L`/`--no-label` for chid, desc, list, show (0.20.0) [18]
+- Disperse CLI parsing tests from main.rs into per-subcommand files (0.20.1)
 
 
 # References
 
+[4]: /notes/chores-01.md#refactor-and-add-desc-subcommand
+[5]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2
 [14]: /notes/chores-01.md#bold-primary-revision-in-output-0150
 [15]: /notes/chores-01.md#indent-desc-body-lines-0160
 [16]: /notes/chores-01.md#finalize-detach-and-manual-recovery-0170

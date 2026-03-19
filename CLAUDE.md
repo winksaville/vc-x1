@@ -73,6 +73,18 @@ Before proposing a commit, run all of the following and fix any issues:
 4. `cargo install --path .` (if applicable)
 5. Retest after install
 
+## ochid Trailers
+
+Every commit body must include an `ochid:` trailer pointing to the
+counterpart commit in the other repo. The value is a workspace-root-relative
+path followed by the changeID:
+
+- App repo commits point to `.claude`: `ochid: /.claude/<changeID>`
+- Bot session commits point to app repo: `ochid: /<changeID>`
+
+Use `vc-x1 chid -R .,.claude -L` to get both changeIDs (first line
+is app repo, second is `.claude`).
+
 ## Session End Workflows
 
 When the user asks to "commit both repos" or says they're done, commit

@@ -68,3 +68,83 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use clap::Parser;
+
+    use crate::{Cli, Commands};
+
+    fn parse(args: &[&str]) -> super::DescArgs {
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::Desc(a) => a,
+            _ => panic!("expected Desc"),
+        }
+    }
+
+    #[test]
+    fn defaults() {
+        let args = parse(&["vc-x1", "desc"]);
+        assert_eq!(args.revision, "@");
+        assert!(args.repos.is_empty());
+    }
+
+    #[test]
+    fn with_revision() {
+        let args = parse(&["vc-x1", "desc", "-r", "wmuxkqwu"]);
+        assert_eq!(args.revision, "wmuxkqwu");
+    }
+
+    #[test]
+    fn with_repo() {
+        let args = parse(&["vc-x1", "desc", "-R", "/tmp"]);
+        assert_eq!(args.repos, vec![PathBuf::from("/tmp")]);
+    }
+
+    #[test]
+    fn with_limit() {
+        let args = parse(&["vc-x1", "desc", "-n", "3"]);
+        assert_eq!(args.limit, Some(3));
+    }
+
+    #[test]
+    fn positional_rev() {
+        let args = parse(&["vc-x1", "desc", "@-"]);
+        assert_eq!(args.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.pos_count, None);
+    }
+
+    #[test]
+    fn positional_rev_and_count() {
+        let args = parse(&["vc-x1", "desc", "@..", "5"]);
+        assert_eq!(args.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.pos_count, Some(5));
+    }
+
+    #[test]
+    fn positional_both_dots() {
+        let args = parse(&["vc-x1", "desc", "..abcd..", "3"]);
+        assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+        assert_eq!(args.pos_count, Some(3));
+    }
+
+    #[test]
+    fn all_opts() {
+        let args = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-n", "5"]);
+        assert_eq!(args.revision, "@-");
+        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.limit, Some(5));
+    }
+
+    #[test]
+    fn multi_repo() {
+        let args = parse(&["vc-x1", "desc", "-R", ".", "-R", ".claude"]);
+        assert_eq!(
+            args.repos,
+            vec![PathBuf::from("."), PathBuf::from(".claude")]
+        );
+    }
+}

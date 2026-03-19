@@ -67,3 +67,104 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use clap::Parser;
+
+    use crate::{Cli, Commands};
+
+    fn parse(args: &[&str]) -> super::ChidArgs {
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::Chid(a) => a,
+            _ => panic!("expected Chid"),
+        }
+    }
+
+    #[test]
+    fn defaults() {
+        let args = parse(&["vc-x1", "chid"]);
+        assert_eq!(args.revision, "@");
+        assert!(args.repos.is_empty());
+        assert_eq!(args.limit, None);
+    }
+
+    #[test]
+    fn with_revision() {
+        let args = parse(&["vc-x1", "chid", "-r", "@-"]);
+        assert_eq!(args.revision, "@-");
+    }
+
+    #[test]
+    fn with_repo() {
+        let args = parse(&["vc-x1", "chid", "-R", ".claude"]);
+        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+    }
+
+    #[test]
+    fn with_limit() {
+        let args = parse(&["vc-x1", "chid", "-n", "5"]);
+        assert_eq!(args.limit, Some(5));
+    }
+
+    #[test]
+    fn all_opts() {
+        let args = parse(&["vc-x1", "chid", "-r", "@--", "-R", ".claude", "-n", "3"]);
+        assert_eq!(args.revision, "@--");
+        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.limit, Some(3));
+    }
+
+    #[test]
+    fn multi_repo() {
+        let args = parse(&["vc-x1", "chid", "-R", ".", "-R", ".claude"]);
+        assert_eq!(
+            args.repos,
+            vec![PathBuf::from("."), PathBuf::from(".claude")]
+        );
+    }
+
+    #[test]
+    fn comma_repo() {
+        let args = parse(&["vc-x1", "chid", "-R", ".,.claude"]);
+        assert_eq!(args.repos, vec![PathBuf::from(".,.claude")]);
+    }
+
+    #[test]
+    fn label() {
+        let args = parse(&["vc-x1", "chid", "-l", "==="]);
+        assert_eq!(args.label, Some("===".to_string()));
+        assert!(!args.no_label);
+    }
+
+    #[test]
+    fn no_label() {
+        let args = parse(&["vc-x1", "chid", "-L"]);
+        assert!(args.no_label);
+        assert_eq!(args.label, None);
+    }
+
+    #[test]
+    fn positional_rev() {
+        let args = parse(&["vc-x1", "chid", "@-"]);
+        assert_eq!(args.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.pos_count, None);
+    }
+
+    #[test]
+    fn positional_rev_and_count() {
+        let args = parse(&["vc-x1", "chid", "@..", "5"]);
+        assert_eq!(args.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.pos_count, Some(5));
+    }
+
+    #[test]
+    fn positional_both_dots() {
+        let args = parse(&["vc-x1", "chid", "..abcd..", "3"]);
+        assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+        assert_eq!(args.pos_count, Some(3));
+    }
+}

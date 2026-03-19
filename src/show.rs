@@ -365,3 +365,95 @@ fn file_type_str_from_merged(merged: &jj_lib::merge::Merge<Option<TreeValue>>) -
         "file"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use clap::Parser;
+
+    use crate::{Cli, Commands};
+
+    fn parse(args: &[&str]) -> super::ShowArgs {
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::Show(a) => a,
+            _ => panic!("expected Show"),
+        }
+    }
+
+    #[test]
+    fn defaults() {
+        let args = parse(&["vc-x1", "show"]);
+        assert_eq!(args.revision, "@");
+        assert!(args.repos.is_empty());
+        assert_eq!(args.files, "50");
+        assert_eq!(args.pos_rev, None);
+        assert_eq!(args.pos_count, None);
+        assert_eq!(args.limit, None);
+    }
+
+    #[test]
+    fn with_revision() {
+        let args = parse(&["vc-x1", "show", "-r", "@-"]);
+        assert_eq!(args.revision, "@-");
+    }
+
+    #[test]
+    fn with_repo() {
+        let args = parse(&["vc-x1", "show", "-R", ".claude"]);
+        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+    }
+
+    #[test]
+    fn positional_rev() {
+        let args = parse(&["vc-x1", "show", "@-"]);
+        assert_eq!(args.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.pos_count, None);
+    }
+
+    #[test]
+    fn positional_rev_and_count() {
+        let args = parse(&["vc-x1", "show", "@..", "3"]);
+        assert_eq!(args.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.pos_count, Some(3));
+    }
+
+    #[test]
+    fn with_file_limit_flag() {
+        let args = parse(&["vc-x1", "show", "-f", "0"]);
+        assert_eq!(args.files, "0");
+    }
+
+    #[test]
+    fn with_file_limit_all() {
+        let args = parse(&["vc-x1", "show", "-f", "all"]);
+        assert_eq!(args.files, "all");
+    }
+
+    #[test]
+    fn with_commit_limit() {
+        let args = parse(&["vc-x1", "show", "-n", "5"]);
+        assert_eq!(args.limit, Some(5));
+    }
+
+    #[test]
+    fn all_opts() {
+        let args = parse(&[
+            "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-n", "3",
+        ]);
+        assert_eq!(args.revision, "@--");
+        assert_eq!(args.repos, vec![PathBuf::from("/tmp")]);
+        assert_eq!(args.files, "100");
+        assert_eq!(args.limit, Some(3));
+    }
+
+    #[test]
+    fn multi_repo() {
+        let args = parse(&["vc-x1", "show", "-R", ".", "-R", ".claude"]);
+        assert_eq!(
+            args.repos,
+            vec![PathBuf::from("."), PathBuf::from(".claude")]
+        );
+    }
+}

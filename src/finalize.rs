@@ -244,9 +244,99 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
-    use crate::Cli;
+    use crate::{Cli, Commands};
     use clap::Parser;
+
+    fn parse(args: &[&str]) -> FinalizeArgs {
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::Finalize(a) => a,
+            _ => panic!("expected Finalize"),
+        }
+    }
+
+    fn parse_err(args: &[&str]) -> String {
+        Cli::try_parse_from(args).unwrap_err().to_string()
+    }
+
+    #[test]
+    fn defaults() {
+        let args = parse(&["vc-x1", "finalize", "--bookmark", "main"]);
+        assert_eq!(args.repo, PathBuf::from("."));
+        assert_eq!(args.source, "@");
+        assert_eq!(args.target, "@-");
+        assert_eq!(args.bookmark, "main");
+        assert_eq!(args.delay, 10.0);
+        assert!(!args.push);
+        assert!(!args.detach);
+    }
+
+    #[test]
+    fn all_opts() {
+        let args = parse(&[
+            "vc-x1",
+            "finalize",
+            "--repo",
+            ".claude",
+            "--source",
+            "@",
+            "--target",
+            "@-",
+            "--bookmark",
+            "dev-0.14.0",
+            "--delay",
+            "2.5",
+            "--push",
+            "--log",
+            "/tmp/test.log",
+            "--detach",
+        ]);
+        assert_eq!(args.repo, PathBuf::from(".claude"));
+        assert_eq!(args.source, "@");
+        assert_eq!(args.target, "@-");
+        assert_eq!(args.bookmark, "dev-0.14.0");
+        assert_eq!(args.delay, 2.5);
+        assert!(args.push);
+        assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
+        assert!(args.detach);
+    }
+
+    #[test]
+    fn partial_opts() {
+        let args = parse(&[
+            "vc-x1",
+            "finalize",
+            "--bookmark",
+            "main",
+            "--repo",
+            ".claude",
+            "--push",
+        ]);
+        assert_eq!(args.repo, PathBuf::from(".claude"));
+        assert_eq!(args.bookmark, "main");
+        assert!(args.push);
+    }
+
+    #[test]
+    fn missing_bookmark() {
+        let err = parse_err(&["vc-x1", "finalize"]);
+        assert!(err.contains("--bookmark"));
+    }
+
+    #[test]
+    fn bad_delay() {
+        let err = parse_err(&["vc-x1", "finalize", "--delay", "abc"]);
+        assert!(err.contains("invalid value"));
+    }
+
+    #[test]
+    fn unknown_opt() {
+        let err = parse_err(&["vc-x1", "finalize", "--bogus"]);
+        assert!(err.contains("--bogus"));
+    }
 
     #[test]
     fn build_exec_args_roundtrip() {

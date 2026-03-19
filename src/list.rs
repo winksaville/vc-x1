@@ -67,3 +67,84 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use clap::Parser;
+
+    use crate::{Cli, Commands};
+
+    fn parse(args: &[&str]) -> super::ListArgs {
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::List(a) => a,
+            _ => panic!("expected List"),
+        }
+    }
+
+    #[test]
+    fn defaults() {
+        let args = parse(&["vc-x1", "list"]);
+        assert_eq!(args.revision, "@");
+        assert!(args.repos.is_empty());
+        assert!(args.limit.is_none());
+    }
+
+    #[test]
+    fn with_revision() {
+        let args = parse(&["vc-x1", "list", "-r", "@-"]);
+        assert_eq!(args.revision, "@-");
+    }
+
+    #[test]
+    fn with_repo() {
+        let args = parse(&["vc-x1", "list", "-R", "/some/path"]);
+        assert_eq!(args.repos, vec![PathBuf::from("/some/path")]);
+    }
+
+    #[test]
+    fn with_limit() {
+        let args = parse(&["vc-x1", "list", "-n", "5"]);
+        assert_eq!(args.limit, Some(5));
+    }
+
+    #[test]
+    fn all_opts() {
+        let args = parse(&["vc-x1", "list", "-r", "all()", "-R", ".claude", "-n", "10"]);
+        assert_eq!(args.revision, "all()");
+        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.limit, Some(10));
+    }
+
+    #[test]
+    fn multi_repo() {
+        let args = parse(&["vc-x1", "list", "-R", ".", "-R", ".claude"]);
+        assert_eq!(
+            args.repos,
+            vec![PathBuf::from("."), PathBuf::from(".claude")]
+        );
+    }
+
+    #[test]
+    fn positional_rev() {
+        let args = parse(&["vc-x1", "list", "@-"]);
+        assert_eq!(args.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.pos_count, None);
+    }
+
+    #[test]
+    fn positional_rev_and_count() {
+        let args = parse(&["vc-x1", "list", "@..", "5"]);
+        assert_eq!(args.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.pos_count, Some(5));
+    }
+
+    #[test]
+    fn positional_both_dots() {
+        let args = parse(&["vc-x1", "list", "..abcd..", "3"]);
+        assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
+        assert_eq!(args.pos_count, Some(3));
+    }
+}
