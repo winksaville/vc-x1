@@ -461,3 +461,11 @@ to common.rs. Also clean up CLI help: remove duplicate manual defaults from
 doc comments (clap shows `[default: ...]` automatically), use `default_value`
 for `--label`, and simplify `Header` enum from three variants to two
 (`Label(String)` and `None`).
+
+### 0.21.1 — Deduplicate common CLI flags
+
+Extract shared CLI args (pos_rev, pos_count, revision, repos, limit, label,
+no_label) into `CommonArgs` struct in common.rs using clap `#[command(flatten)]`.
+All four read-only subcommands (chid, desc, list, show) flatten it; list adds
+`width`, show adds `files`. Eliminates ~30 lines of duplicated arg definitions
+per subcommand. Tests updated to access fields via `.common`.

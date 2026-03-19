@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::Args;
 use jj_lib::repo::Repo;
 
@@ -7,39 +5,8 @@ use crate::common;
 
 #[derive(Args, Debug)]
 pub struct ListArgs {
-    /// Revision (with optional .. notation)
-    #[arg(value_name = "REVISION")]
-    pub pos_rev: Option<String>,
-
-    /// Number of commits to show (per dotted side)
-    #[arg(value_name = "COMMITS")]
-    pub pos_count: Option<usize>,
-
-    /// Revision to list
-    #[arg(short, long, default_value = "@")]
-    pub revision: String,
-
-    /// Path to jj repo; repeatable or comma-separated [default: .]
-    #[arg(short = 'R', long = "repo", value_name = "PATH")]
-    pub repos: Vec<PathBuf>,
-
-    /// Number of commits to show
-    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
-    pub limit: Option<usize>,
-
-    /// Custom label decoration between repos
-    #[arg(
-        short = 'l',
-        long = "label",
-        value_name = "TEXT",
-        allow_hyphen_values = true,
-        default_value = "==="
-    )]
-    pub label: String,
-
-    /// Suppress label between repos
-    #[arg(short = 'L', long = "no-label")]
-    pub no_label: bool,
+    #[command(flatten)]
+    pub common: common::CommonArgs,
 
     /// ochid column width
     #[arg(short = 'w', long = "width", default_value_t = DEFAULT_OCHID_WIDTH)]
@@ -49,16 +16,11 @@ pub struct ListArgs {
 const DEFAULT_OCHID_WIDTH: usize = 21;
 
 pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let spec = common::resolve_spec(
-        args.pos_rev.as_deref(),
-        args.pos_count,
-        &args.revision,
-        args.limit,
-        "@",
-    );
-    let hdr = common::resolve_header(&args.label, args.no_label);
+    let c = &args.common;
+    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
+    let hdr = common::resolve_header(&c.label, c.no_label);
 
-    common::for_each_repo(&args.repos, &hdr, |workspace, repo| {
+    common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
         let (ids, anchor_index) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
@@ -94,42 +56,43 @@ mod tests {
     #[test]
     fn defaults() {
         let args = parse(&["vc-x1", "list"]);
-        assert_eq!(args.revision, "@");
-        assert!(args.repos.is_empty());
-        assert!(args.limit.is_none());
+        assert_eq!(args.common.revision, "@");
+        assert!(args.common.repos.is_empty());
+        assert!(args.common.limit.is_none());
+        assert_eq!(args.width, super::DEFAULT_OCHID_WIDTH);
     }
 
     #[test]
     fn with_revision() {
         let args = parse(&["vc-x1", "list", "-r", "@-"]);
-        assert_eq!(args.revision, "@-");
+        assert_eq!(args.common.revision, "@-");
     }
 
     #[test]
     fn with_repo() {
         let args = parse(&["vc-x1", "list", "-R", "/some/path"]);
-        assert_eq!(args.repos, vec![PathBuf::from("/some/path")]);
+        assert_eq!(args.common.repos, vec![PathBuf::from("/some/path")]);
     }
 
     #[test]
     fn with_limit() {
         let args = parse(&["vc-x1", "list", "-n", "5"]);
-        assert_eq!(args.limit, Some(5));
+        assert_eq!(args.common.limit, Some(5));
     }
 
     #[test]
     fn all_opts() {
         let args = parse(&["vc-x1", "list", "-r", "all()", "-R", ".claude", "-n", "10"]);
-        assert_eq!(args.revision, "all()");
-        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
-        assert_eq!(args.limit, Some(10));
+        assert_eq!(args.common.revision, "all()");
+        assert_eq!(args.common.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.common.limit, Some(10));
     }
 
     #[test]
     fn multi_repo() {
         let args = parse(&["vc-x1", "list", "-R", ".", "-R", ".claude"]);
         assert_eq!(
-            args.repos,
+            args.common.repos,
             vec![PathBuf::from("."), PathBuf::from(".claude")]
         );
     }
@@ -137,21 +100,27 @@ mod tests {
     #[test]
     fn positional_rev() {
         let args = parse(&["vc-x1", "list", "@-"]);
-        assert_eq!(args.pos_rev, Some("@-".to_string()));
-        assert_eq!(args.pos_count, None);
+        assert_eq!(args.common.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.common.pos_count, None);
     }
 
     #[test]
     fn positional_rev_and_count() {
         let args = parse(&["vc-x1", "list", "@..", "5"]);
-        assert_eq!(args.pos_rev, Some("@..".to_string()));
-        assert_eq!(args.pos_count, Some(5));
+        assert_eq!(args.common.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.common.pos_count, Some(5));
     }
 
     #[test]
     fn positional_both_dots() {
         let args = parse(&["vc-x1", "list", "..abcd..", "3"]);
-        assert_eq!(args.pos_rev, Some("..abcd..".to_string()));
-        assert_eq!(args.pos_count, Some(3));
+        assert_eq!(args.common.pos_rev, Some("..abcd..".to_string()));
+        assert_eq!(args.common.pos_count, Some(3));
+    }
+
+    #[test]
+    fn custom_width() {
+        let args = parse(&["vc-x1", "list", "-w", "30"]);
+        assert_eq!(args.width, 30);
     }
 }

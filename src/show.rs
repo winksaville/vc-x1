@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use chrono::Offset;
@@ -40,58 +39,22 @@ impl FileLimit {
 
 #[derive(Args, Debug)]
 pub struct ShowArgs {
-    /// Revision (with optional .. notation)
-    #[arg(value_name = "REVISION")]
-    pub pos_rev: Option<String>,
-
-    /// Number of commits to show (per dotted side)
-    #[arg(value_name = "COMMITS")]
-    pub pos_count: Option<usize>,
-
-    /// Revision to show
-    #[arg(short, long, default_value = "@")]
-    pub revision: String,
+    #[command(flatten)]
+    pub common: common::CommonArgs,
 
     /// Max changed files: number, 0 (none), or 'all'
     #[arg(short = 'f', long = "files", default_value = "50")]
     pub files: String,
-
-    /// Number of commits to show
-    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
-    pub limit: Option<usize>,
-
-    /// Path to jj repo; repeatable or comma-separated [default: .]
-    #[arg(short = 'R', long = "repo", value_name = "PATH")]
-    pub repos: Vec<PathBuf>,
-
-    /// Custom label decoration between repos
-    #[arg(
-        short = 'l',
-        long = "label",
-        value_name = "TEXT",
-        allow_hyphen_values = true,
-        default_value = "==="
-    )]
-    pub label: String,
-
-    /// Suppress label between repos
-    #[arg(short = 'L', long = "no-label")]
-    pub no_label: bool,
 }
 
 pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
     let file_limit = FileLimit::parse(&args.files)?;
+    let c = &args.common;
 
-    let spec = common::resolve_spec(
-        args.pos_rev.as_deref(),
-        args.pos_count,
-        &args.revision,
-        args.limit,
-        "@",
-    );
-    let hdr = common::resolve_header(&args.label, args.no_label);
+    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
+    let hdr = common::resolve_header(&c.label, c.no_label);
 
-    common::for_each_repo(&args.repos, &hdr, |workspace, repo| {
+    common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
         let (ids, anchor_index) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
@@ -386,38 +349,38 @@ mod tests {
     #[test]
     fn defaults() {
         let args = parse(&["vc-x1", "show"]);
-        assert_eq!(args.revision, "@");
-        assert!(args.repos.is_empty());
+        assert_eq!(args.common.revision, "@");
+        assert!(args.common.repos.is_empty());
         assert_eq!(args.files, "50");
-        assert_eq!(args.pos_rev, None);
-        assert_eq!(args.pos_count, None);
-        assert_eq!(args.limit, None);
+        assert_eq!(args.common.pos_rev, None);
+        assert_eq!(args.common.pos_count, None);
+        assert_eq!(args.common.limit, None);
     }
 
     #[test]
     fn with_revision() {
         let args = parse(&["vc-x1", "show", "-r", "@-"]);
-        assert_eq!(args.revision, "@-");
+        assert_eq!(args.common.revision, "@-");
     }
 
     #[test]
     fn with_repo() {
         let args = parse(&["vc-x1", "show", "-R", ".claude"]);
-        assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.common.repos, vec![PathBuf::from(".claude")]);
     }
 
     #[test]
     fn positional_rev() {
         let args = parse(&["vc-x1", "show", "@-"]);
-        assert_eq!(args.pos_rev, Some("@-".to_string()));
-        assert_eq!(args.pos_count, None);
+        assert_eq!(args.common.pos_rev, Some("@-".to_string()));
+        assert_eq!(args.common.pos_count, None);
     }
 
     #[test]
     fn positional_rev_and_count() {
         let args = parse(&["vc-x1", "show", "@..", "3"]);
-        assert_eq!(args.pos_rev, Some("@..".to_string()));
-        assert_eq!(args.pos_count, Some(3));
+        assert_eq!(args.common.pos_rev, Some("@..".to_string()));
+        assert_eq!(args.common.pos_count, Some(3));
     }
 
     #[test]
@@ -435,7 +398,7 @@ mod tests {
     #[test]
     fn with_commit_limit() {
         let args = parse(&["vc-x1", "show", "-n", "5"]);
-        assert_eq!(args.limit, Some(5));
+        assert_eq!(args.common.limit, Some(5));
     }
 
     #[test]
@@ -443,17 +406,17 @@ mod tests {
         let args = parse(&[
             "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-n", "3",
         ]);
-        assert_eq!(args.revision, "@--");
-        assert_eq!(args.repos, vec![PathBuf::from("/tmp")]);
+        assert_eq!(args.common.revision, "@--");
+        assert_eq!(args.common.repos, vec![PathBuf::from("/tmp")]);
         assert_eq!(args.files, "100");
-        assert_eq!(args.limit, Some(3));
+        assert_eq!(args.common.limit, Some(3));
     }
 
     #[test]
     fn multi_repo() {
         let args = parse(&["vc-x1", "show", "-R", ".", "-R", ".claude"]);
         assert_eq!(
-            args.repos,
+            args.common.repos,
             vec![PathBuf::from("."), PathBuf::from(".claude")]
         );
     }
