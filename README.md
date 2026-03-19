@@ -84,6 +84,99 @@ vc-x1 list ..x.. 1          # just x (1 commit)
 Named flags `-r`/`--revision`, `-n`/`--commits`, and `-R`/`--repo`
 take precedence over positional arguments.
 
+### Multi-repo queries
+
+The `-R`/`--repo` flag can be repeated or comma-separated to query
+multiple repos at once. When multiple repos are given, output is
+labeled with bold `=== path ===` headers by default:
+
+```
+vc-x1 chid -R . -R .claude      # repeated flag
+vc-x1 chid -R .,.claude         # comma-separated
+vc-x1 list @.. 3 -R .,.claude   # works with all read-only subcommands
+```
+
+Control the label between repos with `-l`/`--label` and `-L`/`--no-label`:
+
+```
+vc-x1 chid -R .,.claude            # default label: === path ===
+vc-x1 chid -R .,.claude -l "---"   # custom label:  --- path ---
+vc-x1 chid -R .,.claude -L         # no label (raw output)
+```
+
+Examples:
+
+```
+$ vc-x1 chid -R . -R .claude
+=== . ===
+kwoyvposvsmv
+
+=== .claude ===
+zzpksklxyrnw
+
+$ vc-x1 chid -R . -R .claude -L
+kwoyvposvsmv
+zzpksklxyrnw
+
+$ vc-x1 chid -R .,.claude
+=== . ===
+kwoyvposvsmv
+
+=== .claude ===
+zzpksklxyrnw
+
+$ vc-x1 chid -R .,.claude -L
+kwoyvposvsmv
+zzpksklxyrnw
+
+$ vc-x1 list @.. 3 -R .,.claude
+=== . ===
+kwoyvposvsmv eae175c3c1b5 (no description set)
+pqxtxxpnsmot b0c46930a640 Reorganize notes (0.19.1)
+ssokyszzwsxw eeb15bc6d839 Unify .. notation and CLI (0.19.0)
+
+=== .claude ===
+zzpksklxyrnw 2388185e42ee (no description set)
+tzupykyyvnrp 81ce22e34d41 Reorganize notes (0.19.1)
+slmkmroqtqtp 1c33ccaa567d Unify .. notation and CLI (0.19.0)
+
+$ vc-x1 chid -R .,.claude -L
+kwoyvposvsmv
+zzpksklxyrnw
+
+$ vc-x1 desc -r @- -R .,.claude
+=== . ===
+pqxtxxpnsmot b0c46930a640 Reorganize notes: move older done items to done.md, update todos (0.19.1)
+
+    Move completed items [1]-[13] and their references from todo.md to done.md.
+    Replace completed jj-organization todo with new items.
+
+    ochid: tzupykyyvnrp
+
+=== .claude ===
+tzupykyyvnrp 81ce22e34d41 Reorganize notes: move older done items to done.md, update todos (0.19.1)
+
+    Session: reviewed and committed notes reorganization for 0.19.1.
+
+    ochid: pqxtxxpnsmot
+
+$ vc-x1 chid -R .,.claude -l "---"
+--- . ---
+kwoyvposvsmv
+
+--- .claude ---
+zzpksklxyrnw
+```
+
+Most decoration strings work unquoted (`---`, `===`, `>>>`, `:::`,
+`+++`). Use single quotes for strings containing shell metacharacters
+like `*`, `!`, `#`, `$`, or `~` (e.g. `-l '***'`). Double quotes
+won't protect against `!` (bash history expansion).
+
+With a single repo (or no `-R`), no label is printed — backward
+compatible with previous behavior. Multi-repo is supported for
+`chid`, `desc`, `list`, and `show`. `finalize` remains single-repo.
+
 ### finalize
 
 Solves the session repo coherence problem: when the bot commits `.claude`,

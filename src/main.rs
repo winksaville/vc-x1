@@ -103,7 +103,7 @@ mod tests {
         let cli = parse(&["vc-x1", "chid"]);
         if let Commands::Chid(args) = cli.command {
             assert_eq!(args.revision, "@");
-            assert_eq!(args.repo, PathBuf::from("."));
+            assert!(args.repos.is_empty());
             assert_eq!(args.limit, None);
         } else {
             panic!("expected Chid");
@@ -124,7 +124,7 @@ mod tests {
     fn chid_with_repo() {
         let cli = parse(&["vc-x1", "chid", "-R", ".claude"]);
         if let Commands::Chid(args) = cli.command {
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
         } else {
             panic!("expected Chid");
         }
@@ -142,11 +142,56 @@ mod tests {
 
     #[test]
     fn chid_all_opts() {
-        let cli = parse(&["vc-x1", "chid", "-r", "@--", "-R", ".claude", "-l", "3"]);
+        let cli = parse(&["vc-x1", "chid", "-r", "@--", "-R", ".claude", "-n", "3"]);
         if let Commands::Chid(args) = cli.command {
             assert_eq!(args.revision, "@--");
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
             assert_eq!(args.limit, Some(3));
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_multi_repo() {
+        let cli = parse(&["vc-x1", "chid", "-R", ".", "-R", ".claude"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(
+                args.repos,
+                vec![PathBuf::from("."), PathBuf::from(".claude")]
+            );
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_comma_repo() {
+        let cli = parse(&["vc-x1", "chid", "-R", ".,.claude"]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.repos, vec![PathBuf::from(".,.claude")]);
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_label() {
+        let cli = parse(&["vc-x1", "chid", "-l", "==="]);
+        if let Commands::Chid(args) = cli.command {
+            assert_eq!(args.label, Some("===".to_string()));
+            assert!(!args.no_label);
+        } else {
+            panic!("expected Chid");
+        }
+    }
+
+    #[test]
+    fn chid_no_label() {
+        let cli = parse(&["vc-x1", "chid", "-L"]);
+        if let Commands::Chid(args) = cli.command {
+            assert!(args.no_label);
+            assert_eq!(args.label, None);
         } else {
             panic!("expected Chid");
         }
@@ -190,7 +235,7 @@ mod tests {
         let cli = parse(&["vc-x1", "desc"]);
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@");
-            assert_eq!(args.repo, PathBuf::from("."));
+            assert!(args.repos.is_empty());
         } else {
             panic!("expected Desc");
         }
@@ -210,7 +255,7 @@ mod tests {
     fn desc_with_repo() {
         let cli = parse(&["vc-x1", "desc", "-R", "/tmp"]);
         if let Commands::Desc(args) = cli.command {
-            assert_eq!(args.repo, PathBuf::from("/tmp"));
+            assert_eq!(args.repos, vec![PathBuf::from("/tmp")]);
         } else {
             panic!("expected Desc");
         }
@@ -261,11 +306,24 @@ mod tests {
 
     #[test]
     fn desc_all_opts() {
-        let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-l", "5"]);
+        let cli = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-n", "5"]);
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.revision, "@-");
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
             assert_eq!(args.limit, Some(5));
+        } else {
+            panic!("expected Desc");
+        }
+    }
+
+    #[test]
+    fn desc_multi_repo() {
+        let cli = parse(&["vc-x1", "desc", "-R", ".", "-R", ".claude"]);
+        if let Commands::Desc(args) = cli.command {
+            assert_eq!(
+                args.repos,
+                vec![PathBuf::from("."), PathBuf::from(".claude")]
+            );
         } else {
             panic!("expected Desc");
         }
@@ -276,7 +334,7 @@ mod tests {
         let cli = parse(&["vc-x1", "list"]);
         if let Commands::List(args) = cli.command {
             assert_eq!(args.revision, "@");
-            assert_eq!(args.repo, PathBuf::from("."));
+            assert!(args.repos.is_empty());
             assert!(args.limit.is_none());
         } else {
             panic!("expected List");
@@ -297,7 +355,7 @@ mod tests {
     fn list_with_repo() {
         let cli = parse(&["vc-x1", "list", "-R", "/some/path"]);
         if let Commands::List(args) = cli.command {
-            assert_eq!(args.repo, PathBuf::from("/some/path"));
+            assert_eq!(args.repos, vec![PathBuf::from("/some/path")]);
         } else {
             panic!("expected List");
         }
@@ -315,11 +373,24 @@ mod tests {
 
     #[test]
     fn list_all_opts() {
-        let cli = parse(&["vc-x1", "list", "-r", "all()", "-R", ".claude", "-l", "10"]);
+        let cli = parse(&["vc-x1", "list", "-r", "all()", "-R", ".claude", "-n", "10"]);
         if let Commands::List(args) = cli.command {
             assert_eq!(args.revision, "all()");
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
             assert_eq!(args.limit, Some(10));
+        } else {
+            panic!("expected List");
+        }
+    }
+
+    #[test]
+    fn list_multi_repo() {
+        let cli = parse(&["vc-x1", "list", "-R", ".", "-R", ".claude"]);
+        if let Commands::List(args) = cli.command {
+            assert_eq!(
+                args.repos,
+                vec![PathBuf::from("."), PathBuf::from(".claude")]
+            );
         } else {
             panic!("expected List");
         }
@@ -363,7 +434,7 @@ mod tests {
         let cli = parse(&["vc-x1", "show"]);
         if let Commands::Show(args) = cli.command {
             assert_eq!(args.revision, "@");
-            assert_eq!(args.repo, PathBuf::from("."));
+            assert!(args.repos.is_empty());
             assert_eq!(args.files, "50");
             assert_eq!(args.pos_rev, None);
             assert_eq!(args.pos_count, None);
@@ -387,7 +458,7 @@ mod tests {
     fn show_with_repo() {
         let cli = parse(&["vc-x1", "show", "-R", ".claude"]);
         if let Commands::Show(args) = cli.command {
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repos, vec![PathBuf::from(".claude")]);
         } else {
             panic!("expected Show");
         }
@@ -448,13 +519,26 @@ mod tests {
     #[test]
     fn show_all_opts() {
         let cli = parse(&[
-            "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-l", "3",
+            "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-n", "3",
         ]);
         if let Commands::Show(args) = cli.command {
             assert_eq!(args.revision, "@--");
-            assert_eq!(args.repo, PathBuf::from("/tmp"));
+            assert_eq!(args.repos, vec![PathBuf::from("/tmp")]);
             assert_eq!(args.files, "100");
             assert_eq!(args.limit, Some(3));
+        } else {
+            panic!("expected Show");
+        }
+    }
+
+    #[test]
+    fn show_multi_repo() {
+        let cli = parse(&["vc-x1", "show", "-R", ".", "-R", ".claude"]);
+        if let Commands::Show(args) = cli.command {
+            assert_eq!(
+                args.repos,
+                vec![PathBuf::from("."), PathBuf::from(".claude")]
+            );
         } else {
             panic!("expected Show");
         }

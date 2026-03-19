@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use jj_lib::backend::CommitId;
@@ -254,6 +254,103 @@ pub fn collect_ids(
     result.push(anchor_id.clone());
     result.extend(anc_ids);
     Ok((result, anchor_index))
+}
+
+/// Header style between repos in multi-repo output.
+#[derive(Debug, Clone)]
+pub enum Header {
+    /// Bold `==> path <==` header per repo (default).
+    Default,
+    /// Custom decoration: `deco path deco`.
+    Custom(String),
+    /// No header at all.
+    None,
+}
+
+/// Resolve `-s` / `-S` flags into a `Header`.
+///
+/// `-S` (no header) takes precedence over `-s` (custom decoration).
+pub fn resolve_header(custom: &Option<String>, suppress: bool) -> Header {
+    if suppress {
+        Header::None
+    } else if let Some(s) = custom {
+        Header::Custom(s.clone())
+    } else {
+        Header::Default
+    }
+}
+
+/// Expand comma-separated repo paths, default to `["."]`, and run a closure for each.
+///
+/// Header style controls output between repos.
+/// Continues past errors, printing them to stderr, and returns an error if any failed.
+pub fn for_each_repo<F>(
+    raw_repos: &[PathBuf],
+    header: &Header,
+    mut body: F,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: FnMut(&Workspace, &Arc<ReadonlyRepo>) -> Result<(), Box<dyn std::error::Error>>,
+{
+    let repos: Vec<PathBuf> = if raw_repos.is_empty() {
+        vec![PathBuf::from(".")]
+    } else {
+        raw_repos
+            .iter()
+            .flat_map(|p| {
+                p.to_string_lossy()
+                    .split(',')
+                    .map(|s| PathBuf::from(s.trim()))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    };
+    let multi = repos.len() > 1;
+    let mut first = true;
+    let mut errors: Vec<String> = Vec::new();
+
+    for repo_path in &repos {
+        if multi {
+            match header {
+                Header::Default => {
+                    if !first {
+                        println!();
+                    }
+                    println!("{}", bold(&format!("=== {} ===", repo_path.display())));
+                }
+                Header::Custom(deco) => {
+                    if !first {
+                        println!();
+                    }
+                    println!(
+                        "{}",
+                        bold(&format!("{deco} {} {deco}", repo_path.display()))
+                    );
+                }
+                Header::None => {}
+            }
+        }
+        first = false;
+
+        match load_repo(repo_path) {
+            Ok((workspace, repo)) => {
+                if let Err(e) = body(&workspace, &repo) {
+                    eprintln!("error ({}): {e}", repo_path.display());
+                    errors.push(format!("{}: {e}", repo_path.display()));
+                }
+            }
+            Err(e) => {
+                eprintln!("error ({}): {e}", repo_path.display());
+                errors.push(format!("{}: {e}", repo_path.display()));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} repo(s) had errors", errors.len()).into())
+    }
 }
 
 pub fn load_repo(

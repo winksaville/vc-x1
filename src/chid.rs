@@ -19,19 +19,26 @@ pub struct ChidArgs {
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
-    /// Path to jj repo (default: current directory)
-    #[arg(short = 'R', long, default_value = ".")]
-    pub repo: PathBuf,
+    /// Path to jj repo; repeatable or comma-separated (default: .)
+    #[arg(short = 'R', long = "repo", value_name = "PATH")]
+    pub repos: Vec<PathBuf>,
 
     /// Number of changeIDs to show
-    #[arg(
-        short = 'n',
-        long = "commits",
-        alias = "limit",
-        short_alias = 'l',
-        value_name = "COMMITS"
-    )]
+    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
+
+    /// Custom label decoration between repos (default: ===)
+    #[arg(
+        short = 'l',
+        long = "label",
+        value_name = "TEXT",
+        allow_hyphen_values = true
+    )]
+    pub label: Option<String>,
+
+    /// Suppress label between repos
+    #[arg(short = 'L', long = "no-label")]
+    pub no_label: bool,
 }
 
 pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -42,25 +49,21 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.limit,
         "@",
     );
+    let hdr = common::resolve_header(&args.label, args.no_label);
 
-    let (workspace, repo) = common::load_repo(&args.repo)?;
-    let (ids, anchor_index) = common::collect_ids(
-        &workspace,
-        &repo,
-        &spec.rev,
-        spec.desc_count,
-        spec.anc_count,
-    )?;
+    common::for_each_repo(&args.repos, &hdr, |workspace, repo| {
+        let (ids, anchor_index) =
+            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
-    for (i, commit_id) in ids.iter().enumerate() {
-        let commit = repo.store().get_commit(commit_id)?;
-        let line = common::format_chid(&commit);
-        if i == anchor_index {
-            println!("{}", common::bold(&line));
-        } else {
-            println!("{line}");
+        for (i, commit_id) in ids.iter().enumerate() {
+            let commit = repo.store().get_commit(commit_id)?;
+            let line = common::format_chid(&commit);
+            if i == anchor_index {
+                println!("{}", common::bold(&line));
+            } else {
+                println!("{line}");
+            }
         }
-    }
-
-    Ok(())
+        Ok(())
+    })
 }

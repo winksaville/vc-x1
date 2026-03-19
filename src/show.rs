@@ -57,24 +57,29 @@ pub struct ShowArgs {
     pub files: String,
 
     /// Number of commits to show
-    #[arg(
-        short = 'n',
-        long = "commits",
-        alias = "limit",
-        short_alias = 'l',
-        value_name = "COMMITS"
-    )]
+    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
 
-    /// Path to jj repo (default: current directory)
-    #[arg(short = 'R', long, default_value = ".")]
-    pub repo: PathBuf,
+    /// Path to jj repo; repeatable or comma-separated (default: .)
+    #[arg(short = 'R', long = "repo", value_name = "PATH")]
+    pub repos: Vec<PathBuf>,
+
+    /// Custom label decoration between repos (default: ===)
+    #[arg(
+        short = 'l',
+        long = "label",
+        value_name = "TEXT",
+        allow_hyphen_values = true
+    )]
+    pub label: Option<String>,
+
+    /// Suppress label between repos
+    #[arg(short = 'L', long = "no-label")]
+    pub no_label: bool,
 }
 
 pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
     let file_limit = FileLimit::parse(&args.files)?;
-
-    let (workspace, repo) = common::load_repo(&args.repo)?;
 
     let spec = common::resolve_spec(
         args.pos_rev.as_deref(),
@@ -83,27 +88,24 @@ pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.limit,
         "@",
     );
+    let hdr = common::resolve_header(&args.label, args.no_label);
 
-    let (ids, anchor_index) = common::collect_ids(
-        &workspace,
-        &repo,
-        &spec.rev,
-        spec.desc_count,
-        spec.anc_count,
-    )?;
+    common::for_each_repo(&args.repos, &hdr, |workspace, repo| {
+        let (ids, anchor_index) =
+            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
-    let mut first = true;
-    for (i, commit_id) in ids.iter().enumerate() {
-        if !first {
-            println!("────────────────────────────────────────");
+        let mut first = true;
+        for (i, commit_id) in ids.iter().enumerate() {
+            if !first {
+                println!("────────────────────────────────────────");
+            }
+            first = false;
+
+            let commit = repo.store().get_commit(commit_id)?;
+            show_one_commit(&commit, workspace, repo, file_limit, i == anchor_index)?;
         }
-        first = false;
-
-        let commit = repo.store().get_commit(commit_id)?;
-        show_one_commit(&commit, &workspace, &repo, file_limit, i == anchor_index)?;
-    }
-
-    Ok(())
+        Ok(())
+    })
 }
 
 fn show_one_commit(

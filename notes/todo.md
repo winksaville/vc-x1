@@ -26,6 +26,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add show subcommand with header, bookmarks, and diff summary (0.18.0) [18]
 - Flesh out show header to match gitk, add .. notation and file limiting (0.18.1) [18]
 - Unify `..` notation and CLI across all subcommands (0.19.0) [18]
+- Reorganize notes: move older done items to done.md (0.19.1)
+- Multi-repo `-R` support with `-l`/`--label` and `-L`/`--no-label` for chid, desc, list, show (0.20.0) [18]
 
 
 # References
