@@ -15,11 +15,11 @@ pub struct ChidArgs {
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
-    /// Revision to look up (default: @)
+    /// Revision to look up
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
-    /// Path to jj repo; repeatable or comma-separated (default: .)
+    /// Path to jj repo; repeatable or comma-separated [default: .]
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repos: Vec<PathBuf>,
 
@@ -27,14 +27,15 @@ pub struct ChidArgs {
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
 
-    /// Custom label decoration between repos (default: ===)
+    /// Custom label decoration between repos
     #[arg(
         short = 'l',
         long = "label",
         value_name = "TEXT",
-        allow_hyphen_values = true
+        allow_hyphen_values = true,
+        default_value = "==="
     )]
-    pub label: Option<String>,
+    pub label: String,
 
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
@@ -134,17 +135,22 @@ mod tests {
     }
 
     #[test]
-    fn label() {
-        let args = parse(&["vc-x1", "chid", "-l", "==="]);
-        assert_eq!(args.label, Some("===".to_string()));
+    fn label_default() {
+        let args = parse(&["vc-x1", "chid"]);
+        assert_eq!(args.label, "===");
         assert!(!args.no_label);
+    }
+
+    #[test]
+    fn label_custom() {
+        let args = parse(&["vc-x1", "chid", "-l", "---"]);
+        assert_eq!(args.label, "---");
     }
 
     #[test]
     fn no_label() {
         let args = parse(&["vc-x1", "chid", "-L"]);
         assert!(args.no_label);
-        assert_eq!(args.label, None);
     }
 
     #[test]

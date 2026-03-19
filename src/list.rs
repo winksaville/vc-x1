@@ -15,11 +15,11 @@ pub struct ListArgs {
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
-    /// Revision to list (default: @)
+    /// Revision to list
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
-    /// Path to jj repo; repeatable or comma-separated (default: .)
+    /// Path to jj repo; repeatable or comma-separated [default: .]
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repos: Vec<PathBuf>,
 
@@ -27,19 +27,26 @@ pub struct ListArgs {
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
 
-    /// Custom label decoration between repos (default: ===)
+    /// Custom label decoration between repos
     #[arg(
         short = 'l',
         long = "label",
         value_name = "TEXT",
-        allow_hyphen_values = true
+        allow_hyphen_values = true,
+        default_value = "==="
     )]
-    pub label: Option<String>,
+    pub label: String,
 
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
     pub no_label: bool,
+
+    /// ochid column width
+    #[arg(short = 'w', long = "width", default_value_t = DEFAULT_OCHID_WIDTH)]
+    pub width: usize,
 }
+
+const DEFAULT_OCHID_WIDTH: usize = 21;
 
 pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
     let spec = common::resolve_spec(
@@ -57,7 +64,7 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
-            let line = common::format_commit_short(&commit);
+            let line = common::format_commit_with_ochid(&commit, args.width);
             if i == anchor_index {
                 println!("{}", common::bold(&line));
             } else {

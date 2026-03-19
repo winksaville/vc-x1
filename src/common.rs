@@ -154,6 +154,34 @@ pub fn indent_body(s: &str, n: usize) -> String {
     result
 }
 
+/// Extract the ochid trailer value from a commit description, if present.
+pub fn extract_ochid(commit: &Commit) -> Option<String> {
+    for line in commit.description().lines().rev() {
+        let trimmed = line.trim();
+        if let Some(value) = trimmed.strip_prefix("ochid:") {
+            return Some(value.trim().to_string());
+        }
+    }
+    None
+}
+
+/// Format: changeID ochid(padded) first-line (single line).
+///
+/// ochid column is left-padded to `width` characters. If no ochid, a blank
+/// placeholder of that width is used.
+pub fn format_commit_with_ochid(commit: &Commit, width: usize) -> String {
+    let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
+    let change_short = &change_hex[..change_hex.len().min(12)];
+    let ochid = extract_ochid(commit).unwrap_or_default();
+    let first_line = commit.description().lines().next().unwrap_or("");
+    let title = if first_line.is_empty() {
+        "(no description set)"
+    } else {
+        first_line
+    };
+    format!("{change_short}  {ochid:<width$}  {title}")
+}
+
 /// Format: just the short changeID.
 pub fn format_chid(commit: &Commit) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
@@ -259,24 +287,20 @@ pub fn collect_ids(
 /// Header style between repos in multi-repo output.
 #[derive(Debug, Clone)]
 pub enum Header {
-    /// Bold `==> path <==` header per repo (default).
-    Default,
-    /// Custom decoration: `deco path deco`.
-    Custom(String),
+    /// Show `deco path deco` header per repo.
+    Label(String),
     /// No header at all.
     None,
 }
 
-/// Resolve `-s` / `-S` flags into a `Header`.
+/// Resolve `-l` / `-L` flags into a `Header`.
 ///
-/// `-S` (no header) takes precedence over `-s` (custom decoration).
-pub fn resolve_header(custom: &Option<String>, suppress: bool) -> Header {
+/// `-L` (no header) takes precedence over `-l` (label decoration).
+pub fn resolve_header(label: &str, suppress: bool) -> Header {
     if suppress {
         Header::None
-    } else if let Some(s) = custom {
-        Header::Custom(s.clone())
     } else {
-        Header::Default
+        Header::Label(label.to_string())
     }
 }
 
@@ -312,13 +336,7 @@ where
     for repo_path in &repos {
         if multi {
             match header {
-                Header::Default => {
-                    if !first {
-                        println!();
-                    }
-                    println!("{}", bold(&format!("=== {} ===", repo_path.display())));
-                }
-                Header::Custom(deco) => {
+                Header::Label(deco) => {
                     if !first {
                         println!();
                     }

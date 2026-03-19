@@ -439,3 +439,25 @@ hardcode 4-space indent in both desc and show.
   only 1 file would be omitted.
 - Raw jj revset syntax (`::`, `|`, `&`) no longer supported via `-r`;
   use `..` notation instead.
+
+## Test dispersal and ochid list column
+
+### 0.20.1 — Disperse CLI parsing tests
+
+Move all CLI parsing tests from main.rs into per-subcommand test modules
+(chid.rs, desc.rs, list.rs, show.rs, finalize.rs). main.rs retains only
+the `unknown_command` test. Make `Commands` enum `pub(crate)` so submodule
+tests can match on it. Each module has a local `parse()` helper that
+returns the typed args struct directly, eliminating the `if let` boilerplate.
+
+### 0.21.0 — Show ochid in list output
+
+Replace commitID with ochid trailer value in `list` output. New column
+format: `chid  ochid  title` with 2-space gaps between columns. The ochid
+column is padded to `-w`/`--width` (default 21, fits `/.claude/` + 12-char
+changeID). Commits without an ochid trailer show a blank placeholder to
+keep columns aligned. Add `extract_ochid()` and `format_commit_with_ochid()`
+to common.rs. Also clean up CLI help: remove duplicate manual defaults from
+doc comments (clap shows `[default: ...]` automatically), use `default_value`
+for `--label`, and simplify `Header` enum from three variants to two
+(`Label(String)` and `None`).

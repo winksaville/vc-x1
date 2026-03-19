@@ -9,6 +9,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Deduplicate common CLI flags with clap `#[command(flatten)]` shared args struct
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -28,7 +29,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Unify `..` notation and CLI across all subcommands (0.19.0) [18]
 - Reorganize notes: move older done items to done.md (0.19.1)
 - Multi-repo `-R` support with `-l`/`--label` and `-L`/`--no-label` for chid, desc, list, show (0.20.0) [18]
-- Disperse CLI parsing tests from main.rs into per-subcommand files (0.20.1)
+- Disperse CLI parsing tests from main.rs into per-subcommand files (0.20.1) [19]
+- Show ochid in list output, clean up CLI help defaults (0.21.0) [19]
 
 
 # References
@@ -40,3 +42,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [16]: /notes/chores-01.md#finalize-detach-and-manual-recovery-0170
 [17]: /notes/chores-02.md#jj-commit-organization-and-traversal-mechanisms-0170
 [18]: /notes/chores-02.md#show-subcommand-0180
+[19]: /notes/chores-02.md#test-dispersal-and-ochid-list-column

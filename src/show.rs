@@ -48,11 +48,11 @@ pub struct ShowArgs {
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
-    /// Revision to show (default: @)
+    /// Revision to show
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
-    /// Max changed files: number, 0 (none), or 'all' (default: 50)
+    /// Max changed files: number, 0 (none), or 'all'
     #[arg(short = 'f', long = "files", default_value = "50")]
     pub files: String,
 
@@ -60,18 +60,19 @@ pub struct ShowArgs {
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
 
-    /// Path to jj repo; repeatable or comma-separated (default: .)
+    /// Path to jj repo; repeatable or comma-separated [default: .]
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repos: Vec<PathBuf>,
 
-    /// Custom label decoration between repos (default: ===)
+    /// Custom label decoration between repos
     #[arg(
         short = 'l',
         long = "label",
         value_name = "TEXT",
-        allow_hyphen_values = true
+        allow_hyphen_values = true,
+        default_value = "==="
     )]
-    pub label: Option<String>,
+    pub label: String,
 
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
