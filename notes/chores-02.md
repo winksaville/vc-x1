@@ -31,7 +31,7 @@ op log. Many keybindings for common jj operations.
 - `gitk --all` — works on the colocated `.git` but sees raw git refs,
   not jj's view of history
 
-## jj commit organization and traversal mechanisms
+## jj commit organization and traversal mechanisms (0.17.0)
 
 ### Motivation
 
