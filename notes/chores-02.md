@@ -400,3 +400,42 @@ Source: `jj-lib-0.39.0/src/merged_tree.rs`, lines 260-690.
 - `src/backend.rs` — backend data types (CommitId, ChangeId, Signature)
 - `src/op_store.rs` — operation storage (commit_predecessors)
 - `src/operation.rs` — Operation type (predecessors_for_commit)
+
+## Show subcommand (0.18.0)
+
+### 0.18.0 — Initial show subcommand
+
+Implement `vc-x1 show` matching `jj show` output: commit/change IDs,
+bookmarks (local + remote), author/committer with timestamps,
+indented description, and file-level diff summary (Added/Modified/Removed).
+Uses `TreeDiffIterator` for sync tree diffing via jj-lib.
+
+### 0.18.1 — Flesh out show header
+
+Show header now has gitk-style fields: Ids, Author, Committer, Parent,
+Child, Branches (ancestry-based), Follows/Precedes (nearest tags),
+Description (body only). Supports `..` notation for multi-commit display
+with separators. File list: `-f` flag (default 50, `0`=none, `all`=unlimited)
+with first/last split when truncated. Remove `--indent` from desc,
+hardcode 4-space indent in both desc and show.
+
+### 0.19.0 — Unify `..` notation and CLI across all subcommands
+
+- Extract `collect_ids` in `common.rs` — returns `(Vec<CommitId>, usize)`,
+  ordered commit IDs and anchor index. Handles all `..` directions.
+- Extract `resolve_spec` — converts positional/flag args into `DotSpec`
+  (desc_count/anc_count) ready for `collect_ids`. Single code path for
+  all subcommands.
+- Replace `DotDirection` enum with `desc_count`/`anc_count` on `DotSpec`.
+- Remove `resolve_dot_args`, `ResolvedArgs`, `collect_both`/`collect_commit_lines`,
+  `show_both` — all replaced by `resolve_spec` + `collect_ids`.
+- All subcommands (chid, desc, list, show) now share one loop pattern.
+- `-r` flag supports `..` notation (e.g. `-r ..mpl -n 3`).
+- Rename `-l`/`--limit` to `-n`/`--commits` (`-l`/`--limit` kept as
+  hidden aliases). Positional `COMMITS` replaces `POS_COUNT`.
+- Count means total commits including anchor (e.g. `x.. 3` = x + 2
+  ancestors). Fixes off-by-one in descendants and bare-rev-with-count.
+- File list truncation: show first N files only. Skip truncation when
+  only 1 file would be omitted.
+- Raw jj revset syntax (`::`, `|`, `&`) no longer supported via `-r`;
+  use `..` notation instead.

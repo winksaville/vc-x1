@@ -18,180 +18,103 @@ use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
 use pollster::FutureExt;
 
-/// Direction(s) indicated by `..` notation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DotDirection {
-    /// No dots: just the revision itself.
-    None,
-    /// `x..` — ancestors (x at top, older below).
-    Ancestors,
-    /// `..x` — descendants (newer above, x at bottom).
-    Descendants,
-    /// `..x..` — both directions, x in the middle.
-    Both,
-}
-
 /// Result of parsing positional `..` notation.
+///
+/// Counts are `Some(0)` for closed sides and `None` for open (dotted) sides.
+/// Open sides become unlimited unless a positional count is applied later.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DotSpec {
     /// The bare revision (without `..`).
     pub rev: String,
-    /// Which direction(s) the dots indicate.
-    pub direction: DotDirection,
-    /// Count per dotted side (x is not counted).
-    pub count: usize,
+    /// Descendant count: `None` = open (dotted), `Some(0)` = closed.
+    pub desc_count: Option<usize>,
+    /// Ancestor count: `None` = open (dotted), `Some(0)` = closed.
+    pub anc_count: Option<usize>,
 }
 
 /// Parse a positional REV string for `..` notation.
 ///
-/// Returns the bare revision, direction, and default count (0).
-/// Count is set separately from the second positional arg.
+/// Returns the bare revision with open/closed counts per side.
+/// `None` means the side had dots (open for expansion);
+/// `Some(0)` means no dots on that side (closed).
+/// Actual counts are applied later from positional args.
 pub fn parse_dot_rev(rev: &str) -> DotSpec {
     if let Some(inner) = rev.strip_prefix("..").and_then(|s| s.strip_suffix("..")) {
         DotSpec {
             rev: inner.to_string(),
-            direction: DotDirection::Both,
-            count: 0,
+            desc_count: None,
+            anc_count: None,
         }
     } else if let Some(inner) = rev.strip_prefix("..") {
         DotSpec {
             rev: inner.to_string(),
-            direction: DotDirection::Descendants,
-            count: 0,
+            desc_count: None,
+            anc_count: Some(0),
         }
     } else if let Some(inner) = rev.strip_suffix("..") {
         DotSpec {
             rev: inner.to_string(),
-            direction: DotDirection::Ancestors,
-            count: 0,
+            desc_count: Some(0),
+            anc_count: None,
         }
     } else {
         DotSpec {
             rev: rev.to_string(),
-            direction: DotDirection::None,
-            count: 0,
+            desc_count: Some(0),
+            anc_count: Some(0),
         }
     }
 }
 
-/// Resolve effective revision, limit, and whether results need reversing
-/// from positional args combined with named flags.
+/// Resolve positional and flag args into a `DotSpec` ready for `collect_ids`.
 ///
-/// Named flags (`-r`, `-l`) take precedence over positional args.
-pub struct ResolvedArgs {
-    /// The jj revset string to evaluate.
-    pub revset: String,
-    /// Maximum number of commits to return (None = unlimited).
-    pub limit: Option<usize>,
-    /// For `..x..`, the count per side.
-    pub both_count: Option<usize>,
-    /// The bare primary revision (for highlighting).
-    pub primary_rev: String,
-}
-
-/// Resolve positional `..` args with named flag overrides.
-///
-/// - `pos_rev`: first positional arg (may contain `..`)
-/// - `pos_count`: second positional arg
-/// - `flag_rev`: `-r` flag value (if different from default)
-/// - `flag_limit`: `-l` flag value
-/// - `default_rev`: the default revision (e.g. "@")
-pub fn resolve_dot_args(
+/// Handles: dot notation parsing, flag vs positional precedence,
+/// count-means-total semantics (subtracts 1 for anchor).
+pub fn resolve_spec(
     pos_rev: Option<&str>,
     pos_count: Option<usize>,
     flag_rev: &str,
     flag_limit: Option<usize>,
     default_rev: &str,
-) -> ResolvedArgs {
-    // If named flags were explicitly set, they take full precedence
+) -> DotSpec {
     let flag_rev_set = flag_rev != default_rev;
-    let flag_limit_set = flag_limit.is_some();
-
-    if flag_rev_set || (flag_limit_set && pos_rev.is_none()) {
-        return ResolvedArgs {
-            revset: flag_rev.to_string(),
-            limit: flag_limit,
-            both_count: None,
-            primary_rev: flag_rev.to_string(),
-        };
-    }
-
-    // Use positional args
-    let rev_str = pos_rev.unwrap_or(default_rev);
+    let rev_str = if flag_rev_set {
+        flag_rev
+    } else {
+        pos_rev.unwrap_or(default_rev)
+    };
     let mut spec = parse_dot_rev(rev_str);
 
-    // If there's a positional count, set it
-    if let Some(c) = pos_count {
-        spec.count = c;
-    }
+    let count = if flag_limit.is_some() {
+        flag_limit
+    } else {
+        pos_count
+    };
 
-    // Named limit overrides positional count
-    if flag_limit_set {
-        spec.count = flag_limit.unwrap();
-    }
-
-    let primary = spec.rev.clone();
-
-    match spec.direction {
-        DotDirection::None => {
-            if spec.count > 0 {
-                // bare `x 5` → `x.. 5` (ancestors)
-                ResolvedArgs {
-                    revset: format!("::{}", spec.rev),
-                    limit: Some(spec.count + 1), // +1 for x itself
-                    both_count: None,
-                    primary_rev: primary,
-                }
-            } else {
-                ResolvedArgs {
-                    revset: spec.rev,
-                    limit: Some(1),
-                    both_count: None,
-                    primary_rev: primary,
-                }
+    if let Some(c) = count {
+        let n = c.saturating_sub(1);
+        let both_open = spec.desc_count.is_none() && spec.anc_count.is_none();
+        if both_open {
+            // Split budget across both sides: ancestors get the extra
+            let desc_n = n / 2;
+            let anc_n = n - desc_n;
+            spec.desc_count = Some(desc_n);
+            spec.anc_count = Some(anc_n);
+        } else {
+            if spec.desc_count.is_none() {
+                spec.desc_count = Some(n);
+            }
+            if spec.anc_count.is_none() {
+                spec.anc_count = Some(n);
+            }
+            // bare `x 5` → treat as `x.. 5` (ancestors)
+            if spec.desc_count == Some(0) && spec.anc_count == Some(0) {
+                spec.anc_count = Some(n);
             }
         }
-        DotDirection::Ancestors => {
-            if spec.count > 0 {
-                ResolvedArgs {
-                    revset: format!("::{}", spec.rev),
-                    limit: Some(spec.count + 1),
-                    both_count: None,
-                    primary_rev: primary,
-                }
-            } else {
-                ResolvedArgs {
-                    revset: format!("::{}", spec.rev),
-                    limit: None,
-                    both_count: None,
-                    primary_rev: primary,
-                }
-            }
-        }
-        DotDirection::Descendants => {
-            if spec.count > 0 {
-                ResolvedArgs {
-                    revset: format!("{}::", spec.rev),
-                    limit: Some(spec.count + 1),
-                    both_count: None,
-                    primary_rev: primary,
-                }
-            } else {
-                ResolvedArgs {
-                    revset: format!("{}::", spec.rev),
-                    limit: None,
-                    both_count: None,
-                    primary_rev: primary,
-                }
-            }
-        }
-        DotDirection::Both => ResolvedArgs {
-            revset: format!("::{}|{}::", spec.rev, spec.rev),
-            limit: None,
-            both_count: Some(spec.count),
-            primary_rev: primary,
-        },
     }
+
+    spec
 }
 
 /// Wrap text in ANSI bold escape codes.
@@ -272,75 +195,64 @@ pub fn format_commit_full(commit: &Commit) -> String {
     }
 }
 
-/// Collect formatted lines for `..x..` (both directions).
+/// Collect commit IDs for `..x..` (both directions) or any dot notation.
 ///
-/// `formatter` converts a `Commit` into a display string.
-/// Returns `(lines, anchor_index)` — the lines in display order
-/// (descendants newest first, anchor, ancestors newest first)
-/// and the index of the anchor commit within the lines.
-pub fn collect_both<F>(
+/// Returns `(commit_ids, anchor_index)` — the IDs in display order
+/// (descendants closest to anchor, anchor, ancestors closest to anchor)
+/// and the index of the anchor commit within the list.
+///
+/// - `desc_count`: `Some(n)` = n closest descendants, `None` = all, `Some(0)` = none
+/// - `anc_count`: `Some(n)` = n closest ancestors, `None` = all, `Some(0)` = none
+pub fn collect_ids(
+    workspace: &Workspace,
     repo: &Arc<ReadonlyRepo>,
-    repo_path: &Path,
-    pos_rev: Option<&str>,
-    both_count: usize,
-    formatter: F,
-) -> Result<(Vec<String>, usize), Box<dyn std::error::Error>>
-where
-    F: Fn(&Commit) -> String,
-{
-    let bare_rev = pos_rev.unwrap_or("@");
-    let spec = parse_dot_rev(bare_rev);
-    let (workspace, _) = load_repo(repo_path)?;
-    let anchor_ids = resolve_revset(&workspace, repo, &spec.rev)?;
+    rev: &str,
+    desc_count: Option<usize>,
+    anc_count: Option<usize>,
+) -> Result<(Vec<CommitId>, usize), Box<dyn std::error::Error>> {
+    let anchor_ids = resolve_revset(workspace, repo, rev)?;
     if anchor_ids.is_empty() {
-        return Err(format!("no commit found for revision '{}'", spec.rev).into());
+        return Err(format!("no commit found for revision '{rev}'").into());
     }
     let anchor_id = &anchor_ids[0];
     let root_commit_id = repo.store().root_commit_id().clone();
 
-    let ancestor_ids = resolve_revset(&workspace, repo, &format!("::{}", spec.rev))?;
-    let descendant_ids = resolve_revset(&workspace, repo, &format!("{}::", spec.rev))?;
-
-    // Descendants (newest first from jj), excluding anchor
-    let mut desc_lines: Vec<String> = Vec::new();
-    for commit_id in &descendant_ids {
-        if *commit_id == root_commit_id || *commit_id == *anchor_id {
-            continue;
+    // Descendants (closest to anchor)
+    let mut desc_ids: Vec<CommitId> = Vec::new();
+    if desc_count != Some(0) {
+        let descendant_ids = resolve_revset(workspace, repo, &format!("{rev}::"))?;
+        desc_ids = descendant_ids
+            .into_iter()
+            .filter(|id| *id != root_commit_id && *id != *anchor_id)
+            .collect();
+        if let Some(n) = desc_count {
+            let start = desc_ids.len().saturating_sub(n);
+            desc_ids = desc_ids[start..].to_vec();
         }
-        let commit = repo.store().get_commit(commit_id)?;
-        desc_lines.push(formatter(&commit));
-    }
-    if both_count > 0 {
-        let start = desc_lines.len().saturating_sub(both_count);
-        desc_lines = desc_lines[start..].to_vec();
-    } else {
-        desc_lines.clear();
     }
 
-    // Anchor
-    let anchor_commit = repo.store().get_commit(anchor_id)?;
-
-    // Ancestors (newest first from jj), excluding anchor
-    let mut anc_lines: Vec<String> = Vec::new();
-    if both_count > 0 {
+    // Ancestors (closest to anchor)
+    let mut anc_ids: Vec<CommitId> = Vec::new();
+    if anc_count != Some(0) {
+        let ancestor_ids = resolve_revset(workspace, repo, &format!("::{rev}"))?;
+        let limit = anc_count.unwrap_or(usize::MAX);
         let mut count = 0;
-        for commit_id in &ancestor_ids {
-            if root_commit_id == *commit_id || *commit_id == *anchor_id {
+        for commit_id in ancestor_ids {
+            if commit_id == root_commit_id || commit_id == *anchor_id {
                 continue;
             }
-            let commit = repo.store().get_commit(commit_id)?;
-            anc_lines.push(formatter(&commit));
+            anc_ids.push(commit_id);
             count += 1;
-            if count >= both_count {
+            if count >= limit {
                 break;
             }
         }
     }
 
-    let anchor_index = desc_lines.len();
-    let mut result = desc_lines;
-    result.push(formatter(&anchor_commit));
-    result.extend(anc_lines);
+    let anchor_index = desc_ids.len();
+    let mut result = desc_ids;
+    result.push(anchor_id.clone());
+    result.extend(anc_ids);
     Ok((result, anchor_index))
 }
 
@@ -412,93 +324,120 @@ mod tests {
     fn parse_dot_rev_bare() {
         let spec = parse_dot_rev("@");
         assert_eq!(spec.rev, "@");
-        assert_eq!(spec.direction, DotDirection::None);
+        assert_eq!(spec.desc_count, Some(0));
+        assert_eq!(spec.anc_count, Some(0));
     }
 
     #[test]
     fn parse_dot_rev_ancestors() {
         let spec = parse_dot_rev("@..");
         assert_eq!(spec.rev, "@");
-        assert_eq!(spec.direction, DotDirection::Ancestors);
+        assert_eq!(spec.desc_count, Some(0));
+        assert_eq!(spec.anc_count, None);
     }
 
     #[test]
     fn parse_dot_rev_descendants() {
         let spec = parse_dot_rev("..@");
         assert_eq!(spec.rev, "@");
-        assert_eq!(spec.direction, DotDirection::Descendants);
+        assert_eq!(spec.desc_count, None);
+        assert_eq!(spec.anc_count, Some(0));
     }
 
     #[test]
     fn parse_dot_rev_both() {
         let spec = parse_dot_rev("..@..");
         assert_eq!(spec.rev, "@");
-        assert_eq!(spec.direction, DotDirection::Both);
+        assert_eq!(spec.desc_count, None);
+        assert_eq!(spec.anc_count, None);
     }
 
     #[test]
     fn parse_dot_rev_changeid() {
         let spec = parse_dot_rev("abcd..");
         assert_eq!(spec.rev, "abcd");
-        assert_eq!(spec.direction, DotDirection::Ancestors);
+        assert_eq!(spec.desc_count, Some(0));
+        assert_eq!(spec.anc_count, None);
     }
 
     #[test]
     fn parse_dot_rev_both_changeid() {
         let spec = parse_dot_rev("..abcd..");
         assert_eq!(spec.rev, "abcd");
-        assert_eq!(spec.direction, DotDirection::Both);
+        assert_eq!(spec.desc_count, None);
+        assert_eq!(spec.anc_count, None);
     }
 
     #[test]
-    fn resolve_defaults() {
-        let r = resolve_dot_args(None, None, "@", None, "@");
-        assert_eq!(r.revset, "@");
-        assert_eq!(r.limit, Some(1));
-        assert!(r.both_count.is_none());
-        assert_eq!(r.primary_rev, "@");
+    fn resolve_spec_defaults() {
+        let s = resolve_spec(None, None, "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, Some(0));
     }
 
     #[test]
-    fn resolve_bare_rev_with_count() {
-        let r = resolve_dot_args(Some("@"), Some(5), "@", None, "@");
-        assert_eq!(r.revset, "::@");
-        assert_eq!(r.limit, Some(6)); // 5 + 1 for x
+    fn resolve_spec_bare_with_count() {
+        let s = resolve_spec(Some("@"), Some(5), "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, Some(4)); // 5 - 1 = 4 ancestors
     }
 
     #[test]
-    fn resolve_ancestors() {
-        let r = resolve_dot_args(Some("@.."), Some(3), "@", None, "@");
-        assert_eq!(r.revset, "::@");
-        assert_eq!(r.limit, Some(4)); // 3 + 1
+    fn resolve_spec_ancestors() {
+        let s = resolve_spec(Some("@.."), Some(3), "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, Some(2)); // 3 - 1 = 2 ancestors
     }
 
     #[test]
-    fn resolve_descendants() {
-        let r = resolve_dot_args(Some("..@"), Some(3), "@", None, "@");
-        assert_eq!(r.revset, "@::");
-        assert_eq!(r.limit, Some(4)); // 3 + 1
+    fn resolve_spec_descendants() {
+        let s = resolve_spec(Some("..@"), Some(3), "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(2)); // 3 - 1 = 2 descendants
+        assert_eq!(s.anc_count, Some(0));
     }
 
     #[test]
-    fn resolve_both() {
-        let r = resolve_dot_args(Some("..@.."), Some(3), "@", None, "@");
-        assert_eq!(r.revset, "::@|@::");
-        assert!(r.limit.is_none());
-        assert_eq!(r.both_count, Some(3));
+    fn resolve_spec_both() {
+        let s = resolve_spec(Some("..@.."), Some(5), "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(2)); // 4/2 = 2 descendants
+        assert_eq!(s.anc_count, Some(2)); // 4-2 = 2 ancestors
     }
 
     #[test]
-    fn resolve_flag_overrides_positional() {
-        let r = resolve_dot_args(Some("@.."), Some(5), "@-", None, "@");
-        assert_eq!(r.revset, "@-"); // flag_rev takes precedence
+    fn resolve_spec_both_odd() {
+        let s = resolve_spec(Some("..@.."), Some(4), "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(1)); // 3/2 = 1 descendant
+        assert_eq!(s.anc_count, Some(2)); // 3-1 = 2 ancestors (extra goes to ancestors)
     }
 
     #[test]
-    fn resolve_ancestors_no_count() {
-        let r = resolve_dot_args(Some("@.."), None, "@", None, "@");
-        assert_eq!(r.revset, "::@");
-        assert!(r.limit.is_none()); // no count, no limit
+    fn resolve_spec_flag_overrides_positional() {
+        let s = resolve_spec(Some("@.."), Some(5), "@-", None, "@");
+        assert_eq!(s.rev, "@-"); // flag_rev takes precedence
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, Some(4)); // pos_count 5 - 1
+    }
+
+    #[test]
+    fn resolve_spec_ancestors_no_count() {
+        let s = resolve_spec(Some("@.."), None, "@", None, "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, None); // unlimited
+    }
+
+    #[test]
+    fn resolve_spec_flag_limit_overrides_pos_count() {
+        let s = resolve_spec(Some("@.."), Some(5), "@", Some(3), "@");
+        assert_eq!(s.rev, "@");
+        assert_eq!(s.desc_count, Some(0));
+        assert_eq!(s.anc_count, Some(2)); // flag 3 - 1 = 2
     }
 
     #[test]
@@ -527,12 +466,5 @@ mod tests {
     #[test]
     fn indent_body_empty_string() {
         assert_eq!(indent_body("", 3), "");
-    }
-
-    #[test]
-    fn resolve_flag_limit_overrides_pos_count() {
-        let r = resolve_dot_args(Some("@.."), Some(5), "@", Some(3), "@");
-        assert_eq!(r.revset, "::@");
-        assert_eq!(r.limit, Some(4)); // flag limit 3 + 1
     }
 }

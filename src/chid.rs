@@ -8,11 +8,11 @@ use crate::common;
 #[derive(Args, Debug)]
 pub struct ChidArgs {
     /// Revision (with optional .. notation)
-    #[arg()]
+    #[arg(value_name = "REVISION")]
     pub pos_rev: Option<String>,
 
-    /// Count (items per dotted side)
-    #[arg()]
+    /// Number of commits to show (per dotted side)
+    #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
     /// Revision to look up (default: @)
@@ -23,13 +23,19 @@ pub struct ChidArgs {
     #[arg(short = 'R', long, default_value = ".")]
     pub repo: PathBuf,
 
-    /// Maximum number of changeIDs to show
-    #[arg(short, long)]
+    /// Number of changeIDs to show
+    #[arg(
+        short = 'n',
+        long = "commits",
+        alias = "limit",
+        short_alias = 'l',
+        value_name = "COMMITS"
+    )]
     pub limit: Option<usize>,
 }
 
 pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let resolved = common::resolve_dot_args(
+    let spec = common::resolve_spec(
         args.pos_rev.as_deref(),
         args.pos_count,
         &args.revision,
@@ -38,58 +44,19 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let (workspace, repo) = common::load_repo(&args.repo)?;
+    let (ids, anchor_index) = common::collect_ids(
+        &workspace,
+        &repo,
+        &spec.rev,
+        spec.desc_count,
+        spec.anc_count,
+    )?;
 
-    let commit_ids = common::resolve_revset(&workspace, &repo, &resolved.revset)?;
-
-    if commit_ids.is_empty() {
-        return Err(format!("no commit found for revision '{}'", resolved.revset).into());
-    }
-
-    let root_commit_id = repo.store().root_commit_id().clone();
-
-    if let Some(both_count) = resolved.both_count {
-        let (lines, anchor) = common::collect_both(
-            &repo,
-            &args.repo,
-            args.pos_rev.as_deref(),
-            both_count,
-            common::format_chid,
-        )?;
-        for (i, line) in lines.iter().enumerate() {
-            if i == anchor {
-                println!("{}", common::bold(line));
-            } else {
-                println!("{line}");
-            }
-        }
-        return Ok(());
-    }
-
-    // Resolve the primary commit ID for highlighting
-    let primary_ids = common::resolve_revset(&workspace, &repo, &resolved.primary_rev)?;
-    let primary_id = primary_ids.first();
-
-    let mut results: Vec<(String, bool)> = Vec::new();
-    let mut count = 0;
-    for commit_id in &commit_ids {
-        if *commit_id == root_commit_id {
-            continue;
-        }
+    for (i, commit_id) in ids.iter().enumerate() {
         let commit = repo.store().get_commit(commit_id)?;
-        let is_primary = primary_id == Some(commit_id);
-        results.push((common::format_chid(&commit), is_primary));
-
-        count += 1;
-        if let Some(limit) = resolved.limit
-            && count >= limit
-        {
-            break;
-        }
-    }
-
-    for (line, is_primary) in &results {
-        if *is_primary {
-            println!("{}", common::bold(line));
+        let line = common::format_chid(&commit);
+        if i == anchor_index {
+            println!("{}", common::bold(&line));
         } else {
             println!("{line}");
         }

@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn chid_with_limit() {
-        let cli = parse(&["vc-x1", "chid", "-l", "5"]);
+        let cli = parse(&["vc-x1", "chid", "-n", "5"]);
         if let Commands::Chid(args) = cli.command {
             assert_eq!(args.limit, Some(5));
         } else {
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn desc_with_limit() {
-        let cli = parse(&["vc-x1", "desc", "-l", "3"]);
+        let cli = parse(&["vc-x1", "desc", "-n", "3"]);
         if let Commands::Desc(args) = cli.command {
             assert_eq!(args.limit, Some(3));
         } else {
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn list_with_limit() {
-        let cli = parse(&["vc-x1", "list", "-l", "5"]);
+        let cli = parse(&["vc-x1", "list", "-n", "5"]);
         if let Commands::List(args) = cli.command {
             assert_eq!(args.limit, Some(5));
         } else {
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn show_with_commit_limit() {
-        let cli = parse(&["vc-x1", "show", "-l", "5"]);
+        let cli = parse(&["vc-x1", "show", "-n", "5"]);
         if let Commands::Show(args) = cli.command {
             assert_eq!(args.limit, Some(5));
         } else {

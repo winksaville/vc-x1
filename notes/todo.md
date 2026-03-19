@@ -50,6 +50,9 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 - Bold primary revision in chid, list, desc output (0.15.0) [14]
 - Indent desc body lines with --indent/-i, default 3 spaces (0.16.0) [15]
 - Finalize: replace --foreground with --detach, document manual recovery (0.17.0) [16]
+- Add show subcommand with header, bookmarks, and diff summary (0.18.0) [17]
+- Flesh out show header to match gitk, add .. notation and file limiting (0.18.1) [17]
+- Unify `..` notation and CLI across all subcommands (0.19.0) [17]
 
 
 # References
@@ -73,3 +76,4 @@ See [ChangeID footer syntax](chores-01.md#changeid-footer-syntax).
 [14]: /notes/chores-01.md#bold-primary-revision-in-output-0150
 [15]: /notes/chores-01.md#indent-desc-body-lines-0160
 [16]: /notes/chores-01.md#finalize-detach-and-manual-recovery-0170
+[17]: /notes/chores-02.md#show-subcommand-0180

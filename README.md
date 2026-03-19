@@ -36,44 +36,53 @@ doing so and I then created this README.md file.
 ## Usage
 
 ```
-vc-x1 list [REV [COUNT]] [OPTIONS]   # List commits in a jj repo
-vc-x1 desc [REV [COUNT]] [OPTIONS]   # Show full description of a commit
-vc-x1 chid [REV [COUNT]] [OPTIONS]   # Print changeID(s) for a revision
-vc-x1 finalize --bookmark <B> [OPTS]  # Squash working copy into target (foreground by default)
-vc-x1 --version                       # Print version
-vc-x1 --help                          # Print help
+vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
+vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
+vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
+vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
+vc-x1 finalize --bookmark <B> [OPTS]   # Squash working copy into target
+vc-x1 --version                        # Print version
+vc-x1 --help                           # Print help
 ```
 
-### Revision shortcuts
-
-`list`, `desc`, and `chid` accept up to two positional arguments as
-shorthand for `-r` (revision) and `-l` (limit).
-
-**The `..` notation:** dots show where the list continues from the
-revision:
+**The `..` notation:** dots on the revision show which direction to
+list commits:
 
 - `x..` — x at top, ancestors below (older commits)
 - `..x` — descendants above (newer commits), x at bottom
 - `..x..` — both directions, x in the middle
 
-COUNT is the number of commits on each dotted side (x is always
-included and not counted). Bare `x COUNT` defaults to `x..` (ancestors),
-the common case. Bare `x` without COUNT shows just that one commit.
+COMMITS is the total number of commits to show (x is always included).
+Without dots, `x` with a count defaults to `x..` (ancestors).
+For `..x..`, the budget is split: ancestors get the extra on odd counts.
+
+```
+vc-x1 list -r @              # just @ (1 commit)
+vc-x1 list -r @.. -n 5       # @ + 4 ancestors (5 commits, @ at top)
+vc-x1 list -r ..@ -n 3       # 2 descendants + @ (3 commits, @ at bottom)
+vc-x1 list -r ..@.. -n 3     # 1 descendant, @, 1 ancestor (3 commits)
+vc-x1 list -r ..@.. -n 4     # 1 descendant, @, 2 ancestors (4 commits)
+```
+
+### Positional shorthand
+
+REVISION and COMMITS can be given as positional arguments, omitting
+`-r` and `-n`:
 
 ```
 vc-x1 list x                # just x (1 commit)
-vc-x1 list x 5              # x.. 5 → x + 5 ancestors (6 commits, x at top)
-vc-x1 list x.. 5            # x + 5 ancestors (6 commits, x at top)
-vc-x1 list ..x 3            # 3 descendants + x (4 commits, x at bottom)
-vc-x1 list ..x.. 3          # 3 descendants, x, 3 ancestors (7 commits)
-vc-x1 list ..x.. 0          # just x (1 commit)
+vc-x1 list x 5              # x.. 5 → x + 4 ancestors (5 commits)
+vc-x1 list x.. 5            # same as above
+vc-x1 list ..x 3            # 2 descendants + x (3 commits)
+vc-x1 list ..x.. 3          # 1 descendant, x, 1 ancestor (3 commits)
+vc-x1 list ..x.. 1          # just x (1 commit)
 ```
 
-**Defaults:** with no arguments, REV is `@` and COUNT is 0 (just the
-working copy).
+**Defaults:** with no arguments, REVISION is `@` and COMMITS is 1
+(just the working copy).
 
-Named flags `-r`/`--revision`, `-l`/`--limit`, and `-R`/`--repo` still
-work and take precedence over positional arguments.
+Named flags `-r`/`--revision`, `-n`/`--commits`, and `-R`/`--repo`
+take precedence over positional arguments.
 
 ### finalize
 
