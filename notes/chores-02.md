@@ -491,6 +491,16 @@ workspace-root-relative path. Added `toml_simple` module with `toml_load()`
 (returns `HashMap<String, String>`) and `toml_get()` for minimal TOML
 parsing — designed to be swapped for a real TOML crate later.
 
+### 0.22.2 — Fix fix-ochid short ID extension
+
+fix-ochid could only truncate IDs to `--id-len`, not extend them. When the
+existing ochid had an 8-char ID and `id_len` was 12, the fix produced the
+same 8-char ID — `jj describe` saw no change and said "Nothing changed."
+Now resolves the short ID in the other repo to get the full change ID, then
+truncates to `id_len`. Added `resolved_id` parameter to
+`fix_ochid_in_description`. Also added notes update steps (6–8) to the
+pre-commit checklist in CLAUDE.md.
+
 ## Git commit headers and jj change-id preservation
 
 ### How jj stores change IDs in git

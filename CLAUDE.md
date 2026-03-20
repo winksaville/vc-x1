@@ -90,6 +90,10 @@ Before proposing a commit, run all of the following and fix any issues:
 3. `cargo test`
 4. `cargo install --path .` (if applicable)
 5. Retest after install
+6. Update `notes/todo.md` — add to `## Done` if completing a task
+7. Update `notes/chores-*.md` — add a subsection describing the change
+8. Update `notes/README.md` — if functionality changed (new flags,
+   new subcommands, changed behavior)
 
 ## ochid Trailers
 

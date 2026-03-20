@@ -134,11 +134,15 @@ fn validate_ochid(
 }
 
 /// Fix the ochid trailer in a commit description.
+///
+/// If `resolved_id` is provided, it replaces the bare changeID entirely
+/// (used when the existing ID is too short to extend by truncation alone).
 fn fix_ochid_in_description(
     desc: &str,
     other_prefix: &str,
     id_len: usize,
     new_title: Option<&str>,
+    resolved_id: Option<&str>,
 ) -> String {
     let mut lines: Vec<String> = desc.lines().map(|l| l.to_string()).collect();
 
@@ -154,15 +158,19 @@ fn fix_ochid_in_description(
         let trimmed = line.trim();
         if let Some(value) = trimmed.strip_prefix("ochid:") {
             let value = value.trim();
-            // Extract the bare changeID (strip any existing path prefix)
-            let bare_id = if let Some(pos) = value.rfind('/') {
-                &value[pos + 1..]
+            let id = if let Some(rid) = resolved_id {
+                &rid[..rid.len().min(id_len)]
             } else {
-                value
+                // Extract the bare changeID (strip any existing path prefix)
+                let bare_id = if let Some(pos) = value.rfind('/') {
+                    &value[pos + 1..]
+                } else {
+                    value
+                };
+                // Normalize to id_len chars
+                &bare_id[..bare_id.len().min(id_len)]
             };
-            // Normalize to id_len chars
-            let short_id = &bare_id[..bare_id.len().min(id_len)];
-            *line = format!("ochid: {other_prefix}{short_id}");
+            *line = format!("ochid: {other_prefix}{id}");
         }
     }
 
@@ -242,9 +250,36 @@ pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> 
             continue;
         }
 
+        // Resolve the full change ID from the other repo when length is wrong
+        let resolved_id = if issues.wrong_length {
+            let ochid_val = current_ochid.as_deref().unwrap_or("");
+            let bare_id = if let Some(pos) = ochid_val.rfind('/') {
+                &ochid_val[pos + 1..]
+            } else {
+                ochid_val
+            };
+            if let Ok(commit_ids) = common::resolve_revset(&other_workspace, &other_repo, bare_id)
+                && let Some(cid) = commit_ids.first()
+            {
+                let other_commit = other_repo.store().get_commit(cid)?;
+                let full_hex =
+                    jj_lib::hex_util::encode_reverse_hex(other_commit.change_id().as_bytes());
+                Some(full_hex)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         // Build the fixed description
-        let mut new_desc =
-            fix_ochid_in_description(desc, &other_prefix, args.id_len, args.title.as_deref());
+        let mut new_desc = fix_ochid_in_description(
+            desc,
+            &other_prefix,
+            args.id_len,
+            args.title.as_deref(),
+            resolved_id.as_deref(),
+        );
 
         // Re-extract the fixed ochid value for post-validation
         let mut fixed_ochid = {
@@ -375,7 +410,7 @@ mod tests {
     #[test]
     fn fix_bare_id() {
         let desc = "Some title\n\nBody text.\n\nochid: tzupykyyvnrp\n";
-        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None, None);
         assert!(result.contains("ochid: /.claude/tzupykyyvnrp"));
         assert!(result.starts_with("Some title\n"));
     }
@@ -383,21 +418,21 @@ mod tests {
     #[test]
     fn fix_wrong_prefix() {
         let desc = "Title\n\nochid: /wrong/tzupykyyvnrp\n";
-        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None, None);
         assert!(result.contains("ochid: /.claude/tzupykyyvnrp"));
     }
 
     #[test]
     fn already_correct() {
         let desc = "Title\n\nochid: /.claude/tzupykyyvnrp\n";
-        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None, None);
         assert_eq!(result, desc);
     }
 
     #[test]
     fn truncate_long_id() {
         let desc = "Title\n\nochid: abcdefghijklmnop\n";
-        let result = fix_ochid_in_description(desc, "/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/", DEFAULT_ID_LEN, None, None);
         assert!(result.contains("ochid: /abcdefghijkl"));
         assert!(!result.contains("mnop"));
     }
@@ -405,7 +440,8 @@ mod tests {
     #[test]
     fn fix_title_and_ochid() {
         let desc = "Old title\n\nochid: bare12345678\n";
-        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, Some("New title"));
+        let result =
+            fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, Some("New title"), None);
         assert!(result.starts_with("New title\n"));
         assert!(result.contains("ochid: /.claude/bare12345678"));
     }
@@ -413,22 +449,43 @@ mod tests {
     #[test]
     fn no_ochid_no_change() {
         let desc = "Title\n\nNo trailer here.\n";
-        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/.claude/", DEFAULT_ID_LEN, None, None);
         assert_eq!(result, desc);
     }
 
     #[test]
     fn other_path_without_trailing_slash() {
         let desc = "Title\n\nochid: abcdefghijkl\n";
-        let result = fix_ochid_in_description(desc, "/", DEFAULT_ID_LEN, None);
+        let result = fix_ochid_in_description(desc, "/", DEFAULT_ID_LEN, None, None);
         assert!(result.contains("ochid: /abcdefghijkl"));
     }
 
     #[test]
     fn custom_id_len() {
         let desc = "Title\n\nochid: abcdefghijklmnop\n";
-        let result = fix_ochid_in_description(desc, "/", 8, None);
+        let result = fix_ochid_in_description(desc, "/", 8, None, None);
         assert!(result.contains("ochid: /abcdefgh"));
         assert!(!result.contains("ijkl"));
+    }
+
+    #[test]
+    fn extend_short_id_with_resolved() {
+        let desc = "Title\n\nochid: /abcdefgh\n";
+        let result =
+            fix_ochid_in_description(desc, "/", DEFAULT_ID_LEN, None, Some("abcdefghijkl"));
+        assert!(result.contains("ochid: /abcdefghijkl"));
+    }
+
+    #[test]
+    fn resolved_id_with_prefix_fix() {
+        let desc = "Title\n\nochid: /wrong/abcdefgh\n";
+        let result = fix_ochid_in_description(
+            desc,
+            "/.claude/",
+            DEFAULT_ID_LEN,
+            None,
+            Some("abcdefghijklmnop"),
+        );
+        assert!(result.contains("ochid: /.claude/abcdefghijkl"));
     }
 }
