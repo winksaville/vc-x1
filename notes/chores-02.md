@@ -508,6 +508,13 @@ that don't have one. Matches commits by title (exact) and committer timestamp
 (within 60 seconds). Only adds the trailer when exactly one match is found in
 the other repo — ambiguous or zero matches are skipped. Respects `--no-dry-run`.
 
+## 0.24.0 — Add --max-fixes to fix-ochid
+
+New `--max-fixes` flag limits the number of commits actually changed.
+Scanning continues past the limit (reporting `skip ... (max-fixes reached)`),
+so the summary still shows the full picture. Applies to both regular fixes
+and `--add-missing` additions.
+
 ## Git commit headers and jj change-id preservation
 
 ### How jj stores change IDs in git

@@ -209,6 +209,7 @@ Key flags:
 | `--add-missing` | Infer and add ochid for commits without one |
 | `--fallback <VALUE>` | Replacement for IDs not found in other repo |
 | `--id-len <N>` | Expected changeID length (default 12) |
+| `--max-fixes <N>` | Stop fixing after N commits changed |
 | `--title <TEXT>` | Replace commit title at the same time |
 
 The `--add-missing` flag matches commits by exact title and committer

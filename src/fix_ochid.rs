@@ -27,6 +27,14 @@ pub struct FixOchidArgs {
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
+    /// Number of commits to scan
+    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
+    pub limit: Option<usize>,
+
+    /// Maximum number of commits to actually fix/change [default: all]
+    #[arg(short = 'm', long = "max-fixes")]
+    pub max_fixes: Option<usize>,
+
     /// Path to jj repo
     #[arg(short = 'R', long, default_value = ".")]
     pub repo: PathBuf,
@@ -54,10 +62,6 @@ pub struct FixOchidArgs {
     /// Add missing ochid trailers by matching title and timestamp
     #[arg(long = "add-missing")]
     pub add_missing: bool,
-
-    /// Number of commits to fix
-    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
-    pub limit: Option<usize>,
 }
 
 /// Derive the ochid prefix from the other repo's `.vc-config.toml`.
@@ -303,6 +307,16 @@ pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> 
                 &other_repo,
             )
         } else if args.add_missing {
+            // Stop if we've hit the max-fixes limit
+            if let Some(max) = args.max_fixes
+                && fixed >= max
+            {
+                skipped += 1;
+                if !args.no_dry_run {
+                    println!("skip {change_short}  (max-fixes reached)");
+                }
+                continue;
+            }
             // No ochid trailer — try to infer from the other repo
             if let Some(matched_id) = find_matching_commit(&commit, &other_workspace, &other_repo)?
             {
@@ -357,6 +371,17 @@ pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> 
             skipped += 1;
             if !args.no_dry_run {
                 println!("ok   {change_short}  (valid)");
+            }
+            continue;
+        }
+
+        // Stop if we've hit the max-fixes limit
+        if let Some(max) = args.max_fixes
+            && fixed >= max
+        {
+            skipped += 1;
+            if !args.no_dry_run {
+                println!("skip {change_short}  (max-fixes reached)");
             }
             continue;
         }
