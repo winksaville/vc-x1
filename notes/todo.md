@@ -9,6 +9,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Refactor fix-ochid into validate-desc/fix-desc (in progress, dev1 done)
  - Run fix-ochid on both repos to fix ochid trailers (use --fallback for lost IDs)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric

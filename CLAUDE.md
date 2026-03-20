@@ -30,12 +30,22 @@ visible at the start of the command.
 
 ### App repo
 ```
-jj commit -m "title" -m "body" -R .
+jj commit -m \
+"title" \
+-m "body
+
+ochid: /.claude/<changeID>" \
+-R .
 ```
 
 ### Bot session repo
 ```
-jj commit -m "title" -m "body" -R .claude
+jj commit -m \
+"title" \
+-m "body
+
+ochid: /<changeID>" \
+-R .claude
 ```
 
 ## jj Basics

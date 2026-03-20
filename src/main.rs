@@ -1,11 +1,13 @@
 mod chid;
 mod common;
 mod desc;
+mod desc_helpers;
 mod finalize;
 mod fix_ochid;
 mod list;
 mod show;
 mod toml_simple;
+mod validate_desc;
 
 use std::process::ExitCode;
 
@@ -31,6 +33,17 @@ pub(crate) enum Commands {
 
     /// Show commit details and diff summary
     Show(show::ShowArgs),
+
+    /// Validate commit descriptions against the other repo
+    #[command(
+        long_about = "Validate commit descriptions against the other repo.\n\n\
+        Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
+        Status labels:\n  \
+          ok   — ochid trailer is valid\n  \
+          err  — ochid has issues (wrong prefix, wrong length, ID not found)\n  \
+          miss — no ochid trailer; shows match from other repo if found"
+    )]
+    ValidateDesc(validate_desc::ValidateDescArgs),
 
     /// Fix ochid trailers in commit descriptions
     FixOchid(fix_ochid::FixOchidArgs),
@@ -66,6 +79,13 @@ fn main() -> ExitCode {
         }
         Commands::Show(args) => {
             if let Err(e) = show::show(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::ValidateDesc(args) => {
+            if let Err(e) = validate_desc::validate_desc(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

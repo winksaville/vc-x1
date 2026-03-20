@@ -508,6 +508,18 @@ that don't have one. Matches commits by title (exact) and committer timestamp
 (within 60 seconds). Only adds the trailer when exactly one match is found in
 the other repo — ambiguous or zero matches are skipped. Respects `--no-dry-run`.
 
+## 0.25.0 — Refactor into validate-desc / fix-desc
+
+### 0.25.0-dev1 — Add validate-desc, extract desc_helpers
+
+Extract shared helpers into `desc_helpers.rs`: `ochid_prefix_from_config`,
+`OchidIssues`, `validate_ochid`, `find_matching_commit`, `fix_ochid_in_description`,
+`append_ochid_trailer`, `resolve_full_change_id`, `extract_bare_id`,
+`extract_ochid_from_desc`. New `validate-desc` subcommand: read-only scan
+reporting ok/err/miss/skip status per commit. Supports `--check-missing` to
+report potential matches by title+timestamp. `fix-ochid` rewritten to use
+`desc_helpers` with no duplicated logic.
+
 ## 0.24.0 — Add --max-fixes to fix-ochid
 
 New `--max-fixes` flag limits the number of commits actually changed.
