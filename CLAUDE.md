@@ -44,6 +44,24 @@ jj commit -m "title" -m "body" -R .claude
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
 
+## Commit Message Style
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) with
+a version suffix:
+
+```
+<type>: <short description> (<version>)
+```
+
+- **Title**: target ~50 chars, short summary of *what* changed.
+  Include the version. Common types: `feat`, `fix`, `refactor`,
+  `test`, `docs`, `chore`.
+- **Body**: expand on *what* if needed, plus short *why* and *how*.
+- Examples:
+  - `feat: add fix-ochid subcommand (0.22.0)`
+  - `fix: fix-ochid prefix bug (0.22.1)`
+  - `refactor: deduplicate common CLI flags (0.21.1)`
+
 ## Pre-commit Requirements
 
 ### User approval

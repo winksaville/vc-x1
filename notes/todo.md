@@ -33,6 +33,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Show ochid in list output, clean up CLI help defaults (0.21.0) [19]
 - Deduplicate common CLI flags with `#[command(flatten)]` (0.21.1) [19]
 - Add fix-ochid subcommand with validation and --fallback (0.22.0) [19]
+- Fix fix-ochid prefix bug: read workspace.path from .vc-config.toml (0.22.1) [19]
 
 
 # References

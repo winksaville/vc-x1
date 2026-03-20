@@ -5,6 +5,7 @@ mod finalize;
 mod fix_ochid;
 mod list;
 mod show;
+mod toml_simple;
 
 use std::process::ExitCode;
 

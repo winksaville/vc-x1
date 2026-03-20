@@ -482,6 +482,15 @@ for commits whose `.claude` history was lost to squashing). Optional `--title`
 to fix commit titles at the same time. Uses `jj describe --ignore-immutable`
 to rewrite descriptions.
 
+### 0.22.1 — Fix fix-ochid prefix bug
+
+fix-ochid computed the ochid prefix from the raw `--other-repo` CLI path
+(e.g. `../` produced `/../`). Now reads `workspace.path` from the other
+repo's `.vc-config.toml`, which is the authoritative source for the
+workspace-root-relative path. Added `toml_simple` module with `toml_load()`
+(returns `HashMap<String, String>`) and `toml_get()` for minimal TOML
+parsing — designed to be swapped for a real TOML crate later.
+
 ## Git commit headers and jj change-id preservation
 
 ### How jj stores change IDs in git

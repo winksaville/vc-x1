@@ -8,8 +8,10 @@ use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
 
 use crate::common;
+use crate::toml_simple;
 
 const DEFAULT_ID_LEN: usize = 12;
+const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
 #[derive(Args, Debug)]
 pub struct FixOchidArgs {
@@ -54,16 +56,21 @@ pub struct FixOchidArgs {
     pub limit: Option<usize>,
 }
 
-/// Derive the ochid path prefix from a repo path.
+/// Derive the ochid prefix from the other repo's `.vc-config.toml`.
 ///
-/// `.` → `/`, `.claude` → `/.claude/`, `some/path` → `/some/path/`
-fn repo_to_ochid_prefix(repo_path: &std::path::Path) -> String {
-    let s = repo_path.to_string_lossy();
-    if s == "." {
-        "/".to_string()
+/// The `workspace.path` value is the repo's path relative to the workspace
+/// root, which is exactly the ochid prefix (with a trailing `/` when the
+/// path isn't just `/`).
+fn ochid_prefix_from_config(
+    config: &std::collections::HashMap<String, String>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let ws_path = toml_simple::toml_get(config, "workspace.path")
+        .ok_or("missing workspace.path in .vc-config.toml")?;
+    let trimmed = ws_path.trim_end_matches('/');
+    if trimmed.is_empty() {
+        Ok("/".to_string())
     } else {
-        let trimmed = s.trim_end_matches('/');
-        format!("/{trimmed}/")
+        Ok(format!("{trimmed}/"))
     }
 }
 
@@ -170,7 +177,8 @@ fn fix_ochid_in_description(
 pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> {
     let (workspace, repo) = common::load_repo(&args.repo)?;
     let (other_workspace, other_repo) = common::load_repo(&args.other_repo)?;
-    let other_prefix = repo_to_ochid_prefix(&args.other_repo);
+    let other_config = toml_simple::toml_load(&args.other_repo.join(VC_CONFIG_FILE))?;
+    let other_prefix = ochid_prefix_from_config(&other_config)?;
 
     let spec = common::resolve_spec(
         args.pos_rev.as_deref(),
@@ -334,22 +342,34 @@ pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> 
 mod tests {
     use super::*;
 
+    fn make_config(ws_path: &str) -> std::collections::HashMap<String, String> {
+        let mut map = std::collections::HashMap::new();
+        map.insert("workspace.path".to_string(), ws_path.to_string());
+        map
+    }
+
     #[test]
-    fn prefix_from_dot() {
-        assert_eq!(repo_to_ochid_prefix(&PathBuf::from(".")), "/");
+    fn prefix_from_root() {
+        let config = make_config("/");
+        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/");
     }
 
     #[test]
     fn prefix_from_claude() {
-        assert_eq!(repo_to_ochid_prefix(&PathBuf::from(".claude")), "/.claude/");
+        let config = make_config("/.claude");
+        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/.claude/");
     }
 
     #[test]
-    fn prefix_from_path() {
-        assert_eq!(
-            repo_to_ochid_prefix(&PathBuf::from("some/path")),
-            "/some/path/"
-        );
+    fn prefix_from_nested_path() {
+        let config = make_config("/some/path");
+        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/some/path/");
+    }
+
+    #[test]
+    fn prefix_missing_config_key() {
+        let config = std::collections::HashMap::new();
+        assert!(ochid_prefix_from_config(&config).is_err());
     }
 
     #[test]
