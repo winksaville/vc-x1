@@ -9,7 +9,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Refactor fix-ochid into validate-desc/fix-desc (in progress, dev1 done)
+ - Refactor fix-ochid into validate-desc/fix-desc (dev3: remove fix-ochid) [20]
  - Run fix-ochid on both repos to fix ochid trailers (use --fallback for lost IDs)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
@@ -38,6 +38,9 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Fix fix-ochid short ID extension, add notes to pre-commit checklist (0.22.2) [19]
 - Add --add-missing to fix-ochid for inferring ochid from title+timestamp (0.23.0) [19]
 - Add --max-fixes to fix-ochid to limit commits actually changed (0.24.0) [19]
+- Add validate-desc subcommand, extract desc_helpers (0.25.0-dev1) [21]
+- Add fix-desc subcommand using shared helpers (0.25.0-dev2) [22]
+- Add lost/none special ochid status, improved error messages (0.25.0-dev2) [22],[23]
 
 
 # References
@@ -48,5 +51,9 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [15]: /notes/chores-01.md#indent-desc-body-lines-0160
 [16]: /notes/chores-01.md#finalize-detach-and-manual-recovery-0170
 [17]: /notes/chores-02.md#jj-commit-organization-and-traversal-mechanisms-0170
-[18]: /notes/chores-02.md#show-subcommand-0180
-[19]: /notes/chores-02.md#test-dispersal-and-ochid-list-column
+[18]: /notes/chores-02.md#0180--initial-show-subcommand
+[19]: /notes/chores-02.md#0200--multi-repo-support
+[20]: /notes/chores-02.md#0250--refactor-into-validate-desc--fix-desc
+[21]: /notes/chores-02.md#0250-dev1--add-validate-desc-extract-desc_helpers
+[22]: /notes/chores-02.md#0250-dev2--add-fix-desc-subcommand
+[23]: /notes/chores-02.md#special-ochid-values-lost-and-none

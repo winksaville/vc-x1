@@ -520,6 +520,53 @@ reporting ok/err/miss/skip status per commit. Supports `--check-missing` to
 report potential matches by title+timestamp. `fix-ochid` rewritten to use
 `desc_helpers` with no duplicated logic.
 
+### 0.25.0-dev2 — Add fix-desc subcommand
+
+New `fix-desc` subcommand using shared `desc_helpers`. Same positional arg
+interface as `validate-desc` (`OTHER_REPO` required positional). Adds
+`--no-dry-run`, `--add-missing`, `--max-fixes`, `--fallback`, `--title`.
+Extracted `jj_describe` helper to reduce duplication. Marked `fix-ochid`
+as deprecated in help text.
+
+#### Matching and error reporting improvements
+
+Switched from timestamp+title matching to title-only matching. The original
+60-second timestamp tolerance was too strict — committer timestamps shift on
+`jj squash`, `jj describe`, and `jj rebase`, so commits made together can
+diverge by minutes. Title-only matching is more robust.
+
+When multiple commits share the same title, the match is ambiguous and
+reported as `[N title matches, ambiguous]` — no auto-fix without an
+explicit override (future feature).
+
+`OchidIssues` now carries actual values (not just bools) for verbose error
+reporting:
+- `prefix: / (want /.claude/)` instead of `wrong prefix`
+- `len: 8 (want 12)` instead of `wrong ID length`
+- `not found: ouoyxokq` instead of `ID not found in other repo`
+
+`TitleMatch` enum replaces `Option<String>` return from `find_matching_commit`,
+distinguishing `NoTitle`, `One(id)`, `Ambiguous(n)`, and `None`.
+
+#### Special ochid values: `lost` and `none`
+
+`validate-desc` recognizes two special ochid bare IDs:
+- `lost` — the counterpart commit was lost (e.g. `.claude` history squashed
+  incorrectly). Set via `fix-desc --fallback /.claude/lost`. Status: `lost`.
+- `none` — no counterpart exists (human-only change, no bot involvement).
+  Set manually. Status: `none`.
+
+Both are treated as intentional non-error states — they don't count as
+`issues` and don't trigger the error exit code.
+
+#### Improved error messages
+
+Error summaries use introducer+semicolon format for readability:
+`[short ochid; len: 8 (want 12), not found; /.claude/ouoyxokq, consider using; --fallback of fix-desc]`
+
+The `not found` message now includes the full ochid path (not just
+the bare ID) and suggests the `--fallback` flag as a remedy.
+
 ## 0.24.0 — Add --max-fixes to fix-ochid
 
 New `--max-fixes` flag limits the number of commits actually changed.

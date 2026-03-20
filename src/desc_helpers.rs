@@ -1,9 +1,6 @@
-#![allow(dead_code)] // Some helpers are unused until fix-desc lands in dev2.
-
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
@@ -13,9 +10,6 @@ use crate::toml_simple;
 
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
-
-/// Maximum timestamp difference (in milliseconds) for title-based matching.
-pub const TIMESTAMP_TOLERANCE_MS: i64 = 60_000;
 
 /// Derive the ochid prefix from a repo's `.vc-config.toml`.
 ///
@@ -35,29 +29,34 @@ pub fn ochid_prefix_from_config(
     }
 }
 
-/// Problems found with an ochid trailer.
+/// Problems found with an ochid trailer, with details for reporting.
 #[derive(Debug)]
 pub struct OchidIssues {
-    pub wrong_prefix: bool,
-    pub wrong_length: bool,
+    /// None if prefix is correct, Some((actual_prefix, expected_prefix)) if wrong.
+    pub wrong_prefix: Option<(String, String)>,
+    /// None if length is correct, Some((actual_len, expected_len)) if wrong.
+    pub wrong_length: Option<(usize, usize)>,
+    /// true if the bare ID does not resolve in the other repo.
     pub not_found: bool,
+    /// The bare ID extracted from the ochid value.
+    pub bare_id: String,
 }
 
 impl OchidIssues {
     pub fn any(&self) -> bool {
-        self.wrong_prefix || self.wrong_length || self.not_found
+        self.wrong_prefix.is_some() || self.wrong_length.is_some() || self.not_found
     }
 
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
-        if self.wrong_prefix {
-            parts.push("wrong prefix");
+        if let Some((ref actual, ref expected)) = self.wrong_prefix {
+            parts.push(format!("prefix: {actual} (want {expected})"));
         }
-        if self.wrong_length {
-            parts.push("wrong ID length");
+        if let Some((actual, expected)) = self.wrong_length {
+            parts.push(format!("len: {actual} (want {expected})"));
         }
         if self.not_found {
-            parts.push("ID not found in other repo");
+            parts.push(format!("not found: {}", self.bare_id));
         }
         parts.join(", ")
     }
@@ -71,16 +70,21 @@ pub fn validate_ochid(
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
 ) -> OchidIssues {
-    let wrong_prefix = !value.starts_with(other_prefix);
+    // Extract the actual prefix (everything before the bare ID)
+    let bare_id = extract_bare_id(value);
+    let actual_prefix = &value[..value.len() - bare_id.len()];
 
-    // Extract the bare ID
-    let bare_id = if let Some(pos) = value.rfind('/') {
-        &value[pos + 1..]
+    let wrong_prefix = if actual_prefix != other_prefix {
+        Some((actual_prefix.to_string(), other_prefix.to_string()))
     } else {
-        value
+        None
     };
 
-    let wrong_length = bare_id.len() != id_len;
+    let wrong_length = if bare_id.len() != id_len {
+        Some((bare_id.len(), id_len))
+    } else {
+        None
+    };
 
     // Check if the ID resolves in the other repo
     let not_found = common::resolve_revset(other_workspace, other_repo, bare_id)
@@ -91,26 +95,34 @@ pub fn validate_ochid(
         wrong_prefix,
         wrong_length,
         not_found,
+        bare_id: bare_id.to_string(),
     }
 }
 
-/// Find a unique matching commit in the other repo by title and timestamp.
-///
-/// Returns the other commit's change ID (full hex) if exactly one commit
-/// in the other repo has the same first description line and a committer
-/// timestamp within `TIMESTAMP_TOLERANCE_MS` of the source commit.
+/// Result of searching the other repo for a matching commit by title.
+#[derive(Debug)]
+pub enum TitleMatch {
+    /// No title to search for (empty description).
+    NoTitle,
+    /// Exactly one commit with the same title — unambiguous match.
+    One(String),
+    /// Multiple commits share the same title — ambiguous.
+    Ambiguous(usize),
+    /// No commit in the other repo has the same title.
+    None,
+}
+
+/// Find matching commits in the other repo by title (exact match).
 pub fn find_matching_commit(
-    commit: &Commit,
+    commit: &jj_lib::commit::Commit,
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+) -> Result<TitleMatch, Box<dyn std::error::Error>> {
     let title = commit.description().lines().next().unwrap_or("");
     if title.is_empty() {
-        return Ok(None);
+        return Ok(TitleMatch::NoTitle);
     }
-    let src_millis = commit.committer().timestamp.timestamp.0;
 
-    // Search all commits in the other repo
     let all_ids = common::resolve_revset(other_workspace, other_repo, "all()")?;
     let root_id = other_repo.store().root_commit_id().clone();
 
@@ -121,21 +133,17 @@ pub fn find_matching_commit(
         }
         let other_commit = other_repo.store().get_commit(cid)?;
         let other_title = other_commit.description().lines().next().unwrap_or("");
-        if other_title != title {
-            continue;
-        }
-        let other_millis = other_commit.committer().timestamp.timestamp.0;
-        if (src_millis - other_millis).abs() <= TIMESTAMP_TOLERANCE_MS {
+        if other_title == title {
             let full_hex =
                 jj_lib::hex_util::encode_reverse_hex(other_commit.change_id().as_bytes());
             matches.push(full_hex);
         }
     }
 
-    if matches.len() == 1 {
-        Ok(Some(matches.into_iter().next().unwrap()))
-    } else {
-        Ok(None)
+    match matches.len() {
+        0 => Ok(TitleMatch::None),
+        1 => Ok(TitleMatch::One(matches.into_iter().next().unwrap())),
+        n => Ok(TitleMatch::Ambiguous(n)),
     }
 }
 

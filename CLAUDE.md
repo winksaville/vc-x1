@@ -83,9 +83,10 @@ a version suffix:
 
 ### User approval
 
-Never execute commit commands without the user's explicit approval.
-Present the full commands for review first; only run them after the
-user confirms.
+Never execute commit, squash, push, or finalize commands without the
+user's explicit approval. Present changes for review first; only run
+them after the user confirms. This applies to late changes too —
+pause for review before squashing into an existing commit.
 
 ### Notes references
 

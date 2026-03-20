@@ -3,7 +3,9 @@
 - [Overview](#vc-x1)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
-  - [fix-ochid](#fix-ochid)
+  - [validate-desc](#validate-desc)
+  - [fix-desc](#fix-desc)
+  - [fix-ochid](#fix-ochid) (deprecated)
   - [finalize](#finalize)
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
@@ -41,7 +43,9 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
-vc-x1 fix-ochid --other-repo <PATH> [OPTS]  # Validate/fix ochid trailers
+vc-x1 validate-desc <OTHER_REPO> [OPTS]     # Validate commit descriptions
+vc-x1 fix-desc <OTHER_REPO> [OPTS]         # Fix commit descriptions (dry-run default)
+vc-x1 fix-ochid --other-repo <PATH> [OPTS] # (deprecated, use fix-desc)
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
@@ -179,7 +183,62 @@ With a single repo (or no `-R`), no label is printed — backward
 compatible with previous behavior. Multi-repo is supported for
 `chid`, `desc`, `list`, and `show`. `finalize` remains single-repo.
 
+### validate-desc
+
+Read-only scan of commit descriptions against the other repo. Reports
+status per commit: `ok` (valid ochid), `lost` (ochid: lost), `none`
+(ochid: none), `err` (issues found), or `miss` (no ochid trailer).
+Always checks for potential matches by title in the other repo.
+
+```
+# Validate all ancestors of @
+vc-x1 validate-desc .claude @..
+
+# Validate specific range
+vc-x1 validate-desc .claude -r @.. -n 20
+```
+
+Use `--help` for the full status label legend.
+
+### fix-desc
+
+Fix commit descriptions against the other repo. Default is dry-run —
+use `--no-dry-run` to write changes. Same positional args as
+`validate-desc`.
+
+```
+# Dry-run: show what would be fixed
+vc-x1 fix-desc .claude @..
+
+# Actually fix
+vc-x1 fix-desc .claude @.. --no-dry-run
+
+# Add missing ochid trailers by matching title + timestamp
+vc-x1 fix-desc .claude @.. --add-missing
+
+# Limit fixes
+vc-x1 fix-desc .claude @.. --no-dry-run -m 3
+
+# Use a fallback for IDs not found in other repo
+vc-x1 fix-desc .claude @.. --fallback /.claude/lost
+```
+
+| Flag | Description |
+|------|-------------|
+| `--no-dry-run` | Write fixes (default is dry-run) |
+| `--add-missing` | Infer and add ochid for commits without one |
+| `-m, --max-fixes <N>` | Stop fixing after N commits changed [default: all] |
+| `--fallback <VALUE>` | Replacement for IDs not found in other repo |
+| `--id-len <N>` | Expected changeID length (default 12) |
+| `--title <TEXT>` | Replace commit title at the same time |
+
+Use `--help` for the full status label legend.
+
 ### fix-ochid
+
+> **Deprecated**: use `validate-desc` and `fix-desc` instead.
+
+
 
 Validates and fixes ochid trailers across commit history. Checks three
 properties: correct path prefix, correct changeID length, and that the

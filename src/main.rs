@@ -3,6 +3,7 @@ mod common;
 mod desc;
 mod desc_helpers;
 mod finalize;
+mod fix_desc;
 mod fix_ochid;
 mod list;
 mod show;
@@ -45,7 +46,21 @@ pub(crate) enum Commands {
     )]
     ValidateDesc(validate_desc::ValidateDescArgs),
 
-    /// Fix ochid trailers in commit descriptions
+    /// Fix commit descriptions against the other repo (dry-run by default)
+    #[command(long_about = "Fix commit descriptions against the other repo.\n\n\
+        Default is dry-run; use --no-dry-run to write changes.\n\n\
+        Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
+        Status labels:\n  \
+          ok    — ochid trailer is valid (no change)\n  \
+          fix   — ochid has issues, shows proposed fix (dry-run)\n  \
+          fixed — ochid was rewritten (--no-dry-run)\n  \
+          add   — missing ochid, match found, shows proposed addition (dry-run)\n  \
+          added — missing ochid was added (--no-dry-run)\n  \
+          skip  — skipped (no ochid, no match, or max-fixes reached)\n  \
+          err   — ID not found and no --fallback provided")]
+    FixDesc(fix_desc::FixDescArgs),
+
+    /// Fix ochid trailers in commit descriptions (deprecated, use fix-desc)
     FixOchid(fix_ochid::FixOchidArgs),
 
     /// Squash working copy into target commit
@@ -86,6 +101,13 @@ fn main() -> ExitCode {
         }
         Commands::ValidateDesc(args) => {
             if let Err(e) = validate_desc::validate_desc(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::FixDesc(args) => {
+            if let Err(e) = fix_desc::fix_desc(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

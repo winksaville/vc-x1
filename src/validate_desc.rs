@@ -6,7 +6,8 @@ use jj_lib::repo::Repo;
 
 use crate::common;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, VC_CONFIG_FILE, find_matching_commit, ochid_prefix_from_config, validate_ochid,
+    DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
+    ochid_prefix_from_config, validate_ochid,
 };
 use crate::toml_simple;
 
@@ -43,10 +44,13 @@ pub struct ValidateDescArgs {
 /// Status of a single commit's ochid validation.
 enum CommitStatus {
     Ok,
+    Lost,                     // ochid marked as "lost" (unrecoverable)
+    None_,                    // ochid marked as "none" (no counterpart)
     NeedsFixed(String),       // summary of issues
     MissingNoTitle,           // no ochid, no title to match on
-    MissingNoMatch,           // no ochid, title exists but no match in other repo
-    MissingWithMatch(String), // no ochid, but match found in other repo
+    MissingNoMatch,           // no ochid, no title match in other repo
+    MissingAmbiguous(usize),  // no ochid, multiple title matches
+    MissingWithMatch(String), // no ochid, unique title match found
 }
 
 pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -76,6 +80,8 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
 
     let root_id = repo.store().root_commit_id().clone();
     let mut valid = 0;
+    let mut lost = 0;
+    let mut none = 0;
     let mut issues_count = 0;
     let mut missing = 0;
 
@@ -100,33 +106,49 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
         let current_ochid = common::extract_ochid(&commit);
 
         let status = if let Some(ref ochid_val) = current_ochid {
-            let issues = validate_ochid(
-                ochid_val,
-                &other_prefix,
-                args.id_len,
-                &other_workspace,
-                &other_repo,
-            );
-            if issues.any() {
-                CommitStatus::NeedsFixed(issues.summary())
+            let bare = extract_bare_id(ochid_val);
+            if bare == "lost" {
+                CommitStatus::Lost
+            } else if bare == "none" {
+                CommitStatus::None_
             } else {
-                CommitStatus::Ok
+                let issues = validate_ochid(
+                    ochid_val,
+                    &other_prefix,
+                    args.id_len,
+                    &other_workspace,
+                    &other_repo,
+                );
+                if issues.any() {
+                    CommitStatus::NeedsFixed(issues.summary())
+                } else {
+                    CommitStatus::Ok
+                }
             }
-        } else if first_line.is_empty() {
-            CommitStatus::MissingNoTitle
-        } else if let Some(matched_id) =
-            find_matching_commit(&commit, &other_workspace, &other_repo)?
-        {
-            let short_id = &matched_id[..matched_id.len().min(args.id_len)];
-            CommitStatus::MissingWithMatch(format!("{other_prefix}{short_id}"))
         } else {
-            CommitStatus::MissingNoMatch
+            match find_matching_commit(&commit, &other_workspace, &other_repo)? {
+                TitleMatch::NoTitle => CommitStatus::MissingNoTitle,
+                TitleMatch::One(id) => {
+                    let short_id = &id[..id.len().min(args.id_len)];
+                    CommitStatus::MissingWithMatch(format!("{other_prefix}{short_id}"))
+                }
+                TitleMatch::Ambiguous(n) => CommitStatus::MissingAmbiguous(n),
+                TitleMatch::None => CommitStatus::MissingNoMatch,
+            }
         };
 
         match status {
             CommitStatus::Ok => {
                 valid += 1;
                 println!("ok   {change_short}  {display_title}");
+            }
+            CommitStatus::Lost => {
+                lost += 1;
+                println!("lost {change_short}  {display_title}");
+            }
+            CommitStatus::None_ => {
+                none += 1;
+                println!("none {change_short}  {display_title}");
             }
             CommitStatus::NeedsFixed(summary) => {
                 issues_count += 1;
@@ -140,19 +162,23 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
                 missing += 1;
                 println!("miss {change_short}  {display_title}");
             }
+            CommitStatus::MissingAmbiguous(n) => {
+                missing += 1;
+                println!("miss {change_short}  {display_title}  [{n} title matches, ambiguous]");
+            }
             CommitStatus::MissingNoMatch => {
                 missing += 1;
-                println!("miss {change_short}  {display_title}  [no match in other repo]");
+                println!("miss {change_short}  {display_title}  [no matching title in other repo]");
             }
         }
     }
 
-    let total = valid + issues_count + missing;
+    let total = valid + lost + none + issues_count + missing;
     if total > 10 {
         println!("{col_header}");
     }
     println!(
-        "\n{valid} valid, {issues_count} issues, {missing} missing (of {} total)",
+        "\n{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing (of {} total)",
         ids.len()
     );
     if issues_count > 0 {
