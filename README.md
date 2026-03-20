@@ -3,6 +3,7 @@
 - [Overview](#vc-x1)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
+  - [fix-ochid](#fix-ochid)
   - [finalize](#finalize)
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
@@ -40,8 +41,9 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
-vc-x1 finalize --bookmark <B> [OPTS]   # Squash working copy into target
-vc-x1 --version                        # Print version
+vc-x1 fix-ochid --other-repo <PATH> [OPTS]  # Validate/fix ochid trailers
+vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
+vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
 ```
 
@@ -176,6 +178,42 @@ won't protect against `!` (bash history expansion).
 With a single repo (or no `-R`), no label is printed — backward
 compatible with previous behavior. Multi-repo is supported for
 `chid`, `desc`, `list`, and `show`. `finalize` remains single-repo.
+
+### fix-ochid
+
+Validates and fixes ochid trailers across commit history. Checks three
+properties: correct path prefix, correct changeID length, and that the
+ID resolves in the other repo. Default is dry-run — use `--no-dry-run`
+to write changes.
+
+```
+# Dry-run: show what would be fixed
+vc-x1 fix-ochid -r @.. --other-repo .claude
+
+# Actually fix
+vc-x1 fix-ochid -r @.. --other-repo .claude --no-dry-run
+
+# Add missing ochid trailers by matching title + timestamp (within 60s)
+vc-x1 fix-ochid -r @.. --other-repo .claude --add-missing
+
+# Use a fallback for IDs not found in other repo
+vc-x1 fix-ochid -r @.. --other-repo .claude --fallback /.claude/lost
+```
+
+Key flags:
+
+| Flag | Description |
+|------|-------------|
+| `--other-repo <PATH>` | Path to the counterpart repo (required) |
+| `--no-dry-run` | Write fixes (default is dry-run) |
+| `--add-missing` | Infer and add ochid for commits without one |
+| `--fallback <VALUE>` | Replacement for IDs not found in other repo |
+| `--id-len <N>` | Expected changeID length (default 12) |
+| `--title <TEXT>` | Replace commit title at the same time |
+
+The `--add-missing` flag matches commits by exact title and committer
+timestamp within 60 seconds. It only adds the trailer when exactly one
+match is found — ambiguous or zero matches are skipped.
 
 ### finalize
 

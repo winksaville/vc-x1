@@ -401,9 +401,7 @@ Source: `jj-lib-0.39.0/src/merged_tree.rs`, lines 260-690.
 - `src/op_store.rs` — operation storage (commit_predecessors)
 - `src/operation.rs` — Operation type (predecessors_for_commit)
 
-## Show subcommand (0.18.0)
-
-### 0.18.0 — Initial show subcommand
+## 0.18.0 — Initial show subcommand
 
 Implement `vc-x1 show` matching `jj show` output: commit/change IDs,
 bookmarks (local + remote), author/committer with timestamps,
@@ -419,7 +417,7 @@ with separators. File list: `-f` flag (default 50, `0`=none, `all`=unlimited)
 with first/last split when truncated. Remove `--indent` from desc,
 hardcode 4-space indent in both desc and show.
 
-### 0.19.0 — Unify `..` notation and CLI across all subcommands
+## 0.19.0 — Unify `..` notation and CLI across all subcommands
 
 - Extract `collect_ids` in `common.rs` — returns `(Vec<CommitId>, usize)`,
   ordered commit IDs and anchor index. Handles all `..` directions.
@@ -440,7 +438,9 @@ hardcode 4-space indent in both desc and show.
 - Raw jj revset syntax (`::`, `|`, `&`) no longer supported via `-r`;
   use `..` notation instead.
 
-## Test dispersal and ochid list column
+## 0.20.0 — Multi-repo support
+
+(Documented in previous session; see todo.md for summary.)
 
 ### 0.20.1 — Disperse CLI parsing tests
 
@@ -450,7 +450,7 @@ the `unknown_command` test. Make `Commands` enum `pub(crate)` so submodule
 tests can match on it. Each module has a local `parse()` helper that
 returns the typed args struct directly, eliminating the `if let` boilerplate.
 
-### 0.21.0 — Show ochid in list output
+## 0.21.0 — Show ochid in list output
 
 Replace commitID with ochid trailer value in `list` output. New column
 format: `chid  ochid  title` with 2-space gaps between columns. The ochid
@@ -470,7 +470,7 @@ All four read-only subcommands (chid, desc, list, show) flatten it; list adds
 `width`, show adds `files`. Eliminates ~30 lines of duplicated arg definitions
 per subcommand. Tests updated to access fields via `.common`.
 
-### 0.22.0 — Add fix-ochid subcommand
+## 0.22.0 — Add fix-ochid subcommand
 
 New `fix-ochid` subcommand to validate and fix ochid trailers in commit
 descriptions. Validates three properties: correct path prefix (derived from
@@ -500,6 +500,13 @@ Now resolves the short ID in the other repo to get the full change ID, then
 truncates to `id_len`. Added `resolved_id` parameter to
 `fix_ochid_in_description`. Also added notes update steps (6–8) to the
 pre-commit checklist in CLAUDE.md.
+
+## 0.23.0 — Add --add-missing to fix-ochid
+
+New `--add-missing` flag for `fix-ochid` that adds ochid trailers to commits
+that don't have one. Matches commits by title (exact) and committer timestamp
+(within 60 seconds). Only adds the trailer when exactly one match is found in
+the other repo — ambiguous or zero matches are skipped. Respects `--no-dry-run`.
 
 ## Git commit headers and jj change-id preservation
 

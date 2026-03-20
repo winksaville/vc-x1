@@ -15,6 +15,13 @@ Both repos are managed with `jj` (Jujutsu), which coexists with git.
 - Bot session repo: `.claude`
   (symlink from `~/.claude/projects/<path-to-project-root>/.claude`)
 
+## Working Directory
+
+Prefer staying in the project root. Use `-R` flags or absolute paths
+to target other directories rather than `cd`. If `cd` seems necessary,
+discuss with the user first — losing track of cwd causes subtle
+command failures downstream.
+
 ## Committing
 
 Use `-R` (`--repository`) at the end to target the correct repo. Use

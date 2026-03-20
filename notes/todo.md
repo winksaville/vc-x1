@@ -9,6 +9,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Add --max-fixes to fix-ochid to limit number of commits actually changed
  - Run fix-ochid on both repos to fix ochid trailers (use --fallback for lost IDs)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
@@ -35,6 +36,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add fix-ochid subcommand with validation and --fallback (0.22.0) [19]
 - Fix fix-ochid prefix bug: read workspace.path from .vc-config.toml (0.22.1) [19]
 - Fix fix-ochid short ID extension, add notes to pre-commit checklist (0.22.2) [19]
+- Add --add-missing to fix-ochid for inferring ochid from title+timestamp (0.23.0) [19]
 
 
 # References

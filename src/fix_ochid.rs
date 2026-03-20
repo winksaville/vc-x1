@@ -23,7 +23,7 @@ pub struct FixOchidArgs {
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
-    /// Revision(s) to fix
+    /// Revision(s) to scan
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
@@ -50,6 +50,10 @@ pub struct FixOchidArgs {
     /// Actually write changes (default is dry-run)
     #[arg(long = "no-dry-run")]
     pub no_dry_run: bool,
+
+    /// Add missing ochid trailers by matching title and timestamp
+    #[arg(long = "add-missing")]
+    pub add_missing: bool,
 
     /// Number of commits to fix
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
@@ -182,6 +186,71 @@ fn fix_ochid_in_description(
     result
 }
 
+/// Maximum timestamp difference (in milliseconds) for title-based matching.
+const TIMESTAMP_TOLERANCE_MS: i64 = 60_000;
+
+/// Find a unique matching commit in the other repo by title and timestamp.
+///
+/// Returns the other commit's change ID (full hex) if exactly one commit
+/// in the other repo has the same first description line and a committer
+/// timestamp within `TIMESTAMP_TOLERANCE_MS` of the source commit.
+fn find_matching_commit(
+    commit: &jj_lib::commit::Commit,
+    other_workspace: &Workspace,
+    other_repo: &Arc<ReadonlyRepo>,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let title = commit.description().lines().next().unwrap_or("");
+    if title.is_empty() {
+        return Ok(None);
+    }
+    let src_millis = commit.committer().timestamp.timestamp.0;
+
+    // Search all commits in the other repo
+    let all_ids = common::resolve_revset(other_workspace, other_repo, "all()")?;
+    let root_id = other_repo.store().root_commit_id().clone();
+
+    let mut matches = Vec::new();
+    for cid in &all_ids {
+        if *cid == root_id {
+            continue;
+        }
+        let other_commit = other_repo.store().get_commit(cid)?;
+        let other_title = other_commit.description().lines().next().unwrap_or("");
+        if other_title != title {
+            continue;
+        }
+        let other_millis = other_commit.committer().timestamp.timestamp.0;
+        if (src_millis - other_millis).abs() <= TIMESTAMP_TOLERANCE_MS {
+            let full_hex =
+                jj_lib::hex_util::encode_reverse_hex(other_commit.change_id().as_bytes());
+            matches.push(full_hex);
+        }
+    }
+
+    if matches.len() == 1 {
+        Ok(Some(matches.into_iter().next().unwrap()))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Append an ochid trailer to a commit description.
+fn append_ochid_trailer(desc: &str, other_prefix: &str, change_id: &str, id_len: usize) -> String {
+    let short_id = &change_id[..change_id.len().min(id_len)];
+    let trailer = format!("ochid: {other_prefix}{short_id}");
+
+    let mut result = desc.trim_end().to_string();
+    // Add blank line before trailer if body exists, otherwise just newline
+    if result.lines().count() > 1 {
+        result.push('\n');
+    } else {
+        result.push_str("\n\n");
+    }
+    result.push_str(&trailer);
+    result.push('\n');
+    result
+}
+
 pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> {
     let (workspace, repo) = common::load_repo(&args.repo)?;
     let (other_workspace, other_repo) = common::load_repo(&args.other_repo)?;
@@ -233,6 +302,48 @@ pub fn fix_ochid(args: &FixOchidArgs) -> Result<(), Box<dyn std::error::Error>> 
                 &other_workspace,
                 &other_repo,
             )
+        } else if args.add_missing {
+            // No ochid trailer — try to infer from the other repo
+            if let Some(matched_id) = find_matching_commit(&commit, &other_workspace, &other_repo)?
+            {
+                let new_desc = append_ochid_trailer(desc, &other_prefix, &matched_id, args.id_len);
+                let first_line = desc.lines().next().unwrap_or("");
+                let short_matched = &matched_id[..matched_id.len().min(args.id_len)];
+                if !args.no_dry_run {
+                    println!("add  {change_short}  {first_line}  [missing]");
+                    println!("     -> ochid: {other_prefix}{short_matched}");
+                } else {
+                    let status = Command::new("jj")
+                        .arg("describe")
+                        .arg("-m")
+                        .arg(&new_desc)
+                        .arg("-r")
+                        .arg(commit_id.hex())
+                        .arg("-R")
+                        .arg(&args.repo)
+                        .arg("--ignore-immutable")
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::inherit())
+                        .status()?;
+                    if !status.success() {
+                        return Err(format!(
+                            "jj describe failed for {} (exit {})",
+                            change_short,
+                            status.code().unwrap_or(-1)
+                        )
+                        .into());
+                    }
+                    println!("added {change_short}  {first_line}");
+                }
+                fixed += 1;
+                continue;
+            } else {
+                skipped += 1;
+                if !args.no_dry_run {
+                    println!("skip {change_short}  (no ochid, no match in other repo)");
+                }
+                continue;
+            }
         } else {
             // No ochid trailer — nothing to fix
             skipped += 1;
@@ -487,5 +598,26 @@ mod tests {
             Some("abcdefghijklmnop"),
         );
         assert!(result.contains("ochid: /.claude/abcdefghijkl"));
+    }
+
+    #[test]
+    fn append_ochid_title_only() {
+        let desc = "Title\n";
+        let result = append_ochid_trailer(desc, "/.claude/", "abcdefghijklmnop", DEFAULT_ID_LEN);
+        assert_eq!(result, "Title\n\nochid: /.claude/abcdefghijkl\n");
+    }
+
+    #[test]
+    fn append_ochid_with_body() {
+        let desc = "Title\n\nSome body text.\n";
+        let result = append_ochid_trailer(desc, "/", "abcdefghijklmnop", DEFAULT_ID_LEN);
+        assert_eq!(result, "Title\n\nSome body text.\nochid: /abcdefghijkl\n");
+    }
+
+    #[test]
+    fn append_ochid_root_prefix() {
+        let desc = "Title\n";
+        let result = append_ochid_trailer(desc, "/", "xyzxyzxyzxyz", DEFAULT_ID_LEN);
+        assert_eq!(result, "Title\n\nochid: /xyzxyzxyzxyz\n");
     }
 }
