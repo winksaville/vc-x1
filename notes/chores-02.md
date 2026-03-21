@@ -716,3 +716,17 @@ This is an inherent difficulty: revset syntax is open-ended (`@`,
 Other shells have equivalent mechanisms:
 - **zsh**: files named `_command` on `$fpath`, loaded by `compinit`
 - **fish**: files in `~/.config/fish/completions/` or vendor dir, auto-discovered
+
+## 0.26.1 — Fix validate-desc/fix-desc other-repo resolution with -R
+
+When using `-R <path>` with `validate-desc` or `fix-desc`, the
+`other-repo` value from `.vc-config.toml` was treated as relative to
+cwd instead of relative to the `-R` repo path. For example,
+`validate-desc -R .claude` loaded `.claude/.vc-config.toml` with
+`other-repo = ".."`, then tried `load_repo("..")` instead of
+`load_repo(".claude/..")`.
+
+Fix: join the config value with `args.repo` so the path resolves
+correctly: `args.repo.join(other_repo_from_config(&config)?)`.
+
+Changed files: `validate_desc.rs` (line 65), `fix_desc.rs` (line 76).

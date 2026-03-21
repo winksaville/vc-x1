@@ -73,7 +73,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         p.clone()
     } else {
         let config = toml_simple::toml_load(&args.repo.join(VC_CONFIG_FILE))?;
-        PathBuf::from(other_repo_from_config(&config)?)
+        args.repo.join(other_repo_from_config(&config)?)
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;

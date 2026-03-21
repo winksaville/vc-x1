@@ -45,6 +45,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Run fix-desc on both repos to fix ochid trailers with --fallback for lost IDs (0.25.0) [20]
 - Remove deprecated fix-ochid subcommand (0.25.0) [25]
 - Add shell completion via clap_complete env (0.26.0) [26]
+- Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.1) [30]
+
 
 
 # References
@@ -67,3 +69,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [27]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
 [28]: /notes/chores-02.md#testing-results
 [29]: /notes/chores-02.md#shell-completion-discovery
+[30]: /notes/chores-02.md#0261--fix-validate-descfix-desc-other-repo-resolution-with--r
