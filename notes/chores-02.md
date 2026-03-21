@@ -576,6 +576,11 @@ config value. Added `other_repo_from_config()` to `desc_helpers`.
 Updated both `.vc-config.toml` files with `other-repo` field.
 Consistent `[default: ...]` square bracket style in all help text.
 
+### 0.25.0 — Remove deprecated fix-ochid
+
+Remove `fix-ochid` subcommand, module (`src/fix_ochid.rs`), and all
+README references. `validate-desc` and `fix-desc` are the replacements.
+
 ## 0.24.0 — Add --max-fixes to fix-ochid
 
 New `--max-fixes` flag limits the number of commits actually changed.

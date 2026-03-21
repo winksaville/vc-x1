@@ -4,7 +4,6 @@ mod desc;
 mod desc_helpers;
 mod finalize;
 mod fix_desc;
-mod fix_ochid;
 mod list;
 mod show;
 mod toml_simple;
@@ -60,9 +59,6 @@ pub(crate) enum Commands {
           err   — ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
 
-    /// Fix ochid trailers in commit descriptions (deprecated, use fix-desc)
-    FixOchid(fix_ochid::FixOchidArgs),
-
     /// Squash working copy into target commit
     Finalize(finalize::FinalizeArgs),
 }
@@ -108,13 +104,6 @@ fn main() -> ExitCode {
         }
         Commands::FixDesc(args) => {
             if let Err(e) = fix_desc::fix_desc(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::FixOchid(args) => {
-            if let Err(e) = fix_ochid::fix_ochid(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

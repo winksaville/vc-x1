@@ -9,8 +9,6 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Refactor fix-ochid into validate-desc/fix-desc (dev3: remove fix-ochid) [20]
- - Run fix-ochid on both repos to fix ochid trailers (use --fallback for lost IDs)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -42,6 +40,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add fix-desc subcommand using shared helpers (0.25.0-dev2) [22]
 - Add lost/none special ochid status, improved error messages (0.25.0-dev2) [22],[23]
 - Read other-repo from .vc-config.toml, make positional arg a --other-repo flag (0.25.0-dev3) [24]
+- Run fix-desc on both repos to fix ochid trailers with --fallback for lost IDs (0.25.0) [20]
+- Remove deprecated fix-ochid subcommand (0.25.0) [25]
 
 
 # References
@@ -59,3 +59,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [22]: /notes/chores-02.md#0250-dev2--add-fix-desc-subcommand
 [23]: /notes/chores-02.md#special-ochid-values-lost-and-none
 [24]: /notes/chores-02.md#0250-dev3--read-other-repo-from-config
+[25]: /notes/chores-02.md#0250--remove-deprecated-fix-ochid

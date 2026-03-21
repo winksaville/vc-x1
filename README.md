@@ -5,7 +5,6 @@
   - [Revision shortcuts](#revision-shortcuts)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
-  - [fix-ochid](#fix-ochid) (deprecated)
   - [finalize](#finalize)
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
@@ -45,7 +44,6 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
-vc-x1 fix-ochid --other-repo <PATH> [OPTS] # (deprecated, use fix-desc)
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
@@ -238,47 +236,6 @@ vc-x1 fix-desc @.. --fallback /.claude/lost
 | `--title <TEXT>` | Replace commit title at the same time |
 
 Use `--help` for the full status label legend.
-
-### fix-ochid
-
-> **Deprecated**: use `validate-desc` and `fix-desc` instead.
-
-
-
-Validates and fixes ochid trailers across commit history. Checks three
-properties: correct path prefix, correct changeID length, and that the
-ID resolves in the other repo. Default is dry-run — use `--no-dry-run`
-to write changes.
-
-```
-# Dry-run: show what would be fixed
-vc-x1 fix-ochid -r @.. --other-repo .claude
-
-# Actually fix
-vc-x1 fix-ochid -r @.. --other-repo .claude --no-dry-run
-
-# Add missing ochid trailers by matching title + timestamp (within 60s)
-vc-x1 fix-ochid -r @.. --other-repo .claude --add-missing
-
-# Use a fallback for IDs not found in other repo
-vc-x1 fix-ochid -r @.. --other-repo .claude --fallback /.claude/lost
-```
-
-Key flags:
-
-| Flag | Description |
-|------|-------------|
-| `--other-repo <PATH>` | Path to the counterpart repo (required) |
-| `--no-dry-run` | Write fixes (default is dry-run) |
-| `--add-missing` | Infer and add ochid for commits without one |
-| `--fallback <VALUE>` | Replacement for IDs not found in other repo |
-| `--id-len <N>` | Expected changeID length (default 12) |
-| `--max-fixes <N>` | Stop fixing after N commits changed |
-| `--title <TEXT>` | Replace commit title at the same time |
-
-The `--add-missing` flag matches commits by exact title and committer
-timestamp within 60 seconds. It only adds the trailer when exactly one
-match is found — ambiguous or zero matches are skipped.
 
 ### finalize
 
