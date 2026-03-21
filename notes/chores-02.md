@@ -717,7 +717,7 @@ Other shells have equivalent mechanisms:
 - **zsh**: files named `_command` on `$fpath`, loaded by `compinit`
 - **fish**: files in `~/.config/fish/completions/` or vendor dir, auto-discovered
 
-## 0.26.1 — Fix validate-desc/fix-desc other-repo resolution with -R
+## 0.26.2 — Fix validate-desc/fix-desc other-repo resolution with -R
 
 When using `-R <path>` with `validate-desc` or `fix-desc`, the
 `other-repo` value from `.vc-config.toml` was treated as relative to
