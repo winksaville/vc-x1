@@ -11,6 +11,18 @@ use crate::toml_simple;
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
+/// Read the other repo path from a repo's `.vc-config.toml`.
+///
+/// Returns the `workspace.other-repo` value, which is the relative path
+/// to the counterpart repo from the repo's directory.
+pub fn other_repo_from_config(
+    config: &HashMap<String, String>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    toml_simple::toml_get(config, "workspace.other-repo")
+        .cloned()
+        .ok_or_else(|| "missing workspace.other-repo in .vc-config.toml".into())
+}
+
 /// Derive the ochid prefix from a repo's `.vc-config.toml`.
 ///
 /// The `workspace.path` value is the repo's path relative to the workspace

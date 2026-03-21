@@ -43,8 +43,8 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
-vc-x1 validate-desc <OTHER_REPO> [OPTS]     # Validate commit descriptions
-vc-x1 fix-desc <OTHER_REPO> [OPTS]         # Fix commit descriptions (dry-run default)
+vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
+vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
 vc-x1 fix-ochid --other-repo <PATH> [OPTS] # (deprecated, use fix-desc)
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
 vc-x1 --version                            # Print version
@@ -185,17 +185,21 @@ compatible with previous behavior. Multi-repo is supported for
 
 ### validate-desc
 
-Read-only scan of commit descriptions against the other repo. Reports
-status per commit: `ok` (valid ochid), `lost` (ochid: lost), `none`
-(ochid: none), `err` (issues found), or `miss` (no ochid trailer).
-Always checks for potential matches by title in the other repo.
+Read-only scan of commit descriptions against the other repo. The other
+repo is read from `.vc-config.toml` (`workspace.other-repo`) by default,
+or overridden with `--other-repo`. Reports status per commit: `ok`
+(valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err`
+(issues found), or `miss` (no ochid trailer).
 
 ```
-# Validate all ancestors of @
-vc-x1 validate-desc .claude @..
+# Validate all ancestors of @ (reads other repo from .vc-config.toml)
+vc-x1 validate-desc @..
+
+# Validate with explicit other repo
+vc-x1 validate-desc --other-repo .claude @..
 
 # Validate specific range
-vc-x1 validate-desc .claude -r @.. -n 20
+vc-x1 validate-desc -r @.. -n 20
 ```
 
 Use `--help` for the full status label legend.
@@ -203,33 +207,34 @@ Use `--help` for the full status label legend.
 ### fix-desc
 
 Fix commit descriptions against the other repo. Default is dry-run —
-use `--no-dry-run` to write changes. Same positional args as
-`validate-desc`.
+use `--no-dry-run` to write changes. Reads other repo from
+`.vc-config.toml` by default.
 
 ```
 # Dry-run: show what would be fixed
-vc-x1 fix-desc .claude @..
+vc-x1 fix-desc @..
 
 # Actually fix
-vc-x1 fix-desc .claude @.. --no-dry-run
+vc-x1 fix-desc @.. --no-dry-run
 
-# Add missing ochid trailers by matching title + timestamp
-vc-x1 fix-desc .claude @.. --add-missing
+# Add missing ochid trailers by matching title
+vc-x1 fix-desc @.. --add-missing
 
 # Limit fixes
-vc-x1 fix-desc .claude @.. --no-dry-run -m 3
+vc-x1 fix-desc @.. --no-dry-run -m 3
 
 # Use a fallback for IDs not found in other repo
-vc-x1 fix-desc .claude @.. --fallback /.claude/lost
+vc-x1 fix-desc @.. --fallback /.claude/lost
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--no-dry-run` | Write fixes (default is dry-run) |
+| `--other-repo <PATH>` | Override other repo from .vc-config.toml |
+| `--no-dry-run` | Write fixes [default: dry-run] |
 | `--add-missing` | Infer and add ochid for commits without one |
 | `-m, --max-fixes <N>` | Stop fixing after N commits changed [default: all] |
 | `--fallback <VALUE>` | Replacement for IDs not found in other repo |
-| `--id-len <N>` | Expected changeID length (default 12) |
+| `--id-len <N>` | Expected changeID length [default: 12] |
 | `--title <TEXT>` | Replace commit title at the same time |
 
 Use `--help` for the full status label legend.

@@ -567,6 +567,15 @@ Error summaries use introducer+semicolon format for readability:
 The `not found` message now includes the full ochid path (not just
 the bare ID) and suggests the `--fallback` flag as a remedy.
 
+### 0.25.0-dev3 — Read other-repo from config
+
+`validate-desc` and `fix-desc` no longer require the other repo as a
+positional argument. Instead, they read `workspace.other-repo` from
+`.vc-config.toml` by default. The `--other-repo` flag overrides the
+config value. Added `other_repo_from_config()` to `desc_helpers`.
+Updated both `.vc-config.toml` files with `other-repo` field.
+Consistent `[default: ...]` square bracket style in all help text.
+
 ## 0.24.0 — Add --max-fixes to fix-ochid
 
 New `--max-fixes` flag limits the number of commits actually changed.

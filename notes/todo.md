@@ -41,6 +41,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add validate-desc subcommand, extract desc_helpers (0.25.0-dev1) [21]
 - Add fix-desc subcommand using shared helpers (0.25.0-dev2) [22]
 - Add lost/none special ochid status, improved error messages (0.25.0-dev2) [22],[23]
+- Read other-repo from .vc-config.toml, make positional arg a --other-repo flag (0.25.0-dev3) [24]
 
 
 # References
@@ -57,3 +58,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [21]: /notes/chores-02.md#0250-dev1--add-validate-desc-extract-desc_helpers
 [22]: /notes/chores-02.md#0250-dev2--add-fix-desc-subcommand
 [23]: /notes/chores-02.md#special-ochid-values-lost-and-none
+[24]: /notes/chores-02.md#0250-dev3--read-other-repo-from-config

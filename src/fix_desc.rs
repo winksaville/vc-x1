@@ -9,16 +9,13 @@ use crate::common;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, OchidIssues, TitleMatch, VC_CONFIG_FILE, append_ochid_trailer, extract_bare_id,
     extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description,
-    ochid_prefix_from_config, resolve_full_change_id, validate_ochid,
+    ochid_prefix_from_config, other_repo_from_config, resolve_full_change_id, validate_ochid,
 };
 use crate::toml_simple;
 
 /// Fix commit descriptions against the other repo.
 #[derive(Args, Debug)]
 pub struct FixDescArgs {
-    /// Path to the other repo (e.g. .claude or .)
-    pub other_repo: PathBuf,
-
     /// Revision (with optional .. notation)
     #[arg(value_name = "REVISION")]
     pub pos_rev: Option<String>,
@@ -43,6 +40,10 @@ pub struct FixDescArgs {
     #[arg(short = 'R', long, default_value = ".")]
     pub repo: PathBuf,
 
+    /// Path to the other repo [default: from .vc-config.toml]
+    #[arg(long = "other-repo")]
+    pub other_repo: Option<PathBuf>,
+
     /// Expected changeID length
     #[arg(long = "id-len", default_value_t = DEFAULT_ID_LEN)]
     pub id_len: usize,
@@ -55,7 +56,7 @@ pub struct FixDescArgs {
     #[arg(long)]
     pub fallback: Option<String>,
 
-    /// Actually write changes (default is dry-run)
+    /// Actually write changes [default: dry-run]
     #[arg(long = "no-dry-run")]
     pub no_dry_run: bool,
 
@@ -66,8 +67,17 @@ pub struct FixDescArgs {
 
 pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
     let (workspace, repo) = common::load_repo(&args.repo)?;
-    let (other_workspace, other_repo) = common::load_repo(&args.other_repo)?;
-    let other_config = toml_simple::toml_load(&args.other_repo.join(VC_CONFIG_FILE))?;
+
+    // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
+    let other_repo_path = if let Some(ref p) = args.other_repo {
+        p.clone()
+    } else {
+        let config = toml_simple::toml_load(&args.repo.join(VC_CONFIG_FILE))?;
+        PathBuf::from(other_repo_from_config(&config)?)
+    };
+
+    let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
+    let other_config = toml_simple::toml_load(&other_repo_path.join(VC_CONFIG_FILE))?;
     let other_prefix = ochid_prefix_from_config(&other_config)?;
 
     let spec = common::resolve_spec(
