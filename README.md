@@ -3,6 +3,7 @@
 - [Overview](#vc-x1)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
+  - [Shell completion](#shell-completion)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
   - [finalize](#finalize)
@@ -67,6 +68,27 @@ vc-x1 list -r ..@ -n 3       # 2 descendants + @ (3 commits, @ at bottom)
 vc-x1 list -r ..@.. -n 3     # 1 descendant, @, 1 ancestor (3 commits)
 vc-x1 list -r ..@.. -n 4     # 1 descendant, @, 2 ancestors (4 commits)
 ```
+
+### Shell completion
+
+vc-x1 provides tab completion for all subcommands and flags using claps
+[unstable-dynamic](https://docs.rs/clap_complete/latest/clap_complete/env/struct.CompleteEnv.html)
+only feature. It is a "simple" implementation and does not handle completing
+revisions but still useful. To enable it, add one of the following to your shell's startup file:
+
+```bash
+# bash (~/.bashrc)
+source <(COMPLETE=bash vc-x1)
+
+# zsh (~/.zshrc)
+source <(COMPLETE=zsh vc-x1)
+
+# fish (~/.config/fish/config.fish)
+source (COMPLETE=fish vc-x1 | psub)
+```
+
+Completions are generated dynamically by the binary, so they stay in
+sync with the installed version automatically.
 
 ### Positional shorthand
 

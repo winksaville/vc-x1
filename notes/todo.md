@@ -13,6 +13,8 @@ A markdown list of task to do in the near feature
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
  - Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
+ - Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [27]
+ - Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [28],[29]
 
 ## Done
 
@@ -42,6 +44,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Read other-repo from .vc-config.toml, make positional arg a --other-repo flag (0.25.0-dev3) [24]
 - Run fix-desc on both repos to fix ochid trailers with --fallback for lost IDs (0.25.0) [20]
 - Remove deprecated fix-ochid subcommand (0.25.0) [25]
+- Add shell completion via clap_complete env (0.26.0) [26]
 
 
 # References
@@ -60,3 +63,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [23]: /notes/chores-02.md#special-ochid-values-lost-and-none
 [24]: /notes/chores-02.md#0250-dev3--read-other-repo-from-config
 [25]: /notes/chores-02.md#0250--remove-deprecated-fix-ochid
+[26]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
+[27]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
+[28]: /notes/chores-02.md#testing-results
+[29]: /notes/chores-02.md#shell-completion-discovery

@@ -654,3 +654,65 @@ Since our ochid trailers reference change IDs in the *other* repo, the
 cross-references are only as stable as the change-id headers in both repos.
 A regular `git push` to GitHub and `git clone` back will preserve them,
 but any git tooling that rewrites commits could break the chain.
+
+## 0.26.0 — Shell completion via clap_complete env
+
+Added runtime shell completion using `clap_complete::env::CompleteEnv`.
+Instead of generating static completion scripts, the binary itself acts
+as the completer when invoked with `COMPLETE=<shell>` in the environment.
+
+Added `clap_complete` 4.6 with the `unstable-dynamic` feature flag.
+The integration is two lines in `main()`:
+
+```rust
+CompleteEnv::with_factory(Cli::command).complete();
+```
+
+This runs before `Cli::parse()` and intercepts execution when `COMPLETE`
+is set. Users enable completions by sourcing the output:
+
+```bash
+# bash
+source <(COMPLETE=bash vc-x1)
+
+# zsh
+source <(COMPLETE=zsh vc-x1)
+
+# fish
+source (COMPLETE=fish vc-x1 | psub)
+```
+
+Completions automatically cover all subcommands and flags derived from
+the clap `Parser`/`Subcommand` definitions.
+
+### Testing results
+
+Tested with bash. After `source <(COMPLETE=bash vc-x1)`:
+- `vc-x1 <TAB>` shows all subcommands and `--help`/`--version`
+- `vc-x1 desc --<TAB>` shows all flags for that subcommand
+- Without the `source` line, bash falls back to default file completion
+
+Positional args like `<REVISION>` and `<COMMITS>` don't complete —
+clap inserts `--` when only flags have completions. This is the same
+behavior jj has for its `-r` revset argument (falls back to file
+completion). Dynamic revision completion would require a custom
+`ArgValueCompleter` querying jj-lib at tab-completion time.
+
+### Shell completion discovery
+
+Bash uses the [bash-completion](https://github.com/scop/bash-completion)
+project to lazy-load completions from `/usr/share/bash-completion/completions/`.
+jj ships a stub `_jj` there that calls `jj util completion bash` on first use.
+A future `vc-x1 setup` subcommand could install a similar stub automatically.
+
+jj's completion (`jj util completion bash`) only handles flags and
+subcommands. It does not complete revsets — `jj log -r <TAB>` falls
+back to file completion. The `jj log` help only lists `[FILESETS]...`
+as a completable positional arg, not `[REVISIONS]` or `[REVSETS]`.
+This is an inherent difficulty: revset syntax is open-ended (`@`,
+`@-`, `@..`, bookmark names, change ID prefixes, expressions like
+`ancestors(x)`), making static completion impractical.
+
+Other shells have equivalent mechanisms:
+- **zsh**: files named `_command` on `$fpath`, loaded by `compinit`
+- **fish**: files in `~/.config/fish/completions/` or vendor dir, auto-discovered

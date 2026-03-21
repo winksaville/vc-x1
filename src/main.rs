@@ -11,7 +11,8 @@ mod validate_desc;
 
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::CompleteEnv;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "vc-x1: jj workspace tooling")]
@@ -64,6 +65,7 @@ pub(crate) enum Commands {
 }
 
 fn main() -> ExitCode {
+    CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
 
     match cli.command {
