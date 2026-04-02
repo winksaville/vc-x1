@@ -128,11 +128,18 @@ Flow:
 
 Both repos end up with a single "Initial commit" with ochid cross-references.
 
-Key lesson: jj doesn't understand git submodules. The code repo must use
-pure git commands (init, add, commit, push) throughout. `jj git init --colocate`
-and `jj bookmark set` are only run at the very end after everything is pushed.
-The session repo's ochid uses `/none` placeholder since the code repo has no
-jj changeID at commit time (can be fixed later with `fix-desc`).
+Key lessons:
+- jj doesn't understand git submodules. The code repo must use pure git
+  commands (init, add, commit, push) throughout. `jj git init --colocate`
+  and `jj bookmark set` are only run at the very end after everything is pushed.
+- `.claude` is in `.gitignore`, so `git submodule add --force` is needed.
+- After `git submodule add` re-clones `.claude`, jj must `bookmark track`
+  the remote before it can push.
+- GitHub repos may not be SSH-accessible immediately after `gh repo create`
+  (propagation delay). Push uses retry with configurable attempts and delay.
+- Session repo ochid initially uses `/none` placeholder (no code repo jj
+  changeID yet), then gets fixed via `jj describe --ignore-immutable` after
+  jj is initialized on the code repo at the end.
 
 ## Add `clone` command (0.29.0)
 

@@ -25,6 +25,51 @@ pub struct InitArgs {
     /// Dry run — show what would be done without executing
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Max push retries after repo creation [default: 5]
+    #[arg(long, default_value_t = 5)]
+    pub push_retries: u32,
+
+    /// Seconds between push retries [default: 3]
+    #[arg(long, default_value_t = 3)]
+    pub push_retry_delay: u64,
+
+    /// Verbose output (show retry details)
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+/// Run a command with retries, sleeping between attempts.
+fn run_retry(
+    cmd: &str,
+    args: &[&str],
+    cwd: &Path,
+    retries: u32,
+    delay_secs: u64,
+    verbose: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut last_err = String::new();
+    for attempt in 1..=retries {
+        match run(cmd, args, cwd) {
+            Ok(out) => {
+                if attempt > 1 {
+                    eprintln!("  succeeded after {attempt} attempts");
+                }
+                return Ok(out);
+            }
+            Err(e) => {
+                last_err = e.to_string();
+                if attempt < retries {
+                    if verbose {
+                        eprintln!("  attempt {attempt}/{retries} failed: {last_err}");
+                    }
+                    eprintln!("  retrying in {delay_secs}s...");
+                    std::thread::sleep(std::time::Duration::from_secs(delay_secs));
+                }
+            }
+        }
+    }
+    Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
 /// Run a command, printing it first. Returns stdout on success.
@@ -164,8 +209,10 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("  6. Clean .claude, git submodule add");
         eprintln!("  7. git add + git commit code repo with ochid + .gitmodules");
         eprintln!("  8. gh repo create {code_repo} {visibility}, git push");
-        eprintln!("  9. jj git init --colocate both repos, set bookmarks");
-        eprintln!("  10. Create Claude Code symlink");
+        eprintln!("  9. jj git init --colocate code repo, set bookmark");
+        eprintln!("  10. Fix .claude ochid via git commit --amend, force push");
+        eprintln!("  11. jj git init --colocate session repo");
+        eprintln!("  12. Create Claude Code symlink");
         return Ok(());
     }
 
@@ -231,7 +278,14 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     // Set the bookmark before pushing
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
-    run("jj", &["git", "push", "--bookmark", "main"], &session_dir)?;
+    run_retry(
+        "jj",
+        &["git", "push", "--bookmark", "main"],
+        &session_dir,
+        args.push_retries,
+        args.push_retry_delay,
+        args.verbose,
+    )?;
 
     // Step 6: Clean .claude contents and add as submodule
     eprintln!("\nAdding .claude as submodule...");
@@ -260,16 +314,52 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     let code_url = format!("git@github.com:{code_repo}.git");
     run("git", &["remote", "add", "origin", &code_url], &project_dir)?;
-    run("git", &["push", "origin", "main"], &project_dir)?;
+    run_retry(
+        "git",
+        &["push", "origin", "main"],
+        &project_dir,
+        args.push_retries,
+        args.push_retry_delay,
+        args.verbose,
+    )?;
 
-    // Step 9: Initialize jj on both repos now that submodule is set up
+    // Step 9: Init jj on code repo and get its changeID
     eprintln!("\nInitializing jj...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
-    // Re-init jj in the submodule (git submodule add cloned fresh)
+
+    // Step 10: Fix session repo ochid using pure git (before jj init to avoid divergence)
+    eprintln!("\nFixing session repo ochid...");
+    let code_chid_output = std::process::Command::new("jj")
+        .args([
+            "log",
+            "-r",
+            "@-",
+            "--no-graph",
+            "-T",
+            "change_id",
+            "--limit",
+            "1",
+        ])
+        .current_dir(&project_dir)
+        .output()?;
+    let code_chid_full = String::from_utf8_lossy(&code_chid_output.stdout)
+        .trim()
+        .to_string();
+    let code_chid = &code_chid_full[..code_chid_full.len().min(12)];
+    let fixed_session_body = format!("Initial commit\n\nochid: /{code_chid}");
+    // Use git commit --amend before jj init so jj only ever sees one version
+    run(
+        "git",
+        &["commit", "--amend", "-m", &fixed_session_body],
+        &session_dir,
+    )?;
+    run("git", &["push", "--force", "origin", "main"], &session_dir)?;
+
+    // Now init jj on the session repo (clean state, no divergence)
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
 
-    // Step 10: Create Claude Code symlink
+    // Step 12: Create Claude Code symlink
     eprintln!("\nCreating Claude Code symlink...");
     let symlink_dir = {
         let home =
@@ -325,6 +415,9 @@ mod tests {
         assert!(args.dir.is_none());
         assert!(!args.private);
         assert!(!args.dry_run);
+        assert_eq!(args.push_retries, 5);
+        assert_eq!(args.push_retry_delay, 3);
+        assert!(!args.verbose);
     }
 
     #[test]
@@ -339,12 +432,20 @@ mod tests {
             "/tmp/projects",
             "--private",
             "--dry-run",
+            "--push-retries",
+            "10",
+            "--push-retry-delay",
+            "5",
+            "--verbose",
         ]);
         assert_eq!(args.name, "my-project");
         assert_eq!(args.owner.as_deref(), Some("myorg"));
         assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
         assert!(args.private);
         assert!(args.dry_run);
+        assert!(args.verbose);
+        assert_eq!(args.push_retries, 10);
+        assert_eq!(args.push_retry_delay, 5);
     }
 
     #[test]
