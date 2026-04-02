@@ -1,4 +1,4 @@
-# CLAUDE.md - Bot Instructions for hw-jjg-bot
+# CLAUDE.md - Bot Instructions
 
 ## Project Structure
 
