@@ -6,6 +6,7 @@ mod finalize;
 mod fix_desc;
 mod list;
 mod show;
+mod symlink;
 mod toml_simple;
 mod validate_desc;
 
@@ -60,6 +61,9 @@ pub(crate) enum Commands {
           err   — ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
 
+    /// Create Claude Code project symlink
+    Symlink(symlink::SymlinkArgs),
+
     /// Squash working copy into target commit
     Finalize(finalize::FinalizeArgs),
 }
@@ -106,6 +110,13 @@ fn main() -> ExitCode {
         }
         Commands::FixDesc(args) => {
             if let Err(e) = fix_desc::fix_desc(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Symlink(args) => {
+            if let Err(e) = symlink::symlink(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

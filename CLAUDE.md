@@ -99,6 +99,16 @@ Every change must start with a version bump. See
 [Versioning during development](notes/README.md#versioning-during-development)
 for details. Get user approval on single-step vs multi-step before starting.
 
+### Chores section headers
+
+Chores section headers use trailing version format:
+
+```
+## Description (X.Y.Z)
+```
+
+Example: `## Add `fn claude-symlink` (0.27.0)`
+
 ### Pre-commit checklist
 
 Before proposing a commit, run all of the following and fix any issues:
