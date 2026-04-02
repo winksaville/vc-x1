@@ -4,6 +4,7 @@ mod desc;
 mod desc_helpers;
 mod finalize;
 mod fix_desc;
+mod init;
 mod list;
 mod show;
 mod symlink;
@@ -61,6 +62,9 @@ pub(crate) enum Commands {
           err   — ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
 
+    /// Create a new dual-repo project
+    Init(init::InitArgs),
+
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
 
@@ -110,6 +114,13 @@ fn main() -> ExitCode {
         }
         Commands::FixDesc(args) => {
             if let Err(e) = fix_desc::fix_desc(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Init(args) => {
+            if let Err(e) = init::init(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

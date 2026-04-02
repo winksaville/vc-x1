@@ -6,6 +6,8 @@
   - [Shell completion](#shell-completion)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
+  - [init](#init)
+  - [symlink](#symlink)
   - [finalize](#finalize)
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
@@ -45,6 +47,8 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
+vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
+vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
@@ -258,6 +262,62 @@ vc-x1 fix-desc @.. --fallback /.claude/lost
 | `--title <TEXT>` | Replace commit title at the same time |
 
 Use `--help` for the full status label legend.
+
+### init
+
+Create a new dual-repo project — a code repo with a `.claude` session
+repo as a git submodule. Both repos are initialized with `git` and `jj`,
+configured with `.vc-config.toml`, and pushed to GitHub. The session
+repo is added as a submodule so `git clone --recursive` clones both.
+
+```
+# Create public project in current directory
+vc-x1 init my-project
+
+# Specify owner and parent directory
+vc-x1 init my-project --owner myorg --dir ~/projects
+
+# Create private repos
+vc-x1 init my-project --private
+
+# Preview without executing
+vc-x1 init my-project --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--owner <OWNER>` | GitHub user/org [default: current `gh` user] |
+| `--dir <PATH>` | Parent directory [default: cwd] |
+| `--private` | Create private GitHub repos [default: public] |
+| `--dry-run` | Show what would be done without executing |
+
+Requires `gh` (authenticated) and `jj` to be installed.
+
+### symlink
+
+Create or verify the Claude Code project symlink. Claude Code stores
+session data in `~/.claude/projects/<encoded-path>/`. This command
+creates a symlink from that location to the local `.claude` directory.
+
+```
+# Create symlink for current project (default target: .claude)
+vc-x1 symlink
+
+# Specify a different target
+vc-x1 symlink /path/to/session-dir
+
+# Replace existing symlink without prompting
+vc-x1 symlink -y
+
+# List contents after creation
+vc-x1 symlink -l
+```
+
+| Flag | Description |
+|------|-------------|
+| `--symlink-dir <PATH>` | Override symlink parent [default: ~/.claude/projects] |
+| `-l, --list` | List contents of symlinked directory after creation |
+| `-y, --yes` | Replace existing symlink without prompting |
 
 ### finalize
 

@@ -101,13 +101,38 @@ if [[ "$list_contents" == true ]]; then
 fi
 ```
 
-## Add `new` command (0.28.0)
+## Add `init` command (0.28.0)
 
 This command will create the dual repos use by vc-x1 to hold the code
 and the bot conversation. It will create a vc-config.toml file in both
 repos and then use the `fn claude-symlink`. It should probably will use
 `gh` commands, but a library is also an option, to create the repos
 and then use `jj git init` for `jj` support.
+
+### Implementation
+
+Added `src/init.rs` — orchestrates dual-repo creation via `git`, `jj`, and `gh` CLI.
+
+CLI: `vc-x1 init <NAME> [--owner OWNER] [--dir PATH] [--private] [--dry-run]`
+
+Flow:
+1. Preflight: verify `gh` auth, `jj` installed, no local/remote conflicts
+2. Create both repos locally with `git init` + `jj git init --colocate`
+3. Write `.vc-config.toml` and `.gitignore` to both
+4. Commit `.claude` repo ("Initial commit" with ochid to code repo)
+5. Create `<name>.claude` GitHub repo, push
+6. Remove `.claude` contents, `git submodule add` re-clones it
+7. Commit code repo ("Initial commit" with ochid + `.gitmodules`)
+8. Create `<name>` GitHub repo, push
+9. Create Claude Code symlink
+
+Both repos end up with a single "Initial commit" with ochid cross-references.
+
+Key lesson: jj doesn't understand git submodules. The code repo must use
+pure git commands (init, add, commit, push) throughout. `jj git init --colocate`
+and `jj bookmark set` are only run at the very end after everything is pushed.
+The session repo's ochid uses `/none` placeholder since the code repo has no
+jj changeID at commit time (can be fixed later with `fix-desc`).
 
 ## Add `clone` command (0.29.0)
 

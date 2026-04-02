@@ -9,7 +9,6 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Add `new command` [32]
  - Add `clone command` [33]
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
@@ -27,6 +26,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add shell completion via clap_complete env (0.26.0) [26]
 - Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.2) [30]
 - Add `fn claude-symlink` and `symlink` subcommand (0.27.0) [31]
+- Add `init` subcommand for dual-repo project creation (0.28.0) [32]
 
 # References
 
@@ -39,5 +39,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [29]: /notes/chores-02.md#shell-completion-discovery
 [30]: /notes/chores-02.md#0262--fix-validate-descfix-desc-other-repo-resolution-with--r
 [31]: /notes/chores-03.md#add-fn-claude-symlink-0270
-[32]: /notes/chores-03.md#add-new-command-0280
+[32]: /notes/chores-03.md#add-init-command-0280
 [33]: /notes/chores-03.md#add-clone-command-0290
