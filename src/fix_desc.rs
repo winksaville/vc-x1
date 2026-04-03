@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::process::Command;
 
 use clap::Args;
 use jj_lib::object_id::ObjectId;
@@ -63,6 +62,10 @@ pub struct FixDescArgs {
     /// Add missing ochid trailers by matching title and timestamp
     #[arg(long = "add-missing")]
     pub add_missing: bool,
+
+    /// Verbose output (diagnostic detail on stderr)
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -302,27 +305,22 @@ fn jj_describe(
     commit_id: &jj_lib::backend::CommitId,
     new_desc: &str,
     repo_path: &std::path::Path,
-    change_short: &str,
+    _change_short: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let status = Command::new("jj")
-        .arg("describe")
-        .arg("-m")
-        .arg(new_desc)
-        .arg("-r")
-        .arg(commit_id.hex())
-        .arg("-R")
-        .arg(repo_path)
-        .arg("--ignore-immutable")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::inherit())
-        .status()?;
-    if !status.success() {
-        return Err(format!(
-            "jj describe failed for {} (exit {})",
-            change_short,
-            status.code().unwrap_or(-1)
-        )
-        .into());
-    }
+    crate::common::run(
+        "jj",
+        &[
+            "describe",
+            "-m",
+            new_desc,
+            "-r",
+            &commit_id.hex(),
+            "-R",
+            &repo_path.to_string_lossy(),
+            "--ignore-immutable",
+        ],
+        repo_path,
+        false,
+    )?;
     Ok(())
 }

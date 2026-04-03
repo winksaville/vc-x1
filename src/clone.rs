@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::Args;
 
+use crate::common::run;
 use crate::symlink;
 
 #[derive(Args, Debug)]
@@ -22,25 +23,9 @@ pub struct CloneArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Verbose output
+    /// Verbose output (diagnostic detail on stderr)
     #[arg(short, long)]
     pub verbose: bool,
-}
-
-/// Run a command, printing it first. Returns stdout on success.
-fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let args_str = args.join(" ");
-    eprintln!("  $ {cmd} {args_str}");
-    let output = std::process::Command::new(cmd)
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("failed to run {cmd}: {e}"))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("{cmd} {args_str} failed: {stderr}").into());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// Derive project name from a repo argument.
@@ -95,50 +80,49 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     let url = resolve_url(&args.repo);
 
     if args.dry_run {
-        eprintln!("Dry run — would execute:");
-        eprintln!("  1. git clone --recursive {url} {name}");
-        eprintln!("  2. jj git init --colocate in {name}/");
-        eprintln!("  3. jj git init --colocate in {name}/.claude/");
-        eprintln!("  4. Create Claude Code symlink");
+        println!("Dry run — would execute:");
+        println!("  1. git clone --recursive {url} {name}");
+        println!("  2. jj git init --colocate in {name}/");
+        println!("  3. jj git init --colocate in {name}/.claude/");
+        println!("  4. Create Claude Code symlink");
         return Ok(());
     }
+
+    let v = args.verbose;
 
     // Preflight
     if project_dir.exists() {
         return Err(format!("'{}' already exists", project_dir.display()).into());
     }
 
-    std::process::Command::new("jj")
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .status()
-        .map_err(|_| "jj is not installed")?;
+    run("jj", &["--version"], Path::new("."), false).map_err(|_| "jj is not installed")?;
 
     // Step 1: git clone --recursive
-    eprintln!("Cloning {url}...");
     let project_str = project_dir
         .to_str()
         .ok_or("project path is not valid UTF-8")?;
+    println!("Step 1: Cloning {url}...");
     run(
         "git",
         &["clone", "--recursive", &url, project_str],
         &parent_dir,
+        v,
     )?;
 
     // Step 2: jj git init --colocate in code repo
-    eprintln!("\nInitializing jj in code repo...");
-    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    println!("Step 2: Initializing jj in code repo...");
+    run("jj", &["git", "init", "--colocate"], &project_dir, v)?;
 
     // Step 3: jj git init --colocate in session repo (if submodule exists)
     if session_dir.exists() {
-        eprintln!("\nInitializing jj in session repo...");
-        run("jj", &["git", "init", "--colocate"], &session_dir)?;
+        println!("Step 3: Initializing jj in session repo...");
+        run("jj", &["git", "init", "--colocate"], &session_dir, v)?;
     } else {
-        eprintln!("\nNote: no .claude submodule found — skipping session repo jj init");
+        println!("Step 3: No .claude submodule found — skipping session repo jj init");
     }
 
     // Step 4: Create Claude Code symlink
-    eprintln!("\nCreating Claude Code symlink...");
+    println!("Step 4: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
@@ -154,17 +138,16 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     );
     let plan = symlink::compute_plan(&project_dir, Path::new(".claude"), &symlink_dir, meta)?;
     symlink::execute_plan(&plan, false)?;
-    eprintln!(
-        "  Symlink: {} -> {}",
+
+    println!();
+    println!("Done! Project cloned to {}", project_dir.display());
+    println!("  Code repo:    {project_str}");
+    println!("  Session repo: {}", session_dir.display());
+    println!(
+        "  Symlink:      {} -> {}",
         plan.symlink_path.display(),
         plan.abs_target.display()
     );
-
-    eprintln!("\nDone! Project cloned to {}", project_dir.display());
-    if args.verbose {
-        eprintln!("  Code repo:    {project_str}");
-        eprintln!("  Session repo: {}", session_dir.display());
-    }
 
     Ok(())
 }

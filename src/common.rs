@@ -55,6 +55,10 @@ pub struct CommonArgs {
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
     pub no_label: bool,
+
+    /// Verbose output (diagnostic detail on stderr)
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 /// Result of parsing positional `..` notation.
@@ -154,6 +158,39 @@ pub fn resolve_spec(
     }
 
     spec
+}
+
+/// Run a shell command. In verbose mode, prints the command with cwd, stdout, and stderr
+/// to stderr. In normal mode, only prints on failure. Returns stdout on success.
+pub fn run(
+    cmd: &str,
+    args: &[&str],
+    cwd: &Path,
+    verbose: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let args_str = args.join(" ");
+    if verbose {
+        eprintln!("  {}$ {cmd} {args_str}", cwd.display());
+    }
+    let output = std::process::Command::new(cmd)
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("failed to run {cmd}: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if verbose {
+        if !stdout.is_empty() {
+            eprintln!("    stdout: {stdout}");
+        }
+        if !stderr.is_empty() {
+            eprintln!("    stderr: {stderr}");
+        }
+    }
+    if !output.status.success() {
+        return Err(format!("{cmd} {args_str} failed: {stderr}").into());
+    }
+    Ok(stdout)
 }
 
 /// Wrap text in ANSI bold escape codes.

@@ -276,3 +276,22 @@ the code repo.
 Thin wrapper: `git clone --recursive` + `jj git init --colocate` in
 both repos + symlink setup. Most of the heavy lifting is in `new`;
 `clone` is straightforward once the submodule relationship exists.
+
+## Universal `--verbose` and `common::run()` refactor (0.30.0)
+
+Standardized output convention across all commands:
+- **stdout** (`println!`): user-facing progress and results
+- **stderr** (`eprintln!`): diagnostic detail, only with `--verbose,-v`
+
+Changes:
+- Added `--verbose,-v` flag to all commands: `chid`, `desc`, `list`,
+  `show` (via CommonArgs), `validate-desc`, `fix-desc`, `symlink`,
+  `clone`, `init`
+- Moved `fn run()` to `common.rs` — single implementation used by
+  `init`, `clone`, and `fix-desc`. Verbose mode shows command line
+  with cwd, stdout, and stderr; normal mode is silent unless failure.
+- Replaced all `Command::new()` calls outside `common::run()` and
+  `finalize.rs` to use `common::run()` instead: `jj_chid()`,
+  `gh_whoami()`, `gh_repo_exists()`, preflight checks, `jj_describe()`
+- Removed bold ANSI codes from `chid` output entirely
+- Updated CLAUDE.md with two-checkpoint commit/push/finalize workflow

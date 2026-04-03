@@ -34,7 +34,7 @@ pub struct InitArgs {
     #[arg(long, default_value_t = 3)]
     pub push_retry_delay: u64,
 
-    /// Verbose output (show retry details)
+    /// Verbose output (diagnostic detail on stderr)
     #[arg(short, long)]
     pub verbose: bool,
 }
@@ -72,43 +72,13 @@ fn run_retry(
     Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
-/// Run a command. In verbose mode, prints the command with cwd, stdout, and stderr.
-/// In normal mode, only prints on failure. Returns stdout on success.
-fn run(
-    cmd: &str,
-    args: &[&str],
-    cwd: &Path,
-    verbose: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let args_str = args.join(" ");
-    if verbose {
-        eprintln!("  {}$ {cmd} {args_str}", cwd.display());
-    }
-    let output = std::process::Command::new(cmd)
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("failed to run {cmd}: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if verbose {
-        if !stdout.is_empty() {
-            eprintln!("    stdout: {stdout}");
-        }
-        if !stderr.is_empty() {
-            eprintln!("    stderr: {stderr}");
-        }
-    }
-    if !output.status.success() {
-        return Err(format!("{cmd} {args_str} failed: {stderr}").into());
-    }
-    Ok(stdout)
-}
+use crate::common::run;
 
 /// Get the short (12-char) jj change ID for a revision, without printing.
 fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let output = std::process::Command::new("jj")
-        .args([
+    let full = run(
+        "jj",
+        &[
             "log",
             "-r",
             rev,
@@ -117,41 +87,27 @@ fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> 
             "change_id",
             "--limit",
             "1",
-        ])
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("failed to run jj: {e}"))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("jj log failed: {stderr}").into());
-    }
-    let full = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        ],
+        cwd,
+        false,
+    )?;
     Ok(full[..full.len().min(12)].to_string())
 }
 
 /// Get the current GitHub user via `gh api user`.
 fn gh_whoami() -> Result<String, Box<dyn std::error::Error>> {
-    let output = std::process::Command::new("gh")
-        .args(["api", "user", "--jq", ".login"])
-        .output()
-        .map_err(|e| format!("failed to run gh: {e}"))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("gh api user failed (is gh authenticated?): {stderr}").into());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    run(
+        "gh",
+        &["api", "user", "--jq", ".login"],
+        Path::new("."),
+        false,
+    )
 }
 
 /// Check if a GitHub repo exists.
 fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::Error>> {
     let full = format!("{owner}/{name}");
-    let output = std::process::Command::new("gh")
-        .args(["repo", "view", &full])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map_err(|e| format!("failed to run gh: {e}"))?;
-    Ok(output.success())
+    Ok(run("gh", &["repo", "view", &full], Path::new("."), false).is_ok())
 }
 
 const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
@@ -198,22 +154,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     println!("Preflight checks...");
 
     // Check tools
-    std::process::Command::new("gh")
-        .arg("auth")
-        .arg("status")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map_err(|_| "gh is not installed")?
-        .success()
-        .then_some(())
-        .ok_or("gh is not authenticated (run: gh auth login)")?;
-
-    std::process::Command::new("jj")
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .status()
-        .map_err(|_| "jj is not installed")?;
+    run("gh", &["auth", "status"], Path::new("."), false)
+        .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
+    run("jj", &["--version"], Path::new("."), false).map_err(|_| "jj is not installed")?;
 
     let owner = match &args.owner {
         Some(o) => o.clone(),

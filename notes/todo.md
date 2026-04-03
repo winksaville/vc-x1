@@ -10,6 +10,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Adopt `tracing` or `log` crate to unify println/eprintln/log_msg (0.31.0)
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -28,6 +29,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add `fn claude-symlink` and `symlink` subcommand (0.27.0) [31]
 - Add `init` subcommand for dual-repo project creation (0.28.0) [32]
 - Add `clone` command + fix init submodule/ochid bug (0.29.0) [33]
+- Universal --verbose, common::run() refactor, chid bold removal (0.30.0) [34]
 
 # References
 
@@ -42,3 +44,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [31]: /notes/chores-03.md#add-fn-claude-symlink-0270
 [32]: /notes/chores-03.md#add-init-command-0280
 [33]: /notes/chores-03.md#add-clone-command-0290
+[34]: /notes/chores-03.md#universal---verbose-and-commonrun-refactor-0300

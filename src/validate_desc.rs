@@ -40,6 +40,10 @@ pub struct ValidateDescArgs {
     /// Expected changeID length
     #[arg(long = "id-len", default_value_t = DEFAULT_ID_LEN)]
     pub id_len: usize,
+
+    /// Verbose output (diagnostic detail on stderr)
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 /// Status of a single commit's ochid validation.
