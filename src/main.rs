@@ -1,4 +1,5 @@
 mod chid;
+mod clone;
 mod common;
 mod desc;
 mod desc_helpers;
@@ -62,6 +63,9 @@ pub(crate) enum Commands {
           err   — ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
 
+    /// Clone a dual-repo project
+    Clone(clone::CloneArgs),
+
     /// Create a new dual-repo project
     Init(init::InitArgs),
 
@@ -114,6 +118,13 @@ fn main() -> ExitCode {
         }
         Commands::FixDesc(args) => {
             if let Err(e) = fix_desc::fix_desc(&args) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Clone(args) => {
+            if let Err(e) = clone::clone_repo(&args) {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }

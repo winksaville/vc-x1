@@ -72,20 +72,52 @@ fn run_retry(
     Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
-/// Run a command, printing it first. Returns stdout on success.
+/// Run a command, printing it with its working directory. Returns stdout on success.
+/// Always prints stdout and stderr from the command.
 fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
-    eprintln!("  $ {cmd} {args_str}");
+    eprintln!("  {}$ {cmd} {args_str}", cwd.display());
     let output = std::process::Command::new(cmd)
         .args(args)
         .current_dir(cwd)
         .output()
         .map_err(|e| format!("failed to run {cmd}: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stdout.is_empty() {
+        eprintln!("    stdout: {stdout}");
+    }
+    if !stderr.is_empty() {
+        eprintln!("    stderr: {stderr}");
+    }
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("{cmd} {args_str} failed: {stderr}").into());
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(stdout)
+}
+
+/// Get the short (12-char) jj change ID for a revision, without printing.
+fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let output = std::process::Command::new("jj")
+        .args([
+            "log",
+            "-r",
+            rev,
+            "--no-graph",
+            "-T",
+            "change_id",
+            "--limit",
+            "1",
+        ])
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("failed to run jj: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("jj log failed: {stderr}").into());
+    }
+    let full = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(full[..full.len().min(12)].to_string())
 }
 
 /// Get the current GitHub user via `gh api user`.
@@ -202,164 +234,157 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
         eprintln!("\nDry run — would execute:");
         eprintln!("  1. Create directories: {}", project_dir.display());
-        eprintln!("  2. git init both repos, jj git init --colocate session repo");
-        eprintln!("  3. Add .vc-config.toml and .gitignore to both");
-        eprintln!("  4. jj commit .claude repo (ochid: /none placeholder)");
-        eprintln!("  5. gh repo create {session_repo} {visibility}, push");
-        eprintln!("  6. Clean .claude, git submodule add");
-        eprintln!("  7. git add + git commit code repo with ochid + .gitmodules");
-        eprintln!("  8. gh repo create {code_repo} {visibility}, git push");
-        eprintln!("  9. jj git init --colocate code repo, set bookmark");
-        eprintln!("  10. Fix .claude ochid via git commit --amend, force push");
-        eprintln!("  11. jj git init --colocate session repo");
-        eprintln!("  12. Create Claude Code symlink");
+        eprintln!("  2. git init + jj git init --colocate on both repos");
+        eprintln!("  3. Write .vc-config.toml and .gitignore to both");
+        eprintln!("  4. jj commit both with placeholder ochids");
+        eprintln!("  5. Get both chids, jj describe both with correct ochids");
+        eprintln!("  6. Remove jj from both (git clean -xdf)");
+        eprintln!("  7. gh repo create {session_repo} {visibility}, push");
+        eprintln!("  8. git submodule add .claude, second commit in code repo");
+        eprintln!("  9. gh repo create {code_repo} {visibility}, push");
+        eprintln!("  10. jj git init --colocate on both repos");
+        eprintln!("  11. Create Claude Code symlink");
         return Ok(());
     }
 
     // Step 1: Create directories
-    eprintln!("\nCreating project directories...");
+    eprintln!("\nStep 1: Creating project directories...");
     std::fs::create_dir_all(&session_dir)?;
 
-    // Step 2: git init + jj init
-    // Code repo: git only until the end (jj doesn't understand submodules)
-    // Session repo: git + jj from the start (no submodule issues)
-    eprintln!("\nInitializing repos...");
+    // Step 2: git init + jj init on both repos
+    eprintln!("\nStep 2: Initializing repos...");
     run("git", &["init"], &project_dir)?;
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("git", &["init"], &session_dir)?;
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
 
     // Step 3: Write config files
-    eprintln!("\nWriting config files...");
+    eprintln!("\nStep 3: Writing config files...");
     std::fs::write(project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
     std::fs::write(project_dir.join(".gitignore"), GITIGNORE_CODE)?;
     std::fs::write(session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
     std::fs::write(session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
 
-    // Step 4: Commit .claude repo first (need its changeID for code repo ochid)
-    eprintln!("\nCommitting session repo...");
-    // Code repo has no jj yet, so no changeID — use "none" placeholder.
-    // The ochid can be fixed later with fix-desc once jj is initialized.
-    let session_commit_body = "Initial commit\n\nochid: /none";
-    run("jj", &["commit", "-m", session_commit_body], &session_dir)?;
+    // Step 4: jj commit both with placeholder ochids
+    eprintln!("\nStep 4: Committing both repos with placeholder ochids...");
+    run(
+        "jj",
+        &["commit", "-m", "Initial commit\n\nochid: /none"],
+        &project_dir,
+    )?;
+    run(
+        "jj",
+        &["commit", "-m", "Initial commit\n\nochid: /none"],
+        &session_dir,
+    )?;
 
-    // Get the .claude repo's committed changeID for the code repo ochid
-    // After jj commit, the committed revision is @-
-    let session_chid_output = std::process::Command::new("jj")
-        .args([
-            "log",
-            "-r",
-            "@-",
-            "--no-graph",
-            "-T",
-            "change_id",
-            "--limit",
-            "1",
-        ])
-        .current_dir(&session_dir)
-        .output()?;
-    let session_chid_full = String::from_utf8_lossy(&session_chid_output.stdout)
-        .trim()
-        .to_string();
-    let session_chid = &session_chid_full[..session_chid_full.len().min(12)];
+    // Step 5: Get both chids, then describe both with correct ochids
+    eprintln!("\nStep 5: Setting ochid cross-references...");
+    let code_chid = jj_chid("@-", &project_dir)?;
+    let session_chid = jj_chid("@-", &session_dir)?;
 
-    // Step 5: Create .claude GitHub repo and push
-    eprintln!("\nCreating GitHub repo {session_repo}...");
+    let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
+    let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
+    run("jj", &["describe", "@-", "-m", &code_desc], &project_dir)?;
+    run("jj", &["describe", "@-", "-m", &session_desc], &session_dir)?;
+
+    let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
+    eprintln!("  code repo: chid={code_chid} hash={hash}");
+    let hash = run("git", &["rev-parse", "HEAD"], &session_dir)?;
+    eprintln!("  .claude:   chid={session_chid} hash={hash}");
+
+    // Step 6: Set bookmarks (creates git branches), then remove jj
+    // Bookmarks must be set before removing .jj/ so git has a 'main' branch to push
+    eprintln!("\nStep 6: Setting bookmarks and removing jj...");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
+    // Clean .claude first, then code repo with --exclude to preserve .claude/
+    run("git", &["clean", "-xdf"], &session_dir)?;
+    run(
+        "git",
+        &["clean", "-xdf", "--exclude", ".claude"],
+        &project_dir,
+    )?;
+    // After removing .jj/, git HEAD is detached — reattach to main
+    run("git", &["checkout", "main"], &session_dir)?;
+    run("git", &["checkout", "main"], &project_dir)?;
+
+    // Step 7: Create .claude GitHub repo and push
+    let session_url = format!("git@github.com:{session_repo}.git");
+    eprintln!("\nStep 7: Creating GitHub repo {session_repo}...");
     run(
         "gh",
         &["repo", "create", &session_repo, visibility],
         &project_dir,
     )?;
-
-    let session_url = format!("git@github.com:{session_repo}.git");
     run(
         "git",
         &["remote", "add", "origin", &session_url],
         &session_dir,
     )?;
-    // Set the bookmark before pushing
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
     run_retry(
-        "jj",
-        &["git", "push", "--bookmark", "main"],
+        "git",
+        &["push", "-u", "origin", "main"],
         &session_dir,
         args.push_retries,
         args.push_retry_delay,
         args.verbose,
     )?;
+    let hash = run("git", &["rev-parse", "HEAD"], &session_dir)?;
+    eprintln!("  .claude after push: hash={hash}");
 
-    // Step 6: Clean .claude contents and add as submodule
-    eprintln!("\nAdding .claude as submodule...");
-    // Remove the .claude directory contents so git submodule add can work
+    // Step 8: Add .claude as submodule — second commit in code repo
+    eprintln!("\nStep 8: Adding .claude as submodule...");
+    // Remove .claude directory so git submodule add can re-clone it
     std::fs::remove_dir_all(&session_dir)?;
-
     run(
         "git",
         &["submodule", "add", "--force", &session_url, ".claude"],
         &project_dir,
     )?;
-
-    // Step 7: Commit code repo using git (jj doesn't understand submodules)
-    eprintln!("\nCommitting code repo...");
-    let code_commit_body = format!("Initial commit\n\nochid: /.claude/{session_chid}");
+    let submodule_body = format!("Add .claude submodule\n\nochid: /.claude/{session_chid}");
     run("git", &["add", "."], &project_dir)?;
-    run("git", &["commit", "-m", &code_commit_body], &project_dir)?;
+    run("git", &["commit", "-m", &submodule_body], &project_dir)?;
+    let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
+    eprintln!("  code repo after submodule commit: hash={hash}");
+    let staged = run("git", &["ls-files", "--stage", ".claude"], &project_dir)?;
+    eprintln!("  submodule ref: {staged}");
 
-    // Step 8: Create code GitHub repo and push
-    eprintln!("\nCreating GitHub repo {code_repo}...");
+    // Step 9: Create code GitHub repo and push
+    let code_url = format!("git@github.com:{code_repo}.git");
+    eprintln!("\nStep 9: Creating GitHub repo {code_repo}...");
     run(
         "gh",
         &["repo", "create", &code_repo, visibility],
         &project_dir,
     )?;
-
-    let code_url = format!("git@github.com:{code_repo}.git");
     run("git", &["remote", "add", "origin", &code_url], &project_dir)?;
     run_retry(
         "git",
-        &["push", "origin", "main"],
+        &["push", "-u", "origin", "main"],
         &project_dir,
         args.push_retries,
         args.push_retry_delay,
         args.verbose,
     )?;
+    let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
+    eprintln!("  code repo after push: hash={hash}");
 
-    // Step 9: Init jj on code repo and get its changeID
-    eprintln!("\nInitializing jj...");
+    // Step 10: Re-initialize jj on both repos
+    eprintln!("\nStep 10: Re-initializing jj on both repos...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
+    let chid = jj_chid("@-", &project_dir)?;
+    let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
+    eprintln!("  code repo: chid={chid} hash={hash}");
 
-    // Step 10: Fix session repo ochid using pure git (before jj init to avoid divergence)
-    eprintln!("\nFixing session repo ochid...");
-    let code_chid_output = std::process::Command::new("jj")
-        .args([
-            "log",
-            "-r",
-            "@-",
-            "--no-graph",
-            "-T",
-            "change_id",
-            "--limit",
-            "1",
-        ])
-        .current_dir(&project_dir)
-        .output()?;
-    let code_chid_full = String::from_utf8_lossy(&code_chid_output.stdout)
-        .trim()
-        .to_string();
-    let code_chid = &code_chid_full[..code_chid_full.len().min(12)];
-    let fixed_session_body = format!("Initial commit\n\nochid: /{code_chid}");
-    // Use git commit --amend before jj init so jj only ever sees one version
-    run(
-        "git",
-        &["commit", "--amend", "-m", &fixed_session_body],
-        &session_dir,
-    )?;
-    run("git", &["push", "--force", "origin", "main"], &session_dir)?;
-
-    // Now init jj on the session repo (clean state, no divergence)
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
+    let chid = jj_chid("@-", &session_dir)?;
+    let hash = run("git", &["rev-parse", "HEAD"], &session_dir)?;
+    eprintln!("  .claude:   chid={chid} hash={hash}");
 
-    // Step 12: Create Claude Code symlink
+    // Step 11: Create Claude Code symlink
     eprintln!("\nCreating Claude Code symlink...");
     let symlink_dir = {
         let home =

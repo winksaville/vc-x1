@@ -5,11 +5,13 @@ and reference links to more details.
 
 ## In Progress
 
+ - Add `clone` command + fix `init` submodule/ochid bug (0.29.0) [33]
+
 ## Todo
 
 A markdown list of task to do in the near feature
 
- - Add `clone command` [33]
+ - Strip ANSI bold codes from `chid` output when stdout is not a terminal
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -27,6 +29,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.2) [30]
 - Add `fn claude-symlink` and `symlink` subcommand (0.27.0) [31]
 - Add `init` subcommand for dual-repo project creation (0.28.0) [32]
+- Add `clone` command for cloning dual-repo projects (0.29.0) [33]
 
 # References
 

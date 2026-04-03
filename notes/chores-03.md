@@ -141,11 +141,77 @@ Key lessons:
   changeID yet), then gets fixed via `jj describe --ignore-immutable` after
   jj is initialized on the code repo at the end.
 
+### Submodule + ochid circular dependency bug (0.29.0)
+
+**Problem:** The original init flow created a circular dependency between
+submodule commit pinning and ochid cross-references.
+
+Git submodules pin to a specific commit hash. When `jj describe` or
+`git commit --amend` rewrites a commit to add/fix an ochid trailer, the
+git hash changes. This makes the submodule ref stale. Updating the
+submodule ref in the code repo changes its tree, which changes its
+hash and jj change ID, which makes `.claude`'s ochid stale. Fixing
+`.claude`'s ochid changes its hash again... infinite loop.
+
+The original flow hit this because it:
+1. Committed `.claude` with a placeholder ochid (`/none`)
+2. Added `.claude` as a submodule, committed and pushed the code repo
+3. Amended `.claude` to fix the ochid → hash changed, submodule ref stale
+4. Clone then saw two `.claude` commits with the same jj change ID
+   (the pre-amend from the submodule ref, and the post-amend from
+   origin/main) → jj reported "divergent"
+
+**Solution:** Establish ochids before the submodule relationship exists.
+Do all rewriting while the repos are independent, then add the submodule
+as a separate (non-rewritten) commit.
+
+Revised flow:
+1. `git init` + `jj git init --colocate` on both repos
+2. Write config files, `jj commit` both with placeholder ochids
+3. Get both jj change IDs
+4. `jj describe` both with correct ochids — hashes change but chids
+   are stable, and no submodule link exists yet so nothing goes stale
+5. Remove jj from both (`git clean -xdf` removes `.jj/`)
+6. Create `.claude` GitHub repo, push
+7. `git submodule add` in code repo — second commit with ochid
+   pointing to `.claude`'s first commit
+8. Create code GitHub repo, push
+9. `jj git init --colocate` on both repos (final)
+10. Create Claude Code symlink
+
+Trade-off: the code repo ends up with 2 commits (initial + submodule
+add) while `.claude` has 1. Squashing them would change the code repo's
+chid, making `.claude`'s ochid stale — the same circular problem.
+This is acceptable; repos won't always have 1:1 commit counts, and the
+viewer needs to handle that anyway.
+
 ## Add `clone` command (0.29.0)
 
 This command will clone the dual repos, probably using `gh`, or library,
 with our dual repo system plus `fn claude-symlink` to be sure a symlink
 exists. And then `jj git init` in each repo for `jj` support.
+
+### Implementation
+
+Added `src/clone.rs` — thin wrapper for cloning dual-repo projects.
+
+CLI: `vc-x1 clone <REPO> [--dir PATH] [--dry-run] [--verbose]`
+
+Where `<REPO>` can be:
+- `owner/name` (GitHub shorthand, resolved to `git@github.com:owner/name.git`)
+- Full SSH URL (`git@github.com:owner/name.git`)
+- Full HTTPS URL (`https://github.com/owner/name.git`)
+
+Flow:
+1. Preflight: check target dir doesn't exist, jj is installed
+2. `git clone --recursive` — clones code repo + `.claude` submodule
+3. `jj git init --colocate` in code repo
+4. `jj git init --colocate` in `.claude` (if submodule exists)
+5. Create Claude Code symlink via `symlink::compute_plan` / `execute_plan`
+
+Helper functions:
+- `derive_name()` — extracts project name from any repo format
+- `resolve_url()` — converts `owner/name` shorthand to SSH URL
 
 ## Design for fn-claude-symlink, new, and clone
 

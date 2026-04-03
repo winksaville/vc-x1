@@ -6,6 +6,7 @@
   - [Shell completion](#shell-completion)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
+  - [clone](#clone)
   - [init](#init)
   - [symlink](#symlink)
   - [finalize](#finalize)
@@ -47,6 +48,7 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
+vc-x1 clone <REPO> [OPTS]                 # Clone a dual-repo project
 vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
@@ -263,6 +265,36 @@ vc-x1 fix-desc @.. --fallback /.claude/lost
 
 Use `--help` for the full status label legend.
 
+### clone
+
+Clone an existing dual-repo project. Runs `git clone --recursive` to
+get both repos, initializes `jj` in each, and creates the Claude Code
+symlink.
+
+```
+# Clone using GitHub shorthand
+vc-x1 clone owner/my-project
+
+# Clone using full URL
+vc-x1 clone git@github.com:owner/my-project.git
+
+# Clone into a specific directory
+vc-x1 clone owner/my-project --dir ~/projects
+
+# Preview without executing
+vc-x1 clone owner/my-project --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dir <PATH>` | Parent directory [default: cwd] |
+| `--dry-run` | Show what would be done without executing |
+| `-v, --verbose` | Verbose output |
+
+Requires `jj` to be installed. The `.claude` session repo is cloned
+automatically via `git submodule` if the source project was created
+with `vc-x1 init`.
+
 ### init
 
 Create a new dual-repo project — a code repo with a `.claude` session
@@ -290,6 +322,9 @@ vc-x1 init my-project --dry-run
 | `--dir <PATH>` | Parent directory [default: cwd] |
 | `--private` | Create private GitHub repos [default: public] |
 | `--dry-run` | Show what would be done without executing |
+| `--push-retries <N>` | Max push retries after repo creation [default: 5] |
+| `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
+| `-v, --verbose` | Verbose output (show retry details) |
 
 Requires `gh` (authenticated) and `jj` to be installed.
 
