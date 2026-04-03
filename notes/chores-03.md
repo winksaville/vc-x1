@@ -213,6 +213,29 @@ Helper functions:
 - `derive_name()` — extracts project name from any repo format
 - `resolve_url()` — converts `owner/name` shorthand to SSH URL
 
+### Remaining dev steps
+
+**0.29.0-dev1** (done): Add clone command, fix init submodule/ochid
+circular dependency, add verbose command output to init.
+
+**0.29.0-dev2**: Make clone functional end-to-end.
+- Add `jj bookmark track main --remote=origin` in init step 10
+  (jj hints this is needed for future pulls)
+- Remove clone's `git checkout -B main origin/main` workaround
+  (no longer needed since init produces correct submodule refs)
+- Test clone against a repo created with the fixed init
+
+**0.29.0-dev3**: Polish init and clone output.
+- Gate init's stdout/stderr command output behind `--verbose,-v`
+  (keep step headers and summary in normal mode)
+- Add optional positional `NAME` parameter to clone
+  (`vc-x1 clone owner/repo my-dir`, like `git clone`)
+
+**0.29.0**: Final release.
+- Remove `-devN` from version
+- Move todo item to Done
+- Update chores with final notes
+
 ## Design for fn-claude-symlink, new, and clone
 
 ### claude-symlink (fn)

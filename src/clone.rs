@@ -124,18 +124,6 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 3: jj git init --colocate in session repo (if submodule exists)
     if session_dir.exists() {
-        // Align submodule to origin/main before jj init.
-        // init's ochid fixup amends the .claude commit after the code repo
-        // records the pre-amend hash, so the submodule checkout and
-        // origin/main can point to different commits with the same change ID.
-        // Without this, jj sees both and reports "divergent".
-        eprintln!("\nAligning session repo to origin/main...");
-        run(
-            "git",
-            &["checkout", "-B", "main", "origin/main"],
-            &session_dir,
-        )?;
-
         eprintln!("\nInitializing jj in session repo...");
         run("jj", &["git", "init", "--colocate"], &session_dir)?;
     } else {

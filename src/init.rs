@@ -374,12 +374,14 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("\nStep 10: Re-initializing jj on both repos...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
+    run("jj", &["bookmark", "track", "main@origin"], &project_dir)?;
     let chid = jj_chid("@-", &project_dir)?;
     let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
     eprintln!("  code repo: chid={chid} hash={hash}");
 
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
+    run("jj", &["bookmark", "track", "main@origin"], &session_dir)?;
     let chid = jj_chid("@-", &session_dir)?;
     let hash = run("git", &["rev-parse", "HEAD"], &session_dir)?;
     eprintln!("  .claude:   chid={chid} hash={hash}");

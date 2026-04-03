@@ -6,6 +6,10 @@ and reference links to more details.
 ## In Progress
 
  - Add `clone` command + fix `init` submodule/ochid bug (0.29.0) [33]
+   - ~~0.29.0-dev1: clone command, init ochid fix, verbose output~~
+   - 0.29.0-dev2: bookmark track in init, remove clone workaround, test clone
+   - 0.29.0-dev3: gate output behind --verbose, clone positional NAME param
+   - 0.29.0: final release
 
 ## Todo
 
