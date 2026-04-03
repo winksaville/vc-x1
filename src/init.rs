@@ -327,20 +327,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         PathBuf::from(home).join(".claude").join("projects")
     };
 
-    let meta = symlink::probe_symlink(
-        &symlink_dir.join(symlink::encode_path(
-            project_dir
-                .to_str()
-                .ok_or("project path is not valid UTF-8")?,
-        )),
-    );
-    let plan = symlink::compute_plan(&project_dir, Path::new(".claude"), &symlink_dir, meta)?;
-    debug!(
-        "symlink {} -> {}",
-        plan.symlink_path.display(),
-        plan.abs_target.display()
-    );
-    symlink::execute_plan(&plan, false)?;
+    let sl = symlink::SymLink::new(&project_dir, Path::new(".claude"), &symlink_dir)?;
+    sl.create(false)?;
 
     info!("");
     info!("Done! Project created at {}", project_dir.display());
@@ -348,8 +336,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     info!("  Session repo: {session_repo}  (chid={session_chid_final})");
     info!(
         "  Symlink:      {} -> {}",
-        plan.symlink_path.display(),
-        plan.abs_target.display()
+        sl.symlink_path.display(),
+        sl.abs_target.display()
     );
 
     Ok(())

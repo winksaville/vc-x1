@@ -13,9 +13,9 @@ pub enum SymlinkAction {
     AlreadyCorrect,
 }
 
-/// The result of planning a symlink operation.
+/// A planned symlink operation.
 #[derive(Debug)]
-pub struct SymlinkPlan {
+pub struct SymLink {
     /// Absolute path to the target directory (what the symlink points to).
     pub abs_target: PathBuf,
     /// Full path of the symlink to create/replace.
@@ -29,68 +29,13 @@ pub fn encode_path(path: &str) -> String {
     path.replace(['/', '.'], "-")
 }
 
-/// Compute the symlink plan without performing any I/O.
-///
-/// # Arguments
-/// * `cwd` — current working directory (used to derive the symlink name)
-/// * `target` — the directory the symlink should point to (resolved to absolute)
-/// * `symlink_dir` — parent directory for the symlink (e.g. `~/.claude/projects`)
-/// * `target_exists` — whether the target directory exists on disk
-/// * `symlink_meta` — what currently exists at the symlink path:
-///   - `None` — nothing exists
-///   - `Some(None)` — exists but is not a symlink (file or directory)
-///   - `Some(Some(path))` — existing symlink pointing to `path`
-pub fn compute_plan(
-    cwd: &Path,
-    target: &Path,
-    symlink_dir: &Path,
-    symlink_meta: Option<Option<PathBuf>>,
-) -> Result<SymlinkPlan, String> {
-    // Resolve target to absolute path
-    let abs_target = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        cwd.join(target)
-    };
-
-    // Derive symlink name from cwd
-    let cwd_str = cwd
-        .to_str()
-        .ok_or_else(|| "current directory path is not valid UTF-8".to_string())?;
-    let symlink_name = encode_path(cwd_str);
-    let symlink_path = symlink_dir.join(symlink_name);
-
-    let action = match symlink_meta {
-        None => SymlinkAction::Create,
-        Some(None) => {
-            return Err(format!(
-                "'{}' exists and is not a symlink",
-                symlink_path.display()
-            ));
-        }
-        Some(Some(current_target)) => {
-            if current_target == abs_target {
-                SymlinkAction::AlreadyCorrect
-            } else {
-                SymlinkAction::Replace { current_target }
-            }
-        }
-    };
-
-    Ok(SymlinkPlan {
-        abs_target,
-        symlink_path,
-        action,
-    })
-}
-
 /// Read what exists at a path without following symlinks.
 ///
 /// Returns:
 /// - `None` — nothing exists
 /// - `Some(None)` — exists but is not a symlink
 /// - `Some(Some(target))` — symlink pointing to target
-pub fn probe_symlink(path: &Path) -> Option<Option<PathBuf>> {
+fn probe(path: &Path) -> Option<Option<PathBuf>> {
     match path.symlink_metadata() {
         Err(_) => None,
         Ok(meta) => {
@@ -103,49 +48,144 @@ pub fn probe_symlink(path: &Path) -> Option<Option<PathBuf>> {
     }
 }
 
-/// Execute a symlink plan: create the target dir if needed, create/replace the symlink.
-pub fn execute_plan(plan: &SymlinkPlan, create_target: bool) -> Result<(), String> {
-    if create_target && !plan.abs_target.exists() {
-        std::fs::create_dir_all(&plan.abs_target)
-            .map_err(|e| format!("cannot create target '{}': {e}", plan.abs_target.display()))?;
+impl SymLink {
+    /// Plan a symlink operation by probing the filesystem.
+    ///
+    /// # Arguments
+    /// * `cwd` — current working directory (used to derive the symlink name)
+    /// * `target` — the directory the symlink should point to (resolved to absolute)
+    /// * `symlink_dir` — parent directory for the symlink (e.g. `~/.claude/projects`)
+    pub fn new(cwd: &Path, target: &Path, symlink_dir: &Path) -> Result<Self, String> {
+        let abs_target = if target.is_absolute() {
+            target.to_path_buf()
+        } else {
+            cwd.join(target)
+        };
+
+        let cwd_str = cwd
+            .to_str()
+            .ok_or_else(|| "current directory path is not valid UTF-8".to_string())?;
+        let symlink_name = encode_path(cwd_str);
+        let symlink_path = symlink_dir.join(symlink_name);
+
+        let action = match probe(&symlink_path) {
+            None => SymlinkAction::Create,
+            Some(None) => {
+                return Err(format!(
+                    "'{}' exists and is not a symlink",
+                    symlink_path.display()
+                ));
+            }
+            Some(Some(current_target)) => {
+                if current_target == abs_target {
+                    SymlinkAction::AlreadyCorrect
+                } else {
+                    SymlinkAction::Replace { current_target }
+                }
+            }
+        };
+
+        Ok(SymLink {
+            abs_target,
+            symlink_path,
+            action,
+        })
     }
 
-    // Ensure symlink parent directory exists
-    if let Some(parent) = plan.symlink_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            format!(
-                "cannot create symlink directory '{}': {e}",
-                parent.display()
-            )
-        })?;
+    /// Plan a symlink operation from pre-probed metadata (for testing).
+    #[cfg(test)]
+    pub fn with_meta(
+        cwd: &Path,
+        target: &Path,
+        symlink_dir: &Path,
+        symlink_meta: Option<Option<PathBuf>>,
+    ) -> Result<Self, String> {
+        let abs_target = if target.is_absolute() {
+            target.to_path_buf()
+        } else {
+            cwd.join(target)
+        };
+
+        let cwd_str = cwd
+            .to_str()
+            .ok_or_else(|| "current directory path is not valid UTF-8".to_string())?;
+        let symlink_name = encode_path(cwd_str);
+        let symlink_path = symlink_dir.join(symlink_name);
+
+        let action = match symlink_meta {
+            None => SymlinkAction::Create,
+            Some(None) => {
+                return Err(format!(
+                    "'{}' exists and is not a symlink",
+                    symlink_path.display()
+                ));
+            }
+            Some(Some(current_target)) => {
+                if current_target == abs_target {
+                    SymlinkAction::AlreadyCorrect
+                } else {
+                    SymlinkAction::Replace { current_target }
+                }
+            }
+        };
+
+        Ok(SymLink {
+            abs_target,
+            symlink_path,
+            action,
+        })
     }
 
-    match &plan.action {
-        SymlinkAction::Create => {}
-        SymlinkAction::Replace { .. } => {
-            std::fs::remove_file(&plan.symlink_path).map_err(|e| {
+    /// Execute the symlink operation: create the target dir if needed, create/replace the symlink.
+    pub fn create(&self, create_target: bool) -> Result<(), String> {
+        log::debug!(
+            "symlink {} -> {}",
+            self.symlink_path.display(),
+            self.abs_target.display()
+        );
+
+        if create_target && !self.abs_target.exists() {
+            std::fs::create_dir_all(&self.abs_target).map_err(|e| {
+                format!("cannot create target '{}': {e}", self.abs_target.display())
+            })?;
+        }
+
+        if let Some(parent) = self.symlink_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
                 format!(
-                    "cannot remove existing symlink '{}': {e}",
-                    plan.symlink_path.display()
+                    "cannot create symlink directory '{}': {e}",
+                    parent.display()
                 )
             })?;
         }
-        SymlinkAction::AlreadyCorrect => return Ok(()),
+
+        match &self.action {
+            SymlinkAction::Create => {}
+            SymlinkAction::Replace { .. } => {
+                std::fs::remove_file(&self.symlink_path).map_err(|e| {
+                    format!(
+                        "cannot remove existing symlink '{}': {e}",
+                        self.symlink_path.display()
+                    )
+                })?;
+            }
+            SymlinkAction::AlreadyCorrect => return Ok(()),
+        }
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&self.abs_target, &self.symlink_path).map_err(|e| {
+            format!(
+                "cannot create symlink '{}' -> '{}': {e}",
+                self.symlink_path.display(),
+                self.abs_target.display()
+            )
+        })?;
+
+        #[cfg(not(unix))]
+        return Err("symlink creation is only supported on Unix".to_string());
+
+        Ok(())
     }
-
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&plan.abs_target, &plan.symlink_path).map_err(|e| {
-        format!(
-            "cannot create symlink '{}' -> '{}': {e}",
-            plan.symlink_path.display(),
-            plan.abs_target.display()
-        )
-    })?;
-
-    #[cfg(not(unix))]
-    return Err("symlink creation is only supported on Unix".to_string());
-
-    Ok(())
 }
 
 // -- Subcommand --
@@ -190,26 +230,13 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let abs_target = if target.is_absolute() {
-        target.clone()
-    } else {
-        cwd.join(&target)
-    };
-
-    let symlink_name = encode_path(
-        cwd.to_str()
-            .ok_or("current directory path is not valid UTF-8")?,
-    );
-    let symlink_path = symlink_dir.join(&symlink_name);
-
-    let meta = probe_symlink(&symlink_path);
-    let plan = compute_plan(&cwd, &target, &symlink_dir, meta)?;
+    let sl = SymLink::new(&cwd, &target, &symlink_dir)?;
 
     // Handle interactive prompt for replacement
-    if let SymlinkAction::Replace { ref current_target } = plan.action {
+    if let SymlinkAction::Replace { ref current_target } = sl.action {
         log::info!(
             "Existing symlink: {} -> {}",
-            plan.symlink_path.display(),
+            sl.symlink_path.display(),
             current_target.display()
         );
         if !args.yes {
@@ -220,22 +247,27 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if plan.action == SymlinkAction::AlreadyCorrect {
+    if sl.action == SymlinkAction::AlreadyCorrect {
         log::info!(
             "Already correct: {} -> {}",
-            plan.symlink_path.display(),
-            plan.abs_target.display()
+            sl.symlink_path.display(),
+            sl.abs_target.display()
         );
     } else {
-        execute_plan(&plan, true)?;
+        sl.create(true)?;
         log::info!(
             "Created: {} -> {}",
-            plan.symlink_path.display(),
-            plan.abs_target.display()
+            sl.symlink_path.display(),
+            sl.abs_target.display()
         );
     }
 
     if args.list {
+        let abs_target = if target.is_absolute() {
+            target
+        } else {
+            cwd.join(&target)
+        };
         log::info!("");
         log::info!("Contents of {}:", abs_target.display());
         for entry in std::fs::read_dir(&abs_target)? {
@@ -268,42 +300,42 @@ mod tests {
     }
 
     #[test]
-    fn plan_create_when_nothing_exists() {
+    fn new_create_when_nothing_exists() {
         let cwd = Path::new("/home/user/project");
         let target = Path::new(".claude");
         let symlink_dir = Path::new("/home/user/.claude/projects");
 
-        let plan = compute_plan(cwd, target, symlink_dir, None).unwrap();
+        let sl = SymLink::with_meta(cwd, target, symlink_dir, None).unwrap();
 
-        assert_eq!(plan.abs_target, PathBuf::from("/home/user/project/.claude"));
+        assert_eq!(sl.abs_target, PathBuf::from("/home/user/project/.claude"));
         assert_eq!(
-            plan.symlink_path,
+            sl.symlink_path,
             PathBuf::from("/home/user/.claude/projects/-home-user-project")
         );
-        assert_eq!(plan.action, SymlinkAction::Create);
+        assert_eq!(sl.action, SymlinkAction::Create);
     }
 
     #[test]
-    fn plan_already_correct() {
+    fn new_already_correct() {
         let cwd = Path::new("/home/user/project");
         let target = Path::new(".claude");
         let symlink_dir = Path::new("/home/user/.claude/projects");
         let current = PathBuf::from("/home/user/project/.claude");
 
-        let plan = compute_plan(cwd, target, symlink_dir, Some(Some(current))).unwrap();
-        assert_eq!(plan.action, SymlinkAction::AlreadyCorrect);
+        let sl = SymLink::with_meta(cwd, target, symlink_dir, Some(Some(current))).unwrap();
+        assert_eq!(sl.action, SymlinkAction::AlreadyCorrect);
     }
 
     #[test]
-    fn plan_replace_different_target() {
+    fn new_replace_different_target() {
         let cwd = Path::new("/home/user/project");
         let target = Path::new(".claude");
         let symlink_dir = Path::new("/home/user/.claude/projects");
         let current = PathBuf::from("/home/user/other/.claude");
 
-        let plan = compute_plan(cwd, target, symlink_dir, Some(Some(current.clone()))).unwrap();
+        let sl = SymLink::with_meta(cwd, target, symlink_dir, Some(Some(current.clone()))).unwrap();
         assert_eq!(
-            plan.action,
+            sl.action,
             SymlinkAction::Replace {
                 current_target: current
             }
@@ -311,29 +343,29 @@ mod tests {
     }
 
     #[test]
-    fn plan_error_not_a_symlink() {
+    fn new_error_not_a_symlink() {
         let cwd = Path::new("/home/user/project");
         let target = Path::new(".claude");
         let symlink_dir = Path::new("/home/user/.claude/projects");
 
-        let err = compute_plan(cwd, target, symlink_dir, Some(None)).unwrap_err();
+        let err = SymLink::with_meta(cwd, target, symlink_dir, Some(None)).unwrap_err();
         assert!(err.contains("not a symlink"));
     }
 
     #[test]
-    fn plan_absolute_target() {
+    fn new_absolute_target() {
         let cwd = Path::new("/home/user/project");
         let target = Path::new("/tmp/my-claude");
         let symlink_dir = Path::new("/home/user/.claude/projects");
 
-        let plan = compute_plan(cwd, target, symlink_dir, None).unwrap();
-        assert_eq!(plan.abs_target, PathBuf::from("/tmp/my-claude"));
+        let sl = SymLink::with_meta(cwd, target, symlink_dir, None).unwrap();
+        assert_eq!(sl.abs_target, PathBuf::from("/tmp/my-claude"));
     }
 
     #[test]
     fn probe_nothing() {
         let path = Path::new("/nonexistent/path/that/does/not/exist");
-        assert!(probe_symlink(path).is_none());
+        assert!(probe(path).is_none());
     }
 
     #[test]
@@ -343,7 +375,7 @@ mod tests {
         let file = dir.join("regular");
         std::fs::write(&file, "hello").unwrap();
 
-        let result = probe_symlink(&file);
+        let result = probe(&file);
         assert_eq!(result, Some(None)); // exists, not a symlink
 
         std::fs::remove_dir_all(&dir).ok();
@@ -359,7 +391,7 @@ mod tests {
         let link = dir.join("the_link");
         std::os::unix::fs::symlink(&target, &link).unwrap();
 
-        let result = probe_symlink(&link);
+        let result = probe(&link);
         assert_eq!(result, Some(Some(target.clone())));
 
         std::fs::remove_dir_all(&dir).ok();
@@ -367,22 +399,22 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn execute_create_symlink() {
-        let dir = std::env::temp_dir().join("symlink_test_execute_create");
+    fn create_symlink() {
+        let dir = std::env::temp_dir().join("symlink_test_create");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let target = dir.join("my_target");
         let symlink_path = dir.join("my_link");
 
-        let plan = SymlinkPlan {
+        let sl = SymLink {
             abs_target: target.clone(),
             symlink_path: symlink_path.clone(),
             action: SymlinkAction::Create,
         };
 
-        execute_plan(&plan, true).unwrap();
+        sl.create(true).unwrap();
 
-        assert!(target.exists()); // create_target=true created it
+        assert!(target.exists());
         assert!(symlink_path.symlink_metadata().unwrap().is_symlink());
         assert_eq!(std::fs::read_link(&symlink_path).unwrap(), target);
 
@@ -391,8 +423,8 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn execute_replace_symlink() {
-        let dir = std::env::temp_dir().join("symlink_test_execute_replace");
+    fn replace_symlink() {
+        let dir = std::env::temp_dir().join("symlink_test_replace");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let old_target = dir.join("old_target");
@@ -402,7 +434,7 @@ mod tests {
         let symlink_path = dir.join("the_link");
         std::os::unix::fs::symlink(&old_target, &symlink_path).unwrap();
 
-        let plan = SymlinkPlan {
+        let sl = SymLink {
             abs_target: new_target.clone(),
             symlink_path: symlink_path.clone(),
             action: SymlinkAction::Replace {
@@ -410,7 +442,7 @@ mod tests {
             },
         };
 
-        execute_plan(&plan, false).unwrap();
+        sl.create(false).unwrap();
 
         assert_eq!(std::fs::read_link(&symlink_path).unwrap(), new_target);
 
@@ -419,21 +451,20 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn execute_already_correct_is_noop() {
-        let dir = std::env::temp_dir().join("symlink_test_execute_noop");
+    fn already_correct_is_noop() {
+        let dir = std::env::temp_dir().join("symlink_test_noop");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let target = dir.join("target");
         std::fs::create_dir_all(&target).unwrap();
 
-        let plan = SymlinkPlan {
+        let sl = SymLink {
             abs_target: target,
             symlink_path: dir.join("nonexistent_link"),
             action: SymlinkAction::AlreadyCorrect,
         };
 
-        // Should succeed without creating anything
-        execute_plan(&plan, false).unwrap();
+        sl.create(false).unwrap();
         assert!(!dir.join("nonexistent_link").exists());
 
         std::fs::remove_dir_all(&dir).ok();

@@ -358,3 +358,23 @@ provides. Would need a custom `LogPoint` system, possibly built on
 top of `log`.
 
 Not planned for a specific version — captured for future exploration.
+
+## Windows symlink support
+
+The symlink code uses `#[cfg(unix)]` which covers both Linux and macOS
+(macOS is Unix). The `#[cfg(not(unix))]` path returns an error, which
+effectively means Windows is unsupported.
+
+Windows does support symlinks via `std::os::windows::fs::symlink_dir`,
+but it requires elevated privileges or developer mode enabled. It's a
+one-line addition when needed:
+
+```rust
+#[cfg(windows)]
+std::os::windows::fs::symlink_dir(&self.abs_target, &self.symlink_path)?;
+```
+
+Also unclear whether Claude Code uses `~/.claude/projects/` symlinks
+on Windows at all — it may handle session directories differently there.
+
+Not planned until there's a Windows user for vc-x1.

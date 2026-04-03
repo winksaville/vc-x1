@@ -126,15 +126,8 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         PathBuf::from(home).join(".claude").join("projects")
     };
 
-    let meta = symlink::probe_symlink(
-        &symlink_dir.join(symlink::encode_path(
-            project_dir
-                .to_str()
-                .ok_or("project path is not valid UTF-8")?,
-        )),
-    );
-    let plan = symlink::compute_plan(&project_dir, Path::new(".claude"), &symlink_dir, meta)?;
-    symlink::execute_plan(&plan, false)?;
+    let sl = symlink::SymLink::new(&project_dir, Path::new(".claude"), &symlink_dir)?;
+    sl.create(false)?;
 
     log::info!("");
     log::info!("Done! Project cloned to {}", project_dir.display());
@@ -142,8 +135,8 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("  Session repo: {}", session_dir.display());
     log::info!(
         "  Symlink:      {} -> {}",
-        plan.symlink_path.display(),
-        plan.abs_target.display()
+        sl.symlink_path.display(),
+        sl.abs_target.display()
     );
 
     Ok(())
