@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use clap::Args;
+use log::info;
 
 #[derive(Args, Debug)]
 pub struct FinalizeArgs {
@@ -220,7 +221,7 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
         &opts.log,
         &format!("detach: spawned child pid={}", child.id()),
     );
-    eprintln!(
+    info!(
         "finalize: detached (pid {}), log: {}",
         child.id(),
         opts.log.display()

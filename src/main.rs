@@ -17,6 +17,7 @@ use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::CompleteEnv;
+use log::error;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "vc-x1: jj workspace tooling")]
@@ -98,7 +99,7 @@ fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            log::error!("{e}");
+            error!("{e}");
             ExitCode::FAILURE
         }
     }
@@ -132,7 +133,7 @@ fn main() -> ExitCode {
                 }
                 Err(e) => {
                     finalize::log_msg(&opts.log, &format!("main: finalize exit err={e}"));
-                    log::error!("{e}");
+                    error!("{e}");
                     ExitCode::FAILURE
                 }
             }

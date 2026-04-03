@@ -4,6 +4,8 @@ use clap::Args;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 
+use log::info;
+
 use crate::common;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
@@ -100,7 +102,7 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
     let mut missing = 0;
 
     let col_header = "STAT CHANGEID      TITLE";
-    println!("{col_header}");
+    info!("{col_header}");
 
     for commit_id in &ids {
         if *commit_id == root_id {
@@ -154,44 +156,44 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
         match status {
             CommitStatus::Ok => {
                 valid += 1;
-                println!("ok   {change_short}  {display_title}");
+                info!("ok   {change_short}  {display_title}");
             }
             CommitStatus::Lost => {
                 lost += 1;
-                println!("lost {change_short}  {display_title}");
+                info!("lost {change_short}  {display_title}");
             }
             CommitStatus::None_ => {
                 none += 1;
-                println!("none {change_short}  {display_title}");
+                info!("none {change_short}  {display_title}");
             }
             CommitStatus::NeedsFixed(summary) => {
                 issues_count += 1;
-                println!("err  {change_short}  {display_title}  [{summary}]");
+                info!("err  {change_short}  {display_title}  [{summary}]");
             }
             CommitStatus::MissingWithMatch(ochid) => {
                 missing += 1;
-                println!("miss {change_short}  {display_title}  [match: {ochid}]");
+                info!("miss {change_short}  {display_title}  [match: {ochid}]");
             }
             CommitStatus::MissingNoTitle => {
                 missing += 1;
-                println!("miss {change_short}  {display_title}");
+                info!("miss {change_short}  {display_title}");
             }
             CommitStatus::MissingAmbiguous(n) => {
                 missing += 1;
-                println!("miss {change_short}  {display_title}  [{n} title matches, ambiguous]");
+                info!("miss {change_short}  {display_title}  [{n} title matches, ambiguous]");
             }
             CommitStatus::MissingNoMatch => {
                 missing += 1;
-                println!("miss {change_short}  {display_title}  [no matching title in other repo]");
+                info!("miss {change_short}  {display_title}  [no matching title in other repo]");
             }
         }
     }
 
     let total = valid + lost + none + issues_count + missing;
     if total > 10 {
-        println!("{col_header}");
+        info!("{col_header}");
     }
-    println!(
+    info!(
         "\n{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing (of {} total)",
         ids.len()
     );

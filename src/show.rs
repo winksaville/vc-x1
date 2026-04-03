@@ -11,6 +11,8 @@ use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt;
 
+use log::info;
+
 use crate::common;
 
 /// Parsed file limit: None (suppress), Some(n) (cap at n), or all.
@@ -61,7 +63,7 @@ pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
         let mut first = true;
         for (i, commit_id) in ids.iter().enumerate() {
             if !first {
-                println!("────────────────────────────────────────");
+                info!("────────────────────────────────────────");
             }
             first = false;
 
@@ -81,7 +83,7 @@ fn show_one_commit(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Author
     let author = commit.author();
-    println!(
+    info!(
         "Author:    {} <{}> ({})",
         author.name,
         author.email,
@@ -90,7 +92,7 @@ fn show_one_commit(
 
     // Committer
     let committer = commit.committer();
-    println!(
+    info!(
         "Committer: {} <{}> ({})",
         committer.name,
         committer.email,
@@ -100,9 +102,9 @@ fn show_one_commit(
     // Ids
     let ids_line = common::format_commit_short(commit);
     if is_primary {
-        println!("Ids:       {}", common::bold(&ids_line));
+        info!("Ids:       {}", common::bold(&ids_line));
     } else {
-        println!("Ids:       {ids_line}");
+        info!("Ids:       {ids_line}");
     }
 
     // Parents
@@ -112,7 +114,7 @@ fn show_one_commit(
             continue;
         }
         let parent = repo.store().get_commit(parent_id)?;
-        println!("Parent:    {}", common::format_commit_short(&parent));
+        info!("Parent:    {}", common::format_commit_short(&parent));
     }
 
     // Children
@@ -123,20 +125,20 @@ fn show_one_commit(
             continue;
         }
         let child = repo.store().get_commit(child_id)?;
-        println!("Child:     {}", common::format_commit_short(&child));
+        info!("Child:     {}", common::format_commit_short(&child));
     }
 
     // Branches
     let branches_str = format_branches(commit, workspace, repo)?;
-    println!("Branches:  {branches_str}");
+    info!("Branches:  {branches_str}");
 
     // Follows
     let follows = find_nearest_tag(commit, workspace, repo, true)?;
-    println!("Follows:   {}", follows.as_deref().unwrap_or(""));
+    info!("Follows:   {}", follows.as_deref().unwrap_or(""));
 
     // Precedes
     let precedes = find_nearest_tag(commit, workspace, repo, false)?;
-    println!("Precedes:  {}", precedes.as_deref().unwrap_or(""));
+    info!("Precedes:  {}", precedes.as_deref().unwrap_or(""));
 
     // Description (body only — title is on the Ids line)
     print_description(commit);
@@ -239,9 +241,9 @@ fn print_description(commit: &Commit) {
         .collect::<Vec<_>>()
         .join("\n");
 
-    println!("Description:");
+    info!("Description:");
     for line in body.lines() {
-        println!("    {line}");
+        info!("    {line}");
     }
 }
 
@@ -294,14 +296,14 @@ fn print_diff(
     let show_all = cap == 0 || total <= cap;
 
     if show_all {
-        println!("Changed files: {total}");
+        info!("Changed files: {total}");
         for line in &lines {
-            println!("{line}");
+            info!("{line}");
         }
     } else {
-        println!("Changed files: {total}, showing first {cap}");
+        info!("Changed files: {total}, showing first {cap}");
         for line in &lines[..cap] {
-            println!("{line}");
+            info!("{line}");
         }
     }
 

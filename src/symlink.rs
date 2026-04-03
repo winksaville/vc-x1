@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
+use log::{debug, info};
 
 /// What action the symlink operation needs to take.
 #[derive(Debug, PartialEq, Eq)]
@@ -138,7 +139,7 @@ impl SymLink {
 
     /// Execute the symlink operation: create the target dir if needed, create/replace the symlink.
     pub fn create(&self, create_target: bool) -> Result<(), String> {
-        log::debug!(
+        debug!(
             "symlink {} -> {}",
             self.symlink_path.display(),
             self.abs_target.display()
@@ -234,7 +235,7 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle interactive prompt for replacement
     if let SymlinkAction::Replace { ref current_target } = sl.action {
-        log::info!(
+        info!(
             "Existing symlink: {} -> {}",
             sl.symlink_path.display(),
             current_target.display()
@@ -248,14 +249,14 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if sl.action == SymlinkAction::AlreadyCorrect {
-        log::info!(
+        info!(
             "Already correct: {} -> {}",
             sl.symlink_path.display(),
             sl.abs_target.display()
         );
     } else {
         sl.create(true)?;
-        log::info!(
+        info!(
             "Created: {} -> {}",
             sl.symlink_path.display(),
             sl.abs_target.display()
@@ -268,11 +269,11 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             cwd.join(&target)
         };
-        log::info!("");
-        log::info!("Contents of {}:", abs_target.display());
+        info!("");
+        info!("Contents of {}:", abs_target.display());
         for entry in std::fs::read_dir(&abs_target)? {
             let entry = entry?;
-            log::info!("  {}", entry.file_name().to_string_lossy());
+            info!("  {}", entry.file_name().to_string_lossy());
         }
     }
 

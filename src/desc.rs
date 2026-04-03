@@ -1,5 +1,6 @@
 use clap::Args;
 use jj_lib::repo::Repo;
+use log::info;
 
 use crate::common;
 
@@ -23,9 +24,9 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
             let line = common::format_commit_full(&commit);
             let indented = common::indent_body(&line, 4);
             if i == anchor_index {
-                println!("{}", common::bold_first_line(&indented));
+                info!("{}", common::bold_first_line(&indented));
             } else {
-                println!("{indented}");
+                info!("{indented}");
             }
         }
         Ok(())

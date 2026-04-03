@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::Args;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
+use log::info;
 
 use crate::common;
 use crate::desc_helpers::{
@@ -141,7 +142,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             {
                 skipped += 1;
                 if !args.no_dry_run {
-                    println!("skip {change_short}  {display_title}  (max-fixes reached)");
+                    info!("skip {change_short}  {display_title}  (max-fixes reached)");
                 }
                 continue;
             }
@@ -150,7 +151,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 TitleMatch::NoTitle => {
                     skipped += 1;
                     if !args.no_dry_run {
-                        println!("skip {change_short}  {display_title}");
+                        info!("skip {change_short}  {display_title}");
                     }
                     continue;
                 }
@@ -159,11 +160,11 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                         append_ochid_trailer(desc, &other_prefix, &matched_id, args.id_len);
                     let short_matched = &matched_id[..matched_id.len().min(args.id_len)];
                     if !args.no_dry_run {
-                        println!("add  {change_short}  {display_title}  [missing]");
-                        println!("     -> ochid: {other_prefix}{short_matched}");
+                        info!("add  {change_short}  {display_title}  [missing]");
+                        info!("     -> ochid: {other_prefix}{short_matched}");
                     } else {
                         jj_describe(commit_id, &new_desc, &args.repo, change_short)?;
-                        println!("added {change_short}  {display_title}");
+                        info!("added {change_short}  {display_title}");
                     }
                     fixed += 1;
                     continue;
@@ -171,7 +172,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 TitleMatch::Ambiguous(n) => {
                     skipped += 1;
                     if !args.no_dry_run {
-                        println!(
+                        info!(
                             "skip {change_short}  {display_title}  ({n} title matches, ambiguous)"
                         );
                     }
@@ -180,7 +181,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 TitleMatch::None => {
                     skipped += 1;
                     if !args.no_dry_run {
-                        println!(
+                        info!(
                             "skip {change_short}  {display_title}  (no matching title in other repo)"
                         );
                     }
@@ -191,7 +192,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             // No ochid trailer — nothing to fix
             skipped += 1;
             if !args.no_dry_run {
-                println!("skip {change_short}  {display_title}  (no ochid trailer)");
+                info!("skip {change_short}  {display_title}  (no ochid trailer)");
             }
             continue;
         };
@@ -199,7 +200,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         if !issues.any() {
             skipped += 1;
             if !args.no_dry_run {
-                println!("ok   {change_short}  {display_title}");
+                info!("ok   {change_short}  {display_title}");
             }
             continue;
         }
@@ -210,7 +211,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         {
             skipped += 1;
             if !args.no_dry_run {
-                println!("skip {change_short}  {display_title}  (max-fixes reached)");
+                info!("skip {change_short}  {display_title}  (max-fixes reached)");
             }
             continue;
         }
@@ -265,7 +266,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 fixed_ochid = Some(fallback.clone());
             } else {
                 errors += 1;
-                eprintln!(
+                info!(
                     "err  {change_short}  {display_title}  (ID not found, ochid: {})",
                     fixed_ochid.as_deref().unwrap_or("?")
                 );
@@ -274,22 +275,22 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         if !args.no_dry_run {
-            println!(
+            info!(
                 "fix  {change_short}  {display_title}  [{}]",
                 issues.summary()
             );
             if let Some(ref v) = fixed_ochid {
-                println!("     -> ochid: {v}");
+                info!("     -> ochid: {v}");
             }
         } else {
             jj_describe(commit_id, &new_desc, &args.repo, change_short)?;
             let fixed_title = new_desc.lines().next().unwrap_or("");
-            println!("fixed {change_short}  {fixed_title}");
+            info!("fixed {change_short}  {fixed_title}");
         }
         fixed += 1;
     }
 
-    println!(
+    info!(
         "\n{fixed} fixed, {skipped} skipped, {errors} errors (of {} total)",
         ids.len()
     );

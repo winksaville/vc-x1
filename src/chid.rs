@@ -1,5 +1,6 @@
 use clap::Args;
 use jj_lib::repo::Repo;
+use log::info;
 
 use crate::common;
 
@@ -20,7 +21,7 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         for commit_id in &ids {
             let commit = repo.store().get_commit(commit_id)?;
-            println!("{}", common::format_chid(&commit));
+            info!("{}", common::format_chid(&commit));
         }
         Ok(())
     })

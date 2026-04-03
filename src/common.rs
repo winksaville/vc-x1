@@ -17,6 +17,7 @@ use jj_lib::revset::{
 };
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
+use log::{debug, error, info, trace};
 use pollster::FutureExt;
 
 /// Common CLI args shared by read-only subcommands (chid, desc, list, show).
@@ -164,8 +165,8 @@ pub fn resolve_spec(
 /// Returns stdout on success.
 pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
-    log::debug!("$ {cmd} {args_str}");
-    log::trace!("cwd: {}", cwd.display());
+    debug!("$ {cmd} {args_str}");
+    trace!("cwd: {}", cwd.display());
     let output = std::process::Command::new(cmd)
         .args(args)
         .current_dir(cwd)
@@ -174,10 +175,10 @@ pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if !stdout.is_empty() {
-        log::debug!("  {stdout}");
+        debug!("  {stdout}");
     }
     if !stderr.is_empty() {
-        log::debug!("  {stderr}");
+        debug!("  {stderr}");
     }
     if !output.status.success() {
         return Err(format!("{cmd} {args_str} failed: {stderr}").into());
@@ -187,14 +188,14 @@ pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::
 
 /// Create a directory (and parents). Logs at debug level.
 pub fn mkdir_p(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    log::debug!("mkdir -p {}", path.display());
+    debug!("mkdir -p {}", path.display());
     std::fs::create_dir_all(path)?;
     Ok(())
 }
 
 /// Write content to a file. Logs at debug level.
 pub fn write_file(path: &Path, content: &str) -> Result<(), Box<dyn std::error::Error>> {
-    log::debug!("write {}", path.display());
+    debug!("write {}", path.display());
     std::fs::write(path, content)?;
     Ok(())
 }
@@ -208,7 +209,7 @@ pub fn prompt(msg: &str) -> Result<String, Box<dyn std::error::Error>> {
     let mut response = String::new();
     std::io::stdin().read_line(&mut response)?;
     let trimmed = response.trim().to_string();
-    log::info!("{msg}{trimmed}");
+    info!("{msg}{trimmed}");
     Ok(trimmed)
 }
 
@@ -433,9 +434,9 @@ where
             match header {
                 Header::Label(deco) => {
                     if !first {
-                        println!();
+                        info!("");
                     }
-                    println!(
+                    info!(
                         "{}",
                         bold(&format!("{deco} {} {deco}", repo_path.display()))
                     );
@@ -448,12 +449,12 @@ where
         match load_repo(repo_path) {
             Ok((workspace, repo)) => {
                 if let Err(e) = body(&workspace, &repo) {
-                    eprintln!("error ({}): {e}", repo_path.display());
+                    error!("({}): {e}", repo_path.display());
                     errors.push(format!("{}: {e}", repo_path.display()));
                 }
             }
             Err(e) => {
-                eprintln!("error ({}): {e}", repo_path.display());
+                error!("({}): {e}", repo_path.display());
                 errors.push(format!("{}: {e}", repo_path.display()));
             }
         }

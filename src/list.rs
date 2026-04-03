@@ -1,5 +1,6 @@
 use clap::Args;
 use jj_lib::repo::Repo;
+use log::info;
 
 use crate::common;
 
@@ -28,9 +29,9 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
             let commit = repo.store().get_commit(commit_id)?;
             let line = common::format_commit_with_ochid(&commit, args.width);
             if i == anchor_index {
-                println!("{}", common::bold(&line));
+                info!("{}", common::bold(&line));
             } else {
-                println!("{line}");
+                info!("{line}");
             }
         }
         Ok(())

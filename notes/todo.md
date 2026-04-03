@@ -11,9 +11,11 @@ and reference links to more details.
 A markdown list of task to do in the near feature
 
  - Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
-   - 0.31.0-dev1: add `log` crate, wire into init, replace println/eprintln
-   - 0.31.0-dev2: extend to clone, symlink, fix-desc, common::run
-   - 0.31.0-dev3: replace finalize::log_msg, add --log-filter flag
+   - ~~0.31.0-dev1: add `log` crate, wire into init, replace println/eprintln~~
+   - ~~0.31.0-dev2: symlink refactor (SymLink::new/create)~~
+   - ~~0.31.0-dev3: convert all commands to log, standardize bare imports~~
+   - 0.31.0-dev4: replace finalize::log_msg with log crate
+   - 0.31.0-dev5: global options (--verbose, --indent, --log) on Cli struct
    - 0.31.0: final release
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
