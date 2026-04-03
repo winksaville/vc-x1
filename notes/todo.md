@@ -5,11 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
- - Add `clone` command + fix `init` submodule/ochid bug (0.29.0) [33]
-   - ~~0.29.0-dev1: clone command, init ochid fix, verbose output~~
-   - ~~0.29.0-dev2: bookmark track in init, remove clone workaround~~
-   - ~~0.29.0-dev3: gate init output behind --verbose, clone positional NAME param~~
-   - 0.29.0: final release — test init+clone end-to-end, remove -devN
 
 ## Todo
 
@@ -32,7 +27,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.2) [30]
 - Add `fn claude-symlink` and `symlink` subcommand (0.27.0) [31]
 - Add `init` subcommand for dual-repo project creation (0.28.0) [32]
-- Add `clone` command for cloning dual-repo projects (0.29.0) [33]
+- Add `clone` command + fix init submodule/ochid bug (0.29.0) [33]
 
 # References
 

@@ -137,32 +137,38 @@ is app repo, second is `.claude`).
 
 ## Session End Workflows
 
-When the user asks to "commit both repos" or says they're done, commit
-both repos. Use the **same title** for both commits so they're easy to
-correlate. The body can differ: the app repo body should summarize code
-changes; the bot session repo body should note what was done in the
-session.
+Two-checkpoint flow with explicit user approval at each stage.
+
+### Checkpoint 1: Commit
+
+Prepare both commit commands and **present them for approval**. Use the
+**same title** for both commits so they're easy to correlate. The body
+can differ: the app repo body should summarize code changes; the bot
+session repo body should note what was done in the session.
+
+On approval, execute the commits and set bookmarks:
 
 ```
 jj commit -m "shared title" -m "app body" -R .
 jj commit -m "shared title" -m "session body" -R .claude
-```
-
-After both commits, **pause and ask for user approval** before
-proceeding to bookmark/push/finalize.
-
-When the user also asks to push, advance the current bookmark on both
-repos, then push the app repo. Do **not** push `.claude` here —
-`finalize` handles that push after squashing trailing writes.
-
-Replace `<bookmark>` with the active bookmark (e.g. `main`,
-`dev-0.14.0`).
-
-```
 jj bookmark set <bookmark> -r @- -R .
 jj bookmark set <bookmark> -r @- -R .claude
-jj git push --bookmark <bookmark> -R .
 ```
+
+### Checkpoint 2: Push and finalize
+
+After commits succeed, **ask the user to approve push and finalize**.
+On approval, push the app repo and finalize the bot session in a
+single operation. Say any final words (e.g. "next is ...") **before**
+executing — nothing should be output after finalize.
+
+```
+jj git push --bookmark <bookmark> -R . && vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --detach --push
+```
+
+Replace `<bookmark>` with the active bookmark (e.g. `main`,
+`dev-0.14.0`). Do **not** push `.claude` separately — `finalize`
+handles that push after squashing trailing writes.
 
 ### Late changes after push
 
