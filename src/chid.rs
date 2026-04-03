@@ -15,17 +15,12 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
     let hdr = common::resolve_header(&c.label, c.no_label);
 
     common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
-        let (ids, anchor_index) =
+        let (ids, _) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
-        for (i, commit_id) in ids.iter().enumerate() {
+        for commit_id in &ids {
             let commit = repo.store().get_commit(commit_id)?;
-            let line = common::format_chid(&commit);
-            if i == anchor_index {
-                println!("{}", common::bold(&line));
-            } else {
-                println!("{line}");
-            }
+            println!("{}", common::format_chid(&commit));
         }
         Ok(())
     })

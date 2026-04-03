@@ -48,7 +48,7 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
-vc-x1 clone <REPO> [OPTS]                 # Clone a dual-repo project
+vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
@@ -278,7 +278,10 @@ vc-x1 clone owner/my-project
 # Clone using full URL
 vc-x1 clone git@github.com:owner/my-project.git
 
-# Clone into a specific directory
+# Clone with a custom directory name
+vc-x1 clone owner/my-project my-local-name
+
+# Clone into a specific parent directory
 vc-x1 clone owner/my-project --dir ~/projects
 
 # Preview without executing

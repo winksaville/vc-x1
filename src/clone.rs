@@ -10,6 +10,10 @@ pub struct CloneArgs {
     #[arg(value_name = "REPO")]
     pub repo: String,
 
+    /// Local directory name [default: derived from REPO]
+    #[arg(value_name = "NAME")]
+    pub name: Option<String>,
+
     /// Parent directory to clone into [default: cwd]
     #[arg(long)]
     pub dir: Option<PathBuf>,
@@ -82,7 +86,10 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         None => std::env::current_dir()?,
     };
 
-    let name = derive_name(&args.repo)?;
+    let name = match &args.name {
+        Some(n) => n.clone(),
+        None => derive_name(&args.repo)?,
+    };
     let project_dir = parent_dir.join(&name);
     let session_dir = project_dir.join(".claude");
     let url = resolve_url(&args.repo);
@@ -184,9 +191,17 @@ mod tests {
     fn defaults() {
         let args = parse(&["vc-x1", "clone", "owner/repo"]);
         assert_eq!(args.repo, "owner/repo");
+        assert!(args.name.is_none());
         assert!(args.dir.is_none());
         assert!(!args.dry_run);
         assert!(!args.verbose);
+    }
+
+    #[test]
+    fn with_name() {
+        let args = parse(&["vc-x1", "clone", "owner/repo", "my-dir"]);
+        assert_eq!(args.repo, "owner/repo");
+        assert_eq!(args.name.as_deref(), Some("my-dir"));
     }
 
     #[test]
@@ -195,12 +210,14 @@ mod tests {
             "vc-x1",
             "clone",
             "owner/repo",
+            "my-dir",
             "--dir",
             "/tmp/projects",
             "--dry-run",
             "--verbose",
         ]);
         assert_eq!(args.repo, "owner/repo");
+        assert_eq!(args.name.as_deref(), Some("my-dir"));
         assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
         assert!(args.dry_run);
         assert!(args.verbose);

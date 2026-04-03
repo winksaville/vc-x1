@@ -7,15 +7,14 @@ and reference links to more details.
 
  - Add `clone` command + fix `init` submodule/ochid bug (0.29.0) [33]
    - ~~0.29.0-dev1: clone command, init ochid fix, verbose output~~
-   - 0.29.0-dev2: bookmark track in init, remove clone workaround, test clone
-   - 0.29.0-dev3: gate output behind --verbose, clone positional NAME param
-   - 0.29.0: final release
+   - ~~0.29.0-dev2: bookmark track in init, remove clone workaround~~
+   - ~~0.29.0-dev3: gate init output behind --verbose, clone positional NAME param~~
+   - 0.29.0: final release — test init+clone end-to-end, remove -devN
 
 ## Todo
 
 A markdown list of task to do in the near feature
 
- - Strip ANSI bold codes from `chid` output when stdout is not a terminal
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
