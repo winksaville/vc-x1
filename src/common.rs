@@ -160,18 +160,12 @@ pub fn resolve_spec(
     spec
 }
 
-/// Run a shell command. In verbose mode, prints the command with cwd, stdout, and stderr
-/// to stderr. In normal mode, only prints on failure. Returns stdout on success.
-pub fn run(
-    cmd: &str,
-    args: &[&str],
-    cwd: &Path,
-    verbose: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
+/// Run a shell command. Logs the command and output at debug level.
+/// Returns stdout on success.
+pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
-    if verbose {
-        eprintln!("  {}$ {cmd} {args_str}", cwd.display());
-    }
+    log::debug!("$ {cmd} {args_str}");
+    log::trace!("cwd: {}", cwd.display());
     let output = std::process::Command::new(cmd)
         .args(args)
         .current_dir(cwd)
@@ -179,18 +173,43 @@ pub fn run(
         .map_err(|e| format!("failed to run {cmd}: {e}"))?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if verbose {
-        if !stdout.is_empty() {
-            eprintln!("    stdout: {stdout}");
-        }
-        if !stderr.is_empty() {
-            eprintln!("    stderr: {stderr}");
-        }
+    if !stdout.is_empty() {
+        log::debug!("  {stdout}");
+    }
+    if !stderr.is_empty() {
+        log::debug!("  {stderr}");
     }
     if !output.status.success() {
         return Err(format!("{cmd} {args_str} failed: {stderr}").into());
     }
     Ok(stdout)
+}
+
+/// Create a directory (and parents). Logs at debug level.
+pub fn mkdir_p(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    log::debug!("mkdir -p {}", path.display());
+    std::fs::create_dir_all(path)?;
+    Ok(())
+}
+
+/// Write content to a file. Logs at debug level.
+pub fn write_file(path: &Path, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+    log::debug!("write {}", path.display());
+    std::fs::write(path, content)?;
+    Ok(())
+}
+
+/// Display a prompt, read a line from stdin, and log both together.
+/// Returns the trimmed response.
+pub fn prompt(msg: &str) -> Result<String, Box<dyn std::error::Error>> {
+    use std::io::Write;
+    eprint!("{msg}");
+    std::io::stderr().flush()?;
+    let mut response = String::new();
+    std::io::stdin().read_line(&mut response)?;
+    let trimmed = response.trim().to_string();
+    log::info!("{msg}{trimmed}");
+    Ok(trimmed)
 }
 
 /// Wrap text in ANSI bold escape codes.

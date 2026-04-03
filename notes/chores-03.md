@@ -295,3 +295,66 @@ Changes:
   `gh_whoami()`, `gh_repo_exists()`, preflight checks, `jj_describe()`
 - Removed bold ANSI codes from `chid` output entirely
 - Updated CLAUDE.md with two-checkpoint commit/push/finalize workflow
+
+## Adopt `log` crate with per-module filtering (0.31.0)
+
+### Background
+
+Currently output uses three separate mechanisms:
+- `println!` for user-facing progress (stdout)
+- `eprintln!` for verbose diagnostic detail (stderr, behind `--verbose`)
+- `finalize::log_msg` for file-based tracing (finalize only)
+
+These should be unified under a single logging system.
+
+### Crate choice
+
+Evaluated several options:
+- `tracing` — full-featured but heavier, async/span features unused
+- `log` — standard facade, lightweight, what libraries expect
+- `env_logger` — easy but env-var-only (`RUST_LOG=...`), poor CLI UX
+- `log4rs`, `fern`, `slog` — specialized, more than needed
+
+Decision: **`log`** as the facade with a thin custom subscriber that
+routes based on CLI flags rather than env vars.
+
+### Design
+
+Level routing:
+- `info!` and above → stdout (step headers, results) — always shown
+- `debug!` → stderr — only with `--verbose`
+- `trace!` → file — only with `--log <path>`
+- `error!`/`warn!` → stderr — always shown
+
+CLI interface:
+- `-v` / `--verbose` — shorthand for "everything at debug on stderr"
+- `--log-filter "vc_x1::init=debug"` — per-module runtime filtering
+- `--log <path>` — write to file (replaces finalize's `log_msg`)
+- `RUST_LOG` — fallback for power users, lowest priority
+
+The `log` macros automatically tag with the module path (e.g.
+`log::debug!("foo")` in `src/init.rs` → target `vc_x1::init`), so
+per-module filtering comes for free.
+
+Replaces: `println!`, `eprintln!` (verbose), `finalize::log_msg`.
+Custom subscriber is ~50-80 lines.
+
+## Per-line/per-thread runtime log points (future)
+
+### Vision
+
+Runtime-switchable instrumentation at individual call sites, addressable
+by name from the CLI, with optional thread granularity. Think DTrace
+probes or Linux tracepoints — each log point has a unique ID that can
+be toggled independently at runtime.
+
+```rust
+log_point!(LP_INIT_STEP5, "ochid cross-reference: {}", chid);
+```
+
+Where `LP_INIT_STEP5` is a runtime-mutable flag, toggleable from CLI.
+This goes beyond what `log`, `tracing`, or any standard Rust crate
+provides. Would need a custom `LogPoint` system, possibly built on
+top of `log`.
+
+Not planned for a specific version — captured for future exploration.

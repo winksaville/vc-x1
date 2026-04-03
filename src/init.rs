@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
+use log::{debug, info};
 
 use crate::symlink;
 
@@ -46,24 +47,21 @@ fn run_retry(
     cwd: &Path,
     retries: u32,
     delay_secs: u64,
-    verbose: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut last_err = String::new();
     for attempt in 1..=retries {
-        match run(cmd, args, cwd, verbose) {
+        match run(cmd, args, cwd) {
             Ok(out) => {
                 if attempt > 1 {
-                    eprintln!("  succeeded after {attempt} attempts");
+                    debug!("succeeded after {attempt} attempts");
                 }
                 return Ok(out);
             }
             Err(e) => {
                 last_err = e.to_string();
                 if attempt < retries {
-                    if verbose {
-                        eprintln!("  attempt {attempt}/{retries} failed: {last_err}");
-                    }
-                    eprintln!("  retrying in {delay_secs}s...");
+                    debug!("attempt {attempt}/{retries} failed: {last_err}");
+                    debug!("retrying in {delay_secs}s...");
                     std::thread::sleep(std::time::Duration::from_secs(delay_secs));
                 }
             }
@@ -72,7 +70,7 @@ fn run_retry(
     Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
-use crate::common::run;
+use crate::common::{mkdir_p, run, write_file};
 
 /// Get the short (12-char) jj change ID for a revision, without printing.
 fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
@@ -89,25 +87,19 @@ fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> 
             "1",
         ],
         cwd,
-        false,
     )?;
     Ok(full[..full.len().min(12)].to_string())
 }
 
 /// Get the current GitHub user via `gh api user`.
 fn gh_whoami() -> Result<String, Box<dyn std::error::Error>> {
-    run(
-        "gh",
-        &["api", "user", "--jq", ".login"],
-        Path::new("."),
-        false,
-    )
+    run("gh", &["api", "user", "--jq", ".login"], Path::new("."))
 }
 
 /// Check if a GitHub repo exists.
 fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::Error>> {
     let full = format!("{owner}/{name}");
-    Ok(run("gh", &["repo", "view", &full], Path::new("."), false).is_ok())
+    Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
 }
 
 const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
@@ -151,12 +143,12 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     let session_dir = project_dir.join(".claude");
 
     // Preflight checks
-    println!("Preflight checks...");
+    info!("Preflight checks...");
 
     // Check tools
-    run("gh", &["auth", "status"], Path::new("."), false)
+    run("gh", &["auth", "status"], Path::new("."))
         .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
-    run("jj", &["--version"], Path::new("."), false).map_err(|_| "jj is not installed")?;
+    run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
     let owner = match &args.owner {
         Some(o) => o.clone(),
@@ -184,119 +176,98 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if args.dry_run {
-        println!("Dry run — would execute:");
-        println!("  1. Create directories: {}", project_dir.display());
-        println!("  2. git init + jj git init --colocate on both repos");
-        println!("  3. Write .vc-config.toml and .gitignore to both");
-        println!("  4. jj commit both with placeholder ochids");
-        println!("  5. Get both chids, jj describe both with correct ochids");
-        println!("  6. Remove jj from both (git clean -xdf)");
-        println!("  7. gh repo create {session_repo} {visibility}, push");
-        println!("  8. git submodule add .claude, second commit in code repo");
-        println!("  9. gh repo create {code_repo} {visibility}, push");
-        println!("  10. jj git init --colocate on both repos");
-        println!("  11. Create Claude Code symlink");
+        info!("Dry run — would execute:");
+        info!("  1. Create directories: {}", project_dir.display());
+        info!("  2. git init + jj git init --colocate on both repos");
+        info!("  3. Write .vc-config.toml and .gitignore to both");
+        info!("  4. jj commit both with placeholder ochids");
+        info!("  5. Get both chids, jj describe both with correct ochids");
+        info!("  6. Remove jj from both (git clean -xdf)");
+        info!("  7. gh repo create {session_repo} {visibility}, push");
+        info!("  8. git submodule add .claude, second commit in code repo");
+        info!("  9. gh repo create {code_repo} {visibility}, push");
+        info!("  10. jj git init --colocate on both repos");
+        info!("  11. Create Claude Code symlink");
         return Ok(());
     }
 
-    let v = args.verbose;
-
     // Step 1: Create directories
-    println!("Step 1: Creating project directories...");
-    std::fs::create_dir_all(&session_dir)?;
+    info!("Step 1: Creating project directories...");
+    mkdir_p(&project_dir)?;
+    mkdir_p(&session_dir)?;
 
     // Step 2: git init + jj init on both repos
-    println!("Step 2: Initializing repos...");
-    run("git", &["init"], &project_dir, v)?;
-    run("jj", &["git", "init", "--colocate"], &project_dir, v)?;
-    run("git", &["init"], &session_dir, v)?;
-    run("jj", &["git", "init", "--colocate"], &session_dir, v)?;
+    info!("Step 2: Initializing repos...");
+    run("git", &["init"], &project_dir)?;
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    run("git", &["init"], &session_dir)?;
+    run("jj", &["git", "init", "--colocate"], &session_dir)?;
 
     // Step 3: Write config files
-    println!("Step 3: Writing config files...");
-    std::fs::write(project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
-    std::fs::write(project_dir.join(".gitignore"), GITIGNORE_CODE)?;
-    std::fs::write(session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
-    std::fs::write(session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
+    info!("Step 3: Writing config files...");
+    write_file(&project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
+    write_file(&project_dir.join(".gitignore"), GITIGNORE_CODE)?;
+    write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
+    write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
 
     // Step 4: jj commit both with placeholder ochids
-    println!("Step 4: Committing both repos with placeholder ochids...");
+    info!("Step 4: Committing both repos with placeholder ochids...");
     run(
         "jj",
         &["commit", "-m", "Initial commit\n\nochid: /none"],
         &project_dir,
-        v,
     )?;
     run(
         "jj",
         &["commit", "-m", "Initial commit\n\nochid: /none"],
         &session_dir,
-        v,
     )?;
 
     // Step 5: Get both chids, then describe both with correct ochids
-    println!("Step 5: Setting ochid cross-references...");
+    info!("Step 5: Setting ochid cross-references...");
     let code_chid = jj_chid("@-", &project_dir)?;
     let session_chid = jj_chid("@-", &session_dir)?;
 
     let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
     let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
-    run("jj", &["describe", "@-", "-m", &code_desc], &project_dir, v)?;
-    run(
-        "jj",
-        &["describe", "@-", "-m", &session_desc],
-        &session_dir,
-        v,
-    )?;
+    run("jj", &["describe", "@-", "-m", &code_desc], &project_dir)?;
+    run("jj", &["describe", "@-", "-m", &session_desc], &session_dir)?;
 
-    if v {
-        let hash = run("git", &["rev-parse", "HEAD"], &project_dir, v)?;
-        eprintln!("  code repo: chid={code_chid} hash={hash}");
-        let hash = run("git", &["rev-parse", "HEAD"], &session_dir, v)?;
-        eprintln!("  .claude:   chid={session_chid} hash={hash}");
+    {
+        let hash = run("git", &["rev-parse", "HEAD"], &project_dir)?;
+        debug!("code repo: chid={code_chid} hash={hash}");
+        let hash = run("git", &["rev-parse", "HEAD"], &session_dir)?;
+        debug!(".claude:   chid={session_chid} hash={hash}");
     }
 
     // Step 6: Set bookmarks (creates git branches), then remove jj
     // Bookmarks must be set before removing .jj/ so git has a 'main' branch to push
-    println!("Step 6: Setting bookmarks and removing jj...");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &project_dir,
-        v,
-    )?;
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &session_dir,
-        v,
-    )?;
+    info!("Step 6: Setting bookmarks and removing jj...");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
     // Clean .claude first, then code repo with --exclude to preserve .claude/
-    run("git", &["clean", "-xdf"], &session_dir, v)?;
+    run("git", &["clean", "-xdf"], &session_dir)?;
     run(
         "git",
         &["clean", "-xdf", "--exclude", ".claude"],
         &project_dir,
-        v,
     )?;
     // After removing .jj/, git HEAD is detached — reattach to main
-    run("git", &["checkout", "main"], &session_dir, v)?;
-    run("git", &["checkout", "main"], &project_dir, v)?;
+    run("git", &["checkout", "main"], &session_dir)?;
+    run("git", &["checkout", "main"], &project_dir)?;
 
     // Step 7: Create .claude GitHub repo and push
     let session_url = format!("git@github.com:{session_repo}.git");
-    println!("Step 7: Creating GitHub repo {session_repo}...");
+    info!("Step 7: Creating GitHub repo {session_repo}...");
     run(
         "gh",
         &["repo", "create", &session_repo, visibility],
         &project_dir,
-        v,
     )?;
     run(
         "git",
         &["remote", "add", "origin", &session_url],
         &session_dir,
-        v,
     )?;
     run_retry(
         "git",
@@ -304,71 +275,52 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         &session_dir,
         args.push_retries,
         args.push_retry_delay,
-        v,
     )?;
 
     // Step 8: Add .claude as submodule — second commit in code repo
-    println!("Step 8: Adding .claude as submodule...");
+    info!("Step 8: Adding .claude as submodule...");
     // Remove .claude directory so git submodule add can re-clone it
     std::fs::remove_dir_all(&session_dir)?;
     run(
         "git",
         &["submodule", "add", "--force", &session_url, ".claude"],
         &project_dir,
-        v,
     )?;
     let submodule_body = format!("Add .claude submodule\n\nochid: /.claude/{session_chid}");
-    run("git", &["add", "."], &project_dir, v)?;
-    run("git", &["commit", "-m", &submodule_body], &project_dir, v)?;
+    run("git", &["add", "."], &project_dir)?;
+    run("git", &["commit", "-m", &submodule_body], &project_dir)?;
 
     // Step 9: Create code GitHub repo and push
     let code_url = format!("git@github.com:{code_repo}.git");
-    println!("Step 9: Creating GitHub repo {code_repo}...");
+    info!("Step 9: Creating GitHub repo {code_repo}...");
     run(
         "gh",
         &["repo", "create", &code_repo, visibility],
         &project_dir,
-        v,
     )?;
-    run(
-        "git",
-        &["remote", "add", "origin", &code_url],
-        &project_dir,
-        v,
-    )?;
+    run("git", &["remote", "add", "origin", &code_url], &project_dir)?;
     run_retry(
         "git",
         &["push", "-u", "origin", "main"],
         &project_dir,
         args.push_retries,
         args.push_retry_delay,
-        v,
     )?;
 
     // Step 10: Re-initialize jj on both repos
-    println!("Step 10: Re-initializing jj on both repos...");
-    run("jj", &["git", "init", "--colocate"], &project_dir, v)?;
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &project_dir,
-        v,
-    )?;
-    run("jj", &["bookmark", "track", "main@origin"], &project_dir, v)?;
+    info!("Step 10: Re-initializing jj on both repos...");
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
+    run("jj", &["bookmark", "track", "main@origin"], &project_dir)?;
     let code_chid_final = jj_chid("@-", &project_dir)?;
 
-    run("jj", &["git", "init", "--colocate"], &session_dir, v)?;
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &session_dir,
-        v,
-    )?;
-    run("jj", &["bookmark", "track", "main@origin"], &session_dir, v)?;
+    run("jj", &["git", "init", "--colocate"], &session_dir)?;
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
+    run("jj", &["bookmark", "track", "main@origin"], &session_dir)?;
     let session_chid_final = jj_chid("@-", &session_dir)?;
 
     // Step 11: Create Claude Code symlink
-    println!("Step 11: Creating Claude Code symlink...");
+    info!("Step 11: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
@@ -383,13 +335,18 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         )),
     );
     let plan = symlink::compute_plan(&project_dir, Path::new(".claude"), &symlink_dir, meta)?;
+    debug!(
+        "symlink {} -> {}",
+        plan.symlink_path.display(),
+        plan.abs_target.display()
+    );
     symlink::execute_plan(&plan, false)?;
 
-    println!();
-    println!("Done! Project created at {}", project_dir.display());
-    println!("  Code repo:    {code_repo}  (chid={code_chid_final})");
-    println!("  Session repo: {session_repo}  (chid={session_chid_final})");
-    println!(
+    info!("");
+    info!("Done! Project created at {}", project_dir.display());
+    info!("  Code repo:    {code_repo}  (chid={code_chid_final})");
+    info!("  Session repo: {session_repo}  (chid={session_chid_final})");
+    info!(
         "  Symlink:      {} -> {}",
         plan.symlink_path.display(),
         plan.abs_target.display()

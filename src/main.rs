@@ -7,6 +7,7 @@ mod finalize;
 mod fix_desc;
 mod init;
 mod list;
+mod logging;
 mod show;
 mod symlink;
 mod toml_simple;
@@ -76,76 +77,53 @@ pub(crate) enum Commands {
     Finalize(finalize::FinalizeArgs),
 }
 
+impl Commands {
+    fn verbose(&self) -> bool {
+        match self {
+            Commands::Chid(chid_args) => chid_args.common.verbose,
+            Commands::Desc(desc_args) => desc_args.common.verbose,
+            Commands::List(list_args) => list_args.common.verbose,
+            Commands::Show(show_args) => show_args.common.verbose,
+            Commands::ValidateDesc(validate_desc_args) => validate_desc_args.verbose,
+            Commands::FixDesc(fix_desc_args) => fix_desc_args.verbose,
+            Commands::Clone(clone_args) => clone_args.verbose,
+            Commands::Init(init_args) => init_args.verbose,
+            Commands::Symlink(symlink_args) => symlink_args.verbose,
+            Commands::Finalize(_finalize_args) => false, // finalize uses --log
+        }
+    }
+}
+
+fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            log::error!("{e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
 
+    logging::CliLogger::init(cli.command.verbose(), None);
+
     match cli.command {
-        Commands::Chid(args) => {
-            if let Err(e) = chid::chid(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
+        Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
+        Commands::Desc(desc_args) => run_command(desc::desc(&desc_args)),
+        Commands::List(list_args) => run_command(list::list(&list_args)),
+        Commands::Show(show_args) => run_command(show::show(&show_args)),
+        Commands::ValidateDesc(validate_desc_args) => {
+            run_command(validate_desc::validate_desc(&validate_desc_args))
         }
-        Commands::Desc(args) => {
-            if let Err(e) = desc::desc(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::List(args) => {
-            if let Err(e) = list::list(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::Show(args) => {
-            if let Err(e) = show::show(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::ValidateDesc(args) => {
-            if let Err(e) = validate_desc::validate_desc(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::FixDesc(args) => {
-            if let Err(e) = fix_desc::fix_desc(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::Clone(args) => {
-            if let Err(e) = clone::clone_repo(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::Init(args) => {
-            if let Err(e) = init::init(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::Symlink(args) => {
-            if let Err(e) = symlink::symlink(&args) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            ExitCode::SUCCESS
-        }
-        Commands::Finalize(args) => {
-            let opts = args.into_opts();
+        Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
+        Commands::Clone(clone_args) => run_command(clone::clone_repo(&clone_args)),
+        Commands::Init(init_args) => run_command(init::init(&init_args)),
+        Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
+        Commands::Finalize(finalize_args) => {
+            let opts = finalize_args.into_opts();
             finalize::log_msg(&opts.log, "main: finalize entry");
             match finalize::finalize(&opts) {
                 Ok(()) => {
@@ -154,7 +132,7 @@ fn main() -> ExitCode {
                 }
                 Err(e) => {
                     finalize::log_msg(&opts.log, &format!("main: finalize exit err={e}"));
-                    eprintln!("error: {e}");
+                    log::error!("{e}");
                     ExitCode::FAILURE
                 }
             }

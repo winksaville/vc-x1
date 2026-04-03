@@ -207,30 +207,28 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle interactive prompt for replacement
     if let SymlinkAction::Replace { ref current_target } = plan.action {
-        eprintln!(
+        log::info!(
             "Existing symlink: {} -> {}",
             plan.symlink_path.display(),
             current_target.display()
         );
         if !args.yes {
-            eprint!("Replace with new target? [y/N] ");
-            let mut response = String::new();
-            std::io::stdin().read_line(&mut response)?;
-            if !response.trim().eq_ignore_ascii_case("y") {
+            let response = crate::common::prompt("Replace with new target? [y/N] ")?;
+            if !response.eq_ignore_ascii_case("y") {
                 return Err("aborted".into());
             }
         }
     }
 
     if plan.action == SymlinkAction::AlreadyCorrect {
-        println!(
+        log::info!(
             "Already correct: {} -> {}",
             plan.symlink_path.display(),
             plan.abs_target.display()
         );
     } else {
         execute_plan(&plan, true)?;
-        println!(
+        log::info!(
             "Created: {} -> {}",
             plan.symlink_path.display(),
             plan.abs_target.display()
@@ -238,11 +236,11 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.list {
-        println!();
-        println!("Contents of {}:", abs_target.display());
+        log::info!("");
+        log::info!("Contents of {}:", abs_target.display());
         for entry in std::fs::read_dir(&abs_target)? {
             let entry = entry?;
-            println!("  {}", entry.file_name().to_string_lossy());
+            log::info!("  {}", entry.file_name().to_string_lossy());
         }
     }
 

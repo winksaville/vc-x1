@@ -320,7 +320,6 @@ fn jj_describe(
             "--ignore-immutable",
         ],
         repo_path,
-        false,
     )?;
     Ok(())
 }

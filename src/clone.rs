@@ -80,49 +80,46 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     let url = resolve_url(&args.repo);
 
     if args.dry_run {
-        println!("Dry run — would execute:");
-        println!("  1. git clone --recursive {url} {name}");
-        println!("  2. jj git init --colocate in {name}/");
-        println!("  3. jj git init --colocate in {name}/.claude/");
-        println!("  4. Create Claude Code symlink");
+        log::info!("Dry run — would execute:");
+        log::info!("  1. git clone --recursive {url} {name}");
+        log::info!("  2. jj git init --colocate in {name}/");
+        log::info!("  3. jj git init --colocate in {name}/.claude/");
+        log::info!("  4. Create Claude Code symlink");
         return Ok(());
     }
-
-    let v = args.verbose;
 
     // Preflight
     if project_dir.exists() {
         return Err(format!("'{}' already exists", project_dir.display()).into());
     }
 
-    run("jj", &["--version"], Path::new("."), false).map_err(|_| "jj is not installed")?;
+    run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
     // Step 1: git clone --recursive
     let project_str = project_dir
         .to_str()
         .ok_or("project path is not valid UTF-8")?;
-    println!("Step 1: Cloning {url}...");
+    log::info!("Step 1: Cloning {url}...");
     run(
         "git",
         &["clone", "--recursive", &url, project_str],
         &parent_dir,
-        v,
     )?;
 
     // Step 2: jj git init --colocate in code repo
-    println!("Step 2: Initializing jj in code repo...");
-    run("jj", &["git", "init", "--colocate"], &project_dir, v)?;
+    log::info!("Step 2: Initializing jj in code repo...");
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
 
     // Step 3: jj git init --colocate in session repo (if submodule exists)
     if session_dir.exists() {
-        println!("Step 3: Initializing jj in session repo...");
-        run("jj", &["git", "init", "--colocate"], &session_dir, v)?;
+        log::info!("Step 3: Initializing jj in session repo...");
+        run("jj", &["git", "init", "--colocate"], &session_dir)?;
     } else {
-        println!("Step 3: No .claude submodule found — skipping session repo jj init");
+        log::info!("Step 3: No .claude submodule found — skipping session repo jj init");
     }
 
     // Step 4: Create Claude Code symlink
-    println!("Step 4: Creating Claude Code symlink...");
+    log::info!("Step 4: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
@@ -139,11 +136,11 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     let plan = symlink::compute_plan(&project_dir, Path::new(".claude"), &symlink_dir, meta)?;
     symlink::execute_plan(&plan, false)?;
 
-    println!();
-    println!("Done! Project cloned to {}", project_dir.display());
-    println!("  Code repo:    {project_str}");
-    println!("  Session repo: {}", session_dir.display());
-    println!(
+    log::info!("");
+    log::info!("Done! Project cloned to {}", project_dir.display());
+    log::info!("  Code repo:    {project_str}");
+    log::info!("  Session repo: {}", session_dir.display());
+    log::info!(
         "  Symlink:      {} -> {}",
         plan.symlink_path.display(),
         plan.abs_target.display()

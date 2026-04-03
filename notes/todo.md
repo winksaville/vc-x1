@@ -10,7 +10,12 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Adopt `tracing` or `log` crate to unify println/eprintln/log_msg (0.31.0)
+ - Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
+   - 0.31.0-dev1: add `log` crate, wire into init, replace println/eprintln
+   - 0.31.0-dev2: extend to clone, symlink, fix-desc, common::run
+   - 0.31.0-dev3: replace finalize::log_msg, add --log-filter flag
+   - 0.31.0: final release
+ - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -45,3 +50,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [32]: /notes/chores-03.md#add-init-command-0280
 [33]: /notes/chores-03.md#add-clone-command-0290
 [34]: /notes/chores-03.md#universal---verbose-and-commonrun-refactor-0300
+[35]: /notes/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
+[36]: /notes/chores-03.md#per-lineper-thread-runtime-log-points-future
