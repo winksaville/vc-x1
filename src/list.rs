@@ -1,6 +1,6 @@
 use clap::Args;
 use jj_lib::repo::Repo;
-use log::info;
+use log::{debug, info, trace, warn};
 
 use crate::common;
 
@@ -17,13 +17,23 @@ pub struct ListArgs {
 const DEFAULT_OCHID_WIDTH: usize = 21;
 
 pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("list: enter");
     let c = &args.common;
     let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
+    trace!(
+        "list: spec rev={} desc={:?} anc={:?}",
+        spec.rev, spec.desc_count, spec.anc_count
+    );
     let hdr = common::resolve_header(&c.label, c.no_label);
 
     common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
         let (ids, anchor_index) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
+        debug!("list: {} commits, anchor at {anchor_index}", ids.len());
+
+        if ids.is_empty() {
+            warn!("list: no commits found for revision '{}'", spec.rev);
+        }
 
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
@@ -35,7 +45,9 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Ok(())
-    })
+    })?;
+    debug!("list: exit");
+    Ok(())
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Args;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
-use log::info;
+use log::{debug, info};
 
 use crate::common;
 use crate::desc_helpers::{
@@ -63,13 +63,10 @@ pub struct FixDescArgs {
     /// Add missing ochid trailers by matching title and timestamp
     #[arg(long = "add-missing")]
     pub add_missing: bool,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("fix-desc: enter");
     let (workspace, repo) = common::load_repo(&args.repo)?;
 
     // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
@@ -290,13 +287,16 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         fixed += 1;
     }
 
+    info!("");
     info!(
-        "\n{fixed} fixed, {skipped} skipped, {errors} errors (of {} total)",
+        "{fixed} fixed, {skipped} skipped, {errors} errors (of {} total)",
         ids.len()
     );
     if errors > 0 {
+        debug!("fix-desc: exit with errors");
         Err(format!("{errors} commit(s) could not be fixed").into())
     } else {
+        debug!("fix-desc: exit");
         Ok(())
     }
 }

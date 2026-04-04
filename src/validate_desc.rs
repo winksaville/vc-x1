@@ -4,7 +4,7 @@ use clap::Args;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 
-use log::info;
+use log::{debug, info};
 
 use crate::common;
 use crate::desc_helpers::{
@@ -42,10 +42,6 @@ pub struct ValidateDescArgs {
     /// Expected changeID length
     #[arg(long = "id-len", default_value_t = DEFAULT_ID_LEN)]
     pub id_len: usize,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 /// Status of a single commit's ochid validation.
@@ -61,6 +57,7 @@ enum CommitStatus {
 }
 
 pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("validate-desc: enter");
     let (workspace, repo) = common::load_repo(&args.repo)?;
 
     // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
@@ -193,13 +190,16 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
     if total > 10 {
         info!("{col_header}");
     }
+    info!("");
     info!(
-        "\n{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing (of {} total)",
+        "{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing (of {} total)",
         ids.len()
     );
     if issues_count > 0 {
+        debug!("validate-desc: exit with issues");
         Err(format!("{issues_count} commit(s) have issues").into())
     } else {
+        debug!("validate-desc: exit");
         Ok(())
     }
 }

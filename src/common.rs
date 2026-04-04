@@ -56,10 +56,6 @@ pub struct CommonArgs {
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
     pub no_label: bool,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 /// Result of parsing positional `..` notation.

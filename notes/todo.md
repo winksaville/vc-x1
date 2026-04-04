@@ -16,10 +16,11 @@ A markdown list of task to do in the near feature
    - ~~0.31.0-dev3: convert all commands to log, standardize bare imports~~
    - ~~0.31.0-dev4: replace finalize::log_msg with log crate~~
    - ~~0.31.0-dev5: finalize --squash, --push validates bookmark, --log captures debug~~
-   - 0.31.0-dev6: global options (--verbose, --indent, --log) on Cli struct
+   - ~~0.31.0-dev6: global -v/-vv/--log, enter/exit debug, list showcase~~
    - 0.31.0: final release
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
+ - Show bookmarks in `list` output
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)

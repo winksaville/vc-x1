@@ -30,10 +30,6 @@ pub struct FinalizeArgs {
     #[arg(long, value_name = "BOOKMARK")]
     pub push: Option<String>,
 
-    /// Log file path (off by default)
-    #[arg(long)]
-    pub log: Option<PathBuf>,
-
     /// Detach and run in the background
     #[arg(long)]
     pub detach: bool,
@@ -78,7 +74,7 @@ pub struct FinalizeOpts {
 }
 
 impl FinalizeArgs {
-    pub fn into_opts(self) -> Result<FinalizeOpts, String> {
+    pub fn into_opts(self, log: Option<PathBuf>) -> Result<FinalizeOpts, String> {
         let squash = self.squash.map(|s| SquashSpec::parse(&s)).transpose()?;
         let push = self.push.is_some();
         let bookmark = self.push;
@@ -91,7 +87,7 @@ impl FinalizeArgs {
             delay_secs: self.delay,
             bookmark,
             push,
-            log: self.log,
+            log,
             detach: self.detach,
             exec: self.exec,
         })
@@ -276,8 +272,10 @@ mod tests {
 
     #[test]
     fn all_opts() {
-        let args = parse(&[
+        let cli = Cli::try_parse_from([
             "vc-x1",
+            "--log",
+            "/tmp/test.log",
             "finalize",
             "--repo",
             ".claude",
@@ -287,16 +285,19 @@ mod tests {
             "dev-0.14.0",
             "--delay",
             "2.5",
-            "--log",
-            "/tmp/test.log",
             "--detach",
-        ]);
-        assert_eq!(args.repo, PathBuf::from(".claude"));
-        assert_eq!(args.squash, Some("@,@-".to_string()));
-        assert_eq!(args.push, Some("dev-0.14.0".to_string()));
-        assert_eq!(args.delay, 2.5);
-        assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
-        assert!(args.detach);
+        ])
+        .unwrap();
+        assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
+        if let Commands::Finalize(args) = cli.command {
+            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.squash, Some("@,@-".to_string()));
+            assert_eq!(args.push, Some("dev-0.14.0".to_string()));
+            assert_eq!(args.delay, 2.5);
+            assert!(args.detach);
+        } else {
+            panic!("expected Finalize");
+        }
     }
 
     #[test]
@@ -353,7 +354,9 @@ mod tests {
         full_args.extend(exec_args);
         let cli = Cli::try_parse_from(full_args).unwrap();
         if let crate::Commands::Finalize(args) = cli.command {
-            let parsed = args.into_opts().unwrap();
+            let parsed = args
+                .into_opts(Some(PathBuf::from("/tmp/test.log")))
+                .unwrap();
             // repo is canonicalized, so compare the canonical form
             assert_eq!(parsed.repo, std::fs::canonicalize(&opts.repo).unwrap());
             assert_eq!(parsed.squash.as_ref().unwrap().source, "@");

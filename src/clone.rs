@@ -23,10 +23,6 @@ pub struct CloneArgs {
     /// Dry run — show what would be done without executing
     #[arg(long)]
     pub dry_run: bool,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 /// Derive project name from a repo argument.
@@ -67,6 +63,7 @@ fn resolve_url(repo: &str) -> String {
 }
 
 pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
+    log::debug!("clone: enter");
     let parent_dir = match &args.dir {
         Some(d) => d.clone(),
         None => std::env::current_dir()?,
@@ -140,6 +137,7 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         sl.abs_target.display()
     );
 
+    log::debug!("clone: exit");
     Ok(())
 }
 
@@ -168,7 +166,6 @@ mod tests {
         assert!(args.name.is_none());
         assert!(args.dir.is_none());
         assert!(!args.dry_run);
-        assert!(!args.verbose);
     }
 
     #[test]
@@ -188,13 +185,11 @@ mod tests {
             "--dir",
             "/tmp/projects",
             "--dry-run",
-            "--verbose",
         ]);
         assert_eq!(args.repo, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
         assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
         assert!(args.dry_run);
-        assert!(args.verbose);
     }
 
     #[test]

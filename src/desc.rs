@@ -1,6 +1,6 @@
 use clap::Args;
 use jj_lib::repo::Repo;
-use log::info;
+use log::{debug, info};
 
 use crate::common;
 
@@ -11,6 +11,7 @@ pub struct DescArgs {
 }
 
 pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("desc: enter");
     let c = &args.common;
     let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
     let hdr = common::resolve_header(&c.label, c.no_label);
@@ -30,7 +31,9 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Ok(())
-    })
+    })?;
+    debug!("desc: exit");
+    Ok(())
 }
 
 #[cfg(test)]

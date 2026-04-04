@@ -11,7 +11,7 @@ use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt;
 
-use log::info;
+use log::{debug, info};
 
 use crate::common;
 
@@ -50,6 +50,7 @@ pub struct ShowArgs {
 }
 
 pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("show: enter");
     let file_limit = FileLimit::parse(&args.files)?;
     let c = &args.common;
 
@@ -71,7 +72,9 @@ pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
             show_one_commit(&commit, workspace, repo, file_limit, i == anchor_index)?;
         }
         Ok(())
-    })
+    })?;
+    debug!("show: exit");
+    Ok(())
 }
 
 fn show_one_commit(

@@ -208,13 +208,10 @@ pub struct SymlinkArgs {
     /// Replace existing symlink without prompting
     #[arg(short, long)]
     pub yes: bool,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("symlink: enter");
     let cwd = std::env::current_dir()?;
 
     let target = match &args.target {
@@ -277,6 +274,7 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    debug!("symlink: exit");
     Ok(())
 }
 

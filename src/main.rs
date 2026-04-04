@@ -22,6 +22,14 @@ use log::error;
 #[derive(Parser, Debug)]
 #[command(version, about = "vc-x1: jj workspace tooling")]
 pub struct Cli {
+    /// Verbose output: -v debug, -vv trace
+    #[arg(short, long, global = true, action = clap::ArgAction::Count)]
+    pub verbose: u8,
+
+    /// Log file path (captures all levels)
+    #[arg(long, global = true)]
+    pub log: Option<std::path::PathBuf>,
+
     #[command(subcommand)]
     pub(crate) command: Commands,
 }
@@ -83,33 +91,6 @@ pub(crate) enum Commands {
     Finalize(finalize::FinalizeArgs),
 }
 
-impl Commands {
-    fn verbose(&self) -> bool {
-        match self {
-            Commands::Chid(chid_args) => chid_args.common.verbose,
-            Commands::Desc(desc_args) => desc_args.common.verbose,
-            Commands::List(list_args) => list_args.common.verbose,
-            Commands::Show(show_args) => show_args.common.verbose,
-            Commands::ValidateDesc(validate_desc_args) => validate_desc_args.verbose,
-            Commands::FixDesc(fix_desc_args) => fix_desc_args.verbose,
-            Commands::Clone(clone_args) => clone_args.verbose,
-            Commands::Init(init_args) => init_args.verbose,
-            Commands::Symlink(symlink_args) => symlink_args.verbose,
-            Commands::Finalize(_finalize_args) => false,
-        }
-    }
-
-    fn log_path(&self) -> Option<String> {
-        match self {
-            Commands::Finalize(finalize_args) => finalize_args
-                .log
-                .as_ref()
-                .map(|p| p.to_string_lossy().to_string()),
-            _ => None,
-        }
-    }
-}
-
 fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -124,8 +105,8 @@ fn main() -> ExitCode {
     CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
 
-    let log_path = cli.command.log_path();
-    logging::CliLogger::init(cli.command.verbose(), log_path.as_deref());
+    let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
+    logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
     match cli.command {
         Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
@@ -140,7 +121,7 @@ fn main() -> ExitCode {
         Commands::Init(init_args) => run_command(init::init(&init_args)),
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
         Commands::Finalize(finalize_args) => {
-            let opts = match finalize_args.into_opts() {
+            let opts = match finalize_args.into_opts(cli.log) {
                 Ok(opts) => opts,
                 Err(e) => {
                     error!("{e}");

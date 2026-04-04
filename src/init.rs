@@ -34,10 +34,6 @@ pub struct InitArgs {
     /// Seconds between push retries [default: 3]
     #[arg(long, default_value_t = 3)]
     pub push_retry_delay: u64,
-
-    /// Verbose output (diagnostic detail on stderr)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -135,6 +131,7 @@ const GITIGNORE_SESSION: &str = ".git
 ";
 
 pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("init: enter");
     let parent_dir = match &args.dir {
         Some(d) => d.clone(),
         None => std::env::current_dir()?,
@@ -340,6 +337,7 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         sl.abs_target.display()
     );
 
+    debug!("init: exit");
     Ok(())
 }
 
@@ -371,7 +369,6 @@ mod tests {
         assert!(!args.dry_run);
         assert_eq!(args.push_retries, 5);
         assert_eq!(args.push_retry_delay, 3);
-        assert!(!args.verbose);
     }
 
     #[test]
@@ -390,14 +387,12 @@ mod tests {
             "10",
             "--push-retry-delay",
             "5",
-            "--verbose",
         ]);
         assert_eq!(args.name, "my-project");
         assert_eq!(args.owner.as_deref(), Some("myorg"));
         assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
         assert!(args.private);
         assert!(args.dry_run);
-        assert!(args.verbose);
         assert_eq!(args.push_retries, 10);
         assert_eq!(args.push_retry_delay, 5);
     }
