@@ -1,9 +1,10 @@
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 
 use clap::Args;
-use log::info;
+use log::{debug, info};
+
+use crate::common::run;
 
 #[derive(Args, Debug)]
 pub struct FinalizeArgs {
@@ -31,7 +32,7 @@ pub struct FinalizeArgs {
     #[arg(long)]
     pub push: bool,
 
-    /// Log file path (default: /tmp/vc-x1-finalize-<timestamp-millis>.log)
+    /// Log file path (off by default)
     #[arg(long)]
     pub log: Option<PathBuf>,
 
@@ -52,22 +53,13 @@ pub struct FinalizeOpts {
     pub bookmark: String,
     pub delay_secs: f64,
     pub push: bool,
-    pub log: PathBuf,
+    pub log: Option<PathBuf>,
     pub detach: bool,
     pub exec: bool,
 }
 
 impl FinalizeArgs {
     pub fn into_opts(self) -> FinalizeOpts {
-        let log = self.log.unwrap_or_else(|| {
-            PathBuf::from(format!(
-                "/tmp/vc-x1-finalize-{}.log",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis()
-            ))
-        });
         FinalizeOpts {
             repo: self.repo,
             source: self.source,
@@ -75,61 +67,25 @@ impl FinalizeArgs {
             bookmark: self.bookmark,
             delay_secs: self.delay,
             push: self.push,
-            log,
+            log: self.log,
             detach: self.detach,
             exec: self.exec,
         }
     }
 }
 
-pub fn log_msg(log: &Path, msg: &str) {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let pid = std::process::id();
-    let line = format!("[{nanos}] pid={pid} {msg}\n");
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log)
-    {
-        let _ = f.write_all(line.as_bytes());
-    }
-}
-
-fn run_jj(args: &[&str], log: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let args_str = args.join(" ");
-    log_msg(log, &format!("run_jj: jj {args_str}"));
-    let output = std::process::Command::new("jj")
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to run jj: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    if !stdout.is_empty() {
-        log_msg(log, &format!("run_jj: stdout: {stdout}"));
-    }
-    if !stderr.is_empty() {
-        log_msg(log, &format!("run_jj: stderr: {stderr}"));
-    }
-    if !output.status.success() {
-        return Err(format!("jj {args_str} failed (exit {}): {stderr}", output.status).into());
-    }
-    Ok(())
-}
-
 fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    log_msg(&opts.log, &format!("finalize_exec: starting opts={opts:?}"));
+    debug!("finalize_exec: starting opts={opts:?}");
 
     // Sleep to let trailing writes settle
     let delay = std::time::Duration::from_secs_f64(opts.delay_secs);
-    log_msg(&opts.log, &format!("finalize_exec: sleeping {delay:?}"));
+    debug!("finalize_exec: sleeping {delay:?}");
     std::thread::sleep(delay);
 
     // Squash source into target
     let repo_str = opts.repo.to_string_lossy();
-    run_jj(
+    run(
+        "jj",
         &[
             "squash",
             "--ignore-immutable",
@@ -141,11 +97,12 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
             "-R",
             &repo_str,
         ],
-        &opts.log,
+        &opts.repo,
     )?;
 
     // Advance bookmark to target
-    run_jj(
+    run(
+        "jj",
         &[
             "bookmark",
             "set",
@@ -155,17 +112,18 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
             "-R",
             &repo_str,
         ],
-        &opts.log,
+        &opts.repo,
     )?;
 
     if opts.push {
-        run_jj(
+        run(
+            "jj",
             &["git", "push", "--bookmark", &opts.bookmark, "-R", &repo_str],
-            &opts.log,
+            &opts.repo,
         )?;
     }
 
-    log_msg(&opts.log, "finalize_exec: done");
+    debug!("finalize_exec: done");
     Ok(())
 }
 
@@ -183,9 +141,11 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
         opts.bookmark.clone(),
         "--delay".to_string(),
         opts.delay_secs.to_string(),
-        "--log".to_string(),
-        opts.log.to_string_lossy().to_string(),
     ];
+    if let Some(ref log) = opts.log {
+        args.push("--log".to_string());
+        args.push(log.to_string_lossy().to_string());
+    }
     if opts.push {
         args.push("--push".to_string());
     }
@@ -196,11 +156,11 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
 /// The child re-enters `main()`, parses `--exec`, and `finalize()` routes
 /// it to `finalize_exec()` where the actual work happens.
 fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    log_msg(&opts.log, &format!("detach: parent starting opts={opts:?}"));
+    debug!("detach: parent starting opts={opts:?}");
 
     let exe = std::env::current_exe()?;
     let args = build_exec_args(opts);
-    log_msg(&opts.log, &format!("detach: exe={exe:?} args={args:?}"));
+    debug!("detach: exe={exe:?} args={args:?}");
 
     let mut cmd = std::process::Command::new(exe);
     cmd.args(&args).stdin(Stdio::null());
@@ -217,28 +177,28 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let child = cmd.spawn()?;
-    log_msg(
-        &opts.log,
-        &format!("detach: spawned child pid={}", child.id()),
-    );
-    info!(
-        "finalize: detached (pid {}), log: {}",
-        child.id(),
-        opts.log.display()
-    );
+    debug!("detach: spawned child pid={}", child.id());
+    match &opts.log {
+        Some(log) => info!(
+            "finalize: detached (pid {}), log: {}",
+            child.id(),
+            log.display()
+        ),
+        None => info!("finalize: detached (pid {})", child.id()),
+    }
     Ok(())
 }
 
 pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    log_msg(&opts.log, &format!("finalize: entry opts={opts:?}"));
+    debug!("finalize: entry opts={opts:?}");
     let result = if opts.detach && !opts.exec {
         detach(opts)
     } else {
         finalize_exec(opts)
     };
     match &result {
-        Ok(()) => log_msg(&opts.log, "finalize: exit ok"),
-        Err(e) => log_msg(&opts.log, &format!("finalize: exit err={e}")),
+        Ok(()) => debug!("finalize: exit ok"),
+        Err(e) => debug!("finalize: exit err={e}"),
     }
     result
 }
@@ -348,7 +308,7 @@ mod tests {
             bookmark: "dev-0.14.0".to_string(),
             delay_secs: 2.0,
             push: true,
-            log: PathBuf::from("/tmp/test.log"),
+            log: Some(PathBuf::from("/tmp/test.log")),
             detach: false,
             exec: false,
         };

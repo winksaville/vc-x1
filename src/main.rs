@@ -90,7 +90,17 @@ impl Commands {
             Commands::Clone(clone_args) => clone_args.verbose,
             Commands::Init(init_args) => init_args.verbose,
             Commands::Symlink(symlink_args) => symlink_args.verbose,
-            Commands::Finalize(_finalize_args) => false, // finalize uses --log
+            Commands::Finalize(_finalize_args) => false,
+        }
+    }
+
+    fn log_path(&self) -> Option<String> {
+        match self {
+            Commands::Finalize(finalize_args) => finalize_args
+                .log
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
+            _ => None,
         }
     }
 }
@@ -109,7 +119,8 @@ fn main() -> ExitCode {
     CompleteEnv::with_factory(Cli::command).complete();
     let cli = Cli::parse();
 
-    logging::CliLogger::init(cli.command.verbose(), None);
+    let log_path = cli.command.log_path();
+    logging::CliLogger::init(cli.command.verbose(), log_path.as_deref());
 
     match cli.command {
         Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
@@ -125,18 +136,7 @@ fn main() -> ExitCode {
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
         Commands::Finalize(finalize_args) => {
             let opts = finalize_args.into_opts();
-            finalize::log_msg(&opts.log, "main: finalize entry");
-            match finalize::finalize(&opts) {
-                Ok(()) => {
-                    finalize::log_msg(&opts.log, "main: finalize exit ok");
-                    ExitCode::SUCCESS
-                }
-                Err(e) => {
-                    finalize::log_msg(&opts.log, &format!("main: finalize exit err={e}"));
-                    error!("{e}");
-                    ExitCode::FAILURE
-                }
-            }
+            run_command(finalize::finalize(&opts))
         }
     }
 }
