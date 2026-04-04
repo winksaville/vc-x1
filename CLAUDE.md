@@ -163,7 +163,7 @@ single operation. Say any final words (e.g. "next is ...") **before**
 executing — nothing should be output after finalize.
 
 ```
-jj git push --bookmark <bookmark> -R . && vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --detach --push
+jj git push --bookmark <bookmark> -R . && vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
 ```
 
 Replace `<bookmark>` with the active bookmark (e.g. `main`,
@@ -185,18 +185,16 @@ jj git push --bookmark <bookmark> -R .
 ### Finalize the .claude repo
 
 The **very last action** in a session is to finalize the `.claude` repo.
-This squashes the working copy into the session commit and pushes. The
-delay gives a safety margin against any pending writes. Always use a
+`--squash @,@-` squashes the working copy into the session commit.
+The delay gives a safety margin against any pending writes. Always use a
 short relative path for `--repo`.
 
 **Nothing should happen after finalize** — no memory writes, no tool
 calls, no additional output. If any work is done after finalize, run
 finalize again so the trailing writes are captured.
 
-`--bookmark` is required — use the active bookmark for the session.
-
 ```
-vc-x1 finalize --repo .claude --bookmark <bookmark> --delay 10 --detach --push
+vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
 ```
 
 Do **not** echo or restate the finalize output — the Bash tool

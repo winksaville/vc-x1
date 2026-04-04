@@ -15,7 +15,7 @@ A markdown list of task to do in the near feature
    - ~~0.31.0-dev2: symlink refactor (SymLink::new/create)~~
    - ~~0.31.0-dev3: convert all commands to log, standardize bare imports~~
    - ~~0.31.0-dev4: replace finalize::log_msg with log crate~~
-   - 0.31.0-dev5: finalize --squash @,@- refactor, remove --source/--target defaults
+   - ~~0.31.0-dev5: finalize --squash, --push validates bookmark, --log captures debug~~
    - 0.31.0-dev6: global options (--verbose, --indent, --log) on Cli struct
    - 0.31.0: final release
  - Per-line/per-thread runtime log points (future, maybe) [36]

@@ -359,30 +359,47 @@ vc-x1 symlink -l
 
 ### finalize
 
-Solves the session repo coherence problem: when the bot commits `.claude`,
-the act of committing generates more session data. `finalize` waits,
-then squashes the trailing writes into the target commit.
+Atomically squash, set bookmark, and push a jj repo. The primary use
+case is the bot finalizing its own session repo (`.claude`) at the end
+of a session. The bot can't just `jj commit` because the act of
+committing generates more session data — files written after the commit
+would be lost. `finalize` solves this by:
 
-By default finalize runs in the foreground. Use `--detach` to run in
-the background (the bot uses this so the session can end immediately).
+1. **`--detach`**: spawning a background process so the bot session can
+   end immediately (no more writes after the bot exits)
+2. **`--delay`**: waiting for trailing writes to settle
+3. **`--squash`**: squashing the working copy into the session commit
+4. **`--bookmark`** + **`--push`**: advancing the bookmark and pushing
+
+Every behavior is opt-in — omit any flag to skip that step.
 
 The bot's last action in a session:
 
 ```
-vc-x1 finalize --repo .claude --bookmark main --delay 10 --detach --push
+vc-x1 finalize --repo .claude --squash --bookmark main --delay 10 --detach --push
 ```
 
 If there is non-written session data after a session ends (e.g.
 finalize failed or was skipped), run it manually:
 
 ```
-vc-x1 finalize --repo .claude --bookmark main --push
+vc-x1 finalize --repo .claude --squash --bookmark main --push
 ```
 
 This runs in the foreground, squashes, advances the bookmark, and pushes.
 
+Other uses — `finalize` composes freely:
+
+```
+# Just set bookmark, no squash
+vc-x1 finalize --bookmark main
+
+# Squash with custom source/target
+vc-x1 finalize --squash @,@-- --bookmark main
+```
+
 See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
-for full option reference and design details.
+for design details.
 
 ### Testing finalize
 

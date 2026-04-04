@@ -6,31 +6,29 @@ use log::{debug, info};
 
 use crate::common::run;
 
+/// Squash, set bookmark, and/or push a jj repo.
+///
+/// Designed for the bot to atomically finalize its session repo:
+/// --detach exits immediately, --delay waits for trailing writes,
+/// --squash folds them in, --bookmark + --push sends it upstream.
+/// Every flag is opt-in. See README.md for details.
 #[derive(Args, Debug)]
 pub struct FinalizeArgs {
     /// Path to jj repo
     #[arg(long, default_value = ".")]
     pub repo: PathBuf,
 
-    /// Source revision to squash
-    #[arg(long, default_value = "@")]
-    pub source: String,
-
-    /// Target revision to squash into
-    #[arg(long, default_value = "@-")]
-    pub target: String,
+    /// Squash SOURCE into TARGET [default: @,@-]
+    #[arg(long, value_name = "SOURCE,TARGET", default_missing_value = "@,@-", num_args = 0..=1)]
+    pub squash: Option<String>,
 
     /// Seconds to wait before squashing
     #[arg(long, default_value_t = 10.0)]
     pub delay: f64,
 
-    /// Bookmark to advance to target after squash (required)
-    #[arg(long)]
-    pub bookmark: String,
-
-    /// Push after squashing
-    #[arg(long)]
-    pub push: bool,
+    /// Existing bookmark to push to remote
+    #[arg(long, value_name = "BOOKMARK")]
+    pub push: Option<String>,
 
     /// Log file path (off by default)
     #[arg(long)]
@@ -45,13 +43,34 @@ pub struct FinalizeArgs {
     pub exec: bool,
 }
 
+/// Parsed squash spec: source and target revisions.
+#[derive(Debug, Clone)]
+pub struct SquashSpec {
+    pub source: String,
+    pub target: String,
+}
+
+impl SquashSpec {
+    fn parse(s: &str) -> Result<Self, String> {
+        let parts: Vec<&str> = s.split(',').collect();
+        if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+            return Err(format!(
+                "invalid --squash value '{s}': expected SOURCE,TARGET (e.g. @,@-)"
+            ));
+        }
+        Ok(SquashSpec {
+            source: parts[0].to_string(),
+            target: parts[1].to_string(),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct FinalizeOpts {
     pub repo: PathBuf,
-    pub source: String,
-    pub target: String,
-    pub bookmark: String,
+    pub squash: Option<SquashSpec>,
     pub delay_secs: f64,
+    pub bookmark: Option<String>,
     pub push: bool,
     pub log: Option<PathBuf>,
     pub detach: bool,
@@ -59,68 +78,80 @@ pub struct FinalizeOpts {
 }
 
 impl FinalizeArgs {
-    pub fn into_opts(self) -> FinalizeOpts {
-        FinalizeOpts {
-            repo: self.repo,
-            source: self.source,
-            target: self.target,
-            bookmark: self.bookmark,
+    pub fn into_opts(self) -> Result<FinalizeOpts, String> {
+        let squash = self.squash.map(|s| SquashSpec::parse(&s)).transpose()?;
+        let push = self.push.is_some();
+        let bookmark = self.push;
+        // Resolve to absolute path so detached child works regardless of cwd
+        let repo = std::fs::canonicalize(&self.repo)
+            .map_err(|e| format!("cannot resolve repo path '{}': {e}", self.repo.display()))?;
+        Ok(FinalizeOpts {
+            repo,
+            squash,
             delay_secs: self.delay,
-            push: self.push,
+            bookmark,
+            push,
             log: self.log,
             detach: self.detach,
             exec: self.exec,
-        }
+        })
     }
 }
 
 fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     debug!("finalize_exec: starting opts={opts:?}");
-
-    // Sleep to let trailing writes settle
-    let delay = std::time::Duration::from_secs_f64(opts.delay_secs);
-    debug!("finalize_exec: sleeping {delay:?}");
-    std::thread::sleep(delay);
-
-    // Squash source into target
     let repo_str = opts.repo.to_string_lossy();
-    run(
-        "jj",
-        &[
-            "squash",
-            "--ignore-immutable",
-            "--use-destination-message",
-            "--from",
-            &opts.source,
-            "--into",
-            &opts.target,
-            "-R",
-            &repo_str,
-        ],
-        &opts.repo,
-    )?;
+    let cwd = std::path::Path::new(".");
 
-    // Advance bookmark to target
-    run(
-        "jj",
-        &[
-            "bookmark",
-            "set",
-            &opts.bookmark,
-            "-r",
-            &opts.target,
-            "-R",
-            &repo_str,
-        ],
-        &opts.repo,
-    )?;
+    // Squash if requested
+    if let Some(ref sq) = opts.squash {
+        let delay = std::time::Duration::from_secs_f64(opts.delay_secs);
+        debug!("finalize_exec: sleeping {delay:?}");
+        std::thread::sleep(delay);
 
-    if opts.push {
         run(
             "jj",
-            &["git", "push", "--bookmark", &opts.bookmark, "-R", &repo_str],
-            &opts.repo,
+            &[
+                "squash",
+                "--ignore-immutable",
+                "--use-destination-message",
+                "--from",
+                &sq.source,
+                "--into",
+                &sq.target,
+                "-R",
+                &repo_str,
+            ],
+            cwd,
         )?;
+    }
+
+    // Set bookmark and push if requested
+    if let Some(ref bookmark) = opts.bookmark {
+        // Verify bookmark exists — don't silently create new ones
+        let result = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
+        if result.is_empty() {
+            return Err(format!("bookmark '{bookmark}' does not exist").into());
+        }
+
+        let rev = opts
+            .squash
+            .as_ref()
+            .map(|sq| sq.target.as_str())
+            .unwrap_or("@");
+        run(
+            "jj",
+            &["bookmark", "set", bookmark, "-r", rev, "-R", &repo_str],
+            cwd,
+        )?;
+
+        if opts.push {
+            run(
+                "jj",
+                &["git", "push", "--bookmark", bookmark, "-R", &repo_str],
+                &opts.repo,
+            )?;
+        }
     }
 
     debug!("finalize_exec: done");
@@ -133,21 +164,20 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
         "--exec".to_string(),
         "--repo".to_string(),
         opts.repo.to_string_lossy().to_string(),
-        "--source".to_string(),
-        opts.source.clone(),
-        "--target".to_string(),
-        opts.target.clone(),
-        "--bookmark".to_string(),
-        opts.bookmark.clone(),
-        "--delay".to_string(),
-        opts.delay_secs.to_string(),
     ];
+    if let Some(ref sq) = opts.squash {
+        args.push("--squash".to_string());
+        args.push(format!("{},{}", sq.source, sq.target));
+        args.push("--delay".to_string());
+        args.push(opts.delay_secs.to_string());
+    }
+    if let Some(ref bookmark) = opts.bookmark {
+        args.push("--push".to_string());
+        args.push(bookmark.clone());
+    }
     if let Some(ref log) = opts.log {
         args.push("--log".to_string());
         args.push(log.to_string_lossy().to_string());
-    }
-    if opts.push {
-        args.push("--push".to_string());
     }
     args
 }
@@ -190,6 +220,11 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    // Nothing to do — show help hint
+    if opts.squash.is_none() && !opts.push {
+        return Err("nothing to do (see --help for options)".into());
+    }
+
     debug!("finalize: entry opts={opts:?}");
     let result = if opts.detach && !opts.exec {
         detach(opts)
@@ -224,15 +259,19 @@ mod tests {
     }
 
     #[test]
-    fn defaults() {
-        let args = parse(&["vc-x1", "finalize", "--bookmark", "main"]);
+    fn no_args() {
+        let args = parse(&["vc-x1", "finalize"]);
         assert_eq!(args.repo, PathBuf::from("."));
-        assert_eq!(args.source, "@");
-        assert_eq!(args.target, "@-");
-        assert_eq!(args.bookmark, "main");
-        assert_eq!(args.delay, 10.0);
-        assert!(!args.push);
+        assert!(args.squash.is_none());
+        assert!(args.push.is_none());
         assert!(!args.detach);
+    }
+
+    #[test]
+    fn push_only() {
+        let args = parse(&["vc-x1", "finalize", "--push", "main"]);
+        assert!(args.squash.is_none());
+        assert_eq!(args.push, Some("main".to_string()));
     }
 
     #[test]
@@ -242,49 +281,44 @@ mod tests {
             "finalize",
             "--repo",
             ".claude",
-            "--source",
-            "@",
-            "--target",
-            "@-",
-            "--bookmark",
+            "--squash",
+            "@,@-",
+            "--push",
             "dev-0.14.0",
             "--delay",
             "2.5",
-            "--push",
             "--log",
             "/tmp/test.log",
             "--detach",
         ]);
         assert_eq!(args.repo, PathBuf::from(".claude"));
-        assert_eq!(args.source, "@");
-        assert_eq!(args.target, "@-");
-        assert_eq!(args.bookmark, "dev-0.14.0");
+        assert_eq!(args.squash, Some("@,@-".to_string()));
+        assert_eq!(args.push, Some("dev-0.14.0".to_string()));
         assert_eq!(args.delay, 2.5);
-        assert!(args.push);
         assert_eq!(args.log, Some(PathBuf::from("/tmp/test.log")));
         assert!(args.detach);
     }
 
     #[test]
-    fn partial_opts() {
-        let args = parse(&[
-            "vc-x1",
-            "finalize",
-            "--bookmark",
-            "main",
-            "--repo",
-            ".claude",
-            "--push",
-        ]);
-        assert_eq!(args.repo, PathBuf::from(".claude"));
-        assert_eq!(args.bookmark, "main");
-        assert!(args.push);
+    fn bare_squash() {
+        let args = parse(&["vc-x1", "finalize", "--squash", "--push", "main"]);
+        assert_eq!(args.squash, Some("@,@-".to_string()));
+        assert_eq!(args.push, Some("main".to_string()));
     }
 
     #[test]
-    fn missing_bookmark() {
-        let err = parse_err(&["vc-x1", "finalize"]);
-        assert!(err.contains("--bookmark"));
+    fn squash_parse_valid() {
+        let sq = SquashSpec::parse("@,@-").unwrap();
+        assert_eq!(sq.source, "@");
+        assert_eq!(sq.target, "@-");
+    }
+
+    #[test]
+    fn squash_parse_invalid() {
+        assert!(SquashSpec::parse("@").is_err());
+        assert!(SquashSpec::parse(",").is_err());
+        assert!(SquashSpec::parse("@,").is_err());
+        assert!(SquashSpec::parse(",@-").is_err());
     }
 
     #[test]
@@ -303,10 +337,12 @@ mod tests {
     fn build_exec_args_roundtrip() {
         let opts = FinalizeOpts {
             repo: PathBuf::from(".claude"),
-            source: "@".to_string(),
-            target: "@-".to_string(),
-            bookmark: "dev-0.14.0".to_string(),
+            squash: Some(SquashSpec {
+                source: "@".to_string(),
+                target: "@-".to_string(),
+            }),
             delay_secs: 2.0,
+            bookmark: Some("dev-0.14.0".to_string()),
             push: true,
             log: Some(PathBuf::from("/tmp/test.log")),
             detach: false,
@@ -317,13 +353,14 @@ mod tests {
         full_args.extend(exec_args);
         let cli = Cli::try_parse_from(full_args).unwrap();
         if let crate::Commands::Finalize(args) = cli.command {
-            let parsed = args.into_opts();
-            assert_eq!(parsed.repo, opts.repo);
-            assert_eq!(parsed.source, opts.source);
-            assert_eq!(parsed.target, opts.target);
-            assert_eq!(parsed.bookmark, opts.bookmark);
+            let parsed = args.into_opts().unwrap();
+            // repo is canonicalized, so compare the canonical form
+            assert_eq!(parsed.repo, std::fs::canonicalize(&opts.repo).unwrap());
+            assert_eq!(parsed.squash.as_ref().unwrap().source, "@");
+            assert_eq!(parsed.squash.as_ref().unwrap().target, "@-");
+            assert_eq!(parsed.bookmark, Some("dev-0.14.0".to_string()));
             assert_eq!(parsed.delay_secs, opts.delay_secs);
-            assert_eq!(parsed.push, opts.push);
+            assert!(parsed.push);
             assert_eq!(parsed.log, opts.log);
             assert!(parsed.exec);
         } else {

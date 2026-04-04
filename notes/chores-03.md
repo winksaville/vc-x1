@@ -378,3 +378,33 @@ Also unclear whether Claude Code uses `~/.claude/projects/` symlinks
 on Windows at all — it may handle session directories differently there.
 
 Not planned until there's a Windows user for vc-x1.
+
+## Finalize --squash refactor (0.31.0-dev5)
+
+The original finalize had `--source @` and `--target @-` as required
+defaults, `--bookmark` was required, and running with no real work to
+do (e.g. single-commit repo) would error on "root commit is immutable".
+
+### Design changes
+
+1. **`--squash [SOURCE,TARGET]`** replaces `--source`/`--target`:
+   - `--squash` (no value) → defaults to `@,@-` (the 90% case)
+   - `--squash @,@--` → custom source/target pair
+   - No `--squash` → no squash step
+2. **`--bookmark` is optional** — omit it to skip bookmark update
+3. **`--push` requires `--bookmark`** — can't push without a bookmark
+4. **No args = print help** — `vc-x1 finalize` with nothing to do
+   shows help instead of silently doing nothing
+5. **Help text updated** — "Squash, set bookmark, and/or push a jj repo"
+
+### Result
+
+Every behavior is opt-in. The command composes:
+- `vc-x1 finalize --bookmark main` → just set bookmark
+- `vc-x1 finalize --squash --bookmark main --push` → full workflow
+- `vc-x1 finalize --squash @,@-- --bookmark main` → custom squash
+
+The typical session-end command becomes:
+```
+vc-x1 finalize --repo .claude --squash --bookmark main --delay 10 --detach --push
+```

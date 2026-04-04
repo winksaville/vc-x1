@@ -29,8 +29,9 @@ impl CliLogger {
 
     /// Initialize as the global logger.
     pub fn init(verbose: bool, log_path: Option<&str>) {
+        let has_log_file = log_path.is_some();
         let logger = Box::new(CliLogger::new(verbose, log_path));
-        log::set_max_level(if verbose {
+        log::set_max_level(if verbose || has_log_file {
             log::LevelFilter::Debug
         } else {
             log::LevelFilter::Info
@@ -42,9 +43,8 @@ impl CliLogger {
 impl Log for CliLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         match metadata.level() {
-            Level::Error | Level::Warn => true,
-            Level::Info => true,
-            Level::Debug | Level::Trace => self.verbose,
+            Level::Error | Level::Warn | Level::Info => true,
+            Level::Debug | Level::Trace => self.verbose || self.log_file.is_some(),
         }
     }
 
@@ -55,7 +55,7 @@ impl Log for CliLogger {
 
         let msg = format!("{}", record.args());
 
-        // Write to log file if configured
+        // Write to log file if configured — captures all levels
         if let Some(ref file) = self.log_file
             && let Ok(mut f) = file.lock()
         {
@@ -68,8 +68,11 @@ impl Log for CliLogger {
             // Errors and warnings → stderr always
             Level::Error => eprintln!("error: {msg}"),
             Level::Warn => eprintln!("warn: {msg}"),
-            // Debug/trace → stderr, indented (only reached if verbose)
+            // Debug/trace → stderr only if verbose (log file gets them regardless)
             Level::Debug | Level::Trace => {
+                if !self.verbose {
+                    return;
+                }
                 for line in msg.lines() {
                     eprintln!("  {line}");
                 }

@@ -74,7 +74,12 @@ pub(crate) enum Commands {
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
 
-    /// Squash working copy into target commit
+    /// Squash, set bookmark, and/or push a jj repo
+    #[command(long_about = "Squash, set bookmark, and/or push a jj repo.\n\n\
+        Designed for the bot to atomically finalize its session repo:\n\
+        --detach exits immediately, --delay waits for trailing writes,\n\
+        --squash folds them in, --bookmark + --push sends it upstream.\n\
+        Every flag is opt-in. See README.md for details.")]
     Finalize(finalize::FinalizeArgs),
 }
 
@@ -135,7 +140,13 @@ fn main() -> ExitCode {
         Commands::Init(init_args) => run_command(init::init(&init_args)),
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
         Commands::Finalize(finalize_args) => {
-            let opts = finalize_args.into_opts();
+            let opts = match finalize_args.into_opts() {
+                Ok(opts) => opts,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
             run_command(finalize::finalize(&opts))
         }
     }
