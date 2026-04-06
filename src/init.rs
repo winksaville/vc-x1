@@ -181,10 +181,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         info!("  5. Get both chids, jj describe both with correct ochids");
         info!("  6. Remove jj from both (git clean -xdf)");
         info!("  7. gh repo create {session_repo} {visibility}, push");
-        info!("  8. git submodule add .claude, second commit in code repo");
-        info!("  9. gh repo create {code_repo} {visibility}, push");
-        info!("  10. jj git init --colocate on both repos");
-        info!("  11. Create Claude Code symlink");
+        info!("  8. gh repo create {code_repo} {visibility}, push");
+        info!("  9. jj git init --colocate on both repos");
+        info!("  10. Create Claude Code symlink");
         return Ok(());
     }
 
@@ -274,22 +273,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.push_retry_delay,
     )?;
 
-    // Step 8: Add .claude as submodule — second commit in code repo
-    info!("Step 8: Adding .claude as submodule...");
-    // Remove .claude directory so git submodule add can re-clone it
-    std::fs::remove_dir_all(&session_dir)?;
-    run(
-        "git",
-        &["submodule", "add", "--force", &session_url, ".claude"],
-        &project_dir,
-    )?;
-    let submodule_body = format!("Add .claude submodule\n\nochid: /.claude/{session_chid}");
-    run("git", &["add", "."], &project_dir)?;
-    run("git", &["commit", "-m", &submodule_body], &project_dir)?;
-
-    // Step 9: Create code GitHub repo and push
+    // Step 8: Create code GitHub repo and push
     let code_url = format!("git@github.com:{code_repo}.git");
-    info!("Step 9: Creating GitHub repo {code_repo}...");
+    info!("Step 8: Creating GitHub repo {code_repo}...");
     run(
         "gh",
         &["repo", "create", &code_repo, visibility],
@@ -304,8 +290,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.push_retry_delay,
     )?;
 
-    // Step 10: Re-initialize jj on both repos
-    info!("Step 10: Re-initializing jj on both repos...");
+    // Step 9: Re-initialize jj on both repos
+    info!("Step 9: Re-initializing jj on both repos...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
     run("jj", &["bookmark", "track", "main@origin"], &project_dir)?;
@@ -316,8 +302,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     run("jj", &["bookmark", "track", "main@origin"], &session_dir)?;
     let session_chid_final = jj_chid("@-", &session_dir)?;
 
-    // Step 11: Create Claude Code symlink
-    info!("Step 11: Creating Claude Code symlink...");
+    // Step 10: Create Claude Code symlink
+    info!("Step 10: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;

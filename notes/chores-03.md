@@ -408,3 +408,38 @@ The typical session-end command becomes:
 ```
 vc-x1 finalize --repo .claude --squash --bookmark main --delay 10 --detach --push
 ```
+
+## Remove submodule from init/clone (0.31.1)
+
+Git submodules made the dual-repo relationship visible, but in practice
+they added complexity: the submodule entry updates on every `.claude`
+commit, requiring special handling when pushing the code repo. Treating
+the two repos as fully independent from git's perspective is simpler.
+
+### init changes
+
+Removed Step 8 (submodule add). Previously init would:
+1. `remove_dir_all(.claude)`
+2. `git submodule add --force <session_url> .claude`
+3. Commit the submodule reference as a second commit
+
+Now the code repo has a single initial commit. The `.claude` directory
+is already in `.gitignore` so git ignores it. Steps renumbered from
+11 to 10.
+
+### clone changes
+
+- Replaced `git clone --recursive` with plain `git clone` for the
+  code repo
+- Added a second clone step: derives the session repo URL by appending
+  `.claude` before `.git` (e.g. `owner/repo.git` → `owner/repo.claude.git`)
+  and clones it into `.claude/`
+- Session clone failure is non-fatal (logged and skipped) for repos
+  that have no session repo
+- Steps renumbered from 4 to 5
+
+### derive_session_url convention
+
+- `git@github.com:owner/repo.git` → `git@github.com:owner/repo.claude.git`
+- `https://github.com/owner/repo.git` → `https://github.com/owner/repo.claude.git`
+- `https://github.com/owner/repo` → `https://github.com/owner/repo.claude`
