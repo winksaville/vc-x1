@@ -62,6 +62,20 @@ fn resolve_url(repo: &str) -> String {
     repo.to_string()
 }
 
+/// Derive the session repo URL from the code repo URL.
+///
+/// Appends `.claude` before `.git` (or at the end):
+/// - `git@github.com:owner/name.git` → `git@github.com:owner/name.claude.git`
+/// - `https://github.com/owner/name.git` → `https://github.com/owner/name.claude.git`
+/// - `https://github.com/owner/name` → `https://github.com/owner/name.claude`
+fn derive_session_url(url: &str) -> String {
+    if let Some(base) = url.strip_suffix(".git") {
+        format!("{base}.claude.git")
+    } else {
+        format!("{url}.claude")
+    }
+}
+
 pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("clone: enter");
     let parent_dir = match &args.dir {
@@ -77,12 +91,15 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     let session_dir = project_dir.join(".claude");
     let url = resolve_url(&args.repo);
 
+    let session_url = derive_session_url(&url);
+
     if args.dry_run {
         info!("Dry run — would execute:");
-        info!("  1. git clone --recursive {url} {name}");
-        info!("  2. jj git init --colocate in {name}/");
-        info!("  3. jj git init --colocate in {name}/.claude/");
-        info!("  4. Create Claude Code symlink");
+        info!("  1. git clone {url} {name}");
+        info!("  2. git clone {session_url} {name}/.claude");
+        info!("  3. jj git init --colocate in {name}/");
+        info!("  4. jj git init --colocate in {name}/.claude/");
+        info!("  5. Create Claude Code symlink");
         return Ok(());
     }
 
@@ -93,31 +110,39 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
-    // Step 1: git clone --recursive
+    // Step 1: Clone code repo
     let project_str = project_dir
         .to_str()
         .ok_or("project path is not valid UTF-8")?;
     info!("Step 1: Cloning {url}...");
-    run(
-        "git",
-        &["clone", "--recursive", &url, project_str],
-        &parent_dir,
-    )?;
+    run("git", &["clone", &url, project_str], &parent_dir)?;
 
-    // Step 2: jj git init --colocate in code repo
-    info!("Step 2: Initializing jj in code repo...");
-    run("jj", &["git", "init", "--colocate"], &project_dir)?;
-
-    // Step 3: jj git init --colocate in session repo (if submodule exists)
-    if session_dir.exists() {
-        info!("Step 3: Initializing jj in session repo...");
-        run("jj", &["git", "init", "--colocate"], &session_dir)?;
-    } else {
-        info!("Step 3: No .claude submodule found — skipping session repo jj init");
+    // Step 2: Clone session repo
+    let session_str = session_dir
+        .to_str()
+        .ok_or("session path is not valid UTF-8")?;
+    info!("Step 2: Cloning {session_url}...");
+    match run("git", &["clone", &session_url, session_str], &parent_dir) {
+        Ok(_) => {}
+        Err(e) => {
+            info!("Step 2: No session repo found ({e}) — skipping");
+        }
     }
 
-    // Step 4: Create Claude Code symlink
-    info!("Step 4: Creating Claude Code symlink...");
+    // Step 3: jj git init --colocate in code repo
+    info!("Step 3: Initializing jj in code repo...");
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+
+    // Step 4: jj git init --colocate in session repo (if cloned)
+    if session_dir.exists() {
+        info!("Step 4: Initializing jj in session repo...");
+        run("jj", &["git", "init", "--colocate"], &session_dir)?;
+    } else {
+        info!("Step 4: No session repo — skipping jj init");
+    }
+
+    // Step 5: Create Claude Code symlink
+    info!("Step 5: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
@@ -247,5 +272,29 @@ mod tests {
     fn resolve_url_https_passthrough() {
         let url = "https://github.com/owner/repo.git";
         assert_eq!(resolve_url(url), url);
+    }
+
+    #[test]
+    fn session_url_ssh() {
+        assert_eq!(
+            derive_session_url("git@github.com:owner/repo.git"),
+            "git@github.com:owner/repo.claude.git"
+        );
+    }
+
+    #[test]
+    fn session_url_https_with_git() {
+        assert_eq!(
+            derive_session_url("https://github.com/owner/repo.git"),
+            "https://github.com/owner/repo.claude.git"
+        );
+    }
+
+    #[test]
+    fn session_url_https_no_suffix() {
+        assert_eq!(
+            derive_session_url("https://github.com/owner/repo"),
+            "https://github.com/owner/repo.claude"
+        );
     }
 }
