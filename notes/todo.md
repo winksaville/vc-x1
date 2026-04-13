@@ -32,6 +32,7 @@ A markdown list of task to do in the near feature
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
+- Config-driven dual-repo, submodule optional (0.32.0) [38]
 - Remove deprecated fix-ochid subcommand (0.25.0) [25]
 - Add shell completion via clap_complete env (0.26.0) [26]
 - Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.2) [30]
@@ -57,3 +58,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [35]: /notes/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
 [36]: /notes/chores-03.md#per-lineper-thread-runtime-log-points-future
 [37]: /notes/chores-03.md#windows-symlink-support
+[38]: /notes/chores-03.md#config-driven-dual-repo-submodule-optional-0320

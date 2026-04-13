@@ -4,7 +4,9 @@ use clap::Args;
 use log::info;
 
 use crate::common::run;
+use crate::desc_helpers::{VC_CONFIG_FILE, other_repo_from_config};
 use crate::symlink;
+use crate::toml_simple;
 
 #[derive(Args, Debug)]
 pub struct CloneArgs {
@@ -62,6 +64,49 @@ fn resolve_url(repo: &str) -> String {
     repo.to_string()
 }
 
+/// Derive the session repo URL from the main repo URL by inserting `.claude`
+/// before the `.git` suffix (or appending if there's no suffix).
+///
+/// Examples:
+///   `git@github.com:owner/foo.git` → `git@github.com:owner/foo.claude.git`
+///   `https://github.com/owner/foo` → `https://github.com/owner/foo.claude`
+fn derive_session_url(main_url: &str) -> String {
+    if let Some(stem) = main_url.strip_suffix(".git") {
+        format!("{stem}.claude.git")
+    } else {
+        format!("{main_url}.claude")
+    }
+}
+
+/// Check whether `.gitmodules` declares a submodule at the given relative path.
+///
+/// Returns false if `.gitmodules` doesn't exist or no submodule entry matches.
+fn gitmodules_has_path(project_dir: &Path, relpath: &str) -> bool {
+    if !project_dir.join(".gitmodules").exists() {
+        return false;
+    }
+    let out = match run(
+        "git",
+        &[
+            "config",
+            "-f",
+            ".gitmodules",
+            "--get-regexp",
+            r"^submodule\..*\.path$",
+        ],
+        project_dir,
+    ) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    // Each line: "submodule.<name>.path <value>"
+    out.lines().any(|line| {
+        line.split_once(' ')
+            .map(|(_, v)| v.trim() == relpath)
+            .unwrap_or(false)
+    })
+}
+
 pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("clone: enter");
     let parent_dir = match &args.dir {
@@ -74,15 +119,18 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         None => derive_name(&args.repo)?,
     };
     let project_dir = parent_dir.join(&name);
-    let session_dir = project_dir.join(".claude");
     let url = resolve_url(&args.repo);
 
     if args.dry_run {
         info!("Dry run — would execute:");
-        info!("  1. git clone --recursive {url} {name}");
-        info!("  2. jj git init --colocate in {name}/");
-        info!("  3. jj git init --colocate in {name}/.claude/");
-        info!("  4. Create Claude Code symlink");
+        info!("  1. git clone {url} {name}");
+        info!("  2. Read {name}/.vc-config.toml for workspace.other-repo");
+        info!(
+            "  3a. If .gitmodules declares it: git submodule update --init --recursive -- <path>"
+        );
+        info!("  3b. Else: git clone <session-url> {name}/<path>");
+        info!("  4. jj git init --colocate in {name}/ and {name}/<path>/");
+        info!("  5. Create Claude Code symlink");
         return Ok(());
     }
 
@@ -93,38 +141,66 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
-    // Step 1: git clone --recursive
+    // Step 1: git clone (no --recursive — session repo is handled in step 3)
     let project_str = project_dir
         .to_str()
         .ok_or("project path is not valid UTF-8")?;
     info!("Step 1: Cloning {url}...");
-    run(
-        "git",
-        &["clone", "--recursive", &url, project_str],
-        &parent_dir,
-    )?;
+    run("git", &["clone", &url, project_str], &parent_dir)?;
 
-    // Step 2: jj git init --colocate in code repo
-    info!("Step 2: Initializing jj in code repo...");
-    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    // Step 2: read .vc-config.toml — hard error if missing (not a vc-x1 project)
+    info!("Step 2: Reading .vc-config.toml...");
+    let config_path = project_dir.join(VC_CONFIG_FILE);
+    if !config_path.exists() {
+        return Err(format!(
+            "'{}' is missing — not a vc-x1 project",
+            config_path.display()
+        )
+        .into());
+    }
+    let config = toml_simple::toml_load(&config_path)?;
+    let other_repo_rel = other_repo_from_config(&config)?;
+    let session_dir = project_dir.join(&other_repo_rel);
 
-    // Step 3: jj git init --colocate in session repo (if submodule exists)
-    if session_dir.exists() {
-        info!("Step 3: Initializing jj in session repo...");
-        run("jj", &["git", "init", "--colocate"], &session_dir)?;
+    // Step 3: populate session repo — prefer submodule if declared, else manual clone
+    if gitmodules_has_path(&project_dir, &other_repo_rel) {
+        info!("Step 3: Updating '{other_repo_rel}' submodule...");
+        run(
+            "git",
+            &[
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+                "--",
+                &other_repo_rel,
+            ],
+            &project_dir,
+        )?;
     } else {
-        info!("Step 3: No .claude submodule found — skipping session repo jj init");
+        let session_url = derive_session_url(&url);
+        info!("Step 3: Cloning session repo from {session_url}...");
+        let session_str = session_dir
+            .to_str()
+            .ok_or("session path is not valid UTF-8")?;
+        run("git", &["clone", &session_url, session_str], &parent_dir)?;
     }
 
-    // Step 4: Create Claude Code symlink
-    info!("Step 4: Creating Claude Code symlink...");
+    // Step 4: jj git init --colocate in both repos
+    info!("Step 4: Initializing jj in code repo...");
+    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    info!("Step 4: Initializing jj in session repo...");
+    run("jj", &["git", "init", "--colocate"], &session_dir)?;
+
+    // Step 5: Create Claude Code symlink
+    info!("Step 5: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
         PathBuf::from(home).join(".claude").join("projects")
     };
 
-    let sl = symlink::SymLink::new(&project_dir, Path::new(".claude"), &symlink_dir)?;
+    let sl = symlink::SymLink::new(&project_dir, Path::new(&other_repo_rel), &symlink_dir)?;
     sl.create(false)?;
 
     info!("");
@@ -247,5 +323,53 @@ mod tests {
     fn resolve_url_https_passthrough() {
         let url = "https://github.com/owner/repo.git";
         assert_eq!(resolve_url(url), url);
+    }
+
+    #[test]
+    fn derive_session_url_ssh_with_git() {
+        assert_eq!(
+            derive_session_url("git@github.com:owner/foo.git"),
+            "git@github.com:owner/foo.claude.git"
+        );
+    }
+
+    #[test]
+    fn derive_session_url_https_with_git() {
+        assert_eq!(
+            derive_session_url("https://github.com/owner/foo.git"),
+            "https://github.com/owner/foo.claude.git"
+        );
+    }
+
+    #[test]
+    fn derive_session_url_no_git_suffix() {
+        assert_eq!(
+            derive_session_url("https://github.com/owner/foo"),
+            "https://github.com/owner/foo.claude"
+        );
+    }
+
+    #[test]
+    fn gitmodules_has_path_missing_file() {
+        let dir = std::env::temp_dir().join("vcx1_test_gitmodules_missing");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Ensure no .gitmodules present
+        let _ = std::fs::remove_file(dir.join(".gitmodules"));
+        assert!(!gitmodules_has_path(&dir, ".claude"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn gitmodules_has_path_match() {
+        let dir = std::env::temp_dir().join("vcx1_test_gitmodules_match");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(".gitmodules"),
+            "[submodule \".claude\"]\n\tpath = .claude\n\turl = git@github.com:owner/foo.claude.git\n",
+        )
+        .unwrap();
+        assert!(gitmodules_has_path(&dir, ".claude"));
+        assert!(!gitmodules_has_path(&dir, "other"));
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

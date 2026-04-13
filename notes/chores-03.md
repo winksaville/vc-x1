@@ -408,3 +408,66 @@ The typical session-end command becomes:
 ```
 vc-x1 finalize --repo .claude --squash --bookmark main --delay 10 --detach --push
 ```
+
+## Config-driven dual-repo, submodule optional (0.32.0)
+
+### Motivation
+
+0.28.0/0.29.0 introduced `.claude` as a git submodule of the code repo
+so `git clone --recursive` could clone both at once. This exposed a
+circular dependency between git-hash-based submodule pinning and
+jj-changeID-based ochid trailers: any rewrite of `.claude` (e.g. to fix
+an ochid) invalidates the submodule ref, which rewrites the code repo,
+which invalidates `.claude`'s ochid... infinite loop. The 0.29.0 init
+worked around it by fixing ochids *before* adding the submodule and
+never rewriting afterward — fragile and easy to break.
+
+The escape: stop treating `.claude` as a submodule. Instead, let
+`.vc-config.toml` drive where the session repo lives, and derive its
+clone URL from the code repo's URL (`<main>.claude.git`). The two
+repos become fully independent — either one can be rewritten without
+affecting the other.
+
+### clone (0.32.0)
+
+The recursive clone is replaced with a config-driven flow:
+
+1. `git clone <main-url> <name>` (no `--recursive`)
+2. Read `<name>/.vc-config.toml` → `workspace.other-repo`. Hard error
+   if the file is missing (not a vc-x1 project).
+3. If `.gitmodules` declares a submodule at that path:
+   `git submodule update --init --recursive -- <path>` (back-compat for
+   repos created with `init --submodule`).
+   Otherwise: derive the session URL from the main URL (insert `.claude`
+   before `.git`), then `git clone <session-url> <name>/<path>`.
+4. `jj git init --colocate` in both repos.
+5. Create Claude Code symlink.
+
+Three helpers added:
+
+- `derive_session_url(main_url)` — insert `.claude` before `.git`, or
+  append if no `.git` suffix.
+- `gitmodules_has_path(project_dir, relpath)` — parses `.gitmodules`
+  via `git config -f .gitmodules --get-regexp '^submodule\..*\.path$'`
+  and checks if any declared path matches.
+- Uses the existing `other_repo_from_config` from `desc_helpers`.
+
+### init (0.32.0)
+
+Added `--submodule` flag (default `false`). Default flow skips the
+former step 8 (`git submodule add` + second code-repo commit). The
+code repo ends with a single "Initial commit" whose ochid points to
+`.claude`'s initial commit, and `.claude/` remains `.gitignore`d. Pass
+`--submodule` to keep the legacy behavior that adds `.claude` as a
+submodule with a second commit.
+
+### Trade-offs
+
+- **Pro**: no submodule/ochid rewrite cycle; `.claude` and code repo
+  evolve fully independently; `git clone` of the code repo alone is
+  still a valid checkout (just missing `.claude/`).
+- **Pro**: `init` default is a single-commit code repo — cleaner.
+- **Con**: `git clone --recursive` no longer suffices; users must
+  `vc-x1 clone` (or manually clone both).
+- **Con**: session URL is derived by convention (`<main>.claude`);
+  renaming or forking `.claude` independently requires manual handling.

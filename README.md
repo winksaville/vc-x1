@@ -267,9 +267,17 @@ Use `--help` for the full status label legend.
 
 ### clone
 
-Clone an existing dual-repo project. Runs `git clone --recursive` to
-get both repos, initializes `jj` in each, and creates the Claude Code
-symlink.
+Clone an existing dual-repo project. The code repo is cloned first,
+then the session repo is populated using one of two paths:
+
+- If the code repo declares `.claude` (or whatever `.vc-config.toml`
+  specifies as `workspace.other-repo`) as a git submodule,
+  `git submodule update --init` is used.
+- Otherwise, the session repo URL is derived by convention — insert
+  `.claude` before `.git` in the code repo URL — and cloned directly.
+
+`jj` is then initialized in both repos and the Claude Code symlink is
+created.
 
 ```
 # Clone using GitHub shorthand
@@ -294,16 +302,29 @@ vc-x1 clone owner/my-project --dry-run
 | `--dry-run` | Show what would be done without executing |
 | `-v, --verbose` | Verbose output |
 
-Requires `jj` to be installed. The `.claude` session repo is cloned
-automatically via `git submodule` if the source project was created
-with `vc-x1 init`.
+Requires `jj` to be installed. The code repo must contain a
+`.vc-config.toml` — `clone` errors out otherwise.
 
 ### init
 
-Create a new dual-repo project — a code repo with a `.claude` session
-repo as a git submodule. Both repos are initialized with `git` and `jj`,
-configured with `.vc-config.toml`, and pushed to GitHub. The session
-repo is added as a submodule so `git clone --recursive` clones both.
+Create a new dual-repo project — a code repo and a `.claude` session
+repo. Both repos are initialized with `git` and `jj`, configured with
+`.vc-config.toml`, and pushed to GitHub as two independent
+repositories (`<name>` and `<name>.claude`).
+
+By default the two repos have no structural link — `vc-x1 clone`
+derives the `.claude` session repo URL from the code repo URL by convention
+(i.e. it will be `<code-repo-name>.claude`).
+Pass `--submodule` to instead register `.claude` as a git submodule of
+the code repo (back-compat with 0.28.0–0.31.0 projects); this adds a
+second commit to the code repo for the submodule entry.
+
+The reason `--submodule` isn't the default: if the `.claude` session
+repo gets rebased, the `.gitmodules` pin goes stale, which makes the
+arrangement brittle. The original rationale was that a structural
+connection would make manual cloning (without `vc-x1`) easier — but
+with `vc-x1 clone` that's already trivial, so the fragility isn't
+worth the convenience.
 
 ```
 # Create public project in current directory
@@ -315,6 +336,9 @@ vc-x1 init my-project --owner myorg --dir ~/projects
 # Create private repos
 vc-x1 init my-project --private
 
+# Use a git submodule for .claude
+vc-x1 init my-project --submodule
+
 # Preview without executing
 vc-x1 init my-project --dry-run
 ```
@@ -324,6 +348,7 @@ vc-x1 init my-project --dry-run
 | `--owner <OWNER>` | GitHub user/org [default: current `gh` user] |
 | `--dir <PATH>` | Parent directory [default: cwd] |
 | `--private` | Create private GitHub repos [default: public] |
+| `--submodule` | Add `.claude` as a git submodule [default: false] |
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |

@@ -23,6 +23,14 @@ pub struct InitArgs {
     #[arg(long)]
     pub private: bool,
 
+    /// Add `.claude` as a git submodule of the code repo [default: false]
+    ///
+    /// When false, both repos are created and pushed independently; the
+    /// code repo has a single initial commit. When true, the code repo gets
+    /// a second commit that adds `.claude` as a submodule.
+    #[arg(long)]
+    pub submodule: bool,
+
     /// Dry run — show what would be done without executing
     #[arg(long)]
     pub dry_run: bool,
@@ -181,7 +189,11 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         info!("  5. Get both chids, jj describe both with correct ochids");
         info!("  6. Remove jj from both (git clean -xdf)");
         info!("  7. gh repo create {session_repo} {visibility}, push");
-        info!("  8. git submodule add .claude, second commit in code repo");
+        if args.submodule {
+            info!("  8. git submodule add .claude, second commit in code repo");
+        } else {
+            info!("  8. (skipped — --submodule not set)");
+        }
         info!("  9. gh repo create {code_repo} {visibility}, push");
         info!("  10. jj git init --colocate on both repos");
         info!("  11. Create Claude Code symlink");
@@ -274,18 +286,22 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.push_retry_delay,
     )?;
 
-    // Step 8: Add .claude as submodule — second commit in code repo
-    info!("Step 8: Adding .claude as submodule...");
-    // Remove .claude directory so git submodule add can re-clone it
-    std::fs::remove_dir_all(&session_dir)?;
-    run(
-        "git",
-        &["submodule", "add", "--force", &session_url, ".claude"],
-        &project_dir,
-    )?;
-    let submodule_body = format!("Add .claude submodule\n\nochid: /.claude/{session_chid}");
-    run("git", &["add", "."], &project_dir)?;
-    run("git", &["commit", "-m", &submodule_body], &project_dir)?;
+    // Step 8: Optionally add .claude as submodule — second commit in code repo
+    if args.submodule {
+        info!("Step 8: Adding .claude as submodule...");
+        // Remove .claude directory so git submodule add can re-clone it
+        std::fs::remove_dir_all(&session_dir)?;
+        run(
+            "git",
+            &["submodule", "add", "--force", &session_url, ".claude"],
+            &project_dir,
+        )?;
+        let submodule_body = format!("Add .claude submodule\n\nochid: /.claude/{session_chid}");
+        run("git", &["add", "."], &project_dir)?;
+        run("git", &["commit", "-m", &submodule_body], &project_dir)?;
+    } else {
+        info!("Step 8: Skipping submodule add (--submodule not set)");
+    }
 
     // Step 9: Create code GitHub repo and push
     let code_url = format!("git@github.com:{code_repo}.git");
@@ -366,6 +382,7 @@ mod tests {
         assert!(args.owner.is_none());
         assert!(args.dir.is_none());
         assert!(!args.private);
+        assert!(!args.submodule);
         assert!(!args.dry_run);
         assert_eq!(args.push_retries, 5);
         assert_eq!(args.push_retry_delay, 3);
@@ -382,6 +399,7 @@ mod tests {
             "--dir",
             "/tmp/projects",
             "--private",
+            "--submodule",
             "--dry-run",
             "--push-retries",
             "10",
@@ -392,6 +410,7 @@ mod tests {
         assert_eq!(args.owner.as_deref(), Some("myorg"));
         assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
         assert!(args.private);
+        assert!(args.submodule);
         assert!(args.dry_run);
         assert_eq!(args.push_retries, 10);
         assert_eq!(args.push_retry_delay, 5);
