@@ -48,6 +48,28 @@ ochid: /<changeID>" \
 -R .claude
 ```
 
+### Post-commit: advance the bookmark
+
+After every `jj commit`, verify the active bookmark landed on `@-`
+(the newly finalized commit). jj does not auto-advance bookmarks in
+every repo — the `.claude` repo moves `main` automatically, the app
+repo typically does not. If the bookmark is still behind, advance it:
+
+```
+jj bookmark list <name> -R <repo>     # check current position
+jj bookmark set <name> -r @- -R <repo>  # if not at @-, move it
+```
+
+A quick visual check is the `jj commit` output itself — the
+`Parent commit (@-)` line shows `<bookmark>* |` when the bookmark
+sits on that commit. If that marker is missing, the bookmark didn't
+advance.
+
+Skipping this step leads to an orphan-looking commit (bookmark
+points at a prior commit, real work sits on top but not on any
+bookmark) and subsequent `finalize --push` either pushes the wrong
+state or rewrites history unexpectedly.
+
 ## jj Basics
 
 - `jj st -R .` / `jj st -R .claude` — show working copy status
@@ -128,6 +150,16 @@ Before proposing a commit, run all of the following and fix any issues:
 7. Update `notes/chores-*.md` — add a subsection describing the change
 8. Update `notes/README.md` — if functionality changed (new flags,
    new subcommands, changed behavior)
+
+### Post-commit checklist
+
+After each `jj commit` succeeds, run these before moving on. See
+"Post-commit: advance the bookmark" above for the rationale.
+
+1. `jj bookmark list -R <repo>` — confirm the active bookmark moved
+   to `@-` (the just-finalized commit).
+2. If the bookmark is still behind, advance it:
+   `jj bookmark set <name> -r @- -R <repo>`. Re-run step 1 to confirm.
 
 ## ochid Trailers
 

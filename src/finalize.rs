@@ -125,39 +125,32 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
     // Verify squash revsets resolve to something.
     if let Some(ref sq) = opts.squash {
-        run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                &sq.source,
-                "--no-graph",
-                "-T",
-                "\"\"",
-                "-R",
-                &repo_str,
-            ],
-            cwd,
-        )
-        .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
-        run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                &sq.target,
-                "--no-graph",
-                "-T",
-                "\"\"",
-                "-R",
-                &repo_str,
-            ],
-            cwd,
-        )
-        .map_err(|e| format!("squash target '{}' does not resolve: {e}", sq.target))?;
+        jj_rev_exists(&repo_str, cwd, &sq.source)
+            .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
+        jj_rev_exists(&repo_str, cwd, &sq.target)
+            .map_err(|e| format!("squash target '{}' does not resolve: {e}", sq.target))?;
     }
 
-    // Verify bookmark exists and (if a remote ref exists) is tracking it.
+    // Refuse to operate on a repo with conflicts.
+    let conflicts = run(
+        "jj",
+        &[
+            "log",
+            "-r",
+            "conflicts()",
+            "--no-graph",
+            "-T",
+            "\"x\"",
+            "-R",
+            &repo_str,
+        ],
+        cwd,
+    )?;
+    if !conflicts.is_empty() {
+        return Err(format!("repo '{repo_str}' has conflicts — resolve before finalize").into());
+    }
+
+    // Bookmark: existence, tracking, forward-only move, push-target description.
     if let Some(ref bookmark) = opts.bookmark {
         let exists = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
         if exists.is_empty() {
@@ -176,9 +169,120 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
             )
             .into());
         }
+
+        let target_rev = opts
+            .squash
+            .as_ref()
+            .map(|sq| sq.target.as_str())
+            .unwrap_or("@"); // OK: no squash spec → bookmark will point at current @
+        let range = run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                &format!("{bookmark}::({target_rev})"),
+                "--no-graph",
+                "-T",
+                "\"x\"",
+                "-R",
+                &repo_str,
+            ],
+            cwd,
+        )?;
+        if range.is_empty() {
+            return Err(format!(
+                "bookmark '{bookmark}' move is not forward — current position is not an \
+                 ancestor of '{target_rev}' (would diverge)"
+            )
+            .into());
+        }
+
+        if opts.push {
+            let desc = run(
+                "jj",
+                &[
+                    "log",
+                    "-r",
+                    target_rev,
+                    "--no-graph",
+                    "-T",
+                    "description",
+                    "-R",
+                    &repo_str,
+                ],
+                cwd,
+            )?;
+            if desc.trim().is_empty() {
+                return Err(format!(
+                    "push target '{target_rev}' has no description — push would fail \
+                     (run `jj describe -r {target_rev} -R {repo_str}` first)"
+                )
+                .into());
+            }
+        }
+    }
+
+    log_plan(opts)?;
+
+    Ok(())
+}
+
+/// Return Ok(()) if the revset resolves to one or more commits in `repo`.
+fn jj_rev_exists(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<(), String> {
+    run(
+        "jj",
+        &["log", "-r", rev, "--no-graph", "-T", "\"x\"", "-R", repo],
+        cwd,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Log what finalize is about to do so the user sees the plan before detach.
+fn log_plan(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_str = opts.repo.to_string_lossy();
+    let cwd = std::path::Path::new(".");
+
+    if let Some(ref sq) = opts.squash {
+        info!(
+            "finalize: squash {} → {} in {}",
+            sq.source, sq.target, repo_str
+        );
+    }
+    if let Some(ref bookmark) = opts.bookmark {
+        let target_rev = opts
+            .squash
+            .as_ref()
+            .map(|sq| sq.target.as_str())
+            .unwrap_or("@"); // OK: same as above
+        let current = jj_rev_short(&repo_str, cwd, bookmark).unwrap_or_else(|_| "?".into()); // OK: logging only — fall back to "?" if revset fails
+        let target = jj_rev_short(&repo_str, cwd, target_rev).unwrap_or_else(|_| "?".into()); // OK: same
+        info!("finalize: set bookmark '{bookmark}' {current} → {target} ({target_rev})");
+        if opts.push {
+            info!("finalize: push '{bookmark}' to remote");
+        }
     }
 
     Ok(())
+}
+
+/// Short one-line summary of a revset: `<change_short> <commit_short>`.
+fn jj_rev_short(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<String, String> {
+    run(
+        "jj",
+        &[
+            "log",
+            "-r",
+            rev,
+            "--no-graph",
+            "-T",
+            "change_id.shortest(8) ++ \" \" ++ commit_id.shortest(8)",
+            "-R",
+            repo,
+        ],
+        cwd,
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {

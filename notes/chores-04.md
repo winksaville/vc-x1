@@ -174,3 +174,51 @@ against a few representative `jj bookmark list -a` output snippets.
 Bookmark-existence is still re-checked inside `finalize_exec()` as
 defense-in-depth — pre-flight catches it synchronously, the child
 catches any unlikely race between pre-flight and execution.
+
+### 0.33.0-dev1.1 — repo-state checks + plan logging + post-commit workflow
+
+Two findings after dev1 landed:
+
+1. After `jj commit -R .`, the app repo's `main` bookmark did not
+   advance to `@-` (the `.claude` repo's config does advance it, the
+   app repo's does not). Easy to miss — the `Parent commit (@-)`
+   line in `jj commit` output shows `<bookmark>* |` when the bookmark
+   sits on that commit; when absent, the bookmark is stuck behind.
+2. `finalize` pre-flight should also sanity-check the target repo
+   state before detaching, and should *log the plan* so the user
+   knows what's about to happen.
+
+**CLAUDE.md additions**:
+
+- New "Post-commit: advance the bookmark" subsection under the
+  commit-style section — rationale + commands.
+- New numbered "Post-commit checklist" alongside the existing
+  pre-commit checklist — step 1 `jj bookmark list`, step 2 `jj
+  bookmark set … -r @-` if stuck. Parallel structure to pre-commit
+  so the bot runs through both as a unit.
+
+**Finalize pre-flight additions** (`finalize::preflight()`):
+
+- **No conflicts** — `jj log -r 'conflicts()' …` must be empty.
+  Refuses to finalize a repo with unresolved conflicts.
+- **Forward-only bookmark move** — `jj log -r '<bookmark>::(<target>)'`
+  must be non-empty. If the current bookmark position is not an
+  ancestor of the post-finalize target, we'd diverge; error out.
+  `(…)` around the target protects `@-` and similar from being
+  parsed as a suffix of the bookmark name.
+- **Push target has a description** (if `--push`) — `jj log -r <target>
+  -T description` must be non-empty. Otherwise `jj git push` would
+  fail with `Won't push commit … since it has no description`.
+
+**Plan logging** (`finalize::log_plan()`, called at end of preflight):
+
+```
+finalize: squash @ → @- in <repo>
+finalize: set bookmark 'main' <current-change> <current-commit> → <target-change> <target-commit> (<target-rev>)
+finalize: push 'main' to remote
+```
+
+`info!` level so it's always visible. Uses jj templating
+(`change_id.shortest(8) ++ " " ++ commit_id.shortest(8)`) for short
+IDs. Minor helpers `jj_rev_exists()` and `jj_rev_short()` keep the
+preflight body readable.
