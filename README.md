@@ -11,7 +11,7 @@
   - [symlink](#symlink)
   - [finalize](#finalize)
   - [test-fixture](#test-fixture)
-  - [Testing finalize](#testing-finalize)
+  - [Testing push + finalize](#testing-push--finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
 - [Contributing](#contributing)
@@ -467,41 +467,61 @@ Changes to push to origin:
 Changes to push to origin:
   Add bookmark main to 31a490102db7
 
-Fixture ready:
+Fixture ready (local bare-git remotes, see README.md § test-fixture):
   Code repo:     /tmp/vc-x1-test-8PD4x8/work
   Session repo:  /tmp/vc-x1-test-8PD4x8/work/.claude
   Code remote:   /tmp/vc-x1-test-8PD4x8/remote-code.git
   Claude remote: /tmp/vc-x1-test-8PD4x8/remote-claude.git
+
+Next steps — see README.md § Testing push + finalize for the full flow.
+Quick reference with this fixture's paths:
+  jj git push -R /tmp/vc-x1-test-8PD4x8/work
+  vc-x1 finalize --repo /tmp/vc-x1-test-8PD4x8/work/.claude --squash --push main --detach
+  vc-x1 test-fixture-rm /tmp/vc-x1-test-8PD4x8
 ```
 
-### Testing finalize
+### Testing push + finalize
 
 Always test against a throwaway fixture, never the live workspace.
-Use `test-fixture` (above) to scaffold one per test:
+Scaffold one with `test-fixture` (above), then run the complete
+push + finalize flow end-to-end. The code repo uses plain
+`jj git push`; the session repo uses `vc-x1 finalize` to squash
+trailing writes and push in one shot.
 
 ```bash
-# Create fixture and capture paths
 base=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
 vc-x1 test-fixture --path "$base"
 work="$base/work"
 session="$base/work/.claude"
 
-# Foreground (default, blocks, log to fixture)
-vc-x1 finalize --repo "$work" --push main --log "$work/finalize.log"
-cat "$work/finalize.log"
+# 1. code repo: described commit → advance main → push
+echo hello > "$work/hello.txt"
+jj describe @ -R "$work" -m 'feat: add hello.txt'
+jj bookmark set main -r @ -R "$work"
+jj git push -R "$work"
 
-# Detached (returns immediately, child logs to fixture)
-base2=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 test-fixture --path "$base2"
-session2="$base2/work/.claude"
-vc-x1 finalize --detach --repo "$session2" --squash --push main \
-    --log "$session2/finalize.log"
-cat "$session2/finalize.log"
+# 2. session repo: trailing writes → finalize (squash into @-, push)
+echo notes > "$session/notes.md"
+vc-x1 finalize --repo "$session" --squash --push main --detach \
+    --log "$session/finalize.log"
+
+# 3. inspect the detached child's log once it's done (≈10s by default)
+sleep 12 && cat "$session/finalize.log"
+
+# 4. cleanup when done
+vc-x1 test-fixture-rm "$base"
 ```
 
-The log file shows timestamped (nanoseconds) entries with PIDs, covering
-the full flow: `main` entry/exit, `finalize` entry/exit, `detach`
-spawn, and `finalize_exec` in the child process.
+**Why `jj git push` for code but `finalize` for `.claude`?** The
+code repo's workflow is a plain dev commit on `@-` that we push
+directly. The session repo mirrors the bot's runtime pattern:
+session writes land in `@` (above the last committed dev commit),
+and `finalize --squash @,@-` folds those trailing writes into the
+dev commit just before pushing, so one atomic state goes upstream.
+
+The log file shows timestamped (nanoseconds) entries with PIDs,
+covering the full flow: `main` entry/exit, `finalize` entry/exit,
+`detach` spawn, and `finalize_exec` in the child process.
 
 Example — detached finalize against a fresh fixture. What the user
 sees in the terminal (the parent process) is the pre-flight plan and

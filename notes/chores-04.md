@@ -411,3 +411,49 @@ failed push a second later; marker appeared under
 the command normally after printing the failure context (including
 the full `jj git push` error) to stderr; marker was gone
 afterwards.
+
+### 0.33.0-dev4.1 — complete `test-fixture` "Try:" flow
+
+The dev2 "Try:" hint was too terse — it skipped the `jj bookmark
+set` step needed to advance `main` after `jj describe @`, so a user
+following the hint verbatim got `Warning: No bookmarks found in the
+default push revset` and no push happened.
+
+Expanded into a three-step end-to-end recipe that actually works:
+
+```
+# 1. code repo: described commit → advance main → push
+echo hello > <work>/hello.txt
+jj describe @ -R <work> -m 'feat: add hello.txt'
+jj bookmark set main -r @ -R <work>
+jj git push -R <work>
+
+# 2. session repo: trailing writes → finalize (squash into @-, push)
+echo notes > <work>/.claude/notes.md
+vc-x1 finalize --repo <work>/.claude --squash --push main --detach
+
+# 3. cleanup
+vc-x1 test-fixture-rm <base>
+```
+
+Runtime output is a short **pointer** to the README plus a three-line
+quick reference with the fixture's absolute paths:
+```
+Next steps — see README.md § Testing push + finalize for the full flow.
+Quick reference with this fixture's paths:
+  jj git push -R <work>
+  vc-x1 finalize --repo <session> --squash --push main --detach
+  vc-x1 test-fixture-rm <base>
+```
+The README has the full four-step flow (edit, describe, advance,
+push; edit, finalize; cleanup). Avoids duplicating a long recipe in
+two places — the README is authoritative, the runtime output is a
+breadcrumb.
+
+**README.md § "Testing finalize" → "Testing push + finalize".**
+Renamed and rewritten around the same three-step flow. Old section
+showed `vc-x1 finalize --repo <work> --push main` (no `--squash`),
+which the dev1.1 preflight rightly rejects because `@` has no
+description — a footgun directly in the docs. New section runs the
+real push-for-code, finalize-for-session pattern end-to-end and
+explains why the two repos get different tooling. TOC updated.

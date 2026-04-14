@@ -174,15 +174,13 @@ pub fn test_fixture(args: &TestFixtureArgs) -> Result<(), Box<dyn std::error::Er
     info!("  Code remote:   {}", remote_code.display());
     info!("  Claude remote: {}", remote_claude.display());
     info!("");
-    info!("Try:");
-    info!("  # code repo uses plain push, never finalize:");
+    info!("Next steps — see README.md § Testing push + finalize for the full flow.");
+    info!("Quick reference with this fixture's paths:");
     info!("  jj git push -R {}", work_dir.display());
-    info!("  # session repo gets finalize (squash + push):");
     info!(
         "  vc-x1 finalize --repo {} --squash --push main --detach",
         session_dir.display()
     );
-    info!("  # clean up when done:");
     info!("  vc-x1 test-fixture-rm {}", base.display());
 
     debug!("test_fixture: exit");
