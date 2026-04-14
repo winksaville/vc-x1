@@ -13,6 +13,7 @@
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
+- [Contributing](#contributing)
 - [License](#license)
 
 This is experiment 1 to explore creating a Vibe Coding (vc) environment.
@@ -474,6 +475,19 @@ shows the current version of each change.
 
 In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
 the same result. Use `all()` when you have multiple branches or heads.
+
+## Contributing
+
+Developer notes, conventions, and task tracking live in [notes/](notes/).
+Start with [notes/README.md](notes/README.md), which covers:
+
+- [Versioning during development](notes/README.md#versioning-during-development)
+- [Code Conventions](notes/README.md#code-conventions) — including the
+  `// OK: …` convention for `unwrap*` calls
+- [Todo format](notes/README.md#todo-format)
+
+Near-term tasks are in [notes/todo.md](notes/todo.md); per-release details
+are in the `notes/chores-*.md` files.
 
 ## License
 

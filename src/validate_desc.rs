@@ -109,7 +109,7 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
         let desc = commit.description();
         let change_hex = jj_lib::hex_util::encode_reverse_hex(commit.change_id().as_bytes());
         let change_short = &change_hex[..change_hex.len().min(12)];
-        let first_line = desc.lines().next().unwrap_or("");
+        let first_line = desc.lines().next().unwrap_or(""); // OK: obvious
         let display_title = if first_line.is_empty() {
             "(no description set)"
         } else {

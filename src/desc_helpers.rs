@@ -101,7 +101,7 @@ pub fn validate_ochid(
     // Check if the ID resolves in the other repo
     let not_found = common::resolve_revset(other_workspace, other_repo, bare_id)
         .map(|ids| ids.is_empty())
-        .unwrap_or(true);
+        .unwrap_or(true); // OK: resolve failure → treat as not found
 
     OchidIssues {
         wrong_prefix,
@@ -130,7 +130,7 @@ pub fn find_matching_commit(
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
 ) -> Result<TitleMatch, Box<dyn std::error::Error>> {
-    let title = commit.description().lines().next().unwrap_or("");
+    let title = commit.description().lines().next().unwrap_or(""); // OK: obvious
     if title.is_empty() {
         return Ok(TitleMatch::NoTitle);
     }
@@ -144,7 +144,7 @@ pub fn find_matching_commit(
             continue;
         }
         let other_commit = other_repo.store().get_commit(cid)?;
-        let other_title = other_commit.description().lines().next().unwrap_or("");
+        let other_title = other_commit.description().lines().next().unwrap_or(""); // OK: obvious
         if other_title == title {
             let full_hex =
                 jj_lib::hex_util::encode_reverse_hex(other_commit.change_id().as_bytes());
@@ -154,7 +154,11 @@ pub fn find_matching_commit(
 
     match matches.len() {
         0 => Ok(TitleMatch::None),
-        1 => Ok(TitleMatch::One(matches.into_iter().next().unwrap())),
+        1 => {
+            #[allow(clippy::unwrap_used)]
+            // OK: `1 =>` arm guarantees matches.len() == 1
+            Ok(TitleMatch::One(matches.into_iter().next().unwrap()))
+        }
         n => Ok(TitleMatch::Ambiguous(n)),
     }
 }

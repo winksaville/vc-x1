@@ -47,6 +47,48 @@ The final release commit (without `-devN`) signals completion rather than amendi
 prior commits. This keeps the git history readable and makes it easy to see which
 commits were exploratory vs final.
 
+## Code Conventions
+
+### `// OK: …` comments on `unwrap*` calls
+
+Non-test code that calls `.unwrap()`, `.unwrap_or(…)`, `.unwrap_or_default()`,
+or `.unwrap_or_else(…)` must have a trailing `// OK: …` comment that justifies
+why the call is acceptable.
+
+- `// OK: <specific reason>` — document the real precondition, invariant, or
+  domain reason. Preferred whenever the reason isn't self-evident.
+- `// OK: obvious` — the default is self-evident from context (e.g.
+  `desc.lines().next().unwrap_or("")` — empty desc → empty title).
+
+Bare `// OK` is not used (reads like a truncated comment). Abbreviations
+(e.g. `SE`) are not used because they require a decoder ring for readers
+seeing the code out of context.
+
+For provably-unreachable `.unwrap()` calls, also prefix with
+`#[allow(clippy::unwrap_used)]` so the site stays silent if we enable the
+project-wide `clippy::unwrap_used` lint later.
+
+```rust
+// Specific reason
+let max = stderr_level.unwrap_or(LevelFilter::Info); // OK: default verbosity when -v/-vv absent
+
+// Self-evident
+let first_line = desc.lines().next().unwrap_or(""); // OK: obvious
+
+// Proven precondition
+match matches.len() {
+    1 => {
+        #[allow(clippy::unwrap_used)]
+        // OK: `1 =>` arm guarantees matches.len() == 1
+        Ok(TitleMatch::One(matches.into_iter().next().unwrap()))
+    }
+    // ...
+}
+```
+
+Tests (`#[cfg(test)]`) are exempt — panicking on setup failure is the correct
+test behavior.
+
 ## Todo format
 
 Todo.md contains two main sections "Todo" and "Done" each item is a

@@ -31,14 +31,14 @@ pub struct CloneArgs {
 /// `https://github.com/owner/name.git`, `https://github.com/owner/name`
 fn derive_name(repo: &str) -> Result<String, Box<dyn std::error::Error>> {
     // Strip trailing .git
-    let repo = repo.strip_suffix(".git").unwrap_or(repo);
+    let repo = repo.strip_suffix(".git").unwrap_or(repo); // OK: repo arg may not end in .git
 
     // Take everything after the last `/` or `:`
     let name = repo
         .rsplit_once('/')
         .or_else(|| repo.rsplit_once(':'))
         .map(|(_, name)| name)
-        .unwrap_or(repo);
+        .unwrap_or(repo); // OK: no separator → whole string is the name
 
     if name.is_empty() {
         return Err(format!("cannot derive project name from '{repo}'").into());

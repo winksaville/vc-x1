@@ -137,11 +137,11 @@ fn show_one_commit(
 
     // Follows
     let follows = find_nearest_tag(commit, workspace, repo, true)?;
-    info!("Follows:   {}", follows.as_deref().unwrap_or(""));
+    info!("Follows:   {}", follows.as_deref().unwrap_or("")); // OK: obvious
 
     // Precedes
     let precedes = find_nearest_tag(commit, workspace, repo, false)?;
-    info!("Precedes:  {}", precedes.as_deref().unwrap_or(""));
+    info!("Precedes:  {}", precedes.as_deref().unwrap_or("")); // OK: obvious
 
     // Description (body only — title is on the Ids line)
     print_description(commit);
@@ -227,9 +227,9 @@ fn format_timestamp(ts: &jj_lib::backend::Timestamp) -> String {
     let tz_minutes = ts.tz_offset;
 
     let dt = chrono::DateTime::from_timestamp(secs, 0)
-        .unwrap_or_default()
+        .unwrap_or_default() // OK: invalid timestamp → epoch for display
         .with_timezone(
-            &chrono::FixedOffset::east_opt(tz_minutes * 60).unwrap_or(chrono::Utc.fix()),
+            &chrono::FixedOffset::east_opt(tz_minutes * 60).unwrap_or(chrono::Utc.fix()), // OK: invalid tz → UTC for display
         );
 
     dt.format("%Y-%m-%d %H:%M:%S").to_string()

@@ -10,13 +10,6 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
-   - ~~0.31.0-dev1: add `log` crate, wire into init, replace println/eprintln~~
-   - ~~0.31.0-dev2: symlink refactor (SymLink::new/create)~~
-   - ~~0.31.0-dev3: convert all commands to log, standardize bare imports~~
-   - ~~0.31.0-dev4: replace finalize::log_msg with log crate~~
-   - ~~0.31.0-dev5: finalize --squash, --push validates bookmark, --log captures debug~~
-   - ~~0.31.0-dev6: global -v/-vv/--log, enter/exit debug, list showcase~~
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
  - Show bookmarks in `list` output
@@ -39,6 +32,9 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add `init` subcommand for dual-repo project creation (0.28.0) [32]
 - Add `clone` command + fix init submodule/ochid bug (0.29.0) [33]
 - Universal --verbose, common::run() refactor, chid bold removal (0.30.0) [34]
+- Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
+- Remove submodule from init/clone (0.31.1) [38]
+- Audit `unwrap`/`unwrap_or` usage, add `// OK: …` convention (0.32.0) [39]
 
 # References
 
@@ -57,3 +53,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [35]: /notes/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
 [36]: /notes/chores-03.md#per-lineper-thread-runtime-log-points-future
 [37]: /notes/chores-03.md#windows-symlink-support
+[38]: /notes/chores-03.md#remove-submodule-from-initclone-0311
+[39]: /notes/chores-04.md#audit-unwrapunwrap_or-usage-0320

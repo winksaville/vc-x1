@@ -113,7 +113,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         let desc = commit.description();
         let change_hex = jj_lib::hex_util::encode_reverse_hex(commit.change_id().as_bytes());
         let change_short = &change_hex[..change_hex.len().min(12)];
-        let first_line = desc.lines().next().unwrap_or("");
+        let first_line = desc.lines().next().unwrap_or(""); // OK: obvious
         let display_title = if first_line.is_empty() {
             "(no description set)"
         } else {
@@ -215,7 +215,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         // Resolve the full change ID from the other repo when length is wrong
         let resolved_id = if issues.wrong_length.is_some() {
-            let ochid_val = current_ochid.as_deref().unwrap_or("");
+            let ochid_val = current_ochid.as_deref().unwrap_or(""); // OK: obvious
             let bare_id = extract_bare_id(ochid_val);
             resolve_full_change_id(bare_id, &other_workspace, &other_repo)?
         } else {
@@ -265,7 +265,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 errors += 1;
                 info!(
                     "err  {change_short}  {display_title}  (ID not found, ochid: {})",
-                    fixed_ochid.as_deref().unwrap_or("?")
+                    fixed_ochid.as_deref().unwrap_or("?") // OK: "?" placeholder when ochid unresolved
                 );
                 continue;
             }
@@ -281,7 +281,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             }
         } else {
             jj_describe(commit_id, &new_desc, &args.repo, change_short)?;
-            let fixed_title = new_desc.lines().next().unwrap_or("");
+            let fixed_title = new_desc.lines().next().unwrap_or(""); // OK: obvious
             info!("fixed {change_short}  {fixed_title}");
         }
         fixed += 1;

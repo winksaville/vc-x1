@@ -41,7 +41,7 @@ fn probe(path: &Path) -> Option<Option<PathBuf>> {
         Err(_) => None,
         Ok(meta) => {
             if meta.is_symlink() {
-                Some(Some(std::fs::read_link(path).unwrap_or_default()))
+                Some(Some(std::fs::read_link(path).unwrap_or_default())) // OK: TOCTOU race after symlink_metadata; empty PathBuf forces recreate
             } else {
                 Some(None)
             }

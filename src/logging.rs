@@ -45,7 +45,7 @@ impl CliLogger {
         // Max level: stderr_level if set, otherwise info
         // Log file captures whatever is enabled, not more
         let _ = has_log_file;
-        let max = stderr_level.unwrap_or(LevelFilter::Info);
+        let max = stderr_level.unwrap_or(LevelFilter::Info); // OK: default verbosity when -v/-vv absent
         log::set_max_level(max);
         log::set_boxed_logger(logger).expect("failed to set logger");
     }

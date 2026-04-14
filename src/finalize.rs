@@ -134,7 +134,7 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
             .squash
             .as_ref()
             .map(|sq| sq.target.as_str())
-            .unwrap_or("@");
+            .unwrap_or("@"); // OK: no squash spec → bookmark points at current @
         run(
             "jj",
             &["bookmark", "set", bookmark, "-r", rev, "-R", &repo_str],

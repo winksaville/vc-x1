@@ -99,6 +99,12 @@ Every change must start with a version bump. See
 [Versioning during development](notes/README.md#versioning-during-development)
 for details. Get user approval on single-step vs multi-step before starting.
 
+### Code conventions
+
+See [Code Conventions](notes/README.md#code-conventions) in notes/README.md.
+In particular, non-test `unwrap*` calls require a trailing `// OK: …`
+justification comment.
+
 ### Chores section headers
 
 Chores section headers use trailing version format:

@@ -121,7 +121,7 @@ pub fn resolve_spec(
     let rev_str = if flag_rev_set {
         flag_rev
     } else {
-        pos_rev.unwrap_or(default_rev)
+        pos_rev.unwrap_or(default_rev) // OK: positional absent → fall back to CLI default
     };
     let mut spec = parse_dot_rev(rev_str);
 
@@ -264,8 +264,8 @@ pub fn extract_ochid(commit: &Commit) -> Option<String> {
 pub fn format_commit_with_ochid(commit: &Commit, width: usize) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
-    let ochid = extract_ochid(commit).unwrap_or_default();
-    let first_line = commit.description().lines().next().unwrap_or("");
+    let ochid = extract_ochid(commit).unwrap_or_default(); // OK: no ochid trailer → empty string
+    let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
     let title = if first_line.is_empty() {
         "(no description set)"
     } else {
@@ -286,7 +286,7 @@ pub fn format_commit_short(commit: &Commit) -> String {
     let change_short = &change_hex[..change_hex.len().min(12)];
     let commit_hex = commit.id().hex();
     let commit_short = &commit_hex[..commit_hex.len().min(12)];
-    let first_line = commit.description().lines().next().unwrap_or("");
+    let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
     if first_line.is_empty() {
         format!("{change_short} {commit_short} (no description set)")
     } else {
@@ -305,7 +305,7 @@ pub fn format_commit_full(commit: &Commit) -> String {
         format!("{change_short} {commit_short} (no description set)")
     } else {
         let mut lines = desc.lines();
-        let first_line = lines.next().unwrap_or("");
+        let first_line = lines.next().unwrap_or(""); // OK: obvious
         let mut result = format!("{change_short} {commit_short} {first_line}");
         for line in lines {
             result.push('\n');
@@ -355,7 +355,7 @@ pub fn collect_ids(
     let mut anc_ids: Vec<CommitId> = Vec::new();
     if anc_count != Some(0) {
         let ancestor_ids = resolve_revset(workspace, repo, &format!("::{rev}"))?;
-        let limit = anc_count.unwrap_or(usize::MAX);
+        let limit = anc_count.unwrap_or(usize::MAX); // OK: no --ancestors limit → unbounded
         let mut count = 0;
         for commit_id in ancestor_ids {
             if commit_id == root_commit_id || commit_id == *anchor_id {
