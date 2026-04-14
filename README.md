@@ -10,6 +10,7 @@
   - [init](#init)
   - [symlink](#symlink)
   - [finalize](#finalize)
+  - [test-fixture](#test-fixture)
   - [Testing finalize](#testing-finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
@@ -53,6 +54,7 @@ vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
+vc-x1 test-fixture [--path PATH]           # Create throwaway jj repo + remote for testing
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
 ```
@@ -402,26 +404,57 @@ vc-x1 finalize --squash @,@-- --bookmark main
 See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
 for design details.
 
-### Testing finalize
+### test-fixture
 
-Always test against a throwaway jj repo, never the live workspace.
-Use `mktemp -d` for unique directories so results can't be confused
-with a previous run:
+Scaffold a throwaway dual-repo jj workspace + local bare-git remotes
+for testing `finalize` (and other subcommands) without touching live
+workspace repos. Mirrors the real `vc-x1 init` layout minus the GitHub
+side and the `~/.claude/projects/` symlink. Both repos get a described
+initial commit with matching `ochid:` trailers, a tracked `main`
+bookmark, and a pushed remote — so `finalize --push` flows work
+end-to-end on either side.
 
 ```bash
-# Create and init a temp repo
-dir=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
-(cd "$dir" && jj git init)
+vc-x1 test-fixture                 # base = $TMPDIR/vc-x1-test-<timestamp>
+vc-x1 test-fixture --path /tmp/t1  # explicit path
+```
 
-# Foreground (default, blocks, logs to test dir)
-vc-x1 finalize --repo "$dir" --bookmark main --log "$dir/finalize.log"
-cat "$dir/finalize.log"
+Layout:
+```
+<base>/
+  remote-code.git/     bare git remote for code repo
+  remote-claude.git/   bare git remote for .claude session repo
+  work/                code repo (jj colocated, main tracks origin)
+    .vc-config.toml    path="/",       other-repo=".claude"
+    .gitignore         /.claude /.git /.jj /target
+    .claude/           session repo (jj colocated, main tracks origin)
+      .vc-config.toml  path="/.claude", other-repo=".."
+      .gitignore       .git .jj
+```
 
-# Detached (returns immediately, child logs to test dir)
-dir2=$(mktemp -d /tmp/vc-x1-test-XXXXXX)
-(cd "$dir2" && jj git init)
-vc-x1 finalize --detach --repo "$dir2" --bookmark main --log "$dir2/finalize.log"
-cat "$dir2/finalize.log"
+### Testing finalize
+
+Always test against a throwaway fixture, never the live workspace.
+Use `test-fixture` (above) to scaffold one per test:
+
+```bash
+# Create fixture and capture paths
+base=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
+vc-x1 test-fixture --path "$base"
+work="$base/work"
+session="$base/work/.claude"
+
+# Foreground (default, blocks, log to fixture)
+vc-x1 finalize --repo "$work" --push main --log "$work/finalize.log"
+cat "$work/finalize.log"
+
+# Detached (returns immediately, child logs to fixture)
+base2=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
+vc-x1 test-fixture --path "$base2"
+session2="$base2/work/.claude"
+vc-x1 finalize --detach --repo "$session2" --squash --push main \
+    --log "$session2/finalize.log"
+cat "$session2/finalize.log"
 ```
 
 The log file shows timestamped (nanoseconds) entries with PIDs, covering

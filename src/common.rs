@@ -157,8 +157,17 @@ pub fn resolve_spec(
     spec
 }
 
-/// Run a shell command. Logs the command and output at debug level.
-/// Returns stdout on success.
+/// Run a shell command. Returns stdout on success.
+///
+/// Logs the command at `debug!` and the process streams as follows:
+/// - **stderr at `info!`** on success — jj prints human-readable messages
+///   (`Moved 1 bookmarks to …`, `Rebased N commits`, `Nothing changed.`) to
+///   stderr, and the user needs to see them without requiring `-v`.
+/// - **stdout at `debug!`** — callers usually consume stdout as data
+///   (bookmark lists, commit IDs, etc.), so `info!` would flood the user
+///   with machine-readable output they didn't ask for.
+/// - **Failures propagate as `Err`** carrying the stderr; the caller's
+///   error handler (`main::run_command`) surfaces it at `error!`.
 pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
     debug!("$ {cmd} {args_str}");
@@ -173,11 +182,11 @@ pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::
     if !stdout.is_empty() {
         debug!("  {stdout}");
     }
-    if !stderr.is_empty() {
-        debug!("  {stderr}");
-    }
     if !output.status.success() {
         return Err(format!("{cmd} {args_str} failed: {stderr}").into());
+    }
+    if !stderr.is_empty() {
+        info!("{stderr}");
     }
     Ok(stdout)
 }

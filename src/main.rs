@@ -10,6 +10,7 @@ mod list;
 mod logging;
 mod show;
 mod symlink;
+mod test_fixture;
 mod toml_simple;
 mod validate_desc;
 
@@ -89,6 +90,9 @@ pub(crate) enum Commands {
         --squash folds them in, --bookmark + --push sends it upstream.\n\
         Every flag is opt-in. See README.md for details.")]
     Finalize(finalize::FinalizeArgs),
+
+    /// Create a throwaway jj repo + bare-git remote for testing
+    TestFixture(test_fixture::TestFixtureArgs),
 }
 
 fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
@@ -130,6 +134,7 @@ fn main() -> ExitCode {
             };
             run_command(finalize::finalize(&opts))
         }
+        Commands::TestFixture(args) => run_command(test_fixture::test_fixture(&args)),
     }
 }
 

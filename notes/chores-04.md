@@ -222,3 +222,55 @@ finalize: push 'main' to remote
 (`change_id.shortest(8) ++ " " ++ commit_id.shortest(8)`) for short
 IDs. Minor helpers `jj_rev_exists()` and `jj_rev_short()` keep the
 preflight body readable.
+
+### 0.33.0-dev2 — subprocess visibility + `test-fixture` subcommand
+
+Two things land together:
+
+1. **`common::run()` subprocess output visibility.** Previously both
+   captured stdout and stderr were demoted to `debug!`, so without `-v`
+   the user saw nothing from invoked subprocesses on success. jj prints
+   human-readable messages (`Moved 1 bookmarks to …`, `Rebased N
+   commits`, `Nothing changed.`, push summaries) to **stderr**, while
+   data output (bookmark lists, commit IDs) goes to **stdout**. Split
+   accordingly:
+   - **stderr at `info!` on success** — user sees what jj actually did.
+   - **stdout at `debug!`** — callers consume it as data; `info!` would
+     flood the user with bookmark lists and revset results.
+   - Failure path unchanged — `run()` returns `Err` carrying stderr;
+     `main::run_command` already logs it at `error!`.
+
+2. **`vc-x1 test-fixture` subcommand** — scaffolds a throwaway dual-repo
+   workspace under `$TMPDIR/vc-x1-test-<timestamp>/` (or `--path PATH`).
+   Mirrors the real `vc-x1 init` layout minus GitHub and minus the
+   `~/.claude/projects/` symlink. Both repos get a described initial
+   commit with matching `ochid:` trailers, a tracked `main` bookmark,
+   and a pushed local bare-git remote — so `finalize --push` works
+   end-to-end on either side.
+   ```
+   <base>/
+     remote-code.git/     bare remote for code repo
+     remote-claude.git/   bare remote for .claude repo
+     work/                code repo (jj colocated, main tracks origin)
+       .vc-config.toml    path="/",        other-repo=".claude"
+       .gitignore         /.claude /.git /.jj /target
+       .claude/           session repo (jj colocated, main tracks origin)
+         .vc-config.toml  path="/.claude", other-repo=".."
+         .gitignore       .git .jj
+   ```
+   Retests for finalize (dev3, dev4, and beyond) point at
+   `--repo <base>/work` or `--repo <base>/work/.claude` instead of the
+   live workspace. Two prior retests during dev1 and dev2 accidentally
+   ran finalize against the live `.claude` with no `--detach`,
+   squashing + pushing mid-stream — that's the motivation.
+
+   Step order matters: create outer work repo → write its `.gitignore`
+   excluding `.claude` → only then init `.claude/` as a separate repo,
+   so the outer jj doesn't snapshot the nested `.jj/.git` before the
+   ignore rule is in place.
+
+No unit tests for the subprocess-logging change: it's one `info!`
+call; mocking `std::process::Command` is more noise than signal. The
+logger already has unit tests for routing. `test-fixture` gets arg
+parsing tests; its filesystem side belongs to future integration tests
+(see the todo entry for `tests/` with `tempfile`).
