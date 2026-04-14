@@ -414,6 +414,14 @@ initial commit with matching `ochid:` trailers, a tracked `main`
 bookmark, and a pushed remote — so `finalize --push` flows work
 end-to-end on either side.
 
+**Local remotes, not GitHub.** Each `origin` points at a bare-git
+directory alongside the work trees (`<base>/remote-code.git/`,
+`<base>/remote-claude.git/`) — no network, no auth, no GitHub. Pushes
+succeed against these local bare repos and stay inside the fixture,
+so nothing leaks out and nothing needs cleanup on a remote service.
+When you're done, `vc-x1 test-fixture-rm <base>` wipes the whole
+thing.
+
 ```bash
 vc-x1 test-fixture                 # base = $TMPDIR/vc-x1-test-<timestamp>
 vc-x1 test-fixture --path /tmp/t1  # explicit path
@@ -430,6 +438,40 @@ Layout:
     .claude/           session repo (jj colocated, main tracks origin)
       .vc-config.toml  path="/.claude", other-repo=".."
       .gitignore       .git .jj
+```
+
+Example — running `vc-x1 test-fixture` (the timestamp suffix varies):
+```
+$ vc-x1 test-fixture
+Creating test fixture at /tmp/vc-x1-test-8PD4x8
+Step 1: Initializing bare git remotes...
+Step 2: Initializing work repo (jj colocated)...
+Initialized repo in "."
+Hint: Running `git clean -xdf` will remove `.jj/`!
+Step 3: Initializing .claude session repo (jj colocated)...
+Initialized repo in "."
+Hint: Running `git clean -xdf` will remove `.jj/`!
+Step 4: Initial commits with placeholder ochids...
+Working copy  (@) now at: znkwzomz 0ce34d9b (empty) (no description set)
+Parent commit (@-)      : xoknyroz 93ca19eb initial commit
+Working copy  (@) now at: kmtpuzox f8c9b5af (empty) (no description set)
+Parent commit (@-)      : mwutluxv 40438e05 initial commit
+Step 5: Setting ochid cross-references...
+Rebased 1 descendant commits
+Step 6: Setting bookmarks and wiring remotes...
+Created 1 bookmarks pointing to xoknyroz 46b9cd88 main | initial commit
+Created 1 bookmarks pointing to mwutluxv 31a49010 main | initial commit
+Step 7: Pushing main to both remotes...
+Changes to push to origin:
+  Add bookmark main to 46b9cd886e64
+Changes to push to origin:
+  Add bookmark main to 31a490102db7
+
+Fixture ready:
+  Code repo:     /tmp/vc-x1-test-8PD4x8/work
+  Session repo:  /tmp/vc-x1-test-8PD4x8/work/.claude
+  Code remote:   /tmp/vc-x1-test-8PD4x8/remote-code.git
+  Claude remote: /tmp/vc-x1-test-8PD4x8/remote-claude.git
 ```
 
 ### Testing finalize
@@ -460,6 +502,39 @@ cat "$session2/finalize.log"
 The log file shows timestamped (nanoseconds) entries with PIDs, covering
 the full flow: `main` entry/exit, `finalize` entry/exit, `detach`
 spawn, and `finalize_exec` in the child process.
+
+Example — detached finalize against a fresh fixture. What the user
+sees in the terminal (the parent process) is the pre-flight plan and
+the detach confirmation; the child's work continues in the background:
+```
+$ vc-x1 finalize --repo "$session" --squash --push main \
+    --detach --delay 1 --log "$session/finalize.log"
+finalize: squash @ → @- in /tmp/vc-x1-test-8PD4x8/work/.claude
+finalize: set bookmark 'main' mwutluxv 31a49010 → mwutluxv 31a49010 (@-)
+finalize: push 'main' to remote
+finalize: detached (pid 103787), log: /tmp/vc-x1-test-8PD4x8/finalize.log
+```
+
+A few seconds later the log file (authoritative when the caller
+closes the child's pipes) shows the full run, including the child's
+own squash/push output:
+```
+$ cat "$session/finalize.log"
+[INFO ] vc_x1::finalize: finalize: squash @ → @- in /tmp/vc-x1-test-8PD4x8/work/.claude
+[INFO ] vc_x1::finalize: finalize: set bookmark 'main' mwutluxv 31a49010 → mwutluxv 31a49010 (@-)
+[INFO ] vc_x1::finalize: finalize: push 'main' to remote
+[INFO ] vc_x1::finalize: finalize: detached (pid 103787), log: /tmp/vc-x1-test-8PD4x8/finalize.log
+[INFO ] vc_x1::common: Working copy  (@) now at: ovumtpup fa1cb861 (empty) (no description set)
+Parent commit (@-)      : mwutluxv 584571ba main* | initial commit
+[INFO ] vc_x1::common: Nothing changed.
+[INFO ] vc_x1::common: Changes to push to origin:
+  Move sideways bookmark main from 31a490102db7 to 584571ba54af
+```
+
+Pre-flight failures (bookmark missing, non-tracking remote, squash
+revset unresolved, push target lacks a description) exit the parent
+synchronously with a non-zero status and a pointed error on stderr,
+before the child is ever spawned.
 
 ## Cross-repo Linking with Git Trailers
 

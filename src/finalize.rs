@@ -296,6 +296,7 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
         debug!("finalize_exec: sleeping {delay:?}");
         std::thread::sleep(delay);
 
+        info!("finalize: squashing {} → {}...", sq.source, sq.target);
         run(
             "jj",
             &[
@@ -326,6 +327,7 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
             .as_ref()
             .map(|sq| sq.target.as_str())
             .unwrap_or("@"); // OK: no squash spec → bookmark points at current @
+        info!("finalize: setting bookmark '{bookmark}' to {rev}...");
         run(
             "jj",
             &["bookmark", "set", bookmark, "-r", rev, "-R", &repo_str],
@@ -333,6 +335,7 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
         )?;
 
         if opts.push {
+            info!("finalize: pushing '{bookmark}' to origin...");
             run(
                 "jj",
                 &["git", "push", "--bookmark", bookmark, "-R", &repo_str],
@@ -341,6 +344,7 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
         }
     }
 
+    info!("finalize: done");
     debug!("finalize_exec: done");
     Ok(())
 }
@@ -381,6 +385,30 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cmd = std::process::Command::new(exe);
     cmd.args(&args).stdin(Stdio::null());
+
+    // Hand the child the user's controlling terminal when one exists so
+    // its output stays visible after the parent exits. Inherited pipes
+    // are unreliable here — the bash-tool / cron caller typically closes
+    // its read end on parent exit, silently dropping child writes. Fall
+    // back to null when there is no tty (pipe-invoked / CI / Windows);
+    // the log file is authoritative in that case.
+    match std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")
+    {
+        Ok(tty) => {
+            debug!("detach: /dev/tty opened, child output → terminal");
+            let out = tty.try_clone()?;
+            cmd.stdout(Stdio::from(out));
+            cmd.stderr(Stdio::from(tty));
+        }
+        Err(e) => {
+            debug!("detach: /dev/tty unavailable ({e}), child output → null");
+            cmd.stdout(Stdio::null());
+            cmd.stderr(Stdio::null());
+        }
+    }
 
     #[cfg(unix)]
     {

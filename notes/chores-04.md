@@ -274,3 +274,70 @@ call; mocking `std::process::Command` is more noise than signal. The
 logger already has unit tests for routing. `test-fixture` gets arg
 parsing tests; its filesystem side belongs to future integration tests
 (see the todo entry for `tests/` with `tempfile`).
+
+### 0.33.0-dev3 — `/dev/tty` reconnect + per-dev push+finalize
+
+**`detach()` now explicitly wires the child's stdout/stderr** rather
+than inheriting them. Previously only `stdin` was nulled; stdout/stderr
+inherited from the parent, which meant:
+
+- In a real terminal, the child's writes happened to still reach the
+  shell — but that was accidental, not guaranteed.
+- Via a pipe-invoked caller (Claude Code's Bash tool, cron, CI), the
+  bash tool closed its read end of the inherited pipe the moment the
+  parent exited, so the child's subsequent writes either hit SIGPIPE
+  or vanished.
+
+New behavior, in `detach()` before `cmd.spawn()`:
+
+- Open `/dev/tty` read+write. On Unix with a controlling terminal,
+  this gives a fd that stays valid regardless of what the parent's
+  stdout/stderr pointed at (and regardless of pipe closures on parent
+  exit).
+- If `/dev/tty` opens, clone the fd and attach as the child's stdout
+  and stderr. User sees child output in the shell they invoked from.
+- If it doesn't open (pipe-invoked, no controlling terminal, Windows),
+  fall back to `Stdio::null()`. The log file is authoritative in that
+  case. This is the Claude-Code-Bash-tool path.
+
+No new tests: the behavior branches on runtime environment
+(`/dev/tty` presence), which unit tests can't meaningfully exercise
+without a tty fixture. Verified end-to-end via `test-fixture` — the
+detached child's output reaches the log file in the pipe-invoked
+case, and reaches the terminal in an interactive shell.
+
+**CLAUDE.md: per-dev push+finalize workflow.** New "Per-dev step
+workflow" subsection explains that each `-devN` step is treated like
+a mini session-end: push both repos and finalize `.claude` with
+`--detach --delay 10`, then wait for the user to say "continue".
+Matches the discipline the user called out — a `-devN` commit is
+important, same as any single commit being shipped to remote.
+
+**Refinements from hands-on testing** (same commit):
+
+- **`test-fixture` "Try:" hint** — drop the `work/` finalize suggestion
+  (the code repo always uses plain `jj git push`, never finalize) and
+  add `jj git push -R <work>` plus a `test-fixture-rm` cleanup hint.
+  The earlier `work/ --push main --detach` suggestion was a footgun:
+  preflight rejects it because `@` is empty and has no description.
+- **`test-fixture --with-pending`** — new flag; writes an uncommitted
+  `TODO.md` to `work/` and `session-notes.md` to `work/.claude/` so
+  `finalize --squash` has actual changes to squash. Default off
+  (clean fixture); opt in for realistic demos.
+- **`vc-x1 test-fixture-rm PATH`** — new subcommand for cleanup.
+  Safety guard refuses anything whose last path component does not
+  start with `vc-x1-test-`, so it can only ever remove intended
+  fixtures.
+- **Step markers in `finalize_exec`** — `info!` before each subprocess
+  call (`finalize: squashing …`, `finalize: setting bookmark … to @-`,
+  `finalize: pushing … to origin`, `finalize: done`). Makes the
+  interleaved `jj` output easy to follow — the earlier run had the
+  user wondering whether "Nothing changed." (from `bookmark set`)
+  meant push failed, since the output of each subprocess was adjacent
+  with no separator.
+- **README local-remotes callout** — new "Local remotes, not GitHub"
+  paragraph in `### test-fixture`; `test-fixture` runtime output
+  now says "Fixture ready (local bare-git remotes, see README.md §
+  test-fixture)"; long doc on `TestFixtureArgs` also points at the
+  README section. Users initially saw "origin" and assumed GitHub;
+  the docs + runtime pointer make the self-contained nature obvious.

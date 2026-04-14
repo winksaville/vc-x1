@@ -91,8 +91,11 @@ pub(crate) enum Commands {
         Every flag is opt-in. See README.md for details.")]
     Finalize(finalize::FinalizeArgs),
 
-    /// Create a throwaway jj repo + bare-git remote for testing
+    /// Create a throwaway dual-repo jj fixture (local remotes; see README)
     TestFixture(test_fixture::TestFixtureArgs),
+
+    /// Remove a test fixture (safety: name must start with vc-x1-test-)
+    TestFixtureRm(test_fixture::TestFixtureRmArgs),
 }
 
 fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
@@ -135,6 +138,7 @@ fn main() -> ExitCode {
             run_command(finalize::finalize(&opts))
         }
         Commands::TestFixture(args) => run_command(test_fixture::test_fixture(&args)),
+        Commands::TestFixtureRm(args) => run_command(test_fixture::test_fixture_rm(&args)),
     }
 }
 

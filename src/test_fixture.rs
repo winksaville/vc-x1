@@ -14,11 +14,27 @@ use crate::common::{mkdir_p, run, write_file};
 /// bare-git remote per repo under `<base>/remote-*.git/`. Both repos carry
 /// `.vc-config.toml`, `.gitignore`, an initial described commit with
 /// matching `ochid:` trailers, and a tracked `main` bookmark.
+///
+/// The remotes are local bare-git directories inside the fixture — no
+/// network, no GitHub. See README.md § test-fixture for details.
 #[derive(Args, Debug)]
 pub struct TestFixtureArgs {
     /// Fixture root directory [default: $TMPDIR/vc-x1-test-<timestamp>]
     #[arg(long, value_name = "PATH")]
     pub path: Option<PathBuf>,
+
+    /// Leave uncommitted changes in @ so finalize --squash has real work
+    #[arg(long)]
+    pub with_pending: bool,
+}
+
+/// Remove a test fixture. Refuses anything whose directory name doesn't
+/// start with `vc-x1-test-`, so it cannot chew up arbitrary paths.
+#[derive(Args, Debug)]
+pub struct TestFixtureRmArgs {
+    /// Fixture root directory to remove
+    #[arg(value_name = "PATH")]
+    pub path: PathBuf,
 }
 
 const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
@@ -142,24 +158,59 @@ pub fn test_fixture(args: &TestFixtureArgs) -> Result<(), Box<dyn std::error::Er
     run("jj", &["git", "push", "--bookmark", "main"], &work_dir)?;
     run("jj", &["git", "push", "--bookmark", "main"], &session_dir)?;
 
+    if args.with_pending {
+        info!("Step 8: Writing uncommitted changes to @ (both repos)...");
+        write_file(&work_dir.join("TODO.md"), "# TODO\n- first feature\n")?;
+        write_file(
+            &session_dir.join("session-notes.md"),
+            "# Session notes\n- simulated pending work\n",
+        )?;
+    }
+
     info!("");
-    info!("Fixture ready:");
+    info!("Fixture ready (local bare-git remotes, see README.md § test-fixture):");
     info!("  Code repo:     {}", work_dir.display());
     info!("  Session repo:  {}", session_dir.display());
     info!("  Code remote:   {}", remote_code.display());
     info!("  Claude remote: {}", remote_claude.display());
     info!("");
     info!("Try:");
-    info!(
-        "  vc-x1 finalize --repo {} --push main --detach",
-        work_dir.display()
-    );
+    info!("  # code repo uses plain push, never finalize:");
+    info!("  jj git push -R {}", work_dir.display());
+    info!("  # session repo gets finalize (squash + push):");
     info!(
         "  vc-x1 finalize --repo {} --squash --push main --detach",
         session_dir.display()
     );
+    info!("  # clean up when done:");
+    info!("  vc-x1 test-fixture-rm {}", base.display());
 
     debug!("test_fixture: exit");
+    Ok(())
+}
+
+pub fn test_fixture_rm(args: &TestFixtureRmArgs) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("test_fixture_rm: enter args={args:?}");
+    let path = args
+        .path
+        .canonicalize()
+        .map_err(|e| format!("cannot resolve path '{}': {e}", args.path.display()))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| format!("path '{}' has no final component", path.display()))?
+        .to_string_lossy()
+        .into_owned();
+    if !name.starts_with("vc-x1-test-") {
+        return Err(format!(
+            "refusing to remove '{}': directory name '{name}' does not start with 'vc-x1-test-'",
+            path.display()
+        )
+        .into());
+    }
+    info!("Removing fixture at {}", path.display());
+    std::fs::remove_dir_all(&path)?;
+    info!("Done.");
+    debug!("test_fixture_rm: exit");
     Ok(())
 }
 
@@ -181,6 +232,7 @@ mod tests {
     fn defaults() {
         let args = parse(&["vc-x1", "test-fixture"]);
         assert!(args.path.is_none());
+        assert!(!args.with_pending);
     }
 
     #[test]
@@ -190,11 +242,35 @@ mod tests {
     }
 
     #[test]
+    fn with_pending_flag() {
+        let args = parse(&["vc-x1", "test-fixture", "--with-pending"]);
+        assert!(args.with_pending);
+    }
+
+    #[test]
     fn unknown_opt() {
         let err = Cli::try_parse_from(["vc-x1", "test-fixture", "--bogus"])
             .unwrap_err()
             .to_string();
         assert!(err.contains("--bogus"));
+    }
+
+    #[test]
+    fn rm_requires_path() {
+        let err = Cli::try_parse_from(["vc-x1", "test-fixture-rm"])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("PATH"));
+    }
+
+    #[test]
+    fn rm_with_path() {
+        let cli = Cli::try_parse_from(["vc-x1", "test-fixture-rm", "/tmp/vc-x1-test-foo"]).unwrap();
+        if let Commands::TestFixtureRm(args) = cli.command {
+            assert_eq!(args.path, PathBuf::from("/tmp/vc-x1-test-foo"));
+        } else {
+            panic!("expected TestFixtureRm");
+        }
     }
 
     #[test]

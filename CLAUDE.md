@@ -173,6 +173,31 @@ path followed by the changeID:
 Use `vc-x1 chid -R .,.claude -L` to get both changeIDs (first line
 is app repo, second is `.claude`).
 
+## Per-dev step workflow
+
+Each `-devN` step is treated like a mini session-end: push both repos
+and finalize `.claude` so work is always synced to remote, and so
+trailing session writes get squashed into the current dev commit
+before moving on.
+
+After both commits (app + `.claude`) are approved and each bookmark
+has been advanced (post-commit checklist), present these two commands
+for approval as a pair:
+
+```
+jj git push --bookmark <bookmark> -R .
+vc-x1 finalize --repo .claude --squash --push <bookmark> --detach --delay 10 --log /tmp/vc-x1-finalize.log
+```
+
+Same as session-end checkpoint 2, just applied per dev. **Stop and wait
+for the user to say "continue" before resuming the next dev step** —
+the detach + 10s delay needs room to squash trailing writes from the
+act of saying "continue". Nothing should be output after the finalize
+line until the user replies.
+
+A `-devN` step is "important" — no different from a single commit being
+shipped to remote — so the same push+finalize discipline applies.
+
 ## Session End Workflows
 
 Two-checkpoint flow with explicit user approval at each stage.
