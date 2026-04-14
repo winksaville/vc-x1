@@ -5,6 +5,7 @@ and reference links to more details.
 
 ## In Progress
 
+- Make `finalize` failures visible — pre-flight, subprocess logging, tty reconnect, status marker (0.33.0) [40]
 
 ## Todo
 
@@ -55,3 +56,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [37]: /notes/chores-03.md#windows-symlink-support
 [38]: /notes/chores-03.md#remove-submodule-from-initclone-0311
 [39]: /notes/chores-04.md#audit-unwrapunwrap_or-usage-0320
+[40]: /notes/chores-04.md#make-finalize-failures-visible-0330

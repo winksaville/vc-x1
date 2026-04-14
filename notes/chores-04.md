@@ -101,3 +101,76 @@ panicking on setup failure is the correct behavior and idiomatic Rust.
 
 Single-step bump to `0.32.0`. Mechanical doc-only change, no behavior
 difference, one commit.
+
+## Make `finalize` failures visible (0.33.0)
+
+`finalize --detach --log <path>` hides failures: the parent spawns a
+child and exits 0, the child's error only lands in the log file, and
+the caller (interactive user or bot) never sees anything went wrong.
+Real incident: `jj git push` failed in the `.claude` repo with
+"Non-tracking remote bookmark main@origin exists" — parent returned 0,
+session ended, nobody noticed until much later.
+
+### Requirements
+
+1. **Pre-flight validation in the parent**, before `detach()`:
+   squash revsets resolve, push bookmark exists, push bookmark is
+   tracking its remote ref. Synchronous non-zero exit with visible
+   stderr for this class of failures.
+2. **Subprocess output must be visible**: `common::run()` currently
+   demotes captured stdout/stderr to `debug!`, so without `-v` the
+   user never sees `jj`'s messages. Change to `info!` on success
+   output and `error!` on failure stderr.
+3. **Detached child output must reach the user's terminal when one
+   exists**: parent opens `/dev/tty` and passes it to the child as
+   stdout/stderr. Falls back to null when there is no controlling
+   terminal (pipe-invoked / bot / cron), relying on the log file +
+   status marker in that case.
+4. **Status marker file for post-detach failures**: child writes an
+   exit-code + last-error file on completion (alongside the log, or
+   in `~/.cache/vc-x1/`). Any subsequent `vc-x1` invocation reads
+   pending markers and surfaces failures to stderr, so the bot or user
+   sees the previous failure on their next command.
+
+Every `CliLogger`-enabled record must reach *both* the terminal stream
+AND the log file (if `--log`). The existing routing already does this
+for enabled levels — audit + document.
+
+### Plan (multi-step)
+
+- `0.33.0-dev1` — pre-flight validation in `finalize::preflight()`,
+  called before `detach()`. Covers bookmark existence + tracking,
+  squash revset resolution.
+- `0.33.0-dev2` — `common::run()` logging: `info!` for subprocess
+  output, `error!` for failure stderr, so failures surface without
+  `-v`.
+- `0.33.0-dev3` — `/dev/tty` reconnect in `detach()`: parent opens
+  the controlling terminal and passes it to the child, so a detached
+  child can still write to the user's shell. Null fallback when no
+  tty.
+- `0.33.0-dev4` — status marker file: child writes result on
+  completion, next `vc-x1` invocation consumes pending markers and
+  surfaces any failures prominently.
+- `0.33.0` — roll-up, notes finalize.
+
+### 0.33.0-dev1 — pre-flight validation
+
+`finalize::preflight()` runs before `detach()` and validates:
+
+- **Squash revsets resolve** (if `--squash`): `jj log -r <rev> --no-graph`
+  on both source and target. Errors surface as
+  `squash source '<rev>' does not resolve: …`.
+- **Bookmark exists** (if `--push`): `jj bookmark list <name>` must
+  return non-empty. Errors as `bookmark '<name>' does not exist`.
+- **Bookmark is tracking its remote** (if `--push`): scan
+  `jj bookmark list -a <name>` output. Tracked remotes appear indented
+  (`  @origin: …`); a non-tracked remote appears at column 0 as
+  `<bookmark>@<remote>: …`. If found, error with a remediation hint:
+  `run `jj bookmark track <bookmark>@<remote> -R <repo>` to fix`.
+
+`find_non_tracking_remote()` is a pure helper tested in unit tests
+against a few representative `jj bookmark list -a` output snippets.
+
+Bookmark-existence is still re-checked inside `finalize_exec()` as
+defense-in-depth — pre-flight catches it synchronously, the child
+catches any unlikely race between pre-flight and execution.

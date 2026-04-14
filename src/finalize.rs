@@ -94,6 +94,93 @@ impl FinalizeArgs {
     }
 }
 
+/// Scan `jj bookmark list -a <name>` output for non-tracking remote refs.
+///
+/// Tracked remotes appear indented (`  @origin: ...`), non-tracked remotes
+/// appear at column 0 as `<bookmark>@<remote>: ...`. Returns the non-tracking
+/// remote name if any is found.
+fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<String> {
+    let prefix = format!("{bookmark}@");
+    for line in list_output.lines() {
+        // Non-tracking remote ref is at column 0 and starts with "<bookmark>@"
+        if line.starts_with(&prefix)
+            && let Some(rest) = line.strip_prefix(&prefix)
+            && let Some((remote, _)) = rest.split_once(':')
+        {
+            return Some(remote.to_string());
+        }
+    }
+    None
+}
+
+/// Validate inputs synchronously before detaching.
+///
+/// Catches the common failure modes up front so the parent can exit
+/// with a visible non-zero status — rather than discovering them in
+/// the detached child where errors only reach the log file.
+fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("preflight: checking opts");
+    let repo_str = opts.repo.to_string_lossy();
+    let cwd = std::path::Path::new(".");
+
+    // Verify squash revsets resolve to something.
+    if let Some(ref sq) = opts.squash {
+        run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                &sq.source,
+                "--no-graph",
+                "-T",
+                "\"\"",
+                "-R",
+                &repo_str,
+            ],
+            cwd,
+        )
+        .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
+        run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                &sq.target,
+                "--no-graph",
+                "-T",
+                "\"\"",
+                "-R",
+                &repo_str,
+            ],
+            cwd,
+        )
+        .map_err(|e| format!("squash target '{}' does not resolve: {e}", sq.target))?;
+    }
+
+    // Verify bookmark exists and (if a remote ref exists) is tracking it.
+    if let Some(ref bookmark) = opts.bookmark {
+        let exists = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
+        if exists.is_empty() {
+            return Err(format!("bookmark '{bookmark}' does not exist").into());
+        }
+
+        let all = run(
+            "jj",
+            &["bookmark", "list", "-a", bookmark, "-R", &repo_str],
+            cwd,
+        )?;
+        if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
+            return Err(format!(
+                "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
+                 run `jj bookmark track {bookmark}@{remote} -R {repo_str}` to fix"
+            )
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
 fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     debug!("finalize_exec: starting opts={opts:?}");
     let repo_str = opts.repo.to_string_lossy();
@@ -222,6 +309,14 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     debug!("finalize: entry opts={opts:?}");
+
+    // Validate synchronously before detaching so failures exit with a
+    // visible non-zero status rather than hiding in the detached child's log.
+    // Skip in --exec (the re-entered child already passed preflight in the parent).
+    if !opts.exec {
+        preflight(opts)?;
+    }
+
     let result = if opts.detach && !opts.exec {
         detach(opts)
     } else {
@@ -332,6 +427,44 @@ mod tests {
     fn unknown_opt() {
         let err = parse_err(&["vc-x1", "finalize", "--bogus"]);
         assert!(err.contains("--bogus"));
+    }
+
+    #[test]
+    fn find_non_tracking_remote_tracked() {
+        // Tracked remote: indented "  @origin:"
+        let output = "\
+main: zzwozmkn 40a8309a title here
+  @git: zzwozmkn 40a8309a title here
+  @origin: zzwozmkn 40a8309a title here";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
+    }
+
+    #[test]
+    fn find_non_tracking_remote_untracked() {
+        // Non-tracking remote appears at column 0 as "main@origin:"
+        let output = "\
+main: zzwozmkn 40a8309a title here
+main@origin: zzwozmkn 40a8309a title here";
+        assert_eq!(
+            find_non_tracking_remote(output, "main"),
+            Some("origin".to_string())
+        );
+    }
+
+    #[test]
+    fn find_non_tracking_remote_no_remote() {
+        let output = "main: zzwozmkn 40a8309a title here";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
+    }
+
+    #[test]
+    fn find_non_tracking_remote_other_bookmark() {
+        // A different bookmark's untracked remote should not match.
+        let output = "\
+main: zzwozmkn 40a8309a title here
+  @origin: zzwozmkn 40a8309a title here
+other@origin: abcd1234 5678efgh other stuff";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
     }
 
     #[test]
