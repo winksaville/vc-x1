@@ -5,7 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
-- Make `finalize` failures visible — pre-flight, subprocess logging, tty reconnect, status marker (0.33.0) [40]
 
 ## Todo
 
@@ -36,6 +35,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
 - Remove submodule from init/clone (0.31.1) [38]
 - Audit `unwrap`/`unwrap_or` usage, add `// OK: …` convention (0.32.0) [39]
+- Make `finalize` failures visible — pre-flight, subprocess logging, tty reconnect, status marker (0.33.0) [40]
 
 # References
 

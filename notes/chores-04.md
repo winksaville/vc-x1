@@ -457,3 +457,26 @@ which the dev1.1 preflight rightly rejects because `@` has no
 description — a footgun directly in the docs. New section runs the
 real push-for-code, finalize-for-session pattern end-to-end and
 explains why the two repos get different tooling. TOC updated.
+
+### 0.33.0 — release rollup
+
+Layered visibility for `finalize` failures. Each dev step closed a
+distinct gap; together they mean a failed finalize is never silent
+regardless of how it was invoked:
+
+| dev   | What it adds                                            | Failure caught / surfaced                                           |
+| ----- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| dev1  | Synchronous pre-flight in the parent (`preflight()`)    | Bad bookmark, non-tracking remote, unresolved squash revset         |
+| dev1.1| Conflict / forward-only / push-target-description checks + plan logging; CLAUDE.md post-commit bookmark-advance workflow | Conflicts, divergent bookmark move, undescribed push target         |
+| dev2  | `common::run()` stderr at `info!`; `test-fixture` dual-repo scaffold | jj's own messages (e.g. `Nothing changed.`, push summaries) visible without `-v` |
+| dev3  | `/dev/tty` reconnect for detached child; step markers in `finalize_exec`; CLAUDE.md per-dev push+finalize workflow; `test-fixture` refinements (`--with-pending`, `test-fixture-rm`, hint fixes, README local-remotes callout) | Interactive terminal sees child output live after detach; per-dev `-devN` is pushed + finalized, so intermediate work isn't lost |
+| dev4  | Status marker in `~/.cache/vc-x1/finalize-status/`; `surface_previous_failures` at every `vc-x1` startup | Pipe-invoked callers (bash tool, cron, CI) get their previous child's failure on the next run |
+| dev4.1| README "Testing push + finalize" rewrite with complete flow; runtime breadcrumb in test-fixture Try | Users following the docs actually succeed at push+finalize end-to-end |
+
+End state: for a detached finalize,
+- synchronous issues never reach detach (exit non-zero, error on stderr),
+- child output lands on the user's terminal when `/dev/tty` exists,
+- child output is captured in the `--log` file regardless,
+- any child-side failure leaves a marker that the next invocation surfaces,
+- per-dev push+finalize hygiene means nothing sits unpushed at a
+  `-devN` commit.
