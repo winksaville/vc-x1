@@ -341,3 +341,73 @@ important, same as any single commit being shipped to remote.
   test-fixture)"; long doc on `TestFixtureArgs` also points at the
   README section. Users initially saw "origin" and assumed GitHub;
   the docs + runtime pointer make the self-contained nature obvious.
+
+### 0.33.0-dev4 — status marker for post-detach failures
+
+The detached finalize child's exit code isn't observable by the
+caller (the parent already returned `0` before the child did
+anything meaningful). dev1's pre-flight catches most issues
+synchronously, and dev3's `/dev/tty` reconnect gets the child's
+output onto the user's terminal when one exists — but if the
+child fails during its squash or push (network loss, remote
+deleted, race), and the caller is pipe-invoked (bash tool, cron,
+CI), the failure would still be silent except in the `--log`
+file.
+
+dev4 closes that gap with a **status marker file** that the child
+writes on failure, and which any subsequent `vc-x1` invocation
+surfaces to the user.
+
+**How this relates to dev3.** The two layers are complementary, not
+alternatives:
+
+| Caller                                   | Live child output             | Status marker                            |
+| ---------------------------------------- | ----------------------------- | ---------------------------------------- |
+| Interactive shell                        | `/dev/tty` — visible in the user's terminal | Also written (safety net if the user missed the live output) |
+| Pipe-invoked (bash tool, cron, CI) | No tty → null → invisible     | Primary visibility; surfaces on next run |
+
+So interactive users get immediate notification via `/dev/tty`, and
+a durable marker they pick up on the next `vc-x1 <anything>`.
+Pipe-invoked callers rely entirely on the marker, which is exactly
+the case (bash-tool-invoked finalize) that motivated this series.
+
+**Writer** (`finalize::write_failure_marker`): when `finalize()`
+returns `Err` and `opts.exec` is true (the detached child path),
+write one file per failure to `$HOME/.cache/vc-x1/finalize-status/`.
+Filename is `<ns-since-epoch>-<pid>.status`, sortable and unique.
+Content is simple `key=value` lines:
+```
+timestamp_ns=…
+pid=…
+repo=…
+bookmark=…
+error=<full error string>
+```
+Only the detached-child path writes; the synchronous path's `Err`
+already surfaces via `error!` through `main::run_command`.
+
+**Reader** (`finalize::surface_previous_failures`): on every
+non-detached-child `vc-x1` invocation, called from `main()` right
+after `Cli::parse()`. Scans the marker directory, prints each
+failure to stderr with a `warn:` prefix, then deletes the file so
+it surfaces exactly once.
+
+Suppressed in the detached child (`--exec`) so a child doesn't
+consume markers meant for the next interactive run. Detected via
+`matches!(cli.command, Commands::Finalize(ref f) if f.exec)` before
+dispatch.
+
+**Note: `--version` and `--help` short-circuit** inside `Cli::parse()`
+— clap exits before returning, so the surface step doesn't run for
+those invocations. Acceptable: marker surfacing is already a
+best-effort side channel, and the next actual subcommand
+(`vc-x1 chid`, `finalize`, etc.) picks them up.
+
+Verified end-to-end: created a fixture with `--with-pending`,
+`rm -rf`'d `remote-claude.git/objects` to break push, ran
+`vc-x1 finalize … --detach --delay 1`. Parent returned 0; child
+failed push a second later; marker appeared under
+`~/.cache/vc-x1/finalize-status/`; the next `vc-x1 chid -R .` ran
+the command normally after printing the failure context (including
+the full `jj git push` error) to stderr; marker was gone
+afterwards.

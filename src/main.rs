@@ -115,6 +115,17 @@ fn main() -> ExitCode {
     let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
     logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
+    // Surface any failure markers left by previous detached finalize children,
+    // unless we ARE a detached child (the `--exec` re-entry). A detached child
+    // shouldn't consume markers meant for the user's next interactive run.
+    let is_detached_exec = matches!(
+        cli.command,
+        Commands::Finalize(ref f) if f.exec
+    );
+    if !is_detached_exec {
+        finalize::surface_previous_failures();
+    }
+
     match cli.command {
         Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
         Commands::Desc(desc_args) => run_command(desc::desc(&desc_args)),

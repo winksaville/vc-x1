@@ -1,10 +1,71 @@
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Args;
 use log::{debug, info};
 
 use crate::common::run;
+
+/// Directory where the detached finalize child writes failure markers.
+/// A subsequent `vc-x1` invocation scans this directory and surfaces
+/// any failures to the user, closing the gap that the detached child's
+/// non-zero exit isn't observable by the caller.
+fn status_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/vc-x1/finalize-status"))
+}
+
+fn write_failure_marker(opts: &FinalizeOpts, err: &str) {
+    let Some(dir) = status_dir() else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0); // OK: filesystem-sortable timestamp; 0 on the impossible pre-epoch path
+    let pid = std::process::id();
+    let path = dir.join(format!("{ns}-{pid}.status"));
+    let content = format!(
+        "timestamp_ns={ns}\npid={pid}\nrepo={}\nbookmark={}\nerror={err}\n",
+        opts.repo.display(),
+        opts.bookmark.as_deref().unwrap_or(""),
+    );
+    let _ = std::fs::write(&path, content);
+}
+
+/// Read, print, and delete any failure markers left by previous detached
+/// finalize children. Cheap no-op when the directory doesn't exist.
+pub fn surface_previous_failures() {
+    let Some(dir) = status_dir() else {
+        return;
+    };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
+    let mut paths: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("status"))
+        .collect();
+    paths.sort();
+    for path in paths {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            eprintln!(
+                "warn: previous finalize failure ({}):",
+                path.file_stem()
+                    .map(|s| s.to_string_lossy())
+                    .unwrap_or_default() // OK: filename without extension; empty on unexpected absence
+            );
+            for line in content.lines() {
+                eprintln!("  {line}");
+            }
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+}
 
 /// Squash, set bookmark, and/or push a jj repo.
 ///
@@ -456,7 +517,15 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     };
     match &result {
         Ok(()) => debug!("finalize: exit ok"),
-        Err(e) => debug!("finalize: exit err={e}"),
+        Err(e) => {
+            debug!("finalize: exit err={e}");
+            // In the detached-child path the caller can't observe our
+            // non-zero exit. Drop a failure marker so a later vc-x1
+            // invocation can surface the problem.
+            if opts.exec {
+                write_failure_marker(opts, &e.to_string());
+            }
+        }
     }
     result
 }
