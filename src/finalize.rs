@@ -226,7 +226,7 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
             return Err(format!(
                 "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
-                 run `jj bookmark track {bookmark}@{remote} -R {repo_str}` to fix"
+                 run `jj bookmark track {bookmark} --remote={remote} -R {repo_str}` to fix"
             )
             .into());
         }

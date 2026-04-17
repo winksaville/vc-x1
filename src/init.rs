@@ -294,12 +294,20 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     info!("Step 9: Re-initializing jj on both repos...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
-    run("jj", &["bookmark", "track", "main@origin"], &project_dir)?;
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        &project_dir,
+    )?;
     let code_chid_final = jj_chid("@-", &project_dir)?;
 
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
-    run("jj", &["bookmark", "track", "main@origin"], &session_dir)?;
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        &session_dir,
+    )?;
     let session_chid_final = jj_chid("@-", &session_dir)?;
 
     // Step 10: Create Claude Code symlink

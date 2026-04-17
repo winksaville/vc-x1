@@ -36,6 +36,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Remove submodule from init/clone (0.31.1) [38]
 - Audit `unwrap`/`unwrap_or` usage, add `// OK: …` convention (0.32.0) [39]
 - Make `finalize` failures visible — pre-flight, subprocess logging, tty reconnect, status marker (0.33.0) [40]
+- Fix deprecated `jj bookmark track <bookmark>@<remote>` syntax for jj 0.40.0 (0.33.1) [41]
 
 # References
 
@@ -57,3 +58,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [38]: /notes/chores-03.md#remove-submodule-from-initclone-0311
 [39]: /notes/chores-04.md#audit-unwrapunwrap_or-usage-0320
 [40]: /notes/chores-04.md#make-finalize-failures-visible-0330
+[41]: /notes/chores-04.md#fix-deprecated-jj-bookmark-track-syntax-0331

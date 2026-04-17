@@ -480,3 +480,20 @@ End state: for a detached finalize,
 - any child-side failure leaves a marker that the next invocation surfaces,
 - per-dev push+finalize hygiene means nothing sits unpushed at a
   `-devN` commit.
+
+## Fix deprecated `jj bookmark track` syntax (0.33.1)
+
+jj 0.40.0 deprecated `<bookmark>@<remote>` as an argument form in
+favour of `<bookmark> --remote=<remote>`. Two call sites in
+`src/init.rs` and one hint string in `src/finalize.rs` still used
+the old form. Surfaced by `vc-x1 init actor-x1` on jj 0.40.0, which
+printed `Warning: <bookmark>@<remote> syntax is deprecated, use
+`<bookmark> --remote=<remote>` instead.`
+
+- `src/init.rs` — fix `jj bookmark track main@origin`
+- `src/finalize.rs` — Update the preflight error hint
+
+Surveyed the other jj commands vc-x1 invokes
+(`git init --colocate`, `bookmark set`, `bookmark list [-a]`,
+`describe`, `git push --bookmark`, `commit`) against jj 0.40.0 —
+none emit deprecation warnings.
