@@ -497,3 +497,35 @@ Surveyed the other jj commands vc-x1 invokes
 (`git init --colocate`, `bookmark set`, `bookmark list [-a]`,
 `describe`, `git push --bookmark`, `commit`) against jj 0.40.0 —
 none emit deprecation warnings.
+
+## Silence untracked-remote hint in init step 9 (0.33.2)
+
+On jj 0.40.0, `vc-x1 init` step 9 ("Re-initializing jj on both
+repos") shows a hint from `jj git init --colocate`:
+
+```
+Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
+  main@origin
+Hint: Run the following command to keep local bookmarks updated on future pulls:
+  jj bookmark track main --remote=origin
+```
+
+The hint is advisory — two commands later we run `jj bookmark
+track main --remote=origin` anyway. The noise suggests the user
+has to act when they don't.
+
+- `src/init.rs` — both step-9 colocate calls get the global
+  `--quiet` flag (`jj --quiet git init --colocate`). Also silences
+  the "Initialized repo in \".\"" primary output and the generic
+  `git clean -xdf` hint; our own `info!("Step 9: …")` already
+  announces the step and the subsequent `Started tracking 1
+  remote bookmarks.` line confirms the track worked.
+
+Left the redundant `jj bookmark set main -r @-` call alone — it
+prints `Nothing changed.` after colocate (which imports git's
+`main` ref as a local bookmark at the right commit) but it's
+cheap defense against any edge case where colocate doesn't land
+`main` exactly where we need it.
+
+No config knob to target just the untracked-remote hint — only
+`hints.resolving-conflicts` is wired.

@@ -292,7 +292,11 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 9: Re-initialize jj on both repos
     info!("Step 9: Re-initializing jj on both repos...");
-    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    run(
+        "jj",
+        &["--quiet", "git", "init", "--colocate"],
+        &project_dir,
+    )?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
     run(
         "jj",
@@ -301,7 +305,11 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let code_chid_final = jj_chid("@-", &project_dir)?;
 
-    run("jj", &["git", "init", "--colocate"], &session_dir)?;
+    run(
+        "jj",
+        &["--quiet", "git", "init", "--colocate"],
+        &session_dir,
+    )?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
     run(
         "jj",
