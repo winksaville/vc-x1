@@ -529,3 +529,31 @@ cheap defense against any edge case where colocate doesn't land
 
 No config knob to target just the untracked-remote hint — only
 `hints.resolving-conflicts` is wired.
+
+## Compatible dep refresh (0.33.3)
+
+`cargo install --path .` reported `generic-array 0.14.7 (available:
+0.14.9)` and `jj-lib 0.39.0 (available: 0.40.0)`. `cargo update
+--dry-run` showed 21 compatible updates within current caret
+constraints — all patch/minor bumps within range. Ran `cargo update`;
+lockfile picked up 22 updates + 2 new transitives (`hashbrown
+v0.17.0`, `wit-bindgen v0.57.1`).
+
+Direct-dep movers: `clap 4.6.0 → 4.6.1`, `clap_complete 4.6.0 →
+4.6.2`, `libc 0.2.184 → 0.2.185`. Everything else is transitive
+(mostly from `jj-lib` — `tokio`, `rayon`, `wasm-bindgen`, …).
+
+fmt, clippy, tests (145 pass), `cargo install` all clean.
+
+`Cargo.toml` unchanged — all updates fit the existing requirements.
+
+### Deferred
+
+- `jj-lib 0.40.0` — blocked by our own `"0.39.0"` caret; requires
+  `Cargo.toml` bump and a likely-non-trivial source adjustment for
+  pre-1.0 API churn. Queued for 0.33.4.
+- `generic-array 0.14.9` — blocked by `crypto-common v0.1.7`'s
+  exact req `generic-array = 0.14.7` (two layers up the crypto
+  stack, pulled in transitively by `jj-lib`'s `digest`/`blake2`/
+  `sha1` chain). Nothing we can do from here; waits for an
+  upstream RustCrypto cycle.
