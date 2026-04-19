@@ -5,6 +5,9 @@ use clap::Args;
 use log::{debug, info};
 
 use crate::common::{mkdir_p, run, write_file};
+use crate::init::{
+    copy_template_recursive, parse_use_template, rewrite_readme_first_line, validate_templates,
+};
 
 /// Create a throwaway dual-repo jj fixture for testing.
 ///
@@ -26,6 +29,17 @@ pub struct TestFixtureArgs {
     /// Leave uncommitted changes in @ so finalize --squash has real work
     #[arg(long)]
     pub with_pending: bool,
+
+    /// Seed both repos from template directories.
+    ///
+    /// Same format and semantics as `vc-x1 init --use-template`:
+    /// `CODE[,BOT]`. If `BOT` is omitted, defaults to the sibling directory
+    /// `<CODE>.claude`. Non-hidden contents are copied recursively; hidden
+    /// entries are skipped. `README.md` at the root of each target (if
+    /// present) gets its first line rewritten to `# <repo-name>`, where
+    /// the code repo is `work` and the bot repo is `work.claude`.
+    #[arg(long, value_name = "CODE[,BOT]")]
+    pub use_template: Option<String>,
 }
 
 /// Remove a test fixture. Refuses anything whose directory name doesn't
@@ -95,6 +109,15 @@ pub fn test_fixture(args: &TestFixtureArgs) -> Result<(), Box<dyn std::error::Er
         return Err(format!("'{}' already exists", base.display()).into());
     }
 
+    let templates = match &args.use_template {
+        Some(s) => {
+            let (code_t, bot_t) = parse_use_template(s)?;
+            validate_templates(&code_t, &bot_t)?;
+            Some((code_t, bot_t))
+        }
+        None => None,
+    };
+
     info!("Creating test fixture at {}", base.display());
 
     let remote_code = base.join("remote-code.git");
@@ -121,6 +144,16 @@ pub fn test_fixture(args: &TestFixtureArgs) -> Result<(), Box<dyn std::error::Er
     run("jj", &["git", "init", "--colocate"], &session_dir)?;
     write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
     write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
+
+    if let Some((code_t, bot_t)) = &templates {
+        info!("Step 3b: Copying templates...");
+        info!("  code: {} -> {}", code_t.display(), work_dir.display());
+        copy_template_recursive(code_t, &work_dir)?;
+        rewrite_readme_first_line(&work_dir, "work")?;
+        info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
+        copy_template_recursive(bot_t, &session_dir)?;
+        rewrite_readme_first_line(&session_dir, "work.claude")?;
+    }
 
     info!("Step 4: Initial commits with placeholder ochids...");
     run(
@@ -243,6 +276,17 @@ mod tests {
     fn with_pending_flag() {
         let args = parse(&["vc-x1", "test-fixture", "--with-pending"]);
         assert!(args.with_pending);
+    }
+
+    #[test]
+    fn with_use_template() {
+        let args = parse(&[
+            "vc-x1",
+            "test-fixture",
+            "--use-template",
+            "../vc-template-x1",
+        ]);
+        assert_eq!(args.use_template.as_deref(), Some("../vc-template-x1"));
     }
 
     #[test]

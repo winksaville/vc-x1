@@ -320,6 +320,11 @@ vc-x1 init my-project --private
 
 # Preview without executing
 vc-x1 init my-project --dry-run
+
+# Seed both repos from template directories (sibling layout)
+vc-x1 init my-project --use-template ../vc-template-x1
+# Equivalent to:
+vc-x1 init my-project --use-template ../vc-template-x1,../vc-template-x1.claude
 ```
 
 | Flag | Description |
@@ -330,7 +335,19 @@ vc-x1 init my-project --dry-run
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
+| `--use-template <CODE[,BOT]>` | Seed both repos from template dirs (see below) |
 | `-v, --verbose` | Verbose output (show retry details) |
+
+**`--use-template`**. Value is `CODE[,BOT]`. If `BOT` is omitted, defaults
+to the sibling directory `<CODE>.claude` (file-name concat, not path
+join — the two templates are not nested). Non-hidden contents are
+copied recursively into each target; hidden entries (names starting
+with `.`) are skipped since init creates the repo's own hidden files
+(`.vc-config.toml`, `.gitignore`, `.git/`, `.jj/`). If either template
+has a `README.md` at its root, its first line is rewritten to
+`# <repo-name>` — `<name>` for the code repo and `<name>.claude` for
+the session repo. The same flag is also available on `test-fixture`
+for local verification without hitting GitHub.
 
 Requires `gh` (authenticated) and `jj` to be installed.
 
@@ -425,7 +442,15 @@ thing.
 ```bash
 vc-x1 test-fixture                 # base = $TMPDIR/vc-x1-test-<timestamp>
 vc-x1 test-fixture --path /tmp/t1  # explicit path
+vc-x1 test-fixture --use-template ../vc-template-x1  # seed from sibling templates
 ```
+
+`--use-template` takes the same `CODE[,BOT]` value as `vc-x1 init`
+(bot defaults to `<CODE>.claude` sibling). Non-hidden template contents
+are copied into `work/` and `work/.claude/`, and each repo's
+`README.md` first line is rewritten to `# work` / `# work.claude`.
+This is the path for eyeballing the template-copy result without
+hitting GitHub.
 
 Layout:
 ```

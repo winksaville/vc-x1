@@ -21,7 +21,7 @@ use clap_complete::CompleteEnv;
 use log::error;
 
 #[derive(Parser, Debug)]
-#[command(version, about = "vc-x1: jj workspace tooling")]
+#[command(version, about = "vc-x1: jj workspace tooling", max_term_width = 80)]
 pub struct Cli {
     /// Verbose output: -v debug, -vv trace
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]

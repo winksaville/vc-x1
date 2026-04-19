@@ -557,3 +557,105 @@ fmt, clippy, tests (145 pass), `cargo install` all clean.
   stack, pulled in transitively by `jj-lib`'s `digest`/`blake2`/
   `sha1` chain). Nothing we can do from here; waits for an
   upstream RustCrypto cycle.
+
+## Add `--use-template` to init + test-fixture (0.34.0)
+
+Seed both repos of a freshly-created dual-repo project from a pair of
+template directories, so starting a new project doesn't require
+copy-pasting boilerplate (LICENSE files, `CLAUDE.md`, baseline
+`notes/`, etc.) each time. Wink's templates live as sibling repos at
+`github.com:winksaville/vc-template-x1` and
+`github.com:winksaville/vc-template-x1.claude` — cloned locally, they
+feed `--use-template ../vc-template-x1`.
+
+### Flag shape
+
+`init --use-template <CODE[,BOT]>`
+
+- Value is comma-separated; `BOT` optional.
+- Default for `BOT`: `<CODE>.with_file_name("<basename>.claude")` —
+  sibling dir, not nested. `Path::with_file_name` normalises a
+  trailing slash on `CODE` (so `/tmpl/` and `/tmpl` both yield
+  `/tmpl.claude`, not `/tmpl/.claude`).
+- Nested templates (`<CODE>/.claude`) are intentionally *not*
+  supported; they'd conflict with the hidden-skip rule below.
+
+### Copy semantics
+
+- **Recursive copy** of the template contents into each target repo
+  (code template → `project_dir`, bot template → `session_dir`).
+- **Hidden entries skipped** — anything whose file name starts with
+  `.`. This skips `.git/`, `.jj/`, `.gitignore`, `.vc-config.toml`,
+  `.gitmodules`, `.claude/` in the code template, and the same class
+  in the bot template. Init already writes the hidden files it needs;
+  templates can't override them.
+- **Symlinks skipped** with a debug log — templates don't need them,
+  and following them risks escaping the template tree.
+- **`README.md` first-line rewrite** — if the target has a `README.md`
+  at its root after copy, replace its first line with `# <name>`.
+  Name is `<args.name>` for the code repo and `<args.name>.claude`
+  for the bot repo. Trailing content preserved byte-for-byte; a
+  README with no newline becomes just `# <name>`.
+
+### Pre-flight validation
+
+Added before the existing GitHub-exists checks:
+- Both template paths exist and are directories (separate errors for
+  code vs bot so the user knows which one is wrong).
+- Defensive scan for non-hidden top-level entries that would collide
+  with files init writes. Currently init writes only hidden files
+  (`.vc-config.toml`, `.gitignore`), so the `RESERVED_TEMPLATE_ENTRIES`
+  const is empty; the scan is a safety net in case init grows a
+  non-hidden top-level write later.
+
+### Step renumber in `init`
+
+Old steps 4–10 become 5–11; new Step 4 is "Copy templates". Step 4
+is conditional — only logged when `--use-template` is set. Dry-run
+output shows the step either way (`(skipped — no --use-template)`
+when absent, with both resolved template paths when present).
+
+### `test-fixture` also gets `--use-template`
+
+Init hits GitHub, which means you can't easily eyeball the template
+copy result without committing to a real repo. `test-fixture` was
+built exactly for this class of "verify the layout without touching
+the network" case, so it gets the same flag with identical semantics:
+- Same `CODE[,BOT]` parse, same `.claude` default.
+- Copy happens as a new "Step 3b", between `Step 3` (config writes)
+  and `Step 4` (initial commits) — mirrors init's ordering.
+- README name is `work` for the code repo and `work.claude` for the
+  bot repo (matching the fixture's work-tree naming).
+- Shares the `init` helpers via `pub(crate)` exports
+  (`parse_use_template`, `validate_templates`,
+  `copy_template_recursive`, `rewrite_readme_first_line`). One
+  implementation, two call sites.
+
+Verified end-to-end by running `vc-x1 test-fixture --use-template
+../vc-template-x1` against Wink's real templates: LICENSE files,
+`CLAUDE.md`, `notes/`, `README.md`, `memory/` all land in their
+target repos; `.git`, `.jj`, `.gitignore`, `.vc-config.toml`,
+`.gitmodules`, `.claude/` all correctly skipped; both READMEs
+retitled to `# work` / `# work.claude`; jj log shows a clean initial
+commit on each side.
+
+### Tests
+
+11 new unit tests in `init::tests` exercise the helpers against real
+temp-dir fixtures (unique dir per test via nanosecond timestamp +
+`std::env::temp_dir()`):
+- Flag parsing: both paths, default bot, trailing-slash default,
+  empty bot falling back, empty code erroring.
+- Copy: hidden entries (dotfile + dotdir with contents) skipped;
+  non-hidden entries (flat file + nested subdir file) copied.
+- README rewrite: normal multi-line replace, no-newline edge case,
+  missing README no-op.
+- `validate_templates`: missing code, file-not-dir.
+- End-to-end: two sibling templates + two targets, run the full
+  validate + copy + rewrite sequence, assert retitled READMEs and
+  skipped `.gitignore`.
+- Plus a `test-fixture` arg-parse test for the new flag.
+
+### Version
+
+Single-step bump to `0.34.0`. New feature, no breaking changes.

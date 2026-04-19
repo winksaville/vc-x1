@@ -34,6 +34,17 @@ pub struct InitArgs {
     /// Seconds between push retries [default: 3]
     #[arg(long, default_value_t = 3)]
     pub push_retry_delay: u64,
+
+    /// Seed both repos from template directories.
+    ///
+    /// Value is `CODE[,BOT]`. If `BOT` is omitted, defaults to the sibling
+    /// directory `<CODE>.claude` (file-name concat, not path join — they are
+    /// not nested). Non-hidden contents are copied recursively; hidden
+    /// entries (names starting with `.`) are skipped since init creates the
+    /// repo's own hidden files. If either template has a `README.md`, its
+    /// first line is rewritten to `# <repo-name>`.
+    #[arg(long, value_name = "CODE[,BOT]")]
+    pub use_template: Option<String>,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -67,6 +78,143 @@ fn run_retry(
 }
 
 use crate::common::{mkdir_p, run, write_file};
+
+/// Parse the `--use-template` value into `(code, bot)` template paths.
+///
+/// Format: `CODE[,BOT]`. If `BOT` is omitted, the default is the sibling
+/// directory whose name is `<CODE-basename>.claude` (via
+/// `Path::with_file_name`, so a trailing slash on `CODE` does not produce
+/// a different result).
+pub(crate) fn parse_use_template(
+    s: &str,
+) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    let mut parts = s.splitn(2, ',');
+    let code_raw = parts.next().unwrap_or(""); // OK: splitn always yields at least one element
+    let bot_raw = parts.next();
+    let code_trim = code_raw.trim();
+    if code_trim.is_empty() {
+        return Err("--use-template: code template path is empty".into());
+    }
+    let code = PathBuf::from(code_trim);
+    let bot = match bot_raw.map(str::trim) {
+        Some(b) if !b.is_empty() => PathBuf::from(b),
+        _ => {
+            let file_name = code.file_name().ok_or_else(|| {
+                format!(
+                    "--use-template: cannot derive default bot path from '{}' (no file name component)",
+                    code.display()
+                )
+            })?;
+            let new_name = format!("{}.claude", file_name.to_string_lossy());
+            code.with_file_name(new_name)
+        }
+    };
+    Ok((code, bot))
+}
+
+/// Top-level non-hidden files init writes. Kept here so that if init is
+/// ever extended to write non-hidden top-level files, the pre-flight
+/// conflict scan flags any template that would clash. Currently empty
+/// because init only writes hidden files (`.vc-config.toml`, `.gitignore`),
+/// and the template copy skips hidden entries.
+const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
+
+/// Validate that both template paths exist, are directories, and contain no
+/// top-level non-hidden entry that would collide with a file init writes.
+pub(crate) fn validate_templates(
+    code: &Path,
+    bot: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for (label, p) in [("code", code), ("bot", bot)] {
+        if !p.exists() {
+            return Err(format!(
+                "--use-template: {label} template '{}' does not exist",
+                p.display()
+            )
+            .into());
+        }
+        if !p.is_dir() {
+            return Err(format!(
+                "--use-template: {label} template '{}' is not a directory",
+                p.display()
+            )
+            .into());
+        }
+        for entry in std::fs::read_dir(p)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with('.') {
+                continue;
+            }
+            if RESERVED_TEMPLATE_ENTRIES.contains(&name_str.as_ref()) {
+                return Err(format!(
+                    "--use-template: {label} template '{}' contains reserved entry '{}'",
+                    p.display(),
+                    name_str
+                )
+                .into());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Recursively copy non-hidden entries from `src` to `dst`. Any entry whose
+/// file name starts with `.` is skipped. Symlinks are skipped with a debug
+/// log — templates don't need them, and following them risks escaping the
+/// template tree.
+pub(crate) fn copy_template_recursive(
+    src: &Path,
+    dst: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.') {
+            continue;
+        }
+        let src_path = entry.path();
+        let dst_path = dst.join(&name);
+        let ft = entry.file_type()?;
+        if ft.is_symlink() {
+            debug!("skip symlink {}", src_path.display());
+            continue;
+        }
+        if ft.is_dir() {
+            mkdir_p(&dst_path)?;
+            copy_template_recursive(&src_path, &dst_path)?;
+        } else if ft.is_file() {
+            debug!("copy {} -> {}", src_path.display(), dst_path.display());
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Replace the first line of `<dir>/README.md` with `# <name>`. If
+/// `README.md` is absent, this is a no-op. Trailing content after the
+/// first newline is preserved verbatim; a file with no newline becomes
+/// just `# <name>`.
+pub(crate) fn rewrite_readme_first_line(
+    dir: &Path,
+    name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let readme = dir.join("README.md");
+    if !readme.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(&readme)?;
+    let rest = match content.find('\n') {
+        Some(pos) => &content[pos..],
+        None => "",
+    };
+    let new_content = format!("# {name}{rest}");
+    std::fs::write(&readme, new_content)?;
+    debug!("rewrote first line of {}", readme.display());
+    Ok(())
+}
 
 /// Get the short (12-char) jj change ID for a revision, without printing.
 fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
@@ -166,6 +314,15 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         return Err(format!("GitHub repo '{session_repo}' already exists").into());
     }
 
+    let templates = match &args.use_template {
+        Some(s) => {
+            let (code_t, bot_t) = parse_use_template(s)?;
+            validate_templates(&code_t, &bot_t)?;
+            Some((code_t, bot_t))
+        }
+        None => None,
+    };
+
     let visibility = if args.private {
         "--private"
     } else {
@@ -177,13 +334,23 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         info!("  1. Create directories: {}", project_dir.display());
         info!("  2. git init + jj git init --colocate on both repos");
         info!("  3. Write .vc-config.toml and .gitignore to both");
-        info!("  4. jj commit both with placeholder ochids");
-        info!("  5. Get both chids, jj describe both with correct ochids");
-        info!("  6. Remove jj from both (git clean -xdf)");
-        info!("  7. gh repo create {session_repo} {visibility}, push");
-        info!("  8. gh repo create {code_repo} {visibility}, push");
-        info!("  9. jj git init --colocate on both repos");
-        info!("  10. Create Claude Code symlink");
+        match &templates {
+            Some((c, b)) => {
+                info!(
+                    "  4. Copy templates (non-hidden) into both repos + rewrite README.md first line"
+                );
+                info!("       code: {}", c.display());
+                info!("       bot:  {}", b.display());
+            }
+            None => info!("  4. (skipped — no --use-template)"),
+        }
+        info!("  5. jj commit both with placeholder ochids");
+        info!("  6. Get both chids, jj describe both with correct ochids");
+        info!("  7. Remove jj from both (git clean -xdf)");
+        info!("  8. gh repo create {session_repo} {visibility}, push");
+        info!("  9. gh repo create {code_repo} {visibility}, push");
+        info!("  10. jj git init --colocate on both repos");
+        info!("  11. Create Claude Code symlink");
         return Ok(());
     }
 
@@ -206,8 +373,20 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
     write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
 
-    // Step 4: jj commit both with placeholder ochids
-    info!("Step 4: Committing both repos with placeholder ochids...");
+    // Step 4: Copy templates (if --use-template)
+    if let Some((code_t, bot_t)) = &templates {
+        info!("Step 4: Copying templates...");
+        info!("  code: {} -> {}", code_t.display(), project_dir.display());
+        copy_template_recursive(code_t, &project_dir)?;
+        rewrite_readme_first_line(&project_dir, &args.name)?;
+        info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
+        copy_template_recursive(bot_t, &session_dir)?;
+        let session_name = format!("{}.claude", args.name);
+        rewrite_readme_first_line(&session_dir, &session_name)?;
+    }
+
+    // Step 5: jj commit both with placeholder ochids
+    info!("Step 5: Committing both repos with placeholder ochids...");
     run(
         "jj",
         &["commit", "-m", "Initial commit\n\nochid: /none"],
@@ -219,8 +398,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         &session_dir,
     )?;
 
-    // Step 5: Get both chids, then describe both with correct ochids
-    info!("Step 5: Setting ochid cross-references...");
+    // Step 6: Get both chids, then describe both with correct ochids
+    info!("Step 6: Setting ochid cross-references...");
     let code_chid = jj_chid("@-", &project_dir)?;
     let session_chid = jj_chid("@-", &session_dir)?;
 
@@ -236,9 +415,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         debug!(".claude:   chid={session_chid} hash={hash}");
     }
 
-    // Step 6: Set bookmarks (creates git branches), then remove jj
+    // Step 7: Set bookmarks (creates git branches), then remove jj
     // Bookmarks must be set before removing .jj/ so git has a 'main' branch to push
-    info!("Step 6: Setting bookmarks and removing jj...");
+    info!("Step 7: Setting bookmarks and removing jj...");
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &project_dir)?;
     run("jj", &["bookmark", "set", "main", "-r", "@-"], &session_dir)?;
     // Clean .claude first, then code repo with --exclude to preserve .claude/
@@ -252,9 +431,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     run("git", &["checkout", "main"], &session_dir)?;
     run("git", &["checkout", "main"], &project_dir)?;
 
-    // Step 7: Create .claude GitHub repo and push
+    // Step 8: Create .claude GitHub repo and push
     let session_url = format!("git@github.com:{session_repo}.git");
-    info!("Step 7: Creating GitHub repo {session_repo}...");
+    info!("Step 8: Creating GitHub repo {session_repo}...");
     run(
         "gh",
         &["repo", "create", &session_repo, visibility],
@@ -273,9 +452,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.push_retry_delay,
     )?;
 
-    // Step 8: Create code GitHub repo and push
+    // Step 9: Create code GitHub repo and push
     let code_url = format!("git@github.com:{code_repo}.git");
-    info!("Step 8: Creating GitHub repo {code_repo}...");
+    info!("Step 9: Creating GitHub repo {code_repo}...");
     run(
         "gh",
         &["repo", "create", &code_repo, visibility],
@@ -290,8 +469,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args.push_retry_delay,
     )?;
 
-    // Step 9: Re-initialize jj on both repos
-    info!("Step 9: Re-initializing jj on both repos...");
+    // Step 10: Re-initialize jj on both repos
+    info!("Step 10: Re-initializing jj on both repos...");
     run(
         "jj",
         &["--quiet", "git", "init", "--colocate"],
@@ -318,8 +497,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let session_chid_final = jj_chid("@-", &session_dir)?;
 
-    // Step 10: Create Claude Code symlink
-    info!("Step 10: Creating Claude Code symlink...");
+    // Step 11: Create Claude Code symlink
+    info!("Step 11: Creating Claude Code symlink...");
     let symlink_dir = {
         let home =
             std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
@@ -389,6 +568,8 @@ mod tests {
             "10",
             "--push-retry-delay",
             "5",
+            "--use-template",
+            "/tmp/tmpl,/tmp/tmpl.claude",
         ]);
         assert_eq!(args.name, "my-project");
         assert_eq!(args.owner.as_deref(), Some("myorg"));
@@ -397,6 +578,10 @@ mod tests {
         assert!(args.dry_run);
         assert_eq!(args.push_retries, 10);
         assert_eq!(args.push_retry_delay, 5);
+        assert_eq!(
+            args.use_template.as_deref(),
+            Some("/tmp/tmpl,/tmp/tmpl.claude")
+        );
     }
 
     #[test]
@@ -428,5 +613,207 @@ mod tests {
     fn gitignore_session_excludes_git() {
         assert!(GITIGNORE_SESSION.contains(".git"));
         assert!(GITIGNORE_SESSION.contains(".jj"));
+    }
+
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// Create a unique temp dir for a test, sibling-style via file-name
+    /// concat so both the code and bot template paths can live under it.
+    fn tmp_root(tag: &str) -> PathBuf {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let p = std::env::temp_dir().join(format!("vc-x1-inittest-{tag}-{ts}"));
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    #[test]
+    fn parse_use_template_both() {
+        let (c, b) = parse_use_template("/a/code,/x/bot").unwrap();
+        assert_eq!(c, PathBuf::from("/a/code"));
+        assert_eq!(b, PathBuf::from("/x/bot"));
+    }
+
+    #[test]
+    fn parse_use_template_default_bot() {
+        let (c, b) = parse_use_template("/a/code").unwrap();
+        assert_eq!(c, PathBuf::from("/a/code"));
+        assert_eq!(b, PathBuf::from("/a/code.claude"));
+    }
+
+    #[test]
+    fn parse_use_template_default_bot_trailing_slash() {
+        // with_file_name normalises away the effect of a trailing slash.
+        let (c, b) = parse_use_template("/a/code/").unwrap();
+        assert_eq!(c, PathBuf::from("/a/code/"));
+        assert_eq!(b, PathBuf::from("/a/code.claude"));
+    }
+
+    #[test]
+    fn parse_use_template_empty_bot_falls_back_to_default() {
+        let (c, b) = parse_use_template("/a/code,").unwrap();
+        assert_eq!(c, PathBuf::from("/a/code"));
+        assert_eq!(b, PathBuf::from("/a/code.claude"));
+    }
+
+    #[test]
+    fn parse_use_template_empty_code_errors() {
+        assert!(parse_use_template("").is_err());
+        assert!(parse_use_template(",bot").is_err());
+    }
+
+    #[test]
+    fn copy_template_skips_hidden_entries() {
+        let root = tmp_root("copy-skip-hidden");
+        let src = root.join("src");
+        let dst = root.join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(&dst).unwrap();
+
+        // Non-hidden: visible file, visible dir with nested file.
+        std::fs::write(src.join("keep.txt"), "keep").unwrap();
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("sub").join("nested.txt"), "nested").unwrap();
+
+        // Hidden: dotfile, dotdir (with contents that must NOT be copied).
+        std::fs::write(src.join(".hidden"), "should-not-copy").unwrap();
+        std::fs::create_dir_all(src.join(".dotdir")).unwrap();
+        std::fs::write(src.join(".dotdir").join("inside"), "nope").unwrap();
+
+        copy_template_recursive(&src, &dst).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dst.join("keep.txt")).unwrap(),
+            "keep"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst.join("sub").join("nested.txt")).unwrap(),
+            "nested"
+        );
+        assert!(!dst.join(".hidden").exists());
+        assert!(!dst.join(".dotdir").exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn rewrite_readme_replaces_first_line() {
+        let root = tmp_root("rewrite-readme");
+        std::fs::write(
+            root.join("README.md"),
+            "# old-title\nbody line 1\nbody line 2\n",
+        )
+        .unwrap();
+
+        rewrite_readme_first_line(&root, "new-name").unwrap();
+
+        let got = std::fs::read_to_string(root.join("README.md")).unwrap();
+        assert_eq!(got, "# new-name\nbody line 1\nbody line 2\n");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn rewrite_readme_no_newline() {
+        let root = tmp_root("rewrite-readme-nonewline");
+        std::fs::write(root.join("README.md"), "single-line-no-newline").unwrap();
+
+        rewrite_readme_first_line(&root, "new-name").unwrap();
+
+        let got = std::fs::read_to_string(root.join("README.md")).unwrap();
+        assert_eq!(got, "# new-name");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn rewrite_readme_missing_is_noop() {
+        let root = tmp_root("rewrite-readme-missing");
+        // README.md not created — call must succeed silently.
+        rewrite_readme_first_line(&root, "new-name").unwrap();
+        assert!(!root.join("README.md").exists());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn validate_templates_missing_code() {
+        let root = tmp_root("validate-missing-code");
+        let code = root.join("nope");
+        let bot = root.join("bot");
+        std::fs::create_dir_all(&bot).unwrap();
+        let err = validate_templates(&code, &bot).unwrap_err().to_string();
+        assert!(err.contains("code template"));
+        assert!(err.contains("does not exist"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn validate_templates_not_a_dir() {
+        let root = tmp_root("validate-not-dir");
+        let code = root.join("code-file");
+        let bot = root.join("bot");
+        std::fs::write(&code, "i am a file").unwrap();
+        std::fs::create_dir_all(&bot).unwrap();
+        let err = validate_templates(&code, &bot).unwrap_err().to_string();
+        assert!(err.contains("is not a directory"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn end_to_end_copy_and_readme_rewrite() {
+        // Simulates what init's Step 4 does: two sibling templates with
+        // a README.md each, copied into two fresh target dirs, each
+        // README retitled to the respective repo name.
+        let root = tmp_root("e2e-copy-rewrite");
+        let code_tmpl = root.join("vc-template-x1");
+        let bot_tmpl = root.join("vc-template-x1.claude");
+        let code_dst = root.join("dst-code");
+        let bot_dst = root.join("dst-bot");
+        std::fs::create_dir_all(&code_tmpl).unwrap();
+        std::fs::create_dir_all(&bot_tmpl).unwrap();
+        std::fs::create_dir_all(&code_dst).unwrap();
+        std::fs::create_dir_all(&bot_dst).unwrap();
+
+        std::fs::write(
+            code_tmpl.join("README.md"),
+            "# vc-template-x1\nCode template body.\n",
+        )
+        .unwrap();
+        std::fs::write(code_tmpl.join("src.txt"), "code stuff").unwrap();
+        std::fs::write(code_tmpl.join(".gitignore"), "should-not-copy").unwrap();
+
+        std::fs::write(
+            bot_tmpl.join("README.md"),
+            "# vc-template-x1.claude\nBot template body.\n",
+        )
+        .unwrap();
+        std::fs::write(bot_tmpl.join("session.md"), "bot stuff").unwrap();
+
+        validate_templates(&code_tmpl, &bot_tmpl).unwrap();
+
+        copy_template_recursive(&code_tmpl, &code_dst).unwrap();
+        rewrite_readme_first_line(&code_dst, "my-proj").unwrap();
+        copy_template_recursive(&bot_tmpl, &bot_dst).unwrap();
+        rewrite_readme_first_line(&bot_dst, "my-proj.claude").unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(code_dst.join("README.md")).unwrap(),
+            "# my-proj\nCode template body.\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(code_dst.join("src.txt")).unwrap(),
+            "code stuff"
+        );
+        assert!(!code_dst.join(".gitignore").exists());
+        assert_eq!(
+            std::fs::read_to_string(bot_dst.join("README.md")).unwrap(),
+            "# my-proj.claude\nBot template body.\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(bot_dst.join("session.md")).unwrap(),
+            "bot stuff"
+        );
+
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

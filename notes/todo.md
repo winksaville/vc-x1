@@ -39,6 +39,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Fix deprecated `jj bookmark track <bookmark>@<remote>` syntax for jj 0.40.0 (0.33.1) [41]
 - Silence untracked-remote hint in `init` step 9 (0.33.2) [42]
 - Compatible dep refresh via `cargo update` (0.33.3) [43]
+- Add `--use-template` to `init` and `test-fixture` (0.34.0) [44]
 
 # References
 
@@ -63,3 +64,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [41]: /notes/chores-04.md#fix-deprecated-jj-bookmark-track-syntax-0331
 [42]: /notes/chores-04.md#silence-untracked-remote-hint-in-init-step-9-0332
 [43]: /notes/chores-04.md#compatible-dep-refresh-0333
+[44]: /notes/chores-04.md#add---use-template-to-init--test-fixture-0340
