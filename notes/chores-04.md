@@ -558,6 +558,40 @@ fmt, clippy, tests (145 pass), `cargo install` all clean.
   `sha1` chain). Nothing we can do from here; waits for an
   upstream RustCrypto cycle.
 
+## Bump `jj-lib` to 0.40 + tighten `clap` floor (0.34.1)
+
+Picks up the `jj-lib 0.40.0` bump that was deferred from 0.33.3. For
+pre-1.0 crates (`0.x.y`), the minor version is semver's breaking-change
+signal, so `^0.39` does not auto-resolve to `0.40` — the bump requires
+an explicit `Cargo.toml` edit. The one known API break (`jj bookmark
+track <name>@<remote>` syntax deprecation) was already handled in
+0.33.1, so no source changes were needed this cycle.
+
+While here, tightened `clap = "4"` → `clap = "4.6"`. The old floor
+claimed we work against any 4.x, but we've only tested against 4.6.x
+(per `Cargo.lock`) and `clap_complete = "4.6"` already requires 4.6+
+in the same workspace. The new floor documents reality honestly.
+
+Both are caret-compatible upper bounds (`<5.0`), so no downstream
+surprises for consumers of the crate as a library.
+
+fmt, clippy, tests (158 pass), `cargo install` all clean.
+
+### Transitive state (unchanged)
+
+- `generic-array 0.14.9` — still blocked by `crypto-common v0.1.7`'s
+  exact req `generic-array = "=0.14.7"`. No change until RustCrypto
+  ships a new `crypto-common`/`digest` cycle.
+- `imara-diff 0.2.0` — appears in `Cargo.lock` as a feature-gated dep
+  of `gix-diff 0.61.0` (activated only via the non-default
+  `blob-experimental` feature). Not an orphan — not compiled in our
+  build — cannot be pruned by `cargo update`.
+- `typenum 1.20.0` — same MSRV block as `generic-array`; unreachable
+  under Rust 1.94.1.
+
+`cargo upgrade --dry-run` reports all 7 direct deps at latest
+compatible.
+
 ## Add `--use-template` to init + test-fixture (0.34.0)
 
 Seed both repos of a freshly-created dual-repo project from a pair of
