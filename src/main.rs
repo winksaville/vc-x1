@@ -10,6 +10,7 @@ mod list;
 mod logging;
 mod show;
 mod symlink;
+mod sync;
 mod test_fixture;
 mod toml_simple;
 mod validate_desc;
@@ -83,6 +84,25 @@ pub(crate) enum Commands {
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
 
+    /// Fetch and sync both repos (`.` and `.claude`) to their remotes
+    #[command(
+        long_about = "Fetch and sync both repos (`.` and `.claude`) to their remotes.\n\n\
+        Default is dry-run — re-run with --no-dry-run to apply. Per repo:\n  \
+          - up-to-date        nothing to do\n  \
+          - behind            fast-forward bookmark to remote\n  \
+          - ahead             nothing to sync (local has unpushed work)\n  \
+          - diverged          rebase local onto remote; fail on conflicts\n  \
+          - no remote         bookmark has no @<remote> counterpart; skip\n\n\
+        After the bookmark action, `@` is rebased onto the (possibly\n\
+        advanced) bookmark if it isn't already a descendant, so trailing\n\
+        working-copy writes (e.g. `.claude`'s `/exit` tail) don't end up\n\
+        orphaned on a stale branch.\n\n\
+        On any failure, both repos are reverted to their starting state\n\
+        via `jj op restore`. Working-copy files are preserved across the\n\
+        revert — the operation log rewinds but disk content stays."
+    )]
+    Sync(sync::SyncArgs),
+
     /// Squash, set bookmark, and/or push a jj repo
     #[command(long_about = "Squash, set bookmark, and/or push a jj repo.\n\n\
         Designed for the bot to atomically finalize its session repo:\n\
@@ -138,6 +158,7 @@ fn main() -> ExitCode {
         Commands::Clone(clone_args) => run_command(clone::clone_repo(&clone_args)),
         Commands::Init(init_args) => run_command(init::init(&init_args)),
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
+        Commands::Sync(sync_args) => run_command(sync::sync(&sync_args)),
         Commands::Finalize(finalize_args) => {
             let opts = match finalize_args.into_opts(cli.log) {
                 Ok(opts) => opts,

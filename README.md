@@ -53,6 +53,7 @@ vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run def
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
+vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
 vc-x1 test-fixture [--path PATH]           # Create throwaway jj repo + remote for testing
 vc-x1 --version                            # Print version
@@ -376,6 +377,52 @@ vc-x1 symlink -l
 | `--symlink-dir <PATH>` | Override symlink parent [default: ~/.claude/projects] |
 | `-l, --list` | List contents of symlinked directory after creation |
 | `-y, --yes` | Replace existing symlink without prompting |
+
+### sync
+
+Fetch and sync both repos (`.` and `.claude`) to their remotes in a
+single command. Dry-run by default — re-run with `--no-dry-run` to
+apply.
+
+Per repo, `sync` classifies the local bookmark against its remote:
+
+| State | Meaning | Action on `--no-dry-run` |
+|------|---------|--------------------------|
+| up-to-date | local == remote | none |
+| behind | local is ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
+| ahead | remote is ancestor of local | none (push is a separate step) |
+| diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
+| no remote | bookmark has no `@<remote>` counterpart | none — skip |
+
+After the bookmark action above, `sync` also rebases `@` onto the
+(possibly advanced) bookmark when `@` isn't already a descendant —
+without this step, `jj git fetch`'s auto-fast-forward would leave `@`
+dangling off the pre-fetch bookmark commit. This matters for `.claude`,
+where `/exit`'s trailing session writes always sit on `@`.
+
+On any failure — conflicted rebase, subprocess error, anything — `sync`
+restores every repo to its starting state via `jj op restore`. Either
+every repo advances or none do. Working-copy files are preserved
+across the revert: jj rewinds the operation log but leaves disk
+content untouched, and any conflicted commits introduced by the failed
+rebase are abandoned on the way back.
+
+```
+vc-x1 sync                # dry-run — report state only
+vc-x1 sync --no-dry-run   # act: fast-forward + rebase as classified
+```
+
+| Flag | Description |
+|------|-------------|
+| `--no-dry-run` | Apply; without it, classify and report only |
+| `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
+| `--remote <NAME>` | Remote to sync against [default: origin] |
+
+**Note on the `behind` case.** jj's `git fetch` already fast-forwards a
+tracked local bookmark when it's a strict ancestor of the incoming
+remote, so in the common case `sync` reports `up-to-date` rather than
+`behind`. The `behind` branch covers untracked bookmarks and edge
+configs where auto-advance is disabled.
 
 ### finalize
 

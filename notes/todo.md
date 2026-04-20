@@ -41,6 +41,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Compatible dep refresh via `cargo update` (0.33.3) [43]
 - Add `--use-template` to `init` and `test-fixture` (0.34.0) [44]
 - Bump `jj-lib` to 0.40 + tighten `clap` floor to 4.6 (0.34.1) [45]
+- Add `sync` subcommand — fetch + classify + rebase both repos (0.35.0) [46]
 
 # References
 
@@ -67,3 +68,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [43]: /notes/chores-04.md#compatible-dep-refresh-0333
 [44]: /notes/chores-04.md#add---use-template-to-init--test-fixture-0340
 [45]: /notes/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
+[46]: /notes/chores-04.md#add-sync-subcommand-0350

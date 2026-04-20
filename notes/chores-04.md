@@ -693,3 +693,176 @@ temp-dir fixtures (unique dir per test via nanosecond timestamp +
 ### Version
 
 Single-step bump to `0.34.0`. New feature, no breaking changes.
+
+## Add `sync` subcommand (0.35.0)
+
+Single-command fetch + sync for both repos (`.` and `.claude`).
+Dry-run by default; `--no-dry-run` applies. Rebase-on-divergence is
+automatic when no conflicts arise; any failure reverts both repos to
+their pre-sync state via `jj op restore` so the caller sees an
+atomic outcome.
+
+### Flag shape
+
+```
+vc-x1 sync [--no-dry-run] [--bookmark <NAME>] [--remote <NAME>]
+```
+
+- `--no-dry-run` — default is dry-run (classify + report without
+  mutating). User confirmed this default: "dry-run will be the default
+  until we feel how it goes."
+- `--bookmark` — default `main` (the vc-x1 project convention).
+- `--remote` — default `origin`.
+
+Repos are hardcoded: `[".", ".claude"]`. The user's rule is "always
+both, at least for now" — an `-R` override can be added later if the
+need surfaces.
+
+### No pre-flight: trust `jj op restore` + explicit `@` rebase
+
+The first draft of `sync` required `@` to be empty (`@ & empty()`
+revset) in every repo before running, on the theory that the revert
+path (`jj op restore`) would clobber uncommitted work. That ruled out
+the most common real-world case — `.claude`'s `@` is always non-empty
+after `/exit` writes its tail.
+
+Two empirical findings from fixture testing changed the design:
+
+1. **`jj op restore` preserves working-copy content across conflicted
+   rebases.** Setup: local commit modifying `shared.txt`, `@` above
+   with `trailing.jsonl`, remote with a conflicting `shared.txt`.
+   Fetch + rebase → 2 conflicted commits. `jj op restore <pre-sync>`
+   → `main` and `main@origin` back to their pre-sync ids, `@` back to
+   the *same* commit id it had before the sync (not a new revert
+   commit), `conflicts()` empty, both files (`trailing.jsonl` and
+   `shared.txt`) on disk with their original content. jj's own output
+   confirms it: "Existing conflicts were resolved or abandoned from 2
+   commits."
+
+2. **`jj git fetch`'s auto-fast-forward leaves `@` behind.** When a
+   tracked local bookmark is a strict ancestor of the freshly fetched
+   remote, jj advances the bookmark — but `@`'s parent pointer stays
+   on the *old* bookmark commit. `@` is now on a dangling branch,
+   which means any subsequent `jj new`, commit, or finalize would
+   build on stale history. Easy to reproduce, easy to miss.
+
+So the design became:
+- **No pre-flight check** — the revert path preserves files.
+- **After the bookmark action, always call `ensure_at_on_main(repo,
+  bookmark)`.** If `main::@` is empty (i.e., `@` isn't reachable from
+  the bookmark), run `jj rebase -b @ -d <bookmark>` to pull `@` and
+  any commits between the old parent and `@` forward. Then check
+  `conflicts()` — a conflicted rebase trips the outer revert the same
+  way a conflicted `act_on_state` rebase does.
+- **Revert preserves trailing writes.** An integration test
+  (`sync_conflict_preserves_trailing_at_on_revert`) pins this
+  behavior so a future jj version that changed it would fail CI.
+
+### States and actions
+
+| State | Detection | `--no-dry-run` action |
+|------|----------|-----------------------|
+| `UpToDate` | `bookmarks(exact:<b>) == {<b>@<remote>}` | bookmark no-op (but `ensure_at_on_main` still fires) |
+| `Behind` | single local head is strict ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
+| `Ahead` | single local head is strict descendant of remote | none (push is separate) |
+| `Diverged` | conflicted bookmark (multiple heads) *or* neither is ancestor | `jj rebase -b <local-only-head> -d <b>@<remote>`, then check `conflicts()` |
+| `NoRemote` | `<b>@<remote>` does not resolve | none — skip |
+
+After whichever action (or no action) above, **every repo** runs
+`ensure_at_on_main`: if `<b>::@` is empty, `jj rebase -b @ -d <b>` +
+conflict check. This catches the common `jj git fetch` auto-ff case
+— main moved forward, but `@` was left parented on the old main —
+and orphans in the `Diverged` path where the local-only-head rebase
+covered local commits but a separate `@` subtree still needed to be
+brought along.
+
+Note: the `Behind` branch is largely redundant with jj's own
+fetch-auto-fast-forward behavior (tracked bookmarks whose local is a
+strict ancestor auto-advance on fetch), so in practice the classify
+result post-fetch is usually `UpToDate`. `Behind` is kept for untracked
+bookmarks and edge configs where auto-advance is disabled.
+
+### `bookmarks(exact:<b>)` for conflicted detection
+
+When `jj git fetch` produces a divergence, the local bookmark becomes
+conflicted — it points at *both* its old local tip and the
+freshly-fetched remote tip. The bare `main` revset then errors with
+`Name \`main\` is conflicted`. `bookmarks(exact:main)` returns all
+heads instead, so `classify` can see the multi-head case and classify
+it as `Diverged` directly. The rebase picks the non-remote head from
+that set as the rebase source.
+
+### Revert on failure
+
+Before any mutation, `sync` snapshots each repo's current operation id
+(`jj op log -n 1 -T id.short(12)`). On any error, every repo is
+reverted in a best-effort loop (`jj op restore <id>`); revert failures
+are logged as `warn!` but don't override the original error. The caller
+sees the first root-cause error as the process exit value.
+
+### Integration tests (`src/sync.rs::integration_tests`)
+
+Five integration tests drive real dual-repo fixtures (built via
+`crate::test_fixture::test_fixture`, seeded optionally from the
+`vc-template-x1` template pair) under unique tempdirs, then exercise
+each scenario with `jj` subprocess calls and assert on the resulting
+state. Fixtures clean themselves up via a `Drop` impl so panicking
+tests still remove their tempdirs.
+
+Tests require `jj` in `PATH` at test time — new property for this
+repo, but `sync` itself shells out to `jj` so the tests can't avoid
+the dependency.
+
+- **`sync_up_to_date`** — fresh fixture, `--no-dry-run`; assert both
+  repos' `main` commit ids unchanged.
+- **`sync_tolerates_trailing_at_up_to_date`** — write a file into
+  `.claude/` so `@` snapshots non-empty; assert main is stable, `@`
+  stays reachable from main (`main::@` non-empty), and the trailing
+  file content is preserved. Pins the "no pre-flight" rule.
+- **`sync_rebases_trailing_at_when_main_moves`** — remote advances
+  via a second clone; local `@` has trailing jsonl content; sync
+  (`--no-dry-run`) runs fetch + auto-ff + `ensure_at_on_main`. Asserts
+  local `main` matches the pushed remote head, `@` is now reachable
+  from main (not orphaned on the pre-fetch commit), and trailing
+  content is preserved on disk.
+- **`sync_ahead_is_noop`** — add a local commit on `main`,
+  `--no-dry-run`; assert `main` commit id unchanged after sync.
+- **`sync_diverged_rebases`** — a second clone pushes a commit;
+  local adds a different commit on `main`; `--no-dry-run` triggers
+  the rebase path. Asserts `main@origin` advanced, local `main` is
+  rebased to a new id with the remote head as ancestor, and
+  `conflicts()` is empty.
+- **`sync_conflict_preserves_trailing_at_on_revert`** — both sides
+  write different contents to the same path; `@` also has trailing
+  jsonl writes. Rebase produces conflicts; sync errors with
+  "conflicts"; the outer revert restores `main`, `main@origin`, and
+  `@` to their pre-sync state. Asserts `conflicts()` is empty and
+  the trailing jsonl content is intact on disk. Pins jj's
+  op-restore-preserves-working-copy behavior.
+
+Total run time ~1s for the seven-test module on a local workstation.
+
+### Refactor for testability: `sync_repos`
+
+Extracted `pub fn sync_repos(repos: &[PathBuf], args)` from the
+original `sync()`. CLI `sync()` is now a thin wrapper that builds
+`[".", ".claude"]` and delegates; tests pass absolute tempdir paths
+to `sync_repos` directly. Avoids `chdir` races under parallel
+`cargo test` and keeps the CLI API unchanged.
+
+### Files
+
+- `src/sync.rs` — new module with `SyncArgs`, `State` enum, and
+  `sync()` entry point; classify/act split into small helpers.
+- `src/main.rs` — `mod sync` and `Commands::Sync` dispatch, long_about
+  mirrors the README table.
+- `README.md` — new `### sync` section between `symlink` and
+  `finalize`; usage-table row added.
+- `notes/todo.md` — sync entry moved to Done with ref [46].
+
+### Version
+
+Single-step bump to `0.35.0`. New feature, no breaking changes. Two
+unit tests on `SyncArgs` parsing plus five integration tests covering
+the state-classification and revert paths end-to-end against real
+dual-repo fixtures.
