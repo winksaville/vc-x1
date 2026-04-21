@@ -10,6 +10,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Sync improvements: -R flag + quieter dry-run + codify sync-before-work [50]
  - Add `push` subcommand — collapse commit+push+finalize ceremony [48]
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
@@ -26,6 +27,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
 - CLAUDE.md refresh + memory migration (0.36.1) [49]
+- Lift sync's inline test harness into shared `test_helpers` module (0.36.2) [51]
 
 # References
 
@@ -38,3 +40,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [37]: /notes/chores-03.md#windows-symlink-support
 [48]: /notes/chores-05.md#add-push-subcommand-0370
 [49]: /notes/chores-05.md#claudemd-refresh--memory-migration-0361
+[50]: /notes/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
+[51]: /notes/chores-05.md#test-harness-refactor-0362

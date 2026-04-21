@@ -512,63 +512,9 @@ mod integration_tests {
     //! panicking test still removes its tempdir.
 
     use super::*;
-    use crate::test_fixture::{TestFixtureArgs, test_fixture};
+    use crate::test_helpers::Fixture;
     use std::fs;
     use std::process::Command;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    /// Build a unique tempdir path for a test fixture.
-    ///
-    /// Combines a nanosecond timestamp with a per-process atomic
-    /// counter so parallel tests and same-nanosecond collisions both
-    /// yield distinct paths.
-    fn unique_base(tag: &str) -> PathBuf {
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        std::env::temp_dir().join(format!("vc-x1-sync-{tag}-{ts}-{n}"))
-    }
-
-    /// Owned dual-repo fixture with RAII cleanup.
-    struct Fixture {
-        base: PathBuf,
-        work: PathBuf,
-        claude: PathBuf,
-    }
-
-    impl Fixture {
-        /// Build a fresh fixture in a unique tempdir.
-        fn new(tag: &str) -> Self {
-            let base = unique_base(tag);
-            let args = TestFixtureArgs {
-                path: Some(base.clone()),
-                with_pending: false,
-                use_template: None,
-            };
-            test_fixture(&args).expect("build test fixture");
-            let work = base.join("work");
-            let claude = work.join(".claude");
-            Fixture { base, work, claude }
-        }
-
-        /// Repos to pass to `sync_repos`.
-        fn repos(&self) -> Vec<PathBuf> {
-            vec![self.work.clone(), self.claude.clone()]
-        }
-    }
-
-    impl Drop for Fixture {
-        /// Remove the fixture tree on drop. Best-effort; a failure here
-        /// doesn't fail the test.
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.base);
-        }
-    }
 
     /// Run `jj <args> -R <repo>` and assert success; returns trimmed stdout.
     fn jj(repo: &Path, args: &[&str]) -> String {

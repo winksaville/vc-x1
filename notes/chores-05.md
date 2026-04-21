@@ -131,6 +131,63 @@ harness keeps tests consistent and lowers the bar for future
 subcommand integration tests (which the todo list already calls
 out as a general need).
 
+## Sync improvements — single-repo support + quieter dry-run (0.36.3)
+
+Two related tweaks so `vc-x1 sync` is fit to be (a) run against
+single-repo projects like `vc-template-x1` and (b) codified as a
+pre-work discipline in `CLAUDE.md`'s Commit-Push-Finalize Flow
+without generating noise in the common clean-state case.
+
+### Scope
+
+- **Add repeatable `-R` / `--repo` flag to the `sync` CLI.**
+  Currently `sync.rs:29` hardcodes `const REPOS: [&str; 2] =
+  [".", ".claude"]`. The underlying `sync_repos()` already takes
+  `&[PathBuf]`, so the change is purely CLI: accept repeated /
+  comma-separated `-R`, default to `.,.claude` when none given.
+  Matches the `-R` form on `chid`, `desc`, `list`, `show`.
+
+- **Silence the "dry-run — re-run with --no-dry-run" hint when no
+  action would have been taken.** `sync.rs:144–146` prints the
+  hint unconditionally today. Gate it so the line appears only
+  when at least one repo classified `Behind` or `Diverged`. The
+  common `up-to-date`-everywhere case becomes silent, which makes
+  the "run sync before work" discipline (see below) cheap to
+  sprinkle everywhere.
+
+- **Codify "sync before work" in `CLAUDE.md`'s Commit-Push-Finalize
+  Flow** as a pre-step. Only useful once the quieter-dry-run polish
+  lands, so it ships in this same chore.
+
+### Rationale for keeping dry-run the default
+
+While we're in here: the decision *not* to flip sync's default to
+`--no-dry-run` is deliberate, capturing the conversation that led
+to this chore:
+
+- **Consistency.** `vc-x1 fix-desc` also defaults to dry-run. A
+  divergent default for `sync` would rot the convention.
+- **Preview before mutation is load-bearing in the `Diverged`
+  case.** Even with `op_restore` rollback, *not* triggering a
+  conflicted rebase at all is better than triggering one and
+  rolling back. The preview lets the user inspect the remote
+  commit first.
+- **Composition layering stays clean.** Once `push`'s preflight
+  stage (0.37.0) calls `sync`, it invokes it with `--no-dry-run`
+  internally because `push` is the commit-to-mutation moment.
+  Interactive `sync` stays exploratory; `push` is the doer. If
+  interactive `sync` mutated by default, users would learn two
+  different "sync"s (the interactive one and the preflight one).
+
+User guidance phrasing (lands in CLAUDE.md): "Run `vc-x1 sync` to
+see state; re-run with `--no-dry-run` when you're ready to apply.
+`push` does this for you automatically."
+
+### Version
+
+Single-step `0.36.3` — three small touches that compose into one
+deliverable (CLI flag, output gate, docs).
+
 ## Add push subcommand (0.37.0)
 
 Collapse the dual-repo commit+push+finalize ceremony into a single
@@ -308,6 +365,9 @@ Pre-work (shipped first, own commits):
 - `0.36.1` — CLAUDE.md refresh + memory migration (this file, its
   own chore section above)
 - `0.36.2` — test harness refactor (its own chore section above)
+- `0.36.3` — sync improvements: `-R` flag + quieter dry-run +
+  codify sync-before-work discipline (its own chore section
+  above)
 
 Push subcommand ladder:
 

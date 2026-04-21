@@ -12,6 +12,8 @@ mod show;
 mod symlink;
 mod sync;
 mod test_fixture;
+#[cfg(test)]
+mod test_helpers;
 mod toml_simple;
 mod validate_desc;
 
