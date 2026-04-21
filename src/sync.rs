@@ -372,8 +372,10 @@ fn log_state(repo: &Path, state: &State) {
 
 /// Return the id of the most recent operation on `repo`.
 ///
-/// Used as the revert target on failure.
-fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
+/// Used as the revert target on failure. Exposed at `pub(crate)` so
+/// `push` (0.37.0-2+) can reuse the same snapshot pattern for its
+/// commit-stage rollback without duplicating the jj invocation.
+pub(crate) fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let out = run(
         "jj",
         &[
@@ -395,8 +397,9 @@ fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
 /// Restore `repo` to the operation identified by `op_id`.
 ///
 /// Thin wrapper around `jj op restore`. Called during the failure
-/// revert path — drops the caller's returned stdout.
-fn op_restore(repo: &Path, op_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+/// revert path — drops the caller's returned stdout. Exposed at
+/// `pub(crate)` so `push` reuses the same restore call.
+pub(crate) fn op_restore(repo: &Path, op_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     run(
         "jj",
         &["op", "restore", op_id, "-R", &repo_str(repo)],

@@ -129,12 +129,16 @@ pub(crate) enum Commands {
     #[command(
         long_about = "Dual-repo commit+push+finalize in one resumable command.\n\n\
         Collapses today's manual Commit-Push-Finalize Flow into a\n\
-        single subcommand with two approval gates (work-done, message-\n\
-        approved) and a state machine with persistent progress so\n\
-        interruptions can resume without re-doing completed stages.\n\n\
-        Status: 0.37.0-0 scaffolding — flag surface only. Actual\n\
-        implementation lands in 0.37.0-1 onward. Design is in\n\
-        notes/chores-05.md under `Add push subcommand (0.37.0)`."
+        single subcommand with (eventually) two approval gates and a\n\
+        state machine with persistent progress so interruptions can\n\
+        resume without re-doing completed stages.\n\n\
+        Status (0.37.0-2): real stage bodies — preflight (fmt/clippy/\n\
+        test), message (composes ochid trailers, records .claude's\n\
+        pending-changes status), commit-app, commit-claude, bookmark-\n\
+        both, push-app, finalize-claude. --title and --body are\n\
+        required; interactivity + $EDITOR + message persistence land\n\
+        in 0.37.0-3. Failures in stages 4-6 roll both repos back via\n\
+        `jj op restore` to the snapshot recorded before commit-app."
     )]
     Push(push::PushArgs),
 

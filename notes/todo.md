@@ -31,6 +31,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Sync improvements: -R flag + quieter dry-run + sync-before-work discipline (0.36.3) [50]
 - push subcommand scaffolding: flag surface, Stage enum, stub (0.37.0-0) [48]
 - push state machine: state file, --status/--restart/--from, stage stubs (0.37.0-1) [48]
+- push real stage bodies + jj-op snapshot rollback (0.37.0-2) [48]
 
 # References
 

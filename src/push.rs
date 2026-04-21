@@ -20,8 +20,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use clap::{Args, ValueEnum};
-use log::{debug, info};
+use log::{debug, info, warn};
 
+use crate::common::run;
+use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
 /// Named stages of the `push` state machine.
@@ -229,10 +231,11 @@ pub fn resolve_state_layout(repo_root: &Path) -> StateLayout {
 /// Persistent state for an in-progress `push` run.
 ///
 /// Serialized as flat TOML (`key = "value"`) under the dir/file
-/// configured in `.vc-config.toml`'s `[push]` section. The struct is
-/// intentionally small in 0.37.0-1 — real stage implementations in
-/// later dev steps will add fields (op-snapshot ids, ochid decisions,
-/// composed message, etc.).
+/// configured in `.vc-config.toml`'s `[push]` section. Fields added
+/// across dev steps are all `Option<_>` so older states remain
+/// loadable — only `version` / `stage` / `bookmark` / `started_at`
+/// are required. See the module docstring for which dev step
+/// introduced which field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PushState {
     /// State-file format version; must match `STATE_FORMAT_VERSION`
@@ -246,6 +249,28 @@ pub struct PushState {
     /// ISO-8601 UTC timestamp captured when the state was first
     /// written. Informational — helps the user spot stale state.
     pub started_at: String,
+    /// App-repo changeID captured at `message` stage (before
+    /// `commit-app` runs). Stable across `jj commit` — becomes the
+    /// chid of the just-committed change. Used when composing the
+    /// `.claude` commit's ochid trailer. Added in 0.37.0-2.
+    pub app_chid: Option<String>,
+    /// `.claude` repo changeID used by the app-repo commit's ochid
+    /// trailer. Either the pre-commit `@` chid (when `.claude` has
+    /// pending changes — becomes `@-` after commit) or the current
+    /// `@-` chid (when `.claude` is clean — stays stable). Added in
+    /// 0.37.0-2.
+    pub claude_chid: Option<String>,
+    /// Whether `.claude`'s working copy had changes at `message`
+    /// time. Decides whether `commit-claude` actually runs or
+    /// skips. Added in 0.37.0-2.
+    pub claude_had_changes: Option<bool>,
+    /// `jj op` id of the app repo captured before `commit-app`. On
+    /// failure in stages 4-6, `jj op restore` rewinds here. Added
+    /// in 0.37.0-2.
+    pub op_app: Option<String>,
+    /// `jj op` id of `.claude` captured before `commit-app`. Same
+    /// rollback target as `op_app`. Added in 0.37.0-2.
+    pub op_claude: Option<String>,
 }
 
 impl PushState {
@@ -256,32 +281,52 @@ impl PushState {
             stage: Stage::first(),
             bookmark: bookmark.to_string(),
             started_at: Utc::now().to_rfc3339(),
+            app_chid: None,
+            claude_chid: None,
+            claude_had_changes: None,
+            op_app: None,
+            op_claude: None,
         }
     }
 
     /// Write the state to `path`, creating parent dirs as needed.
     ///
     /// Values are single-line and contain no `"` characters under
-    /// normal operation (stage names are kebab-case, bookmark names
-    /// don't contain quotes, timestamps are ASCII). A defensive
-    /// escape pass replaces any stray `"` with `\"` so the file
-    /// always parses with `toml_simple`.
+    /// normal operation (stage names are kebab-case, chids are
+    /// ASCII, bookmark names don't contain quotes, timestamps are
+    /// ASCII). A defensive escape pass replaces any stray `"` with
+    /// `\"` so the file always parses with `toml_simple`. Optional
+    /// fields are only emitted when set so older state files don't
+    /// carry a wall of blank keys.
     pub fn save(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let content = format!(
-            "# vc-x1 push state — managed file, do not edit by hand\n\
-             [push-state]\n\
-             version = {version}\n\
-             stage = \"{stage}\"\n\
-             bookmark = \"{bookmark}\"\n\
-             started_at = \"{started_at}\"\n",
-            version = self.version,
-            stage = self.stage.as_str(),
-            bookmark = escape_toml(&self.bookmark),
-            started_at = escape_toml(&self.started_at),
-        );
+        let mut content = String::new();
+        content.push_str("# vc-x1 push state — managed file, do not edit by hand\n");
+        content.push_str("[push-state]\n");
+        content.push_str(&format!("version = {}\n", self.version));
+        content.push_str(&format!("stage = \"{}\"\n", self.stage.as_str()));
+        content.push_str(&format!("bookmark = \"{}\"\n", escape_toml(&self.bookmark)));
+        content.push_str(&format!(
+            "started_at = \"{}\"\n",
+            escape_toml(&self.started_at)
+        ));
+        if let Some(v) = &self.app_chid {
+            content.push_str(&format!("app_chid = \"{}\"\n", escape_toml(v)));
+        }
+        if let Some(v) = &self.claude_chid {
+            content.push_str(&format!("claude_chid = \"{}\"\n", escape_toml(v)));
+        }
+        if let Some(v) = self.claude_had_changes {
+            content.push_str(&format!("claude_had_changes = {v}\n"));
+        }
+        if let Some(v) = &self.op_app {
+            content.push_str(&format!("op_app = \"{}\"\n", escape_toml(v)));
+        }
+        if let Some(v) = &self.op_claude {
+            content.push_str(&format!("op_claude = \"{}\"\n", escape_toml(v)));
+        }
         fs::write(path, content)?;
         debug!("push: wrote state to {}", path.display());
         Ok(())
@@ -315,11 +360,25 @@ impl PushState {
         let stage_str = require("push-state.stage")?;
         let stage = Stage::from_str(&stage_str)
             .ok_or_else(|| format!("push state {}: unknown stage '{stage_str}'", path.display()))?;
+        let claude_had_changes = match map.get("push-state.claude_had_changes") {
+            Some(s) => Some(s.parse::<bool>().map_err(|e| {
+                format!(
+                    "push state {}: invalid claude_had_changes: {e}",
+                    path.display()
+                )
+            })?),
+            None => None,
+        };
         Ok(Some(PushState {
             version,
             stage,
             bookmark: require("push-state.bookmark")?,
             started_at: require("push-state.started_at")?,
+            app_chid: map.get("push-state.app_chid").cloned(),
+            claude_chid: map.get("push-state.claude_chid").cloned(),
+            claude_had_changes,
+            op_app: map.get("push-state.op_app").cloned(),
+            op_claude: map.get("push-state.op_claude").cloned(),
         }))
     }
 }
@@ -334,11 +393,18 @@ fn escape_toml(s: &str) -> String {
 
 /// Entry point for the `push` subcommand.
 ///
-/// 0.37.0-1 behavior: infrastructure only. `--status` reports
-/// persisted state; `--restart` clears it; a bare `vc-x1 push` walks
-/// the state machine from the resumed stage to completion, with each
-/// stage logging what it *would* do. Actual stage side-effects land
-/// in 0.37.0-2 onward.
+/// 0.37.0-2 behavior: real stage bodies for preflight, message,
+/// commit-app, commit-claude, bookmark-both, push-app, and
+/// finalize-claude (review stays as a non-interactive skip until
+/// 0.37.0-3). `--title` and `--body` must be supplied on every
+/// invocation this step — message persistence across resumes lands
+/// alongside `$EDITOR` support in 0.37.0-3.
+///
+/// On any failure in stages 4-6 (the local mutation window between
+/// `commit-app` and `bookmark-both`), both repos roll back to the
+/// `jj op` snapshot recorded at the start of `commit-app`. After
+/// `push-app` succeeds the app commit is on the remote and
+/// immutable; recovery is forward-only from there.
 pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
     let layout = resolve_state_layout(&cwd);
@@ -403,10 +469,11 @@ fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
 /// Walk the state machine from `state.stage` to the end, saving
 /// progress after each stage.
 ///
-/// 0.37.0-1 stage bodies are stubs that log `"stage X: not
-/// implemented yet"` and return `Ok(())`; real bodies land across
-/// subsequent dev steps. The loop itself — advance, persist, repeat —
-/// is production shape.
+/// Records a `jj op` snapshot in both repos the first time we enter
+/// `commit-app` and leaves it in state so resume inherits the
+/// rollback target. On failure inside the rollback-eligible window
+/// (`commit-app` / `commit-claude` / `bookmark-both`), both repos
+/// are restored before the error propagates.
 fn run_from(
     state: &mut PushState,
     args: &PushArgs,
@@ -414,8 +481,24 @@ fn run_from(
 ) -> Result<(), Box<dyn std::error::Error>> {
     state.save(&layout.path)?;
     loop {
-        run_stage(state.stage, state, args)?;
-        match state.stage.next() {
+        let stage = state.stage;
+
+        if stage == Stage::CommitApp && state.op_app.is_none() {
+            state.op_app = Some(current_op_id(Path::new("."))?);
+            state.op_claude = Some(current_op_id(Path::new(".claude"))?);
+            state.save(&layout.path)?;
+        }
+
+        let result = run_stage(stage, state, args);
+
+        if let Err(e) = &result {
+            if stage_is_rollback_eligible(stage) {
+                rollback_on_failure(state, e.as_ref());
+            }
+            return result;
+        }
+
+        match stage.next() {
             Some(next) => {
                 state.stage = next;
                 state.save(&layout.path)?;
@@ -423,7 +506,6 @@ fn run_from(
             None => break,
         }
     }
-    // Completed — clear the state file.
     if layout.path.exists() {
         fs::remove_file(&layout.path)?;
     }
@@ -431,21 +513,283 @@ fn run_from(
     Ok(())
 }
 
-/// Execute one stage.
+/// Whether a failure in `stage` should trigger the cross-repo op
+/// restore. Anything at or past `push-app` crosses the remote
+/// boundary — the app commit is live on origin, rollback is no
+/// longer sound — so those failures propagate without touching
+/// snapshots.
+fn stage_is_rollback_eligible(stage: Stage) -> bool {
+    matches!(
+        stage,
+        Stage::CommitApp | Stage::CommitClaude | Stage::BookmarkBoth
+    )
+}
+
+/// Restore both repos to their `jj op` snapshots, if we have them.
 ///
-/// In 0.37.0-1 every arm is a stub. The ordering of arms matches the
-/// declaration order of `Stage` so future implementations slot in
-/// place without reshuffling.
+/// Best-effort — if the restore itself fails we warn but don't
+/// shadow the original error the caller will propagate.
+fn rollback_on_failure(state: &PushState, original: &dyn std::error::Error) {
+    warn!("push: rolling back both repos after: {original}");
+    if let Some(op) = &state.op_app {
+        match op_restore(Path::new("."), op) {
+            Ok(()) => info!("push: restored app repo to op {op}"),
+            Err(e) => warn!("push: app repo restore failed: {e}"),
+        }
+    }
+    if let Some(op) = &state.op_claude {
+        match op_restore(Path::new(".claude"), op) {
+            Ok(()) => info!("push: restored .claude to op {op}"),
+            Err(e) => warn!("push: .claude restore failed: {e}"),
+        }
+    }
+}
+
+/// Execute one stage. Arms mirror `Stage`'s declaration order.
 fn run_stage(
     stage: Stage,
-    _state: &mut PushState,
-    _args: &PushArgs,
+    state: &mut PushState,
+    args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!(
-        "push: stage {} (stub — not implemented yet)",
-        stage.as_str()
-    );
+    match stage {
+        Stage::Preflight => stage_preflight(),
+        Stage::Review => stage_review(),
+        Stage::Message => stage_message(state, args),
+        Stage::CommitApp => stage_commit_app(state, args),
+        Stage::CommitClaude => stage_commit_claude(state, args),
+        Stage::BookmarkBoth => stage_bookmark_both(state),
+        Stage::PushApp => stage_push_app(state),
+        Stage::FinalizeClaude => stage_finalize_claude(state, args),
+    }
+}
+
+/// Preflight: `cargo fmt && cargo clippy -D warnings && cargo test`.
+///
+/// Matches CLAUDE.md's pre-commit checklist (minus `cargo install`
+/// / retest, which are project-specific). Each subprocess's stderr
+/// streams through `common::run` so the user sees progress live.
+fn stage_preflight() -> Result<(), Box<dyn std::error::Error>> {
+    info!("push:preflight: cargo fmt");
+    run("cargo", &["fmt"], Path::new("."))?;
+    info!("push:preflight: cargo clippy --all-targets -- -D warnings");
+    run(
+        "cargo",
+        &["clippy", "--all-targets", "--", "-D", "warnings"],
+        Path::new("."),
+    )?;
+    info!("push:preflight: cargo test");
+    run("cargo", &["test"], Path::new("."))?;
     Ok(())
+}
+
+/// Review: non-interactive placeholder. Real approval gate lands
+/// in 0.37.0-3.
+fn stage_review() -> Result<(), Box<dyn std::error::Error>> {
+    info!("push:review: non-interactive (approval gate added in 0.37.0-3)");
+    Ok(())
+}
+
+/// Message: collect pre-commit changeIDs and record whether
+/// `.claude` has pending changes so `commit-claude` can skip when
+/// empty. `--title` and `--body` are required in 0.37.0-2; `$EDITOR`
+/// support + message persistence land in 0.37.0-3.
+fn stage_message(state: &mut PushState, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+    args.title.as_deref().ok_or(
+        "push:message: --title is required (0.37.0-2 is non-interactive; \
+         $EDITOR support lands in 0.37.0-3)",
+    )?;
+    args.body.as_deref().ok_or(
+        "push:message: --body is required (0.37.0-2 is non-interactive; \
+         $EDITOR support lands in 0.37.0-3)",
+    )?;
+
+    let app_chid = get_change_id(Path::new("."), "@")?;
+    let claude_empty = jj_log_empty(Path::new(".claude"), "@")?;
+    let claude_had_changes = !claude_empty;
+    let claude_ref = if claude_had_changes { "@" } else { "@-" };
+    let claude_chid = get_change_id(Path::new(".claude"), claude_ref)?;
+
+    info!(
+        "push:message: app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}"
+    );
+    state.app_chid = Some(app_chid);
+    state.claude_chid = Some(claude_chid);
+    state.claude_had_changes = Some(claude_had_changes);
+    Ok(())
+}
+
+/// Commit app repo with `title` / `body` and the `ochid:` trailer
+/// pointing at `.claude`'s chid.
+fn stage_commit_app(state: &PushState, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+    let title = args
+        .title
+        .as_deref()
+        .ok_or("push:commit-app: --title lost between stages")?;
+    let body = args
+        .body
+        .as_deref()
+        .ok_or("push:commit-app: --body lost between stages")?;
+    let claude_chid = state
+        .claude_chid
+        .as_deref()
+        .ok_or("push:commit-app: claude_chid not set (message stage didn't run)")?;
+    let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
+    info!("push:commit-app: jj commit -R .");
+    run(
+        "jj",
+        &["commit", "-R", ".", "-m", title, "-m", &body_with_trailer],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Commit `.claude` with the same title/body and the ochid trailer
+/// pointing at the app commit's chid, or skip if `.claude` had no
+/// pending changes.
+fn stage_commit_claude(
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !state.claude_had_changes.unwrap_or(false) {
+        info!("push:commit-claude: skip (.claude had no pending changes)");
+        return Ok(());
+    }
+    let title = args
+        .title
+        .as_deref()
+        .ok_or("push:commit-claude: --title lost between stages")?;
+    let body = args
+        .body
+        .as_deref()
+        .ok_or("push:commit-claude: --body lost between stages")?;
+    let app_chid = state
+        .app_chid
+        .as_deref()
+        .ok_or("push:commit-claude: app_chid not set (message stage didn't run)")?;
+    let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
+    info!("push:commit-claude: jj commit -R .claude");
+    run(
+        "jj",
+        &[
+            "commit",
+            "-R",
+            ".claude",
+            "-m",
+            title,
+            "-m",
+            &body_with_trailer,
+        ],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Advance the bookmark to `@-` in both repos.
+fn stage_bookmark_both(state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+    let bk = &state.bookmark;
+    info!("push:bookmark-both: jj bookmark set {bk} -r @- -R . / .claude");
+    run(
+        "jj",
+        &["bookmark", "set", bk, "-r", "@-", "-R", "."],
+        Path::new("."),
+    )?;
+    run(
+        "jj",
+        &["bookmark", "set", bk, "-r", "@-", "-R", ".claude"],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Push the app repo's bookmark to origin.
+fn stage_push_app(state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+    let bk = &state.bookmark;
+    info!("push:push-app: jj git push --bookmark {bk} -R .");
+    run(
+        "jj",
+        &["git", "push", "--bookmark", bk, "-R", "."],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Finalize `.claude` via an out-of-process `vc-x1 finalize` call.
+/// Shells out rather than calling `finalize::finalize` in-process
+/// so `--detach` can fork a child that outlives push's own
+/// lifetime. `--no-finalize` turns this stage into a no-op.
+fn stage_finalize_claude(
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if args.no_finalize {
+        info!("push:finalize-claude: skip (--no-finalize)");
+        return Ok(());
+    }
+    let bk = &state.bookmark;
+    info!(
+        "push:finalize-claude: vc-x1 finalize --repo .claude --squash --push {bk} --delay 10 --detach"
+    );
+    run(
+        "vc-x1",
+        &[
+            "finalize",
+            "--repo",
+            ".claude",
+            "--squash",
+            "--push",
+            bk,
+            "--delay",
+            "10",
+            "--detach",
+            "--log",
+            "/tmp/vc-x1-finalize.log",
+        ],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Return the 12-character change ID for `rev` in `repo`.
+fn get_change_id(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let out = run(
+        "jj",
+        &[
+            "log",
+            "-r",
+            rev,
+            "--no-graph",
+            "-T",
+            "change_id.short(12)",
+            "-R",
+            &repo.to_string_lossy(),
+        ],
+        Path::new("."),
+    )?;
+    Ok(out.trim().to_string())
+}
+
+/// True when the given revision is empty (no working-copy changes
+/// relative to its parent).
+fn jj_log_empty(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    let out = run(
+        "jj",
+        &[
+            "log",
+            "-r",
+            rev,
+            "--no-graph",
+            "-T",
+            "empty",
+            "-R",
+            &repo.to_string_lossy(),
+        ],
+        Path::new("."),
+    )?;
+    match out.trim() {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        other => Err(format!("jj_log_empty: unexpected template output {other:?}").into()),
+    }
 }
 
 #[cfg(test)]
@@ -643,8 +987,9 @@ mod tests {
         let _ = fs::remove_dir_all(&tmp);
     }
 
-    /// Save-then-load round-trips every field, including special
-    /// characters that need escaping.
+    /// Save-then-load round-trips every field, including the
+    /// 0.37.0-2 optional additions (chids, op snapshots, had-changes
+    /// flag).
     #[test]
     fn state_save_load_roundtrip() {
         let tmp = unique_tmp("state-roundtrip");
@@ -654,11 +999,77 @@ mod tests {
             stage: Stage::CommitClaude,
             bookmark: "feature/thing".to_string(),
             started_at: "2026-04-21T20:15:33+00:00".to_string(),
+            app_chid: Some("abc123def456".to_string()),
+            claude_chid: Some("fedcba654321".to_string()),
+            claude_had_changes: Some(true),
+            op_app: Some("opapp12345".to_string()),
+            op_claude: Some("opcla54321".to_string()),
         };
         original.save(&path).expect("save");
         let loaded = PushState::load(&path).expect("load").expect("Some state");
         assert_eq!(original, loaded);
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// Save-then-load also round-trips a state that has only the
+    /// base required fields set (matches what 0.37.0-1 states look
+    /// like — backward-compatible upgrade path).
+    #[test]
+    fn state_save_load_roundtrip_no_options() {
+        let tmp = unique_tmp("state-roundtrip-bare");
+        let path = tmp.join("push-state.toml");
+        let original = PushState {
+            version: STATE_FORMAT_VERSION,
+            stage: Stage::Preflight,
+            bookmark: "main".to_string(),
+            started_at: "2026-04-21T00:00:00+00:00".to_string(),
+            app_chid: None,
+            claude_chid: None,
+            claude_had_changes: None,
+            op_app: None,
+            op_claude: None,
+        };
+        original.save(&path).expect("save");
+        let loaded = PushState::load(&path).expect("load").expect("Some state");
+        assert_eq!(original, loaded);
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// `claude_had_changes = false` round-trips as `Some(false)`
+    /// (distinct from unset / `None`).
+    #[test]
+    fn state_save_load_claude_had_changes_false() {
+        let tmp = unique_tmp("state-cladechanges-false");
+        let path = tmp.join("push-state.toml");
+        let original = PushState {
+            version: STATE_FORMAT_VERSION,
+            stage: Stage::CommitClaude,
+            bookmark: "main".to_string(),
+            started_at: "2026-04-21T00:00:00+00:00".to_string(),
+            app_chid: Some("abc".to_string()),
+            claude_chid: Some("def".to_string()),
+            claude_had_changes: Some(false),
+            op_app: None,
+            op_claude: None,
+        };
+        original.save(&path).expect("save");
+        let loaded = PushState::load(&path).expect("load").expect("Some state");
+        assert_eq!(loaded.claude_had_changes, Some(false));
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// `stage_is_rollback_eligible` returns true only for the three
+    /// local-mutation stages.
+    #[test]
+    fn rollback_eligibility_covers_local_window() {
+        assert!(!stage_is_rollback_eligible(Stage::Preflight));
+        assert!(!stage_is_rollback_eligible(Stage::Review));
+        assert!(!stage_is_rollback_eligible(Stage::Message));
+        assert!(stage_is_rollback_eligible(Stage::CommitApp));
+        assert!(stage_is_rollback_eligible(Stage::CommitClaude));
+        assert!(stage_is_rollback_eligible(Stage::BookmarkBoth));
+        assert!(!stage_is_rollback_eligible(Stage::PushApp));
+        assert!(!stage_is_rollback_eligible(Stage::FinalizeClaude));
     }
 
     /// Missing state file → `Ok(None)`, not an error (fresh-run case).
