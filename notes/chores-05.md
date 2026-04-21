@@ -402,15 +402,122 @@ Pre-work (shipped first, own commits):
   codify sync-before-work discipline (its own chore section
   above)
 
-Push subcommand ladder:
+Push subcommand ladder (expanded from the original 4 to 6 after
+adding an integration-test step ahead of the first dogfood):
 
-- `0.37.0-0` — plan marker: commit this design doc, version bump
-- `0.37.0-1` — stages + state file, non-interactive (drive via
-  `--from` / `--status`)
-- `0.37.0-2` — two-approval interactive flow
-- `0.37.0-3` — polish: `--dry-run`, `--step`, `--restart`,
-  non-tty handling
+- `0.37.0-0` — scaffolding: flag surface, `Stage` enum, stub
+  `push()`
+- `0.37.0-1` — state file + stage-dispatch loop with stage stubs;
+  `--status`, `--restart`, `--from`
+- `0.37.0-2` — real stage bodies (commits, bookmarks, push,
+  finalize) + `jj op` snapshot rollback
+- `0.37.0-3` — integration tests + workspace-root refactor
+  (thread `root: &Path` through every stage so fixtures can
+  target tempdirs); first `vc-x1 push` dogfood ships this
+  commit
+- `0.37.0-4` — interactivity: `-y/--yes`, review prompt,
+  `$EDITOR`, message persistence across resumes, CLI-wide
+  version banner
+- `0.37.0-5` — polish: `--dry-run`, `--step`, non-tty detection,
+  `.gitignore` coherence warning
 - `0.37.0` — docs + workflow migration: update `CLAUDE.md`
   Commit-Push-Finalize Flow to point at `push`, update
   `notes/README.md` pointers, retire the by-hand steps. No
   suffix — this is the "done" marker.
+
+### Per-step record
+
+Running log of what each `0.37.0-N` commit shipped. Commit bodies
+point at these per-step anchors for detail rather than the whole
+design block above. "Pending" steps below get filled in as they
+land.
+
+#### 0.37.0-0 — scaffolding
+
+- `src/push.rs` (new) — `PushArgs` flag surface, `Stage` enum
+  (8 kebab-case variants), stub `push()` returning "not yet
+  implemented"; 6 parse-test units
+- `src/main.rs` — `mod push;`, `Push(PushArgs)` variant + dispatch,
+  `propagate_version = true` so `-V` works on every subcommand
+  (mid-review fix folded in)
+
+#### 0.37.0-1 — state file + stage dispatch
+
+- `src/push.rs` — `Stage::as_str` / `from_str` / `next` / `first`;
+  `resolve_state_layout` reads `[push]` section of
+  `.vc-config.toml` with defaults (`.vc-x1/push-state.toml`);
+  `PushState` flat-TOML save/load with format-version guard;
+  `--status`, `--restart`, `--from` control paths; dispatch loop
+  saves state after each stage (bodies still stubs); bookmark
+  accepted as positional or `--bookmark`; 9 new unit tests
+- `.gitignore` — `/.vc-x1`
+- Forward-pointer captured in Open Questions: richer bookmark
+  enumeration needed before `vc-x1 push` can auto-detect from
+  `@-`
+
+#### 0.37.0-2 — real stage bodies + rollback
+
+- `src/push.rs` — all 8 stage bodies wired (preflight shells to
+  `cargo fmt/clippy/test`; review non-interactive; message
+  collects chids + detects `.claude` pending state; commit-app /
+  commit-claude / bookmark-both / push-app real; finalize-claude
+  shells to `vc-x1 finalize --detach`); `jj op` snapshot at
+  commit-app entry + `rollback_on_failure` restores both repos
+  for failures in stages 4-6; `PushState` adds `app_chid`,
+  `claude_chid`, `claude_had_changes`, `op_app`, `op_claude`
+  (all `Option<_>` — older state files still load); 4 new unit
+  tests
+- `src/sync.rs` — `current_op_id` / `op_restore` promoted to
+  `pub(crate)` for reuse
+
+#### 0.37.0-3 — integration tests + workspace-root refactor
+
+- `src/push.rs` — `pub(crate) fn push_in(workspace_root, args)`
+  splits CLI entry (cwd) from test entry (fixture tempdir);
+  every stage body + `rollback_on_failure` takes `&Path root`;
+  `claude_path(root)` helper; `rollback_on_failure` promoted to
+  `pub(crate)` so tests can exercise rollback directly; new
+  `#[cfg(test)] mod integration_tests` with 4 end-to-end tests
+  (happy-clean, happy-dirty, rollback, resume)
+- First `vc-x1 push` dogfood ships this commit
+
+#### 0.37.0-4 — interactivity + version banner
+
+- `src/push.rs` — `-y/--yes` on `PushArgs`; `title`/`body`
+  persisted in `PushState` via `escape_multiline` /
+  `unescape_multiline`; `stage_review` prints `jj diff --stat`
+  and prompts `[y/N]` unless `--yes`; `stage_message` resolves
+  message by precedence (flags → persisted state → `$EDITOR`
+  template); `compose_message_via_editor` writes template under
+  `state_dir`, launches `$EDITOR` (`VISUAL` → `vi` fallback),
+  parses saved content (strips `#` comments, splits title/body
+  on first blank line, aborts on empty); `resolve_message`
+  helper consolidates title/body lookup; `run_stage` threads
+  `&StateLayout`; 2 new unit tests (multiline-escape round-trip,
+  `parse_message` cases)
+- `src/main.rs` — `BANNER` + `TOP_ABOUT` consts built at compile
+  time from `CARGO_PKG_NAME` / `CARGO_PKG_VERSION`;
+  `cli_with_banner` walks clap tree with `mut_subcommand` to set
+  `before_help` on every subcommand (top-level's `about` carries
+  the combined `name + version + tagline` on one line);
+  `main()` switched from `Cli::parse()` to `get_matches() +
+  Cli::from_arg_matches` so the customized tree is what clap
+  parses; `BANNER` emitted as `info!` at the start of every
+  run except the detached `finalize --exec` re-entry, and
+  suppressed when the active subcommand has `--no-label` set
+  (so `chid -L` / `desc -L` / `list -L` / `show -L` stay
+  script-parseable)
+
+#### 0.37.0-5 — polish *(pending)*
+
+Planned: `--dry-run` (print commands, no side effects),
+`--step` (pause between every stage), non-tty detection (fail
+fast when interactive without `--yes`), `.gitignore` coherence
+runtime warning (check the configured state path is ignored,
+warn if not).
+
+#### 0.37.0 — docs + workflow migration *(pending, done marker)*
+
+Planned: retire CLAUDE.md's by-hand Commit-Push-Finalize Flow
+in favor of `vc-x1 push`; add a `push` section to `README.md`;
+annotate this chore block with a "shipped" trailer.

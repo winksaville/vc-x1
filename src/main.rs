@@ -20,15 +20,63 @@ mod validate_desc;
 
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::CompleteEnv;
 use log::error;
+
+/// Banner string emitted as the first line of normal command runs
+/// and shown at the top of subcommand `--help` output. Built from
+/// `Cargo.toml`'s name + version at compile time so it stays in
+/// sync with the bumped version.
+const BANNER: &str = concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
+
+/// Top-level about line — name, version, and the project tagline
+/// on a single line. Used as the top-level `about` so `vc-x1 -h`
+/// reads as one banner-plus-tagline header instead of two stacked
+/// lines.
+const TOP_ABOUT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    " ",
+    env!("CARGO_PKG_VERSION"),
+    " - jj workspace tooling"
+);
+
+/// Build the clap command tree with `BANNER` set as `before_help`
+/// on every subcommand (transitively). Top-level skips `before_help`
+/// because its own `about` already carries the name+version+tagline.
+/// Walks via `mut_subcommand` so individual subcommand
+/// `#[command(long_about = ...)]` blocks don't have to repeat the
+/// banner text.
+fn cli_with_banner() -> clap::Command {
+    fn add_to_subs(mut cmd: clap::Command) -> clap::Command {
+        let names: Vec<String> = cmd
+            .get_subcommands()
+            .map(|c| c.get_name().to_string())
+            .collect();
+        for name in names {
+            cmd = cmd.mut_subcommand(name, add_with_banner);
+        }
+        cmd
+    }
+    fn add_with_banner(mut cmd: clap::Command) -> clap::Command {
+        cmd = cmd.before_help(BANNER);
+        let names: Vec<String> = cmd
+            .get_subcommands()
+            .map(|c| c.get_name().to_string())
+            .collect();
+        for name in names {
+            cmd = cmd.mut_subcommand(name, add_with_banner);
+        }
+        cmd
+    }
+    add_to_subs(Cli::command())
+}
 
 #[derive(Parser, Debug)]
 #[command(
     version,
     propagate_version = true,
-    about = "vc-x1: jj workspace tooling",
+    about = TOP_ABOUT,
     max_term_width = 80
 )]
 pub struct Cli {
@@ -125,20 +173,24 @@ pub(crate) enum Commands {
         Every flag is opt-in. See README.md for details.")]
     Finalize(finalize::FinalizeArgs),
 
-    /// Dual-repo commit+push+finalize in one resumable command (WIP)
+    /// Dual-repo commit+push+finalize in one resumable command
     #[command(
         long_about = "Dual-repo commit+push+finalize in one resumable command.\n\n\
         Collapses today's manual Commit-Push-Finalize Flow into a\n\
-        single subcommand with (eventually) two approval gates and a\n\
+        single subcommand with two interactive approval gates and a\n\
         state machine with persistent progress so interruptions can\n\
         resume without re-doing completed stages.\n\n\
-        Status (0.37.0-2): real stage bodies — preflight (fmt/clippy/\n\
-        test), message (composes ochid trailers, records .claude's\n\
-        pending-changes status), commit-app, commit-claude, bookmark-\n\
-        both, push-app, finalize-claude. --title and --body are\n\
-        required; interactivity + $EDITOR + message persistence land\n\
-        in 0.37.0-3. Failures in stages 4-6 roll both repos back via\n\
-        `jj op restore` to the snapshot recorded before commit-app."
+        Stages: preflight (fmt/clippy/test) → review (approve diff)\n\
+        → message ($EDITOR / --title+--body, approve text) →\n\
+        commit-app → commit-claude (skipped if clean) → bookmark-both\n\
+        → push-app → finalize-claude. Failures in commit-app /\n\
+        commit-claude / bookmark-both roll both repos back via\n\
+        `jj op restore` to the snapshot recorded before commit-app.\n\
+        After push-app succeeds the remote boundary is crossed and\n\
+        recovery is forward-only.\n\n\
+        Non-interactive use: pass both --title and --body plus --yes\n\
+        to skip the review gate. Saved state carries title/body\n\
+        across resumes so only the first invocation needs them."
     )]
     Push(push::PushArgs),
 
@@ -160,20 +212,45 @@ fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
 }
 
 fn main() -> ExitCode {
-    CompleteEnv::with_factory(Cli::command).complete();
-    let cli = Cli::parse();
+    CompleteEnv::with_factory(cli_with_banner).complete();
+    let matches = cli_with_banner().get_matches();
+    let cli = match Cli::from_arg_matches(&matches) {
+        Ok(cli) => cli,
+        Err(e) => {
+            e.exit();
+        }
+    };
 
     let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
     logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
-    // Surface any failure markers left by previous detached finalize children,
-    // unless we ARE a detached child (the `--exec` re-entry). A detached child
-    // shouldn't consume markers meant for the user's next interactive run.
+    // The detached `finalize --exec` re-entry is the bot's
+    // session-end child; it shouldn't print the banner (extra
+    // chatter in its log) or surface user-facing failure markers
+    // (those are meant for the user's next interactive run).
     let is_detached_exec = matches!(
         cli.command,
         Commands::Finalize(ref f) if f.exec
     );
+
+    // `-L` / `--no-label` on the read-only multi-repo subcommands
+    // (chid, desc, list, show) makes their output script-parseable
+    // — adding a leading `vc-x1 X.Y.Z` line would break that. Skip
+    // the banner whenever the active subcommand has the flag set.
+    let suppress_banner = match &cli.command {
+        Commands::Chid(a) => a.common.no_label,
+        Commands::Desc(a) => a.common.no_label,
+        Commands::List(a) => a.common.no_label,
+        Commands::Show(a) => a.common.no_label,
+        _ => false,
+    };
+
     if !is_detached_exec {
+        if !suppress_banner {
+            // Banner on every normal run, mirroring what `--help`
+            // shows at the top.
+            log::info!("{BANNER}");
+        }
         finalize::surface_previous_failures();
     }
 

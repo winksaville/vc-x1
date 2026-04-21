@@ -29,7 +29,7 @@ use chrono::Utc;
 use clap::{Args, ValueEnum};
 use log::{debug, info, warn};
 
-use crate::common::run;
+use crate::common::{prompt, run};
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
@@ -171,6 +171,12 @@ pub struct PushArgs {
     /// Commit body (skip `$EDITOR` for the message stage).
     #[arg(long, value_name = "STR")]
     pub body: Option<String>,
+
+    /// Auto-approve interactive prompts (review gate, message-edit
+    /// confirmation). Required when `--title` / `--body` aren't both
+    /// supplied in non-interactive contexts.
+    #[arg(short = 'y', long)]
+    pub yes: bool,
 }
 
 /// Current state-file format version — bump when the flat key set
@@ -278,6 +284,16 @@ pub struct PushState {
     /// `jj op` id of `.claude` captured before `commit-app`. Same
     /// rollback target as `op_app`. Added in 0.37.0-2.
     pub op_claude: Option<String>,
+    /// Composed commit title — persisted so resume doesn't need
+    /// `--title` re-passed. Set during `message` stage from either
+    /// `--title` or `$EDITOR`. Added in 0.37.0-4.
+    pub title: Option<String>,
+    /// Composed commit body (sans ochid trailer, which each commit
+    /// stage appends). Persisted alongside title. Multi-line
+    /// content is escaped for the flat-TOML save format (see
+    /// `escape_multiline` / `unescape_multiline`). Added in
+    /// 0.37.0-4.
+    pub body: Option<String>,
 }
 
 impl PushState {
@@ -293,6 +309,8 @@ impl PushState {
             claude_had_changes: None,
             op_app: None,
             op_claude: None,
+            title: None,
+            body: None,
         }
     }
 
@@ -333,6 +351,12 @@ impl PushState {
         }
         if let Some(v) = &self.op_claude {
             content.push_str(&format!("op_claude = \"{}\"\n", escape_toml(v)));
+        }
+        if let Some(v) = &self.title {
+            content.push_str(&format!("title = \"{}\"\n", escape_multiline(v)));
+        }
+        if let Some(v) = &self.body {
+            content.push_str(&format!("body = \"{}\"\n", escape_multiline(v)));
         }
         fs::write(path, content)?;
         debug!("push: wrote state to {}", path.display());
@@ -386,6 +410,8 @@ impl PushState {
             claude_had_changes,
             op_app: map.get("push-state.op_app").cloned(),
             op_claude: map.get("push-state.op_claude").cloned(),
+            title: map.get("push-state.title").map(|s| unescape_multiline(s)),
+            body: map.get("push-state.body").map(|s| unescape_multiline(s)),
         }))
     }
 }
@@ -396,6 +422,53 @@ impl PushState {
 /// would break the single-line form.
 fn escape_toml(s: &str) -> String {
     s.replace('"', "\\\"")
+}
+
+/// Escape a potentially multi-line string for persistence in a
+/// single-line TOML value. `toml_simple` only handles one line per
+/// value so we encode newlines as `\n`, tabs as `\t`, and any stray
+/// `"` / `\` as their escaped forms. The inverse is
+/// `unescape_multiline`.
+fn escape_multiline(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Invert `escape_multiline`. Unknown backslash-escapes pass through
+/// untouched (best-effort — this is a managed state file, so it's
+/// unlikely to encounter hand-edited escapes).
+fn unescape_multiline(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Entry point for the `push` subcommand.
@@ -515,7 +588,7 @@ fn run_from(
             state.save(&layout.path)?;
         }
 
-        let result = run_stage(root, stage, state, args);
+        let result = run_stage(root, stage, state, args, layout);
 
         if let Err(e) = &result {
             if stage_is_rollback_eligible(stage) {
@@ -583,11 +656,12 @@ fn run_stage(
     stage: Stage,
     state: &mut PushState,
     args: &PushArgs,
+    layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match stage {
         Stage::Preflight => stage_preflight(root),
-        Stage::Review => stage_review(),
-        Stage::Message => stage_message(root, state, args),
+        Stage::Review => stage_review(root, args),
+        Stage::Message => stage_message(root, state, args, layout),
         Stage::CommitApp => stage_commit_app(root, state, args),
         Stage::CommitClaude => stage_commit_claude(root, state, args),
         Stage::BookmarkBoth => stage_bookmark_both(root, state),
@@ -615,11 +689,40 @@ fn stage_preflight(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Review: non-interactive placeholder. Real approval gate lands
-/// in 0.37.0-4.
-fn stage_review() -> Result<(), Box<dyn std::error::Error>> {
-    info!("push:review: non-interactive (approval gate added in 0.37.0-4)");
-    Ok(())
+/// Review: first approval gate — "is the work done right?".
+///
+/// Shows a `jj diff --stat` of the pending changes in both repos
+/// and prompts the user to continue. `--yes` short-circuits the
+/// prompt (required for scripted / non-tty use).
+fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+    if args.yes {
+        info!("push:review: auto-approved (--yes)");
+        return Ok(());
+    }
+    let claude = claude_path(root);
+    let app_arg = root.to_string_lossy();
+    let claude_arg = claude.to_string_lossy();
+    info!("push:review: pending changes:");
+    info!("  app ({app_arg}):");
+    let app_stat = run("jj", &["diff", "--stat", "-R", &app_arg], root)?;
+    for line in app_stat.lines() {
+        info!("    {line}");
+    }
+    info!("  .claude ({claude_arg}):");
+    let claude_stat = run("jj", &["diff", "--stat", "-R", &claude_arg], root)?;
+    for line in claude_stat.lines() {
+        info!("    {line}");
+    }
+    let answer = prompt("push:review: approve and continue to message stage? [y/N] ")?;
+    let normalized = answer.trim().to_ascii_lowercase();
+    if normalized == "y" || normalized == "yes" {
+        Ok(())
+    } else {
+        Err(format!(
+            "push:review: declined (got {answer:?}); re-run with --yes or confirm with 'y'"
+        )
+        .into())
+    }
 }
 
 /// Message: collect pre-commit changeIDs and record whether
@@ -630,15 +733,32 @@ fn stage_message(
     root: &Path,
     state: &mut PushState,
     args: &PushArgs,
+    layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    args.title.as_deref().ok_or(
-        "push:message: --title is required (non-interactive until 0.37.0-4; \
-         $EDITOR support lands then)",
-    )?;
-    args.body.as_deref().ok_or(
-        "push:message: --body is required (non-interactive until 0.37.0-4; \
-         $EDITOR support lands then)",
-    )?;
+    // Resolve title/body by priority:
+    //   1. --title / --body flags (both must be present to skip editor)
+    //   2. persisted title/body from prior stage run (resume case)
+    //   3. $EDITOR template (interactive); fails if --yes and nothing else
+    let (title, body) = match (args.title.clone(), args.body.clone()) {
+        (Some(t), Some(b)) => (t, b),
+        _ => match (state.title.clone(), state.body.clone()) {
+            (Some(t), Some(b)) => (t, b),
+            _ => {
+                if args.yes {
+                    return Err("push:message: --yes given but --title/--body missing \
+                                and no persisted message to resume — pass both flags \
+                                or run interactively."
+                        .into());
+                }
+                compose_message_via_editor(layout)?
+            }
+        },
+    };
+
+    // Persist the composed message so a later resume (e.g. after a
+    // commit-app retry) doesn't need the flags re-passed.
+    state.title = Some(title.clone());
+    state.body = Some(body.clone());
 
     let claude = claude_path(root);
     let app_chid = get_change_id(root, "@")?;
@@ -648,12 +768,81 @@ fn stage_message(
     let claude_chid = get_change_id(&claude, claude_ref)?;
 
     info!(
-        "push:message: app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}"
+        "push:message: title=\"{}\", app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}",
+        title.lines().next().unwrap_or("") // OK: obvious
     );
     state.app_chid = Some(app_chid);
     state.claude_chid = Some(claude_chid);
     state.claude_had_changes = Some(claude_had_changes);
     Ok(())
+}
+
+/// Launch `$EDITOR` (falling back to `vi`) on a template file under
+/// `state_dir`, then parse the saved content into a `(title, body)`
+/// tuple. Lines starting with `#` are treated as comments and
+/// stripped. Empty input aborts the push.
+fn compose_message_via_editor(
+    layout: &StateLayout,
+) -> Result<(String, String), Box<dyn std::error::Error>> {
+    let editor = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .unwrap_or_else(|_| "vi".to_string()); // OK: POSIX fallback when nothing is configured
+    let msg_path = layout
+        .path
+        .parent()
+        .ok_or("push:message: state layout has no parent dir")?
+        .join("push-message.txt");
+    if let Some(parent) = msg_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let template = "\
+# Write the commit title on the first line (target ~50 chars).
+# Lines starting with `#` are ignored.
+# Leave everything blank to abort the push.
+#
+# Body goes after a blank line. ochid trailers are appended
+# per-repo automatically — don't add them here.
+";
+    fs::write(&msg_path, template)?;
+    info!("push:message: launching {editor} on {}", msg_path.display());
+    let status = std::process::Command::new(&editor)
+        .arg(&msg_path)
+        .status()
+        .map_err(|e| format!("failed to launch {editor}: {e}"))?;
+    if !status.success() {
+        return Err(format!("{editor} exited non-zero ({status})").into());
+    }
+    let content = fs::read_to_string(&msg_path)?;
+    let _ = fs::remove_file(&msg_path);
+    parse_message(&content)
+        .ok_or_else(|| "push:message: template was left empty or all-comments — aborting".into())
+}
+
+/// Parse the editor-saved message into `(title, body)`. Strips
+/// `#`-prefixed comment lines, trims surrounding blanks, and
+/// splits on the first blank line after the title. Returns `None`
+/// when the message has no non-comment content.
+fn parse_message(raw: &str) -> Option<(String, String)> {
+    let mut meaningful = String::new();
+    for line in raw.lines() {
+        let trimmed_left = line.trim_start();
+        if trimmed_left.starts_with('#') {
+            continue;
+        }
+        meaningful.push_str(line);
+        meaningful.push('\n');
+    }
+    let trimmed = meaningful.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let mut parts = trimmed.splitn(2, "\n\n");
+    let title = parts.next().unwrap_or("").trim().to_string(); // OK: splitn always yields ≥1
+    let body = parts.next().unwrap_or("").trim().to_string(); // OK: empty body if no blank line
+    if title.is_empty() {
+        return None;
+    }
+    Some((title, body))
 }
 
 /// Commit app repo with `title` / `body` and the `ochid:` trailer
@@ -663,14 +852,7 @@ fn stage_commit_app(
     state: &PushState,
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let title = args
-        .title
-        .as_deref()
-        .ok_or("push:commit-app: --title lost between stages")?;
-    let body = args
-        .body
-        .as_deref()
-        .ok_or("push:commit-app: --body lost between stages")?;
+    let (title, body) = resolve_message(state, args)?;
     let claude_chid = state
         .claude_chid
         .as_deref()
@@ -685,13 +867,34 @@ fn stage_commit_app(
             "-R",
             &app_arg,
             "-m",
-            title,
+            &title,
             "-m",
             &body_with_trailer,
         ],
         root,
     )?;
     Ok(())
+}
+
+/// Pull the title/body pair from CLI args or persisted state,
+/// preferring CLI args (override-on-resume case). Returns `Err`
+/// when neither source has them — which only happens if
+/// `stage_message` didn't run or was force-bypassed.
+fn resolve_message(
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(String, String), Box<dyn std::error::Error>> {
+    let title = args
+        .title
+        .clone()
+        .or_else(|| state.title.clone())
+        .ok_or("push: title missing — message stage didn't run")?;
+    let body = args
+        .body
+        .clone()
+        .or_else(|| state.body.clone())
+        .ok_or("push: body missing — message stage didn't run")?;
+    Ok((title, body))
 }
 
 /// Commit `.claude` with the same title/body and the ochid trailer
@@ -706,14 +909,7 @@ fn stage_commit_claude(
         info!("push:commit-claude: skip (.claude had no pending changes)");
         return Ok(());
     }
-    let title = args
-        .title
-        .as_deref()
-        .ok_or("push:commit-claude: --title lost between stages")?;
-    let body = args
-        .body
-        .as_deref()
-        .ok_or("push:commit-claude: --body lost between stages")?;
+    let (title, body) = resolve_message(state, args)?;
     let app_chid = state
         .app_chid
         .as_deref()
@@ -729,7 +925,7 @@ fn stage_commit_claude(
             "-R",
             &claude_arg,
             "-m",
-            title,
+            &title,
             "-m",
             &body_with_trailer,
         ],
@@ -1066,6 +1262,8 @@ mod tests {
             claude_had_changes: Some(true),
             op_app: Some("opapp12345".to_string()),
             op_claude: Some("opcla54321".to_string()),
+            title: Some("feat: round-trip title".to_string()),
+            body: Some("Multi-line\nbody with\n\tspecial \"chars\" and \\ backslash.".to_string()),
         };
         original.save(&path).expect("save");
         let loaded = PushState::load(&path).expect("load").expect("Some state");
@@ -1090,6 +1288,8 @@ mod tests {
             claude_had_changes: None,
             op_app: None,
             op_claude: None,
+            title: None,
+            body: None,
         };
         original.save(&path).expect("save");
         let loaded = PushState::load(&path).expect("load").expect("Some state");
@@ -1113,6 +1313,8 @@ mod tests {
             claude_had_changes: Some(false),
             op_app: None,
             op_claude: None,
+            title: None,
+            body: None,
         };
         original.save(&path).expect("save");
         let loaded = PushState::load(&path).expect("load").expect("Some state");
@@ -1212,6 +1414,55 @@ mod tests {
         assert_eq!(s.bookmark, "main");
         assert!(!s.started_at.is_empty());
     }
+
+    /// `escape_multiline` round-trips via `unescape_multiline`
+    /// across every escape case we emit.
+    #[test]
+    fn multiline_escape_roundtrip() {
+        for original in [
+            "",
+            "simple",
+            "line one\nline two",
+            "tab\tseparated\tvalues",
+            "quoted \"text\" inside",
+            "backslash \\ here",
+            "mixed:\n\t\"quoted\"\\ path\r\n",
+        ] {
+            let escaped = escape_multiline(original);
+            // Escaped form contains no raw newlines, tabs, or CRs —
+            // safe for our single-line TOML value slot.
+            assert!(!escaped.contains('\n'), "escape leaked \\n: {escaped:?}");
+            assert!(!escaped.contains('\t'), "escape leaked \\t: {escaped:?}");
+            assert!(!escaped.contains('\r'), "escape leaked \\r: {escaped:?}");
+            assert_eq!(unescape_multiline(&escaped), original);
+        }
+    }
+
+    /// `parse_message` extracts title + body, strips `#` comments,
+    /// and rejects all-comments / empty input.
+    #[test]
+    fn parse_message_cases() {
+        // Title + body separated by blank line.
+        let (t, b) = parse_message("feat: x\n\nBody here.\nSecond line.\n").unwrap();
+        assert_eq!(t, "feat: x");
+        assert_eq!(b, "Body here.\nSecond line.");
+
+        // Comments stripped.
+        let (t, b) =
+            parse_message("# comment\nfeat: y\n# mid-comment\n\nbody\n# tail-comment\n").unwrap();
+        assert_eq!(t, "feat: y");
+        assert_eq!(b, "body");
+
+        // Title only (no body).
+        let (t, b) = parse_message("feat: z\n").unwrap();
+        assert_eq!(t, "feat: z");
+        assert_eq!(b, "");
+
+        // All comments → None (caller aborts).
+        assert!(parse_message("# only comments\n# and more\n").is_none());
+        // All blank → None.
+        assert!(parse_message("   \n\n").is_none());
+    }
 }
 
 #[cfg(test)]
@@ -1284,7 +1535,8 @@ mod integration_tests {
     }
 
     /// Standard test args: bookmark=main, `--from message` (skip
-    /// preflight), `--no-finalize` (skip detached finalize).
+    /// preflight), `--no-finalize` (skip detached finalize),
+    /// `--yes` (auto-approve any interactive prompts).
     fn test_args(title: &str, body: &str) -> PushArgs {
         PushArgs {
             bookmark_pos: Some("main".to_string()),
@@ -1298,6 +1550,7 @@ mod integration_tests {
             dry_run: false,
             title: Some(title.to_string()),
             body: Some(body.to_string()),
+            yes: true,
         }
     }
 
@@ -1433,6 +1686,8 @@ mod integration_tests {
             claude_had_changes: Some(true),
             op_app: Some(op_app_start),
             op_claude: Some(op_claude_start),
+            title: None,
+            body: None,
         };
 
         let err: Box<dyn std::error::Error> = "forced for test".into();
