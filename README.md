@@ -678,16 +678,23 @@ the same result. Use `all()` when you have multiple branches or heads.
 
 ## Contributing
 
-Developer notes, conventions, and task tracking live in [notes/](notes/).
-Start with [notes/README.md](notes/README.md), which covers:
+Bot-following workflow, commit conventions, and code style are
+canonical in [CLAUDE.md](CLAUDE.md):
 
-- [Versioning during development](notes/README.md#versioning-during-development)
-- [Code Conventions](notes/README.md#code-conventions) — including the
-  `// OK: …` convention for `unwrap*` calls
-- [Todo format](notes/README.md#todo-format)
+- [Versioning during development](CLAUDE.md#versioning) — `-N`
+  pre-release suffix convention (single-step vs multi-step).
+- [Commit message style](CLAUDE.md#commit-message-style).
+- [Commit-Push-Finalize Flow](CLAUDE.md#commit-push-finalize-flow) —
+  two-checkpoint per-step discipline.
+- [Code Conventions](CLAUDE.md#code-conventions) — doc comments on
+  every file / fn / method, `// OK: …` on `unwrap*` calls,
+  ask-on-ambiguity, stuck detection.
+- [Pre-commit checklist](CLAUDE.md#pre-commit-checklist).
 
-Near-term tasks are in [notes/todo.md](notes/todo.md); per-release details
-are in the `notes/chores-*.md` files.
+Task tracking and release details live under [notes/](notes/):
+near-term tasks in [notes/todo.md](notes/todo.md), per-release
+details in `notes/chores-*.md`, and notes-specific formatting
+rules in [notes/README.md](notes/README.md).
 
 ## License
 

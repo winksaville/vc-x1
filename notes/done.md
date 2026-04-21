@@ -50,6 +50,24 @@ As todo.md `## Done` sections fills move them to here.
 - Add lost/none special ochid status, improved error messages (0.25.0-dev2) [22],[23]
 - Read other-repo from .vc-config.toml, make positional arg a --other-repo flag (0.25.0-dev3) [24]
 - Run fix-desc on both repos to fix ochid trailers with --fallback for lost IDs (0.25.0) [20]
+- Remove deprecated fix-ochid subcommand (0.25.0) [25]
+- Add shell completion via clap_complete env (0.26.0) [26]
+- Fix validate-desc/fix-desc other-repo resolution with -R flag (0.26.2) [30]
+- Add `fn claude-symlink` and `symlink` subcommand (0.27.0) [31]
+- Add `init` subcommand for dual-repo project creation (0.28.0) [32]
+- Add `clone` command + fix init submodule/ochid bug (0.29.0) [33]
+- Universal --verbose, common::run() refactor, chid bold removal (0.30.0) [34]
+- Adopt `log` crate with per-module runtime filtering (0.31.0) [35]
+- Remove submodule from init/clone (0.31.1) [38]
+- Audit `unwrap`/`unwrap_or` usage, add `// OK: …` convention (0.32.0) [39]
+- Make `finalize` failures visible — pre-flight, subprocess logging, tty reconnect, status marker (0.33.0) [40]
+- Fix deprecated `jj bookmark track <bookmark>@<remote>` syntax for jj 0.40.0 (0.33.1) [41]
+- Silence untracked-remote hint in `init` step 9 (0.33.2) [42]
+- Compatible dep refresh via `cargo update` (0.33.3) [43]
+- Add `--use-template` to `init` and `test-fixture` (0.34.0) [44]
+- Bump `jj-lib` to 0.40 + tighten `clap` floor to 4.6 (0.34.1) [45]
+- Add `sync` subcommand — fetch + classify + rebase both repos (0.35.0) [46]
+- Show bookmarks in `list`, `show`, `desc` output (0.36.0) [47]
 
 # References
 
@@ -77,3 +95,21 @@ As todo.md `## Done` sections fills move them to here.
 [22]: /notes/chores-02.md#0250-dev2--add-fix-desc-subcommand
 [23]: /notes/chores-02.md#special-ochid-values-lost-and-none
 [24]: /notes/chores-02.md#0250-dev3--read-other-repo-from-config
+[25]: /notes/chores-02.md#0250--remove-deprecated-fix-ochid
+[26]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
+[30]: /notes/chores-02.md#0262--fix-validate-descfix-desc-other-repo-resolution-with--r
+[31]: /notes/chores-03.md#add-fn-claude-symlink-0270
+[32]: /notes/chores-03.md#add-init-command-0280
+[33]: /notes/chores-03.md#add-clone-command-0290
+[34]: /notes/chores-03.md#universal---verbose-and-commonrun-refactor-0300
+[35]: /notes/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
+[38]: /notes/chores-03.md#remove-submodule-from-initclone-0311
+[39]: /notes/chores-04.md#audit-unwrapunwrap_or-usage-0320
+[40]: /notes/chores-04.md#make-finalize-failures-visible-0330
+[41]: /notes/chores-04.md#fix-deprecated-jj-bookmark-track-syntax-0331
+[42]: /notes/chores-04.md#silence-untracked-remote-hint-in-init-step-9-0332
+[43]: /notes/chores-04.md#compatible-dep-refresh-0333
+[44]: /notes/chores-04.md#add---use-template-to-init--test-fixture-0340
+[45]: /notes/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
+[46]: /notes/chores-04.md#add-sync-subcommand-0350
+[47]: /notes/chores-04.md#show-bookmarks-in-list-show-desc-output-0360
