@@ -103,7 +103,8 @@ fn show_one_commit(
     );
 
     // Ids
-    let ids_line = common::format_commit_short(commit);
+    let bookmarks = common::format_bookmarks_at(repo, commit.id());
+    let ids_line = common::format_commit_short(commit, &bookmarks);
     if is_primary {
         info!("Ids:       {}", common::bold(&ids_line));
     } else {
@@ -117,7 +118,8 @@ fn show_one_commit(
             continue;
         }
         let parent = repo.store().get_commit(parent_id)?;
-        info!("Parent:    {}", common::format_commit_short(&parent));
+        let bm = common::format_bookmarks_at(repo, parent.id());
+        info!("Parent:    {}", common::format_commit_short(&parent, &bm));
     }
 
     // Children
@@ -128,7 +130,8 @@ fn show_one_commit(
             continue;
         }
         let child = repo.store().get_commit(child_id)?;
-        info!("Child:     {}", common::format_commit_short(&child));
+        let bm = common::format_bookmarks_at(repo, child.id());
+        info!("Child:     {}", common::format_commit_short(&child, &bm));
     }
 
     // Branches

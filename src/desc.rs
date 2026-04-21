@@ -22,7 +22,8 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
-            let line = common::format_commit_full(&commit);
+            let bookmarks = common::format_bookmarks_at(repo, commit_id);
+            let line = common::format_commit_full(&commit, &bookmarks);
             let indented = common::indent_body(&line, 4);
             if i == anchor_index {
                 info!("{}", common::bold_first_line(&indented));

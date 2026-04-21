@@ -10,10 +10,8 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Add --use-template to init subcommand just like the test-fixture subcommand
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
- - Show bookmarks in `list` output
  - Add "::" revision syntax for jj compatibility
  - Add -p, --parents, -c, --children so parent and child counts can be asymmetric
  - Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
@@ -43,6 +41,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Add `--use-template` to `init` and `test-fixture` (0.34.0) [44]
 - Bump `jj-lib` to 0.40 + tighten `clap` floor to 4.6 (0.34.1) [45]
 - Add `sync` subcommand — fetch + classify + rebase both repos (0.35.0) [46]
+- Show bookmarks in `list`, `show`, `desc` output (0.36.0) [47]
 
 # References
 
@@ -70,3 +69,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [44]: /notes/chores-04.md#add---use-template-to-init--test-fixture-0340
 [45]: /notes/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
 [46]: /notes/chores-04.md#add-sync-subcommand-0350
+[47]: /notes/chores-04.md#show-bookmarks-in-list-show-desc-output-0360

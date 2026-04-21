@@ -866,3 +866,79 @@ Single-step bump to `0.35.0`. New feature, no breaking changes. Two
 unit tests on `SyncArgs` parsing plus five integration tests covering
 the state-classification and revert paths end-to-end against real
 dual-repo fixtures.
+
+## Show bookmarks in `list`, `show`, `desc` output (0.36.0)
+
+`vc-x1 list` previously showed `changeID  ochid(padded)  title`; `show`
+and `desc` showed `changeID commitID title` on their id lines. None of
+them surfaced which bookmark points at a given commit — you had to
+cross-reference with `jj log` or `jj bookmark list`. Fix by injecting
+bookmark names inline, before the title, mirroring jj's own
+`<chid> <hash> <bookmark> | <title>` format.
+
+### Format
+
+When one or more local bookmarks target the commit exactly:
+
+```
+list:  voqwpmmlnptr  /.claude/qpksmolwqtqw  main | feat: Add --use-template to clone subcommand
+show:  Ids:       voqwpmmlnptr 273377d36164 main | feat: Add --use-template to clone subcommand
+       Parent:    ypnqupwospsn 1851319ebdb3 feat: add sync subcommand (0.35.0)
+       Child:     tqpyuuwnopzx 8ec78efa2a79 (no description set)
+desc:  voqwpmmlnptr 273377d36164 main | feat: Add --use-template to clone subcommand
+           <body lines...>
+```
+
+When no bookmarks target the commit, lines are unchanged from 0.35.0
+(no `|` separator), so rows without bookmarks stay visually clean.
+Multiple bookmarks are space-separated (`main feature-x`), matching
+jj's default log template.
+
+`show`'s existing `Branches:` line is unchanged — it intentionally
+reports all bookmarks whose target this commit is an ancestor of
+(ancestor-of relation, different semantics from "points exactly at
+me"). The two views coexist.
+
+### Scope: local only, exact-point
+
+- **Local only.** Remote bookmarks (`main@origin`, etc.) are
+  intentionally excluded from the inline display. `show`'s
+  `Branches:` line keeps showing them via `format_branches` (ancestor
+  semantics). Including `main@origin` alongside `main` on the same
+  commit in the inline view would add visual noise without new
+  information in the common tracked case. A separate flag can surface
+  remotes inline if the need arises.
+- **Exact-point.** `jj-lib::view::local_bookmarks_for_commit()` does
+  exactly this — filters to bookmarks whose `RefTarget` adds this
+  commit id. No revset round-trip needed.
+
+### Implementation
+
+- `common::format_bookmarks_at(repo, commit_id) -> String` — new
+  helper, joins bookmark names with a space. Returns empty string
+  when none.
+- `common::format_commit_with_ochid(commit, width, bookmarks)` —
+  extra `&str` arg. When empty, output is byte-identical to 0.35.0;
+  otherwise inserts `{bookmarks} | ` before the title.
+- `common::format_commit_short(commit, bookmarks)` — same treatment
+  for the `<chid> <hash> <title>` form used by `show`.
+- `common::format_commit_full(commit, bookmarks)` — same for `desc`'s
+  first line; body lines follow unchanged.
+- `list::list` computes bookmarks per displayed commit and passes in.
+- `show::show_one_commit` computes per commit for `Ids:`/`Parent:`/
+  `Child:`. `Branches:` line untouched.
+- `desc::desc` computes per displayed commit.
+
+Callers of these helpers are few (one each for `format_commit_with_ochid`
+and `format_commit_full`, three for `format_commit_short`), so the
+old zero-bookmark signatures were folded into the new form rather
+than kept in parallel. The parameter name (`bookmarks`) documents
+intent.
+
+### Version
+
+Single-step bump to `0.36.0`. Display-only change, no behavior
+difference for commits without bookmarks. Verified manually against
+this workspace's `.` and `.claude` repos via `list`, `show`, and
+`desc` — `main` appears at the expected commit on each side, rows
+without bookmarks match prior output.

@@ -266,11 +266,26 @@ pub fn extract_ochid(commit: &Commit) -> Option<String> {
     None
 }
 
-/// Format: changeID ochid(padded) first-line (single line).
+/// Local bookmark names pointing exactly at `commit_id`, space-separated.
+///
+/// Returns an empty string when no local bookmark targets the commit. Remote
+/// bookmarks are not included — that's a separate display concern.
+pub fn format_bookmarks_at(repo: &Arc<ReadonlyRepo>, commit_id: &CommitId) -> String {
+    let view = repo.view();
+    let names: Vec<String> = view
+        .local_bookmarks_for_commit(commit_id)
+        .map(|(name, _)| name.as_str().to_string())
+        .collect();
+    names.join(" ")
+}
+
+/// Format: changeID ochid(padded) [bookmarks |] first-line.
 ///
 /// ochid column is left-padded to `width` characters. If no ochid, a blank
-/// placeholder of that width is used.
-pub fn format_commit_with_ochid(commit: &Commit, width: usize) -> String {
+/// placeholder of that width is used. When `bookmarks` is non-empty it is
+/// inserted before the title with a `|` separator (mirroring jj's
+/// `Parent commit (@-): <chid> <hash> <bookmark> | <title>` style).
+pub fn format_commit_with_ochid(commit: &Commit, width: usize, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
     let ochid = extract_ochid(commit).unwrap_or_default(); // OK: no ochid trailer → empty string
@@ -280,7 +295,11 @@ pub fn format_commit_with_ochid(commit: &Commit, width: usize) -> String {
     } else {
         first_line
     };
-    format!("{change_short}  {ochid:<width$}  {title}")
+    if bookmarks.is_empty() {
+        format!("{change_short}  {ochid:<width$}  {title}")
+    } else {
+        format!("{change_short}  {ochid:<width$}  {bookmarks} | {title}")
+    }
 }
 
 /// Format: just the short changeID.
@@ -289,39 +308,56 @@ pub fn format_chid(commit: &Commit) -> String {
     change_hex[..change_hex.len().min(12)].to_string()
 }
 
-/// Format: changeID commitID first-line (single line).
-pub fn format_commit_short(commit: &Commit) -> String {
+/// Format: changeID commitID [bookmarks |] first-line (single line).
+///
+/// When `bookmarks` is non-empty it is inserted before the title with a `|`
+/// separator (mirroring jj's `<chid> <hash> <bookmark> | <title>` style).
+pub fn format_commit_short(commit: &Commit, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
     let commit_hex = commit.id().hex();
     let commit_short = &commit_hex[..commit_hex.len().min(12)];
     let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
-    if first_line.is_empty() {
-        format!("{change_short} {commit_short} (no description set)")
+    let title = if first_line.is_empty() {
+        "(no description set)"
     } else {
-        format!("{change_short} {commit_short} {first_line}")
+        first_line
+    };
+    if bookmarks.is_empty() {
+        format!("{change_short} {commit_short} {title}")
+    } else {
+        format!("{change_short} {commit_short} {bookmarks} | {title}")
     }
 }
 
-/// Format: changeID commitID first-line, then remaining description lines.
-pub fn format_commit_full(commit: &Commit) -> String {
+/// Format: changeID commitID [bookmarks |] first-line, then remaining description lines.
+///
+/// Same header rules as `format_commit_short`; body lines follow unchanged.
+pub fn format_commit_full(commit: &Commit, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
     let commit_hex = commit.id().hex();
     let commit_short = &commit_hex[..commit_hex.len().min(12)];
     let desc = commit.description();
     if desc.is_empty() {
-        format!("{change_short} {commit_short} (no description set)")
-    } else {
-        let mut lines = desc.lines();
-        let first_line = lines.next().unwrap_or(""); // OK: obvious
-        let mut result = format!("{change_short} {commit_short} {first_line}");
-        for line in lines {
-            result.push('\n');
-            result.push_str(line);
-        }
-        result
+        return if bookmarks.is_empty() {
+            format!("{change_short} {commit_short} (no description set)")
+        } else {
+            format!("{change_short} {commit_short} {bookmarks} | (no description set)")
+        };
     }
+    let mut lines = desc.lines();
+    let first_line = lines.next().unwrap_or(""); // OK: obvious
+    let mut result = if bookmarks.is_empty() {
+        format!("{change_short} {commit_short} {first_line}")
+    } else {
+        format!("{change_short} {commit_short} {bookmarks} | {first_line}")
+    };
+    for line in lines {
+        result.push('\n');
+        result.push_str(line);
+    }
+    result
 }
 
 /// Collect commit IDs for `..x..` (both directions) or any dot notation.

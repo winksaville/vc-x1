@@ -37,7 +37,8 @@ pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
-            let line = common::format_commit_with_ochid(&commit, args.width);
+            let bookmarks = common::format_bookmarks_at(repo, commit_id);
+            let line = common::format_commit_with_ochid(&commit, args.width, &bookmarks);
             if i == anchor_index {
                 info!("{}", common::bold(&line));
             } else {
