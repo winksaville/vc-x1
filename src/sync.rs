@@ -1,20 +1,29 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use clap::Args;
-use log::{debug, info, warn};
+use log::{LevelFilter, debug, info, warn};
 
 use crate::common::run;
 
-/// Fetch and sync both repos (`.` and `.claude`) to their remotes.
+/// Fetch and sync a set of repos to their remotes.
 ///
 /// Default is dry-run: reports per-repo state without mutating. Pass
-/// `--no-dry-run` to act. On any failure the starting state of both
-/// repos is restored via `jj op restore`.
+/// `--no-dry-run` to act. On any failure the starting state of every
+/// repo is restored via `jj op restore`.
+///
+/// Repo set defaults to the dual-repo workspace pair (`.` and
+/// `.claude`); override with `-R` / `--repo` for single-repo projects
+/// (e.g. `vc-template-x1`) or arbitrary multi-repo workspaces.
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Actually perform the sync (default: dry-run)
     #[arg(long)]
     pub no_dry_run: bool,
+
+    /// Suppress all informational output (exit code signals result)
+    #[arg(short, long)]
+    pub quiet: bool,
 
     /// Bookmark to sync in each repo
     #[arg(long, default_value = "main")]
@@ -23,10 +32,33 @@ pub struct SyncArgs {
     /// Remote to sync against
     #[arg(long, default_value = "origin")]
     pub remote: String,
+
+    /// Path to jj repo; repeatable or comma-separated [default: `.,.claude`]
+    #[arg(short = 'R', long = "repo", value_name = "PATH")]
+    pub repos: Vec<PathBuf>,
 }
 
-/// Repos synced, in order. Hardcoded for now — the user's convention.
-const REPOS: [&str; 2] = [".", ".claude"];
+/// Default repo set when `-R` isn't given — the canonical dual-repo pair.
+const DEFAULT_REPOS: [&str; 2] = [".", ".claude"];
+
+/// Resolve the caller's `-R` flags into a concrete repo list.
+///
+/// Empty input (no `-R` given) falls back to `DEFAULT_REPOS`. Each
+/// provided value is also split on `,` and trimmed, so
+/// `-R .,.claude` works identically to `-R . -R .claude`.
+fn resolve_repos(raw: &[PathBuf]) -> Vec<PathBuf> {
+    if raw.is_empty() {
+        return DEFAULT_REPOS.iter().map(PathBuf::from).collect();
+    }
+    raw.iter()
+        .flat_map(|p| {
+            p.to_string_lossy()
+                .split(',')
+                .map(|s| PathBuf::from(s.trim()))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
 
 /// Relationship between a local bookmark and its remote counterpart.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,12 +86,27 @@ struct RepoCtx {
 
 /// CLI entry point for the `sync` subcommand.
 ///
-/// Thin wrapper over `sync_repos` that supplies the project's
-/// hardcoded repo pair `["." ".claude"]`. Tests call `sync_repos`
-/// directly with absolute fixture paths.
+/// Thin wrapper over `sync_repos` that resolves the `-R` flag into a
+/// concrete repo list (falling back to the dual-repo default) and
+/// forwards the rest of the args. Tests call `sync_repos` directly
+/// with absolute fixture paths.
+///
+/// When `--quiet` is set, the global log filter is temporarily clamped
+/// to `Warn` for the duration of the call and restored on return, so
+/// `info!` calls throughout sync (plus any subprocess-stderr routed
+/// through `common::run`) go dark. Errors still surface at `Warn` /
+/// `Error` so script callers don't lose diagnostics.
 pub fn sync(args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let repos: Vec<PathBuf> = REPOS.iter().map(PathBuf::from).collect();
-    sync_repos(&repos, args)
+    let repos = resolve_repos(&args.repos);
+    if args.quiet {
+        let prev = log::max_level();
+        log::set_max_level(LevelFilter::Warn);
+        let result = sync_repos(&repos, args);
+        log::set_max_level(prev);
+        result
+    } else {
+        sync_repos(&repos, args)
+    }
 }
 
 /// Sync the given repos against their remotes.
@@ -112,23 +159,19 @@ fn run_plan(
     snapshots: &[(PathBuf, String)],
     args: &SyncArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Phase 1 — fetch + classify silently.
+    //
+    // Each repo's fetch stderr is captured (rather than streamed to
+    // `info!` via `common::run`) so we can decide after classification
+    // whether to surface it. `jj git fetch`'s routine "Nothing
+    // changed." chatter is the main thing we're suppressing here —
+    // if nothing needs action, the user shouldn't see it.
+    let mut fetched: Vec<(PathBuf, String)> = Vec::new();
     let mut ctxs: Vec<RepoCtx> = Vec::new();
     for (repo, op_id) in snapshots {
-        info!("{}: fetch {}", repo.display(), args.remote);
-        run(
-            "jj",
-            &[
-                "git",
-                "fetch",
-                "--remote",
-                &args.remote,
-                "-R",
-                &repo_str(repo),
-            ],
-            Path::new("."),
-        )?;
+        let stderr = fetch_silent(repo, &args.remote)?;
+        fetched.push((repo.clone(), stderr));
         let state = classify(repo, &args.bookmark, &args.remote)?;
-        log_state(repo, &state);
         ctxs.push(RepoCtx {
             path: repo.clone(),
             op_id: op_id.clone(),
@@ -136,15 +179,65 @@ fn run_plan(
         });
     }
 
+    let any_action_needed = ctxs
+        .iter()
+        .any(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }));
+
+    // Phase 2 — emit status. `--quiet` is enforced globally via the
+    // log-level clamp in `sync()`, so these `info!` calls are already
+    // suppressed in scripts; we just shape the output here.
+    if !any_action_needed {
+        let n = ctxs.len();
+        let noun = if n == 1 { "repo" } else { "repos" };
+        info!("sync: {n} {noun}, all up-to-date");
+    } else {
+        for (repo, stderr) in &fetched {
+            info!("{}: fetch {}", repo.display(), args.remote);
+            for line in stderr.lines() {
+                info!("{line}");
+            }
+        }
+        for ctx in &ctxs {
+            log_state(&ctx.path, &ctx.state);
+        }
+    }
+
+    // Phase 3 — act (subprocess output streams through as usual).
     for ctx in &ctxs {
         act_on_state(ctx, args)?;
         ensure_at_on_main(&ctx.path, &args.bookmark, args.no_dry_run)?;
     }
 
-    if !args.no_dry_run {
+    // Phase 4 — only surface the "re-run with --no-dry-run" hint when
+    // at least one repo would actually mutate state.
+    if !args.no_dry_run && any_action_needed {
         info!("dry-run — re-run with --no-dry-run to apply");
     }
     Ok(())
+}
+
+/// Fetch `repo` from `remote` without streaming subprocess output to
+/// `info!`.
+///
+/// Mirrors what `common::run` would do, but returns stderr to the
+/// caller so the caller can decide whether to surface it (verbose /
+/// action case) or drop it (clean case). Stdout is dropped — `jj git
+/// fetch` doesn't use it. Failure carries stderr in the error message.
+fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error::Error>> {
+    debug!("$ jj git fetch --remote {remote} -R {}", repo.display());
+    let output = Command::new("jj")
+        .args(["git", "fetch", "--remote", remote, "-R", &repo_str(repo)])
+        .output()
+        .map_err(|e| format!("failed to run jj git fetch: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stdout.is_empty() {
+        debug!("  {stdout}");
+    }
+    if !output.status.success() {
+        return Err(format!("jj git fetch -R {} failed: {stderr}", repo.display()).into());
+    }
+    Ok(stderr)
 }
 
 /// Ensure `@` is a descendant of `bookmark`, rebasing if not.
@@ -461,7 +554,9 @@ fn repo_str(p: &Path) -> String {
 mod tests {
     use super::*;
 
-    /// Default flags: dry-run on, bookmark "main", remote "origin".
+    /// Default flags: dry-run on, bookmark "main", remote "origin",
+    /// no `-R` given (caller will fall back to `DEFAULT_REPOS`),
+    /// `--quiet` off.
     #[test]
     fn parse_defaults() {
         use clap::Parser;
@@ -472,8 +567,25 @@ mod tests {
         }
         let cli = Cli::try_parse_from(["test"]).unwrap();
         assert!(!cli.args.no_dry_run);
+        assert!(!cli.args.quiet);
         assert_eq!(cli.args.bookmark, "main");
         assert_eq!(cli.args.remote, "origin");
+        assert!(cli.args.repos.is_empty());
+    }
+
+    /// `-q` / `--quiet` CLI form is honored.
+    #[test]
+    fn parse_quiet_flag() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "--quiet"]).unwrap();
+        assert!(cli.args.quiet);
+        let cli_short = Cli::try_parse_from(["test", "-q"]).unwrap();
+        assert!(cli_short.args.quiet);
     }
 
     /// Overrides: `--no-dry-run`, `--bookmark`, `--remote` all honored.
@@ -497,6 +609,96 @@ mod tests {
         assert!(cli.args.no_dry_run);
         assert_eq!(cli.args.bookmark, "dev");
         assert_eq!(cli.args.remote, "upstream");
+        assert!(cli.args.repos.is_empty());
+    }
+
+    /// Empty `-R` resolves to the dual-repo default pair.
+    #[test]
+    fn resolve_repos_default() {
+        let resolved = resolve_repos(&[]);
+        assert_eq!(resolved, vec![PathBuf::from("."), PathBuf::from(".claude")]);
+    }
+
+    /// Single `-R` passthrough (single-repo project case).
+    #[test]
+    fn resolve_repos_single() {
+        let raw = vec![PathBuf::from("/tmp/some-repo")];
+        assert_eq!(resolve_repos(&raw), vec![PathBuf::from("/tmp/some-repo")]);
+    }
+
+    /// Repeated `-R` flags combine into the final list in order.
+    #[test]
+    fn resolve_repos_repeated() {
+        let raw = vec![
+            PathBuf::from("/a"),
+            PathBuf::from("/b"),
+            PathBuf::from("/c"),
+        ];
+        assert_eq!(
+            resolve_repos(&raw),
+            vec![
+                PathBuf::from("/a"),
+                PathBuf::from("/b"),
+                PathBuf::from("/c"),
+            ]
+        );
+    }
+
+    /// Comma-separated values inside a single `-R` are split and trimmed.
+    #[test]
+    fn resolve_repos_comma_separated() {
+        let raw = vec![PathBuf::from(" /a , /b ,/c")];
+        assert_eq!(
+            resolve_repos(&raw),
+            vec![
+                PathBuf::from("/a"),
+                PathBuf::from("/b"),
+                PathBuf::from("/c"),
+            ]
+        );
+    }
+
+    /// Mixed repeated + comma forms compose naturally.
+    #[test]
+    fn resolve_repos_mixed() {
+        let raw = vec![PathBuf::from("/a,/b"), PathBuf::from("/c")];
+        assert_eq!(
+            resolve_repos(&raw),
+            vec![
+                PathBuf::from("/a"),
+                PathBuf::from("/b"),
+                PathBuf::from("/c"),
+            ]
+        );
+    }
+
+    /// `-R path` CLI form is accepted for a single repo.
+    #[test]
+    fn parse_single_repo_flag() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "-R", "/tmp/x"]).unwrap();
+        assert_eq!(cli.args.repos, vec![PathBuf::from("/tmp/x")]);
+    }
+
+    /// Repeated `-R` CLI form accumulates into the `repos` vec.
+    #[test]
+    fn parse_repeated_repo_flag() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "-R", "/a", "-R", "/b"]).unwrap();
+        assert_eq!(
+            cli.args.repos,
+            vec![PathBuf::from("/a"), PathBuf::from("/b")]
+        );
     }
 }
 
@@ -542,11 +744,17 @@ mod integration_tests {
     }
 
     /// Sync args with `--no-dry-run` set.
+    ///
+    /// Integration tests pass explicit repo paths through `sync_repos`
+    /// directly, so `repos` stays empty here and the CLI-side default
+    /// resolution is not exercised by this helper.
     fn apply_args() -> SyncArgs {
         SyncArgs {
             no_dry_run: true,
+            quiet: false,
             bookmark: "main".to_string(),
             remote: "origin".to_string(),
+            repos: Vec::new(),
         }
     }
 

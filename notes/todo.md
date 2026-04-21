@@ -10,7 +10,6 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Sync improvements: -R flag + quieter dry-run + codify sync-before-work [50]
  - Add `push` subcommand — collapse commit+push+finalize ceremony [48]
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
@@ -28,6 +27,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 
 - CLAUDE.md refresh + memory migration (0.36.1) [49]
 - Lift sync's inline test harness into shared `test_helpers` module (0.36.2) [51]
+- Sync improvements: -R flag + quieter dry-run + sync-before-work discipline (0.36.3) [50]
 
 # References
 

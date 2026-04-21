@@ -380,9 +380,11 @@ vc-x1 symlink -l
 
 ### sync
 
-Fetch and sync both repos (`.` and `.claude`) to their remotes in a
-single command. Dry-run by default — re-run with `--no-dry-run` to
-apply.
+Fetch and sync a set of repos to their remotes in a single command.
+Repo set defaults to the dual-repo workspace pair (`.` and
+`.claude`); override with `-R` / `--repo` for single-repo projects
+or arbitrary multi-repo workspaces. Dry-run by default — re-run with
+`--no-dry-run` to apply.
 
 Per repo, `sync` classifies the local bookmark against its remote:
 
@@ -408,15 +410,30 @@ content untouched, and any conflicted commits introduced by the failed
 rebase are abandoned on the way back.
 
 ```
-vc-x1 sync                # dry-run — report state only
-vc-x1 sync --no-dry-run   # act: fast-forward + rebase as classified
+vc-x1 sync                            # dual-repo default, dry-run
+vc-x1 sync --no-dry-run               # dual-repo, act
+vc-x1 sync -R .                       # single-repo project
+vc-x1 sync -R .,.claude -R ../other   # mixed: repeat + comma-separate
 ```
 
 | Flag | Description |
 |------|-------------|
+| `-R, --repo <PATH>` | Repo to sync; repeatable or comma-separated [default: `.,.claude`] |
 | `--no-dry-run` | Apply; without it, classify and report only |
+| `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
+
+**Output shape.** Sync collapses output based on what it finds:
+
+- **All up-to-date** — one-line summary:
+  `sync: N repos, all up-to-date`. Nothing else. Makes "sprinkle
+  sync everywhere" genuinely cheap.
+- **Action needed** (`behind` / `diverged`) — per-repo fetch +
+  state lines, then `dry-run — re-run with --no-dry-run to apply`
+  (or the actual actions on `--no-dry-run`).
+- **`--quiet`** — no output at any level; exit code is the only
+  signal. Intended for scripts that just need success/failure.
 
 **Note on the `behind` case.** jj's `git fetch` already fast-forwards a
 tracked local bookmark when it's a strict ancestor of the incoming

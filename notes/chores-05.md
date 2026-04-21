@@ -147,13 +147,24 @@ without generating noise in the common clean-state case.
   comma-separated `-R`, default to `.,.claude` when none given.
   Matches the `-R` form on `chid`, `desc`, `list`, `show`.
 
-- **Silence the "dry-run — re-run with --no-dry-run" hint when no
-  action would have been taken.** `sync.rs:144–146` prints the
-  hint unconditionally today. Gate it so the line appears only
-  when at least one repo classified `Behind` or `Diverged`. The
-  common `up-to-date`-everywhere case becomes silent, which makes
-  the "run sync before work" discipline (see below) cheap to
-  sprinkle everywhere.
+- **Collapse the all-up-to-date output to a one-line summary** so
+  "run sync before work" is genuinely cheap to sprinkle
+  everywhere. `sync.rs`'s `run_plan` now fetches and classifies
+  silently (capturing `jj git fetch`'s stderr rather than letting
+  it stream via `common::run`'s `info!` hook), then emits based on
+  outcome:
+  - clean everywhere: one line, `sync: N repos, all up-to-date`;
+  - action needed: per-repo fetch + state + `dry-run` hint.
+  Initial scoping only suppressed the trailing hint — expanded
+  after live testing showed 6 lines of chatter was still too much
+  to sprinkle silently through the workflow.
+
+- **Add `-q` / `--quiet` for scripts.** When set, temporarily
+  clamps `log::max_level` to `Warn` for the duration of the sync
+  call (restored on return), so all `info!` output from sync plus
+  any subprocess stderr routed through `common::run` goes dark.
+  `Warn` / `Error` still surface so script callers don't lose
+  diagnostics. Exit code is the only signal in the common case.
 
 - **Codify "sync before work" in `CLAUDE.md`'s Commit-Push-Finalize
   Flow** as a pre-step. Only useful once the quieter-dry-run polish
@@ -183,10 +194,20 @@ User guidance phrasing (lands in CLAUDE.md): "Run `vc-x1 sync` to
 see state; re-run with `--no-dry-run` when you're ready to apply.
 `push` does this for you automatically."
 
+### Forward pointer: return-value / exit-code refinement
+
+The current exit code is binary (`0 = success`, non-zero = error).
+For `--quiet` scripted use, callers may eventually want a richer
+signal — e.g. `0 = clean`, `1 = action taken`, `2 = action needed
+but in dry-run`, `3 = error`. Not needed for 0.36.3's use cases;
+flagged here so the moment a script wants to distinguish "synced
+cleanly" from "already clean" we know the conversation started.
+
 ### Version
 
-Single-step `0.36.3` — three small touches that compose into one
-deliverable (CLI flag, output gate, docs).
+Single-step `0.36.3` — five touches that compose into one
+deliverable (CLI `-R` flag, `--quiet` flag, output collapse to
+one-line summary, hint gating, docs).
 
 ## Add push subcommand (0.37.0)
 

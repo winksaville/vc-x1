@@ -307,6 +307,37 @@ gets its own commits, its own push, and its own finalize — so dev
 markers land on the remote and in the `.claude` history as they
 happen rather than being batched until the end.
 
+### Pre-step: sync
+
+Before starting a new unit of work — and again before committing —
+run `vc-x1 sync` to catch any remote divergence early. Dry-run is
+the default and safe: it fetches, classifies each repo, and acts
+only with `--no-dry-run`.
+
+```
+vc-x1 sync                            # dual-repo workspace
+vc-x1 sync -R .                       # single-repo project (e.g. vc-template-x1)
+vc-x1 sync -R .,.claude --no-dry-run  # act on both
+vc-x1 sync --quiet                    # silent; exit code signals result
+```
+
+Output shape:
+
+- **Clean** (everything `up-to-date` / `ahead` / `no remote`): one
+  line — `sync: N repos, all up-to-date`. Proceed.
+- **Action needed** (`behind` / `diverged` somewhere): per-repo
+  fetch + state lines, then `dry-run — re-run with --no-dry-run
+  to apply`. Inspect the divergence, then re-run with
+  `--no-dry-run` (or resolve conflicts if rebase fails).
+- **`--quiet`**: no output at any level; exit code is the only
+  signal. Use in scripts.
+
+Running `vc-x1 sync` between edits and commit is cheap — the
+all-clean case is one line, which makes "sprinkle sync everywhere"
+genuinely cheap. The forthcoming `push` subcommand (0.37.0) will
+fold this into its own preflight stage, so this manual step
+retires then.
+
 ### Checkpoint 1: Commit
 
 Prepare both commit commands and **present them for approval**. Use

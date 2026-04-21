@@ -86,9 +86,12 @@ pub(crate) enum Commands {
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
 
-    /// Fetch and sync both repos (`.` and `.claude`) to their remotes
-    #[command(
-        long_about = "Fetch and sync both repos (`.` and `.claude`) to their remotes.\n\n\
+    /// Fetch and sync a set of repos to their remotes
+    #[command(long_about = "Fetch and sync a set of repos to their remotes.\n\n\
+        Repo set defaults to the dual-repo workspace pair (`.` and\n\
+        `.claude`); override with `-R` / `--repo` for single-repo\n\
+        projects or arbitrary multi-repo workspaces. Flag is repeatable\n\
+        or comma-separated (e.g. `-R . -R .claude` or `-R .,.claude`).\n\n\
         Default is dry-run — re-run with --no-dry-run to apply. Per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
@@ -99,10 +102,13 @@ pub(crate) enum Commands {
         advanced) bookmark if it isn't already a descendant, so trailing\n\
         working-copy writes (e.g. `.claude`'s `/exit` tail) don't end up\n\
         orphaned on a stale branch.\n\n\
-        On any failure, both repos are reverted to their starting state\n\
-        via `jj op restore`. Working-copy files are preserved across the\n\
-        revert — the operation log rewinds but disk content stays."
-    )]
+        On any failure, every repo is reverted to its starting state via\n\
+        `jj op restore`. Working-copy files are preserved across the\n\
+        revert — the operation log rewinds but disk content stays.\n\n\
+        Output shape:\n  \
+          - all-up-to-date: one-line summary (`sync: N repos, all up-to-date`)\n  \
+          - action needed:  per-repo fetch + state + `dry-run` hint\n  \
+          - --quiet:        no output; exit code signals success")]
     Sync(sync::SyncArgs),
 
     /// Squash, set bookmark, and/or push a jj repo
