@@ -28,6 +28,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - CLAUDE.md refresh + memory migration (0.36.1) [49]
 - Lift sync's inline test harness into shared `test_helpers` module (0.36.2) [51]
 - Sync improvements: -R flag + quieter dry-run + sync-before-work discipline (0.36.3) [50]
+- push subcommand scaffolding: flag surface, Stage enum, stub (0.37.0-0) [48]
 
 # References
 

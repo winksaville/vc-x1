@@ -8,6 +8,7 @@ mod fix_desc;
 mod init;
 mod list;
 mod logging;
+mod push;
 mod show;
 mod symlink;
 mod sync;
@@ -24,7 +25,12 @@ use clap_complete::CompleteEnv;
 use log::error;
 
 #[derive(Parser, Debug)]
-#[command(version, about = "vc-x1: jj workspace tooling", max_term_width = 80)]
+#[command(
+    version,
+    propagate_version = true,
+    about = "vc-x1: jj workspace tooling",
+    max_term_width = 80
+)]
 pub struct Cli {
     /// Verbose output: -v debug, -vv trace
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
@@ -119,6 +125,19 @@ pub(crate) enum Commands {
         Every flag is opt-in. See README.md for details.")]
     Finalize(finalize::FinalizeArgs),
 
+    /// Dual-repo commit+push+finalize in one resumable command (WIP)
+    #[command(
+        long_about = "Dual-repo commit+push+finalize in one resumable command.\n\n\
+        Collapses today's manual Commit-Push-Finalize Flow into a\n\
+        single subcommand with two approval gates (work-done, message-\n\
+        approved) and a state machine with persistent progress so\n\
+        interruptions can resume without re-doing completed stages.\n\n\
+        Status: 0.37.0-0 scaffolding — flag surface only. Actual\n\
+        implementation lands in 0.37.0-1 onward. Design is in\n\
+        notes/chores-05.md under `Add push subcommand (0.37.0)`."
+    )]
+    Push(push::PushArgs),
+
     /// Create a throwaway dual-repo jj fixture (local remotes; see README)
     TestFixture(test_fixture::TestFixtureArgs),
 
@@ -179,6 +198,7 @@ fn main() -> ExitCode {
         }
         Commands::TestFixture(args) => run_command(test_fixture::test_fixture(&args)),
         Commands::TestFixtureRm(args) => run_command(test_fixture::test_fixture_rm(&args)),
+        Commands::Push(push_args) => run_command(push::push(&push_args)),
     }
 }
 
