@@ -358,6 +358,18 @@ everything goes through the shared module.
 
 ### Open questions / TBD
 
+- **Bookmark resolution** *(deferred — 0.37.0-1 keeps `--bookmark`
+  or positional required)*: long-term, `push` should auto-detect
+  the target from `@-`'s bookmarks so the common case reads as
+  `vc-x1 push` with no argument. Blocking prerequisite: a
+  richer bookmark enumeration primitive that reports, per
+  bookmark, whether a remote counterpart exists (`@origin`) and
+  whether the local bookmark tracks it. That information is needed
+  to pick a sensible default and to refuse auto-detect when the
+  situation is ambiguous. Today's `format_bookmarks_at` helper
+  (0.36.0) returns plain names only — extending it with remote /
+  tracking flags is the 0.38.x-scale follow-up that enables this.
+
 - **Post-push immutability**: once the app commit is pushed, we
   can't retry `commit-app` via resume; need `--ignore-immutable`
   squash path instead. State machine must record the post-push
