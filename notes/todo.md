@@ -10,6 +10,7 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Add --use-template to init subcommand just like the test-fixture subcommand
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
  - Show bookmarks in `list` output
