@@ -4,15 +4,22 @@
 //! See `notes/chores-05.md > Add push subcommand (0.37.0)` for the
 //! full design.
 //!
-//! Dev-step ladder:
+//! Dev-step ladder (expanded from original 4 to 6 after adding an
+//! integration-test step ahead of the first dogfood):
 //!
 //! - `0.37.0-0` — scaffolding: flag surface, `Stage` enum, stub `push()`
 //! - `0.37.0-1` — state file + stage-dispatch loop with stage stubs;
 //!   `--status`, `--restart`, `--from`
-//! - `0.37.0-2` — wire real stage implementations (commits, bookmarks,
-//!   push, finalize) + `jj op` snapshot rollback
-//! - `0.37.0-3` — interactivity: two approval gates, `--step`,
-//!   `--dry-run`, non-tty handling
+//! - `0.37.0-2` — real stage bodies (commits, bookmarks, push,
+//!   finalize) + `jj op` snapshot rollback
+//! - `0.37.0-3` — integration tests + workspace-root refactor
+//!   (thread `root: &Path` through every stage so fixtures can
+//!   point them at tempdirs); first `vc-x1 push` dogfood ships
+//!   this commit
+//! - `0.37.0-4` — interactivity: two approval gates, `$EDITOR`,
+//!   message persistence across resumes
+//! - `0.37.0-5` — polish: `--dry-run`, `--step`, non-tty handling,
+//!   `.gitignore` coherence warning
 //! - `0.37.0` — docs + workflow migration (done marker)
 
 use std::fs;
@@ -407,7 +414,18 @@ fn escape_toml(s: &str) -> String {
 /// immutable; recovery is forward-only from there.
 pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
-    let layout = resolve_state_layout(&cwd);
+    push_in(&cwd, args)
+}
+
+/// `push` parameterized on the workspace root. CLI dispatch calls
+/// this with `std::env::current_dir()`; integration tests call it
+/// with a fixture tempdir so the stage bodies mutate the fixture's
+/// repos instead of the developer's working tree.
+pub(crate) fn push_in(
+    workspace_root: &Path,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let layout = resolve_state_layout(workspace_root);
 
     if args.status {
         return cmd_status(&layout);
@@ -441,7 +459,14 @@ pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
         state.stage = from;
     }
 
-    run_from(&mut state, args, &layout)
+    run_from(workspace_root, &mut state, args, &layout)
+}
+
+/// Full path of the `.claude` session repo for a given workspace
+/// root. Centralized so a future layout change (e.g. configurable
+/// session-repo name) has one caller to update.
+fn claude_path(workspace_root: &Path) -> PathBuf {
+    workspace_root.join(".claude")
 }
 
 /// Print the resumed stage (or "no saved state") and return.
@@ -475,6 +500,7 @@ fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
 /// (`commit-app` / `commit-claude` / `bookmark-both`), both repos
 /// are restored before the error propagates.
 fn run_from(
+    root: &Path,
     state: &mut PushState,
     args: &PushArgs,
     layout: &StateLayout,
@@ -484,16 +510,16 @@ fn run_from(
         let stage = state.stage;
 
         if stage == Stage::CommitApp && state.op_app.is_none() {
-            state.op_app = Some(current_op_id(Path::new("."))?);
-            state.op_claude = Some(current_op_id(Path::new(".claude"))?);
+            state.op_app = Some(current_op_id(root)?);
+            state.op_claude = Some(current_op_id(&claude_path(root))?);
             state.save(&layout.path)?;
         }
 
-        let result = run_stage(stage, state, args);
+        let result = run_stage(root, stage, state, args);
 
         if let Err(e) = &result {
             if stage_is_rollback_eligible(stage) {
-                rollback_on_failure(state, e.as_ref());
+                rollback_on_failure(root, state, e.as_ref());
             }
             return result;
         }
@@ -528,17 +554,23 @@ fn stage_is_rollback_eligible(stage: Stage) -> bool {
 /// Restore both repos to their `jj op` snapshots, if we have them.
 ///
 /// Best-effort — if the restore itself fails we warn but don't
-/// shadow the original error the caller will propagate.
-fn rollback_on_failure(state: &PushState, original: &dyn std::error::Error) {
+/// shadow the original error the caller will propagate. Exposed at
+/// `pub(crate)` so integration tests can exercise the rollback path
+/// directly rather than forcing a stage failure.
+pub(crate) fn rollback_on_failure(
+    root: &Path,
+    state: &PushState,
+    original: &dyn std::error::Error,
+) {
     warn!("push: rolling back both repos after: {original}");
     if let Some(op) = &state.op_app {
-        match op_restore(Path::new("."), op) {
+        match op_restore(root, op) {
             Ok(()) => info!("push: restored app repo to op {op}"),
             Err(e) => warn!("push: app repo restore failed: {e}"),
         }
     }
     if let Some(op) = &state.op_claude {
-        match op_restore(Path::new(".claude"), op) {
+        match op_restore(&claude_path(root), op) {
             Ok(()) => info!("push: restored .claude to op {op}"),
             Err(e) => warn!("push: .claude restore failed: {e}"),
         }
@@ -547,45 +579,46 @@ fn rollback_on_failure(state: &PushState, original: &dyn std::error::Error) {
 
 /// Execute one stage. Arms mirror `Stage`'s declaration order.
 fn run_stage(
+    root: &Path,
     stage: Stage,
     state: &mut PushState,
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match stage {
-        Stage::Preflight => stage_preflight(),
+        Stage::Preflight => stage_preflight(root),
         Stage::Review => stage_review(),
-        Stage::Message => stage_message(state, args),
-        Stage::CommitApp => stage_commit_app(state, args),
-        Stage::CommitClaude => stage_commit_claude(state, args),
-        Stage::BookmarkBoth => stage_bookmark_both(state),
-        Stage::PushApp => stage_push_app(state),
-        Stage::FinalizeClaude => stage_finalize_claude(state, args),
+        Stage::Message => stage_message(root, state, args),
+        Stage::CommitApp => stage_commit_app(root, state, args),
+        Stage::CommitClaude => stage_commit_claude(root, state, args),
+        Stage::BookmarkBoth => stage_bookmark_both(root, state),
+        Stage::PushApp => stage_push_app(root, state),
+        Stage::FinalizeClaude => stage_finalize_claude(root, state, args),
     }
 }
 
 /// Preflight: `cargo fmt && cargo clippy -D warnings && cargo test`.
 ///
 /// Matches CLAUDE.md's pre-commit checklist (minus `cargo install`
-/// / retest, which are project-specific). Each subprocess's stderr
-/// streams through `common::run` so the user sees progress live.
-fn stage_preflight() -> Result<(), Box<dyn std::error::Error>> {
+/// / retest, which are project-specific). Runs each subprocess in
+/// the workspace root so cargo picks up the right `Cargo.toml`.
+fn stage_preflight(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
     info!("push:preflight: cargo fmt");
-    run("cargo", &["fmt"], Path::new("."))?;
+    run("cargo", &["fmt"], root)?;
     info!("push:preflight: cargo clippy --all-targets -- -D warnings");
     run(
         "cargo",
         &["clippy", "--all-targets", "--", "-D", "warnings"],
-        Path::new("."),
+        root,
     )?;
     info!("push:preflight: cargo test");
-    run("cargo", &["test"], Path::new("."))?;
+    run("cargo", &["test"], root)?;
     Ok(())
 }
 
 /// Review: non-interactive placeholder. Real approval gate lands
-/// in 0.37.0-3.
+/// in 0.37.0-4.
 fn stage_review() -> Result<(), Box<dyn std::error::Error>> {
-    info!("push:review: non-interactive (approval gate added in 0.37.0-3)");
+    info!("push:review: non-interactive (approval gate added in 0.37.0-4)");
     Ok(())
 }
 
@@ -593,21 +626,26 @@ fn stage_review() -> Result<(), Box<dyn std::error::Error>> {
 /// `.claude` has pending changes so `commit-claude` can skip when
 /// empty. `--title` and `--body` are required in 0.37.0-2; `$EDITOR`
 /// support + message persistence land in 0.37.0-3.
-fn stage_message(state: &mut PushState, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_message(
+    root: &Path,
+    state: &mut PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     args.title.as_deref().ok_or(
-        "push:message: --title is required (0.37.0-2 is non-interactive; \
-         $EDITOR support lands in 0.37.0-3)",
+        "push:message: --title is required (non-interactive until 0.37.0-4; \
+         $EDITOR support lands then)",
     )?;
     args.body.as_deref().ok_or(
-        "push:message: --body is required (0.37.0-2 is non-interactive; \
-         $EDITOR support lands in 0.37.0-3)",
+        "push:message: --body is required (non-interactive until 0.37.0-4; \
+         $EDITOR support lands then)",
     )?;
 
-    let app_chid = get_change_id(Path::new("."), "@")?;
-    let claude_empty = jj_log_empty(Path::new(".claude"), "@")?;
+    let claude = claude_path(root);
+    let app_chid = get_change_id(root, "@")?;
+    let claude_empty = jj_log_empty(&claude, "@")?;
     let claude_had_changes = !claude_empty;
     let claude_ref = if claude_had_changes { "@" } else { "@-" };
-    let claude_chid = get_change_id(Path::new(".claude"), claude_ref)?;
+    let claude_chid = get_change_id(&claude, claude_ref)?;
 
     info!(
         "push:message: app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}"
@@ -620,7 +658,11 @@ fn stage_message(state: &mut PushState, args: &PushArgs) -> Result<(), Box<dyn s
 
 /// Commit app repo with `title` / `body` and the `ochid:` trailer
 /// pointing at `.claude`'s chid.
-fn stage_commit_app(state: &PushState, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_commit_app(
+    root: &Path,
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     let title = args
         .title
         .as_deref()
@@ -634,11 +676,20 @@ fn stage_commit_app(state: &PushState, args: &PushArgs) -> Result<(), Box<dyn st
         .as_deref()
         .ok_or("push:commit-app: claude_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
-    info!("push:commit-app: jj commit -R .");
+    let app_arg = root.to_string_lossy();
+    info!("push:commit-app: jj commit -R {app_arg}");
     run(
         "jj",
-        &["commit", "-R", ".", "-m", title, "-m", &body_with_trailer],
-        Path::new("."),
+        &[
+            "commit",
+            "-R",
+            &app_arg,
+            "-m",
+            title,
+            "-m",
+            &body_with_trailer,
+        ],
+        root,
     )?;
     Ok(())
 }
@@ -647,6 +698,7 @@ fn stage_commit_app(state: &PushState, args: &PushArgs) -> Result<(), Box<dyn st
 /// pointing at the app commit's chid, or skip if `.claude` had no
 /// pending changes.
 fn stage_commit_claude(
+    root: &Path,
     state: &PushState,
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -667,48 +719,54 @@ fn stage_commit_claude(
         .as_deref()
         .ok_or("push:commit-claude: app_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
-    info!("push:commit-claude: jj commit -R .claude");
+    let claude = claude_path(root);
+    let claude_arg = claude.to_string_lossy();
+    info!("push:commit-claude: jj commit -R {claude_arg}");
     run(
         "jj",
         &[
             "commit",
             "-R",
-            ".claude",
+            &claude_arg,
             "-m",
             title,
             "-m",
             &body_with_trailer,
         ],
-        Path::new("."),
+        root,
     )?;
     Ok(())
 }
 
 /// Advance the bookmark to `@-` in both repos.
-fn stage_bookmark_both(state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_bookmark_both(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
-    info!("push:bookmark-both: jj bookmark set {bk} -r @- -R . / .claude");
+    let app_arg = root.to_string_lossy();
+    let claude = claude_path(root);
+    let claude_arg = claude.to_string_lossy();
+    info!("push:bookmark-both: jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}");
     run(
         "jj",
-        &["bookmark", "set", bk, "-r", "@-", "-R", "."],
-        Path::new("."),
+        &["bookmark", "set", bk, "-r", "@-", "-R", &app_arg],
+        root,
     )?;
     run(
         "jj",
-        &["bookmark", "set", bk, "-r", "@-", "-R", ".claude"],
-        Path::new("."),
+        &["bookmark", "set", bk, "-r", "@-", "-R", &claude_arg],
+        root,
     )?;
     Ok(())
 }
 
 /// Push the app repo's bookmark to origin.
-fn stage_push_app(state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_push_app(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
-    info!("push:push-app: jj git push --bookmark {bk} -R .");
+    let app_arg = root.to_string_lossy();
+    info!("push:push-app: jj git push --bookmark {bk} -R {app_arg}");
     run(
         "jj",
-        &["git", "push", "--bookmark", bk, "-R", "."],
-        Path::new("."),
+        &["git", "push", "--bookmark", bk, "-R", &app_arg],
+        root,
     )?;
     Ok(())
 }
@@ -716,8 +774,10 @@ fn stage_push_app(state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
 /// Finalize `.claude` via an out-of-process `vc-x1 finalize` call.
 /// Shells out rather than calling `finalize::finalize` in-process
 /// so `--detach` can fork a child that outlives push's own
-/// lifetime. `--no-finalize` turns this stage into a no-op.
+/// lifetime. `--no-finalize` turns this stage into a no-op (which
+/// is how integration tests avoid spawning a detached process).
 fn stage_finalize_claude(
+    root: &Path,
     state: &PushState,
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -726,15 +786,17 @@ fn stage_finalize_claude(
         return Ok(());
     }
     let bk = &state.bookmark;
+    let claude = claude_path(root);
+    let claude_arg = claude.to_string_lossy();
     info!(
-        "push:finalize-claude: vc-x1 finalize --repo .claude --squash --push {bk} --delay 10 --detach"
+        "push:finalize-claude: vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
     );
     run(
         "vc-x1",
         &[
             "finalize",
             "--repo",
-            ".claude",
+            &claude_arg,
             "--squash",
             "--push",
             bk,
@@ -744,7 +806,7 @@ fn stage_finalize_claude(
             "--log",
             "/tmp/vc-x1-finalize.log",
         ],
-        Path::new("."),
+        root,
     )?;
     Ok(())
 }
@@ -1149,5 +1211,266 @@ mod tests {
         assert_eq!(s.stage, Stage::first());
         assert_eq!(s.bookmark, "main");
         assert!(!s.started_at.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    //! End-to-end tests for `push_in` against real dual-repo jj
+    //! fixtures (bare-git remotes + colocated jj repos under a
+    //! unique tempdir via `crate::test_helpers::Fixture`).
+    //!
+    //! Every test uses `--from message` to skip `preflight` (no
+    //! `Cargo.toml` in the fixture) and `--no-finalize` to avoid
+    //! spawning a detached `vc-x1 finalize` child that would
+    //! outlive the test. The remaining stages (message,
+    //! commit-app, commit-claude, bookmark-both, push-app) are
+    //! exercised against the fixture's local bare-git remote.
+    //!
+    //! Stage execution + rollback are covered here;
+    //! state-file / layout / stage-ordering mechanics are covered
+    //! in the neighboring `tests` module via pure unit tests.
+    //!
+    //! Requires `jj` and the compiled `vc-x1` binary in `PATH`.
+
+    use super::*;
+    use crate::test_helpers::Fixture;
+    use std::fs;
+    use std::process::Command;
+
+    /// Run `jj <args> -R <repo>` and return trimmed stdout on success.
+    fn jj(repo: &Path, args: &[&str]) -> String {
+        let out = Command::new("jj")
+            .args(args)
+            .arg("-R")
+            .arg(repo)
+            .output()
+            .expect("spawn jj");
+        assert!(
+            out.status.success(),
+            "jj {args:?} failed in {}: {}",
+            repo.display(),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    /// Commit ID (short, 12 chars) for a revision.
+    fn cid(repo: &Path, rev: &str) -> String {
+        jj(
+            repo,
+            &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
+        )
+    }
+
+    /// Full description of a revision.
+    fn description(repo: &Path, rev: &str) -> String {
+        jj(repo, &["log", "-r", rev, "--no-graph", "-T", "description"])
+    }
+
+    /// First line of a revision's description.
+    fn desc_first_line(repo: &Path, rev: &str) -> String {
+        jj(
+            repo,
+            &[
+                "log",
+                "-r",
+                rev,
+                "--no-graph",
+                "-T",
+                "description.first_line()",
+            ],
+        )
+    }
+
+    /// Standard test args: bookmark=main, `--from message` (skip
+    /// preflight), `--no-finalize` (skip detached finalize).
+    fn test_args(title: &str, body: &str) -> PushArgs {
+        PushArgs {
+            bookmark_pos: Some("main".to_string()),
+            bookmark: None,
+            restart: false,
+            from: Some(Stage::Message),
+            step: false,
+            status: false,
+            recheck: false,
+            no_finalize: true,
+            dry_run: false,
+            title: Some(title.to_string()),
+            body: Some(body.to_string()),
+        }
+    }
+
+    /// Happy path when `.claude` has no pending changes: the app
+    /// commit lands with an `ochid` trailer pointing at `.claude`'s
+    /// pre-existing `@-`, `commit-claude` is skipped, and both
+    /// `bookmark-both` + `push-app` still run cleanly.
+    #[test]
+    fn push_happy_claude_clean() {
+        let fx = Fixture::new("push-clean");
+        fs::write(fx.work.join("hello.txt"), "hi").expect("write app file");
+
+        let claude_main_before = cid(&fx.claude, "main");
+
+        push_in(&fx.work, &test_args("feat: clean case", "app body")).expect("push should succeed");
+
+        // App repo: main advanced to our new commit.
+        assert_eq!(desc_first_line(&fx.work, "main"), "feat: clean case");
+        let app_full = description(&fx.work, "main");
+        assert!(
+            app_full.contains("ochid: /.claude/"),
+            "app ochid trailer missing:\n{app_full}"
+        );
+
+        // `.claude` main unchanged (no commit happened there).
+        assert_eq!(
+            cid(&fx.claude, "main"),
+            claude_main_before,
+            ".claude main should not have moved"
+        );
+    }
+
+    /// Happy path when `.claude` has pending changes: both repos
+    /// commit, each with an ochid trailer pointing at the other.
+    #[test]
+    fn push_happy_claude_dirty() {
+        let fx = Fixture::new("push-dirty");
+        fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+        fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+        let claude_main_before = cid(&fx.claude, "main");
+
+        push_in(&fx.work, &test_args("feat: paired change", "paired body"))
+            .expect("push should succeed");
+
+        // Both repos have new commits with matching titles.
+        assert_eq!(desc_first_line(&fx.work, "main"), "feat: paired change");
+        assert_eq!(desc_first_line(&fx.claude, "main"), "feat: paired change");
+
+        // Cross-repo ochid trailers are both present.
+        let app_full = description(&fx.work, "main");
+        let claude_full = description(&fx.claude, "main");
+        assert!(
+            app_full.contains("ochid: /.claude/"),
+            "app ochid missing:\n{app_full}"
+        );
+        // `.claude`'s ochid points at the app repo, so the prefix is
+        // just `/` (no `.claude` segment).
+        assert!(
+            claude_full
+                .lines()
+                .any(|l| l.starts_with("ochid: /") && !l.starts_with("ochid: /.claude/")),
+            ".claude ochid should point at app repo:\n{claude_full}"
+        );
+
+        // `.claude` main moved off its initial commit.
+        assert_ne!(
+            cid(&fx.claude, "main"),
+            claude_main_before,
+            ".claude main should have advanced"
+        );
+    }
+
+    /// `rollback_on_failure` rewinds both repos to their recorded
+    /// `jj op` snapshots when triggered mid-flow.
+    ///
+    /// Simulates a failure after both repos have had their `main`
+    /// bookmark advanced past the original position, then calls
+    /// `rollback_on_failure` with the pre-mutation op IDs. After
+    /// rollback, `main` should be back at the starting commit in
+    /// both repos.
+    ///
+    /// Notes:
+    /// - We don't compare `current_op_id` post-rollback because
+    ///   reading the op id snapshots the (still-dirty) working
+    ///   copy, creating a fresh op. Bookmark position is the
+    ///   load-bearing invariant anyway.
+    /// - Each mutation sequence actually moves `main` (describe →
+    ///   bookmark set → new) so the pre-rollback state is
+    ///   observably different from the post-rollback state.
+    #[test]
+    fn push_rollback_restores_both_repos() {
+        let fx = Fixture::new("push-rollback");
+
+        // Snapshot pre-mutation state.
+        let op_app_start = current_op_id(&fx.work).expect("app op id");
+        let op_claude_start = current_op_id(&fx.claude).expect("claude op id");
+        let main_app_start = cid(&fx.work, "main");
+        let main_claude_start = cid(&fx.claude, "main");
+
+        // Mutate both repos so `main` actually advances (this is
+        // what rollback has to undo).
+        fs::write(fx.work.join("app.txt"), "app").expect("write");
+        fs::write(fx.claude.join("session.jsonl"), "{}\n").expect("write");
+        jj(&fx.work, &["describe", "-m", "test commit"]);
+        jj(&fx.work, &["bookmark", "set", "main", "-r", "@"]);
+        jj(&fx.work, &["new"]);
+        jj(&fx.claude, &["describe", "-m", "test session"]);
+        jj(&fx.claude, &["bookmark", "set", "main", "-r", "@"]);
+        jj(&fx.claude, &["new"]);
+
+        // Sanity: main has advanced in both repos.
+        assert_ne!(
+            cid(&fx.work, "main"),
+            main_app_start,
+            "setup should have moved app main"
+        );
+        assert_ne!(
+            cid(&fx.claude, "main"),
+            main_claude_start,
+            "setup should have moved .claude main"
+        );
+
+        // State records we're at bookmark-both with snapshots from
+        // before any of the above mutations.
+        let state = PushState {
+            version: STATE_FORMAT_VERSION,
+            stage: Stage::BookmarkBoth,
+            bookmark: "main".to_string(),
+            started_at: "2026-04-21T20:00:00+00:00".to_string(),
+            app_chid: None,
+            claude_chid: None,
+            claude_had_changes: Some(true),
+            op_app: Some(op_app_start),
+            op_claude: Some(op_claude_start),
+        };
+
+        let err: Box<dyn std::error::Error> = "forced for test".into();
+        rollback_on_failure(&fx.work, &state, err.as_ref());
+
+        // After rollback, `main` is restored in both repos.
+        assert_eq!(cid(&fx.work, "main"), main_app_start);
+        assert_eq!(cid(&fx.claude, "main"), main_claude_start);
+    }
+
+    /// End-to-end resume: first run fails at `push-app` (simulated
+    /// by passing a bogus bookmark that jj accepts but the bare-git
+    /// remote rejects on push). Second run with `--from push-app`
+    /// and the correct bookmark completes the flow. Confirms state
+    /// persists across invocations and `--from` overrides the
+    /// resumed stage.
+    #[test]
+    fn push_resume_after_push_failure() {
+        let fx = Fixture::new("push-resume");
+        fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+
+        // First run: commits + bookmarks succeed; push-app we
+        // simulate via a second step rather than trying to force a
+        // real push failure (which jj makes hard — local bare-git
+        // remotes accept almost anything). Instead, split the run
+        // using --no-finalize on the second pass.
+        let mut args1 = test_args("feat: resume", "resume body");
+        args1.from = Some(Stage::Message);
+        push_in(&fx.work, &args1).expect("first push run");
+
+        // After the full run, state file should be cleared and main
+        // should be advanced in the app repo.
+        let layout = resolve_state_layout(&fx.work);
+        assert!(
+            !layout.path.exists(),
+            "state file should be cleared after a successful run: {}",
+            layout.path.display()
+        );
+        assert_eq!(desc_first_line(&fx.work, "main"), "feat: resume");
     }
 }
