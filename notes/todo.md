@@ -34,6 +34,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - push real stage bodies + jj-op snapshot rollback (0.37.0-2) [48]
 - push integration tests + workspace-root refactor (0.37.0-3) [48]
 - push interactivity: review prompt, $EDITOR, message persistence (0.37.0-4) [48]
+- push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
 
 # References
 

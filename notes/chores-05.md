@@ -508,13 +508,24 @@ land.
   (so `chid -L` / `desc -L` / `list -L` / `show -L` stay
   script-parseable)
 
-#### 0.37.0-5 — polish *(pending)*
+#### 0.37.0-5 — polish
 
-Planned: `--dry-run` (print commands, no side effects),
-`--step` (pause between every stage), non-tty detection (fail
-fast when interactive without `--yes`), `.gitignore` coherence
-runtime warning (check the configured state path is ignored,
-warn if not).
+- `src/push.rs` — `--dry-run`: skip every side-effect subprocess
+  (preflight / commit-app / commit-claude / bookmark-both /
+  push-app / finalize-claude), emit `[dry-run] would run: ...`
+  lines instead; review still shows the diff (that's the *point*
+  of dry-run); state file not persisted in dry-run so a later
+  real run starts clean. `--step`: after each completed stage
+  (with a next stage pending), prompt `[y/N]` to continue;
+  `--yes` short-circuits; non-tty without `--yes` errors fast.
+  Non-tty detection via `std::io::IsTerminal` — review stage
+  errors when stdin isn't a tty and `--yes` isn't set; message
+  stage does the same before launching `$EDITOR`.
+  `check_gitignore_coherence` — reads `.gitignore` at the
+  workspace root and warns (non-fatal) when the configured
+  state-dir name isn't present. Helps catch the "user changed
+  `[push].state-dir` in `.vc-config.toml` and forgot to update
+  `.gitignore`" case.
 
 #### 0.37.0 — docs + workflow migration *(pending, done marker)*
 

@@ -23,6 +23,7 @@
 //! - `0.37.0` — docs + workflow migration (done marker)
 
 use std::fs;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -471,20 +472,57 @@ fn unescape_multiline(s: &str) -> String {
     out
 }
 
+/// Whether `stdin` is attached to a terminal.
+///
+/// Interactive prompts (`stage_review`, `$EDITOR` launch in
+/// `stage_message`, `--step` gates) need this to fail fast in
+/// scripted / CI contexts instead of hanging on `read_line`.
+/// `--yes` overrides the check — script callers opt in by
+/// asserting "all prompts auto-approved".
+fn is_stdin_tty() -> bool {
+    std::io::stdin().is_terminal()
+}
+
+/// Log a warning when the configured state path isn't matched by a
+/// `.gitignore` entry. The check is intentionally simple — looks
+/// for `<state_dir>` or `/<state_dir>` as a line in `.gitignore`
+/// at the repo root. Misses trickier patterns (nested wildcards,
+/// ignore files further down the tree) but catches the common
+/// "user changed the config and forgot to update .gitignore"
+/// case, which is the whole point.
+fn check_gitignore_coherence(root: &Path, state_dir_name: &str) {
+    let gitignore = root.join(".gitignore");
+    let matched = match fs::read_to_string(&gitignore) {
+        Ok(content) => content.lines().any(|line| {
+            let l = line.trim();
+            l == state_dir_name
+                || l == format!("/{state_dir_name}")
+                || l == format!("{state_dir_name}/")
+                || l == format!("/{state_dir_name}/")
+        }),
+        Err(_) => false,
+    };
+    if !matched {
+        warn!(
+            "push: state dir '{state_dir_name}' is not in {} — \
+             add a '/{state_dir_name}' line so in-progress push-state \
+             files don't get committed",
+            gitignore.display()
+        );
+    }
+}
+
 /// Entry point for the `push` subcommand.
 ///
-/// 0.37.0-2 behavior: real stage bodies for preflight, message,
-/// commit-app, commit-claude, bookmark-both, push-app, and
-/// finalize-claude (review stays as a non-interactive skip until
-/// 0.37.0-3). `--title` and `--body` must be supplied on every
-/// invocation this step — message persistence across resumes lands
-/// alongside `$EDITOR` support in 0.37.0-3.
-///
-/// On any failure in stages 4-6 (the local mutation window between
-/// `commit-app` and `bookmark-both`), both repos roll back to the
-/// `jj op` snapshot recorded at the start of `commit-app`. After
-/// `push-app` succeeds the app commit is on the remote and
-/// immutable; recovery is forward-only from there.
+/// 0.37.0-5 behavior: interactive flow with two approval gates
+/// (review + message) plus polish flags: `--dry-run` prints what
+/// would run without side effects, `--step` pauses between every
+/// stage, non-tty stdin fails fast when prompts are required,
+/// `--yes` opts out of all prompts. On any failure in stages 4-6
+/// (the local mutation window between `commit-app` and
+/// `bookmark-both`), both repos roll back to the `jj op` snapshot
+/// recorded at the start of `commit-app`. After `push-app` the
+/// remote boundary is crossed and recovery is forward-only.
 pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
     push_in(&cwd, args)
@@ -502,6 +540,22 @@ pub(crate) fn push_in(
 
     if args.status {
         return cmd_status(&layout);
+    }
+
+    if args.dry_run {
+        info!("push: DRY-RUN — no side effects (no commits, no pushes, no state written)");
+    }
+
+    // Gitignore coherence warning (non-fatal). Only checked when we
+    // actually have a file path with a parent (resolve_state_layout
+    // always gives one, so this is effectively always-on).
+    if let Some(dir_name) = layout
+        .path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
+    {
+        check_gitignore_coherence(workspace_root, dir_name);
     }
 
     if args.restart && layout.path.exists() {
@@ -578,11 +632,18 @@ fn run_from(
     args: &PushArgs,
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    state.save(&layout.path)?;
+    // Only persist state in real runs. Dry-runs are inspection-only
+    // — carrying their inferred chids / op snapshots into real runs
+    // would mislead the user about what was actually recorded.
+    if !args.dry_run {
+        state.save(&layout.path)?;
+    }
     loop {
         let stage = state.stage;
 
-        if stage == Stage::CommitApp && state.op_app.is_none() {
+        // Snapshot op ids once on first `commit-app` entry. Skipped
+        // in dry-run since we won't mutate anything to roll back.
+        if stage == Stage::CommitApp && state.op_app.is_none() && !args.dry_run {
             state.op_app = Some(current_op_id(root)?);
             state.op_claude = Some(current_op_id(&claude_path(root))?);
             state.save(&layout.path)?;
@@ -591,24 +652,64 @@ fn run_from(
         let result = run_stage(root, stage, state, args, layout);
 
         if let Err(e) = &result {
-            if stage_is_rollback_eligible(stage) {
+            if stage_is_rollback_eligible(stage) && !args.dry_run {
                 rollback_on_failure(root, state, e.as_ref());
             }
             return result;
         }
 
-        match stage.next() {
-            Some(next) => {
-                state.stage = next;
-                state.save(&layout.path)?;
+        let next = stage.next();
+
+        // --step: pause between every stage so the user can inspect
+        // intermediate state before the next one runs. Only if
+        // there's a next stage to gate, and skipped entirely when
+        // --yes is set or stdin isn't a tty (the prompt would hang
+        // in scripted contexts — the script is presumed consenting).
+        if args.step && next.is_some() {
+            if args.yes {
+                debug!(
+                    "push:step: --yes skips step gate between {} and next",
+                    stage.as_str()
+                );
+            } else if !is_stdin_tty() {
+                return Err("push: --step requires a tty (stdin is not interactive); \
+                            add --yes to bypass step gates in non-interactive contexts"
+                    .into());
+            } else {
+                let answer = prompt(&format!(
+                    "push:step: {} done. Continue to {}? [y/N] ",
+                    stage.as_str(),
+                    next.map(Stage::as_str).unwrap_or("")
+                ))?;
+                let normalized = answer.trim().to_ascii_lowercase();
+                if normalized != "y" && normalized != "yes" {
+                    return Err(format!(
+                        "push: step gate declined after {} (got {answer:?})",
+                        stage.as_str()
+                    )
+                    .into());
+                }
+            }
+        }
+
+        match next {
+            Some(n) => {
+                state.stage = n;
+                if !args.dry_run {
+                    state.save(&layout.path)?;
+                }
             }
             None => break,
         }
     }
-    if layout.path.exists() {
-        fs::remove_file(&layout.path)?;
+    if args.dry_run {
+        info!("push: DRY-RUN complete — no changes written");
+    } else {
+        if layout.path.exists() {
+            fs::remove_file(&layout.path)?;
+        }
+        info!("push: completed all stages (state cleared)");
     }
-    info!("push: completed all stages (state cleared)");
     Ok(())
 }
 
@@ -659,13 +760,13 @@ fn run_stage(
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match stage {
-        Stage::Preflight => stage_preflight(root),
+        Stage::Preflight => stage_preflight(root, args),
         Stage::Review => stage_review(root, args),
         Stage::Message => stage_message(root, state, args, layout),
         Stage::CommitApp => stage_commit_app(root, state, args),
         Stage::CommitClaude => stage_commit_claude(root, state, args),
-        Stage::BookmarkBoth => stage_bookmark_both(root, state),
-        Stage::PushApp => stage_push_app(root, state),
+        Stage::BookmarkBoth => stage_bookmark_both(root, state, args),
+        Stage::PushApp => stage_push_app(root, state, args),
         Stage::FinalizeClaude => stage_finalize_claude(root, state, args),
     }
 }
@@ -675,7 +776,12 @@ fn run_stage(
 /// Matches CLAUDE.md's pre-commit checklist (minus `cargo install`
 /// / retest, which are project-specific). Runs each subprocess in
 /// the workspace root so cargo picks up the right `Cargo.toml`.
-fn stage_preflight(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
+/// Skipped in `--dry-run` since `cargo fmt` writes files.
+fn stage_preflight(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+    if args.dry_run {
+        info!("push:preflight: [dry-run] would run cargo fmt / clippy / test");
+        return Ok(());
+    }
     info!("push:preflight: cargo fmt");
     run("cargo", &["fmt"], root)?;
     info!("push:preflight: cargo clippy --all-targets -- -D warnings");
@@ -693,12 +799,10 @@ fn stage_preflight(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// Shows a `jj diff --stat` of the pending changes in both repos
 /// and prompts the user to continue. `--yes` short-circuits the
-/// prompt (required for scripted / non-tty use).
+/// prompt (required for scripted / non-tty use). In `--dry-run`
+/// the diff is still shown (that's the point of dry-run — see
+/// what *would* be reviewed) but approval is auto-granted.
 fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
-    if args.yes {
-        info!("push:review: auto-approved (--yes)");
-        return Ok(());
-    }
     let claude = claude_path(root);
     let app_arg = root.to_string_lossy();
     let claude_arg = claude.to_string_lossy();
@@ -712,6 +816,19 @@ fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::
     let claude_stat = run("jj", &["diff", "--stat", "-R", &claude_arg], root)?;
     for line in claude_stat.lines() {
         info!("    {line}");
+    }
+    if args.yes {
+        info!("push:review: auto-approved (--yes)");
+        return Ok(());
+    }
+    if args.dry_run {
+        info!("push:review: [dry-run] auto-approved");
+        return Ok(());
+    }
+    if !is_stdin_tty() {
+        return Err("push:review: stdin is not a tty; \
+                    pass --yes to auto-approve in non-interactive contexts"
+            .into());
     }
     let answer = prompt("push:review: approve and continue to message stage? [y/N] ")?;
     let normalized = answer.trim().to_ascii_lowercase();
@@ -748,6 +865,18 @@ fn stage_message(
                     return Err("push:message: --yes given but --title/--body missing \
                                 and no persisted message to resume — pass both flags \
                                 or run interactively."
+                        .into());
+                }
+                if args.dry_run {
+                    return Err("push:message: --dry-run given but --title/--body missing \
+                                and no persisted message — pass both flags so dry-run \
+                                has a message to preview."
+                        .into());
+                }
+                if !is_stdin_tty() {
+                    return Err("push:message: stdin is not a tty and no --title/--body \
+                                supplied; cannot launch $EDITOR in a non-interactive \
+                                context. Pass --title and --body, or run interactively."
                         .into());
                 }
                 compose_message_via_editor(layout)?
@@ -859,6 +988,12 @@ fn stage_commit_app(
         .ok_or("push:commit-app: claude_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
     let app_arg = root.to_string_lossy();
+    if args.dry_run {
+        info!(
+            "push:commit-app: [dry-run] would run jj commit -R {app_arg} -m \"{title}\" -m <body+ochid>"
+        );
+        return Ok(());
+    }
     info!("push:commit-app: jj commit -R {app_arg}");
     run(
         "jj",
@@ -917,6 +1052,12 @@ fn stage_commit_claude(
     let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
+    if args.dry_run {
+        info!(
+            "push:commit-claude: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
+        );
+        return Ok(());
+    }
     info!("push:commit-claude: jj commit -R {claude_arg}");
     run(
         "jj",
@@ -935,11 +1076,21 @@ fn stage_commit_claude(
 }
 
 /// Advance the bookmark to `@-` in both repos.
-fn stage_bookmark_both(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_bookmark_both(
+    root: &Path,
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let app_arg = root.to_string_lossy();
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
+    if args.dry_run {
+        info!(
+            "push:bookmark-both: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}"
+        );
+        return Ok(());
+    }
     info!("push:bookmark-both: jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}");
     run(
         "jj",
@@ -955,9 +1106,17 @@ fn stage_bookmark_both(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 }
 
 /// Push the app repo's bookmark to origin.
-fn stage_push_app(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_push_app(
+    root: &Path,
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let app_arg = root.to_string_lossy();
+    if args.dry_run {
+        info!("push:push-app: [dry-run] would run jj git push --bookmark {bk} -R {app_arg}");
+        return Ok(());
+    }
     info!("push:push-app: jj git push --bookmark {bk} -R {app_arg}");
     run(
         "jj",
@@ -984,6 +1143,12 @@ fn stage_finalize_claude(
     let bk = &state.bookmark;
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
+    if args.dry_run {
+        info!(
+            "push:finalize-claude: [dry-run] would run vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
+        );
+        return Ok(());
+    }
     info!(
         "push:finalize-claude: vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
     );
