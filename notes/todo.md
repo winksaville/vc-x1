@@ -10,6 +10,11 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - Check for non-tracking-remote bookmarks during push and sync preflight as
+   bookmarks that aren't trackng can't bre pushed.
+ - Allow `vc-x1 push` to work on code or bot repo together or independantly and
+   specifically we should be able to "squash" in th code repo just as we do in
+   the bot repo.
  - Richer bookmark enumeration: per-bookmark remote presence + tracking status [52]
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
