@@ -485,6 +485,72 @@ vc-x1 finalize --squash @,@-- --bookmark main
 See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
 for design details.
 
+### push
+
+Dual-repo commit+push+finalize in one resumable command with two
+interactive approval gates. Replaces the old multi-step manual
+choreography (`jj commit` × 2 → `jj bookmark set` × 2 →
+`jj git push` → `vc-x1 finalize`) with a single invocation.
+
+```bash
+vc-x1 push main                                     # interactive
+vc-x1 push main --title "..." --body "..."          # skip $EDITOR
+vc-x1 push main --yes --title "..." --body "..."    # full non-interactive
+vc-x1 push main --dry-run                           # preview
+vc-x1 push main --from commit-app                   # resume at specific stage
+vc-x1 push --status                                 # show saved state
+```
+
+Stage machine (runs top-to-bottom; each stage's success persists
+to `.vc-x1/push-state.toml` so interrupts resume mid-flow):
+
+| Stage | What it does |
+|-------|--------------|
+| `preflight` | `vc-x1 sync --no-dry-run`, `cargo fmt`, `cargo clippy -D warnings`, `cargo test` |
+| `review` | Print `jj diff --stat` for both repos; prompt `[y/N]` (first approval gate) |
+| `message` | Compose title+body from `--title`/`--body`, persisted state, or `$EDITOR` template; second approval gate |
+| `commit-app` | `jj commit` app repo with ochid trailer pointing at `.claude` |
+| `commit-claude` | `jj commit` `.claude` with ochid trailer pointing at app (skipped if `.claude` is clean) |
+| `bookmark-both` | `jj bookmark set <bookmark> -r @- -R .` and `-R .claude` |
+| `push-app` | `jj git push --bookmark <bookmark> -R .` |
+| `finalize-claude` | `vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach` |
+
+Failures in `commit-app` / `commit-claude` / `bookmark-both` roll
+both repos back via `jj op restore` to the snapshot recorded at
+the start of `commit-app`. Past `push-app` the remote boundary is
+crossed and recovery is forward-only (see "Late changes after
+push" in CLAUDE.md).
+
+| Flag | Description |
+|------|-------------|
+| `[BOOKMARK]` | Bookmark to advance; positional form of `--bookmark` |
+| `--bookmark <NAME>` | Same as positional (mutually exclusive) |
+| `-y, --yes` | Auto-approve both gates (non-interactive use) |
+| `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |
+| `--dry-run` | Print what would run, no side effects, no state written |
+| `--step` | Pause after every stage for an extra continue-prompt |
+| `--from <STAGE>` | Jump to a specific stage (advanced / resume) |
+| `--status` | Print saved state's current stage and exit |
+| `--restart` | Clear saved state; start from stage 1 |
+| `--recheck` | Re-run preflight on resume (default: skip if last succeeded) |
+| `--no-finalize` | Stop before `finalize-claude` (run it manually) |
+
+State file path is configurable via `.vc-config.toml`'s `[push]`
+section:
+
+```toml
+[push]
+state-dir = ".vc-x1"          # default
+state-file = "push-state.toml"  # default
+```
+
+`push` warns (non-fatal) when the configured state dir isn't
+matched in `.gitignore`.
+
+See [Add push subcommand (0.37.0)](./notes/chores-05.md#add-push-subcommand-0370)
+for the full design and [per-step record](./notes/chores-05.md#per-step-record)
+for what each `0.37.0-N` dev step shipped.
+
 ### test-fixture
 
 Scaffold a throwaway dual-repo jj workspace + local bare-git remotes

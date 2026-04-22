@@ -10,7 +10,6 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
- - Add `push` subcommand — collapse commit+push+finalize ceremony [48]
  - Richer bookmark enumeration: per-bookmark remote presence + tracking status [52]
  - Per-line/per-thread runtime log points (future, maybe) [36]
  - Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
@@ -35,6 +34,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - push integration tests + workspace-root refactor (0.37.0-3) [48]
 - push interactivity: review prompt, $EDITOR, message persistence (0.37.0-4) [48]
 - push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
+- push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
 
 # References
 

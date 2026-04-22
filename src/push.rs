@@ -771,17 +771,25 @@ fn run_stage(
     }
 }
 
-/// Preflight: `cargo fmt && cargo clippy -D warnings && cargo test`.
+/// Preflight: `vc-x1 sync --no-dry-run && cargo fmt && cargo clippy
+/// -D warnings && cargo test`.
 ///
-/// Matches CLAUDE.md's pre-commit checklist (minus `cargo install`
-/// / retest, which are project-specific). Runs each subprocess in
-/// the workspace root so cargo picks up the right `Cargo.toml`.
-/// Skipped in `--dry-run` since `cargo fmt` writes files.
+/// Sync goes first so divergence with the remote is resolved before
+/// we burn cargo cycles; if sync fails (e.g. conflicted rebase) the
+/// build+test never runs. The cargo steps match CLAUDE.md's
+/// pre-commit checklist (minus `cargo install` / retest, which are
+/// project-specific). All subprocesses run in the workspace root so
+/// cargo picks up the right `Cargo.toml`. Skipped in `--dry-run`
+/// since `cargo fmt` writes files and sync mutates jj state.
 fn stage_preflight(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
-        info!("push:preflight: [dry-run] would run cargo fmt / clippy / test");
+        info!(
+            "push:preflight: [dry-run] would run vc-x1 sync --no-dry-run / cargo fmt / clippy / test"
+        );
         return Ok(());
     }
+    info!("push:preflight: vc-x1 sync --no-dry-run");
+    run("vc-x1", &["sync", "--no-dry-run"], root)?;
     info!("push:preflight: cargo fmt");
     run("cargo", &["fmt"], root)?;
     info!("push:preflight: cargo clippy --all-targets -- -D warnings");

@@ -527,8 +527,28 @@ land.
   `[push].state-dir` in `.vc-config.toml` and forgot to update
   `.gitignore`" case.
 
-#### 0.37.0 — docs + workflow migration *(pending, done marker)*
+#### 0.37.0 — docs + workflow migration (done marker)
 
-Planned: retire CLAUDE.md's by-hand Commit-Push-Finalize Flow
-in favor of `vc-x1 push`; add a `push` section to `README.md`;
-annotate this chore block with a "shipped" trailer.
+- `src/push.rs` — fold `vc-x1 sync --no-dry-run` into `preflight`
+  as the first step (divergence resolved before cargo burns
+  cycles); matches the 0.36.3 design's "push preflight calls
+  sync" note.
+- `CLAUDE.md` (both repos, byte-identical) — rewrite
+  Commit-Push-Finalize Flow around `vc-x1 push`: intro says
+  "use push"; drops the two-checkpoint manual ceremony
+  (Checkpoint 1 / Checkpoint 2 / Finalize the .claude repo);
+  keeps "After finalize: stop and wait" and "Late changes
+  after push"; adds a "Manual finalize fallback" subsection
+  for `--no-finalize` and post-failure cases; pre-step sync
+  section reframed as "still useful" (push runs sync internally
+  but running it earlier surfaces divergence sooner).
+- `README.md` — new `### push` subsection under Usage: stage
+  table, flag table, state-file config, link to this chore's
+  per-step record.
+- `notes/chores-05.md` — per-step record filled in for this
+  step; block now complete through `0.37.0`.
+
+**Status: shipped.** The push subcommand design is implemented,
+tested, and documented. The manual Commit-Push-Finalize Flow is
+retired in CLAUDE.md — `vc-x1 push <bookmark>` is the primary
+entry point going forward.

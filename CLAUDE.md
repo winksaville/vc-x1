@@ -297,78 +297,99 @@ is app repo, second is `.claude`).
 
 ## Commit-Push-Finalize Flow
 
-Two-checkpoint flow with explicit user approval at each stage.
+**Use `vc-x1 push <bookmark>` — it wraps the full flow in one
+command with two interactive approval gates.** Push runs
+preflight (sync + fmt + clippy + test), prompts for review,
+composes the commit message (via `--title`/`--body` or `$EDITOR`),
+prompts for message approval, then commits both repos → advances
+bookmarks → pushes app → finalizes `.claude`. Failures inside the
+local mutation window roll both repos back via `jj op restore`;
+after `push-app` succeeds the remote boundary is crossed and
+recovery is forward-only.
 
 **Run this flow after every step** — not only at session end.
 Single-step and multi-step changes are of equal importance: a
-single-step change is one flow; a multi-step change is one flow per
-`X.Y.Z-N` commit plus one for the final release commit. Each step
-gets its own commits, its own push, and its own finalize — so dev
-markers land on the remote and in the `.claude` history as they
-happen rather than being batched until the end.
+single-step change is one `push` invocation; a multi-step change
+is one `push` per `X.Y.Z-N` commit plus one for the final release
+commit. Each step gets its own commit, its own push, and its own
+finalize — so dev markers land on the remote and in `.claude` as
+they happen rather than being batched until the end.
 
-### Pre-step: sync
+### Run `vc-x1 push`
 
-Before starting a new unit of work — and again before committing —
-run `vc-x1 sync` to catch any remote divergence early. Dry-run is
-the default and safe: it fetches, classifies each repo, and acts
-only with `--no-dry-run`.
+```
+vc-x1 push main                                      # interactive (review + $EDITOR)
+vc-x1 push main --title "..." --body "..."           # flags skip $EDITOR
+vc-x1 push main --yes --title "..." --body "..."     # full non-interactive
+vc-x1 push main --dry-run                            # preview (no side effects)
+vc-x1 push main --from commit-app                    # resume from specific stage
+vc-x1 push --status                                  # show saved state
+vc-x1 push main --restart                            # clear saved state; start fresh
+```
+
+The two approval gates are surfaced by push itself:
+
+1. **Review** — push prints `jj diff --stat` for both repos and
+   prompts `[y/N]`. Approve = "the work is done right".
+2. **Message** — push either uses `--title`/`--body` (non-editor
+   path) or opens `$EDITOR` on a template. Approve = "the message
+   reads right".
+
+Both titles and bodies are the **same** across the two commits;
+only the `ochid:` trailer differs per repo. Push collects the
+pre-commit chids internally so you don't hand-manage them.
+
+For the full flag list and stage machine, see `vc-x1 push --help`
+and `notes/chores-05.md > Add push subcommand (0.37.0)`.
+
+### Bot communication during the flow
+
+When applying the flow on the user's behalf, use plain prose at
+each gate — no insider jargon ("Gate N signal", "Checkpoint N",
+etc.):
+
+1. **After completing the work** — summarize what changed
+   (file-by-file or feature-by-feature, terse) and end with
+   something like:
+
+   > Work complete. Please review. On approval I'll prep the
+   > commit title and body for a second approval before pushing.
+
+2. **After review approval** — present the proposed `$TITLE` and
+   `$BODY` explicitly, then ask permission to run `vc-x1 push`.
+   Do **not** spell out the full
+   `vc-x1 push <bookmark> --yes --title "$TITLE" --body "$BODY"`
+   invocation by default — it's mechanical and obvious from the
+   title/body. Show it only on explicit request (verbose mode /
+   debugging).
+
+3. **After execution approval** — run the push command. `push`
+   handles commit + bookmark + push + finalize internally;
+   nothing should be output after the push command (finalize is
+   detached and absolute-last; see "After finalize: stop and
+   wait" below).
+
+### Pre-step: `vc-x1 sync` (still useful)
+
+Push's preflight runs `vc-x1 sync --no-dry-run` as its first step
+so divergence is resolved before the build. Running sync manually
+before you *start* editing is still cheap (one line when clean)
+and surfaces remote changes earlier:
 
 ```
 vc-x1 sync                            # dual-repo workspace
-vc-x1 sync -R .                       # single-repo project (e.g. vc-template-x1)
-vc-x1 sync -R .,.claude --no-dry-run  # act on both
+vc-x1 sync -R .                       # single-repo project
 vc-x1 sync --quiet                    # silent; exit code signals result
 ```
 
 Output shape:
 
-- **Clean** (everything `up-to-date` / `ahead` / `no remote`): one
-  line — `sync: N repos, all up-to-date`. Proceed.
-- **Action needed** (`behind` / `diverged` somewhere): per-repo
-  fetch + state lines, then `dry-run — re-run with --no-dry-run
-  to apply`. Inspect the divergence, then re-run with
-  `--no-dry-run` (or resolve conflicts if rebase fails).
-- **`--quiet`**: no output at any level; exit code is the only
-  signal. Use in scripts.
-
-Running `vc-x1 sync` between edits and commit is cheap — the
-all-clean case is one line, which makes "sprinkle sync everywhere"
-genuinely cheap. The forthcoming `push` subcommand (0.37.0) will
-fold this into its own preflight stage, so this manual step
-retires then.
-
-### Checkpoint 1: Commit
-
-Prepare both commit commands and **present them for approval**. Use
-the **same title** for both commits so they're easy to correlate.
-The body can differ: the app repo body should summarize code
-changes; the bot session repo body should note what was done in the
-session.
-
-On approval, execute the commits and set bookmarks:
-
-```
-jj commit -m "shared title" -m "app body" -R .
-jj commit -m "shared title" -m "session body" -R .claude
-jj bookmark set <bookmark> -r @- -R .
-jj bookmark set <bookmark> -r @- -R .claude
-```
-
-### Checkpoint 2: Push and finalize
-
-After commits succeed, **ask the user to approve push and finalize**.
-On approval, push the app repo and finalize the bot session in a
-single operation. Say any final words (e.g. "next is ...") **before**
-executing — nothing should be output after finalize.
-
-```
-jj git push --bookmark <bookmark> -R . && vc-x1 finalize --repo .claude --squash <SOURCE,TARGET> --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
-```
-
-Replace `<bookmark>` with the active bookmark (e.g. `main`,
-`dev-0.14.0`). Do **not** push `.claude` separately — `finalize`
-handles that push after squashing trailing writes.
+- **Clean**: one line — `sync: N repos, all up-to-date`. Proceed.
+- **Action needed** (`behind` / `diverged`): per-repo fetch +
+  state lines, then `dry-run — re-run with --no-dry-run to apply`.
+  Inspect, then re-run with `--no-dry-run` (or resolve conflicts
+  if rebase fails).
+- **`--quiet`**: no output; exit code is the only signal.
 
 ### After finalize: stop and wait
 
@@ -393,8 +414,8 @@ this stage. Until told otherwise, treat as absolute.
 
 ### Late changes after push
 
-If changes are made to the app repo after it has been pushed (e.g.
-updating CLAUDE.md or memory), the commit is now immutable. Use
+If the app repo needs a tweak after `push-app` succeeded (e.g.
+updating CLAUDE.md or memory), the commit is immutable. Use
 `--ignore-immutable` to squash the changes in, then re-push:
 
 ```
@@ -403,21 +424,22 @@ jj bookmark set <bookmark> -r @- -R .
 jj git push --bookmark <bookmark> -R .
 ```
 
-### Finalize the .claude repo
+(`.claude` is also mutable via this pattern when needed, though
+push's `finalize-claude` stage normally handles trailing session
+writes so you rarely hit this case there.)
 
-The **very last action** in a session is to finalize the `.claude`
-repo. `--squash @,@-` squashes the working copy into the session
-commit. The delay gives a safety margin against any pending writes.
-Always use a short relative path for `--repo`.
+### Manual finalize fallback
 
-**Nothing should happen after finalize** — no memory writes, no tool
-calls, no additional output. If any work is done after finalize, run
-finalize again so the trailing writes are captured.
+If push exited before `finalize-claude` (e.g. `--no-finalize`
+was set, or a failure between `push-app` and `finalize-claude`),
+run finalize by hand:
 
 ```
 vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
 ```
 
+**Nothing should happen after finalize** — no memory writes, no
+tool calls, no additional output. If any work is done after
+finalize, run finalize again so the trailing writes are captured.
 Do **not** echo or restate the finalize output — the Bash tool
-already displays it. Any trailing text output creates writes that
-miss the finalize squash window.
+already displays it.
