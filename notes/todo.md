@@ -10,6 +10,15 @@ and reference links to more details.
 
 A markdown list of task to do in the near feature
 
+ - sync: surface working-copy state in the up-to-date summary (per-repo
+   pending-files count or compact stat). Wording-only fix shipped in
+   0.37.1; this is the design+impl of the actual signal. [54]
+ - Add `status` (alias `st`) subcommand: `jj st` across both repos in
+   one shot. Natural home for the working-copy signal called out in [54].
+ - Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards through to
+   the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`;
+   `--no-check` would be the user-opt-in to "auto-rebase under the gates,
+   I trust the sync state". Default stays `--check`.
  - Check for non-tracking-remote bookmarks during push and sync preflight as
    bookmarks that aren't trackng can't bre pushed.
  - Allow `vc-x1 push` to work on code or bot repo together or independantly and
@@ -40,6 +49,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - push interactivity: review prompt, $EDITOR, message persistence (0.37.0-4) [48]
 - push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
 - push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
+- First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
 
 # References
 
@@ -55,3 +65,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [50]: /notes/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
 [51]: /notes/chores-05.md#test-harness-refactor-0362
 [52]: /notes/chores-05.md#open-questions--tbd
+[53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
+[54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state

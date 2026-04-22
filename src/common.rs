@@ -160,11 +160,13 @@ pub fn resolve_spec(
 /// Run a shell command. Returns stdout on success.
 ///
 /// Logs the command at `debug!` and the process streams as follows:
-/// - **stderr at `info!`** on success — jj prints human-readable messages
-///   (`Moved 1 bookmarks to …`, `Rebased N commits`, `Nothing changed.`) to
-///   stderr, and the user needs to see them without requiring `-v`.
+/// - **stderr at `debug!`** on success — jj's chatter (`Moved 1 bookmarks
+///   to …`, `Rebased N commits`, `Nothing changed.`) is hidden by default
+///   and surfaced with `-v`. The debug formatter indents each line two
+///   spaces so subprocess output sits visually under the caller's own
+///   `info!` line in `-v` mode.
 /// - **stdout at `debug!`** — callers usually consume stdout as data
-///   (bookmark lists, commit IDs, etc.), so `info!` would flood the user
+///   (bookmark lists, commit IDs, etc.), and `info!` would flood the user
 ///   with machine-readable output they didn't ask for.
 /// - **Failures propagate as `Err`** carrying the stderr; the caller's
 ///   error handler (`main::run_command`) surfaces it at `error!`.
@@ -180,13 +182,13 @@ pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if !stdout.is_empty() {
-        debug!("  {stdout}");
+        debug!("{stdout}");
     }
     if !output.status.success() {
         return Err(format!("{cmd} {args_str} failed: {stderr}").into());
     }
     if !stderr.is_empty() {
-        info!("{stderr}");
+        debug!("{stderr}");
     }
     Ok(stdout)
 }

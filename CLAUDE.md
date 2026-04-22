@@ -371,24 +371,37 @@ etc.):
 
 ### Pre-step: `vc-x1 sync` (still useful)
 
-Push's preflight runs `vc-x1 sync --no-dry-run` as its first step
-so divergence is resolved before the build. Running sync manually
-before you *start* editing is still cheap (one line when clean)
-and surfaces remote changes earlier:
+Push's preflight runs `vc-x1 sync --check` as its first step. Check
+mode verifies divergence without applying — if anything is `behind`
+or `diverged`, preflight errors and you resolve explicitly with
+`vc-x1 sync --no-check` before re-running push. This keeps the
+two approval gates (review, message) authoritative; push never
+performs an unsupervised rebase.
+
+Running sync manually before you *start* editing is still cheap
+(one line when clean) and surfaces remote changes earlier:
 
 ```
-vc-x1 sync                            # dual-repo workspace
-vc-x1 sync -R .                       # single-repo project
-vc-x1 sync --quiet                    # silent; exit code signals result
+vc-x1 sync --check                    # dual-repo workspace, verify
+vc-x1 sync --no-check                 # apply (rebase / fast-forward)
+vc-x1 sync --check -R .               # single-repo project
+vc-x1 sync --check --quiet            # silent; exit code signals result
 ```
+
+Bots and scripts must pass `--check` or `--no-check` explicitly —
+defaults can shift, explicit flags lock in the contract. Interactive
+use can take the default (which is `--check`).
 
 Output shape:
 
-- **Clean**: one line — `sync: N repos, all up-to-date`. Proceed.
-- **Action needed** (`behind` / `diverged`): per-repo fetch +
-  state lines, then `dry-run — re-run with --no-dry-run to apply`.
-  Inspect, then re-run with `--no-dry-run` (or resolve conflicts
-  if rebase fails).
+- **Clean**: one line — `sync: N repos, all bookmarks up-to-date`.
+  Note: scope is bookmark-vs-remote tracking, not working-copy
+  cleanliness — `@` may have uncommitted changes; sync doesn't
+  speak to that. Proceed.
+- **Action needed** (`behind` / `diverged`) under `--check`:
+  per-repo fetch + state lines, then a fatal
+  `sync: N repos need action — resolve with vc-x1 sync --no-check
+  and re-run`. Inspect, run `vc-x1 sync --no-check`, then proceed.
 - **`--quiet`**: no output; exit code is the only signal.
 
 ### After finalize: stop and wait

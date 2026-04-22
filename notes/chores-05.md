@@ -552,3 +552,212 @@ land.
 tested, and documented. The manual Commit-Push-Finalize Flow is
 retired in CLAUDE.md — `vc-x1 push <bookmark>` is the primary
 entry point going forward.
+
+## First-dogfood polish for push (0.37.1)
+
+First dogfood of the interactive `vc-x1 push` flow exposed seven
+papercuts. They're all small, all surfaced in the same session, and
+all share the same "post-ship polish" framing — so they ship as one
+single-step `0.37.1` rather than a `0.37.0-6` continuation. The
+0.37.0 arc was closed by the done marker; this keeps the dev ladder
+of the feature distinct from sandpaper.
+
+### 1. `$EDITOR` template wording + parser relaxation
+
+The header was structured "title on first line / blank line / body
+after" — easy to read as "title now, body in a second prompt later".
+A user typed only the title, `:wq`'d, and was surprised when push
+proceeded with an empty body instead of re-prompting. The template
+also required a literal blank line between title and body — if a
+user typed title-then-body with no blank between, `parse_message`'s
+`splitn(2, "\n\n")` made the *whole thing* the title. Silent
+footgun.
+
+- `src/push.rs` — template header rewritten:
+
+  > Leave as-is to abort. Enter the Title on the first line,
+  > optionally followed by the Body on subsequent lines. The
+  > blank line between Title and Body is inserted automatically,
+  > and the ochid trailer is appended per-repo automatically —
+  > don't add either here.
+  > Lines starting with `#` are ignored.
+
+  States the contract up front (one editor session, title on line
+  1, body optional after) and surfaces the two auto-insertions
+  (separator blank line, ochid trailer) so the user knows not to
+  type either.
+
+- `src/push.rs` — `parse_message` rewritten: first non-comment
+  line = title, remainder (trimmed) = body. Blank line between is
+  allowed but not required. The "blank line between title and body
+  in the final commit message" responsibility lives in the
+  commit-stage `format!` calls (`"{title}\n\n{body}\n\nochid: ..."`),
+  which were already there.
+
+- `src/push.rs` — `parse_message_cases` grows two new cases:
+  title+body with no blank line (new behavior), and a multi-line
+  body with internal blank lines (regression guard).
+
+### 2. Gitignore coherence: fatal in push, auto-write in init + fixture
+
+The gitignore-coherence check was a `warn!` — easy to miss in the
+preflight wall of output. A committed push-state file is a real
+foot-gun (jj would track session-only state into history). Promote
+to fatal, and have `init` and `test-fixture` ship `/.vc-x1` in their
+generated `.gitignore` so the fresh-repo path is clean.
+
+- `src/push.rs` — `check_gitignore_coherence` returns
+  `Result<(), Box<dyn Error>>` and `push_in` propagates with `?`.
+  Error message names the file and the line to add. No bypass
+  flag; the fix is one line.
+
+- `src/init.rs` — `GITIGNORE_CODE` adds `/.vc-x1`; matching test
+  asserts the new line.
+
+- `src/test_fixture.rs` — `GITIGNORE_CODE` adds `/.vc-x1`; matching
+  test asserts the new line. Push integration tests use this
+  fixture, so the now-fatal check passes there transparently.
+
+- `README.md` — fixture-layout snippet adds `/.vc-x1`.
+
+### 3. `vc-x1 sync`: `--check` / `--no-check` rename + fatal check mode
+
+Push's preflight ran `vc-x1 sync --no-dry-run`, which auto-rebased
+the local repo against the remote *before* the user reached the
+review/message gates. A surprise rebase mid-push is exactly the
+kind of unsupervised mutation the gates are meant to prevent.
+
+Rename `--no-dry-run` to `--no-check` and `--dry-run` to `--check`
+(the implicit default; passable explicitly). Check mode is now
+**fatal** when any repo is `behind`/`diverged` — the user must
+resolve with `vc-x1 sync --no-check` and re-run. Push's preflight
+calls `vc-x1 sync --check` so divergence surfaces early but never
+rewrites local state without explicit consent.
+
+The bot uses explicit forms in scripts and automation (per
+"defaults can shift, explicit flags lock in the contract"); the
+interactive user can rely on the default.
+
+- `src/sync.rs` — `SyncArgs.no_dry_run: bool` → two fields
+  `check: bool` and `no_check: bool`, mutually `conflicts_with`.
+  Field `args.no_dry_run` → `args.no_check` everywhere internally
+  (semantic preserved: true = act). New phase-4 logic: in check
+  mode (`!args.no_check`) with `any_action_needed`, return Err
+  with explicit "resolve with `vc-x1 sync --no-check` and re-run"
+  message and a per-repo state recap above (already printed by
+  phase 2).
+
+- `src/sync.rs` — `parse_defaults` / `parse_overrides` tests
+  updated; new `parse_check_flag` and `parse_check_no_check_conflict`
+  tests exercise the new flag surface.
+
+- `src/sync.rs` — `apply_args()` test helper updated to
+  `{ check: false, no_check: true, ... }`.
+
+- `src/push.rs` — `stage_preflight` calls `vc-x1 sync --check`
+  (was `--no-dry-run`). Doc comment rewritten to explain why
+  check mode (no auto-rebase before the gates).
+
+- `CLAUDE.md` — "Pre-step: `vc-x1 sync` (still useful)" section
+  rewritten around `--check`/`--no-check`. Output-shape bullets
+  updated to describe the fatal check-mode error.
+
+- `README.md` — sync usage examples + flag table + output-shape
+  section updated. Push-stage table's `preflight` row updated to
+  `vc-x1 sync --check`.
+
+### 4. Stage-prefix log format: `push:STAGE:` → `push STAGE:`
+
+Stage-tagged log lines were `push:preflight:`, `push:review:`,
+… `push:finalize-claude:`. With nine prefixes plus subprocess
+output, the colon-pair felt dense; a single space between "push"
+and the stage parses faster.
+
+- `src/push.rs` — nine stage prefixes renamed (preflight,
+  review, message, commit-app, commit-claude, bookmark-both,
+  push-app, finalize-claude, step). Bare `push: ...` lines
+  (top-level, no stage) are unchanged.
+
+  Side note: `push push-app:` now reads with the word "push"
+  twice in a row. The stage's name is `push-app` because its
+  job is to push the app repo; renaming it would touch the
+  state-file format and `--from` values, which is wider surgery
+  than warranted here.
+
+### 5. Subprocess output hidden by default (visible with `-v`)
+
+Subprocess stderr (jj's `Working copy now at ...`, `Rebased N
+commits`, etc.) was emitted at `info!` in `common::run`, so it
+showed by default. Combined with the dense `push:STAGE:` prefix
+and the multi-stage flow, the output felt noisy. Drop subprocess
+stderr to `debug!` — hidden by default, surfaced with `-v`. The
+debug formatter already indents per-line two spaces, so when `-v`
+is set, subprocess lines sit visually under the caller's `info!`
+header. This change subsumes the originally-planned "indent
+stderr two spaces in info!" fix.
+
+- `src/common.rs` — `run` doc comment rewritten. Subprocess
+  stderr success path: `info!("{stderr}")` → `debug!("{stderr}")`.
+  Subprocess stdout: `debug!("  {stdout}")` → `debug!("{stdout}")`
+  (drop the redundant inline indent — the formatter already
+  indents debug lines).
+
+  Scope note: `common::run` is shared by every subcommand, so this
+  silences subprocess output globally (init, sync, finalize, clone,
+  push). Trade-off accepted: high-volume jj chatter is rarely
+  load-bearing for the user, and `-v` brings it back. If a specific
+  subcommand needs a particular subprocess line surfaced, the right
+  fix is an explicit `info!` in that subcommand at the moment the
+  thing happens — not relying on subprocess passthrough.
+
+### 6. Sync up-to-date wording: clarify scope (bookmarks, not work tree)
+
+`sync` reported `sync: N repos, all up-to-date` regardless of whether
+the working copy had uncommitted changes. Reads as broader than its
+actual scope (bookmark-vs-remote tracking only). User dogfood: ran
+`vc-x1 sync` after `echo hello > hello.txt`, got "all up-to-date"
+while `jj st` showed the new file — confusing.
+
+Wording-only fix here. The richer "tell me about working-copy state
+too" feature is a follow-up — see open-question subsection below.
+
+- `src/sync.rs` — phase-2 summary `sync: {n} {noun}, all up-to-date`
+  → `sync: {n} {noun}, all bookmarks up-to-date`. The per-repo
+  `State::UpToDate` line (`{repo}: up-to-date`) is unchanged — its
+  scope is already clear from context.
+- `src/main.rs` — sync `long_about` output-shape example updated.
+- `CLAUDE.md` — output-shape clean bullet adds a scope note: "scope
+  is bookmark-vs-remote tracking, not working-copy cleanliness".
+- `README.md` — same scope note in the output-shape section, plus
+  a `jj st` pointer for the working-copy case.
+
+### 7. Versioning + bookkeeping
+
+- `Cargo.toml` / `Cargo.lock` — version `0.37.0` → `0.37.1`.
+- `notes/todo.md` — Done entry added (covers all six fixes); new
+  Todo entry added for the deferred working-copy-signal work.
+
+## Open: sync up-to-date should mention working-copy state
+
+Deferred from 0.37.1's wording fix (subsection 6 above). Wording
+clarified the scope (`all bookmarks up-to-date`) but the user's
+underlying need was a single command that says "you have N pending
+files in repo X" without having to run `jj st` per repo.
+
+Design-open. Sketch of the question space:
+
+- **Format.** Per-repo line under the summary
+  (`./: 1 pending file (hello.txt)`) vs. compact aggregate
+  (`sync: 2 repos clean, 1 with pending changes`)?
+- **Detail level.** Just count? Count + names (cap at N)? Stat-style?
+- **Always-on vs --status.** Show every run, or gate behind a
+  `--working-copy` / `--all` flag so the cheap clean-case stays
+  one line?
+- **Scope under push preflight.** Push always commits working-copy
+  changes in the next stage, so a "you have pending changes" note
+  during preflight is noise. Maybe sync grows the signal but
+  `vc-x1 sync --check` (the form push uses) suppresses it?
+
+Probable shape: per-repo "N pending file(s)" line under the summary
+when non-zero, no flag needed, suppressed by `--quiet`. But the
+push-preflight noise question needs a deliberate answer first.

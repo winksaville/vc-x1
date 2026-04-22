@@ -410,16 +410,23 @@ content untouched, and any conflicted commits introduced by the failed
 rebase are abandoned on the way back.
 
 ```
-vc-x1 sync                            # dual-repo default, dry-run
-vc-x1 sync --no-dry-run               # dual-repo, act
+vc-x1 sync                            # dual-repo default, --check (verify)
+vc-x1 sync --check                    # explicit form of the default
+vc-x1 sync --no-check                 # dual-repo, apply
 vc-x1 sync -R .                       # single-repo project
 vc-x1 sync -R .,.claude -R ../other   # mixed: repeat + comma-separate
 ```
 
+Scripts and automation should pass `--check` or `--no-check`
+explicitly rather than rely on the default — defaults can shift,
+explicit flags lock in the contract. Interactive use can take the
+default.
+
 | Flag | Description |
 |------|-------------|
 | `-R, --repo <PATH>` | Repo to sync; repeatable or comma-separated [default: `.,.claude`] |
-| `--no-dry-run` | Apply; without it, classify and report only |
+| `--check` | Verify only — fetch + classify, error if any repo needs action (default) |
+| `--no-check` | Apply — fetch + classify, then rebase/fast-forward as needed |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
@@ -427,11 +434,15 @@ vc-x1 sync -R .,.claude -R ../other   # mixed: repeat + comma-separate
 **Output shape.** Sync collapses output based on what it finds:
 
 - **All up-to-date** — one-line summary:
-  `sync: N repos, all up-to-date`. Nothing else. Makes "sprinkle
-  sync everywhere" genuinely cheap.
+  `sync: N repos, all bookmarks up-to-date`. Nothing else.
+  Makes "sprinkle sync everywhere" genuinely cheap. Scope is
+  bookmark-vs-remote tracking — `@` may have uncommitted
+  working-copy changes; sync intentionally doesn't speak to
+  that (use `jj st` for working-copy state).
 - **Action needed** (`behind` / `diverged`) — per-repo fetch +
-  state lines, then `dry-run — re-run with --no-dry-run to apply`
-  (or the actual actions on `--no-dry-run`).
+  state lines, then **fatal in `--check` mode** with
+  `sync: N repos need action — resolve with vc-x1 sync --no-check
+  and re-run`. Under `--no-check`, the actions run instead.
 - **`--quiet`** — no output at any level; exit code is the only
   signal. Intended for scripts that just need success/failure.
 
@@ -506,7 +517,7 @@ to `.vc-x1/push-state.toml` so interrupts resume mid-flow):
 
 | Stage | What it does |
 |-------|--------------|
-| `preflight` | `vc-x1 sync --no-dry-run`, `cargo fmt`, `cargo clippy -D warnings`, `cargo test` |
+| `preflight` | `vc-x1 sync --check`, `cargo fmt`, `cargo clippy -D warnings`, `cargo test` |
 | `review` | Print `jj diff --stat` for both repos; prompt `[y/N]` (first approval gate) |
 | `message` | Compose title+body from `--title`/`--body`, persisted state, or `$EDITOR` template; second approval gate |
 | `commit-app` | `jj commit` app repo with ochid trailer pointing at `.claude` |
@@ -589,7 +600,7 @@ Layout:
   remote-claude.git/   bare git remote for .claude session repo
   work/                code repo (jj colocated, main tracks origin)
     .vc-config.toml    path="/",       other-repo=".claude"
-    .gitignore         /.claude /.git /.jj /target
+    .gitignore         /.claude /.git /.jj /target /.vc-x1
     .claude/           session repo (jj colocated, main tracks origin)
       .vc-config.toml  path="/.claude", other-repo=".."
       .gitignore       .git .jj

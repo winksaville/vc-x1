@@ -483,14 +483,20 @@ fn is_stdin_tty() -> bool {
     std::io::stdin().is_terminal()
 }
 
-/// Log a warning when the configured state path isn't matched by a
-/// `.gitignore` entry. The check is intentionally simple — looks
-/// for `<state_dir>` or `/<state_dir>` as a line in `.gitignore`
-/// at the repo root. Misses trickier patterns (nested wildcards,
-/// ignore files further down the tree) but catches the common
-/// "user changed the config and forgot to update .gitignore"
-/// case, which is the whole point.
-fn check_gitignore_coherence(root: &Path, state_dir_name: &str) {
+/// Verify the configured state dir is matched by a `.gitignore` entry,
+/// erroring if not. The check is intentionally simple — looks for
+/// `<state_dir>` or `/<state_dir>` as a line in `.gitignore` at the
+/// repo root. Misses trickier patterns (nested wildcards, ignore files
+/// further down the tree) but catches the common "user changed the
+/// config and forgot to update .gitignore" case, which is the whole
+/// point. Fatal as of 0.37.1 — the warning was easy to miss in the
+/// preflight wall of output, and a committed state file is a real
+/// foot-gun. `vc-x1 init` and `vc-x1 test-fixture` write `/.vc-x1`
+/// into their generated `.gitignore` so the fresh-repo path is clean.
+fn check_gitignore_coherence(
+    root: &Path,
+    state_dir_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let gitignore = root.join(".gitignore");
     let matched = match fs::read_to_string(&gitignore) {
         Ok(content) => content.lines().any(|line| {
@@ -503,13 +509,15 @@ fn check_gitignore_coherence(root: &Path, state_dir_name: &str) {
         Err(_) => false,
     };
     if !matched {
-        warn!(
+        return Err(format!(
             "push: state dir '{state_dir_name}' is not in {} — \
              add a '/{state_dir_name}' line so in-progress push-state \
              files don't get committed",
             gitignore.display()
-        );
+        )
+        .into());
     }
+    Ok(())
 }
 
 /// Entry point for the `push` subcommand.
@@ -546,7 +554,7 @@ pub(crate) fn push_in(
         info!("push: DRY-RUN — no side effects (no commits, no pushes, no state written)");
     }
 
-    // Gitignore coherence warning (non-fatal). Only checked when we
+    // Gitignore coherence check (fatal). Only checked when we
     // actually have a file path with a parent (resolve_state_layout
     // always gives one, so this is effectively always-on).
     if let Some(dir_name) = layout
@@ -555,7 +563,7 @@ pub(crate) fn push_in(
         .and_then(|p| p.file_name())
         .and_then(|s| s.to_str())
     {
-        check_gitignore_coherence(workspace_root, dir_name);
+        check_gitignore_coherence(workspace_root, dir_name)?;
     }
 
     if args.restart && layout.path.exists() {
@@ -668,7 +676,7 @@ fn run_from(
         if args.step && next.is_some() {
             if args.yes {
                 debug!(
-                    "push:step: --yes skips step gate between {} and next",
+                    "push step: --yes skips step gate between {} and next",
                     stage.as_str()
                 );
             } else if !is_stdin_tty() {
@@ -677,7 +685,7 @@ fn run_from(
                     .into());
             } else {
                 let answer = prompt(&format!(
-                    "push:step: {} done. Continue to {}? [y/N] ",
+                    "push step: {} done. Continue to {}? [y/N] ",
                     stage.as_str(),
                     next.map(Stage::as_str).unwrap_or("")
                 ))?;
@@ -771,34 +779,35 @@ fn run_stage(
     }
 }
 
-/// Preflight: `vc-x1 sync --no-dry-run && cargo fmt && cargo clippy
+/// Preflight: `vc-x1 sync --check && cargo fmt && cargo clippy
 /// -D warnings && cargo test`.
 ///
-/// Sync goes first so divergence with the remote is resolved before
-/// we burn cargo cycles; if sync fails (e.g. conflicted rebase) the
-/// build+test never runs. The cargo steps match CLAUDE.md's
-/// pre-commit checklist (minus `cargo install` / retest, which are
-/// project-specific). All subprocesses run in the workspace root so
-/// cargo picks up the right `Cargo.toml`. Skipped in `--dry-run`
-/// since `cargo fmt` writes files and sync mutates jj state.
+/// Sync runs in `--check` mode so divergence with the remote is
+/// surfaced before we burn cargo cycles, but **not** auto-resolved —
+/// a rebase mid-push is exactly the kind of unsupervised mutation
+/// the two approval gates exist to prevent. If sync reports action
+/// needed, preflight errors and the user resolves explicitly with
+/// `vc-x1 sync --no-check` before re-running push. The cargo steps
+/// match CLAUDE.md's pre-commit checklist (minus `cargo install` /
+/// retest, which are project-specific). All subprocesses run in the
+/// workspace root so cargo picks up the right `Cargo.toml`. Skipped
+/// in `--dry-run` since `cargo fmt` writes files.
 fn stage_preflight(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
-        info!(
-            "push:preflight: [dry-run] would run vc-x1 sync --no-dry-run / cargo fmt / clippy / test"
-        );
+        info!("push preflight: [dry-run] would run vc-x1 sync --check / cargo fmt / clippy / test");
         return Ok(());
     }
-    info!("push:preflight: vc-x1 sync --no-dry-run");
-    run("vc-x1", &["sync", "--no-dry-run"], root)?;
-    info!("push:preflight: cargo fmt");
+    info!("push preflight: vc-x1 sync --check");
+    run("vc-x1", &["sync", "--check"], root)?;
+    info!("push preflight: cargo fmt");
     run("cargo", &["fmt"], root)?;
-    info!("push:preflight: cargo clippy --all-targets -- -D warnings");
+    info!("push preflight: cargo clippy --all-targets -- -D warnings");
     run(
         "cargo",
         &["clippy", "--all-targets", "--", "-D", "warnings"],
         root,
     )?;
-    info!("push:preflight: cargo test");
+    info!("push preflight: cargo test");
     run("cargo", &["test"], root)?;
     Ok(())
 }
@@ -814,7 +823,7 @@ fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::
     let claude = claude_path(root);
     let app_arg = root.to_string_lossy();
     let claude_arg = claude.to_string_lossy();
-    info!("push:review: pending changes:");
+    info!("push review: pending changes:");
     info!("  app ({app_arg}):");
     let app_stat = run("jj", &["diff", "--stat", "-R", &app_arg], root)?;
     for line in app_stat.lines() {
@@ -826,25 +835,25 @@ fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::
         info!("    {line}");
     }
     if args.yes {
-        info!("push:review: auto-approved (--yes)");
+        info!("push review: auto-approved (--yes)");
         return Ok(());
     }
     if args.dry_run {
-        info!("push:review: [dry-run] auto-approved");
+        info!("push review: [dry-run] auto-approved");
         return Ok(());
     }
     if !is_stdin_tty() {
-        return Err("push:review: stdin is not a tty; \
+        return Err("push review: stdin is not a tty; \
                     pass --yes to auto-approve in non-interactive contexts"
             .into());
     }
-    let answer = prompt("push:review: approve and continue to message stage? [y/N] ")?;
+    let answer = prompt("push review: approve and continue to message stage? [y/N] ")?;
     let normalized = answer.trim().to_ascii_lowercase();
     if normalized == "y" || normalized == "yes" {
         Ok(())
     } else {
         Err(format!(
-            "push:review: declined (got {answer:?}); re-run with --yes or confirm with 'y'"
+            "push review: declined (got {answer:?}); re-run with --yes or confirm with 'y'"
         )
         .into())
     }
@@ -870,19 +879,19 @@ fn stage_message(
             (Some(t), Some(b)) => (t, b),
             _ => {
                 if args.yes {
-                    return Err("push:message: --yes given but --title/--body missing \
+                    return Err("push message: --yes given but --title/--body missing \
                                 and no persisted message to resume — pass both flags \
                                 or run interactively."
                         .into());
                 }
                 if args.dry_run {
-                    return Err("push:message: --dry-run given but --title/--body missing \
+                    return Err("push message: --dry-run given but --title/--body missing \
                                 and no persisted message — pass both flags so dry-run \
                                 has a message to preview."
                         .into());
                 }
                 if !is_stdin_tty() {
-                    return Err("push:message: stdin is not a tty and no --title/--body \
+                    return Err("push message: stdin is not a tty and no --title/--body \
                                 supplied; cannot launch $EDITOR in a non-interactive \
                                 context. Pass --title and --body, or run interactively."
                         .into());
@@ -905,7 +914,7 @@ fn stage_message(
     let claude_chid = get_change_id(&claude, claude_ref)?;
 
     info!(
-        "push:message: title=\"{}\", app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}",
+        "push message: title=\"{}\", app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}",
         title.lines().next().unwrap_or("") // OK: obvious
     );
     state.app_chid = Some(app_chid);
@@ -927,21 +936,21 @@ fn compose_message_via_editor(
     let msg_path = layout
         .path
         .parent()
-        .ok_or("push:message: state layout has no parent dir")?
+        .ok_or("push message: state layout has no parent dir")?
         .join("push-message.txt");
     if let Some(parent) = msg_path.parent() {
         fs::create_dir_all(parent)?;
     }
     let template = "\
-# Write the commit title on the first line (target ~50 chars).
+# Leave as-is to abort. Enter the Title on the first line,
+# optionally followed by the Body on subsequent lines. The
+# blank line between Title and Body is inserted automatically,
+# and the ochid trailer is appended per-repo automatically —
+# don't add either here.
 # Lines starting with `#` are ignored.
-# Leave everything blank to abort the push.
-#
-# Body goes after a blank line. ochid trailers are appended
-# per-repo automatically — don't add them here.
 ";
     fs::write(&msg_path, template)?;
-    info!("push:message: launching {editor} on {}", msg_path.display());
+    info!("push message: launching {editor} on {}", msg_path.display());
     let status = std::process::Command::new(&editor)
         .arg(&msg_path)
         .status()
@@ -952,13 +961,15 @@ fn compose_message_via_editor(
     let content = fs::read_to_string(&msg_path)?;
     let _ = fs::remove_file(&msg_path);
     parse_message(&content)
-        .ok_or_else(|| "push:message: template was left empty or all-comments — aborting".into())
+        .ok_or_else(|| "push message: template was left empty or all-comments — aborting".into())
 }
 
 /// Parse the editor-saved message into `(title, body)`. Strips
-/// `#`-prefixed comment lines, trims surrounding blanks, and
-/// splits on the first blank line after the title. Returns `None`
-/// when the message has no non-comment content.
+/// `#`-prefixed comment lines, trims surrounding blanks, and treats
+/// the first non-comment line as the title with everything after as
+/// the body (a blank line between is allowed but not required —
+/// the commit stages insert the title/body separator themselves).
+/// Returns `None` when the message has no non-comment content.
 fn parse_message(raw: &str) -> Option<(String, String)> {
     let mut meaningful = String::new();
     for line in raw.lines() {
@@ -973,9 +984,9 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
     if trimmed.is_empty() {
         return None;
     }
-    let mut parts = trimmed.splitn(2, "\n\n");
-    let title = parts.next().unwrap_or("").trim().to_string(); // OK: splitn always yields ≥1
-    let body = parts.next().unwrap_or("").trim().to_string(); // OK: empty body if no blank line
+    let mut lines = trimmed.lines();
+    let title = lines.next().unwrap_or("").trim().to_string(); // OK: trimmed non-empty ⇒ first line exists
+    let body = lines.collect::<Vec<_>>().join("\n").trim().to_string();
     if title.is_empty() {
         return None;
     }
@@ -993,16 +1004,16 @@ fn stage_commit_app(
     let claude_chid = state
         .claude_chid
         .as_deref()
-        .ok_or("push:commit-app: claude_chid not set (message stage didn't run)")?;
+        .ok_or("push commit-app: claude_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
     let app_arg = root.to_string_lossy();
     if args.dry_run {
         info!(
-            "push:commit-app: [dry-run] would run jj commit -R {app_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-app: [dry-run] would run jj commit -R {app_arg} -m \"{title}\" -m <body+ochid>"
         );
         return Ok(());
     }
-    info!("push:commit-app: jj commit -R {app_arg}");
+    info!("push commit-app: jj commit -R {app_arg}");
     run(
         "jj",
         &[
@@ -1049,24 +1060,24 @@ fn stage_commit_claude(
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !state.claude_had_changes.unwrap_or(false) {
-        info!("push:commit-claude: skip (.claude had no pending changes)");
+        info!("push commit-claude: skip (.claude had no pending changes)");
         return Ok(());
     }
     let (title, body) = resolve_message(state, args)?;
     let app_chid = state
         .app_chid
         .as_deref()
-        .ok_or("push:commit-claude: app_chid not set (message stage didn't run)")?;
+        .ok_or("push commit-claude: app_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
     if args.dry_run {
         info!(
-            "push:commit-claude: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-claude: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
         );
         return Ok(());
     }
-    info!("push:commit-claude: jj commit -R {claude_arg}");
+    info!("push commit-claude: jj commit -R {claude_arg}");
     run(
         "jj",
         &[
@@ -1095,11 +1106,11 @@ fn stage_bookmark_both(
     let claude_arg = claude.to_string_lossy();
     if args.dry_run {
         info!(
-            "push:bookmark-both: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}"
+            "push bookmark-both: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}"
         );
         return Ok(());
     }
-    info!("push:bookmark-both: jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}");
+    info!("push bookmark-both: jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}");
     run(
         "jj",
         &["bookmark", "set", bk, "-r", "@-", "-R", &app_arg],
@@ -1122,10 +1133,10 @@ fn stage_push_app(
     let bk = &state.bookmark;
     let app_arg = root.to_string_lossy();
     if args.dry_run {
-        info!("push:push-app: [dry-run] would run jj git push --bookmark {bk} -R {app_arg}");
+        info!("push push-app: [dry-run] would run jj git push --bookmark {bk} -R {app_arg}");
         return Ok(());
     }
-    info!("push:push-app: jj git push --bookmark {bk} -R {app_arg}");
+    info!("push push-app: jj git push --bookmark {bk} -R {app_arg}");
     run(
         "jj",
         &["git", "push", "--bookmark", bk, "-R", &app_arg],
@@ -1145,7 +1156,7 @@ fn stage_finalize_claude(
     args: &PushArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if args.no_finalize {
-        info!("push:finalize-claude: skip (--no-finalize)");
+        info!("push finalize-claude: skip (--no-finalize)");
         return Ok(());
     }
     let bk = &state.bookmark;
@@ -1153,12 +1164,12 @@ fn stage_finalize_claude(
     let claude_arg = claude.to_string_lossy();
     if args.dry_run {
         info!(
-            "push:finalize-claude: [dry-run] would run vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
+            "push finalize-claude: [dry-run] would run vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
         );
         return Ok(());
     }
     info!(
-        "push:finalize-claude: vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
+        "push finalize-claude: vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
     );
     run(
         "vc-x1",
@@ -1619,6 +1630,16 @@ mod tests {
         let (t, b) = parse_message("feat: x\n\nBody here.\nSecond line.\n").unwrap();
         assert_eq!(t, "feat: x");
         assert_eq!(b, "Body here.\nSecond line.");
+
+        // Title + body with no blank line — first line is title, rest is body.
+        let (t, b) = parse_message("feat: x\nBody here.\nSecond line.\n").unwrap();
+        assert_eq!(t, "feat: x");
+        assert_eq!(b, "Body here.\nSecond line.");
+
+        // Body with internal blank lines preserved.
+        let (t, b) = parse_message("feat: x\npara 1\n\npara 2\n").unwrap();
+        assert_eq!(t, "feat: x");
+        assert_eq!(b, "para 1\n\npara 2");
 
         // Comments stripped.
         let (t, b) =

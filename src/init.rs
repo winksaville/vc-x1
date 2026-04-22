@@ -272,6 +272,7 @@ const GITIGNORE_CODE: &str = "/target
 /.claude
 /.git
 /.jj
+/.vc-x1
 ";
 
 const GITIGNORE_SESSION: &str = ".git
@@ -607,6 +608,7 @@ mod tests {
         assert!(GITIGNORE_CODE.contains("/.claude"));
         assert!(GITIGNORE_CODE.contains("/.git"));
         assert!(GITIGNORE_CODE.contains("/.jj"));
+        assert!(GITIGNORE_CODE.contains("/.vc-x1"));
     }
 
     #[test]

@@ -146,12 +146,17 @@ pub(crate) enum Commands {
         `.claude`); override with `-R` / `--repo` for single-repo\n\
         projects or arbitrary multi-repo workspaces. Flag is repeatable\n\
         or comma-separated (e.g. `-R . -R .claude` or `-R .,.claude`).\n\n\
-        Default is dry-run — re-run with --no-dry-run to apply. Per repo:\n  \
+        Default is --check (verify only) — fatal if any repo needs\n\
+        action. Re-run with --no-check to apply (rebase / fast-forward).\n\
+        Per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
           - ahead             nothing to sync (local has unpushed work)\n  \
           - diverged          rebase local onto remote; fail on conflicts\n  \
           - no remote         bookmark has no @<remote> counterpart; skip\n\n\
+        Scripts and automation should pass --check or --no-check\n\
+        explicitly — defaults can shift, explicit flags lock in the\n\
+        contract. Interactive use can rely on the default.\n\n\
         After the bookmark action, `@` is rebased onto the (possibly\n\
         advanced) bookmark if it isn't already a descendant, so trailing\n\
         working-copy writes (e.g. `.claude`'s `/exit` tail) don't end up\n\
@@ -160,8 +165,9 @@ pub(crate) enum Commands {
         `jj op restore`. Working-copy files are preserved across the\n\
         revert — the operation log rewinds but disk content stays.\n\n\
         Output shape:\n  \
-          - all-up-to-date: one-line summary (`sync: N repos, all up-to-date`)\n  \
-          - action needed:  per-repo fetch + state + `dry-run` hint\n  \
+          - all-up-to-date: one-line summary (`sync: N repos, all bookmarks up-to-date`)\n  \
+          - action needed (--check):  per-repo fetch + state + fatal error\n  \
+          - action needed (--no-check): per-repo fetch + state + actions\n  \
           - --quiet:        no output; exit code signals success")]
     Sync(sync::SyncArgs),
 

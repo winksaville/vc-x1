@@ -8,18 +8,28 @@ use crate::common::run;
 
 /// Fetch and sync a set of repos to their remotes.
 ///
-/// Default is dry-run: reports per-repo state without mutating. Pass
-/// `--no-dry-run` to act. On any failure the starting state of every
+/// Default is `--check`: fetch + classify + report, **error** if any
+/// repo is `behind` or `diverged`. Pass `--no-check` to actually
+/// rebase / fast-forward. On any failure the starting state of every
 /// repo is restored via `jj op restore`.
+///
+/// Scripts and automation should pass `--check` or `--no-check`
+/// explicitly rather than relying on the default — defaults can shift,
+/// explicit flags lock in the contract.
 ///
 /// Repo set defaults to the dual-repo workspace pair (`.` and
 /// `.claude`); override with `-R` / `--repo` for single-repo projects
 /// (e.g. `vc-template-x1`) or arbitrary multi-repo workspaces.
 #[derive(Args, Debug)]
 pub struct SyncArgs {
-    /// Actually perform the sync (default: dry-run)
-    #[arg(long)]
-    pub no_dry_run: bool,
+    /// Verify only — fetch + classify; error if any repo needs action.
+    /// This is the default; pass explicitly in scripts.
+    #[arg(long, conflicts_with = "no_check")]
+    pub check: bool,
+
+    /// Apply — fetch + classify, then rebase / fast-forward as needed.
+    #[arg(long, conflicts_with = "check")]
+    pub no_check: bool,
 
     /// Suppress all informational output (exit code signals result)
     #[arg(short, long)]
@@ -122,8 +132,8 @@ pub fn sync(args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
 /// under parallel `cargo test`.
 pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!(
-        "sync: enter (no_dry_run={}, bookmark={}, remote={})",
-        args.no_dry_run, args.bookmark, args.remote
+        "sync: enter (no_check={}, bookmark={}, remote={})",
+        args.no_check, args.bookmark, args.remote
     );
 
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
@@ -189,7 +199,7 @@ fn run_plan(
     if !any_action_needed {
         let n = ctxs.len();
         let noun = if n == 1 { "repo" } else { "repos" };
-        info!("sync: {n} {noun}, all up-to-date");
+        info!("sync: {n} {noun}, all bookmarks up-to-date");
     } else {
         for (repo, stderr) in &fetched {
             info!("{}: fetch {}", repo.display(), args.remote);
@@ -203,15 +213,26 @@ fn run_plan(
     }
 
     // Phase 3 — act (subprocess output streams through as usual).
+    // `act_on_state` and `ensure_at_on_main` short-circuit when
+    // `args.no_check` is false, so check mode is a true no-op here.
     for ctx in &ctxs {
         act_on_state(ctx, args)?;
-        ensure_at_on_main(&ctx.path, &args.bookmark, args.no_dry_run)?;
+        ensure_at_on_main(&ctx.path, &args.bookmark, args.no_check)?;
     }
 
-    // Phase 4 — only surface the "re-run with --no-dry-run" hint when
-    // at least one repo would actually mutate state.
-    if !args.no_dry_run && any_action_needed {
-        info!("dry-run — re-run with --no-dry-run to apply");
+    // Phase 4 — check mode is fatal when action would be needed.
+    // Apply mode (`--no-check`) ran the action above and is done.
+    if !args.no_check && any_action_needed {
+        let n_action = ctxs
+            .iter()
+            .filter(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }))
+            .count();
+        let noun = if n_action == 1 { "repo" } else { "repos" };
+        return Err(format!(
+            "sync: {n_action} {noun} need action (see above) — \
+             resolve with `vc-x1 sync --no-check` and re-run"
+        )
+        .into());
     }
     Ok(())
 }
@@ -250,7 +271,7 @@ fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error:
 /// stale branch when the remote advanced.
 ///
 /// Skipped when `main::@` is already non-empty (i.e., `@` is already
-/// reachable from `bookmark`). On `--no-dry-run`, runs
+/// reachable from `bookmark`). On `--no-check`, runs
 /// `jj rebase -b @ -d <bookmark>` which carries all commits between
 /// the old parent and `@` forward, then checks `conflicts()` — any
 /// conflict in this step trips the outer revert the same way a
@@ -281,7 +302,7 @@ fn ensure_at_on_main(
     Ok(())
 }
 
-/// Perform the mutation corresponding to `ctx.state` when `--no-dry-run`.
+/// Perform the mutation corresponding to `ctx.state` when `--no-check`.
 ///
 /// - `UpToDate` / `Ahead` / `NoRemote` → no-op (and no output, the state
 ///   was already logged by `log_state`).
@@ -296,7 +317,7 @@ fn act_on_state(ctx: &RepoCtx, args: &SyncArgs) -> Result<(), Box<dyn std::error
     match &ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
-            if args.no_dry_run {
+            if args.no_check {
                 info!("{}: fast-forwarding '{}'", repo.display(), args.bookmark);
                 run(
                     "jj",
@@ -315,7 +336,7 @@ fn act_on_state(ctx: &RepoCtx, args: &SyncArgs) -> Result<(), Box<dyn std::error
             Ok(())
         }
         State::Diverged { local, remote } => {
-            if args.no_dry_run {
+            if args.no_check {
                 // `local` is either a single commit id or a comma-joined list
                 // of heads when the bookmark is conflicted. Pick the head
                 // that isn't the remote — that's the local-only tip. The
@@ -557,7 +578,8 @@ fn repo_str(p: &Path) -> String {
 mod tests {
     use super::*;
 
-    /// Default flags: dry-run on, bookmark "main", remote "origin",
+    /// Default flags: neither `--check` nor `--no-check` set (the
+    /// implicit default is check mode), bookmark "main", remote "origin",
     /// no `-R` given (caller will fall back to `DEFAULT_REPOS`),
     /// `--quiet` off.
     #[test]
@@ -569,7 +591,8 @@ mod tests {
             args: SyncArgs,
         }
         let cli = Cli::try_parse_from(["test"]).unwrap();
-        assert!(!cli.args.no_dry_run);
+        assert!(!cli.args.check);
+        assert!(!cli.args.no_check);
         assert!(!cli.args.quiet);
         assert_eq!(cli.args.bookmark, "main");
         assert_eq!(cli.args.remote, "origin");
@@ -591,7 +614,7 @@ mod tests {
         assert!(cli_short.args.quiet);
     }
 
-    /// Overrides: `--no-dry-run`, `--bookmark`, `--remote` all honored.
+    /// Overrides: `--no-check`, `--bookmark`, `--remote` all honored.
     #[test]
     fn parse_overrides() {
         use clap::Parser;
@@ -602,17 +625,44 @@ mod tests {
         }
         let cli = Cli::try_parse_from([
             "test",
-            "--no-dry-run",
+            "--no-check",
             "--bookmark",
             "dev",
             "--remote",
             "upstream",
         ])
         .unwrap();
-        assert!(cli.args.no_dry_run);
+        assert!(cli.args.no_check);
+        assert!(!cli.args.check);
         assert_eq!(cli.args.bookmark, "dev");
         assert_eq!(cli.args.remote, "upstream");
         assert!(cli.args.repos.is_empty());
+    }
+
+    /// `--check` flag parses as the explicit form of the default.
+    #[test]
+    fn parse_check_flag() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "--check"]).unwrap();
+        assert!(cli.args.check);
+        assert!(!cli.args.no_check);
+    }
+
+    /// `--check` and `--no-check` together are rejected by clap.
+    #[test]
+    fn parse_check_no_check_conflict() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        assert!(Cli::try_parse_from(["test", "--check", "--no-check"]).is_err());
     }
 
     /// Empty `-R` resolves to the dual-repo default pair.
@@ -746,14 +796,15 @@ mod integration_tests {
         )
     }
 
-    /// Sync args with `--no-dry-run` set.
+    /// Sync args with `--no-check` set (apply mode).
     ///
     /// Integration tests pass explicit repo paths through `sync_repos`
     /// directly, so `repos` stays empty here and the CLI-side default
     /// resolution is not exercised by this helper.
     fn apply_args() -> SyncArgs {
         SyncArgs {
-            no_dry_run: true,
+            check: false,
+            no_check: true,
             quiet: false,
             bookmark: "main".to_string(),
             remote: "origin".to_string(),
@@ -967,7 +1018,7 @@ mod integration_tests {
 
     /// Scenario 3: local has commits not yet pushed; sync classifies
     /// `ahead` and leaves the local bookmark alone even under
-    /// `--no-dry-run`.
+    /// `--no-check`.
     #[test]
     fn sync_ahead_is_noop() {
         let fx = Fixture::new("ahead");
