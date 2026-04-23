@@ -983,3 +983,27 @@ after the initial framing):
   beyond push (sync / finalize / init / fix-desc all eligible).
   Needs the same init + fixture + `.gitignore` discipline as
   `.vc-x1/`. Full framing lives in the todo entry.
+
+## Capture `--message-file` design for push (0.37.5)
+
+Surfaced during the 0.37.4 push itself — passing a long
+multi-line body via `--title "$T" --body "$B"` shell variables
+makes the actual `vc-x1 push …` invocation visually disappear
+under the variable assignments when the whole thing is rendered
+as one tool call. The immediate workaround (two-call pattern:
+write title/body to temp files in one Bash call, then a short
+`vc-x1 push … --title "$(cat t)" --body "$(cat b)"` in the
+next) is zero-code-change and adopted starting this commit.
+
+The tool-level fix sketched into `notes/todo.md`:
+
+- **`vc-x1 push --message-file PATH`**. Git-style commit-message
+  file (first line = title, blank, rest = body). Alternative
+  to `--title` + `--body`. No short form — usage is infrequent
+  enough that a long name reads cleanly.
+
+Doc-only commit:
+
+- `Cargo.toml` / `Cargo.lock` — `0.37.4` → `0.37.5`.
+- `notes/todo.md` — new Todo entry for `--message-file`.
+- `notes/chores-05.md` — this subsection.

@@ -19,7 +19,16 @@ A markdown list of task to do in the near feature
    the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`;
    `--no-check` would be the user-opt-in to "auto-rebase under the gates,
    I trust the sync state". Default stays `--check`.
- - `vc-x1 push`: `--scope=app|claude|both` flag. Default `both` matches
+ - `vc-x1 push`: `--message-file PATH` flag. Reads a git-style commit
+   message file — first line is title, blank line, rest is body.
+   Equivalent to today's `--title "$(cat t)" --body "$(cat b)"` but
+   one flag, one file, no shell escaping gymnastics. Motivation
+   (2026-04-22): when scripting a push with a long multi-line body,
+   the `--title "$T" --body "$B"` pattern makes the actual `vc-x1
+   push …` invocation visually disappear under the variable
+   assignments in terminal output — hard to scan. A file-based
+   message keeps the invocation short. No short form (`-m`, `-F`,
+   etc.) — infrequent enough that the long name is fine. Default `both` matches
    current behavior. `--scope=app` or `--scope=claude` runs push against
    one repo only — for docs-only fixes on the app side, or a `.claude`
    finalize that doesn't need to bundle app changes. Independent of
@@ -185,6 +194,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
 - Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
 - Capture squash-mode + scope design for push (0.37.4) [57]
+- Capture --message-file design for push (0.37.5) [58]
 
 # References
 
@@ -204,4 +214,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
 [56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[58]: /notes/chores-05.md#capture---message-file-design-for-push-0375
 [54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state

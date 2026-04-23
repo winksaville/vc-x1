@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.37.4"
+version = "0.37.5"
 edition = "2024"
 
 [dependencies]
