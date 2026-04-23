@@ -301,3 +301,87 @@ implementation:
   Todo entry for the template restructure (vc-template-x1 +
   `.claude/` subdir, captured separately for later
   implementation).
+
+## Bookmark tracking verification (0.38.0)
+
+Cross-command tracking verification per the [63] design — every
+repo-modifying command checks its target bookmark for non-tracking
+remote refs and errors with the exact remediation command if any
+are found. Multi-step rollout:
+
+- **0.38.0-0** — shared helper + tests (foundational refactor; no
+  behavior change beyond finalize).
+- **0.38.0-1** — wire into setup commands (`init`, `clone`,
+  `test-fixture`).
+- **0.38.0-2** — wire into preflight commands (`sync`, `push`).
+- **0.38.0** — release commit (notes + any doc tweaks).
+
+### 0.38.0-0: shared helper + tests
+
+`finalize` already had `find_non_tracking_remote` + a preflight
+check at finalize.rs:163,215-232 (added in an earlier 0.37.x
+release). Step 0 promotes that logic into `common.rs` so the
+remaining commands can share it without copy-paste.
+
+Signature deviates slightly from the [63] sketch
+(`verify_tracking(repo, bookmark, remote)`): kept the existing
+"detect any non-tracking remote for this bookmark" semantic
+rather than checking a specific `(bookmark, remote)` pair —
+matches what the call sites actually want, and avoids a second
+helper layer.
+
+```rust
+pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<String>;
+pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>>;
+```
+
+`verify_tracking` runs `jj bookmark list -a <bookmark> -R <repo>`,
+parses the output via `find_non_tracking_remote`, and returns
+`Err` with the standard message:
+
+```
+bookmark '{b}' has non-tracking remote '{b}@{r}' —
+run `jj bookmark track {b} --remote={r} -R {repo}` to fix
+```
+
+- `src/common.rs` — added `find_non_tracking_remote` + `verify_tracking`
+  + 4 parser tests (moved from `finalize.rs`).
+- `src/finalize.rs` — removed the local `find_non_tracking_remote`
+  fn + 4 tests; preflight now calls `crate::common::verify_tracking`.
+  Behavior unchanged.
+- `notes/chores-06.md` — new `## Bookmark tracking verification
+  (0.38.0)` parent + this `### 0.38.0-0` sub-section + stubs for
+  `### 0.38.0-1` / `### 0.38.0-2`.
+- `notes/todo.md` — Done entry for this step + In Progress entries
+  for the remaining 0.38.0 steps + new `[66]` reference.
+
+### 0.38.0-1: wire into setup commands (TBD)
+
+Wire `common::verify_tracking` into `init`, `clone`, and
+`test-fixture` as post-condition assertions:
+
+- `init`: Step 10 already calls `jj bookmark track`; add the
+  verify call as a sanity assertion to catch regressions.
+- `clone`: open question (per [63]) — does `jj git init
+  --colocate` after `git clone` auto-establish tracking? Verify
+  empirically; if not, add an explicit `jj bookmark track` step
+  after the colocate, then assert.
+- `test-fixture`: Step 7's first `jj git push --bookmark main`
+  establishes tracking as a side effect; verify call as a
+  post-condition is a no-op in the happy path but catches
+  regressions if push semantics shift.
+
+### 0.38.0-2: wire into preflight commands (TBD)
+
+Wire `common::verify_tracking` into `sync` and `push` preflight:
+
+- `sync`: detect + error in preflight before any fetch/rebase
+  attempt.
+- `push`: detect + error in preflight before any mutation
+  (commit, bookmark move, push). The existing `vc-x1 sync
+  --check` step that push runs first will already cover sync's
+  side; this adds the explicit per-bookmark check that
+  push-app needs before crossing the remote boundary.
+
+`finalize` already calls `verify_tracking` (now via the shared
+helper in 0.38.0-0); no change needed in -2.

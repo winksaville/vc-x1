@@ -570,9 +570,86 @@ pub fn resolve_revset(
     Ok(commit_ids)
 }
 
+/// Scan `jj bookmark list -a <name>` output for non-tracking remote refs.
+///
+/// Tracked remotes appear indented (`  @origin: ...`); non-tracking remotes
+/// appear at column 0 as `<bookmark>@<remote>: ...`. Returns the
+/// non-tracking remote name if any is found.
+pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<String> {
+    let prefix = format!("{bookmark}@");
+    for line in list_output.lines() {
+        if line.starts_with(&prefix)
+            && let Some(rest) = line.strip_prefix(&prefix)
+            && let Some((remote, _)) = rest.split_once(':')
+        {
+            return Some(remote.to_string());
+        }
+    }
+    None
+}
+
+/// Verify all remote refs for `bookmark` in `repo` are tracked.
+///
+/// Returns `Err` with the exact `jj bookmark track …` remediation command if
+/// any non-tracking remote ref is found. Used as a preflight by repo-modifying
+/// commands (sync, push, finalize) and as a post-condition assertion by setup
+/// commands (init, clone, test-fixture).
+pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_str = repo.to_string_lossy();
+    let cwd = Path::new(".");
+    let all = run(
+        "jj",
+        &["bookmark", "list", "-a", bookmark, "-R", &repo_str],
+        cwd,
+    )?;
+    if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
+        return Err(format!(
+            "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
+             run `jj bookmark track {bookmark} --remote={remote} -R {repo_str}` to fix"
+        )
+        .into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_non_tracking_remote_tracked() {
+        let output = "\
+main: zzwozmkn 40a8309a title here
+  @git: zzwozmkn 40a8309a title here
+  @origin: zzwozmkn 40a8309a title here";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
+    }
+
+    #[test]
+    fn find_non_tracking_remote_untracked() {
+        let output = "\
+main: zzwozmkn 40a8309a title here
+main@origin: zzwozmkn 40a8309a title here";
+        assert_eq!(
+            find_non_tracking_remote(output, "main"),
+            Some("origin".to_string())
+        );
+    }
+
+    #[test]
+    fn find_non_tracking_remote_no_remote() {
+        let output = "main: zzwozmkn 40a8309a title here";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
+    }
+
+    #[test]
+    fn find_non_tracking_remote_other_bookmark() {
+        let output = "\
+main: zzwozmkn 40a8309a title here
+  @origin: zzwozmkn 40a8309a title here
+other@origin: abcd1234 5678efgh other stuff";
+        assert_eq!(find_non_tracking_remote(output, "main"), None);
+    }
 
     #[test]
     fn parse_dot_rev_bare() {

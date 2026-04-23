@@ -5,6 +5,13 @@ and reference links to more details.
 
 ## In Progress
 
+Multi-step `0.38.0` cycle (Bookmark tracking verification, [66]):
+
+1. 0.38.0-1: wire `common::verify_tracking` into setup commands
+   (`init`, `clone`, `test-fixture`). [66]
+1. 0.38.0-2: wire `common::verify_tracking` into preflight
+   commands (`sync`, `push`). [66]
+1. 0.38.0 release: notes/doc cleanup + done marker. [66]
 
 ## Todo
 
@@ -95,6 +102,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - CLAUDE.md polish: markdown-anchor rule, shell-path brevity, state-file clearing, late-changes recipe trimmed (0.37.6) [59]
 - Notes restructure: chores-06 + trim long todo entries (0.37.7) [64]
 - Scope design refinements (0.37.8) [65]
+- Bookmark tracking verification: shared helper + tests (0.38.0-0) [66]
 
 # References
 
@@ -123,3 +131,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [63]: /notes/chores-06.md#non-tracking-remote-bookmark-detection-design
 [64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
 [65]: /notes/chores-06.md#scope-design-refinements-0378
+[66]: /notes/chores-06.md#bookmark-tracking-verification-0380
