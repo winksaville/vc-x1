@@ -114,20 +114,11 @@ A markdown list of task to do in the near feature
    checks before running. "Completed all stages" should only print
    when stages genuinely ran or were verified-already-done, not when
    they were skipped without verification. Same dogfood surfaced this.
- - CLAUDE.md "Manual finalize fallback": document that push's state
-   file must be cleared (`vc-x1 push --restart` or `rm`) after any
-   out-of-band recovery (manual `vc-x1 finalize`, `jj squash
-   --ignore-immutable` + force-push, etc.) so a later `vc-x1 push`
-   doesn't resume from a now-stale halt point.
  - `vc-x1 test-fixture` should refuse `--path` values that resolve inside
    the current workspace root (error or warn). Dogfood surfaced this:
    `--path ./tf-1` inside the repo let jj snapshot the fixture's bare-git
    remotes into the commit — a 56-file noise blob that got force-push'd
    off the remote later. Tool-level prevention, not `.gitignore`.
- - Tighten CLAUDE.md "Late changes after push" recipe: drop the
-   `jj bookmark set <bookmark> -r @- -R .` line when the squash target
-   is `@-` (bookmark follows naturally). Keep it only for the cases
-   where squash lands somewhere the bookmark isn't already.
  - Non-tracking-remote bookmark detection across every repo-modifying
    command. Diagnosed 2026-04-22 dogfood: jj's tracking state is
    **per-workspace** (local `.jj` store), not shared via git refs.
@@ -195,6 +186,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
 - Capture squash-mode + scope design for push (0.37.4) [57]
 - Capture --message-file design for push (0.37.5) [58]
+- CLAUDE.md polish: markdown-anchor rule, shell-path brevity, state-file clearing, late-changes recipe trimmed (0.37.6) [59]
 
 # References
 
@@ -215,4 +207,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
 [58]: /notes/chores-05.md#capture---message-file-design-for-push-0375
-[54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state
+[54]: /notes/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
+[59]: /notes/chores-05.md#claudemd-polish-0376

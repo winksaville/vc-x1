@@ -22,6 +22,14 @@ to target other directories rather than `cd`. If `cd` seems necessary,
 discuss with the user first — losing track of cwd causes subtle
 command failures downstream.
 
+When invoking shell commands, prefer the shortest unambiguous path —
+usually relative to cwd (`ls notes/`, not
+`ls /home/wink/data/prgs/rust/vc-x1/notes/`). Long absolute paths
+clutter the transcript without adding information. Out-of-workspace
+paths (`/tmp/...`, `~/.config/...`) stay absolute. Read/Edit/Write
+tool args also stay absolute — that's a tool-boundary constraint,
+not a stylistic choice.
+
 ## Memory
 
 Do not use the bot's per-project memory directory
@@ -155,6 +163,18 @@ step before starting the next; don't ask.
 
 Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
 See [Todo format](notes/README.md#todo-format) for details.
+
+### Markdown anchor links
+
+GitHub anchor algorithm: lowercase, strip non-alphanumeric
+characters in place, map remaining spaces to hyphens 1-for-1. Do
+**not** collapse adjacent whitespace — so `a + b` → `a--b` (spaces
+on both sides of `+`), but `a: b` → `a-b` (only trailing space on
+`:`). General markdown reference:
+[markdownguide.org](https://www.markdownguide.org). GitHub
+publishes no official spec for auto-generated anchors; the
+de-facto reference implementation is
+[github-slugger](https://github.com/Flet/github-slugger).
 
 ### Versioning
 
@@ -429,17 +449,21 @@ this stage. Until told otherwise, treat as absolute.
 
 If the app repo needs a tweak after `push-app` succeeded (e.g.
 updating CLAUDE.md or memory), the commit is immutable. Use
-`--ignore-immutable` to squash the changes in, then re-push:
+`--ignore-immutable` to squash the changes into `@-` — the
+bookmark moves with the rewritten commit — then re-push:
 
 ```
 jj squash --ignore-immutable -R .
-jj bookmark set <bookmark> -r @- -R .
 jj git push --bookmark <bookmark> -R .
 ```
 
-(`.claude` is also mutable via this pattern when needed, though
+If you squash somewhere other than `@-`, add
+`jj bookmark set <bookmark> -r <target> -R .` between those
+two commands so the bookmark lands on the rewritten commit.
+
+`.claude` is also mutable via this pattern when needed, though
 push's `finalize-claude` stage normally handles trailing session
-writes so you rarely hit this case there.)
+writes so you rarely hit this case there.
 
 ### Manual finalize fallback
 
@@ -456,3 +480,12 @@ tool calls, no additional output. If any work is done after
 finalize, run finalize again so the trailing writes are captured.
 Do **not** echo or restate the finalize output — the Bash tool
 already displays it.
+
+**Clear push's saved state after any out-of-band recovery** —
+manual `vc-x1 finalize`, manual `jj squash --ignore-immutable`
++ force-push, etc., all leave `.vc-x1/push-state.toml` pointing
+at a now-stale halt point. Either `rm .vc-x1/push-state.toml`
+or run `vc-x1 push <bookmark> --restart` (which clears and
+restarts in one go) before the next `vc-x1 push`. Otherwise
+push resumes from a bogus stage and can falsely declare
+success.

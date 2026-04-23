@@ -1007,3 +1007,57 @@ Doc-only commit:
 - `Cargo.toml` / `Cargo.lock` — `0.37.4` → `0.37.5`.
 - `notes/todo.md` — new Todo entry for `--message-file`.
 - `notes/chores-05.md` — this subsection.
+
+## CLAUDE.md polish (0.37.6)
+
+Doc-only release bundling four small CLAUDE.md improvements —
+two were queued in `notes/todo.md`, two surfaced this session.
+Cohesive theme: the bot's instruction sheet picks up rules and
+clarifications driven by 0.37.x dogfood and inline correction.
+
+1. **Markdown anchor links** subsection — added next to "Notes
+   references". Captures the GitHub anchor algorithm (lowercase,
+   strip non-alphanumeric in place, map remaining spaces to
+   hyphens 1-for-1 — *no whitespace collapsing*). Surfaced this
+   session after a bad `[54]` link in `notes/todo.md`: the bot
+   used `--` for an anchor whose source had only a single space
+   adjacent to `:` (correct: `-`). Links out to
+   [markdownguide.org](https://www.markdownguide.org) (general
+   reference) and
+   [github-slugger](https://github.com/Flet/github-slugger)
+   (de-facto algorithm reference — confirmed via WebSearch that
+   GitHub publishes no official spec).
+
+2. **Working Directory: shell-path brevity** — appended
+   paragraph. Bot should prefer relative paths in shell commands
+   (`ls notes/`, not `ls /home/wink/data/prgs/rust/vc-x1/notes/`).
+   Out-of-workspace paths and Read/Edit/Write tool args stay
+   absolute. Surfaced this session when the bot's first few Bash
+   calls used full absolute paths and the user flagged it as
+   transcript clutter.
+
+3. **Manual finalize fallback: state-file clearing** —
+   appended paragraph. Out-of-band recovery (manual `vc-x1
+   finalize`, manual `jj squash --ignore-immutable` + force-push,
+   etc.) leaves `.vc-x1/push-state.toml` pointing at a now-stale
+   halt point. Without clearing, the next `vc-x1 push` resumes
+   from the bogus stage and can falsely declare success
+   (observed during 0.37.1 dogfood — see the related
+   state-sanity-preflight Todo). Two clear paths: `rm
+   .vc-x1/push-state.toml` or `vc-x1 push <bookmark> --restart`.
+   Was queued; this lands the doc.
+
+4. **Late changes after push: recipe trimmed** — the three-line
+   recipe always included `jj bookmark set <bookmark> -r @- -R .`
+   between squash and push, but when squashing into `@-` the
+   bookmark moves with the rewritten commit naturally — no
+   bookmark-set needed. Recipe is now two lines for the default
+   case; the bookmark-set is called out separately for the
+   non-`@-` case. Was queued; this lands the doc.
+
+- `Cargo.toml` / `Cargo.lock` — `0.37.5` → `0.37.6`.
+- `CLAUDE.md` — four edits per the bullets above.
+- `notes/todo.md` — two items (state-file clearing, recipe
+  trimming) moved from `## Todo` to `## Done`; new `[59]`
+  reference for this subsection.
+- `notes/chores-05.md` — this subsection.
