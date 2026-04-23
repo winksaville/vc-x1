@@ -927,3 +927,59 @@ existed — origin lies somewhere in `.claude`'s historical
 bootstrap, not in the recent commit+push sequence. The probe
 (now permanent) continues to provide value going forward: it
 would catch any new tracking-loss the moment it happens.
+
+## Capture squash-mode + scope design for push (0.37.4)
+
+After force-pushing 0.37.3 through the manual sequence (jj
+squash --ignore-immutable → jj describe → jj git push on both
+repos), the user asked: could `vc-x1 push` do this end-to-end
+with the right flags? Answer — yes, and it's worth the effort.
+This chore is doc-only: captures the design framing into
+`notes/todo.md` so we don't lose it.
+
+Two flag additions sketched:
+
+1. `--scope=app|claude|both` (default `both`). Lets push run
+   against one repo singly. Self-contained, independent of
+   squash.
+2. `--squash`. Squashes WC into `@-` via `--ignore-immutable`
+   and force-pushes. Message stage pre-fills `$EDITOR` with
+   the existing description. Motivation: the manual force-push
+   sequence recurred three times during the 0.37.x dogfood
+   (tf-1 removal, then 0.37.4-rolled-into-0.37.3 for the
+   bm-track work, then would-have-been-again if we'd rolled
+   THIS chore into 0.37.3). Not a rare edge case — a workflow.
+
+Safety requirements for squash (captured in the todo entry):
+`--force-with-lease`-equivalent, review gate surfaces the
+rewrite (not just the diff), stage-prereq checks verify `@-`
+is the commit we think it is.
+
+Recommended ordering (earlier todos listed above this one):
+state-sanity preflight → stage-prereq verification → `--scope`
+(simpler, independent) → `--squash` (benefits from the first
+three being solid).
+
+- `Cargo.toml` / `Cargo.lock` — `0.37.3` → `0.37.4`.
+- `notes/todo.md` — two new Todo entries under the push flag
+  section: `--scope=app|claude|both` and `--squash`. The squash
+  entry embeds the safety requirements + recommended ordering
+  inline so future work has the framing without needing to
+  re-derive it from chat transcripts.
+
+Also captured in the same todo.md pass (follow-up conversation
+after the initial framing):
+
+- `--scope` entry grew a "warn on scope/WC mismatch" note —
+  non-fatal warning when `--scope=app` leaves `.claude` pending
+  changes on the table (or vice versa). Catches "I meant
+  `--scope=both`" before commit.
+- New Todo: "oh shit" revert via a `.vc-x1-ops/` anchor dir.
+  Idea-stage only. Every repo-mutating command drops an anchor
+  (command, per-repo pre-op-id, per-repo pre-push remote ref
+  snapshot). `vc-x1 undo` restores via `jj op restore` +
+  force-push to anchored remote ref. Piggybacks on jj's op-log
+  retention for local, snapshots remotes separately. Generalizes
+  beyond push (sync / finalize / init / fix-desc all eligible).
+  Needs the same init + fixture + `.gitignore` discipline as
+  `.vc-x1/`. Full framing lives in the todo entry.

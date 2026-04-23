@@ -19,6 +19,61 @@ A markdown list of task to do in the near feature
    the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`;
    `--no-check` would be the user-opt-in to "auto-rebase under the gates,
    I trust the sync state". Default stays `--check`.
+ - `vc-x1 push`: `--scope=app|claude|both` flag. Default `both` matches
+   current behavior. `--scope=app` or `--scope=claude` runs push against
+   one repo only — for docs-only fixes on the app side, or a `.claude`
+   finalize that doesn't need to bundle app changes. Independent of
+   the squash work below; simpler and self-contained. **Warn on
+   scope/WC mismatch**: if `--scope=app` is chosen and `.claude` has
+   pending changes (or vice versa), emit a non-fatal warning
+   naming the pending files — catches the "I meant --scope=both"
+   case before the user commits.
+ - `vc-x1 push`: `--squash` flag. Instead of creating a new commit,
+   squashes WC into the current repo's `@-` via `--ignore-immutable`
+   and force-pushes. Message stage pre-fills `$EDITOR` with the
+   existing description so typical use is edit-in-place; `--title`
+   / `--body` still override. Motivation: the manual squash +
+   describe + force-push sequence (CLAUDE.md "Late changes after
+   push") recurred three times during the 0.37.x dogfood — it's
+   not a rare edge case, it's a workflow, and each manual run is
+   a chance to miss a step or leave stale state. Once `--squash`
+   exists, the "Late changes after push" section in CLAUDE.md
+   retires; everything goes through the same two approval gates.
+
+   **Safety requirements** (implement as part of the squash work):
+   - Needs a `--force-with-lease`-equivalent. Without it, squash
+     is a silent history eraser if someone else pushed between
+     our last fetch and our force-push.
+   - The review gate should surface "will rewrite commit X → Y
+     and force-push to remote" so the user's approval is about
+     the rewrite, not just the diff.
+   - Stage-prereq checks (separate todo entry above): squash needs
+     to verify `@-` is actually the commit we're squashing, not
+     something stale from a prior aborted run. Ties into the
+     state-sanity preflight todo.
+
+   **Recommended ordering** (squash builds on earlier todos):
+   1. State-sanity preflight on resume (earlier todo).
+   2. Stage-prereq verification + honest completion (earlier todo).
+   3. `--scope=app|claude|both` (simpler, independent).
+   4. `--squash` (the big one; benefits from 1–3 being solid).
+ - "Oh shit" revert — post-success undo via `.vc-x1-ops/`. Just an
+   idea at this stage. Sketch: every repo-mutating command drops an
+   anchor (timestamp, command+args, per-repo pre-op-id, per-repo
+   pre-push remote ref snapshot) into a workspace-root `.vc-x1-ops/`
+   directory. `vc-x1 undo` restores both repos to the anchored op
+   via `jj op restore` and force-pushes remotes back to the anchored
+   ref. Piggybacks on jj's native op-log retention (~30d default) for
+   local restore; snapshots remote refs separately since jj's op log
+   is local-only. Safety: TTL or generation cap on anchors, same
+   `--force-with-lease`-equivalent as `--squash`, explicit confirm
+   (destructive). Scope-aware (`vc-x1 undo --scope=app`). Generalizes
+   beyond push — sync / finalize / init / fix-desc could all drop
+   anchors. `.vc-x1-ops/` needs the same init + fixture auto-write +
+   `.gitignore` discipline as `.vc-x1/`. Motivation: the common
+   operator-error failure mode (wrong cwd, wrong scope, wrong
+   thing) currently has no built-in recovery — just the error-prone
+   manual `jj op restore` + `jj git push --allow-backwards` dance.
  - bm-track "silent when clean" refinement. Always probe on entry
    and exit, but only *print* when the state isn't fully tracked or
    the exit state differs from entry. **When we do print on exit,
@@ -129,6 +184,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
 - Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
 - Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
+- Capture squash-mode + scope design for push (0.37.4) [57]
 
 # References
 
@@ -147,4 +203,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
 [55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
 [56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
+[57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
 [54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state
