@@ -768,7 +768,7 @@ fn run_stage(
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match stage {
-        Stage::Preflight => stage_preflight(root, args),
+        Stage::Preflight => stage_preflight(root, state, args),
         Stage::Review => stage_review(root, args),
         Stage::Message => stage_message(root, state, args, layout),
         Stage::CommitApp => stage_commit_app(root, state, args),
@@ -792,11 +792,20 @@ fn run_stage(
 /// retest, which are project-specific). All subprocesses run in the
 /// workspace root so cargo picks up the right `Cargo.toml`. Skipped
 /// in `--dry-run` since `cargo fmt` writes files.
-fn stage_preflight(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_preflight(
+    root: &Path,
+    state: &PushState,
+    args: &PushArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
-        info!("push preflight: [dry-run] would run vc-x1 sync --check / cargo fmt / clippy / test");
+        info!(
+            "push preflight: [dry-run] would run verify-tracking / vc-x1 sync --check / cargo fmt / clippy / test"
+        );
         return Ok(());
     }
+    info!("push preflight: verify bookmark tracking");
+    crate::common::verify_tracking(root, &state.bookmark)?;
+    crate::common::verify_tracking(&claude_path(root), &state.bookmark)?;
     info!("push preflight: vc-x1 sync --check");
     run("vc-x1", &["sync", "--check"], root)?;
     info!("push preflight: cargo fmt");

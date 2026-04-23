@@ -136,6 +136,14 @@ pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std:
         args.no_check, args.bookmark, args.remote
     );
 
+    // Preflight: verify bookmark tracking on every repo before any
+    // fetch/rebase. Implements "Non-tracking-remote bookmark detection"
+    // — design at:
+    //   https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#non-tracking-remote-bookmark-detection-design
+    for repo in repos {
+        crate::common::verify_tracking(repo, &args.bookmark)?;
+    }
+
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
     for repo in repos {
         let op_id = current_op_id(repo)?;

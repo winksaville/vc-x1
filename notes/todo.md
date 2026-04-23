@@ -7,8 +7,6 @@ and reference links to more details.
 
 Multi-step `0.38.0` cycle (Bookmark tracking verification, [66]):
 
-1. 0.38.0-2: wire `common::verify_tracking` into preflight
-   commands (`sync`, `push`). [66]
 1. 0.38.0 release: notes/doc cleanup + done marker. [66]
 
 ## Todo
@@ -102,6 +100,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Scope design refinements (0.37.8) [65]
 - Bookmark tracking verification: shared helper + tests (0.38.0-0) [66]
 - Bookmark tracking verification: wire into setup commands (0.38.0-1) [66]
+- Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
 
 # References
 

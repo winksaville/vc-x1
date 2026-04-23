@@ -407,17 +407,55 @@ new assertions there are short-circuit safety nets.
 - `notes/todo.md` — Done entry + `## In Progress` entry for
   `0.38.0-1` removed.
 
-### 0.38.0-2: wire into preflight commands (TBD)
+### 0.38.0-2: wire into preflight commands
 
-Wire `common::verify_tracking` into `sync` and `push` preflight:
+Wired `common::verify_tracking` into the two preflight commands.
+With `finalize` already covered (0.38.0-0), the full set of
+repo-modifying commands is now under the same check.
 
-- `sync`: detect + error in preflight before any fetch/rebase
-  attempt.
-- `push`: detect + error in preflight before any mutation
-  (commit, bookmark move, push). The existing `vc-x1 sync
-  --check` step that push runs first will already cover sync's
-  side; this adds the explicit per-bookmark check that
-  push-app needs before crossing the remote boundary.
+**`sync` (sync.rs `sync_repos`):** added a verify loop at the top
+— for each repo in the operation, verify tracking on
+`args.bookmark` (defaults to `main`). Runs before snapshot
+collection, before fetch, before any state mutation. If any repo
+errors, sync returns `Err` and the standard cross-repo revert
+path doesn't fire (nothing to revert — we hadn't snapshotted
+yet).
 
-`finalize` already calls `verify_tracking` (now via the shared
-helper in 0.38.0-0); no change needed in -2.
+**`push` (push.rs `stage_preflight`):** added the verify call as
+the first non-dry-run step, before `vc-x1 sync --check`. Verifies
+both repos (`root` and `claude_path(root)`) on `state.bookmark`.
+Plumbed `state` through to `stage_preflight` (was previously
+`(root, args)`; now `(root, state, args)` matching other stage
+fns). Belt-and-suspenders with sync's own check — `vc-x1 sync
+--check` would catch it too, but push's explicit check makes the
+contract local to push and fails fast before delegating.
+
+**`finalize`:** unchanged — already calls `verify_tracking`
+(promoted to common.rs in 0.38.0-0).
+
+Behavior for healthy repos: zero observable change (silent pass).
+For non-tracking remote refs: errors before any mutation, with
+the standard `jj bookmark track <b> --remote=<r> -R <repo>`
+remediation. All 204 tests pass — fixtures use the
+`test_fixture` flow which establishes tracking via push, so the
+new sync/push checks see the happy path.
+
+- `src/sync.rs` — verify loop at top of `sync_repos`.
+- `src/push.rs` — `stage_preflight` signature gains `state`,
+  dispatcher arm updated, two `verify_tracking` calls added
+  before `vc-x1 sync --check`.
+- `notes/chores-06.md` — promote `### 0.38.0-2` from TBD to
+  filled (this) + new `# References` section at the bottom so
+  inline `[N]` refs render as clickable links and the URLs are
+  copy-pasteable from raw markdown.
+- `notes/todo.md` — Done entry + `## In Progress` shrinks to
+  one item (release).
+
+# References
+
+[57]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[60]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#generalize---scope-to-all-commands-design
+[63]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#non-tracking-remote-bookmark-detection-design
+[64]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
+[65]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#scope-design-refinements-0378
+[66]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#bookmark-tracking-verification-0380
