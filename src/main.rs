@@ -18,6 +18,7 @@ mod test_helpers;
 mod toml_simple;
 mod validate_desc;
 
+use std::path::Path;
 use std::process::ExitCode;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
@@ -217,6 +218,54 @@ fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
     }
 }
 
+/// TEMPORARY — diagnostic probe for the non-tracking-bookmark issue
+/// surfaced during the 0.37.1 dogfood. Prints `main` bookmark tracking
+/// status in both repos of the dual-repo workspace on entry and exit
+/// of every command. If entry and exit differ, the executing command
+/// is the culprit; if entry is `NOT_TRACKED` but a previous command's
+/// exit was `tracked`, something *between* invocations broke it.
+/// Rip out once the culprit is identified — search for "track-probe".
+fn track_probe(phase: &str, command_name: &str) {
+    let repos: [(&Path, &str); 2] = [(Path::new("."), "app"), (Path::new(".claude"), ".claude")];
+    let mut parts: Vec<String> = Vec::new();
+    for (repo, label) in repos {
+        if !repo.join(".jj").exists() {
+            parts.push(format!("{label}(main)=no-jj"));
+            continue;
+        }
+        match track_probe_one(repo, "main", "origin") {
+            Ok(true) => parts.push(format!("{label}(main)=tracked")),
+            Ok(false) => parts.push(format!("{label}(main)=NOT_TRACKED")),
+            Err(e) => parts.push(format!(
+                "{label}(main)=err({})",
+                e.lines().next().unwrap_or("")
+            )),
+        }
+    }
+    log::info!(
+        "track-probe {phase} vc-x1 {command_name}: {}",
+        parts.join(", ")
+    );
+}
+
+/// Query jj for whether `bookmark` in `repo` is tracking `remote`.
+/// Returns `Ok(true)` if the tracked-list entry for `bookmark` names
+/// `@<remote>`, `Ok(false)` if the bookmark isn't tracking that
+/// remote (or doesn't exist), `Err` on subprocess failure.
+fn track_probe_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, String> {
+    let repo_str = repo.to_string_lossy();
+    let output = std::process::Command::new("jj")
+        .args(["bookmark", "list", "--tracked", bookmark, "-R", &repo_str])
+        .output()
+        .map_err(|e| format!("spawn: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let marker = format!("@{remote}:");
+    Ok(stdout.lines().any(|l| l.trim_start().starts_with(&marker)))
+}
+
 fn main() -> ExitCode {
     CompleteEnv::with_factory(cli_with_banner).complete();
     let matches = cli_with_banner().get_matches();
@@ -260,7 +309,15 @@ fn main() -> ExitCode {
         finalize::surface_previous_failures();
     }
 
-    match cli.command {
+    // Command name for track-probe output (first positional arg after
+    // the binary; clap has already validated it by the time we get here).
+    let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
+
+    if !is_detached_exec {
+        track_probe("enter", &command_name);
+    }
+
+    let exit_code = match cli.command {
         Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
         Commands::Desc(desc_args) => run_command(desc::desc(&desc_args)),
         Commands::List(list_args) => run_command(list::list(&list_args)),
@@ -286,7 +343,13 @@ fn main() -> ExitCode {
         Commands::TestFixture(args) => run_command(test_fixture::test_fixture(&args)),
         Commands::TestFixtureRm(args) => run_command(test_fixture::test_fixture_rm(&args)),
         Commands::Push(push_args) => run_command(push::push(&push_args)),
+    };
+
+    if !is_detached_exec {
+        track_probe("exit ", &command_name);
     }
+
+    exit_code
 }
 
 #[cfg(test)]

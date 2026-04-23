@@ -761,3 +761,64 @@ Design-open. Sketch of the question space:
 Probable shape: per-repo "N pending file(s)" line under the summary
 when non-zero, no flag needed, suppressed by `--quiet`. But the
 push-preflight noise question needs a deliberate answer first.
+
+## Temporary bookmark-tracking diagnostic probe (0.37.2)
+
+0.37.1's first-dogfood push hit a `bookmark 'main' has non-tracking
+remote 'main@origin'` error in the `.claude` repo during the
+`finalize-claude` stage. Recovery was one-time: `jj bookmark track
+main --remote=origin -R .claude`. But the open question is *when*
+and *why* the tracking flag got lost — the fwlaptop op log shows
+`.claude` pushing fine from there, so the 3900x workspace ended
+up in a different state at some historical point.
+
+The detect-and-error work (`notes/todo.md` top entry) is the
+long-term policy fix. This chore is a **temporary diagnostic**
+to localize the culprit: probe `main`-bookmark tracking status on
+entry and exit of every vc-x1 command. If entry and exit differ
+during a single command, that command is the culprit; if entry
+differs from the previous command's exit, something *between*
+invocations broke it (external tooling, manual jj commands, etc.).
+
+Output shape:
+
+```
+track-probe enter vc-x1 push: app(main)=tracked, .claude(main)=tracked
+track-probe exit  vc-x1 push: app(main)=tracked, .claude(main)=NOT_TRACKED
+```
+
+- `src/main.rs` — `use std::path::Path;` added. Two new functions:
+  `track_probe(phase, command_name)` prints the status line for
+  both repos; `track_probe_one(repo, bookmark, remote)` queries
+  jj via `jj bookmark list --tracked <bookmark> -R <repo>`. The
+  tracked-list entry includes a line starting with `@<remote>:`
+  when the bookmark is tracking that remote; absence means
+  not-tracking.
+- `src/main.rs` — dispatch block wraps the `match cli.command`
+  in a `let exit_code = match ...;` binding, with `track_probe`
+  calls immediately before and after. Skipped when `is_detached_exec`
+  (the `finalize --exec` re-entry) since probe noise in that log
+  isn't useful.
+- Graceful degradation — if the repo doesn't exist, missing-`.jj/`
+  detection emits `no-jj`; subprocess failure emits `err(<first line>)`.
+  Never blocks the wrapped command.
+- `Cargo.toml` / `Cargo.lock` — `0.37.1` → `0.37.2`.
+
+**How to rip it out** once the culprit is identified:
+
+```bash
+grep -rn 'track-probe\|track_probe' src/
+```
+
+Three places to touch:
+1. `src/main.rs` — delete the two functions (`track_probe`,
+   `track_probe_one`) and the `use std::path::Path` import if
+   nothing else needs it.
+2. `src/main.rs` — revert the dispatch to plain
+   `match cli.command { ... }` (drop the `let exit_code = ...`
+   binding, the two `track_probe(...)` calls, and the
+   `command_name` binding).
+3. `Cargo.toml` / `Cargo.lock` — bump to the next appropriate
+   version.
+
+Net removal: ~80 lines.

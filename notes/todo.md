@@ -19,8 +19,70 @@ A markdown list of task to do in the near feature
    the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`;
    `--no-check` would be the user-opt-in to "auto-rebase under the gates,
    I trust the sync state". Default stays `--check`.
- - Check for non-tracking-remote bookmarks during push and sync preflight as
-   bookmarks that aren't trackng can't bre pushed.
+ - `vc-x1 push`: state-sanity preflight on resume. Before any stage runs,
+   verify saved state matches reality: `state.app_chid` still exists
+   (not abandoned/rewritten)?  `main` bookmark at `state.app_chid`'s
+   commit? `state.claude_chid` consistent with `.claude` working copy?
+   On mismatch, refuse with a loud "state is stale — run `vc-x1 push
+   --restart`" error. Surfaced 2026-04-22: 0.37.1 push errored at
+   finalize-claude; out-of-band recovery (manual finalize + force-push
+   of a squash) moved the world forward; 0.37.2 push then resumed at
+   the parked finalize-claude, no-op'd, and falsely declared "completed
+   all stages" while working copies still held uncommitted changes.
+ - `vc-x1 push`: stage-prereq verification + honest completion. Each
+   stage declares what it expects (working-copy dirty for commit-app;
+   bookmark at specific commit for bookmark-both; etc.); dispatcher
+   checks before running. "Completed all stages" should only print
+   when stages genuinely ran or were verified-already-done, not when
+   they were skipped without verification. Same dogfood surfaced this.
+ - CLAUDE.md "Manual finalize fallback": document that push's state
+   file must be cleared (`vc-x1 push --restart` or `rm`) after any
+   out-of-band recovery (manual `vc-x1 finalize`, `jj squash
+   --ignore-immutable` + force-push, etc.) so a later `vc-x1 push`
+   doesn't resume from a now-stale halt point.
+ - `vc-x1 test-fixture` should refuse `--path` values that resolve inside
+   the current workspace root (error or warn). Dogfood surfaced this:
+   `--path ./tf-1` inside the repo let jj snapshot the fixture's bare-git
+   remotes into the commit — a 56-file noise blob that got force-push'd
+   off the remote later. Tool-level prevention, not `.gitignore`.
+ - Tighten CLAUDE.md "Late changes after push" recipe: drop the
+   `jj bookmark set <bookmark> -r @- -R .` line when the squash target
+   is `@-` (bookmark follows naturally). Keep it only for the cases
+   where squash lands somewhere the bookmark isn't already.
+ - Non-tracking-remote bookmark detection across every repo-modifying
+   command. Diagnosed 2026-04-22 dogfood: jj's tracking state is
+   **per-workspace** (local `.jj` store), not shared via git refs.
+   Sync across machines transfers refs but not the tracking flag —
+   so a fresh workspace fetched-into never auto-tracks. The failure
+   surfaces only when `jj git push` is attempted, which is too late
+   (push-app already succeeded in our case).
+
+   **Policy (decided):** error loudly, with the exact
+   `jj bookmark track <b> --remote=<r> -R <repo>` remediation
+   command. No self-heal — keeps the fix explicit and visible.
+
+   **Scope (every command that creates or mutates repo state):**
+   - `vc-x1 init`: already correct (Step 10 calls `jj bookmark track`).
+     Add the check as a post-condition sanity assertion anyway.
+   - `vc-x1 clone`: does `git clone` then `jj git init --colocate`.
+     Whether that combination auto-establishes tracking in jj's
+     workspace store is unclear; probably needs an explicit
+     `jj bookmark track` for each cloned bookmark after the init.
+     Verify and fix.
+   - `vc-x1 test-fixture`: Step 7's `jj git push --bookmark main`
+     establishes tracking as a side effect of the first push. Works
+     correctly — confirmed via `jj bookmark list --tracked` on a
+     fresh fixture. No change needed; the post-condition sanity
+     check would naturally cover it.
+   - `vc-x1 sync` preflight: detect + error.
+   - `vc-x1 push` preflight: detect + error (before any mutation).
+   - `vc-x1 finalize`: detect + error before the squash, so a
+     failed push doesn't leave a half-finalized state.
+
+   Shared helper: `common::verify_tracking(repo, bookmark, remote)
+   -> Result<(), Err>` or similar. Probably use
+   `jj bookmark list --tracked -T <template>` under the hood
+   rather than parsing human-readable output.
  - Allow `vc-x1 push` to work on code or bot repo together or independantly and
    specifically we should be able to "squash" in th code repo just as we do in
    the bot repo.
@@ -50,6 +112,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
 - push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
 - First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
+- Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
 
 # References
 
@@ -66,4 +129,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [51]: /notes/chores-05.md#test-harness-refactor-0362
 [52]: /notes/chores-05.md#open-questions--tbd
 [53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
+[55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
 [54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state
