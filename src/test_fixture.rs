@@ -190,7 +190,9 @@ pub fn test_fixture(args: &TestFixtureArgs) -> Result<(), Box<dyn std::error::Er
 
     info!("Step 7: Pushing main to both remotes...");
     run("jj", &["git", "push", "--bookmark", "main"], &work_dir)?;
+    crate::common::verify_tracking(&work_dir, "main")?;
     run("jj", &["git", "push", "--bookmark", "main"], &session_dir)?;
+    crate::common::verify_tracking(&session_dir, "main")?;
 
     if args.with_pending {
         info!("Step 8: Writing uncommitted changes to @ (both repos)...");

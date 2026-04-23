@@ -355,21 +355,57 @@ run `jj bookmark track {b} --remote={r} -R {repo}` to fix
 - `notes/todo.md` — Done entry for this step + In Progress entries
   for the remaining 0.38.0 steps + new `[66]` reference.
 
-### 0.38.0-1: wire into setup commands (TBD)
+### 0.38.0-1: wire into setup commands
 
-Wire `common::verify_tracking` into `init`, `clone`, and
-`test-fixture` as post-condition assertions:
+Wired `common::verify_tracking` into the three setup commands as
+post-condition assertions. One real fix landed (clone), two
+sanity assertions (init, test-fixture).
 
-- `init`: Step 10 already calls `jj bookmark track`; add the
-  verify call as a sanity assertion to catch regressions.
-- `clone`: open question (per [63]) — does `jj git init
-  --colocate` after `git clone` auto-establish tracking? Verify
-  empirically; if not, add an explicit `jj bookmark track` step
-  after the colocate, then assert.
-- `test-fixture`: Step 7's first `jj git push --bookmark main`
-  establishes tracking as a side effect; verify call as a
-  post-condition is a no-op in the happy path but catches
-  regressions if push semantics shift.
+**Empirical answer to the [63] open question:** `jj git init
+--colocate` after `git clone` does **NOT** auto-establish
+bookmark tracking. Probed live (cwd `/tmp`):
+
+- jj's own hint after colocate: "The following remote bookmarks
+  aren't associated with the existing local bookmarks:
+  main@origin. Run `jj bookmark track main --remote=origin` to
+  keep local bookmarks updated on future pulls."
+- `jj bookmark list -a main` shows `main@origin` at column 0
+  (the non-tracking format that `find_non_tracking_remote`
+  detects).
+- `jj bookmark list --tracked` returns empty.
+
+So clone.rs needed an explicit `jj bookmark track` step after
+each colocate — added in this commit. Without it, every fresh
+`vc-x1 clone` would have left both repos in a non-tracking state
+that the new preflight checks (0.38.0-2) would reject — exactly
+the silent-bug-now-loud-error story the [63] design targets.
+
+**Wiring details:**
+
+- `clone` Step 3/4: after `jj git init --colocate`, run
+  `jj bookmark track main --remote=origin`, then
+  `verify_tracking(&dir, "main")?`. Real fix.
+- `init` Step 10: already had the explicit track call; added
+  `verify_tracking(&dir, "main")?` after each side as a sanity
+  assertion. No-op on happy path; catches regressions.
+- `test-fixture` Step 7: each `jj git push --bookmark main`
+  establishes tracking as a side effect (confirmed correct in
+  [63] design). Added `verify_tracking(&dir, "main")?` after
+  each push as a post-condition assertion. No-op on happy path.
+
+All 204 tests pass — the test suite exercises test_fixture
+heavily (every integration test uses it via `Fixture`), so the
+new assertions there are well-validated. init and clone don't
+have full integration tests (would need real git remotes); the
+new assertions there are short-circuit safety nets.
+
+- `src/clone.rs` — Step 3/4 add `jj bookmark track` + verify.
+- `src/init.rs` — Step 10 adds verify after existing track calls.
+- `src/test_fixture.rs` — Step 7 adds verify after each push.
+- `notes/chores-06.md` — promote `### 0.38.0-1` from TBD to
+  filled (this).
+- `notes/todo.md` — Done entry + `## In Progress` entry for
+  `0.38.0-1` removed.
 
 ### 0.38.0-2: wire into preflight commands (TBD)
 

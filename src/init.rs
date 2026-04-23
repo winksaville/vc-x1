@@ -483,6 +483,7 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         &["bookmark", "track", "main", "--remote=origin"],
         &project_dir,
     )?;
+    crate::common::verify_tracking(&project_dir, "main")?;
     let code_chid_final = jj_chid("@-", &project_dir)?;
 
     run(
@@ -496,6 +497,7 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         &["bookmark", "track", "main", "--remote=origin"],
         &session_dir,
     )?;
+    crate::common::verify_tracking(&session_dir, "main")?;
     let session_chid_final = jj_chid("@-", &session_dir)?;
 
     // Step 11: Create Claude Code symlink

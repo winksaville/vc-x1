@@ -129,14 +129,29 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Step 3: jj git init --colocate in code repo
+    // Step 3: jj git init --colocate in code repo. Note: colocate after a
+    // plain `git clone` does NOT auto-establish bookmark tracking — jj
+    // emits a hint to run `jj bookmark track …`. We do that explicitly,
+    // then assert via verify_tracking.
     info!("Step 3: Initializing jj in code repo...");
     run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        &project_dir,
+    )?;
+    crate::common::verify_tracking(&project_dir, "main")?;
 
     // Step 4: jj git init --colocate in session repo (if cloned)
     if session_dir.exists() {
         info!("Step 4: Initializing jj in session repo...");
         run("jj", &["git", "init", "--colocate"], &session_dir)?;
+        run(
+            "jj",
+            &["bookmark", "track", "main", "--remote=origin"],
+            &session_dir,
+        )?;
+        crate::common::verify_tracking(&session_dir, "main")?;
     } else {
         info!("Step 4: No session repo — skipping jj init");
     }
