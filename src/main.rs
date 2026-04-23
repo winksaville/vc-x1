@@ -218,22 +218,41 @@ fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
     }
 }
 
-/// TEMPORARY — diagnostic probe for the non-tracking-bookmark issue
-/// surfaced during the 0.37.1 dogfood. Prints `main` bookmark tracking
-/// status in both repos of the dual-repo workspace on entry and exit
-/// of every command. If entry and exit differ, the executing command
-/// is the culprit; if entry is `NOT_TRACKED` but a previous command's
-/// exit was `tracked`, something *between* invocations broke it.
-/// Rip out once the culprit is identified — search for "track-probe".
-fn track_probe(phase: &str, command_name: &str) {
-    let repos: [(&Path, &str); 2] = [(Path::new("."), "app"), (Path::new(".claude"), ".claude")];
+/// Permanent sanity check for the `main`-bookmark tracking state
+/// in both repos of the dual-repo workspace. Prints one line on
+/// entry and one on exit of every command. If entry and exit
+/// differ, the executing command is the culprit; if entry differs
+/// from the previous command's exit, something *between*
+/// invocations broke it. Originally added in 0.37.2 as a temporary
+/// diagnostic; promoted to permanent in 0.37.4 after the user
+/// reported "happens more than once" — the signal is worth keeping
+/// in place until confidence in its correctness is well-established
+/// across varied use, at which point a "silent when clean"
+/// refinement would remove the steady-state noise without losing
+/// detection value (see `notes/todo.md`).
+///
+/// Walks up from cwd to locate the workspace root (the directory
+/// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
+/// and `<root>/.claude`. Same labeling whether the user runs from
+/// the app root, from `.claude`, or from any subdir.
+fn bm_track(phase: &str, command_name: &str) {
+    let header = format!("bm-track {phase} vc-x1 {command_name}");
+    let root = match find_workspace_root() {
+        Some(r) => r,
+        None => {
+            log::info!("{header}: no-workspace");
+            return;
+        }
+    };
+    let repos: [(std::path::PathBuf, &str); 2] =
+        [(root.clone(), "app"), (root.join(".claude"), ".claude")];
     let mut parts: Vec<String> = Vec::new();
     for (repo, label) in repos {
         if !repo.join(".jj").exists() {
             parts.push(format!("{label}(main)=no-jj"));
             continue;
         }
-        match track_probe_one(repo, "main", "origin") {
+        match bm_track_one(&repo, "main", "origin") {
             Ok(true) => parts.push(format!("{label}(main)=tracked")),
             Ok(false) => parts.push(format!("{label}(main)=NOT_TRACKED")),
             Err(e) => parts.push(format!(
@@ -242,17 +261,42 @@ fn track_probe(phase: &str, command_name: &str) {
             )),
         }
     }
-    log::info!(
-        "track-probe {phase} vc-x1 {command_name}: {}",
-        parts.join(", ")
-    );
+    log::info!("{header}: {}", parts.join(", "));
+}
+
+/// Walk up from cwd looking for `.vc-config.toml` with `path = "/"`.
+/// That's the workspace root — the app-repo side of the dual-repo
+/// pair. Returns `None` if no such config is found up to filesystem
+/// root (e.g., running from outside any vc-x1 workspace).
+fn find_workspace_root() -> Option<std::path::PathBuf> {
+    let mut cur = std::env::current_dir().ok()?;
+    loop {
+        let config = cur.join(".vc-config.toml");
+        if let Ok(content) = std::fs::read_to_string(&config) {
+            // Match either `path = "/"` or `path="/"` (with/without spaces).
+            let compact: String = content
+                .lines()
+                .find(|l| l.trim_start().starts_with("path"))
+                .unwrap_or("") // OK: no `path =` line ⇒ empty match, continues walking up
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect();
+            if compact.starts_with("path=\"/\"") {
+                return Some(cur);
+            }
+        }
+        cur = cur.parent()?.to_path_buf();
+    }
 }
 
 /// Query jj for whether `bookmark` in `repo` is tracking `remote`.
-/// Returns `Ok(true)` if the tracked-list entry for `bookmark` names
-/// `@<remote>`, `Ok(false)` if the bookmark isn't tracking that
-/// remote (or doesn't exist), `Err` on subprocess failure.
-fn track_probe_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, String> {
+/// Returns `Ok(true)` if the tracked-list entry for `bookmark` shows
+/// an `@<remote>` line (in any form — `@origin:` when synced, or
+/// `@origin (ahead by N commits):` / similar when divergent — both
+/// still count as tracking). `Ok(false)` when no such line exists
+/// (bookmark isn't tracking this remote or doesn't exist). `Err` on
+/// subprocess failure.
+fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, String> {
     let repo_str = repo.to_string_lossy();
     let output = std::process::Command::new("jj")
         .args(["bookmark", "list", "--tracked", bookmark, "-R", &repo_str])
@@ -262,8 +306,15 @@ fn track_probe_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, St
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let marker = format!("@{remote}:");
-    Ok(stdout.lines().any(|l| l.trim_start().starts_with(&marker)))
+    // Accept both the synced form (`@origin:`) and the decorated
+    // divergent form (`@origin (ahead by N commits):`), which still
+    // represents a tracking relationship.
+    let colon = format!("@{remote}:");
+    let paren = format!("@{remote} ");
+    Ok(stdout.lines().any(|l| {
+        let t = l.trim_start();
+        t.starts_with(&colon) || t.starts_with(&paren)
+    }))
 }
 
 fn main() -> ExitCode {
@@ -309,12 +360,12 @@ fn main() -> ExitCode {
         finalize::surface_previous_failures();
     }
 
-    // Command name for track-probe output (first positional arg after
+    // Command name for bm-track output (first positional arg after
     // the binary; clap has already validated it by the time we get here).
     let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
 
     if !is_detached_exec {
-        track_probe("enter", &command_name);
+        bm_track("enter", &command_name);
     }
 
     let exit_code = match cli.command {
@@ -346,7 +397,7 @@ fn main() -> ExitCode {
     };
 
     if !is_detached_exec {
-        track_probe("exit ", &command_name);
+        bm_track("exit ", &command_name);
     }
 
     exit_code

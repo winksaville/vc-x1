@@ -19,6 +19,21 @@ A markdown list of task to do in the near feature
    the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`;
    `--no-check` would be the user-opt-in to "auto-rebase under the gates,
    I trust the sync state". Default stays `--check`.
+ - bm-track "silent when clean" refinement. Always probe on entry
+   and exit, but only *print* when the state isn't fully tracked or
+   the exit state differs from entry. **When we do print on exit,
+   include the entry state in the output** so the transition is
+   explicit rather than inferred — "entry was ok (not printed), exit
+   failed" is inference; "entry=tracked, exit=NOT_TRACKED" in one
+   printed line is evidence. Record entry state in a local variable
+   at the enter call site and pass into the exit call. Output shape:
+   `bm-track vc-x1 <cmd>: enter=<state> → exit=<state>` — one
+   line only when there's something to say. Preserves detection
+   value, removes the steady-state two-lines-per-command noise, and
+   keeps provenance unambiguous. Deferred in 0.37.4 until
+   signal-confidence is established through more varied dogfood —
+   changing output behavior before then would muddy the "is the
+   probe itself reliable?" question.
  - `vc-x1 push`: state-sanity preflight on resume. Before any stage runs,
    verify saved state matches reality: `state.app_chid` still exists
    (not abandoned/rewritten)?  `main` bookmark at `state.app_chid`'s
@@ -113,6 +128,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
 - First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
 - Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
+- Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
 
 # References
 
@@ -130,4 +146,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [52]: /notes/chores-05.md#open-questions--tbd
 [53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
 [55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
+[56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
 [54]: /notes/chores-05.md#open--sync-up-to-date-should-mention-working-copy-state

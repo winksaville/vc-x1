@@ -780,7 +780,8 @@ during a single command, that command is the culprit; if entry
 differs from the previous command's exit, something *between*
 invocations broke it (external tooling, manual jj commands, etc.).
 
-Output shape:
+Output shape (as originally shipped in 0.37.2; renamed to
+`bm-track` in 0.37.3):
 
 ```
 track-probe enter vc-x1 push: app(main)=tracked, .claude(main)=tracked
@@ -804,7 +805,9 @@ track-probe exit  vc-x1 push: app(main)=tracked, .claude(main)=NOT_TRACKED
   Never blocks the wrapped command.
 - `Cargo.toml` / `Cargo.lock` — `0.37.1` → `0.37.2`.
 
-**How to rip it out** once the culprit is identified:
+**How to rip it out** once the culprit is identified (as framed
+at the time of 0.37.2; superseded in 0.37.3 when the probe was
+promoted to permanent):
 
 ```bash
 grep -rn 'track-probe\|track_probe' src/
@@ -822,3 +825,105 @@ Three places to touch:
    version.
 
 Net removal: ~80 lines.
+
+## Fix bm-track bugs + rename + promote to permanent (0.37.3)
+
+Three concerns bundled into this patch — all tied to the
+bookmark-tracking probe added in 0.37.2:
+
+1. **Two bugs in the probe itself** (the original motivation for
+   0.37.3). First real use in 0.37.2 caught them — not vc-x1's
+   push flow, as the output had misleadingly suggested.
+2. **Rename** from `track-probe` / `track_probe*` to `bm-track` /
+   `bm_track*` to avoid collision with the actor-x1 sibling
+   project's "TProbe" (time probe) naming.
+3. **Promote from temporary to permanent.** User data point:
+   "I've had it happen more than once." Drops the 0.37.2
+   ripout-checklist framing in favor of a stays-in-place sanity
+   check.
+
+### Bug A — cwd-relative paths mislabel and miss
+
+The 0.37.2 probe hardcoded `Path::new(".")` and
+`Path::new(".claude")` as the repo paths. Run from inside
+`.claude`, those resolve to `.claude` and `.claude/.claude`
+respectively — probe reported `app(main)=tracked,
+.claude(main)=no-jj`, which is doubly wrong: the "app" column
+is actually showing `.claude`'s status, and the ".claude" column
+is showing a nonexistent path. Fix: walk up from cwd looking for
+`.vc-config.toml` with `path = "/"`. That file marks the app-repo
+side of the dual-repo pair, so its containing dir is the
+workspace root. Probe `<root>` and `<root>/.claude` unconditionally
+— gives consistent labeling from any cwd inside the workspace.
+Outside any workspace, probe prints `no-workspace` and skips.
+
+### Bug B — `@origin:` parse misses the divergent-decorated form
+
+The 0.37.2 probe checked `line.trim_start().starts_with("@origin:")`.
+But when local `main` is ahead of `@origin`, jj decorates the line
+as `@origin (ahead by 1 commits): <old_commit>` — same tracking
+relationship, different prefix, the check fails. **This is what
+produced the scary-looking `NOT_TRACKED` at 0.37.2's push-exit
+probe** — the bookmark WAS tracking, it was just briefly
+local-ahead between `bookmark-both` and the detached finalize's
+push. False positive. Fix: accept both `@origin:` (synced) and
+`@origin ` (divergent-decorated, trailing space) as tracking
+markers. The tracking relationship is what matters; sync-state is
+orthogonal.
+
+### Rename
+
+Log prefix `track-probe` in 0.37.2's output collides conceptually
+with actor-x1's "TProbe" (time probe). Renamed here to `bm-track`
+(short for "bookmark tracking") — shorter, domain-specific, no
+collision. Grep-replaced across source and the current chores
+entry; the 0.37.2 subsection above was left using the original
+`track-probe` name for historical accuracy at that shipping point.
+
+### Promote to permanent
+
+0.37.2 framed the probe as temporary with a ripout checklist.
+User confirmed "happens more than once" — i.e., the tracking-loss
+class of failures is rare but real, and a permanent always-on
+sanity check beats waiting to rip the probe out after one catch.
+Probe logic unchanged; only its doc comment and the 0.37.2
+ripout-checklist framing are retired (the checklist is left in
+the 0.37.2 subsection as historical record, annotated as
+superseded here).
+
+### Edits
+
+- `src/main.rs` — `bm_track` rewritten to call
+  `find_workspace_root()` first, then probe `<root>` +
+  `<root>/.claude`. Graceful fallback to `no-workspace` when cwd
+  is outside any vc-x1 workspace.
+- `src/main.rs` — new `find_workspace_root()` helper. Walks up
+  from cwd reading each `.vc-config.toml` it finds; matches if
+  the file has `path = "/"` (with or without surrounding
+  whitespace). Returns `None` at filesystem root if no match
+  found.
+- `src/main.rs` — `bm_track_one` tracking detection loosened.
+  Now accepts either `@{remote}:` or `@{remote} ` (trailing
+  space for the decorated form). Doc comment expanded to call
+  out both cases.
+- `src/main.rs` — functions and log prefix renamed:
+  `track_probe` → `bm_track`, `track_probe_one` →
+  `bm_track_one`, log prefix `track-probe` → `bm-track`.
+- `src/main.rs` — `bm_track` doc comment drops "TEMPORARY" and
+  the "Rip out once the culprit is identified" line. Adds context
+  on why it stays in place (multiple past occurrences reported)
+  and notes the deferred "silent when clean" refinement that
+  would preserve detection value while removing steady-state
+  noise (see `notes/todo.md`).
+- `Cargo.toml` / `Cargo.lock` — `0.37.2` → `0.37.3`.
+
+Implication for the chain of diagnoses: the `NOT_TRACKED` seen
+at 0.37.2's push-exit probe was a false positive from Bug B.
+There is no evidence yet of an actual tracking-loss bug inside
+vc-x1's push flow. The *original* tracking loss that triggered
+the 0.37.1 finalize-claude failure was real (`jj git push`
+genuinely refused), but that loss happened before any probe
+existed — origin lies somewhere in `.claude`'s historical
+bootstrap, not in the recent commit+push sequence. The probe
+(now permanent) continues to provide value going forward: it
+would catch any new tracking-loss the moment it happens.
