@@ -42,6 +42,12 @@ Todo.md contains two main sections "Todo" and "Done" each item is a
 short explanations of a tasks and links to more details using 1 or more
 references.
 
+Todo items use lazy numbering — every entry begins with `1. ` and the
+markdown renderer auto-numbers them. Reorder or insert items without
+renumbering, and reference an entry by its displayed number ("let's
+work on #3"). The Done section keeps `-` bullets — items aren't
+referenced by number once completed.
+
 Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
 In markdown, `[2,3]` is a single ref key (won't resolve) and `[2][3]`
 is parsed as display text `2` with ref key `3` (so `[2]` won't resolve).
