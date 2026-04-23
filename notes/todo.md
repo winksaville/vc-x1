@@ -57,6 +57,11 @@ renumbering. Reference by displayed number ("let's work on #3").
    inside the current workspace root (error or warn). Dogfood
    surfaced this: `--path ./tf-1` inside the repo let jj
    snapshot the fixture's bare-git remotes — 56-file noise blob.
+1. Restructure templates: replace separate `vc-template-x1` +
+   `vc-template-x1.claude` repos with a single `vc-template-x1`
+   that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
+   both sides in one place). Updates to `vc-x1 init` / `clone`
+   needed for the new layout.
 1. Richer bookmark enumeration: per-bookmark remote presence + tracking status [52]
 1. Per-line/per-thread runtime log points (future, maybe) [36]
 1. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
@@ -89,6 +94,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Capture --message-file design for push (0.37.5) [58]
 - CLAUDE.md polish: markdown-anchor rule, shell-path brevity, state-file clearing, late-changes recipe trimmed (0.37.6) [59]
 - Notes restructure: chores-06 + trim long todo entries (0.37.7) [64]
+- Scope design refinements (0.37.8) [65]
 
 # References
 
@@ -116,3 +122,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [62]: /notes/chores-06.md#bm-track-silent-when-clean-design
 [63]: /notes/chores-06.md#non-tracking-remote-bookmark-detection-design
 [64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
+[65]: /notes/chores-06.md#scope-design-refinements-0378

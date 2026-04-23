@@ -181,3 +181,123 @@ command. No self-heal — keeps the fix explicit and visible.
 remote) -> Result<(), Err>` or similar. Probably use
 `jj bookmark list --tracked -T <template>` under the hood
 rather than parsing human-readable output.
+
+## Scope design refinements (0.37.8)
+
+Notes-only release. Captures six refinements to the scope and
+squash designs ([57], [60]) from a 2026-04-23 dogfood discussion
+(the manual squash workflow used to fold late changes into the
+0.37.7 commit, plus follow-up Q&A on cwd independence and
+plain-old-repo handling).
+
+**Scope semantic invariant.** With `--scope=app|other|both`
+(per [60]):
+
+- `--scope=both` (or omitted; `both` is the default) → dual-repo
+  operation.
+- `--scope=app` → single-repo operation on the app repo (direct
+  reference).
+- `--scope=other` → single-repo operation on the "other" repo
+  (indirect reference; resolves via `.vc-config.toml`'s
+  `[workspace].other-repo` field, which already exists).
+
+Anything that isn't `both` is single-repo. The dispatcher branches
+once on this invariant; new commands inheriting `--scope` get the
+semantic for free.
+
+**`--other` is project config, not a per-command flag.** Came up
+during the same discussion: should there be a `--other=PATH` flag
+to override the project's "other" repo per command? Answer: no.
+That belongs in `.vc-config.toml` (already there as
+`[workspace].other-repo`). Keeping `--other` out of the
+per-command surface keeps the flag set small and the per-command
+vocabulary uniform across all commands — "other" always resolves
+the same way.
+
+**Cwd independence + counterpart-rename suggestion.** Scope names
+are workspace-anchored, not cwd-relative. Each repo has its own
+`.vc-config.toml` self-describing its role:
+
+- App's config: `[workspace] path = "/" other-repo = ".claude"`.
+- `.claude`'s config: `[workspace] path = "/.claude"
+  other-repo = ".."`.
+
+`path = "/"` identifies the app repo (only the app has it). The
+dispatcher reads the local config, determines "am I app or other?"
+via `path`, then resolves `--scope=app` and `--scope=other` to the
+right physical paths regardless of cwd. From `cd .claude`:
+
+- `--scope=app` → `..` (the app repo, found via `.claude`'s
+  `other-repo`).
+- `--scope=other` → `.` (`.claude` itself, since `path != "/"`
+  → I AM the workspace's "other").
+
+Naming gotcha: the config field `other-repo` means "this repo's
+counterpart" (cwd-flavored direction; from `.claude` it's `..` =
+the app), while CLI `--scope=other` means "the workspace's 'other'
+role" (workspace-anchored; always = `.claude`). They coincide
+from app's cwd (both physically = `.claude`) but diverge from
+`.claude`'s cwd (config `other-repo` = `..`, CLI `--scope=other`
+= `.`). Consider renaming the config field to `counterpart` or
+`peer` to disambiguate from the CLI scope name.
+
+**Plain-old-repo handling: three workspace states.** vc-x1 should
+be practical without a full workspace too. Three distinguishable
+states, all described by `.vc-config.toml` presence/contents:
+
+- **POR** — no `.vc-config.toml`. Pure git/jj repo, vc-x1
+  doesn't know it exists. Implicit `--scope=app`;
+  `--scope=other/both` errors with "not in a vc-x1 workspace
+  (no `.vc-config.toml`) — drop --scope or use --scope=app".
+- **Single-repo workspace** — `.vc-config.toml` with `path`
+  only (no `other-repo`). vc-x1-aware, no companion. Example:
+  `vc-template-x1`. Implicit `--scope=app`; `--scope=other/both`
+  errors with "no other-repo configured. Add `other-repo = …`
+  to `.vc-config.toml` to enable dual-repo operations".
+- **Dual-repo workspace** — `.vc-config.toml` with `path` +
+  `other-repo`. Full setup. Example: `vc-x1` itself.
+  `--scope=app/other/both` all valid.
+
+Edge cases: a `.vc-config.toml` with `path != "/"` and no
+`other-repo` (e.g. `path = "/.claude"`) — the repo identifies as
+the "other" side but its companion is missing. Error: "config
+identifies this as `/.claude` but no `other-repo` to point at the
+app side; companion is missing." Dual-repo with `other-repo`
+pointing somewhere that doesn't exist → loud error (workspace
+state corrupted), not POR fallback.
+
+**`vc-x1 push --squash` composition.** With `--scope` in place,
+the squash design (per [57]) composes naturally:
+
+- `vc-x1 push --squash` (no scope) → squash both repos and
+  force-push both. End-to-end version of the manual two-step
+  recipe in CLAUDE.md "Late changes after push".
+- `vc-x1 push --squash --scope=app` → squash app only.
+- `vc-x1 push --squash --scope=other` → squash other only.
+
+**Dogfood validation (2026-04-23).** The manual recipe was applied
+successfully to both repos in sequence to fold late changes into
+the 0.37.7 commit. Observations worth carrying into the `--squash`
+implementation:
+
+- jj's `jj squash --ignore-immutable` preserves the changeID of
+  the squashed-into commit. Both repos' ochid trailers stayed
+  valid through the squash without any fixup. The future
+  `--squash` implementation can rely on this — no ochid rewrite
+  needed.
+- The trimmed "Late changes after push" recipe (0.37.6, two
+  lines for the `@-` case) worked identically on both sides;
+  no `jj bookmark set` needed since the bookmark moves with the
+  rewritten commit.
+- Push state was already cleared at the end of the prior
+  successful push (state reported "completed all stages (state
+  cleared)"). The post-recovery `--restart` / `rm` step
+  documented in CLAUDE.md "Manual finalize fallback" wasn't
+  needed in this case — but the doc remains correct for cases
+  where prior push didn't clean up.
+
+- `notes/chores-06.md` — this subsection.
+- `notes/todo.md` — Done entry + new `[65]` reference + new
+  Todo entry for the template restructure (vc-template-x1 +
+  `.claude/` subdir, captured separately for later
+  implementation).
