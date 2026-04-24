@@ -718,10 +718,31 @@ fn run_from(
     if args.dry_run {
         info!("push: DRY-RUN complete — no changes written");
     } else {
-        if layout.path.exists() {
-            fs::remove_file(&layout.path)?;
+        // Honest completion: verify the world matches state before
+        // declaring success. Catches the 0.37.1 false-success symptom
+        // (stages "ran" but didn't actually commit / push what state
+        // says they did). Warning-only because work has already
+        // crossed the remote boundary by this point — rollback isn't
+        // sound, the user needs to investigate.
+        match verify_completion_sanity(root, state) {
+            Ok(()) => {
+                if layout.path.exists() {
+                    fs::remove_file(&layout.path)?;
+                }
+                info!("push: completed all stages (verified, state cleared)");
+            }
+            Err(e) => {
+                if layout.path.exists() {
+                    fs::remove_file(&layout.path)?;
+                }
+                warn!("push: completed stages but post-completion verification failed:");
+                warn!("  {e}");
+                warn!(
+                    "  state cleared anyway (work landed on remote); investigate the \
+                     discrepancy before next push"
+                );
+            }
         }
-        info!("push: completed all stages (state cleared)");
     }
     Ok(())
 }
@@ -1311,6 +1332,106 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
             )
             .into()
         })?;
+    }
+
+    Ok(())
+}
+
+/// Verify the world matches the saved state after all stages have run.
+///
+/// Counterpart to `verify_state_sanity` (which runs pre-stage). This
+/// runs after the stage loop completes and confirms the post-conditions
+/// are real — directly addresses the 0.37.1 false-success symptom
+/// (push declared "completed all stages" while WC still held
+/// uncommitted changes from a stale-state resume).
+///
+/// Three checks:
+///
+/// 1. App's bookmark is at a commit whose chid matches `state.app_chid`.
+/// 2. App's working copy has no uncommitted changes (commit-app should
+///    have captured anything that was there).
+/// 3. `.claude`'s bookmark is at `state.claude_chid`'s commit (when set).
+///    `.claude`'s WC may legitimately have new session writes from the
+///    push run itself — finalize-claude (detached) handles those — so
+///    no WC-clean check on `.claude`.
+///
+/// On any mismatch: returns `Err`. The caller surfaces as a loud
+/// warning rather than blocking — push has already crossed the remote
+/// boundary, work is live on origin, the warning prompts the user to
+/// investigate.
+fn verify_completion_sanity(
+    root: &Path,
+    state: &PushState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bookmark = &state.bookmark;
+    let root_str = root.to_string_lossy();
+    let cwd = Path::new(".");
+
+    // 1. app bookmark at state.app_chid.
+    if let Some(app_chid) = &state.app_chid {
+        let actual = run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                bookmark,
+                "--no-graph",
+                "-T",
+                "change_id.short(12)",
+                "-R",
+                &root_str,
+            ],
+            cwd,
+        )?;
+        let actual = actual.trim();
+        if actual != app_chid.as_str() {
+            return Err(format!(
+                "completion sanity: app bookmark '{bookmark}' is at chid '{actual}' but \
+                 state.app_chid is '{app_chid}'."
+            )
+            .into());
+        }
+    }
+
+    // 2. app WC clean (no uncommitted changes). Use the `empty`
+    // template — `jj diff --stat` always emits a "0 files changed"
+    // line even when clean, so plain output-emptiness check would
+    // false-positive.
+    if !jj_log_empty(root, "@")? {
+        let wc_diff = run("jj", &["diff", "--stat", "-r", "@", "-R", &root_str], cwd)?;
+        return Err(format!(
+            "completion sanity: app working copy has uncommitted changes (push completed \
+             but WC dirty?). Diff stat:\n{wc_diff}"
+        )
+        .into());
+    }
+
+    // 3. .claude bookmark at state.claude_chid.
+    if let Some(claude_chid) = &state.claude_chid {
+        let claude = claude_path(root);
+        let claude_str = claude.to_string_lossy();
+        let actual = run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                bookmark,
+                "--no-graph",
+                "-T",
+                "change_id.short(12)",
+                "-R",
+                &claude_str,
+            ],
+            cwd,
+        )?;
+        let actual = actual.trim();
+        if actual != claude_chid.as_str() {
+            return Err(format!(
+                "completion sanity: .claude bookmark '{bookmark}' is at chid '{actual}' but \
+                 state.claude_chid is '{claude_chid}'."
+            )
+            .into());
+        }
     }
 
     Ok(())
@@ -2046,5 +2167,101 @@ mod integration_tests {
             layout.path.display()
         );
         assert_eq!(desc_first_line(&fx.work, "main"), "feat: resume");
+    }
+
+    /// Helper: 12-char change ID for a revision (analogous to `cid` for
+    /// commit IDs, but jj's stable change identifier).
+    fn chid(repo: &Path, rev: &str) -> String {
+        jj(
+            repo,
+            &["log", "-r", rev, "--no-graph", "-T", "change_id.short(12)"],
+        )
+    }
+
+    /// Build a minimal `PushState` whose stage is post-everything
+    /// (FinalizeClaude — the natural state at completion check time).
+    fn completion_state(app_chid: Option<String>, claude_chid: Option<String>) -> PushState {
+        PushState {
+            version: STATE_FORMAT_VERSION,
+            stage: Stage::FinalizeClaude,
+            bookmark: "main".to_string(),
+            started_at: "2026-04-24T00:00:00Z".to_string(),
+            app_chid,
+            claude_chid,
+            claude_had_changes: Some(false),
+            op_app: None,
+            op_claude: None,
+            title: None,
+            body: None,
+        }
+    }
+
+    /// Happy path: bookmarks at the recorded chids, app WC clean.
+    /// `verify_completion_sanity` returns Ok.
+    #[test]
+    fn completion_sanity_pass() {
+        let fx = Fixture::new("completion-pass");
+        // Run a real push so the world is in the post-completion shape.
+        fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+        push_in(&fx.work, &test_args("feat: pass", "body")).expect("push");
+
+        let app_chid = chid(&fx.work, "main");
+        let claude_chid = chid(&fx.claude, "main");
+        let state = completion_state(Some(app_chid), Some(claude_chid));
+
+        verify_completion_sanity(&fx.work, &state).expect("post-completion verification passes");
+    }
+
+    /// Check 1 fail: state.app_chid doesn't match the bookmark's chid.
+    #[test]
+    fn completion_sanity_fail_app_chid_mismatch() {
+        let fx = Fixture::new("completion-fail-app");
+        fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+        push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+
+        // Build state with a bogus app_chid (12-char prefix that won't
+        // match the real one).
+        let state = completion_state(Some("zzzzzzzzzzzz".to_string()), None);
+
+        let err = verify_completion_sanity(&fx.work, &state)
+            .expect_err("bogus app_chid should fail check 1");
+        let msg = err.to_string();
+        assert!(msg.contains("app bookmark"), "msg: {msg}");
+        assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
+    }
+
+    /// Check 2 fail: app WC has uncommitted changes.
+    #[test]
+    fn completion_sanity_fail_dirty_wc() {
+        let fx = Fixture::new("completion-fail-dirty");
+        fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+        push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+        // Now dirty the WC after push completed.
+        fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
+
+        let app_chid = chid(&fx.work, "main");
+        let state = completion_state(Some(app_chid), None);
+
+        let err =
+            verify_completion_sanity(&fx.work, &state).expect_err("dirty WC should fail check 2");
+        let msg = err.to_string();
+        assert!(msg.contains("uncommitted changes"), "msg: {msg}");
+    }
+
+    /// Check 3 fail: state.claude_chid doesn't match .claude's bookmark.
+    #[test]
+    fn completion_sanity_fail_claude_chid_mismatch() {
+        let fx = Fixture::new("completion-fail-claude");
+        fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+        push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+
+        let app_chid = chid(&fx.work, "main");
+        let state = completion_state(Some(app_chid), Some("zzzzzzzzzzzz".to_string()));
+
+        let err = verify_completion_sanity(&fx.work, &state)
+            .expect_err("bogus claude_chid should fail check 3");
+        let msg = err.to_string();
+        assert!(msg.contains(".claude bookmark"), "msg: {msg}");
+        assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
     }
 }

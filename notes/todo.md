@@ -7,7 +7,9 @@ and reference links to more details.
 
 Multi-step `0.39.0` cycle (Push hardening: state + stage sanity, [67]):
 
-1. 0.39.0-1: stage-prereq verification + honest completion. [67]
+1. 0.39.0-2: per-stage prereq verification (deferred from -1
+   for scope; may be skipped if -1's post-completion check
+   shows sufficient coverage). [67]
 1. 0.39.0 release: notes/doc cleanup + dogfood validation. [67]
 
 
@@ -46,6 +48,13 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. Add `status` (alias `st`) subcommand: `jj st` across both
    repos in one shot. Uses `--scope` from day one. Natural
    home for the working-copy signal called out in [54].
+1. Add `validate-repo` subcommand: diagnostic that runs all
+   `verify_*` checks (tracking, push state freshness, ochid
+   integrity, conflicts, config sanity, working-copy state)
+   and reports per-check pass/fail. Exit code = number of
+   failed checks. Implementation: promote
+   `verify_state_sanity` / `verify_completion_sanity` from
+   push.rs to `common.rs`. [69]
 1. sync: surface working-copy state in the up-to-date summary
    (per-repo pending-files count or compact stat). Wording-only
    fix shipped in 0.37.1; this is the design+impl. [54]
@@ -107,6 +116,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
 - Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
 - Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
+- Push hardening: honest completion via post-completion verification (0.39.0-1) [67]
 
 # References
 
@@ -138,3 +148,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [66]: /notes/chores-06.md#bookmark-tracking-verification-0380
 [67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
 [68]: /notes/chores-06.md#source-code-design-ref-convention-design
+[69]: /notes/chores-06.md#vc-x1-validate-repo-command-design

@@ -564,20 +564,98 @@ covers the happy path; failure paths get manual dogfood.
   the source-code design ref sweep + new `[67]` and `[68]`
   references.
 
-### 0.39.0-1: stage-prereq verification (TBD)
+### 0.39.0-1: honest completion via post-completion verification
 
-Per-stage prerequisites: each stage declares what it expects
-(e.g. WC dirty for `commit-app`; bookmark at specific commit
-for `bookmark-both`; etc.); the dispatcher checks before
-running. "Completed all stages" prints only when stages
-genuinely ran or were verified-already-done — not when skipped
-without verification (the original 0.37.1 false-success
-symptom).
+Added `verify_completion_sanity(root, state)` in push.rs — the
+post-loop counterpart to `verify_state_sanity` from -0. Runs
+after all stages complete; verifies the world matches the saved
+state before declaring "completed all stages".
 
-Likely shape: a `stage_prereq(stage, root, state) -> Result<…>`
-helper, called by `run_from` before each `run_stage` call.
-Track per-stage outcome (ran / verified-already-done / skipped)
-so the final completion message is accurate.
+Three checks:
+
+1. App bookmark's chid matches `state.app_chid`.
+2. App WC has no uncommitted changes (commit-app should have
+   captured anything that was there). **This is the direct
+   counter to the 0.37.1 false-success symptom** — push declared
+   "completed all stages" while WC still held uncommitted
+   changes from a stale-state resume.
+3. `.claude` bookmark's chid matches `state.claude_chid` (when
+   set). No `.claude` WC-clean check — `.claude` may legitimately
+   have new session writes from the push run itself, which
+   finalize-claude (detached) handles.
+
+On failure: warning-only (not Err) because push has already
+crossed the remote boundary by completion; rollback isn't sound.
+State is cleared either way, but the success message changes:
+
+- Pass → `push: completed all stages (verified, state cleared)`.
+- Fail → `push: completed stages but post-completion verification
+  failed: <reason>; state cleared anyway (work landed on remote);
+  investigate the discrepancy before next push`.
+
+**Scope note — per-stage prereqs deferred to 0.39.0-2.** The
+[61] design called for *both* per-stage prereq checks *and*
+honest completion. Per-stage prereqs would require changing
+every stage's signature (`Result<()>` → `Result<StageOutcome>`)
+and threading outcomes through the dispatcher — substantially
+more invasive than the post-completion check, and with
+state-sanity preflight (-0) already covering the resume case,
+the marginal value is lower. Captured as the new `### 0.39.0-2`
+TBD subsection below.
+
+**Tests:** 4 new integration tests in `push.rs` exercise
+`verify_completion_sanity` directly with manually-constructed
+`PushState` against `Fixture` repos. Coverage:
+
+- `completion_sanity_pass` — happy path after a real push.
+- `completion_sanity_fail_app_chid_mismatch` — bogus
+  `state.app_chid` triggers check 1.
+- `completion_sanity_fail_dirty_wc` — uncommitted WC changes
+  trigger check 2.
+- `completion_sanity_fail_claude_chid_mismatch` — bogus
+  `state.claude_chid` triggers check 3.
+
+Total tests: 204 → 208.
+
+**Bug found during test-dev:** initial check 2 used `jj diff
+--stat` output-emptiness, but jj always prints `"0 files changed,
+0 insertions(+), 0 deletions(-)"` even when clean — false
+positive on every push. Switched to `jj_log_empty` template-based
+check (re-uses an existing helper in push.rs). The
+`completion_sanity_pass` test caught this immediately, which is
+exactly why the integration tests were worth writing.
+
+- `src/push.rs` — new `verify_completion_sanity` fn (with
+  `jj_log_empty`-based WC-clean check); called from `run_from`
+  after the stage loop. Success message qualified with
+  "(verified)"; failure surfaces as a warning. 4 new
+  integration tests in the `integration_tests` module.
+- `notes/chores-06.md` — promote `### 0.39.0-1` from TBD to
+  filled (this) + new `### 0.39.0-2` TBD stub for the deferred
+  per-stage prereq work + new `## vc-x1 validate-repo command
+  (design)` subsection [69] capturing the diagnostic-command
+  idea that surfaced during this commit's review.
+- `notes/todo.md` — Done bullet for this step + `## In Progress`
+  updated (added `0.39.0-2` entry, kept release) + new Todo
+  entry for `validate-repo` + new `[69]` reference.
+
+### 0.39.0-2: per-stage prereq verification (TBD)
+
+Deferred from `### 0.39.0-1` for scope. Per-stage prerequisites
+— each stage declares what it expects (e.g. WC dirty for
+`commit-app`, bookmark at specific commit for `bookmark-both`,
+etc.); the dispatcher checks before running. Tracks outcome
+per stage (ran / already-done) so the completion message can
+report exactly what happened.
+
+Likely shape: `StageOutcome` enum (`Ran`, `AlreadyDone`); each
+stage_xxx returns `Result<StageOutcome>`; dispatcher accumulates;
+completion message lists outcomes per stage.
+
+May be skipped if dogfood of -1's post-completion check shows
+sufficient coverage — the per-stage prereqs are belt-and-
+suspenders, the post-completion is the meaningful end-to-end
+guard. Decide before the 0.39.0 release commit.
 
 ### 0.39.0: release (TBD)
 
@@ -636,6 +714,55 @@ rewriting the old one's name.
 3. Don't rename design subsection headers post-landing
    (link stability).
 
+## `vc-x1 validate-repo` command (design)
+
+Surfaced 2026-04-24 during the 0.39.0-1 review. A new top-level
+subcommand that consolidates all the `verify_*` checks we've
+built across the codebase (and adds a few more) into one
+diagnostic command. Use cases: pre-flight before starting work;
+CI hook; "feels off, what's wrong?" debugging.
+
+**Proposed shape:** `vc-x1 validate-repo [--scope=app|other|both]`
+
+**Checks** (composed from existing + new):
+
+- Bookmark tracking — `common::verify_tracking` (0.38.0).
+- Push state freshness — if `.vc-x1/push-state.toml` exists,
+  run state-sanity logic (currently push-private; promote to
+  `common`).
+- Ochid trailer integrity — both repos' commit-body ochid
+  trailers reference real changeIDs in the counterpart repo.
+  No equivalent today; new code in this command.
+- No jj conflicts — `jj log -r conflicts() --no-graph` returns
+  empty per repo.
+- Workspace config sanity — `.vc-config.toml` present,
+  parseable, `path` field matches workspace structure.
+- Bookmark/remote tracking matrix — richer view of [52].
+- Working-copy state — clean / dirty summary per repo (sibling
+  to [54]).
+
+**Output shape:**
+
+- One line per check: `✓ <check>` (pass) or `✗ <check>: <reason>`
+  (fail).
+- Summary line: `validate-repo: N/M checks passed`.
+- Exit code: number of failed checks (0 = clean).
+
+**Implementation hooks:**
+
+- `verify_state_sanity` and `verify_completion_sanity` in
+  push.rs should be promoted to `common.rs` so `validate-repo`
+  can call them. Natural refactoring during implementation.
+- `verify_tracking` already in `common.rs` (0.38.0).
+
+**Relationship to other todos:**
+
+- `vc-x1 status` (existing todo): *operational* — "what is the
+  current state" (`jj st` across repos).
+- `vc-x1 validate-repo` (this design): *correctness* — "does
+  the current state make sense / pass health checks".
+- Distinct commands, distinct concerns. Both worth having.
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
@@ -647,3 +774,4 @@ rewriting the old one's name.
 [66]: #bookmark-tracking-verification-0380
 [67]: #push-hardening-state--stage-sanity-0390
 [68]: #source-code-design-ref-convention-design
+[69]: #vc-x1-validate-repo-command-design
