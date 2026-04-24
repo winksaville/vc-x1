@@ -496,11 +496,154 @@ claim ([65]).
 - `notes/todo.md` — `## In Progress` cleared; Done bullet for
   `0.38.0` (the cycle marker).
 
+## Push hardening: state + stage sanity (0.39.0)
+
+Implementation cycle for [61] (Push hardening: state + stage
+sanity design). Multi-step rollout addressing the silent
+false-success failure mode that surfaced in the 0.37.1 dogfood
+incident: push parked at finalize-claude after a failure;
+out-of-band recovery moved the world forward; subsequent push
+resumed at the parked stage, no-op'd, and falsely declared
+"completed all stages" while WC still held uncommitted changes.
+
+- **0.39.0-0** — state-sanity preflight on resume (broader
+  guard, less invasive).
+- **0.39.0-1** — stage-prereq verification + honest completion
+  (per-stage "what I expect" guards).
+- **0.39.0** — release commit + dogfood evidence.
+
+### 0.39.0-0: state-sanity preflight on resume
+
+Added `verify_state_sanity(root, state)` in push.rs. Runs at the
+top of `run_from`, before the initial state save and before any
+stage executes. Three checks per [61] design:
+
+1. `state.app_chid` resolves in the app repo (errors if
+   abandoned or rewritten).
+2. After `bookmark-both` has run (`state.stage ∈ {PushApp,
+   FinalizeClaude}`), the bookmark points at a commit whose chid
+   matches `state.app_chid` (catches "world moved forward via
+   manual recovery" — the 0.37.1 incident).
+3. `state.claude_chid` resolves in `.claude` (when set).
+
+A fresh state (no chids yet) is a no-op — nothing to verify.
+The check on (2) is gated on stage because between `message`
+and `bookmark-both`, `app_chid` is set but the bookmark hasn't
+been moved yet — naively comparing would always fail.
+
+On mismatch: error with the exact `vc-x1 push <bookmark>
+--restart` remediation. Example shape:
+
+> `state-sanity: app_chid 'xxx' has been abandoned or no longer
+> resolves in the app repo. State is stale — run \`vc-x1 push
+> main --restart\` to clear.`
+
+All 204 tests pass — fixtures use happy paths (fresh state +
+clean fixture) so the new check is a no-op there. Failure paths
+get manual dogfood at the 0.39.0 release commit.
+
+Test-strategy note: explicit unit tests for the comparison
+logic weren't added because most of the behavior is jj-shelling
+(hard to mock without infrastructure). Existing test suite
+covers the happy path; failure paths get manual dogfood.
+
+- `src/push.rs` — new `verify_state_sanity` fn; called from
+  `run_from` before initial state save.
+- `notes/chores-06.md` — new `## Push hardening: state + stage
+  sanity (0.39.0)` parent + this `### 0.39.0-0` filled
+  sub-section + `### 0.39.0-1` and `### 0.39.0` TBD stubs.
+  References block converted from full GitHub URLs to anchor
+  links (`#name` for self-refs, `/notes/chores-05.md#name` for
+  cross-file [57]) — works in local markdown viewers and on
+  GitHub render alike, cleaner in raw markdown view. Plus new
+  `## Source-code design ref convention (design)` subsection
+  [68] capturing the pattern that triggered this thread (the
+  opaque `[N]` ref problem in source code).
+- `notes/todo.md` — Done bullet for this step + `## In Progress`
+  populated with remaining 0.39.0 steps + new Todo entry for
+  the source-code design ref sweep + new `[67]` and `[68]`
+  references.
+
+### 0.39.0-1: stage-prereq verification (TBD)
+
+Per-stage prerequisites: each stage declares what it expects
+(e.g. WC dirty for `commit-app`; bookmark at specific commit
+for `bookmark-both`; etc.); the dispatcher checks before
+running. "Completed all stages" prints only when stages
+genuinely ran or were verified-already-done — not when skipped
+without verification (the original 0.37.1 false-success
+symptom).
+
+Likely shape: a `stage_prereq(stage, root, state) -> Result<…>`
+helper, called by `run_from` before each `run_stage` call.
+Track per-stage outcome (ran / verified-already-done / skipped)
+so the final completion message is accurate.
+
+### 0.39.0: release (TBD)
+
+Release commit closing out the cycle: recap of -0/-1 + dogfood
+evidence (induce stale state → state-sanity fires; induce
+stage-prereq violation → stage-prereq fires).
+
+## Source-code design ref convention (design)
+
+When source code references a design captured in `notes/`, the
+ref should be useful on its own — three things matter: the
+descriptive **section name** (what the design is), the **URL**
+to it (where to find it), and **clickable form** (so the reader
+navigates without a decoder ring). The opaque `[N]` syntax used
+in markdown notes doesn't translate to source — `(per chores-06
+[61] design)` is unhelpful without the references table
+memorized.
+
+**Pattern (decided):**
+
+```rust
+/// One-line gist per the "Section Name" design:
+///   https://github.com/winksaville/vc-x1/blob/main/notes/<file>.md#anchor
+```
+
+Full URL (`blob/main/...`) is right for source code because:
+
+- Source has no markdown rendering — anchor-only `#name` doesn't
+  navigate from a `.rs` file.
+- It's clickable in IDEs that recognize URLs.
+- Tracking `main` (not a commit hash) means the link auto-shows
+  the *current* design, which is what implementation code should
+  be aligning to. Pinning to a commit hash is right for
+  historical refs ("the design at the time of this incident")
+  but not for ongoing implementation refs.
+
+**Stable section names matter.** Once a design subsection lands,
+don't rename its `## …` header — links break silently (the URL
+still resolves to the file but the anchor goes nowhere). If a
+topic evolves substantially, add a new subsection rather than
+rewriting the old one's name.
+
+**Sweep targets** (when this design lands as code):
+
+- `src/sync.rs:142` — already correct (landed 0.38.0-2).
+- `src/push.rs:4` — name + path, no URL. Upgrade.
+- `src/push.rs:121` — path only, no name. Upgrade.
+- `src/push.rs:645` — opaque `[61] design`. Upgrade.
+- `src/push.rs:1219` — opaque `[61] design`. Upgrade.
+
+**CLAUDE.md codification** (same commit as the source sweep):
+
+1. Source-code design refs use section name + `blob/main/...` URL.
+2. Markdown-internal refs use anchor-only (`#anchor`) for
+   self-file or `/notes/<file>.md#anchor` for cross-file.
+3. Don't rename design subsection headers post-landing
+   (link stability).
+
 # References
 
-[57]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
-[60]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#generalize---scope-to-all-commands-design
-[63]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#non-tracking-remote-bookmark-detection-design
-[64]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
-[65]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#scope-design-refinements-0378
-[66]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#bookmark-tracking-verification-0380
+[57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[60]: #generalize---scope-to-all-commands-design
+[61]: #push-hardening-state--stage-sanity-design
+[63]: #non-tracking-remote-bookmark-detection-design
+[64]: #notes-restructure-chores-06--trim-long-todo-entries-0377
+[65]: #scope-design-refinements-0378
+[66]: #bookmark-tracking-verification-0380
+[67]: #push-hardening-state--stage-sanity-0390
+[68]: #source-code-design-ref-convention-design

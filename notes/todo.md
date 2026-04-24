@@ -5,6 +5,11 @@ and reference links to more details.
 
 ## In Progress
 
+Multi-step `0.39.0` cycle (Push hardening: state + stage sanity, [67]):
+
+1. 0.39.0-1: stage-prereq verification + honest completion. [67]
+1. 0.39.0 release: notes/doc cleanup + dogfood validation. [67]
+
 
 ## Todo
 
@@ -59,6 +64,11 @@ renumbering. Reference by displayed number ("let's work on #3").
    that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
    both sides in one place). Updates to `vc-x1 init` / `clone`
    needed for the new layout.
+1. Source-code design ref sweep + CLAUDE.md codification:
+   adopt section-name + `blob/main/...` URL pattern for source
+   code refs to designs; codify in CLAUDE.md alongside the
+   existing markdown ref conventions. Sweep targets:
+   src/push.rs lines 4, 121, 645, 1219. [68]
 1. Richer bookmark enumeration: per-bookmark remote presence + tracking status [52]
 1. Per-line/per-thread runtime log points (future, maybe) [36]
 1. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
@@ -96,6 +106,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Bookmark tracking verification: wire into setup commands (0.38.0-1) [66]
 - Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
 - Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
+- Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
 
 # References
 
@@ -125,3 +136,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
 [65]: /notes/chores-06.md#scope-design-refinements-0378
 [66]: /notes/chores-06.md#bookmark-tracking-verification-0380
+[67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
+[68]: /notes/chores-06.md#source-code-design-ref-convention-design

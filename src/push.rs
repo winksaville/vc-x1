@@ -640,6 +640,11 @@ fn run_from(
     args: &PushArgs,
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // State-sanity preflight: catch stale-state-after-out-of-band-recovery
+    // (no-op on fresh state). Runs before save so a bogus halt point isn't
+    // re-persisted. Per chores-06 [61] design.
+    verify_state_sanity(root, state)?;
+
     // Only persist state in real runs. Dry-runs are inspection-only
     // — carrying their inferred chids / op snapshots into real runs
     // would mislead the user about what was actually recorded.
@@ -1197,6 +1202,117 @@ fn stage_finalize_claude(
         ],
         root,
     )?;
+    Ok(())
+}
+
+/// Verify the saved state still matches reality before any stage runs.
+///
+/// Catches the failure mode where out-of-band activity (manual finalize,
+/// squash + force-push, abandon, etc.) moved the world forward between
+/// the prior push and this resume, leaving `state` pointing at a
+/// now-bogus halt point. The 0.37.1 dogfood incident is the canonical
+/// example: push parked at `finalize-claude` after a failure; manual
+/// recovery moved the world forward; the next push resumed at the
+/// parked stage, no-op'd, and falsely declared "completed all stages"
+/// while working copies still held uncommitted changes.
+///
+/// Three checks (per chores-06 [61] design):
+///
+/// 1. `state.app_chid` still resolves in the app repo (not abandoned).
+/// 2. After `bookmark-both` has run (state.stage ∈ {PushApp,
+///    FinalizeClaude}), the bookmark points at a commit whose chid
+///    matches `state.app_chid`.
+/// 3. `state.claude_chid` still resolves in `.claude`.
+///
+/// On any mismatch: error with the exact `vc-x1 push <bookmark>
+/// --restart` remediation. A fresh state (no chids yet) is a no-op —
+/// nothing to verify.
+fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(app_chid) = &state.app_chid else {
+        return Ok(()); // OK: fresh state, nothing to verify yet
+    };
+    let bookmark = &state.bookmark;
+    let root_str = root.to_string_lossy();
+    let cwd = Path::new(".");
+
+    // 1. app_chid still resolves.
+    run(
+        "jj",
+        &[
+            "log",
+            "-r",
+            app_chid,
+            "--no-graph",
+            "-T",
+            "\"x\"",
+            "-R",
+            &root_str,
+        ],
+        cwd,
+    )
+    .map_err(|_| -> Box<dyn std::error::Error> {
+        format!(
+            "state-sanity: app_chid '{app_chid}' has been abandoned or no longer resolves \
+             in the app repo. State is stale — run `vc-x1 push {bookmark} --restart` to clear."
+        )
+        .into()
+    })?;
+
+    // 2. bookmark at app_chid (after bookmark-both has run).
+    if matches!(state.stage, Stage::PushApp | Stage::FinalizeClaude) {
+        let bookmark_chid = run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                bookmark,
+                "--no-graph",
+                "-T",
+                "change_id.short(12)",
+                "-R",
+                &root_str,
+            ],
+            cwd,
+        )?;
+        let bookmark_chid = bookmark_chid.trim();
+        if bookmark_chid != app_chid.as_str() {
+            return Err(format!(
+                "state-sanity: bookmark '{bookmark}' is at chid '{bookmark_chid}' but \
+                 state.app_chid is '{app_chid}'. State is stale — run \
+                 `vc-x1 push {bookmark} --restart` to clear."
+            )
+            .into());
+        }
+    }
+
+    // 3. claude_chid still resolves.
+    if let Some(claude_chid) = &state.claude_chid {
+        let claude = claude_path(root);
+        let claude_str = claude.to_string_lossy();
+        run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                claude_chid,
+                "--no-graph",
+                "-T",
+                "\"x\"",
+                "-R",
+                &claude_str,
+            ],
+            cwd,
+        )
+        .map_err(|_| -> Box<dyn std::error::Error> {
+            format!(
+                "state-sanity: claude_chid '{claude_chid}' has been abandoned or no longer \
+                 resolves in .claude. State is stale — run \
+                 `vc-x1 push {bookmark} --restart` to clear."
+            )
+            .into()
+        })?;
+    }
+
     Ok(())
 }
 
