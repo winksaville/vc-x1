@@ -5,7 +5,10 @@ and reference links to more details.
 
 ## In Progress
 
-
+1. vc-x1 commands: support single and dual repo. Generalize via
+   `--scope=app|other|both` across all commands; foundational
+   for new commands and for retrofitting sync / push / finalize
+   under one vocabulary. [60],[70]
 
 ## Todo
 
@@ -17,11 +20,6 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-
-1. vc-x1 commands: support single and dual repo. Generalize via
-   `--scope=app|other|both` across all commands; foundational
-   for new commands and for retrofitting sync / push / finalize
-   under one vocabulary. [60]
 1. vc-x1 push: `--scope=app|claude|both` flag. Applies the
    generalized convention; warn on scope/WC mismatch. [57],[60]
 1. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
@@ -139,3 +137,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
 [68]: /notes/chores-06.md#source-code-design-ref-convention-design
 [69]: /notes/chores-06.md#vc-x1-validate-repo-command-design
+[70]: /notes/chores-06.md#generalize---scope-across-commands-0400

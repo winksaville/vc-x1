@@ -804,6 +804,44 @@ CI hook; "feels off, what's wrong?" debugging.
   the current state make sense / pass health checks".
 - Distinct commands, distinct concerns. Both worth having.
 
+## Generalize --scope across commands (0.40.0)
+
+Foundation for item #1 on todo ([60]): commands should support
+single-repo, dual-repo, and plain-old-repo (POR) workspaces
+without hard-coding the `.claude` dual-repo assumption.
+
+**Scope default resolution** (no `--scope` given):
+
+- No `.vc-config.toml` → `--scope=app`.
+- `.vc-config.toml` present but `other-repo` missing or empty
+  → `--scope=app`.
+- `.vc-config.toml` with a non-empty `other-repo` → `--scope=both`.
+
+**Ambiguity rule.** Any ambiguous combination of scope-related
+flags on a single invocation (e.g. `-R` with `--scope`) is a
+fatal error — callers must pick one way to express repo
+selection per call.
+
+**Cycle steps.**
+
+- **0.40.0-0** — this plan. Notes + version bump only.
+- **0.40.0-1** — `vc-x1 init --scope=app|other|both`.
+  - `app` → single-repo workspace (`.vc-config.toml` with
+    `path = "/"` and no `other-repo`; no `.claude` subdir; one
+    GitHub repo; no `ochid:` trailer on the initial commit).
+  - `both` (default) → current dual-repo behavior.
+  - `other` → error; meaningless at init time.
+  - Every other subcommand errors loudly if `--scope` is passed.
+- Subsequent `-N` steps wire `--scope` into sync, push,
+  finalize, and the read-only commands. Specifics decided when
+  each lands.
+
+**Helper placement is deliberately open** — `common.rs`,
+`init.rs`, or a dedicated `scope.rs` / `scope_helpers.rs` are
+all fine for step `-1`; we can refactor later once more call
+sites exist. The plan is subject to change as we learn; `-0`
+records the current best guess, not a contract.
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
