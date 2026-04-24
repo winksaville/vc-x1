@@ -5,12 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
-Multi-step `0.39.0` cycle (Push hardening: state + stage sanity, [67]):
-
-1. 0.39.0-2: per-stage prereq verification (deferred from -1
-   for scope; may be skipped if -1's post-completion check
-   shows sufficient coverage). [67]
-1. 0.39.0 release: notes/doc cleanup + dogfood validation. [67]
 
 
 ## Todo
@@ -24,11 +18,6 @@ Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 
-1. vc-x1 push: state-sanity preflight on resume. Refuse with a
-   loud "state is stale" error when saved state doesn't match
-   reality. Surfaced by 0.37.1 dogfood. [61]
-1. vc-x1 push: stage-prereq verification + honest completion.
-   "Completed all stages" must reflect what actually ran. [61]
 1. vc-x1 commands: support single and dual repo. Generalize via
    `--scope=app|other|both` across all commands; foundational
    for new commands and for retrofitting sync / push / finalize
@@ -117,6 +106,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
 - Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
 - Push hardening: honest completion via post-completion verification (0.39.0-1) [67]
+- Push hardening: cycle close-out, 0.39.0-2 skipped (0.39.0) [67]
 
 # References
 

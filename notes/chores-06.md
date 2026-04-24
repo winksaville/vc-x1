@@ -639,25 +639,66 @@ exactly why the integration tests were worth writing.
   updated (added `0.39.0-2` entry, kept release) + new Todo
   entry for `validate-repo` + new `[69]` reference.
 
-### 0.39.0-2: per-stage prereq verification (TBD)
+### 0.39.0-2: per-stage prereq verification — SKIPPED
 
-Deferred from `### 0.39.0-1` for scope. Per-stage prerequisites
-— each stage declares what it expects (e.g. WC dirty for
-`commit-app`, bookmark at specific commit for `bookmark-both`,
-etc.); the dispatcher checks before running. Tracks outcome
-per stage (ran / already-done) so the completion message can
-report exactly what happened.
+Designed but not implemented. Decided at the 0.39.0 release
+commit: the per-stage prereq checks would have changed every
+`stage_xxx` signature (`Result<()>` → `Result<StageOutcome>`)
+and threaded outcomes through the dispatcher — a substantial
+refactor for low marginal value over -0 + -1. The 0.37.1
+false-success incident is fully covered by the existing pair
+(state-sanity catches stale resume; post-completion catches
+end-state mismatch). Per-stage prereqs would be audit polish
+("which stages ran vs were already-done") rather than safety
+— and jj's own `"Nothing changed"` output for no-op stages
+already gives audit signal.
 
-Likely shape: `StageOutcome` enum (`Ran`, `AlreadyDone`); each
-stage_xxx returns `Result<StageOutcome>`; dispatcher accumulates;
-completion message lists outcomes per stage.
+Original design preserved here for reference if requirements
+shift later.
 
-May be skipped if dogfood of -1's post-completion check shows
-sufficient coverage — the per-stage prereqs are belt-and-
-suspenders, the post-completion is the meaningful end-to-end
-guard. Decide before the 0.39.0 release commit.
+### 0.39.0: release
 
-### 0.39.0: release (TBD)
+Close-out commit for the Push hardening cycle.
+
+**Cycle recap:**
+
+- **0.39.0-0** (feat): state-sanity preflight on resume.
+  Catches stale-state-after-out-of-band-recovery (the 0.37.1
+  symptom-source) before any stage runs.
+- **0.39.0-1** (feat): post-completion sanity check + 4
+  integration tests. Verifies the world matches saved state at
+  the end of a successful run — direct counter to the 0.37.1
+  false-success symptom (push declared completion while WC
+  still held uncommitted changes).
+- **0.39.0-2** (skipped): per-stage prereq verification. See
+  the subsection above for the rationale.
+
+**Final coverage matrix** for push:
+
+| Concern | Mechanism | Added in |
+| --- | --- | --- |
+| Bookmark tracking | `verify_tracking` (preflight) | 0.38.0 |
+| Stale-state on resume | `verify_state_sanity` (pre-stage) | 0.39.0-0 |
+| End-state mismatch | `verify_completion_sanity` (post-stage) | 0.39.0-1 |
+
+The 0.37.1 false-success incident class is now closed at both
+ends — caught at resume time (state-sanity) AND at completion
+time (post-completion).
+
+**Dogfood (2026-04-24):** the post-completion check has fired
+on every successful push since 0.39.0-1 landed — the
+`(verified, state cleared)` suffix in the success message is
+live evidence. Failure paths are covered by the 4 integration
+tests added in -1 rather than manual probing (constructing
+stale state would require interrupt + tamper, not worth it
+given the test coverage).
+
+- `notes/chores-06.md` — `### 0.39.0-2` updated from TBD to
+  SKIPPED with rationale. New `### 0.39.0` close-out
+  subsection (this).
+- `notes/todo.md` — `## In Progress` cleared. Items #1
+  (state-sanity) and #2 (stage-prereq) removed from `## Todo`
+  (now covered by the cycle). Done bullet for `0.39.0` added.
 
 Release commit closing out the cycle: recap of -0/-1 + dogfood
 evidence (induce stale state → state-sanity fires; induce
