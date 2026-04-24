@@ -5,10 +5,10 @@ and reference links to more details.
 
 ## In Progress
 
-1. vc-x1 commands: support single and dual repo. Generalize via
-   `--scope=app|other|both` across all commands; foundational
-   for new commands and for retrofitting sync / push / finalize
-   under one vocabulary. [60],[70]
+1. Generalize `--scope=app|other|both` so commands work on
+   single, dual, or POR workspaces. [60],[70]
+   - Foundational for new commands.
+   - Retrofits sync / push / finalize under one vocabulary.
 
 ## Todo
 
@@ -22,6 +22,10 @@ markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 1. vc-x1 push: `--scope=app|claude|both` flag. Applies the
    generalized convention; warn on scope/WC mismatch. [57],[60]
+1. `vc-x1 init --dry-run` should bypass the
+   `--repo-remote` path-existence preflight (currently fires
+   before the dry-run early-return; observed dogfooding
+   2026-04-24).
 1. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
    `--ignore-immutable` and force-pushes; needs
    `--force-with-lease`-equivalent + state-sanity preflight in

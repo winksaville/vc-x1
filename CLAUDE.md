@@ -251,6 +251,22 @@ module / item surface are expected; inline explanatory comments
 inside function bodies remain discouraged unless they capture a
 non-obvious WHY.
 
+**Shape:** short intro (1–3 sentences, shorter is better), then
+a `-` bullet list for any structured details. Avoid long prose
+paragraphs — they read as a wall of text and hide the structure
+that bullets make scannable. Same shape applies to:
+
+- Module / function / struct / field doc comments in `.rs` files.
+- Chore descriptions in `notes/chores-NN.md`.
+- Todo entries in `notes/todo.md` (when an item needs more than
+  one line of detail; pure one-liners are still fine).
+
+**Clap-derive args:** doc comments on `#[arg(...)]` fields drive
+`--help` output. Clap reflows by default and collapses bullets
+into running prose. Add `#[arg(verbatim_doc_comment, ...)]` on
+any field whose doc comment uses bullets so each `- …` lands on
+its own line in the rendered help.
+
 ### `// OK: …` comments on `unwrap*` calls (Rust)
 
 Non-test code that calls `.unwrap()`, `.unwrap_or(…)`,

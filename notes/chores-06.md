@@ -806,41 +806,114 @@ CI hook; "feels off, what's wrong?" debugging.
 
 ## Generalize --scope across commands (0.40.0)
 
-Foundation for item #1 on todo ([60]): commands should support
+Foundation for item #1 on todo ([60]). Commands should support
 single-repo, dual-repo, and plain-old-repo (POR) workspaces
 without hard-coding the `.claude` dual-repo assumption.
 
 **Scope default resolution** (no `--scope` given):
 
 - No `.vc-config.toml` → `--scope=app`.
-- `.vc-config.toml` present but `other-repo` missing or empty
-  → `--scope=app`.
+- `.vc-config.toml` with `other-repo` missing/empty → `--scope=app`.
 - `.vc-config.toml` with a non-empty `other-repo` → `--scope=both`.
 
 **Ambiguity rule.** Any ambiguous combination of scope-related
-flags on a single invocation (e.g. `-R` with `--scope`) is a
-fatal error — callers must pick one way to express repo
-selection per call.
+flags on one invocation is a fatal error — callers pick exactly
+one way to express repo selection per call.
 
 **Cycle steps.**
 
 - **0.40.0-0** — this plan. Notes + version bump only.
-- **0.40.0-1** — `vc-x1 init --scope=app|other|both`.
-  - `app` → single-repo workspace (`.vc-config.toml` with
-    `path = "/"` and no `other-repo`; no `.claude` subdir; one
-    GitHub repo; no `ochid:` trailer on the initial commit).
+- **0.40.0-1** — `vc-x1 init --repo-local` + `--repo-remote`.
+  - Decouple init from `gh repo create`; unblock testable
+    fixture-mode workflows and non-GitHub remotes.
+  - **Ordering rationale (2026-04-24):** doing `--scope=app`
+    first would build on a still-GitHub-coupled init and
+    immediately need rework; flipping the order means `-2`
+    lands cleanly on a remote-agnostic flow.
+- **0.40.0-2** — `vc-x1 init --scope=app|other|both`.
+  - `app` → single-repo workspace (no `.claude` subdir; one
+    repo; no `ochid:` trailer on the initial commit).
   - `both` (default) → current dual-repo behavior.
-  - `other` → error; meaningless at init time.
-  - Every other subcommand errors loudly if `--scope` is passed.
+  - `other` → fatal; meaningless at init time.
+  - Other subcommands error if `--scope` is passed.
 - Subsequent `-N` steps wire `--scope` into sync, push,
-  finalize, and the read-only commands. Specifics decided when
-  each lands.
+  finalize, read-only commands. Specifics decided per step.
 
-**Helper placement is deliberately open** — `common.rs`,
-`init.rs`, or a dedicated `scope.rs` / `scope_helpers.rs` are
-all fine for step `-1`; we can refactor later once more call
-sites exist. The plan is subject to change as we learn; `-0`
-records the current best guess, not a contract.
+**Helper placement** is deliberately open.
+
+- `common.rs`, `init.rs`, or `scope.rs` / `scope_helpers.rs`
+  are all fine; refactor later once more call sites exist.
+- Plan is subject to change; `-0` records best guess, not a
+  contract.
+
+### 0.40.0-1: init remote decoupling
+
+Two new flags on `vc-x1 init` plus a unified
+`Provisioner` dispatch that subsumes the existing default mode.
+
+**Flags.**
+
+- `--repo-local <PARENT>` — fixture mode. Creates
+  `<PARENT>/<NAME>/`, `<PARENT>/<NAME>/.claude/`,
+  `<PARENT>/remote-code.git`, `<PARENT>/remote-claude.git`.
+  No `gh`, no network. Supports `~/…`, `$VAR`, `${VAR}`.
+- `--repo-remote <URL>` — single URL stem. Session URL
+  derived (insert `.claude` before trailing `.git`, else
+  append `.claude`). Supports paths, `file:///…`, HTTPS,
+  SSH (scp-like and `ssh://`), and `~/…`/`$VAR`.
+
+**Equivalence (winksaville case):** `vc-x1 init tf1`,
+`vc-x1 init tf1 --owner winksaville`, and
+`vc-x1 init --repo-remote git@github.com:winksaville/tf1`
+all resolve to the same plan and execute identically.
+
+**Provisioner dispatch.** All three modes feed an `InitPlan`
+with `provisioner ∈ {LocalBareInit, GhCreate,
+ExternalPreExisting}`.
+
+- `LocalBareInit` — `--repo-local`. `git init --bare` on the
+  two bare paths.
+- `GhCreate` — default mode, or `--repo-remote` with a
+  GitHub URL (host detection on the URL string). `gh repo
+  create` for both sides.
+- `ExternalPreExisting` — `--repo-remote` with a non-GitHub
+  URL/path. No create step; caller pre-creates.
+
+**Ambiguity rejections (fatal).**
+
+- `--repo-local` ⊕ `--repo-remote`.
+- `--repo-local` ⊕ `--dir` / `--owner` / `--private`.
+- `--repo-remote` ⊕ `--owner` / `--private`.
+- `NAME` and `--repo-remote` URL with disagreeing names.
+- `--repo-local` without `NAME`.
+
+**NAME derivation.** `--repo-remote` URL's last path segment
+(trailing `.git` stripped) is used when positional `NAME` is
+absent. NAME stays optional at the clap layer; runtime
+errors cover the missing-required cases.
+
+**Documentary `debug!` lines** — every `run()` call in `init`
+has a `debug!(…)` immediately above it documenting intent
+(while `common::run` already logs the action). New convention
+(2026-04-24); applied to `init` here, retrofit later if useful.
+
+**Future steps unblocked.**
+
+- `-3` migrates sync/push integration tests from `test_fixture`
+  to `init --repo-local`.
+- `-4` retires `test_fixture` once no callers remain.
+
+- `Cargo.toml`: `0.40.0-0` → `0.40.0-1`.
+- `src/init.rs`: new flags, `Provisioner` enum, `InitPlan`,
+  `plan_init` dispatcher, `run_remote_step`, helpers
+  (`expand_vars`, `is_remote_url`, `is_github_url`,
+  `normalize_remote`, `normalize_local_parent`,
+  `ensure_git_suffix`, `derive_session_url`,
+  `derive_name_from_url`, `github_slug_from_url`,
+  `split_slug`), 17 new tests, documentary `debug!`
+  retrofit on every `run()`.
+- `notes/chores-06.md`: this subsection + amended cycle
+  steps (`-1` ↔ `-2` swap, ordering rationale).
 
 # References
 
@@ -854,3 +927,4 @@ records the current best guess, not a contract.
 [67]: #push-hardening-state--stage-sanity-0390
 [68]: #source-code-design-ref-convention-design
 [69]: #vc-x1-validate-repo-command-design
+[70]: #generalize---scope-across-commands-0400
