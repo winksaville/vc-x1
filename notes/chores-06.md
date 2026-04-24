@@ -451,6 +451,51 @@ new sync/push checks see the happy path.
 - `notes/todo.md` — Done entry + `## In Progress` shrinks to
   one item (release).
 
+### 0.38.0: release
+
+Release commit closing out the multi-step cycle. Recap of what
+landed across -0/-1/-2:
+
+- **0.38.0-0** (refactor): promoted finalize's
+  `find_non_tracking_remote` + tracking-preflight logic into
+  `common::find_non_tracking_remote` + `common::verify_tracking`.
+  4 parser tests moved with it. Behavior unchanged.
+- **0.38.0-1** (fix + assertions): wired `verify_tracking` into
+  setup commands. Real fix in `clone` (added explicit
+  `jj bookmark track` after `jj git init --colocate` —
+  empirically confirmed colocate doesn't auto-track). Sanity
+  assertions in `init` and `test-fixture`.
+- **0.38.0-2** (feat): wired `verify_tracking` into preflight
+  commands (`sync`, `push`). Both detect non-tracking remote refs
+  before any mutation, with the standard
+  `jj bookmark track <b> --remote=<r> -R <repo>` remediation.
+
+Final coverage: every repo-modifying command (`init`, `clone`,
+`test-fixture`, `sync`, `push`, `finalize`) verifies bookmark
+tracking either as a setup post-condition or as a preflight gate.
+
+**Dogfood validation (2026-04-23/24).** Three call-site / cwd
+combinations exercised on both this repo and a fresh `tf-1/work`
+test fixture:
+
+- workspace root cwd, app side untracked → error with `-R .`
+- workspace root cwd, `.claude` side untracked → error with
+  `-R .claude`
+- `.claude` cwd, `.claude` side untracked → error with `-R .`
+  (cwd-relative; paste-and-run from current cwd)
+
+All three produce error messages whose embedded
+`jj bookmark track …` command is directly copy-paste-able from
+the cwd the user is in. The cwd-relative path resolution falls
+out of how each command calls `verify_tracking(repo, …)` with the
+repo path it's already using — no special cwd handling needed.
+Validates both the tracking design ([63]) and the cwd-independence
+claim ([65]).
+
+- `notes/chores-06.md` — this `### 0.38.0` close-out subsection.
+- `notes/todo.md` — `## In Progress` cleared; Done bullet for
+  `0.38.0` (the cycle marker).
+
 # References
 
 [57]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374

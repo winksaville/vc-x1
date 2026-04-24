@@ -5,9 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
-Multi-step `0.38.0` cycle (Bookmark tracking verification, [66]):
-
-1. 0.38.0 release: notes/doc cleanup + done marker. [66]
 
 ## Todo
 
@@ -20,9 +17,6 @@ Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 
-1. Non-tracking-remote bookmark detection across every
-   repo-modifying command. Caused real finalize failure
-   2026-04-22 (push-app succeeded, finalize couldn't push). [63]
 1. vc-x1 push: state-sanity preflight on resume. Refuse with a
    loud "state is stale" error when saved state doesn't match
    reality. Surfaced by 0.37.1 dogfood. [61]
@@ -101,6 +95,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Bookmark tracking verification: shared helper + tests (0.38.0-0) [66]
 - Bookmark tracking verification: wire into setup commands (0.38.0-1) [66]
 - Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
+- Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
 
 # References
 
