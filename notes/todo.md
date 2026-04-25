@@ -7,8 +7,7 @@ and reference links to more details.
 
 1. Continuation of `--scope` rollout. [60],[71]
    - 0.40.0 shipped the `init` foundation; 0.41.0 wires
-     scope into sync / push / finalize and retires the
-     orphaned `test_fixture` module.
+     scope into sync, push, and finalize.
 
 ## Todo
 
