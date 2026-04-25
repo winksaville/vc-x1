@@ -5,10 +5,10 @@ and reference links to more details.
 
 ## In Progress
 
-1. Generalize `--scope=app|other|both` so commands work on
-   single, dual, or POR workspaces. [60],[70]
-   - Foundational for new commands.
-   - Retrofits sync / push / finalize under one vocabulary.
+1. Continuation of `--scope` rollout. [60],[71]
+   - 0.40.0 shipped the `init` foundation; 0.41.0 wires
+     scope into sync / push / finalize and retires the
+     orphaned `test_fixture` module.
 
 ## Todo
 
@@ -20,8 +20,9 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. vc-x1 push: `--scope=app|claude|both` flag. Applies the
-   generalized convention; warn on scope/WC mismatch. [57],[60]
+1. vc-x1 push: `--scope=code|bot|code,bot` flag. Applies
+   the generalized convention; warn on scope/WC
+   mismatch. [57],[60],[71]
 1. `vc-x1 init --dry-run` should bypass the
    `--repo-remote` path-existence preflight (currently fires
    before the dry-run early-return; observed dogfooding
@@ -55,10 +56,6 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
    anchor dir. Idea-stage; every repo-mutating command drops a
    pre-op snapshot, `vc-x1 undo` restores both repos. [57]
-1. vc-x1 test-fixture should refuse `--path` values that resolve
-   inside the current workspace root (error or warn). Dogfood
-   surfaced this: `--path ./tf-1` inside the repo let jj
-   snapshot the fixture's bare-git remotes — 56-file noise blob.
 1. Restructure templates: replace separate `vc-template-x1` +
    `vc-template-x1.claude` repos with a single `vc-template-x1`
    that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
@@ -112,6 +109,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Scope generalization: init --repo-local + --repo-remote (0.40.0-1) [70]
 - Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
 - Scope generalization: integration tests migrate onto init --repo-local (0.40.0-3) [70]
+- Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
 
 # References
 
@@ -145,3 +143,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [68]: /notes/chores-06.md#source-code-design-ref-convention-design
 [69]: /notes/chores-06.md#vc-x1-validate-repo-command-design
 [70]: /notes/chores-06.md#generalize---scope-across-commands-0400
+[71]: /notes/chores-06.md#--scope-continuation-0410

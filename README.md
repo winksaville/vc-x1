@@ -10,7 +10,6 @@
   - [init](#init)
   - [symlink](#symlink)
   - [finalize](#finalize)
-  - [test-fixture](#test-fixture)
   - [Testing push + finalize](#testing-push--finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
@@ -55,7 +54,6 @@ vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
 vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
-vc-x1 test-fixture [--path PATH]           # Create throwaway jj repo + remote for testing
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
 ```
@@ -347,10 +345,11 @@ with `.`) are skipped since init creates the repo's own hidden files
 (`.vc-config.toml`, `.gitignore`, `.git/`, `.jj/`). If either template
 has a `README.md` at its root, its first line is rewritten to
 `# <repo-name>` — `<name>` for the code repo and `<name>.claude` for
-the session repo. The same flag is also available on `test-fixture`
-for local verification without hitting GitHub.
+the session repo. For local verification without hitting GitHub,
+combine `--use-template` with `--repo-local <PARENT>`.
 
-Requires `gh` (authenticated) and `jj` to be installed.
+Requires `gh` (authenticated) and `jj` to be installed (`gh` is
+skipped under `--repo-local`).
 
 ### symlink
 
@@ -562,43 +561,20 @@ See [Add push subcommand (0.37.0)](./notes/chores-05.md#add-push-subcommand-0370
 for the full design and [per-step record](./notes/chores-05.md#per-step-record)
 for what each `0.37.0-N` dev step shipped.
 
-### test-fixture
+### Testing push + finalize
 
-Scaffold a throwaway dual-repo jj workspace + local bare-git remotes
-for testing `finalize` (and other subcommands) without touching live
-workspace repos. Mirrors the real `vc-x1 init` layout minus the GitHub
-side and the `~/.claude/projects/` symlink. Both repos get a described
-initial commit with matching `ochid:` trailers, a tracked `main`
-bookmark, and a pushed remote — so `finalize --push` flows work
-end-to-end on either side.
+Always test against a throwaway fixture, never the live workspace.
+Scaffold one with `vc-x1 init --repo-local <PARENT>` (no GitHub, no
+network), then run the complete push + finalize flow end-to-end.
+The code repo uses plain `jj git push`; the session repo uses
+`vc-x1 finalize` to squash trailing writes and push in one shot.
 
-**Local remotes, not GitHub.** Each `origin` points at a bare-git
-directory alongside the work trees (`<base>/remote-code.git/`,
-`<base>/remote-claude.git/`) — no network, no auth, no GitHub. Pushes
-succeed against these local bare repos and stay inside the fixture,
-so nothing leaks out and nothing needs cleanup on a remote service.
-When you're done, `vc-x1 test-fixture-rm <base>` wipes the whole
-thing.
-
-```bash
-vc-x1 test-fixture                 # base = $TMPDIR/vc-x1-test-<timestamp>
-vc-x1 test-fixture --path /tmp/t1  # explicit path
-vc-x1 test-fixture --use-template ../vc-template-x1  # seed from sibling templates
+`--repo-local` lays out:
 ```
-
-`--use-template` takes the same `CODE[,BOT]` value as `vc-x1 init`
-(bot defaults to `<CODE>.claude` sibling). Non-hidden template contents
-are copied into `work/` and `work/.claude/`, and each repo's
-`README.md` first line is rewritten to `# work` / `# work.claude`.
-This is the path for eyeballing the template-copy result without
-hitting GitHub.
-
-Layout:
-```
-<base>/
+<PARENT>/
   remote-code.git/     bare git remote for code repo
   remote-claude.git/   bare git remote for .claude session repo
-  work/                code repo (jj colocated, main tracks origin)
+  <NAME>/              code repo (jj colocated, main tracks origin)
     .vc-config.toml    path="/",       other-repo=".claude"
     .gitignore         /.claude /.git /.jj /target /.vc-x1
     .claude/           session repo (jj colocated, main tracks origin)
@@ -606,59 +582,11 @@ Layout:
       .gitignore       .git .jj
 ```
 
-Example — running `vc-x1 test-fixture` (the timestamp suffix varies):
-```
-$ vc-x1 test-fixture
-Creating test fixture at /tmp/vc-x1-test-8PD4x8
-Step 1: Initializing bare git remotes...
-Step 2: Initializing work repo (jj colocated)...
-Initialized repo in "."
-Hint: Running `git clean -xdf` will remove `.jj/`!
-Step 3: Initializing .claude session repo (jj colocated)...
-Initialized repo in "."
-Hint: Running `git clean -xdf` will remove `.jj/`!
-Step 4: Initial commits with placeholder ochids...
-Working copy  (@) now at: znkwzomz 0ce34d9b (empty) (no description set)
-Parent commit (@-)      : xoknyroz 93ca19eb initial commit
-Working copy  (@) now at: kmtpuzox f8c9b5af (empty) (no description set)
-Parent commit (@-)      : mwutluxv 40438e05 initial commit
-Step 5: Setting ochid cross-references...
-Rebased 1 descendant commits
-Step 6: Setting bookmarks and wiring remotes...
-Created 1 bookmarks pointing to xoknyroz 46b9cd88 main | initial commit
-Created 1 bookmarks pointing to mwutluxv 31a49010 main | initial commit
-Step 7: Pushing main to both remotes...
-Changes to push to origin:
-  Add bookmark main to 46b9cd886e64
-Changes to push to origin:
-  Add bookmark main to 31a490102db7
-
-Fixture ready (local bare-git remotes, see README.md § test-fixture):
-  Code repo:     /tmp/vc-x1-test-8PD4x8/work
-  Session repo:  /tmp/vc-x1-test-8PD4x8/work/.claude
-  Code remote:   /tmp/vc-x1-test-8PD4x8/remote-code.git
-  Claude remote: /tmp/vc-x1-test-8PD4x8/remote-claude.git
-
-Next steps — see README.md § Testing push + finalize for the full flow.
-Quick reference with this fixture's paths:
-  jj git push -R /tmp/vc-x1-test-8PD4x8/work
-  vc-x1 finalize --repo /tmp/vc-x1-test-8PD4x8/work/.claude --squash --push main --detach
-  vc-x1 test-fixture-rm /tmp/vc-x1-test-8PD4x8
-```
-
-### Testing push + finalize
-
-Always test against a throwaway fixture, never the live workspace.
-Scaffold one with `test-fixture` (above), then run the complete
-push + finalize flow end-to-end. The code repo uses plain
-`jj git push`; the session repo uses `vc-x1 finalize` to squash
-trailing writes and push in one shot.
-
 ```bash
-base=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 test-fixture --path "$base"
-work="$base/work"
-session="$base/work/.claude"
+parent=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
+vc-x1 init work --repo-local "$parent"
+work="$parent/work"
+session="$parent/work/.claude"
 
 # 1. code repo: described commit → advance main → push
 echo hello > "$work/hello.txt"
@@ -675,7 +603,7 @@ vc-x1 finalize --repo "$session" --squash --push main --detach \
 sleep 12 && cat "$session/finalize.log"
 
 # 4. cleanup when done
-vc-x1 test-fixture-rm "$base"
+rm -rf "$parent"
 ```
 
 **Why `jj git push` for code but `finalize` for `.claude`?** The

@@ -13,7 +13,6 @@ mod scope;
 mod show;
 mod symlink;
 mod sync;
-mod test_fixture;
 #[cfg(test)]
 mod test_helpers;
 mod toml_simple;
@@ -201,12 +200,6 @@ pub(crate) enum Commands {
         across resumes so only the first invocation needs them."
     )]
     Push(push::PushArgs),
-
-    /// Create a throwaway dual-repo jj fixture (local remotes; see README)
-    TestFixture(test_fixture::TestFixtureArgs),
-
-    /// Remove a test fixture (safety: name must start with vc-x1-test-)
-    TestFixtureRm(test_fixture::TestFixtureRmArgs),
 }
 
 fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
@@ -392,8 +385,6 @@ fn main() -> ExitCode {
             };
             run_command(finalize::finalize(&opts))
         }
-        Commands::TestFixture(args) => run_command(test_fixture::test_fixture(&args)),
-        Commands::TestFixtureRm(args) => run_command(test_fixture::test_fixture_rm(&args)),
         Commands::Push(push_args) => run_command(push::push(&push_args)),
     };
 

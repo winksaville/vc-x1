@@ -840,8 +840,15 @@ one way to express repo selection per call.
   - `code,bot` (default) → current dual-repo behavior.
   - `bot` → fatal; meaningless at init time.
   - Other subcommands error if `--scope` is passed.
-- Subsequent `-N` steps wire `--scope` into sync, push,
-  finalize, read-only commands. Specifics decided per step.
+- **0.40.0-3** — integration tests migrate onto
+  `init --repo-local`; init gains a symlink opt-out for
+  tests so `$HOME/.claude/projects/` stays clean.
+- **0.40.0 (final)** — cycle close-out at "init `--scope`
+  foundation". Retires the now-orphan `test_fixture`
+  module + CLI subcommands (originally planned as `-4`,
+  folded into the close-out). The broader `--scope`
+  rollout to sync, push, finalize, and read-only commands
+  moves to the 0.41.0 cycle ([71]).
 
 **Helper placement** is deliberately open.
 
@@ -1043,6 +1050,100 @@ to `-4`. The module compiles but has no non-CLI callers.
   caller side.
 - `notes/chores-06.md`: this subsection.
 
+### 0.40.0: cycle close-out
+
+Closes the 0.40.0 cycle at the "init `--scope` foundation"
+boundary. Folds the originally-planned `-4` (`test_fixture`
+retirement) into this commit; the broader `--scope` rollout
+(sync / push / finalize) moves to 0.41.0 ([71]).
+
+**What shipped (0.40.0).**
+
+- `init --repo-local` / `--repo-remote` — remote
+  decoupling (`-1`).
+- `init --scope=code|bot|code,bot` — single- and
+  dual-repo init from one entry (`-2`).
+- Integration tests on `init --repo-local`; init gains a
+  symlink opt-out (`-3`).
+- `test_fixture` module + `vc-x1 test-fixture` /
+  `test-fixture-rm` CLI subcommands removed (close-out).
+  `Fixture::new` is now the only consumer of the
+  fixture-creation pattern, sourced directly from `init`.
+
+**Deferred to 0.41.0.**
+
+- `vc-x1 sync --scope`.
+- `vc-x1 push --scope` (incl. single-repo state machine).
+- `vc-x1 finalize --scope` (TBD whether useful — finalize
+  already takes `--repo`).
+- Default-scope resolution from `.vc-config.toml` for the
+  newly scope-aware commands.
+
+- `Cargo.toml`: `0.40.0-3` → `0.40.0`.
+- `src/test_fixture.rs`: deleted.
+- `src/main.rs`: drops `mod test_fixture;`,
+  `Commands::TestFixture` / `TestFixtureRm`, and the two
+  dispatch arms.
+- `src/sync.rs`: integration-tests intro doc-comment
+  updated to point at `Fixture::new` instead of
+  `test_fixture`.
+- `README.md`: drops TOC entry, usage line, and the
+  `### test-fixture` section; rewrites the `Testing push +
+  finalize` example to use `vc-x1 init --repo-local`.
+- `notes/todo.md`: removes the (now-meaningless)
+  `vc-x1 test-fixture should refuse --path` entry; adds
+  0.40.0 done marker; In Progress points to 0.41.0.
+- `notes/chores-06.md`: this subsection + cycle-steps
+  amendment + new `--scope continuation (0.41.0)` section.
+
+## --scope continuation (0.41.0)
+
+Continues the foundation laid in 0.40.0 by wiring
+`--scope` into the remaining commands.
+
+**Cycle steps (initial sketch).**
+
+- **0.41.0-0** — this plan + version bump. Notes only.
+- **0.41.0-1** — `vc-x1 sync --scope=…`. Sync currently
+  hard-codes `[".", ".claude"]` as the default repo set;
+  scope drives that instead. Default-scope resolution
+  reads `.vc-config.toml > [workspace] other-repo`
+  (present + non-empty → `code,bot`, else `code`).
+- **0.41.0-2** — `vc-x1 push --scope=…`. Trickier: push's
+  state machine assumes dual. Likely splits into a
+  single-repo path (skip `commit-claude` + bookmark for
+  `.claude` + `finalize-claude`) plus a scope-aware
+  preflight summary.
+- **0.41.0-3** — `vc-x1 finalize --scope` review.
+  Finalize already takes `--repo`; check whether `--scope`
+  adds anything or if this step becomes a no-op /
+  documentation-only entry.
+- **0.41.0 (final)** — cycle close-out + dogfood
+  validation on a single-repo project (e.g. apply the
+  full sync→edit→push flow against a `--scope=code`
+  fixture).
+
+**Default-scope resolution.** The rule was sketched in
+[60] using `app|other|both` vocabulary; restating in the
+shipped vocabulary:
+
+- No `.vc-config.toml` → `--scope=code`.
+- `.vc-config.toml` with `other-repo` missing or empty
+  → `--scope=code`.
+- `.vc-config.toml` with non-empty `other-repo`
+  → `--scope=code,bot`.
+
+**Scope mismatch warnings.** When the resolved scope
+disagrees with the working-copy state (e.g. `--scope=code`
+in a workspace whose `.vc-config.toml` says dual), emit a
+warning so the user can confirm or back out — do not
+silently proceed. Fatal vs warn is sub-step decision.
+
+**Plan is exploratory.** Sub-step boundaries can shift
+once each command's call sites are seen. Push in
+particular may want its own `-N`-internal state; allow
+the cycle to lengthen if needed.
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
@@ -1056,3 +1157,4 @@ to `-4`. The module compiles but has no non-CLI callers.
 [68]: #source-code-design-ref-convention-design
 [69]: #vc-x1-validate-repo-command-design
 [70]: #generalize---scope-across-commands-0400
+[71]: #--scope-continuation-0410
