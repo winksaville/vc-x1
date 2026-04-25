@@ -1104,17 +1104,20 @@ Continues the foundation laid in 0.40.0 by wiring
 **Cycle steps (initial sketch).**
 
 - **0.41.0-0** — this plan + version bump. Notes only.
-- **0.41.0-1** — `vc-x1 sync --scope=…`. Sync currently
+- **0.41.0-1** — interlude (unrelated to `--scope`):
+  pre-commit checklist requires `--locked` for
+  `cargo install --path .`. See subsection below.
+- **0.41.0-2** — `vc-x1 sync --scope=…`. Sync currently
   hard-codes `[".", ".claude"]` as the default repo set;
   scope drives that instead. Default-scope resolution
   reads `.vc-config.toml > [workspace] other-repo`
   (present + non-empty → `code,bot`, else `code`).
-- **0.41.0-2** — `vc-x1 push --scope=…`. Trickier: push's
+- **0.41.0-3** — `vc-x1 push --scope=…`. Trickier: push's
   state machine assumes dual. Likely splits into a
   single-repo path (skip `commit-claude` + bookmark for
   `.claude` + `finalize-claude`) plus a scope-aware
   preflight summary.
-- **0.41.0-3** — `vc-x1 finalize --scope` review.
+- **0.41.0-4** — `vc-x1 finalize --scope` review.
   Finalize already takes `--repo`; check whether `--scope`
   adds anything or if this step becomes a no-op /
   documentation-only entry.
@@ -1143,6 +1146,51 @@ silently proceed. Fatal vs warn is sub-step decision.
 once each command's call sites are seen. Push in
 particular may want its own `-N`-internal state; allow
 the cycle to lengthen if needed.
+
+### 0.41.0-1: pre-commit checklist requires --locked
+
+Notes-only interlude, unrelated to `--scope`. Hit a
+`cargo install --path .` build break on a clean
+worktree where `cargo build --release` and
+`cargo test --release` both passed.
+
+Full background — including the upstream cargo issues
+and the internals.rust-lang.org design-debate thread —
+lives in [notes/cargo-locked-issue.md](cargo-locked-issue.md).
+The summary below is enough for the chores log; defer
+to that file for the linked references.
+
+- Multiple `winnow` versions (0.7.x and 1.0.x) in the
+  fresh dep graph caused a type mismatch inside
+  `gix-object 0.58.0` (its `parse` fn calls
+  `gix_actor::signature::decode` whose
+  `ErrMode<E>` came from a different `winnow`).
+- Root cause: `cargo install` ignores `Cargo.lock`
+  by default and re-resolves from scratch, picking
+  the newest semver-compatible version of every
+  dep independently. The lockfile happens to pin
+  one `winnow` that satisfies all gix-* crates; a
+  fresh resolve no longer can. `cargo build` /
+  `cargo test` use `Cargo.lock` so they're immune.
+- Fix: `cargo install --path . --locked`. Cargo has
+  no stable config key or env var to make `--locked`
+  the default for `cargo install` (verified against
+  the cargo config reference), so the discipline
+  has to live in the checklist.
+
+Edits:
+
+- `Cargo.toml`: bump to `0.41.0-1`.
+- `CLAUDE.md`: pre-commit checklist step 4 requires
+  `--locked`, with a two-line reason inline so a
+  future reader doesn't re-litigate.
+- `notes/chores-06.md`: this subsection + plan
+  renumber (sync moves from `-1` to `-2`, push to
+  `-3`, finalize to `-4`).
+- `notes/cargo-locked-issue.md`: new standalone
+  background doc with the failing build output, the
+  asymmetry table, and links to the upstream cargo
+  issues + community design discussion.
 
 # References
 

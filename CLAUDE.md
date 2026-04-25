@@ -229,7 +229,10 @@ Before proposing a commit, run all of the following and fix any issues:
 1. `cargo fmt`
 2. `cargo clippy`
 3. `cargo test`
-4. `cargo install --path .` (if applicable)
+4. `cargo install --path . --locked` (if applicable) — `--locked`
+   is required: without it, `cargo install` ignores `Cargo.lock`
+   and re-resolves from scratch, which can pick incompatible
+   versions even when `cargo build` / `cargo test` succeed.
 5. Retest after install
 6. Update `notes/todo.md` — add to `## Done` if completing a task
 7. Update `notes/chores-*.md` — add a subsection describing the change
