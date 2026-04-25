@@ -9,6 +9,7 @@ mod init;
 mod list;
 mod logging;
 mod push;
+mod scope;
 mod show;
 mod symlink;
 mod sync;

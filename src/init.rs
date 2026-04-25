@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info};
 
+use crate::scope::{Scope, Side};
 use crate::symlink;
 
 #[derive(Args, Debug)]
@@ -48,15 +49,19 @@ pub struct InitArgs {
     #[arg(long, default_value_t = 3)]
     pub push_retry_delay: u64,
 
-    /// Seed both repos from template directories.
+    /// Seed repos from template directories.
     ///
-    /// Value is `CODE[,BOT]`. If `BOT` is omitted, defaults to the sibling
-    /// directory `<CODE>.claude` (file-name concat, not path join — they are
-    /// not nested). Non-hidden contents are copied recursively; hidden
-    /// entries (names starting with `.`) are skipped since init creates the
-    /// repo's own hidden files. If either template has a `README.md`, its
-    /// first line is rewritten to `# <repo-name>`.
-    #[arg(long, value_name = "CODE[,BOT]")]
+    /// Value is `CODE[,BOT]`. Default bot path is `<CODE>.claude`
+    /// (file-name concat, not path join — templates are siblings).
+    ///
+    /// - With `--scope=code`: only `CODE` is used; passing `,BOT`
+    ///   is fatal (no session side to seed).
+    /// - Non-hidden contents copied recursively; hidden entries
+    ///   (names starting with `.`) are skipped — init writes its
+    ///   own hidden files.
+    /// - If a copied tree has a `README.md`, its first line is
+    ///   rewritten to `# <repo-name>`.
+    #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
     pub use_template: Option<String>,
 
     /// Fixture mode — fully self-contained local workspace.
@@ -83,6 +88,19 @@ pub struct InitArgs {
     /// - Exclusive with `--repo-local`, `--owner`, `--private`.
     #[arg(long, value_name = "URL", verbatim_doc_comment)]
     pub repo_remote: Option<String>,
+
+    /// Which side(s) of the workspace to create.
+    ///
+    /// - `code` — single-repo workspace, no `.claude/` session.
+    /// - `bot` — fatal at init time (meaningless without code).
+    /// - `code,bot` (default) — dual-repo workspace.
+    #[arg(
+        long,
+        value_name = "SIDES",
+        value_delimiter = ',',
+        verbatim_doc_comment
+    )]
+    pub scope: Option<Vec<Side>>,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -157,44 +175,55 @@ pub(crate) fn parse_use_template(
 /// and the template copy skips hidden entries.
 const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
 
-/// Validate that both template paths exist, are directories, and contain no
-/// top-level non-hidden entry that would collide with a file init writes.
+/// Validate one template directory: exists, is a directory, and has no
+/// top-level non-hidden entry that would collide with init's own writes.
+///
+/// - `label` prefixes every error message (`code` / `bot`).
+pub(crate) fn validate_template_one(
+    label: &str,
+    p: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !p.exists() {
+        return Err(format!(
+            "--use-template: {label} template '{}' does not exist",
+            p.display()
+        )
+        .into());
+    }
+    if !p.is_dir() {
+        return Err(format!(
+            "--use-template: {label} template '{}' is not a directory",
+            p.display()
+        )
+        .into());
+    }
+    for entry in std::fs::read_dir(p)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.') {
+            continue;
+        }
+        if RESERVED_TEMPLATE_ENTRIES.contains(&name_str.as_ref()) {
+            return Err(format!(
+                "--use-template: {label} template '{}' contains reserved entry '{}'",
+                p.display(),
+                name_str
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+/// Validate both template paths (dual-repo mode). Thin wrapper over
+/// `validate_template_one` kept for single-call ergonomics.
 pub(crate) fn validate_templates(
     code: &Path,
     bot: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for (label, p) in [("code", code), ("bot", bot)] {
-        if !p.exists() {
-            return Err(format!(
-                "--use-template: {label} template '{}' does not exist",
-                p.display()
-            )
-            .into());
-        }
-        if !p.is_dir() {
-            return Err(format!(
-                "--use-template: {label} template '{}' is not a directory",
-                p.display()
-            )
-            .into());
-        }
-        for entry in std::fs::read_dir(p)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.starts_with('.') {
-                continue;
-            }
-            if RESERVED_TEMPLATE_ENTRIES.contains(&name_str.as_ref()) {
-                return Err(format!(
-                    "--use-template: {label} template '{}' contains reserved entry '{}'",
-                    p.display(),
-                    name_str
-                )
-                .into());
-            }
-        }
-    }
+    validate_template_one("code", code)?;
+    validate_template_one("bot", bot)?;
     Ok(())
 }
 
@@ -315,6 +344,29 @@ const GITIGNORE_CODE: &str = "/target
 
 const GITIGNORE_SESSION: &str = ".git
 .jj
+";
+
+/// Config for a single-repo workspace (`--scope=code`).
+///
+/// - No `other-repo` field — its absence is what downstream
+///   commands use to detect the single-repo state.
+const VC_CONFIG_APP_ONLY: &str = r#"# vc-config: Vibe Coding workspace configuration
+#
+# workspace-path is this repo's path relative to the workspace root.
+# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
+
+[workspace]
+path = "/"
+"#;
+
+/// Gitignore for a single-repo workspace.
+///
+/// - Same as `GITIGNORE_CODE` minus the `/.claude` entry — there's
+///   no session subdir in single-repo mode.
+const GITIGNORE_APP_ONLY: &str = "/target
+/.git
+/.jj
+/.vc-x1
 ";
 
 /// Expand `~` and `$VAR` / `${VAR}` substitutions in a user string.
@@ -509,21 +561,30 @@ pub(crate) enum Provisioner {
 ///   linear.
 #[derive(Debug)]
 pub(crate) struct InitPlan {
+    /// Which side(s) this plan creates. `scope.is_code_only()` means
+    /// single-repo; `scope.is_both()` means dual.
+    pub scope: Scope,
     pub project_dir: PathBuf,
-    pub session_dir: PathBuf,
     pub name: String,
-    pub session_name: String,
     pub code_url: String,
-    pub session_url: String,
     pub provisioner: Provisioner,
     /// Set only when `provisioner == LocalBareInit`.
     pub code_bare_path: Option<PathBuf>,
-    /// Set only when `provisioner == LocalBareInit`.
-    pub session_bare_path: Option<PathBuf>,
     /// GitHub `owner/name` for the code side; only populated for
     /// the `GhCreate` path (`gh repo create` needs it).
     pub gh_code_slug: Option<String>,
-    /// GitHub `owner/name` for the session side; same shape.
+    /// Session-side dir. None when `scope.is_code_only()`.
+    pub session_dir: Option<PathBuf>,
+    /// Session-side project name (e.g. `<name>.claude`). None when
+    /// `scope.is_code_only()`.
+    pub session_name: Option<String>,
+    /// Session-side origin URL. None when `scope.is_code_only()`.
+    pub session_url: Option<String>,
+    /// Session-side bare-repo path. `Some` only under `LocalBareInit`
+    /// with `scope.is_both()`.
+    pub session_bare_path: Option<PathBuf>,
+    /// Session-side GitHub slug. `Some` only under `GhCreate` with
+    /// `scope.is_both()`.
     pub gh_session_slug: Option<String>,
 }
 
@@ -534,7 +595,26 @@ pub(crate) struct InitPlan {
 /// - Pick the provisioner.
 /// - Errors on any ambiguous or incomplete flag combination.
 pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    // --- Mutual-exclusion gates ---
+    // --- Resolve scope first: default (None) → dual; empty Vec is
+    // invalid; `bot` alone is meaningless at init time. ---
+    let scope = match &args.scope {
+        None => Scope(vec![Side::Code, Side::Bot]),
+        Some(sides) => {
+            let s = Scope(sides.clone());
+            if s.is_empty() {
+                return Err("--scope: value is empty".into());
+            }
+            if s.is_bot_only() {
+                return Err(
+                    "--scope=bot is meaningless at init time — use --scope=code for single-repo or --scope=code,bot (default) for dual-repo"
+                        .into(),
+                );
+            }
+            s
+        }
+    };
+
+    // --- Mutual-exclusion gates (flag-pair ambiguity) ---
     if args.repo_local.is_some() && args.repo_remote.is_some() {
         return Err("--repo-local and --repo-remote are mutually exclusive".into());
     }
@@ -565,10 +645,21 @@ pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error:
         );
     }
 
+    // --- Scope-dependent ambiguity. ---
+    if scope.is_code_only()
+        && let Some(t) = &args.use_template
+        && t.contains(',')
+    {
+        return Err(format!(
+            "--scope=code takes a single template path; got '{t}' (drop the `,BOT` half)"
+        )
+        .into());
+    }
+
     match (&args.repo_local, &args.repo_remote) {
-        (Some(parent_spec), None) => plan_local_fixture(args, parent_spec),
-        (None, Some(url_spec)) => plan_external_remote(args, url_spec),
-        (None, None) => plan_default_github(args),
+        (Some(parent_spec), None) => plan_local_fixture(args, parent_spec, scope),
+        (None, Some(url_spec)) => plan_external_remote(args, url_spec, scope),
+        (None, None) => plan_default_github(args, scope),
         #[allow(clippy::unwrap_used)]
         (Some(_), Some(_)) => {
             // OK: mutual-exclusion gate above already errored on this case
@@ -579,11 +670,13 @@ pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error:
 
 /// Plan for `--repo-local PARENT` — fixture mode.
 ///
-/// - Bare repos and project all live under PARENT.
-/// - No network involvement.
+/// - Code-only: single bare at `<PARENT>/remote.git`, no session.
+/// - Dual: `remote-code.git` + `remote-claude.git` plus a nested
+///   `.claude/` session.
 fn plan_local_fixture(
     args: &InitArgs,
     parent_spec: &str,
+    scope: Scope,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let name = args
         .name
@@ -591,37 +684,58 @@ fn plan_local_fixture(
         .ok_or("NAME is required with --repo-local")?;
     let parent = normalize_local_parent(parent_spec)?;
     let project_dir = parent.join(&name);
+
+    if scope.is_code_only() {
+        let code_bare = parent.join("remote.git");
+        return Ok(InitPlan {
+            scope,
+            code_url: code_bare.to_string_lossy().to_string(),
+            code_bare_path: Some(code_bare),
+            project_dir,
+            name,
+            provisioner: Provisioner::LocalBareInit,
+            gh_code_slug: None,
+            session_dir: None,
+            session_name: None,
+            session_url: None,
+            session_bare_path: None,
+            gh_session_slug: None,
+        });
+    }
+
+    // Dual: code + bot sides, nested session.
     let session_dir = project_dir.join(".claude");
     let code_bare = parent.join("remote-code.git");
     let session_bare = parent.join("remote-claude.git");
     let session_name = format!("{name}.claude");
     Ok(InitPlan {
+        scope,
         code_url: code_bare.to_string_lossy().to_string(),
-        session_url: session_bare.to_string_lossy().to_string(),
         code_bare_path: Some(code_bare),
-        session_bare_path: Some(session_bare),
         project_dir,
-        session_dir,
         name,
-        session_name,
         provisioner: Provisioner::LocalBareInit,
         gh_code_slug: None,
+        session_url: Some(session_bare.to_string_lossy().to_string()),
+        session_bare_path: Some(session_bare),
+        session_dir: Some(session_dir),
+        session_name: Some(session_name),
         gh_session_slug: None,
     })
 }
 
 /// Plan for `--repo-remote URL` — explicit URL override.
 ///
-/// - Session URL derived from the code URL.
+/// - Session URL derived (dual only).
 /// - NAME derived from URL when not given (must agree if both).
 /// - GitHub URLs → `GhCreate`; other URLs → `ExternalPreExisting`.
 fn plan_external_remote(
     args: &InitArgs,
     url_spec: &str,
+    scope: Scope,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let normalized = normalize_remote(url_spec)?;
     let code_url = ensure_git_suffix(&normalized);
-    let session_url = derive_session_url(&code_url);
     let url_name = derive_name_from_url(&code_url)?;
 
     let name = match &args.name {
@@ -634,14 +748,12 @@ fn plan_external_remote(
         }
         None => url_name.clone(),
     };
-    let session_name = format!("{name}.claude");
 
     let parent_dir = match &args.dir {
         Some(d) => d.clone(),
         None => std::env::current_dir()?,
     };
     let project_dir = parent_dir.join(&name);
-    let session_dir = project_dir.join(".claude");
 
     let provisioner = if is_github_url(&code_url) {
         Provisioner::GhCreate
@@ -649,26 +761,51 @@ fn plan_external_remote(
         Provisioner::ExternalPreExisting
     };
 
-    let (gh_code_slug, gh_session_slug) = if provisioner == Provisioner::GhCreate {
-        (
-            Some(github_slug_from_url(&code_url)?),
-            Some(github_slug_from_url(&session_url)?),
-        )
+    let gh_code_slug = if provisioner == Provisioner::GhCreate {
+        Some(github_slug_from_url(&code_url)?)
     } else {
-        (None, None)
+        None
+    };
+
+    if scope.is_code_only() {
+        return Ok(InitPlan {
+            scope,
+            project_dir,
+            name,
+            code_url,
+            provisioner,
+            code_bare_path: None,
+            gh_code_slug,
+            session_dir: None,
+            session_name: None,
+            session_url: None,
+            session_bare_path: None,
+            gh_session_slug: None,
+        });
+    }
+
+    // Dual.
+    let session_url = derive_session_url(&code_url);
+    let session_name = format!("{name}.claude");
+    let session_dir = project_dir.join(".claude");
+    let gh_session_slug = if provisioner == Provisioner::GhCreate {
+        Some(github_slug_from_url(&session_url)?)
+    } else {
+        None
     };
 
     Ok(InitPlan {
+        scope,
         project_dir,
-        session_dir,
         name,
-        session_name,
         code_url,
-        session_url,
         provisioner,
         code_bare_path: None,
-        session_bare_path: None,
         gh_code_slug,
+        session_url: Some(session_url),
+        session_name: Some(session_name),
+        session_dir: Some(session_dir),
+        session_bare_path: None,
         gh_session_slug,
     })
 }
@@ -678,12 +815,14 @@ fn plan_external_remote(
 /// - NAME required.
 /// - `owner` derived via `gh whoami` unless `--owner` given.
 /// - Provisioner is always `GhCreate`.
-fn plan_default_github(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error::Error>> {
+fn plan_default_github(
+    args: &InitArgs,
+    scope: Scope,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let name = args
         .name
         .clone()
         .ok_or("NAME is required (or pass --repo-remote URL)")?;
-    let session_name = format!("{name}.claude");
 
     let owner = match &args.owner {
         Some(o) => o.clone(),
@@ -691,28 +830,48 @@ fn plan_default_github(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error::
     };
 
     let code_url = format!("git@github.com:{owner}/{name}.git");
-    let session_url = format!("git@github.com:{owner}/{session_name}.git");
     let gh_code_slug = format!("{owner}/{name}");
-    let gh_session_slug = format!("{owner}/{session_name}");
 
     let parent_dir = match &args.dir {
         Some(d) => d.clone(),
         None => std::env::current_dir()?,
     };
     let project_dir = parent_dir.join(&name);
+
+    if scope.is_code_only() {
+        return Ok(InitPlan {
+            scope,
+            project_dir,
+            name,
+            code_url,
+            provisioner: Provisioner::GhCreate,
+            code_bare_path: None,
+            gh_code_slug: Some(gh_code_slug),
+            session_dir: None,
+            session_name: None,
+            session_url: None,
+            session_bare_path: None,
+            gh_session_slug: None,
+        });
+    }
+
+    let session_name = format!("{name}.claude");
+    let session_url = format!("git@github.com:{owner}/{session_name}.git");
+    let gh_session_slug = format!("{owner}/{session_name}");
     let session_dir = project_dir.join(".claude");
 
     Ok(InitPlan {
+        scope,
         project_dir,
-        session_dir,
         name,
-        session_name,
         code_url,
-        session_url,
         provisioner: Provisioner::GhCreate,
         code_bare_path: None,
-        session_bare_path: None,
         gh_code_slug: Some(gh_code_slug),
+        session_url: Some(session_url),
+        session_name: Some(session_name),
+        session_dir: Some(session_dir),
+        session_bare_path: None,
         gh_session_slug: Some(gh_session_slug),
     })
 }
@@ -744,6 +903,7 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!("init: enter");
 
     let plan = plan_init(args)?;
+    let is_dual = plan.scope.is_both();
 
     // --- Preflight ---
     info!("Preflight checks...");
@@ -763,26 +923,22 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     match &plan.provisioner {
         Provisioner::GhCreate => {
-            // Safe to unwrap: GhCreate always populates these slugs.
             #[allow(clippy::unwrap_used)]
             let code_slug = plan.gh_code_slug.as_ref().unwrap(); // OK: GhCreate path always sets gh_code_slug
-            #[allow(clippy::unwrap_used)]
-            let session_slug = plan.gh_session_slug.as_ref().unwrap(); // OK: GhCreate path always sets gh_session_slug
             let (code_owner, code_name) = split_slug(code_slug)?;
-            let (session_owner, session_name) = split_slug(session_slug)?;
             if gh_repo_exists(code_owner, code_name)? {
                 return Err(format!("GitHub repo '{code_slug}' already exists").into());
             }
-            if gh_repo_exists(session_owner, session_name)? {
-                return Err(format!("GitHub repo '{session_slug}' already exists").into());
+            if let Some(session_slug) = plan.gh_session_slug.as_ref() {
+                let (session_owner, session_name) = split_slug(session_slug)?;
+                if gh_repo_exists(session_owner, session_name)? {
+                    return Err(format!("GitHub repo '{session_slug}' already exists").into());
+                }
             }
         }
         Provisioner::LocalBareInit => {
-            // Safe to unwrap: LocalBareInit always populates these.
             #[allow(clippy::unwrap_used)]
             let code_bare = plan.code_bare_path.as_ref().unwrap(); // OK: LocalBareInit path always sets code_bare_path
-            #[allow(clippy::unwrap_used)]
-            let session_bare = plan.session_bare_path.as_ref().unwrap(); // OK: LocalBareInit path always sets session_bare_path
             if code_bare.exists() {
                 return Err(format!(
                     "bare repo '{}' already exists; refusing to clobber",
@@ -790,7 +946,9 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .into());
             }
-            if session_bare.exists() {
+            if let Some(session_bare) = plan.session_bare_path.as_ref()
+                && session_bare.exists()
+            {
                 return Err(format!(
                     "bare repo '{}' already exists; refusing to clobber",
                     session_bare.display()
@@ -803,17 +961,28 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
             // pre-created with `git init --bare`). For scheme-URL
             // values we can't preflight cheaply — let git push
             // surface failures.
-            for (label, url) in [("code", &plan.code_url), ("session", &plan.session_url)] {
-                if !is_remote_url(url) {
-                    let p = PathBuf::from(url);
-                    if !p.exists() {
-                        return Err(format!(
-                            "--repo-remote: {label} path '{}' does not exist — \
-                             pre-create with `git init --bare`, or use --repo-local for fixture creation",
-                            p.display()
-                        )
-                        .into());
-                    }
+            if !is_remote_url(&plan.code_url) {
+                let p = PathBuf::from(&plan.code_url);
+                if !p.exists() {
+                    return Err(format!(
+                        "--repo-remote: code path '{}' does not exist — \
+                         pre-create with `git init --bare`, or use --repo-local for fixture creation",
+                        p.display()
+                    )
+                    .into());
+                }
+            }
+            if let Some(session_url) = plan.session_url.as_ref()
+                && !is_remote_url(session_url)
+            {
+                let p = PathBuf::from(session_url);
+                if !p.exists() {
+                    return Err(format!(
+                        "--repo-remote: session path '{}' does not exist — \
+                         pre-create with `git init --bare`, or use --repo-local for fixture creation",
+                        p.display()
+                    )
+                    .into());
                 }
             }
         }
@@ -822,8 +991,13 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     let templates = match &args.use_template {
         Some(s) => {
             let (code_t, bot_t) = parse_use_template(s)?;
-            validate_templates(&code_t, &bot_t)?;
-            Some((code_t, bot_t))
+            if is_dual {
+                validate_templates(&code_t, &bot_t)?;
+                Some((code_t, Some(bot_t)))
+            } else {
+                validate_template_one("code", &code_t)?;
+                Some((code_t, None))
+            }
         }
         None => None,
     };
@@ -837,62 +1011,105 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
         info!("Dry run — would execute:");
         info!("  1. Create directories: {}", plan.project_dir.display());
-        info!("  2. git init + jj git init --colocate on both repos");
-        info!("  3. Write .vc-config.toml and .gitignore to both");
+        info!(
+            "  2. git init + jj git init --colocate on {}",
+            if is_dual {
+                "both repos"
+            } else {
+                "the code repo"
+            }
+        );
+        info!(
+            "  3. Write .vc-config.toml and .gitignore{}",
+            if is_dual {
+                " to both repos"
+            } else {
+                " (code-only layout)"
+            }
+        );
         match &templates {
             Some((c, b)) => {
-                info!(
-                    "  4. Copy templates (non-hidden) into both repos + rewrite README.md first line"
-                );
+                info!("  4. Copy templates (non-hidden) + rewrite README.md first line");
                 info!("       code: {}", c.display());
-                info!("       bot:  {}", b.display());
+                if let Some(b) = b {
+                    info!("       bot:  {}", b.display());
+                }
             }
             None => info!("  4. (skipped — no --use-template)"),
         }
-        info!("  5. jj commit both with placeholder ochids");
-        info!("  6. Get both chids, jj describe both with correct ochids");
-        info!("  7. Remove jj from both (git clean -xdf)");
+        if is_dual {
+            info!("  5. jj commit both with placeholder ochids");
+            info!("  6. Get both chids, jj describe both with correct ochids");
+            info!("  7. Remove jj from both (git clean -xdf)");
+        } else {
+            info!("  5. jj commit code with 'Initial commit'");
+            info!("  6. (skipped — no cross-reference in single-repo)");
+            info!("  7. Remove jj (git clean -xdf)");
+        }
         match &plan.provisioner {
             Provisioner::GhCreate => {
-                info!(
-                    "  8. gh repo create {} {visibility}; push to {}",
-                    plan.gh_session_slug.as_deref().unwrap_or(""), // OK: GhCreate always sets this (dry-run display only)
-                    plan.session_url
-                );
+                if is_dual {
+                    info!(
+                        "  8. gh repo create {} {visibility}; push to {}",
+                        plan.gh_session_slug.as_deref().unwrap_or(""), // OK: dry-run display only
+                        plan.session_url.as_deref().unwrap_or(""),     // OK: dry-run display only
+                    );
+                } else {
+                    info!("  8. (skipped — no session side in single-repo)");
+                }
                 info!(
                     "  9. gh repo create {} {visibility}; push to {}",
-                    plan.gh_code_slug.as_deref().unwrap_or(""), // OK: GhCreate always sets this (dry-run display only)
+                    plan.gh_code_slug.as_deref().unwrap_or(""), // OK: dry-run display only
                     plan.code_url
                 );
             }
             Provisioner::LocalBareInit => {
-                info!(
-                    "  8. git init --bare {}; push to {}",
-                    plan.session_bare_path
-                        .as_ref()
-                        .map(|p| p.display().to_string())
-                        .unwrap_or_default(), // OK: LocalBareInit always sets this (dry-run display only)
-                    plan.session_url
-                );
+                if is_dual {
+                    info!(
+                        "  8. git init --bare {}; push to {}",
+                        plan.session_bare_path
+                            .as_ref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_default(), // OK: dry-run display only
+                        plan.session_url.as_deref().unwrap_or(""), // OK: dry-run display only
+                    );
+                } else {
+                    info!("  8. (skipped — no session side in single-repo)");
+                }
                 info!(
                     "  9. git init --bare {}; push to {}",
                     plan.code_bare_path
                         .as_ref()
                         .map(|p| p.display().to_string())
-                        .unwrap_or_default(), // OK: LocalBareInit always sets this (dry-run display only)
+                        .unwrap_or_default(), // OK: dry-run display only
                     plan.code_url
                 );
             }
             Provisioner::ExternalPreExisting => {
-                info!(
-                    "  8. skip create; push to pre-existing {}",
-                    plan.session_url
-                );
+                if is_dual {
+                    info!(
+                        "  8. skip create; push to pre-existing {}",
+                        plan.session_url.as_deref().unwrap_or(""), // OK: dry-run display only
+                    );
+                } else {
+                    info!("  8. (skipped — no session side in single-repo)");
+                }
                 info!("  9. skip create; push to pre-existing {}", plan.code_url);
             }
         }
-        info!("  10. jj git init --colocate on both repos");
-        info!("  11. Create Claude Code symlink");
+        info!(
+            "  10. jj git init --colocate on {}",
+            if is_dual {
+                "both repos"
+            } else {
+                "the code repo"
+            }
+        );
+        if is_dual {
+            info!("  11. Create Claude Code symlink");
+        } else {
+            info!("  11. (skipped — no .claude symlink in single-repo)");
+        }
         return Ok(());
     }
 
@@ -903,25 +1120,39 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         mkdir_p(parent)?;
     }
     mkdir_p(&plan.project_dir)?;
-    mkdir_p(&plan.session_dir)?;
+    if let Some(session_dir) = plan.session_dir.as_ref() {
+        mkdir_p(session_dir)?;
+    }
 
-    // Step 2: git init + jj init on both repos
+    // Step 2: git init + jj init
     info!("Step 2: Initializing repos...");
     debug!("seed project_dir with an empty git repo");
     run("git", &["init"], &plan.project_dir)?;
     debug!("colocate jj atop the git repo so jj + git share .git state");
     run("jj", &["git", "init", "--colocate"], &plan.project_dir)?;
-    debug!("seed session_dir with an empty git repo");
-    run("git", &["init"], &plan.session_dir)?;
-    debug!("colocate jj atop the session git repo");
-    run("jj", &["git", "init", "--colocate"], &plan.session_dir)?;
+    if let Some(session_dir) = plan.session_dir.as_ref() {
+        debug!("seed session_dir with an empty git repo");
+        run("git", &["init"], session_dir)?;
+        debug!("colocate jj atop the session git repo");
+        run("jj", &["git", "init", "--colocate"], session_dir)?;
+    }
 
     // Step 3: Write config files
     info!("Step 3: Writing config files...");
-    write_file(&plan.project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
-    write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_CODE)?;
-    write_file(&plan.session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
-    write_file(&plan.session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
+    if is_dual {
+        write_file(&plan.project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
+        write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_CODE)?;
+    } else {
+        write_file(
+            &plan.project_dir.join(".vc-config.toml"),
+            VC_CONFIG_APP_ONLY,
+        )?;
+        write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
+    }
+    if let Some(session_dir) = plan.session_dir.as_ref() {
+        write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
+        write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
+    }
 
     // Step 4: Copy templates (if --use-template)
     if let Some((code_t, bot_t)) = &templates {
@@ -933,56 +1164,69 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         );
         copy_template_recursive(code_t, &plan.project_dir)?;
         rewrite_readme_first_line(&plan.project_dir, &plan.name)?;
-        info!(
-            "  bot:  {} -> {}",
-            bot_t.display(),
-            plan.session_dir.display()
-        );
-        copy_template_recursive(bot_t, &plan.session_dir)?;
-        rewrite_readme_first_line(&plan.session_dir, &plan.session_name)?;
+        if let (Some(bot_t), Some(session_dir), Some(session_name)) = (
+            bot_t.as_ref(),
+            plan.session_dir.as_ref(),
+            plan.session_name.as_ref(),
+        ) {
+            info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
+            copy_template_recursive(bot_t, session_dir)?;
+            rewrite_readme_first_line(session_dir, session_name)?;
+        }
     }
 
-    // Step 5: jj commit both with placeholder ochids
-    info!("Step 5: Committing both repos with placeholder ochids...");
-    debug!("code side: initial commit with placeholder ochid (rewritten in step 6)");
-    run(
-        "jj",
-        &["commit", "-m", "Initial commit\n\nochid: /none"],
-        &plan.project_dir,
-    )?;
-    debug!("session side: initial commit with placeholder ochid (rewritten in step 6)");
-    run(
-        "jj",
-        &["commit", "-m", "Initial commit\n\nochid: /none"],
-        &plan.session_dir,
-    )?;
+    // Step 5: jj commit
+    if is_dual {
+        info!("Step 5: Committing both repos with placeholder ochids...");
+        #[allow(clippy::unwrap_used)]
+        let session_dir = plan.session_dir.as_ref().unwrap(); // OK: is_dual ⇒ session_dir set
+        debug!("code side: initial commit with placeholder ochid (rewritten in step 6)");
+        run(
+            "jj",
+            &["commit", "-m", "Initial commit\n\nochid: /none"],
+            &plan.project_dir,
+        )?;
+        debug!("session side: initial commit with placeholder ochid (rewritten in step 6)");
+        run(
+            "jj",
+            &["commit", "-m", "Initial commit\n\nochid: /none"],
+            session_dir,
+        )?;
+    } else {
+        info!("Step 5: Committing code...");
+        debug!("code side: initial commit (no ochid in single-repo)");
+        run("jj", &["commit", "-m", "Initial commit"], &plan.project_dir)?;
+    }
 
-    // Step 6: Get both chids, then describe both with correct ochids
-    info!("Step 6: Setting ochid cross-references...");
-    let code_chid = jj_chid("@-", &plan.project_dir)?;
-    let session_chid = jj_chid("@-", &plan.session_dir)?;
+    // Step 6: ochid cross-references (dual only)
+    if is_dual {
+        info!("Step 6: Setting ochid cross-references...");
+        #[allow(clippy::unwrap_used)]
+        let session_dir = plan.session_dir.as_ref().unwrap(); // OK: is_dual ⇒ session_dir set
+        let code_chid = jj_chid("@-", &plan.project_dir)?;
+        let session_chid = jj_chid("@-", session_dir)?;
 
-    let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
-    let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
-    debug!("code side: rewrite initial commit's ochid to point at session chid");
-    run(
-        "jj",
-        &["describe", "@-", "-m", &code_desc],
-        &plan.project_dir,
-    )?;
-    debug!("session side: rewrite initial commit's ochid to point at code chid");
-    run(
-        "jj",
-        &["describe", "@-", "-m", &session_desc],
-        &plan.session_dir,
-    )?;
+        let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
+        let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
+        debug!("code side: rewrite initial commit's ochid to point at session chid");
+        run(
+            "jj",
+            &["describe", "@-", "-m", &code_desc],
+            &plan.project_dir,
+        )?;
+        debug!("session side: rewrite initial commit's ochid to point at code chid");
+        run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
 
-    {
         debug!("surface post-describe git hashes for the debug log");
         let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
         debug!("code repo: chid={code_chid} hash={hash}");
-        let hash = run("git", &["rev-parse", "HEAD"], &plan.session_dir)?;
+        let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
         debug!(".claude:   chid={session_chid} hash={hash}");
+    } else {
+        info!("Step 6: (skipped — no cross-reference in single-repo)");
+        let code_chid = jj_chid("@-", &plan.project_dir)?;
+        let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
+        debug!("code repo: chid={code_chid} hash={hash}");
     }
 
     // Step 7: Set bookmarks (creates git branches), then remove jj
@@ -993,38 +1237,44 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         &["bookmark", "set", "main", "-r", "@-"],
         &plan.project_dir,
     )?;
-    debug!("place session-side main bookmark at the initial commit");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.session_dir,
-    )?;
-    debug!("strip jj state from session side before its git push");
-    run("git", &["clean", "-xdf"], &plan.session_dir)?;
-    debug!("strip jj state from code side, preserving nested .claude/");
-    run(
-        "git",
-        &["clean", "-xdf", "--exclude", ".claude"],
-        &plan.project_dir,
-    )?;
-    debug!("re-attach session HEAD to main after clean");
-    run("git", &["checkout", "main"], &plan.session_dir)?;
+    if let Some(session_dir) = plan.session_dir.as_ref() {
+        debug!("place session-side main bookmark at the initial commit");
+        run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
+        debug!("strip jj state from session side before its git push");
+        run("git", &["clean", "-xdf"], session_dir)?;
+        debug!("strip jj state from code side, preserving nested .claude/");
+        run(
+            "git",
+            &["clean", "-xdf", "--exclude", ".claude"],
+            &plan.project_dir,
+        )?;
+        debug!("re-attach session HEAD to main after clean");
+        run("git", &["checkout", "main"], session_dir)?;
+    } else {
+        debug!("strip jj state from code side (no .claude in single-repo)");
+        run("git", &["clean", "-xdf"], &plan.project_dir)?;
+    }
     debug!("re-attach code HEAD to main after clean");
     run("git", &["checkout", "main"], &plan.project_dir)?;
 
-    // Steps 8/9: provision the remote for each side, then push.
-    // Dispatch varies per provisioner; push retry is uniform.
-    run_remote_step(
-        "Step 8",
-        "session",
-        &plan,
-        &plan.session_url,
-        plan.gh_session_slug.as_deref(),
-        plan.session_bare_path.as_deref(),
-        visibility,
-        &plan.session_dir,
-        args,
-    )?;
+    // Steps 8/9: provision remotes and push.
+    if let Some(session_dir) = plan.session_dir.as_ref() {
+        #[allow(clippy::unwrap_used)]
+        let session_url = plan.session_url.as_deref().unwrap(); // OK: is_dual ⇒ session_url set
+        run_remote_step(
+            "Step 8",
+            "session",
+            &plan,
+            session_url,
+            plan.gh_session_slug.as_deref(),
+            plan.session_bare_path.as_deref(),
+            visibility,
+            session_dir,
+            args,
+        )?;
+    } else {
+        info!("Step 8: (skipped — no session side in single-repo)");
+    }
     run_remote_step(
         "Step 9",
         "code",
@@ -1037,8 +1287,15 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         args,
     )?;
 
-    // Step 10: Re-initialize jj on both repos
-    info!("Step 10: Re-initializing jj on both repos...");
+    // Step 10: Re-initialize jj
+    info!(
+        "Step 10: Re-initializing jj on {}...",
+        if is_dual {
+            "both repos"
+        } else {
+            "the code repo"
+        }
+    );
     debug!("re-colocate jj atop the now-remote-linked code repo");
     run(
         "jj",
@@ -1060,37 +1317,39 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
     crate::common::verify_tracking(&plan.project_dir, "main")?;
     let code_chid_final = jj_chid("@-", &plan.project_dir)?;
 
-    debug!("re-colocate jj atop the now-remote-linked session repo");
-    run(
-        "jj",
-        &["--quiet", "git", "init", "--colocate"],
-        &plan.session_dir,
-    )?;
-    debug!("restore session-side main bookmark after re-init");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.session_dir,
-    )?;
-    debug!("enable jj tracking of session-side main against origin");
-    run(
-        "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        &plan.session_dir,
-    )?;
-    crate::common::verify_tracking(&plan.session_dir, "main")?;
-    let session_chid_final = jj_chid("@-", &plan.session_dir)?;
-
-    // Step 11: Create Claude Code symlink
-    info!("Step 11: Creating Claude Code symlink...");
-    let symlink_dir = {
-        let home =
-            std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
-        PathBuf::from(home).join(".claude").join("projects")
+    let session_chid_final = if let Some(session_dir) = plan.session_dir.as_ref() {
+        debug!("re-colocate jj atop the now-remote-linked session repo");
+        run("jj", &["--quiet", "git", "init", "--colocate"], session_dir)?;
+        debug!("restore session-side main bookmark after re-init");
+        run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
+        debug!("enable jj tracking of session-side main against origin");
+        run(
+            "jj",
+            &["bookmark", "track", "main", "--remote=origin"],
+            session_dir,
+        )?;
+        crate::common::verify_tracking(session_dir, "main")?;
+        Some(jj_chid("@-", session_dir)?)
+    } else {
+        None
     };
 
-    let sl = symlink::SymLink::new(&plan.project_dir, Path::new(".claude"), &symlink_dir)?;
-    sl.create(false)?;
+    // Step 11: Create Claude Code symlink (dual only)
+    let sl_opt = if is_dual {
+        info!("Step 11: Creating Claude Code symlink...");
+        let symlink_dir = {
+            let home = std::env::var("HOME")
+                .map_err(|_| "HOME environment variable not set".to_string())?;
+            PathBuf::from(home).join(".claude").join("projects")
+        };
+
+        let sl = symlink::SymLink::new(&plan.project_dir, Path::new(".claude"), &symlink_dir)?;
+        sl.create(false)?;
+        Some(sl)
+    } else {
+        info!("Step 11: (skipped — no .claude symlink in single-repo)");
+        None
+    };
 
     info!("");
     info!("Done! Project created at {}", plan.project_dir.display());
@@ -1098,15 +1357,18 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         "  Code repo:    {}  (chid={code_chid_final})",
         plan.code_url
     );
-    info!(
-        "  Session repo: {}  (chid={session_chid_final})",
-        plan.session_url
-    );
-    info!(
-        "  Symlink:      {} -> {}",
-        sl.symlink_path.display(),
-        sl.abs_target.display()
-    );
+    if let (Some(session_url), Some(session_chid)) =
+        (plan.session_url.as_ref(), session_chid_final.as_ref())
+    {
+        info!("  Session repo: {session_url}  (chid={session_chid})");
+    }
+    if let Some(sl) = sl_opt.as_ref() {
+        info!(
+            "  Symlink:      {} -> {}",
+            sl.symlink_path.display(),
+            sl.abs_target.display()
+        );
+    }
 
     debug!("init: exit");
     Ok(())
@@ -1636,6 +1898,18 @@ mod tests {
         owner: Option<&str>,
         private: bool,
     ) -> InitArgs {
+        fixture_scoped(name, repo_local, repo_remote, dir, owner, private, None)
+    }
+
+    fn fixture_scoped(
+        name: Option<&str>,
+        repo_local: Option<&str>,
+        repo_remote: Option<&str>,
+        dir: Option<&str>,
+        owner: Option<&str>,
+        private: bool,
+        scope: Option<Vec<Side>>,
+    ) -> InitArgs {
         InitArgs {
             name: name.map(str::to_string),
             owner: owner.map(str::to_string),
@@ -1647,6 +1921,7 @@ mod tests {
             use_template: None,
             repo_local: repo_local.map(str::to_string),
             repo_remote: repo_remote.map(str::to_string),
+            scope,
         }
     }
 
@@ -1656,7 +1931,10 @@ mod tests {
         let plan = plan_init(&args).unwrap();
         assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
         assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
-        assert_eq!(plan.session_dir, PathBuf::from("/tmp/xyz/tf1/.claude"));
+        assert_eq!(
+            plan.session_dir,
+            Some(PathBuf::from("/tmp/xyz/tf1/.claude"))
+        );
         assert_eq!(
             plan.code_bare_path,
             Some(PathBuf::from("/tmp/xyz/remote-code.git"))
@@ -1666,9 +1944,12 @@ mod tests {
             Some(PathBuf::from("/tmp/xyz/remote-claude.git"))
         );
         assert_eq!(plan.code_url, "/tmp/xyz/remote-code.git");
-        assert_eq!(plan.session_url, "/tmp/xyz/remote-claude.git");
+        assert_eq!(
+            plan.session_url.as_deref(),
+            Some("/tmp/xyz/remote-claude.git")
+        );
         assert_eq!(plan.name, "tf1");
-        assert_eq!(plan.session_name, "tf1.claude");
+        assert_eq!(plan.session_name.as_deref(), Some("tf1.claude"));
     }
 
     #[test]
@@ -1686,8 +1967,8 @@ mod tests {
         assert_eq!(plan.name, "tf1");
         assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
         assert_eq!(
-            plan.session_url,
-            "git@github.com:winksaville/tf1.claude.git"
+            plan.session_url.as_deref(),
+            Some("git@github.com:winksaville/tf1.claude.git")
         );
         assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
         assert_eq!(
@@ -1741,8 +2022,8 @@ mod tests {
         assert!(plan.gh_session_slug.is_none());
         assert_eq!(plan.code_url, "git@gitlab.com:winksaville/tf1.git");
         assert_eq!(
-            plan.session_url,
-            "git@gitlab.com:winksaville/tf1.claude.git"
+            plan.session_url.as_deref(),
+            Some("git@gitlab.com:winksaville/tf1.claude.git")
         );
     }
 
@@ -1859,5 +2140,163 @@ mod tests {
         let args = fixture(None, Some("/tmp/xyz"), None, None, None, false);
         let err = plan_init(&args).unwrap_err().to_string();
         assert!(err.contains("NAME"));
+    }
+
+    // ---------- 0.40.0-2: --scope=code|bot|code,bot ----------
+
+    #[test]
+    fn scope_parses_code() {
+        let args = parse(&["vc-x1", "init", "tf1", "--scope", "code"]);
+        assert_eq!(args.scope.as_deref(), Some(&[Side::Code][..]));
+    }
+
+    #[test]
+    fn scope_parses_code_bot() {
+        let args = parse(&["vc-x1", "init", "tf1", "--scope", "code,bot"]);
+        assert_eq!(args.scope.as_deref(), Some(&[Side::Code, Side::Bot][..]));
+    }
+
+    #[test]
+    fn scope_bot_only_is_fatal() {
+        let args = fixture_scoped(
+            Some("tf1"),
+            None,
+            None,
+            None,
+            Some("winksaville"),
+            false,
+            Some(vec![Side::Bot]),
+        );
+        let err = plan_init(&args).unwrap_err().to_string();
+        assert!(err.contains("--scope=bot"));
+    }
+
+    #[test]
+    fn scope_default_is_dual() {
+        // No --scope → default to code+bot; existing behavior unchanged.
+        let args = fixture(Some("tf1"), None, None, None, Some("winksaville"), false);
+        let plan = plan_init(&args).unwrap();
+        assert!(plan.scope.is_both());
+        assert!(plan.session_url.is_some());
+        assert!(plan.session_name.is_some());
+        assert!(plan.session_dir.is_some());
+    }
+
+    #[test]
+    fn scope_code_only_default_github() {
+        let args = fixture_scoped(
+            Some("tf1"),
+            None,
+            None,
+            None,
+            Some("winksaville"),
+            false,
+            Some(vec![Side::Code]),
+        );
+        let plan = plan_init(&args).unwrap();
+        assert!(plan.scope.is_code_only());
+        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+        assert!(plan.session_url.is_none());
+        assert!(plan.session_name.is_none());
+        assert!(plan.session_dir.is_none());
+        assert!(plan.gh_session_slug.is_none());
+        assert!(plan.session_bare_path.is_none());
+    }
+
+    #[test]
+    fn scope_code_only_repo_local_single_bare() {
+        let args = fixture_scoped(
+            Some("tf1"),
+            Some("/tmp/xyz"),
+            None,
+            None,
+            None,
+            false,
+            Some(vec![Side::Code]),
+        );
+        let plan = plan_init(&args).unwrap();
+        assert!(plan.scope.is_code_only());
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
+        assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
+        assert_eq!(
+            plan.code_bare_path,
+            Some(PathBuf::from("/tmp/xyz/remote.git"))
+        );
+        assert_eq!(plan.code_url, "/tmp/xyz/remote.git");
+        assert!(plan.session_bare_path.is_none());
+        assert!(plan.session_url.is_none());
+        assert!(plan.session_dir.is_none());
+        assert!(plan.session_name.is_none());
+    }
+
+    #[test]
+    fn scope_code_only_repo_remote_github() {
+        let args = fixture_scoped(
+            Some("tf1"),
+            None,
+            Some("git@github.com:winksaville/tf1"),
+            None,
+            None,
+            false,
+            Some(vec![Side::Code]),
+        );
+        let plan = plan_init(&args).unwrap();
+        assert!(plan.scope.is_code_only());
+        assert_eq!(plan.provisioner, Provisioner::GhCreate);
+        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+        assert!(plan.session_url.is_none());
+        assert!(plan.gh_session_slug.is_none());
+    }
+
+    #[test]
+    fn scope_code_only_repo_remote_non_github_skips_create() {
+        let args = fixture_scoped(
+            Some("tf1"),
+            None,
+            Some("git@gitlab.com:winksaville/tf1.git"),
+            None,
+            None,
+            false,
+            Some(vec![Side::Code]),
+        );
+        let plan = plan_init(&args).unwrap();
+        assert!(plan.scope.is_code_only());
+        assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
+        assert!(plan.session_url.is_none());
+    }
+
+    #[test]
+    fn scope_code_only_with_comma_template_errors() {
+        // `--scope=code` + `--use-template foo,bar` is ambiguous — the
+        // bot half has no home.
+        let mut args = fixture_scoped(
+            Some("tf1"),
+            Some("/tmp/xyz"),
+            None,
+            None,
+            None,
+            false,
+            Some(vec![Side::Code]),
+        );
+        args.use_template = Some("/tmp/code,/tmp/bot".to_string());
+        let err = plan_init(&args).unwrap_err().to_string();
+        assert!(err.contains("--scope=code"));
+        assert!(err.contains("single template path"));
+    }
+
+    #[test]
+    fn config_content_app_only() {
+        assert!(VC_CONFIG_APP_ONLY.contains("path = \"/\""));
+        assert!(!VC_CONFIG_APP_ONLY.contains("other-repo"));
+    }
+
+    #[test]
+    fn gitignore_app_only_omits_claude() {
+        assert!(!GITIGNORE_APP_ONLY.contains("/.claude"));
+        assert!(GITIGNORE_APP_ONLY.contains("/.git"));
+        assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
+        assert!(GITIGNORE_APP_ONLY.contains("/.vc-x1"));
     }
 }

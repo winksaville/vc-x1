@@ -810,11 +810,15 @@ Foundation for item #1 on todo ([60]). Commands should support
 single-repo, dual-repo, and plain-old-repo (POR) workspaces
 without hard-coding the `.claude` dual-repo assumption.
 
+**Scope vocabulary.** `--scope=code` (app/primary repo),
+`--scope=bot` (session repo), `--scope=code,bot` (both).
+Multi-valued with a comma delimiter; order has no meaning.
+
 **Scope default resolution** (no `--scope` given):
 
-- No `.vc-config.toml` → `--scope=app`.
-- `.vc-config.toml` with `other-repo` missing/empty → `--scope=app`.
-- `.vc-config.toml` with a non-empty `other-repo` → `--scope=both`.
+- No `.vc-config.toml` → `--scope=code`.
+- `.vc-config.toml` with `other-repo` missing/empty → `--scope=code`.
+- `.vc-config.toml` with a non-empty `other-repo` → `--scope=code,bot`.
 
 **Ambiguity rule.** Any ambiguous combination of scope-related
 flags on one invocation is a fatal error — callers pick exactly
@@ -830,11 +834,11 @@ one way to express repo selection per call.
     first would build on a still-GitHub-coupled init and
     immediately need rework; flipping the order means `-2`
     lands cleanly on a remote-agnostic flow.
-- **0.40.0-2** — `vc-x1 init --scope=app|other|both`.
-  - `app` → single-repo workspace (no `.claude` subdir; one
+- **0.40.0-2** — `vc-x1 init --scope=code|bot|code,bot`.
+  - `code` → single-repo workspace (no `.claude` subdir; one
     repo; no `ochid:` trailer on the initial commit).
-  - `both` (default) → current dual-repo behavior.
-  - `other` → fatal; meaningless at init time.
+  - `code,bot` (default) → current dual-repo behavior.
+  - `bot` → fatal; meaningless at init time.
   - Other subcommands error if `--scope` is passed.
 - Subsequent `-N` steps wire `--scope` into sync, push,
   finalize, read-only commands. Specifics decided per step.
@@ -914,6 +918,92 @@ has a `debug!(…)` immediately above it documenting intent
   retrofit on every `run()`.
 - `notes/chores-06.md`: this subsection + amended cycle
   steps (`-1` ↔ `-2` swap, ordering rationale).
+
+### 0.40.0-2: init --scope=code|bot|code,bot
+
+Introduces the `--scope` flag on `vc-x1 init` and the
+single-repo variant of every init step.
+
+**`Scope` / `Side` abstraction.** New `src/scope.rs` module
+defines `Side` (clap `ValueEnum`: `code` / `bot`) and
+`Scope(Vec<Side>)` with `has_code` / `has_bot` /
+`is_code_only` / `is_bot_only` / `is_both` / `is_empty`
+accessors. Shared across subcommands; sync/push adoption
+lands in later `-N` steps.
+
+**Flag behavior.**
+
+- `--scope=code` → single-repo: no `.claude/` subdir, no
+  symlink, no ochid cross-reference, commit message is
+  `Initial commit` (no trailer).
+- `--scope=code,bot` → current dual-repo behavior.
+- `--scope=bot` → fatal at init time (meaningless without
+  a code side).
+- Default (no flag) → `code,bot` — existing behavior
+  preserved.
+
+**Single-repo layout.**
+
+- Project at `<dir>/<NAME>/` only.
+- `--repo-local`: one bare at `<PARENT>/remote.git` (no
+  `-code` suffix — there's no `-claude` peer to
+  disambiguate).
+- `--repo-remote`: URL used verbatim; no session URL
+  derivation.
+- Default mode: `git@github.com:<owner>/<NAME>.git`; no
+  `.claude` repo created.
+
+**Config / gitignore variants.**
+
+- `VC_CONFIG_APP_ONLY` — no `other-repo` field. Downstream
+  commands use field absence to detect single-repo state
+  (wired up in later `-N` steps).
+- `GITIGNORE_APP_ONLY` — drops `/.claude` from the code-side
+  list; otherwise identical to `GITIGNORE_CODE`.
+
+**Scope-aware ambiguity.**
+
+- `--scope=code` + `--use-template A,B` → fatal; bot half
+  has no home in single-repo mode. Single-path
+  `--use-template A` is still accepted and validates only
+  the code template.
+
+**`InitPlan` refactor.** Session-side fields
+(`session_dir`, `session_name`, `session_url`,
+`session_bare_path`, `gh_session_slug`) become
+`Option<_>` and are `None` under `scope.is_code_only()`.
+All three plan builders (`plan_local_fixture`,
+`plan_external_remote`, `plan_default_github`) dispatch
+on scope to emit either single- or dual-repo plans.
+
+**Validation helper.** `validate_templates` factored into
+a shared `validate_template_one(label, path)` helper so
+single-repo mode can validate just the code side.
+
+**`init()` body.** Each step gates session-side work on
+`plan.session_dir.as_ref()` (or `is_dual`). Step 6 and
+step 11 skip entirely in single-repo mode. Final output
+omits session/symlink lines when absent.
+
+**Smoke-tested (2026-04-24)** `--scope=code` end-to-end
+via `--repo-local`: single bare at `<parent>/remote.git`,
+no `.claude/`, `.vc-config.toml` has no `other-repo`,
+`.gitignore` omits `/.claude`, initial commit has no
+`ochid:` trailer.
+
+- `Cargo.toml`: `0.40.0-1` → `0.40.0-2`.
+- `src/scope.rs`: new module.
+- `src/main.rs`: `mod scope;`.
+- `src/init.rs`: `--scope` flag, `InitPlan` session-field
+  optionality, scope dispatch in `plan_init` /
+  `plan_local_fixture` / `plan_external_remote` /
+  `plan_default_github`, single-repo code paths in
+  `init()`, `validate_template_one` split out,
+  `VC_CONFIG_APP_ONLY` + `GITIGNORE_APP_ONLY`, 9 new
+  tests (`scope_*` + config-content).
+- `notes/chores-06.md`: this subsection + amended cycle
+  steps (vocabulary change `app|other|both` →
+  `code|bot|code,bot`).
 
 # References
 

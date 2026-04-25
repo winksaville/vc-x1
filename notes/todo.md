@@ -109,6 +109,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
 - Push hardening: honest completion via post-completion verification (0.39.0-1) [67]
 - Push hardening: cycle close-out, 0.39.0-2 skipped (0.39.0) [67]
+- Scope generalization: init --repo-local + --repo-remote (0.40.0-1) [70]
+- Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
 
 # References
 
