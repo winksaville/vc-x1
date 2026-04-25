@@ -1,6 +1,6 @@
 //! Shared test helpers for dual-repo integration tests.
 //!
-//! Provides a `Fixture` built on top of `crate::test_fixture::test_fixture`
+//! Provides a `Fixture` that wraps `crate::init::init_with_symlink`
 //! plus a per-process unique-tempdir helper so parallel tests don't
 //! collide. Lifted out of the `sync` test module (originally inline at
 //! `sync.rs:521–560`) so `push`'s tests (0.37.0) and any future
@@ -15,7 +15,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::test_fixture::{TestFixtureArgs, test_fixture};
+use crate::common::write_file;
+use crate::init::{InitArgs, init_with_symlink};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
 /// distinct paths when tests run in parallel.
@@ -38,8 +39,9 @@ pub fn unique_base(tag: &str) -> PathBuf {
 
 /// Owned dual-repo fixture with RAII cleanup.
 ///
-/// Builds a fresh throwaway workspace under a unique tempdir via
-/// `test_fixture`, exposing the two repo paths (`work` and
+/// Builds a fresh throwaway workspace under a unique tempdir by
+/// driving `init::init_with_symlink` in `--repo-local` mode with
+/// `create_symlink=false`, exposing the two repo paths (`work` and
 /// `work/.claude`). The tempdir tree is removed when the value is
 /// dropped, so a panicking test still cleans up after itself.
 pub struct Fixture {
@@ -54,15 +56,48 @@ pub struct Fixture {
 impl Fixture {
     /// Build a fresh fixture in a unique tempdir.
     pub fn new(tag: &str) -> Self {
+        Self::new_opts(tag, false, None)
+    }
+
+    /// Build a fresh fixture with optional pending changes and a
+    /// template seed.
+    ///
+    /// - `with_pending` — after init, write a small file into each
+    ///   repo so `@` carries uncommitted changes (useful for
+    ///   finalize / push tests).
+    /// - `use_template` — `CODE[,BOT]` forwarded to init.
+    pub fn new_opts(tag: &str, with_pending: bool, use_template: Option<String>) -> Self {
         let base = unique_base(tag);
-        let args = TestFixtureArgs {
-            path: Some(base.clone()),
-            with_pending: false,
-            use_template: None,
+        // init refuses to reuse an existing project_dir, so `base`
+        // must not exist yet. `unique_base` already guarantees that.
+        let args = InitArgs {
+            name: Some("work".to_string()),
+            owner: None,
+            dir: None,
+            private: false,
+            dry_run: false,
+            push_retries: 5,
+            push_retry_delay: 3,
+            use_template,
+            repo_local: Some(base.to_string_lossy().into_owned()),
+            repo_remote: None,
+            scope: None, // default → code,bot
         };
-        test_fixture(&args).expect("build test fixture");
+        init_with_symlink(&args, false).expect("build test fixture via init");
+
         let work = base.join("work");
         let claude = work.join(".claude");
+
+        if with_pending {
+            write_file(&work.join("TODO.md"), "# TODO\n- first feature\n")
+                .expect("write pending TODO.md");
+            write_file(
+                &claude.join("session-notes.md"),
+                "# Session notes\n- simulated pending work\n",
+            )
+            .expect("write pending session-notes.md");
+        }
+
         Fixture { base, work, claude }
     }
 

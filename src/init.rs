@@ -899,7 +899,21 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
 }
 
+/// CLI entry point — dual-repo init creates the
+/// `~/.claude/projects/` symlink on success.
 pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
+    init_with_symlink(args, true)
+}
+
+/// Core init routine with a caller-controlled symlink toggle.
+///
+/// - `create_symlink=true` — CLI behavior.
+/// - `create_symlink=false` — suppresses step 11's side effect
+///   on `$HOME/.claude/projects/` (test harnesses only).
+pub(crate) fn init_with_symlink(
+    args: &InitArgs,
+    create_symlink: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     debug!("init: enter");
 
     let plan = plan_init(args)?;
@@ -1334,8 +1348,8 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    // Step 11: Create Claude Code symlink (dual only)
-    let sl_opt = if is_dual {
+    // Step 11: Create Claude Code symlink (dual only; opt-out for tests)
+    let sl_opt = if is_dual && create_symlink {
         info!("Step 11: Creating Claude Code symlink...");
         let symlink_dir = {
             let home = std::env::var("HOME")
@@ -1346,8 +1360,11 @@ pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
         let sl = symlink::SymLink::new(&plan.project_dir, Path::new(".claude"), &symlink_dir)?;
         sl.create(false)?;
         Some(sl)
-    } else {
+    } else if !is_dual {
         info!("Step 11: (skipped — no .claude symlink in single-repo)");
+        None
+    } else {
+        info!("Step 11: (skipped — symlink disabled by caller)");
         None
     };
 

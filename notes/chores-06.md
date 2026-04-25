@@ -1005,6 +1005,44 @@ no `.claude/`, `.vc-config.toml` has no `other-repo`,
   steps (vocabulary change `app|other|both` →
   `code|bot|code,bot`).
 
+### 0.40.0-3: integration tests migrate onto init --repo-local
+
+Retires the `test_fixture` module from the integration-test
+harness. `Fixture::new` now builds workspaces by driving the
+real `init` code path, so sync/push tests exercise the same
+layout end users get from `vc-x1 init --repo-local`.
+
+**Symlink opt-out.** Step 11 (`~/.claude/projects/…` symlink)
+has a visible side effect on the user's `$HOME`. Fixtures
+must not leak into it, so init gains a `create_symlink`
+parameter:
+
+- `init(args)` — CLI entry, `create_symlink=true`.
+- `init_with_symlink(args, create_symlink)` — core routine
+  used by CLI and tests. Single source of truth; no duplicate
+  step bodies.
+
+**Fixture API.** `Fixture::new(tag)` keeps its one-call
+signature. New `Fixture::new_opts(tag, with_pending,
+use_template)` threads the two existing options through to
+`InitArgs`. `with_pending` is now post-init (write
+`TODO.md` / `session-notes.md` to `@`) rather than a
+test_fixture-internal step.
+
+**Test_fixture CLI subcommand** (`vc-x1 test-fixture` /
+`vc-x1 test-fixture-rm`) is untouched here; retirement moves
+to `-4`. The module compiles but has no non-CLI callers.
+
+- `Cargo.toml`: `0.40.0-2` → `0.40.0-3`.
+- `src/init.rs`: `init()` becomes a thin wrapper around new
+  `init_with_symlink(args, create_symlink)`. Step 11 gates
+  on the flag in addition to `is_dual`.
+- `src/test_helpers.rs`: drops `test_fixture` dependency;
+  `Fixture::new` + new `Fixture::new_opts` call
+  `init_with_symlink`. Pending-changes path moves to the
+  caller side.
+- `notes/chores-06.md`: this subsection.
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
