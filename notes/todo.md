@@ -5,10 +5,21 @@ and reference links to more details.
 
 ## In Progress
 
+A bulleted list of the in-progress task's development "ladder":
+   - 0.xx.y-0 blah (done)
+   - 0.xx.y-1 blah blah (current)
+   - 0.xx.y-2 blah blah blah
+   - 0.xx.y close-out and validation
+ 
 1. Continuation of `--scope` rollout. [60],[71]
-   - 0.40.0 shipped the `init` foundation; 0.41.0-2 wires
-     scope into sync; push (0.41.0-3) and finalize
-     (0.41.0-4) still to go.
+   Builds on the 0.40.0 init foundation.
+   - 0.41.0-0 plan + version bump (done)
+   - 0.41.0-1 require --locked for cargo install (done)
+   - 0.41.0-2 sync --scope (done)
+   - 0.41.0-3 capture --scope-everywhere direction (current)
+   - 0.41.0-4 push --scope
+   - 0.41.0-5 finalize --scope
+   - 0.41.0 cycle close-out + dogfood validation
 
 ## Todo
 
@@ -23,6 +34,19 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. vc-x1 push: `--scope=code|bot|code,bot` flag. Applies
    the generalized convention; warn on scope/WC
    mismatch. [57],[60],[71]
+1. vc-x1 clone: `--scope=code|bot|code,bot` flag. Parallel
+   to `init --scope`; supports single-repo clone for
+   `vc-template-x1`-shape remotes. Symmetric with init's
+   surface so users don't have to relearn it. [60],[71]
+1. vc-x1 validate-desc / fix-desc: `--scope=code|bot|code,bot`
+   flag. Same vocabulary as elsewhere; `code` validates
+   code's commits against bot, `bot` reverses the
+   direction, `code,bot` does both (new default). [60],[71]
+1. CommonArgs sweep — add `--scope` to `chid`/`desc`/
+   `list`/`show` in one cycle (single shared `CommonArgs`
+   change picks all four up). Vocabulary-only — `-R` /
+   `--repo` stays as the equivalent today. Low priority;
+   bundle when the consistency benefit is felt. [60],[71]
 1. Help layout: force over-under everywhere. Apply
    `next_line_help(true)` at the root (or via the existing
    `cli_with_banner` walker) so every subcommand's `-h` /

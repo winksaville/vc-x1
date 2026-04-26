@@ -200,6 +200,12 @@ For multi-step:
    `notes/todo.md` and `notes/chores-*.md` — this is the "done"
    marker.
 
+Multi-step cycles surface the ladder at the top of
+`notes/todo.md > ## In Progress` as a bullet list with `(done)` /
+`(current)` markers — see the file's intro paragraph for the
+format. Update the markers as each step ships so the In Progress
+view stays current at a glance.
+
 **Why numeric suffixes (`-0`, `-1`, …) rather than `-devN`:**
 semver pre-release identifiers may consist of a single numeric
 component, and they compare numerically per spec. So

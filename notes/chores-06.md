@@ -1101,7 +1101,7 @@ retirement) into this commit; the broader `--scope` rollout
 Continues the foundation laid in 0.40.0 by wiring
 `--scope` into the remaining commands.
 
-**Cycle steps (initial sketch).**
+**Cycle steps (current).**
 
 - **0.41.0-0** — this plan + version bump. Notes only.
 - **0.41.0-1** — interlude (unrelated to `--scope`):
@@ -1112,15 +1112,22 @@ Continues the foundation laid in 0.40.0 by wiring
   scope drives that instead. Default-scope resolution
   reads `.vc-config.toml > [workspace] other-repo`
   (present + non-empty → `code,bot`, else `code`).
-- **0.41.0-3** — `vc-x1 push --scope=…`. Trickier: push's
-  state machine assumes dual. Likely splits into a
-  single-repo path (skip `commit-claude` + bookmark for
-  `.claude` + `finalize-claude`) plus a scope-aware
-  preflight summary.
-- **0.41.0-4** — `vc-x1 finalize --scope` review.
-  Finalize already takes `--repo`; check whether `--scope`
-  adds anything or if this step becomes a no-op /
-  documentation-only entry.
+  *Shipped.*
+- **0.41.0-3** — capture `--scope` rollout direction
+  beyond this cycle (consistency principle, finalize
+  back-compat call, validate-desc/fix-desc vocabulary,
+  CommonArgs sweep). Notes only; informs the rest of
+  the cycle and seeds post-0.41.0 follow-ups in
+  `notes/todo.md`. See subsection below.
+- **0.41.0-4** — `vc-x1 push --scope=…` (was `-3`).
+  Trickier: push's state machine assumes dual. Likely
+  splits into a single-repo path (skip `commit-claude` +
+  bookmark for `.claude` + `finalize-claude`) plus a
+  scope-aware preflight summary.
+- **0.41.0-5** — `vc-x1 finalize --scope=…` (was `-4`).
+  Per the 0.41.0-3 direction, `--scope` is the canonical
+  flag and `--repo` becomes a back-compat alias rather
+  than the no-op the original sketch hedged toward.
 - **0.41.0 (final)** — cycle close-out + dogfood
   validation on a single-repo project (e.g. apply the
   full sync→edit→push flow against a `--scope=code`
@@ -1287,6 +1294,76 @@ Edits:
   `.vc-config.toml`'s `[workspace]` section
   (`[repo-list]` / `[project]` / `[dual-repo]` candidates;
   breaking change, needs migration).
+
+### 0.41.0-3: capture --scope-everywhere direction
+
+Notes-only step. Records the directional decisions that
+came out of the 0.41.0-2 close-out conversation
+(2026-04-26) so the rest of the cycle and the post-0.41.0
+follow-ups don't relitigate them.
+
+**Consistency principle (decided).** Every subcommand that
+operates on one or both repos gets `--scope=code|bot|code,
+bot`. No vocabulary forks across commands; `--scope` is the
+project-wide convention. Existing per-command flags
+(`-R/--repo`, `--repo`) stay as back-compat aliases where
+they already exist; new commands inherit `--scope` from day
+one.
+
+**Per-command rollout map.**
+
+- `init` — done (0.40.0). `--scope=code|bot|code,bot`.
+- `sync` — done (0.41.0-2). `--scope` + `-R` (mutually
+  exclusive); `-R` retained for arbitrary multi-repo.
+- `push` — 0.41.0-4. State machine becomes scope-aware;
+  single-side path skips `commit-claude` /
+  `finalize-claude` and bookmarks one repo only.
+- `finalize` — 0.41.0-5. `--scope` is canonical; existing
+  `--repo` becomes a back-compat alias (overrides scope
+  when present, prints a soft deprecation note, slated
+  for removal in a future cycle). Does *not* downgrade to
+  the "review-only / no-op" outcome the original 0.41.0-4
+  sketch hedged toward.
+- `clone` — post-0.41.0. Parallel to `init --scope`;
+  single-repo clone for `vc-template-x1`-shape remotes.
+- `validate-desc` / `fix-desc` — post-0.41.0. Same
+  vocabulary as everywhere else, no rename to `--side`.
+  Semantic: `--scope=code` validates code's commits
+  against bot, `--scope=bot` reverses the direction,
+  `--scope=code,bot` does both (the new default).
+- `chid` / `desc` / `list` / `show` — post-0.41.0. Add
+  `--scope` via `CommonArgs` so all four inherit it
+  in one cycle. Existing `-R` / `--repo` stays alongside.
+- `symlink` — N/A. Bot-only by definition; scope doesn't
+  apply.
+
+**Deferred design questions** (caught in todo, not blocking
+the rollout):
+
+- `[workspace]` section name in `.vc-config.toml` reads as
+  a Cargo workspace to Rust users but isn't one. Rename
+  candidates: `[repo-list]` / `[project]` / `[dual-repo]`.
+  Breaking change; needs migration.
+- Help layout uniformity — clap auto-picks two-column vs
+  over-under per command based on widest flag spec.
+  `sync -h` is two-column, `init -h` is over-under. Force
+  uniform via `next_line_help(true)` at the root.
+
+Edits:
+
+- `Cargo.toml`: bump to `0.41.0-3`.
+- `CLAUDE.md`: `### Versioning` cross-references the new
+  In Progress dev-ladder convention.
+- `notes/chores-06.md`: refine the [71] cycle-step sketch
+  to insert this `-3` notes step and renumber push (was
+  `-3`) and finalize (was `-4`); add this subsection.
+- `notes/todo.md`: three new Todo entries — `clone`
+  `--scope`, `validate-desc` / `fix-desc` `--scope`,
+  `CommonArgs` (`chid`/`desc`/`list`/`show`) `--scope`.
+  In Progress reshaped — explanatory intro paragraph
+  shows the dev-ladder format, and the active entry is
+  rewritten as the bulleted ladder with
+  `(done)` / `(current)` markers.
 
 # References
 
