@@ -1106,7 +1106,7 @@ Continues the foundation laid in 0.40.0 by wiring
 - **0.41.0-0** — this plan + version bump. Notes only.
 - **0.41.0-1** — interlude (unrelated to `--scope`):
   pre-commit checklist requires `--locked` for
-  `cargo install --path .`. See subsection below.
+  `cargo install --path .`. *Shipped.*
 - **0.41.0-2** — `vc-x1 sync --scope=…`. Sync currently
   hard-codes `[".", ".claude"]` as the default repo set;
   scope drives that instead. Default-scope resolution
@@ -1118,30 +1118,37 @@ Continues the foundation laid in 0.40.0 by wiring
   back-compat call, validate-desc/fix-desc vocabulary,
   CommonArgs sweep). Notes only; informs the rest of
   the cycle and seeds post-0.41.0 follow-ups in
-  `notes/todo.md`. See subsection below.
-- **0.41.0-4** — `vc-x1 push --scope=…` (was `-3`).
-  Trickier: push's state machine assumes dual. Likely
-  splits into a single-repo path (skip `commit-claude` +
-  bookmark for `.claude` + `finalize-claude`) plus a
-  scope-aware preflight summary.
-- **0.41.0-5** — `vc-x1 finalize --scope=…` (was `-4`).
-  Per the 0.41.0-3 direction, `--scope` is the canonical
-  flag and `--repo` becomes a back-compat alias rather
-  than the no-op the original sketch hedged toward.
-- **0.41.0 (final)** — cycle close-out + dogfood
-  validation on a single-repo project (e.g. apply the
-  full sync→edit→push flow against a `--scope=code`
-  fixture).
+  `notes/todo.md`. *Shipped.*
+- **0.41.0-4** — capture `--scope` *vocabulary* refinement
+  (sum-type direction with `Single(PathBuf)`, `-s/--scope`
+  short form, `-R` removal, per-command applicability
+  matrix). The original `-4` plan (push --scope on top of
+  the existing `Vec<Side>` shape) is superseded —
+  implementing push --scope before the type model settles
+  would be churn. Notes only; defers all command
+  implementations to 0.42.0. See subsection below.
+- **0.41.0 (final)** — cycle close-out. Records what
+  shipped (init scope foundation in 0.40.0; sync --scope
+  in 0.41.0-2; rollout direction + sum-type design
+  captured in 0.41.0-3 / 0.41.0-4) and points the next
+  cycle (0.42.0) at the sum-type refactor and the per-
+  command implementations that ride on it. **No** push /
+  finalize implementation in 0.41.0 — that work moves to
+  0.42.0.
 
-**Default-scope resolution.** The rule was sketched in
-[60] using `app|other|both` vocabulary; restating in the
-shipped vocabulary:
+**Default-scope resolution (superseded by 0.41.0-4 design;
+kept for history).** The original sketch:
 
 - No `.vc-config.toml` → `--scope=code`.
 - `.vc-config.toml` with `other-repo` missing or empty
   → `--scope=code`.
 - `.vc-config.toml` with non-empty `other-repo`
   → `--scope=code,bot`.
+
+The 0.41.0-4 design replaces the first rule with
+`Single(cwd)` (POR maps honestly to single-repo mode, not
+to a degenerate `code` fallback). See the 0.41.0-4
+subsection for the full revised rules.
 
 **Scope mismatch warnings.** When the resolved scope
 disagrees with the working-copy state (e.g. `--scope=code`
@@ -1364,6 +1371,131 @@ Edits:
   shows the dev-ladder format, and the active entry is
   rewritten as the bulleted ladder with
   `(done)` / `(current)` markers.
+
+### 0.41.0-4: capture --scope sum-type vocabulary
+
+Notes-only step. Mid-implementation rethink — the
+original `-4` (push --scope on top of `Vec<Side>`)
+exposed a vocabulary gap that the user surfaced
+2026-04-26: `code` plays two distinct roles depending on
+context (a *role* in a dual workspace; an implicit
+*fallback to cwd* in POR). Conflating them muddies what
+"obvious to the user" looks like. Splitting them honestly
+is a type-model change, not a per-command implementation
+detail — so the cycle pivots: capture the refined
+vocabulary here, defer all command implementations to
+0.42.0, and close 0.41.0 cleanly.
+
+**Settled vocabulary.**
+
+- `--scope` (short form `-s`) accepts:
+  - `code` — the app side of a dual-repo workspace.
+  - `bot` — the bot side of a dual-repo workspace.
+  - `code,bot` / `bot,code` — both (commutative; same
+    semantic, same default).
+  - `<path>` — single-repo mode; ignore `.vc-config.toml`,
+    operate on the given path. Path values must be
+    prefixed (`./`, `/`, `~/`) to disambiguate from the
+    keyword set. Tilde expansion mirrors init's existing
+    behavior on `--repo-local` / `--repo-remote`.
+- No discoverable `single` keyword. `--scope=.` is the
+  cwd form; `--scope=/abs/path` or `--scope=./rel` is the
+  explicit form. Bare names that aren't keywords error
+  with a "did you mean `./foo`?" hint.
+
+**Internal type model.**
+
+```rust
+pub enum Scope {
+    Roles(Vec<Side>), // code | bot | code,bot
+    Single(PathBuf),  // explicit path, single-repo mode
+}
+```
+
+Replaces today's `Scope(pub Vec<Side>)`. The current
+`has_code` / `has_bot` / `is_code_only` etc. helpers all
+shift to operate on `Roles` only — `Single(_)` is a
+distinct mode, not a one-element role list.
+
+**Default-scope rules (revised).**
+
+| Workspace state | `.vc-config.toml` shape | Default scope |
+|---|---|---|
+| Dual workspace | `path` + non-empty `other-repo` | `Roles([Code, Bot])` |
+| Single-repo workspace | `path`, no `other-repo` | `Roles([Code])` |
+| POR | (no file) | `Single(cwd)` |
+
+The single-repo-workspace concept stays — it's a real,
+distinct state with a non-trivial default (`Roles([Code])`
+not `Single(...)`). `--scope=bot` errors there with
+"no other-repo configured."
+
+**Per-command applicability matrix.**
+
+| Command | `Roles` accepted | `Single(_)` accepted |
+|---|---|---|
+| `init` | yes | no — init creates workspaces, not POR repos |
+| `sync` | yes | yes |
+| `push` | yes | yes |
+| `finalize` | yes (currently has `--repo`; migrates to `--scope`) | yes |
+| `clone` | yes | yes (single-repo clone target) |
+| `validate-desc` | yes | **error** — validate compares two repos by definition; `Single` is meaningless |
+| `fix-desc` | yes | **error** (same reason as validate-desc) |
+| `chid` / `desc` / `list` / `show` | yes | yes |
+| `symlink` | n/a | n/a |
+
+`Single` is *always* available as the explicit
+"ignore-the-config" escape hatch on commands where it
+applies, even inside a dual workspace — the user
+explicitly bypasses the dispatcher. On commands where it
+can't apply (validate-desc / fix-desc), errors with a
+specific message rather than silently doing the wrong
+thing.
+
+**Flag-surface changes.**
+
+- Drop `-R` / `--repo` everywhere. Currently sync has it
+  (mutually exclusive with `--scope`); finalize has its
+  own `--repo` (single repo). Both fold into the new
+  `--scope=<path>` form.
+- `--scope` gets short form `-s` for ergonomics.
+- The path form covers what `-R` / `--repo` did before.
+  Multi-repo (sync's old `-R . -R .claude` style) is
+  deliberately not preserved — that capability had no
+  real users beyond manually emulating today's default.
+
+**Rationale for the cycle pivot.**
+
+- The 0.41.0-3 capture committed to "consistency
+  everywhere", which means push, finalize, and the
+  remaining commands all need to agree on the type
+  model. Implementing push on the soon-to-be-changed
+  type would be churn.
+- The sum-type refactor touches scope.rs, common.rs,
+  init, sync, plus push and finalize at the same time.
+  That's a 0.42.0-sized cycle, not a sub-step inside
+  0.41.0.
+- Closing 0.41.0 here produces a clean checkpoint: the
+  scope foundation (0.40.0 init) and one consumer
+  (0.41.0-2 sync) are shipped, the direction is captured
+  in 0.41.0-3 and 0.41.0-4. 0.42.0 opens with the type
+  refactor as its `-0` plan.
+
+Edits:
+
+- `Cargo.toml`: bump to `0.41.0-4` (notes-only step).
+- `src/push.rs`: revert the partial scope work that was
+  in flight (`--scope` flag on `PushArgs`, scope-related
+  imports). Push stays unchanged on main; its
+  scope wiring lands in 0.42.0 against the new type.
+- `notes/chores-06.md`: cycle-step sketch updated (0.41.0-3
+  marked shipped; 0.41.0-4 redefined as the sum-type
+  capture; 0.41.0-5 dropped from the cycle); this
+  subsection added; legacy default-scope rules marked
+  superseded.
+- `notes/todo.md`: dev-ladder updated (0.41.0-3 → done;
+  0.41.0-4 current; 0.41.0-5 removed; 0.41.0 close-out
+  noted).
 
 # References
 

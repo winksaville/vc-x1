@@ -16,10 +16,11 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.41.0-0 plan + version bump (done)
    - 0.41.0-1 require --locked for cargo install (done)
    - 0.41.0-2 sync --scope (done)
-   - 0.41.0-3 capture --scope-everywhere direction (current)
-   - 0.41.0-4 push --scope
-   - 0.41.0-5 finalize --scope
-   - 0.41.0 cycle close-out + dogfood validation
+   - 0.41.0-3 capture --scope-everywhere direction (done)
+   - 0.41.0-4 capture --scope sum-type vocabulary (current)
+   - 0.41.0 cycle close-out — defers push, finalize, and
+     other command implementations to 0.42.0, where they
+     ride on the sum-type refactor
 
 ## Todo
 
@@ -31,22 +32,26 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. vc-x1 push: `--scope=code|bot|code,bot` flag. Applies
-   the generalized convention; warn on scope/WC
-   mismatch. [57],[60],[71]
-1. vc-x1 clone: `--scope=code|bot|code,bot` flag. Parallel
-   to `init --scope`; supports single-repo clone for
-   `vc-template-x1`-shape remotes. Symmetric with init's
-   surface so users don't have to relearn it. [60],[71]
-1. vc-x1 validate-desc / fix-desc: `--scope=code|bot|code,bot`
-   flag. Same vocabulary as elsewhere; `code` validates
-   code's commits against bot, `bot` reverses the
-   direction, `code,bot` does both (new default). [60],[71]
-1. CommonArgs sweep — add `--scope` to `chid`/`desc`/
-   `list`/`show` in one cycle (single shared `CommonArgs`
-   change picks all four up). Vocabulary-only — `-R` /
-   `--repo` stays as the equivalent today. Low priority;
-   bundle when the consistency benefit is felt. [60],[71]
+1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
+   Lands in the 0.42.0 cycle alongside the sum-type
+   refactor; state machine becomes scope-aware (single-
+   side path skips `commit-claude`/bookmark-claude/
+   `finalize-claude`; `Single(_)` is single-repo mode).
+   [57],[60],[71]
+1. vc-x1 clone: `--scope=code|bot|code,bot|<path>` flag.
+   Parallel to `init --scope`; single-repo clone target
+   via the path form. 0.42.0 cycle. [60],[71]
+1. vc-x1 validate-desc / fix-desc:
+   `--scope=code|bot|code,bot` flag. Same role vocabulary
+   as elsewhere — `code` validates code's commits against
+   bot, `bot` reverses, `code,bot` does both (new
+   default). `Single(_)` errors here (validate compares
+   two repos by definition). 0.42.0 cycle. [60],[71]
+1. CommonArgs sweep — add `--scope=code|bot|code,bot|<path>`
+   to `chid`/`desc`/`list`/`show` in one cycle (single
+   shared `CommonArgs` change picks all four up). Drops
+   the existing `-R`/`--repo` repeatable flag in favor of
+   the new path form. 0.42.0 cycle. [60],[71]
 1. Help layout: force over-under everywhere. Apply
    `next_line_help(true)` at the root (or via the existing
    `cli_with_banner` walker) so every subcommand's `-h` /
