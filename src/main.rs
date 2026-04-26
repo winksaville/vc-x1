@@ -143,10 +143,10 @@ pub(crate) enum Commands {
 
     /// Fetch and sync a set of repos to their remotes
     #[command(long_about = "Fetch and sync a set of repos to their remotes.\n\n\
-        Repo set defaults to the dual-repo workspace pair (`.` and\n\
-        `.claude`); override with `-R` / `--repo` for single-repo\n\
-        projects or arbitrary multi-repo workspaces. Flag is repeatable\n\
-        or comma-separated (e.g. `-R . -R .claude` or `-R .,.claude`).\n\n\
+        Repo set is resolved (in order):\n  \
+          - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
+          - `--scope=code|bot|code,bot` dual-repo roles via `.vc-config.toml`\n  \
+          - neither             default: `code,bot` when dual, else `code`\n\n\
         Default is --check (verify only) — fatal if any repo needs\n\
         action. Re-run with --no-check to apply (rebase / fast-forward).\n\
         Per repo:\n  \
@@ -231,7 +231,7 @@ fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
 /// the app root, from `.claude`, or from any subdir.
 fn bm_track(phase: &str, command_name: &str) {
     let header = format!("bm-track {phase} vc-x1 {command_name}");
-    let root = match find_workspace_root() {
+    let root = match common::find_workspace_root() {
         Some(r) => r,
         None => {
             log::info!("{header}: no-workspace");
@@ -256,31 +256,6 @@ fn bm_track(phase: &str, command_name: &str) {
         }
     }
     log::info!("{header}: {}", parts.join(", "));
-}
-
-/// Walk up from cwd looking for `.vc-config.toml` with `path = "/"`.
-/// That's the workspace root — the app-repo side of the dual-repo
-/// pair. Returns `None` if no such config is found up to filesystem
-/// root (e.g., running from outside any vc-x1 workspace).
-fn find_workspace_root() -> Option<std::path::PathBuf> {
-    let mut cur = std::env::current_dir().ok()?;
-    loop {
-        let config = cur.join(".vc-config.toml");
-        if let Ok(content) = std::fs::read_to_string(&config) {
-            // Match either `path = "/"` or `path="/"` (with/without spaces).
-            let compact: String = content
-                .lines()
-                .find(|l| l.trim_start().starts_with("path"))
-                .unwrap_or("") // OK: no `path =` line ⇒ empty match, continues walking up
-                .chars()
-                .filter(|c| !c.is_whitespace())
-                .collect();
-            if compact.starts_with("path=\"/\"") {
-                return Some(cur);
-            }
-        }
-        cur = cur.parent()?.to_path_buf();
-    }
 }
 
 /// Query jj for whether `bookmark` in `repo` is tracking `remote`.

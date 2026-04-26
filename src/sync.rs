@@ -4,7 +4,8 @@ use std::process::Command;
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
-use crate::common::run;
+use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
+use crate::scope::{Scope, Side};
 
 /// Fetch and sync a set of repos to their remotes.
 ///
@@ -17,9 +18,14 @@ use crate::common::run;
 /// explicitly rather than relying on the default — defaults can shift,
 /// explicit flags lock in the contract.
 ///
-/// Repo set defaults to the dual-repo workspace pair (`.` and
-/// `.claude`); override with `-R` / `--repo` for single-repo projects
-/// (e.g. `vc-template-x1`) or arbitrary multi-repo workspaces.
+/// Repo set is resolved (in order):
+///
+/// - `-R` / `--repo` → exactly that list (back-compat / arbitrary multi-repo).
+/// - `--scope=code|bot|code,bot` → dual-repo roles, resolved via the
+///   project root's `.vc-config.toml`.
+/// - Neither → default scope: `code,bot` when `.vc-config.toml` has a
+///   non-empty `[workspace] other-repo`, else `code`. POR (no
+///   `.vc-config.toml`) → `code` resolved to cwd.
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Verify only — fetch + classify; error if any repo needs action.
@@ -43,23 +49,42 @@ pub struct SyncArgs {
     #[arg(long, default_value = "origin")]
     pub remote: String,
 
-    /// Path to jj repo; repeatable or comma-separated [default: `.,.claude`]
-    #[arg(short = 'R', long = "repo", value_name = "PATH")]
+    /// Path to jj repo; repeatable or comma-separated.
+    ///
+    /// Mutually exclusive with `--scope`. When neither is given the
+    /// repo set is derived from `--scope` defaults.
+    #[arg(
+        short = 'R',
+        long = "repo",
+        value_name = "PATH",
+        conflicts_with = "scope"
+    )]
     pub repos: Vec<PathBuf>,
+
+    /// Which repo(s) of the dual-repo to sync.
+    ///
+    /// `SCOPE=code|bot|code,bot`:
+    ///
+    /// - `code` — sync only the app repo.
+    /// - `bot` — sync only the bot repo (errors if no bot repo
+    ///   is configured).
+    /// - `code,bot` — sync both repos (the default when both are
+    ///   configured).
+    #[arg(
+        long,
+        value_name = "SCOPE",
+        value_delimiter = ',',
+        verbatim_doc_comment
+    )]
+    pub scope: Option<Vec<Side>>,
 }
 
-/// Default repo set when `-R` isn't given — the canonical dual-repo pair.
-const DEFAULT_REPOS: [&str; 2] = [".", ".claude"];
-
-/// Resolve the caller's `-R` flags into a concrete repo list.
+/// Split the caller's `-R` flags into a concrete repo list.
 ///
-/// Empty input (no `-R` given) falls back to `DEFAULT_REPOS`. Each
-/// provided value is also split on `,` and trimmed, so
-/// `-R .,.claude` works identically to `-R . -R .claude`.
-fn resolve_repos(raw: &[PathBuf]) -> Vec<PathBuf> {
-    if raw.is_empty() {
-        return DEFAULT_REPOS.iter().map(PathBuf::from).collect();
-    }
+/// Each value is split on `,` and trimmed, so `-R .,.claude` works
+/// identically to `-R . -R .claude`. Caller is responsible for not
+/// passing an empty slice — `sync()` consults `--scope` instead.
+fn split_repos(raw: &[PathBuf]) -> Vec<PathBuf> {
     raw.iter()
         .flat_map(|p| {
             p.to_string_lossy()
@@ -68,6 +93,23 @@ fn resolve_repos(raw: &[PathBuf]) -> Vec<PathBuf> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+/// Resolve `args` into the concrete repo list `sync_repos` operates on.
+///
+/// Precedence: explicit `-R` → `--scope` → workspace-default scope.
+/// See [`SyncArgs`] for the full contract.
+fn resolve_args_to_repos(args: &SyncArgs) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    if !args.repos.is_empty() {
+        return Ok(split_repos(&args.repos));
+    }
+    let workspace_root = find_workspace_root();
+    let scope = match &args.scope {
+        Some(sides) if sides.is_empty() => return Err("--scope: value is empty".into()),
+        Some(sides) => Scope(sides.clone()),
+        None => default_scope(workspace_root.as_deref()),
+    };
+    scope_to_repos(&scope, workspace_root.as_deref())
 }
 
 /// Relationship between a local bookmark and its remote counterpart.
@@ -107,7 +149,7 @@ struct RepoCtx {
 /// through `common::run`) go dark. Errors still surface at `Warn` /
 /// `Error` so script callers don't lose diagnostics.
 pub fn sync(args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let repos = resolve_repos(&args.repos);
+    let repos = resolve_args_to_repos(args)?;
     if args.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);
@@ -588,8 +630,8 @@ mod tests {
 
     /// Default flags: neither `--check` nor `--no-check` set (the
     /// implicit default is check mode), bookmark "main", remote "origin",
-    /// no `-R` given (caller will fall back to `DEFAULT_REPOS`),
-    /// `--quiet` off.
+    /// no `-R` and no `--scope` (caller will resolve via the
+    /// workspace-default scope), `--quiet` off.
     #[test]
     fn parse_defaults() {
         use clap::Parser;
@@ -605,6 +647,7 @@ mod tests {
         assert_eq!(cli.args.bookmark, "main");
         assert_eq!(cli.args.remote, "origin");
         assert!(cli.args.repos.is_empty());
+        assert!(cli.args.scope.is_none());
     }
 
     /// `-q` / `--quiet` CLI form is honored.
@@ -673,30 +716,23 @@ mod tests {
         assert!(Cli::try_parse_from(["test", "--check", "--no-check"]).is_err());
     }
 
-    /// Empty `-R` resolves to the dual-repo default pair.
-    #[test]
-    fn resolve_repos_default() {
-        let resolved = resolve_repos(&[]);
-        assert_eq!(resolved, vec![PathBuf::from("."), PathBuf::from(".claude")]);
-    }
-
     /// Single `-R` passthrough (single-repo project case).
     #[test]
-    fn resolve_repos_single() {
+    fn split_repos_single() {
         let raw = vec![PathBuf::from("/tmp/some-repo")];
-        assert_eq!(resolve_repos(&raw), vec![PathBuf::from("/tmp/some-repo")]);
+        assert_eq!(split_repos(&raw), vec![PathBuf::from("/tmp/some-repo")]);
     }
 
     /// Repeated `-R` flags combine into the final list in order.
     #[test]
-    fn resolve_repos_repeated() {
+    fn split_repos_repeated() {
         let raw = vec![
             PathBuf::from("/a"),
             PathBuf::from("/b"),
             PathBuf::from("/c"),
         ];
         assert_eq!(
-            resolve_repos(&raw),
+            split_repos(&raw),
             vec![
                 PathBuf::from("/a"),
                 PathBuf::from("/b"),
@@ -707,10 +743,10 @@ mod tests {
 
     /// Comma-separated values inside a single `-R` are split and trimmed.
     #[test]
-    fn resolve_repos_comma_separated() {
+    fn split_repos_comma_separated() {
         let raw = vec![PathBuf::from(" /a , /b ,/c")];
         assert_eq!(
-            resolve_repos(&raw),
+            split_repos(&raw),
             vec![
                 PathBuf::from("/a"),
                 PathBuf::from("/b"),
@@ -721,16 +757,57 @@ mod tests {
 
     /// Mixed repeated + comma forms compose naturally.
     #[test]
-    fn resolve_repos_mixed() {
+    fn split_repos_mixed() {
         let raw = vec![PathBuf::from("/a,/b"), PathBuf::from("/c")];
         assert_eq!(
-            resolve_repos(&raw),
+            split_repos(&raw),
             vec![
                 PathBuf::from("/a"),
                 PathBuf::from("/b"),
                 PathBuf::from("/c"),
             ]
         );
+    }
+
+    /// `--scope=code` parses into a single-element side list.
+    #[test]
+    fn parse_scope_code() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "--scope", "code"]).unwrap();
+        assert_eq!(cli.args.scope.as_deref(), Some(&[Side::Code][..]));
+    }
+
+    /// `--scope=code,bot` parses into a two-element list.
+    #[test]
+    fn parse_scope_code_bot() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        let cli = Cli::try_parse_from(["test", "--scope", "code,bot"]).unwrap();
+        assert_eq!(
+            cli.args.scope.as_deref(),
+            Some(&[Side::Code, Side::Bot][..])
+        );
+    }
+
+    /// `--scope` and `-R` are mutually exclusive (clap conflicts_with).
+    #[test]
+    fn parse_scope_repo_conflict() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            args: SyncArgs,
+        }
+        assert!(Cli::try_parse_from(["test", "--scope", "code", "-R", "/tmp/x"]).is_err());
     }
 
     /// `-R path` CLI form is accepted for a single repo.
@@ -780,6 +857,68 @@ mod integration_tests {
     use std::fs;
     use std::process::Command;
 
+    use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
+
+    /// Resolver helpers must consume what `init --repo-local` produces.
+    ///
+    /// Builds a real dual-repo fixture (bare git remotes + colocated jj
+    /// repos + the canonical `.vc-config.toml` pair init writes), then
+    /// drives the resolver chain `sync()` uses when `-R` is empty:
+    ///
+    /// - `find_workspace_root_from(&fx.claude)` walks up to `fx.work`
+    ///   (proves cwd-portability against init's `path = "/.claude"` /
+    ///   `path = "/"` config split).
+    /// - `default_scope(Some(&fx.work))` reads the workspace config
+    ///   and resolves to the dual-repo default.
+    /// - `scope_to_repos` maps each `Scope` shape to the right
+    ///   absolute path(s) under the fixture.
+    ///
+    /// Pure check on the resolver chain — does not invoke `sync()`
+    /// itself, since that walks `std::env::current_dir()` and parallel
+    /// `cargo test` makes cwd mutation unsafe.
+    #[test]
+    fn resolver_chain_against_init_repo_local() {
+        let fx = Fixture::new("resolver-chain");
+
+        // Walk-up from the bot side lands on the app root.
+        assert_eq!(
+            find_workspace_root_from(&fx.claude).as_deref(),
+            Some(&*fx.work),
+            "find_workspace_root should resolve from .claude up to work"
+        );
+        // Walk-up from the app root finds itself.
+        assert_eq!(
+            find_workspace_root_from(&fx.work).as_deref(),
+            Some(&*fx.work)
+        );
+
+        // init --repo-local writes other-repo = ".claude", so the
+        // workspace's default scope is dual.
+        assert_eq!(
+            default_scope(Some(&fx.work)),
+            Scope(vec![Side::Code, Side::Bot])
+        );
+
+        // Each scope shape resolves to the right absolute path(s).
+        assert_eq!(
+            scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
+            vec![fx.work.clone(), fx.claude.clone()]
+        );
+        assert_eq!(
+            scope_to_repos(&Scope(vec![Side::Code]), Some(&fx.work)).unwrap(),
+            vec![fx.work.clone()]
+        );
+        assert_eq!(
+            scope_to_repos(&Scope(vec![Side::Bot]), Some(&fx.work)).unwrap(),
+            vec![fx.claude.clone()]
+        );
+
+        // sync_repos accepts the resolved list and reports up-to-date
+        // — the resolver's output is shaped the way sync expects.
+        let resolved = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
+        sync_repos(&resolved, &apply_args()).expect("sync should succeed on resolved repos");
+    }
+
     /// Run `jj <args> -R <repo>` and assert success; returns trimmed stdout.
     fn jj(repo: &Path, args: &[&str]) -> String {
         let out = Command::new("jj")
@@ -818,6 +957,7 @@ mod integration_tests {
             bookmark: "main".to_string(),
             remote: "origin".to_string(),
             repos: Vec::new(),
+            scope: None,
         }
     }
 

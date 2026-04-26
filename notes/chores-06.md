@@ -1192,6 +1192,102 @@ Edits:
   asymmetry table, and links to the upstream cargo
   issues + community design discussion.
 
+### 0.41.0-2: sync --scope
+
+Wires `--scope=code|bot|code,bot` into `vc-x1 sync` and
+generalizes its repo-resolution rules.
+
+**Repo-set precedence (decided).** Sync now resolves its
+operand list in this order:
+
+1. `-R` / `--repo` — exactly that list (back-compat /
+   arbitrary multi-repo).
+2. `--scope=code|bot|code,bot` — workspace roles via the
+   workspace root's `.vc-config.toml`.
+3. Neither — workspace-default scope, per [71]: `code,bot`
+   when `[workspace] other-repo` is non-empty, else `code`.
+   POR (no `.vc-config.toml`) → `code` resolved to cwd.
+
+`-R` and `--scope` are mutually exclusive (`conflicts_with =
+"scope"` on the `repos` field). They answer different
+questions — "arbitrary repo set" vs "workspace roles" — so
+combining them is ambiguous, not additive.
+
+**Cwd-portable.** Previously `[".", ".claude"]` was a literal
+relative-path default; running `vc-x1 sync` from `.claude/`
+tried to resolve `.claude/.claude` and failed. Scope
+resolution walks up to the workspace root and emits absolute
+paths, so the same command works from anywhere inside the
+workspace.
+
+**Helpers in `common.rs`.** Three helpers, designed to be
+reused by push (0.41.0-3) and finalize (0.41.0-4):
+
+- `find_workspace_root_from(start)` / `find_workspace_root()`
+  — walks up looking for `.vc-config.toml` with `path = "/"`.
+  The cwd-anchored wrapper replaces `main.rs`'s private copy
+  (now deleted; `bm_track` calls the shared helper).
+- `default_scope(workspace_root)` — applies the [71] rule
+  for the no-flag default case.
+- `scope_to_repos(scope, workspace_root)` — maps a `Scope`
+  to concrete paths. Errors with the [65]-prescribed messages
+  when `bot` is requested but no other-repo is configured
+  (or no workspace at all).
+
+**Vocabulary alignment.** Renamed `--scope`'s clap
+`value_name` from `SIDES` (init's original choice) to `SCOPE`
+on both `init` and `sync`. Doc comments now lead with
+`SCOPE=code|bot|code,bot` so the help reads as the same
+self-describing pattern across commands. Future scope-aware
+commands inherit the convention.
+
+**Dogfood (2026-04-26).** Validated all four shapes from app
+root and from `.claude/`: default, `--scope=code,bot`,
+`--scope=code`, `--scope=bot`. Output count noun pluralizes
+correctly (`1 repo` vs `2 repos`). `-R` back-compat preserved.
+Conflict + POR error paths exercised against `/tmp` cwd.
+
+Edits:
+
+- `Cargo.toml`: bump to `0.41.0-2`.
+- `src/init.rs`: `--scope` `value_name` `SIDES` → `SCOPE`,
+  doc comment leads with `SCOPE=code|bot|code,bot`.
+- `src/common.rs`: `find_workspace_root_from`,
+  `find_workspace_root`, `default_scope`, `scope_to_repos`
+  + 11 unit tests.
+- `src/main.rs`: drop the local `find_workspace_root` copy;
+  `bm_track` switches to `common::find_workspace_root`. Sync
+  `long_about` rewritten for the new resolution rules; same
+  rewrite swaps user-facing "workspace" wording for
+  "dual-repo" / "project root" (vc-x1 dual-repos aren't Rust
+  workspaces, despite the inherited TOML section name).
+- `src/sync.rs`: `--scope` flag with
+  `conflicts_with = "scope"` on `repos`. New `split_repos` /
+  `resolve_args_to_repos` replace the old
+  `DEFAULT_REPOS = [".", ".claude"]` literal.
+  Three new clap-parse tests + four updated split tests
+  (renamed from `resolve_repos_*`); integration `apply_args`
+  picks up the new `scope: None` field. New integration
+  test `resolver_chain_against_init_repo_local` exercises
+  `find_workspace_root_from`, `default_scope`, and
+  `scope_to_repos` against a real `init --repo-local`
+  fixture, then drives `sync_repos` on the resolved list
+  to confirm shape compatibility. Help text reworded —
+  `--scope`'s description and the `SyncArgs` struct doc
+  follow the same workspace → dual-repo sweep applied to
+  `long_about`.
+- `README.md`: sync section rewritten — new examples table,
+  resolution-precedence list, `--scope` flag row.
+- `notes/chores-06.md`: this subsection.
+- `notes/todo.md`: Done entries (`0.41.0-1`, `0.41.0-2`) +
+  In Progress update; two new Todo entries — uniform help
+  layout (clap `next_line_help(true)` surfaced when
+  comparing `sync -h` two-column vs `init -h` over-under
+  during dogfood) and a rename consideration for
+  `.vc-config.toml`'s `[workspace]` section
+  (`[repo-list]` / `[project]` / `[dual-repo]` candidates;
+  breaking change, needs migration).
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374

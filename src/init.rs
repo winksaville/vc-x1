@@ -89,14 +89,16 @@ pub struct InitArgs {
     #[arg(long, value_name = "URL", verbatim_doc_comment)]
     pub repo_remote: Option<String>,
 
-    /// Which side(s) of the workspace to create.
+    /// Which repo(s) of the workspace to create.
+    ///
+    /// `SCOPE=code|bot|code,bot`:
     ///
     /// - `code` — single-repo workspace, no `.claude/` session.
     /// - `bot` — fatal at init time (meaningless without code).
     /// - `code,bot` (default) — dual-repo workspace.
     #[arg(
         long,
-        value_name = "SIDES",
+        value_name = "SCOPE",
         value_delimiter = ',',
         verbatim_doc_comment
     )]

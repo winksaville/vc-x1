@@ -6,8 +6,9 @@ and reference links to more details.
 ## In Progress
 
 1. Continuation of `--scope` rollout. [60],[71]
-   - 0.40.0 shipped the `init` foundation; 0.41.0 wires
-     scope into sync, push, and finalize.
+   - 0.40.0 shipped the `init` foundation; 0.41.0-2 wires
+     scope into sync; push (0.41.0-3) and finalize
+     (0.41.0-4) still to go.
 
 ## Todo
 
@@ -22,6 +23,26 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. vc-x1 push: `--scope=code|bot|code,bot` flag. Applies
    the generalized convention; warn on scope/WC
    mismatch. [57],[60],[71]
+1. Help layout: force over-under everywhere. Apply
+   `next_line_help(true)` at the root (or via the existing
+   `cli_with_banner` walker) so every subcommand's `-h` /
+   `--help` uses the same layout. Today clap auto-picks
+   per-command based on the widest flag spec, so
+   `sync -h` is two-column but `init -h` is over-under —
+   visual inconsistency.
+1. Consider renaming the `.vc-config.toml` `[workspace]`
+   section. Rust readers expect `[workspace]` to mean a
+   Cargo workspace, which a vc-x1 dual-repo isn't.
+   Candidates: `[repo-list]`, `[project]`, `[dual-repo]`.
+   Breaking change — needs migration story (read both
+   names during a transition cycle, or one-shot rewrite
+   in `vc-x1 sync`/`init` on first contact). Drives the
+   broader "stop saying workspace in user-facing surfaces"
+   sweep.
+1. Add `status` (alias `st`) subcommand: `jj st` across both
+   repos in one shot. Uses `--scope` from day one. This is
+   natural home for the working-copy signal called out and
+   it needs to include remotes, like remotes/origin/main. [54].
 1. `vc-x1 init --dry-run` should bypass the
    `--repo-remote` path-existence preflight (currently fires
    before the dry-run early-return; observed dogfooding
@@ -36,9 +57,6 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
    through to the preflight `vc-x1 sync` invocation).
    0.37.1 hard-codes `--check`; default stays `--check`.
-1. Add `status` (alias `st`) subcommand: `jj st` across both
-   repos in one shot. Uses `--scope` from day one. Natural
-   home for the working-copy signal called out in [54].
 1. Add `validate-repo` subcommand: diagnostic that runs all
    `verify_*` checks (tracking, push state freshness, ochid
    integrity, conflicts, config sanity, working-copy state)
@@ -109,6 +127,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
 - Scope generalization: integration tests migrate onto init --repo-local (0.40.0-3) [70]
 - Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
+- Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
+- Scope continuation: sync --scope (0.41.0-2) [71]
 
 # References
 

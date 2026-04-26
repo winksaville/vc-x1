@@ -3,6 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clap::Args;
+
+use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::scope::{Scope, Side};
+use crate::toml_simple;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::StackedConfig;
@@ -612,6 +616,88 @@ pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// Walk up from `start` to find the workspace root.
+///
+/// The workspace root is the directory whose `.vc-config.toml` has
+/// `path = "/"`. Returns `None` if no such config is found up to the
+/// filesystem root — the caller is in a "plain old repo" (POR) with
+/// no vc-x1 workspace metadata.
+pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
+    let mut cur = start.to_path_buf();
+    loop {
+        let cfg = cur.join(VC_CONFIG_FILE);
+        if let Ok(map) = toml_simple::toml_load(&cfg)
+            && toml_simple::toml_get(&map, "workspace.path").map(String::as_str) == Some("/")
+        {
+            return Some(cur);
+        }
+        cur = cur.parent()?.to_path_buf();
+    }
+}
+
+/// Cwd-anchored wrapper over [`find_workspace_root_from`].
+pub fn find_workspace_root() -> Option<PathBuf> {
+    let cur = std::env::current_dir().ok()?;
+    find_workspace_root_from(&cur)
+}
+
+/// Resolve the workspace's default `--scope`.
+///
+/// Reads `<workspace_root>/.vc-config.toml > [workspace] other-repo`:
+///
+/// - non-empty `other-repo` → `Scope([Code, Bot])`
+/// - missing / empty `other-repo` → `Scope([Code])`
+/// - `workspace_root = None` (POR) → `Scope([Code])`
+pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
+    let Some(root) = workspace_root else {
+        return Scope(vec![Side::Code]);
+    };
+    let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
+        Ok(c) => c,
+        Err(_) => return Scope(vec![Side::Code]),
+    };
+    match toml_simple::toml_get(&cfg, "workspace.other-repo") {
+        Some(v) if !v.is_empty() => Scope(vec![Side::Code, Side::Bot]),
+        _ => Scope(vec![Side::Code]),
+    }
+}
+
+/// Resolve a `Scope` to concrete repo paths.
+///
+/// - `Side::Code` → `workspace_root` (or cwd's `.` when `workspace_root` is None).
+/// - `Side::Bot` → `workspace_root.join(other-repo)`.
+///
+/// Errors when `Side::Bot` is requested but the workspace doesn't define
+/// one (POR or single-repo workspace).
+pub fn scope_to_repos(
+    scope: &Scope,
+    workspace_root: Option<&Path>,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let mut repos = Vec::new();
+    for side in &scope.0 {
+        match side {
+            Side::Code => repos.push(
+                workspace_root
+                    .map(Path::to_path_buf)
+                    .unwrap_or_else(|| PathBuf::from(".")),
+            ),
+            Side::Bot => {
+                let root = workspace_root.ok_or(
+                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with path = \"/\") — drop --scope or use --scope=code",
+                )?;
+                let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
+                let other = toml_simple::toml_get(&cfg, "workspace.other-repo")
+                    .filter(|v| !v.is_empty())
+                    .ok_or(
+                        "--scope=bot: no other-repo configured. Add `other-repo = \"…\"` to .vc-config.toml to enable dual-repo operations",
+                    )?;
+                repos.push(root.join(other));
+            }
+        }
+    }
+    Ok(repos)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -797,5 +883,179 @@ other@origin: abcd1234 5678efgh other stuff";
     #[test]
     fn indent_body_empty_string() {
         assert_eq!(indent_body("", 3), "");
+    }
+
+    /// Build a unique tempdir for the workspace-helper tests.
+    fn ws_tempdir(tag: &str) -> PathBuf {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("vc-x1-ws-{tag}-{ts}"));
+        std::fs::create_dir_all(&dir).expect("mkdir tempdir");
+        dir
+    }
+
+    /// Workspace root walk finds the dir whose `.vc-config.toml`
+    /// has `path = "/"`, even when starting from a deep subdir.
+    #[test]
+    fn find_workspace_root_walks_up() {
+        let base = ws_tempdir("walk-up");
+        let root = base.join("ws");
+        let nested = root.join("a").join("b").join("c");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .unwrap();
+        assert_eq!(find_workspace_root_from(&nested).as_deref(), Some(&*root));
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// Walking from a directory with no enclosing workspace yields None.
+    #[test]
+    fn find_workspace_root_none_outside() {
+        let base = ws_tempdir("none-outside");
+        let nested = base.join("nested");
+        std::fs::create_dir_all(&nested).unwrap();
+        assert!(find_workspace_root_from(&nested).is_none());
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// `path` set to something other than `/` keeps walking — only the
+    /// `path = "/"` config marks the workspace root.
+    #[test]
+    fn find_workspace_root_skips_non_root_path() {
+        let base = ws_tempdir("skip-non-root");
+        let root = base.join("ws");
+        let claude = root.join(".claude");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            claude.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/.claude\"\nother-repo = \"..\"\n",
+        )
+        .unwrap();
+        // From inside .claude, the root walker still resolves to the
+        // app root (path = "/"), not to .claude itself.
+        assert_eq!(find_workspace_root_from(&claude).as_deref(), Some(&*root));
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// Default scope: workspace with non-empty `other-repo` → dual.
+    #[test]
+    fn default_scope_dual_workspace() {
+        let base = ws_tempdir("default-dual");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            default_scope(Some(&root)),
+            Scope(vec![Side::Code, Side::Bot])
+        );
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// Default scope: workspace with no `other-repo` → code-only.
+    #[test]
+    fn default_scope_single_repo_workspace() {
+        let base = ws_tempdir("default-single");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
+        assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// Default scope: empty `other-repo` value treated like missing.
+    #[test]
+    fn default_scope_empty_other_repo() {
+        let base = ws_tempdir("default-empty");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \"\"\n",
+        )
+        .unwrap();
+        assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// Default scope: POR (None workspace_root) → code-only.
+    #[test]
+    fn default_scope_por() {
+        assert_eq!(default_scope(None), Scope(vec![Side::Code]));
+    }
+
+    /// `scope_to_repos`: dual workspace resolves to root + root/other-repo.
+    #[test]
+    fn scope_to_repos_dual() {
+        let base = ws_tempdir("repos-dual");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .unwrap();
+        let repos = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&root)).unwrap();
+        assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// `scope_to_repos`: code-only inside a workspace yields just root.
+    #[test]
+    fn scope_to_repos_code_only() {
+        let base = ws_tempdir("repos-code");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .unwrap();
+        let repos = scope_to_repos(&Scope(vec![Side::Code]), Some(&root)).unwrap();
+        assert_eq!(repos, vec![root.clone()]);
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// `scope_to_repos`: code-only with POR → cwd `.`.
+    #[test]
+    fn scope_to_repos_code_por() {
+        let repos = scope_to_repos(&Scope(vec![Side::Code]), None).unwrap();
+        assert_eq!(repos, vec![PathBuf::from(".")]);
+    }
+
+    /// `scope_to_repos`: bot in POR errors with the documented message.
+    #[test]
+    fn scope_to_repos_bot_por_errors() {
+        let err = scope_to_repos(&Scope(vec![Side::Bot]), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not in a vc-x1 workspace"), "got: {err}");
+    }
+
+    /// `scope_to_repos`: bot in single-repo workspace errors.
+    #[test]
+    fn scope_to_repos_bot_single_repo_errors() {
+        let base = ws_tempdir("repos-bot-single");
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
+        let err = scope_to_repos(&Scope(vec![Side::Bot]), Some(&root))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("no other-repo configured"), "got: {err}");
+        std::fs::remove_dir_all(&base).ok();
     }
 }

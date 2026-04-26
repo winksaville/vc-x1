@@ -409,10 +409,13 @@ content untouched, and any conflicted commits introduced by the failed
 rebase are abandoned on the way back.
 
 ```
-vc-x1 sync                            # dual-repo default, --check (verify)
+vc-x1 sync                            # workspace-default scope, --check
 vc-x1 sync --check                    # explicit form of the default
-vc-x1 sync --no-check                 # dual-repo, apply
-vc-x1 sync -R .                       # single-repo project
+vc-x1 sync --no-check                 # workspace-default scope, apply
+vc-x1 sync --scope=code               # only the app repo
+vc-x1 sync --scope=bot                # only the bot repo
+vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
+vc-x1 sync -R .                       # arbitrary repo set (no workspace lookup)
 vc-x1 sync -R .,.claude -R ../other   # mixed: repeat + comma-separate
 ```
 
@@ -421,9 +424,25 @@ explicitly rather than rely on the default — defaults can shift,
 explicit flags lock in the contract. Interactive use can take the
 default.
 
+**Repo set resolution.** Sync picks the repo list in this order:
+
+1. `-R` / `--repo` — exactly that list.
+2. `--scope=code|bot|code,bot` — workspace roles, resolved via the
+   workspace root's `.vc-config.toml` (`code` → root,
+   `bot` → `root.join(other-repo)`).
+3. Neither — workspace-default scope: `code,bot` if
+   `[workspace] other-repo` is non-empty, else `code`. POR (no
+   `.vc-config.toml`) → `code` resolved to cwd.
+
+`-R` and `--scope` are mutually exclusive — they answer different
+questions ("arbitrary repo set" vs "workspace roles"). Scope is
+cwd-portable: from `.claude/`, `vc-x1 sync` walks up to the
+workspace root and resolves repos by absolute path.
+
 | Flag | Description |
 |------|-------------|
-| `-R, --repo <PATH>` | Repo to sync; repeatable or comma-separated [default: `.,.claude`] |
+| `-R, --repo <PATH>` | Repo to sync; repeatable or comma-separated. Mutually exclusive with `--scope` |
+| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Mutually exclusive with `-R` |
 | `--check` | Verify only — fetch + classify, error if any repo needs action (default) |
 | `--no-check` | Apply — fetch + classify, then rebase/fast-forward as needed |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
