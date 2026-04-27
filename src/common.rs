@@ -645,14 +645,13 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 ///
 /// Reads `<workspace_root>/.vc-config.toml > [workspace] other-repo`:
 ///
-/// - non-empty `other-repo` → `Roles([Code, Bot])`
-/// - missing / empty `other-repo` → `Roles([Code])`
-/// - `workspace_root = None` (POR) → `Roles([Code])`
-///
-/// Single-repo / POR refinement to `Single(_)` lands in 0.42.0-3.
-pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
+/// - dual workspace (non-empty `other-repo`) → `Roles([Code, Bot])`
+/// - single-repo workspace (missing / empty `other-repo`) → `Roles([Code])`
+/// - POR (no workspace_root) → `Single(cwd)` — operate on cwd as a
+///   one-off jj repo, ignoring any workspace context.
+pub fn default_scope(workspace_root: Option<&Path>, cwd: &Path) -> Scope {
     let Some(root) = workspace_root else {
-        return Scope::Roles(vec![Side::Code]);
+        return Scope::Single(cwd.to_path_buf());
     };
     let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
         Ok(c) => c,
@@ -674,17 +673,18 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
 /// Errors when `Side::Bot` is requested but the workspace doesn't define
 /// one (POR or single-repo workspace).
 ///
-/// `Single(_)` arm currently errors — single-repo handling lands in
-/// 0.42.0-3 alongside the sync retrofit.
+/// `Single(p)` arm: returns `vec![p]` directly — no workspace lookup,
+/// no `other-repo` resolution. The path is whatever the caller stored
+/// (typically the value the user passed to `--scope=<path>`, or cwd
+/// from `default_scope`'s POR branch); shell-style expansion (tilde,
+/// `$VAR`) happens at the parser/consumer boundary, not here.
 pub fn scope_to_repos(
     scope: &Scope,
     workspace_root: Option<&Path>,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let sides = match scope {
         Scope::Roles(v) => v,
-        Scope::Single(_) => {
-            return Err("Scope::Single(_) handling lands in 0.42.0-3 (sync retrofit)".into());
-        }
+        Scope::Single(p) => return Ok(vec![p.clone()]),
     };
     let mut repos = Vec::new();
     for side in sides {
@@ -971,8 +971,9 @@ other@origin: abcd1234 5678efgh other stuff";
             "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
         )
         .unwrap();
+        // cwd is irrelevant for the workspace branches — pass any path.
         assert_eq!(
-            default_scope(Some(&root)),
+            default_scope(Some(&root), Path::new(".")),
             Scope::Roles(vec![Side::Code, Side::Bot])
         );
         std::fs::remove_dir_all(&base).ok();
@@ -985,7 +986,10 @@ other@origin: abcd1234 5678efgh other stuff";
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
-        assert_eq!(default_scope(Some(&root)), Scope::Roles(vec![Side::Code]));
+        assert_eq!(
+            default_scope(Some(&root), Path::new(".")),
+            Scope::Roles(vec![Side::Code])
+        );
         std::fs::remove_dir_all(&base).ok();
     }
 
@@ -1000,14 +1004,18 @@ other@origin: abcd1234 5678efgh other stuff";
             "[workspace]\npath = \"/\"\nother-repo = \"\"\n",
         )
         .unwrap();
-        assert_eq!(default_scope(Some(&root)), Scope::Roles(vec![Side::Code]));
+        assert_eq!(
+            default_scope(Some(&root), Path::new(".")),
+            Scope::Roles(vec![Side::Code])
+        );
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// Default scope: POR (None workspace_root) → code-only.
+    /// Default scope: POR (None workspace_root) → `Single(cwd)`.
     #[test]
-    fn default_scope_por() {
-        assert_eq!(default_scope(None), Scope::Roles(vec![Side::Code]));
+    fn default_scope_por_returns_single_cwd() {
+        let cwd = PathBuf::from("/some/where");
+        assert_eq!(default_scope(None, &cwd), Scope::Single(cwd));
     }
 
     /// `scope_to_repos`: dual workspace resolves to root + root/other-repo.
@@ -1073,14 +1081,19 @@ other@origin: abcd1234 5678efgh other stuff";
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// `scope_to_repos`: `Single(_)` errors until 0.42.0-3 lands its
-    /// handling. Locks the staging contract so the migration step is
-    /// noticed if it regresses.
+    /// `scope_to_repos`: `Single(p)` returns `vec![p]` directly,
+    /// regardless of workspace_root.
     #[test]
-    fn scope_to_repos_single_errors_until_0420_3() {
-        let err = scope_to_repos(&Scope::Single(PathBuf::from(".")), None)
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("0.42.0-3"), "got: {err}");
+    fn scope_to_repos_single_returns_path() {
+        let p = PathBuf::from("/explicit/single");
+        assert_eq!(
+            scope_to_repos(&Scope::Single(p.clone()), None).unwrap(),
+            vec![p.clone()]
+        );
+        // workspace_root is ignored for Single — same result.
+        assert_eq!(
+            scope_to_repos(&Scope::Single(p.clone()), Some(Path::new("/ws"))).unwrap(),
+            vec![p]
+        );
     }
 }

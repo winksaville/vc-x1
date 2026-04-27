@@ -168,6 +168,59 @@ Smoke-tested end-to-end via CLI:
 - `vc-x1 init tf1 --scope foo --dry-run` → clap-level
   parser error with hint about `./foo` disambiguation.
 
+### 0.42.0-3: sync --scope retrofit
+
+Migrates `sync` onto the new `Scope` shape and lands the
+`Single(_)` resolver wiring. `-R/--repo` retires (single-
+repo callers move to `--scope=<path>`); `-s` becomes the
+short form of `--scope`. Default-scope rules pick up the
+three-state model captured in chores-06's [1] (-4
+vocabulary): dual workspace → `Roles([Code, Bot])`,
+single-repo workspace → `Roles([Code])`, POR →
+`Single(cwd)`.
+
+- `src/common.rs`: `default_scope` signature gains a `cwd`
+  parameter; the POR branch (no workspace_root) now
+  returns `Scope::Single(cwd.to_path_buf())` instead of
+  `Roles([Code])`. `scope_to_repos`'s `Single(p)` arm
+  resolves to `vec![p.clone()]` (no workspace lookup;
+  shell-style expansion happens at the parser/consumer
+  boundary). The `0.42.0-3` staging-error test is
+  replaced with `scope_to_repos_single_returns_path` —
+  the happy-path contract — and `default_scope_por`
+  becomes `default_scope_por_returns_single_cwd`.
+- `src/sync.rs`: `--repo`/`-R` flag and the `repos:
+  Vec<PathBuf>` field deleted. `--scope` retypes from
+  `Option<Vec<Side>>` (with `value_delimiter = ','`) to
+  `Option<Scope>` (with `value_parser = parse_scope`)
+  and gains `short = 's'`. SyncArgs doc rewritten around
+  the new resolution rules. `resolve_args_to_repos`
+  drops the `args.repos` branch and now feeds `cwd` into
+  `default_scope`. `split_repos` and its 4 unit tests
+  go away with `-R`; `parse_scope_repo_conflict`,
+  `parse_single_repo_flag`, `parse_repeated_repo_flag`
+  too. `parse_scope_*` tests assert against `Some(Scope)`;
+  new `parse_scope_path_form` and `parse_scope_short_form`
+  tests pin the new entry points. `apply_args` integration
+  helper drops the `repos` field. `Side` import is gated
+  `#[cfg(test)]` (production sync no longer needs it
+  directly — only the tests construct `Side::*`).
+
+Smoke-tested end-to-end:
+
+- `vc-x1 sync --check` in this dual workspace → `2 repos,
+  all bookmarks up-to-date`.
+- `vc-x1 sync --check -s code` → `1 repo, all bookmarks
+  up-to-date`.
+- `vc-x1 sync --check -s bot` → ditto for `.claude`.
+- `vc-x1 sync --check -s ./.claude` → also `1 repo` —
+  Single-mode resolves directly to that path, bypassing
+  the workspace's other-repo lookup.
+- `cd /tmp && vc-x1 sync --check` → POR detected,
+  attempts to sync `/tmp` (errors because `/tmp` isn't a
+  jj repo — confirms `default_scope` returned
+  `Single(cwd)`).
+
 # References
 
 [1]: /notes/chores-06.md#--scope-continuation-0410
