@@ -64,3 +64,34 @@ Examples:
 [1]: bugs.md#bug-y
 [2]: issues.md#issue-z
 [3]: fixes.md#fix-z
+
+## Reference numbering
+
+Every note file (`todo.md`, `chores-NN.md`, `done.md`) keeps a
+file-local `# References` section at the bottom. Reference numbers
+are scoped to that file — `[1]` in `chores-07.md` and `[1]` in
+`chores-01.md` are independent slots that may point at completely
+different URLs. New chores files start their numbering at `[1]`.
+
+## Retiring Done entries
+
+`todo.md`'s `## Done` section is a rolling buffer of recently shipped
+work, not a permanent log. Move entries into `done.md` at two natural
+beats:
+
+- **Closing a ladder** — when the final `X.Y.Z` (no suffix) commit
+  ships, decide which prior entries are no longer needed for nearby
+  context and migrate them.
+- **Opening a new ladder** — at `X.Y.Z-0`, do the same sweep before
+  bumping the version.
+
+Migration mechanics:
+
+- Move the bullet itself from `todo.md > ## Done` to
+  `done.md` (preserving the original ref number).
+- Copy any references the moved entries cite into
+  `done.md`'s `# References` section (those refs are file-local,
+  so coexisting with `todo.md`'s namespace is fine).
+- Prune any references in `todo.md > # References` no longer cited
+  by anything in `## In Progress` / `## Todo` / `## Done`. This
+  frees the numbers for future reuse.
