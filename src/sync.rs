@@ -5,7 +5,9 @@ use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
 use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
-use crate::scope::{Scope, Side};
+#[cfg(test)]
+use crate::scope::Side;
+use crate::scope::{Scope, parse_scope};
 
 /// Fetch and sync a set of repos to their remotes.
 ///
@@ -18,14 +20,15 @@ use crate::scope::{Scope, Side};
 /// explicitly rather than relying on the default — defaults can shift,
 /// explicit flags lock in the contract.
 ///
-/// Repo set is resolved (in order):
+/// Repo set is resolved from `--scope`:
 ///
-/// - `-R` / `--repo` → exactly that list (back-compat / arbitrary multi-repo).
-/// - `--scope=code|bot|code,bot` → dual-repo roles, resolved via the
-///   project root's `.vc-config.toml`.
-/// - Neither → default scope: `code,bot` when `.vc-config.toml` has a
-///   non-empty `[workspace] other-repo`, else `code`. POR (no
-///   `.vc-config.toml`) → `code` resolved to cwd.
+/// - Explicit `--scope=code|bot|code,bot|<path>` — keyword forms
+///   resolve via the project root's `.vc-config.toml`; the path
+///   form syncs that one repo (single-repo mode).
+/// - No `--scope` — workspace-default scope:
+///   - dual workspace (`.vc-config.toml` with `other-repo`) → `code,bot`
+///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `code`
+///   - POR (no `.vc-config.toml`) → cwd as a single-repo target
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Verify only — fetch + classify; error if any repo needs action.
@@ -49,65 +52,39 @@ pub struct SyncArgs {
     #[arg(long, default_value = "origin")]
     pub remote: String,
 
-    /// Path to jj repo; repeatable or comma-separated.
+    /// Which repo(s) of the workspace to sync.
     ///
-    /// Mutually exclusive with `--scope`. When neither is given the
-    /// repo set is derived from `--scope` defaults.
-    #[arg(
-        short = 'R',
-        long = "repo",
-        value_name = "PATH",
-        conflicts_with = "scope"
-    )]
-    pub repos: Vec<PathBuf>,
-
-    /// Which repo(s) of the dual-repo to sync.
-    ///
-    /// `SCOPE=code|bot|code,bot`:
+    /// `SCOPE=code|bot|code,bot|<path>`:
     ///
     /// - `code` — sync only the app repo.
     /// - `bot` — sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `code,bot` — sync both repos (the default when both are
-    ///   configured).
+    /// - `code,bot` — sync both repos.
+    /// - `<path>` (`./X`, `/X`, `~/X`) — single-repo mode; sync
+    ///   only that repo, ignoring `.vc-config.toml`.
+    ///
+    /// Default depends on workspace state: dual workspace →
+    /// `code,bot`; single-repo workspace → `code`; POR → cwd.
     #[arg(
+        short = 's',
         long,
         value_name = "SCOPE",
-        value_delimiter = ',',
+        value_parser = parse_scope,
         verbatim_doc_comment
     )]
-    pub scope: Option<Vec<Side>>,
-}
-
-/// Split the caller's `-R` flags into a concrete repo list.
-///
-/// Each value is split on `,` and trimmed, so `-R .,.claude` works
-/// identically to `-R . -R .claude`. Caller is responsible for not
-/// passing an empty slice — `sync()` consults `--scope` instead.
-fn split_repos(raw: &[PathBuf]) -> Vec<PathBuf> {
-    raw.iter()
-        .flat_map(|p| {
-            p.to_string_lossy()
-                .split(',')
-                .map(|s| PathBuf::from(s.trim()))
-                .collect::<Vec<_>>()
-        })
-        .collect()
+    pub scope: Option<Scope>,
 }
 
 /// Resolve `args` into the concrete repo list `sync_repos` operates on.
 ///
-/// Precedence: explicit `-R` → `--scope` → workspace-default scope.
-/// See [`SyncArgs`] for the full contract.
+/// Explicit `--scope` wins; otherwise resolves via `default_scope`
+/// against the discovered workspace root and cwd.
 fn resolve_args_to_repos(args: &SyncArgs) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    if !args.repos.is_empty() {
-        return Ok(split_repos(&args.repos));
-    }
     let workspace_root = find_workspace_root();
+    let cwd = std::env::current_dir()?;
     let scope = match &args.scope {
-        Some(sides) if sides.is_empty() => return Err("--scope: value is empty".into()),
-        Some(sides) => Scope::Roles(sides.clone()),
-        None => default_scope(workspace_root.as_deref()),
+        Some(s) => s.clone(),
+        None => default_scope(workspace_root.as_deref(), &cwd),
     };
     scope_to_repos(&scope, workspace_root.as_deref())
 }
@@ -646,7 +623,6 @@ mod tests {
         assert!(!cli.args.quiet);
         assert_eq!(cli.args.bookmark, "main");
         assert_eq!(cli.args.remote, "origin");
-        assert!(cli.args.repos.is_empty());
         assert!(cli.args.scope.is_none());
     }
 
@@ -687,7 +663,7 @@ mod tests {
         assert!(!cli.args.check);
         assert_eq!(cli.args.bookmark, "dev");
         assert_eq!(cli.args.remote, "upstream");
-        assert!(cli.args.repos.is_empty());
+        assert!(cli.args.scope.is_none());
     }
 
     /// `--check` flag parses as the explicit form of the default.
@@ -716,60 +692,7 @@ mod tests {
         assert!(Cli::try_parse_from(["test", "--check", "--no-check"]).is_err());
     }
 
-    /// Single `-R` passthrough (single-repo project case).
-    #[test]
-    fn split_repos_single() {
-        let raw = vec![PathBuf::from("/tmp/some-repo")];
-        assert_eq!(split_repos(&raw), vec![PathBuf::from("/tmp/some-repo")]);
-    }
-
-    /// Repeated `-R` flags combine into the final list in order.
-    #[test]
-    fn split_repos_repeated() {
-        let raw = vec![
-            PathBuf::from("/a"),
-            PathBuf::from("/b"),
-            PathBuf::from("/c"),
-        ];
-        assert_eq!(
-            split_repos(&raw),
-            vec![
-                PathBuf::from("/a"),
-                PathBuf::from("/b"),
-                PathBuf::from("/c"),
-            ]
-        );
-    }
-
-    /// Comma-separated values inside a single `-R` are split and trimmed.
-    #[test]
-    fn split_repos_comma_separated() {
-        let raw = vec![PathBuf::from(" /a , /b ,/c")];
-        assert_eq!(
-            split_repos(&raw),
-            vec![
-                PathBuf::from("/a"),
-                PathBuf::from("/b"),
-                PathBuf::from("/c"),
-            ]
-        );
-    }
-
-    /// Mixed repeated + comma forms compose naturally.
-    #[test]
-    fn split_repos_mixed() {
-        let raw = vec![PathBuf::from("/a,/b"), PathBuf::from("/c")];
-        assert_eq!(
-            split_repos(&raw),
-            vec![
-                PathBuf::from("/a"),
-                PathBuf::from("/b"),
-                PathBuf::from("/c"),
-            ]
-        );
-    }
-
-    /// `--scope=code` parses into a single-element side list.
+    /// `--scope=code` parses into `Scope::Roles([Code])`.
     #[test]
     fn parse_scope_code() {
         use clap::Parser;
@@ -779,10 +702,10 @@ mod tests {
             args: SyncArgs,
         }
         let cli = Cli::try_parse_from(["test", "--scope", "code"]).unwrap();
-        assert_eq!(cli.args.scope.as_deref(), Some(&[Side::Code][..]));
+        assert_eq!(cli.args.scope, Some(Scope::Roles(vec![Side::Code])));
     }
 
-    /// `--scope=code,bot` parses into a two-element list.
+    /// `--scope=code,bot` parses into `Scope::Roles([Code, Bot])`.
     #[test]
     fn parse_scope_code_bot() {
         use clap::Parser;
@@ -793,50 +716,35 @@ mod tests {
         }
         let cli = Cli::try_parse_from(["test", "--scope", "code,bot"]).unwrap();
         assert_eq!(
-            cli.args.scope.as_deref(),
-            Some(&[Side::Code, Side::Bot][..])
+            cli.args.scope,
+            Some(Scope::Roles(vec![Side::Code, Side::Bot]))
         );
     }
 
-    /// `--scope` and `-R` are mutually exclusive (clap conflicts_with).
+    /// `--scope=./path` parses into `Scope::Single(_)` — single-repo mode.
     #[test]
-    fn parse_scope_repo_conflict() {
+    fn parse_scope_path_form() {
         use clap::Parser;
         #[derive(Parser)]
         struct Cli {
             #[command(flatten)]
             args: SyncArgs,
         }
-        assert!(Cli::try_parse_from(["test", "--scope", "code", "-R", "/tmp/x"]).is_err());
+        let cli = Cli::try_parse_from(["test", "--scope", "./solo"]).unwrap();
+        assert_eq!(cli.args.scope, Some(Scope::Single(PathBuf::from("./solo"))));
     }
 
-    /// `-R path` CLI form is accepted for a single repo.
+    /// `-s` is the short form of `--scope`.
     #[test]
-    fn parse_single_repo_flag() {
+    fn parse_scope_short_form() {
         use clap::Parser;
         #[derive(Parser)]
         struct Cli {
             #[command(flatten)]
             args: SyncArgs,
         }
-        let cli = Cli::try_parse_from(["test", "-R", "/tmp/x"]).unwrap();
-        assert_eq!(cli.args.repos, vec![PathBuf::from("/tmp/x")]);
-    }
-
-    /// Repeated `-R` CLI form accumulates into the `repos` vec.
-    #[test]
-    fn parse_repeated_repo_flag() {
-        use clap::Parser;
-        #[derive(Parser)]
-        struct Cli {
-            #[command(flatten)]
-            args: SyncArgs,
-        }
-        let cli = Cli::try_parse_from(["test", "-R", "/a", "-R", "/b"]).unwrap();
-        assert_eq!(
-            cli.args.repos,
-            vec![PathBuf::from("/a"), PathBuf::from("/b")]
-        );
+        let cli = Cli::try_parse_from(["test", "-s", "code"]).unwrap();
+        assert_eq!(cli.args.scope, Some(Scope::Roles(vec![Side::Code])));
     }
 }
 
@@ -893,9 +801,9 @@ mod integration_tests {
         );
 
         // init --repo-local writes other-repo = ".claude", so the
-        // workspace's default scope is dual.
+        // workspace's default scope is dual; cwd is irrelevant here.
         assert_eq!(
-            default_scope(Some(&fx.work)),
+            default_scope(Some(&fx.work), Path::new(".")),
             Scope::Roles(vec![Side::Code, Side::Bot])
         );
 
@@ -948,7 +856,7 @@ mod integration_tests {
     /// Sync args with `--no-check` set (apply mode).
     ///
     /// Integration tests pass explicit repo paths through `sync_repos`
-    /// directly, so `repos` stays empty here and the CLI-side default
+    /// directly, so `scope` stays `None` here and the CLI-side default
     /// resolution is not exercised by this helper.
     fn apply_args() -> SyncArgs {
         SyncArgs {
@@ -957,7 +865,6 @@ mod integration_tests {
             quiet: false,
             bookmark: "main".to_string(),
             remote: "origin".to_string(),
-            repos: Vec::new(),
             scope: None,
         }
     }
