@@ -123,6 +123,51 @@ is staged for the parser (-2) and the sync resolver (-3).
 Build is warning-clean; 257 tests pass (255 baseline + 2
 new in scope/common).
 
+### 0.42.0-2: --scope parser + retrofit init
+
+Lands the custom CLI value parser and migrates `init` onto
+the new `Scope` shape. Parser is the shared boundary every
+remaining `--scope` consumer (sync, push, finalize, clone)
+will route through in -3+; init is the smallest first
+consumer and exercises the keyword path end-to-end. The
+path form is accepted by the parser but rejected at init
+with a hint pointing at `--repo-local` / `--repo-remote`
+(init creates a workspace, not a single-repo project).
+
+- `src/scope.rs`: `pub fn parse_scope(s: &str) -> Result<Scope, String>`.
+  Accepts the four keyword forms (`code`, `bot`, `code,bot`,
+  `bot,code`) plus path forms prefixed by `./`, `../`, `/`,
+  `~/`, or the bare `~`. Anything else errors with a hint
+  pointing at the prefix-disambiguation rule. Order is
+  preserved on the keyword forms. Drops the now-dead
+  `is_empty` helper (parser rejects empty input upstream;
+  the only consumer that called it was init's redundant
+  validation). 13 new parser unit tests.
+- `src/init.rs`: `--scope` field flips from
+  `Option<Vec<Side>>` (clap `value_delimiter = ','`) to
+  `Option<Scope>` with `value_parser = crate::scope::parse_scope`.
+  `plan_init` matches on the parsed `Scope`: `Roles(_)`
+  takes the existing bot-only-fatal path; `Single(_)` is
+  rejected with the init-specific hint. Test scaffolding
+  (`fixture_scoped`) and 5 fixture call sites migrated.
+  `scope_parses_*` tests retitled around the new field
+  type. New `scope_path_form_rejected_at_init` test pins
+  the rejection contract.
+
+Smoke-tested end-to-end via CLI:
+
+- `vc-x1 init tf1 --scope code --dry-run` → succeeds
+  (single-repo dry-run plan).
+- `vc-x1 init tf1 --scope code,bot --dry-run` → succeeds.
+- `vc-x1 init tf1 --scope bot --dry-run` → bot-only fatal
+  (existing `plan_init` check).
+- `vc-x1 init tf1 --scope ./foo --dry-run` → path-form
+  fatal (new `plan_init` check).
+- `vc-x1 init tf1 --scope '~/work' --dry-run` → path-form
+  fatal.
+- `vc-x1 init tf1 --scope foo --dry-run` → clap-level
+  parser error with hint about `./foo` disambiguation.
+
 # References
 
 [1]: /notes/chores-06.md#--scope-continuation-0410
