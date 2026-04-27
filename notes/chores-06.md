@@ -1120,7 +1120,7 @@ Continues the foundation laid in 0.40.0 by wiring
   the cycle and seeds post-0.41.0 follow-ups in
   `notes/todo.md`. *Shipped.*
 - **0.41.0-4** — capture `--scope` *vocabulary* refinement
-  (sum-type direction with `Single(PathBuf)`, `-s/--scope`
+  (enum direction with `Single(PathBuf)`, `-s/--scope`
   short form, `-R` removal, per-command applicability
   matrix). The original `-4` plan (push --scope on top of
   the existing `Vec<Side>` shape) is superseded —
@@ -1129,9 +1129,9 @@ Continues the foundation laid in 0.40.0 by wiring
   implementations to 0.42.0. See subsection below.
 - **0.41.0 (final)** — cycle close-out. Records what
   shipped (init scope foundation in 0.40.0; sync --scope
-  in 0.41.0-2; rollout direction + sum-type design
+  in 0.41.0-2; rollout direction + enum design
   captured in 0.41.0-3 / 0.41.0-4) and points the next
-  cycle (0.42.0) at the sum-type refactor and the per-
+  cycle (0.42.0) at the enum refactor and the per-
   command implementations that ride on it. **No** push /
   finalize implementation in 0.41.0 — that work moves to
   0.42.0.
@@ -1372,7 +1372,7 @@ Edits:
   rewritten as the bulleted ladder with
   `(done)` / `(current)` markers.
 
-### 0.41.0-4: capture --scope sum-type vocabulary
+### 0.41.0-4: capture --scope enum vocabulary
 
 Notes-only step. Mid-implementation rethink — the
 original `-4` (push --scope on top of `Vec<Side>`)
@@ -1471,7 +1471,7 @@ thing.
   remaining commands all need to agree on the type
   model. Implementing push on the soon-to-be-changed
   type would be churn.
-- The sum-type refactor touches scope.rs, common.rs,
+- The enum refactor touches scope.rs, common.rs,
   init, sync, plus push and finalize at the same time.
   That's a 0.42.0-sized cycle, not a sub-step inside
   0.41.0.
@@ -1489,7 +1489,7 @@ Edits:
   imports). Push stays unchanged on main; its
   scope wiring lands in 0.42.0 against the new type.
 - `notes/chores-06.md`: cycle-step sketch updated (0.41.0-3
-  marked shipped; 0.41.0-4 redefined as the sum-type
+  marked shipped; 0.41.0-4 redefined as the enum
   capture; 0.41.0-5 dropped from the cycle); this
   subsection added; legacy default-scope rules marked
   superseded.
@@ -1503,7 +1503,7 @@ Closes the 0.41.0 cycle. The cycle's original premise —
 "wire `--scope` into all dual-repo-aware commands using
 the existing `Vec<Side>` shape" — was partially
 delivered (sync) and then redirected: 0.41.0-3 captured
-the rollout direction, 0.41.0-4 captured the sum-type
+the rollout direction, 0.41.0-4 captured the enum
 vocabulary refinement that supersedes the original
 shape. Closing here produces a clean checkpoint before
 the bigger refactor.
@@ -1522,7 +1522,7 @@ the bigger refactor.
   consistency principle, per-command rollout map,
   finalize back-compat call, `[workspace]` section
   rename consideration, help-layout uniformity todo.
-- `--scope` sum-type vocabulary captured (0.41.0-4):
+- `--scope` enum vocabulary captured (0.41.0-4):
   `enum Scope { Roles(Vec<Side>), Single(PathBuf) }`,
   `--scope=code|bot|code,bot|<path>` with prefixed-path
   disambiguation, `-s/--scope` short form, `-R` removal,
@@ -1531,7 +1531,7 @@ the bigger refactor.
 
 **What 0.41.0 deferred to 0.42.0.**
 
-- The scope sum-type refactor itself (`scope.rs` /
+- The scope enum refactor itself (`scope.rs` /
   `common.rs`).
 - Custom CLI parser for the keyword-or-path value.
 - `init` and `sync` migration onto the new type.

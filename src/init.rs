@@ -587,8 +587,8 @@ pub(crate) fn plan_init(
     );
 
     let scope = match args.scope.scope {
-        ScopeKind::CodeBot => Scope(vec![Side::Code, Side::Bot]),
-        ScopeKind::Por => Scope(vec![Side::Code]),
+        ScopeKind::CodeBot => Scope::Roles(vec![Side::Code, Side::Bot]),
+        ScopeKind::Por => Scope::Roles(vec![Side::Code]),
     };
 
     if scope.is_code_only()

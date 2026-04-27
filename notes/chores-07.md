@@ -11,11 +11,11 @@ when they correspond to a release: `## Description (X.Y.Z)`.
 Pre-implementation design captures may use a plain title; once
 implemented, the title can become a release-versioned chore.
 
-## --scope sum-type refactor (0.42.0)
+## --scope enum refactor (0.42.0)
 
 Picks up the work the 0.41.0 cycle redirected away from. The
 foundation captured in [2] (chores-06's `### 0.41.0-4: capture
---scope sum-type vocabulary`) lands here as code: the `Scope`
+--scope enum vocabulary`) lands here as code: the `Scope`
 type becomes a sum (`Roles(Vec<Side>) | Single(PathBuf)`), the
 flag surface unifies under `--scope` / `-s` with both keyword and
 path forms, and every dual-repo-aware command migrates to the
@@ -26,7 +26,7 @@ once each command's call sites are seen).**
 
 - **0.42.0-0** — this plan + version bump + new
   `notes/chores-07.md`. Notes only.
-- **0.42.0-1** — `scope.rs` sum type. Internal only — no
+- **0.42.0-1** — `scope.rs` enum. Internal only — no
   CLI changes yet, no consumers updated. Existing
   `Scope(Vec<Side>)` → `enum Scope { Roles(Vec<Side>),
   Single(PathBuf) }`. Helpers (`has_code`, `has_bot`,
@@ -87,12 +87,43 @@ once each command's call sites are seen).**
   feature; gates the CLAUDE.md refresh from CLAUDE2.
 
 **References.** [2] points back at chores-06's
-`### 0.41.0-4: capture --scope sum-type vocabulary` for
+`### 0.41.0-4: capture --scope enum vocabulary` for
 the full vocabulary, type-model, and per-command
 applicability matrix. Read that subsection first before
 diving into any of the `-N` steps below.
 
+### 0.42.0-1: scope.rs enum
+
+Internal-only refactor: tuple-struct `Scope(Vec<Side>)` →
+`enum Scope { Roles(Vec<Side>), Single(PathBuf) }`. No CLI
+surface changes, no consumer logic changes — every existing
+caller still constructs and consumes `Roles(_)`; `Single(_)`
+is staged for the parser (-2) and the sync resolver (-3).
+
+- `src/scope.rs`: enum body + `PathBuf` import; helpers
+  (`has_code` / `has_bot` / `is_*_only` / `is_both` /
+  `is_empty`) reflect the `Roles` arm via `matches!`,
+  returning `false` (resp. not-empty) on `Single(_)`. New
+  test pins the `Single(_)` helper behavior; existing
+  Roles tests retitled accordingly. `#[allow(dead_code)]`
+  on the `Single` variant for the staging window.
+- `src/common.rs`: `default_scope` returns
+  `Scope::Roles(_)`; `scope_to_repos` matches on the enum
+  and returns an explicit error for `Single(_)` carrying
+  the `0.42.0-3` staging marker. New test locks that
+  contract so the -3 wire-up is forced to update it.
+- `src/sync.rs`: `Some(sides) => Scope::Roles(sides.clone())`
+  in `resolve_args_to_repos`; integration-test
+  constructors switch to `Scope::Roles(...)`.
+- `src/init.rs`: `plan_init` constructs `Scope::Roles(...)`
+  for both the default and explicit-flag paths. Helper
+  call sites (`is_code_only`, `is_both`, `is_bot_only`)
+  unchanged — the methods continue to work on `Roles`.
+
+Build is warning-clean; 257 tests pass (255 baseline + 2
+new in scope/common).
+
 # References
 
 [1]: /notes/chores-06.md#--scope-continuation-0410
-[2]: /notes/chores-06.md#0410-4-capture---scope-sum-type-vocabulary
+[2]: /notes/chores-06.md#0410-4-capture---scope-enum-vocabulary

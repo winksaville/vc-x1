@@ -11,8 +11,8 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.42.0-0 plan + version bump + new chores-07.md (current) [76]
-- 0.42.0-1 scope.rs sum type — `Roles(Vec<Side>) | Single(PathBuf)` [76]
+- 0.42.0-0 plan + version bump + new chores-07.md (done) [76]
+- 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (current) [76]
 - 0.42.0-2 custom CLI parser + retrofit `init` --scope [76]
 - 0.42.0-3 retrofit `sync` — drop -R, add -s [76]
 - 0.42.0-4 push --scope (state-machine becomes scope-aware) [76]
@@ -69,7 +69,7 @@ renumbering. Reference by displayed number ("let's work on #3").
    `--scope` flag with manual two-pass parse) deferred to
    design time. Was `0.41.1-6.9`; may or may not happen.
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
-   Lands in the 0.42.0 cycle alongside the sum-type
+   Lands in the 0.42.0 cycle alongside the enum
    refactor; state machine becomes scope-aware (single-
    side path skips `commit-claude`/bookmark-claude/
    `finalize-claude`; `Single(_)` is single-repo mode).
@@ -201,7 +201,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
-- Scope continuation: capture --scope sum-type vocabulary (0.41.0-4) [71]
+- Scope continuation: capture --scope enum vocabulary (0.41.0-4) [71]
 - Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
 - Init+clone redesign: chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (0.41.1-0) [72]
 - Init+clone redesign: shared repo_url module + clone/init migrate (0.41.1-1) [73]
@@ -234,4 +234,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [73]: /notes/chores-08.md#cycle-structure--multi-step
 [74]: /notes/chores-08.md#user-config-0411-3
 [75]: /notes/chores-08.md#operations
-[76]: /notes/chores-07.md#--scope-sum-type-refactor-0420
+[76]: /notes/chores-07.md#--scope-enum-refactor-0420

@@ -645,36 +645,49 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 ///
 /// Reads `<workspace_root>/.vc-config.toml > [workspace] other-repo`:
 ///
-/// - non-empty `other-repo` → `Scope([Code, Bot])`
-/// - missing / empty `other-repo` → `Scope([Code])`
-/// - `workspace_root = None` (POR) → `Scope([Code])`
+/// - non-empty `other-repo` → `Roles([Code, Bot])`
+/// - missing / empty `other-repo` → `Roles([Code])`
+/// - `workspace_root = None` (POR) → `Roles([Code])`
+///
+/// Single-repo / POR refinement to `Single(_)` lands in 0.42.0-3.
 pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
     let Some(root) = workspace_root else {
-        return Scope(vec![Side::Code]);
+        return Scope::Roles(vec![Side::Code]);
     };
     let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
         Ok(c) => c,
-        Err(_) => return Scope(vec![Side::Code]),
+        Err(_) => return Scope::Roles(vec![Side::Code]),
     };
     match toml_simple::toml_get(&cfg, "workspace.other-repo") {
-        Some(v) if !v.is_empty() => Scope(vec![Side::Code, Side::Bot]),
-        _ => Scope(vec![Side::Code]),
+        Some(v) if !v.is_empty() => Scope::Roles(vec![Side::Code, Side::Bot]),
+        _ => Scope::Roles(vec![Side::Code]),
     }
 }
 
 /// Resolve a `Scope` to concrete repo paths.
+///
+/// `Roles(...)` arm:
 ///
 /// - `Side::Code` → `workspace_root` (or cwd's `.` when `workspace_root` is None).
 /// - `Side::Bot` → `workspace_root.join(other-repo)`.
 ///
 /// Errors when `Side::Bot` is requested but the workspace doesn't define
 /// one (POR or single-repo workspace).
+///
+/// `Single(_)` arm currently errors — single-repo handling lands in
+/// 0.42.0-3 alongside the sync retrofit.
 pub fn scope_to_repos(
     scope: &Scope,
     workspace_root: Option<&Path>,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let sides = match scope {
+        Scope::Roles(v) => v,
+        Scope::Single(_) => {
+            return Err("Scope::Single(_) handling lands in 0.42.0-3 (sync retrofit)".into());
+        }
+    };
     let mut repos = Vec::new();
-    for side in &scope.0 {
+    for side in sides {
         match side {
             Side::Code => repos.push(
                 workspace_root
@@ -960,7 +973,7 @@ other@origin: abcd1234 5678efgh other stuff";
         .unwrap();
         assert_eq!(
             default_scope(Some(&root)),
-            Scope(vec![Side::Code, Side::Bot])
+            Scope::Roles(vec![Side::Code, Side::Bot])
         );
         std::fs::remove_dir_all(&base).ok();
     }
@@ -972,7 +985,7 @@ other@origin: abcd1234 5678efgh other stuff";
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
-        assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
+        assert_eq!(default_scope(Some(&root)), Scope::Roles(vec![Side::Code]));
         std::fs::remove_dir_all(&base).ok();
     }
 
@@ -987,14 +1000,14 @@ other@origin: abcd1234 5678efgh other stuff";
             "[workspace]\npath = \"/\"\nother-repo = \"\"\n",
         )
         .unwrap();
-        assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
+        assert_eq!(default_scope(Some(&root)), Scope::Roles(vec![Side::Code]));
         std::fs::remove_dir_all(&base).ok();
     }
 
     /// Default scope: POR (None workspace_root) → code-only.
     #[test]
     fn default_scope_por() {
-        assert_eq!(default_scope(None), Scope(vec![Side::Code]));
+        assert_eq!(default_scope(None), Scope::Roles(vec![Side::Code]));
     }
 
     /// `scope_to_repos`: dual workspace resolves to root + root/other-repo.
@@ -1008,7 +1021,8 @@ other@origin: abcd1234 5678efgh other stuff";
             "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
         )
         .unwrap();
-        let repos = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&root)).unwrap();
+        let repos =
+            scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&root)).unwrap();
         assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
         std::fs::remove_dir_all(&base).ok();
     }
@@ -1024,7 +1038,7 @@ other@origin: abcd1234 5678efgh other stuff";
             "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
         )
         .unwrap();
-        let repos = scope_to_repos(&Scope(vec![Side::Code]), Some(&root)).unwrap();
+        let repos = scope_to_repos(&Scope::Roles(vec![Side::Code]), Some(&root)).unwrap();
         assert_eq!(repos, vec![root.clone()]);
         std::fs::remove_dir_all(&base).ok();
     }
@@ -1032,14 +1046,14 @@ other@origin: abcd1234 5678efgh other stuff";
     /// `scope_to_repos`: code-only with POR → cwd `.`.
     #[test]
     fn scope_to_repos_code_por() {
-        let repos = scope_to_repos(&Scope(vec![Side::Code]), None).unwrap();
+        let repos = scope_to_repos(&Scope::Roles(vec![Side::Code]), None).unwrap();
         assert_eq!(repos, vec![PathBuf::from(".")]);
     }
 
     /// `scope_to_repos`: bot in POR errors with the documented message.
     #[test]
     fn scope_to_repos_bot_por_errors() {
-        let err = scope_to_repos(&Scope(vec![Side::Bot]), None)
+        let err = scope_to_repos(&Scope::Roles(vec![Side::Bot]), None)
             .unwrap_err()
             .to_string();
         assert!(err.contains("not in a vc-x1 workspace"), "got: {err}");
@@ -1052,10 +1066,21 @@ other@origin: abcd1234 5678efgh other stuff";
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
-        let err = scope_to_repos(&Scope(vec![Side::Bot]), Some(&root))
+        let err = scope_to_repos(&Scope::Roles(vec![Side::Bot]), Some(&root))
             .unwrap_err()
             .to_string();
         assert!(err.contains("no other-repo configured"), "got: {err}");
         std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// `scope_to_repos`: `Single(_)` errors until 0.42.0-3 lands its
+    /// handling. Locks the staging contract so the migration step is
+    /// noticed if it regresses.
+    #[test]
+    fn scope_to_repos_single_errors_until_0420_3() {
+        let err = scope_to_repos(&Scope::Single(PathBuf::from(".")), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("0.42.0-3"), "got: {err}");
     }
 }
