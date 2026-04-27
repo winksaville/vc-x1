@@ -10,17 +10,9 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-1 blah blah (current)
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
- 
-1. Continuation of `--scope` rollout. [60],[71]
-   Builds on the 0.40.0 init foundation.
-   - 0.41.0-0 plan + version bump (done)
-   - 0.41.0-1 require --locked for cargo install (done)
-   - 0.41.0-2 sync --scope (done)
-   - 0.41.0-3 capture --scope-everywhere direction (done)
-   - 0.41.0-4 capture --scope sum-type vocabulary (current)
-   - 0.41.0 cycle close-out — defers push, finalize, and
-     other command implementations to 0.42.0, where they
-     ride on the sum-type refactor
+
+(no active cycle — 0.41.0 closed; next cycle is the
+0.42.0 sum-type refactor, kicked off when ready)
 
 ## Todo
 
@@ -158,6 +150,9 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
+- Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
+- Scope continuation: capture --scope sum-type vocabulary (0.41.0-4) [71]
+- Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
 
 # References
 

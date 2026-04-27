@@ -1497,6 +1497,71 @@ Edits:
   0.41.0-4 current; 0.41.0-5 removed; 0.41.0 close-out
   noted).
 
+### 0.41.0: cycle close-out
+
+Closes the 0.41.0 cycle. The cycle's original premise —
+"wire `--scope` into all dual-repo-aware commands using
+the existing `Vec<Side>` shape" — was partially
+delivered (sync) and then redirected: 0.41.0-3 captured
+the rollout direction, 0.41.0-4 captured the sum-type
+vocabulary refinement that supersedes the original
+shape. Closing here produces a clean checkpoint before
+the bigger refactor.
+
+**What 0.41.0 shipped.**
+
+- `vc-x1 sync --scope=code|bot|code,bot` (0.41.0-2),
+  with the supporting helpers `find_workspace_root[_from]`,
+  `default_scope`, `scope_to_repos` in `common.rs` plus
+  11 unit tests + 1 integration test against an
+  `init --repo-local` fixture.
+- Pre-commit checklist hardening — `cargo install` must
+  pass `--locked` (0.41.0-1), with full background in
+  `notes/cargo-locked-issue.md`.
+- `--scope`-everywhere direction captured (0.41.0-3):
+  consistency principle, per-command rollout map,
+  finalize back-compat call, `[workspace]` section
+  rename consideration, help-layout uniformity todo.
+- `--scope` sum-type vocabulary captured (0.41.0-4):
+  `enum Scope { Roles(Vec<Side>), Single(PathBuf) }`,
+  `--scope=code|bot|code,bot|<path>` with prefixed-path
+  disambiguation, `-s/--scope` short form, `-R` removal,
+  per-command applicability matrix, revised default-
+  scope rules.
+
+**What 0.41.0 deferred to 0.42.0.**
+
+- The scope sum-type refactor itself (`scope.rs` /
+  `common.rs`).
+- Custom CLI parser for the keyword-or-path value.
+- `init` and `sync` migration onto the new type.
+- `push --scope`.
+- `finalize --scope` (and `--repo` retirement).
+- Any `clone` / `validate-desc` / `fix-desc` /
+  CommonArgs scope wiring — those remain Todo entries
+  pointing at the 0.42.0 cycle.
+
+**Dogfood validation.** Each `0.41.0-N` step shipped
+through `vc-x1 push main` against the dual-repo
+workspace. The cycle did not cover the
+`vc-template-x1`-shape single-repo dogfood the original
+plan called out — that validation moves to 0.42.0
+where the `Single(_)` mode actually exists.
+
+Edits:
+
+- `Cargo.toml`: bump to `0.41.0` (drops the `-N` suffix).
+- `CLAUDE2.md`: deleted. Was parked as a reference draft
+  imported from `vc-template-x1` for review; got
+  inadvertently snapshotted into `0.41.0-4`. The actual
+  CLAUDE.md swap waits until after the
+  `vc-x1 push --message-file` work, per direction
+  captured during 0.41.0-2 close-out.
+- `notes/chores-06.md`: this subsection.
+- `notes/todo.md`: In Progress cleared (no active cycle);
+  Done entries added for `0.41.0-3`, `0.41.0-4`, and
+  `0.41.0` close-out.
+
 # References
 
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
