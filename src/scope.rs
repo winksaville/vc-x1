@@ -16,6 +16,7 @@
 //!   for the vocabulary capture.
 
 use clap::ValueEnum;
+use std::fmt;
 use std::path::PathBuf;
 
 /// One side of a dual-repo workspace.
@@ -102,6 +103,32 @@ impl Scope {
     /// Roles arm including both sides — full dual-repo op.
     pub fn is_both(&self) -> bool {
         self.has_code() && self.has_bot()
+    }
+}
+
+/// Render a `Scope` as the canonical string form `parse_scope` accepts.
+///
+/// - `Roles(_)` → `code` / `bot` / `code,bot` / `bot,code` (preserves
+///   original side ordering).
+/// - `Single(p)` → the path's lossy display form. The stored path
+///   already carries a parser-recognized prefix (the parser is the
+///   only constructor of `Single`), so the round-trip through
+///   `parse_scope` is well-defined.
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scope::Roles(sides) => {
+                let parts: Vec<&'static str> = sides
+                    .iter()
+                    .map(|s| match s {
+                        Side::Code => "code",
+                        Side::Bot => "bot",
+                    })
+                    .collect();
+                f.write_str(&parts.join(","))
+            }
+            Scope::Single(p) => write!(f, "{}", p.display()),
+        }
     }
 }
 

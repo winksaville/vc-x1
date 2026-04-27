@@ -14,8 +14,8 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.42.0-0 plan + version bump + new chores-07.md (done) [72]
 - 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (done) [72]
 - 0.42.0-2 custom CLI parser + retrofit `init` --scope (done) [72]
-- 0.42.0-3 retrofit `sync` — drop -R, add -s (current) [72]
-- 0.42.0-4 push --scope (state-machine becomes scope-aware) [72]
+- 0.42.0-3 retrofit `sync` — drop -R, add -s (done) [72]
+- 0.42.0-4 push --scope (state-machine becomes scope-aware) (current) [72]
 - 0.42.0-5 finalize --scope (replaces --repo) [72]
 - 0.42.0-6 clone --scope [72]
 - 0.42.0-7 Single(_) dogfood validation [72]
@@ -31,6 +31,7 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
+1. Add a vc-x1 validate-repo?
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Lands in the 0.42.0 cycle alongside the enum
    refactor; state machine becomes scope-aware (single-
