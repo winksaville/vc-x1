@@ -106,7 +106,7 @@ fn resolve_args_to_repos(args: &SyncArgs) -> Result<Vec<PathBuf>, Box<dyn std::e
     let workspace_root = find_workspace_root();
     let scope = match &args.scope {
         Some(sides) if sides.is_empty() => return Err("--scope: value is empty".into()),
-        Some(sides) => Scope(sides.clone()),
+        Some(sides) => Scope::Roles(sides.clone()),
         None => default_scope(workspace_root.as_deref()),
     };
     scope_to_repos(&scope, workspace_root.as_deref())
@@ -896,26 +896,27 @@ mod integration_tests {
         // workspace's default scope is dual.
         assert_eq!(
             default_scope(Some(&fx.work)),
-            Scope(vec![Side::Code, Side::Bot])
+            Scope::Roles(vec![Side::Code, Side::Bot])
         );
 
         // Each scope shape resolves to the right absolute path(s).
         assert_eq!(
-            scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
+            scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
             vec![fx.work.clone(), fx.claude.clone()]
         );
         assert_eq!(
-            scope_to_repos(&Scope(vec![Side::Code]), Some(&fx.work)).unwrap(),
+            scope_to_repos(&Scope::Roles(vec![Side::Code]), Some(&fx.work)).unwrap(),
             vec![fx.work.clone()]
         );
         assert_eq!(
-            scope_to_repos(&Scope(vec![Side::Bot]), Some(&fx.work)).unwrap(),
+            scope_to_repos(&Scope::Roles(vec![Side::Bot]), Some(&fx.work)).unwrap(),
             vec![fx.claude.clone()]
         );
 
         // sync_repos accepts the resolved list and reports up-to-date
         // — the resolver's output is shaped the way sync expects.
-        let resolved = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
+        let resolved =
+            scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
         sync_repos(&resolved, &apply_args()).expect("sync should succeed on resolved repos");
     }
 

@@ -11,8 +11,8 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.42.0-0 plan + version bump + new chores-07.md (current) [72]
-- 0.42.0-1 scope.rs sum type — `Roles(Vec<Side>) | Single(PathBuf)` [72]
+- 0.42.0-0 plan + version bump + new chores-07.md (done) [72]
+- 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (current) [72]
 - 0.42.0-2 custom CLI parser + retrofit `init` --scope [72]
 - 0.42.0-3 retrofit `sync` — drop -R, add -s [72]
 - 0.42.0-4 push --scope (state-machine becomes scope-aware) [72]
@@ -32,7 +32,7 @@ Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
-   Lands in the 0.42.0 cycle alongside the sum-type
+   Lands in the 0.42.0 cycle alongside the enum
    refactor; state machine becomes scope-aware (single-
    side path skips `commit-claude`/bookmark-claude/
    `finalize-claude`; `Single(_)` is single-repo mode).
@@ -129,7 +129,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
-- Scope continuation: capture --scope sum-type vocabulary (0.41.0-4) [71]
+- Scope continuation: capture --scope enum vocabulary (0.41.0-4) [71]
 - Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
 
 # References
@@ -150,4 +150,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [68]: /notes/chores-06.md#source-code-design-ref-convention-design
 [69]: /notes/chores-06.md#vc-x1-validate-repo-command-design
 [71]: /notes/chores-06.md#--scope-continuation-0410
-[72]: /notes/chores-07.md#--scope-sum-type-refactor-0420
+[72]: /notes/chores-07.md#--scope-enum-refactor-0420

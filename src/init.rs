@@ -600,9 +600,9 @@ pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error:
     // --- Resolve scope first: default (None) → dual; empty Vec is
     // invalid; `bot` alone is meaningless at init time. ---
     let scope = match &args.scope {
-        None => Scope(vec![Side::Code, Side::Bot]),
+        None => Scope::Roles(vec![Side::Code, Side::Bot]),
         Some(sides) => {
-            let s = Scope(sides.clone());
+            let s = Scope::Roles(sides.clone());
             if s.is_empty() {
                 return Err("--scope: value is empty".into());
             }
