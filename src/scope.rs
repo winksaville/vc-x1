@@ -9,9 +9,8 @@
 //!     given path. Wired up incrementally (parser lands in
 //!     0.42.0-2, consumers in later steps).
 //! - Helpers (`has_code`, `is_both`, etc.) reflect the `Roles`
-//!   arm only; on `Single(_)` they all return `false` /
-//!   `is_empty()` returns `false`. Callers that must
-//!   distinguish modes match on the enum directly.
+//!   arm only; on `Single(_)` they all return `false`. Callers
+//!   that must distinguish modes match on the enum directly.
 //! - See `notes/chores-07.md > --scope enum refactor (0.42.0)`
 //!   for the migration plan, and `notes/chores-06.md > 0.41.0-4`
 //!   for the vocabulary capture.
@@ -36,10 +35,47 @@ pub enum Side {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Scope {
     Roles(Vec<Side>),
-    // Staged: production code starts constructing this in 0.42.0-2
-    // (parser) / -3 (sync resolver); only tests reach it in -1.
-    #[allow(dead_code)]
     Single(PathBuf),
+}
+
+/// Parse a `--scope` value string.
+///
+/// Accepted forms:
+///
+/// - Keyword: exactly one of `code`, `bot`, `code,bot`, `bot,code`
+///   → `Scope::Roles(...)`. Order is preserved.
+/// - Path: starts with `./`, `../`, `/`, `~/`, or is the bare `~`
+///   → `Scope::Single(PathBuf)`. The raw string is stored; tilde
+///   and `$VAR` expansion happens at the consumer (see
+///   `init::expand_vars`).
+///
+/// Anything else — including a bare unprefixed name like `foo`, an
+/// empty string, or an unrecognized keyword combination — is an
+/// error. The error message hints at the path-prefix requirement
+/// so users see the disambiguation rule when they mistype.
+pub fn parse_scope(s: &str) -> Result<Scope, String> {
+    if s == "~"
+        || s.starts_with("./")
+        || s.starts_with("../")
+        || s.starts_with('/')
+        || s.starts_with("~/")
+    {
+        return Ok(Scope::Single(PathBuf::from(s)));
+    }
+    match s {
+        "code" => Ok(Scope::Roles(vec![Side::Code])),
+        "bot" => Ok(Scope::Roles(vec![Side::Bot])),
+        "code,bot" => Ok(Scope::Roles(vec![Side::Code, Side::Bot])),
+        "bot,code" => Ok(Scope::Roles(vec![Side::Bot, Side::Code])),
+        "" => Err("--scope: value is empty".into()),
+        other => Err(format!(
+            "--scope: '{other}' is not a recognized form. \
+             Expected one of `code`, `bot`, `code,bot`, `bot,code`, \
+             or a path (`./X`, `../X`, `/X`, `~/X`). \
+             Bare names without `./` are reserved for keywords; \
+             prefix paths with `./` to disambiguate."
+        )),
+    }
 }
 
 impl Scope {
@@ -66,12 +102,6 @@ impl Scope {
     /// Roles arm including both sides — full dual-repo op.
     pub fn is_both(&self) -> bool {
         self.has_code() && self.has_bot()
-    }
-
-    /// Roles arm with an empty side list — always invalid input.
-    /// `Single(_)` returns `false` (it carries a path, not a side list).
-    pub fn is_empty(&self) -> bool {
-        matches!(self, Scope::Roles(v) if v.is_empty())
     }
 }
 
@@ -112,8 +142,10 @@ mod tests {
 
     #[test]
     fn empty_roles() {
+        // Empty side list isn't a state anything constructs (the
+        // parser rejects empty input), but the helpers still need
+        // to be well-defined on it.
         let s = Scope::Roles(vec![]);
-        assert!(s.is_empty());
         assert!(!s.is_code_only());
         assert!(!s.is_bot_only());
         assert!(!s.is_both());
@@ -122,14 +154,101 @@ mod tests {
     #[test]
     fn single_helpers_all_false() {
         // `Single(_)` is a distinct mode; the Roles-shaped helpers
-        // all report false / not-empty so callers that match on
-        // helpers naturally fall through to mode-aware logic.
+        // all report false so callers that match on helpers
+        // naturally fall through to mode-aware logic.
         let s = Scope::Single(PathBuf::from("/some/repo"));
         assert!(!s.has_code());
         assert!(!s.has_bot());
         assert!(!s.is_code_only());
         assert!(!s.is_bot_only());
         assert!(!s.is_both());
-        assert!(!s.is_empty());
+    }
+
+    // ---------- parse_scope ----------
+
+    #[test]
+    fn parse_keyword_code() {
+        assert_eq!(parse_scope("code").unwrap(), Scope::Roles(vec![Side::Code]));
+    }
+
+    #[test]
+    fn parse_keyword_bot() {
+        assert_eq!(parse_scope("bot").unwrap(), Scope::Roles(vec![Side::Bot]));
+    }
+
+    #[test]
+    fn parse_keyword_code_bot_preserves_order() {
+        assert_eq!(
+            parse_scope("code,bot").unwrap(),
+            Scope::Roles(vec![Side::Code, Side::Bot])
+        );
+    }
+
+    #[test]
+    fn parse_keyword_bot_code_preserves_order() {
+        assert_eq!(
+            parse_scope("bot,code").unwrap(),
+            Scope::Roles(vec![Side::Bot, Side::Code])
+        );
+    }
+
+    #[test]
+    fn parse_path_dotslash() {
+        assert_eq!(
+            parse_scope("./foo").unwrap(),
+            Scope::Single(PathBuf::from("./foo"))
+        );
+    }
+
+    #[test]
+    fn parse_path_dotdotslash() {
+        assert_eq!(
+            parse_scope("../sibling").unwrap(),
+            Scope::Single(PathBuf::from("../sibling"))
+        );
+    }
+
+    #[test]
+    fn parse_path_absolute() {
+        assert_eq!(
+            parse_scope("/abs/path").unwrap(),
+            Scope::Single(PathBuf::from("/abs/path"))
+        );
+    }
+
+    #[test]
+    fn parse_path_tilde_slash() {
+        // Stored raw; the consumer expands with `expand_vars`.
+        assert_eq!(
+            parse_scope("~/work/x").unwrap(),
+            Scope::Single(PathBuf::from("~/work/x"))
+        );
+    }
+
+    #[test]
+    fn parse_path_bare_tilde() {
+        assert_eq!(parse_scope("~").unwrap(), Scope::Single(PathBuf::from("~")));
+    }
+
+    #[test]
+    fn parse_bare_name_errors_with_hint() {
+        let err = parse_scope("foo").unwrap_err();
+        assert!(err.contains("'foo'"), "got: {err}");
+        assert!(err.contains("./X") || err.contains("./"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_empty_errors() {
+        let err = parse_scope("").unwrap_err();
+        assert!(err.contains("empty"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_unknown_keyword_combo_errors() {
+        // Duplicates and out-of-set combos are rejected; only the
+        // exact four keyword forms are accepted.
+        assert!(parse_scope("code,code").is_err());
+        assert!(parse_scope("code,bot,code").is_err());
+        assert!(parse_scope("bot,bot").is_err());
     }
 }

@@ -96,13 +96,18 @@ pub struct InitArgs {
     /// - `code` — single-repo workspace, no `.claude/` session.
     /// - `bot` — fatal at init time (meaningless without code).
     /// - `code,bot` (default) — dual-repo workspace.
+    ///
+    /// The path form (`./X`, `/X`, `~/X`) is accepted by the
+    /// shared `--scope` parser but is rejected at init time —
+    /// init creates a workspace, not a single-repo project; use
+    /// `--repo-local <PATH>` or `--repo-remote <URL>` instead.
     #[arg(
         long,
         value_name = "SCOPE",
-        value_delimiter = ',',
+        value_parser = crate::scope::parse_scope,
         verbatim_doc_comment
     )]
-    pub scope: Option<Vec<Side>>,
+    pub scope: Option<Scope>,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -601,18 +606,21 @@ pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error:
     // invalid; `bot` alone is meaningless at init time. ---
     let scope = match &args.scope {
         None => Scope::Roles(vec![Side::Code, Side::Bot]),
-        Some(sides) => {
-            let s = Scope::Roles(sides.clone());
-            if s.is_empty() {
-                return Err("--scope: value is empty".into());
-            }
+        Some(s @ Scope::Roles(_)) => {
             if s.is_bot_only() {
                 return Err(
                     "--scope=bot is meaningless at init time — use --scope=code for single-repo or --scope=code,bot (default) for dual-repo"
                         .into(),
                 );
             }
-            s
+            s.clone()
+        }
+        Some(Scope::Single(p)) => {
+            return Err(format!(
+                "--scope={}: path-form scope is meaningless at init time — use --repo-local <PATH> for a local fixture or --repo-remote <URL> for an existing remote",
+                p.display()
+            )
+            .into());
         }
     };
 
@@ -1927,7 +1935,7 @@ mod tests {
         dir: Option<&str>,
         owner: Option<&str>,
         private: bool,
-        scope: Option<Vec<Side>>,
+        scope: Option<Scope>,
     ) -> InitArgs {
         InitArgs {
             name: name.map(str::to_string),
@@ -2166,13 +2174,31 @@ mod tests {
     #[test]
     fn scope_parses_code() {
         let args = parse(&["vc-x1", "init", "tf1", "--scope", "code"]);
-        assert_eq!(args.scope.as_deref(), Some(&[Side::Code][..]));
+        assert_eq!(args.scope, Some(Scope::Roles(vec![Side::Code])));
     }
 
     #[test]
     fn scope_parses_code_bot() {
         let args = parse(&["vc-x1", "init", "tf1", "--scope", "code,bot"]);
-        assert_eq!(args.scope.as_deref(), Some(&[Side::Code, Side::Bot][..]));
+        assert_eq!(args.scope, Some(Scope::Roles(vec![Side::Code, Side::Bot])));
+    }
+
+    #[test]
+    fn scope_path_form_rejected_at_init() {
+        // Parser accepts `./X`; init's plan_init rejects with a hint
+        // pointing at --repo-local / --repo-remote.
+        let args = fixture_scoped(
+            Some("tf1"),
+            None,
+            None,
+            None,
+            Some("winksaville"),
+            false,
+            Some(Scope::Single(PathBuf::from("./fixture"))),
+        );
+        let err = plan_init(&args).unwrap_err().to_string();
+        assert!(err.contains("--scope=./fixture"), "got: {err}");
+        assert!(err.contains("--repo-local"), "got: {err}");
     }
 
     #[test]
@@ -2184,7 +2210,7 @@ mod tests {
             None,
             Some("winksaville"),
             false,
-            Some(vec![Side::Bot]),
+            Some(Scope::Roles(vec![Side::Bot])),
         );
         let err = plan_init(&args).unwrap_err().to_string();
         assert!(err.contains("--scope=bot"));
@@ -2210,7 +2236,7 @@ mod tests {
             None,
             Some("winksaville"),
             false,
-            Some(vec![Side::Code]),
+            Some(Scope::Roles(vec![Side::Code])),
         );
         let plan = plan_init(&args).unwrap();
         assert!(plan.scope.is_code_only());
@@ -2232,7 +2258,7 @@ mod tests {
             None,
             None,
             false,
-            Some(vec![Side::Code]),
+            Some(Scope::Roles(vec![Side::Code])),
         );
         let plan = plan_init(&args).unwrap();
         assert!(plan.scope.is_code_only());
@@ -2258,7 +2284,7 @@ mod tests {
             None,
             None,
             false,
-            Some(vec![Side::Code]),
+            Some(Scope::Roles(vec![Side::Code])),
         );
         let plan = plan_init(&args).unwrap();
         assert!(plan.scope.is_code_only());
@@ -2278,7 +2304,7 @@ mod tests {
             None,
             None,
             false,
-            Some(vec![Side::Code]),
+            Some(Scope::Roles(vec![Side::Code])),
         );
         let plan = plan_init(&args).unwrap();
         assert!(plan.scope.is_code_only());
@@ -2297,7 +2323,7 @@ mod tests {
             None,
             None,
             false,
-            Some(vec![Side::Code]),
+            Some(Scope::Roles(vec![Side::Code])),
         );
         args.use_template = Some("/tmp/code,/tmp/bot".to_string());
         let err = plan_init(&args).unwrap_err().to_string();

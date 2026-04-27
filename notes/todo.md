@@ -12,8 +12,8 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y close-out and validation
 
 - 0.42.0-0 plan + version bump + new chores-07.md (done) [72]
-- 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (current) [72]
-- 0.42.0-2 custom CLI parser + retrofit `init` --scope [72]
+- 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (done) [72]
+- 0.42.0-2 custom CLI parser + retrofit `init` --scope (current) [72]
 - 0.42.0-3 retrofit `sync` — drop -R, add -s [72]
 - 0.42.0-4 push --scope (state-machine becomes scope-aware) [72]
 - 0.42.0-5 finalize --scope (replaces --repo) [72]
