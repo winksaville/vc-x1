@@ -68,6 +68,35 @@ As todo.md `## Done` sections fills move them to here.
 - Bump `jj-lib` to 0.40 + tighten `clap` floor to 4.6 (0.34.1) [45]
 - Add `sync` subcommand — fetch + classify + rebase both repos (0.35.0) [46]
 - Show bookmarks in `list`, `show`, `desc` output (0.36.0) [47]
+- CLAUDE.md refresh + memory migration (0.36.1) [49]
+- Lift sync's inline test harness into shared `test_helpers` module (0.36.2) [51]
+- Sync improvements: -R flag + quieter dry-run + sync-before-work discipline (0.36.3) [50]
+- push subcommand scaffolding: flag surface, Stage enum, stub (0.37.0-0) [48]
+- push state machine: state file, --status/--restart/--from, stage stubs (0.37.0-1) [48]
+- push real stage bodies + jj-op snapshot rollback (0.37.0-2) [48]
+- push integration tests + workspace-root refactor (0.37.0-3) [48]
+- push interactivity: review prompt, $EDITOR, message persistence (0.37.0-4) [48]
+- push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
+- push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
+- First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
+- Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
+- Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
+- Capture squash-mode + scope design for push (0.37.4) [57]
+- Capture --message-file design for push (0.37.5) [58]
+- CLAUDE.md polish: markdown-anchor rule, shell-path brevity, state-file clearing, late-changes recipe trimmed (0.37.6) [59]
+- Notes restructure: chores-06 + trim long todo entries (0.37.7) [64]
+- Scope design refinements (0.37.8) [65]
+- Bookmark tracking verification: shared helper + tests (0.38.0-0) [66]
+- Bookmark tracking verification: wire into setup commands (0.38.0-1) [66]
+- Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
+- Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
+- Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
+- Push hardening: honest completion via post-completion verification (0.39.0-1) [67]
+- Push hardening: cycle close-out, 0.39.0-2 skipped (0.39.0) [67]
+- Scope generalization: init --repo-local + --repo-remote (0.40.0-1) [70]
+- Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
+- Scope generalization: integration tests migrate onto init --repo-local (0.40.0-3) [70]
+- Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
 
 # References
 
@@ -113,3 +142,18 @@ As todo.md `## Done` sections fills move them to here.
 [45]: /notes/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
 [46]: /notes/chores-04.md#add-sync-subcommand-0350
 [47]: /notes/chores-04.md#show-bookmarks-in-list-show-desc-output-0360
+[48]: /notes/chores-05.md#add-push-subcommand-0370
+[49]: /notes/chores-05.md#claudemd-refresh--memory-migration-0361
+[50]: /notes/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
+[51]: /notes/chores-05.md#test-harness-refactor-0362
+[53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
+[55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
+[56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
+[57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[58]: /notes/chores-05.md#capture---message-file-design-for-push-0375
+[59]: /notes/chores-05.md#claudemd-polish-0376
+[64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
+[65]: /notes/chores-06.md#scope-design-refinements-0378
+[66]: /notes/chores-06.md#bookmark-tracking-verification-0380
+[67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
+[70]: /notes/chores-06.md#generalize---scope-across-commands-0400

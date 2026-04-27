@@ -11,8 +11,15 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-(no active cycle — 0.41.0 closed; next cycle is the
-0.42.0 sum-type refactor, kicked off when ready)
+- 0.42.0-0 plan + version bump + new chores-07.md (current) [72]
+- 0.42.0-1 scope.rs sum type — `Roles(Vec<Side>) | Single(PathBuf)` [72]
+- 0.42.0-2 custom CLI parser + retrofit `init` --scope [72]
+- 0.42.0-3 retrofit `sync` — drop -R, add -s [72]
+- 0.42.0-4 push --scope (state-machine becomes scope-aware) [72]
+- 0.42.0-5 finalize --scope (replaces --repo) [72]
+- 0.42.0-6 clone --scope [72]
+- 0.42.0-7 Single(_) dogfood validation [72]
+- 0.42.0 close-out [72]
 
 ## Todo
 
@@ -29,21 +36,21 @@ renumbering. Reference by displayed number ("let's work on #3").
    refactor; state machine becomes scope-aware (single-
    side path skips `commit-claude`/bookmark-claude/
    `finalize-claude`; `Single(_)` is single-repo mode).
-   [57],[60],[71]
+   [57],[60],[71],[72]
 1. vc-x1 clone: `--scope=code|bot|code,bot|<path>` flag.
    Parallel to `init --scope`; single-repo clone target
-   via the path form. 0.42.0 cycle. [60],[71]
+   via the path form. 0.42.0 cycle. [60],[71],[72]
 1. vc-x1 validate-desc / fix-desc:
    `--scope=code|bot|code,bot` flag. Same role vocabulary
    as elsewhere — `code` validates code's commits against
    bot, `bot` reverses, `code,bot` does both (new
    default). `Single(_)` errors here (validate compares
-   two repos by definition). 0.42.0 cycle. [60],[71]
+   two repos by definition). 0.42.0 cycle. [60],[71],[72]
 1. CommonArgs sweep — add `--scope=code|bot|code,bot|<path>`
    to `chid`/`desc`/`list`/`show` in one cycle (single
    shared `CommonArgs` change picks all four up). Drops
    the existing `-R`/`--repo` repeatable flag in favor of
-   the new path form. 0.42.0 cycle. [60],[71]
+   the new path form. 0.42.0 cycle. [60],[71],[72]
 1. Help layout: force over-under everywhere. Apply
    `next_line_help(true)` at the root (or via the existing
    `cli_with_banner` walker) so every subcommand's `-h` /
@@ -119,35 +126,6 @@ renumbering. Reference by displayed number ("let's work on #3").
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
-- CLAUDE.md refresh + memory migration (0.36.1) [49]
-- Lift sync's inline test harness into shared `test_helpers` module (0.36.2) [51]
-- Sync improvements: -R flag + quieter dry-run + sync-before-work discipline (0.36.3) [50]
-- push subcommand scaffolding: flag surface, Stage enum, stub (0.37.0-0) [48]
-- push state machine: state file, --status/--restart/--from, stage stubs (0.37.0-1) [48]
-- push real stage bodies + jj-op snapshot rollback (0.37.0-2) [48]
-- push integration tests + workspace-root refactor (0.37.0-3) [48]
-- push interactivity: review prompt, $EDITOR, message persistence (0.37.0-4) [48]
-- push polish: --dry-run, --step, non-tty detection, gitignore warning (0.37.0-5) [48]
-- push docs + workflow migration — CLAUDE.md rewrite + README section (0.37.0) [48]
-- First-dogfood polish for push: editor template, gitignore-fatal, sync --check, log prefix, quieter subprocess (0.37.1) [53]
-- Temporary bookmark-tracking diagnostic probe on command entry/exit (0.37.2) [55]
-- Fix bm-track bugs + rename + promote to permanent (0.37.3) [56]
-- Capture squash-mode + scope design for push (0.37.4) [57]
-- Capture --message-file design for push (0.37.5) [58]
-- CLAUDE.md polish: markdown-anchor rule, shell-path brevity, state-file clearing, late-changes recipe trimmed (0.37.6) [59]
-- Notes restructure: chores-06 + trim long todo entries (0.37.7) [64]
-- Scope design refinements (0.37.8) [65]
-- Bookmark tracking verification: shared helper + tests (0.38.0-0) [66]
-- Bookmark tracking verification: wire into setup commands (0.38.0-1) [66]
-- Bookmark tracking verification: wire into preflight commands (0.38.0-2) [66]
-- Bookmark tracking verification: cycle close-out + dogfood validation (0.38.0) [66]
-- Push hardening: state-sanity preflight on resume (0.39.0-0) [67]
-- Push hardening: honest completion via post-completion verification (0.39.0-1) [67]
-- Push hardening: cycle close-out, 0.39.0-2 skipped (0.39.0) [67]
-- Scope generalization: init --repo-local + --repo-remote (0.40.0-1) [70]
-- Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
-- Scope generalization: integration tests migrate onto init --repo-local (0.40.0-3) [70]
-- Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
@@ -163,27 +141,13 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [29]: /notes/chores-02.md#shell-completion-discovery
 [36]: /notes/chores-03.md#per-lineper-thread-runtime-log-points-future
 [37]: /notes/chores-03.md#windows-symlink-support
-[48]: /notes/chores-05.md#add-push-subcommand-0370
-[49]: /notes/chores-05.md#claudemd-refresh--memory-migration-0361
-[50]: /notes/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
-[51]: /notes/chores-05.md#test-harness-refactor-0362
 [52]: /notes/chores-05.md#open-questions--tbd
-[53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
-[55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
-[56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
+[54]: /notes/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
 [57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
 [58]: /notes/chores-05.md#capture---message-file-design-for-push-0375
-[54]: /notes/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
-[59]: /notes/chores-05.md#claudemd-polish-0376
 [60]: /notes/chores-06.md#generalize---scope-to-all-commands-design
-[61]: /notes/chores-06.md#push-hardening-state--stage-sanity-design
 [62]: /notes/chores-06.md#bm-track-silent-when-clean-design
-[63]: /notes/chores-06.md#non-tracking-remote-bookmark-detection-design
-[64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
-[65]: /notes/chores-06.md#scope-design-refinements-0378
-[66]: /notes/chores-06.md#bookmark-tracking-verification-0380
-[67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
 [68]: /notes/chores-06.md#source-code-design-ref-convention-design
 [69]: /notes/chores-06.md#vc-x1-validate-repo-command-design
-[70]: /notes/chores-06.md#generalize---scope-across-commands-0400
 [71]: /notes/chores-06.md#--scope-continuation-0410
+[72]: /notes/chores-07.md#--scope-sum-type-refactor-0420
