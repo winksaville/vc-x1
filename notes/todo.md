@@ -11,8 +11,13 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-(no active cycle — 0.41.0 closed; next cycle is the
-0.42.0 sum-type refactor, kicked off when ready)
+- 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (current) [72]
+- 0.41.1-1 lift derive_name/resolve_url/parse_target to shared module [72]
+- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por [72]
+- 0.41.1-3 init reshape: drop old flags + <TARGET> + [NAME] + --scope=por [72]
+- 0.41.1-4 init POR detection + upgrade paths [72]
+- 0.41.1-5 test_helpers::Fixture migration + downstream callers [72]
+- 0.41.1 close-out
 
 ## Todo
 
@@ -187,3 +192,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [69]: /notes/chores-06.md#vc-x1-validate-repo-command-design
 [70]: /notes/chores-06.md#generalize---scope-across-commands-0400
 [71]: /notes/chores-06.md#--scope-continuation-0410
+[72]: /notes/chores-08.md#init--clone-redesign-0411
