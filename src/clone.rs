@@ -4,6 +4,7 @@ use clap::Args;
 use log::info;
 
 use crate::common::run;
+use crate::repo_url::{derive_name, derive_session_url, resolve_url};
 use crate::symlink;
 
 #[derive(Args, Debug)]
@@ -23,57 +24,6 @@ pub struct CloneArgs {
     /// Dry run — show what would be done without executing
     #[arg(long)]
     pub dry_run: bool,
-}
-
-/// Derive project name from a repo argument.
-///
-/// Handles: `owner/name`, `git@github.com:owner/name.git`,
-/// `https://github.com/owner/name.git`, `https://github.com/owner/name`
-fn derive_name(repo: &str) -> Result<String, Box<dyn std::error::Error>> {
-    // Strip trailing .git
-    let repo = repo.strip_suffix(".git").unwrap_or(repo); // OK: repo arg may not end in .git
-
-    // Take everything after the last `/` or `:`
-    let name = repo
-        .rsplit_once('/')
-        .or_else(|| repo.rsplit_once(':'))
-        .map(|(_, name)| name)
-        .unwrap_or(repo); // OK: no separator → whole string is the name
-
-    if name.is_empty() {
-        return Err(format!("cannot derive project name from '{repo}'").into());
-    }
-    Ok(name.to_string())
-}
-
-/// Resolve a repo argument to a git clone URL.
-///
-/// `owner/name` (no scheme, no `:` before `/`) becomes `git@github.com:owner/name.git`.
-/// Anything else is passed through as-is.
-fn resolve_url(repo: &str) -> String {
-    // Already a URL (has scheme or SSH-style colon)
-    if repo.contains("://") || repo.contains('@') {
-        return repo.to_string();
-    }
-    // owner/name shorthand — must have exactly one `/` and no other URL indicators
-    if repo.matches('/').count() == 1 && !repo.contains(':') {
-        return format!("git@github.com:{repo}.git");
-    }
-    repo.to_string()
-}
-
-/// Derive the session repo URL from the code repo URL.
-///
-/// Appends `.claude` before `.git` (or at the end):
-/// - `git@github.com:owner/name.git` → `git@github.com:owner/name.claude.git`
-/// - `https://github.com/owner/name.git` → `https://github.com/owner/name.claude.git`
-/// - `https://github.com/owner/name` → `https://github.com/owner/name.claude`
-fn derive_session_url(url: &str) -> String {
-    if let Some(base) = url.strip_suffix(".git") {
-        format!("{base}.claude.git")
-    } else {
-        format!("{url}.claude")
-    }
 }
 
 pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -238,78 +188,6 @@ mod tests {
         assert!(err.contains("REPO"));
     }
 
-    #[test]
-    fn derive_name_owner_slash_name() {
-        assert_eq!(derive_name("owner/my-project").unwrap(), "my-project");
-    }
-
-    #[test]
-    fn derive_name_ssh_url() {
-        assert_eq!(
-            derive_name("git@github.com:owner/my-project.git").unwrap(),
-            "my-project"
-        );
-    }
-
-    #[test]
-    fn derive_name_https_url() {
-        assert_eq!(
-            derive_name("https://github.com/owner/my-project.git").unwrap(),
-            "my-project"
-        );
-    }
-
-    #[test]
-    fn derive_name_https_no_suffix() {
-        assert_eq!(
-            derive_name("https://github.com/owner/my-project").unwrap(),
-            "my-project"
-        );
-    }
-
-    #[test]
-    fn derive_name_bare() {
-        assert_eq!(derive_name("my-project").unwrap(), "my-project");
-    }
-
-    #[test]
-    fn resolve_url_shorthand() {
-        assert_eq!(resolve_url("owner/repo"), "git@github.com:owner/repo.git");
-    }
-
-    #[test]
-    fn resolve_url_ssh_passthrough() {
-        let url = "git@github.com:owner/repo.git";
-        assert_eq!(resolve_url(url), url);
-    }
-
-    #[test]
-    fn resolve_url_https_passthrough() {
-        let url = "https://github.com/owner/repo.git";
-        assert_eq!(resolve_url(url), url);
-    }
-
-    #[test]
-    fn session_url_ssh() {
-        assert_eq!(
-            derive_session_url("git@github.com:owner/repo.git"),
-            "git@github.com:owner/repo.claude.git"
-        );
-    }
-
-    #[test]
-    fn session_url_https_with_git() {
-        assert_eq!(
-            derive_session_url("https://github.com/owner/repo.git"),
-            "https://github.com/owner/repo.claude.git"
-        );
-    }
-
-    #[test]
-    fn session_url_https_no_suffix() {
-        assert_eq!(
-            derive_session_url("https://github.com/owner/repo"),
-            "https://github.com/owner/repo.claude"
-        );
-    }
+    // Unit tests for derive_name / resolve_url / derive_session_url
+    // live in src/repo_url.rs alongside the lifted functions.
 }

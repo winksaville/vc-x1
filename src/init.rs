@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info};
 
+use crate::repo_url::{derive_name, derive_session_url};
 use crate::scope::{Scope, Side};
 use crate::symlink;
 
@@ -516,31 +517,6 @@ pub(crate) fn ensure_git_suffix(s: &str) -> String {
     }
 }
 
-/// Derive the session URL from the code URL.
-///
-/// - With trailing `.git`: insert `.claude` before it
-///   (`foo.git` → `foo.claude.git`).
-/// - Without `.git`: append `.claude`.
-pub(crate) fn derive_session_url(code_url: &str) -> String {
-    match code_url.strip_suffix(".git") {
-        Some(stem) => format!("{stem}.claude.git"),
-        None => format!("{code_url}.claude"),
-    }
-}
-
-/// Derive the project NAME from a URL.
-///
-/// - Last path segment, trailing `.git` stripped.
-/// - Segment boundary is the rightmost `/` or `:` (scp-like SSH).
-pub(crate) fn derive_name_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let stem = url.strip_suffix(".git").unwrap_or(url);
-    let last = stem.rsplit(['/', ':']).next().unwrap_or(""); // OK: rsplit always yields at least one element
-    if last.is_empty() {
-        return Err(format!("cannot derive project name from URL '{url}'").into());
-    }
-    Ok(last.to_string())
-}
-
 /// How init should provision the remote repositories it pushes to.
 /// See `notes/chores-06.md > Generalize --scope across commands
 /// (0.40.0) > 0.40.0-1` for the dispatch rules.
@@ -738,7 +714,7 @@ fn plan_external_remote(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let normalized = normalize_remote(url_spec)?;
     let code_url = ensure_git_suffix(&normalized);
-    let url_name = derive_name_from_url(&code_url)?;
+    let url_name = derive_name(&code_url)?;
 
     let name = match &args.name {
         Some(n) if *n == url_name => n.clone(),
@@ -1823,34 +1799,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn derive_session_url_inserts_claude_before_git() {
-        assert_eq!(
-            derive_session_url("git@github.com:u/p.git"),
-            "git@github.com:u/p.claude.git"
-        );
-        assert_eq!(derive_session_url("/tmp/foo.git"), "/tmp/foo.claude.git");
-        // Without .git suffix, falls back to plain append.
-        assert_eq!(derive_session_url("/tmp/foo"), "/tmp/foo.claude");
-    }
-
-    #[test]
-    fn derive_name_from_url_strips_git_and_takes_last_segment() {
-        assert_eq!(
-            derive_name_from_url("git@github.com:winksaville/tf1").unwrap(),
-            "tf1"
-        );
-        assert_eq!(
-            derive_name_from_url("git@github.com:winksaville/tf1.git").unwrap(),
-            "tf1"
-        );
-        assert_eq!(
-            derive_name_from_url("https://github.com/winksaville/tf1.git").unwrap(),
-            "tf1"
-        );
-        assert_eq!(derive_name_from_url("/tmp/foo.git").unwrap(), "foo");
-        assert_eq!(derive_name_from_url("/tmp/foo").unwrap(), "foo");
-    }
+    // Unit tests for derive_session_url / derive_name live in
+    // src/repo_url.rs alongside the lifted functions.
 
     #[test]
     fn expand_vars_tilde() {

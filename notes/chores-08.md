@@ -45,10 +45,12 @@ Identical surfaces modulo `--private` (init only).
   `<host>:<path>` shape with `@`).
 - **`owner/name` shorthand** — single `/`, no path prefix;
   resolved to `git@github.com:owner/name.git`.
-- **Path-prefixed** — `./X`, `../X`, `/X`, `~/X`, `~`.
-  Path IS the target; last component is the workspace name.
-  Bare `.` and bare `NAME` are errors (require explicit
-  prefix).
+- **Path-prefixed** — `./X`, `../X`, `/X`, `~/X`, `~`,
+  bare `.`, or bare `..`. Path IS the target; last component
+  is the workspace name (consumer canonicalizes `.` / `..`
+  to a real basename via `canonicalize` + `file_name`).
+  Bare alphanumeric `NAME` is an error (genuinely ambiguous
+  — "missing `./`?" / "missing `/name` suffix?").
 
 `[NAME]`:
 
@@ -207,8 +209,11 @@ close-out).
   `notes/vc-x1-init.md` brought forward + partner
   bookmarks set up.
 - `-1` — lift `derive_name` / `resolve_url` /
-  `parse_target` to shared module; clone migrates
-  internally (no behavior change yet).
+  `derive_session_url` to a new `src/repo_url.rs`; stage
+  `Target` + `parse_target` for `-2`/`-3` consumers; both
+  `clone` and `init` migrate at their existing call sites
+  (init.rs had verbatim duplicates worth de-duping in the
+  same step). No behavior change.
 - `-2` — clone reshape: `<TARGET>` + `[NAME]`
   positionals, add `--scope code,bot|por`, refactor into
   `clone_one` / `clone_dual`. Add target-exists pre-check.
@@ -232,8 +237,9 @@ close-out).
   fix = a separate cycle (likely 0.41.2). Then rebase the
   in-flight 0.42.0 work on top of both.
 - **Path-prefix vocabulary.** `./NAME` and the standard
-  prefixes (`../`, `/`, `~/`, `~`) only. Bare `.` and
-  bare `NAME` are errors — explicit prefix required.
+  prefixes (`../`, `/`, `~/`, `~`), plus bare `.` and `..`
+  (POSIX cwd / parent — unambiguous). Bare alphanumeric
+  `NAME` is an error — explicit prefix required.
 - **`--private` on existing remote.** Warn and ignore;
   visibility was set at create time.
 - **Cosmetic anomalies** from `notes/vc-x1-init.md` —

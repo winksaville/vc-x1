@@ -9,6 +9,7 @@ mod init;
 mod list;
 mod logging;
 mod push;
+mod repo_url;
 mod scope;
 mod show;
 mod symlink;
