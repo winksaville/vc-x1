@@ -1,6 +1,7 @@
 mod chid;
 mod clone;
 mod common;
+mod config;
 mod desc;
 mod desc_helpers;
 mod finalize;

@@ -12,12 +12,13 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y close-out and validation
 
 - 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (done) [72]
-- 0.41.1-1 shared repo_url module + clone/init migrate (done) [72]
-- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por (current) [72]
-- 0.41.1-3 init reshape: drop old flags + <TARGET> + [NAME] + --scope=por [72]
-- 0.41.1-4 init POR detection + upgrade paths [72]
-- 0.41.1-5 test_helpers::Fixture migration + downstream callers [72]
-- 0.41.1 close-out
+- 0.41.1-1 shared repo_url module + clone/init migrate (done) [73]
+- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por (done) [73]
+- 0.41.1-3 user config: ~/.config/vc-x1/config.toml + [default]/[github] (current) [74]
+- 0.41.1-4 init reshape: drop old flags + <TARGET> + [NAME] + --scope=por [73]
+- 0.41.1-5 init POR detection + upgrade paths [75]
+- 0.41.1-6 test_helpers::Fixture migration + downstream callers [73]
+- 0.41.1 close-out [72]
 
 ## Todo
 
@@ -49,6 +50,20 @@ renumbering. Reference by displayed number ("let's work on #3").
    shared `CommonArgs` change picks all four up). Drops
    the existing `-R`/`--repo` repeatable flag in favor of
    the new path form. 0.42.0 cycle. [60],[71]
+1. Unify `.vc-config.toml` accessors onto Pattern B
+   (typed struct + `load_from(path)`, like new
+   `config::UserConfig` and `push::resolve_state_layout`).
+   Replaces the map-typed helpers in `desc_helpers.rs` /
+   `fix_desc.rs` / `validate_desc.rs` with a typed
+   `WorkspaceConfig` struct. ~50 LOC, mechanical.
+   Candidate for 0.41.2. [74]
+1. Layered config precedence (user → workspace → CLI)
+   once `WorkspaceConfig` is typed. Workspace can
+   override `[github].owner` etc. for a specific project;
+   init can't use the layer (chicken-and-egg) but
+   post-init commands can. Depends on the
+   `WorkspaceConfig` typed-struct refactor above.
+   Candidate for 0.41.2. [74]
 1. Help layout: force over-under everywhere. Apply
    `next_line_help(true)` at the root (or via the existing
    `cli_with_banner` walker) so every subcommand's `-h` /
@@ -193,3 +208,6 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [70]: /notes/chores-06.md#generalize---scope-across-commands-0400
 [71]: /notes/chores-06.md#--scope-continuation-0410
 [72]: /notes/chores-08.md#init--clone-redesign-0411
+[73]: /notes/chores-08.md#cycle-structure--multi-step
+[74]: /notes/chores-08.md#user-config-0411-3
+[75]: /notes/chores-08.md#operations

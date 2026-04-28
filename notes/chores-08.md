@@ -49,8 +49,14 @@ Identical surfaces modulo `--private` (init only).
   bare `.`, or bare `..`. Path IS the target; last component
   is the workspace name (consumer canonicalizes `.` / `..`
   to a real basename via `canonicalize` + `file_name`).
-  Bare alphanumeric `NAME` is an error (genuinely ambiguous
-  — "missing `./`?" / "missing `/name` suffix?").
+- **Bare alphanumeric NAME** — for **init** only, expands to
+  `<owner>/NAME` via the user config
+  ([`User config`](#user-config-0411-3)). Missing config →
+  error with hint to use `owner/name` shorthand or set
+  `[default].remote-provider` + `[github].owner`. For
+  **clone**, bare NAME is an error (genuinely ambiguous —
+  "missing `./`?" / "missing `/name` suffix?"); clone has
+  no config-driven defaults.
 
 `[NAME]`:
 
@@ -226,18 +232,99 @@ close-out).
 - `-2` — clone reshape: `<TARGET>` + `[NAME]`
   positionals, add `--scope code,bot|por`, refactor into
   `clone_one` / `clone_dual`. Add target-exists pre-check.
-- `-3` — init reshape: drop old flags, add `<TARGET>` +
+- `-3` — user config: `~/.config/vc-x1/config.toml`
+  reader; `[default]` + `[github]` sections; standalone
+  module, `-4` is the first consumer. See
+  [`User config`](#user-config-0411-3).
+- `-4` — init reshape: drop old flags, add `<TARGET>` +
   `[NAME]`, add `--scope=por`, refactor into `init_one` /
-  `init_dual`. Existing create-from-empty operations work
-  via the new shape.
-- `-4` — init POR detection + upgrade paths
+  `init_dual`. Wire bare-NAME → user-config expansion.
+  Existing create-from-empty operations work via the new
+  shape.
+- `-5` — init POR detection + upgrade paths
   (PorJjGit, PorGitOnly auto-bootstrap, PorWithPeerPor
   config-only).
-- `-5` — `test_helpers::Fixture` migration; audit
+- `-6` — `test_helpers::Fixture` migration; audit
   downstream callers across the test suite.
 - final — cycle close-out: fill in Example Layout outputs,
   address `notes/vc-x1-init.md` cosmetic anomalies, drop
   the `-N` suffix.
+
+### User config (0.41.1-3)
+
+Bare-NAME init (`vc-x1 init tf1`) needs a place to look up
+the implicit owner. Adopt a user-global config at
+`~/.config/vc-x1/config.toml` (XDG-compliant; honors
+`$XDG_CONFIG_HOME`). No magic fallbacks: missing file or
+missing key → predictable error pointing at the config.
+
+Schema:
+
+```toml
+[default]
+remote-provider = "github"
+
+[github]
+owner = "winksaville"
+service = "github.com"   # optional, defaults to "github.com"
+```
+
+`[default].remote-provider` is the selector; per-provider
+sections (`[github]`, future `[gitlab]`, ...) carry the
+provider-specific fields. Forward-compatible with the
+multi-service direction without restructuring.
+
+Resolution rules (no magic):
+
+- Bare alphanumeric NAME + no `[default].remote-provider`
+  set → error: "set `[default].remote-provider` in
+  `~/.config/vc-x1/config.toml` or use `owner/name`
+  shorthand".
+- `remote-provider = "github"` + no `[github].owner` →
+  error: "set `[github].owner` in
+  `~/.config/vc-x1/config.toml`".
+- `[github].service` unset → defaults to `"github.com"`
+  (canonical host, not magic).
+- All present → `tf1` resolves to
+  `git@<service>:<owner>/<NAME>.git`.
+
+Per-workspace `.vc-config.toml` override (ancestor walk)
+is deferred — chicken-and-egg at init time, and the
+global file covers the dominant use case.
+
+`-3` lands the config module standalone (`src/config.rs`,
+`UserConfig` struct, `load()` / `load_from(path)`); `-4`
+wires it into init's bare-NAME path.
+
+#### Refactoring opportunities (post-0.41.1)
+
+Two cleanups surfaced while sizing the module that we
+deliberately deferred to keep `-3` scoped:
+
+- **Unify `.vc-config.toml` accessors onto Pattern B.**
+  The tree has two patterns for reading TOML config:
+  - Pattern A (`desc_helpers.rs`, `fix_desc.rs`,
+    `validate_desc.rs`): call site does
+    `toml_simple::toml_load(path)` and passes the
+    resulting `HashMap<String, String>` to map-typed
+    accessor fns (`other_repo_from_config(&map)`,
+    `ochid_prefix_from_config(&map)`).
+  - Pattern B (`push::resolve_state_layout`, new
+    `config::load_from`): function takes a path,
+    returns a typed struct with the fields it cares
+    about; conversion baked in.
+  Pattern B is more discoverable and testable. A
+  `WorkspaceConfig` struct with `load_from(path)` could
+  replace the Pattern-A helpers across desc_helpers /
+  fix_desc / validate_desc. ~50 LOC, mechanical.
+- **Layered config precedence** — once `WorkspaceConfig`
+  is typed, layering user → workspace → CLI becomes
+  natural (workspace can override `[github].owner` for a
+  specific project). Init can't use this layer because
+  it runs *before* a workspace exists, but post-init
+  commands could.
+
+Both candidates for the 0.41.2 cycle. See `notes/todo.md`.
 
 ### Decisions made during design
 
