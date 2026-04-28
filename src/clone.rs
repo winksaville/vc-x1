@@ -1,125 +1,205 @@
-use std::path::{Path, PathBuf};
+//! `vc-x1 clone` — clone a repo (URL or local path) into a workspace.
+//!
+//! - `--scope=code,bot` (default): dual-repo layout — clones code,
+//!   derives bot source (`<source>.claude`), clones bot into
+//!   `<target>/.claude`, creates the Claude Code symlink. Both
+//!   sides must succeed.
+//! - `--scope=por`: single repo into `<target>`. No `.claude/`,
+//!   no symlink.
+//!
+//! TARGET shapes (all routed through `parse_target`): URL,
+//! `owner/name` shorthand, or a local path (`./X`, `/X`, `~/X`,
+//! `.`, `..`). Path-form is symmetric with `git clone /local/bare.git`
+//! — useful for fixtures and CI scratch dirs.
+//!
+//! `clone_one` and `clone_dual` are `pub(crate)` so init's `-3`
+//! reshape can reuse them for the "URL exists → clone" preflight
+//! path (per `notes/chores-08.md > init + clone redesign`).
+
+use std::path::Path;
 
 use clap::Args;
 use log::info;
 
 use crate::common::run;
-use crate::repo_url::{derive_name, derive_session_url, resolve_url};
+use crate::repo_url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 use crate::symlink;
 
+/// Topology choice for `vc-x1 clone --scope`.
+///
+/// - `CodeBot` (default) — clone the dual-repo layout: code into
+///   target dir, bot derived source into `target/.claude`, plus
+///   the Claude Code symlink. Both sides must succeed.
+/// - `Por` — clone a single repo (Plain Old Repo) into target dir;
+///   no `.claude/`, no symlink.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloneScope {
+    CodeBot,
+    Por,
+}
+
+/// Parse the `--scope` value for clone.
+///
+/// - Accepts `code,bot` / `bot,code` (commutative) and `por`.
+/// - Standalone `code` or `bot` errors — clone has no
+///   config-driven defaults to look up against; the manual
+///   decomposition (two `--scope=por` clones + `vc-x1 symlink`)
+///   covers the rare cases where a user wants the dual layout
+///   composed by hand.
+pub fn parse_clone_scope(s: &str) -> Result<CloneScope, String> {
+    match s {
+        "code,bot" | "bot,code" => Ok(CloneScope::CodeBot),
+        "por" => Ok(CloneScope::Por),
+        "code" | "bot" => Err(format!(
+            "'--scope={s}' is not valid for clone — use 'code,bot' (dual) or 'por' (single)"
+        )),
+        _ => Err(format!(
+            "'--scope={s}' is not recognized — expected 'code,bot' or 'por'"
+        )),
+    }
+}
+
+/// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
 pub struct CloneArgs {
-    /// GitHub repo (owner/name) or git URL
-    #[arg(value_name = "REPO")]
-    pub repo: String,
+    /// Source to clone — URL, owner/name shorthand, or local path.
+    ///
+    /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
+    /// - owner/name shorthand: resolves to
+    ///   `git@github.com:owner/name.git`
+    /// - Local path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`
+    ///   (passed directly to `git clone`)
+    #[arg(value_name = "TARGET", verbatim_doc_comment)]
+    pub target: String,
 
-    /// Local directory name [default: derived from REPO]
+    /// Destination dir name in cwd [default: derived from TARGET]
     #[arg(value_name = "NAME")]
     pub name: Option<String>,
 
-    /// Parent directory to clone into [default: cwd]
-    #[arg(long)]
-    pub dir: Option<PathBuf>,
+    /// What to clone: `code,bot` (dual, default) or `por` (single).
+    #[arg(
+        long,
+        short,
+        value_name = "SCOPE",
+        value_parser = parse_clone_scope,
+        default_value = "code,bot"
+    )]
+    pub scope: CloneScope,
 
-    /// Dry run — show what would be done without executing
+    /// Dry run — show what would be done without executing.
     #[arg(long)]
     pub dry_run: bool,
 }
 
+/// Top-level clone driver.
+///
+/// - Resolves TARGET to a concrete clone source (URL or path).
+/// - Determines destination dir name (`[NAME]` override or
+///   `derive_name(TARGET)`).
+/// - Pre-checks target dir doesn't exist.
+/// - Dispatches to `clone_one` (POR) or `clone_dual` (code,bot).
 pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("clone: enter");
-    let parent_dir = match &args.dir {
-        Some(d) => d.clone(),
-        None => std::env::current_dir()?,
+
+    let parsed = parse_target(&args.target)?;
+    let source = match parsed {
+        Target::Url(u) => u,
+        Target::OwnerName(o, n) => resolve_url(&format!("{o}/{n}")),
+        Target::Path(p) => p.to_str().ok_or("path is not valid UTF-8")?.to_string(),
     };
 
     let name = match &args.name {
         Some(n) => n.clone(),
-        None => derive_name(&args.repo)?,
+        None => derive_name(&args.target)?,
     };
+    let parent_dir = std::env::current_dir()?;
     let project_dir = parent_dir.join(&name);
-    let session_dir = project_dir.join(".claude");
-    let url = resolve_url(&args.repo);
 
-    let session_url = derive_session_url(&url);
-
-    if args.dry_run {
-        info!("Dry run — would execute:");
-        info!("  1. git clone {url} {name}");
-        info!("  2. git clone {session_url} {name}/.claude");
-        info!("  3. jj git init --colocate in {name}/");
-        info!("  4. jj git init --colocate in {name}/.claude/");
-        info!("  5. Create Claude Code symlink");
-        return Ok(());
-    }
-
-    // Preflight
     if project_dir.exists() {
         return Err(format!("'{}' already exists", project_dir.display()).into());
     }
 
+    if args.dry_run {
+        info!("Dry run — would execute:");
+        match args.scope {
+            CloneScope::Por => {
+                info!("  1. jj git clone --colocate {source} {name}");
+            }
+            CloneScope::CodeBot => {
+                let session_source = derive_session_url(&source);
+                info!("  1. jj git clone --colocate {source} {name}");
+                info!("  2. jj git clone --colocate {session_source} {name}/.claude");
+                info!("  3. Create Claude Code symlink");
+            }
+        }
+        return Ok(());
+    }
+
     run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
-    // Step 1: Clone code repo
-    let project_str = project_dir
-        .to_str()
-        .ok_or("project path is not valid UTF-8")?;
-    info!("Step 1: Cloning {url}...");
-    run("git", &["clone", &url, project_str], &parent_dir)?;
-
-    // Step 2: Clone session repo
-    let session_str = session_dir
-        .to_str()
-        .ok_or("session path is not valid UTF-8")?;
-    info!("Step 2: Cloning {session_url}...");
-    match run("git", &["clone", &session_url, session_str], &parent_dir) {
-        Ok(_) => {}
-        Err(e) => {
-            info!("Step 2: No session repo found ({e}) — skipping");
+    match args.scope {
+        CloneScope::Por => {
+            clone_one(&source, &project_dir, &parent_dir)?;
+            info!("");
+            info!("Done! Project cloned to {}", project_dir.display());
+            info!("  Code repo: {}", project_dir.display());
         }
+        CloneScope::CodeBot => clone_dual(&source, &project_dir, &parent_dir)?,
     }
 
-    // Step 3: jj git init --colocate in code repo. Note: colocate after a
-    // plain `git clone` does NOT auto-establish bookmark tracking — jj
-    // emits a hint to run `jj bookmark track …`. We do that explicitly,
-    // then assert via verify_tracking.
-    info!("Step 3: Initializing jj in code repo...");
-    run("jj", &["git", "init", "--colocate"], &project_dir)?;
+    log::debug!("clone: exit");
+    Ok(())
+}
+
+/// Clone a single repo via `jj git clone --colocate` and verify
+/// bookmark tracking.
+///
+/// - `source` is the clone source (URL or local path).
+/// - `target_dir` is the destination working repo location.
+/// - `parent_dir` is the cwd for the `jj git clone` subprocess.
+///
+/// `jj git clone --colocate` does git clone + jj init + automatic
+/// bookmark tracking in one step (unlike colocate-after-bare-git-clone,
+/// which needs explicit `jj bookmark track`). The `verify_tracking`
+/// call asserts the post-clone state matches expectations.
+pub(crate) fn clone_one(
+    source: &str,
+    target_dir: &Path,
+    parent_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let target_str = target_dir
+        .to_str()
+        .ok_or("target path is not valid UTF-8")?;
+    info!("Cloning {source} → {target_str}...");
     run(
         "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        &project_dir,
+        &["git", "clone", "--colocate", source, target_str],
+        parent_dir,
     )?;
-    crate::common::verify_tracking(&project_dir, "main")?;
+    crate::common::verify_tracking(target_dir, "main")?;
+    Ok(())
+}
 
-    // Step 4: jj git init --colocate in session repo (if cloned)
-    if session_dir.exists() {
-        info!("Step 4: Initializing jj in session repo...");
-        run("jj", &["git", "init", "--colocate"], &session_dir)?;
-        run(
-            "jj",
-            &["bookmark", "track", "main", "--remote=origin"],
-            &session_dir,
-        )?;
-        crate::common::verify_tracking(&session_dir, "main")?;
-    } else {
-        info!("Step 4: No session repo — skipping jj init");
-    }
+/// Orchestrate a dual-repo clone: code via `clone_one`, bot via
+/// `clone_one` (no graceful skip — `--scope=code,bot` requires
+/// both sides; users who want code-only should use `--scope=por`),
+/// then create the Claude Code symlink.
+pub(crate) fn clone_dual(
+    code_source: &str,
+    target_dir: &Path,
+    parent_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let session_source = derive_session_url(code_source);
+    let session_dir = target_dir.join(".claude");
 
-    // Step 5: Create Claude Code symlink
-    info!("Step 5: Creating Claude Code symlink...");
-    let symlink_dir = {
-        let home =
-            std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
-        PathBuf::from(home).join(".claude").join("projects")
-    };
-
-    let sl = symlink::SymLink::new(&project_dir, Path::new(".claude"), &symlink_dir)?;
-    sl.create(false)?;
+    clone_one(code_source, target_dir, parent_dir)?;
+    clone_one(&session_source, &session_dir, target_dir)?;
+    info!("Creating Claude Code symlink...");
+    let sl = symlink::install(target_dir)?;
 
     info!("");
-    info!("Done! Project cloned to {}", project_dir.display());
-    info!("  Code repo:    {project_str}");
+    info!("Done! Project cloned to {}", target_dir.display());
+    info!("  Code repo:    {}", target_dir.display());
     info!("  Session repo: {}", session_dir.display());
     info!(
         "  Symlink:      {} -> {}",
@@ -127,7 +207,6 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         sl.abs_target.display()
     );
 
-    log::debug!("clone: exit");
     Ok(())
 }
 
@@ -152,16 +231,16 @@ mod tests {
     #[test]
     fn defaults() {
         let args = parse(&["vc-x1", "clone", "owner/repo"]);
-        assert_eq!(args.repo, "owner/repo");
+        assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
-        assert!(args.dir.is_none());
+        assert_eq!(args.scope, CloneScope::CodeBot);
         assert!(!args.dry_run);
     }
 
     #[test]
     fn with_name() {
         let args = parse(&["vc-x1", "clone", "owner/repo", "my-dir"]);
-        assert_eq!(args.repo, "owner/repo");
+        assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
     }
 
@@ -172,20 +251,62 @@ mod tests {
             "clone",
             "owner/repo",
             "my-dir",
-            "--dir",
-            "/tmp/projects",
+            "--scope",
+            "por",
             "--dry-run",
         ]);
-        assert_eq!(args.repo, "owner/repo");
+        assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
-        assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
+        assert_eq!(args.scope, CloneScope::Por);
         assert!(args.dry_run);
     }
 
     #[test]
-    fn missing_repo() {
+    fn missing_target() {
         let err = parse_err(&["vc-x1", "clone"]);
-        assert!(err.contains("REPO"));
+        assert!(err.contains("TARGET"));
+    }
+
+    #[test]
+    fn scope_short_flag() {
+        let args = parse(&["vc-x1", "clone", "owner/repo", "-s", "por"]);
+        assert_eq!(args.scope, CloneScope::Por);
+    }
+
+    #[test]
+    fn scope_bot_code_commutative() {
+        let args = parse(&["vc-x1", "clone", "owner/repo", "--scope", "bot,code"]);
+        assert_eq!(args.scope, CloneScope::CodeBot);
+    }
+
+    #[test]
+    fn scope_code_alone_errors() {
+        let err = parse_err(&["vc-x1", "clone", "owner/repo", "--scope", "code"]);
+        assert!(err.contains("not valid for clone"), "got: {err}");
+    }
+
+    #[test]
+    fn scope_bot_alone_errors() {
+        let err = parse_err(&["vc-x1", "clone", "owner/repo", "--scope", "bot"]);
+        assert!(err.contains("not valid for clone"), "got: {err}");
+    }
+
+    #[test]
+    fn scope_unknown_errors() {
+        let err = parse_err(&["vc-x1", "clone", "owner/repo", "--scope", "xyz"]);
+        assert!(err.contains("not recognized"), "got: {err}");
+    }
+
+    #[test]
+    fn target_path_form_accepted() {
+        let args = parse(&["vc-x1", "clone", "/tmp/foo.git"]);
+        assert_eq!(args.target, "/tmp/foo.git");
+    }
+
+    #[test]
+    fn target_relative_path_form_accepted() {
+        let args = parse(&["vc-x1", "clone", "./bare.git"]);
+        assert_eq!(args.target, "./bare.git");
     }
 
     // Unit tests for derive_name / resolve_url / derive_session_url

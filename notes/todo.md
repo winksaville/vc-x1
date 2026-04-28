@@ -11,9 +11,9 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (current) [72]
-- 0.41.1-1 lift derive_name/resolve_url/parse_target to shared module [72]
-- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por [72]
+- 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (done) [72]
+- 0.41.1-1 shared repo_url module + clone/init migrate (done) [72]
+- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por (current) [72]
 - 0.41.1-3 init reshape: drop old flags + <TARGET> + [NAME] + --scope=por [72]
 - 0.41.1-4 init POR detection + upgrade paths [72]
 - 0.41.1-5 test_helpers::Fixture migration + downstream callers [72]

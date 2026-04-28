@@ -1329,15 +1329,7 @@ pub(crate) fn init_with_symlink(
     // Step 11: Create Claude Code symlink (dual only; opt-out for tests)
     let sl_opt = if is_dual && create_symlink {
         info!("Step 11: Creating Claude Code symlink...");
-        let symlink_dir = {
-            let home = std::env::var("HOME")
-                .map_err(|_| "HOME environment variable not set".to_string())?;
-            PathBuf::from(home).join(".claude").join("projects")
-        };
-
-        let sl = symlink::SymLink::new(&plan.project_dir, Path::new(".claude"), &symlink_dir)?;
-        sl.create(false)?;
-        Some(sl)
+        Some(symlink::install(&plan.project_dir)?)
     } else if !is_dual {
         info!("Step 11: (skipped — no .claude symlink in single-repo)");
         None

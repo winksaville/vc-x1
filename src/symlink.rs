@@ -189,6 +189,35 @@ impl SymLink {
     }
 }
 
+/// `~/.claude/projects/` — the standard Claude Code symlink
+/// directory. Shared default for `install` and the
+/// `vc-x1 symlink` subcommand.
+fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let home =
+        std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
+    Ok(PathBuf::from(home).join(".claude").join("projects"))
+}
+
+/// Install the standard Claude Code workspace symlink for `project_dir`.
+///
+/// Links `~/.claude/projects/<encoded>` → `<project_dir>/.claude`.
+/// Silent — caller is expected to announce the action (if desired)
+/// and to include the resulting `SymLink` in any final summary
+/// output.
+///
+/// Shared by `vc-x1 clone --scope=code,bot` and `vc-x1 init
+/// --scope=code,bot`. The full `vc-x1 symlink` subcommand below
+/// can't directly call `install` — it has different
+/// responsibilities (`--target` / `--symlink-dir` overrides,
+/// replace prompts, `--list`, and `sl.create(true)` vs `false`)
+/// — but both share `default_symlink_dir` for default-path
+/// computation.
+pub fn install(project_dir: &Path) -> Result<SymLink, Box<dyn std::error::Error>> {
+    let sl = SymLink::new(project_dir, Path::new(".claude"), &default_symlink_dir()?)?;
+    sl.create(false)?;
+    Ok(sl)
+}
+
 // -- Subcommand --
 
 #[derive(Args, Debug)]
@@ -221,11 +250,7 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     let symlink_dir = match &args.symlink_dir {
         Some(d) => d.clone(),
-        None => {
-            let home = std::env::var("HOME")
-                .map_err(|_| "HOME environment variable not set".to_string())?;
-            PathBuf::from(home).join(".claude").join("projects")
-        }
+        None => default_symlink_dir()?,
     };
 
     let sl = SymLink::new(&cwd, &target, &symlink_dir)?;

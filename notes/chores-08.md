@@ -54,13 +54,15 @@ Identical surfaces modulo `--private` (init only).
 
 `[NAME]`:
 
-- For URL / `owner/name` forms: overrides the derived
-  destination dir name. `vc-x1 clone owner/foo my-name`
-  clones into `./my-name/` instead of `./foo/`.
-- For path-prefix form: error if combined (path already
-  specifies the full target).
-- Path-form for clone: error (clone needs a remote URL; see
-  "Operations" for clone's target rules).
+- **init**: URL / `owner/name` forms → overrides the derived
+  workspace name (workspace at `cwd/<NAME>`). Path forms →
+  error if combined (path already specifies the destination).
+- **clone**: all forms (URL, `owner/name`, Path-as-source) →
+  destination dir name in cwd. Without `[NAME]`, derived
+  from the source via `derive_name`. For clone, TARGET is
+  the *source* (URL or local repo path) and `[NAME]` is
+  the *destination* — symmetric with `git clone <src>
+  [<dest>]`.
 
 `--scope`:
 
@@ -97,14 +99,21 @@ chooses the right operation.
 | single-repo (illegal shape) | error | error |
 | anything else (random files, etc.) | error with diagnostic | error with diagnostic |
 
-**Clone** is *dumb* — it just clones URLs into target dirs.
+**Clone** is *dumb* — it just clones sources (URLs or local
+repo paths) into target dirs.
 
-| `--scope=por` | clone the URL into `<target>` |
-| `--scope=code,bot` | clone code URL into `<target>`, derive bot URL (`<URL>.claude`), clone into `<target>/.claude/`, then create symlink via `vc-x1 symlink` |
+| `--scope=por` | clone the source into `<target_dir>` |
+| `--scope=code,bot` | clone code source into `<target_dir>`; derive bot source (`<source>.claude`); clone into `<target_dir>/.claude/`; create symlink via `vc-x1 symlink` |
 
-For both clone modes: target must NOT exist (`vc-x1 clone`
-errors if anything is there). Use `vc-x1 sync` to update an
-existing checkout.
+For both clone modes: `<target_dir>` must NOT exist
+(`vc-x1 clone` errors if anything is there). Use
+`vc-x1 sync` to update an existing checkout.
+
+Path-form for clone is symmetric with `git clone /local/bare.git`
+— useful for local fixtures, CI scratch dirs, integration
+tests against bare repos. Init/clone differ on what TARGET
+*means* (init: destination; clone: source) but share the
+same `parse_target` acceptance set.
 
 `.vc-config.toml` files for the dual-repo case are *tracked
 content in the remotes*, not files clone writes. They ride
