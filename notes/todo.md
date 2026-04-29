@@ -19,8 +19,8 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] + --account + --repo (done) [73]
 - 0.41.1-6 init POR detection + upgrade paths [75]
   - -6.0 POR baseline integration tests + Fixture::new_por (done)
-  - -6.1 literal lift: extract init_one / init_dual from init_with_symlink (current)
-  - -6.2 extract init_one_create (steps 1-5, parameterized by config/template/ochid strategy)
+  - -6.1 literal lift: extract init_one / init_dual from init_with_symlink (done)
+  - -6.2 extract init_one_create (steps 1-5, parameterized by config/template/ochid strategy) (done)
   - -6.3 extract init_one_finalize (steps 7-10, parameterized by clean exclude)
   - -6.4 extract cross_ref_ochids; collapse init_dual to compose the helpers + symlink
   - -6.5 add detect_state + InitTargetState enum + unit tests

@@ -23,8 +23,8 @@ use log::info;
 
 use crate::args::{ScopeKind, parse_scope_kind};
 use crate::common::run;
-use crate::repo_url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 use crate::symlink;
+use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
@@ -284,5 +284,5 @@ mod tests {
     }
 
     // Unit tests for derive_name / resolve_url / derive_session_url
-    // live in src/repo_url.rs alongside the lifted functions.
+    // live in src/url.rs alongside the lifted functions.
 }

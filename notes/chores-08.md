@@ -599,6 +599,92 @@ Extracting `init_one` and `init_dual` as end-to-end functions
 creates the call sites without yet touching internal structure, so
 each subsequent extraction is reviewable against a stable surface.
 
+### Extract create_repo + module reshape (0.41.1-6.2)
+
+First substantive DRY pass on `init_with_symlink`. Lifts steps 1-5
+(mkdir, git/jj init, configs, optional template, initial commit)
+into a generalized per-side primitive `create_repo` living in a new
+`src/repo_utils.rs` module. The dual orchestrator drops from ~180
+lines to ~110 by replacing two ~50-line per-side blocks with two
+`create_repo` calls. Same suite (320) plus 3 new unit tests for
+the helper itself: total 323, all green.
+
+**New module `src/repo_utils.rs`:**
+
+- `pub fn create_repo(target, info_label, config: Option<&str>,
+  gitignore: Option<&str>, template: Option<&Path>, name,
+  ochid_strategy) -> Result<chid>`. Per-side primitive returning
+  the new initial commit's chid.
+- `pub enum OchidStrategy { None, Placeholder }` — initial-commit
+  message policy. POR uses `None` (plain "Initial commit"); dual
+  uses `Placeholder` ("Initial commit\n\nochid: /none", rewritten
+  in step 6 once both chids are known).
+- 3 unit tests: `strategy_none_writes_plain_commit`,
+  `strategy_placeholder_writes_ochid_none`,
+  `no_config_or_gitignore_writes_neither_file`. Last one pins the
+  new None-skips-write semantics.
+
+**Generalizations from -5/-6.1's inline shape:**
+
+- `info_label` (was `side_label`) — drops the dual-specific "side"
+  connotation; the label is just for `info!()` narration. POR
+  passes `"code"`; dual passes `"code"` then `"bot"`; future
+  upgrade paths or scratch-repo callers can pass anything else.
+- `config` and `gitignore` are `Option<&str>` (was `&str`). `None`
+  skips that file's write. Future use cases:
+  - PorJjGit / PorWithPeerPor upgrade paths in -6.7/-6.8 leave
+    existing `.vc-config.toml` in place.
+  - A hypothetical `vc-x1 scratch-repo` subcommand wanting a bare
+    git+jj init without project-specific files.
+
+**Module rename `repo_url.rs` → `url.rs`:**
+
+The old name was misleading — the module's contents (`Target`
+enum, `parse_target`, `derive_name`, `resolve_url`,
+`derive_session_url`) parse and derive *URLs and target strings*,
+not "repos". Pure string manipulation, no repo concept.
+
+- File renamed; jj tracks via content.
+- `repo: &str` parameter on `derive_name` / `resolve_url` →
+  `url: &str`. Internal references updated to match.
+- Doc comments tightened: "repo URL" → "URL", "Resolve a repo
+  argument" → "Resolve a target string", "session repo URL from a
+  code repo URL" → "session URL from a code-side URL".
+- All callers updated: `init.rs`, `clone.rs`, `main.rs` (`mod
+  repo_url;` → `mod url;`).
+
+**Renames in `init.rs`:**
+
+- `init_dual` → `create_dual`. Symmetric with `create_repo` and
+  signals that this is a creation-time orchestrator (not a
+  generic init flow). `init_one` stays — we expect it to collapse
+  into a 2-call composition by -6.4 (just `create_repo` +
+  `finalize_repo`) and may not survive as a standalone function.
+- `init_with_symlink`'s dispatcher updated to call `create_dual`.
+
+**Visibility surface (`pub(crate)`) — to support cross-module use
+from `repo_utils`:**
+
+- `jj_chid` (was `fn`).
+- `VC_CONFIG_APP_ONLY`, `VC_CONFIG_CODE`, `GITIGNORE_APP_ONLY`,
+  `GITIGNORE_CODE` (were `const`). Used by repo_utils tests.
+- `copy_template_recursive`, `rewrite_readme_first_line` were
+  already `pub(crate)`.
+
+**Cosmetic delta in user-visible output:**
+
+Dual mode's step narration shifts from one interleaved pass
+(`Step 1: ...` once, both sides mkdir, `Step 2: ...` once, etc.)
+to two per-side passes (all five steps for code, then all five
+for bot). Same actions, same order — just `info!()` ordering.
+Not covered by tests.
+
+**WIP ladder:**
+
+Single commit. Bundled the `repo_url` → `url` rename and
+`init_dual` → `create_dual` rename into the same -6.2 commit
+since the whole change is "module structure & naming."
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

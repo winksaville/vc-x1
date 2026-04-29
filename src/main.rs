@@ -11,7 +11,7 @@ mod init;
 mod list;
 mod logging;
 mod push;
-mod repo_url;
+mod repo_utils;
 mod scope;
 mod show;
 mod symlink;
@@ -19,6 +19,7 @@ mod sync;
 #[cfg(test)]
 mod test_helpers;
 mod toml_simple;
+mod url;
 mod validate_desc;
 
 use std::path::Path;

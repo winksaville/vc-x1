@@ -5,9 +5,10 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
-use crate::repo_url::{Target, derive_name, derive_session_url, parse_target};
+use crate::repo_utils::{OchidStrategy, create_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
+use crate::url::{Target, derive_name, derive_session_url, parse_target};
 
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
@@ -137,7 +138,7 @@ fn run_retry(
     Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
-use crate::common::{mkdir_p, run, write_file};
+use crate::common::{mkdir_p, run};
 
 /// Parse the `--use-template` value into `(code, bot)` template paths.
 ///
@@ -288,7 +289,7 @@ pub(crate) fn rewrite_readme_first_line(
 }
 
 /// Get the short (12-char) jj change ID for a revision, without printing.
-fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let full = run(
         "jj",
         &[
@@ -312,7 +313,7 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
+pub(crate) const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
 #
 # workspace-path is this repo's path relative to the workspace root.
 # Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
@@ -334,7 +335,7 @@ path = "/.claude"
 other-repo = ".."
 "#;
 
-const GITIGNORE_CODE: &str = "/target
+pub(crate) const GITIGNORE_CODE: &str = "/target
 /.claude
 /.git
 /.jj
@@ -349,7 +350,7 @@ const GITIGNORE_SESSION: &str = ".git
 ///
 /// - No `other-repo` field — its absence is what downstream
 ///   commands use to detect the single-repo state.
-const VC_CONFIG_APP_ONLY: &str = r#"# vc-config: Vibe Coding workspace configuration
+pub(crate) const VC_CONFIG_APP_ONLY: &str = r#"# vc-config: Vibe Coding workspace configuration
 #
 # workspace-path is this repo's path relative to the workspace root.
 # Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
@@ -362,7 +363,7 @@ path = "/"
 ///
 /// - Same as `GITIGNORE_CODE` minus the `/.claude` entry — there's
 ///   no session subdir in single-repo mode.
-const GITIGNORE_APP_ONLY: &str = "/target
+pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.git
 /.jj
 /.vc-x1
@@ -1146,7 +1147,7 @@ pub(crate) fn init_with_symlink(
     }
 
     if is_dual {
-        init_dual(args, &plan, templates, visibility, create_symlink)
+        create_dual(args, &plan, templates, visibility, create_symlink)
     } else {
         init_one(args, &plan, templates, visibility)
     }
@@ -1154,13 +1155,8 @@ pub(crate) fn init_with_symlink(
 
 /// Create-from-empty primitive for `--scope=por` (single repo).
 ///
-/// Runs the linear lifecycle on `plan.project_dir`:
-///
-/// - Step 1: mkdir.
-/// - Step 2: `git init` + colocated `jj git init`.
-/// - Step 3: write the POR-shape `.vc-config.toml` + `.gitignore`.
-/// - Step 4: copy code template (if any) + rewrite README.
-/// - Step 5: plain initial commit (no ochid).
+/// Composes:
+/// - `create_repo` (steps 1-5, `OchidStrategy::None`).
 /// - Step 7: bookmark + `git clean -xdf`.
 /// - Step 9: provision remote + push.
 /// - Step 10: re-init jj + bookmark tracking.
@@ -1172,49 +1168,21 @@ fn init_one(
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Step 1: Create directories. For LocalBareInit also create the
-    // parent so the bare-repo init (step 9) has a home.
-    info!("Step 1: Creating project directories...");
-    if let Some(parent) = plan.project_dir.parent() {
-        mkdir_p(parent)?;
-    }
-    mkdir_p(&plan.project_dir)?;
+    let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
-    // Step 2: git init + jj init
-    info!("Step 2: Initializing repos...");
-    debug!("seed project_dir with an empty git repo");
-    run("git", &["init"], &plan.project_dir)?;
-    debug!("colocate jj atop the git repo so jj + git share .git state");
-    run("jj", &["git", "init", "--colocate"], &plan.project_dir)?;
-
-    // Step 3: Write config files (POR shape)
-    info!("Step 3: Writing config files...");
-    write_file(
-        &plan.project_dir.join(".vc-config.toml"),
-        VC_CONFIG_APP_ONLY,
+    // Steps 1-5 via the per-side primitive.
+    let code_chid = create_repo(
+        &plan.project_dir,
+        "code",
+        Some(VC_CONFIG_APP_ONLY),
+        Some(GITIGNORE_APP_ONLY),
+        code_template,
+        &plan.name,
+        OchidStrategy::None,
     )?;
-    write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
-
-    // Step 4: Copy template (if --use-template)
-    if let Some((code_t, _)) = &templates {
-        info!("Step 4: Copying templates...");
-        info!(
-            "  code: {} -> {}",
-            code_t.display(),
-            plan.project_dir.display()
-        );
-        copy_template_recursive(code_t, &plan.project_dir)?;
-        rewrite_readme_first_line(&plan.project_dir, &plan.name)?;
-    }
-
-    // Step 5: jj commit (plain — no ochid in single-repo)
-    info!("Step 5: Committing code...");
-    debug!("code side: initial commit (no ochid in single-repo)");
-    run("jj", &["commit", "-m", "Initial commit"], &plan.project_dir)?;
 
     // Step 6: skipped — no cross-reference in single-repo
     info!("Step 6: (skipped — no cross-reference in single-repo)");
-    let code_chid = jj_chid("@-", &plan.project_dir)?;
     let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
     debug!("code repo: chid={code_chid} hash={hash}");
 
@@ -1286,14 +1254,16 @@ fn init_one(
 
 /// Create-from-empty orchestrator for `--scope=code,bot` (dual).
 ///
-/// Runs the lifecycle across both code and session repos,
-/// interleaved as needed:
-///
-/// - Step 5 commits both with placeholder ochids; step 6 rewrites
-///   them once both chids are known.
-/// - Step 7's code-side clean preserves `.claude/`.
-/// - Step 11 installs the symlink (toggled by `create_symlink`).
-fn init_dual(
+/// Composes:
+/// - `create_repo` for code side (`OchidStrategy::Placeholder`).
+/// - `create_repo` for session side (`OchidStrategy::Placeholder`).
+/// - Step 6: cross-reference ochids using both returned chids.
+/// - Step 7: bookmark + clean both (code-side clean preserves
+///   `.claude/`).
+/// - Steps 8/9: provision remotes + push session, then code.
+/// - Step 10: re-init + bookmark tracking on both.
+/// - Step 11: install symlink (when `create_symlink`).
+fn create_dual(
     args: &InitArgs,
     plan: &InitPlan,
     templates: Option<(PathBuf, Option<PathBuf>)>,
@@ -1307,70 +1277,33 @@ fn init_dual(
     #[allow(clippy::unwrap_used)]
     let session_url = plan.session_url.as_deref().unwrap(); // OK: scope=code,bot ⇒ session_url set
 
-    // Step 1: Create directories. For LocalBareInit also create the
-    // parent so the bare-repo init (step 8/9) has a home.
-    info!("Step 1: Creating project directories...");
-    if let Some(parent) = plan.project_dir.parent() {
-        mkdir_p(parent)?;
-    }
-    mkdir_p(&plan.project_dir)?;
-    mkdir_p(session_dir)?;
+    let (code_template, bot_template) = match templates.as_ref() {
+        Some((c, b)) => (Some(c.as_path()), b.as_deref()),
+        None => (None, None),
+    };
 
-    // Step 2: git init + jj init both
-    info!("Step 2: Initializing repos...");
-    debug!("seed project_dir with an empty git repo");
-    run("git", &["init"], &plan.project_dir)?;
-    debug!("colocate jj atop the git repo so jj + git share .git state");
-    run("jj", &["git", "init", "--colocate"], &plan.project_dir)?;
-    debug!("seed session_dir with an empty git repo");
-    run("git", &["init"], session_dir)?;
-    debug!("colocate jj atop the session git repo");
-    run("jj", &["git", "init", "--colocate"], session_dir)?;
-
-    // Step 3: Write config files (CODE/SESSION shapes)
-    info!("Step 3: Writing config files...");
-    write_file(&plan.project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
-    write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_CODE)?;
-    write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
-    write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
-
-    // Step 4: Copy templates (if --use-template)
-    if let Some((code_t, bot_t)) = &templates {
-        info!("Step 4: Copying templates...");
-        info!(
-            "  code: {} -> {}",
-            code_t.display(),
-            plan.project_dir.display()
-        );
-        copy_template_recursive(code_t, &plan.project_dir)?;
-        rewrite_readme_first_line(&plan.project_dir, &plan.name)?;
-        if let Some(bot_t) = bot_t.as_ref() {
-            info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
-            copy_template_recursive(bot_t, session_dir)?;
-            rewrite_readme_first_line(session_dir, session_name)?;
-        }
-    }
-
-    // Step 5: jj commit (placeholder ochids, rewritten in step 6)
-    info!("Step 5: Committing both repos with placeholder ochids...");
-    debug!("code side: initial commit with placeholder ochid (rewritten in step 6)");
-    run(
-        "jj",
-        &["commit", "-m", "Initial commit\n\nochid: /none"],
+    // Steps 1-5 per side: code first, then bot.
+    let code_chid = create_repo(
         &plan.project_dir,
+        "code",
+        Some(VC_CONFIG_CODE),
+        Some(GITIGNORE_CODE),
+        code_template,
+        &plan.name,
+        OchidStrategy::Placeholder,
     )?;
-    debug!("session side: initial commit with placeholder ochid (rewritten in step 6)");
-    run(
-        "jj",
-        &["commit", "-m", "Initial commit\n\nochid: /none"],
+    let session_chid = create_repo(
         session_dir,
+        "bot",
+        Some(VC_CONFIG_SESSION),
+        Some(GITIGNORE_SESSION),
+        bot_template,
+        session_name,
+        OchidStrategy::Placeholder,
     )?;
 
-    // Step 6: ochid cross-references
+    // Step 6: ochid cross-references (rewrites both placeholders)
     info!("Step 6: Setting ochid cross-references...");
-    let code_chid = jj_chid("@-", &plan.project_dir)?;
-    let session_chid = jj_chid("@-", session_dir)?;
-
     let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
     let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
     debug!("code side: rewrite initial commit's ochid to point at session chid");

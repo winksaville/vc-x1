@@ -1,4 +1,4 @@
-//! Parsing and derivation helpers for repository URLs and targets.
+//! Parsing and derivation helpers for URLs and target strings.
 //!
 //! Single source of truth for the positional `<TARGET>` forms
 //! that `init` and `clone` accept (URL, owner/name shorthand,
@@ -110,36 +110,36 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
     ))
 }
 
-/// Derive the project name from a repo URL or `owner/name` shorthand.
+/// Derive the project name from a URL or `owner/name` shorthand.
 ///
 /// - Strips trailing `.git`.
 /// - Returns the last segment after the rightmost `/` or `:`.
 /// - Errors when the resulting name would be empty.
-pub fn derive_name(repo: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let stem = repo.strip_suffix(".git").unwrap_or(repo); // OK: .git suffix is optional
+pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let stem = url.strip_suffix(".git").unwrap_or(url); // OK: .git suffix is optional
     let last = stem.rsplit(['/', ':']).next().unwrap_or(""); // OK: rsplit always yields at least one element
     if last.is_empty() {
-        return Err(format!("cannot derive project name from '{repo}'").into());
+        return Err(format!("cannot derive project name from '{url}'").into());
     }
     Ok(last.to_string())
 }
 
-/// Resolve a repo argument to a git clone URL.
+/// Resolve a target string to a git clone URL.
 ///
 /// - `owner/name` (single `/`, no `:` or scheme) →
 ///   `git@github.com:owner/name.git`.
 /// - Anything else is passed through as-is (already a URL).
-pub fn resolve_url(repo: &str) -> String {
-    if repo.contains("://") || repo.contains('@') {
-        return repo.to_string();
+pub fn resolve_url(url: &str) -> String {
+    if url.contains("://") || url.contains('@') {
+        return url.to_string();
     }
-    if repo.matches('/').count() == 1 && !repo.contains(':') {
-        return format!("git@github.com:{repo}.git");
+    if url.matches('/').count() == 1 && !url.contains(':') {
+        return format!("git@github.com:{url}.git");
     }
-    repo.to_string()
+    url.to_string()
 }
 
-/// Derive the session repo URL from a code repo URL.
+/// Derive the session URL from a code-side URL.
 ///
 /// - With trailing `.git`: insert `.claude` before it
 ///   (`foo.git` → `foo.claude.git`).
