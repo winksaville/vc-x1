@@ -685,6 +685,117 @@ Single commit. Bundled the `repo_url` → `url` rename and
 `init_dual` → `create_dual` rename into the same -6.2 commit
 since the whole change is "module structure & naming."
 
+### Extract push_repo + rename create_repo → create_local_repo (0.41.1-6.3)
+
+Second DRY pass on `init_with_symlink`. Lifts the post-create
+per-side machinery (bookmark + clean + checkout, remote
+provision/push, jj re-init + tracking) into a single helper
+`push_repo` in `src/init.rs`. Both orchestrators (`init_one`,
+`create_dual`) collapse hard: `init_one` from ~90 lines to ~35,
+`create_dual` from ~165 lines to ~85. Suite stays at 323, all
+green.
+
+**Rename `create_repo` → `create_local_repo`:**
+
+- Function in `src/repo_utils.rs`; 3 call sites in `init.rs`
+  (1 in `init_one`, 2 in `create_dual`); 3 test `expect()`
+  strings; all doc-comment references.
+- Explicitly local — no remote interaction; pairs with the new
+  `push_repo` (remote-side counterpart).
+
+**New helper `push_repo` (in `init.rs`):**
+
+```
+fn push_repo(
+    target, info_label, step_label_provision,
+    clean_exclude: Option<&str>,
+    plan, args, visibility,
+    remote_url, gh_slug, bare_path,
+) -> Result<String>  // final chid after re-init
+```
+
+Wraps three former-step regions per side:
+
+- Bookmark `main` at `@-`, `git clean -xdf` (with optional
+  `--exclude`), `git checkout main`.
+- Calls `run_remote_step` (provision via
+  GhCreate/LocalBareInit/ExternalPreExisting + `git remote add` +
+  `git push -u origin main` with retry).
+- `jj git init --colocate`, restore bookmark, track, verify, return
+  `jj_chid("@-", target)`.
+
+`clean_exclude` is the only per-call asymmetry: code-side dual
+passes `Some(".claude")` to preserve the nested session repo;
+session-side and POR pass `None`.
+
+Lives in `init.rs` (not `repo_utils.rs`) because it depends on
+`InitPlan` / `InitArgs` / `Provisioner` — types tightly coupled to
+`init`'s plan-and-execute shape. If those decouple later, push_repo
+can move.
+
+**Doc-comment cleanup on `create_local_repo`:**
+
+- Headline restructured into `Performs:` (5 actions) and
+  `Parameters:` (one bullet per arg) lists. The old prose about
+  "Steps 1-5" went away — `create_local_repo` no longer narrates
+  step numbers, so the doc shouldn't either.
+- "Per-side narration" paragraph dropped — when there's no step
+  numbering, there's no step-vs-side narration trade-off to
+  describe.
+- Drops `Step N:` prefixes from `info!()` lines: `Creating ...`,
+  `Initializing ...`, `Writing ...`, `Copying ...`,
+  `Committing ...`, plus a final `Created local repo ... chid = ...`
+  summary line.
+- Skipped-step narration dropped: when both `config` and
+  `gitignore` are `None`, or `template` is `None`, no `info!()` is
+  emitted (was previously `(skipped — ...)`).
+
+**Cosmetic delta in user-visible output:**
+
+Two changes vs -6.2:
+
+1. `info!()` lines drop `Step N:` prefixes (carried by
+   `create_local_repo` and the new `push_repo`).
+2. Dual mode now narrates fully sequential per side
+   (session: bookmark/clean/checkout → push → re-init, then code:
+   same), instead of the prior interleaved pattern (Step 7 both
+   sides, then push session, then push code, then re-init both).
+   Same subprocess invocations in the same order *within* each
+   side; only across-side ordering shifts.
+
+Not covered by tests.
+
+**In-process tests (dual counterparts to -6.0's POR fixture
+tests):**
+
+Four new tests in `init.rs::tests` pin dual-shape invariants under
+the new `push_repo` extraction. These are in-process fixture-driven
+tests (calling `init::init_with_symlink` directly via
+`Fixture::new`), not subprocess invocations of the `vc-x1` binary.
+True CLI integration tests are scheduled for -6.4.
+
+- `dual_fixture_creates_dual_repo_layout` — both repos and both
+  bare origins present; POR-shape `remote.git` absent.
+- `dual_fixture_writes_code_and_session_config_files` — code side
+  has `path = "/"` + `other-repo = ".claude"`; session side has
+  `path = "/.claude"` + `other-repo = ".."`; code-side
+  `.gitignore` excludes `/.claude`.
+- `dual_fixture_both_sides_track_origin` — `verify_tracking`
+  passes on both `work` and `work/.claude` (per-side step 10
+  ran for each `push_repo` call).
+- `dual_fixture_preserves_claude_across_code_clean` — `.claude/.jj`,
+  `.claude/.git`, and `.claude/.vc-config.toml` survive the
+  code-side clean. Pins the `clean_exclude = Some(".claude")` path.
+
+Suite: 323 → 327, all green.
+
+**WIP ladder:**
+
+Single commit; the `create_repo` → `create_local_repo` rename, the
+`push_repo` extraction, and the dual-fixture in-process tests ride
+together since the rename is mechanical and the new tests validate
+the extracted helper's behavior.
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

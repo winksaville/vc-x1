@@ -20,14 +20,15 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.41.1-6 init POR detection + upgrade paths [75]
   - -6.0 POR baseline integration tests + Fixture::new_por (done)
   - -6.1 literal lift: extract init_one / init_dual from init_with_symlink (done)
-  - -6.2 extract init_one_create (steps 1-5, parameterized by config/template/ochid strategy) (done)
-  - -6.3 extract init_one_finalize (steps 7-10, parameterized by clean exclude)
-  - -6.4 extract cross_ref_ochids; collapse init_dual to compose the helpers + symlink
-  - -6.5 add detect_state + InitTargetState enum + unit tests
-  - -6.6 wire detect_state into dispatch; Empty proceeds, others error with diagnostic
-  - -6.7 PorWithPeerPor upgrade: write both .vc-config.toml + symlink
-  - -6.8 PorJjGit upgrade: bot-side init_one_create into .claude/ + ochid-link
-  - -6.9 PorGitOnly upgrade: jj git init bootstrap + PorJjGit path
+  - -6.2 extract create_repo + module reshape (repo_url → url, init_dual → create_dual) (done)
+  - -6.3 extract push_repo (steps 7-9) + rename create_repo → create_local_repo (done)
+  - -6.4 CLI subprocess integration tests (true `vc-x1` invocations) — add tests/ crate + harness
+  - -6.5 extract cross_ref_ochids; eliminate init_one; final create_dual collapse
+  - -6.6 add detect_state + InitTargetState enum + unit tests
+  - -6.7 wire detect_state into dispatch; Empty proceeds, others error with diagnostic
+  - -6.8 PorWithPeerPor upgrade: write both .vc-config.toml + symlink
+  - -6.9 PorJjGit upgrade: bot-side create_local_repo into .claude/ + ochid-link
+  - -6.10 PorGitOnly upgrade: jj git init bootstrap + PorJjGit path
 - 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
 - 0.41.1 close-out [72]
 

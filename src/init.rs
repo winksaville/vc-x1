@@ -5,7 +5,7 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
-use crate::repo_utils::{OchidStrategy, create_repo};
+use crate::repo_utils::{OchidStrategy, create_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target};
@@ -1156,10 +1156,9 @@ pub(crate) fn init_with_symlink(
 /// Create-from-empty primitive for `--scope=por` (single repo).
 ///
 /// Composes:
-/// - `create_repo` (steps 1-5, `OchidStrategy::None`).
-/// - Step 7: bookmark + `git clean -xdf`.
-/// - Step 9: provision remote + push.
-/// - Step 10: re-init jj + bookmark tracking.
+/// - `create_local_repo` (steps 1-5, `OchidStrategy::None`).
+/// - `push_repo` (steps 7, 9, 10) — bookmark + clean + checkout,
+///   provision + push, jj re-init + tracking.
 ///
 /// No cross-reference ochid, no session repo, no symlink.
 fn init_one(
@@ -1171,7 +1170,7 @@ fn init_one(
     let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     // Steps 1-5 via the per-side primitive.
-    let code_chid = create_repo(
+    let code_chid = create_local_repo(
         &plan.project_dir,
         "code",
         Some(VC_CONFIG_APP_ONLY),
@@ -1186,57 +1185,22 @@ fn init_one(
     let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
     debug!("code repo: chid={code_chid} hash={hash}");
 
-    // Step 7: Set bookmark (creates git branch), then remove jj
-    info!("Step 7: Setting bookmarks and removing jj...");
-    debug!("place code-side main bookmark at the initial commit");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.project_dir,
-    )?;
-    debug!("strip jj state from code side (no .claude in single-repo)");
-    run("git", &["clean", "-xdf"], &plan.project_dir)?;
-    debug!("re-attach code HEAD to main after clean");
-    run("git", &["checkout", "main"], &plan.project_dir)?;
-
     // Step 8: skipped — no session side in single-repo
     info!("Step 8: (skipped — no session side in single-repo)");
 
-    // Step 9: provision remote and push code
-    run_remote_step(
-        "Step 9",
+    // Steps 7, 9, 10 via push_repo (no clean exclude in single-repo).
+    let code_chid_final = push_repo(
+        &plan.project_dir,
         "code",
+        "Step 9",
+        None,
         plan,
+        args,
+        visibility,
         &plan.code_url,
         plan.gh_code_slug.as_deref(),
         plan.code_bare_path.as_deref(),
-        visibility,
-        &plan.project_dir,
-        args,
     )?;
-
-    // Step 10: Re-initialize jj
-    info!("Step 10: Re-initializing jj on the code repo...");
-    debug!("re-colocate jj atop the now-remote-linked code repo");
-    run(
-        "jj",
-        &["--quiet", "git", "init", "--colocate"],
-        &plan.project_dir,
-    )?;
-    debug!("restore code-side main bookmark after re-init");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.project_dir,
-    )?;
-    debug!("enable jj tracking of code-side main against origin");
-    run(
-        "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        &plan.project_dir,
-    )?;
-    crate::common::verify_tracking(&plan.project_dir, "main")?;
-    let code_chid_final = jj_chid("@-", &plan.project_dir)?;
 
     // Step 11: skipped — no .claude symlink in single-repo
     info!("Step 11: (skipped — no .claude symlink in single-repo)");
@@ -1255,13 +1219,13 @@ fn init_one(
 /// Create-from-empty orchestrator for `--scope=code,bot` (dual).
 ///
 /// Composes:
-/// - `create_repo` for code side (`OchidStrategy::Placeholder`).
-/// - `create_repo` for session side (`OchidStrategy::Placeholder`).
+/// - `create_local_repo` for code side (`OchidStrategy::Placeholder`).
+/// - `create_local_repo` for session side (`OchidStrategy::Placeholder`).
 /// - Step 6: cross-reference ochids using both returned chids.
-/// - Step 7: bookmark + clean both (code-side clean preserves
-///   `.claude/`).
-/// - Steps 8/9: provision remotes + push session, then code.
-/// - Step 10: re-init + bookmark tracking on both.
+/// - `push_repo` for session side (steps 7, 8, 10).
+/// - `push_repo` for code side (steps 7, 9, 10) with
+///   `clean_exclude = Some(".claude")` so the nested session
+///   repo survives the code-side clean.
 /// - Step 11: install symlink (when `create_symlink`).
 fn create_dual(
     args: &InitArgs,
@@ -1283,7 +1247,7 @@ fn create_dual(
     };
 
     // Steps 1-5 per side: code first, then bot.
-    let code_chid = create_repo(
+    let code_chid = create_local_repo(
         &plan.project_dir,
         "code",
         Some(VC_CONFIG_CODE),
@@ -1292,7 +1256,7 @@ fn create_dual(
         &plan.name,
         OchidStrategy::Placeholder,
     )?;
-    let session_chid = create_repo(
+    let session_chid = create_local_repo(
         session_dir,
         "bot",
         Some(VC_CONFIG_SESSION),
@@ -1321,88 +1285,33 @@ fn create_dual(
     let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
     debug!(".claude:   chid={session_chid} hash={hash}");
 
-    // Step 7: Set bookmarks, remove jj (code-side clean preserves .claude/)
-    info!("Step 7: Setting bookmarks and removing jj...");
-    debug!("place code-side main bookmark at the initial commit");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.project_dir,
-    )?;
-    debug!("place session-side main bookmark at the initial commit");
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
-    debug!("strip jj state from session side before its git push");
-    run("git", &["clean", "-xdf"], session_dir)?;
-    debug!("strip jj state from code side, preserving nested .claude/");
-    run(
-        "git",
-        &["clean", "-xdf", "--exclude", ".claude"],
-        &plan.project_dir,
-    )?;
-    debug!("re-attach session HEAD to main after clean");
-    run("git", &["checkout", "main"], session_dir)?;
-    debug!("re-attach code HEAD to main after clean");
-    run("git", &["checkout", "main"], &plan.project_dir)?;
-
-    // Steps 8/9: provision remotes and push.
-    run_remote_step(
-        "Step 8",
+    // Steps 7, 8, 10 for the session side.
+    let session_chid_final = push_repo(
+        session_dir,
         "session",
+        "Step 8",
+        None,
         plan,
+        args,
+        visibility,
         session_url,
         plan.gh_session_slug.as_deref(),
         plan.session_bare_path.as_deref(),
-        visibility,
-        session_dir,
-        args,
     )?;
-    run_remote_step(
-        "Step 9",
+    // Steps 7, 9, 10 for the code side; preserve the nested
+    // session repo on clean.
+    let code_chid_final = push_repo(
+        &plan.project_dir,
         "code",
+        "Step 9",
+        Some(".claude"),
         plan,
+        args,
+        visibility,
         &plan.code_url,
         plan.gh_code_slug.as_deref(),
         plan.code_bare_path.as_deref(),
-        visibility,
-        &plan.project_dir,
-        args,
     )?;
-
-    // Step 10: Re-initialize jj on both repos
-    info!("Step 10: Re-initializing jj on both repos...");
-    debug!("re-colocate jj atop the now-remote-linked code repo");
-    run(
-        "jj",
-        &["--quiet", "git", "init", "--colocate"],
-        &plan.project_dir,
-    )?;
-    debug!("restore code-side main bookmark after re-init");
-    run(
-        "jj",
-        &["bookmark", "set", "main", "-r", "@-"],
-        &plan.project_dir,
-    )?;
-    debug!("enable jj tracking of code-side main against origin");
-    run(
-        "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        &plan.project_dir,
-    )?;
-    crate::common::verify_tracking(&plan.project_dir, "main")?;
-    let code_chid_final = jj_chid("@-", &plan.project_dir)?;
-
-    debug!("re-colocate jj atop the now-remote-linked session repo");
-    run("jj", &["--quiet", "git", "init", "--colocate"], session_dir)?;
-    debug!("restore session-side main bookmark after re-init");
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
-    debug!("enable jj tracking of session-side main against origin");
-    run(
-        "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        session_dir,
-    )?;
-    crate::common::verify_tracking(session_dir, "main")?;
-    let session_chid_final = jj_chid("@-", session_dir)?;
 
     // Step 11: Create Claude Code symlink (opt-out for tests)
     let sl_opt = if create_symlink {
@@ -1430,6 +1339,75 @@ fn create_dual(
 
     debug!("init: exit");
     Ok(())
+}
+
+/// Push primitive: steps 7, 8|9, 10 on `target`. Returns the
+/// final chid (`jj @-`) after re-init.
+///
+/// - `target` — repo working dir (already populated by
+///   `create_local_repo`).
+/// - `info_label` — narration tag (`"code"`, `"session"`, etc.).
+/// - `step_label_provision` — `"Step 8"` (session) or
+///   `"Step 9"` (code) — appears in the provision/push narration.
+/// - `clean_exclude` — `Some(".claude")` for code-side dual to
+///   preserve the nested session repo across `git clean -xdf`;
+///   `None` otherwise.
+/// - `plan` / `args` / `visibility` / `remote_url` / `gh_slug` /
+///   `bare_path` — forwarded to `run_remote_step`.
+#[allow(clippy::too_many_arguments)]
+fn push_repo(
+    target: &Path,
+    info_label: &str,
+    step_label_provision: &str,
+    clean_exclude: Option<&str>,
+    plan: &InitPlan,
+    args: &InitArgs,
+    visibility: &str,
+    remote_url: &str,
+    gh_slug: Option<&str>,
+    bare_path: Option<&Path>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Step 7: Setting {info_label} bookmark and removing jj...");
+    debug!("place {info_label}-side main bookmark at the initial commit");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
+    match clean_exclude {
+        Some(ex) => {
+            debug!("strip jj state from {info_label} side, preserving nested {ex}/");
+            run("git", &["clean", "-xdf", "--exclude", ex], target)?;
+        }
+        None => {
+            debug!("strip jj state from {info_label} side");
+            run("git", &["clean", "-xdf"], target)?;
+        }
+    }
+    debug!("re-attach {info_label} HEAD to main after clean");
+    run("git", &["checkout", "main"], target)?;
+
+    run_remote_step(
+        step_label_provision,
+        info_label,
+        plan,
+        remote_url,
+        gh_slug,
+        bare_path,
+        visibility,
+        target,
+        args,
+    )?;
+
+    info!("Step 10: Re-initializing jj on the {info_label} repo...");
+    debug!("re-colocate jj atop the now-remote-linked {info_label} repo");
+    run("jj", &["--quiet", "git", "init", "--colocate"], target)?;
+    debug!("restore {info_label}-side main bookmark after re-init");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
+    debug!("enable jj tracking of {info_label}-side main against origin");
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        target,
+    )?;
+    crate::common::verify_tracking(target, "main")?;
+    jj_chid("@-", target)
 }
 
 /// Execute Step 8 or Step 9 for one side.
@@ -2403,5 +2381,108 @@ mod tests {
 
         crate::common::verify_tracking(&fx.work, "main")
             .expect("main should track origin/main after init step 10");
+    }
+
+    // ---------- Dual end-to-end fixture (drives init_with_symlink with --scope=code,bot) ----------
+    //
+    // Counterparts to the POR fixture tests above; pin the dual-shape
+    // invariants `push_repo` must preserve (-6.3 extraction).
+
+    /// Dual fixture lays down both repos and both bare origins:
+    /// `<base>/work/`, `<base>/work/.claude/`, `<base>/remote-code.git`,
+    /// `<base>/remote-claude.git`. POR-shape `remote.git` is absent.
+    #[test]
+    fn dual_fixture_creates_dual_repo_layout() {
+        let fx = crate::test_helpers::Fixture::new("dual-layout");
+
+        assert!(fx.work.exists() && fx.work.is_dir(), "work dir present");
+        assert!(
+            fx.claude.exists() && fx.claude.is_dir(),
+            "nested .claude dir present"
+        );
+        assert!(
+            fx.base.join("remote-code.git").exists(),
+            "code-side bare origin present"
+        );
+        assert!(
+            fx.base.join("remote-claude.git").exists(),
+            "session-side bare origin present"
+        );
+        assert!(
+            !fx.base.join("remote.git").exists(),
+            "POR-shape bare must not appear in dual layout"
+        );
+    }
+
+    /// Dual fixture writes the CODE / SESSION config + .gitignore
+    /// variants — code side has `path = "/"` and
+    /// `other-repo = ".claude"`; session side has
+    /// `path = "/.claude"` and `other-repo = ".."`. Code-side
+    /// `.gitignore` excludes `/.claude` (session subdir is git-ignored
+    /// from the code-side view).
+    #[test]
+    fn dual_fixture_writes_code_and_session_config_files() {
+        let fx = crate::test_helpers::Fixture::new("dual-config");
+
+        let code_cfg = std::fs::read_to_string(fx.work.join(".vc-config.toml"))
+            .expect("read code .vc-config.toml");
+        assert!(code_cfg.contains("path = \"/\""), "code path = \"/\"");
+        assert!(
+            code_cfg.contains("other-repo = \".claude\""),
+            "code other-repo = \".claude\""
+        );
+
+        let session_cfg = std::fs::read_to_string(fx.claude.join(".vc-config.toml"))
+            .expect("read session .vc-config.toml");
+        assert!(
+            session_cfg.contains("path = \"/.claude\""),
+            "session path = \"/.claude\""
+        );
+        assert!(
+            session_cfg.contains("other-repo = \"..\""),
+            "session other-repo = \"..\""
+        );
+
+        let code_gi =
+            std::fs::read_to_string(fx.work.join(".gitignore")).expect("read code .gitignore");
+        assert!(
+            code_gi.contains("/.claude"),
+            "code .gitignore excludes /.claude"
+        );
+    }
+
+    /// Dual fixture has `main` bookmarks tracking `origin/main` on
+    /// both sides — pins per-side step 10 (re-init + track) ran
+    /// for each `push_repo` call.
+    #[test]
+    fn dual_fixture_both_sides_track_origin() {
+        let fx = crate::test_helpers::Fixture::new("dual-tracking");
+
+        crate::common::verify_tracking(&fx.work, "main")
+            .expect("code-side main should track origin/main after push_repo");
+        crate::common::verify_tracking(&fx.claude, "main")
+            .expect("session-side main should track origin/main after push_repo");
+    }
+
+    /// Code-side `git clean -xdf --exclude .claude` must preserve
+    /// the nested session repo's `.jj/` and `.git/` state. This
+    /// pins `push_repo`'s `clean_exclude = Some(".claude")` path
+    /// in the dual code-side call.
+    #[test]
+    fn dual_fixture_preserves_claude_across_code_clean() {
+        let fx = crate::test_helpers::Fixture::new("dual-clean-exclude");
+
+        assert!(
+            fx.claude.join(".jj").exists(),
+            "session .jj must survive code-side clean (clean_exclude=.claude)"
+        );
+        assert!(
+            fx.claude.join(".git").exists(),
+            "session .git must survive code-side clean"
+        );
+        assert!(
+            fx.claude.join(".vc-config.toml").exists(),
+            "session .vc-config.toml must survive code-side clean"
+        );
     }
 }

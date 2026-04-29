@@ -2,18 +2,18 @@
 //!
 //! Sibling of `url` (URL/target parsing); this module hosts
 //! the local-state mechanics that don't depend on URL form. As of
-//! 0.41.1-6.2 it carries `create_repo` (steps 1-5 of the init
-//! lifecycle) and the `OchidStrategy` policy enum; `finalize_repo`
-//! and `cross_ref_ochids` are scheduled to land in -6.3 and -6.4.
+//! 0.41.1-6.3 it carries `create_local_repo` (steps 1-5 of the
+//! init lifecycle) and the `OchidStrategy` policy enum;
+//! `cross_ref_ochids` is scheduled to land in -6.4.
 
 use std::path::Path;
 
-use log::{debug, info};
+use log::info;
 
 use crate::common::{mkdir_p, run, write_file};
 use crate::init::{copy_template_recursive, jj_chid, rewrite_readme_first_line};
 
-/// Initial-commit ochid policy used by `create_repo`.
+/// Initial-commit ochid policy used by `create_local_repo`.
 ///
 /// - `None` — POR: plain `Initial commit` message.
 /// - `Placeholder` — Dual: `Initial commit\n\nochid: /none`,
@@ -25,28 +25,37 @@ pub enum OchidStrategy {
     Placeholder,
 }
 
-/// Per-side create primitive: steps 1-5 (mkdir, git/jj init,
-/// configs, optional template, initial commit) on `target`.
-/// Returns the chid of the new initial commit (`jj @-`).
+/// Create a new local repo at `target`. Returns the chid of the
+/// new initial commit (`jj @-`).
 ///
+/// Performs:
+/// - Creates `target` (and its parent if needed).
+/// - `git init` + `jj git init --colocate`.
+/// - Optionally writes `.vc-config.toml` and/or `.gitignore`.
+/// - Optionally copies a template tree, rewriting any
+///   `README.md`'s first line to `# <name>`.
+/// - Commits `Initial commit` (with an `ochid: /none` trailer
+///   when `ochid_strategy` is `Placeholder`).
+///
+/// Parameters:
+/// - `target` — destination directory for the new repo. Created
+///   (along with its parent if needed); must not already exist
+///   as a populated repo.
 /// - `info_label` — narration tag (`"code"`, `"bot"`, `"scratch"`,
 ///   etc.); appears in `info!()` lines.
-/// - `config` / `gitignore` — optional file contents. `Some(s)`
-///   writes `target/.vc-config.toml` (or `.gitignore`); `None`
-///   skips the write entirely. Useful for upgrade paths that
-///   leave config files in place, or for scratch repos that want
+/// - `config` — optional `.vc-config.toml` contents. `Some(s)`
+///   writes the file; `None` skips. Useful for upgrade paths
+///   that leave config in place, or for scratch repos that want
 ///   a bare git+jj init without project-specific files.
+/// - `gitignore` — optional `.gitignore` contents; same
+///   `Some`/`None` semantics as `config`.
 /// - `template` — optional source dir. When present, copied
 ///   recursively (non-hidden only) and any `README.md`'s first
 ///   line is rewritten to `# <name>`.
 /// - `name` — repo name used by the README rewrite.
 /// - `ochid_strategy` — initial-commit message policy.
-///
-/// Per-side narration: `info!()` is emitted once per call rather
-/// than once per step across sides — dual orchestrators get two
-/// narration passes (code, then bot) instead of one interleaved.
 #[allow(clippy::too_many_arguments)]
-pub fn create_repo(
+pub fn create_local_repo(
     target: &Path,
     info_label: &str,
     config: Option<&str>,
@@ -56,60 +65,53 @@ pub fn create_repo(
     ochid_strategy: OchidStrategy,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!(
-        "Step 1: Creating {info_label} directory at {}",
+        "Creating local repo {info_label} directory at {}",
         target.display()
     );
+
     if let Some(parent) = target.parent() {
         mkdir_p(parent)?;
     }
     mkdir_p(target)?;
 
-    info!("Step 2: Initializing {info_label} repo (git + jj)...");
-    debug!("seed {info_label} dir with an empty git repo");
+    info!("Initializing {info_label} repo (git + jj)...");
     run("git", &["init"], target)?;
-    debug!("colocate jj atop the {info_label} git repo");
+    info!("colocate jj atop the {info_label} git repo");
     run("jj", &["git", "init", "--colocate"], target)?;
 
-    match (config, gitignore) {
-        (None, None) => {
-            info!("Step 3: (skipped — no {info_label} config files requested)");
+    if config.is_some() || gitignore.is_some() {
+        info!("Writing {info_label} config files...");
+        if let Some(c) = config {
+            write_file(&target.join(".vc-config.toml"), c)?;
         }
-        _ => {
-            info!("Step 3: Writing {info_label} config files...");
-            if let Some(c) = config {
-                write_file(&target.join(".vc-config.toml"), c)?;
-            }
-            if let Some(g) = gitignore {
-                write_file(&target.join(".gitignore"), g)?;
-            }
+        if let Some(g) = gitignore {
+            write_file(&target.join(".gitignore"), g)?;
         }
     }
 
-    match template {
-        Some(t) => {
-            info!(
-                "Step 4: Copying {info_label} template: {} -> {}",
-                t.display(),
-                target.display()
-            );
-            copy_template_recursive(t, target)?;
-            rewrite_readme_first_line(target, name)?;
-        }
-        None => {
-            info!("Step 4: (skipped — no {info_label} template)");
-        }
+    if let Some(t) = template {
+        info!(
+            "Copying {info_label} template: {} -> {}",
+            t.display(),
+            target.display()
+        );
+        copy_template_recursive(t, target)?;
+        rewrite_readme_first_line(target, name)?;
     }
 
     let msg = match ochid_strategy {
         OchidStrategy::None => "Initial commit",
         OchidStrategy::Placeholder => "Initial commit\n\nochid: /none",
     };
-    info!("Step 5: Committing {info_label}...");
-    debug!("{info_label} side: jj commit (ochid_strategy={ochid_strategy:?})");
+    info!("Committing {info_label}...");
     run("jj", &["commit", "-m", msg], target)?;
 
     let chid = jj_chid("@-", target)?;
-    debug!("{info_label} initial chid = {chid}");
+
+    info!(
+        "Created local repo {info_label} directory at {} chid = {chid}",
+        target.display()
+    );
     Ok(chid)
 }
 
@@ -125,7 +127,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        let chid = create_repo(
+        let chid = create_local_repo(
             &target,
             "code",
             Some(crate::init::VC_CONFIG_APP_ONLY),
@@ -134,7 +136,7 @@ mod tests {
             "scratch",
             OchidStrategy::None,
         )
-        .expect("create_repo with strategy None");
+        .expect("create_local_repo with strategy None");
 
         assert!(!chid.is_empty(), "chid returned");
         assert!(target.join(".jj").exists(), "jj initialized");
@@ -163,7 +165,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        let _chid = create_repo(
+        let _chid = create_local_repo(
             &target,
             "code",
             Some(crate::init::VC_CONFIG_CODE),
@@ -172,7 +174,7 @@ mod tests {
             "scratch",
             OchidStrategy::Placeholder,
         )
-        .expect("create_repo with strategy Placeholder");
+        .expect("create_local_repo with strategy Placeholder");
 
         let cfg = std::fs::read_to_string(target.join(".vc-config.toml")).expect("read config");
         assert!(cfg.contains("other-repo = \".claude\""));
@@ -196,7 +198,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        let _chid = create_repo(
+        let _chid = create_local_repo(
             &target,
             "scratch",
             None,
@@ -205,7 +207,7 @@ mod tests {
             "scratch",
             OchidStrategy::None,
         )
-        .expect("create_repo with no config files");
+        .expect("create_local_repo with no config files");
 
         assert!(target.join(".jj").exists(), "jj still initialized");
         assert!(target.join(".git").exists(), "git still initialized");
