@@ -32,11 +32,14 @@ in-flight 0.42.0 work on `main` rebases on top.
 ### Command structure
 
 ```
-vc-x1 init  <TARGET> [NAME] [--scope code,bot|por] [--private] [--dry-run]
-vc-x1 clone <TARGET> [NAME] [--scope code,bot|por]             [--dry-run]
+vc-x1 init  <TARGET> [NAME] [--scope code,bot|por] [--account <a>] [--repo <cat>[=<val>]] [--private] [--dry-run]
+vc-x1 clone <TARGET> [NAME] [--scope code,bot|por]                                                    [--dry-run]
 ```
 
-Identical surfaces modulo `--private` (init only).
+Init carries `--account`, `--repo`, and `--private`;
+clone has none of them. Clone's TARGET is the source
+(URL/path); init's TARGET is the workspace name/path
+combined with config-resolved remote.
 
 `<TARGET>` accepts:
 
@@ -49,14 +52,15 @@ Identical surfaces modulo `--private` (init only).
   bare `.`, or bare `..`. Path IS the target; last component
   is the workspace name (consumer canonicalizes `.` / `..`
   to a real basename via `canonicalize` + `file_name`).
-- **Bare alphanumeric NAME** — for **init** only, expands to
-  `<owner>/NAME` via the user config
-  ([`User config`](#user-config-0411-3)). Missing config →
-  error with hint to use `owner/name` shorthand or set
-  `[default].remote-provider` + `[github].owner`. For
-  **clone**, bare NAME is an error (genuinely ambiguous —
-  "missing `./`?" / "missing `/name` suffix?"); clone has
-  no config-driven defaults.
+- **Bare alphanumeric NAME** — for **init** only, becomes
+  the workspace name; the remote URL is resolved via the
+  user config's `--repo` chain
+  ([`User config`](#user-config-0411-3-redesigned-in-0411-4)).
+  Missing required config keys produce the
+  step-specific errors documented there. For **clone**,
+  bare NAME is an error (genuinely ambiguous — "missing
+  `./`?" / "missing `/name` suffix?"); clone has no
+  config-driven defaults.
 
 `[NAME]`:
 
@@ -86,6 +90,24 @@ Identical surfaces modulo `--private` (init only).
 GitHub repo. Sets visibility at `gh repo create`. Silently
 warn-and-ignore if the remote already exists. Errors on
 clone (clone never creates a remote).
+
+`--account <name>` (init only): override
+`[default].account`. Determines which `[account.<name>]`
+section is consulted for `--repo` resolution.
+
+`--repo <cat>[=<val>]` (init only): pick the repo target
+for this run.
+- `--repo` absent → use account's `repo.default` →
+  category's value.
+- `--repo <cat>` → use `<cat>`'s configured value.
+- `--repo <cat>=<val>` → use literal `<val>`.
+
+Built-in categories: `remote` (value is a URL prefix —
+init appends `/<NAME>.git`) and `local` (value is the
+parent dir for fixture bare repos at
+`<parent>/remote-{code,claude}.git`). Replaces the old
+`--owner` / `--repo-local` / `--repo-remote` /
+`--fixture` flag set with one unified mechanism.
 
 `--dry-run`: validate the operation as far as possible
 without side effects. Print what would be done.
@@ -232,69 +254,129 @@ close-out).
 - `-2` — clone reshape: `<TARGET>` + `[NAME]`
   positionals, add `--scope code,bot|por`, refactor into
   `clone_one` / `clone_dual`. Add target-exists pre-check.
-- `-3` — user config: `~/.config/vc-x1/config.toml`
-  reader; `[default]` + `[github]` sections; standalone
-  module, `-4` is the first consumer. See
-  [`User config`](#user-config-0411-3).
-- `-4` — init reshape: drop old flags, add `<TARGET>` +
-  `[NAME]`, add `--scope=por`, refactor into `init_one` /
-  `init_dual`. Wire bare-NAME → user-config expansion.
-  Existing create-from-empty operations work via the new
-  shape.
-- `-5` — init POR detection + upgrade paths
+- `-3` — user config (first cut):
+  `~/.config/vc-x1/config.toml` reader; flat
+  `[default]` + `[github]` schema; standalone module.
+  Superseded by `-4`'s redesign before any consumer
+  wired in.
+- `-4` — user config redesign: replace `-3`'s flat
+  schema with `[account.<name>].repo.category.<cat>`
+  multi-account / category structure, literal values,
+  three-level resolution chain. Standalone; `-5` is the
+  first consumer. See
+  [`User config`](#user-config-0411-3-redesigned-in-0411-4).
+- `-5` — init reshape: drop old flags
+  (`--owner` / `--dir` / `--repo-local` / `--repo-remote`),
+  add `<TARGET>` + `[NAME]`, `--account`, `--repo`,
+  `--scope code,bot|por`. Refactor into `init_one` /
+  `init_dual`. Existing create-from-empty operations
+  work via the new shape.
+- `-6` — init POR detection + upgrade paths
   (PorJjGit, PorGitOnly auto-bootstrap, PorWithPeerPor
   config-only).
-- `-6` — `test_helpers::Fixture` migration; audit
+- `-7` — `test_helpers::Fixture` migration; audit
   downstream callers across the test suite.
 - final — cycle close-out: fill in Example Layout outputs,
-  address `notes/vc-x1-init.md` cosmetic anomalies, drop
+  address `notes/vc-x1-init.md` cosmetic anomalies, document
+  `~/.config/vc-x1/config.toml` in `README.md` (simplest /
+  full-one-account / full-two-account examples), drop
   the `-N` suffix.
 
-### User config (0.41.1-3)
+### User config (0.41.1-3, redesigned in 0.41.1-4)
 
-Bare-NAME init (`vc-x1 init tf1`) needs a place to look up
-the implicit owner. Adopt a user-global config at
-`~/.config/vc-x1/config.toml` (XDG-compliant; honors
-`$XDG_CONFIG_HOME`). No magic fallbacks: missing file or
-missing key → predictable error pointing at the config.
+User-global config at `~/.config/vc-x1/config.toml`
+(XDG-compliant; honors `$XDG_CONFIG_HOME`). Backs init's
+account- and repo-target resolution. No magic fallbacks:
+missing file or missing key → predictable error pointing
+at the exact key to set.
+
+`-3` shipped a flat first-cut schema (`[default]
+repo-remote-provider`, `[github] owner`); `-4` replaces it
+with the account/category structure below before init
+becomes the first consumer in `-5`. Since `-3` had no
+consumers, the rewrite is non-breaking.
 
 Schema:
 
 ```toml
 [default]
-remote-provider = "github"
+account = "home"      # default --account when absent
+debug   = "trace"     # default --debug value when used without arg
 
-[github]
-owner = "winksaville"
-service = "github.com"   # optional, defaults to "github.com"
+[account.home]
+repo.default          = "remote"                       # default --repo cat when absent
+repo.category.remote  = "git@github.com:winksaville"   # value for --repo remote (no =val)
+repo.category.local   = "~/test-fixtures"              # value for --repo local (no =val)
+
+[account.work]
+repo.default          = "remote"
+repo.category.remote  = "git@github.com:anthropic"
+repo.category.local   = "/work/fixtures"
 ```
 
-`[default].remote-provider` is the selector; per-provider
-sections (`[github]`, future `[gitlab]`, ...) carry the
-provider-specific fields. Forward-compatible with the
-multi-service direction without restructuring.
+Three layers — each level has its own default-finding key:
 
-Resolution rules (no magic):
+| CLI                       | Step 1: account                | Step 2: category                  | Step 3: value                                    |
+|---|---|---|---|
+| (no `--repo`/`--account`) | `[default].account`            | `[account.<a>.repo].default`      | `[account.<a>.repo.category].<cat>`              |
+| `--account <a>`           | `<a>` (CLI)                    | `[account.<a>.repo].default`      | `[account.<a>.repo.category].<cat>`              |
+| `--repo <cat>`            | `[default].account` (or CLI)   | `<cat>` (CLI)                     | `[account.<a>.repo.category].<cat>`              |
+| `--repo <cat>=<val>`      | `[default].account` (or CLI)   | `<cat>` (CLI)                     | `<val>` (CLI, literal)                           |
 
-- Bare alphanumeric NAME + no `[default].remote-provider`
-  set → error: "set `[default].remote-provider` in
-  `~/.config/vc-x1/config.toml` or use `owner/name`
-  shorthand".
-- `remote-provider = "github"` + no `[github].owner` →
-  error: "set `[github].owner` in
-  `~/.config/vc-x1/config.toml`".
-- `[github].service` unset → defaults to `"github.com"`
-  (canonical host, not magic).
-- All present → `tf1` resolves to
-  `git@<service>:<owner>/<NAME>.git`.
+Values are **literal targets**, not section-name
+pointers. For `category = "remote"`, the value is a URL
+prefix (init appends `/<NAME>.git`); for `category =
+"local"`, it's the parent dir for fixture bares. Built-in
+categories `remote` and `local` are recognized; any other
+category name errors in `-5` (forward-compat: future
+cycles can add a `kind` field for user-defined categories).
+
+Resolution errors (each step has its own message):
+
+- Step 1 missing → `no account specified; set [default].account, use --account <name>, or write a top-level [repo] section`.
+- Step 2 missing → `no default category for account '<a>'; set [account.<a>.repo].default or use --repo <cat>`.
+- Step 3 missing → `no value for --repo <cat> in account '<a>'; set [account.<a>.repo.category].<cat> or use --repo <cat>=<val>`.
+
+#### Single-account shorthand: top-level `[repo]`
+
+`[account.<name>]` boilerplate is overhead when there's
+only one account. The loader accepts a top-level `[repo]`
+section as a single-account shorthand:
+
+```toml
+[repo]
+default          = "remote"
+category.remote  = "git@github.com:winksaville"
+category.local   = "~/test-fixtures"
+```
+
+3-4 lines for a complete config — no `[default].account`,
+no `[account.<name>]`. Resolution: when no `--account` is
+given and no `[default].account` is set, the loader uses
+the top-level `[repo]` block as the implicit account.
+
+Mixing top-level `[repo]` **and** `[account.*]` sections
+is rejected at load time (ambiguous which one init should
+consult — error: `mixing top-level [repo] with [account.*]
+is ambiguous`).
+
+Top-level error format uses `[repo.category].<cat>` rather
+than `[account.<a>.repo.category].<cat>`.
 
 Per-workspace `.vc-config.toml` override (ancestor walk)
 is deferred — chicken-and-egg at init time, and the
 global file covers the dominant use case.
 
-`-3` lands the config module standalone (`src/config.rs`,
-`UserConfig` struct, `load()` / `load_from(path)`); `-4`
-wires it into init's bare-NAME path.
+Module shape:
+
+- `pub struct UserConfig { default_account, default_debug, top_level_repo: Option<AccountConfig>, accounts: HashMap<String, AccountConfig> }`.
+- `pub struct AccountConfig { repo_default, repo_category: HashMap<String, String> }`.
+- `pub struct RepoSelector { category, value: Option<String> }` — parsed `--repo` form.
+- `load()` / `load_from(path)` — load + group dotted keys.
+- `resolve_repo(cfg, account_override, repo_cli) -> (cat, value)` — three-step chain.
+
+`-4` lands the rewritten module standalone; `-5` (init
+reshape) is the first consumer.
 
 #### Refactoring opportunities (post-0.41.1)
 

@@ -14,10 +14,11 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (done) [72]
 - 0.41.1-1 shared repo_url module + clone/init migrate (done) [73]
 - 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por (done) [73]
-- 0.41.1-3 user config: ~/.config/vc-x1/config.toml + [default]/[github] (current) [74]
-- 0.41.1-4 init reshape: drop old flags + <TARGET> + [NAME] + --scope=por [73]
-- 0.41.1-5 init POR detection + upgrade paths [75]
-- 0.41.1-6 test_helpers::Fixture migration + downstream callers [73]
+- 0.41.1-3 user config: ~/.config/vc-x1/config.toml + [default]/[github] (done) [74]
+- 0.41.1-4 user config rewrite: account/category schema + literal values (current) [74]
+- 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] + --account + --repo [73]
+- 0.41.1-6 init POR detection + upgrade paths [75]
+- 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
 - 0.41.1 close-out [72]
 
 ## Todo
