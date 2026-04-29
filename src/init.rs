@@ -3,38 +3,79 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info};
 
-use crate::repo_url::{derive_name, derive_session_url};
+use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
+use crate::config::{self, RepoSelector, UserConfig};
+use crate::repo_url::{Target, derive_name, derive_session_url, parse_target};
 use crate::scope::{Scope, Side};
 use crate::symlink;
 
+/// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Project name (directory and GitHub repo name).
+    /// Target — URL, owner/name shorthand, path, or bare NAME.
     ///
-    /// - Optional with `--repo-remote` (derived from URL's last
-    ///   path segment, trailing `.git` stripped).
-    /// - Required with `--repo-local` and in default mode.
-    /// - Fatal if both given and they disagree.
+    /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
+    ///   — used as-is; config not consulted.
+    /// - owner/name shorthand: resolves to
+    ///   `git@github.com:owner/name.git`; config not consulted.
+    /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..` — is the
+    ///   directory path; remote resolved via `--repo` chain.
+    /// - Bare NAME: becomes NAME.git; remote resolved via
+    ///   `--repo` chain.
+    #[arg(value_name = "TARGET", verbatim_doc_comment)]
+    pub target: String,
+
+    /// Repo directory name override (URL / owner/name forms only).
+    ///
+    /// - URL / owner/name forms: repo created at `cwd/<NAME>`
+    ///   instead of the URL-derived name.
+    /// - Path / bare-NAME forms: error if given (TARGET already
+    ///   names the repo).
     #[arg(value_name = "NAME", verbatim_doc_comment)]
     pub name: Option<String>,
 
-    /// GitHub user or organization.
+    /// Account name — picks `[account.<a>]` from user config.
     ///
-    /// - Only meaningful in default mode.
-    /// - Fatal with `--repo-local` or `--repo-remote`.
-    #[arg(long, verbatim_doc_comment)]
-    pub owner: Option<String>,
+    /// - Without this flag, `[default].account` (or top-level
+    ///   `[repo]` shorthand) is used.
+    /// - Meaningful only with Path or bare-NAME targets — URL /
+    ///   owner/name targets supply the remote directly.
+    #[arg(long, value_name = "NAME", verbatim_doc_comment)]
+    pub account: Option<String>,
 
-    /// Parent directory to create the project under [default: cwd].
+    /// Repo target — `<cat>` or `<cat>=<val>`.
     ///
-    /// - Fatal with `--repo-local` (that flag supplies the parent).
-    #[arg(long, verbatim_doc_comment)]
-    pub dir: Option<PathBuf>,
+    /// - Built-in categories: `remote` (URL prefix; init appends
+    ///   `/<NAME>.git`) and `local` (parent dir for fixture bare
+    ///   repos at `<parent>/remote-{code,claude}.git`).
+    /// - `--repo <cat>` looks up the value via the account chain.
+    /// - `--repo <cat>=<val>` uses the literal value, no config
+    ///   lookup needed.
+    /// - Meaningful only with Path or bare-NAME targets.
+    #[arg(
+        long,
+        value_name = "CAT[=VAL]",
+        value_parser = parse_repo_arg,
+        verbatim_doc_comment
+    )]
+    pub repo: Option<RepoSelector>,
+
+    /// ScopeKind — `code,bot` (dual, default) or `por` (single).
+    #[arg(
+        long,
+        short,
+        value_name = "SCOPE",
+        value_parser = parse_scope_kind,
+        default_value = "code,bot",
+        verbatim_doc_comment
+    )]
+    pub scope: ScopeKind,
 
     /// Create private GitHub repos (default: public).
     ///
-    /// - Only meaningful in default mode.
-    /// - Fatal with `--repo-local` or `--repo-remote`.
+    /// - Only meaningful when the resolved provisioner is
+    ///   `gh repo create` (GitHub URL or `--repo remote` whose
+    ///   value points at GitHub).
     #[arg(long, verbatim_doc_comment)]
     pub private: bool,
 
@@ -55,7 +96,7 @@ pub struct InitArgs {
     /// Value is `CODE[,BOT]`. Default bot path is `<CODE>.claude`
     /// (file-name concat, not path join — templates are siblings).
     ///
-    /// - With `--scope=code`: only `CODE` is used; passing `,BOT`
+    /// - With `--scope=por`: only `CODE` is used; passing `,BOT`
     ///   is fatal (no session side to seed).
     /// - Non-hidden contents copied recursively; hidden entries
     ///   (names starting with `.`) are skipped — init writes its
@@ -64,46 +105,6 @@ pub struct InitArgs {
     ///   rewritten to `# <repo-name>`.
     #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
     pub use_template: Option<String>,
-
-    /// Fixture mode — fully self-contained local workspace.
-    ///
-    /// Value is a single parent directory.
-    ///
-    /// - Project + session at `<PARENT>/<NAME>/` and
-    ///   `<PARENT>/<NAME>/.claude/`.
-    /// - Bare origins at `<PARENT>/remote-code.git` and
-    ///   `<PARENT>/remote-claude.git`.
-    /// - No `gh`, no network.
-    /// - Supports `~/…`, `$VAR`, `${VAR}`; relative paths against cwd.
-    /// - Exclusive with `--repo-remote`, `--dir`, `--owner`, `--private`.
-    #[arg(long, value_name = "PARENT", verbatim_doc_comment)]
-    pub repo_local: Option<String>,
-
-    /// Override the `origin` URL stem (single value).
-    ///
-    /// - Session URL derived: insert `.claude` before `.git` suffix,
-    ///   or append if no `.git`.
-    /// - GitHub URLs → `gh repo create` (same as default).
-    /// - Other URLs → caller pre-creates the remote; init only pushes.
-    /// - Supports `~/…`, `$VAR`, `${VAR}` in path-shaped values.
-    /// - Exclusive with `--repo-local`, `--owner`, `--private`.
-    #[arg(long, value_name = "URL", verbatim_doc_comment)]
-    pub repo_remote: Option<String>,
-
-    /// Which repo(s) of the workspace to create.
-    ///
-    /// `SCOPE=code|bot|code,bot`:
-    ///
-    /// - `code` — single-repo workspace, no `.claude/` session.
-    /// - `bot` — fatal at init time (meaningless without code).
-    /// - `code,bot` (default) — dual-repo workspace.
-    #[arg(
-        long,
-        value_name = "SCOPE",
-        value_delimiter = ',',
-        verbatim_doc_comment
-    )]
-    pub scope: Option<Vec<Side>>,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -305,11 +306,6 @@ fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> 
     Ok(full[..full.len().min(12)].to_string())
 }
 
-/// Get the current GitHub user via `gh api user`.
-fn gh_whoami() -> Result<String, Box<dyn std::error::Error>> {
-    run("gh", &["api", "user", "--jq", ".login"], Path::new("."))
-}
-
 /// Check if a GitHub repo exists.
 fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::Error>> {
     let full = format!("{owner}/{name}");
@@ -468,32 +464,13 @@ pub(crate) fn is_github_url(s: &str) -> bool {
         || s.starts_with("http://github.com/")
 }
 
-/// Normalize a `--repo-remote` value. Expand variables, then for
-/// paths make absolute; URLs pass through after expansion.
-pub(crate) fn normalize_remote(s: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let s = s.trim();
-    if s.is_empty() {
-        return Err("--repo-remote: value is empty".into());
-    }
-    let expanded = expand_vars(s)?;
-    if is_remote_url(&expanded) {
-        return Ok(expanded);
-    }
-    let p = PathBuf::from(&expanded);
-    if p.is_absolute() {
-        Ok(expanded)
-    } else {
-        let cwd = std::env::current_dir()?;
-        Ok(cwd.join(p).to_string_lossy().to_string())
-    }
-}
-
-/// Normalize a `--repo-local` value: expand variables, make
-/// absolute. Parent doesn't need to exist yet — init creates it.
+/// Normalize a `--repo local=<parent>` value: expand variables,
+/// make absolute. Parent doesn't need to exist yet — init creates
+/// it.
 pub(crate) fn normalize_local_parent(s: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let s = s.trim();
     if s.is_empty() {
-        return Err("--repo-local: value is empty".into());
+        return Err("--repo local: parent dir is empty".into());
     }
     let expanded = expand_vars(s)?;
     let p = PathBuf::from(&expanded);
@@ -566,102 +543,224 @@ pub(crate) struct InitPlan {
     pub gh_session_slug: Option<String>,
 }
 
-/// Build an `InitPlan` from CLI args.
+/// Build an `InitPlan` from CLI args + user config.
 ///
-/// - Validate flag mutual-exclusion.
-/// - Resolve URLs and paths; derive NAME from URL if not given.
-/// - Pick the provisioner.
-/// - Errors on any ambiguous or incomplete flag combination.
-pub(crate) fn plan_init(args: &InitArgs) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    // --- Resolve scope first: default (None) → dual; empty Vec is
-    // invalid; `bot` alone is meaningless at init time. ---
-    let scope = match &args.scope {
-        None => Scope(vec![Side::Code, Side::Bot]),
-        Some(sides) => {
-            let s = Scope(sides.clone());
-            if s.is_empty() {
-                return Err("--scope: value is empty".into());
-            }
-            if s.is_bot_only() {
-                return Err(
-                    "--scope=bot is meaningless at init time — use --scope=code for single-repo or --scope=code,bot (default) for dual-repo"
-                        .into(),
-                );
-            }
-            s
-        }
+/// Dispatches on the parsed `<TARGET>` form:
+///
+/// - `Url(u)` / `OwnerName(o, n)` → URL is explicit; config not
+///   consulted; `--account` and `--repo` are rejected as
+///   meaningless.
+/// - `Path(p)` → `p` is the destination; basename names the repo;
+///   remote URL resolved from config via the `--repo` chain.
+/// - `BareName(n)` → destination at `cwd/<n>`; remote resolved
+///   from config.
+///
+/// The `cfg` parameter is the loaded user config; `init` loads it
+/// once at entry and passes it through so tests can supply a
+/// synthetic config without touching disk.
+pub(crate) fn plan_init(
+    args: &InitArgs,
+    cfg: &UserConfig,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    debug!(
+        "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
+        args.target, args.name, args.account, args.repo, args.scope, args.private
+    );
+
+    let scope = match args.scope {
+        ScopeKind::CodeBot => Scope(vec![Side::Code, Side::Bot]),
+        ScopeKind::Por => Scope(vec![Side::Code]),
     };
 
-    // --- Mutual-exclusion gates (flag-pair ambiguity) ---
-    if args.repo_local.is_some() && args.repo_remote.is_some() {
-        return Err("--repo-local and --repo-remote are mutually exclusive".into());
-    }
-    if args.repo_local.is_some() && args.dir.is_some() {
-        return Err(
-            "--repo-local and --dir are mutually exclusive (--repo-local is the parent)".into(),
-        );
-    }
-    if args.repo_local.is_some() && args.owner.is_some() {
-        return Err(
-            "--repo-local and --owner are mutually exclusive (fixture mode has no GitHub)".into(),
-        );
-    }
-    if args.repo_local.is_some() && args.private {
-        return Err(
-            "--repo-local and --private are mutually exclusive (fixture mode has no GitHub)".into(),
-        );
-    }
-    if args.repo_remote.is_some() && args.owner.is_some() {
-        return Err(
-            "--repo-remote and --owner are mutually exclusive (URL already encodes owner)".into(),
-        );
-    }
-    if args.repo_remote.is_some() && args.private {
-        return Err(
-            "--repo-remote and --private are mutually exclusive (visibility is set at repo creation, not here)"
-                .into(),
-        );
-    }
-
-    // --- Scope-dependent ambiguity. ---
     if scope.is_code_only()
         && let Some(t) = &args.use_template
         && t.contains(',')
     {
         return Err(format!(
-            "--scope=code takes a single template path; got '{t}' (drop the `,BOT` half)"
+            "--scope=por takes a single template path; got '{t}' (drop the `,BOT` half)"
         )
         .into());
     }
 
-    match (&args.repo_local, &args.repo_remote) {
-        (Some(parent_spec), None) => plan_local_fixture(args, parent_spec, scope),
-        (None, Some(url_spec)) => plan_external_remote(args, url_spec, scope),
-        (None, None) => plan_default_github(args, scope),
-        #[allow(clippy::unwrap_used)]
-        (Some(_), Some(_)) => {
-            // OK: mutual-exclusion gate above already errored on this case
-            unreachable!("mutual-exclusion gate earlier in plan_init")
+    let parsed = parse_target(&args.target)?;
+    debug!("parse_target: {:?} → {:?}", args.target, parsed);
+    let plan = match parsed {
+        Target::Url(url) => plan_from_url(args, scope, url),
+        Target::OwnerName(o, n) => {
+            plan_from_url(args, scope, format!("git@github.com:{o}/{n}.git"))
         }
+        Target::Path(p) => plan_from_path(args, scope, p, cfg),
+        Target::BareName(n) => plan_from_bare_name(args, scope, n, cfg),
+    }?;
+    debug!(
+        "plan_init: project_dir={}, name={}, code_url={}, provisioner={:?}, gh_code_slug={:?}, code_bare_path={:?}, session_url={:?}",
+        plan.project_dir.display(),
+        plan.name,
+        plan.code_url,
+        plan.provisioner,
+        plan.gh_code_slug,
+        plan.code_bare_path,
+        plan.session_url,
+    );
+    Ok(plan)
+}
+
+/// Plan when TARGET is a URL or `owner/name` shorthand.
+///
+/// - URL is explicit; config not consulted.
+/// - `--account` / `--repo` are rejected (would have no effect).
+/// - `[NAME]` overrides the URL-derived directory name.
+fn plan_from_url(
+    args: &InitArgs,
+    scope: Scope,
+    url: String,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    if args.account.is_some() {
+        return Err(
+            "--account is meaningless with a URL or owner/name TARGET (config not consulted)"
+                .into(),
+        );
+    }
+    if args.repo.is_some() {
+        return Err(
+            "--repo is meaningless with a URL or owner/name TARGET (config not consulted)".into(),
+        );
+    }
+    let code_url = ensure_git_suffix(&url);
+    let derived_name = derive_name(&code_url)?;
+    let name = args.name.clone().unwrap_or(derived_name);
+    let cwd = std::env::current_dir()?;
+    let project_dir = cwd.join(&name);
+
+    let provisioner = if is_github_url(&code_url) {
+        Provisioner::GhCreate
+    } else {
+        Provisioner::ExternalPreExisting
+    };
+    let gh_code_slug = if provisioner == Provisioner::GhCreate {
+        Some(github_slug_from_url(&code_url)?)
+    } else {
+        None
+    };
+
+    build_plan(
+        scope,
+        name,
+        project_dir,
+        code_url,
+        provisioner,
+        gh_code_slug,
+    )
+}
+
+/// Plan when TARGET is a path. Path IS the destination; basename
+/// names the repo. Remote resolved via the `--repo` chain.
+fn plan_from_path(
+    args: &InitArgs,
+    scope: Scope,
+    path: PathBuf,
+    cfg: &UserConfig,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    if args.name.is_some() {
+        return Err(
+            "[NAME] is meaningless with a path TARGET (path already names the destination)".into(),
+        );
+    }
+    let project_dir = resolve_path_target(&path)?;
+    let name = project_dir
+        .file_name()
+        .ok_or_else(|| {
+            format!(
+                "path TARGET '{}' has no last component; cannot derive a repo name",
+                path.display()
+            )
+        })?
+        .to_str()
+        .ok_or("path TARGET is not valid UTF-8")?
+        .to_string();
+    let (cat, val) = config::resolve_repo(cfg, args.account.as_deref(), args.repo.as_ref())?;
+    plan_from_resolved(scope, name, project_dir, &cat, &val)
+}
+
+/// Plan when TARGET is a bare alphanumeric NAME. Destination at
+/// `cwd/<NAME>`; remote resolved via the `--repo` chain.
+fn plan_from_bare_name(
+    args: &InitArgs,
+    scope: Scope,
+    name: String,
+    cfg: &UserConfig,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    if args.name.is_some() {
+        return Err(
+            "[NAME] is meaningless with a bare-NAME TARGET (TARGET already names the repo)".into(),
+        );
+    }
+    let cwd = std::env::current_dir()?;
+    let project_dir = cwd.join(&name);
+    let (cat, val) = config::resolve_repo(cfg, args.account.as_deref(), args.repo.as_ref())?;
+    plan_from_resolved(scope, name, project_dir, &cat, &val)
+}
+
+/// Build an `InitPlan` for a Path or BareName target after the
+/// `--repo` chain has resolved to `(category, value)`. Dispatches
+/// to `plan_remote` (URL prefix) or `plan_local` (fixture parent).
+fn plan_from_resolved(
+    scope: Scope,
+    name: String,
+    project_dir: PathBuf,
+    category: &str,
+    value: &str,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    match category {
+        "remote" => plan_remote(scope, name, project_dir, value),
+        "local" => plan_local(scope, name, project_dir, value),
+        other => Err(format!(
+            "--repo category '{other}' is not recognized — built-ins are 'remote' and 'local'"
+        )
+        .into()),
     }
 }
 
-/// Plan for `--repo-local PARENT` — fixture mode.
-///
-/// - Code-only: single bare at `<PARENT>/remote.git`, no session.
-/// - Dual: `remote-code.git` + `remote-claude.git` plus a nested
-///   `.claude/` session.
-fn plan_local_fixture(
-    args: &InitArgs,
-    parent_spec: &str,
+/// Plan for `category = "remote"`: URL prefix + `/<NAME>.git`.
+fn plan_remote(
     scope: Scope,
+    name: String,
+    project_dir: PathBuf,
+    url_prefix: &str,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    let name = args
-        .name
-        .clone()
-        .ok_or("NAME is required with --repo-local")?;
+    let prefix = url_prefix.trim_end_matches('/');
+    let code_url = format!("{prefix}/{name}.git");
+    let provisioner = if is_github_url(&code_url) {
+        Provisioner::GhCreate
+    } else {
+        Provisioner::ExternalPreExisting
+    };
+    let gh_code_slug = if provisioner == Provisioner::GhCreate {
+        Some(github_slug_from_url(&code_url)?)
+    } else {
+        None
+    };
+    build_plan(
+        scope,
+        name,
+        project_dir,
+        code_url,
+        provisioner,
+        gh_code_slug,
+    )
+}
+
+/// Plan for `category = "local"`: bare repos under a parent dir.
+///
+/// - Dual: `<parent>/remote-code.git` + `<parent>/remote-claude.git`.
+/// - POR: `<parent>/remote.git`.
+fn plan_local(
+    scope: Scope,
+    name: String,
+    project_dir: PathBuf,
+    parent_spec: &str,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let parent = normalize_local_parent(parent_spec)?;
-    let project_dir = parent.join(&name);
 
     if scope.is_code_only() {
         let code_bare = parent.join("remote.git");
@@ -681,7 +780,6 @@ fn plan_local_fixture(
         });
     }
 
-    // Dual: code + bot sides, nested session.
     let session_dir = project_dir.join(".claude");
     let code_bare = parent.join("remote-code.git");
     let session_bare = parent.join("remote-claude.git");
@@ -702,49 +800,18 @@ fn plan_local_fixture(
     })
 }
 
-/// Plan for `--repo-remote URL` — explicit URL override.
-///
-/// - Session URL derived (dual only).
-/// - NAME derived from URL when not given (must agree if both).
-/// - GitHub URLs → `GhCreate`; other URLs → `ExternalPreExisting`.
-fn plan_external_remote(
-    args: &InitArgs,
-    url_spec: &str,
+/// Compose an `InitPlan` for the URL-style provisioners (`GhCreate`
+/// and `ExternalPreExisting`) — both `plan_from_url` and
+/// `plan_remote` share this tail because the only difference between
+/// them is how they construct the URL.
+fn build_plan(
     scope: Scope,
+    name: String,
+    project_dir: PathBuf,
+    code_url: String,
+    provisioner: Provisioner,
+    gh_code_slug: Option<String>,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    let normalized = normalize_remote(url_spec)?;
-    let code_url = ensure_git_suffix(&normalized);
-    let url_name = derive_name(&code_url)?;
-
-    let name = match &args.name {
-        Some(n) if *n == url_name => n.clone(),
-        Some(n) => {
-            return Err(format!(
-                "NAME '{n}' disagrees with --repo-remote URL '{url_spec}' (derived '{url_name}')"
-            )
-            .into());
-        }
-        None => url_name.clone(),
-    };
-
-    let parent_dir = match &args.dir {
-        Some(d) => d.clone(),
-        None => std::env::current_dir()?,
-    };
-    let project_dir = parent_dir.join(&name);
-
-    let provisioner = if is_github_url(&code_url) {
-        Provisioner::GhCreate
-    } else {
-        Provisioner::ExternalPreExisting
-    };
-
-    let gh_code_slug = if provisioner == Provisioner::GhCreate {
-        Some(github_slug_from_url(&code_url)?)
-    } else {
-        None
-    };
-
     if scope.is_code_only() {
         return Ok(InitPlan {
             scope,
@@ -761,8 +828,6 @@ fn plan_external_remote(
             gh_session_slug: None,
         });
     }
-
-    // Dual.
     let session_url = derive_session_url(&code_url);
     let session_name = format!("{name}.claude");
     let session_dir = project_dir.join(".claude");
@@ -771,7 +836,6 @@ fn plan_external_remote(
     } else {
         None
     };
-
     Ok(InitPlan {
         scope,
         project_dir,
@@ -788,70 +852,45 @@ fn plan_external_remote(
     })
 }
 
-/// Plan for default mode (no `--repo-local` / `--repo-remote`).
-///
-/// - NAME required.
-/// - `owner` derived via `gh whoami` unless `--owner` given.
-/// - Provisioner is always `GhCreate`.
-fn plan_default_github(
-    args: &InitArgs,
-    scope: Scope,
-) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    let name = args
-        .name
-        .clone()
-        .ok_or("NAME is required (or pass --repo-remote URL)")?;
-
-    let owner = match &args.owner {
-        Some(o) => o.clone(),
-        None => gh_whoami()?,
+/// Resolve a Path target to an absolute `PathBuf`. Handles `~`,
+/// `~/X`, `$VAR`, `${VAR}` expansion; makes relative paths
+/// absolute against cwd; lexically normalizes `.` / `..`. The
+/// resulting path is **not** required to exist (init creates it).
+fn resolve_path_target(p: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let s = p.to_str().ok_or("path TARGET is not valid UTF-8")?;
+    let expanded = expand_vars(s)?;
+    let pb = PathBuf::from(&expanded);
+    let abs = if pb.is_absolute() {
+        pb
+    } else {
+        std::env::current_dir()?.join(pb)
     };
+    Ok(normalize_path(&abs))
+}
 
-    let code_url = format!("git@github.com:{owner}/{name}.git");
-    let gh_code_slug = format!("{owner}/{name}");
-
-    let parent_dir = match &args.dir {
-        Some(d) => d.clone(),
-        None => std::env::current_dir()?,
-    };
-    let project_dir = parent_dir.join(&name);
-
-    if scope.is_code_only() {
-        return Ok(InitPlan {
-            scope,
-            project_dir,
-            name,
-            code_url,
-            provisioner: Provisioner::GhCreate,
-            code_bare_path: None,
-            gh_code_slug: Some(gh_code_slug),
-            session_dir: None,
-            session_name: None,
-            session_url: None,
-            session_bare_path: None,
-            gh_session_slug: None,
-        });
+/// Lexically normalize a path: collapse `.` / `..` components
+/// without touching disk. `std::fs::canonicalize` requires the
+/// path to exist, but init's destination doesn't yet.
+fn normalize_path(p: &Path) -> PathBuf {
+    let mut out: Vec<std::path::Component> = Vec::new();
+    for comp in p.components() {
+        match comp {
+            std::path::Component::ParentDir => {
+                let pop = matches!(
+                    out.last(),
+                    Some(std::path::Component::Normal(_)) | Some(std::path::Component::CurDir)
+                );
+                if pop {
+                    out.pop();
+                } else {
+                    out.push(comp);
+                }
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other),
+        }
     }
-
-    let session_name = format!("{name}.claude");
-    let session_url = format!("git@github.com:{owner}/{session_name}.git");
-    let gh_session_slug = format!("{owner}/{session_name}");
-    let session_dir = project_dir.join(".claude");
-
-    Ok(InitPlan {
-        scope,
-        project_dir,
-        name,
-        code_url,
-        provisioner: Provisioner::GhCreate,
-        code_bare_path: None,
-        gh_code_slug: Some(gh_code_slug),
-        session_url: Some(session_url),
-        session_name: Some(session_name),
-        session_dir: Some(session_dir),
-        session_bare_path: None,
-        gh_session_slug: Some(gh_session_slug),
-    })
+    out.iter().collect()
 }
 
 /// Extract the `owner/name` slug from a GitHub URL (any of the
@@ -894,7 +933,8 @@ pub(crate) fn init_with_symlink(
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("init: enter");
 
-    let plan = plan_init(args)?;
+    let cfg = config::load()?;
+    let plan = plan_init(args, &cfg)?;
     let is_dual = plan.scope.is_both();
 
     // --- Preflight ---
@@ -1449,16 +1489,17 @@ mod tests {
 
     #[test]
     fn defaults() {
-        let args = parse(&["vc-x1", "init", "my-project"]);
-        assert_eq!(args.name.as_deref(), Some("my-project"));
-        assert!(args.owner.is_none());
-        assert!(args.dir.is_none());
+        let args = parse(&["vc-x1", "init", "owner/repo"]);
+        assert_eq!(args.target, "owner/repo");
+        assert!(args.name.is_none());
+        assert!(args.account.is_none());
+        assert!(args.repo.is_none());
+        assert_eq!(args.scope, ScopeKind::CodeBot);
         assert!(!args.private);
         assert!(!args.dry_run);
         assert_eq!(args.push_retries, 5);
         assert_eq!(args.push_retry_delay, 3);
-        assert!(args.repo_local.is_none());
-        assert!(args.repo_remote.is_none());
+        assert!(args.use_template.is_none());
     }
 
     #[test]
@@ -1466,11 +1507,14 @@ mod tests {
         let args = parse(&[
             "vc-x1",
             "init",
-            "my-project",
-            "--owner",
-            "myorg",
-            "--dir",
-            "/tmp/projects",
+            "owner/repo",
+            "my-dir",
+            "--account",
+            "work",
+            "--repo",
+            "local=/tmp/xyz",
+            "--scope",
+            "por",
             "--private",
             "--dry-run",
             "--push-retries",
@@ -1478,32 +1522,29 @@ mod tests {
             "--push-retry-delay",
             "5",
             "--use-template",
-            "/tmp/tmpl,/tmp/tmpl.claude",
+            "/tmp/tmpl",
         ]);
-        assert_eq!(args.name.as_deref(), Some("my-project"));
-        assert_eq!(args.owner.as_deref(), Some("myorg"));
-        assert_eq!(args.dir, Some(PathBuf::from("/tmp/projects")));
+        assert_eq!(args.target, "owner/repo");
+        assert_eq!(args.name.as_deref(), Some("my-dir"));
+        assert_eq!(args.account.as_deref(), Some("work"));
+        let sel = args.repo.as_ref().expect("--repo set");
+        assert_eq!(sel.category, "local");
+        assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
+        assert_eq!(args.scope, ScopeKind::Por);
         assert!(args.private);
         assert!(args.dry_run);
         assert_eq!(args.push_retries, 10);
         assert_eq!(args.push_retry_delay, 5);
-        assert_eq!(
-            args.use_template.as_deref(),
-            Some("/tmp/tmpl,/tmp/tmpl.claude")
-        );
+        assert_eq!(args.use_template.as_deref(), Some("/tmp/tmpl"));
     }
 
     #[test]
-    fn name_optional_at_parse_time() {
-        // Clap accepts missing NAME; the dispatcher errors at runtime
-        // if neither NAME nor --repo-remote provides one.
-        let cli = Cli::try_parse_from(["vc-x1", "init"]);
-        assert!(cli.is_ok());
-        let InitArgs { name, .. } = match cli.unwrap().command {
-            Commands::Init(a) => a,
-            _ => panic!("expected Init"),
-        };
-        assert!(name.is_none());
+    fn target_required_at_parse_time() {
+        // TARGET is a required positional; missing it errors.
+        let err = Cli::try_parse_from(["vc-x1", "init"])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("TARGET"), "got: {err}");
     }
 
     #[test]
@@ -1734,27 +1775,65 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 
-    // ---------- 0.40.0-1: --repo-local / --repo-remote helpers ----------
+    // ---------- TARGET / [NAME] / --account / --repo / --scope parsing ----------
 
     #[test]
-    fn repo_local_parses() {
-        let args = parse(&["vc-x1", "init", "tf1", "--repo-local", "/tmp/xyz"]);
-        assert_eq!(args.repo_local.as_deref(), Some("/tmp/xyz"));
+    fn target_url_form_accepted() {
+        let args = parse(&["vc-x1", "init", "git@github.com:u/p.git"]);
+        assert_eq!(args.target, "git@github.com:u/p.git");
     }
 
     #[test]
-    fn repo_remote_parses() {
-        let args = parse(&[
-            "vc-x1",
-            "init",
-            "tf1",
-            "--repo-remote",
-            "git@github.com:winksaville/tf1",
-        ]);
-        assert_eq!(
-            args.repo_remote.as_deref(),
-            Some("git@github.com:winksaville/tf1")
-        );
+    fn target_owner_name_form_accepted() {
+        let args = parse(&["vc-x1", "init", "owner/repo"]);
+        assert_eq!(args.target, "owner/repo");
+    }
+
+    #[test]
+    fn target_path_form_accepted() {
+        let args = parse(&["vc-x1", "init", "./tf1"]);
+        assert_eq!(args.target, "./tf1");
+    }
+
+    #[test]
+    fn target_bare_name_form_accepted() {
+        let args = parse(&["vc-x1", "init", "tf1"]);
+        assert_eq!(args.target, "tf1");
+    }
+
+    #[test]
+    fn name_positional_accepted() {
+        let args = parse(&["vc-x1", "init", "owner/repo", "custom-dir"]);
+        assert_eq!(args.target, "owner/repo");
+        assert_eq!(args.name.as_deref(), Some("custom-dir"));
+    }
+
+    #[test]
+    fn account_flag_parses() {
+        let args = parse(&["vc-x1", "init", "tf1", "--account", "work"]);
+        assert_eq!(args.account.as_deref(), Some("work"));
+    }
+
+    #[test]
+    fn repo_cat_only_parses() {
+        let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote"]);
+        let sel = args.repo.expect("--repo set");
+        assert_eq!(sel.category, "remote");
+        assert!(sel.value.is_none());
+    }
+
+    #[test]
+    fn repo_cat_value_parses() {
+        let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote=git@github.com:u"]);
+        let sel = args.repo.expect("--repo set");
+        assert_eq!(sel.category, "remote");
+        assert_eq!(sel.value.as_deref(), Some("git@github.com:u"));
+    }
+
+    #[test]
+    fn scope_short_flag_por() {
+        let args = parse(&["vc-x1", "init", "tf1", "-s", "por"]);
+        assert_eq!(args.scope, ScopeKind::Por);
     }
 
     #[test]
@@ -1836,94 +1915,87 @@ mod tests {
         assert!(expand_vars("${UNCLOSED").is_err());
     }
 
-    #[test]
-    fn normalize_remote_passthrough_url() {
-        let s = "git@github.com:u/p.git";
-        assert_eq!(normalize_remote(s).unwrap(), s);
-    }
+    // ---------- plan_init dispatch ----------
 
-    #[test]
-    fn normalize_remote_canonicalizes_relative_path() {
-        let cwd = std::env::current_dir().unwrap();
-        let got = normalize_remote("./foo.git").unwrap();
-        assert!(got.starts_with(&cwd.to_string_lossy().to_string()));
-    }
+    use crate::config::AccountConfig;
+    use std::collections::HashMap;
 
-    // ---------- plan_init dispatch + ambiguity ----------
-
-    fn fixture(
-        name: Option<&str>,
-        repo_local: Option<&str>,
-        repo_remote: Option<&str>,
-        dir: Option<&str>,
-        owner: Option<&str>,
-        private: bool,
-    ) -> InitArgs {
-        fixture_scoped(name, repo_local, repo_remote, dir, owner, private, None)
-    }
-
-    fn fixture_scoped(
-        name: Option<&str>,
-        repo_local: Option<&str>,
-        repo_remote: Option<&str>,
-        dir: Option<&str>,
-        owner: Option<&str>,
-        private: bool,
-        scope: Option<Vec<Side>>,
-    ) -> InitArgs {
+    /// Build an `InitArgs` with sane defaults; the caller overrides
+    /// only the fields it cares about.
+    fn args_for(target: &str) -> InitArgs {
         InitArgs {
-            name: name.map(str::to_string),
-            owner: owner.map(str::to_string),
-            dir: dir.map(PathBuf::from),
-            private,
+            target: target.to_string(),
+            name: None,
+            account: None,
+            repo: None,
+            scope: ScopeKind::CodeBot,
+            private: false,
             dry_run: true,
             push_retries: 5,
             push_retry_delay: 3,
             use_template: None,
-            repo_local: repo_local.map(str::to_string),
-            repo_remote: repo_remote.map(str::to_string),
-            scope,
         }
     }
 
-    #[test]
-    fn plan_local_fixture_layout() {
-        let args = fixture(Some("tf1"), Some("/tmp/xyz"), None, None, None, false);
-        let plan = plan_init(&args).unwrap();
-        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
-        assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
-        assert_eq!(
-            plan.session_dir,
-            Some(PathBuf::from("/tmp/xyz/tf1/.claude"))
-        );
-        assert_eq!(
-            plan.code_bare_path,
-            Some(PathBuf::from("/tmp/xyz/remote-code.git"))
-        );
-        assert_eq!(
-            plan.session_bare_path,
-            Some(PathBuf::from("/tmp/xyz/remote-claude.git"))
-        );
-        assert_eq!(plan.code_url, "/tmp/xyz/remote-code.git");
-        assert_eq!(
-            plan.session_url.as_deref(),
-            Some("/tmp/xyz/remote-claude.git")
-        );
-        assert_eq!(plan.name, "tf1");
-        assert_eq!(plan.session_name.as_deref(), Some("tf1.claude"));
+    fn cfg_empty() -> UserConfig {
+        UserConfig::default()
     }
 
+    fn cfg_top_level_remote(prefix: &str) -> UserConfig {
+        let tl = AccountConfig {
+            repo_default: Some("remote".into()),
+            repo_category: HashMap::from([("remote".into(), prefix.into())]),
+        };
+        UserConfig {
+            default_account: None,
+            default_debug: None,
+            top_level_repo: Some(tl),
+            accounts: HashMap::new(),
+        }
+    }
+
+    fn cfg_top_level_local(parent: &str) -> UserConfig {
+        let tl = AccountConfig {
+            repo_default: Some("local".into()),
+            repo_category: HashMap::from([("local".into(), parent.into())]),
+        };
+        UserConfig {
+            default_account: None,
+            default_debug: None,
+            top_level_repo: Some(tl),
+            accounts: HashMap::new(),
+        }
+    }
+
+    fn cfg_two_accounts() -> UserConfig {
+        let home = AccountConfig {
+            repo_default: Some("remote".into()),
+            repo_category: HashMap::from([
+                ("remote".into(), "git@github.com:winksaville".into()),
+                ("local".into(), "/tmp/home-fixtures".into()),
+            ]),
+        };
+        let work = AccountConfig {
+            repo_default: Some("remote".into()),
+            repo_category: HashMap::from([
+                ("remote".into(), "git@github.com:anthropic".into()),
+                ("local".into(), "/work/fixtures".into()),
+            ]),
+        };
+        UserConfig {
+            default_account: Some("home".into()),
+            default_debug: None,
+            top_level_repo: None,
+            accounts: HashMap::from([("home".into(), home), ("work".into(), work)]),
+        }
+    }
+
+    // ---------- URL TARGET ----------
+
     #[test]
-    fn plan_external_remote_github_with_name() {
-        let args = fixture(
-            Some("tf1"),
-            None,
-            Some("git@github.com:winksaville/tf1"),
-            None,
-            None,
-            false,
-        );
-        let plan = plan_init(&args).unwrap();
+    fn plan_url_ssh_github_dual() {
+        let args = args_for("git@github.com:winksaville/tf1");
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
         assert_eq!(plan.provisioner, Provisioner::GhCreate);
         assert_eq!(plan.name, "tf1");
         assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
@@ -1939,45 +2011,18 @@ mod tests {
     }
 
     #[test]
-    fn plan_external_remote_derives_name_from_url() {
-        let args = fixture(
-            None,
-            None,
-            Some("git@github.com:winksaville/tf1"),
-            None,
-            None,
-            false,
-        );
-        let plan = plan_init(&args).unwrap();
-        assert_eq!(plan.name, "tf1");
+    fn plan_url_https_github() {
+        let args = args_for("https://github.com/owner/repo.git");
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert_eq!(plan.provisioner, Provisioner::GhCreate);
+        assert_eq!(plan.code_url, "https://github.com/owner/repo.git");
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("owner/repo"));
     }
 
     #[test]
-    fn plan_external_remote_name_disagreement_errors() {
-        let args = fixture(
-            Some("DIFFERENT"),
-            None,
-            Some("git@github.com:winksaville/tf1"),
-            None,
-            None,
-            false,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("DIFFERENT"));
-        assert!(err.contains("tf1"));
-    }
-
-    #[test]
-    fn plan_external_non_github_url_uses_external_provisioner() {
-        let args = fixture(
-            Some("tf1"),
-            None,
-            Some("git@gitlab.com:winksaville/tf1.git"),
-            None,
-            None,
-            false,
-        );
-        let plan = plan_init(&args).unwrap();
+    fn plan_url_non_github_uses_external_provisioner() {
+        let args = args_for("git@gitlab.com:winksaville/tf1.git");
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
         assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
         assert!(plan.gh_code_slug.is_none());
         assert!(plan.gh_session_slug.is_none());
@@ -1988,22 +2033,36 @@ mod tests {
         );
     }
 
-    /// **`vc-x1 init tf1 --repo-remote git@github.com:winksaville/tf1` ==
-    /// `vc-x1 init tf1 --owner winksaville`**: same resolved URLs +
-    /// same provisioner means same end-state init flow.
     #[test]
-    fn plan_default_and_explicit_github_url_are_equivalent() {
-        let explicit = fixture(
-            Some("tf1"),
-            None,
-            Some("git@github.com:winksaville/tf1"),
-            None,
-            None,
-            false,
-        );
-        let default_with_owner = fixture(Some("tf1"), None, None, None, Some("winksaville"), false);
-        let p1 = plan_init(&explicit).unwrap();
-        let p2 = plan_init(&default_with_owner).unwrap();
+    fn plan_url_with_name_override() {
+        // [NAME] overrides the URL-derived dir name; remote URL
+        // itself is unchanged.
+        let mut args = args_for("git@github.com:winksaville/tf1");
+        args.name = Some("custom-dir".into());
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert_eq!(plan.name, "custom-dir");
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(plan.project_dir, cwd.join("custom-dir"));
+        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+    }
+
+    // ---------- owner/name shorthand TARGET ----------
+
+    #[test]
+    fn plan_owner_name_resolves_to_github_ssh() {
+        let args = args_for("winksaville/tf1");
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert_eq!(plan.provisioner, Provisioner::GhCreate);
+        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+    }
+
+    #[test]
+    fn plan_owner_name_eq_ssh_url_form() {
+        // owner/name shorthand must produce the same plan as the
+        // explicit SSH URL it resolves to.
+        let p1 = plan_init(&args_for("winksaville/tf1"), &cfg_empty()).unwrap();
+        let p2 = plan_init(&args_for("git@github.com:winksaville/tf1"), &cfg_empty()).unwrap();
         assert_eq!(p1.code_url, p2.code_url);
         assert_eq!(p1.session_url, p2.session_url);
         assert_eq!(p1.provisioner, p2.provisioner);
@@ -2011,175 +2070,120 @@ mod tests {
         assert_eq!(p1.gh_session_slug, p2.gh_session_slug);
     }
 
-    // ---------- Ambiguity rejections ----------
+    // ---------- Path TARGET ----------
 
     #[test]
-    fn ambig_repo_local_and_repo_remote() {
-        let args = fixture(
-            Some("tf1"),
-            Some("/tmp/xyz"),
-            Some("git@github.com:u/tf1"),
-            None,
-            None,
-            false,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-local"));
-        assert!(err.contains("--repo-remote"));
-    }
-
-    #[test]
-    fn ambig_repo_local_and_dir() {
-        let args = fixture(
-            Some("tf1"),
-            Some("/tmp/xyz"),
-            None,
-            Some("/tmp/parent"),
-            None,
-            false,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-local"));
-        assert!(err.contains("--dir"));
-    }
-
-    #[test]
-    fn ambig_repo_local_and_owner() {
-        let args = fixture(
-            Some("tf1"),
-            Some("/tmp/xyz"),
-            None,
-            None,
-            Some("user"),
-            false,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-local"));
-        assert!(err.contains("--owner"));
-    }
-
-    #[test]
-    fn ambig_repo_local_and_private() {
-        let args = fixture(Some("tf1"), Some("/tmp/xyz"), None, None, None, true);
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-local"));
-        assert!(err.contains("--private"));
-    }
-
-    #[test]
-    fn ambig_repo_remote_and_owner() {
-        let args = fixture(
-            Some("tf1"),
-            None,
-            Some("git@github.com:u/tf1"),
-            None,
-            Some("u"),
-            false,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-remote"));
-        assert!(err.contains("--owner"));
-    }
-
-    #[test]
-    fn ambig_repo_remote_and_private() {
-        let args = fixture(
-            Some("tf1"),
-            None,
-            Some("git@github.com:u/tf1"),
-            None,
-            None,
-            true,
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--repo-remote"));
-        assert!(err.contains("--private"));
-    }
-
-    #[test]
-    fn repo_local_requires_name() {
-        let args = fixture(None, Some("/tmp/xyz"), None, None, None, false);
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("NAME"));
-    }
-
-    // ---------- 0.40.0-2: --scope=code|bot|code,bot ----------
-
-    #[test]
-    fn scope_parses_code() {
-        let args = parse(&["vc-x1", "init", "tf1", "--scope", "code"]);
-        assert_eq!(args.scope.as_deref(), Some(&[Side::Code][..]));
-    }
-
-    #[test]
-    fn scope_parses_code_bot() {
-        let args = parse(&["vc-x1", "init", "tf1", "--scope", "code,bot"]);
-        assert_eq!(args.scope.as_deref(), Some(&[Side::Code, Side::Bot][..]));
-    }
-
-    #[test]
-    fn scope_bot_only_is_fatal() {
-        let args = fixture_scoped(
-            Some("tf1"),
-            None,
-            None,
-            None,
-            Some("winksaville"),
-            false,
-            Some(vec![Side::Bot]),
-        );
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--scope=bot"));
-    }
-
-    #[test]
-    fn scope_default_is_dual() {
-        // No --scope → default to code+bot; existing behavior unchanged.
-        let args = fixture(Some("tf1"), None, None, None, Some("winksaville"), false);
-        let plan = plan_init(&args).unwrap();
-        assert!(plan.scope.is_both());
-        assert!(plan.session_url.is_some());
-        assert!(plan.session_name.is_some());
-        assert!(plan.session_dir.is_some());
-    }
-
-    #[test]
-    fn scope_code_only_default_github() {
-        let args = fixture_scoped(
-            Some("tf1"),
-            None,
-            None,
-            None,
-            Some("winksaville"),
-            false,
-            Some(vec![Side::Code]),
-        );
-        let plan = plan_init(&args).unwrap();
-        assert!(plan.scope.is_code_only());
-        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
-        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
-        assert!(plan.session_url.is_none());
-        assert!(plan.session_name.is_none());
-        assert!(plan.session_dir.is_none());
-        assert!(plan.gh_session_slug.is_none());
-        assert!(plan.session_bare_path.is_none());
-    }
-
-    #[test]
-    fn scope_code_only_repo_local_single_bare() {
-        let args = fixture_scoped(
-            Some("tf1"),
-            Some("/tmp/xyz"),
-            None,
-            None,
-            None,
-            false,
-            Some(vec![Side::Code]),
-        );
-        let plan = plan_init(&args).unwrap();
-        assert!(plan.scope.is_code_only());
+    fn plan_path_absolute_with_repo_local() {
+        let mut args = args_for("/tmp/xyz/tf1");
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/xyz".into()),
+        });
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
         assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
         assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
+        assert_eq!(plan.name, "tf1");
+        assert_eq!(
+            plan.code_bare_path,
+            Some(PathBuf::from("/tmp/xyz/remote-code.git"))
+        );
+        assert_eq!(
+            plan.session_bare_path,
+            Some(PathBuf::from("/tmp/xyz/remote-claude.git"))
+        );
+        assert_eq!(
+            plan.session_dir,
+            Some(PathBuf::from("/tmp/xyz/tf1/.claude"))
+        );
+        assert_eq!(plan.session_name.as_deref(), Some("tf1.claude"));
+    }
+
+    #[test]
+    fn plan_path_relative_with_repo_local() {
+        let mut args = args_for("./tf1");
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/xyz".into()),
+        });
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(plan.project_dir, cwd.join("tf1"));
+        assert_eq!(plan.name, "tf1");
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
+    }
+
+    // ---------- Bare-NAME TARGET ----------
+
+    #[test]
+    fn plan_bare_name_uses_top_level_repo_remote() {
+        let args = args_for("tf1");
+        let cfg = cfg_top_level_remote("git@github.com:winksaville");
+        let plan = plan_init(&args, &cfg).unwrap();
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(plan.project_dir, cwd.join("tf1"));
+        assert_eq!(plan.name, "tf1");
+        assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+        assert_eq!(plan.provisioner, Provisioner::GhCreate);
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+    }
+
+    #[test]
+    fn plan_bare_name_uses_top_level_repo_local() {
+        let args = args_for("tf1");
+        let cfg = cfg_top_level_local("/tmp/fixtures");
+        let plan = plan_init(&args, &cfg).unwrap();
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(plan.project_dir, cwd.join("tf1"));
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
+        assert_eq!(
+            plan.code_bare_path,
+            Some(PathBuf::from("/tmp/fixtures/remote-code.git"))
+        );
+        assert_eq!(
+            plan.session_bare_path,
+            Some(PathBuf::from("/tmp/fixtures/remote-claude.git"))
+        );
+    }
+
+    #[test]
+    fn plan_bare_name_account_override_picks_work() {
+        let mut args = args_for("tf1");
+        args.account = Some("work".into());
+        let plan = plan_init(&args, &cfg_two_accounts()).unwrap();
+        assert_eq!(plan.code_url, "git@github.com:anthropic/tf1.git");
+        assert_eq!(plan.gh_code_slug.as_deref(), Some("anthropic/tf1"));
+    }
+
+    #[test]
+    fn plan_bare_name_explicit_repo_value_skips_config() {
+        // --repo cat=val short-circuits resolve_repo; works even
+        // with an empty config.
+        let mut args = args_for("tf1");
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/explicit".into()),
+        });
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
+        assert_eq!(
+            plan.code_bare_path,
+            Some(PathBuf::from("/tmp/explicit/remote-code.git"))
+        );
+    }
+
+    // ---------- Scope (POR vs CodeBot) ----------
+
+    #[test]
+    fn plan_por_path_local_single_bare() {
+        let mut args = args_for("/tmp/xyz/tf1");
+        args.scope = ScopeKind::Por;
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/xyz".into()),
+        });
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert!(plan.scope.is_code_only());
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
         assert_eq!(
             plan.code_bare_path,
             Some(PathBuf::from("/tmp/xyz/remote.git"))
@@ -2192,60 +2196,105 @@ mod tests {
     }
 
     #[test]
-    fn scope_code_only_repo_remote_github() {
-        let args = fixture_scoped(
-            Some("tf1"),
-            None,
-            Some("git@github.com:winksaville/tf1"),
-            None,
-            None,
-            false,
-            Some(vec![Side::Code]),
-        );
-        let plan = plan_init(&args).unwrap();
+    fn plan_por_url_no_session() {
+        let mut args = args_for("git@github.com:winksaville/tf1");
+        args.scope = ScopeKind::Por;
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
         assert!(plan.scope.is_code_only());
-        assert_eq!(plan.provisioner, Provisioner::GhCreate);
         assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
-        assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
         assert!(plan.session_url.is_none());
         assert!(plan.gh_session_slug.is_none());
     }
 
     #[test]
-    fn scope_code_only_repo_remote_non_github_skips_create() {
-        let args = fixture_scoped(
-            Some("tf1"),
-            None,
-            Some("git@gitlab.com:winksaville/tf1.git"),
-            None,
-            None,
-            false,
-            Some(vec![Side::Code]),
-        );
-        let plan = plan_init(&args).unwrap();
-        assert!(plan.scope.is_code_only());
-        assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
-        assert!(plan.session_url.is_none());
+    fn plan_default_scope_is_code_bot() {
+        let args = args_for("git@github.com:winksaville/tf1");
+        let plan = plan_init(&args, &cfg_empty()).unwrap();
+        assert!(plan.scope.is_both());
+        assert!(plan.session_url.is_some());
+        assert!(plan.session_dir.is_some());
+    }
+
+    // ---------- Errors ----------
+
+    #[test]
+    fn error_url_target_with_account() {
+        let mut args = args_for("git@github.com:u/p");
+        args.account = Some("work".into());
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("--account is meaningless"), "got: {err}");
     }
 
     #[test]
-    fn scope_code_only_with_comma_template_errors() {
-        // `--scope=code` + `--use-template foo,bar` is ambiguous — the
-        // bot half has no home.
-        let mut args = fixture_scoped(
-            Some("tf1"),
-            Some("/tmp/xyz"),
-            None,
-            None,
-            None,
-            false,
-            Some(vec![Side::Code]),
-        );
-        args.use_template = Some("/tmp/code,/tmp/bot".to_string());
-        let err = plan_init(&args).unwrap_err().to_string();
-        assert!(err.contains("--scope=code"));
-        assert!(err.contains("single template path"));
+    fn error_url_target_with_repo() {
+        let mut args = args_for("git@github.com:u/p");
+        args.repo = Some(RepoSelector {
+            category: "remote".into(),
+            value: Some("git@github.com:other".into()),
+        });
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("--repo is meaningless"), "got: {err}");
     }
+
+    #[test]
+    fn error_path_target_with_name() {
+        let mut args = args_for("./tf1");
+        args.name = Some("custom".into());
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/xyz".into()),
+        });
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("[NAME] is meaningless"), "got: {err}");
+        assert!(err.contains("path"), "got: {err}");
+    }
+
+    #[test]
+    fn error_bare_name_target_with_name() {
+        let mut args = args_for("tf1");
+        args.name = Some("custom".into());
+        args.repo = Some(RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/xyz".into()),
+        });
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("[NAME] is meaningless"), "got: {err}");
+        assert!(err.contains("bare-NAME"), "got: {err}");
+    }
+
+    #[test]
+    fn error_bare_name_no_config() {
+        // Empty config + no --repo, no --account → step 1 of
+        // resolve_repo errors with the "no account" message.
+        let args = args_for("tf1");
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("[default].account"), "got: {err}");
+    }
+
+    #[test]
+    fn error_unknown_category() {
+        let mut args = args_for("tf1");
+        args.repo = Some(RepoSelector {
+            category: "weird".into(),
+            value: Some("xyz".into()),
+        });
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("'weird' is not recognized"), "got: {err}");
+    }
+
+    #[test]
+    fn error_por_with_comma_template() {
+        // --scope=por + --use-template foo,bar is ambiguous — bot
+        // half has no home in a single-repo workspace.
+        let mut args = args_for("git@github.com:u/p");
+        args.scope = ScopeKind::Por;
+        args.use_template = Some("/tmp/code,/tmp/bot".into());
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("--scope=por"), "got: {err}");
+        assert!(err.contains("single template path"), "got: {err}");
+    }
+
+    // ---------- Constants ----------
 
     #[test]
     fn config_content_app_only() {

@@ -1,8 +1,8 @@
 //! Parsing and derivation helpers for repository URLs and targets.
 //!
-//! Single source of truth for the positional shapes that `init` and
-//! `clone` accept (URL, owner/name shorthand, path) and for the
-//! URL-derivation helpers shared between them.
+//! Single source of truth for the positional `<TARGET>` forms
+//! that `init` and `clone` accept (URL, owner/name shorthand,
+//! path) and for the URL-derivation helpers shared between them.
 //!
 //! Lifted from `clone.rs` / `init.rs` in 0.41.1-1; consumers
 //! migrate to `parse_target` in 0.41.1-2 (clone) and 0.41.1-3
@@ -18,31 +18,37 @@ use std::path::PathBuf;
 /// - `Path` — local path with explicit prefix
 ///   (`./`, `../`, `/`, `~/`, or bare `~`). Path text is preserved
 ///   literally; tilde expansion is the consumer's responsibility.
-#[derive(Debug, PartialEq, Eq)]
-#[allow(dead_code)] // OK: staged for 0.41.1-2 (clone) / 0.41.1-3 (init) consumers
+/// - `BareName` — a bare alphanumeric (no `/`, `:`, or path
+///   prefix). Init resolves it via the user-config remote chain;
+///   clone errors on it (no config-driven default).
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Target {
     Url(String),
     OwnerName(String, String),
     Path(PathBuf),
+    BareName(String),
 }
 
-/// Parse a positional `<TARGET>` argument into one of the three
-/// shapes.
+/// Parse a positional `<TARGET>` argument into one of the four
+/// `Target` variants.
 ///
-/// Detection order (path forms first, then URL, then shorthand):
+/// Detection order (path forms first, then URL, then shorthand,
+/// then bare NAME):
 ///
 /// - Path forms: bare `.`, `..`, or `~`; or starts with `./`,
 ///   `../`, `/`, or `~/`. `.` and `..` are POSIX cwd/parent and
 ///   are unambiguous; the consumer resolves them to a real
-///   workspace name via `canonicalize` + `file_name`.
+///   directory name via `canonicalize` + `file_name`.
 /// - URL: contains `://`, or SSH-style `user@host:path` (an `@`
 ///   followed somewhere by `:`).
 /// - `owner/name` shorthand: exactly one `/`, both sides non-empty,
 ///   no path or URL indicators.
+/// - Bare NAME: no `/`, no `:`, no URL/path indicators. Init
+///   resolves it via the user-config remote chain (repo created
+///   at `cwd/<NAME>`); clone errors on it (no config).
 ///
-/// Errors on bare alphanumeric names (genuinely ambiguous —
-/// "missing `./`?" / "missing `/name` suffix?") and empty input.
-#[allow(dead_code)] // OK: staged for 0.41.1-2 (clone) / 0.41.1-3 (init) consumers
+/// Errors only on empty input or syntactic garbage that fits
+/// none of the above (e.g. `owner/name/extra`).
 pub fn parse_target(s: &str) -> Result<Target, String> {
     if s.is_empty() {
         return Err("empty target".into());
@@ -72,12 +78,35 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
         && let Some((owner, name)) = s.split_once('/')
         && !owner.is_empty()
         && !name.is_empty()
+        && !owner.contains(':')
+        && !name.contains(':')
     {
         return Ok(Target::OwnerName(owner.to_string(), name.to_string()));
     }
 
+    // Bare NAME: no slash, no colon, no URL pattern. Init expands
+    // via config; clone rejects.
+    if !s.contains('/') && !s.contains(':') {
+        return Ok(Target::BareName(s.to_string()));
+    }
+
+    // Catch-all. If it looks like an SSH scp-like form missing the
+    // `git@` prefix (host:owner/name), suggest the canonical form
+    // — easy mistake to make and the resulting "did you mean…?"
+    // is concrete enough to fix with one re-type.
+    if let Some(colon) = s.find(':')
+        && colon > 0
+        && !s[..colon].contains('/')
+        && s[colon + 1..].contains('/')
+        && !s.contains('@')
+    {
+        return Err(format!(
+            "'{s}' is not a recognized target — looks like an SSH URL missing the 'git@' prefix; did you mean 'git@{s}'?"
+        ));
+    }
+
     Err(format!(
-        "'{s}' is not a recognized target — expected URL, owner/name shorthand, or path prefix (./X, ../X, /X, ~/X, ~)"
+        "'{s}' is not a recognized target — expected URL, owner/name shorthand, path prefix (./X, ../X, /X, ~/X, ~), or bare NAME"
     ))
 }
 
@@ -316,8 +345,45 @@ mod tests {
     }
 
     #[test]
-    fn parse_target_bare_name_errors() {
-        let err = parse_target("my-project").unwrap_err();
+    fn parse_target_bare_name() {
+        assert_eq!(
+            parse_target("my-project").unwrap(),
+            Target::BareName("my-project".into()),
+        );
+    }
+
+    #[test]
+    fn parse_target_bare_name_with_dots() {
+        // Names with dots (e.g. "v2.0") are still bare names.
+        assert_eq!(
+            parse_target("v2.0").unwrap(),
+            Target::BareName("v2.0".into()),
+        );
+    }
+
+    #[test]
+    fn parse_target_too_many_slashes_errors() {
+        let err = parse_target("owner/name/extra").unwrap_err();
         assert!(err.contains("not a recognized target"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_target_host_colon_path_without_at_suggests_ssh_form() {
+        // `github.com:winksaville/tf1` looks like an SSH URL missing
+        // the `git@` prefix. Without rejection it would have been
+        // mis-parsed as OwnerName("github.com:winksaville", "tf1")
+        // and the dispatcher would build a doubled-up URL
+        // `git@github.com:github.com:winksaville/tf1.git`.
+        let err = parse_target("github.com:winksaville/tf1").unwrap_err();
+        assert!(err.contains("missing the 'git@' prefix"), "got: {err}");
+        assert!(err.contains("git@github.com:winksaville/tf1"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_target_owner_with_colon_rejected() {
+        // Standalone reproducer for the same family: any `:` in the
+        // owner half of `owner/name` shorthand is suspicious.
+        let err = parse_target("a:b/c").unwrap_err();
+        assert!(err.contains("missing the 'git@' prefix"), "got: {err}");
     }
 }

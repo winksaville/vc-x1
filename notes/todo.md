@@ -15,8 +15,8 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.41.1-1 shared repo_url module + clone/init migrate (done) [73]
 - 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por (done) [73]
 - 0.41.1-3 user config: ~/.config/vc-x1/config.toml + [default]/[github] (done) [74]
-- 0.41.1-4 user config rewrite: account/category schema + literal values (current) [74]
-- 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] + --account + --repo [73]
+- 0.41.1-4 user config rewrite: account/category schema + literal values (done) [74]
+- 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] + --account + --repo (done) [73]
 - 0.41.1-6 init POR detection + upgrade paths [75]
 - 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
 - 0.41.1 close-out [72]
@@ -31,6 +31,14 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
+1. **Rebase note — CLAUDE.md `### Per-file review checkpoints`.**
+   Both `main` (0.42.0 work) and `init-clone-refactor`
+   (0.41.1) authored this subsection independently —
+   same intent, different wording. When 0.42.0 rebases on
+   top of 0.41.1 at close-out, resolve CAREFULLY: don't
+   take either side wholesale, reconcile to preserve the
+   best of both. Likely conflict surface is the bullet
+   list under "How to apply".
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Lands in the 0.42.0 cycle alongside the sum-type
    refactor; state machine becomes scope-aware (single-

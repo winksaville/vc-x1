@@ -159,6 +159,40 @@ next step** ("do step 4", "next", "go N+1"). In that case the
 previous step must be committed first — always commit the current
 step before starting the next; don't ask.
 
+### Per-file review checkpoints
+
+The "review before commit block" rule applies to in-progress work
+too, at finer grain. After each file edit, STOP, summarize what
+changed, and wait for explicit go-ahead before touching the next
+file or running follow-on commands (cargo test/install, dogfood
+invocations, `vc-x1 …`, etc.).
+
+**Exceptions** — both ride along with the change they accompany,
+no separate review pause:
+
+- **Refactors where code is moving across files** — e.g.
+  lifting helpers into a new module and updating the original
+  file's imports in the same change. Reviewing each half in
+  isolation isn't useful.
+- **`Cargo.toml` version bumps** that go with a specific code
+  change.
+
+**Why:** the user reviews diffs as work lands. Chaining multiple
+file edits without pausing forces them to untangle cumulative
+state instead of inspecting each step in isolation.
+
+**How to apply:**
+
+- "continue", "go", "do it", "lg" approves *the next unit
+  only*, not all remaining units of a multi-file plan. A green
+  light to proceed with a *direction* is not a green light to
+  skip per-step checkpoints.
+- After landing a unit: brief summary (2–5 lines) and stop. No
+  cargo build / test / install / dogfood runs unless the user
+  explicitly asks.
+- In addition to (not replacement for) the
+  Review-before-commit-block rule above.
+
 ### Notes references
 
 Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
@@ -203,8 +237,11 @@ For multi-step:
 Multi-step cycles surface the ladder at the top of
 `notes/todo.md > ## In Progress` as a bullet list with `(done)` /
 `(current)` markers — see the file's intro paragraph for the
-format. Update the markers as each step ships so the In Progress
-view stays current at a glance.
+format. When starting a new step, the *first* edit is to mark
+that step `(current)` in `notes/todo.md` — before any code/doc
+work — so the In Progress view reflects what's actually
+happening. The flip back to `(done)` is part of the pre-commit
+checklist (item 6).
 
 **Why numeric suffixes (`-0`, `-1`, …) rather than `-devN`:**
 semver pre-release identifiers may consist of a single numeric
@@ -240,9 +277,16 @@ Before proposing a commit, run all of the following and fix any issues:
    and re-resolves from scratch, which can pick incompatible
    versions even when `cargo build` / `cargo test` succeed.
 5. Retest after install
-6. Update `notes/todo.md` — add to `## Done` if completing a task
-7. Update `notes/chores-*.md` — add a subsection describing the change
-8. Update `notes/README.md` — if functionality changed (new flags,
+6. Update `notes/todo.md` — for multi-step cycles, flip the
+   just-completed step's marker from `(current)` to `(done)`
+   **before** running `vc-x1 push`. The commit being pushed
+   should reflect the new state. (The next step's `(current)`
+   marker is set later, at the *start* of that step — see the
+   Versioning multi-step section.)
+7. Update `notes/todo.md` — at cycle close-out (final commit),
+   move the entry from `## In Progress` to `## Done`.
+8. Update `notes/chores-*.md` — add a subsection describing the change
+9. Update `notes/README.md` — if functionality changed (new flags,
    new subcommands, changed behavior)
 
 ## Code Conventions

@@ -15,7 +15,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::args::ScopeKind;
 use crate::common::write_file;
+use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
@@ -39,11 +41,14 @@ pub fn unique_base(tag: &str) -> PathBuf {
 
 /// Owned dual-repo fixture with RAII cleanup.
 ///
-/// Builds a fresh throwaway workspace under a unique tempdir by
-/// driving `init::init_with_symlink` in `--repo-local` mode with
-/// `create_symlink=false`, exposing the two repo paths (`work` and
-/// `work/.claude`). The tempdir tree is removed when the value is
-/// dropped, so a panicking test still cleans up after itself.
+/// Builds a fresh throwaway dual-repo set under a unique tempdir
+/// by driving `init::init_with_symlink` with a path TARGET and
+/// `--repo local=<base>` (so config lookup is skipped via the
+/// resolve_repo short-circuit). `create_symlink=false` suppresses
+/// the `~/.claude/projects/` side effect. Exposes the two repo
+/// paths (`work` and `work/.claude`). The tempdir tree is removed
+/// when the value is dropped, so a panicking test still cleans up
+/// after itself.
 pub struct Fixture {
     /// Root tempdir that owns both repos and their bare-git remotes.
     pub base: PathBuf,
@@ -70,18 +75,30 @@ impl Fixture {
         let base = unique_base(tag);
         // init refuses to reuse an existing project_dir, so `base`
         // must not exist yet. `unique_base` already guarantees that.
+        //
+        // Path TARGET = `<base>/work` (workspace destination); the
+        // basename ("work") becomes the repo name. `--repo local=<base>`
+        // sets the bare-repo parent so the layout mirrors the old
+        // `--repo-local <base>` + NAME=`work` shape:
+        //   <base>/work/                  (code repo)
+        //   <base>/work/.claude/          (bot session repo)
+        //   <base>/remote-code.git        (code bare origin)
+        //   <base>/remote-claude.git      (bot bare origin)
+        let work_path = base.join("work");
         let args = InitArgs {
-            name: Some("work".to_string()),
-            owner: None,
-            dir: None,
+            target: work_path.to_string_lossy().into_owned(),
+            name: None,
+            account: None,
+            repo: Some(RepoSelector {
+                category: "local".to_string(),
+                value: Some(base.to_string_lossy().into_owned()),
+            }),
+            scope: ScopeKind::CodeBot,
             private: false,
             dry_run: false,
             push_retries: 5,
             push_retry_delay: 3,
             use_template,
-            repo_local: Some(base.to_string_lossy().into_owned()),
-            repo_remote: None,
-            scope: None, // default → code,bot
         };
         init_with_symlink(&args, false).expect("build test fixture via init");
 

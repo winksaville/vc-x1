@@ -39,19 +39,9 @@ impl Scope {
         self.has_code() && !self.has_bot()
     }
 
-    /// Exactly the bot side — single-repo operation on the bot.
-    pub fn is_bot_only(&self) -> bool {
-        !self.has_code() && self.has_bot()
-    }
-
     /// Both sides — dual-repo operation.
     pub fn is_both(&self) -> bool {
         self.has_code() && self.has_bot()
-    }
-
-    /// Neither side — empty scope, always an invalid input.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 
@@ -63,15 +53,6 @@ mod tests {
     fn code_only() {
         let s = Scope(vec![Side::Code]);
         assert!(s.is_code_only());
-        assert!(!s.is_bot_only());
-        assert!(!s.is_both());
-    }
-
-    #[test]
-    fn bot_only() {
-        let s = Scope(vec![Side::Bot]);
-        assert!(!s.is_code_only());
-        assert!(s.is_bot_only());
         assert!(!s.is_both());
     }
 
@@ -79,7 +60,6 @@ mod tests {
     fn both_code_then_bot() {
         let s = Scope(vec![Side::Code, Side::Bot]);
         assert!(!s.is_code_only());
-        assert!(!s.is_bot_only());
         assert!(s.is_both());
     }
 
@@ -88,14 +68,5 @@ mod tests {
         // Order doesn't matter — contains-based checks.
         let s = Scope(vec![Side::Bot, Side::Code]);
         assert!(s.is_both());
-    }
-
-    #[test]
-    fn empty() {
-        let s = Scope(vec![]);
-        assert!(s.is_empty());
-        assert!(!s.is_code_only());
-        assert!(!s.is_bot_only());
-        assert!(!s.is_both());
     }
 }

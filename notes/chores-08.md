@@ -408,6 +408,114 @@ deliberately deferred to keep `-3` scoped:
 
 Both candidates for the 0.41.2 cycle. See `notes/todo.md`.
 
+### init reshape (0.41.1-5)
+
+Init's flag surface replaced with `<TARGET> [NAME] --account
+--repo --scope`. Six mutually-exclusive flag checks gone;
+dispatch is now `parse_target` + the config `--repo` chain.
+
+**InitArgs surface:**
+
+- Dropped: `--owner`, `--dir`, `--repo-local`,
+  `--repo-remote`, the old `Vec<Side>` scope.
+- Added: `target` positional (URL, `owner/name`, path, or
+  bare NAME), optional `[NAME]`, `--account`,
+  `--repo <cat>[=<val>]`, `--scope code,bot|por` (typed
+  `ScopeKind`).
+
+**Dispatch (`plan_init(args, cfg)`):**
+
+- `Target::Url(u)` / `OwnerName(o, n)` → `plan_from_url`.
+  URL is explicit; `--account` and `--repo` are rejected
+  ("config not consulted").
+- `Target::Path(p)` → `plan_from_path`. Path IS the
+  destination; basename names the repo; remote via the
+  config chain.
+- `Target::BareName(n)` → `plan_from_bare_name`.
+  Destination at `cwd/<n>`; remote via the config chain.
+- Path/BareName route through `config::resolve_repo` to
+  `plan_remote` (URL prefix + `/<NAME>.git`) or
+  `plan_local` (`<parent>/remote-{code,claude}.git` for
+  dual; `<parent>/remote.git` for POR).
+
+**Shared `src/args.rs`:**
+
+Cross-subcommand CLI types/parsers lifted from init/clone:
+`ScopeKind { CodeBot, Por }` (replaces `CloneScope` + a
+private `InitScope`), `parse_scope_kind` (subcommand-
+agnostic error wording), `parse_repo_arg`. 0.42.0 sum-type
+cycle is expected to extend `ScopeKind` with `Single(_)` /
+path-form variants.
+
+**`config::resolve_repo` short-circuit:**
+
+`--repo <cat>=<val>` fast-paths — fully self-contained, no
+account lookup. Lets config-less invocations and test
+fixtures work without touching disk.
+
+**Bug fix (dogfood-surfaced):**
+
+`parse_target` mis-classified `host:owner/name` (SSH form
+missing the `git@` prefix) as `OwnerName(host:owner, name)`,
+producing a doubled-up URL
+`git@github.com:host:owner/name.git`. Fix: reject `:` in
+either half of `owner/name` shorthand. Catch-all error
+gained a "looks like an SSH URL missing the 'git@' prefix;
+did you mean 'git@…'?" suggestion.
+
+**Debug logging:**
+
+`debug!` (visible at `-v`) added for config-and-CLI
+provenance:
+
+- `init` entry — InitArgs fields.
+- `parse_target` — input → variant.
+- `plan_init` — final plan summary (project_dir, name,
+  code_url, provisioner, slugs, bare paths).
+- `config::load_from` — file hit/miss + parsed summary.
+- `config::resolve_repo` — per-step source annotation
+  (`--account CLI` / `[default].account` / `top-level
+  [repo]` / `--repo CLI value` /
+  `[account.<a>.repo.category].<cat>`).
+
+**Cleanups:**
+
+Dropped: `gh_whoami` (only consumer was old
+`plan_default_github`); `Scope::is_bot_only` and
+`Scope::is_empty` (only consumers were `Vec<Side>`
+validation); `normalize_remote` (only consumer was old
+`plan_external_remote`).
+
+**Tests:**
+
+319 passing. `init.rs` test module rewritten end-to-end
+against the new `plan_init(args, cfg)` signature; new
+`args_for(target)` builder + four `cfg_*` config builders;
+new tests cover URL/OwnerName/Path/BareName dispatch,
+account override, top-level `[repo]` shorthand,
+`--repo cat=val` short-circuit, and all error paths
+(URL+`--account`, URL+`--repo`, Path+`[NAME]`,
+BareName+`[NAME]`, bare-name+empty config, unknown
+category, `--scope=por`+comma template).
+
+`test_helpers::Fixture::new_opts` migrated to path TARGET +
+`--repo local=<base>`; `sync` and `push` integration tests
+confirm the same on-disk layout.
+
+**Deferred:**
+
+`init_one` / `init_dual` extraction — `init_with_symlink`
+operates on `InitPlan` (shape unchanged), so the extraction
+is a refactor not blocking functionality. Fold into -6
+alongside POR detection if natural; or its own step.
+
+**WIP ladder:**
+
+`0.41.1-5.0` dispatch reshape → `-5.1` tests + bug fix +
+debug logging + CLAUDE.md per-file review subsection +
+todo rebase note → `-5.2` `gh_whoami` / `Scope` deletions +
+this chores entry → `-5` done marker.
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

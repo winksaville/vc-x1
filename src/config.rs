@@ -43,6 +43,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use log::debug;
+
 use crate::toml_simple;
 
 /// Per-account configuration.
@@ -97,7 +99,6 @@ pub struct UserConfig {
 /// - `--repo` absent → `None`.
 /// - `--repo <cat>` → `Some({ category: cat, value: None })`.
 /// - `--repo <cat>=<val>` → `Some({ category: cat, value: Some(val) })`.
-#[allow(dead_code)] // OK: 0.41.1-5 is the first consumer; staged ahead in -4.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoSelector {
     pub category: String,
@@ -124,7 +125,6 @@ pub fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 ///
 /// - Missing file → empty `UserConfig`.
 /// - Malformed file → fatal error.
-#[allow(dead_code)] // OK: 0.41.1-5 is the first consumer; staged ahead in -4.
 pub fn load() -> Result<UserConfig, Box<dyn std::error::Error>> {
     load_from(&config_path()?)
 }
@@ -137,8 +137,13 @@ pub fn load() -> Result<UserConfig, Box<dyn std::error::Error>> {
 ///   (forward-compatible with future schema additions).
 pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> {
     if !path.exists() {
+        debug!(
+            "config: file not found at {} — using empty UserConfig",
+            path.display()
+        );
         return Ok(UserConfig::default());
     }
+    debug!("config: loading from {}", path.display());
     let map = toml_simple::toml_load(path)?;
 
     let mut cfg = UserConfig {
@@ -184,6 +189,13 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
         cfg.top_level_repo = Some(top_level);
     }
 
+    debug!(
+        "config: parsed default_account={:?}, default_debug={:?}, top_level_repo={}, accounts={:?}",
+        cfg.default_account,
+        cfg.default_debug,
+        cfg.top_level_repo.is_some(),
+        cfg.accounts.keys().collect::<Vec<_>>(),
+    );
     Ok(cfg)
 }
 
@@ -213,12 +225,29 @@ fn apply_repo_subkey(account: &mut AccountConfig, suffix: &str, value: &str) {
 ///   `None` falls back to `[default].account`.
 /// - `repo_cli` — the parsed `--repo` selector (or `None` if
 ///   the flag was absent).
-#[allow(dead_code)] // OK: 0.41.1-5 is the first consumer; staged ahead in -4.
+///
+/// Fast path: when `repo_cli` provides both `category` and
+/// `value` (`--repo <cat>=<val>`), the result is fully
+/// determined by the CLI; no account or category lookup is
+/// needed and account-related errors are skipped. This makes
+/// config-less invocations (and test fixtures) work without a
+/// `~/.config/vc-x1/config.toml`.
 pub fn resolve_repo(
     cfg: &UserConfig,
     account_override: Option<&str>,
     repo_cli: Option<&RepoSelector>,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
+    // Fast path: `--repo <cat>=<val>` is fully self-contained.
+    if let Some(sel) = repo_cli
+        && let Some(val) = sel.value.as_ref()
+    {
+        debug!(
+            "resolve_repo: short-circuit — explicit cat={} val={} (from --repo CLI)",
+            sel.category, val
+        );
+        return Ok((sel.category.clone(), val.clone()));
+    }
+
     // Step 1: pick the AccountConfig to use.
     //
     // - `--account` CLI → must hit `cfg.accounts[name]`.
@@ -229,12 +258,12 @@ pub fn resolve_repo(
     // `account_label` is for error messages — section-name "<name>"
     // when an account was selected, "<top-level>" for the no-account
     // shorthand path.
-    let (account, account_label) = match (account_override, &cfg.default_account) {
+    let (account, account_label, account_source) = match (account_override, &cfg.default_account) {
         (Some(name), _) => {
             let acct = cfg.accounts.get(name).ok_or_else(|| {
                 format!("account '{name}' not found in config (no [account.{name}] section)")
             })?;
-            (acct, name.to_string())
+            (acct, name.to_string(), "--account CLI")
         }
         (None, Some(name)) => {
             let acct = cfg.accounts.get(name).ok_or_else(|| {
@@ -243,10 +272,10 @@ pub fn resolve_repo(
                      (no [account.{name}] section)"
                 )
             })?;
-            (acct, name.clone())
+            (acct, name.clone(), "[default].account")
         }
         (None, None) => match cfg.top_level_repo.as_ref() {
-            Some(r) => (r, String::from("<top-level>")),
+            Some(r) => (r, String::from("<top-level>"), "top-level [repo]"),
             None => {
                 return Err("no account specified; set [default].account, use \
                      --account <name>, or write a top-level [repo] section"
@@ -254,38 +283,56 @@ pub fn resolve_repo(
             }
         },
     };
+    debug!(
+        "resolve_repo: account = {} (from {})",
+        account_label, account_source
+    );
 
     // Step 2: category.
-    let category = match repo_cli {
-        Some(sel) => sel.category.clone(),
-        None => account.repo_default.clone().ok_or_else(|| {
-            section_error(
-                &account_label,
-                "no default category",
-                "repo",
-                "default",
-                "use --repo <cat>",
-            )
-        })?,
-    };
-
-    // Step 3: value.
-    let value = match repo_cli.and_then(|s| s.value.clone()) {
-        Some(v) => v,
-        None => account
-            .repo_category
-            .get(&category)
-            .cloned()
-            .ok_or_else(|| {
+    let (category, category_source) = match repo_cli {
+        Some(sel) => (sel.category.clone(), "--repo CLI".to_string()),
+        None => {
+            let cat = account.repo_default.clone().ok_or_else(|| {
                 section_error(
                     &account_label,
-                    &format!("no value for --repo {category}"),
-                    "repo.category",
-                    &category,
-                    &format!("--repo {category}=<val>"),
+                    "no default category",
+                    "repo",
+                    "default",
+                    "use --repo <cat>",
                 )
-            })?,
+            })?;
+            (cat, format!("[account.{account_label}.repo].default"))
+        }
     };
+    debug!(
+        "resolve_repo: category = {} (from {})",
+        category, category_source
+    );
+
+    // Step 3: value.
+    let (value, value_source) = match repo_cli.and_then(|s| s.value.clone()) {
+        Some(v) => (v, "--repo CLI value".to_string()),
+        None => {
+            let v = account
+                .repo_category
+                .get(&category)
+                .cloned()
+                .ok_or_else(|| {
+                    section_error(
+                        &account_label,
+                        &format!("no value for --repo {category}"),
+                        "repo.category",
+                        &category,
+                        &format!("--repo {category}=<val>"),
+                    )
+                })?;
+            (
+                v,
+                format!("[account.{account_label}.repo.category].{category}"),
+            )
+        }
+    };
+    debug!("resolve_repo: value = {} (from {})", value, value_source);
 
     Ok((category, value))
 }
@@ -548,6 +595,34 @@ some-key = "ignored"
         let cfg = UserConfig::default();
         let err = resolve_repo(&cfg, None, None).unwrap_err().to_string();
         assert!(err.contains("[default].account"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_explicit_value_short_circuits_empty_config() {
+        // `--repo cat=val` is fully self-contained — works even with
+        // an empty config (no account, no top-level repo).
+        let cfg = UserConfig::default();
+        let sel = RepoSelector {
+            category: "local".into(),
+            value: Some("/tmp/fixtures".into()),
+        };
+        let (cat, val) = resolve_repo(&cfg, None, Some(&sel)).unwrap();
+        assert_eq!(cat, "local");
+        assert_eq!(val, "/tmp/fixtures");
+    }
+
+    #[test]
+    fn resolve_explicit_value_ignores_missing_account() {
+        // Even with --account naming a missing account, the explicit
+        // --repo cat=val short-circuits without consulting accounts.
+        let cfg = UserConfig::default();
+        let sel = RepoSelector {
+            category: "remote".into(),
+            value: Some("git@github.com:foo".into()),
+        };
+        let (cat, val) = resolve_repo(&cfg, Some("nope"), Some(&sel)).unwrap();
+        assert_eq!(cat, "remote");
+        assert_eq!(val, "git@github.com:foo");
     }
 
     #[test]

@@ -21,43 +21,10 @@ use std::path::Path;
 use clap::Args;
 use log::info;
 
+use crate::args::{ScopeKind, parse_scope_kind};
 use crate::common::run;
 use crate::repo_url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 use crate::symlink;
-
-/// Topology choice for `vc-x1 clone --scope`.
-///
-/// - `CodeBot` (default) — clone the dual-repo layout: code into
-///   target dir, bot derived source into `target/.claude`, plus
-///   the Claude Code symlink. Both sides must succeed.
-/// - `Por` — clone a single repo (Plain Old Repo) into target dir;
-///   no `.claude/`, no symlink.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CloneScope {
-    CodeBot,
-    Por,
-}
-
-/// Parse the `--scope` value for clone.
-///
-/// - Accepts `code,bot` / `bot,code` (commutative) and `por`.
-/// - Standalone `code` or `bot` errors — clone has no
-///   config-driven defaults to look up against; the manual
-///   decomposition (two `--scope=por` clones + `vc-x1 symlink`)
-///   covers the rare cases where a user wants the dual layout
-///   composed by hand.
-pub fn parse_clone_scope(s: &str) -> Result<CloneScope, String> {
-    match s {
-        "code,bot" | "bot,code" => Ok(CloneScope::CodeBot),
-        "por" => Ok(CloneScope::Por),
-        "code" | "bot" => Err(format!(
-            "'--scope={s}' is not valid for clone — use 'code,bot' (dual) or 'por' (single)"
-        )),
-        _ => Err(format!(
-            "'--scope={s}' is not recognized — expected 'code,bot' or 'por'"
-        )),
-    }
-}
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
@@ -81,10 +48,10 @@ pub struct CloneArgs {
         long,
         short,
         value_name = "SCOPE",
-        value_parser = parse_clone_scope,
+        value_parser = parse_scope_kind,
         default_value = "code,bot"
     )]
-    pub scope: CloneScope,
+    pub scope: ScopeKind,
 
     /// Dry run — show what would be done without executing.
     #[arg(long)]
@@ -106,6 +73,13 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         Target::Url(u) => u,
         Target::OwnerName(o, n) => resolve_url(&format!("{o}/{n}")),
         Target::Path(p) => p.to_str().ok_or("path is not valid UTF-8")?.to_string(),
+        Target::BareName(n) => {
+            return Err(format!(
+                "'{n}' is a bare name — clone has no config-driven defaults; \
+                 use 'owner/{n}', a full URL, or './{n}' for a local path"
+            )
+            .into());
+        }
     };
 
     let name = match &args.name {
@@ -122,10 +96,10 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.dry_run {
         info!("Dry run — would execute:");
         match args.scope {
-            CloneScope::Por => {
+            ScopeKind::Por => {
                 info!("  1. jj git clone --colocate {source} {name}");
             }
-            CloneScope::CodeBot => {
+            ScopeKind::CodeBot => {
                 let session_source = derive_session_url(&source);
                 info!("  1. jj git clone --colocate {source} {name}");
                 info!("  2. jj git clone --colocate {session_source} {name}/.claude");
@@ -138,13 +112,13 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
     run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
     match args.scope {
-        CloneScope::Por => {
+        ScopeKind::Por => {
             clone_one(&source, &project_dir, &parent_dir)?;
             info!("");
             info!("Done! Project cloned to {}", project_dir.display());
             info!("  Code repo: {}", project_dir.display());
         }
-        CloneScope::CodeBot => clone_dual(&source, &project_dir, &parent_dir)?,
+        ScopeKind::CodeBot => clone_dual(&source, &project_dir, &parent_dir)?,
     }
 
     log::debug!("clone: exit");
@@ -233,7 +207,7 @@ mod tests {
         let args = parse(&["vc-x1", "clone", "owner/repo"]);
         assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
-        assert_eq!(args.scope, CloneScope::CodeBot);
+        assert_eq!(args.scope, ScopeKind::CodeBot);
         assert!(!args.dry_run);
     }
 
@@ -257,7 +231,7 @@ mod tests {
         ]);
         assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
-        assert_eq!(args.scope, CloneScope::Por);
+        assert_eq!(args.scope, ScopeKind::Por);
         assert!(args.dry_run);
     }
 
@@ -270,25 +244,25 @@ mod tests {
     #[test]
     fn scope_short_flag() {
         let args = parse(&["vc-x1", "clone", "owner/repo", "-s", "por"]);
-        assert_eq!(args.scope, CloneScope::Por);
+        assert_eq!(args.scope, ScopeKind::Por);
     }
 
     #[test]
     fn scope_bot_code_commutative() {
         let args = parse(&["vc-x1", "clone", "owner/repo", "--scope", "bot,code"]);
-        assert_eq!(args.scope, CloneScope::CodeBot);
+        assert_eq!(args.scope, ScopeKind::CodeBot);
     }
 
     #[test]
     fn scope_code_alone_errors() {
         let err = parse_err(&["vc-x1", "clone", "owner/repo", "--scope", "code"]);
-        assert!(err.contains("not valid for clone"), "got: {err}");
+        assert!(err.contains("not a valid scope kind"), "got: {err}");
     }
 
     #[test]
     fn scope_bot_alone_errors() {
         let err = parse_err(&["vc-x1", "clone", "owner/repo", "--scope", "bot"]);
-        assert!(err.contains("not valid for clone"), "got: {err}");
+        assert!(err.contains("not a valid scope kind"), "got: {err}");
     }
 
     #[test]
