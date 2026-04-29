@@ -22,7 +22,7 @@ A bulleted list of the in-progress task's development "ladder":
   - -6.1 literal lift: extract init_one / init_dual from init_with_symlink (done)
   - -6.2 extract create_repo + module reshape (repo_url → url, init_dual → create_dual) (done)
   - -6.3 extract push_repo (steps 7-9) + rename create_repo → create_local_repo (done)
-  - -6.4 CLI subprocess integration tests (true `vc-x1` invocations) — add tests/ crate + harness
+  - -6.4 CLI subprocess integration tests (true `vc-x1` invocations) — add tests/ crate + harness (done)
   - -6.5 extract cross_ref_ochids; eliminate init_one; final create_dual collapse
   - -6.6 add detect_state + InitTargetState enum + unit tests
   - -6.7 wire detect_state into dispatch; Empty proceeds, others error with diagnostic
@@ -153,6 +153,22 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
 1. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [27]
 1. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [28],[29]
+1. Test-tempdir override resolution chain. Both
+   `src/test_helpers::unique_base` and
+   `tests/common/unique_base` currently use
+   `std::env::temp_dir()` (= `$TMPDIR`). Generalize to
+   resolve in priority order: explicit env var (e.g.
+   `VC_X1_TEST_TMPDIR`) → user config
+   (`~/.config/vc-x1/config.toml`) → local
+   `.vc-config.toml` → `std::env::temp_dir()` fallback.
+   Useful when a developer wants tests on a tmpfs / SSD /
+   project-local path without exporting `TMPDIR` globally.
+   Open question: do we also expose a CLI parameter
+   (e.g. `vc-x1 --workspace-tmp …`)? Test binaries can't
+   easily accept arbitrary flags via `cargo test --`, so
+   env is the realistic surface for tests; for the
+   `vc-x1` binary itself a flag is feasible but unclear
+   it adds value over the resolution chain.
 
 ## Done
 

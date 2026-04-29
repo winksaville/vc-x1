@@ -360,43 +360,105 @@ fn section_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{fs, path::PathBuf};
 
-    fn cfg_tempdir(tag: &str) -> PathBuf {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let dir = std::env::temp_dir().join(format!("vc-x1-cfg-{tag}-{ts}"));
-        fs::create_dir_all(&dir).expect("mkdir tempdir");
-        dir
+    use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
+
+    /// Per-process counter so same-nanosecond tempdir collisions
+    /// yield distinct paths when tests run in parallel.
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    /// RAII tempdir for `config` tests — sibling of `Fixture` /
+    /// `FixturePor` / `CliFixture`, scaled to the much smaller
+    /// "write a config.toml and parse it" use case. Replaces the
+    /// pre-0.41.1-6.4 `cfg_tempdir(tag) -> PathBuf` helper, which
+    /// had no `Drop` and leaked one dir per test invocation.
+    ///
+    /// Uses the shared `resolve_tmp_root` (`$VC_X1_TEST_TMPDIR` →
+    /// `std::env::temp_dir()`) and honors `should_keep_tempdir()`
+    /// (`$VC_X1_TEST_KEEP`) so the same env-var knobs control all
+    /// fixture types uniformly.
+    struct CfgTempDir {
+        dir: PathBuf,
     }
 
-    fn write_cfg(tag: &str, contents: &str) -> PathBuf {
-        let dir = cfg_tempdir(tag);
-        let path = dir.join("config.toml");
+    impl CfgTempDir {
+        fn new(tag: &str) -> Self {
+            let ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0); // OK: clock error → 0 is harmless for unique tempdir naming
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let dir = resolve_tmp_root().join(format!("vc-x1-cfg-{tag}-{ts}-{n}"));
+            fs::create_dir_all(&dir).expect("mkdir cfg tempdir");
+            Self { dir }
+        }
+
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+    }
+
+    impl Drop for CfgTempDir {
+        fn drop(&mut self) {
+            if should_keep_tempdir() {
+                eprintln!("VC_X1_TEST_KEEP set; preserving {}", self.dir.display());
+            } else {
+                let _ = fs::remove_dir_all(&self.dir);
+            }
+        }
+    }
+
+    /// Write `contents` to `<dir>/config.toml`. Returns the
+    /// `CfgTempDir` guard alongside the file path so callers can
+    /// keep the guard alive for the test's scope.
+    fn write_cfg(tag: &str, contents: &str) -> (CfgTempDir, PathBuf) {
+        let cfg = CfgTempDir::new(tag);
+        let path = cfg.dir().join("config.toml");
         fs::write(&path, contents).unwrap();
-        path
+        (cfg, path)
+    }
+
+    /// `Drop` removes the tempdir on success: keep the path
+    /// outside the inner scope, drop the guard, and verify the
+    /// directory is gone. Pins the leak fix that landed in
+    /// 0.41.1-6.4.
+    #[test]
+    fn cfg_tempdir_drop_cleans_up() {
+        let path: PathBuf;
+        {
+            let cfg = CfgTempDir::new("drop-cleanup");
+            path = cfg.dir().to_path_buf();
+            assert!(path.exists(), "tempdir must exist while guard is alive");
+        }
+        assert!(
+            !path.exists(),
+            "tempdir must be removed after CfgTempDir drops, got: {}",
+            path.display()
+        );
     }
 
     #[test]
     fn missing_file_returns_default() {
-        let dir = cfg_tempdir("missing");
-        let path = dir.join("nonexistent.toml");
-        let cfg = load_from(&path).unwrap();
-        assert_eq!(cfg, UserConfig::default());
+        let cfg = CfgTempDir::new("missing");
+        let path = cfg.dir().join("nonexistent.toml");
+        let parsed = load_from(&path).unwrap();
+        assert_eq!(parsed, UserConfig::default());
     }
 
     #[test]
     fn empty_file_returns_default() {
-        let path = write_cfg("empty", "");
+        let (_cfg, path) = write_cfg("empty", "");
         let cfg = load_from(&path).unwrap();
         assert_eq!(cfg, UserConfig::default());
     }
 
     #[test]
     fn full_schema_parses() {
-        let path = write_cfg(
+        let (_cfg, path) = write_cfg(
             "full",
             r#"[default]
 account = "home"
@@ -440,7 +502,7 @@ repo.category.local   = "/work/fixtures"
     #[test]
     fn account_only_no_default_section() {
         // No [default]; one account. accounts populated, top-level None.
-        let path = write_cfg(
+        let (_cfg, path) = write_cfg(
             "no-default",
             r#"[account.solo]
 repo.default          = "remote"
@@ -457,7 +519,7 @@ repo.category.remote  = "git@github.com:wink"
     #[test]
     fn top_level_repo_shorthand() {
         // Single-account shorthand — top-level [repo], no [account.*].
-        let path = write_cfg(
+        let (_cfg, path) = write_cfg(
             "top-level",
             r#"[repo]
 default          = "remote"
@@ -482,7 +544,7 @@ category.local   = "~/test-fixtures"
     #[test]
     fn mixing_top_level_and_accounts_errors() {
         // Both top-level [repo] and [account.*] is ambiguous.
-        let path = write_cfg(
+        let (_cfg, path) = write_cfg(
             "mixed",
             r#"[repo]
 default = "remote"
@@ -498,7 +560,7 @@ repo.default = "remote"
     #[test]
     fn unknown_keys_ignored() {
         // Forward-compat: unknown sections/sub-keys silently dropped.
-        let path = write_cfg(
+        let (_cfg, path) = write_cfg(
             "unknown",
             r#"[account.home]
 repo.category.remote = "git@github.com:wink"

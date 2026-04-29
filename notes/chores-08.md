@@ -796,6 +796,205 @@ Single commit; the `create_repo` → `create_local_repo` rename, the
 together since the rename is mechanical and the new tests validate
 the extracted helper's behavior.
 
+### CLI subprocess integration tests + tempdir-root sharing (0.41.1-6.4)
+
+First true CLI integration tests for the project. Adds a `tests/`
+crate that spawns the `vc-x1` binary that Cargo built (via
+`env!("CARGO_BIN_EXE_vc-x1")`) so argument parsing, exit codes, and
+stdout/stderr are exercised end-to-end — distinct from the
+in-process fixture tests under `src/init.rs::tests`, which call
+`init::init_with_symlink` as a Rust function.
+
+This step bumps the test-strategy floor from "in-process only" to
+"both layers"; it doesn't yet retire any in-process tests. The
+in-process tests stay as fast unit-ish coverage; subprocess tests
+are added as state-mutating cases warrant a real binary spawn.
+
+**New harness — `tests/common/mod.rs`:**
+
+- `vc_x1() -> Command` — `Command::new(env!("CARGO_BIN_EXE_vc-x1"))`.
+- `run_ok` / `run_err` — wrap `Command::output`, panic with
+  stdout+stderr embedded if exit status doesn't match expectation.
+- `CliFixture` — RAII tempdir owner. Each subprocess invocation
+  gets `HOME` overridden to `<base>/home/` so the user's real
+  `~/.config/vc-x1/` can't leak in or get clobbered.
+- `unique_base(tag)` — mirrors `src/test_helpers::unique_base` but
+  uses a `vc-x1-cli-test-` prefix to distinguish from in-process
+  fixtures' `vc-x1-test-` paths.
+- Crate-level `#![allow(dead_code)]` — standard idiom for
+  `tests/common/`: each `tests/*.rs` compiles as its own crate, so
+  helpers used by some test crates but not others would otherwise
+  warn.
+
+**New test files:**
+
+- `tests/cli_smoke.rs` (2 tests):
+  - `cli_version_runs` — `vc-x1 --version` exits 0 and stdout
+    contains `"vc-x1"`. Pins `CARGO_BIN_EXE_vc-x1` resolves and
+    the binary actually runs.
+  - `cli_help_lists_init` — `vc-x1 --help` lists the `init`
+    subcommand. Pins clap's subcommand surface compiled in.
+- `tests/cli_init.rs` (2 tests, counterparts to in-process
+  fixtures):
+  - `cli_init_por_creates_layout` — mirrors
+    `por_fixture_creates_single_repo_layout`.
+  - `cli_init_dual_creates_layout` — mirrors
+    `dual_fixture_creates_dual_repo_layout`.
+
+**Tempdir-root override (`$VC_X1_TEST_TMPDIR`):**
+
+Both `unique_base` helpers (in-process and CLI) resolve the parent
+directory in priority order:
+
+1. `$VC_X1_TEST_TMPDIR` (if set and non-empty).
+2. `std::env::temp_dir()` (= `$TMPDIR` on Unix, else `/tmp`).
+
+Useful for steering tests onto a tmpfs / SSD / project-local path
+without exporting `TMPDIR` globally. Future work (per
+`notes/todo.md`) extends the chain through
+`~/.config/vc-x1/config.toml` and project-local
+`.vc-config.toml`.
+
+**Shared `resolve_tmp_root` via `#[path]`:**
+
+`vc-x1` is binary-only (no `lib.rs`), so the integration-test
+crate can't import from `src/test_helpers.rs` (which is
+`#[cfg(test)]`-gated inside `main.rs`). To avoid duplicating the
+~10-line resolver, lifted it into `src/test_tmp_root.rs` (pure
+stdlib) and reach it from two contexts:
+
+- `src/main.rs` — `#[cfg(test)] mod test_tmp_root;` (sibling of
+  `test_helpers`); `src/test_helpers.rs` then
+  `use crate::test_tmp_root::resolve_tmp_root;`.
+- `tests/common/mod.rs` —
+  `#[path = "../../src/test_tmp_root.rs"] mod test_tmp_root;` +
+  `use test_tmp_root::resolve_tmp_root;`.
+
+Two separate compilations of the same source — no cross-crate
+linking. Constraint maintained: the file is dependency-free
+(no `crate::*` imports), so the integration-test crate (whose
+crate root is `tests/cli_init.rs`, not `src/main.rs`) can compile
+it. When the priority chain extends to config files, the
+config-loading should pass its result *in*, preserving this
+constraint.
+
+The user framed this as a precedent: **strive to share code, not
+mandatory but a "good to have"**. The duplication threshold for
+applying `#[path]` is judgment-driven; here, ~10 lines × 2 sites
++ expected growth made it worthwhile.
+
+**Preserve-on-drop knob (`$VC_X1_TEST_KEEP`):**
+
+A second env var, also resolved through `src/test_tmp_root.rs`,
+suppresses RAII tempdir cleanup for debugging. When set
+(non-empty), each fixture's `Drop` skips `remove_dir_all` and
+prints `VC_X1_TEST_KEEP set; preserving <path>` on stderr.
+
+```bash
+VC_X1_TEST_KEEP=1 cargo test -- --nocapture 2>&1 | grep TEST_KEEP
+```
+
+(Both `2>&1` and `--nocapture` are required — `eprintln!` goes
+to stderr; libtest captures stdout/stderr by default.)
+
+Implementation:
+
+- `src/test_tmp_root.rs` exposes `pub fn should_keep_tempdir()`
+  alongside `resolve_tmp_root`. Pure-policy form `keep_decision`
+  is factored out (takes `Option<&str>`) so the env-var-reading
+  wrapper isn't called from unit tests — env mutation isn't
+  thread-safe and would race with parallel `Drop`s.
+- 3 unit tests on `keep_decision` (`unset`, `empty`, `nonempty`)
+  pin the policy without touching `$VC_X1_TEST_KEEP`.
+- All three RAII `Drop` impls (`Fixture`, `FixturePor`,
+  `CliFixture`) consult `should_keep_tempdir()`. Same pattern in
+  all three: skip removal + `eprintln!` when keep, otherwise
+  best-effort `remove_dir_all`.
+- New `tests/cli_keep.rs` (single-test binary) exercises the
+  env-var path end-to-end: sets `VC_X1_TEST_KEEP=1` (`unsafe`
+  per Rust 1.83+), creates a `CliFixture`, drops it, asserts
+  the tempdir survives, manually removes, restores env. Lives
+  in its own test crate so the env-write doesn't race with
+  parallel reads in `cli_init` / `cli_smoke` (separate
+  processes, no shared env).
+
+**`cfg_tempdir` leak fix (`src/config.rs::tests`):**
+
+`config.rs`'s test module had a long-standing leak: a private
+`cfg_tempdir(tag) -> PathBuf` helper created
+`/tmp/vc-x1-cfg-<tag>-<ts>/` and never cleaned up — every test
+invocation that called it (8 tests) leaked one dir. After many
+local `cargo test` runs, the user's `/tmp` had ~217 stale
+`vc-x1-cfg-*` dirs.
+
+Fixed by replacing the bare `PathBuf` helper with a `CfgTempDir`
+RAII struct:
+
+- Same shape as the other fixtures (counter + `resolve_tmp_root`
+  + `should_keep_tempdir` in `Drop`).
+- New naming convention `vc-x1-cfg-<tag>-<ts>-<n>` aligns with
+  `vc-x1-test-*` and `vc-x1-cli-test-*`.
+- `write_cfg(tag, contents)` now returns `(CfgTempDir, PathBuf)`
+  — caller binds the guard to a `_cfg` slot to keep it alive
+  for the test scope; existing 6 call sites updated 1:1.
+- New unit test `cfg_tempdir_drop_cleans_up` pins the cleanup
+  invariant: capture path, drop guard, assert path is gone.
+
+This isn't strictly part of the -6.4 brief, but the cycle is
+specifically about tempdir hygiene and the leak surfaced while
+verifying `should_keep_tempdir` worked. Bringing config tests
+under the shared infra (rather than letting one module quietly
+leak) keeps the new precedent honest.
+
+**README.md `## Testing` section:**
+
+New top-level section before `## Contributing`. Documents:
+
+- The two flavors (in-process vs CLI subprocess) and how to run
+  each (`cargo test`, `--bins`, `--test cli_init`).
+- The `$VC_X1_TEST_TMPDIR` env var with example usage and the
+  cleanup `find` recipe for SIGKILL leaks.
+- The `$VC_X1_TEST_KEEP` env var with the full
+  `2>&1 | grep`/`--nocapture` incantation and the two shell
+  gotchas (stderr vs stdout, libtest capture).
+- Pointer to the todo for the future config-file extension.
+
+**Test counts:**
+
+- 331 binary unit tests (327 prior + 3 `keep_decision` +
+  1 `cfg_tempdir_drop_cleans_up`).
+- 5 `cli_init` (2 init tests + 3 `keep_decision` via
+  `#[path]`).
+- 4 `cli_keep` (1 keep-fixture test + 3 `keep_decision` via
+  `#[path]`).
+- 5 `cli_smoke` (2 smoke tests + 3 `keep_decision` via
+  `#[path]`).
+- Total: 345, all green. `keep_decision` runs in 4 contexts
+  due to the `#[path]` include; each run is microseconds and
+  also confirms the shared file compiles cleanly in every
+  test crate.
+
+**WIP ladder:**
+
+Single commit. Six concerns ride together because they form
+one coherent story about tempdir hygiene:
+
+1. CLI subprocess harness (`tests/common/`).
+2. First subprocess test files (`cli_smoke`, `cli_init`).
+3. `$VC_X1_TEST_TMPDIR` resolution + shared `resolve_tmp_root`
+   via `#[path]` — the precedent the user wanted to establish.
+4. `$VC_X1_TEST_KEEP` knob + Drop wiring across all three
+   fixtures + `cli_keep` end-to-end test.
+5. `cfg_tempdir` leak fix using the same shared infra.
+6. README + todo + chores docs.
+
+The harness alone isn't useful without tests; the env-var
+support isn't useful without docs; sharing the resolver and
+keep-decision with the in-process side is the precedent
+("strive to share, not mandatory but a good to have"). Fixing
+`cfg_tempdir` while we're already in the area aligns the rest
+of the codebase with that precedent.
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

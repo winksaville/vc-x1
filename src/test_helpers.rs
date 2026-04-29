@@ -19,6 +19,7 @@ use crate::args::ScopeKind;
 use crate::common::write_file;
 use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
+use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
 /// distinct paths when tests run in parallel.
@@ -36,7 +37,7 @@ pub fn unique_base(tag: &str) -> PathBuf {
         .map(|d| d.as_nanos())
         .unwrap_or(0); // OK: clock error → 0 is harmless for unique tempdir naming
     let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-    std::env::temp_dir().join(format!("vc-x1-test-{tag}-{ts}-{n}"))
+    resolve_tmp_root().join(format!("vc-x1-test-{tag}-{ts}-{n}"))
 }
 
 /// Owned dual-repo fixture with RAII cleanup.
@@ -127,9 +128,14 @@ impl Fixture {
 
 impl Drop for Fixture {
     /// Remove the fixture tree on drop. Best-effort; a failure here
-    /// doesn't fail the test.
+    /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
+    /// set — see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.base);
+        if should_keep_tempdir() {
+            eprintln!("VC_X1_TEST_KEEP set; preserving {}", self.base.display());
+        } else {
+            let _ = fs::remove_dir_all(&self.base);
+        }
     }
 }
 
@@ -186,8 +192,13 @@ impl FixturePor {
 
 impl Drop for FixturePor {
     /// Remove the fixture tree on drop. Best-effort; a failure here
-    /// doesn't fail the test.
+    /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
+    /// set — see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.base);
+        if should_keep_tempdir() {
+            eprintln!("VC_X1_TEST_KEEP set; preserving {}", self.base.display());
+        } else {
+            let _ = fs::remove_dir_all(&self.base);
+        }
     }
 }

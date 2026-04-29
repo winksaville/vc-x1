@@ -717,6 +717,86 @@ shows the current version of each change.
 In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
 the same result. Use `all()` when you have multiple branches or heads.
 
+## Testing
+
+The repo ships two flavors of tests:
+
+- **In-process tests** — `#[cfg(test)] mod tests { … }` blocks inside
+  `src/*.rs`. These call library code directly (no subprocess spawn)
+  and run fastest. The dual / POR fixture tests under
+  `src/init.rs::tests` build throwaway workspaces by invoking
+  `init::init_with_symlink` as a function.
+- **CLI subprocess integration tests** — files under `tests/`. These
+  spawn the `vc-x1` binary that Cargo built; its absolute path lives
+  in the `CARGO_BIN_EXE_vc-x1` env var that Cargo sets at compile
+  time, which `env!("CARGO_BIN_EXE_vc-x1")` reads and bakes into the
+  test binary as a string literal. Argument parsing, exit codes, and
+  stdout/stderr are all exercised end-to-end. Each subprocess gets a
+  `HOME` override so the user's real `~/.config/vc-x1/` can't leak in
+  or get clobbered.
+
+Run everything with:
+
+```bash
+cargo test                 # unit + integration
+cargo test --bins          # binary unit tests only (in-process)
+cargo test --test cli_init # one integration test crate
+```
+
+### Test tempdir location
+
+Both test layers create throwaway fixtures under a tempdir. The
+parent directory resolves in priority order:
+
+1. `$VC_X1_TEST_TMPDIR` — explicit env override.
+2. `std::env::temp_dir()` — standard fallback (`$TMPDIR` on Unix,
+   else `/tmp`).
+
+Useful when you want tests on a tmpfs / SSD / project-local path
+without exporting `TMPDIR` globally:
+
+```bash
+VC_X1_TEST_TMPDIR=/dev/shm/vc-x1 cargo test
+```
+
+Fixture directories are named `vc-x1-test-<tag>-<ts>-<n>` (in-process)
+and `vc-x1-cli-test-<tag>-<ts>-<n>` (CLI). RAII drop removes them on
+test exit; SIGKILLs / panics in `Drop` can leak — search and clean
+manually:
+
+```bash
+find "${VC_X1_TEST_TMPDIR:-${TMPDIR:-/tmp}}" -maxdepth 1 \
+     -name 'vc-x1-*test*' -mtime +1 -exec rm -rf {} +
+```
+
+A future enhancement (tracked in `notes/todo.md`) extends the
+priority chain through `~/.config/vc-x1/config.toml` and project-local
+`.vc-config.toml`.
+
+### Preserving fixtures for debugging
+
+When a test fails and you want to inspect the workspace it built,
+set `$VC_X1_TEST_KEEP`. The RAII `Drop` impls (`Fixture`,
+`FixturePor`, `CliFixture`) skip `remove_dir_all` and print the
+preserved path on stderr:
+
+```bash
+VC_X1_TEST_KEEP=1 cargo test -- --nocapture 2>&1 | grep TEST_KEEP
+```
+
+Two shell gotchas worth remembering:
+
+- The preservation message goes to **stderr**, so a plain
+  `cargo test | grep ...` won't see it — use `2>&1 |` or write
+  the full output to a file.
+- `--nocapture` is needed to bypass libtest's stdout/stderr
+  capture; without it, the messages get swallowed by the test
+  runner's pretty-printer.
+
+`VC_X1_TEST_KEEP` is a debugging knob — every fixture-creating
+test in the run leaks its tempdir while it's set. Clean up with
+the `find` recipe above, or just `rm -rf` the announced paths.
+
 ## Contributing
 
 Bot-following workflow, commit conventions, and code style are

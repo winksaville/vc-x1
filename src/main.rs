@@ -18,6 +18,8 @@ mod symlink;
 mod sync;
 #[cfg(test)]
 mod test_helpers;
+#[cfg(test)]
+mod test_tmp_root;
 mod toml_simple;
 mod url;
 mod validate_desc;
