@@ -556,6 +556,49 @@ match the refactor's output. Tests *upstream* demonstrate behavior
 preservation directly — every rebase from -6.1 onward must keep the
 same suite green.
 
+### Literal lift: extract init_one / init_dual (0.41.1-6.1)
+
+`init_with_symlink`'s real-execution body factored into a dispatcher
+plus two new functions: `init_one` (POR primitive) and `init_dual`
+(dual orchestrator with interleaved code+session, cross-ref ochids,
+and `.claude/`-preserving code-side clean). Pure code reorganization
+— no behavior change. The 320-test suite from -6.0 (including the
+3 new POR tests) is green against the lifted code, confirming
+behavior preservation directly.
+
+**Edits:**
+
+- `src/init.rs`: new `init_one` and `init_dual`; `init_with_symlink`
+  trimmed to a dispatch tail (`if is_dual { init_dual(...) } else
+  { init_one(...) }`). Three duplicate `session_*` unwraps from the
+  original dual path consolidated to top-of-fn in `init_dual`.
+- `Cargo.toml`: 0.41.1-6.0 → 0.41.1-6.1.
+- `notes/chores-08.md`: this subsection.
+- `notes/todo.md`: -6.0 → done, -6.1 → current.
+
+**Mechanics:**
+
+Authored on a sibling commit (bookmark `single-dual-1`) off -5's
+close-out (`f5ec4d8`), then rebased onto -6.0 once tests landed.
+`notes/todo.md` was peeled out of `single-dual-1` before rebase
+(via `jj restore --from @-` while editing the bookmarked commit)
+to keep -6.0's todo.md changes authoritative.
+
+**File-size note:**
+
+`src/init.rs` grew ~80 lines — per-side branches duplicated across
+`init_one` and `init_dual`. The DRY-up across -6.2/-6.3/-6.4 should
+bring it back below the original.
+
+**Why a literal lift before -6.2:**
+
+The substantive DRY refactor (-6.2/-6.3/-6.4 extract
+`init_one_create`, `init_one_finalize`, `cross_ref_ochids` and
+collapse `init_dual` to compose them) needs clean entry points.
+Extracting `init_one` and `init_dual` as end-to-end functions
+creates the call sites without yet touching internal structure, so
+each subsequent extraction is reviewable against a stable surface.
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

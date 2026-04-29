@@ -1145,16 +1145,40 @@ pub(crate) fn init_with_symlink(
         return Ok(());
     }
 
+    if is_dual {
+        init_dual(args, &plan, templates, visibility, create_symlink)
+    } else {
+        init_one(args, &plan, templates, visibility)
+    }
+}
+
+/// Create-from-empty primitive for `--scope=por` (single repo).
+///
+/// Runs the linear lifecycle on `plan.project_dir`:
+///
+/// - Step 1: mkdir.
+/// - Step 2: `git init` + colocated `jj git init`.
+/// - Step 3: write the POR-shape `.vc-config.toml` + `.gitignore`.
+/// - Step 4: copy code template (if any) + rewrite README.
+/// - Step 5: plain initial commit (no ochid).
+/// - Step 7: bookmark + `git clean -xdf`.
+/// - Step 9: provision remote + push.
+/// - Step 10: re-init jj + bookmark tracking.
+///
+/// No cross-reference ochid, no session repo, no symlink.
+fn init_one(
+    args: &InitArgs,
+    plan: &InitPlan,
+    templates: Option<(PathBuf, Option<PathBuf>)>,
+    visibility: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Step 1: Create directories. For LocalBareInit also create the
-    // parent so the bare-repo init (step 8/9) has a home.
+    // parent so the bare-repo init (step 9) has a home.
     info!("Step 1: Creating project directories...");
     if let Some(parent) = plan.project_dir.parent() {
         mkdir_p(parent)?;
     }
     mkdir_p(&plan.project_dir)?;
-    if let Some(session_dir) = plan.session_dir.as_ref() {
-        mkdir_p(session_dir)?;
-    }
 
     // Step 2: git init + jj init
     info!("Step 2: Initializing repos...");
@@ -1162,32 +1186,17 @@ pub(crate) fn init_with_symlink(
     run("git", &["init"], &plan.project_dir)?;
     debug!("colocate jj atop the git repo so jj + git share .git state");
     run("jj", &["git", "init", "--colocate"], &plan.project_dir)?;
-    if let Some(session_dir) = plan.session_dir.as_ref() {
-        debug!("seed session_dir with an empty git repo");
-        run("git", &["init"], session_dir)?;
-        debug!("colocate jj atop the session git repo");
-        run("jj", &["git", "init", "--colocate"], session_dir)?;
-    }
 
-    // Step 3: Write config files
+    // Step 3: Write config files (POR shape)
     info!("Step 3: Writing config files...");
-    if is_dual {
-        write_file(&plan.project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
-        write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_CODE)?;
-    } else {
-        write_file(
-            &plan.project_dir.join(".vc-config.toml"),
-            VC_CONFIG_APP_ONLY,
-        )?;
-        write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
-    }
-    if let Some(session_dir) = plan.session_dir.as_ref() {
-        write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
-        write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
-    }
+    write_file(
+        &plan.project_dir.join(".vc-config.toml"),
+        VC_CONFIG_APP_ONLY,
+    )?;
+    write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
 
-    // Step 4: Copy templates (if --use-template)
-    if let Some((code_t, bot_t)) = &templates {
+    // Step 4: Copy template (if --use-template)
+    if let Some((code_t, _)) = &templates {
         info!("Step 4: Copying templates...");
         info!(
             "  code: {} -> {}",
@@ -1196,72 +1205,20 @@ pub(crate) fn init_with_symlink(
         );
         copy_template_recursive(code_t, &plan.project_dir)?;
         rewrite_readme_first_line(&plan.project_dir, &plan.name)?;
-        if let (Some(bot_t), Some(session_dir), Some(session_name)) = (
-            bot_t.as_ref(),
-            plan.session_dir.as_ref(),
-            plan.session_name.as_ref(),
-        ) {
-            info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
-            copy_template_recursive(bot_t, session_dir)?;
-            rewrite_readme_first_line(session_dir, session_name)?;
-        }
     }
 
-    // Step 5: jj commit
-    if is_dual {
-        info!("Step 5: Committing both repos with placeholder ochids...");
-        #[allow(clippy::unwrap_used)]
-        let session_dir = plan.session_dir.as_ref().unwrap(); // OK: is_dual ⇒ session_dir set
-        debug!("code side: initial commit with placeholder ochid (rewritten in step 6)");
-        run(
-            "jj",
-            &["commit", "-m", "Initial commit\n\nochid: /none"],
-            &plan.project_dir,
-        )?;
-        debug!("session side: initial commit with placeholder ochid (rewritten in step 6)");
-        run(
-            "jj",
-            &["commit", "-m", "Initial commit\n\nochid: /none"],
-            session_dir,
-        )?;
-    } else {
-        info!("Step 5: Committing code...");
-        debug!("code side: initial commit (no ochid in single-repo)");
-        run("jj", &["commit", "-m", "Initial commit"], &plan.project_dir)?;
-    }
+    // Step 5: jj commit (plain — no ochid in single-repo)
+    info!("Step 5: Committing code...");
+    debug!("code side: initial commit (no ochid in single-repo)");
+    run("jj", &["commit", "-m", "Initial commit"], &plan.project_dir)?;
 
-    // Step 6: ochid cross-references (dual only)
-    if is_dual {
-        info!("Step 6: Setting ochid cross-references...");
-        #[allow(clippy::unwrap_used)]
-        let session_dir = plan.session_dir.as_ref().unwrap(); // OK: is_dual ⇒ session_dir set
-        let code_chid = jj_chid("@-", &plan.project_dir)?;
-        let session_chid = jj_chid("@-", session_dir)?;
+    // Step 6: skipped — no cross-reference in single-repo
+    info!("Step 6: (skipped — no cross-reference in single-repo)");
+    let code_chid = jj_chid("@-", &plan.project_dir)?;
+    let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
+    debug!("code repo: chid={code_chid} hash={hash}");
 
-        let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
-        let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
-        debug!("code side: rewrite initial commit's ochid to point at session chid");
-        run(
-            "jj",
-            &["describe", "@-", "-m", &code_desc],
-            &plan.project_dir,
-        )?;
-        debug!("session side: rewrite initial commit's ochid to point at code chid");
-        run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
-
-        debug!("surface post-describe git hashes for the debug log");
-        let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
-        debug!("code repo: chid={code_chid} hash={hash}");
-        let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
-        debug!(".claude:   chid={session_chid} hash={hash}");
-    } else {
-        info!("Step 6: (skipped — no cross-reference in single-repo)");
-        let code_chid = jj_chid("@-", &plan.project_dir)?;
-        let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
-        debug!("code repo: chid={code_chid} hash={hash}");
-    }
-
-    // Step 7: Set bookmarks (creates git branches), then remove jj
+    // Step 7: Set bookmark (creates git branch), then remove jj
     info!("Step 7: Setting bookmarks and removing jj...");
     debug!("place code-side main bookmark at the initial commit");
     run(
@@ -1269,48 +1226,19 @@ pub(crate) fn init_with_symlink(
         &["bookmark", "set", "main", "-r", "@-"],
         &plan.project_dir,
     )?;
-    if let Some(session_dir) = plan.session_dir.as_ref() {
-        debug!("place session-side main bookmark at the initial commit");
-        run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
-        debug!("strip jj state from session side before its git push");
-        run("git", &["clean", "-xdf"], session_dir)?;
-        debug!("strip jj state from code side, preserving nested .claude/");
-        run(
-            "git",
-            &["clean", "-xdf", "--exclude", ".claude"],
-            &plan.project_dir,
-        )?;
-        debug!("re-attach session HEAD to main after clean");
-        run("git", &["checkout", "main"], session_dir)?;
-    } else {
-        debug!("strip jj state from code side (no .claude in single-repo)");
-        run("git", &["clean", "-xdf"], &plan.project_dir)?;
-    }
+    debug!("strip jj state from code side (no .claude in single-repo)");
+    run("git", &["clean", "-xdf"], &plan.project_dir)?;
     debug!("re-attach code HEAD to main after clean");
     run("git", &["checkout", "main"], &plan.project_dir)?;
 
-    // Steps 8/9: provision remotes and push.
-    if let Some(session_dir) = plan.session_dir.as_ref() {
-        #[allow(clippy::unwrap_used)]
-        let session_url = plan.session_url.as_deref().unwrap(); // OK: is_dual ⇒ session_url set
-        run_remote_step(
-            "Step 8",
-            "session",
-            &plan,
-            session_url,
-            plan.gh_session_slug.as_deref(),
-            plan.session_bare_path.as_deref(),
-            visibility,
-            session_dir,
-            args,
-        )?;
-    } else {
-        info!("Step 8: (skipped — no session side in single-repo)");
-    }
+    // Step 8: skipped — no session side in single-repo
+    info!("Step 8: (skipped — no session side in single-repo)");
+
+    // Step 9: provision remote and push code
     run_remote_step(
         "Step 9",
         "code",
-        &plan,
+        plan,
         &plan.code_url,
         plan.gh_code_slug.as_deref(),
         plan.code_bare_path.as_deref(),
@@ -1320,14 +1248,7 @@ pub(crate) fn init_with_symlink(
     )?;
 
     // Step 10: Re-initialize jj
-    info!(
-        "Step 10: Re-initializing jj on {}...",
-        if is_dual {
-            "both repos"
-        } else {
-            "the code repo"
-        }
-    );
+    info!("Step 10: Re-initializing jj on the code repo...");
     debug!("re-colocate jj atop the now-remote-linked code repo");
     run(
         "jj",
@@ -1349,30 +1270,211 @@ pub(crate) fn init_with_symlink(
     crate::common::verify_tracking(&plan.project_dir, "main")?;
     let code_chid_final = jj_chid("@-", &plan.project_dir)?;
 
-    let session_chid_final = if let Some(session_dir) = plan.session_dir.as_ref() {
-        debug!("re-colocate jj atop the now-remote-linked session repo");
-        run("jj", &["--quiet", "git", "init", "--colocate"], session_dir)?;
-        debug!("restore session-side main bookmark after re-init");
-        run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
-        debug!("enable jj tracking of session-side main against origin");
-        run(
-            "jj",
-            &["bookmark", "track", "main", "--remote=origin"],
-            session_dir,
-        )?;
-        crate::common::verify_tracking(session_dir, "main")?;
-        Some(jj_chid("@-", session_dir)?)
-    } else {
-        None
-    };
+    // Step 11: skipped — no .claude symlink in single-repo
+    info!("Step 11: (skipped — no .claude symlink in single-repo)");
 
-    // Step 11: Create Claude Code symlink (dual only; opt-out for tests)
-    let sl_opt = if is_dual && create_symlink {
+    info!("");
+    info!("Done! Project created at {}", plan.project_dir.display());
+    info!(
+        "  Code repo:    {}  (chid={code_chid_final})",
+        plan.code_url
+    );
+
+    debug!("init: exit");
+    Ok(())
+}
+
+/// Create-from-empty orchestrator for `--scope=code,bot` (dual).
+///
+/// Runs the lifecycle across both code and session repos,
+/// interleaved as needed:
+///
+/// - Step 5 commits both with placeholder ochids; step 6 rewrites
+///   them once both chids are known.
+/// - Step 7's code-side clean preserves `.claude/`.
+/// - Step 11 installs the symlink (toggled by `create_symlink`).
+fn init_dual(
+    args: &InitArgs,
+    plan: &InitPlan,
+    templates: Option<(PathBuf, Option<PathBuf>)>,
+    visibility: &str,
+    create_symlink: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[allow(clippy::unwrap_used)]
+    let session_dir = plan.session_dir.as_ref().unwrap(); // OK: scope=code,bot ⇒ session_dir set
+    #[allow(clippy::unwrap_used)]
+    let session_name = plan.session_name.as_ref().unwrap(); // OK: scope=code,bot ⇒ session_name set
+    #[allow(clippy::unwrap_used)]
+    let session_url = plan.session_url.as_deref().unwrap(); // OK: scope=code,bot ⇒ session_url set
+
+    // Step 1: Create directories. For LocalBareInit also create the
+    // parent so the bare-repo init (step 8/9) has a home.
+    info!("Step 1: Creating project directories...");
+    if let Some(parent) = plan.project_dir.parent() {
+        mkdir_p(parent)?;
+    }
+    mkdir_p(&plan.project_dir)?;
+    mkdir_p(session_dir)?;
+
+    // Step 2: git init + jj init both
+    info!("Step 2: Initializing repos...");
+    debug!("seed project_dir with an empty git repo");
+    run("git", &["init"], &plan.project_dir)?;
+    debug!("colocate jj atop the git repo so jj + git share .git state");
+    run("jj", &["git", "init", "--colocate"], &plan.project_dir)?;
+    debug!("seed session_dir with an empty git repo");
+    run("git", &["init"], session_dir)?;
+    debug!("colocate jj atop the session git repo");
+    run("jj", &["git", "init", "--colocate"], session_dir)?;
+
+    // Step 3: Write config files (CODE/SESSION shapes)
+    info!("Step 3: Writing config files...");
+    write_file(&plan.project_dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
+    write_file(&plan.project_dir.join(".gitignore"), GITIGNORE_CODE)?;
+    write_file(&session_dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
+    write_file(&session_dir.join(".gitignore"), GITIGNORE_SESSION)?;
+
+    // Step 4: Copy templates (if --use-template)
+    if let Some((code_t, bot_t)) = &templates {
+        info!("Step 4: Copying templates...");
+        info!(
+            "  code: {} -> {}",
+            code_t.display(),
+            plan.project_dir.display()
+        );
+        copy_template_recursive(code_t, &plan.project_dir)?;
+        rewrite_readme_first_line(&plan.project_dir, &plan.name)?;
+        if let Some(bot_t) = bot_t.as_ref() {
+            info!("  bot:  {} -> {}", bot_t.display(), session_dir.display());
+            copy_template_recursive(bot_t, session_dir)?;
+            rewrite_readme_first_line(session_dir, session_name)?;
+        }
+    }
+
+    // Step 5: jj commit (placeholder ochids, rewritten in step 6)
+    info!("Step 5: Committing both repos with placeholder ochids...");
+    debug!("code side: initial commit with placeholder ochid (rewritten in step 6)");
+    run(
+        "jj",
+        &["commit", "-m", "Initial commit\n\nochid: /none"],
+        &plan.project_dir,
+    )?;
+    debug!("session side: initial commit with placeholder ochid (rewritten in step 6)");
+    run(
+        "jj",
+        &["commit", "-m", "Initial commit\n\nochid: /none"],
+        session_dir,
+    )?;
+
+    // Step 6: ochid cross-references
+    info!("Step 6: Setting ochid cross-references...");
+    let code_chid = jj_chid("@-", &plan.project_dir)?;
+    let session_chid = jj_chid("@-", session_dir)?;
+
+    let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
+    let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
+    debug!("code side: rewrite initial commit's ochid to point at session chid");
+    run(
+        "jj",
+        &["describe", "@-", "-m", &code_desc],
+        &plan.project_dir,
+    )?;
+    debug!("session side: rewrite initial commit's ochid to point at code chid");
+    run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
+
+    debug!("surface post-describe git hashes for the debug log");
+    let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
+    debug!("code repo: chid={code_chid} hash={hash}");
+    let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
+    debug!(".claude:   chid={session_chid} hash={hash}");
+
+    // Step 7: Set bookmarks, remove jj (code-side clean preserves .claude/)
+    info!("Step 7: Setting bookmarks and removing jj...");
+    debug!("place code-side main bookmark at the initial commit");
+    run(
+        "jj",
+        &["bookmark", "set", "main", "-r", "@-"],
+        &plan.project_dir,
+    )?;
+    debug!("place session-side main bookmark at the initial commit");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
+    debug!("strip jj state from session side before its git push");
+    run("git", &["clean", "-xdf"], session_dir)?;
+    debug!("strip jj state from code side, preserving nested .claude/");
+    run(
+        "git",
+        &["clean", "-xdf", "--exclude", ".claude"],
+        &plan.project_dir,
+    )?;
+    debug!("re-attach session HEAD to main after clean");
+    run("git", &["checkout", "main"], session_dir)?;
+    debug!("re-attach code HEAD to main after clean");
+    run("git", &["checkout", "main"], &plan.project_dir)?;
+
+    // Steps 8/9: provision remotes and push.
+    run_remote_step(
+        "Step 8",
+        "session",
+        plan,
+        session_url,
+        plan.gh_session_slug.as_deref(),
+        plan.session_bare_path.as_deref(),
+        visibility,
+        session_dir,
+        args,
+    )?;
+    run_remote_step(
+        "Step 9",
+        "code",
+        plan,
+        &plan.code_url,
+        plan.gh_code_slug.as_deref(),
+        plan.code_bare_path.as_deref(),
+        visibility,
+        &plan.project_dir,
+        args,
+    )?;
+
+    // Step 10: Re-initialize jj on both repos
+    info!("Step 10: Re-initializing jj on both repos...");
+    debug!("re-colocate jj atop the now-remote-linked code repo");
+    run(
+        "jj",
+        &["--quiet", "git", "init", "--colocate"],
+        &plan.project_dir,
+    )?;
+    debug!("restore code-side main bookmark after re-init");
+    run(
+        "jj",
+        &["bookmark", "set", "main", "-r", "@-"],
+        &plan.project_dir,
+    )?;
+    debug!("enable jj tracking of code-side main against origin");
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        &plan.project_dir,
+    )?;
+    crate::common::verify_tracking(&plan.project_dir, "main")?;
+    let code_chid_final = jj_chid("@-", &plan.project_dir)?;
+
+    debug!("re-colocate jj atop the now-remote-linked session repo");
+    run("jj", &["--quiet", "git", "init", "--colocate"], session_dir)?;
+    debug!("restore session-side main bookmark after re-init");
+    run("jj", &["bookmark", "set", "main", "-r", "@-"], session_dir)?;
+    debug!("enable jj tracking of session-side main against origin");
+    run(
+        "jj",
+        &["bookmark", "track", "main", "--remote=origin"],
+        session_dir,
+    )?;
+    crate::common::verify_tracking(session_dir, "main")?;
+    let session_chid_final = jj_chid("@-", session_dir)?;
+
+    // Step 11: Create Claude Code symlink (opt-out for tests)
+    let sl_opt = if create_symlink {
         info!("Step 11: Creating Claude Code symlink...");
         Some(symlink::install(&plan.project_dir)?)
-    } else if !is_dual {
-        info!("Step 11: (skipped — no .claude symlink in single-repo)");
-        None
     } else {
         info!("Step 11: (skipped — symlink disabled by caller)");
         None
@@ -1384,11 +1486,7 @@ pub(crate) fn init_with_symlink(
         "  Code repo:    {}  (chid={code_chid_final})",
         plan.code_url
     );
-    if let (Some(session_url), Some(session_chid)) =
-        (plan.session_url.as_ref(), session_chid_final.as_ref())
-    {
-        info!("  Session repo: {session_url}  (chid={session_chid})");
-    }
+    info!("  Session repo: {session_url}  (chid={session_chid_final})");
     if let Some(sl) = sl_opt.as_ref() {
         info!(
             "  Symlink:      {} -> {}",
