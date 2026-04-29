@@ -2309,4 +2309,68 @@ mod tests {
         assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
         assert!(GITIGNORE_APP_ONLY.contains("/.vc-x1"));
     }
+
+    // ---------- POR end-to-end fixture (drives init_with_symlink with --scope=por) ----------
+
+    /// POR fixture builds without panic and lays down the
+    /// single-repo tree: `<base>/work/` exists, no `.claude/`
+    /// peer, bare origin sits at `<base>/remote.git` (not the
+    /// dual `remote-code.git` / `remote-claude.git` pair).
+    #[test]
+    fn por_fixture_creates_single_repo_layout() {
+        let fx = crate::test_helpers::FixturePor::new("por-layout");
+
+        assert!(fx.work.exists(), "work dir should exist");
+        assert!(fx.work.is_dir(), "work should be a directory");
+        assert!(
+            !fx.work.join(".claude").exists(),
+            "POR layout must not have a .claude/ peer"
+        );
+        assert!(
+            fx.base.join("remote.git").exists(),
+            "POR uses <base>/remote.git as the bare origin"
+        );
+        assert!(
+            !fx.base.join("remote-code.git").exists(),
+            "dual-shape bares should be absent in POR"
+        );
+        assert!(
+            !fx.base.join("remote-claude.git").exists(),
+            "dual-shape bares should be absent in POR"
+        );
+    }
+
+    /// POR fixture writes the APP_ONLY config + .gitignore variants
+    /// — `path = "/"` with no `other-repo` field, and `.gitignore`
+    /// has no `/.claude` exclusion.
+    #[test]
+    fn por_fixture_writes_app_only_config_files() {
+        let fx = crate::test_helpers::FixturePor::new("por-config");
+
+        let cfg =
+            std::fs::read_to_string(fx.work.join(".vc-config.toml")).expect("read .vc-config.toml");
+        assert!(cfg.contains("path = \"/\""), "expected POR path = \"/\"");
+        assert!(
+            !cfg.contains("other-repo"),
+            "POR config must not reference other-repo"
+        );
+
+        let gi = std::fs::read_to_string(fx.work.join(".gitignore")).expect("read .gitignore");
+        assert!(
+            !gi.contains("/.claude"),
+            "POR .gitignore must not exclude /.claude"
+        );
+        assert!(gi.contains("/.git"), "expected /.git entry");
+        assert!(gi.contains("/.jj"), "expected /.jj entry");
+    }
+
+    /// POR fixture has a `main` bookmark tracking `origin/main` —
+    /// pins step 10 (re-init jj + bookmark track) ran successfully.
+    #[test]
+    fn por_fixture_main_tracks_origin() {
+        let fx = crate::test_helpers::FixturePor::new("por-tracking");
+
+        crate::common::verify_tracking(&fx.work, "main")
+            .expect("main should track origin/main after init step 10");
+    }
 }

@@ -516,6 +516,46 @@ debug logging + CLAUDE.md per-file review subsection +
 todo rebase note → `-5.2` `gh_whoami` / `Scope` deletions +
 this chores entry → `-5` done marker.
 
+### POR baseline integration tests (0.41.1-6.0)
+
+First micro-commit of the -6 cadence. Lands integration tests for
+`--scope=por` before any production-code change in -6.1+. Authored
+on a fresh `@` off `f5ec4d8` (-5 close-out) so the test commit sits
+*upstream* of the literal-lift refactor (preserved as bookmark
+`single-dual-1`); when that bookmark rebases as -6.1, the same suite
+gates behavior preservation directly.
+
+**Tests added (`src/init.rs`):**
+
+- `por_fixture_creates_single_repo_layout` — `<base>/work/` exists,
+  no `.claude/` peer, single bare at `<base>/remote.git`, no
+  dual-shape `remote-{code,claude}.git`.
+- `por_fixture_writes_app_only_config_files` — `path = "/"` with
+  no `other-repo`, `.gitignore` has no `/.claude` exclusion.
+- `por_fixture_main_tracks_origin` — `verify_tracking(&fx.work,
+  "main")` succeeds (pins step 10 ran).
+
+**Helper (`src/test_helpers.rs`):**
+
+- `FixturePor { base, work }` + `::new(tag)` + `Drop`. Distinct type
+  from `Fixture` because the POR layout has no `claude` peer —
+  `Option<PathBuf>` on `Fixture` would force every dual-using caller
+  to unwrap or pattern-match on access.
+
+**Coverage gap closed:**
+
+POR shipped in -5 with manual-dogfood validation only; `Fixture`
+built dual layouts exclusively, so no `cargo test` exercised
+`init_with_symlink`'s POR branches. -6.0 brings that to three
+integration tests (320 total, 317 baseline + 3 new).
+
+**Why this lands before the refactor:**
+
+Tests *downstream* of a refactor only prove the test was written to
+match the refactor's output. Tests *upstream* demonstrate behavior
+preservation directly — every rebase from -6.1 onward must keep the
+same suite green.
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

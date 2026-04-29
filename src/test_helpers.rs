@@ -132,3 +132,62 @@ impl Drop for Fixture {
         let _ = fs::remove_dir_all(&self.base);
     }
 }
+
+/// Owned single-repo (POR) fixture with RAII cleanup.
+///
+/// Sibling of `Fixture` for `--scope=por` flows. Drives
+/// `init::init_with_symlink` with `ScopeKind::Por` and a path
+/// TARGET; `--repo local=<base>` steers the bare origin to
+/// `<base>/remote.git` (vs. dual's `remote-code.git` /
+/// `remote-claude.git`). No `.claude/` peer, no symlink.
+///
+/// Field shape differs from `Fixture` — there is no `claude` peer
+/// path — so it's a distinct type rather than an `Option<PathBuf>`
+/// on `Fixture` (the latter would force every dual-using caller to
+/// `.unwrap()` or pattern-match).
+pub struct FixturePor {
+    /// Root tempdir that owns the repo and its bare-git remote.
+    pub base: PathBuf,
+    /// POR repo path (`<base>/work`).
+    pub work: PathBuf,
+}
+
+impl FixturePor {
+    /// Build a fresh POR fixture in a unique tempdir.
+    pub fn new(tag: &str) -> Self {
+        let base = unique_base(tag);
+        // Path TARGET = `<base>/work`; basename ("work") becomes
+        // the repo name. `--repo local=<base>` sets the bare-repo
+        // parent, producing the layout:
+        //   <base>/work/        (POR repo)
+        //   <base>/remote.git   (bare origin)
+        let work_path = base.join("work");
+        let args = InitArgs {
+            target: work_path.to_string_lossy().into_owned(),
+            name: None,
+            account: None,
+            repo: Some(RepoSelector {
+                category: "local".to_string(),
+                value: Some(base.to_string_lossy().into_owned()),
+            }),
+            scope: ScopeKind::Por,
+            private: false,
+            dry_run: false,
+            push_retries: 5,
+            push_retry_delay: 3,
+            use_template: None,
+        };
+        init_with_symlink(&args, false).expect("build test fixture via init (POR)");
+
+        let work = base.join("work");
+        FixturePor { base, work }
+    }
+}
+
+impl Drop for FixturePor {
+    /// Remove the fixture tree on drop. Best-effort; a failure here
+    /// doesn't fail the test.
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.base);
+    }
+}
