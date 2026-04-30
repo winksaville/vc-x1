@@ -5,7 +5,7 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
-use crate::repo_utils::{OchidStrategy, create_local_repo};
+use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target};
@@ -138,7 +138,7 @@ fn run_retry(
     Err(format!("failed after {retries} attempts: {last_err}").into())
 }
 
-use crate::common::{mkdir_p, run};
+use crate::common::{mkdir_p, run, write_file};
 
 /// Parse the `--use-template` value into `(code, bot)` template paths.
 ///
@@ -368,6 +368,30 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.jj
 /.vc-x1
 ";
+
+/// Write the POR (single-repo) `.vc-config.toml` and `.gitignore`
+/// into `dir`. Used by the POR branch of `init_with_symlink`.
+fn write_por_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_APP_ONLY)?;
+    write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
+    Ok(())
+}
+
+/// Write the dual-mode code-side `.vc-config.toml` and `.gitignore`
+/// into `dir`. Used by `create_dual` for the code repo.
+fn write_code_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
+    write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
+    Ok(())
+}
+
+/// Write the dual-mode session-side `.vc-config.toml` and
+/// `.gitignore` into `dir`. Used by `create_dual` for the bot repo.
+fn write_session_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
+    write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
+    Ok(())
+}
 
 /// Expand `~` and `$VAR` / `${VAR}` substitutions in a user string.
 ///
@@ -1147,54 +1171,31 @@ pub(crate) fn init_with_symlink(
     }
 
     if is_dual {
-        create_dual(args, &plan, templates, visibility, create_symlink)
-    } else {
-        init_one(args, &plan, templates, visibility)
+        return create_dual(args, &plan, templates, visibility, create_symlink);
     }
-}
 
-/// Create-from-empty primitive for `--scope=por` (single repo).
-///
-/// Composes:
-/// - `create_local_repo` (steps 1-5, `OchidStrategy::None`).
-/// - `push_repo` (steps 7, 9, 10) — bookmark + clean + checkout,
-///   provision + push, jj re-init + tracking.
-///
-/// No cross-reference ochid, no session repo, no symlink.
-fn init_one(
-    args: &InitArgs,
-    plan: &InitPlan,
-    templates: Option<(PathBuf, Option<PathBuf>)>,
-    visibility: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+    // POR branch (--scope=por): single code repo, no cross-reference,
+    // no session repo, no symlink. Composes prepare_local_repo +
+    // role-config + commit_initial (steps 1-5) + push_repo (steps 7,
+    // 9, 10).
     let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
-    // Steps 1-5 via the per-side primitive.
-    let code_chid = create_local_repo(
-        &plan.project_dir,
-        "code",
-        Some(VC_CONFIG_APP_ONLY),
-        Some(GITIGNORE_APP_ONLY),
-        code_template,
-        &plan.name,
-        OchidStrategy::None,
-    )?;
+    prepare_local_repo(&plan.project_dir, "code", code_template, &plan.name)?;
+    write_por_config(&plan.project_dir)?;
+    let code_chid = commit_initial(&plan.project_dir, "code", OchidStrategy::None)?;
 
-    // Step 6: skipped — no cross-reference in single-repo
     info!("Step 6: (skipped — no cross-reference in single-repo)");
     let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
     debug!("code repo: chid={code_chid} hash={hash}");
 
-    // Step 8: skipped — no session side in single-repo
     info!("Step 8: (skipped — no session side in single-repo)");
 
-    // Steps 7, 9, 10 via push_repo (no clean exclude in single-repo).
     let code_chid_final = push_repo(
         &plan.project_dir,
         "code",
         "Step 9",
         None,
-        plan,
+        &plan,
         args,
         visibility,
         &plan.code_url,
@@ -1202,7 +1203,6 @@ fn init_one(
         plan.code_bare_path.as_deref(),
     )?;
 
-    // Step 11: skipped — no .claude symlink in single-repo
     info!("Step 11: (skipped — no .claude symlink in single-repo)");
 
     info!("");
@@ -1218,15 +1218,17 @@ fn init_one(
 
 /// Create-from-empty orchestrator for `--scope=code,bot` (dual).
 ///
-/// Composes:
-/// - `create_local_repo` for code side (`OchidStrategy::Placeholder`).
-/// - `create_local_repo` for session side (`OchidStrategy::Placeholder`).
-/// - Step 6: cross-reference ochids using both returned chids.
-/// - `push_repo` for session side (steps 7, 8, 10).
-/// - `push_repo` for code side (steps 7, 9, 10) with
-///   `clean_exclude = Some(".claude")` so the nested session
-///   repo survives the code-side clean.
-/// - Step 11: install symlink (when `create_symlink`).
+/// Composes (in order):
+/// - Code side: `prepare_local_repo` → `write_code_config` →
+///   `commit_initial` (`OchidStrategy::Placeholder`).
+/// - Session side: `prepare_local_repo` → `write_session_config`
+///   → `commit_initial` (`OchidStrategy::Placeholder`).
+/// - `cross_ref_ochids` — rewrite both initial commits' placeholder
+///   trailers once each side's chid is known.
+/// - `push_repo` for session side (no `clean_exclude`).
+/// - `push_repo` for code side with `clean_exclude = Some(".claude")`
+///   so the nested session repo survives the code-side clean.
+/// - `symlink::install` (when `create_symlink`).
 fn create_dual(
     args: &InitArgs,
     plan: &InitPlan,
@@ -1246,46 +1248,16 @@ fn create_dual(
         None => (None, None),
     };
 
-    // Steps 1-5 per side: code first, then bot.
-    let code_chid = create_local_repo(
-        &plan.project_dir,
-        "code",
-        Some(VC_CONFIG_CODE),
-        Some(GITIGNORE_CODE),
-        code_template,
-        &plan.name,
-        OchidStrategy::Placeholder,
-    )?;
-    let session_chid = create_local_repo(
-        session_dir,
-        "bot",
-        Some(VC_CONFIG_SESSION),
-        Some(GITIGNORE_SESSION),
-        bot_template,
-        session_name,
-        OchidStrategy::Placeholder,
-    )?;
+    prepare_local_repo(&plan.project_dir, "code", code_template, &plan.name)?;
+    write_code_config(&plan.project_dir)?;
+    let code_chid = commit_initial(&plan.project_dir, "code", OchidStrategy::Placeholder)?;
 
-    // Step 6: ochid cross-references (rewrites both placeholders)
-    info!("Step 6: Setting ochid cross-references...");
-    let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
-    let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
-    debug!("code side: rewrite initial commit's ochid to point at session chid");
-    run(
-        "jj",
-        &["describe", "@-", "-m", &code_desc],
-        &plan.project_dir,
-    )?;
-    debug!("session side: rewrite initial commit's ochid to point at code chid");
-    run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
+    prepare_local_repo(session_dir, "bot", bot_template, session_name)?;
+    write_session_config(session_dir)?;
+    let session_chid = commit_initial(session_dir, "bot", OchidStrategy::Placeholder)?;
 
-    debug!("surface post-describe git hashes for the debug log");
-    let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
-    debug!("code repo: chid={code_chid} hash={hash}");
-    let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
-    debug!(".claude:   chid={session_chid} hash={hash}");
+    cross_ref_ochids(&plan.project_dir, &code_chid, session_dir, &session_chid)?;
 
-    // Steps 7, 8, 10 for the session side.
     let session_chid_final = push_repo(
         session_dir,
         "session",
@@ -1298,8 +1270,8 @@ fn create_dual(
         plan.gh_session_slug.as_deref(),
         plan.session_bare_path.as_deref(),
     )?;
-    // Steps 7, 9, 10 for the code side; preserve the nested
-    // session repo on clean.
+    // `Some(".claude")` clean_exclude preserves the nested session
+    // repo through the code-side `git clean -xdf`.
     let code_chid_final = push_repo(
         &plan.project_dir,
         "code",
@@ -1313,7 +1285,6 @@ fn create_dual(
         plan.code_bare_path.as_deref(),
     )?;
 
-    // Step 11: Create Claude Code symlink (opt-out for tests)
     let sl_opt = if create_symlink {
         info!("Step 11: Creating Claude Code symlink...");
         Some(symlink::install(&plan.project_dir)?)
@@ -1345,7 +1316,7 @@ fn create_dual(
 /// final chid (`jj @-`) after re-init.
 ///
 /// - `target` — repo working dir (already populated by
-///   `create_local_repo`).
+///   `prepare_local_repo` + `commit_initial`).
 /// - `info_label` — narration tag (`"code"`, `"session"`, etc.).
 /// - `step_label_provision` — `"Step 8"` (session) or
 ///   `"Step 9"` (code) — appears in the provision/push narration.

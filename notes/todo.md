@@ -17,18 +17,20 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.41.1-3 user config: ~/.config/vc-x1/config.toml + [default]/[github] (done) [74]
 - 0.41.1-4 user config rewrite: account/category schema + literal values (done) [74]
 - 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] + --account + --repo (done) [73]
-- 0.41.1-6 init POR detection + upgrade paths [75]
+- 0.41.1-6 init refactor + symmetric .vc-config.toml schema [75]
   - -6.0 POR baseline integration tests + Fixture::new_por (done)
   - -6.1 literal lift: extract init_one / init_dual from init_with_symlink (done)
   - -6.2 extract create_repo + module reshape (repo_url → url, init_dual → create_dual) (done)
   - -6.3 extract push_repo (steps 7-9) + rename create_repo → create_local_repo (done)
   - -6.4 CLI subprocess integration tests (true `vc-x1` invocations) — add tests/ crate + harness (done)
-  - -6.5 extract cross_ref_ochids; eliminate init_one; final create_dual collapse
-  - -6.6 add detect_state + InitTargetState enum + unit tests
-  - -6.7 wire detect_state into dispatch; Empty proceeds, others error with diagnostic
-  - -6.8 PorWithPeerPor upgrade: write both .vc-config.toml + symlink
-  - -6.9 PorJjGit upgrade: bot-side create_local_repo into .claude/ + ochid-link
-  - -6.10 PorGitOnly upgrade: jj git init bootstrap + PorJjGit path
+  - -6.5 extract cross_ref_ochids + eliminate init_one + extract config-writing from create_local_repo + final create_dual collapse (done)
+    - (1) drop config/gitignore params from create_local_repo; add write_{por,code,session}_config helpers in init.rs (done)
+    - (2) extract cross_ref_ochids into repo_utils.rs (step 6 placeholder rewrite) (done)
+    - (3) eliminate init_one — inline into init_with_symlink's POR branch (done)
+    - (4) final create_dual collapse — drop stale step-N comments, tighten doc (done)
+    - (5) fix: split create_local_repo into prepare_local_repo + commit_initial so role-config lands in the initial commit (regression from (1)) (done)
+  - -6.6 --config=none|<path> flag (POR) + symmetric .vc-config.toml schema (dual) + dual-format reader for back-compat
+  - -6.7 replace "Step N" log prefixes with single-word `label: body` convention (`bookmark`, `provision`, `colocate`, `cross-ref`, `symlink`, …); indent labels under per-side `code:` / `bot:` headers in dual
 - 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
 - 0.41.1 close-out [72]
 

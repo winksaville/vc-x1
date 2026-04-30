@@ -995,6 +995,140 @@ keep-decision with the in-process side is the precedent
 `cfg_tempdir` while we're already in the area aligns the rest
 of the codebase with that precedent.
 
+### Init-lifecycle refactor: prepare/commit split + cross_ref_ochids + init_one elimination (0.41.1-6.5)
+
+Third DRY pass on the init lifecycle. Splits `create_local_repo`
+into `prepare_local_repo` + `commit_initial`, lifts step-6
+cross-reference rewriting into a named helper, eliminates
+`init_one` (inlined into `init_with_symlink`'s POR branch), and
+moves role-specific `.vc-config.toml`/`.gitignore` writing out
+of the lifecycle primitive into per-role helpers in `init.rs`.
+Suite stays at 331, all green.
+
+**`create_local_repo` → `prepare_local_repo` + `commit_initial`:**
+
+Splits the former primitive into two sequential operations:
+
+```
+fn prepare_local_repo(target, info_label, template, name) -> Result<()>
+fn commit_initial(target, info_label, ochid_strategy)     -> Result<String>
+```
+
+`prepare_local_repo` does mkdir + `git init` + `jj git init
+--colocate` + optional template copy + README rewrite. The
+working copy is left uncommitted so the caller can drop
+role-specific files into the tree. `commit_initial` then runs
+`jj commit` (with the appropriate `OchidStrategy` shape) and
+returns the new initial commit's chid.
+
+The split is what makes role-config extraction work: the caller
+runs prepare → write_code_config → commit, and the config files
+land in the initial commit. (See "Bug caught by the new
+substep protocol" below for what happened when the seam
+wasn't there.)
+
+**Role-config helpers (in `init.rs`):**
+
+```
+fn write_por_config(dir)     -> writes VC_CONFIG_APP_ONLY + GITIGNORE_APP_ONLY
+fn write_code_config(dir)    -> writes VC_CONFIG_CODE     + GITIGNORE_CODE
+fn write_session_config(dir) -> writes VC_CONFIG_SESSION  + GITIGNORE_SESSION
+```
+
+Each writes both `.vc-config.toml` and `.gitignore` for its
+role. They live in `init.rs` (not `repo_utils.rs`) because the
+constants they reference are role-specific to vc-x1's workspace
+layout — `repo_utils` stays role-agnostic.
+
+**`cross_ref_ochids` (in `repo_utils.rs`):**
+
+```
+fn cross_ref_ochids(code_dir, code_chid, session_dir, session_chid) -> Result<()>
+```
+
+Lifted verbatim from `create_dual`'s step-6 region: rewrite both
+initial commits' placeholder `ochid: /none` trailers via
+`jj describe @-` once each side's chid is known. Pairs with
+`OchidStrategy::Placeholder` from `commit_initial` (which writes
+the placeholder) — the two together implement the dual-mode
+cross-reference dance.
+
+**`init_one` eliminated:**
+
+The POR-branch wrapper inlined into `init_with_symlink`. After
+the configs/gitignores split out into `write_por_config` and
+the lifecycle split into prepare + commit, `init_one`'s body
+collapsed to ~25 lines of straight-line composition — no
+per-side abstraction left to justify a separate function.
+Replaced the dispatch `if is_dual { create_dual } else {
+init_one }` with `if is_dual { return create_dual(...); }`
+plus the inlined POR body.
+
+`create_dual` survives as a separate function (its body is
+larger and the unwrap-extract-then-orchestrate shape is a
+distinct unit).
+
+**`create_dual` cleanup:**
+
+Stale "Step N" inline comments dropped — the function names
+(`prepare_local_repo`, `cross_ref_ochids`, `push_repo`) now
+narrate the lifecycle on their own. Doc comment rewritten as a
+bulleted composition list referencing functions, not step
+numbers (step numbers shift if the lifecycle reorders, function
+names don't).
+
+The `info!()` lines inside `create_local_repo` and `push_repo`
+still carry `"Step N: ..."` labels — those land in -6.7 (single-
+word `label: body` convention).
+
+**Bug caught by the new substep protocol:**
+
+Substep (1) extracted role-config writing out of
+`create_local_repo` into post-call helpers. That left
+`.vc-config.toml`/`.gitignore` written *after* `jj commit`
+finalized the initial commit — i.e., they sat in the new empty
+working copy as uncommitted files. `push_repo`'s subsequent
+`git clean -xdf` would have wiped them entirely, and the
+`push_happy_claude_clean` integration test caught the related
+symptom (`.claude main` advanced because the session side had
+pending config files at push time).
+
+Resolved by substep (5): split the lifecycle (`prepare_local_repo`
++ `commit_initial`) and reorder callers to write configs
+between the two. The seam now exists where role-config writing
+needs to land — between prepare and commit.
+
+Lesson logged for the substep protocol: run `cargo test --bins`
+after each substep, not only at close-out — would have caught
+the regression at (1) instead of (4).
+
+**Substep protocol — first use:**
+
+This cycle was the first to use the per-substep `@` workflow:
+each substep got its own `jj new` working copy, with the chain
+squashed into a single commit at close-out via
+`jj squash --from "@---..@" --into @---`. Wins on bisection
+(two `jj edit` jumps localized the (1)→(5) regression) and
+per-substep diff cleanliness. Frictions: missing
+per-substep `cargo test --bins` (above), and squash mechanics
+that are worth jotting in CLAUDE.md if the protocol is adopted
+formally.
+
+**WIP ladder:**
+
+Five substeps, squashed at close-out:
+
+1. Drop `config`/`gitignore` params from `create_local_repo`;
+   add `write_{por,code,session}_config` helpers in `init.rs`.
+2. Extract `cross_ref_ochids` into `repo_utils.rs`.
+3. Eliminate `init_one` — inline into `init_with_symlink`'s POR
+   branch.
+4. `create_dual` collapse — drop stale `Step N` comments,
+   tighten doc.
+5. Fix: split `create_local_repo` into `prepare_local_repo` +
+   `commit_initial` (regression from (1) — role-config was
+   landing after the initial commit instead of in it).
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`
