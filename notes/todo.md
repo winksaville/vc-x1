@@ -199,6 +199,7 @@ renumbering. Reference by displayed number ("let's work on #3").
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
+- Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [77]
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
@@ -236,3 +237,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [74]: /notes/chores-08.md#user-config-0411-3
 [75]: /notes/chores-08.md#operations
 [76]: /notes/chores-07.md#--scope-enum-refactor-0420
+[77]: /notes/chores-07.md#substep-protocol-formalization-0420-45

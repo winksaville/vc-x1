@@ -268,6 +268,12 @@ or sub-sub-steps (`X.Y.Z-N.M-K`) — see
 choice (squash to one commit vs land each sub-step separately)
 is made at close-out, not cycle start.
 
+See also [`notes/substep-protocol.md`](notes/substep-protocol.md)
+for the full protocol — when to use, per-substep contract
+(`cargo test --bins` is non-negotiable), navigation, the validated
+close-out squash recipe, and recovery. Revset primitives the
+protocol relies on (`@`, `@-`, `..`, `::`, prefix matching) live in
+[`notes/jj-revsets.md`](notes/jj-revsets.md).
 ### Chores section headers
 
 Chores section headers use trailing version format:
