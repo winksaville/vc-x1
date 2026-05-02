@@ -5,6 +5,29 @@ and reference links to more details.
 
 ## In Progress
 
+### 0.42.0-4.6 WIP — init-clone-refactor recovery (2026-05-02 EOD)
+
+Committed mid-flow. Pick up tomorrow.
+
+Status: notes / `Cargo.toml` edits in place; recovery
+itself is done (branch `init-clone-refactor` clean at
+`a8c1eefe`, 331/331 tests pass). What's *not* yet in
+-4.6:
+
+- **Top-of-Todo entry for "Finish `init-clone-refactor`
+  cycle"** — drafted in conversation, not yet added.
+  Goal: DRY init+clone (consolidate `-6.x` substep
+  ladder per `notes/substep-protocol.md` close-out
+  recipe → finish any remaining planned work → ship
+  0.41.1) before `--scope` rolls out across more
+  commands. Position: top of `## Todo`, above the
+  merge-direction entry.
+
+After that's added, -4.6 is shippable; cycle returns
+to planned 0.42.0-5 (finalize --scope).
+
+### 0.42.0 cycle ladder
+
 A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-0 blah (done)
    - 0.xx.y-1 blah blah (current)
@@ -31,6 +54,15 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
+1. Decide merge direction for `init-clone-refactor`
+   (recovered 2026-05-02). Rebase `0.41.1` onto
+   `0.42.0` → `0.43.0`-or-`0.42.1`, vs force-rewrite
+   main, vs other topology. [74]
+1. Cross-file chores-NN ordering sanity pass at
+   `init-clone-refactor` merge time. Bring chores-08.md
+   (0.41.1 per-step subsections) onto main alongside
+   chores-06/07; normalize section ordering across all
+   three. Tied to merge-direction decision above. [74]
 1. Add a vc-x1 validate-repo?
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Lands in the 0.42.0 cycle alongside the enum
@@ -128,6 +160,7 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
 - Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [73]
+- init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [74]
 - Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
 - Scope continuation: sync --scope (0.41.0-2) [71]
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
@@ -154,3 +187,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [71]: /notes/chores-06.md#--scope-continuation-0410
 [72]: /notes/chores-07.md#--scope-enum-refactor-0420
 [73]: /notes/chores-07.md#substep-protocol-formalization-0420-45
+[74]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46

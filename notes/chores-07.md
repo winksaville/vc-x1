@@ -11,322 +11,6 @@ when they correspond to a release: `## Description (X.Y.Z)`.
 Pre-implementation design captures may use a plain title; once
 implemented, the title can become a release-versioned chore.
 
-## Substep protocol formalization (0.42.0-4.5)
-
-Notes-only side cycle. Branched off `main` at 0.42.0-4
-(init+clone redesign capture); landed between 0.42.0-4
-and the planned 0.42.0-5 (finalize --scope). Formalizes
-the substep protocol first exercised in 0.41.1-6.5,
-validates the close-out squash recipe, and pulls the
-supporting jj revset vocabulary into a sibling cheatsheet
-so the protocol can refer to it without duplicating.
-
-Version path: numbered `0.42.0-4.5` rather than `0.42.1-0`
-to avoid pre-empting the patch line while 0.42.0 is
-mid-cycle. The `.5` suffix positions this as side work
-between -4 and -5 — semver-legal (pre-release identifiers
-are dot-separated numeric components and compare
-numerically) and keeps Cargo.toml's version monotonically
-increasing.
-
-The user opened the cycle by drafting `notes/jj-revsets.md`
-from their own learning notes (using `notes/substep-test.sh`
-to build a scratch ladder under `/tmp/substep-test`). The
-bot reviewed, proposed the substep protocol formalization,
-and the work landed in five substeps using the protocol it
-was documenting — dogfood validation in flight.
-
-### Edits
-
-- `notes/jj-revsets.md`: new. Revset primitives cheatsheet
-  (chid/cid stability, `@`/`@-`/`@+`, `..`/`::` ranges,
-  prefix matching). User-authored intro and worked
-  examples; bot-added `### Interpretation` blocks
-  cataloguing the operator semantics from the empirical
-  data, two review passes for typos and grammar.
-- `notes/substep-protocol.md`: new. Formal protocol of
-  record. Five sections — purpose, per-substep contract
-  (`cargo test --bins` non-negotiable), navigation
-  (cross-link to jj-revsets.md), close-out, recovery —
-  plus a worked end-to-end example. Drops the prior
-  "draft text / working hypothesis" hedges. Close-out
-  recipe validated against scratch ladders at N=3 and N=5
-  substeps:
-  ```
-  jj squash --from "<base>..@-" --into @ -u -R .
-  ```
-- `notes/substep-test.sh`: new. Four-revision ladder
-  scaffold under `/tmp/substep-test`. Used to validate
-  the squash recipe; remains as a reusable scratch tool
-  for future substep experiments.
-- `CLAUDE.md`: `#### Substeps within a multi-step X.Y.Z-N`
-  subsection added under `### Versioning`. Points at
-  `notes/substep-protocol.md` (full procedure) and
-  `notes/jj-revsets.md` (revset primitives the procedure
-  relies on). Conservative integration scope; broader
-  CLAUDE.md reorg candidates (consolidating the
-  `## Committing` / `## Commit Message Style` /
-  `## ochid Trailers` triplet, surfacing recovery as its
-  own section, top-of-file TOC) surfaced in the substep-4
-  commit body for next-cycle discussion.
-- `notes/todo.md`: `## Done` entry; reference [73] points
-  here.
-- `notes/chores-07.md`: this subsection.
-
-### Substep ladder (squashed at close-out)
-
-- substep 0: `notes/jj-revsets.md` review fixes (typos,
-  two `### Interpretation` blocks for relative- and
-  absolute-revset operators).
-- substep 1: validate close-out squash recipe against
-  N=3 and N=5 ladders in `/tmp/substep-test`. No file
-  changes; finding folded into the next substep.
-- substep 2: `notes/substep-protocol.md` formal rewrite.
-- substep 3: `CLAUDE.md` pointer subsection.
-- substep 4: second-pass review fixes after the user's
-  in-place tweaks added the concrete `lu::` example and
-  surfaced typos in the absolute-revsets bullet list.
-- close-out: this commit. Single squashed commit on
-  `main` via the validated recipe.
-
-### Decisions made during design
-
-- **`-R .` explicitness.** The protocol shows `-R .` on
-  every `jj` invocation. For the bot in a dual-repo
-  workspace this is correct (always be explicit about
-  which repo); for human users in a single-repo project
-  the flag is optional. Closing note in the protocol
-  spells this out.
-- **Linear vs parallel substep topology.** The ladder is
-  linear (`jj new` chains commits). User noted at
-  close-out that a parallel-then-merge topology
-  (`jj new -r <chid>` to branch from a specific point)
-  might give cleaner per-concern diffs. Captured as a
-  future experiment; the close-out recipe would change
-  too — `<base>..@-` assumes linear ancestry.
-- **`jj op restore` as recovery vs close-out.** The draft
-  protocol had floated `jj op restore` as a close-out
-  alternative. Validation showed it discards substep
-  work — it's a recovery tool, not close-out. Final
-  protocol keeps it under Recovery only.
-- **`-u` on the close-out squash.** `--use-destination-message`
-  preserves `@`'s description through the squash (which
-  `vc-x1 push`'s `commit-app` then overwrites with the
-  close-out title/body anyway). Without `-u`, jj opens
-  `$EDITOR` to combine source and destination
-  descriptions — unwanted at close-out, since none of
-  the substep titles are meant to ship.
-
-## --scope enum refactor (0.42.0)
-
-Picks up the work the 0.41.0 cycle redirected away from. The
-foundation captured in [2] (chores-06's `### 0.41.0-4: capture
---scope enum vocabulary`) lands here as code: the `Scope`
-type becomes a sum (`Roles(Vec<Side>) | Single(PathBuf)`), the
-flag surface unifies under `--scope` / `-s` with both keyword and
-path forms, and every dual-repo-aware command migrates to the
-new shape in dependency order.
-
-**Cycle steps (initial sketch — sub-step boundaries can shift
-once each command's call sites are seen).**
-
-- **0.42.0-0** — this plan + version bump + new
-  `notes/chores-07.md`. Notes only.
-- **0.42.0-1** — `scope.rs` enum. Internal only — no
-  CLI changes yet, no consumers updated. Existing
-  `Scope(Vec<Side>)` → `enum Scope { Roles(Vec<Side>),
-  Single(PathBuf) }`. Helpers (`has_code`, `has_bot`,
-  `is_code_only`, `is_both`, `is_empty`) shift to operate
-  on `Roles` only; `Single(_)` is a distinct mode. Tests
-  follow.
-- **0.42.0-2** — custom CLI value parser for `--scope` +
-  retrofit `init`. Parser handles the keyword set
-  (`code|bot|code,bot|bot,code`) and the prefixed-path
-  form (`./...`, `/...`, `~/...`). Bare names that aren't
-  keywords error with a "did you mean `./foo`?" hint.
-  Init is the smallest consumer (it already takes
-  `--scope=code|bot|code,bot`); migrating it first proves
-  the parser end-to-end before sync's more complex
-  resolution logic comes onto the new shape.
-- **0.42.0-3** — retrofit `sync`. Drop `-R/--repo`. Add
-  `-s` short form. Default-scope rules update to the
-  three-state model from [2]: dual workspace →
-  `Roles([Code, Bot])`, single-repo workspace →
-  `Roles([Code])`, POR → `Single(cwd)`. `scope_to_repos`
-  in `common.rs` updates to handle the `Single(_)`
-  variant. Update sync's integration tests where they
-  exercise the resolver chain.
-- **0.42.0-4** — `push --scope`. State machine becomes
-  scope-aware: each stage either runs or no-ops based on
-  scope. `Single(<path>)` mode means single-repo push
-  (no `commit-claude` / `bookmark-claude` /
-  `finalize-claude`, no `ochid:` trailer). `Roles(...)`
-  modes work as captured in chores-06 [1]. Persist scope
-  in `PushState` so resumes use the same scope. Add
-  integration tests for each scope shape.
-- **0.42.0-5** — `finalize --scope`. Replace the existing
-  `--repo` flag with `--scope` (`Roles` for the dual case,
-  `Single(<path>)` for the single-repo case). `--repo`
-  goes away; per the 0.41.0-3 capture this is the
-  intentional break, not a deprecation.
-- **0.42.0-6** — `clone --scope`. Parallel to init —
-  bootstrap with the appropriate scope. Single-repo clone
-  via the path form for `vc-template-x1`-shape remotes.
-- **0.42.0-7** — Single(_) dogfood validation. Apply the
-  full `sync → edit → push` flow against a fresh POR or
-  single-repo fixture (likely the `vc-template-x1` repo
-  itself, since it's the canonical single-repo target).
-  Surface and fix anything the unit tests miss.
-- **0.42.0 (final)** — cycle close-out. Drops the
-  `-N` suffix; updates `notes/todo.md`'s In Progress and
-  Done sections; chores-07 close-out subsection.
-
-**Deferred to later cycles (per [2]).**
-
-- `validate-desc` / `fix-desc` `--scope`. Read-side
-  commands; `Single(_)` errors there (validate compares
-  two repos by definition).
-- `chid` / `desc` / `list` / `show` — CommonArgs sweep.
-  All four pick up `--scope` via a shared change to
-  `CommonArgs`; existing `-R/--repo` retires there too.
-- `--message-file PATH` for push. Independent push
-  feature; gates the CLAUDE.md refresh from CLAUDE2.
-
-**References.** [2] points back at chores-06's
-`### 0.41.0-4: capture --scope enum vocabulary` for
-the full vocabulary, type-model, and per-command
-applicability matrix. Read that subsection first before
-diving into any of the `-N` steps below.
-
-### 0.42.0-1: scope.rs enum
-
-Internal-only refactor: tuple-struct `Scope(Vec<Side>)` →
-`enum Scope { Roles(Vec<Side>), Single(PathBuf) }`. No CLI
-surface changes, no consumer logic changes — every existing
-caller still constructs and consumes `Roles(_)`; `Single(_)`
-is staged for the parser (-2) and the sync resolver (-3).
-
-- `src/scope.rs`: enum body + `PathBuf` import; helpers
-  (`has_code` / `has_bot` / `is_*_only` / `is_both` /
-  `is_empty`) reflect the `Roles` arm via `matches!`,
-  returning `false` (resp. not-empty) on `Single(_)`. New
-  test pins the `Single(_)` helper behavior; existing
-  Roles tests retitled accordingly. `#[allow(dead_code)]`
-  on the `Single` variant for the staging window.
-- `src/common.rs`: `default_scope` returns
-  `Scope::Roles(_)`; `scope_to_repos` matches on the enum
-  and returns an explicit error for `Single(_)` carrying
-  the `0.42.0-3` staging marker. New test locks that
-  contract so the -3 wire-up is forced to update it.
-- `src/sync.rs`: `Some(sides) => Scope::Roles(sides.clone())`
-  in `resolve_args_to_repos`; integration-test
-  constructors switch to `Scope::Roles(...)`.
-- `src/init.rs`: `plan_init` constructs `Scope::Roles(...)`
-  for both the default and explicit-flag paths. Helper
-  call sites (`is_code_only`, `is_both`, `is_bot_only`)
-  unchanged — the methods continue to work on `Roles`.
-
-Build is warning-clean; 257 tests pass (255 baseline + 2
-new in scope/common).
-
-### 0.42.0-2: --scope parser + retrofit init
-
-Lands the custom CLI value parser and migrates `init` onto
-the new `Scope` shape. Parser is the shared boundary every
-remaining `--scope` consumer (sync, push, finalize, clone)
-will route through in -3+; init is the smallest first
-consumer and exercises the keyword path end-to-end. The
-path form is accepted by the parser but rejected at init
-with a hint pointing at `--repo-local` / `--repo-remote`
-(init creates a workspace, not a single-repo project).
-
-- `src/scope.rs`: `pub fn parse_scope(s: &str) -> Result<Scope, String>`.
-  Accepts the four keyword forms (`code`, `bot`, `code,bot`,
-  `bot,code`) plus path forms prefixed by `./`, `../`, `/`,
-  `~/`, or the bare `~`. Anything else errors with a hint
-  pointing at the prefix-disambiguation rule. Order is
-  preserved on the keyword forms. Drops the now-dead
-  `is_empty` helper (parser rejects empty input upstream;
-  the only consumer that called it was init's redundant
-  validation). 13 new parser unit tests.
-- `src/init.rs`: `--scope` field flips from
-  `Option<Vec<Side>>` (clap `value_delimiter = ','`) to
-  `Option<Scope>` with `value_parser = crate::scope::parse_scope`.
-  `plan_init` matches on the parsed `Scope`: `Roles(_)`
-  takes the existing bot-only-fatal path; `Single(_)` is
-  rejected with the init-specific hint. Test scaffolding
-  (`fixture_scoped`) and 5 fixture call sites migrated.
-  `scope_parses_*` tests retitled around the new field
-  type. New `scope_path_form_rejected_at_init` test pins
-  the rejection contract.
-
-Smoke-tested end-to-end via CLI:
-
-- `vc-x1 init tf1 --scope code --dry-run` → succeeds
-  (single-repo dry-run plan).
-- `vc-x1 init tf1 --scope code,bot --dry-run` → succeeds.
-- `vc-x1 init tf1 --scope bot --dry-run` → bot-only fatal
-  (existing `plan_init` check).
-- `vc-x1 init tf1 --scope ./foo --dry-run` → path-form
-  fatal (new `plan_init` check).
-- `vc-x1 init tf1 --scope '~/work' --dry-run` → path-form
-  fatal.
-- `vc-x1 init tf1 --scope foo --dry-run` → clap-level
-  parser error with hint about `./foo` disambiguation.
-
-### 0.42.0-3: sync --scope retrofit
-
-Migrates `sync` onto the new `Scope` shape and lands the
-`Single(_)` resolver wiring. `-R/--repo` retires (single-
-repo callers move to `--scope=<path>`); `-s` becomes the
-short form of `--scope`. Default-scope rules pick up the
-three-state model captured in chores-06's [1] (-4
-vocabulary): dual workspace → `Roles([Code, Bot])`,
-single-repo workspace → `Roles([Code])`, POR →
-`Single(cwd)`.
-
-- `src/common.rs`: `default_scope` signature gains a `cwd`
-  parameter; the POR branch (no workspace_root) now
-  returns `Scope::Single(cwd.to_path_buf())` instead of
-  `Roles([Code])`. `scope_to_repos`'s `Single(p)` arm
-  resolves to `vec![p.clone()]` (no workspace lookup;
-  shell-style expansion happens at the parser/consumer
-  boundary). The `0.42.0-3` staging-error test is
-  replaced with `scope_to_repos_single_returns_path` —
-  the happy-path contract — and `default_scope_por`
-  becomes `default_scope_por_returns_single_cwd`.
-- `src/sync.rs`: `--repo`/`-R` flag and the `repos:
-  Vec<PathBuf>` field deleted. `--scope` retypes from
-  `Option<Vec<Side>>` (with `value_delimiter = ','`) to
-  `Option<Scope>` (with `value_parser = parse_scope`)
-  and gains `short = 's'`. SyncArgs doc rewritten around
-  the new resolution rules. `resolve_args_to_repos`
-  drops the `args.repos` branch and now feeds `cwd` into
-  `default_scope`. `split_repos` and its 4 unit tests
-  go away with `-R`; `parse_scope_repo_conflict`,
-  `parse_single_repo_flag`, `parse_repeated_repo_flag`
-  too. `parse_scope_*` tests assert against `Some(Scope)`;
-  new `parse_scope_path_form` and `parse_scope_short_form`
-  tests pin the new entry points. `apply_args` integration
-  helper drops the `repos` field. `Side` import is gated
-  `#[cfg(test)]` (production sync no longer needs it
-  directly — only the tests construct `Side::*`).
-
-Smoke-tested end-to-end:
-
-- `vc-x1 sync --check` in this dual workspace → `2 repos,
-  all bookmarks up-to-date`.
-- `vc-x1 sync --check -s code` → `1 repo, all bookmarks
-  up-to-date`.
-- `vc-x1 sync --check -s bot` → ditto for `.claude`.
-- `vc-x1 sync --check -s ./.claude` → also `1 repo` —
-  Single-mode resolves directly to that path, bypassing
-  the workspace's other-repo lookup.
-- `cd /tmp && vc-x1 sync --check` → POR detected,
-  attempts to sync `/tmp` (errors because `/tmp` isn't a
-  jj repo — confirms `default_scope` returned
-  `Single(cwd)`).
-
 ## init + clone redesign (0.41.1)
 
 Empirical validation 2026-04-27 against `vc-x1 0.42.0-3` (see
@@ -547,6 +231,403 @@ TODO: add actual output of ls or tree cmds (fill at close-out)
   implemented as in-process composition of the `--scope=por`
   primitive — single source of truth for the actual
   clone/init operation, thin wrapper for the dual case.
+
+## Substep protocol formalization (0.42.0-4.5)
+
+Notes-only side cycle. Branched off `main` at 0.42.0-4
+(init+clone redesign capture); landed between 0.42.0-4
+and the planned 0.42.0-5 (finalize --scope). Formalizes
+the substep protocol first exercised in 0.41.1-6.5,
+validates the close-out squash recipe, and pulls the
+supporting jj revset vocabulary into a sibling cheatsheet
+so the protocol can refer to it without duplicating.
+
+Version path: numbered `0.42.0-4.5` rather than `0.42.1-0`
+to avoid pre-empting the patch line while 0.42.0 is
+mid-cycle. The `.5` suffix positions this as side work
+between -4 and -5 — semver-legal (pre-release identifiers
+are dot-separated numeric components and compare
+numerically) and keeps Cargo.toml's version monotonically
+increasing.
+
+The user opened the cycle by drafting `notes/jj-revsets.md`
+from their own learning notes (using `notes/substep-test.sh`
+to build a scratch ladder under `/tmp/substep-test`). The
+bot reviewed, proposed the substep protocol formalization,
+and the work landed in five substeps using the protocol it
+was documenting — dogfood validation in flight.
+
+### Edits
+
+- `notes/jj-revsets.md`: new. Revset primitives cheatsheet
+  (chid/cid stability, `@`/`@-`/`@+`, `..`/`::` ranges,
+  prefix matching). User-authored intro and worked
+  examples; bot-added `### Interpretation` blocks
+  cataloguing the operator semantics from the empirical
+  data, two review passes for typos and grammar.
+- `notes/substep-protocol.md`: new. Formal protocol of
+  record. Five sections — purpose, per-substep contract
+  (`cargo test --bins` non-negotiable), navigation
+  (cross-link to jj-revsets.md), close-out, recovery —
+  plus a worked end-to-end example. Drops the prior
+  "draft text / working hypothesis" hedges. Close-out
+  recipe validated against scratch ladders at N=3 and N=5
+  substeps:
+  ```
+  jj squash --from "<base>..@-" --into @ -u -R .
+  ```
+- `notes/substep-test.sh`: new. Four-revision ladder
+  scaffold under `/tmp/substep-test`. Used to validate
+  the squash recipe; remains as a reusable scratch tool
+  for future substep experiments.
+- `CLAUDE.md`: `#### Substeps within a multi-step X.Y.Z-N`
+  subsection added under `### Versioning`. Points at
+  `notes/substep-protocol.md` (full procedure) and
+  `notes/jj-revsets.md` (revset primitives the procedure
+  relies on). Conservative integration scope; broader
+  CLAUDE.md reorg candidates (consolidating the
+  `## Committing` / `## Commit Message Style` /
+  `## ochid Trailers` triplet, surfacing recovery as its
+  own section, top-of-file TOC) surfaced in the substep-4
+  commit body for next-cycle discussion.
+- `notes/todo.md`: `## Done` entry; reference [73] points
+  here.
+- `notes/chores-07.md`: this subsection.
+
+### Substep ladder (squashed at close-out)
+
+- substep 0: `notes/jj-revsets.md` review fixes (typos,
+  two `### Interpretation` blocks for relative- and
+  absolute-revset operators).
+- substep 1: validate close-out squash recipe against
+  N=3 and N=5 ladders in `/tmp/substep-test`. No file
+  changes; finding folded into the next substep.
+- substep 2: `notes/substep-protocol.md` formal rewrite.
+- substep 3: `CLAUDE.md` pointer subsection.
+- substep 4: second-pass review fixes after the user's
+  in-place tweaks added the concrete `lu::` example and
+  surfaced typos in the absolute-revsets bullet list.
+- close-out: this commit. Single squashed commit on
+  `main` via the validated recipe.
+
+### Decisions made during design
+
+- **`-R .` explicitness.** The protocol shows `-R .` on
+  every `jj` invocation. For the bot in a dual-repo
+  workspace this is correct (always be explicit about
+  which repo); for human users in a single-repo project
+  the flag is optional. Closing note in the protocol
+  spells this out.
+- **Linear vs parallel substep topology.** The ladder is
+  linear (`jj new` chains commits). User noted at
+  close-out that a parallel-then-merge topology
+  (`jj new -r <chid>` to branch from a specific point)
+  might give cleaner per-concern diffs. Captured as a
+  future experiment; the close-out recipe would change
+  too — `<base>..@-` assumes linear ancestry.
+- **`jj op restore` as recovery vs close-out.** The draft
+  protocol had floated `jj op restore` as a close-out
+  alternative. Validation showed it discards substep
+  work — it's a recovery tool, not close-out. Final
+  protocol keeps it under Recovery only.
+- **`-u` on the close-out squash.** `--use-destination-message`
+  preserves `@`'s description through the squash (which
+  `vc-x1 push`'s `commit-app` then overwrites with the
+  close-out title/body anyway). Without `-u`, jj opens
+  `$EDITOR` to combine source and destination
+  descriptions — unwanted at close-out, since none of
+  the substep titles are meant to ship.
+
+## init-clone-refactor recovery (0.42.0-4.6)
+
+Notes-only side cycle. Sibling to 0.42.0-4.5 — both
+land between 0.42.0-4 and the planned 0.42.0-5 while
+the main ladder is paused. Captures the 2026-05-02
+recovery of the `init-clone-refactor` branch from a
+destructive local rewrite and reframes
+`notes/init-clone-refactor-conflict.md` from a
+forward-looking brief into a post-mortem + reusable
+playbook.
+
+### Background
+
+The branch had been broken for several days: 8 commits
+in conflict state, branched from 0.41.0, never rebased
+onto post-0.42.0 main. The original brief (drafted
+2026-05-01) hypothesized "interrupted rebase or
+substep-style rewrite" as the cause. Investigation
+2026-05-02 showed a different cause: the bot thinks a
+destructive `jj squash` collapsed published `0.41.1-1`,
+`-2`, `-3` into `-4` (stripping `-4`'s description), and
+conflicts cascaded down through every descendant. The
+published remote was untouched and held the
+canonical-good version of every commit.
+
+### Recovery
+
+```
+jj bookmark set init-clone-refactor \
+  -r init-clone-refactor@origin --allow-backwards -R .
+```
+
+All 13 commits from fork to tip are unconflicted on the
+recovered branch; `cargo test --bins` passes 331/331.
+Three commits that had been lost locally (`0.41.1-1`,
+`-2`, `-3`) reappeared, and `-4`'s real description
+("user config rewrite — multi-account schema") was
+restored. Local branch state now matches the published
+remote exactly — no force push needed when the cycle
+eventually resumes.
+
+Detailed playbook captured in
+`notes/init-clone-refactor-conflict.md` for reuse if
+the same shape of breakage happens again. Reusable bits
+include: the "compare local-only chids vs remote chids"
+diagnostic, the `heads(::A & ::B)` fork-point query, and
+the back-up-first → verify → reset → sanity-test
+sequence.
+
+### Edits
+
+- `notes/init-clone-refactor-conflict.md`: rewrite.
+  Reframed from forward-looking brief to post-mortem +
+  reusable playbook. New sections: "Status as of
+  2026-05-02", "Root cause", "Recovery playbook",
+  "Diagnostic technique (reusable)". Trimmed: open
+  question on cleanup version label (moot — no commits
+  authored, just a bookmark reset).
+- `Cargo.toml`: bump to 0.42.0-4.6.
+- `notes/todo.md`: `## Done` entry; reference [74]
+  points here.
+- `notes/chores-07.md`: this subsection.
+
+### Decisions made during recovery
+
+- **Reset bookmark vs resolve in place.** Reset wins
+  because every local-only chid had a clean
+  counterpart on the remote — zero unique work to
+  preserve. Resolving 8 conflicted commits in place
+  would have been mechanical and error-prone for no
+  benefit.
+- **Defer merge direction.** Whether `0.41.1` rebases
+  onto `0.42.0` (→ `0.43.0` or `0.42.1`) vs some
+  other topology stays open. The recovery just clears
+  the technical-feasibility risk; the topology call
+  is independent and can wait.
+- **Keep the orphan local rewrites.** 8 broken
+  local-only chids are now bookmark-less orphans in
+  `jj log`. `jj abandon` cleanup is cosmetic;
+  deferred.
+
+## --scope enum refactor (0.42.0)
+
+Picks up the work the 0.41.0 cycle redirected away from. The
+foundation captured in [2] (chores-06's `### 0.41.0-4: capture
+--scope enum vocabulary`) lands here as code: the `Scope`
+type becomes a sum (`Roles(Vec<Side>) | Single(PathBuf)`), the
+flag surface unifies under `--scope` / `-s` with both keyword and
+path forms, and every dual-repo-aware command migrates to the
+new shape in dependency order.
+
+**Cycle steps (initial sketch — sub-step boundaries can shift
+once each command's call sites are seen).**
+
+- **0.42.0-0** — this plan + version bump + new
+  `notes/chores-07.md`. Notes only.
+- **0.42.0-1** — `scope.rs` enum. Internal only — no
+  CLI changes yet, no consumers updated. Existing
+  `Scope(Vec<Side>)` → `enum Scope { Roles(Vec<Side>),
+  Single(PathBuf) }`. Helpers (`has_code`, `has_bot`,
+  `is_code_only`, `is_both`, `is_empty`) shift to operate
+  on `Roles` only; `Single(_)` is a distinct mode. Tests
+  follow.
+- **0.42.0-2** — custom CLI value parser for `--scope` +
+  retrofit `init`. Parser handles the keyword set
+  (`code|bot|code,bot|bot,code`) and the prefixed-path
+  form (`./...`, `/...`, `~/...`). Bare names that aren't
+  keywords error with a "did you mean `./foo`?" hint.
+  Init is the smallest consumer (it already takes
+  `--scope=code|bot|code,bot`); migrating it first proves
+  the parser end-to-end before sync's more complex
+  resolution logic comes onto the new shape.
+- **0.42.0-3** — retrofit `sync`. Drop `-R/--repo`. Add
+  `-s` short form. Default-scope rules update to the
+  three-state model from [2]: dual workspace →
+  `Roles([Code, Bot])`, single-repo workspace →
+  `Roles([Code])`, POR → `Single(cwd)`. `scope_to_repos`
+  in `common.rs` updates to handle the `Single(_)`
+  variant. Update sync's integration tests where they
+  exercise the resolver chain.
+- **0.42.0-4** — `push --scope`. State machine becomes
+  scope-aware: each stage either runs or no-ops based on
+  scope. `Single(<path>)` mode means single-repo push
+  (no `commit-claude` / `bookmark-claude` /
+  `finalize-claude`, no `ochid:` trailer). `Roles(...)`
+  modes work as captured in chores-06 [1]. Persist scope
+  in `PushState` so resumes use the same scope. Add
+  integration tests for each scope shape.
+- **0.42.0-5** — `finalize --scope`. Replace the existing
+  `--repo` flag with `--scope` (`Roles` for the dual case,
+  `Single(<path>)` for the single-repo case). `--repo`
+  goes away; per the 0.41.0-3 capture this is the
+  intentional break, not a deprecation.
+- **0.42.0-6** — `clone --scope`. Parallel to init —
+  bootstrap with the appropriate scope. Single-repo clone
+  via the path form for `vc-template-x1`-shape remotes.
+- **0.42.0-7** — Single(_) dogfood validation. Apply the
+  full `sync → edit → push` flow against a fresh POR or
+  single-repo fixture (likely the `vc-template-x1` repo
+  itself, since it's the canonical single-repo target).
+  Surface and fix anything the unit tests miss.
+- **0.42.0 (final)** — cycle close-out. Drops the
+  `-N` suffix; updates `notes/todo.md`'s In Progress and
+  Done sections; chores-07 close-out subsection.
+
+**Deferred to later cycles (per [2]).**
+
+- `validate-desc` / `fix-desc` `--scope`. Read-side
+  commands; `Single(_)` errors there (validate compares
+  two repos by definition).
+- `chid` / `desc` / `list` / `show` — CommonArgs sweep.
+  All four pick up `--scope` via a shared change to
+  `CommonArgs`; existing `-R/--repo` retires there too.
+- `--message-file PATH` for push. Independent push
+  feature; gates the CLAUDE.md refresh from CLAUDE2.
+
+**References.** [2] points back at chores-06's
+`### 0.41.0-4: capture --scope enum vocabulary` for
+the full vocabulary, type-model, and per-command
+applicability matrix. Read that subsection first before
+diving into any of the `-N` steps below.
+
+### 0.42.0-1: scope.rs enum
+
+Internal-only refactor: tuple-struct `Scope(Vec<Side>)` →
+`enum Scope { Roles(Vec<Side>), Single(PathBuf) }`. No CLI
+surface changes, no consumer logic changes — every existing
+caller still constructs and consumes `Roles(_)`; `Single(_)`
+is staged for the parser (-2) and the sync resolver (-3).
+
+- `src/scope.rs`: enum body + `PathBuf` import; helpers
+  (`has_code` / `has_bot` / `is_*_only` / `is_both` /
+  `is_empty`) reflect the `Roles` arm via `matches!`,
+  returning `false` (resp. not-empty) on `Single(_)`. New
+  test pins the `Single(_)` helper behavior; existing
+  Roles tests retitled accordingly. `#[allow(dead_code)]`
+  on the `Single` variant for the staging window.
+- `src/common.rs`: `default_scope` returns
+  `Scope::Roles(_)`; `scope_to_repos` matches on the enum
+  and returns an explicit error for `Single(_)` carrying
+  the `0.42.0-3` staging marker. New test locks that
+  contract so the -3 wire-up is forced to update it.
+- `src/sync.rs`: `Some(sides) => Scope::Roles(sides.clone())`
+  in `resolve_args_to_repos`; integration-test
+  constructors switch to `Scope::Roles(...)`.
+- `src/init.rs`: `plan_init` constructs `Scope::Roles(...)`
+  for both the default and explicit-flag paths. Helper
+  call sites (`is_code_only`, `is_both`, `is_bot_only`)
+  unchanged — the methods continue to work on `Roles`.
+
+Build is warning-clean; 257 tests pass (255 baseline + 2
+new in scope/common).
+
+### 0.42.0-2: --scope parser + retrofit init
+
+Lands the custom CLI value parser and migrates `init` onto
+the new `Scope` shape. Parser is the shared boundary every
+remaining `--scope` consumer (sync, push, finalize, clone)
+will route through in -3+; init is the smallest first
+consumer and exercises the keyword path end-to-end. The
+path form is accepted by the parser but rejected at init
+with a hint pointing at `--repo-local` / `--repo-remote`
+(init creates a workspace, not a single-repo project).
+
+- `src/scope.rs`: `pub fn parse_scope(s: &str) -> Result<Scope, String>`.
+  Accepts the four keyword forms (`code`, `bot`, `code,bot`,
+  `bot,code`) plus path forms prefixed by `./`, `../`, `/`,
+  `~/`, or the bare `~`. Anything else errors with a hint
+  pointing at the prefix-disambiguation rule. Order is
+  preserved on the keyword forms. Drops the now-dead
+  `is_empty` helper (parser rejects empty input upstream;
+  the only consumer that called it was init's redundant
+  validation). 13 new parser unit tests.
+- `src/init.rs`: `--scope` field flips from
+  `Option<Vec<Side>>` (clap `value_delimiter = ','`) to
+  `Option<Scope>` with `value_parser = crate::scope::parse_scope`.
+  `plan_init` matches on the parsed `Scope`: `Roles(_)`
+  takes the existing bot-only-fatal path; `Single(_)` is
+  rejected with the init-specific hint. Test scaffolding
+  (`fixture_scoped`) and 5 fixture call sites migrated.
+  `scope_parses_*` tests retitled around the new field
+  type. New `scope_path_form_rejected_at_init` test pins
+  the rejection contract.
+
+Smoke-tested end-to-end via CLI:
+
+- `vc-x1 init tf1 --scope code --dry-run` → succeeds
+  (single-repo dry-run plan).
+- `vc-x1 init tf1 --scope code,bot --dry-run` → succeeds.
+- `vc-x1 init tf1 --scope bot --dry-run` → bot-only fatal
+  (existing `plan_init` check).
+- `vc-x1 init tf1 --scope ./foo --dry-run` → path-form
+  fatal (new `plan_init` check).
+- `vc-x1 init tf1 --scope '~/work' --dry-run` → path-form
+  fatal.
+- `vc-x1 init tf1 --scope foo --dry-run` → clap-level
+  parser error with hint about `./foo` disambiguation.
+
+### 0.42.0-3: sync --scope retrofit
+
+Migrates `sync` onto the new `Scope` shape and lands the
+`Single(_)` resolver wiring. `-R/--repo` retires (single-
+repo callers move to `--scope=<path>`); `-s` becomes the
+short form of `--scope`. Default-scope rules pick up the
+three-state model captured in chores-06's [1] (-4
+vocabulary): dual workspace → `Roles([Code, Bot])`,
+single-repo workspace → `Roles([Code])`, POR →
+`Single(cwd)`.
+
+- `src/common.rs`: `default_scope` signature gains a `cwd`
+  parameter; the POR branch (no workspace_root) now
+  returns `Scope::Single(cwd.to_path_buf())` instead of
+  `Roles([Code])`. `scope_to_repos`'s `Single(p)` arm
+  resolves to `vec![p.clone()]` (no workspace lookup;
+  shell-style expansion happens at the parser/consumer
+  boundary). The `0.42.0-3` staging-error test is
+  replaced with `scope_to_repos_single_returns_path` —
+  the happy-path contract — and `default_scope_por`
+  becomes `default_scope_por_returns_single_cwd`.
+- `src/sync.rs`: `--repo`/`-R` flag and the `repos:
+  Vec<PathBuf>` field deleted. `--scope` retypes from
+  `Option<Vec<Side>>` (with `value_delimiter = ','`) to
+  `Option<Scope>` (with `value_parser = parse_scope`)
+  and gains `short = 's'`. SyncArgs doc rewritten around
+  the new resolution rules. `resolve_args_to_repos`
+  drops the `args.repos` branch and now feeds `cwd` into
+  `default_scope`. `split_repos` and its 4 unit tests
+  go away with `-R`; `parse_scope_repo_conflict`,
+  `parse_single_repo_flag`, `parse_repeated_repo_flag`
+  too. `parse_scope_*` tests assert against `Some(Scope)`;
+  new `parse_scope_path_form` and `parse_scope_short_form`
+  tests pin the new entry points. `apply_args` integration
+  helper drops the `repos` field. `Side` import is gated
+  `#[cfg(test)]` (production sync no longer needs it
+  directly — only the tests construct `Side::*`).
+
+Smoke-tested end-to-end:
+
+- `vc-x1 sync --check` in this dual workspace → `2 repos,
+  all bookmarks up-to-date`.
+- `vc-x1 sync --check -s code` → `1 repo, all bookmarks
+  up-to-date`.
+- `vc-x1 sync --check -s bot` → ditto for `.claude`.
+- `vc-x1 sync --check -s ./.claude` → also `1 repo` —
+  Single-mode resolves directly to that path, bypassing
+  the workspace's other-repo lookup.
+- `cd /tmp && vc-x1 sync --check` → POR detected,
+  attempts to sync `/tmp` (errors because `/tmp` isn't a
+  jj repo — confirms `default_scope` returned
+  `Single(cwd)`).
 
 # References
 
