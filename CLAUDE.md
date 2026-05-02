@@ -218,6 +218,21 @@ The final release commit (no suffix) signals completion rather than
 amending prior commits. This keeps history readable and makes it easy
 to see which commits were exploratory vs final.
 
+#### Substeps within a multi-step `X.Y.Z-N`
+
+When a single `X.Y.Z-N` step covers several separable concerns and
+the per-step diff would be too large to review in one pass, work
+each concern as its own substep on its own jj `@`. The ladder
+collapses into a single commit at close-out and ships through the
+normal `vc-x1 push` flow.
+
+See [`notes/substep-protocol.md`](notes/substep-protocol.md) for
+the full protocol — when to use, per-substep contract
+(`cargo test --bins` is non-negotiable), navigation, the validated
+close-out squash recipe, and recovery. Revset primitives the
+protocol relies on (`@`, `@-`, `..`, `::`, prefix matching) live in
+[`notes/jj-revsets.md`](notes/jj-revsets.md).
+
 ### Chores section headers
 
 Chores section headers use trailing version format:

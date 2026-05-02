@@ -11,6 +11,112 @@ when they correspond to a release: `## Description (X.Y.Z)`.
 Pre-implementation design captures may use a plain title; once
 implemented, the title can become a release-versioned chore.
 
+## Substep protocol formalization (0.42.0-4.5)
+
+Notes-only side cycle. Branched off `main` at 0.42.0-4
+(init+clone redesign capture); landed between 0.42.0-4
+and the planned 0.42.0-5 (finalize --scope). Formalizes
+the substep protocol first exercised in 0.41.1-6.5,
+validates the close-out squash recipe, and pulls the
+supporting jj revset vocabulary into a sibling cheatsheet
+so the protocol can refer to it without duplicating.
+
+Version path: numbered `0.42.0-4.5` rather than `0.42.1-0`
+to avoid pre-empting the patch line while 0.42.0 is
+mid-cycle. The `.5` suffix positions this as side work
+between -4 and -5 — semver-legal (pre-release identifiers
+are dot-separated numeric components and compare
+numerically) and keeps Cargo.toml's version monotonically
+increasing.
+
+The user opened the cycle by drafting `notes/jj-revsets.md`
+from their own learning notes (using `notes/substep-test.sh`
+to build a scratch ladder under `/tmp/substep-test`). The
+bot reviewed, proposed the substep protocol formalization,
+and the work landed in five substeps using the protocol it
+was documenting — dogfood validation in flight.
+
+### Edits
+
+- `notes/jj-revsets.md`: new. Revset primitives cheatsheet
+  (chid/cid stability, `@`/`@-`/`@+`, `..`/`::` ranges,
+  prefix matching). User-authored intro and worked
+  examples; bot-added `### Interpretation` blocks
+  cataloguing the operator semantics from the empirical
+  data, two review passes for typos and grammar.
+- `notes/substep-protocol.md`: new. Formal protocol of
+  record. Five sections — purpose, per-substep contract
+  (`cargo test --bins` non-negotiable), navigation
+  (cross-link to jj-revsets.md), close-out, recovery —
+  plus a worked end-to-end example. Drops the prior
+  "draft text / working hypothesis" hedges. Close-out
+  recipe validated against scratch ladders at N=3 and N=5
+  substeps:
+  ```
+  jj squash --from "<base>..@-" --into @ -u -R .
+  ```
+- `notes/substep-test.sh`: new. Four-revision ladder
+  scaffold under `/tmp/substep-test`. Used to validate
+  the squash recipe; remains as a reusable scratch tool
+  for future substep experiments.
+- `CLAUDE.md`: `#### Substeps within a multi-step X.Y.Z-N`
+  subsection added under `### Versioning`. Points at
+  `notes/substep-protocol.md` (full procedure) and
+  `notes/jj-revsets.md` (revset primitives the procedure
+  relies on). Conservative integration scope; broader
+  CLAUDE.md reorg candidates (consolidating the
+  `## Committing` / `## Commit Message Style` /
+  `## ochid Trailers` triplet, surfacing recovery as its
+  own section, top-of-file TOC) surfaced in the substep-4
+  commit body for next-cycle discussion.
+- `notes/todo.md`: `## Done` entry; reference [73] points
+  here.
+- `notes/chores-07.md`: this subsection.
+
+### Substep ladder (squashed at close-out)
+
+- substep 0: `notes/jj-revsets.md` review fixes (typos,
+  two `### Interpretation` blocks for relative- and
+  absolute-revset operators).
+- substep 1: validate close-out squash recipe against
+  N=3 and N=5 ladders in `/tmp/substep-test`. No file
+  changes; finding folded into the next substep.
+- substep 2: `notes/substep-protocol.md` formal rewrite.
+- substep 3: `CLAUDE.md` pointer subsection.
+- substep 4: second-pass review fixes after the user's
+  in-place tweaks added the concrete `lu::` example and
+  surfaced typos in the absolute-revsets bullet list.
+- close-out: this commit. Single squashed commit on
+  `main` via the validated recipe.
+
+### Decisions made during design
+
+- **`-R .` explicitness.** The protocol shows `-R .` on
+  every `jj` invocation. For the bot in a dual-repo
+  workspace this is correct (always be explicit about
+  which repo); for human users in a single-repo project
+  the flag is optional. Closing note in the protocol
+  spells this out.
+- **Linear vs parallel substep topology.** The ladder is
+  linear (`jj new` chains commits). User noted at
+  close-out that a parallel-then-merge topology
+  (`jj new -r <chid>` to branch from a specific point)
+  might give cleaner per-concern diffs. Captured as a
+  future experiment; the close-out recipe would change
+  too — `<base>..@-` assumes linear ancestry.
+- **`jj op restore` as recovery vs close-out.** The draft
+  protocol had floated `jj op restore` as a close-out
+  alternative. Validation showed it discards substep
+  work — it's a recovery tool, not close-out. Final
+  protocol keeps it under Recovery only.
+- **`-u` on the close-out squash.** `--use-destination-message`
+  preserves `@`'s description through the squash (which
+  `vc-x1 push`'s `commit-app` then overwrites with the
+  close-out title/body anyway). Without `-u`, jj opens
+  `$EDITOR` to combine source and destination
+  descriptions — unwanted at close-out, since none of
+  the substep titles are meant to ship.
+
 ## --scope enum refactor (0.42.0)
 
 Picks up the work the 0.41.0 cycle redirected away from. The
