@@ -19,6 +19,9 @@ use crate::args::ScopeKind;
 use crate::common::write_file;
 use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
+use crate::options_flags::config::ConfigFlag;
+use crate::options_flags::dry_run::DryRunFlag;
+use crate::options_flags::private::PrivateFlag;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
@@ -95,12 +98,12 @@ impl Fixture {
                 value: Some(base.to_string_lossy().into_owned()),
             }),
             scope: ScopeKind::CodeBot,
-            private: false,
-            dry_run: false,
+            private: PrivateFlag::default(),
+            dry_run: DryRunFlag::default(),
             push_retries: 5,
             push_retry_delay: 3,
             use_template,
-            config: None,
+            config: ConfigFlag::default(),
         };
         init_with_symlink(&args, false).expect("build test fixture via init");
 
@@ -184,12 +187,12 @@ impl FixturePor {
                 value: Some(base.to_string_lossy().into_owned()),
             }),
             scope: ScopeKind::Por,
-            private: false,
-            dry_run: false,
+            private: PrivateFlag::default(),
+            dry_run: DryRunFlag::default(),
             push_retries: 5,
             push_retry_delay: 3,
             use_template: None,
-            config,
+            config: ConfigFlag { raw: config },
         };
         init_with_symlink(&args, false).expect("build test fixture via init (POR)");
 

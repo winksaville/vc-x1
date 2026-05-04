@@ -5,7 +5,9 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
-use crate::options_flags::config::{ConfigKind, parse_config_kind};
+use crate::options_flags::config::{ConfigFlag, ConfigKind};
+use crate::options_flags::dry_run::DryRunFlag;
+use crate::options_flags::private::PrivateFlag;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
@@ -73,17 +75,13 @@ pub struct InitArgs {
     )]
     pub scope: ScopeKind,
 
-    /// Create private GitHub repos (default: public).
-    ///
-    /// - Only meaningful when the resolved provisioner is
-    ///   `gh repo create` (GitHub URL or `--repo remote` whose
-    ///   value points at GitHub).
-    #[arg(long, verbatim_doc_comment)]
-    pub private: bool,
+    /// `--private` — flatten of the shared [`PrivateFlag`] leaf.
+    #[command(flatten)]
+    pub private: PrivateFlag,
 
-    /// Dry run — show what would be done without executing
-    #[arg(long)]
-    pub dry_run: bool,
+    /// `--dry-run` — flatten of the shared [`DryRunFlag`] leaf.
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
 
     /// Max push retries after repo creation [default: 5]
     #[arg(long, default_value_t = 5)]
@@ -108,17 +106,12 @@ pub struct InitArgs {
     #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
     pub use_template: Option<String>,
 
-    /// Override the default `.vc-config.toml` write (POR only).
-    ///
-    /// - Absent: write the canned single-repo `.vc-config.toml`.
-    /// - `--config none`: skip writing `.vc-config.toml` entirely.
-    /// - `--config <path>`: copy `<path>` to `.vc-config.toml`
-    ///   (bytewise; no schema validation).
-    ///
-    /// Only valid with `--scope=por`. `.gitignore` is always
-    /// written regardless of `--config`.
-    #[arg(long, value_name = "none|PATH", verbatim_doc_comment)]
-    pub config: Option<String>,
+    /// `--config none|<path>` — flatten of the shared
+    /// [`ConfigFlag`] leaf. Only meaningful with `--scope=por`;
+    /// rejected at preflight when paired with `--scope=code,bot`.
+    /// `.gitignore` is always written regardless of `--config`.
+    #[command(flatten)]
+    pub config: ConfigFlag,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -621,7 +614,7 @@ pub(crate) fn plan_init(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     debug!(
         "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
-        args.target, args.name, args.account, args.repo, args.scope, args.private
+        args.target, args.name, args.account, args.repo, args.scope, args.private.private
     );
 
     let scope = match args.scope {
@@ -639,13 +632,12 @@ pub(crate) fn plan_init(
         .into());
     }
 
-    if args.config.is_some() && args.scope == ScopeKind::CodeBot {
+    if args.config.raw.is_some() && args.scope == ScopeKind::CodeBot {
         return Err(
             "--config is only valid with --scope=por (dual-mode configs are per-side and unconditional)".into(),
         );
     }
-    if let Some(s) = args.config.as_deref()
-        && let ConfigKind::Path(p) = parse_config_kind(s, ConfigKind::None)
+    if let Some(ConfigKind::Path(p)) = args.config.resolve(ConfigKind::None)
         && !p.exists()
     {
         return Err(format!("--config: path does not exist: {}", p.display()).into());
@@ -1103,13 +1095,13 @@ pub(crate) fn init_with_symlink(
         None => None,
     };
 
-    let visibility = if args.private {
+    let visibility = if args.private.private {
         "--private"
     } else {
         "--public"
     };
 
-    if args.dry_run {
+    if args.dry_run.dry_run {
         info!("Dry run — would execute:");
         info!("  1. Create directories: {}", plan.project_dir.display());
         info!(
@@ -1241,12 +1233,10 @@ fn create_por(
     let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     prepare_local_repo(&plan.project_dir, "code", code_template, &plan.name)?;
-    match args.config.as_deref() {
+    match args.config.resolve(ConfigKind::None) {
         None => write_por_vc_config(&plan.project_dir)?,
-        Some(s) => match parse_config_kind(s, ConfigKind::None) {
-            ConfigKind::None => {} // skip — user asked not to write
-            ConfigKind::Path(p) => copy_user_config(&p, &plan.project_dir)?,
-        },
+        Some(ConfigKind::None) => {} // skip — user asked not to write
+        Some(ConfigKind::Path(p)) => copy_user_config(&p, &plan.project_dir)?,
     }
     write_por_gitignore(&plan.project_dir)?;
     let code_chid = commit_initial(&plan.project_dir, "code", OchidStrategy::None)?;
@@ -1542,8 +1532,8 @@ mod tests {
         assert!(args.account.is_none());
         assert!(args.repo.is_none());
         assert_eq!(args.scope, ScopeKind::CodeBot);
-        assert!(!args.private);
-        assert!(!args.dry_run);
+        assert!(!args.private.private);
+        assert!(!args.dry_run.dry_run);
         assert_eq!(args.push_retries, 5);
         assert_eq!(args.push_retry_delay, 3);
         assert!(args.use_template.is_none());
@@ -1578,8 +1568,8 @@ mod tests {
         assert_eq!(sel.category, "local");
         assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
         assert_eq!(args.scope, ScopeKind::Por);
-        assert!(args.private);
-        assert!(args.dry_run);
+        assert!(args.private.private);
+        assert!(args.dry_run.dry_run);
         assert_eq!(args.push_retries, 10);
         assert_eq!(args.push_retry_delay, 5);
         assert_eq!(args.use_template.as_deref(), Some("/tmp/tmpl"));
@@ -1976,12 +1966,12 @@ mod tests {
             account: None,
             repo: None,
             scope: ScopeKind::CodeBot,
-            private: false,
-            dry_run: true,
+            private: PrivateFlag::default(),
+            dry_run: DryRunFlag { dry_run: true },
             push_retries: 5,
             push_retry_delay: 3,
             use_template: None,
-            config: None,
+            config: ConfigFlag::default(),
         }
     }
 
@@ -2476,7 +2466,7 @@ mod tests {
     fn config_rejected_with_scope_code_bot() {
         let mut args = args_for("./foo");
         args.scope = ScopeKind::CodeBot;
-        args.config = Some("none".to_string());
+        args.config.raw = Some("none".to_string());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(
             err.contains("--config is only valid with --scope=por"),
@@ -2491,7 +2481,7 @@ mod tests {
     fn config_path_missing_rejected_at_preflight() {
         let mut args = args_for("./foo");
         args.scope = ScopeKind::Por;
-        args.config = Some("/nonexistent/path/to/config.toml".to_string());
+        args.config.raw = Some("/nonexistent/path/to/config.toml".to_string());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(err.contains("does not exist"), "unexpected error: {err}");
     }
@@ -2504,7 +2494,7 @@ mod tests {
     fn config_none_passes_preflight() {
         let mut args = args_for("git@github.com:foo/bar.git");
         args.scope = ScopeKind::Por;
-        args.config = Some("none".to_string());
+        args.config.raw = Some("none".to_string());
         plan_init(&args, &cfg_empty())
             .expect("--config none with --scope=por should pass preflight");
     }

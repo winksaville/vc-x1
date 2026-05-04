@@ -54,19 +54,48 @@ A bulleted list of the in-progress task's development "ladder":
       (Option A: caller-supplied default, infallible) (done)
     - (3) wire --config into init + preflight + integration
       tests (done)
-  - -6.7 replace "Step N" log prefixes with single-word
-    `label: body` convention (`bookmark`, `provision`,
-    `colocate`, `cross-ref`, `symlink`, …); indent labels under
-    per-side `code:` / `bot:` headers in dual
+  - -6.7 options_flags refactor: each init OF (account, repo,
+    scope, private, dry_run, push_retry, use_template, config)
+    becomes a `#[derive(Args)]` leaf in `options_flags/`; bundles
+    compose leaves via `#[command(flatten)]`; consumers opt in
+    with one line per leaf or bundle. Pattern A (per-consumer
+    `#[arg]`) is the documented escape hatch when one consumer
+    needs unique help text. `FlagBundle`/`FlagParser` trait
+    markers added as documentation, not enforcement.
+    - (1) cycle setup: Cargo.toml 0.41.1-6.7 + (1)–(7) ladder
+      (done)
+    - (2) ConfigFlag leaf — wrap ConfigKind / parse_config_kind
+      in #[derive(Args)] struct with generic help text +
+      `resolve(default)` method; add FlagBundle (impl on
+      ConfigFlag) and FlagParser (#[expect(dead_code)] until
+      first impl in (6)) to options_flags/mod.rs; extract
+      leaf/bundle/Pattern-A architecture into
+      options_flags/README.md (per-OF docs deferred unless
+      earned; flat layout now, expects to graduate to (C) =
+      `<name>/mod.rs` + `<name>/README.md` per-OF subdirs
+      when init's OFs are done); init.rs flattens ConfigFlag
+      (generic leaf help — --scope=por constraint surfaces in
+      preflight error; Pattern A demonstration deferred to
+      future cycle) (done)
+    - (3) DryRunFlag + PrivateFlag leaves; init.rs flatten;
+      clone.rs / push.rs migration deferred (their existing
+      `pub dry_run: bool` fields stay independent for now —
+      cycle scope is init only) (current)
+    - (4) PushRetryFlags leaf (push_retries + push_retry_delay);
+      init.rs flatten
+    - (5) UseTemplateFlag + AccountFlag leaves; init.rs flatten
+    - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
+      parse_scope_kind / parse_repo_arg out of args.rs;
+      shrink/retire args.rs
+    - (7) ProvisionCommon bundle (DryRunFlag + PushRetryFlags +
+      PrivateFlag); init.rs swaps three flattens for one;
+      cycle close-out
   - -6.8 init_with_symlink rename + InitDualArgs/InitPorArgs
-    split via #[command(flatten)] of common bundle;
-    provision_side(role, …) shared helper; bundling technique
-    in options_flags/ for common flag sets. CLI surface
+    split via #[command(flatten)] of common bundle (built in
+    -6.7); provision_side(role, …) shared helper. CLI surface
     decision (subcommands `init dual|por` vs preserved
     `--scope` flag with manual two-pass parse) deferred to
-    -6.8 design time. Forward-looking sketch: small trait set
-    that flags implement; commands declare supported flags via
-    a struct/vector.
+    -6.8 design time.
 - 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
 - 0.41.1 close-out [72]
 
@@ -129,6 +158,11 @@ renumbering. Reference by displayed number ("let's work on #3").
    per-command based on the widest flag spec, so
    `sync -h` is two-column but `init -h` is over-under —
    visual inconsistency.
+1. Replace "Step N" log prefixes with single-word
+   `label: body` convention (`bookmark`, `provision`,
+   `colocate`, `cross-ref`, `symlink`, …); indent labels
+   under per-side `code:` / `bot:` headers in dual.
+   Originally planned as 0.41.1-6.7; deferred.
 1. Consider renaming the `.vc-config.toml` `[workspace]`
    section. Rust readers expect `[workspace]` to mean a
    Cargo workspace, which a vc-x1 dual-repo isn't.
