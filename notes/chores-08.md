@@ -1129,6 +1129,218 @@ Five substeps, squashed at close-out:
    `commit_initial` (regression from (1) — role-config was
    landing after the initial commit instead of in it).
 
+### --config option + create_por extraction (0.41.1-6.6)
+
+Pre-impl design. Two concerns in one substep ladder:
+
+1. Extract `create_por()` from `fn init`'s inline POR body
+   (currently lines ~1177-1216 of `src/init.rs`), mirroring
+   `create_dual()` as a sibling creation-time orchestrator.
+2. Add a reusable `--config` flag in a new module
+   `src/options_flags/config.rs` that gates POR's
+   `.vc-config.toml` write. New `src/options_flags/` directory
+   collects per-flag modules; `src/` is getting large.
+
+#### create_por extraction
+
+`fn init`'s POR branch is currently inline straight-line
+composition. Lift verbatim into:
+
+```rust
+fn create_por(
+    args: &InitArgs,
+    plan: &InitPlan,
+    templates: Option<(PathBuf, Option<PathBuf>)>,
+    visibility: &str,
+    _create_symlink: bool,
+) -> Result<(), Box<dyn std::error::Error>>
+```
+
+- Signature mirrors `create_dual` for shape-symmetry. The
+  `create_symlink` parameter is unused in POR (no symlink in
+  single-repo); kept for now so the dispatcher stays trivial.
+- Composes (in order, parallel to `create_dual`'s doc list):
+  - `prepare_local_repo` → conditional config write (see
+    below) → `commit_initial` (`OchidStrategy::None`).
+  - `push_repo` for code side (no `clean_exclude`).
+  - No cross-reference, no session, no symlink.
+
+Dispatcher in `fn init` — exhaustive `match` on
+`args.scope`:
+
+```rust
+match args.scope {
+    ScopeKind::CodeBot => return create_dual(args, &plan, templates, visibility, create_symlink),
+    ScopeKind::Por     => return create_por(args, &plan, templates, visibility, create_symlink),
+}
+```
+
+`is_dual` (computed earlier in `fn init` for the dry-run/print
+branch) stays in place for that branch; only the final dispatch
+line changes from the existing `if is_dual { … }` to the
+`match`. Exhaustive `match` means future `ScopeKind` variants
+won't compile until handled here.
+
+#### --config flag (reusable)
+
+New module `src/options_flags/config.rs`:
+
+```rust
+pub enum ConfigKind {
+    None,
+    Path(PathBuf),
+}
+
+pub fn parse_config_kind(s: &str, default: ConfigKind) -> ConfigKind;
+```
+
+`src/options_flags/mod.rs` only re-exports the submodule (`pub
+mod config;`); use sites import `crate::options_flags::config::
+{ConfigKind, parse_config_kind}` so future flag modules can
+share the namespace without name collisions.
+
+`src/main.rs` adds `mod options_flags;` alongside the existing
+`mod args;`.
+
+Parser (match-based, infallible):
+
+- `""` → `default` (caller-supplied — each consumer plugs in
+  its own canonical canned shape).
+- `"none"` → `ConfigKind::None`.
+- Anything else → `ConfigKind::Path(s.into())`.
+
+The default lives at the call site, not in the enum. Init's POR
+passes a default that resolves to "write the canned
+`VC_CONFIG_APP_ONLY`" (substep-3 wiring decides the exact
+shape — likely a marker variant the consumer interprets, or a
+synthetic `Path` to a temp file).
+
+No path-prefix discipline (`./`, `~/`, etc.) — `--config` has
+only one keyword (`none`), so any other string is unambiguously
+a path. Parser returns `ConfigKind` directly (no `Result`)
+because empty input has a defined fallback rather than an error.
+
+`InitArgs`:
+
+```rust
+/// Override the default `.vc-config.toml` write (POR only).
+///
+/// - Absent: write the canned single-repo `.vc-config.toml`.
+/// - `--config none`: skip writing `.vc-config.toml` entirely.
+/// - `--config <path>`: copy `<path>` to `.vc-config.toml`
+///   (bytewise; no schema validation).
+///
+/// Only valid with `--scope=por`. `.gitignore` is always
+/// written regardless of `--config`.
+#[arg(long, value_name = "none|PATH", verbatim_doc_comment)]
+pub config: Option<String>,
+```
+
+Raw `Option<String>` at the arg layer; the consumer calls
+`parse_config_kind(s, default)` itself. This keeps Option A's
+caller-supplied default available without forcing a static
+closure adapter into clap's `value_parser` slot.
+
+Optional on the command line so scripts and bots can be
+explicit while interactive use stays lazy.
+
+#### Preflight checks (in `plan_init`)
+
+- `args.config.is_some()` with `--scope=code,bot` → error:
+  `--config is only valid with --scope=por (dual-mode configs
+  are per-side and unconditional)`.
+- `parse_config_kind(s, ConfigKind::None) → Path(p)` where `p`
+  doesn't exist → error: `--config: path does not exist: <p>`.
+  (Existence check only — readability surfaces later as a
+  copy-time error with a clear `failed to copy <src>` message.)
+
+#### Conditional write in `create_por`
+
+```rust
+match args.config.as_deref() {
+    None => write_por_vc_config(&plan.project_dir)?,
+    Some(s) => match parse_config_kind(s, ConfigKind::None) {
+        ConfigKind::None    => {} // skip — user asked us not to write
+        ConfigKind::Path(p) => copy_user_config(&p, &plan.project_dir)?,
+    },
+}
+write_por_gitignore(&plan.project_dir)?;
+```
+
+Resolved at impl time (substep 3):
+
+- **No tempfile / sentinel for the canned default.** The
+  consumer dispatches on `args.config.as_deref()` directly:
+  `None` → canned write, `Some(s)` → parser. The parser's
+  `default` parameter is passed `ConfigKind::None` and is only
+  reachable if the user passes `--config ""` explicitly (in
+  which case "skip" is a reasonable interpretation). This
+  avoids both the tempfile dance and the sentinel-Path hack.
+- **`write_por_config` split (option (a) from the open
+  question).** New helpers `write_por_vc_config` (canned
+  config) and `write_por_gitignore` (canned gitignore). The
+  latter is called unconditionally after the conditional
+  config write. Symmetric with the existing
+  `write_code_config` / `write_session_config` shape.
+- **`copy_user_config` lives in `init.rs`.** Sits next to
+  `write_por_vc_config` / `write_por_gitignore`. Bytewise
+  `std::fs::copy` (no TOML parse, no validation). Malformed
+  user content surfaces later via `find_workspace_root` /
+  config readers. No new module needed.
+
+#### WIP ladder (squashed at close-out)
+
+Three substeps:
+
+1. Extract `create_por()` and convert dispatcher to `match` —
+   verbatim lift; no behavior change.
+2. Create `src/options_flags/{mod,config}.rs` with `ConfigKind`
+   + `parse_config_kind` and unit tests; wire `mod
+   options_flags;` into `src/main.rs`; no consumers.
+3. Wire `--config` into `InitArgs`; conditional write in
+   `create_por`; preflight + integration tests.
+
+#### Decisions made during design
+
+- **`Default` not a `ConfigKind` variant.** Absence-of-flag is
+  encoded by passing the caller's default to
+  `parse_config_kind` (Option A — see "Parser" above). The
+  default lives at the consumer call site, not in the enum,
+  so each command can plug in its own canonical canned shape
+  without baking command-specific knowledge into the type.
+- **Parser is infallible.** Empty input has a defined fallback
+  (the `default` parameter), so no `Result` return is needed
+  — return `ConfigKind` directly. `parse_scope_kind` returns
+  `Result` because every input shape is a definite parse —
+  there's no "give me a default" fallback shape there.
+- **`--config` only valid with `--scope=por` for now.** Dual
+  mode's per-side configs (`write_code_config` /
+  `write_session_config`) are out of scope for -6.6; revisit
+  when a use case surfaces.
+- **Path validation: existence + readable, no TOML parse.**
+  Trust user-provided files; downstream readers surface
+  malformed content. Preflight stays cheap.
+- **`Path(_)` accepts any non-`none` string.** Single keyword,
+  no `./` discipline needed.
+- **`create_symlink` parameter retained on `create_por`.** Kept
+  in the signature for shape-symmetry with `create_dual`;
+  ignored in the body. Drop in a follow-up if it accumulates
+  warnings.
+- **Dispatcher uses exhaustive `match` on `args.scope`.** Future
+  `ScopeKind` variants force a compile error here until handled
+  — preferable to `if is_dual { … } else { … }`, which silently
+  routes any new variant to the POR arm.
+- **`src/options_flags/` directory — default home for all flag
+  types/parsers.** Each flag's typed value + value parser lives
+  here, regardless of how many subcommands consume it today.
+  Two reasons: (1) any flag may pick up additional consumers as
+  the CLI grows, and (2) the directory is shaped to be liftable
+  into its own crate for cross-project reuse later. `ScopeKind`
+  / `parse_scope_kind` currently lives in `src/args.rs` for
+  historical reasons; relocating to
+  `src/options_flags/scope.rs` is a deferred consistency
+  cleanup (not in -6.6).
+
 ### Decisions made during design
 
 - **Version + cycle line.** This work + the sync `--check`

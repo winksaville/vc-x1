@@ -10,6 +10,7 @@ mod fix_desc;
 mod init;
 mod list;
 mod logging;
+mod options_flags;
 mod push;
 mod repo_utils;
 mod scope;

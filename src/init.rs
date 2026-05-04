@@ -5,6 +5,7 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
+use crate::options_flags::config::{ConfigKind, parse_config_kind};
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
@@ -106,6 +107,18 @@ pub struct InitArgs {
     ///   rewritten to `# <repo-name>`.
     #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
     pub use_template: Option<String>,
+
+    /// Override the default `.vc-config.toml` write (POR only).
+    ///
+    /// - Absent: write the canned single-repo `.vc-config.toml`.
+    /// - `--config none`: skip writing `.vc-config.toml` entirely.
+    /// - `--config <path>`: copy `<path>` to `.vc-config.toml`
+    ///   (bytewise; no schema validation).
+    ///
+    /// Only valid with `--scope=por`. `.gitignore` is always
+    /// written regardless of `--config`.
+    #[arg(long, value_name = "none|PATH", verbatim_doc_comment)]
+    pub config: Option<String>,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -369,11 +382,30 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.vc-x1
 ";
 
-/// Write the POR (single-repo) `.vc-config.toml` and `.gitignore`
-/// into `dir`. Used by the POR branch of `init_with_symlink`.
-fn write_por_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_APP_ONLY)?;
-    write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)?;
+/// Write the POR (single-repo) canned `.vc-config.toml` into `dir`.
+///
+/// Split from the legacy `write_por_config` so the `.vc-config.toml`
+/// write is gateable by `--config` while the `.gitignore` write
+/// stays unconditional.
+fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_APP_ONLY)
+}
+
+/// Write the POR (single-repo) `.gitignore` into `dir`. Always
+/// unconditional — `--config` controls only `.vc-config.toml`.
+fn write_por_gitignore(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)
+}
+
+/// Copy a user-supplied `.vc-config.toml` from `src` to `dir`.
+///
+/// Bytewise copy — no TOML parse, no schema validation. If the
+/// content is malformed the project will surface the problem on
+/// first `find_workspace_root` / config-reader call. Caller is
+/// responsible for path-existence preflight.
+fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::copy(src, dir.join(".vc-config.toml"))
+        .map_err(|e| format!("--config: failed to copy {}: {e}", src.display()))?;
     Ok(())
 }
 
@@ -605,6 +637,18 @@ pub(crate) fn plan_init(
             "--scope=por takes a single template path; got '{t}' (drop the `,BOT` half)"
         )
         .into());
+    }
+
+    if args.config.is_some() && args.scope == ScopeKind::CodeBot {
+        return Err(
+            "--config is only valid with --scope=por (dual-mode configs are per-side and unconditional)".into(),
+        );
+    }
+    if let Some(s) = args.config.as_deref()
+        && let ConfigKind::Path(p) = parse_config_kind(s, ConfigKind::None)
+        && !p.exists()
+    {
+        return Err(format!("--config: path does not exist: {}", p.display()).into());
     }
 
     let parsed = parse_target(&args.target)?;
@@ -1170,18 +1214,41 @@ pub(crate) fn init_with_symlink(
         return Ok(());
     }
 
-    if is_dual {
-        return create_dual(args, &plan, templates, visibility, create_symlink);
+    match args.scope {
+        ScopeKind::CodeBot => create_dual(args, &plan, templates, visibility, create_symlink),
+        ScopeKind::Por => create_por(args, &plan, templates, visibility, create_symlink),
     }
+}
 
-    // POR branch (--scope=por): single code repo, no cross-reference,
-    // no session repo, no symlink. Composes prepare_local_repo +
-    // role-config + commit_initial (steps 1-5) + push_repo (steps 7,
-    // 9, 10).
+/// Create-from-empty orchestrator for `--scope=por` (single repo).
+///
+/// Composes (in order):
+/// - `prepare_local_repo` → conditional `.vc-config.toml` write
+///   (gated by `--config`) → `write_por_gitignore` (always) →
+///   `commit_initial` (`OchidStrategy::None`).
+/// - `push_repo` for code side (no `clean_exclude`).
+/// - No cross-reference (no session), no session push, no symlink.
+///
+/// `_create_symlink` is unused (no symlink in single-repo); kept in
+/// the signature for shape-symmetry with `create_dual`.
+fn create_por(
+    args: &InitArgs,
+    plan: &InitPlan,
+    templates: Option<(PathBuf, Option<PathBuf>)>,
+    visibility: &str,
+    _create_symlink: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     prepare_local_repo(&plan.project_dir, "code", code_template, &plan.name)?;
-    write_por_config(&plan.project_dir)?;
+    match args.config.as_deref() {
+        None => write_por_vc_config(&plan.project_dir)?,
+        Some(s) => match parse_config_kind(s, ConfigKind::None) {
+            ConfigKind::None => {} // skip — user asked not to write
+            ConfigKind::Path(p) => copy_user_config(&p, &plan.project_dir)?,
+        },
+    }
+    write_por_gitignore(&plan.project_dir)?;
     let code_chid = commit_initial(&plan.project_dir, "code", OchidStrategy::None)?;
 
     info!("Step 6: (skipped — no cross-reference in single-repo)");
@@ -1195,7 +1262,7 @@ pub(crate) fn init_with_symlink(
         "code",
         "Step 9",
         None,
-        &plan,
+        plan,
         args,
         visibility,
         &plan.code_url,
@@ -1914,6 +1981,7 @@ mod tests {
             push_retries: 5,
             push_retry_delay: 3,
             use_template: None,
+            config: None,
         }
     }
 
@@ -2352,6 +2420,93 @@ mod tests {
 
         crate::common::verify_tracking(&fx.work, "main")
             .expect("main should track origin/main after init step 10");
+    }
+
+    // ---------- --config flag (POR only) ----------
+
+    /// `--config none` skips writing `.vc-config.toml` while still
+    /// writing `.gitignore`. The repo gets created and pushed
+    /// successfully — config-less repos remain valid POR shape from
+    /// jj/git's perspective; downstream commands that need
+    /// `.vc-config.toml` will fail loudly when they try to read it.
+    #[test]
+    fn por_config_none_skips_vc_config_writes_gitignore() {
+        let fx = crate::test_helpers::FixturePor::new_with_config(
+            "por-config-none",
+            Some("none".to_string()),
+        );
+
+        assert!(
+            !fx.work.join(".vc-config.toml").exists(),
+            "--config none must skip .vc-config.toml"
+        );
+        assert!(
+            fx.work.join(".gitignore").exists(),
+            "--config none must still write .gitignore"
+        );
+    }
+
+    /// `--config <path>` copies the user-supplied file to
+    /// `.vc-config.toml` bytewise. `.gitignore` still written from
+    /// the canned source.
+    #[test]
+    fn por_config_path_copies_user_file() {
+        let base = crate::test_helpers::unique_base("por-config-path");
+        std::fs::create_dir_all(&base).expect("create base");
+        let custom = base.join("custom-config.toml");
+        let custom_body = "# custom user config\n[workspace]\npath = \"/\"\ncustom = true\n";
+        std::fs::write(&custom, custom_body).expect("write custom config");
+
+        let fx = crate::test_helpers::FixturePor::new_with_config(
+            "por-config-path",
+            Some(custom.to_string_lossy().into_owned()),
+        );
+
+        let written =
+            std::fs::read_to_string(fx.work.join(".vc-config.toml")).expect("read .vc-config.toml");
+        assert_eq!(written, custom_body, "user config must be copied verbatim");
+        assert!(
+            fx.work.join(".gitignore").exists(),
+            "--config <path> must still write .gitignore"
+        );
+    }
+
+    /// `--config` with `--scope=code,bot` is rejected at preflight.
+    #[test]
+    fn config_rejected_with_scope_code_bot() {
+        let mut args = args_for("./foo");
+        args.scope = ScopeKind::CodeBot;
+        args.config = Some("none".to_string());
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(
+            err.contains("--config is only valid with --scope=por"),
+            "unexpected error: {err}"
+        );
+    }
+
+    /// `--config <missing-path>` errors at preflight, not at write
+    /// time, so the user gets a clear diagnostic before any
+    /// repo-mutating side effects start.
+    #[test]
+    fn config_path_missing_rejected_at_preflight() {
+        let mut args = args_for("./foo");
+        args.scope = ScopeKind::Por;
+        args.config = Some("/nonexistent/path/to/config.toml".to_string());
+        let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+        assert!(err.contains("does not exist"), "unexpected error: {err}");
+    }
+
+    /// `--config none` with `--scope=por` passes preflight (it's the
+    /// happy path — `none` is a literal keyword, not a path). URL
+    /// target sidesteps the account-config lookup that plan_init
+    /// would trigger for path-form targets in cfg_empty.
+    #[test]
+    fn config_none_passes_preflight() {
+        let mut args = args_for("git@github.com:foo/bar.git");
+        args.scope = ScopeKind::Por;
+        args.config = Some("none".to_string());
+        plan_init(&args, &cfg_empty())
+            .expect("--config none with --scope=por should pass preflight");
     }
 
     // ---------- Dual end-to-end fixture (drives init_with_symlink with --scope=code,bot) ----------

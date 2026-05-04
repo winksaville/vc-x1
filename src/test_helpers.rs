@@ -100,6 +100,7 @@ impl Fixture {
             push_retries: 5,
             push_retry_delay: 3,
             use_template,
+            config: None,
         };
         init_with_symlink(&args, false).expect("build test fixture via init");
 
@@ -161,6 +162,12 @@ pub struct FixturePor {
 impl FixturePor {
     /// Build a fresh POR fixture in a unique tempdir.
     pub fn new(tag: &str) -> Self {
+        Self::new_with_config(tag, None)
+    }
+
+    /// Build a fresh POR fixture, threading `config` through to
+    /// `InitArgs` for `--config` variant testing.
+    pub fn new_with_config(tag: &str, config: Option<String>) -> Self {
         let base = unique_base(tag);
         // Path TARGET = `<base>/work`; basename ("work") becomes
         // the repo name. `--repo local=<base>` sets the bare-repo
@@ -182,6 +189,7 @@ impl FixturePor {
             push_retries: 5,
             push_retry_delay: 3,
             use_template: None,
+            config,
         };
         init_with_symlink(&args, false).expect("build test fixture via init (POR)");
 
