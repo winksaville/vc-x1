@@ -80,9 +80,13 @@ A bulleted list of the in-progress task's development "ladder":
     - (3) DryRunFlag + PrivateFlag leaves; init.rs flatten;
       clone.rs / push.rs migration deferred (their existing
       `pub dry_run: bool` fields stay independent for now —
-      cycle scope is init only) (current)
+      cycle scope is init only) (done)
     - (4) PushRetryFlags leaf (push_retries + push_retry_delay);
-      init.rs flatten
+      init.rs flatten; manual Default impl mirrors clap's
+      flag defaults so fixtures can use `::default()`;
+      run_retry refactored to take `&PushRetryFlags`
+      (establishes "multi-field leaf → &LeafType parameter"
+      convention) (done)
     - (5) UseTemplateFlag + AccountFlag leaves; init.rs flatten
     - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
       parse_scope_kind / parse_repo_arg out of args.rs;

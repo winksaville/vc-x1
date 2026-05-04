@@ -62,6 +62,35 @@ A Pattern A consumer reuses the leaf's types (e.g. `ConfigKind`)
 and parsers (e.g. `parse_config_kind`) but owns its own clap
 attributes.
 
+## Consumer function shape
+
+Helper functions called by a subcommand body should accept the
+relevant leaf type by reference rather than unpacking individual
+fields at the call site:
+
+```rust
+// Multi-field leaf — pass the whole leaf
+fn run_retry(cmd: &str, args: &[&str], cwd: &Path,
+             retry: &PushRetryFlags) -> Result<…> { … }
+
+run_retry("git", &["push", …], cwd, &args.push_retry)?;
+```
+
+This wins on:
+- Readability — `&args.push_retry` reads as a single unit; the
+  function body works with `retry.push_retries` (no leaf-name
+  doubling because the parameter name is the consumer's choice).
+- Argument count — every multi-field leaf collapses N args into
+  one ref, so chained helpers don't accumulate
+  `clippy::too_many_arguments` warnings.
+- Future-proofing — extending a leaf with another field is a
+  zero-touch change at every call site.
+
+For **single-field leaves** (e.g. `DryRunFlag`, `PrivateFlag`),
+direct read at the consumer site (`args.dry_run.dry_run`) is
+fine — wrapping a `bool` in `&LeafType` parameter doesn't earn
+the indirection.
+
 ## Marker traits
 
 - `FlagBundle: clap::Args` — every leaf and bundle implements

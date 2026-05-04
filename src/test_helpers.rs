@@ -22,6 +22,7 @@ use crate::init::{InitArgs, init_with_symlink};
 use crate::options_flags::config::ConfigFlag;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::private::PrivateFlag;
+use crate::options_flags::push_retry::PushRetryFlags;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
@@ -100,8 +101,7 @@ impl Fixture {
             scope: ScopeKind::CodeBot,
             private: PrivateFlag::default(),
             dry_run: DryRunFlag::default(),
-            push_retries: 5,
-            push_retry_delay: 3,
+            push_retry: PushRetryFlags::default(),
             use_template,
             config: ConfigFlag::default(),
         };
@@ -189,8 +189,7 @@ impl FixturePor {
             scope: ScopeKind::Por,
             private: PrivateFlag::default(),
             dry_run: DryRunFlag::default(),
-            push_retries: 5,
-            push_retry_delay: 3,
+            push_retry: PushRetryFlags::default(),
             use_template: None,
             config: ConfigFlag { raw: config },
         };

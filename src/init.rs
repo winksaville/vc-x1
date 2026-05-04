@@ -8,6 +8,7 @@ use crate::config::{self, RepoSelector, UserConfig};
 use crate::options_flags::config::{ConfigFlag, ConfigKind};
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::private::PrivateFlag;
+use crate::options_flags::push_retry::PushRetryFlags;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
@@ -83,13 +84,10 @@ pub struct InitArgs {
     #[command(flatten)]
     pub dry_run: DryRunFlag,
 
-    /// Max push retries after repo creation [default: 5]
-    #[arg(long, default_value_t = 5)]
-    pub push_retries: u32,
-
-    /// Seconds between push retries [default: 3]
-    #[arg(long, default_value_t = 3)]
-    pub push_retry_delay: u64,
+    /// `--push-retries` + `--push-retry-delay` — flatten of
+    /// the shared [`PushRetryFlags`] leaf.
+    #[command(flatten)]
+    pub push_retry: PushRetryFlags,
 
     /// Seed repos from template directories.
     ///
@@ -119,11 +117,10 @@ fn run_retry(
     cmd: &str,
     args: &[&str],
     cwd: &Path,
-    retries: u32,
-    delay_secs: u64,
+    retry: &PushRetryFlags,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut last_err = String::new();
-    for attempt in 1..=retries {
+    for attempt in 1..=retry.push_retries {
         match run(cmd, args, cwd) {
             Ok(out) => {
                 if attempt > 1 {
@@ -133,15 +130,18 @@ fn run_retry(
             }
             Err(e) => {
                 last_err = e.to_string();
-                if attempt < retries {
-                    debug!("attempt {attempt}/{retries} failed: {last_err}");
-                    debug!("retrying in {delay_secs}s...");
-                    std::thread::sleep(std::time::Duration::from_secs(delay_secs));
+                if attempt < retry.push_retries {
+                    debug!(
+                        "attempt {attempt}/{} failed: {last_err}",
+                        retry.push_retries
+                    );
+                    debug!("retrying in {}s...", retry.push_retry_delay);
+                    std::thread::sleep(std::time::Duration::from_secs(retry.push_retry_delay));
                 }
             }
         }
     }
-    Err(format!("failed after {retries} attempts: {last_err}").into())
+    Err(format!("failed after {} attempts: {last_err}", retry.push_retries).into())
 }
 
 use crate::common::{mkdir_p, run, write_file};
@@ -1494,8 +1494,7 @@ fn run_remote_step(
         "git",
         &["push", "-u", "origin", "main"],
         push_from,
-        args.push_retries,
-        args.push_retry_delay,
+        &args.push_retry,
     )?;
     Ok(())
 }
@@ -1534,8 +1533,8 @@ mod tests {
         assert_eq!(args.scope, ScopeKind::CodeBot);
         assert!(!args.private.private);
         assert!(!args.dry_run.dry_run);
-        assert_eq!(args.push_retries, 5);
-        assert_eq!(args.push_retry_delay, 3);
+        assert_eq!(args.push_retry.push_retries, 5);
+        assert_eq!(args.push_retry.push_retry_delay, 3);
         assert!(args.use_template.is_none());
     }
 
@@ -1570,8 +1569,8 @@ mod tests {
         assert_eq!(args.scope, ScopeKind::Por);
         assert!(args.private.private);
         assert!(args.dry_run.dry_run);
-        assert_eq!(args.push_retries, 10);
-        assert_eq!(args.push_retry_delay, 5);
+        assert_eq!(args.push_retry.push_retries, 10);
+        assert_eq!(args.push_retry.push_retry_delay, 5);
         assert_eq!(args.use_template.as_deref(), Some("/tmp/tmpl"));
     }
 
@@ -1968,8 +1967,7 @@ mod tests {
             scope: ScopeKind::CodeBot,
             private: PrivateFlag::default(),
             dry_run: DryRunFlag { dry_run: true },
-            push_retries: 5,
-            push_retry_delay: 3,
+            push_retry: PushRetryFlags::default(),
             use_template: None,
             config: ConfigFlag::default(),
         }
