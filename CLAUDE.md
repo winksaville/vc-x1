@@ -1,5 +1,9 @@
 # CLAUDE.md - Bot Instructions
 
+> **Sub-step workflow (in flight on `init-clone-refactor`)**:
+> see [notes/substep-style.md](notes/substep-style.md). Folds
+> into this file at `0.41.1-6.7` close-out / merge-back.
+
 ## Project Structure
 
 This project uses **two separate jj-git repos**:
