@@ -3,13 +3,14 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info};
 
-use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
-use crate::config::{self, RepoSelector, UserConfig};
+use crate::config::{self, UserConfig};
 use crate::options_flags::account::AccountFlag;
 use crate::options_flags::config::{ConfigFlag, ConfigKind};
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::private::PrivateFlag;
 use crate::options_flags::push_retry::PushRetryFlags;
+use crate::options_flags::repo::RepoFlag;
+use crate::options_flags::scope::{ScopeFlag, ScopeKind};
 use crate::options_flags::use_template::UseTemplateFlag;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
@@ -45,33 +46,17 @@ pub struct InitArgs {
     #[command(flatten)]
     pub account: AccountFlag,
 
-    /// Repo target — `<cat>` or `<cat>=<val>`.
-    ///
-    /// - Built-in categories: `remote` (URL prefix; init appends
-    ///   `/<NAME>.git`) and `local` (parent dir for fixture bare
-    ///   repos at `<parent>/remote-{code,claude}.git`).
-    /// - `--repo <cat>` looks up the value via the account chain.
-    /// - `--repo <cat>=<val>` uses the literal value, no config
-    ///   lookup needed.
-    /// - Meaningful only with Path or bare-NAME targets.
-    #[arg(
-        long,
-        value_name = "CAT[=VAL]",
-        value_parser = parse_repo_arg,
-        verbatim_doc_comment
-    )]
-    pub repo: Option<RepoSelector>,
+    /// `--repo` — flatten of the shared [`RepoFlag`] leaf.
+    /// Init's built-in categories: `remote` (URL prefix; init
+    /// appends `/<NAME>.git`) and `local` (parent dir for
+    /// fixture bare repos). Meaningful only with Path or
+    /// bare-NAME targets.
+    #[command(flatten)]
+    pub repo: RepoFlag,
 
-    /// ScopeKind — `code,bot` (dual, default) or `por` (single).
-    #[arg(
-        long,
-        short,
-        value_name = "SCOPE",
-        value_parser = parse_scope_kind,
-        default_value = "code,bot",
-        verbatim_doc_comment
-    )]
-    pub scope: ScopeKind,
+    /// `--scope` — flatten of the shared [`ScopeFlag`] leaf.
+    #[command(flatten)]
+    pub scope: ScopeFlag,
 
     /// `--private` — flatten of the shared [`PrivateFlag`] leaf.
     #[command(flatten)]
@@ -601,10 +586,15 @@ pub(crate) fn plan_init(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     debug!(
         "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
-        args.target, args.name, args.account.account, args.repo, args.scope, args.private.private
+        args.target,
+        args.name,
+        args.account.account,
+        args.repo.repo,
+        args.scope.scope,
+        args.private.private
     );
 
-    let scope = match args.scope {
+    let scope = match args.scope.scope {
         ScopeKind::CodeBot => Scope(vec![Side::Code, Side::Bot]),
         ScopeKind::Por => Scope(vec![Side::Code]),
     };
@@ -619,7 +609,7 @@ pub(crate) fn plan_init(
         .into());
     }
 
-    if args.config.raw.is_some() && args.scope == ScopeKind::CodeBot {
+    if args.config.raw.is_some() && args.scope.scope == ScopeKind::CodeBot {
         return Err(
             "--config is only valid with --scope=por (dual-mode configs are per-side and unconditional)".into(),
         );
@@ -669,7 +659,7 @@ fn plan_from_url(
                 .into(),
         );
     }
-    if args.repo.is_some() {
+    if args.repo.repo.is_some() {
         return Err(
             "--repo is meaningless with a URL or owner/name TARGET (config not consulted)".into(),
         );
@@ -726,8 +716,11 @@ fn plan_from_path(
         .to_str()
         .ok_or("path TARGET is not valid UTF-8")?
         .to_string();
-    let (cat, val) =
-        config::resolve_repo(cfg, args.account.account.as_deref(), args.repo.as_ref())?;
+    let (cat, val) = config::resolve_repo(
+        cfg,
+        args.account.account.as_deref(),
+        args.repo.repo.as_ref(),
+    )?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
@@ -746,8 +739,11 @@ fn plan_from_bare_name(
     }
     let cwd = std::env::current_dir()?;
     let project_dir = cwd.join(&name);
-    let (cat, val) =
-        config::resolve_repo(cfg, args.account.account.as_deref(), args.repo.as_ref())?;
+    let (cat, val) = config::resolve_repo(
+        cfg,
+        args.account.account.as_deref(),
+        args.repo.repo.as_ref(),
+    )?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
@@ -1195,7 +1191,7 @@ pub(crate) fn init_with_symlink(
         return Ok(());
     }
 
-    match args.scope {
+    match args.scope.scope {
         ScopeKind::CodeBot => create_dual(args, &plan, templates, visibility, create_symlink),
         ScopeKind::Por => create_por(args, &plan, templates, visibility, create_symlink),
     }
@@ -1501,6 +1497,7 @@ fn split_slug(slug: &str) -> Result<(&str, &str), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::RepoSelector;
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -1518,8 +1515,8 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
         assert!(args.account.account.is_none());
-        assert!(args.repo.is_none());
-        assert_eq!(args.scope, ScopeKind::CodeBot);
+        assert!(args.repo.repo.is_none());
+        assert_eq!(args.scope.scope, ScopeKind::CodeBot);
         assert!(!args.private.private);
         assert!(!args.dry_run.dry_run);
         assert_eq!(args.push_retry.push_retries, 5);
@@ -1552,10 +1549,10 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
         assert_eq!(args.account.account.as_deref(), Some("work"));
-        let sel = args.repo.as_ref().expect("--repo set");
+        let sel = args.repo.repo.as_ref().expect("--repo set");
         assert_eq!(sel.category, "local");
         assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
-        assert_eq!(args.scope, ScopeKind::Por);
+        assert_eq!(args.scope.scope, ScopeKind::Por);
         assert!(args.private.private);
         assert!(args.dry_run.dry_run);
         assert_eq!(args.push_retry.push_retries, 10);
@@ -1842,7 +1839,7 @@ mod tests {
     #[test]
     fn repo_cat_only_parses() {
         let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote"]);
-        let sel = args.repo.expect("--repo set");
+        let sel = args.repo.repo.expect("--repo set");
         assert_eq!(sel.category, "remote");
         assert!(sel.value.is_none());
     }
@@ -1850,7 +1847,7 @@ mod tests {
     #[test]
     fn repo_cat_value_parses() {
         let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote=git@github.com:u"]);
-        let sel = args.repo.expect("--repo set");
+        let sel = args.repo.repo.expect("--repo set");
         assert_eq!(sel.category, "remote");
         assert_eq!(sel.value.as_deref(), Some("git@github.com:u"));
     }
@@ -1858,7 +1855,7 @@ mod tests {
     #[test]
     fn scope_short_flag_por() {
         let args = parse(&["vc-x1", "init", "tf1", "-s", "por"]);
-        assert_eq!(args.scope, ScopeKind::Por);
+        assert_eq!(args.scope.scope, ScopeKind::Por);
     }
 
     #[test]
@@ -1952,8 +1949,8 @@ mod tests {
             target: target.to_string(),
             name: None,
             account: AccountFlag::default(),
-            repo: None,
-            scope: ScopeKind::CodeBot,
+            repo: RepoFlag::default(),
+            scope: ScopeFlag::default(),
             private: PrivateFlag::default(),
             dry_run: DryRunFlag { dry_run: true },
             push_retry: PushRetryFlags::default(),
@@ -2100,7 +2097,7 @@ mod tests {
     #[test]
     fn plan_path_absolute_with_repo_local() {
         let mut args = args_for("/tmp/xyz/tf1");
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/xyz".into()),
         });
@@ -2126,7 +2123,7 @@ mod tests {
     #[test]
     fn plan_path_relative_with_repo_local() {
         let mut args = args_for("./tf1");
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/xyz".into()),
         });
@@ -2184,7 +2181,7 @@ mod tests {
         // --repo cat=val short-circuits resolve_repo; works even
         // with an empty config.
         let mut args = args_for("tf1");
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/explicit".into()),
         });
@@ -2201,8 +2198,8 @@ mod tests {
     #[test]
     fn plan_por_path_local_single_bare() {
         let mut args = args_for("/tmp/xyz/tf1");
-        args.scope = ScopeKind::Por;
-        args.repo = Some(RepoSelector {
+        args.scope.scope = ScopeKind::Por;
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/xyz".into()),
         });
@@ -2223,7 +2220,7 @@ mod tests {
     #[test]
     fn plan_por_url_no_session() {
         let mut args = args_for("git@github.com:winksaville/tf1");
-        args.scope = ScopeKind::Por;
+        args.scope.scope = ScopeKind::Por;
         let plan = plan_init(&args, &cfg_empty()).unwrap();
         assert!(plan.scope.is_code_only());
         assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
@@ -2253,7 +2250,7 @@ mod tests {
     #[test]
     fn error_url_target_with_repo() {
         let mut args = args_for("git@github.com:u/p");
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "remote".into(),
             value: Some("git@github.com:other".into()),
         });
@@ -2265,7 +2262,7 @@ mod tests {
     fn error_path_target_with_name() {
         let mut args = args_for("./tf1");
         args.name = Some("custom".into());
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/xyz".into()),
         });
@@ -2278,7 +2275,7 @@ mod tests {
     fn error_bare_name_target_with_name() {
         let mut args = args_for("tf1");
         args.name = Some("custom".into());
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "local".into(),
             value: Some("/tmp/xyz".into()),
         });
@@ -2299,7 +2296,7 @@ mod tests {
     #[test]
     fn error_unknown_category() {
         let mut args = args_for("tf1");
-        args.repo = Some(RepoSelector {
+        args.repo.repo = Some(RepoSelector {
             category: "weird".into(),
             value: Some("xyz".into()),
         });
@@ -2312,7 +2309,7 @@ mod tests {
         // --scope=por + --use-template foo,bar is ambiguous — bot
         // half has no home in a single-repo workspace.
         let mut args = args_for("git@github.com:u/p");
-        args.scope = ScopeKind::Por;
+        args.scope.scope = ScopeKind::Por;
         args.use_template.use_template = Some("/tmp/code,/tmp/bot".into());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(err.contains("--scope=por"), "got: {err}");
@@ -2452,7 +2449,7 @@ mod tests {
     #[test]
     fn config_rejected_with_scope_code_bot() {
         let mut args = args_for("./foo");
-        args.scope = ScopeKind::CodeBot;
+        args.scope.scope = ScopeKind::CodeBot;
         args.config.raw = Some("none".to_string());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(
@@ -2467,7 +2464,7 @@ mod tests {
     #[test]
     fn config_path_missing_rejected_at_preflight() {
         let mut args = args_for("./foo");
-        args.scope = ScopeKind::Por;
+        args.scope.scope = ScopeKind::Por;
         args.config.raw = Some("/nonexistent/path/to/config.toml".to_string());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(err.contains("does not exist"), "unexpected error: {err}");
@@ -2480,7 +2477,7 @@ mod tests {
     #[test]
     fn config_none_passes_preflight() {
         let mut args = args_for("git@github.com:foo/bar.git");
-        args.scope = ScopeKind::Por;
+        args.scope.scope = ScopeKind::Por;
         args.config.raw = Some("none".to_string());
         plan_init(&args, &cfg_empty())
             .expect("--config none with --scope=por should pass preflight");

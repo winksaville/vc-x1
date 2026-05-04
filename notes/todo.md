@@ -91,7 +91,7 @@ A bulleted list of the in-progress task's development "ladder":
       (done)
     - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
       parse_scope_kind / parse_repo_arg out of args.rs;
-      shrink/retire args.rs
+      retire args.rs (done)
     - (7) ProvisionCommon bundle (DryRunFlag + PushRetryFlags +
       PrivateFlag); init.rs swaps three flattens for one;
       cycle close-out

@@ -23,4 +23,6 @@ pub mod config;
 pub mod dry_run;
 pub mod private;
 pub mod push_retry;
+pub mod repo;
+pub mod scope;
 pub mod use_template;

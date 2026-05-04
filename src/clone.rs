@@ -21,8 +21,8 @@ use std::path::Path;
 use clap::Args;
 use log::info;
 
-use crate::args::{ScopeKind, parse_scope_kind};
 use crate::common::run;
+use crate::options_flags::scope::{ScopeKind, parse_scope_kind};
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 

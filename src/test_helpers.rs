@@ -15,7 +15,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::args::ScopeKind;
 use crate::common::write_file;
 use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
@@ -24,6 +23,8 @@ use crate::options_flags::config::ConfigFlag;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::private::PrivateFlag;
 use crate::options_flags::push_retry::PushRetryFlags;
+use crate::options_flags::repo::RepoFlag;
+use crate::options_flags::scope::{ScopeFlag, ScopeKind};
 use crate::options_flags::use_template::UseTemplateFlag;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
@@ -96,11 +97,15 @@ impl Fixture {
             target: work_path.to_string_lossy().into_owned(),
             name: None,
             account: AccountFlag::default(),
-            repo: Some(RepoSelector {
-                category: "local".to_string(),
-                value: Some(base.to_string_lossy().into_owned()),
-            }),
-            scope: ScopeKind::CodeBot,
+            repo: RepoFlag {
+                repo: Some(RepoSelector {
+                    category: "local".to_string(),
+                    value: Some(base.to_string_lossy().into_owned()),
+                }),
+            },
+            scope: ScopeFlag {
+                scope: ScopeKind::CodeBot,
+            },
             private: PrivateFlag::default(),
             dry_run: DryRunFlag::default(),
             push_retry: PushRetryFlags::default(),
@@ -184,11 +189,15 @@ impl FixturePor {
             target: work_path.to_string_lossy().into_owned(),
             name: None,
             account: AccountFlag::default(),
-            repo: Some(RepoSelector {
-                category: "local".to_string(),
-                value: Some(base.to_string_lossy().into_owned()),
-            }),
-            scope: ScopeKind::Por,
+            repo: RepoFlag {
+                repo: Some(RepoSelector {
+                    category: "local".to_string(),
+                    value: Some(base.to_string_lossy().into_owned()),
+                }),
+            },
+            scope: ScopeFlag {
+                scope: ScopeKind::Por,
+            },
             private: PrivateFlag::default(),
             dry_run: DryRunFlag::default(),
             push_retry: PushRetryFlags::default(),
