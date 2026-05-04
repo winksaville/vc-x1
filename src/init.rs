@@ -6,8 +6,7 @@ use log::{debug, info};
 use crate::config::{self, UserConfig};
 use crate::options_flags::account::AccountFlag;
 use crate::options_flags::config::{ConfigFlag, ConfigKind};
-use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::private::PrivateFlag;
+use crate::options_flags::provision_common::ProvisionCommon;
 use crate::options_flags::push_retry::PushRetryFlags;
 use crate::options_flags::repo::RepoFlag;
 use crate::options_flags::scope::{ScopeFlag, ScopeKind};
@@ -58,18 +57,11 @@ pub struct InitArgs {
     #[command(flatten)]
     pub scope: ScopeFlag,
 
-    /// `--private` — flatten of the shared [`PrivateFlag`] leaf.
+    /// `--dry-run` + `--private` + `--push-retries` /
+    /// `--push-retry-delay` — flatten of the shared
+    /// [`ProvisionCommon`] bundle.
     #[command(flatten)]
-    pub private: PrivateFlag,
-
-    /// `--dry-run` — flatten of the shared [`DryRunFlag`] leaf.
-    #[command(flatten)]
-    pub dry_run: DryRunFlag,
-
-    /// `--push-retries` + `--push-retry-delay` — flatten of
-    /// the shared [`PushRetryFlags`] leaf.
-    #[command(flatten)]
-    pub push_retry: PushRetryFlags,
+    pub provision: ProvisionCommon,
 
     /// `--use-template` — flatten of the shared
     /// [`UseTemplateFlag`] leaf.
@@ -591,7 +583,7 @@ pub(crate) fn plan_init(
         args.account.account,
         args.repo.repo,
         args.scope.scope,
-        args.private.private
+        args.provision.private.private
     );
 
     let scope = match args.scope.scope {
@@ -1080,13 +1072,13 @@ pub(crate) fn init_with_symlink(
         None => None,
     };
 
-    let visibility = if args.private.private {
+    let visibility = if args.provision.private.private {
         "--private"
     } else {
         "--public"
     };
 
-    if args.dry_run.dry_run {
+    if args.provision.dry_run.dry_run {
         info!("Dry run — would execute:");
         info!("  1. Create directories: {}", plan.project_dir.display());
         info!(
@@ -1479,7 +1471,7 @@ fn run_remote_step(
         "git",
         &["push", "-u", "origin", "main"],
         push_from,
-        &args.push_retry,
+        &args.provision.push_retry,
     )?;
     Ok(())
 }
@@ -1498,6 +1490,7 @@ fn split_slug(slug: &str) -> Result<(&str, &str), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use crate::config::RepoSelector;
+    use crate::options_flags::dry_run::DryRunFlag;
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -1517,10 +1510,10 @@ mod tests {
         assert!(args.account.account.is_none());
         assert!(args.repo.repo.is_none());
         assert_eq!(args.scope.scope, ScopeKind::CodeBot);
-        assert!(!args.private.private);
-        assert!(!args.dry_run.dry_run);
-        assert_eq!(args.push_retry.push_retries, 5);
-        assert_eq!(args.push_retry.push_retry_delay, 3);
+        assert!(!args.provision.private.private);
+        assert!(!args.provision.dry_run.dry_run);
+        assert_eq!(args.provision.push_retry.push_retries, 5);
+        assert_eq!(args.provision.push_retry.push_retry_delay, 3);
         assert!(args.use_template.use_template.is_none());
     }
 
@@ -1553,10 +1546,10 @@ mod tests {
         assert_eq!(sel.category, "local");
         assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
         assert_eq!(args.scope.scope, ScopeKind::Por);
-        assert!(args.private.private);
-        assert!(args.dry_run.dry_run);
-        assert_eq!(args.push_retry.push_retries, 10);
-        assert_eq!(args.push_retry.push_retry_delay, 5);
+        assert!(args.provision.private.private);
+        assert!(args.provision.dry_run.dry_run);
+        assert_eq!(args.provision.push_retry.push_retries, 10);
+        assert_eq!(args.provision.push_retry.push_retry_delay, 5);
         assert_eq!(args.use_template.use_template.as_deref(), Some("/tmp/tmpl"));
     }
 
@@ -1951,9 +1944,10 @@ mod tests {
             account: AccountFlag::default(),
             repo: RepoFlag::default(),
             scope: ScopeFlag::default(),
-            private: PrivateFlag::default(),
-            dry_run: DryRunFlag { dry_run: true },
-            push_retry: PushRetryFlags::default(),
+            provision: ProvisionCommon {
+                dry_run: DryRunFlag { dry_run: true },
+                ..Default::default()
+            },
             use_template: UseTemplateFlag::default(),
             config: ConfigFlag::default(),
         }

@@ -20,9 +20,7 @@ use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
 use crate::options_flags::account::AccountFlag;
 use crate::options_flags::config::ConfigFlag;
-use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::private::PrivateFlag;
-use crate::options_flags::push_retry::PushRetryFlags;
+use crate::options_flags::provision_common::ProvisionCommon;
 use crate::options_flags::repo::RepoFlag;
 use crate::options_flags::scope::{ScopeFlag, ScopeKind};
 use crate::options_flags::use_template::UseTemplateFlag;
@@ -106,9 +104,7 @@ impl Fixture {
             scope: ScopeFlag {
                 scope: ScopeKind::CodeBot,
             },
-            private: PrivateFlag::default(),
-            dry_run: DryRunFlag::default(),
-            push_retry: PushRetryFlags::default(),
+            provision: ProvisionCommon::default(),
             use_template: UseTemplateFlag { use_template },
             config: ConfigFlag::default(),
         };
@@ -198,9 +194,7 @@ impl FixturePor {
             scope: ScopeFlag {
                 scope: ScopeKind::Por,
             },
-            private: PrivateFlag::default(),
-            dry_run: DryRunFlag::default(),
-            push_retry: PushRetryFlags::default(),
+            provision: ProvisionCommon::default(),
             use_template: UseTemplateFlag::default(),
             config: ConfigFlag { raw: config },
         };

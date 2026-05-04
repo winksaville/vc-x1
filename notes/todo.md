@@ -92,9 +92,19 @@ A bulleted list of the in-progress task's development "ladder":
     - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
       parse_scope_kind / parse_repo_arg out of args.rs;
       retire args.rs (done)
-    - (7) ProvisionCommon bundle (DryRunFlag + PushRetryFlags +
-      PrivateFlag); init.rs swaps three flattens for one;
-      cycle close-out
+    - (7) ProvisionCommon bundle (DryRunFlag + PrivateFlag +
+      PushRetryFlags); init.rs swaps three flattens for one.
+      `FlagBundle` marker stays as-is (doc anchor, no methods).
+      (done)
+    - (8) Naming pass — split marker into `FlagBundle` (boolean) +
+      `OptionBundle` (value-bearing); rename today's `FlagParser`
+      → `OptionParser` (booleans need no parser, so no
+      `FlagParser`); rename the 6 value-bearing leaves
+      `*Flag → *Option` (`AccountOption`, `ConfigOption`,
+      `PushRetryOptions`, `RepoOption`, `ScopeOption`,
+      `UseTemplateOption`); `DryRunFlag` / `PrivateFlag` keep.
+    - close-out (squash + push) — fold notes/substep-style.md
+      into CLAUDE.md; drop the in-flight pointer.
   - -6.8 init_with_symlink rename + InitDualArgs/InitPorArgs
     split via #[command(flatten)] of common bundle (built in
     -6.7); provision_side(role, …) shared helper. CLI surface
@@ -114,6 +124,15 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
+1. Test-module extraction across oversized files. Convert
+   `src/init.rs` → `src/init/mod.rs` + `src/init/tests.rs`
+   (sibling-submodule pattern; tests still reach private
+   items via `use super::*;`). Same shape for `push.rs`
+   (785 test lines), `sync.rs` (673), `common.rs` (361,
+   borderline). Pure mechanical reshape, no behavior
+   change. One sub-step per file. Candidate cycle: 0.41.2
+   or its own. Splitting tests first makes a follow-on
+   DRY walk across init/push/sync easier to read.
 1. **Rebase note — CLAUDE.md `### Per-file review checkpoints`.**
    Both `main` (0.42.0 work) and `init-clone-refactor`
    (0.41.1) authored this subsection independently —
