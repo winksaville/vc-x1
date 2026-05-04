@@ -18,7 +18,9 @@ pub trait FlagParser {
     fn parse(s: &str) -> Result<Self::Value, String>;
 }
 
+pub mod account;
 pub mod config;
 pub mod dry_run;
 pub mod private;
 pub mod push_retry;
+pub mod use_template;

@@ -88,6 +88,7 @@ A bulleted list of the in-progress task's development "ladder":
       (establishes "multi-field leaf → &LeafType parameter"
       convention) (done)
     - (5) UseTemplateFlag + AccountFlag leaves; init.rs flatten
+      (done)
     - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
       parse_scope_kind / parse_repo_arg out of args.rs;
       shrink/retire args.rs

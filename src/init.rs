@@ -5,10 +5,12 @@ use log::{debug, info};
 
 use crate::args::{ScopeKind, parse_repo_arg, parse_scope_kind};
 use crate::config::{self, RepoSelector, UserConfig};
+use crate::options_flags::account::AccountFlag;
 use crate::options_flags::config::{ConfigFlag, ConfigKind};
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::private::PrivateFlag;
 use crate::options_flags::push_retry::PushRetryFlags;
+use crate::options_flags::use_template::UseTemplateFlag;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
@@ -39,14 +41,9 @@ pub struct InitArgs {
     #[arg(value_name = "NAME", verbatim_doc_comment)]
     pub name: Option<String>,
 
-    /// Account name — picks `[account.<a>]` from user config.
-    ///
-    /// - Without this flag, `[default].account` (or top-level
-    ///   `[repo]` shorthand) is used.
-    /// - Meaningful only with Path or bare-NAME targets — URL /
-    ///   owner/name targets supply the remote directly.
-    #[arg(long, value_name = "NAME", verbatim_doc_comment)]
-    pub account: Option<String>,
+    /// `--account` — flatten of the shared [`AccountFlag`] leaf.
+    #[command(flatten)]
+    pub account: AccountFlag,
 
     /// Repo target — `<cat>` or `<cat>=<val>`.
     ///
@@ -89,20 +86,10 @@ pub struct InitArgs {
     #[command(flatten)]
     pub push_retry: PushRetryFlags,
 
-    /// Seed repos from template directories.
-    ///
-    /// Value is `CODE[,BOT]`. Default bot path is `<CODE>.claude`
-    /// (file-name concat, not path join — templates are siblings).
-    ///
-    /// - With `--scope=por`: only `CODE` is used; passing `,BOT`
-    ///   is fatal (no session side to seed).
-    /// - Non-hidden contents copied recursively; hidden entries
-    ///   (names starting with `.`) are skipped — init writes its
-    ///   own hidden files.
-    /// - If a copied tree has a `README.md`, its first line is
-    ///   rewritten to `# <repo-name>`.
-    #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
-    pub use_template: Option<String>,
+    /// `--use-template` — flatten of the shared
+    /// [`UseTemplateFlag`] leaf.
+    #[command(flatten)]
+    pub use_template: UseTemplateFlag,
 
     /// `--config none|<path>` — flatten of the shared
     /// [`ConfigFlag`] leaf. Only meaningful with `--scope=por`;
@@ -614,7 +601,7 @@ pub(crate) fn plan_init(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     debug!(
         "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
-        args.target, args.name, args.account, args.repo, args.scope, args.private.private
+        args.target, args.name, args.account.account, args.repo, args.scope, args.private.private
     );
 
     let scope = match args.scope {
@@ -623,7 +610,7 @@ pub(crate) fn plan_init(
     };
 
     if scope.is_code_only()
-        && let Some(t) = &args.use_template
+        && let Some(t) = &args.use_template.use_template
         && t.contains(',')
     {
         return Err(format!(
@@ -676,7 +663,7 @@ fn plan_from_url(
     scope: Scope,
     url: String,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    if args.account.is_some() {
+    if args.account.account.is_some() {
         return Err(
             "--account is meaningless with a URL or owner/name TARGET (config not consulted)"
                 .into(),
@@ -739,7 +726,8 @@ fn plan_from_path(
         .to_str()
         .ok_or("path TARGET is not valid UTF-8")?
         .to_string();
-    let (cat, val) = config::resolve_repo(cfg, args.account.as_deref(), args.repo.as_ref())?;
+    let (cat, val) =
+        config::resolve_repo(cfg, args.account.account.as_deref(), args.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
@@ -758,7 +746,8 @@ fn plan_from_bare_name(
     }
     let cwd = std::env::current_dir()?;
     let project_dir = cwd.join(&name);
-    let (cat, val) = config::resolve_repo(cfg, args.account.as_deref(), args.repo.as_ref())?;
+    let (cat, val) =
+        config::resolve_repo(cfg, args.account.account.as_deref(), args.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
@@ -1081,7 +1070,7 @@ pub(crate) fn init_with_symlink(
         }
     }
 
-    let templates = match &args.use_template {
+    let templates = match &args.use_template.use_template {
         Some(s) => {
             let (code_t, bot_t) = parse_use_template(s)?;
             if is_dual {
@@ -1528,14 +1517,14 @@ mod tests {
         let args = parse(&["vc-x1", "init", "owner/repo"]);
         assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
-        assert!(args.account.is_none());
+        assert!(args.account.account.is_none());
         assert!(args.repo.is_none());
         assert_eq!(args.scope, ScopeKind::CodeBot);
         assert!(!args.private.private);
         assert!(!args.dry_run.dry_run);
         assert_eq!(args.push_retry.push_retries, 5);
         assert_eq!(args.push_retry.push_retry_delay, 3);
-        assert!(args.use_template.is_none());
+        assert!(args.use_template.use_template.is_none());
     }
 
     #[test]
@@ -1562,7 +1551,7 @@ mod tests {
         ]);
         assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
-        assert_eq!(args.account.as_deref(), Some("work"));
+        assert_eq!(args.account.account.as_deref(), Some("work"));
         let sel = args.repo.as_ref().expect("--repo set");
         assert_eq!(sel.category, "local");
         assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
@@ -1571,7 +1560,7 @@ mod tests {
         assert!(args.dry_run.dry_run);
         assert_eq!(args.push_retry.push_retries, 10);
         assert_eq!(args.push_retry.push_retry_delay, 5);
-        assert_eq!(args.use_template.as_deref(), Some("/tmp/tmpl"));
+        assert_eq!(args.use_template.use_template.as_deref(), Some("/tmp/tmpl"));
     }
 
     #[test]
@@ -1847,7 +1836,7 @@ mod tests {
     #[test]
     fn account_flag_parses() {
         let args = parse(&["vc-x1", "init", "tf1", "--account", "work"]);
-        assert_eq!(args.account.as_deref(), Some("work"));
+        assert_eq!(args.account.account.as_deref(), Some("work"));
     }
 
     #[test]
@@ -1962,13 +1951,13 @@ mod tests {
         InitArgs {
             target: target.to_string(),
             name: None,
-            account: None,
+            account: AccountFlag::default(),
             repo: None,
             scope: ScopeKind::CodeBot,
             private: PrivateFlag::default(),
             dry_run: DryRunFlag { dry_run: true },
             push_retry: PushRetryFlags::default(),
-            use_template: None,
+            use_template: UseTemplateFlag::default(),
             config: ConfigFlag::default(),
         }
     }
@@ -2184,7 +2173,7 @@ mod tests {
     #[test]
     fn plan_bare_name_account_override_picks_work() {
         let mut args = args_for("tf1");
-        args.account = Some("work".into());
+        args.account.account = Some("work".into());
         let plan = plan_init(&args, &cfg_two_accounts()).unwrap();
         assert_eq!(plan.code_url, "git@github.com:anthropic/tf1.git");
         assert_eq!(plan.gh_code_slug.as_deref(), Some("anthropic/tf1"));
@@ -2256,7 +2245,7 @@ mod tests {
     #[test]
     fn error_url_target_with_account() {
         let mut args = args_for("git@github.com:u/p");
-        args.account = Some("work".into());
+        args.account.account = Some("work".into());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(err.contains("--account is meaningless"), "got: {err}");
     }
@@ -2324,7 +2313,7 @@ mod tests {
         // half has no home in a single-repo workspace.
         let mut args = args_for("git@github.com:u/p");
         args.scope = ScopeKind::Por;
-        args.use_template = Some("/tmp/code,/tmp/bot".into());
+        args.use_template.use_template = Some("/tmp/code,/tmp/bot".into());
         let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
         assert!(err.contains("--scope=por"), "got: {err}");
         assert!(err.contains("single template path"), "got: {err}");
