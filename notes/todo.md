@@ -11,132 +11,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.41.1-0 plan + chores-08 + forks-multi-user + draft-reviews
-  + vc-x1-init forward (done) [72]
-- 0.41.1-1 shared repo_url module + clone/init migrate (done) [73]
-- 0.41.1-2 clone reshape: <TARGET> + [NAME] + --scope code,bot|por
-  (done) [73]
-- 0.41.1-3 user config: ~/.config/vc-x1/config.toml +
-  [default]/[github] (done) [74]
-- 0.41.1-4 user config rewrite: account/category schema + literal
-  values (done) [74]
-- 0.41.1-5 init reshape: drop old flags + <TARGET> + [NAME] +
-  --account + --repo (done) [73]
-- 0.41.1-6 init refactor + symmetric .vc-config.toml schema [75]
-  - -6.0 POR baseline integration tests + Fixture::new_por (done)
-  - -6.1 literal lift: extract init_one / init_dual from
-    init_with_symlink (done)
-  - -6.2 extract create_repo + module reshape (repo_url → url,
-    init_dual → create_dual) (done)
-  - -6.3 extract push_repo (steps 7-9) + rename create_repo →
-    create_local_repo (done)
-  - -6.4 CLI subprocess integration tests (true `vc-x1`
-    invocations) — add tests/ crate + harness (done)
-  - -6.5 extract cross_ref_ochids + eliminate init_one + extract
-    config-writing from create_local_repo + final create_dual
-    collapse (done)
-    - (1) drop config/gitignore params from create_local_repo;
-      add write_{por,code,session}_config helpers in init.rs
-      (done)
-    - (2) extract cross_ref_ochids into repo_utils.rs (step 6
-      placeholder rewrite) (done)
-    - (3) eliminate init_one — inline into init_with_symlink's
-      POR branch (done)
-    - (4) final create_dual collapse — drop stale step-N
-      comments, tighten doc (done)
-    - (5) fix: split create_local_repo into prepare_local_repo +
-      commit_initial so role-config lands in the initial commit
-      (regression from (1)) (done)
-  - -6.6 --config=none|<path> flag (POR) + create_por extraction
-    + new options_flags/ directory (done)
-    - (1) lift create_por + match dispatch on args.scope (done)
-    - (2) options_flags::config + ConfigKind/parse_config_kind
-      (Option A: caller-supplied default, infallible) (done)
-    - (3) wire --config into init + preflight + integration
-      tests (done)
-  - -6.7 options_flags refactor: each init OF (account, repo,
-    scope, private, dry_run, push_retry, use_template, config)
-    becomes a `#[derive(Args)]` leaf in `options_flags/`; bundles
-    compose leaves via `#[command(flatten)]`; consumers opt in
-    with one line per leaf or bundle. Pattern A (per-consumer
-    `#[arg]`) is the documented escape hatch when one consumer
-    needs unique help text. `FlagBundle`/`FlagParser` trait
-    markers added as documentation, not enforcement.
-    - (1) cycle setup: Cargo.toml 0.41.1-6.7 + (1)–(7) ladder
-      (done)
-    - (2) ConfigFlag leaf — wrap ConfigKind / parse_config_kind
-      in #[derive(Args)] struct with generic help text +
-      `resolve(default)` method; add FlagBundle (impl on
-      ConfigFlag) and FlagParser (#[expect(dead_code)] until
-      first impl in (6)) to options_flags/mod.rs; extract
-      leaf/bundle/Pattern-A architecture into
-      options_flags/README.md (per-OF docs deferred unless
-      earned; flat layout now, expects to graduate to (C) =
-      `<name>/mod.rs` + `<name>/README.md` per-OF subdirs
-      when init's OFs are done); init.rs flattens ConfigFlag
-      (generic leaf help — --scope=por constraint surfaces in
-      preflight error; Pattern A demonstration deferred to
-      future cycle) (done)
-    - (3) DryRunFlag + PrivateFlag leaves; init.rs flatten;
-      clone.rs / push.rs migration deferred (their existing
-      `pub dry_run: bool` fields stay independent for now —
-      cycle scope is init only) (done)
-    - (4) PushRetryFlags leaf (push_retries + push_retry_delay);
-      init.rs flatten; manual Default impl mirrors clap's
-      flag defaults so fixtures can use `::default()`;
-      run_retry refactored to take `&PushRetryFlags`
-      (establishes "multi-field leaf → &LeafType parameter"
-      convention) (done)
-    - (5) UseTemplateFlag + AccountFlag leaves; init.rs flatten
-      (done)
-    - (6) ScopeFlag + RepoFlag leaves — move ScopeKind /
-      parse_scope_kind / parse_repo_arg out of args.rs;
-      retire args.rs (done)
-    - (7) ProvisionCommon bundle (DryRunFlag + PrivateFlag +
-      PushRetryFlags); init.rs swaps three flattens for one.
-      `FlagBundle` marker stays as-is (doc anchor, no methods).
-      (done)
-    - (8) Naming pass per domain (boolean = Flag, non-boolean =
-      Option). Markers split into three: `FlagBundle` (pure
-      boolean), `OptionBundle` (pure non-boolean), `OptionFlagBundle`
-      (mixed). Parser traits split: `FlagParser` (boolean domain;
-      conditional — only when leaf has explicit parsing logic) +
-      `OptionParser` (non-boolean domain; conditional). Today's
-      `FlagParser` (which actually parses non-boolean values)
-      becomes `OptionParser`. Rename the 6 value-bearing leaves
-      `*Flag → *Option` (`AccountOption`, `ConfigOption`,
-      `PushRetryOptions`, `RepoOption`, `ScopeOption`,
-      `UseTemplateOption`); `DryRunFlag` / `PrivateFlag` keep.
-      `ProvisionCommon` → `ProvisionOptionFlagBundle`. README:
-      domain-not-syntax classification, conditional parser
-      contracts, leaf-category-shift requires marker swap.
-      (done)
-    - close-out (no squash — sub-sub-steps land separately as
-      decomposition is informative): fold
-      notes/substep-style.md into CLAUDE.md; drop the in-flight
-      pointer; chores-08.md > -6.7 ToC of the 8 sub-sub-step
-      commits; Cargo.toml drops -N suffix; push 9 commits at
-      cycle end. (done)
-  - -6.8 collapse `init` + `init_with_symlink` into a single
-    `pub fn init(args, create_symlink)` — drop the 1-line
-    wrapper and the `init_with_symlink` name; update main.rs
-    (passes `true`), test_helpers.rs (passes `false`), and
-    stale doc refs. Test-only `create_symlink` toggle stays a
-    function parameter rather than moving into `InitArgs`
-    (test concern, not a CLI knob). (done)
-  - -6.9 init dual|por split via #[command(flatten)] of common
-    bundle (built in -6.7) + provision_side(role, …) shared
-    helper. CLI surface decision (subcommands `init dual|por`
-    vs preserved `--scope` flag with manual two-pass parse)
-    deferred to -6.9 design time. May or may not happen — the
-    -6.8 conversation left this open; revisit at -6.9 design.
-- 0.41.1-7 test_helpers::Fixture migration + downstream
-  callers [73]; folds in `Fixture` → `TestFixtureDual` /
-  `FixturePor` → `TestFixturePor` rename so call sites
-  carry the test-only signal that `#[cfg(test)] mod
-  test_helpers` doesn't communicate (decided during -6.8
-  review).
-- 0.41.1 close-out [72]
+_(empty — 0.41.1 closed out; deferred items moved to ## Todo)_
 
 ## Todo
 
@@ -165,6 +40,26 @@ renumbering. Reference by displayed number ("let's work on #3").
    take either side wholesale, reconcile to preserve the
    best of both. Likely conflict surface is the bullet
    list under "How to apply".
+1. **Symmetric `.vc-config.toml` schema.** Add `code = "/"`
+   and `bot = "/.claude"` (workspace-root-relative paths) so
+   both repos read from the same shape. Side detection walks
+   up from cwd via existing `find_workspace_root`, then maps
+   cwd-relative-to-root onto the configured `code` / `bot`
+   paths. Cwd-basename match is a fast-path shortcut at
+   role-root level only — subdirs need the walk-up. Was the
+   deferred half of `0.41.1-6`'s title. Migration story for
+   existing workspaces TBD at design time. [75]
+1. **`test_helpers::Fixture` migration + downstream callers.**
+   Plus rename `Fixture` → `TestFixtureDual` and `FixturePor`
+   → `TestFixturePor` so call sites carry the test-only
+   signal that `#[cfg(test)] mod test_helpers` doesn't
+   communicate. Was `0.41.1-7`. [73]
+1. **init dual|por arg split.** Via `#[command(flatten)]` of
+   `ProvisionOptionFlagBundle` (built in -6.7) +
+   `provision_side(role, …)` shared helper. CLI surface
+   decision (subcommands `init dual|por` vs preserved
+   `--scope` flag with manual two-pass parse) deferred to
+   design time. Was `0.41.1-6.9`; may or may not happen.
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Lands in the 0.42.0 cycle alongside the sum-type
    refactor; state machine becomes scope-aware (single-
@@ -329,6 +224,14 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
 - Scope continuation: capture --scope sum-type vocabulary (0.41.0-4) [71]
 - Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
+- Init+clone redesign: chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (0.41.1-0) [72]
+- Init+clone redesign: shared repo_url module + clone/init migrate (0.41.1-1) [73]
+- Init+clone redesign: clone reshape — TARGET + NAME + --scope=code,bot|por (0.41.1-2) [73]
+- Init+clone redesign: user config — ~/.config/vc-x1/config.toml (0.41.1-3) [74]
+- Init+clone redesign: user config rewrite — account/category schema (0.41.1-4) [74]
+- Init+clone redesign: init reshape — TARGET + NAME + --account + --repo (0.41.1-5) [73]
+- Init+clone redesign: init refactor — substep ladder -6.0 through -6.8 (0.41.1-6) [75]
+- Init+clone redesign: cycle close-out — symmetric schema + Fixture migration + dual|por split deferred (0.41.1) [72]
 
 # References
 

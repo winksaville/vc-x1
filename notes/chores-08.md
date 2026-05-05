@@ -1500,6 +1500,64 @@ Independent question from the symlink toggle. Parked to
   branches. App-side keeps feature branches; `.claude` stays
   on `main`.
 
+### Cycle close-out (0.41.1)
+
+`0.41.1` ships the init + clone redesign — `<TARGET> [NAME]
++ --scope` shape across both subcommands, user-config (account
+/ repo / scope / push-retry / use-template / config flags
+lifted into `options_flags/`), `Provisioner` trichotomy
+(`GhCreate` / `LocalBareInit` / `ExternalPreExisting`), and
+the init refactor with extracted `prepare_local_repo` /
+`commit_initial` / `cross_ref_ochids` / `push_repo` helpers.
+The init function shape stabilized at `pub fn init(args,
+create_symlink)` in `-6.8`.
+
+**Deferred to follow-on cycles** (moved to `notes/todo.md` >
+`## Todo`):
+
+- **Symmetric `.vc-config.toml` schema** — the second half of
+  `0.41.1-6`'s original title. Direction sketched:
+  workspace-root-relative `code = "/"` and `bot = "/.claude"`
+  entries readable from either repo, with side detection
+  walking up to find workspace root via `find_workspace_root`
+  then mapping cwd-relative-to-root onto the configured
+  paths. Real design + implementation work, not a close-out
+  tidy-up; deferred so the close-out doesn't become a
+  squeezed-in redesign.
+- **`test_helpers::Fixture` migration + downstream callers**
+  (was `0.41.1-7`) — folds in `Fixture` →
+  `TestFixtureDual` / `FixturePor` → `TestFixturePor`
+  rename. Mechanical and doesn't depend on this branch's
+  context, so safe to defer past the merge.
+- **init dual|por arg split** (was `0.41.1-6.9`) — via
+  `#[command(flatten)]` of `ProvisionOptionFlagBundle` +
+  `provision_side(role, …)` shared helper. Parked as
+  "may or may not happen"; the `-6.8` discussion identified
+  this as orthogonal to the init function-shape work. Revisit
+  at design time if/when CLI rework warrants it.
+
+**Cycle shape on close-out.** Top-level steps `-0` through
+`-6` shipped; the `-6` step itself decomposed into nine
+sub-substeps (`-6.0` through `-6.8`) plus an inner `-6.7`
+close-out commit that kept its own eight sub-sub-step
+commits separate (decomposition was informative for the OF
+refactor). The 0.41.1 close-out is a single commit on top
+of that chain; whether to squash any of the underlying
+0.41.1 commits at merge time is a separate decision (see
+"Next").
+
+**Next.** Rebase `main` (carrying 0.42.0-0 through
+0.42.0-4.6) onto `init-clone-refactor`, so 0.41.1 lands
+first on `main` and 0.42.0's commits replay on top — the
+direction the rebase note in `notes/todo.md` calls for
+("0.42.0 rebases on top of 0.41.1 at close-out"). Conflict
+surface is identified in
+`notes/init-clone-refactor-conflict.md`; key overlap files
+are `src/init.rs`, `src/scope.rs`, `src/sync.rs`,
+`CLAUDE.md`, and `notes/todo.md`. Squash strategy and
+pre-resolution of the docs conflicts (CLAUDE.md, todo.md)
+to be decided before the rebase actually runs.
+
 # References
 
 [1]: forks-multi-user.md
