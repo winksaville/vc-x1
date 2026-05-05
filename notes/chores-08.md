@@ -1347,7 +1347,40 @@ Sub-sub-step ladder (1)–(8) lifts every init OF into
 `src/options_flags/`, introduces the leaf / bundle / Pattern-A
 composition patterns, and locks the Flag/Option taxonomy by
 value-domain. Full per-substep edit lists live in commit
-bodies; this section captures durable decisions and watch-items.
+bodies; this section captures the close-out shape, the
+sub-sub-step ToC, and durable decisions / watch-items.
+
+#### Close-out shape — separate commits, no mid-cycle squash
+
+Wink and the bot chose at close-out to **keep the 8
+sub-sub-step commits separate** rather than squash them into
+one `-6.7` commit (the prior pattern for `-6.0` through
+`-6.6`). Reasoning: the decomposition is itself an artifact —
+readers see leaf → bundle → naming progression; bisect lands
+on a specific stage; commit bodies double as design history.
+Squashing erases that.
+
+This sets a precedent: future steps may land as N commits when
+the decomposition is informative. The default for focused
+single-direction work is still one commit per step.
+
+The close-out commit at version `0.41.1-6.7` (no `-N` suffix)
+is itself a 9th commit holding the docs fold (substep-style →
+CLAUDE.md), in-flight pointer drop, this section, and todo.md
+flips. Total app-side: 9 commits for `-6.7`.
+
+#### Sub-sub-step ToC
+
+| commit | scope |
+|---|---|
+| `0.41.1-6.7-1` | cycle setup — Cargo bump + (1)–(7) ladder in todo.md |
+| `0.41.1-6.7-2` | `ConfigFlag` leaf + leaf/bundle/Pattern-A README; `FlagBundle` + `FlagParser` markers; init flattens `ConfigFlag` |
+| `0.41.1-6.7-3` | `DryRunFlag` + `PrivateFlag` leaves; init flatten |
+| `0.41.1-6.7-4` | `PushRetryFlags` leaf; `run_retry` takes `&PushRetryFlags`; multi-field-leaf-as-ref convention |
+| `0.41.1-6.7-5` | `UseTemplateFlag` + `AccountFlag` leaves; init flatten; substep-style.md authored |
+| `0.41.1-6.7-6` | `ScopeFlag` + `RepoFlag` leaves; `args.rs` retired |
+| `0.41.1-6.7-7` | `ProvisionCommon` bundle (DryRun + Private + PushRetry) — first OF bundle |
+| `0.41.1-6.7-8` | Flag/Option naming pass — three Bundle markers + two Parser contracts; rename 6 leaves `*Flag → *Option`; `ProvisionCommon → ProvisionOptionFlagBundle` |
 
 #### Naming watch — `ProvisionOptionFlagBundle`
 
@@ -1396,8 +1429,24 @@ guessing."
 - **Branch fork mechanics.** Code-side `init-clone-refactor`
   bookmark created at `6747a27`; bot-side partner bookmark
   at current `.claude` `main`. Main left alone as recovery
-  anchor. See [`forks-multi-user.md`](forks-multi-user.md)
-  for the full discussion.
+  anchor (code side). See
+  [`forks-multi-user.md`](forks-multi-user.md) for the full
+  discussion.
+
+  **Correction at close-out (0.41.1-6.7):** the bot-side
+  partner bookmark turned out to be unused — `.claude` is a
+  linear journal that only needs `main`, and all 8
+  sub-sub-step `.claude` commits + the close-out landed on
+  `.claude main` regardless of the partner bookmark's
+  position. The partner bookmark misled the bot during
+  close-out push (it pushed app-side `main` instead of
+  `init-clone-refactor` because the convention that "the
+  bookmark to push is `main`" was carried over from
+  single-branch projects). The convention is now codified in
+  `CLAUDE.md > ## Sub-step Workflow > .claude cadence`:
+  `.claude` does not maintain partner bookmarks for app-side
+  branches. App-side keeps feature branches; `.claude` stays
+  on `main`.
 
 # References
 

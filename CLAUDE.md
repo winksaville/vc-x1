@@ -1,9 +1,5 @@
 # CLAUDE.md - Bot Instructions
 
-> **Sub-step workflow (in flight on `init-clone-refactor`)**:
-> see [notes/substep-style.md](notes/substep-style.md). Folds
-> into this file at `0.41.1-6.7` close-out / merge-back.
-
 ## Project Structure
 
 This project uses **two separate jj-git repos**:
@@ -196,6 +192,13 @@ state instead of inspecting each step in isolation.
   explicitly asks.
 - In addition to (not replacement for) the
   Review-before-commit-block rule above.
+- **Sub-step exception:** within a multi-step cycle's
+  sub-step (or sub-sub-step) ladder, the per-step checkpoints
+  defer to the commit-first review model — see
+  [Sub-step Workflow > Commit-first review model](#commit-first-review-model).
+  Sub-step commits land as the bot finishes them; user reviews
+  the committed revision in their editor. The cycle-level
+  push at close-out keeps the two-gate ceremony.
 
 ### Notes references
 
@@ -259,6 +262,12 @@ The final release commit (no suffix) signals completion rather than
 amending prior commits. This keeps history readable and makes it easy
 to see which commits were exploratory vs final.
 
+For decomposition finer than `X.Y.Z-N` — sub-steps (`X.Y.Z-N.M`)
+or sub-sub-steps (`X.Y.Z-N.M-K`) — see
+[Sub-step Workflow](#sub-step-workflow). The cycle close-out
+choice (squash to one commit vs land each sub-step separately)
+is made at close-out, not cycle start.
+
 ### Chores section headers
 
 Chores section headers use trailing version format:
@@ -292,6 +301,186 @@ Before proposing a commit, run all of the following and fix any issues:
 8. Update `notes/chores-*.md` — add a subsection describing the change
 9. Update `notes/README.md` — if functionality changed (new flags,
    new subcommands, changed behavior)
+
+## Sub-step Workflow
+
+Larger work decomposes into named depths. The version-suffix
+scheme nests:
+
+- **Single step** — one change, one commit + push + finalize.
+- **Multi-step** — planned series within a target bump:
+  `0.5.0 → 0.6.0-0`, `0.6.0-0 → 0.6.0-1`, …, `0.6.0-N → 0.6.0`.
+- **Sub-step** — finer granularity within a step:
+  `0.6.0-3.1 → 0.6.0-3.2 → … → 0.6.0-3` (close-out).
+- **Sub-sub-step** — finer still:
+  `0.6.0-3.4-0 → 0.6.0-3.4-1 → … → 0.6.0-3.4` (close-out).
+
+The conventions below apply at **whichever leaf depth the
+current cycle planned to** — sub-step, sub-sub-step, etc.
+"Sub-step" reads as shorthand for that leaf level throughout
+this section.
+
+### Version suffix in titles and Cargo.toml
+
+Sub-step commits carry the leaf-level version in commit titles
+**and** `Cargo.toml`. So `vc-x1 -V` shows the active sub-step
+at build time. Bump Cargo.toml at the start of each sub-step
+(extends the existing `X.Y.Z-N` step-start bump rule down a
+level).
+
+Cargo accepts arbitrary numeric segments in semver pre-release
+identifiers; lexical comparison gives the expected ordering
+(`0.6.0-3.4-1 < 0.6.0-3.4-2 < 0.6.0-3.4`).
+
+### todo.md status flips
+
+Markers in `notes/todo.md > ## In Progress` flip on a defined
+cadence:
+
+- **Start of (M):** mark (M) `(current)` as the first edit.
+- **End of (M):** flip (M) `(current)` → `(done)` **before**
+  the cargo cycle and commit. The commit captures the
+  completed state.
+- **Start of (M+1):** mark (M+1) `(current)` as that
+  sub-step's first edit.
+
+Each sub-step's commit carries the "this sub-step is done"
+record; the next sub-step's commit carries "next sub-step
+starts."
+
+### Pre-commit cargo cycle (per sub-step)
+
+Run before every sub-step commit (not just at cycle close-out):
+
+1. `cargo fmt`
+2. `cargo clippy --all-targets -- -D warnings`
+3. `cargo test`
+4. `cargo install --path . --locked`
+5. (re-test if anything substantive)
+
+Keeps every intermediate commit buildable so bisection works
+across the cycle's stack.
+
+### Commit-first review model
+
+Per sub-step:
+
+1. Make the sub-step changes.
+2. Run the cargo cycle.
+3. **Commit immediately** (both repos with ochid trailers, no
+   separate approval gate at sub-step granularity).
+4. Summarize the commit briefly in chat.
+5. User reviews the committed revision in their editor (full
+   file context, not chat-pasted diffs).
+6. User iterates if needed; bot squashes follow-ups into the
+   sub-step commit via `jj squash --into @-` (and
+   `jj describe @-` if the title needs to change).
+7. User signals "go to (M+1)" to advance.
+
+This **replaces** the per-sub-step review pause that the
+top-level `### Review before proposing the commit block` and
+`### Per-file review checkpoints` rules would otherwise
+impose. Local jj commits are mutable until close-out, so
+committing freely is safe.
+
+The two-gate ceremony (review + message approval) is preserved
+for the **cycle-level push** at close-out — that crosses the
+local→remote boundary and warrants explicit approval.
+
+### Ochid trailers on sub-step commits
+
+Sub-step commits include ochid trailers paired across the two
+repos (same shape as top-level cycle commits):
+
+- App body: `ochid: /.claude/<.claude-chid>`
+- `.claude` body: `ochid: /<app-chid>`
+
+Use `vc-x1 chid -R .,.claude -L` to capture both pre-commit
+change IDs (first line app, second `.claude`).
+
+### `.claude` cadence
+
+`.claude` commits **per sub-step alongside the app repo**.
+Each sub-step's `.claude` commit captures the session state at
+that moment.
+
+Alternative considered (`.claude` accumulates across the cycle
+and commits once at close-out) was rejected — keeping the
+per-sub-step pairing preserves flexibility (any sub-step can
+be promoted to its own push without restructuring).
+
+**`.claude` is a linear journal — all session work lives on
+`main`.** The repo has no need for parallel feature-branch
+bookmarks to mirror app-side branches. When the app sits on
+e.g. `init-clone-refactor`, `.claude` still commits to `main`.
+Cross-references between sides are carried by the `ochid:`
+trailer + commit timestamps; that's enough to associate
+session activity with whichever app-side branch the cycle was
+on.
+
+**Do not create or maintain `.claude` bookmarks that mirror
+app-side branches.** This was tried once during 0.41.1-6.7 on
+the impression that an app-side fork needed a `.claude`
+partner; the partner bookmark went unused for the cycle and
+the work landed on `.claude main` regardless. Keeping such
+bookmarks risks the bot misreading them as "this branch needs
+to advance" and steering session pushes to the wrong remote
+ref.
+
+### Cycle close-out — squash or keep separate?
+
+Two valid shapes for landing the sub-step stack on `main`:
+
+- **Squash to one cycle commit** (default; matches the prior
+  `0.41.1-6.0`–`-6.6` pattern). Single entry on `main`;
+  sub-step granularity preserved only in the commit body's
+  edit list. Right when the work is one logical change with
+  intermediate validation points.
+- **Keep separate (N + 1 commits)** when the decomposition is
+  itself informative (different conceptual stages, design
+  progression worth showing in `git log`). Used on
+  `0.41.1-6.7` (8 sub-sub-step commits + 1 close-out commit).
+
+Pick at close-out, not at cycle start. Default is squash;
+deviate when the artifact is the decomposition.
+
+### Reviewing committed sub-steps
+
+The commit-first model assumes the reviewer can read the diff
+of an already-committed revision. Don't `jj edit -r @-` back
+into a past commit to view it — that marks the commit mutable,
+shifts the WC pointer, forces a `jj new -r <head>` recovery.
+Use one of:
+
+**Terminal (always works):**
+
+```
+jj diff -r @-                  # diff of previous commit
+jj diff --from <X> --to <Y>    # diff between two arbitrary revs
+jj show -r <X>                 # description + diff for one rev
+jj log -r @-..@                # what's between two points
+```
+
+Pipe through `delta` / `diff-so-fancy | less -R` for color and
+side-by-side.
+
+**External diff tool** — configure jj to launch your editor:
+
+```
+# ~/.config/jj/config.toml
+[ui]
+diff-editor = ["zed", "--diff", "$left", "$right"]
+```
+
+Then `jj diff -r @-` opens the configured tool. Works for
+arbitrary `--from`/`--to` ranges.
+
+**VS Code** — Source Control panel → Commit Graph →
+right-click commit A → "Copy Commit ID" → right-click commit
+B → "Compare with…" → paste / pick A. Two-commit diff opens
+with the changed-files list. GitLens extension adds richer
+"Open Comparison" actions; `Git: Compare with…` in the
+Command Palette is a fallback.
 
 ## Code Conventions
 
@@ -410,15 +599,33 @@ they happen rather than being batched until the end.
 
 ### Run `vc-x1 push`
 
+`<bookmark>` below is the **app-side working branch** — the
+bookmark sitting at the tip of the chain `vc-x1 push` should
+advance and push. For most cycles this is `main`; for
+feature-branch work it's the feature-branch name (e.g.
+`init-clone-refactor`). Pass the literal name, not the
+placeholder. **`.claude` always pushes its `main`** regardless
+of the app-side bookmark passed (see
+[`.claude` cadence](#claude-cadence) — `.claude` is a linear
+journal).
+
 ```
-vc-x1 push main                                      # interactive (review + $EDITOR)
-vc-x1 push main --title "..." --body "..."           # flags skip $EDITOR
-vc-x1 push main --yes --title "..." --body "..."     # full non-interactive
-vc-x1 push main --dry-run                            # preview (no side effects)
-vc-x1 push main --from commit-app                    # resume from specific stage
-vc-x1 push --status                                  # show saved state
-vc-x1 push main --restart                            # clear saved state; start fresh
+vc-x1 push <bookmark>                                  # interactive (review + $EDITOR)
+vc-x1 push <bookmark> --title "..." --body "..."       # flags skip $EDITOR
+vc-x1 push <bookmark> --yes --title "..." --body "..." # full non-interactive
+vc-x1 push <bookmark> --dry-run                        # preview (no side effects)
+vc-x1 push <bookmark> --from commit-app                # resume from specific stage
+vc-x1 push --status                                    # show saved state
+vc-x1 push <bookmark> --restart                        # clear saved state; start fresh
 ```
+
+**Bookmark mismatch is currently silent.** `vc-x1 push`
+doesn't verify that `<bookmark>` matches the working-copy
+chain — passing a bookmark whose tip isn't an ancestor of `@`
+will (silently) push that bookmark anyway, leaving your work
+unpushed. Always confirm `jj log -r <bookmark>..@` shows the
+commits you mean to send. A safety check is on the 0.42.0
+todo (`vc-x1 push: --scope` flag item).
 
 The two approval gates are surfaced by push itself:
 

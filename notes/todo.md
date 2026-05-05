@@ -111,8 +111,12 @@ A bulleted list of the in-progress task's development "ladder":
       domain-not-syntax classification, conditional parser
       contracts, leaf-category-shift requires marker swap.
       (done)
-    - close-out (squash + push) — fold notes/substep-style.md
-      into CLAUDE.md; drop the in-flight pointer.
+    - close-out (no squash — sub-sub-steps land separately as
+      decomposition is informative): fold
+      notes/substep-style.md into CLAUDE.md; drop the in-flight
+      pointer; chores-08.md > -6.7 ToC of the 8 sub-sub-step
+      commits; Cargo.toml drops -N suffix; push 9 commits at
+      cycle end. (done)
   - -6.8 init_with_symlink rename + InitDualArgs/InitPorArgs
     split via #[command(flatten)] of common bundle (built in
     -6.7); provision_side(role, …) shared helper. CLI surface

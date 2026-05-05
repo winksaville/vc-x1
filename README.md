@@ -800,17 +800,33 @@ the `find` recipe above, or just `rm -rf` the announced paths.
 ## Contributing
 
 Bot-following workflow, commit conventions, and code style are
-canonical in [CLAUDE.md](CLAUDE.md):
+canonical in [CLAUDE.md](CLAUDE.md). Roughly in the order a
+contributor encounters them:
 
-- [Versioning during development](CLAUDE.md#versioning) — `-N`
-  pre-release suffix convention (single-step vs multi-step).
-- [Commit message style](CLAUDE.md#commit-message-style).
+- [Versioning](CLAUDE.md#versioning) — `-N` pre-release suffix
+  convention (single-step vs multi-step); cross-links to
+  Sub-step Workflow for finer depths.
+- [Sub-step Workflow](CLAUDE.md#sub-step-workflow) — sub-step
+  (`X.Y.Z-N.M`) / sub-sub-step (`X.Y.Z-N.M-K`) decomposition,
+  per-sub-step cargo cycle, commit-first review model, ochid
+  + `.claude` cadence, cycle close-out (squash vs keep
+  separate), reviewing committed sub-steps.
+- [Pre-commit Requirements](CLAUDE.md#pre-commit-requirements) —
+  user approval gates, review-before-commit-block, per-file
+  review checkpoints (with sub-step exception).
+- [Pre-commit checklist](CLAUDE.md#pre-commit-checklist) — fmt
+  / clippy / test / install + todo / chores / README updates.
+- [Commit Message Style](CLAUDE.md#commit-message-style) —
+  Conventional Commits + `(version)` suffix; body shape per
+  app vs `.claude` repo.
+- [ochid Trailers](CLAUDE.md#ochid-trailers) — paired
+  cross-references between app and `.claude` commits.
 - [Commit-Push-Finalize Flow](CLAUDE.md#commit-push-finalize-flow) —
-  two-checkpoint per-step discipline.
-- [Code Conventions](CLAUDE.md#code-conventions) — doc comments on
-  every file / fn / method, `// OK: …` on `unwrap*` calls,
+  `vc-x1 push` two-gate ceremony (review + message), preflight,
+  finalize-claude.
+- [Code Conventions](CLAUDE.md#code-conventions) — doc comments
+  on every file / fn / method, `// OK: …` on `unwrap*` calls,
   ask-on-ambiguity, stuck detection.
-- [Pre-commit checklist](CLAUDE.md#pre-commit-checklist).
 
 Task tracking and release details live under [notes/](notes/):
 near-term tasks in [notes/todo.md](notes/todo.md), per-release
