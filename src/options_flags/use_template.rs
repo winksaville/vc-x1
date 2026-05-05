@@ -3,10 +3,10 @@
 
 use clap::Args;
 
-/// `--use-template` leaf — see
+/// `--use-template` leaf (Option — non-boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
-pub struct UseTemplateFlag {
+pub struct UseTemplateOption {
     /// Seed repos from template directories.
     ///
     /// Value is `CODE[,BOT]`. Default bot path is `<CODE>.claude`
@@ -22,5 +22,3 @@ pub struct UseTemplateFlag {
     #[arg(long, value_name = "CODE[,BOT]", verbatim_doc_comment)]
     pub use_template: Option<String>,
 }
-
-impl super::FlagBundle for UseTemplateFlag {}

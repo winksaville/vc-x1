@@ -96,13 +96,21 @@ A bulleted list of the in-progress task's development "ladder":
       PushRetryFlags); init.rs swaps three flattens for one.
       `FlagBundle` marker stays as-is (doc anchor, no methods).
       (done)
-    - (8) Naming pass — split marker into `FlagBundle` (boolean) +
-      `OptionBundle` (value-bearing); rename today's `FlagParser`
-      → `OptionParser` (booleans need no parser, so no
-      `FlagParser`); rename the 6 value-bearing leaves
+    - (8) Naming pass per domain (boolean = Flag, non-boolean =
+      Option). Markers split into three: `FlagBundle` (pure
+      boolean), `OptionBundle` (pure non-boolean), `OptionFlagBundle`
+      (mixed). Parser traits split: `FlagParser` (boolean domain;
+      conditional — only when leaf has explicit parsing logic) +
+      `OptionParser` (non-boolean domain; conditional). Today's
+      `FlagParser` (which actually parses non-boolean values)
+      becomes `OptionParser`. Rename the 6 value-bearing leaves
       `*Flag → *Option` (`AccountOption`, `ConfigOption`,
       `PushRetryOptions`, `RepoOption`, `ScopeOption`,
       `UseTemplateOption`); `DryRunFlag` / `PrivateFlag` keep.
+      `ProvisionCommon` → `ProvisionOptionFlagBundle`. README:
+      domain-not-syntax classification, conditional parser
+      contracts, leaf-category-shift requires marker swap.
+      (done)
     - close-out (squash + push) — fold notes/substep-style.md
       into CLAUDE.md; drop the in-flight pointer.
   - -6.8 init_with_symlink rename + InitDualArgs/InitPorArgs

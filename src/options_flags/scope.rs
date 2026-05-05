@@ -36,12 +36,12 @@ pub fn parse_scope_kind(s: &str) -> Result<ScopeKind, String> {
     }
 }
 
-/// `FlagParser` impl for `--scope`. Documentation-level —
-/// consumers can use either `parse_scope_kind` directly or
-/// `ScopeParser::parse`.
+/// `OptionParser` impl for `--scope` (non-boolean domain).
+/// Documentation-level — consumers can use either
+/// `parse_scope_kind` directly or `ScopeParser::parse`.
 pub struct ScopeParser;
 
-impl super::FlagParser for ScopeParser {
+impl super::OptionParser for ScopeParser {
     type Value = ScopeKind;
 
     fn parse(s: &str) -> Result<Self::Value, String> {
@@ -49,10 +49,10 @@ impl super::FlagParser for ScopeParser {
     }
 }
 
-/// `--scope` leaf — see
+/// `--scope` leaf (Option — non-boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
-pub struct ScopeFlag {
+pub struct ScopeOption {
     /// Scope — `code,bot` (dual, default) or `por` (single).
     #[arg(
         long,
@@ -64,8 +64,6 @@ pub struct ScopeFlag {
     )]
     pub scope: ScopeKind,
 }
-
-impl super::FlagBundle for ScopeFlag {}
 
 #[cfg(test)]
 mod tests {

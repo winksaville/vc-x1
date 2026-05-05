@@ -24,10 +24,10 @@ pub fn parse_config_kind(s: &str, default: ConfigKind) -> ConfigKind {
     }
 }
 
-/// `--config none|<path>` leaf — see
-/// [Consuming an OF](README.md#consuming-an-of).
+/// `--config none|<path>` leaf (Option — non-boolean domain) —
+/// see [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
-pub struct ConfigFlag {
+pub struct ConfigOption {
     /// Override the canned `.vc-config.toml` write.
     ///
     /// - Absent: write the canned `.vc-config.toml`.
@@ -38,9 +38,7 @@ pub struct ConfigFlag {
     pub raw: Option<String>,
 }
 
-impl super::FlagBundle for ConfigFlag {}
-
-impl ConfigFlag {
+impl ConfigOption {
     /// Resolve `raw` against `default`; `None` when flag absent.
     pub fn resolve(&self, default: ConfigKind) -> Option<ConfigKind> {
         self.raw.as_deref().map(|s| parse_config_kind(s, default))
@@ -106,22 +104,22 @@ mod tests {
     }
 
     #[test]
-    fn config_flag_resolve_absent() {
-        let flag = ConfigFlag { raw: None };
+    fn config_option_resolve_absent() {
+        let flag = ConfigOption { raw: None };
         assert_eq!(flag.resolve(test_default()), None);
     }
 
     #[test]
-    fn config_flag_resolve_explicit_none() {
-        let flag = ConfigFlag {
+    fn config_option_resolve_explicit_none() {
+        let flag = ConfigOption {
             raw: Some("none".to_string()),
         };
         assert_eq!(flag.resolve(test_default()), Some(ConfigKind::None));
     }
 
     #[test]
-    fn config_flag_resolve_path() {
-        let flag = ConfigFlag {
+    fn config_option_resolve_path() {
+        let flag = ConfigOption {
             raw: Some("/etc/foo.toml".to_string()),
         };
         assert_eq!(
@@ -131,9 +129,9 @@ mod tests {
     }
 
     #[test]
-    fn config_flag_resolve_empty_uses_default() {
+    fn config_option_resolve_empty_uses_default() {
         let default = ConfigKind::Path(PathBuf::from("/canned/init-por.toml"));
-        let flag = ConfigFlag {
+        let flag = ConfigOption {
             raw: Some(String::new()),
         };
         assert_eq!(flag.resolve(default.clone()), Some(default));

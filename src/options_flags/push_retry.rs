@@ -5,10 +5,11 @@
 
 use clap::Args;
 
-/// `--push-retries` / `--push-retry-delay` leaf — see
+/// `--push-retries` / `--push-retry-delay` leaf (Options — both
+/// fields are non-boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone)]
-pub struct PushRetryFlags {
+pub struct PushRetryOptions {
     /// Max push retries after repo creation [default: 5]
     #[arg(long, default_value_t = 5)]
     pub push_retries: u32,
@@ -18,11 +19,9 @@ pub struct PushRetryFlags {
     pub push_retry_delay: u64,
 }
 
-impl super::FlagBundle for PushRetryFlags {}
-
-impl Default for PushRetryFlags {
+impl Default for PushRetryOptions {
     /// Mirrors the clap defaults so fixture code can use
-    /// `PushRetryFlags::default()` and stay aligned with what
+    /// `PushRetryOptions::default()` and stay aligned with what
     /// clap produces when the flags are absent.
     fn default() -> Self {
         Self {

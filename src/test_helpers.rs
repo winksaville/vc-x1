@@ -18,12 +18,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::common::write_file;
 use crate::config::RepoSelector;
 use crate::init::{InitArgs, init_with_symlink};
-use crate::options_flags::account::AccountFlag;
-use crate::options_flags::config::ConfigFlag;
-use crate::options_flags::provision_common::ProvisionCommon;
-use crate::options_flags::repo::RepoFlag;
-use crate::options_flags::scope::{ScopeFlag, ScopeKind};
-use crate::options_flags::use_template::UseTemplateFlag;
+use crate::options_flags::account::AccountOption;
+use crate::options_flags::config::ConfigOption;
+use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
+use crate::options_flags::repo::RepoOption;
+use crate::options_flags::scope::{ScopeKind, ScopeOption};
+use crate::options_flags::use_template::UseTemplateOption;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
@@ -94,19 +94,19 @@ impl Fixture {
         let args = InitArgs {
             target: work_path.to_string_lossy().into_owned(),
             name: None,
-            account: AccountFlag::default(),
-            repo: RepoFlag {
+            account: AccountOption::default(),
+            repo: RepoOption {
                 repo: Some(RepoSelector {
                     category: "local".to_string(),
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            scope: ScopeFlag {
+            scope: ScopeOption {
                 scope: ScopeKind::CodeBot,
             },
-            provision: ProvisionCommon::default(),
-            use_template: UseTemplateFlag { use_template },
-            config: ConfigFlag::default(),
+            provision: ProvisionOptionFlagBundle::default(),
+            use_template: UseTemplateOption { use_template },
+            config: ConfigOption::default(),
         };
         init_with_symlink(&args, false).expect("build test fixture via init");
 
@@ -184,19 +184,19 @@ impl FixturePor {
         let args = InitArgs {
             target: work_path.to_string_lossy().into_owned(),
             name: None,
-            account: AccountFlag::default(),
-            repo: RepoFlag {
+            account: AccountOption::default(),
+            repo: RepoOption {
                 repo: Some(RepoSelector {
                     category: "local".to_string(),
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            scope: ScopeFlag {
+            scope: ScopeOption {
                 scope: ScopeKind::Por,
             },
-            provision: ProvisionCommon::default(),
-            use_template: UseTemplateFlag::default(),
-            config: ConfigFlag { raw: config },
+            provision: ProvisionOptionFlagBundle::default(),
+            use_template: UseTemplateOption::default(),
+            config: ConfigOption { raw: config },
         };
         init_with_symlink(&args, false).expect("build test fixture via init (POR)");
 

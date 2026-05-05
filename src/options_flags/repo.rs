@@ -39,12 +39,12 @@ pub fn parse_repo_arg(s: &str) -> Result<RepoSelector, String> {
     }
 }
 
-/// `FlagParser` impl for `--repo`. Documentation-level —
-/// consumers can use either `parse_repo_arg` directly or
-/// `RepoParser::parse`.
+/// `OptionParser` impl for `--repo` (non-boolean domain).
+/// Documentation-level — consumers can use either
+/// `parse_repo_arg` directly or `RepoParser::parse`.
 pub struct RepoParser;
 
-impl super::FlagParser for RepoParser {
+impl super::OptionParser for RepoParser {
     type Value = RepoSelector;
 
     fn parse(s: &str) -> Result<Self::Value, String> {
@@ -52,10 +52,10 @@ impl super::FlagParser for RepoParser {
     }
 }
 
-/// `--repo` leaf — see
+/// `--repo` leaf (Option — non-boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
-pub struct RepoFlag {
+pub struct RepoOption {
     /// Repo target — `<cat>` or `<cat>=<val>`.
     ///
     /// - `<cat>` looks up the value via the account chain
@@ -72,8 +72,6 @@ pub struct RepoFlag {
     )]
     pub repo: Option<RepoSelector>,
 }
-
-impl super::FlagBundle for RepoFlag {}
 
 #[cfg(test)]
 mod tests {

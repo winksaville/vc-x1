@@ -3,10 +3,10 @@
 
 use clap::Args;
 
-/// `--account` leaf — see
+/// `--account` leaf (Option — non-boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
-pub struct AccountFlag {
+pub struct AccountOption {
     /// Account name — picks `[account.<a>]` from user config.
     ///
     /// - Without this flag, `[default].account` (or top-level
@@ -16,5 +16,3 @@ pub struct AccountFlag {
     #[arg(long, value_name = "NAME", verbatim_doc_comment)]
     pub account: Option<String>,
 }
-
-impl super::FlagBundle for AccountFlag {}

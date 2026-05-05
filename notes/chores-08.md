@@ -1341,7 +1341,37 @@ Three substeps:
   `src/options_flags/scope.rs` is a deferred consistency
   cleanup (not in -6.6).
 
-### Decisions made during design
+### OF refactor (0.41.1-6.7)
+
+Sub-sub-step ladder (1)–(8) lifts every init OF into
+`src/options_flags/`, introduces the leaf / bundle / Pattern-A
+composition patterns, and locks the Flag/Option taxonomy by
+value-domain. Full per-substep edit lists live in commit
+bodies; this section captures durable decisions and watch-items.
+
+#### Naming watch — `ProvisionOptionFlagBundle`
+
+The first OF bundle landed as `ProvisionOptionFlagBundle` (25
+chars). Iteration considered `ProvisionCommon`,
+`ProvisionOptFlagBundle`, `ProvisionOptionFlag`,
+`ProvisionOFB`, and `ProvisionOptFlgBdle`. The full-word form
+won on consistency (matches `OptionParser`, `OptionBundle`,
+`*Option` leaves elsewhere), but Wink flagged at lock-in: "my
+guess we'll end up with something shorter in the future, just
+guessing."
+
+- **Why kept on the watch list:** the type appears in
+  `init.rs` imports, `test_helpers.rs` fixtures, and any
+  future provisioning subcommand (clone, etc.). Length will
+  be felt as more bundles land and more sites reference them.
+- **If a future cycle revisits naming:** the previously
+  rejected fallback was `ProvisionOptionFlag` (19 chars,
+  drops `Bundle` suffix; cue then lives in the file name and
+  marker impl, not the type name). Abbreviations
+  (`Bdle` / `Flg` / `OFB`) were explicitly rejected as
+  decoder-ring problems — don't re-propose them.
+
+
 
 - **Version + cycle line.** This work + the sync `--check`
   fix land on the 0.41.x line. Init+clone = 0.41.1. Sync

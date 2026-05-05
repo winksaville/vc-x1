@@ -3,7 +3,7 @@
 
 use clap::Args;
 
-/// `--private` leaf — see
+/// `--private` leaf (Flag — boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct PrivateFlag {
@@ -15,5 +15,3 @@ pub struct PrivateFlag {
     #[arg(long, verbatim_doc_comment)]
     pub private: bool,
 }
-
-impl super::FlagBundle for PrivateFlag {}

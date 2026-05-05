@@ -3,7 +3,7 @@
 
 use clap::Args;
 
-/// `--dry-run` leaf — see
+/// `--dry-run` leaf (Flag — boolean domain) — see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct DryRunFlag {
@@ -11,5 +11,3 @@ pub struct DryRunFlag {
     #[arg(long)]
     pub dry_run: bool,
 }
-
-impl super::FlagBundle for DryRunFlag {}

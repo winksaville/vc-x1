@@ -4,13 +4,13 @@ use clap::Args;
 use log::{debug, info};
 
 use crate::config::{self, UserConfig};
-use crate::options_flags::account::AccountFlag;
-use crate::options_flags::config::{ConfigFlag, ConfigKind};
-use crate::options_flags::provision_common::ProvisionCommon;
-use crate::options_flags::push_retry::PushRetryFlags;
-use crate::options_flags::repo::RepoFlag;
-use crate::options_flags::scope::{ScopeFlag, ScopeKind};
-use crate::options_flags::use_template::UseTemplateFlag;
+use crate::options_flags::account::AccountOption;
+use crate::options_flags::config::{ConfigKind, ConfigOption};
+use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
+use crate::options_flags::push_retry::PushRetryOptions;
+use crate::options_flags::repo::RepoOption;
+use crate::options_flags::scope::{ScopeKind, ScopeOption};
+use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
 use crate::symlink;
@@ -41,39 +41,39 @@ pub struct InitArgs {
     #[arg(value_name = "NAME", verbatim_doc_comment)]
     pub name: Option<String>,
 
-    /// `--account` — flatten of the shared [`AccountFlag`] leaf.
+    /// `--account` — flatten of the shared [`AccountOption`] leaf.
     #[command(flatten)]
-    pub account: AccountFlag,
+    pub account: AccountOption,
 
-    /// `--repo` — flatten of the shared [`RepoFlag`] leaf.
+    /// `--repo` — flatten of the shared [`RepoOption`] leaf.
     /// Init's built-in categories: `remote` (URL prefix; init
     /// appends `/<NAME>.git`) and `local` (parent dir for
     /// fixture bare repos). Meaningful only with Path or
     /// bare-NAME targets.
     #[command(flatten)]
-    pub repo: RepoFlag,
+    pub repo: RepoOption,
 
-    /// `--scope` — flatten of the shared [`ScopeFlag`] leaf.
+    /// `--scope` — flatten of the shared [`ScopeOption`] leaf.
     #[command(flatten)]
-    pub scope: ScopeFlag,
+    pub scope: ScopeOption,
 
     /// `--dry-run` + `--private` + `--push-retries` /
     /// `--push-retry-delay` — flatten of the shared
-    /// [`ProvisionCommon`] bundle.
+    /// [`ProvisionOptionFlagBundle`] bundle.
     #[command(flatten)]
-    pub provision: ProvisionCommon,
+    pub provision: ProvisionOptionFlagBundle,
 
     /// `--use-template` — flatten of the shared
-    /// [`UseTemplateFlag`] leaf.
+    /// [`UseTemplateOption`] leaf.
     #[command(flatten)]
-    pub use_template: UseTemplateFlag,
+    pub use_template: UseTemplateOption,
 
     /// `--config none|<path>` — flatten of the shared
-    /// [`ConfigFlag`] leaf. Only meaningful with `--scope=por`;
+    /// [`ConfigOption`] leaf. Only meaningful with `--scope=por`;
     /// rejected at preflight when paired with `--scope=code,bot`.
     /// `.gitignore` is always written regardless of `--config`.
     #[command(flatten)]
-    pub config: ConfigFlag,
+    pub config: ConfigOption,
 }
 
 /// Run a command with retries, sleeping between attempts.
@@ -81,7 +81,7 @@ fn run_retry(
     cmd: &str,
     args: &[&str],
     cwd: &Path,
-    retry: &PushRetryFlags,
+    retry: &PushRetryOptions,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut last_err = String::new();
     for attempt in 1..=retry.push_retries {
@@ -1941,15 +1941,15 @@ mod tests {
         InitArgs {
             target: target.to_string(),
             name: None,
-            account: AccountFlag::default(),
-            repo: RepoFlag::default(),
-            scope: ScopeFlag::default(),
-            provision: ProvisionCommon {
+            account: AccountOption::default(),
+            repo: RepoOption::default(),
+            scope: ScopeOption::default(),
+            provision: ProvisionOptionFlagBundle {
                 dry_run: DryRunFlag { dry_run: true },
                 ..Default::default()
             },
-            use_template: UseTemplateFlag::default(),
-            config: ConfigFlag::default(),
+            use_template: UseTemplateOption::default(),
+            config: ConfigOption::default(),
         }
     }
 
