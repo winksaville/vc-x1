@@ -1404,6 +1404,58 @@ guessing."
   (`Bdle` / `Flg` / `OFB`) were explicitly rejected as
   decoder-ring problems — don't re-propose them.
 
+### Init fn collapse (0.41.1-6.8)
+
+Single-edit sub-step. Merges the 1-line `init` wrapper into
+the renamed `init_with_symlink` body, leaving one public
+function `pub fn init(args, create_symlink) -> Result<…>`.
+
+- `src/init.rs`: drop the `init` wrapper; rename
+  `init_with_symlink` → `init`; relax visibility to `pub`;
+  fold the two doc comments into one.
+- `src/main.rs`: `init::init(&init_args)` → `init::init(&init_args, true)`.
+- `src/test_helpers.rs`: import + two call sites
+  (`init_with_symlink(&args, false)` → `init(&args, false)`)
+  + module / `Fixture` / `FixturePor` doc comments.
+- `src/init.rs:2329` + `:2480`: stale test-section banner
+  refs (the section banners still rightly name `init`, just
+  with the new function name).
+- `src/sync.rs:848`, `src/repo_utils.rs:224`,
+  `tests/cli_init.rs:5`: cross-references to `init::init`
+  / `init`/`create_dual` removed entirely. The reader of a
+  sync test or a `repo_utils` test doesn't need a tour
+  through `init.rs` to understand the contract under test —
+  these refs were implementation-detail leaks. README.md
+  keeps the `init::init` name as a where-to-look pointer
+  for new readers but drops the `create_symlink` aside
+  (the symlink behavior is documented at the function
+  itself).
+
+**Why a function parameter, not an `InitArgs` field.**
+`create_symlink` is a test-harness suppression toggle, not a
+CLI option. Adding it to `InitArgs` would either leak a
+`#[arg(skip)]` test-only field into the user-facing arg
+struct or surface a flag in `--help` that has no user
+meaning. A plain function parameter keeps the layer
+separation honest: the CLI surface (`InitArgs` + clap
+derives) describes user-facing inputs; the
+`create_symlink` parameter encodes the call-site contract
+(CLI passes `true`, tests pass `false`).
+
+**Why drop the dual entry point.** Pre-collapse, callers
+chose between `init(args)` (CLI shorthand, hardcoded `true`)
+and `init_with_symlink(args, bool)` (tests). Two functions
+for one operation reads as ceremony — main.rs gains one
+literal `true` and stops paying for the wrapper.
+
+**Dual/Por split parked as -6.9.** Discussion around -6.8
+also surfaced the question of whether the planned
+`InitDualArgs` / `InitPorArgs` clap split is worth doing.
+Independent question from the symlink toggle. Parked to
+`-6.9` and may not happen — revisit at -6.9 design time.
+
+### Cycle continuation
+
 
 
 - **Version + cycle line.** This work + the sync `--check`

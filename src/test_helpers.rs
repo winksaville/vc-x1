@@ -1,6 +1,6 @@
 //! Shared test helpers for dual-repo integration tests.
 //!
-//! Provides a `Fixture` that wraps `crate::init::init_with_symlink`
+//! Provides a `Fixture` that wraps `crate::init::init`
 //! plus a per-process unique-tempdir helper so parallel tests don't
 //! collide. Lifted out of the `sync` test module (originally inline at
 //! `sync.rs:521–560`) so `push`'s tests (0.37.0) and any future
@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::common::write_file;
 use crate::config::RepoSelector;
-use crate::init::{InitArgs, init_with_symlink};
+use crate::init::{InitArgs, init};
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::ConfigOption;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
@@ -48,8 +48,8 @@ pub fn unique_base(tag: &str) -> PathBuf {
 /// Owned dual-repo fixture with RAII cleanup.
 ///
 /// Builds a fresh throwaway dual-repo set under a unique tempdir
-/// by driving `init::init_with_symlink` with a path TARGET and
-/// `--repo local=<base>` (so config lookup is skipped via the
+/// by driving `init::init` with a path TARGET and `--repo
+/// local=<base>` (so config lookup is skipped via the
 /// resolve_repo short-circuit). `create_symlink=false` suppresses
 /// the `~/.claude/projects/` side effect. Exposes the two repo
 /// paths (`work` and `work/.claude`). The tempdir tree is removed
@@ -108,7 +108,7 @@ impl Fixture {
             use_template: UseTemplateOption { use_template },
             config: ConfigOption::default(),
         };
-        init_with_symlink(&args, false).expect("build test fixture via init");
+        init(&args, false).expect("build test fixture via init");
 
         let work = base.join("work");
         let claude = work.join(".claude");
@@ -149,7 +149,7 @@ impl Drop for Fixture {
 /// Owned single-repo (POR) fixture with RAII cleanup.
 ///
 /// Sibling of `Fixture` for `--scope=por` flows. Drives
-/// `init::init_with_symlink` with `ScopeKind::Por` and a path
+/// `init::init` with `ScopeKind::Por` and a path
 /// TARGET; `--repo local=<base>` steers the bare origin to
 /// `<base>/remote.git` (vs. dual's `remote-code.git` /
 /// `remote-claude.git`). No `.claude/` peer, no symlink.
@@ -198,7 +198,7 @@ impl FixturePor {
             use_template: UseTemplateOption::default(),
             config: ConfigOption { raw: config },
         };
-        init_with_symlink(&args, false).expect("build test fixture via init (POR)");
+        init(&args, false).expect("build test fixture via init (POR)");
 
         let work = base.join("work");
         FixturePor { base, work }

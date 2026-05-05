@@ -117,13 +117,25 @@ A bulleted list of the in-progress task's development "ladder":
       pointer; chores-08.md > -6.7 ToC of the 8 sub-sub-step
       commits; Cargo.toml drops -N suffix; push 9 commits at
       cycle end. (done)
-  - -6.8 init_with_symlink rename + InitDualArgs/InitPorArgs
-    split via #[command(flatten)] of common bundle (built in
-    -6.7); provision_side(role, …) shared helper. CLI surface
-    decision (subcommands `init dual|por` vs preserved
-    `--scope` flag with manual two-pass parse) deferred to
-    -6.8 design time.
-- 0.41.1-7 test_helpers::Fixture migration + downstream callers [73]
+  - -6.8 collapse `init` + `init_with_symlink` into a single
+    `pub fn init(args, create_symlink)` — drop the 1-line
+    wrapper and the `init_with_symlink` name; update main.rs
+    (passes `true`), test_helpers.rs (passes `false`), and
+    stale doc refs. Test-only `create_symlink` toggle stays a
+    function parameter rather than moving into `InitArgs`
+    (test concern, not a CLI knob). (done)
+  - -6.9 init dual|por split via #[command(flatten)] of common
+    bundle (built in -6.7) + provision_side(role, …) shared
+    helper. CLI surface decision (subcommands `init dual|por`
+    vs preserved `--scope` flag with manual two-pass parse)
+    deferred to -6.9 design time. May or may not happen — the
+    -6.8 conversation left this open; revisit at -6.9 design.
+- 0.41.1-7 test_helpers::Fixture migration + downstream
+  callers [73]; folds in `Fixture` → `TestFixtureDual` /
+  `FixturePor` → `TestFixturePor` rename so call sites
+  carry the test-only signal that `#[cfg(test)] mod
+  test_helpers` doesn't communicate (decided during -6.8
+  review).
 - 0.41.1 close-out [72]
 
 ## Todo

@@ -220,8 +220,7 @@ mod tests {
 
     /// Neither `prepare_local_repo` nor `commit_initial` writes
     /// `.vc-config.toml` or `.gitignore` — those are role-specific
-    /// and the caller drops them between prepare and commit (POR
-    /// branch of `init_with_symlink` / `create_dual` in `init.rs`).
+    /// and the caller drops them between prepare and commit.
     /// Verifies the tree contains only `.jj/` and `.git/`.
     #[test]
     fn lifecycle_does_not_write_vc_config_or_gitignore() {

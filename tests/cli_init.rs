@@ -1,10 +1,10 @@
 //! CLI subprocess integration tests for `vc-x1 init`.
 //!
 //! Counterparts to the in-process fixture tests in
-//! `src/init.rs::tests` (`por_fixture_*`, `dual_fixture_*`). Those
-//! call `init_with_symlink` directly; these spawn the `vc-x1`
-//! binary so argument parsing, exit codes, and the actual binary
-//! Cargo built are exercised end-to-end.
+//! `src/init.rs::tests` (`por_fixture_*`, `dual_fixture_*`).
+//! Those run in-process; these spawn the `vc-x1` binary so
+//! argument parsing, exit codes, and the actual binary Cargo
+//! built are exercised end-to-end.
 //!
 //! Each test uses `CliFixture` for HOME isolation — the symlink
 //! `init` installs at `$HOME/.claude/projects/...` lands inside the

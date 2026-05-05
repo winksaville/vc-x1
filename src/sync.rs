@@ -845,9 +845,8 @@ mod integration_tests {
     //! End-to-end tests for `sync_repos` against real dual-repo jj
     //! fixtures. Each test builds an isolated fixture (bare-git
     //! remotes + colocated jj repos) under a unique tempdir via
-    //! `Fixture::new` (driving `init::init_with_symlink` in
-    //! `--repo-local` mode), then drives the scenario with plain
-    //! `jj` subprocess calls. Requires `jj` in `PATH`.
+    //! `Fixture::new`, then drives the scenario with plain `jj`
+    //! subprocess calls. Requires `jj` in `PATH`.
     //!
     //! Fixtures clean themselves up via `Fixture`'s `Drop` impl so a
     //! panicking test still removes its tempdir.

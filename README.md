@@ -725,7 +725,7 @@ The repo ships two flavors of tests:
   `src/*.rs`. These call library code directly (no subprocess spawn)
   and run fastest. The dual / POR fixture tests under
   `src/init.rs::tests` build throwaway workspaces by invoking
-  `init::init_with_symlink` as a function.
+  `init::init` as a function.
 - **CLI subprocess integration tests** — files under `tests/`. These
   spawn the `vc-x1` binary that Cargo built; its absolute path lives
   in the `CARGO_BIN_EXE_vc-x1` env var that Cargo sets at compile

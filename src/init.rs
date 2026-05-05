@@ -954,21 +954,15 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
 }
 
-/// CLI entry point — dual-repo init creates the
-/// `~/.claude/projects/` symlink on success.
-pub fn init(args: &InitArgs) -> Result<(), Box<dyn std::error::Error>> {
-    init_with_symlink(args, true)
-}
-
-/// Core init routine with a caller-controlled symlink toggle.
+/// Init entry point — runs the dual or POR provisioning flow.
 ///
-/// - `create_symlink=true` — CLI behavior.
-/// - `create_symlink=false` — suppresses step 11's side effect
-///   on `$HOME/.claude/projects/` (test harnesses only).
-pub(crate) fn init_with_symlink(
-    args: &InitArgs,
-    create_symlink: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+/// - `create_symlink=true` — CLI behavior; step 11 creates the
+///   `~/.claude/projects/` symlink for dual-scope runs.
+/// - `create_symlink=false` — suppresses that side effect; used
+///   by test harnesses (`test_helpers::Fixture`,
+///   `test_helpers::FixturePor`) so parallel fixtures don't
+///   collide on the user's home dir.
+pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::error::Error>> {
     debug!("init: enter");
 
     let cfg = config::load()?;
@@ -2326,7 +2320,7 @@ mod tests {
         assert!(GITIGNORE_APP_ONLY.contains("/.vc-x1"));
     }
 
-    // ---------- POR end-to-end fixture (drives init_with_symlink with --scope=por) ----------
+    // ---------- POR end-to-end fixture (drives init with --scope=por) ----------
 
     /// POR fixture builds without panic and lays down the
     /// single-repo tree: `<base>/work/` exists, no `.claude/`
@@ -2477,7 +2471,7 @@ mod tests {
             .expect("--config none with --scope=por should pass preflight");
     }
 
-    // ---------- Dual end-to-end fixture (drives init_with_symlink with --scope=code,bot) ----------
+    // ---------- Dual end-to-end fixture (drives init with --scope=code,bot) ----------
     //
     // Counterparts to the POR fixture tests above; pin the dual-shape
     // invariants `push_repo` must preserve (-6.3 extraction).
