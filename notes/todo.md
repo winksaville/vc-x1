@@ -5,29 +5,6 @@ and reference links to more details.
 
 ## In Progress
 
-### 0.42.0-4.6 WIP — init-clone-refactor recovery (2026-05-02 EOD)
-
-Committed mid-flow. Pick up tomorrow.
-
-Status: notes / `Cargo.toml` edits in place; recovery
-itself is done (branch `init-clone-refactor` clean at
-`a8c1eefe`, 331/331 tests pass). What's *not* yet in
--4.6:
-
-- **Top-of-Todo entry for "Finish `init-clone-refactor`
-  cycle"** — drafted in conversation, not yet added.
-  Goal: DRY init+clone (consolidate `-6.x` substep
-  ladder per `notes/substep-protocol.md` close-out
-  recipe → finish any remaining planned work → ship
-  0.41.1) before `--scope` rolls out across more
-  commands. Position: top of `## Todo`, above the
-  merge-direction entry.
-
-After that's added, -4.6 is shippable; cycle returns
-to planned 0.42.0-5 (finalize --scope).
-
-### 0.42.0 cycle ladder
-
 A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-0 blah (done)
    - 0.xx.y-1 blah blah (current)
@@ -38,7 +15,10 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (done) [76]
 - 0.42.0-2 custom CLI parser + retrofit `init` --scope (done) [76]
 - 0.42.0-3 retrofit `sync` — drop -R, add -s (done) [76]
-- 0.42.0-4 push --scope (state-machine becomes scope-aware) (current) [76]
+- 0.42.0-4 push --scope (state-machine becomes scope-aware) [76]
+  - 0.42.0-4.5 substep protocol + jj revsets (done) [77]
+  - 0.42.0-4.6 init-clone-refactor recovery (done) [78]
+  - 0.42.0-4.7 init-clone-refactor rebase landing (current) [79]
 - 0.42.0-5 finalize --scope (replaces --repo) [76]
 - 0.42.0-6 clone --scope [76]
 - 0.42.0-7 Single(_) dogfood validation [76]
@@ -233,19 +213,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 
 - Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [77]
 - init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [78]
-- Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
-- Scope continuation: sync --scope (0.41.0-2) [71]
-- Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
-- Scope continuation: capture --scope enum vocabulary (0.41.0-4) [71]
-- Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
-- Init+clone redesign: chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (0.41.1-0) [72]
-- Init+clone redesign: shared repo_url module + clone/init migrate (0.41.1-1) [73]
-- Init+clone redesign: clone reshape — TARGET + NAME + --scope=code,bot|por (0.41.1-2) [73]
-- Init+clone redesign: user config — ~/.config/vc-x1/config.toml (0.41.1-3) [74]
-- Init+clone redesign: user config rewrite — account/category schema (0.41.1-4) [74]
-- Init+clone redesign: init reshape — TARGET + NAME + --account + --repo (0.41.1-5) [73]
-- Init+clone redesign: init refactor — substep ladder -6.0 through -6.8 (0.41.1-6) [75]
-- Init+clone redesign: cycle close-out — symmetric schema + Fixture migration + dual|por split deferred (0.41.1) [72]
+- Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
 
 # References
 
@@ -272,3 +240,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [76]: /notes/chores-07.md#--scope-enum-refactor-0420
 [77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
 [78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
+[79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47

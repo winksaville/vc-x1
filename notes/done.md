@@ -97,6 +97,19 @@ As todo.md `## Done` sections fills move them to here.
 - Scope generalization: init --scope=code|bot|code,bot (0.40.0-2) [70]
 - Scope generalization: integration tests migrate onto init --repo-local (0.40.0-3) [70]
 - Scope generalization: cycle close-out, init --scope foundation shipped (0.40.0) [70]
+- Pre-commit checklist requires `--locked` for `cargo install` (0.41.0-1) [71]
+- Scope continuation: sync --scope (0.41.0-2) [71]
+- Scope continuation: capture --scope-everywhere direction (0.41.0-3) [71]
+- Scope continuation: capture --scope enum vocabulary (0.41.0-4) [71]
+- Scope continuation: cycle close-out — push/finalize work deferred to 0.42.0 (0.41.0) [71]
+- Init+clone redesign: chores-08 + forks-multi-user + draft-reviews + vc-x1-init forward (0.41.1-0) [72]
+- Init+clone redesign: shared repo_url module + clone/init migrate (0.41.1-1) [73]
+- Init+clone redesign: clone reshape — TARGET + NAME + --scope=code,bot|por (0.41.1-2) [73]
+- Init+clone redesign: user config — ~/.config/vc-x1/config.toml (0.41.1-3) [74]
+- Init+clone redesign: user config rewrite — account/category schema (0.41.1-4) [74]
+- Init+clone redesign: init reshape — TARGET + NAME + --account + --repo (0.41.1-5) [73]
+- Init+clone redesign: init refactor — substep ladder -6.0 through -6.8 (0.41.1-6) [75]
+- Init+clone redesign: cycle close-out — symmetric schema + Fixture migration + dual|por split deferred (0.41.1) [72]
 
 # References
 
@@ -157,3 +170,8 @@ As todo.md `## Done` sections fills move them to here.
 [66]: /notes/chores-06.md#bookmark-tracking-verification-0380
 [67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
 [70]: /notes/chores-06.md#generalize---scope-across-commands-0400
+[71]: /notes/chores-06.md#--scope-continuation-0410
+[72]: /notes/chores-08.md#init--clone-redesign-0411
+[73]: /notes/chores-08.md#cycle-structure--multi-step
+[74]: /notes/chores-08.md#user-config-0411-3
+[75]: /notes/chores-08.md#operations
