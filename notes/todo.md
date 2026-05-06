@@ -11,18 +11,6 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.42.0-0 plan + version bump + new chores-07.md (done) [76]
-- 0.42.0-1 scope.rs enum — `Roles(Vec<Side>) | Single(PathBuf)` (done) [76]
-- 0.42.0-2 custom CLI parser + retrofit `init` --scope (done) [76]
-- 0.42.0-3 retrofit `sync` — drop -R, add -s (done) [76]
-- 0.42.0-4 push --scope (state-machine becomes scope-aware) [76]
-  - 0.42.0-4.5 substep protocol + jj revsets (done) [77]
-  - 0.42.0-4.6 init-clone-refactor recovery (done) [78]
-  - 0.42.0-4.7 init-clone-refactor rebase landing (current) [79]
-- 0.42.0-5 finalize --scope (replaces --repo) [76]
-- 0.42.0-6 clone --scope [76]
-- 0.42.0-7 Single(_) dogfood validation [76]
-- 0.42.0 close-out [76]
 
 ## Todo
 
@@ -34,7 +22,7 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. Test-module extraction across oversized files. Convert
+1. **Test-module extraction** across oversized files. Convert
    `src/init.rs` → `src/init/mod.rs` + `src/init/tests.rs`
    (sibling-submodule pattern; tests still reach private
    items via `use super::*;`). Same shape for `push.rs`
@@ -43,6 +31,15 @@ renumbering. Reference by displayed number ("let's work on #3").
    change. One sub-step per file. Candidate cycle: 0.41.2
    or its own. Splitting tests first makes a follow-on
    DRY walk across init/push/sync easier to read.
+1. **Ops layer / CLI decoupling.** Introduce `ops::Workspace`
+   handle + per-subcommand `*Options` plain structs (flat
+   fields, no clap), with `From<&XArgs> for XOptions` at
+   the binary edge. Subcommand bodies become
+   `fn op(ws: &Workspace, opts: &XOptions) -> Result<XOutcome, XError>`.
+   Preserves leaves in `src/options_flags/` for `-h` +
+   completion; eliminates `args.xxx.xxx` from op bodies.
+   Multi-cycle effort; convert one subcommand end-to-end
+   as worked example before sweeping. [80]
 1. **Rebase note — CLAUDE.md `### Per-file review checkpoints`.**
    Both `main` (0.42.0 work) and `init-clone-refactor`
    (0.41.1) authored this subsection independently —
@@ -65,6 +62,14 @@ renumbering. Reference by displayed number ("let's work on #3").
    → `TestFixturePor` so call sites carry the test-only
    signal that `#[cfg(test)] mod test_helpers` doesn't
    communicate. Was `0.41.1-7`. [73]
+1. **`--scope` sweep continuation: finalize + Single(_)
+   dogfood.** Carry-over from 0.42.0 cycle (closed at -4.7;
+   -5/-7 deferred). Two pieces: `vc-x1 finalize --scope`
+   replacing `--repo` (was 0.42.0-5), and `Single(_)`
+   end-to-end dogfood validation (was 0.42.0-7). The third
+   originally-paired item, `vc-x1 clone --scope` (was
+   0.42.0-6), is tracked in its own entry below. Design
+   lives in chores-07. [76]
 1. **init dual|por arg split.** Via `#[command(flatten)]` of
    `ProvisionOptionFlagBundle` (built in -6.7) +
    `provision_side(role, …)` shared helper. CLI surface
@@ -82,25 +87,27 @@ renumbering. Reference by displayed number ("let's work on #3").
    three. Tied to merge-direction decision above. [78]
 1. Add a vc-x1 validate-repo?
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
-   Lands in the 0.42.0 cycle alongside the enum
-   refactor; state machine becomes scope-aware (single-
-   side path skips `commit-claude`/bookmark-claude/
-   `finalize-claude`; `Single(_)` is single-repo mode).
+   Was 0.42.0-4 (deferred when cycle pivoted to icr
+   rebase work; cycle closed at -4.7). State machine
+   becomes scope-aware (single-side path skips
+   `commit-claude`/bookmark-claude/`finalize-claude`;
+   `Single(_)` is single-repo mode).
    [57],[60],[71],[72]
 1. vc-x1 clone: `--scope=code|bot|code,bot|<path>` flag.
    Parallel to `init --scope`; single-repo clone target
-   via the path form. 0.42.0 cycle. [60],[71],[72]
+   via the path form. Was 0.42.0-6 (deferred at -4.7
+   close-out). [60],[71],[72]
 1. vc-x1 validate-desc / fix-desc:
    `--scope=code|bot|code,bot` flag. Same role vocabulary
    as elsewhere — `code` validates code's commits against
    bot, `bot` reverses, `code,bot` does both (new
    default). `Single(_)` errors here (validate compares
-   two repos by definition). 0.42.0 cycle. [60],[71],[72]
+   two repos by definition). [60],[71],[72]
 1. CommonArgs sweep — add `--scope=code|bot|code,bot|<path>`
    to `chid`/`desc`/`list`/`show` in one cycle (single
    shared `CommonArgs` change picks all four up). Drops
    the existing `-R`/`--repo` repeatable flag in favor of
-   the new path form. 0.42.0 cycle. [60],[71],[76]
+   the new path form. [60],[71],[76]
 1. Unify `.vc-config.toml` accessors onto Pattern B
    (typed struct + `load_from(path)`, like new
    `config::UserConfig` and `push::resolve_state_layout`).
@@ -214,6 +221,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [77]
 - init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [78]
 - Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
+- 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
 
 # References
 
@@ -241,3 +249,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
 [78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
 [79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
+[80]: /notes/chores-09.md#ops-layer-architecture-forward-looking
+[81]: /notes/chores-09.md#0420-close-out
