@@ -151,6 +151,43 @@ The cycle started as a `--scope` sweep but pivoted at
 - `notes/chores-09.md`: this subsection (new).
 - `Cargo.toml`: bump 0.42.0-4.7 → 0.42.0.
 
+## Design notes: bot-data + multi-user updates (0.42.1)
+
+Documentation-only follow-on to the 0.42.0 close-out.
+Forward-looking design captures for multi-user
+collaboration, multi-bot vendor support, and bot-repo
+scaling thresholds. No code change.
+
+### Edits
+
+- `notes/bot-data-formats.md`: new file. Format-agnostic
+  principle, dual-repo merits-based defense,
+  vendor-subdir layout
+  (`.bot/<vendor>/<version>/<id>.<ext>`), multi-bot in
+  one repo, format versioning, flat-to-vendor migration,
+  `.claude` → `.bot` rename, viewer layer, open
+  questions.
+- `notes/forks-multi-user.md`: four new subsections
+  (bot-repo size and scaling thresholds;
+  monotonic-growth asymmetry; mitigation menu; tracking
+  trigger). One new subsection on URL-shaped ochid for
+  per-user repos (link-rot mitigations: project-side
+  mirroring, cryptographic stapling, CI-enforced live
+  ochid). Cross-ref to `bot-data-formats.md` added in
+  intro.
+- `notes/todo.md`: replace multi-user TODO entry with
+  `forks-multi-user + bot-data-formats follow-through`;
+  add `[82]` / `[83]` refs to the two design docs
+  (slight extension of the existing
+  `chores-NN.md#anchor` reference style for whole-file
+  pointers).
+- `README.md`: TOC entry +
+  `## Thoughts for the future` section pointing at
+  `notes/forks-multi-user.md`. Reader chain: README →
+  forks-multi-user → bot-data-formats.
+- `notes/chores-09.md`: this subsection (new).
+- `Cargo.toml`: bump 0.42.0 → 0.42.1.
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware

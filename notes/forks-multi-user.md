@@ -13,6 +13,11 @@ the classic git/jj DAG (branches, merges, rebases), while the
 bot repo is fundamentally an append-only journal of
 conversations that should never be rewritten.
 
+For the *content* of the bot repo (vendor identity, format
+versioning, multi-bot conventions, vendor-subdir directory
+layout), see the companion file
+[`bot-data-formats.md`](bot-data-formats.md).
+
 This file is forward-looking: most of what it describes is
 the bot thinks, not implemented. Treat as a design reference,
 not a status doc.
@@ -199,6 +204,102 @@ after the leading `/`) already encodes either model:
 `/.claude/<chid>` for shared, `/.claude-alice/<chid>` for
 per-user. The trailer format itself is forward-compatible.
 
+### Per-user bot repos via URL-shaped ochid
+
+Per-user bot repos become practical for distributed
+projects (open-source, multi-org) when ochid trailers can
+qualify by URL rather than only workspace-relative path.
+This generalizes the per-user model in the section above
+from "co-located teams sharing a workspace" to "anyone on
+the public internet."
+
+**Trailer shape.** Existing path form is
+workspace-root-relative (`/.claude/<chid>` for shared,
+`/.claude-alice/<chid>` for per-user-in-shared-workspace).
+URL form generalizes the qualifier to a remote repo:
+
+```
+ochid: https://github.com/alice/bot-sessions#<chid>
+ochid: git@github.com:alice/bot-sessions.git#<chid>
+```
+
+Parser dispatch is one rule: if the qualifier parses as a
+URL, fetch over the network; otherwise resolve relative
+to workspace root. Existing path-form trailers stay the
+N=1 backward-compatible case. No schema versioning
+needed.
+
+**Link rot is the load-bearing problem.** A contributor
+can publish their bot repo, get merged, then later make
+it private or delete it. The ochid URL 404s; bot context
+is lost. The bot thinks this is a real-but-not-
+catastrophic leak — the commit's code and
+`Signed-off-by:` line remain authoritative; bot context
+is a nice-to-have for understanding patch development,
+not a load-bearing semantic. Direct analogue: dead URLs
+in academic citations, mailing-list links in older
+kernel commit messages. Annoying for archaeology, not
+fatal.
+
+**Mitigations, in order of practical adoption:**
+
+1. **Project-side mirroring at merge time.** When a
+   maintainer accepts a PR, project tooling fetches the
+   contributor's bot repo at the referenced chid and
+   mirrors to a project-namespace archive (e.g.
+   `bot-archives/<contributor>-<date>-<chid>.jsonl`).
+   Future ochid resolution falls back to the mirror if
+   the original URL 404s. The bot thinks this is the
+   only mitigation most projects would actually adopt —
+   cheap, obvious upside, no friction for contributors.
+   Same pattern as LKML's permanent archive.
+2. **Cryptographic stapling.** Embed a hash of the bot
+   repo's tip at submission time:
+   `ochid: <url>#<chid>;sha256=<hash>`. Tamper-detection
+   stays sound even if retrieval fails; doesn't recover
+   data. Adds maintenance burden to trailer parsing.
+3. **CI-enforced live ochid at merge.** Project CI
+   fetches the URL, verifies it resolves with parseable
+   content, before allowing merge. Doesn't prevent
+   later lock/delete but ensures the merge moment was
+   sound. Contentious in open-source culture (gates
+   contributors on infra they don't own).
+
+**Opt-out via project policy.** A no-bot-context commit
+isn't a leak — it's a project policy choice. A project
+that wants bot transparency mandates each commit carry
+≥1 `ochid:` trailer or an explicit
+`No-bot-context: <reason>` trailer. Enforceable in CI,
+identical pattern to existing `Signed-off-by:`.
+Contributors who want privacy decline that project's
+contribution norms; their commits go elsewhere or omit
+the trailer where the project allows.
+
+**Cross-bot interop bonus.** Once URL-shaped, the
+trailer doesn't have to point at a Claude Code repo.
+Codex, Cursor, Aider, custom in-house tools — anyone
+whose bot leaves a publishable session record can host
+their own bot repo and emit ochid trailers in the same
+format. The trailer becomes "where to find the AI
+session that produced this commit," not "where to find
+the Claude Code session." Strictly bigger ecosystem
+play with no extra design cost.
+
+**Implication for shared-central scaling.** URL-shaped
+per-user repos potentially short-circuit the
+size/threshold problem documented below. Each
+contributor pays for their own bot repo; project pays
+for an opt-in mirror archive sized per its policy. The
+"50 devs share one ~15G bot repo" problem becomes "50
+devs each maintain their own ~300M bot repo, project
+mirrors selectively."
+
+Trade-off: shared-central keeps cross-references local
+and fast; per-user-via-URL needs a network fetch (or a
+warm mirror) to resolve any non-local trailer. Pick by
+project shape — small co-located teams favor shared;
+distributed open-source favors per-user-via-URL.
+
 ### Bot-side commit immutability
 
 Codify "never rewrite bot commits" as a hard rule. The
@@ -211,6 +312,83 @@ that bot commits are mutable in a way they shouldn't be.
 Trade: any commit-level metadata fix has to be done by
 appending a new commit, not amending the existing one.
 Awkward but correct.
+
+### Bot-repo size and scaling thresholds
+
+Concrete measurement on a single-developer vc-x1 project
+(2026-05-07, after `cargo clean`):
+
+- Code repo (excluding `.claude`): ~4M
+- Bot repo (`.claude`): 311M
+- Ratio: ~78:1 bot-to-code
+
+Cause: every Claude Code session writes a UUID-named
+`.jsonl` file. Content is mostly unique per session —
+git/jj packs each file's append history well, but
+cross-file dedup is weak. So bot-repo bytes scale roughly
+linearly with total session count.
+
+Linear extrapolation to shared-central multi-user (the bot
+thinks this is a reasonable upper bound; actual savings
+from cross-session dedup are small):
+
+- 5 devs: ~1.5G
+- 20 devs: ~6G
+- 50 devs: ~15G
+
+Rough operational thresholds:
+
+- **≤ ~10 users:** shared-central is fine.
+- **~10-50 users:** shared-central starts hurting
+  (multi-minute initial clone; noticeable `vc-x1 sync`
+  pulls).
+- **> ~50 users or > ~10G bot repo:** mitigations become
+  necessary.
+
+### Monotonic-growth asymmetry
+
+Bot-repo size only grows. Once a session jsonl is
+committed, the bot-side immutability rule keeps it
+forever. This is by design (historical record), but it
+means the bot repo has no analog of `cargo clean`:
+code-repo working bytes can be reclaimed (build artifacts
+come back on `cargo build`); bot-repo bytes are permanent.
+
+Sizing assumptions for shared-central scaling are a
+one-way ratchet, not a steady-state cost.
+
+### Mitigation menu (when thresholds approach)
+
+None worth building preemptively. Listed so trigger points
+have known responses:
+
+1. **Bot-repo pruning/archiving.** Move closed-out
+   sessions (older than N months, or tied to commits no
+   longer in any active branch) to an archive repo.
+   Active bot repo stays small; archive fetched on demand
+   when older history is referenced. The bot thinks this
+   is the cheapest big win — recent sessions are the hot
+   set, old ones are cold.
+2. **Sparse fetch by trailer-referenced sessions.** When
+   fetching the code repo, derive the set of bot-side
+   change_ids referenced by ochids in the fetched range
+   and fetch only those bot commits. Requires git/jj
+   sparse-fetch + a trailer-walking step. Heavier to
+   build but decouples clone cost from bot-repo size.
+3. **Per-user bot repos.** The structural alternative —
+   see "Per-user vs shared bot repo" above. Viable when
+   shared-central pruning/sparse-fetch isn't enough.
+4. **LFS for `.jsonl`.** Probably overkill — LFS targets
+   binary blobs, not append-only text. Listed only
+   because it's a known git escape hatch.
+
+### Tracking trigger
+
+Concretely measurable: the 311M baseline is the current
+benchmark. When the shared-central bot repo crosses ~1G
+or starts dominating clone time noticeably, that's the
+design trigger for pruning. User count alone is not the
+right signal; bot-repo size is.
 
 ## Future-direction notes
 

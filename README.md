@@ -13,6 +13,7 @@
   - [Testing push + finalize](#testing-push--finalize)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
+- [Thoughts for the future](#thoughts-for-the-future)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -796,6 +797,17 @@ Two shell gotchas worth remembering:
 `VC_X1_TEST_KEEP` is a debugging knob — every fixture-creating
 test in the run leaks its tempdir while it's set. Clean up with
 the `find` recipe above, or just `rm -rf` the announced paths.
+
+## Thoughts for the future
+
+Forward-looking design discussion lives in
+[`notes/forks-multi-user.md`](notes/forks-multi-user.md) —
+forking the dual-repo workspace, multi-user collaboration,
+multi-line `ochid:` trailers, bot-repo size and scaling
+thresholds, URL-shaped per-user repos for distributed
+projects. Treat as a design reference, not a status doc;
+most of what's there is forward-looking, not yet
+implemented.
 
 ## Contributing
 

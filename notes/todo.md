@@ -40,6 +40,17 @@ renumbering. Reference by displayed number ("let's work on #3").
    completion; eliminates `args.xxx.xxx` from op bodies.
    Multi-cycle effort; convert one subcommand end-to-end
    as worked example before sweeping. [80]
+1. **forks-multi-user + bot-data-formats follow-through.**
+   Design captured across two notes; concrete work to
+   land when a cycle picks it up. Major pieces:
+   multi-line `ochid:` parser/emitter; bot-side
+   immutability enforcement; URL-shaped ochid (per-user
+   / cross-repo); vendor-subdir layout
+   (`.bot/<vendor>/<version>/<id>.<ext>`) +
+   flat-to-vendor migration; `.claude/` → `.bot/` rename
+   (gated behind symmetric `.vc-config.toml` schema).
+   Each piece is its own future TODO when the design
+   hardens. [82],[83]
 1. **Rebase note — CLAUDE.md `### Per-file review checkpoints`.**
    Both `main` (0.42.0 work) and `init-clone-refactor`
    (0.41.1) authored this subsection independently —
@@ -251,3 +262,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
 [80]: /notes/chores-09.md#ops-layer-architecture-forward-looking
 [81]: /notes/chores-09.md#0420-close-out
+[82]: /notes/forks-multi-user.md
+[83]: /notes/bot-data-formats.md
