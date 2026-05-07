@@ -11,6 +11,12 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+- 0.43.0-0 plan + chores-09 plan section + todo.md ladder (current) [84]
+- 0.43.0-1 src/init.rs → src/init/{mod.rs, tests.rs} [84]
+- 0.43.0-2 src/push.rs → src/push/{mod.rs, tests.rs, integration_tests.rs} [84]
+- 0.43.0-3 src/sync.rs → src/sync/{mod.rs, tests.rs, integration_tests.rs} [84]
+- 0.43.0-4 src/common.rs → src/common/{mod.rs, tests.rs} (borderline) [84]
+- 0.43.0 close-out [84]
 
 ## Todo
 
@@ -28,9 +34,9 @@ renumbering. Reference by displayed number ("let's work on #3").
    items via `use super::*;`). Same shape for `push.rs`
    (785 test lines), `sync.rs` (673), `common.rs` (361,
    borderline). Pure mechanical reshape, no behavior
-   change. One sub-step per file. Candidate cycle: 0.41.2
-   or its own. Splitting tests first makes a follow-on
-   DRY walk across init/push/sync easier to read.
+   change. One sub-step per file. Active in the 0.43.0
+   cycle. Splitting tests first makes a follow-on DRY walk
+   across init/push/sync easier to read. [84]
 1. **Ops layer / CLI decoupling.** Introduce `ops::Workspace`
    handle + per-subcommand `*Options` plain structs (flat
    fields, no clap), with `From<&XArgs> for XOptions` at
@@ -264,3 +270,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [81]: /notes/chores-09.md#0420-close-out
 [82]: /notes/forks-multi-user.md
 [83]: /notes/bot-data-formats.md
+[84]: /notes/chores-09.md#test-module-extraction-0430

@@ -188,6 +188,121 @@ scaling thresholds. No code change.
 - `notes/chores-09.md`: this subsection (new).
 - `Cargo.toml`: bump 0.42.0 → 0.42.1.
 
+## Test-module extraction (0.43.0)
+
+Multi-step cycle to extract `#[cfg(test)] mod tests` (and
+`mod integration_tests` where present) from oversized
+production files into sibling-submodule layout. Pure
+mechanical reshape — no behavior change, no API change.
+Each test still reaches private items via
+`use super::*;`.
+
+### Goals
+
+- Shrink production files so the actual code is easier
+  to navigate (`init.rs` is 2576 lines today, ~1093 of
+  which are tests).
+- Establish a layout shape that future cycles can keep
+  using (further splitting into `cli.rs` / `ops.rs` per
+  the ops-layer architecture, etc.).
+- Done as one cycle so the four files end up
+  consistent rather than half-converted across multiple
+  cycles.
+
+### Per-file shape
+
+```
+src/X.rs
+  ↓
+src/X/
+  mod.rs               ← production code from src/X.rs
+  tests.rs             ← moved from #[cfg(test)] mod tests
+  integration_tests.rs ← moved from #[cfg(test)] mod
+                         integration_tests (push, sync)
+```
+
+In `src/X/mod.rs` after extraction:
+
+```rust
+// ...production code...
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+mod integration_tests;  // only for push, sync
+```
+
+In `src/X/tests.rs`:
+
+```rust
+//! Unit tests for the X module.
+
+use super::*;
+// ...test fns...
+```
+
+### Sub-step ladder
+
+Size-descending order (init has the most test bulk;
+common is borderline):
+
+- 0.43.0-0 plan + version bump + this section +
+  todo.md ladder
+- 0.43.0-1 src/init.rs → src/init/{mod.rs, tests.rs}
+  (~1093 test lines)
+- 0.43.0-2 src/push.rs → src/push/{mod.rs, tests.rs,
+  integration_tests.rs} (~784 test lines + integration
+  block)
+- 0.43.0-3 src/sync.rs → src/sync/{mod.rs, tests.rs,
+  integration_tests.rs} (~600 test lines, multiple
+  `#[cfg(test)]` blocks)
+- 0.43.0-4 src/common.rs → src/common/{mod.rs, tests.rs}
+  (~384 test lines, borderline — call after seeing
+  the first three land)
+- 0.43.0 close-out
+
+### Order rationale
+
+`init` is the worked example: largest test bulk and the
+file most-discussed in CLAUDE.md. Getting the pattern
+right there sets the template for the others. The bot
+thinks `common` is worth keeping for consistency but
+reasonable to drop after seeing the first three land —
+its 384 lines are below the threshold where extraction
+visibly helps.
+
+### Per-substep contract
+
+Per `notes/substep-protocol.md`:
+
+- Run `cargo fmt`, `cargo clippy --all-targets -- -D
+  warnings`, `cargo test`, `cargo install --path .
+  --locked`, retest before each sub-step commit.
+- Bump `Cargo.toml` version at the start of each
+  sub-step.
+- Mark prior sub-step `(done)` and current `(current)`
+  in todo.md ladder.
+- Pair commits across both repos with ochid trailers.
+
+### Cycle exemption from per-file review
+
+Test-module extraction is exactly the "code moving
+across files" refactor case CLAUDE.md
+(`### Per-file review checkpoints > Exceptions`)
+exempts. Each sub-step commits as one unit; no
+checkpoint between original-file edit and new-file
+creation.
+
+### Edits (this sub-step, 0.43.0-0)
+
+- `Cargo.toml`: bump 0.42.1 → 0.43.0-0.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: open `## In Progress` ladder for the
+  cycle; mark -0 `(current)`; add `[84]` ref pointing
+  here; add `[84]` to the existing Test-module
+  extraction TODO entry.
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware
