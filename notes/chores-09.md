@@ -211,17 +211,20 @@ Each test still reaches private items via
 
 ### Per-file shape
 
+Non-mod.rs layout (Rust 2018+ idiom): the production
+file keeps its top-level path; a sibling directory holds
+children. `src/X.rs` and `src/X/` coexist — Rust resolves
+`mod foo;` declared in `src/X.rs` to `src/X/foo.rs`.
+
 ```
-src/X.rs
-  ↓
+src/X.rs               ← production code (unchanged path)
 src/X/
-  mod.rs               ← production code from src/X.rs
   tests.rs             ← moved from #[cfg(test)] mod tests
   integration_tests.rs ← moved from #[cfg(test)] mod
                          integration_tests (push, sync)
 ```
 
-In `src/X/mod.rs` after extraction:
+In `src/X.rs` after extraction:
 
 ```rust
 // ...production code...
@@ -242,6 +245,15 @@ use super::*;
 // ...test fns...
 ```
 
+**Why non-mod.rs.** The `mod.rs` style names every
+module's entry point identically — fuzzy finders show a
+column of `mod.rs` rows that the reader must
+disambiguate by directory. Multiple `tests.rs` files
+don't have the same pain (the file is leaf content; the
+directory tells the reader which module's tests they
+are). Modern Rust (`cargo new`, RFC 2126) defaults to
+non-mod.rs for exactly this reason.
+
 ### Sub-step ladder
 
 Size-descending order (init has the most test bulk;
@@ -249,15 +261,15 @@ common is borderline):
 
 - 0.43.0-0 plan + version bump + this section +
   todo.md ladder
-- 0.43.0-1 src/init.rs → src/init/{mod.rs, tests.rs}
+- 0.43.0-1 src/init.rs (kept) + src/init/tests.rs
   (~1093 test lines)
-- 0.43.0-2 src/push.rs → src/push/{mod.rs, tests.rs,
+- 0.43.0-2 src/push.rs (kept) + src/push/{tests.rs,
   integration_tests.rs} (~784 test lines + integration
   block)
-- 0.43.0-3 src/sync.rs → src/sync/{mod.rs, tests.rs,
+- 0.43.0-3 src/sync.rs (kept) + src/sync/{tests.rs,
   integration_tests.rs} (~600 test lines, multiple
   `#[cfg(test)]` blocks)
-- 0.43.0-4 src/common.rs → src/common/{mod.rs, tests.rs}
+- 0.43.0-4 src/common.rs (kept) + src/common/tests.rs
   (~384 test lines, borderline — call after seeing
   the first three land)
 - 0.43.0 close-out
@@ -302,6 +314,41 @@ creation.
   cycle; mark -0 `(current)`; add `[84]` ref pointing
   here; add `[84]` to the existing Test-module
   extraction TODO entry.
+
+## init test extraction (0.43.0-1)
+
+Extracted `mod tests` from `src/init.rs` into sibling
+`src/init/tests.rs`. Production file keeps its top-level
+path (`src/init.rs`); the new `src/init/` directory
+holds only the test submodule. Tests reach private items
+via `use super::*;`; no visibility changes needed.
+
+Production code: 1481 lines (`src/init.rs`). Tests: 1091
+lines (`src/init/tests.rs`, de-indented from the 4-space
+wrapper indent of the original `mod tests { ... }` block).
+Total +1 line vs original (`//! Unit tests for the init
+module.` header + 1 blank line in tests.rs; `mod tests;`
+forward declaration + 1 blank line in init.rs; replacing
+the 4-line `mod tests { ... }` wrapper).
+
+`cargo test` shows 358 unit + 14 integration tests
+passing, identical to the pre-extraction baseline.
+
+Initial draft used `src/init/mod.rs` for production code;
+revised to non-mod.rs layout (`src/init.rs` retained,
+`src/init/` holds children only) before commit. See
+Per-file shape rationale above.
+
+### Edits
+
+- `src/init.rs`: production code retained at the original
+  path; trailing `mod tests;` forward declaration added.
+- `src/init/tests.rs`: de-indented test body with new
+  `//!` header.
+- `Cargo.toml`: bump 0.43.0-0 → 0.43.0-1.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: ladder marker flips (-0 (current) →
+  (done); -1 → (done)).
 
 ## Ops layer architecture (forward-looking)
 

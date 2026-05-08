@@ -11,11 +11,11 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.43.0-0 plan + chores-09 plan section + todo.md ladder (current) [84]
-- 0.43.0-1 src/init.rs → src/init/{mod.rs, tests.rs} [84]
-- 0.43.0-2 src/push.rs → src/push/{mod.rs, tests.rs, integration_tests.rs} [84]
-- 0.43.0-3 src/sync.rs → src/sync/{mod.rs, tests.rs, integration_tests.rs} [84]
-- 0.43.0-4 src/common.rs → src/common/{mod.rs, tests.rs} (borderline) [84]
+- 0.43.0-0 plan + chores-09 plan section + todo.md ladder (done) [84]
+- 0.43.0-1 src/init.rs (kept) + src/init/tests.rs (done) [84]
+- 0.43.0-2 src/push.rs (kept) + src/push/{tests.rs, integration_tests.rs} [84]
+- 0.43.0-3 src/sync.rs (kept) + src/sync/{tests.rs, integration_tests.rs} [84]
+- 0.43.0-4 src/common.rs (kept) + src/common/tests.rs (borderline) [84]
 - 0.43.0 close-out [84]
 
 ## Todo
