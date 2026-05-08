@@ -383,6 +383,51 @@ integration tests, identical to pre-extraction.
 - `notes/todo.md`: ladder marker flips (-2 (current) →
   (done)).
 
+## sync test extraction (0.43.0-3)
+
+Extracted `mod tests` and `mod integration_tests` from
+`src/sync.rs` into siblings `src/sync/tests.rs` and
+`src/sync/integration_tests.rs`. Same non-mod.rs layout
+as -1 / -2. Tests reach private items via
+`use super::*;`; no visibility changes.
+
+Production code: 608 lines (`src/sync.rs`, was 1206).
+Unit tests: 145 lines (`src/sync/tests.rs`).
+Integration tests: 455 lines
+(`src/sync/integration_tests.rs`; preserves the
+original `//!` block as file-level docs).
+
+The pre-existing `#[cfg(test)] use crate::scope::Side;`
+scaffolding at the top of `sync.rs` (which existed only
+to keep `Side` in scope for the inline `mod tests`) is
+moved to the extracted test files alongside the rest
+of their imports — the production file no longer
+carries test-only `use` lines.
+
+`cargo test` baseline preserved: 358 unit + 14
+integration tests, identical to pre-extraction.
+
+### Edits
+
+- `src/sync.rs`: production code retained at the
+  original path; trailing test bodies replaced with
+  `mod tests;` + `mod integration_tests;` forward
+  declarations; the test-only
+  `#[cfg(test)] use crate::scope::Side;` lines
+  removed.
+- `src/sync/tests.rs`: de-indented unit test body with
+  new `//!` header; explicit `use crate::scope::Side;`
+  added under `use super::*;`.
+- `src/sync/integration_tests.rs`: de-indented
+  integration test body; existing file-level `//!`
+  block preserved (single new top-line header added);
+  explicit `use crate::scope::Side;` added with the
+  rest of the imports.
+- `Cargo.toml`: bump 0.43.0-2 → 0.43.0-3.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: ladder marker flips (-3 (current) →
+  (done)).
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware
