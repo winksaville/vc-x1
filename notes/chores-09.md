@@ -350,6 +350,39 @@ Per-file shape rationale above.
 - `notes/todo.md`: ladder marker flips (-0 (current) →
   (done); -1 → (done)).
 
+## push test extraction (0.43.0-2)
+
+Extracted both `mod tests` and `mod integration_tests`
+from `src/push.rs` into siblings `src/push/tests.rs` and
+`src/push/integration_tests.rs`. Production file kept at
+`src/push.rs` (non-mod.rs layout). Tests reach private
+items via `use super::*;`; no visibility changes.
+
+Production code: 1487 lines (`src/push.rs`, was 2267).
+Unit tests: 423 lines (`src/push/tests.rs`, de-indented
+from 4-space wrapper). Integration tests: 359 lines
+(`src/push/integration_tests.rs`, de-indented; preserves
+the original `//!` header block as file-level docs).
+
+`cargo test` baseline preserved: 358 unit + 14
+integration tests, identical to pre-extraction.
+
+### Edits
+
+- `src/push.rs`: production code retained at the
+  original path; trailing test bodies replaced with
+  `mod tests;` + `mod integration_tests;` forward
+  declarations.
+- `src/push/tests.rs`: de-indented unit test body with
+  new `//!` header.
+- `src/push/integration_tests.rs`: de-indented
+  integration test body; existing file-level `//!`
+  block preserved (single new top-line header added).
+- `Cargo.toml`: bump 0.43.0-1 → 0.43.0-2.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: ladder marker flips (-2 (current) →
+  (done)).
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware
