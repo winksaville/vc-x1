@@ -21,15 +21,14 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Ops layer / CLI decoupling.** Introduce `ops::Workspace`
-   handle + per-subcommand `*Options` plain structs (flat
-   fields, no clap), with `From<&XArgs> for XOptions` at
-   the binary edge. Subcommand bodies become
-   `fn op(ws: &Workspace, opts: &XOptions) -> Result<XOutcome, XError>`.
-   Preserves leaves in `src/options_flags/` for `-h` +
-   completion; eliminates `args.xxx.xxx` from op bodies.
-   Multi-cycle effort; convert one subcommand end-to-end
-   as worked example before sweeping. [80]
+1. **Ops layer / CLI decoupling — sweep remaining
+   subcommands.** Init ported in 0.44.0 as the worked
+   example (`Context` + `InitParams`, `From<&InitArgs>`
+   at the binary edge, op body reads `params.account`
+   not `args.account.account`). Remaining: sync, chid,
+   push, clone, desc, fix-desc, validate-desc, list,
+   show, finalize, symlink — each its own cycle, same
+   shape (`<Mod>Params` + `From<&XArgs>`). [80]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
@@ -224,6 +223,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
 - 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
 - Test-module extraction across init/push/sync/common (0.43.0) [84]
+- InitParams + Context — init op decoupling worked example (0.44.0) [80]
 
 # References
 

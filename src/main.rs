@@ -2,6 +2,7 @@ mod chid;
 mod clone;
 mod common;
 mod config;
+mod context;
 mod desc;
 mod desc_helpers;
 mod finalize;
@@ -353,7 +354,17 @@ fn main() -> ExitCode {
         }
         Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
         Commands::Clone(clone_args) => run_command(clone::clone_repo(&clone_args)),
-        Commands::Init(init_args) => run_command(init::init(&init_args, true)),
+        Commands::Init(init_args) => {
+            let ctx = match context::Context::load() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = init::InitParams::from(&init_args);
+            run_command(init::init(&ctx, &params))
+        }
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
         Commands::Sync(sync_args) => run_command(sync::sync(&sync_args)),
         Commands::Finalize(finalize_args) => {

@@ -1,9 +1,13 @@
+mod params;
+pub use params::InitParams;
+
 use std::path::{Path, PathBuf};
 
 use clap::Args;
 use log::{debug, info};
 
 use crate::config::{self, UserConfig};
+use crate::context::Context;
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::{ConfigKind, ConfigOption};
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
@@ -573,26 +577,21 @@ pub(crate) struct InitPlan {
 /// once at entry and passes it through so tests can supply a
 /// synthetic config without touching disk.
 pub(crate) fn plan_init(
-    args: &InitArgs,
+    params: &InitParams,
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     debug!(
         "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
-        args.target,
-        args.name,
-        args.account.account,
-        args.repo.repo,
-        args.scope.scope,
-        args.provision.private.private
+        params.target, params.name, params.account, params.repo, params.scope, params.private
     );
 
-    let scope = match args.scope.scope {
+    let scope = match params.scope {
         ScopeKind::CodeBot => Scope::Roles(vec![Side::Code, Side::Bot]),
         ScopeKind::Por => Scope::Roles(vec![Side::Code]),
     };
 
     if scope.is_code_only()
-        && let Some(t) = &args.use_template.use_template
+        && let Some(t) = &params.use_template
         && t.contains(',')
     {
         return Err(format!(
@@ -601,26 +600,26 @@ pub(crate) fn plan_init(
         .into());
     }
 
-    if args.config.raw.is_some() && args.scope.scope == ScopeKind::CodeBot {
+    if params.config.is_some() && params.scope == ScopeKind::CodeBot {
         return Err(
             "--config is only valid with --scope=por (dual-mode configs are per-side and unconditional)".into(),
         );
     }
-    if let Some(ConfigKind::Path(p)) = args.config.resolve(ConfigKind::None)
+    if let Some(ConfigKind::Path(p)) = &params.config
         && !p.exists()
     {
         return Err(format!("--config: path does not exist: {}", p.display()).into());
     }
 
-    let parsed = parse_target(&args.target)?;
-    debug!("parse_target: {:?} → {:?}", args.target, parsed);
+    let parsed = parse_target(&params.target)?;
+    debug!("parse_target: {:?} → {:?}", params.target, parsed);
     let plan = match parsed {
-        Target::Url(url) => plan_from_url(args, scope, url),
+        Target::Url(url) => plan_from_url(params, scope, url),
         Target::OwnerName(o, n) => {
-            plan_from_url(args, scope, format!("git@github.com:{o}/{n}.git"))
+            plan_from_url(params, scope, format!("git@github.com:{o}/{n}.git"))
         }
-        Target::Path(p) => plan_from_path(args, scope, p, cfg),
-        Target::BareName(n) => plan_from_bare_name(args, scope, n, cfg),
+        Target::Path(p) => plan_from_path(params, scope, p, cfg),
+        Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
     debug!(
         "plan_init: project_dir={}, name={}, code_url={}, provisioner={:?}, gh_code_slug={:?}, code_bare_path={:?}, session_url={:?}",
@@ -641,24 +640,24 @@ pub(crate) fn plan_init(
 /// - `--account` / `--repo` are rejected (would have no effect).
 /// - `[NAME]` overrides the URL-derived directory name.
 fn plan_from_url(
-    args: &InitArgs,
+    params: &InitParams,
     scope: Scope,
     url: String,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    if args.account.account.is_some() {
+    if params.account.is_some() {
         return Err(
             "--account is meaningless with a URL or owner/name TARGET (config not consulted)"
                 .into(),
         );
     }
-    if args.repo.repo.is_some() {
+    if params.repo.is_some() {
         return Err(
             "--repo is meaningless with a URL or owner/name TARGET (config not consulted)".into(),
         );
     }
     let code_url = ensure_git_suffix(&url);
     let derived_name = derive_name(&code_url)?;
-    let name = args.name.clone().unwrap_or(derived_name);
+    let name = params.name.clone().unwrap_or(derived_name);
     let cwd = std::env::current_dir()?;
     let project_dir = cwd.join(&name);
 
@@ -686,12 +685,12 @@ fn plan_from_url(
 /// Plan when TARGET is a path. Path IS the destination; basename
 /// names the repo. Remote resolved via the `--repo` chain.
 fn plan_from_path(
-    args: &InitArgs,
+    params: &InitParams,
     scope: Scope,
     path: PathBuf,
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    if args.name.is_some() {
+    if params.name.is_some() {
         return Err(
             "[NAME] is meaningless with a path TARGET (path already names the destination)".into(),
         );
@@ -708,34 +707,26 @@ fn plan_from_path(
         .to_str()
         .ok_or("path TARGET is not valid UTF-8")?
         .to_string();
-    let (cat, val) = config::resolve_repo(
-        cfg,
-        args.account.account.as_deref(),
-        args.repo.repo.as_ref(),
-    )?;
+    let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
 /// Plan when TARGET is a bare alphanumeric NAME. Destination at
 /// `cwd/<NAME>`; remote resolved via the `--repo` chain.
 fn plan_from_bare_name(
-    args: &InitArgs,
+    params: &InitParams,
     scope: Scope,
     name: String,
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    if args.name.is_some() {
+    if params.name.is_some() {
         return Err(
             "[NAME] is meaningless with a bare-NAME TARGET (TARGET already names the repo)".into(),
         );
     }
     let cwd = std::env::current_dir()?;
     let project_dir = cwd.join(&name);
-    let (cat, val) = config::resolve_repo(
-        cfg,
-        args.account.account.as_deref(),
-        args.repo.repo.as_ref(),
-    )?;
+    let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
 
@@ -956,17 +947,24 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
 
 /// Init entry point — runs the dual or POR provisioning flow.
 ///
-/// - `create_symlink=true` — CLI behavior; step 11 creates the
-///   `~/.claude/projects/` symlink for dual-scope runs.
-/// - `create_symlink=false` — suppresses that side effect; used
-///   by test harnesses (`test_helpers::Fixture`,
-///   `test_helpers::FixturePor`) so parallel fixtures don't
-///   collide on the user's home dir.
-pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::error::Error>> {
+/// Takes the shared `Context` (loaded user config) and the flat
+/// `InitParams`. CLI builds both at the binary edge in main.rs;
+/// tests construct `InitParams` directly.
+///
+/// `params.create_symlink` controls the `~/.claude/projects/`
+/// symlink side effect:
+///
+/// - `true` — CLI behavior; step 11 creates the symlink for
+///   dual-scope runs.
+/// - `false` — suppresses that side effect; used by test
+///   harnesses (`test_helpers::Fixture`, `test_helpers::FixturePor`)
+///   so parallel fixtures don't collide on the user's home dir.
+pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("init: enter");
 
-    let cfg = config::load()?;
-    let plan = plan_init(args, &cfg)?;
+    let create_symlink = params.create_symlink;
+    let cfg = &ctx.user_config;
+    let plan = plan_init(params, cfg)?;
     let is_dual = plan.scope.is_both();
 
     // --- Preflight ---
@@ -1052,7 +1050,7 @@ pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::er
         }
     }
 
-    let templates = match &args.use_template.use_template {
+    let templates = match &params.use_template {
         Some(s) => {
             let (code_t, bot_t) = parse_use_template(s)?;
             if is_dual {
@@ -1066,13 +1064,13 @@ pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::er
         None => None,
     };
 
-    let visibility = if args.provision.private.private {
+    let visibility = if params.private {
         "--private"
     } else {
         "--public"
     };
 
-    if args.provision.dry_run.dry_run {
+    if params.dry_run {
         info!("Dry run — would execute:");
         info!("  1. Create directories: {}", plan.project_dir.display());
         info!(
@@ -1177,9 +1175,9 @@ pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::er
         return Ok(());
     }
 
-    match args.scope.scope {
-        ScopeKind::CodeBot => create_dual(args, &plan, templates, visibility, create_symlink),
-        ScopeKind::Por => create_por(args, &plan, templates, visibility, create_symlink),
+    match params.scope {
+        ScopeKind::CodeBot => create_dual(params, &plan, templates, visibility, create_symlink),
+        ScopeKind::Por => create_por(params, &plan, templates, visibility, create_symlink),
     }
 }
 
@@ -1195,7 +1193,7 @@ pub fn init(args: &InitArgs, create_symlink: bool) -> Result<(), Box<dyn std::er
 /// `_create_symlink` is unused (no symlink in single-repo); kept in
 /// the signature for shape-symmetry with `create_dual`.
 fn create_por(
-    args: &InitArgs,
+    params: &InitParams,
     plan: &InitPlan,
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
@@ -1204,10 +1202,10 @@ fn create_por(
     let code_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     prepare_local_repo(&plan.project_dir, "code", code_template, &plan.name)?;
-    match args.config.resolve(ConfigKind::None) {
+    match &params.config {
         None => write_por_vc_config(&plan.project_dir)?,
         Some(ConfigKind::None) => {} // skip — user asked not to write
-        Some(ConfigKind::Path(p)) => copy_user_config(&p, &plan.project_dir)?,
+        Some(ConfigKind::Path(p)) => copy_user_config(p, &plan.project_dir)?,
     }
     write_por_gitignore(&plan.project_dir)?;
     let code_chid = commit_initial(&plan.project_dir, "code", OchidStrategy::None)?;
@@ -1224,7 +1222,7 @@ fn create_por(
         "Step 9",
         None,
         plan,
-        args,
+        params,
         visibility,
         &plan.code_url,
         plan.gh_code_slug.as_deref(),
@@ -1258,7 +1256,7 @@ fn create_por(
 ///   so the nested session repo survives the code-side clean.
 /// - `symlink::install` (when `create_symlink`).
 fn create_dual(
-    args: &InitArgs,
+    params: &InitParams,
     plan: &InitPlan,
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
@@ -1292,7 +1290,7 @@ fn create_dual(
         "Step 8",
         None,
         plan,
-        args,
+        params,
         visibility,
         session_url,
         plan.gh_session_slug.as_deref(),
@@ -1306,7 +1304,7 @@ fn create_dual(
         "Step 9",
         Some(".claude"),
         plan,
-        args,
+        params,
         visibility,
         &plan.code_url,
         plan.gh_code_slug.as_deref(),
@@ -1351,7 +1349,7 @@ fn create_dual(
 /// - `clean_exclude` — `Some(".claude")` for code-side dual to
 ///   preserve the nested session repo across `git clean -xdf`;
 ///   `None` otherwise.
-/// - `plan` / `args` / `visibility` / `remote_url` / `gh_slug` /
+/// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /
 ///   `bare_path` — forwarded to `run_remote_step`.
 #[allow(clippy::too_many_arguments)]
 fn push_repo(
@@ -1360,7 +1358,7 @@ fn push_repo(
     step_label_provision: &str,
     clean_exclude: Option<&str>,
     plan: &InitPlan,
-    args: &InitArgs,
+    params: &InitParams,
     visibility: &str,
     remote_url: &str,
     gh_slug: Option<&str>,
@@ -1391,7 +1389,7 @@ fn push_repo(
         bare_path,
         visibility,
         target,
-        args,
+        params,
     )?;
 
     info!("Step 10: Re-initializing jj on the {info_label} repo...");
@@ -1424,7 +1422,7 @@ fn run_remote_step(
     bare_path: Option<&Path>,
     visibility: &str,
     push_from: &Path,
-    args: &InitArgs,
+    params: &InitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match &plan.provisioner {
         Provisioner::GhCreate => {
@@ -1465,7 +1463,7 @@ fn run_remote_step(
         "git",
         &["push", "-u", "origin", "main"],
         push_from,
-        &args.provision.push_retry,
+        &params.push_retry,
     )?;
     Ok(())
 }

@@ -677,3 +677,127 @@ outcome-type design until step 1 has shaken out.
   until benchmarks call for it.
 - Crate split timing — defer until a second consumer crate
   appears.
+
+## InitParams implementation (0.44.0)
+
+Single-step cycle: introduce `Context` + `InitParams` and
+port `init` to the new shape. Establishes the worked
+example for the design captured in
+[Ops layer architecture (forward-looking)](#ops-layer-architecture-forward-looking)
+above; remaining subcommands defer to later cycles.
+
+### Naming differs from "Ops layer architecture" section above
+
+Written before this cycle, the design section uses
+`Workspace` and `XOptions`. This cycle adopts:
+
+- `Workspace` → `Context`. Cargo owns "workspace"
+  formally, and this codebase already uses "workspace"
+  for the dual-repo project root (`find_workspace_root`).
+  Doubly overloaded.
+- `XOptions` → `XParams`. Avoids collision with Rust's
+  `Option<T>` (`InitParams` fields are a mix of required
+  and `Option<T>`-typed, which `Options` muddles).
+  Doesn't collide with `src/options_flags/` either.
+
+The forward-looking design section is left as-is for
+this cycle; once 0.44.0 lands and the worked example
+is in tree, that section can be retitled / updated
+during a future close-out so the codebase has one
+naming.
+
+### Why init
+
+`args.account.account` ergonomics — the trigger for the
+whole design — lives here; init also has the deepest
+leaf nesting (account / repo / scope / private /
+template / push retry). If the pattern survives init,
+sync / chid / push / clone port trivially.
+
+### In scope
+
+- `src/context.rs` (new): `Context` struct holding the
+  workspace root path + loaded `UserConfig`. Built once
+  at startup.
+- `src/init/params.rs` (new): `InitParams` flat plain
+  struct (owns its values) + `impl From<&InitArgs> for
+  InitParams`.
+- `src/init.rs`: port `plan_init` and any other
+  init-side `pub fn` entrypoints to
+  `fn (&Context, &InitParams)`. Body reads
+  `params.account` instead of `args.account.account`.
+- `src/main.rs`: build `Context` once at startup; the
+  init dispatch arm passes `(&ctx, &(&args).into())`.
+- `src/init/tests.rs`: pure-unit tests construct
+  `Context` + `InitParams` directly (no clap
+  `try_parse_from` plumbing); integration paths still
+  exercise the clap edge.
+
+### Out of scope (deferred)
+
+- Sweep across sync / chid / push / clone / etc.
+  Each is its own later cycle.
+- Per chores-09 "five rules": typed errors, returned
+  outcomes (vs `println!`), `ProgressSink`. Keep this
+  cycle to the structural split only.
+- `Context` fields beyond workspace root + user
+  config. Defer until a real consumer surfaces.
+
+### Pre-commit checklist
+
+Standard: `cargo fmt`, `cargo clippy --all-targets --
+-D warnings`, `cargo test`, `cargo install --path .
+--locked`, retest.
+
+### Edits
+
+- `Cargo.toml`: bump 0.43.0 → 0.44.0.
+- `src/context.rs` (new): `Context` struct holding
+  `user_config: UserConfig` + `Context::load()` ctor;
+  declared `mod context;` in `src/main.rs`.
+- `src/init/params.rs` (new): `InitParams` flat struct
+  + `impl From<&InitArgs> for InitParams` (production
+  default sets `create_symlink: true`); declared
+  `mod params; pub use params::InitParams;` in
+  `src/init.rs`.
+- `src/init.rs`: `pub fn init` signature changed
+  from `init(args: &InitArgs, create_symlink: bool)`
+  to `init(ctx: &Context, params: &InitParams)`
+  (`create_symlink` folded into `InitParams`).
+  Internal helpers (`plan_init`, `plan_from_url`,
+  `plan_from_path`, `plan_from_bare_name`,
+  `plan_remote`, `plan_local`, `build_plan`,
+  `create_por`, `create_dual`, `push_repo`,
+  `run_remote_step`) all switched from
+  `args: &InitArgs` to `params: &InitParams`. Body
+  reads `params.account` instead of
+  `args.account.account` (and similarly across all
+  leaf nestings). `args.config.resolve(ConfigKind::None)`
+  call sites collapse to `&params.config` since the
+  resolve runs at the boundary now. `cfg` inside
+  `pub fn init` switched from `config::load()?` to
+  `&ctx.user_config`.
+- `src/main.rs`: `mod context;` added; init dispatch
+  builds `Context::load()` then converts
+  `InitParams::from(&init_args)` and calls
+  `init::init(&ctx, &params)`.
+- `src/test_helpers.rs`: `Fixture` and `FixturePor`
+  builders updated — load `Context`, build
+  `InitParams::from(&args)`, override
+  `params.create_symlink = false`, then call
+  `init(&ctx, &params)`. Imports updated to bring
+  `Context` and `InitParams` into scope.
+- `src/init/tests.rs`: every `plan_init(&args, ...)`
+  call site rewritten to
+  `plan_init(&InitParams::from(&args), ...)`. The two
+  `plan_init(&args_for(...), ...)` sites split across
+  multiple lines for readability. Tests of `InitArgs`
+  (parse/defaults) untouched — those exercise the
+  clap edge.
+- `notes/chores-09.md`: this section + the
+  `## InitParams implementation (0.44.0)` plan
+  section.
+- `notes/todo.md`: drop the cycle's `## In Progress`
+  entry; add `## Done` entry; rewrite the
+  `Ops layer / CLI decoupling` `## Todo` item to
+  reflect "init done, sweep remaining."

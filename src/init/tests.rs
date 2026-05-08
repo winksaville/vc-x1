@@ -523,7 +523,7 @@ fn cfg_two_accounts() -> UserConfig {
 #[test]
 fn plan_url_ssh_github_dual() {
     let args = args_for("git@github.com:winksaville/tf1");
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
     assert_eq!(plan.name, "tf1");
     assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
@@ -541,7 +541,7 @@ fn plan_url_ssh_github_dual() {
 #[test]
 fn plan_url_https_github() {
     let args = args_for("https://github.com/owner/repo.git");
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
     assert_eq!(plan.code_url, "https://github.com/owner/repo.git");
     assert_eq!(plan.gh_code_slug.as_deref(), Some("owner/repo"));
@@ -550,7 +550,7 @@ fn plan_url_https_github() {
 #[test]
 fn plan_url_non_github_uses_external_provisioner() {
     let args = args_for("git@gitlab.com:winksaville/tf1.git");
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
     assert!(plan.gh_code_slug.is_none());
     assert!(plan.gh_session_slug.is_none());
@@ -567,7 +567,7 @@ fn plan_url_with_name_override() {
     // itself is unchanged.
     let mut args = args_for("git@github.com:winksaville/tf1");
     args.name = Some("custom-dir".into());
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.name, "custom-dir");
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("custom-dir"));
@@ -579,7 +579,7 @@ fn plan_url_with_name_override() {
 #[test]
 fn plan_owner_name_resolves_to_github_ssh() {
     let args = args_for("winksaville/tf1");
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
     assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
     assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
@@ -589,8 +589,16 @@ fn plan_owner_name_resolves_to_github_ssh() {
 fn plan_owner_name_eq_ssh_url_form() {
     // owner/name shorthand must produce the same plan as the
     // explicit SSH URL it resolves to.
-    let p1 = plan_init(&args_for("winksaville/tf1"), &cfg_empty()).unwrap();
-    let p2 = plan_init(&args_for("git@github.com:winksaville/tf1"), &cfg_empty()).unwrap();
+    let p1 = plan_init(
+        &InitParams::from(&args_for("winksaville/tf1")),
+        &cfg_empty(),
+    )
+    .unwrap();
+    let p2 = plan_init(
+        &InitParams::from(&args_for("git@github.com:winksaville/tf1")),
+        &cfg_empty(),
+    )
+    .unwrap();
     assert_eq!(p1.code_url, p2.code_url);
     assert_eq!(p1.session_url, p2.session_url);
     assert_eq!(p1.provisioner, p2.provisioner);
@@ -607,7 +615,7 @@ fn plan_path_absolute_with_repo_local() {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
     assert_eq!(plan.name, "tf1");
@@ -633,7 +641,7 @@ fn plan_path_relative_with_repo_local() {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("tf1"));
     assert_eq!(plan.name, "tf1");
@@ -646,7 +654,7 @@ fn plan_path_relative_with_repo_local() {
 fn plan_bare_name_uses_top_level_repo_remote() {
     let args = args_for("tf1");
     let cfg = cfg_top_level_remote("git@github.com:winksaville");
-    let plan = plan_init(&args, &cfg).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg).unwrap();
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("tf1"));
     assert_eq!(plan.name, "tf1");
@@ -659,7 +667,7 @@ fn plan_bare_name_uses_top_level_repo_remote() {
 fn plan_bare_name_uses_top_level_repo_local() {
     let args = args_for("tf1");
     let cfg = cfg_top_level_local("/tmp/fixtures");
-    let plan = plan_init(&args, &cfg).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg).unwrap();
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("tf1"));
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
@@ -677,7 +685,7 @@ fn plan_bare_name_uses_top_level_repo_local() {
 fn plan_bare_name_account_override_picks_work() {
     let mut args = args_for("tf1");
     args.account.account = Some("work".into());
-    let plan = plan_init(&args, &cfg_two_accounts()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_two_accounts()).unwrap();
     assert_eq!(plan.code_url, "git@github.com:anthropic/tf1.git");
     assert_eq!(plan.gh_code_slug.as_deref(), Some("anthropic/tf1"));
 }
@@ -691,7 +699,7 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
         category: "local".into(),
         value: Some("/tmp/explicit".into()),
     });
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(
         plan.code_bare_path,
@@ -709,7 +717,7 @@ fn plan_por_path_local_single_bare() {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_code_only());
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(
@@ -727,7 +735,7 @@ fn plan_por_path_local_single_bare() {
 fn plan_por_url_no_session() {
     let mut args = args_for("git@github.com:winksaville/tf1");
     args.scope.scope = ScopeKind::Por;
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_code_only());
     assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
     assert!(plan.session_url.is_none());
@@ -737,7 +745,7 @@ fn plan_por_url_no_session() {
 #[test]
 fn plan_default_scope_is_code_bot() {
     let args = args_for("git@github.com:winksaville/tf1");
-    let plan = plan_init(&args, &cfg_empty()).unwrap();
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_both());
     assert!(plan.session_url.is_some());
     assert!(plan.session_dir.is_some());
@@ -749,7 +757,9 @@ fn plan_default_scope_is_code_bot() {
 fn error_url_target_with_account() {
     let mut args = args_for("git@github.com:u/p");
     args.account.account = Some("work".into());
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("--account is meaningless"), "got: {err}");
 }
 
@@ -760,7 +770,9 @@ fn error_url_target_with_repo() {
         category: "remote".into(),
         value: Some("git@github.com:other".into()),
     });
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("--repo is meaningless"), "got: {err}");
 }
 
@@ -772,7 +784,9 @@ fn error_path_target_with_name() {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("[NAME] is meaningless"), "got: {err}");
     assert!(err.contains("path"), "got: {err}");
 }
@@ -785,7 +799,9 @@ fn error_bare_name_target_with_name() {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("[NAME] is meaningless"), "got: {err}");
     assert!(err.contains("bare-NAME"), "got: {err}");
 }
@@ -795,7 +811,9 @@ fn error_bare_name_no_config() {
     // Empty config + no --repo, no --account → step 1 of
     // resolve_repo errors with the "no account" message.
     let args = args_for("tf1");
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("[default].account"), "got: {err}");
 }
 
@@ -806,7 +824,9 @@ fn error_unknown_category() {
         category: "weird".into(),
         value: Some("xyz".into()),
     });
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("'weird' is not recognized"), "got: {err}");
 }
 
@@ -817,7 +837,9 @@ fn error_por_with_comma_template() {
     let mut args = args_for("git@github.com:u/p");
     args.scope.scope = ScopeKind::Por;
     args.use_template.use_template = Some("/tmp/code,/tmp/bot".into());
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("--scope=por"), "got: {err}");
     assert!(err.contains("single template path"), "got: {err}");
 }
@@ -957,7 +979,9 @@ fn config_rejected_with_scope_code_bot() {
     let mut args = args_for("./foo");
     args.scope.scope = ScopeKind::CodeBot;
     args.config.raw = Some("none".to_string());
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(
         err.contains("--config is only valid with --scope=por"),
         "unexpected error: {err}"
@@ -972,7 +996,9 @@ fn config_path_missing_rejected_at_preflight() {
     let mut args = args_for("./foo");
     args.scope.scope = ScopeKind::Por;
     args.config.raw = Some("/nonexistent/path/to/config.toml".to_string());
-    let err = plan_init(&args, &cfg_empty()).unwrap_err().to_string();
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("does not exist"), "unexpected error: {err}");
 }
 
@@ -985,7 +1011,8 @@ fn config_none_passes_preflight() {
     let mut args = args_for("git@github.com:foo/bar.git");
     args.scope.scope = ScopeKind::Por;
     args.config.raw = Some("none".to_string());
-    plan_init(&args, &cfg_empty()).expect("--config none with --scope=por should pass preflight");
+    plan_init(&InitParams::from(&args), &cfg_empty())
+        .expect("--config none with --scope=por should pass preflight");
 }
 
 // ---------- Dual end-to-end fixture (drives init with --scope=code,bot) ----------

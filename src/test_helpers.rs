@@ -17,7 +17,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::common::write_file;
 use crate::config::RepoSelector;
-use crate::init::{InitArgs, init};
+use crate::context::Context;
+use crate::init::{InitArgs, InitParams, init};
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::ConfigOption;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
@@ -108,7 +109,10 @@ impl Fixture {
             use_template: UseTemplateOption { use_template },
             config: ConfigOption::default(),
         };
-        init(&args, false).expect("build test fixture via init");
+        let ctx = Context::load().expect("load user config for test fixture");
+        let mut params = InitParams::from(&args);
+        params.create_symlink = false;
+        init(&ctx, &params).expect("build test fixture via init");
 
         let work = base.join("work");
         let claude = work.join(".claude");
@@ -198,7 +202,10 @@ impl FixturePor {
             use_template: UseTemplateOption::default(),
             config: ConfigOption { raw: config },
         };
-        init(&args, false).expect("build test fixture via init (POR)");
+        let ctx = Context::load().expect("load user config for POR test fixture");
+        let mut params = InitParams::from(&args);
+        params.create_symlink = false;
+        init(&ctx, &params).expect("build test fixture via init (POR)");
 
         let work = base.join("work");
         FixturePor { base, work }
