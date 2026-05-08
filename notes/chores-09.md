@@ -428,6 +428,37 @@ integration tests, identical to pre-extraction.
 - `notes/todo.md`: ladder marker flips (-3 (current) →
   (done)).
 
+## common test extraction (0.43.0-4)
+
+Extracted `mod tests` from `src/common.rs` into sibling
+`src/common/tests.rs`. Same non-mod.rs layout as the
+prior sub-steps. Tests reach private items via
+`use super::*;`; no visibility changes.
+
+Production code: 715 lines (`src/common.rs`, was 1099).
+Unit tests: 385 lines (`src/common/tests.rs`).
+No integration test module.
+
+`cargo test` baseline preserved: 358 unit + 14
+integration tests, identical to pre-extraction.
+
+The chores-09 plan flagged this sub-step as
+"borderline" — common.rs's test bulk (~384 lines) is
+below the threshold where extraction visibly helps.
+Done anyway for consistency with the cycle pattern.
+
+### Edits
+
+- `src/common.rs`: production code retained at the
+  original path; trailing test body replaced with
+  `mod tests;` forward declaration.
+- `src/common/tests.rs`: de-indented unit test body
+  with new `//!` header.
+- `Cargo.toml`: bump 0.43.0-3 → 0.43.0-4.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: ladder marker flips (-4 (current) →
+  (done)).
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware
