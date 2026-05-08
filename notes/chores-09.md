@@ -459,6 +459,50 @@ Done anyway for consistency with the cycle pattern.
 - `notes/todo.md`: ladder marker flips (-4 (current) →
   (done)).
 
+## 0.43.0 close-out
+
+Cycle landed as five separate commits on `main`
+(0.43.0-0 plan + four sub-step extractions). Chose
+"keep separate" over the default squash because the
+per-file decomposition is informative: each sub-step
+shows one production file's reshape in isolation, and
+the ladder is a clean before/after for anyone reading
+git log later.
+
+### Cycle outcome
+
+- Four production files reshaped to non-mod.rs layout
+  (`src/X.rs` retained, sibling `src/X/tests.rs`
+  [+ `integration_tests.rs` for push/sync]).
+- Production-side line counts:
+  init 1094 (+`src/init/tests.rs` 1092);
+  push 1487 (+`src/push/{tests.rs 423, integration_tests.rs 359}`);
+  sync 608 (+`src/sync/{tests.rs 145, integration_tests.rs 455}`);
+  common 715 (+`src/common/tests.rs 385`).
+- 358 unit + 14 integration tests pass identically to
+  the pre-cycle baseline at every sub-step.
+- `Side` import scaffolding in `sync.rs` (artifact of
+  the inline `mod tests`) moved into the test files
+  during the -3 fixup squash; production file no
+  longer carries test-only `use` lines.
+
+### Layout pivot mid-cycle
+
+The original plan called for `src/X/mod.rs` per file.
+After -1 landed, web-claude flagged the mod.rs idiom
+as obsolete (Rust 2018+ defaults to `src/X.rs` +
+`src/X/<children>.rs`), and the pivot was made before
+-2. -1 was squashed to match (so all four sub-steps
+share the same shape on `main`).
+
+### Edits (this commit)
+
+- `Cargo.toml`: bump 0.43.0-4 → 0.43.0.
+- `notes/chores-09.md`: this section (new).
+- `notes/todo.md`: drop the cycle's `## In Progress`
+  ladder; add a `## Done` entry; remove the
+  Test-module extraction `## Todo` item.
+
 ## Ops layer architecture (forward-looking)
 
 Design target for subsequent cycles: separate clap-aware

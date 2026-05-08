@@ -11,13 +11,6 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-- 0.43.0-0 plan + chores-09 plan section + todo.md ladder (done) [84]
-- 0.43.0-1 src/init.rs (kept) + src/init/tests.rs (done) [84]
-- 0.43.0-2 src/push.rs (kept) + src/push/{tests.rs, integration_tests.rs} (done) [84]
-- 0.43.0-3 src/sync.rs (kept) + src/sync/{tests.rs, integration_tests.rs} (done) [84]
-- 0.43.0-4 src/common.rs (kept) + src/common/tests.rs (borderline) (done) [84]
-- 0.43.0 close-out [84]
-
 ## Todo
 
 A markdown list of tasks to do in the near future, ordered
@@ -28,15 +21,6 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Test-module extraction** across oversized files. Convert
-   `src/init.rs` → `src/init/mod.rs` + `src/init/tests.rs`
-   (sibling-submodule pattern; tests still reach private
-   items via `use super::*;`). Same shape for `push.rs`
-   (785 test lines), `sync.rs` (673), `common.rs` (361,
-   borderline). Pure mechanical reshape, no behavior
-   change. One sub-step per file. Active in the 0.43.0
-   cycle. Splitting tests first makes a follow-on DRY walk
-   across init/push/sync easier to read. [84]
 1. **Ops layer / CLI decoupling.** Introduce `ops::Workspace`
    handle + per-subcommand `*Options` plain structs (flat
    fields, no clap), with `From<&XArgs> for XOptions` at
@@ -239,6 +223,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [78]
 - Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
 - 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
+- Test-module extraction across init/push/sync/common (0.43.0) [84]
 
 # References
 
