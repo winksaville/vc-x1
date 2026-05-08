@@ -204,7 +204,7 @@ Each test still reaches private items via
   which are tests).
 - Establish a layout shape that future cycles can keep
   using (further splitting into `cli.rs` / `ops.rs` per
-  the ops-layer architecture, etc.).
+  the subcommand-layer architecture, etc.).
 - Done as one cycle so the four files end up
   consistent rather than half-converted across multiple
   cycles.
@@ -503,208 +503,49 @@ share the same shape on `main`).
   ladder; add a `## Done` entry; remove the
   Test-module extraction `## Todo` item.
 
-## Ops layer architecture (forward-looking)
+## Subcommand-layer architecture — moved to `ARCHITECTURE.md`
 
-Design target for subsequent cycles: separate clap-aware
-parsing from subcommand operation logic so future front-ends
-(e.g. a TUI for bot-conversation exploration, or library
-embedding) call the same core without retrofitting. Captures
-the conclusion of the 0.42.0-4.7 side discussion about
-`args.account.account` ergonomics — renaming / accessor
-shortcuts were rejected as hiding the architecture mismatch
-rather than fixing it.
+A forward-looking design capture lived here (written
+pre-implementation, with the names `Workspace` / `XOptions`).
+It is now the living [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+at the repo root — the "Two layers: CLI args vs subcommand
+Context + Params" section plus Migrations A and B. The
+0.44.0 implementation settled the names as `Context` /
+`XParams`; see `ARCHITECTURE.md` § Naming.
 
-### Goals
+Conclusions worth keeping in the journal:
 
-- Subcommand bodies access flat fields (`opts.account`), not
-  nested clap shapes (`args.account.account`).
-- `src/options_flags/` leaves remain the single source of
-  truth for flag definition (parser, help, completer).
-- Per-subcommand `-h` stays bundle-specific.
-- Tab completion (`vc-x1 init <TAB>`, `--account=<TAB>`)
-  keeps working via clap_complete + dynamic completers.
-- The ops layer is callable without clap as a dependency
-  (today's `plan_init(args: &InitArgs, ...)` is not).
-
-### Two layers, three structures per subcommand
-
-- **CLI layer (clap-aware):** `InitArgs` / `CloneArgs` / etc.
-  `#[derive(Args)]` types that flatten leaves from
-  `src/options_flags/`. Own clap metadata for `-h` and
-  completion. Live at the binary edge.
-- **Ops layer (clap-free):** `InitOptions` / `CloneOptions`
-  — plain structs, flat fields, `Default`. Plus `Workspace`,
-  the shared platform handle (workspace root, loaded
-  `UserConfig`, optional progress sink). Entrypoints are
-  `ops::init(ws: &Workspace, opts: &InitOptions) -> Result<InitOutcome, InitError>`.
-- **Boundary conversion:** `From<&InitArgs> for InitOptions`
-  — one contained site per subcommand where leaf nesting is
-  unpacked. Op bodies never see `args.xxx.xxx`.
-
-### `Workspace` ("context") vs per-op options
-
-- **`Workspace`:** shared platform every op runs against —
-  workspace root, loaded user config, optional progress
-  sink. Same shape across subcommands.
-- **`InitOptions`** etc.: per-op input; shape differs by
-  subcommand.
-
-Two parameters, not a single merged "god context." The
-signature `fn init(ws: &Workspace, opts: &InitOptions)`
-documents what the op depends on; a merged `Context`
-containing every possible field would let any op silently
-read any field with no signature-level visibility.
-
-If `Workspace` itself grows, escape valves (defer until
-needed):
-
-- Split into `Workspace` (paths + config, read-only, cheap)
-  vs `Session` (progress / cancellation, mutable). Most ops
-  want `&Workspace`; long-running ops also accept
-  `&Session`.
-- Trait-based DI (`fn init<W: HasConfig + HasFs>(...)`) for
-  multiple front-ends with genuinely different platform
-  surfaces. Heavy in Rust; not the default.
-
-### Five rules for the ops layer
-
-1. **Plain options, flat fields, `Default`.** No clap types
-   in `InitOptions`. Domain values like `RepoSelector` are
-   fine (they're domain types); leaf wrappers like
-   `RepoOption` are not.
-2. **Typed errors.** `enum InitError` (likely via
-   `thiserror`), not `Box<dyn Error>`. A TUI matches
-   variants to pick dialogs; CLI formats them.
-   `Box<dyn Error>` discards exactly the information a GUI
-   most needs.
-3. **Returned outcomes, not `println!`.** Each op returns a
-   structured result; CLI formats it for stdout, TUI
-   populates panels. Library writes nothing to stdout
-   itself.
-4. **Progress via a sink.** Long-running ops accept an
-   optional `&mut dyn ProgressSink` (or
-   `mpsc::Sender<Event>`). CLI installs a stderr sink; TUI
-   a status-bar sink; tests a recording sink. `log` /
-   `tracing` covers diagnostics but is lossy for structured
-   progress.
-5. **No globals, no implicit cwd/env reads in ops.**
-   Everything an op needs goes in `Workspace` or
-   `*Options`. CLI resolves cwd/env once at startup and
-   builds the handle. This is what lets a multi-window TUI
-   drive multiple workspaces without cross-contamination.
-
-### Completion stays at the clap layer
-
-- Static structure (`-h`, subcommand layout, flag presence):
-  clap derive on `InitArgs` + leaves. Unchanged from today.
-- Dynamic value completion (`--account=<TAB>` against
-  accounts in user config): `ArgValueCompleter` attached to
-  the leaf in `src/options_flags/`. Already enabled via
-  `clap_complete`'s `unstable-dynamic` feature. The leaf is
-  the right home — completion is a clap-aware concern with
-  no place in `InitOptions`.
-
-Ops layer stays clap-free; leaf layer stays clap-aware.
-Completion drives nothing in the ops layer.
-
-### The contained wart
-
-`From<&InitArgs> for InitOptions` walks leaf nesting once
-per subcommand:
-
-```rust
-impl From<&InitArgs> for InitOptions {
-    fn from(a: &InitArgs) -> Self {
-        Self {
-            target: a.target.clone(),
-            account: a.account.account.clone(),
-            scope: a.scope.scope,
-            private: a.provision.private.private,
-            // ...
-        }
-    }
-}
-```
-
-Verbose but contained: one site per subcommand. Adding a new
-flag becomes a two-edit change (clap struct + options struct
-+ one conversion line). Accepted price of decoupling; bodies
-are flat thereafter.
-
-### What this is *not*
-
-- **Not a god `Context`.** Two parameters
-  (`&Workspace`, `&XOptions`), not one merged blob.
-- **Not premature trait-based DI.** Concrete `Workspace` +
-  `*Options` structs until a second front-end forces
-  generalization.
-- **Not a crate split.** Same crate, separate modules
-  (e.g. `src/ops/init.rs` vs CLI edge). Promote to a
+- Two parameters per subcommand (`&Context`, `&XParams`),
+  not one merged "god context".
+- Concrete structs, not trait-based DI, until a second
+  front-end forces generalization.
+- Same crate, separate modules — promote to a Cargo
   workspace only when a second consumer crate appears.
-- **Not removing `src/options_flags/`.** Leaves stay; only
-  their consumers change shape.
+- `src/options_flags/` leaves stay; only their consumers
+  change shape. Completion stays a clap-layer concern.
+- Convert one subcommand end-to-end as the worked example
+  before any sweep — done in 0.44.0 (`init`); the rest are
+  the "Subcommand layer / CLI decoupling" todo item.
 
-### Migration sketch
-
-The bot thinks the safest first move is converting one
-subcommand end-to-end as the worked example before any
-sweep. `init` is the largest surface; `sync` or `chid` would
-be a lighter proof of concept.
-
-1. Introduce `ops::Workspace` (paths + `UserConfig` only; no
-   progress sink yet). Wire it into one subcommand.
-2. Introduce `XOptions` for the chosen first subcommand;
-   write `From<&XArgs> for XOptions`; port the body to
-   `&Workspace, &XOptions`.
-3. Add typed errors + returned outcome for that subcommand.
-4. Sweep remaining subcommands; each is a contained step.
-5. (Later) introduce `ProgressSink` when a TUI need actually
-   surfaces, or a long-running op wants structured progress.
-
-The bot thinks the right shape of `Workspace` matters more
-than the right shape of `InitError` — defer error-type and
-outcome-type design until step 1 has shaken out.
-
-### Open questions
-
-- `Workspace` carries the progress sink from day one even
-  with no consumer? The bot's guess is no — leave it out and
-  add when a real long-running op forces it; adding later is
-  mechanical.
-- `XOptions` owns values (`String`) or borrows (`&str`)? The
-  bot's guess is owns — simpler, matches the programmatic-
-  caller path (build then call). Defer borrow optimization
-  until benchmarks call for it.
-- Crate split timing — defer until a second consumer crate
-  appears.
+`ARCHITECTURE.md` is authoritative; update it (not this
+section) as the migrations progress.
 
 ## InitParams implementation (0.44.0)
 
 Single-step cycle: introduce `Context` + `InitParams` and
 port `init` to the new shape. Establishes the worked
-example for the design captured in
-[Ops layer architecture (forward-looking)](#ops-layer-architecture-forward-looking)
-above; remaining subcommands defer to later cycles.
+example for the design now in
+[`ARCHITECTURE.md`](../ARCHITECTURE.md); remaining
+subcommands defer to later cycles.
 
-### Naming differs from "Ops layer architecture" section above
+### Naming: `Context` / `XParams`
 
-Written before this cycle, the design section uses
-`Workspace` and `XOptions`. This cycle adopts:
-
-- `Workspace` → `Context`. Cargo owns "workspace"
-  formally, and this codebase already uses "workspace"
-  for the dual-repo project root (`find_workspace_root`).
-  Doubly overloaded.
-- `XOptions` → `XParams`. Avoids collision with Rust's
-  `Option<T>` (`InitParams` fields are a mix of required
-  and `Option<T>`-typed, which `Options` muddles).
-  Doesn't collide with `src/options_flags/` either.
-
-The forward-looking design section is left as-is for
-this cycle; once 0.44.0 lands and the worked example
-is in tree, that section can be retitled / updated
-during a future close-out so the codebase has one
-naming.
+This cycle named the handle `Context` (not `Workspace` —
+Cargo owns that word, as does this codebase's
+`find_workspace_root`) and the per-subcommand input
+`XParams` (not `XOptions` — avoids visual collision with
+`Option<T>`, and with `src/options_flags/`). Full rationale:
+[`ARCHITECTURE.md`](../ARCHITECTURE.md) § Naming.
 
 ### Why init
 
@@ -737,9 +578,9 @@ sync / chid / push / clone port trivially.
 
 - Sweep across sync / chid / push / clone / etc.
   Each is its own later cycle.
-- Per chores-09 "five rules": typed errors, returned
-  outcomes (vs `println!`), `ProgressSink`. Keep this
-  cycle to the structural split only.
+- Per `ARCHITECTURE.md`'s subcommand-layer rules: typed
+  errors, returned outcomes (vs `println!`), `ProgressSink`.
+  Keep this cycle to the structural split only.
 - `Context` fields beyond workspace root + user
   config. Defer until a real consumer surfaces.
 
@@ -801,3 +642,50 @@ Standard: `cargo fmt`, `cargo clippy --all-targets --
   entry; add `## Done` entry; rewrite the
   `Ops layer / CLI decoupling` `## Todo` item to
   reflect "init done, sweep remaining."
+
+## Architecture doc and terminology reconciliation (0.45.0)
+
+Single-step docs cycle. Promotes the forward-looking
+"Ops layer architecture" capture (this file) into a living
+`ARCHITECTURE.md` at the repo root, and reconciles the
+terminology: the design capture said `Workspace` / `XOptions`
+and "ops layer"; the 0.44.0 implementation shipped `Context`
+/ `XParams`. Settled on "subcommand layer" everywhere. No
+code change beyond a doc comment.
+
+### Edits
+
+- `Cargo.toml`: bump 0.44.0 → 0.45.0.
+- `ARCHITECTURE.md` (new): module map (CLI layer +
+  subcommand-layer scaffolding + subcommand modules), the
+  two-layer split (`XArgs` ↔ `Context` + `XParams`,
+  boundary `From<&XArgs>`), the subcommand model, and
+  Migrations A (args → Context/Params) / B (per-subcommand
+  flags → `src/options_flags/`) with status tables; plus a
+  `### Naming` subsection.
+- `README.md`: TOC entry + `## Contributing` opening
+  paragraph pointing at `ARCHITECTURE.md`.
+- `notes/README.md`: intro paragraph pointing at
+  `../ARCHITECTURE.md`.
+- `src/options_flags/README.md`: intro note — this module
+  is the "Migration B" leaf store; points at
+  `../../ARCHITECTURE.md`.
+- `notes/chores-09.md`: "Ops layer architecture
+  (forward-looking)" section trimmed to a stub pointing at
+  `ARCHITECTURE.md` (keeps the load-bearing conclusions);
+  the InitParams section's `### Naming differs …`
+  subsection collapsed to a brief pointer; the InitParams
+  cross-ref + the 0.43.0 Goals' "ops-layer" mention renamed
+  to "subcommand layer"; this subsection.
+- `notes/todo.md`: `## Todo` #1 renamed `Ops layer / CLI
+  decoupling` → `Subcommand layer / CLI decoupling` (and
+  "op body" → "subcommand body"); `## Done` entry added;
+  `[80]` repointed to `/ARCHITECTURE.md`; `[85]` ref added
+  for this subsection.
+- `notes/bot-data-formats.md`: "ops-layer / CLI decoupling"
+  → "subcommand-layer / CLI decoupling"; cross-ref
+  repointed from `chores-09.md > Ops layer architecture` to
+  `ARCHITECTURE.md`; `Workspace` handle → `Context` handle.
+- `src/context.rs`: module doc — "op layer" → "subcommand
+  layer"; pointer repointed from `notes/chores-09.md > ##
+  Ops layer architecture …` to `ARCHITECTURE.md`.

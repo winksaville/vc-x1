@@ -21,13 +21,13 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Ops layer / CLI decoupling — sweep remaining
+1. **Subcommand layer / CLI decoupling — sweep remaining
    subcommands.** Init ported in 0.44.0 as the worked
    example (`Context` + `InitParams`, `From<&InitArgs>`
-   at the binary edge, op body reads `params.account`
-   not `args.account.account`). Remaining: sync, chid,
-   push, clone, desc, fix-desc, validate-desc, list,
-   show, finalize, symlink — each its own cycle, same
+   at the binary edge, subcommand body reads
+   `params.account` not `args.account.account`). Remaining:
+   sync, chid, push, clone, desc, fix-desc, validate-desc,
+   list, show, finalize, symlink — each its own cycle, same
    shape (`<Mod>Params` + `From<&XArgs>`). [80]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
@@ -223,7 +223,8 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
 - 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
 - Test-module extraction across init/push/sync/common (0.43.0) [84]
-- InitParams + Context — init op decoupling worked example (0.44.0) [80]
+- InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [80]
+- ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [85]
 
 # References
 
@@ -251,8 +252,9 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
 [78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
 [79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
-[80]: /notes/chores-09.md#ops-layer-architecture-forward-looking
+[80]: /ARCHITECTURE.md
 [81]: /notes/chores-09.md#0420-close-out
 [82]: /notes/forks-multi-user.md
 [83]: /notes/bot-data-formats.md
 [84]: /notes/chores-09.md#test-module-extraction-0430
+[85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450

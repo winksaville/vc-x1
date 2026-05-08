@@ -1,6 +1,7 @@
 # vc-x1
 
 - [Overview](#vc-x1)
+- [Architecture](ARCHITECTURE.md)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
   - [Shell completion](#shell-completion)
@@ -810,6 +811,11 @@ most of what's there is forward-looking, not yet
 implemented.
 
 ## Contributing
+
+The app's internal structure — module map, the CLI-args /
+ops-`Context`+`Params` split, the subcommand model, and the
+two in-flight migrations — is described in
+[ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.
 
 Bot-following workflow, commit conventions, and code style are
 canonical in [CLAUDE.md](CLAUDE.md). Roughly in the order a

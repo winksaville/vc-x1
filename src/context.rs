@@ -2,12 +2,12 @@
 //!
 //! `Context` holds platform state that is the same across every
 //! subcommand: today, the loaded `UserConfig`. Built once at CLI
-//! startup and threaded through to the op layer.
+//! startup and threaded through to the subcommand layer.
 //!
 //! The shape is deliberately minimal — fields like project root,
 //! progress sinks, etc. are added when a real consumer surfaces.
-//! See `notes/chores-09.md > ## Ops layer architecture
-//! (forward-looking)` and `## InitParams implementation (0.44.0)`.
+//! See `ARCHITECTURE.md` for the CLI-args vs subcommand
+//! Context+Params layering rationale.
 
 use crate::config::{self, UserConfig};
 

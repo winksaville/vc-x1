@@ -1,0 +1,241 @@
+# Architecture
+
+How the `vc-x1` binary is structured: the clap-aware CLI
+layer and the (emerging) clap-free subcommand layer.
+
+This is a living document; the app is under continuous
+development and the repo will keep changing. Per-cycle design
+discussion lives in `notes/chores-*.md`; near-term tasks in
+`notes/todo.md`.
+
+## Overview
+
+`vc-x1` is a single binary that supports subcommands,
+`vc-x1 <subcommand>`, for managing a jj-git **dual-repo workspace**
+with an app repo plus a `.claude` bot-session repo. The commits
+cross-reference each other via `ochid:` trailers at the bottom
+of each commit message. See [`README.md`](README.md)
+for the user-facing picture and [`CLAUDE.md`](CLAUDE.md) for
+the bot workflow.
+
+## Two layers: CLI args vs subcommand Context + Params
+
+Goal: separate clap-aware argument parsing from subcommand
+operation logic, so a future front-end (TUI, library
+embedding) can call the same core without dragging clap
+along. The trigger was `args.account.account`-style
+nested-leaf access leaking into subcommand bodies; accessor
+shortcuts were rejected as hiding the mismatch rather than
+fixing it.
+
+- **CLI layer (clap-aware)** — `XArgs` `#[derive(Args)]`
+  structs that flatten leaves from `src/options_flags/`. Own
+  the clap metadata for `--help` and completion. Live at the
+  binary edge in each subcommand module.
+- **Subcommand layer (clap-free)** — `Context` (shared platform:
+  workspace root, loaded `UserConfig`, later a progress
+  sink) plus a per-subcommand `XParams` plain struct (flat
+  fields, owns its values, `Default`). Entrypoint shape:
+  `fn x(ctx: &Context, params: &XParams) -> Result<…>`.
+- **Boundary conversion** — `impl From<&XArgs> for XParams`,
+  one contained site per subcommand, where leaf nesting is
+  unpacked once. Subcommand bodies read `params.account`,
+  never `args.account.account`.
+
+Two parameters per subcommand; the signature documents what
+the subcommand depends on. `Context` is the same across all
+subcommands; `XxxParams` carry the per-subcommand inputs.
+
+Rules for the subcommand layer (some still aspirational — see
+[Migration A](#migration-a--args--context--params)):
+
+1. Plain options, flat fields, `Default` — no clap types in
+   `XParams`. Domain types (`RepoSelector`, `Scope`) are
+   fine; leaf wrappers (`RepoOption`) are not.
+2. Typed errors (`enum XError`, not `Box<dyn Error>`) — a
+   TUI matches variants to pick dialogs; CLI formats them.
+3. Returned outcomes, not `println!` — each subcommand
+   returns a structured result; CLI formats it, a library
+   writes nothing to stdout itself.
+4. Progress via an optional `&mut dyn ProgressSink` on
+   long-running subcommands — CLI installs a stderr sink, tests a
+   recording sink.
+5. No globals, no implicit cwd/env reads in subcommands — CLI
+   resolves cwd/env once at startup and builds `Context`.
+
+Not a god `Context` (two params, not one blob), not premature
+trait-based DI (concrete structs until a second front-end
+forces it), not a crate split (same crate, separate modules —
+promote to a workspace only when a second consumer crate
+appears), and not removing `src/options_flags/` (leaves stay;
+only their consumers change shape).
+
+### Naming
+
+Earlier drafts of this design (and the `notes/chores-09.md`
+capture) used `Workspace` / `XOptions`. The implementation
+(0.44.0) chose `Context` / `XParams` instead:
+
+- `Workspace` → `Context` — Cargo owns "workspace" formally,
+  and this codebase already uses "workspace" for the
+  dual-repo project root (`find_workspace_root`).
+- `XOptions` → `XParams` — avoids visual collision with
+  `Option<T>` (a params struct mixes required and
+  `Option<T>`-typed fields) and with `src/options_flags/`.
+
+## Module map
+
+CLI layer:
+
+- `src/main.rs` — the clap edge:
+  - `pub struct Cli` — clap `Parser`.
+  - `pub enum Commands` — clap `Subcommand`; matched in the
+    dispatch arms.
+  - `cli_with_banner()` — walks the command tree adding the
+    `vc-x1 X.Y.Z` banner as `before_help` on every subcommand.
+  - `CompleteEnv` wiring for dynamic completion.
+  - `bm_track` — a permanent `main`-bookmark tracking
+    diagnostic printed on entry/exit of every command.
+
+- `src/options_flags/` — options/flags shared across
+  subcommands, so a flag is defined once (parser, help,
+  completer); Migration B tracks what's been moved here so
+  far. See
+  [`src/options_flags/README.md`](src/options_flags/README.md).
+  - reusable **leaves**: `account`, `config`, `dry_run`,
+    `private`, `push_retry`, `repo`, `scope`, `use_template`.
+  - reusable **bundles**: `provision_bundle`.
+- `src/common.rs` — `CommonArgs` (the shared positional-rev /
+  `-R` repo-list / `-n` / `--limit` / `-L` flag set flattened
+  by `chid`, `desc`, `list`, `show`) plus the repo-iteration
+  and revision-resolution helpers they share.
+
+Subcommand layer scaffolding:
+
+- `src/context.rs` — `Context`: the shared platform handle
+  every subcommand runs against. Today it carries the loaded
+  `UserConfig`; built once at startup via `Context::load()`.
+- `src/config.rs` — `UserConfig` (`~/.config/vc-x1/config.toml`).
+- `src/scope.rs` — `Scope` enum (`Roles(Vec<Side>)` for the
+  dual-repo `code`/`bot` roles, `Single(PathBuf)` for
+  single-repo mode) and `parse_scope`.
+
+Subcommand modules — each holds an `XArgs` `#[derive(Args)]`
+struct and a `pub fn x(...)` entrypoint:
+
+| Module | Subcommand | Notes |
+| --- | --- | --- |
+| `chid.rs` | `chid` | flattens `CommonArgs` |
+| `desc.rs` (+ `desc_helpers.rs`) | `desc` | flattens `CommonArgs` |
+| `list.rs` | `list` | flattens `CommonArgs` |
+| `show.rs` | `show` | flattens `CommonArgs` |
+| `validate_desc.rs` | `validate-desc` | |
+| `fix_desc.rs` | `fix-desc` | |
+| `clone.rs` | `clone` | |
+| `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
+| `symlink.rs` | `symlink` | |
+| `sync.rs` | `sync` | |
+| `finalize.rs` | `finalize` | `FinalizeArgs::into_opts(log)` → `FinalizeOpts` |
+| `push.rs` | `push` | resumable state machine |
+
+Support:
+
+- `src/repo_utils.rs`, `src/url.rs`, `src/toml_simple.rs`,
+  `src/logging.rs` — jj/repo helpers, URL parsing, a minimal
+  TOML reader, the CLI logger.
+- `src/test_helpers.rs`, `src/test_tmp_root.rs` —
+  `#[cfg(test)]` fixtures (`Fixture` / `FixturePor`) and
+  tempdir resolution. Subcommand modules also carry their
+  own `#[cfg(test)] mod tests` (and `integration_tests` for
+  `sync` / `push`).
+
+## Subcommand model
+
+Adding a subcommand `x`:
+
+1. Create `src/x.rs` with `pub struct XArgs`
+   (`#[derive(Args)]`), composing leaves from
+   `src/options_flags/` where one exists.
+2. Add a variant `X(x::XArgs)` to `Commands` in
+   `src/main.rs` with a `///` summary (and
+   `#[command(long_about = …)]` for the long form).
+3. Add a dispatch arm in `main()` calling `x::x(&args)` (or,
+   once ported, `x::x(&ctx, &params)`).
+4. Doc comments on `#[arg(...)]` fields drive `--help`; add
+   `#[arg(verbatim_doc_comment, …)]` on any field whose doc
+   comment uses bullets (clap otherwise reflows them into
+   prose).
+5. Dynamic value completion (`--account=<TAB>`) is an
+   `ArgValueCompleter` attached to the leaf in
+   `src/options_flags/` — completion is a clap-aware concern
+   and stays at this layer.
+
+## Migration A — args → Context + Params
+
+Port each subcommand's `pub fn x(args: &XArgs)` to
+`pub fn x(ctx: &Context, params: &XParams)`, adding an
+`XParams` flat struct + `impl From<&XArgs> for XParams` at
+the binary edge. `init` was done as the worked example in
+0.44.0; the rest follow the same shape. The live checklist
+is the "Subcommand layer / CLI decoupling" item in
+[`notes/todo.md`](notes/todo.md).
+
+| Subcommand | Status |
+| --- | --- |
+| `init` | done (0.44.0) — `init(&Context, &InitParams)` |
+| `finalize` | partial — `FinalizeArgs::into_opts(log)` → `FinalizeOpts` (no `Context`; `into_opts` rather than `From`) |
+| `sync` | not started |
+| `chid` | not started |
+| `desc` | not started |
+| `list` | not started |
+| `show` | not started |
+| `validate-desc` | not started |
+| `fix-desc` | not started |
+| `clone` | not started |
+| `push` | not started |
+| `symlink` | not started |
+
+Out of scope for the early ports (deferred until a real
+consumer surfaces): typed errors, returned outcomes vs
+`println!`, the `ProgressSink`, and any `Context` fields
+beyond workspace root + `UserConfig`.
+
+## Migration B — per-subcommand flags → `src/options_flags/`
+
+Independently of Migration A, per-subcommand inline `#[arg]`
+fields are being lifted into reusable leaves/bundles under
+`src/options_flags/` so a flag is defined (parser, help,
+completer) exactly once. See
+[`src/options_flags/README.md`](src/options_flags/README.md)
+for the leaf / bundle / Pattern-A mechanics and the
+Flag-vs-Option classification.
+
+State today:
+
+- **`init`** — fully composed from leaves/bundles
+  (`account`, `repo`, `scope`, the `provision` bundle,
+  `use_template`, `config`).
+- **`chid` / `desc` / `list` / `show`** — share
+  `common::CommonArgs`, a per-domain shared struct rather
+  than an `options_flags/` leaf. The "CommonArgs sweep"
+  todo item folds these into the leaf model (and drops the
+  repeatable `-R`/`--repo` in favor of the `--scope` path
+  form).
+- **`sync` / `push` / `clone` / `validate-desc` /
+  `fix-desc` / `finalize` / `symlink`** — still mostly
+  inline `#[arg]` fields. The `--scope` retrofits queued in
+  [`notes/todo.md`](notes/todo.md) are the usual entry
+  point for converting one.
+
+## See also
+
+- [`README.md`](README.md) — user-facing overview and
+  per-subcommand usage.
+- [`CLAUDE.md`](CLAUDE.md) — bot workflow, versioning,
+  commit/push conventions, code conventions.
+- [`src/options_flags/README.md`](src/options_flags/README.md)
+  — leaf/bundle patterns for Migration B.
+- [`notes/todo.md`](notes/todo.md) — live task list,
+  including both migrations.
+- [`notes/chores-09.md`](notes/chores-09.md) — the
+  0.43.0 / 0.44.0 design capture this document supersedes.

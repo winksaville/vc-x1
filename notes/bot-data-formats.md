@@ -39,9 +39,9 @@ one repo → trivially supported; vc-x1 doesn't notice.
 
 The bot thinks this is the load-bearing principle that
 should govern every interaction between vc-x1 and bot data,
-including future ops-layer / CLI decoupling work
-(see `chores-09.md > Ops layer architecture`). The
-`Workspace` handle there exposes paths and commits; it
+including future subcommand-layer / CLI decoupling work
+(see [`ARCHITECTURE.md`](../ARCHITECTURE.md)). The
+`Context` handle there exposes paths and commits; it
 does not expose parsed sessions.
 
 ## Why dual-repo (merits-based defense)
