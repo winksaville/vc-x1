@@ -355,7 +355,7 @@ fn main() -> ExitCode {
         Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
         Commands::Clone(clone_args) => run_command(clone::clone_repo(&clone_args)),
         Commands::Init(init_args) => {
-            let ctx = match context::Context::load() {
+            let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
                     error!("{e}");
@@ -368,14 +368,21 @@ fn main() -> ExitCode {
         Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
         Commands::Sync(sync_args) => run_command(sync::sync(&sync_args)),
         Commands::Finalize(finalize_args) => {
-            let opts = match finalize_args.into_opts(cli.log) {
-                Ok(opts) => opts,
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
                 Err(e) => {
                     error!("{e}");
                     return ExitCode::FAILURE;
                 }
             };
-            run_command(finalize::finalize(&opts))
+            let params = match finalize::FinalizeParams::try_from(&finalize_args) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            run_command(finalize::finalize(&ctx, &params))
         }
         Commands::Push(push_args) => run_command(push::push(&push_args)),
     };

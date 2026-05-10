@@ -28,19 +28,22 @@ nested-leaf access leaking into subcommand bodies; accessor
 shortcuts were rejected as hiding the mismatch rather than
 fixing it.
 
-- **CLI layer (clap-aware)** — `XArgs` `#[derive(Args)]`
-  structs that flatten leaves from `src/options_flags/`. Own
-  the clap metadata for `--help` and completion. Live at the
-  binary edge in each subcommand module.
-- **Subcommand layer (clap-free)** — `Context` (shared platform:
-  workspace root, loaded `UserConfig`, later a progress
-  sink) plus a per-subcommand `XParams` plain struct (flat
-  fields, owns its values, `Default`). Entrypoint shape:
-  `fn x(ctx: &Context, params: &XParams) -> Result<…>`.
-- **Boundary conversion** — `impl From<&XArgs> for XParams`,
-  one contained site per subcommand, where leaf nesting is
-  unpacked once. Subcommand bodies read `params.account`,
-  never `args.account.account`.
+- **CLI layer (clap-aware)**:
+  Builds `XxxParams` from the user-facing `XxxArgs`
+  `#[derive(Args)]` clap struct. Options/flags used in more
+  than one subcommand live as flattened leaves in
+  `src/options_flags/`.
+- **Subcommand layer (clap-free)**:
+  Entrypoint shape: `fn x(ctx: &Context, params: &XxxParams) -> Result<…>`.
+  And this isolates the subcommand from user and clap.
+  - `Context` — common state shared with all subcommands.
+  - `XxxParams` — a subcommand's parameters, derived from
+    config or command-line arguments.
+- **Boundary conversion**:
+  Converting `XxxArgs` to `XxxParams` uses either
+  `impl From<&XxxArgs> for XxxParams` or
+  `impl TryFrom<&XxxArgs> for XxxParams`, depending on whether
+  the conversion can fail.
 
 Two parameters per subcommand; the signature documents what
 the subcommand depends on. `Context` is the same across all
@@ -50,7 +53,7 @@ Rules for the subcommand layer (some still aspirational — see
 [Migration A](#migration-a--args--context--params)):
 
 1. Plain options, flat fields, `Default` — no clap types in
-   `XParams`. Domain types (`RepoSelector`, `Scope`) are
+   `XxxParams`. Domain types (`RepoSelector`, `Scope`) are
    fine; leaf wrappers (`RepoOption`) are not.
 2. Typed errors (`enum XError`, not `Box<dyn Error>`) — a
    TUI matches variants to pick dialogs; CLI formats them.
@@ -63,23 +66,30 @@ Rules for the subcommand layer (some still aspirational — see
 5. No globals, no implicit cwd/env reads in subcommands — CLI
    resolves cwd/env once at startup and builds `Context`.
 
-Not a god `Context` (two params, not one blob), not premature
-trait-based DI (concrete structs until a second front-end
-forces it), not a crate split (same crate, separate modules —
-promote to a workspace only when a second consumer crate
-appears), and not removing `src/options_flags/` (leaves stay;
-only their consumers change shape).
+None of this is sacred — the whole structure is an experiment
+and the repo keeps changing. The current scope is deliberately
+narrow:
+
+- a small `Context` — two params, not one god blob;
+- no trait-based DI yet;
+- one crate, not a workspace split;
+- `src/options_flags/` leaves left in place — only their
+  consumers change shape.
+
+Widen any of it when the evidence (a second front-end, a second
+consumer crate, a real platform-surface divergence) calls for
+it — not before.
 
 ### Naming
 
 Earlier drafts of this design (and the `notes/chores-09.md`
 capture) used `Workspace` / `XOptions`. The implementation
-(0.44.0) chose `Context` / `XParams` instead:
+(0.44.0) chose `Context` / `XxxParams` instead:
 
 - `Workspace` → `Context` — Cargo owns "workspace" formally,
   and this codebase already uses "workspace" for the
   dual-repo project root (`find_workspace_root`).
-- `XOptions` → `XParams` — avoids visual collision with
+- `XOptions` → `XxxParams` — avoids visual collision with
   `Option<T>` (a params struct mixes required and
   `Option<T>`-typed fields) and with `src/options_flags/`.
 
@@ -114,13 +124,14 @@ Subcommand layer scaffolding:
 
 - `src/context.rs` — `Context`: the shared platform handle
   every subcommand runs against. Today it carries the loaded
-  `UserConfig`; built once at startup via `Context::load()`.
+  `UserConfig` and the `--log` path; built once at startup
+  via `Context::load(log)`.
 - `src/config.rs` — `UserConfig` (`~/.config/vc-x1/config.toml`).
 - `src/scope.rs` — `Scope` enum (`Roles(Vec<Side>)` for the
   dual-repo `code`/`bot` roles, `Single(PathBuf)` for
   single-repo mode) and `parse_scope`.
 
-Subcommand modules — each holds an `XArgs` `#[derive(Args)]`
+Subcommand modules — each holds an `XxxArgs` `#[derive(Args)]`
 struct and a `pub fn x(...)` entrypoint:
 
 | Module | Subcommand | Notes |
@@ -135,7 +146,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
 | `symlink.rs` | `symlink` | |
 | `sync.rs` | `sync` | |
-| `finalize.rs` | `finalize` | `FinalizeArgs::into_opts(log)` → `FinalizeOpts` |
+| `finalize.rs` | `finalize` | migrated (0.46.0) — `finalize(&Context, &FinalizeParams)`, `TryFrom<&FinalizeArgs>` |
 | `push.rs` | `push` | resumable state machine |
 
 Support:
@@ -153,10 +164,10 @@ Support:
 
 Adding a subcommand `x`:
 
-1. Create `src/x.rs` with `pub struct XArgs`
+1. Create `src/x.rs` with `pub struct XxxArgs`
    (`#[derive(Args)]`), composing leaves from
    `src/options_flags/` where one exists.
-2. Add a variant `X(x::XArgs)` to `Commands` in
+2. Add a variant `X(x::XxxArgs)` to `Commands` in
    `src/main.rs` with a `///` summary (and
    `#[command(long_about = …)]` for the long form).
 3. Add a dispatch arm in `main()` calling `x::x(&args)` (or,
@@ -172,18 +183,18 @@ Adding a subcommand `x`:
 
 ## Migration A — args → Context + Params
 
-Port each subcommand's `pub fn x(args: &XArgs)` to
-`pub fn x(ctx: &Context, params: &XParams)`, adding an
-`XParams` flat struct + `impl From<&XArgs> for XParams` at
-the binary edge. `init` was done as the worked example in
-0.44.0; the rest follow the same shape. The live checklist
-is the "Subcommand layer / CLI decoupling" item in
-[`notes/todo.md`](notes/todo.md).
+Port each subcommand's `pub fn x(args: &XxxArgs)` to
+`pub fn x(ctx: &Context, params: &XxxParams)`, adding an
+`XxxParams` flat struct + a `From` (or `TryFrom`, if the
+conversion is fallible) at the binary edge. `init` (0.44.0)
+and `finalize` (0.46.0) are done; the rest follow the same
+shape. The live checklist is the "Subcommand layer / CLI
+decoupling" item in [`notes/todo.md`](notes/todo.md).
 
 | Subcommand | Status |
 | --- | --- |
-| `init` | done (0.44.0) — `init(&Context, &InitParams)` |
-| `finalize` | partial — `FinalizeArgs::into_opts(log)` → `FinalizeOpts` (no `Context`; `into_opts` rather than `From`) |
+| `init` | done (0.44.0) — `init(&Context, &InitParams)`; `From<&InitArgs>` |
+| `finalize` | done (0.46.0) — `finalize(&Context, &FinalizeParams)`; `TryFrom<&FinalizeArgs>` (fallible boundary); `--log` moved onto `Context` |
 | `sync` | not started |
 | `chid` | not started |
 | `desc` | not started |
@@ -195,10 +206,15 @@ is the "Subcommand layer / CLI decoupling" item in
 | `push` | not started |
 | `symlink` | not started |
 
+The remaining nine are planned as one multi-step cycle
+(`0.47.0-N`), one step per subcommand (`chid`/`desc`/`list`/
+`show` ride with the separate "CommonArgs sweep" since their
+Migration A and B are entangled).
+
 Out of scope for the early ports (deferred until a real
 consumer surfaces): typed errors, returned outcomes vs
-`println!`, the `ProgressSink`, and any `Context` fields
-beyond workspace root + `UserConfig`.
+`println!`, the `ProgressSink`, and `Context` fields beyond
+`UserConfig` + the `--log` path (`finalize` surfaced `log`).
 
 ## Migration B — per-subcommand flags → `src/options_flags/`
 

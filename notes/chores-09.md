@@ -511,11 +511,11 @@ It is now the living [`ARCHITECTURE.md`](../ARCHITECTURE.md)
 at the repo root — the "Two layers: CLI args vs subcommand
 Context + Params" section plus Migrations A and B. The
 0.44.0 implementation settled the names as `Context` /
-`XParams`; see `ARCHITECTURE.md` § Naming.
+`XxxParams`; see `ARCHITECTURE.md` § Naming.
 
 Conclusions worth keeping in the journal:
 
-- Two parameters per subcommand (`&Context`, `&XParams`),
+- Two parameters per subcommand (`&Context`, `&XxxParams`),
   not one merged "god context".
 - Concrete structs, not trait-based DI, until a second
   front-end forces generalization.
@@ -538,12 +538,12 @@ example for the design now in
 [`ARCHITECTURE.md`](../ARCHITECTURE.md); remaining
 subcommands defer to later cycles.
 
-### Naming: `Context` / `XParams`
+### Naming: `Context` / `XxxParams`
 
 This cycle named the handle `Context` (not `Workspace` —
 Cargo owns that word, as does this codebase's
 `find_workspace_root`) and the per-subcommand input
-`XParams` (not `XOptions` — avoids visual collision with
+`XxxParams` (not `XOptions` — avoids visual collision with
 `Option<T>`, and with `src/options_flags/`). Full rationale:
 [`ARCHITECTURE.md`](../ARCHITECTURE.md) § Naming.
 
@@ -650,7 +650,7 @@ Single-step docs cycle. Promotes the forward-looking
 `ARCHITECTURE.md` at the repo root, and reconciles the
 terminology: the design capture said `Workspace` / `XOptions`
 and "ops layer"; the 0.44.0 implementation shipped `Context`
-/ `XParams`. Settled on "subcommand layer" everywhere. No
+/ `XxxParams`. Settled on "subcommand layer" everywhere. No
 code change beyond a doc comment.
 
 ### Edits
@@ -658,8 +658,8 @@ code change beyond a doc comment.
 - `Cargo.toml`: bump 0.44.0 → 0.45.0.
 - `ARCHITECTURE.md` (new): module map (CLI layer +
   subcommand-layer scaffolding + subcommand modules), the
-  two-layer split (`XArgs` ↔ `Context` + `XParams`,
-  boundary `From<&XArgs>`), the subcommand model, and
+  two-layer split (`XxxArgs` ↔ `Context` + `XxxParams`,
+  boundary `From<&XxxArgs>`), the subcommand model, and
   Migrations A (args → Context/Params) / B (per-subcommand
   flags → `src/options_flags/`) with status tables; plus a
   `### Naming` subsection.
@@ -689,3 +689,56 @@ code change beyond a doc comment.
 - `src/context.rs`: module doc — "op layer" → "subcommand
   layer"; pointer repointed from `notes/chores-09.md > ##
   Ops layer architecture …` to `ARCHITECTURE.md`.
+
+## finalize subcommand-layer migration (0.46.0)
+
+Single-step cycle: bring `finalize` from "partial" to fully
+on the subcommand-layer shape. It already had a clap-free
+`FinalizeOpts` built via `FinalizeArgs::into_opts(log)`; this
+cycle renames it to `FinalizeParams`, gives it a
+`TryFrom<&FinalizeArgs>` boundary (fallible — `--squash`
+parsing + `--repo` canonicalization), threads a `&Context`,
+and moves the `--log` path onto `Context` (finalize is its
+first non-`UserConfig` consumer). No behavior change.
+
+Decisions: kept the `From` / `TryFrom` split rather than
+forcing `TryFrom` everywhere — `From` is the right trait when
+the conversion is total (`init`), `TryFrom` when it isn't
+(`finalize`). `--log` went on `Context` (resolved once at
+startup, like `UserConfig`) rather than staying a
+`FinalizeParams` field.
+
+### Edits
+
+- `Cargo.toml`: bump 0.45.0 → 0.46.0.
+- `src/context.rs`: `Context` gains `pub log: Option<PathBuf>`;
+  `Context::load()` → `Context::load(log: Option<PathBuf>)`;
+  doc comments updated.
+- `src/finalize.rs`: added module `//!` docstring (had none);
+  `FinalizeOpts` → `FinalizeParams` (dropped its `log` field —
+  moved to `Context`); `FinalizeArgs::into_opts(self, log)`
+  replaced by `impl TryFrom<&FinalizeArgs> for FinalizeParams`;
+  `finalize` / `detach` now `(ctx: &Context, params:
+  &FinalizeParams)` and read `ctx.log`; `build_exec_args(params,
+  log: Option<&Path>)`; `preflight` / `finalize_exec` /
+  `log_plan` / `write_failure_marker` param renamed
+  `opts` → `params`; tests updated, +2
+  (`try_from_canonicalizes_repo`, `try_from_bad_squash`).
+- `src/main.rs`: init arm passes `cli.log` to `Context::load`;
+  finalize arm builds `Context::load(cli.log)` +
+  `FinalizeParams::try_from(&finalize_args)` +
+  `finalize::finalize(&ctx, &params)`.
+- `src/test_helpers.rs`: `Context::load()` → `Context::load(None)`
+  (the two fixture builders).
+- `ARCHITECTURE.md`: Migration A table — `finalize` `partial` →
+  `done (0.46.0)`; "Boundary conversion" bullet now states the
+  `From` (total) vs `TryFrom` (fallible) rule; `Context` bullet
+  mentions the `--log` path; subcommand-modules table updated;
+  Migration A intro notes the planned `0.47.0-N` multi-step
+  cycle for the remaining nine.
+- `notes/todo.md`: `## Todo` #1 updated (finalize done; remaining
+  nine → `0.47.0-N` plan); new `## Todo` item for Migration B on
+  finalize (`--squash` → shared `options_flags` leaf, since
+  `vc-x1 push --squash` will reuse it); `## Done` entry added;
+  `[86]` ref added.
+- `notes/chores-09.md`: this subsection.

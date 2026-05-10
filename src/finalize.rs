@@ -1,4 +1,15 @@
-use std::path::PathBuf;
+//! The `finalize` subcommand: squash + set-bookmark + push a jj
+//! repo, optionally detached so trailing writes land first.
+//!
+//! Built for the bot to atomically finalize its `.claude` session
+//! repo at end-of-step. Every action is opt-in (`--squash`,
+//! `--push`, `--detach`, `--delay`). The detached path re-execs
+//! `vc-x1 finalize --exec …` so its output and errors survive the
+//! parent exiting; failures are dropped as markers under
+//! `~/.cache/vc-x1/finalize-status` and surfaced on the next
+//! `vc-x1` run.
+
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -6,6 +17,7 @@ use clap::Args;
 use log::{debug, info};
 
 use crate::common::run;
+use crate::context::Context;
 
 /// Directory where the detached finalize child writes failure markers.
 /// A subsequent `vc-x1` invocation scans this directory and surfaces
@@ -15,7 +27,9 @@ fn status_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/vc-x1/finalize-status"))
 }
 
-fn write_failure_marker(opts: &FinalizeOpts, err: &str) {
+/// Drop a failure marker for the detached child whose non-zero exit
+/// the caller can't observe.
+fn write_failure_marker(params: &FinalizeParams, err: &str) {
     let Some(dir) = status_dir() else {
         return;
     };
@@ -30,8 +44,8 @@ fn write_failure_marker(opts: &FinalizeOpts, err: &str) {
     let path = dir.join(format!("{ns}-{pid}.status"));
     let content = format!(
         "timestamp_ns={ns}\npid={pid}\nrepo={}\nbookmark={}\nerror={err}\n",
-        opts.repo.display(),
-        opts.bookmark.as_deref().unwrap_or(""),
+        params.repo.display(),
+        params.bookmark.as_deref().unwrap_or(""),
     );
     let _ = std::fs::write(&path, content);
 }
@@ -108,6 +122,8 @@ pub struct SquashSpec {
 }
 
 impl SquashSpec {
+    /// Parse a `SOURCE,TARGET` pair (e.g. `@,@-`); both halves
+    /// must be non-empty.
     fn parse(s: &str) -> Result<Self, String> {
         let parts: Vec<&str> = s.split(',').collect();
         if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
@@ -122,35 +138,40 @@ impl SquashSpec {
     }
 }
 
+/// Per-invocation finalize inputs — the clap-free shape the
+/// `finalize` op works against. Built from `FinalizeArgs` at the
+/// binary edge via `TryFrom` (fallible: `--squash` parsing and
+/// repo-path canonicalization). The `--log` path lives on
+/// `Context`, not here.
 #[derive(Debug)]
-pub struct FinalizeOpts {
+pub struct FinalizeParams {
     pub repo: PathBuf,
     pub squash: Option<SquashSpec>,
     pub delay_secs: f64,
     pub bookmark: Option<String>,
     pub push: bool,
-    pub log: Option<PathBuf>,
     pub detach: bool,
     pub exec: bool,
 }
 
-impl FinalizeArgs {
-    pub fn into_opts(self, log: Option<PathBuf>) -> Result<FinalizeOpts, String> {
-        let squash = self.squash.map(|s| SquashSpec::parse(&s)).transpose()?;
-        let push = self.push.is_some();
-        let bookmark = self.push;
-        // Resolve to absolute path so detached child works regardless of cwd
-        let repo = std::fs::canonicalize(&self.repo)
-            .map_err(|e| format!("cannot resolve repo path '{}': {e}", self.repo.display()))?;
-        Ok(FinalizeOpts {
+impl TryFrom<&FinalizeArgs> for FinalizeParams {
+    type Error = String;
+
+    /// Parse `--squash`, derive `push`/`bookmark` from `--push`,
+    /// and canonicalize `--repo` (so the detached child resolves it
+    /// regardless of cwd).
+    fn try_from(a: &FinalizeArgs) -> Result<Self, String> {
+        let squash = a.squash.as_deref().map(SquashSpec::parse).transpose()?;
+        let repo = std::fs::canonicalize(&a.repo)
+            .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
+        Ok(FinalizeParams {
             repo,
             squash,
-            delay_secs: self.delay,
-            bookmark,
-            push,
-            log,
-            detach: self.detach,
-            exec: self.exec,
+            delay_secs: a.delay,
+            bookmark: a.push.clone(),
+            push: a.push.is_some(),
+            detach: a.detach,
+            exec: a.exec,
         })
     }
 }
@@ -160,13 +181,13 @@ impl FinalizeArgs {
 /// Catches the common failure modes up front so the parent can exit
 /// with a visible non-zero status — rather than discovering them in
 /// the detached child where errors only reach the log file.
-fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("preflight: checking opts");
-    let repo_str = opts.repo.to_string_lossy();
+fn preflight(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("preflight: checking params");
+    let repo_str = params.repo.to_string_lossy();
     let cwd = std::path::Path::new(".");
 
     // Verify squash revsets resolve to something.
-    if let Some(ref sq) = opts.squash {
+    if let Some(ref sq) = params.squash {
         jj_rev_exists(&repo_str, cwd, &sq.source)
             .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
         jj_rev_exists(&repo_str, cwd, &sq.target)
@@ -193,15 +214,15 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
-    if let Some(ref bookmark) = opts.bookmark {
+    if let Some(ref bookmark) = params.bookmark {
         let exists = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
         if exists.is_empty() {
             return Err(format!("bookmark '{bookmark}' does not exist").into());
         }
 
-        crate::common::verify_tracking(&opts.repo, bookmark)?;
+        crate::common::verify_tracking(&params.repo, bookmark)?;
 
-        let target_rev = opts
+        let target_rev = params
             .squash
             .as_ref()
             .map(|sq| sq.target.as_str())
@@ -228,7 +249,7 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
             .into());
         }
 
-        if opts.push {
+        if params.push {
             let desc = run(
                 "jj",
                 &[
@@ -253,7 +274,7 @@ fn preflight(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    log_plan(opts)?;
+    log_plan(params)?;
 
     Ok(())
 }
@@ -270,18 +291,18 @@ fn jj_rev_exists(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<(), Str
 }
 
 /// Log what finalize is about to do so the user sees the plan before detach.
-fn log_plan(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    let repo_str = opts.repo.to_string_lossy();
+fn log_plan(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_str = params.repo.to_string_lossy();
     let cwd = std::path::Path::new(".");
 
-    if let Some(ref sq) = opts.squash {
+    if let Some(ref sq) = params.squash {
         info!(
             "finalize: squash {} → {} in {}",
             sq.source, sq.target, repo_str
         );
     }
-    if let Some(ref bookmark) = opts.bookmark {
-        let target_rev = opts
+    if let Some(ref bookmark) = params.bookmark {
+        let target_rev = params
             .squash
             .as_ref()
             .map(|sq| sq.target.as_str())
@@ -289,7 +310,7 @@ fn log_plan(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
         let current = jj_rev_short(&repo_str, cwd, bookmark).unwrap_or_else(|_| "?".into()); // OK: logging only — fall back to "?" if revset fails
         let target = jj_rev_short(&repo_str, cwd, target_rev).unwrap_or_else(|_| "?".into()); // OK: same
         info!("finalize: set bookmark '{bookmark}' {current} → {target} ({target_rev})");
-        if opts.push {
+        if params.push {
             info!("finalize: push '{bookmark}' to remote");
         }
     }
@@ -316,14 +337,16 @@ fn jj_rev_short(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<String, 
     .map_err(|e| e.to_string())
 }
 
-fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("finalize_exec: starting opts={opts:?}");
-    let repo_str = opts.repo.to_string_lossy();
+/// Do the squash / set-bookmark / push work — runs in the detached
+/// child when `--detach`, inline otherwise.
+fn finalize_exec(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("finalize_exec: starting params={params:?}");
+    let repo_str = params.repo.to_string_lossy();
     let cwd = std::path::Path::new(".");
 
     // Squash if requested
-    if let Some(ref sq) = opts.squash {
-        let delay = std::time::Duration::from_secs_f64(opts.delay_secs);
+    if let Some(ref sq) = params.squash {
+        let delay = std::time::Duration::from_secs_f64(params.delay_secs);
         debug!("finalize_exec: sleeping {delay:?}");
         std::thread::sleep(delay);
 
@@ -346,14 +369,14 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     // Set bookmark and push if requested
-    if let Some(ref bookmark) = opts.bookmark {
+    if let Some(ref bookmark) = params.bookmark {
         // Verify bookmark exists — don't silently create new ones
         let result = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
         if result.is_empty() {
             return Err(format!("bookmark '{bookmark}' does not exist").into());
         }
 
-        let rev = opts
+        let rev = params
             .squash
             .as_ref()
             .map(|sq| sq.target.as_str())
@@ -365,12 +388,12 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
             cwd,
         )?;
 
-        if opts.push {
+        if params.push {
             info!("finalize: pushing '{bookmark}' to origin...");
             run(
                 "jj",
                 &["git", "push", "--bookmark", bookmark, "-R", &repo_str],
-                &opts.repo,
+                &params.repo,
             )?;
         }
     }
@@ -380,24 +403,27 @@ fn finalize_exec(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
+/// Build the argv for the detached re-exec: `finalize --exec …`,
+/// mirroring `params` plus the `--log` path so the child logs to
+/// the same file.
+pub fn build_exec_args(params: &FinalizeParams, log: Option<&Path>) -> Vec<String> {
     let mut args = vec![
         "finalize".to_string(),
         "--exec".to_string(),
         "--repo".to_string(),
-        opts.repo.to_string_lossy().to_string(),
+        params.repo.to_string_lossy().to_string(),
     ];
-    if let Some(ref sq) = opts.squash {
+    if let Some(ref sq) = params.squash {
         args.push("--squash".to_string());
         args.push(format!("{},{}", sq.source, sq.target));
         args.push("--delay".to_string());
-        args.push(opts.delay_secs.to_string());
+        args.push(params.delay_secs.to_string());
     }
-    if let Some(ref bookmark) = opts.bookmark {
+    if let Some(ref bookmark) = params.bookmark {
         args.push("--push".to_string());
         args.push(bookmark.clone());
     }
-    if let Some(ref log) = opts.log {
+    if let Some(log) = log {
         args.push("--log".to_string());
         args.push(log.to_string_lossy().to_string());
     }
@@ -407,11 +433,11 @@ pub fn build_exec_args(opts: &FinalizeOpts) -> Vec<String> {
 /// Spawn a detached child process with `--exec` and return immediately.
 /// The child re-enters `main()`, parses `--exec`, and `finalize()` routes
 /// it to `finalize_exec()` where the actual work happens.
-fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("detach: parent starting opts={opts:?}");
+fn detach(ctx: &Context, params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("detach: parent starting params={params:?}");
 
     let exe = std::env::current_exe()?;
-    let args = build_exec_args(opts);
+    let args = build_exec_args(params, ctx.log.as_deref());
     debug!("detach: exe={exe:?} args={args:?}");
 
     let mut cmd = std::process::Command::new(exe);
@@ -454,7 +480,7 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
     let child = cmd.spawn()?;
     debug!("detach: spawned child pid={}", child.id());
-    match &opts.log {
+    match &ctx.log {
         Some(log) => info!(
             "finalize: detached (pid {}), log: {}",
             child.id(),
@@ -465,25 +491,27 @@ fn detach(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
+/// Run the `finalize` subcommand: preflight, then either detach a
+/// child to do the work or do it inline.
+pub fn finalize(ctx: &Context, params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
     // Nothing to do — show help hint
-    if opts.squash.is_none() && !opts.push {
+    if params.squash.is_none() && !params.push {
         return Err("nothing to do (see --help for options)".into());
     }
 
-    debug!("finalize: entry opts={opts:?}");
+    debug!("finalize: entry params={params:?}");
 
     // Validate synchronously before detaching so failures exit with a
     // visible non-zero status rather than hiding in the detached child's log.
     // Skip in --exec (the re-entered child already passed preflight in the parent).
-    if !opts.exec {
-        preflight(opts)?;
+    if !params.exec {
+        preflight(params)?;
     }
 
-    let result = if opts.detach && !opts.exec {
-        detach(opts)
+    let result = if params.detach && !params.exec {
+        detach(ctx, params)
     } else {
-        finalize_exec(opts)
+        finalize_exec(params)
     };
     match &result {
         Ok(()) => debug!("finalize: exit ok"),
@@ -492,8 +520,8 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
             // In the detached-child path the caller can't observe our
             // non-zero exit. Drop a failure marker so a later vc-x1
             // invocation can surface the problem.
-            if opts.exec {
-                write_failure_marker(opts, &e.to_string());
+            if params.exec {
+                write_failure_marker(params, &e.to_string());
             }
         }
     }
@@ -502,7 +530,7 @@ pub fn finalize(opts: &FinalizeOpts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use super::*;
     use crate::{Cli, Commands};
@@ -601,8 +629,24 @@ mod tests {
     }
 
     #[test]
+    fn try_from_canonicalizes_repo() {
+        let args = parse(&["vc-x1", "finalize", "--repo", ".", "--push", "main"]);
+        let params = FinalizeParams::try_from(&args).unwrap();
+        assert_eq!(params.repo, std::fs::canonicalize(".").unwrap());
+        assert_eq!(params.bookmark, Some("main".to_string()));
+        assert!(params.push);
+        assert!(params.squash.is_none());
+    }
+
+    #[test]
+    fn try_from_bad_squash() {
+        let args = parse(&["vc-x1", "finalize", "--squash", "@", "--push", "main"]);
+        assert!(FinalizeParams::try_from(&args).is_err());
+    }
+
+    #[test]
     fn build_exec_args_roundtrip() {
-        let opts = FinalizeOpts {
+        let params = FinalizeParams {
             repo: PathBuf::from(".claude"),
             squash: Some(SquashSpec {
                 source: "@".to_string(),
@@ -611,26 +655,23 @@ mod tests {
             delay_secs: 2.0,
             bookmark: Some("dev-0.14.0".to_string()),
             push: true,
-            log: Some(PathBuf::from("/tmp/test.log")),
             detach: false,
             exec: false,
         };
-        let exec_args = build_exec_args(&opts);
+        let exec_args = build_exec_args(&params, Some(Path::new("/tmp/test.log")));
         let mut full_args = vec!["vc-x1".to_string()];
         full_args.extend(exec_args);
         let cli = Cli::try_parse_from(full_args).unwrap();
+        assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
         if let crate::Commands::Finalize(args) = cli.command {
-            let parsed = args
-                .into_opts(Some(PathBuf::from("/tmp/test.log")))
-                .unwrap();
+            let parsed = FinalizeParams::try_from(&args).unwrap();
             // repo is canonicalized, so compare the canonical form
-            assert_eq!(parsed.repo, std::fs::canonicalize(&opts.repo).unwrap());
+            assert_eq!(parsed.repo, std::fs::canonicalize(&params.repo).unwrap());
             assert_eq!(parsed.squash.as_ref().unwrap().source, "@");
             assert_eq!(parsed.squash.as_ref().unwrap().target, "@-");
             assert_eq!(parsed.bookmark, Some("dev-0.14.0".to_string()));
-            assert_eq!(parsed.delay_secs, opts.delay_secs);
+            assert_eq!(parsed.delay_secs, params.delay_secs);
             assert!(parsed.push);
-            assert_eq!(parsed.log, opts.log);
             assert!(parsed.exec);
         } else {
             panic!("expected Finalize");

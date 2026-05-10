@@ -22,13 +22,26 @@ Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 1. **Subcommand layer / CLI decoupling — sweep remaining
-   subcommands.** Init ported in 0.44.0 as the worked
-   example (`Context` + `InitParams`, `From<&InitArgs>`
-   at the binary edge, subcommand body reads
-   `params.account` not `args.account.account`). Remaining:
-   sync, chid, push, clone, desc, fix-desc, validate-desc,
-   list, show, finalize, symlink — each its own cycle, same
-   shape (`<Mod>Params` + `From<&XArgs>`). [80]
+   subcommands.** Done: `init` (0.44.0, `From<&InitArgs>`,
+   the worked example — `Context` + `InitParams` at the binary
+   edge, subcommand body reads `params.account` not
+   `args.account.account`); `finalize` (0.46.0,
+   `TryFrom<&FinalizeArgs>` — fallible boundary; `--log` moved
+   onto `Context`). Remaining: sync, clone, push,
+   validate-desc, fix-desc, symlink — planned as one
+   multi-step cycle (`0.47.0-N`), one step per subcommand,
+   same shape (`<Mod>Params` + a `From`/`TryFrom<&XArgs>`).
+   `chid`/`desc`/`list`/`show` ride with the CommonArgs sweep
+   (their Migration A and B are entangled). [80]
+1. **Migration B: finalize flags → `options_flags`.** Lift the
+   inline `#[arg]` fields of `FinalizeArgs` into reusable
+   leaves where there's a second consumer. Clear candidate:
+   `--squash` + `SquashSpec` → a shared `SquashOption` leaf
+   (`vc-x1 push --squash` will reuse it). `--delay` / `--detach`
+   / `--exec` stay inline until a second consumer surfaces;
+   `--repo` (finalize's "operate on this jj repo" — distinct
+   from init's create-target and the multi-repo `-R` list) and
+   `--push` similar. Tracked separately from Migration A.
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
@@ -225,6 +238,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Test-module extraction across init/push/sync/common (0.43.0) [84]
 - InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [80]
 - ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [85]
+- finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [86]
 
 # References
 
@@ -258,3 +272,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [83]: /notes/bot-data-formats.md
 [84]: /notes/chores-09.md#test-module-extraction-0430
 [85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450
+[86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
