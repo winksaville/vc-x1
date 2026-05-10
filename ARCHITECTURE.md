@@ -113,7 +113,8 @@ CLI layer:
   far. See
   [`src/options_flags/README.md`](src/options_flags/README.md).
   - reusable **leaves**: `account`, `config`, `dry_run`,
-    `private`, `push_retry`, `repo`, `scope`, `use_template`.
+    `private`, `push_retry`, `repo`, `scope`, `squash`,
+    `use_template`.
   - reusable **bundles**: `provision_bundle`.
 - `src/common.rs` — `CommonArgs` (the shared positional-rev /
   `-R` repo-list / `-n` / `--limit` / `-L` flag set flattened
@@ -207,7 +208,7 @@ decoupling" item in [`notes/todo.md`](notes/todo.md).
 | `symlink` | not started |
 
 The remaining nine are planned as one multi-step cycle
-(`0.47.0-N`), one step per subcommand (`chid`/`desc`/`list`/
+(`0.48.0-N`), one step per subcommand (`chid`/`desc`/`list`/
 `show` ride with the separate "CommonArgs sweep" since their
 Migration A and B are entangled).
 
@@ -237,9 +238,14 @@ State today:
   todo item folds these into the leaf model (and drops the
   repeatable `-R`/`--repo` in favor of the `--scope` path
   form).
+- **`finalize`** — `--squash` lifted to the `squash` leaf
+  (which carries the `value`-field naming convention — see
+  [`src/options_flags/README.md`](src/options_flags/README.md)
+  "Adding a new leaf"). `--delay` / `--detach` / `--exec` /
+  `--repo` / `--push` stay inline (no second consumer yet).
 - **`sync` / `push` / `clone` / `validate-desc` /
-  `fix-desc` / `finalize` / `symlink`** — still mostly
-  inline `#[arg]` fields. The `--scope` retrofits queued in
+  `fix-desc` / `symlink`** — still mostly inline `#[arg]`
+  fields. The `--scope` retrofits queued in
   [`notes/todo.md`](notes/todo.md) are the usual entry
   point for converting one.
 

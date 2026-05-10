@@ -18,6 +18,7 @@ use log::{debug, info};
 
 use crate::common::run;
 use crate::context::Context;
+use crate::options_flags::squash::{SquashOption, SquashSpec};
 
 /// Directory where the detached finalize child writes failure markers.
 /// A subsequent `vc-x1` invocation scans this directory and surfaces
@@ -93,9 +94,8 @@ pub struct FinalizeArgs {
     #[arg(long, default_value = ".")]
     pub repo: PathBuf,
 
-    /// Squash SOURCE into TARGET [default: @,@-]
-    #[arg(long, value_name = "SOURCE,TARGET", default_missing_value = "@,@-", num_args = 0..=1)]
-    pub squash: Option<String>,
+    #[command(flatten)]
+    pub squash: SquashOption,
 
     /// Seconds to wait before squashing
     #[arg(long, default_value_t = 10.0)]
@@ -114,35 +114,12 @@ pub struct FinalizeArgs {
     pub exec: bool,
 }
 
-/// Parsed squash spec: source and target revisions.
-#[derive(Debug, Clone)]
-pub struct SquashSpec {
-    pub source: String,
-    pub target: String,
-}
-
-impl SquashSpec {
-    /// Parse a `SOURCE,TARGET` pair (e.g. `@,@-`); both halves
-    /// must be non-empty.
-    fn parse(s: &str) -> Result<Self, String> {
-        let parts: Vec<&str> = s.split(',').collect();
-        if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
-            return Err(format!(
-                "invalid --squash value '{s}': expected SOURCE,TARGET (e.g. @,@-)"
-            ));
-        }
-        Ok(SquashSpec {
-            source: parts[0].to_string(),
-            target: parts[1].to_string(),
-        })
-    }
-}
-
 /// Per-invocation finalize inputs — the clap-free shape the
 /// `finalize` op works against. Built from `FinalizeArgs` at the
-/// binary edge via `TryFrom` (fallible: `--squash` parsing and
-/// repo-path canonicalization). The `--log` path lives on
-/// `Context`, not here.
+/// binary edge via `TryFrom` (fallible only on repo-path
+/// canonicalization — `--squash` is already parsed into a
+/// `SquashSpec` by clap). The `--log` path lives on `Context`,
+/// not here.
 #[derive(Debug)]
 pub struct FinalizeParams {
     pub repo: PathBuf,
@@ -157,16 +134,15 @@ pub struct FinalizeParams {
 impl TryFrom<&FinalizeArgs> for FinalizeParams {
     type Error = String;
 
-    /// Parse `--squash`, derive `push`/`bookmark` from `--push`,
-    /// and canonicalize `--repo` (so the detached child resolves it
-    /// regardless of cwd).
+    /// Derive `push`/`bookmark` from `--push` and canonicalize
+    /// `--repo` (so the detached child resolves it regardless of
+    /// cwd); `--squash` was already parsed by clap.
     fn try_from(a: &FinalizeArgs) -> Result<Self, String> {
-        let squash = a.squash.as_deref().map(SquashSpec::parse).transpose()?;
         let repo = std::fs::canonicalize(&a.repo)
             .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
         Ok(FinalizeParams {
             repo,
-            squash,
+            squash: a.squash.value.clone(),
             delay_secs: a.delay,
             bookmark: a.push.clone(),
             push: a.push.is_some(),
@@ -552,7 +528,7 @@ mod tests {
     fn no_args() {
         let args = parse(&["vc-x1", "finalize"]);
         assert_eq!(args.repo, PathBuf::from("."));
-        assert!(args.squash.is_none());
+        assert!(args.squash.value.is_none());
         assert!(args.push.is_none());
         assert!(!args.detach);
     }
@@ -560,8 +536,15 @@ mod tests {
     #[test]
     fn push_only() {
         let args = parse(&["vc-x1", "finalize", "--push", "main"]);
-        assert!(args.squash.is_none());
+        assert!(args.squash.value.is_none());
         assert_eq!(args.push, Some("main".to_string()));
+    }
+
+    fn squash_at() -> SquashSpec {
+        SquashSpec {
+            source: "@".to_string(),
+            target: "@-".to_string(),
+        }
     }
 
     #[test]
@@ -585,7 +568,7 @@ mod tests {
         assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
         if let Commands::Finalize(args) = cli.command {
             assert_eq!(args.repo, PathBuf::from(".claude"));
-            assert_eq!(args.squash, Some("@,@-".to_string()));
+            assert_eq!(args.squash.value, Some(squash_at()));
             assert_eq!(args.push, Some("dev-0.14.0".to_string()));
             assert_eq!(args.delay, 2.5);
             assert!(args.detach);
@@ -597,23 +580,8 @@ mod tests {
     #[test]
     fn bare_squash() {
         let args = parse(&["vc-x1", "finalize", "--squash", "--push", "main"]);
-        assert_eq!(args.squash, Some("@,@-".to_string()));
+        assert_eq!(args.squash.value, Some(squash_at()));
         assert_eq!(args.push, Some("main".to_string()));
-    }
-
-    #[test]
-    fn squash_parse_valid() {
-        let sq = SquashSpec::parse("@,@-").unwrap();
-        assert_eq!(sq.source, "@");
-        assert_eq!(sq.target, "@-");
-    }
-
-    #[test]
-    fn squash_parse_invalid() {
-        assert!(SquashSpec::parse("@").is_err());
-        assert!(SquashSpec::parse(",").is_err());
-        assert!(SquashSpec::parse("@,").is_err());
-        assert!(SquashSpec::parse(",@-").is_err());
     }
 
     #[test]
@@ -639,9 +607,9 @@ mod tests {
     }
 
     #[test]
-    fn try_from_bad_squash() {
-        let args = parse(&["vc-x1", "finalize", "--squash", "@", "--push", "main"]);
-        assert!(FinalizeParams::try_from(&args).is_err());
+    fn bad_squash() {
+        let err = parse_err(&["vc-x1", "finalize", "--squash", "@", "--push", "main"]);
+        assert!(err.contains("expected SOURCE,TARGET"), "got: {err}");
     }
 
     #[test]

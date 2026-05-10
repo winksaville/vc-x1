@@ -742,3 +742,19 @@ startup, like `UserConfig`) rather than staying a
   `vc-x1 push --squash` will reuse it); `## Done` entry added;
   `[86]` ref added.
 - `notes/chores-09.md`: this subsection.
+
+## finalize Migration B — squash options_flags leaf (0.47.0)
+
+Single-step. Lift `--squash` (the one flag with a planned second
+consumer) into a shared `options_flags` leaf.
+
+- `--squash` → `options_flags/squash.rs`: leaf `SquashOption`,
+  value `SquashSpec`, parser `SquashSpecParser`.
+- `--delay` / `--detach` / `--exec` / `--repo` / `--push` stay
+  inline — no second consumer (terminal state, not unfinished).
+- `value_parser = SquashSpec::parse` → bad `--squash` errors at
+  parse time, not in `try_from`. Only behavior change.
+- New single-field-leaf convention: field `value`, flag via
+  `#[arg(long = "…")]`, consumer reads `args.<leaf>.value`.
+- Pre-existing leaves keep field-name-as-flag — `0.47.1` sweep
+  queued.

@@ -29,19 +29,19 @@ renumbering. Reference by displayed number ("let's work on #3").
    `TryFrom<&FinalizeArgs>` — fallible boundary; `--log` moved
    onto `Context`). Remaining: sync, clone, push,
    validate-desc, fix-desc, symlink — planned as one
-   multi-step cycle (`0.47.0-N`), one step per subcommand,
+   multi-step cycle (`0.48.0-N`), one step per subcommand,
    same shape (`<Mod>Params` + a `From`/`TryFrom<&XArgs>`).
    `chid`/`desc`/`list`/`show` ride with the CommonArgs sweep
    (their Migration A and B are entangled). [80]
-1. **Migration B: finalize flags → `options_flags`.** Lift the
-   inline `#[arg]` fields of `FinalizeArgs` into reusable
-   leaves where there's a second consumer. Clear candidate:
-   `--squash` + `SquashSpec` → a shared `SquashOption` leaf
-   (`vc-x1 push --squash` will reuse it). `--delay` / `--detach`
-   / `--exec` stay inline until a second consumer surfaces;
-   `--repo` (finalize's "operate on this jj repo" — distinct
-   from init's create-target and the multi-repo `-R` list) and
-   `--push` similar. Tracked separately from Migration A.
+1. **single-field `options_flags` leaves → `value` field.**
+   `0.47.0` introduced the convention (single-field leaf names
+   its field `value`, declares the flag via `#[arg(long = "…")]`,
+   so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
+   on the new `squash` leaf. Sweep the pre-existing single-field
+   leaves to match: `scope`, `repo`, `dry_run`, `private`,
+   `account`, `config`, `use_template` + their consumers
+   (`init.rs`, tests). Multi-field leaves (`push_retry`) keep
+   descriptive names. Candidate for `0.47.1`. [87]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
@@ -239,6 +239,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [80]
 - ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [85]
 - finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [86]
+- finalize Migration B — squash options_flags leaf (0.47.0) [87]
 
 # References
 
@@ -273,3 +274,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [84]: /notes/chores-09.md#test-module-extraction-0430
 [85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450
 [86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
+[87]: /notes/chores-09.md#finalize-migration-b--squash-options_flags-leaf-0470

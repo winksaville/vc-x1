@@ -50,14 +50,28 @@ Wire form is presentation; the category is the underlying domain.
    `#[derive(Args, Debug, Clone, Default)]` struct.
 2. Pick the suffix per domain: `*Flag` (boolean) or `*Option(s)`
    (non-boolean).
-3. Add `pub mod <name>;` to `mod.rs`.
-4. If the leaf has explicit parsing logic, declare a unit-struct
+3. Name the field(s):
+   - **Single-field leaf** — call the field `value` (it holds the
+     parsed value-side of the option) and declare the flag
+     explicitly with `#[arg(long = "<flag>", …)]`. The consumer
+     then reads `args.<leaf>.value` rather than doubling the flag
+     name (`args.squash.value`, not `args.squash.squash`).
+   - **Multi-field leaf** — descriptive per-field names
+     (`push_retries`, `push_retry_delay`); clap derives each
+     flag from its field name as usual.
+   - The pre-existing single-field leaves (`scope`, `repo`,
+     `dry_run`, `private`, `account`, `config`, `use_template`)
+     predate this and still derive the flag from the field name;
+     migrating them to `value` is tracked in
+     [`../../notes/todo.md`](../../notes/todo.md).
+4. Add `pub mod <name>;` to `mod.rs`.
+5. If the leaf has explicit parsing logic, declare a unit-struct
    implementor of `FlagParser` (boolean domain) or `OptionParser`
    (non-boolean domain). Bare `Option<String>` leaves and
    presence/absence boolean leaves need no parser impl — clap
    handles them.
-5. Add tests for any non-trivial parser/resolver logic.
-6. Leaves do **not** implement a Bundle marker — bundles do.
+6. Add tests for any non-trivial parser/resolver logic.
+7. Leaves do **not** implement a Bundle marker — bundles do.
 
 ## Consuming an OF
 
@@ -114,10 +128,11 @@ This wins on:
 - Future-proofing — extending a leaf with another field is a
   zero-touch change at every call site.
 
-For **single-field leaves** (e.g. `DryRunFlag`, `PrivateFlag`),
-direct read at the consumer site (`args.provision.dry_run.dry_run`)
-is fine — wrapping a `bool` in `&LeafType` parameter doesn't earn
-the indirection.
+For **single-field leaves** (e.g. `SquashOption`, `DryRunFlag`,
+`PrivateFlag`), direct read at the consumer site
+(`args.squash.value`, or `args.provision.dry_run.dry_run` for the
+pre-`value` leaves) is fine — wrapping the inner value in a
+`&LeafType` parameter doesn't earn the indirection.
 
 ## Marker traits
 
