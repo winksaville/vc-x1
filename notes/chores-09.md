@@ -899,3 +899,45 @@ path by value (no signature change there).
   `FixDescParams::from` (same shape as the `ValidateDesc` arm).
 - Added missing `//!` module docstring and `///` on
   `fix_desc()` (pre-existing gaps, fixed in passing).
+
+## push → Context + PushParams (0.48.0-6)
+
+Step 6 — last subcommand port before close-out. Biggest module
+(`PushArgs` threaded through `push_in` / `run_from` / `run_stage`
+/ every `stage_*` / `resolve_message`); uniform plumbing, no
+behavior change. One step, not decomposed into `-6.N`.
+
+- `PushParams` + `From<&PushArgs>` in `push.rs`; `from` keeps the
+  `Stage` domain type.
+- `push(args)` → `push(_ctx: &Context, params: &PushParams)`;
+  `ctx` stops at `push()` (`push_in` + stage fns take
+  `&PushParams` only, like `sync_repos` / `&SyncParams`). `args`
+  → `params` through the threaded fns.
+- `main.rs` `Push` arm: `Context::load(cli.log)` +
+  `PushParams::from`.
+- `push/integration_tests.rs`: `test_args` → `test_params`;
+  `push/tests.rs` untouched (clap-parse tests on `PushArgs`).
+- Two `PushArgs` quirks the port had to absorb —
+  [dual bookmark parameters](#push-dual-bookmark-parameters) and
+  the [unimplemented `recheck` flag](#push-unimplemented-recheck-flag)
+  — both also queued in `notes/todo.md`.
+
+### push: dual bookmark parameters
+
+`PushArgs` carries two fields for one logical value —
+`bookmark_pos` (positional `BOOKMARK`) and `bookmark`
+(`--bookmark` flag), mutually `conflicts_with`. `From<&PushArgs>`
+collapses them: `bookmark_pos.clone().or_else(|| bookmark.clone())`.
+That `or_else` is a smell forced by the CLI shape (a positional
+*and* a flag for the same thing). Better: a single positional
+with `--bookmark` as a true clap alias, or drop one spelling.
+Queued as a todo.
+
+### push: unimplemented `recheck` flag
+
+`PushArgs.recheck` (`--recheck`, "re-run preflight on resume") is
+parsed but never read — the stage machine has no
+skip-preflight-on-resume path. Mirrored into `PushParams` with
+`#[allow(dead_code)]` to keep the conversion total, but a dead
+field plus an `allow` is debt. Implement the behavior or remove
+the flag. Queued as a todo.

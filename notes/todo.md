@@ -23,7 +23,7 @@ separate CommonArgs sweep. [80],[88]
    - 0.48.0-3 sync (done)
    - 0.48.0-4 validate-desc (done)
    - 0.48.0-5 fix-desc (done)
-   - 0.48.0-6 push (resumable state machine; may decompose into -6.N)
+   - 0.48.0-6 push (resumable state machine) (done)
    - 0.48.0 close-out — drop suffix, todo→Done, Migration A table all-done
 
 ## Todo
@@ -115,6 +115,16 @@ renumbering. Reference by displayed number ("let's work on #3").
    chores-06/07; normalize section ordering across all
    three. Tied to merge-direction decision above. [78]
 1. Add a vc-x1 validate-repo?
+1. vc-x1 push: rework the two bookmark parameters.
+   `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
+   `bookmark` (`--bookmark` flag) for one logical value,
+   forcing an `or_else` in `From<&PushArgs>`. Collapse to a
+   single positional with `--bookmark` as a true clap alias,
+   or drop one spelling. [89]
+1. vc-x1 push: `--recheck` — implement or remove. Parsed by
+   `PushArgs`, never read; mirrored into `PushParams` with
+   `#[allow(dead_code)]`. Either wire the
+   skip-preflight-on-resume behavior or drop the flag. [90]
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Was 0.42.0-4 (deferred when cycle pivoted to icr
    rebase work; cycle closed at -4.7). State machine
@@ -292,3 +302,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
 [87]: /notes/chores-09.md#finalize-migration-b--squash-options_flags-leaf-0470
 [88]: /notes/chores-09.md#migration-a-sweep-subcommand-layer-ports-0480
+[89]: /notes/chores-09.md#push-dual-bookmark-parameters
+[90]: /notes/chores-09.md#push-unimplemented-recheck-flag

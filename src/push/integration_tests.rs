@@ -67,13 +67,12 @@ fn desc_first_line(repo: &Path, rev: &str) -> String {
     )
 }
 
-/// Standard test args: bookmark=main, `--from message` (skip
+/// Standard test params: bookmark=main, `--from message` (skip
 /// preflight), `--no-finalize` (skip detached finalize),
 /// `--yes` (auto-approve any interactive prompts).
-fn test_args(title: &str, body: &str) -> PushArgs {
-    PushArgs {
-        bookmark_pos: Some("main".to_string()),
-        bookmark: None,
+fn test_params(title: &str, body: &str) -> PushParams {
+    PushParams {
+        bookmark: Some("main".to_string()),
         restart: false,
         from: Some(Stage::Message),
         step: false,
@@ -98,7 +97,7 @@ fn push_happy_claude_clean() {
 
     let claude_main_before = cid(&fx.claude, "main");
 
-    push_in(&fx.work, &test_args("feat: clean case", "app body")).expect("push should succeed");
+    push_in(&fx.work, &test_params("feat: clean case", "app body")).expect("push should succeed");
 
     // App repo: main advanced to our new commit.
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: clean case");
@@ -126,7 +125,7 @@ fn push_happy_claude_dirty() {
 
     let claude_main_before = cid(&fx.claude, "main");
 
-    push_in(&fx.work, &test_args("feat: paired change", "paired body"))
+    push_in(&fx.work, &test_params("feat: paired change", "paired body"))
         .expect("push should succeed");
 
     // Both repos have new commits with matching titles.
@@ -247,9 +246,9 @@ fn push_resume_after_push_failure() {
     // real push failure (which jj makes hard — local bare-git
     // remotes accept almost anything). Instead, split the run
     // using --no-finalize on the second pass.
-    let mut args1 = test_args("feat: resume", "resume body");
-    args1.from = Some(Stage::Message);
-    push_in(&fx.work, &args1).expect("first push run");
+    let mut params1 = test_params("feat: resume", "resume body");
+    params1.from = Some(Stage::Message);
+    push_in(&fx.work, &params1).expect("first push run");
 
     // After the full run, state file should be cleared and main
     // should be advanced in the app repo.
@@ -296,7 +295,7 @@ fn completion_sanity_pass() {
     let fx = Fixture::new("completion-pass");
     // Run a real push so the world is in the post-completion shape.
     fs::write(fx.work.join("app.txt"), "x").expect("write app file");
-    push_in(&fx.work, &test_args("feat: pass", "body")).expect("push");
+    push_in(&fx.work, &test_params("feat: pass", "body")).expect("push");
 
     let app_chid = chid(&fx.work, "main");
     let claude_chid = chid(&fx.claude, "main");
@@ -310,7 +309,7 @@ fn completion_sanity_pass() {
 fn completion_sanity_fail_app_chid_mismatch() {
     let fx = Fixture::new("completion-fail-app");
     fs::write(fx.work.join("app.txt"), "x").expect("write app file");
-    push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
     // Build state with a bogus app_chid (12-char prefix that won't
     // match the real one).
@@ -328,7 +327,7 @@ fn completion_sanity_fail_app_chid_mismatch() {
 fn completion_sanity_fail_dirty_wc() {
     let fx = Fixture::new("completion-fail-dirty");
     fs::write(fx.work.join("app.txt"), "x").expect("write app file");
-    push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
     // Now dirty the WC after push completed.
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
 
@@ -345,7 +344,7 @@ fn completion_sanity_fail_dirty_wc() {
 fn completion_sanity_fail_claude_chid_mismatch() {
     let fx = Fixture::new("completion-fail-claude");
     fs::write(fx.work.join("app.txt"), "x").expect("write app file");
-    push_in(&fx.work, &test_args("feat: x", "body")).expect("push");
+    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
     let app_chid = chid(&fx.work, "main");
     let state = completion_state(Some(app_chid), Some("zzzzzzzzzzzz".to_string()));

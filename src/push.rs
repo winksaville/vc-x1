@@ -31,6 +31,7 @@ use clap::{Args, ValueEnum};
 use log::{debug, info, warn};
 
 use crate::common::{prompt, run};
+use crate::context::Context;
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
@@ -178,6 +179,52 @@ pub struct PushArgs {
     /// supplied in non-interactive contexts.
     #[arg(short = 'y', long)]
     pub yes: bool,
+}
+
+/// Inputs to the push op, flat, owned, clap-free.
+///
+/// Mirrors `PushArgs`, with the two clap bookmark spellings
+/// (positional `BOOKMARK` and `--bookmark`) collapsed into one
+/// `bookmark` field. The rest map straight over: `restart`, `from`
+/// (a `Stage`, a domain type — kept), `step`, `status`, `recheck`,
+/// `no_finalize`, `dry_run`, `title`, `body`, `yes`.
+pub struct PushParams {
+    pub bookmark: Option<String>,
+    pub restart: bool,
+    pub from: Option<Stage>,
+    pub step: bool,
+    pub status: bool,
+    /// `--recheck` is parsed by `PushArgs` but not yet wired into the
+    /// stage machine; carried here so the conversion stays total and
+    /// the field is in place when the behavior lands.
+    #[allow(dead_code)]
+    pub recheck: bool,
+    pub no_finalize: bool,
+    pub dry_run: bool,
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub yes: bool,
+}
+
+impl From<&PushArgs> for PushParams {
+    /// Convert clap-derived `PushArgs` into the flat `PushParams`,
+    /// collapsing `bookmark_pos` / `bookmark` (clap already enforces
+    /// they don't both appear) into the single `bookmark` field.
+    fn from(a: &PushArgs) -> Self {
+        Self {
+            bookmark: a.bookmark_pos.clone().or_else(|| a.bookmark.clone()),
+            restart: a.restart,
+            from: a.from,
+            step: a.step,
+            status: a.status,
+            recheck: a.recheck,
+            no_finalize: a.no_finalize,
+            dry_run: a.dry_run,
+            title: a.title.clone(),
+            body: a.body.clone(),
+            yes: a.yes,
+        }
+    }
 }
 
 /// Current state-file format version — bump when the flat key set
@@ -531,9 +578,13 @@ fn check_gitignore_coherence(
 /// `bookmark-both`), both repos roll back to the `jj op` snapshot
 /// recorded at the start of `commit-app`. After `push-app` the
 /// remote boundary is crossed and recovery is forward-only.
-pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `ctx` is unused today (push reads `.vc-config.toml` for its
+/// state-file layout and hard-codes the finalize `--log` path); it's
+/// present for the uniform subcommand-layer signature.
+pub fn push(_ctx: &Context, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
-    push_in(&cwd, args)
+    push_in(&cwd, params)
 }
 
 /// `push` parameterized on the workspace root. CLI dispatch calls
@@ -542,15 +593,15 @@ pub fn push(args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
 /// repos instead of the developer's working tree.
 pub(crate) fn push_in(
     workspace_root: &Path,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let layout = resolve_state_layout(workspace_root);
 
-    if args.status {
+    if params.status {
         return cmd_status(&layout);
     }
 
-    if args.dry_run {
+    if params.dry_run {
         info!("push: DRY-RUN — no side effects (no commits, no pushes, no state written)");
     }
 
@@ -566,7 +617,7 @@ pub(crate) fn push_in(
         check_gitignore_coherence(workspace_root, dir_name)?;
     }
 
-    if args.restart && layout.path.exists() {
+    if params.restart && layout.path.exists() {
         fs::remove_file(&layout.path)?;
         debug!("push: --restart cleared state at {}", layout.path.display());
     }
@@ -576,25 +627,21 @@ pub(crate) fn push_in(
     let mut state = match PushState::load(&layout.path)? {
         Some(s) => s,
         None => {
-            let bookmark = args
-                .bookmark_pos
-                .as_deref()
-                .or(args.bookmark.as_deref())
-                .ok_or(
-                    "push: no saved state; a bookmark is required to start a new run \
-                     — pass it as a positional (`vc-x1 push main`) or via `--bookmark main`",
-                )?;
+            let bookmark = params.bookmark.as_deref().ok_or(
+                "push: no saved state; a bookmark is required to start a new run \
+                 — pass it as a positional (`vc-x1 push main`) or via `--bookmark main`",
+            )?;
             PushState::new_for(bookmark)
         }
     };
 
     // `--from` overrides the resumed stage (does not affect bookmark
     // or other persisted fields).
-    if let Some(from) = args.from {
+    if let Some(from) = params.from {
         state.stage = from;
     }
 
-    run_from(workspace_root, &mut state, args, &layout)
+    run_from(workspace_root, &mut state, params, &layout)
 }
 
 /// Full path of the `.claude` session repo for a given workspace
@@ -637,7 +684,7 @@ fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
 fn run_from(
     root: &Path,
     state: &mut PushState,
-    args: &PushArgs,
+    params: &PushParams,
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // State-sanity preflight: catch stale-state-after-out-of-band-recovery
@@ -648,7 +695,7 @@ fn run_from(
     // Only persist state in real runs. Dry-runs are inspection-only
     // — carrying their inferred chids / op snapshots into real runs
     // would mislead the user about what was actually recorded.
-    if !args.dry_run {
+    if !params.dry_run {
         state.save(&layout.path)?;
     }
     loop {
@@ -656,16 +703,16 @@ fn run_from(
 
         // Snapshot op ids once on first `commit-app` entry. Skipped
         // in dry-run since we won't mutate anything to roll back.
-        if stage == Stage::CommitApp && state.op_app.is_none() && !args.dry_run {
+        if stage == Stage::CommitApp && state.op_app.is_none() && !params.dry_run {
             state.op_app = Some(current_op_id(root)?);
             state.op_claude = Some(current_op_id(&claude_path(root))?);
             state.save(&layout.path)?;
         }
 
-        let result = run_stage(root, stage, state, args, layout);
+        let result = run_stage(root, stage, state, params, layout);
 
         if let Err(e) = &result {
-            if stage_is_rollback_eligible(stage) && !args.dry_run {
+            if stage_is_rollback_eligible(stage) && !params.dry_run {
                 rollback_on_failure(root, state, e.as_ref());
             }
             return result;
@@ -678,8 +725,8 @@ fn run_from(
         // there's a next stage to gate, and skipped entirely when
         // --yes is set or stdin isn't a tty (the prompt would hang
         // in scripted contexts — the script is presumed consenting).
-        if args.step && next.is_some() {
-            if args.yes {
+        if params.step && next.is_some() {
+            if params.yes {
                 debug!(
                     "push step: --yes skips step gate between {} and next",
                     stage.as_str()
@@ -708,14 +755,14 @@ fn run_from(
         match next {
             Some(n) => {
                 state.stage = n;
-                if !args.dry_run {
+                if !params.dry_run {
                     state.save(&layout.path)?;
                 }
             }
             None => break,
         }
     }
-    if args.dry_run {
+    if params.dry_run {
         info!("push: DRY-RUN complete — no changes written");
     } else {
         // Honest completion: verify the world matches state before
@@ -790,18 +837,18 @@ fn run_stage(
     root: &Path,
     stage: Stage,
     state: &mut PushState,
-    args: &PushArgs,
+    params: &PushParams,
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match stage {
-        Stage::Preflight => stage_preflight(root, state, args),
-        Stage::Review => stage_review(root, args),
-        Stage::Message => stage_message(root, state, args, layout),
-        Stage::CommitApp => stage_commit_app(root, state, args),
-        Stage::CommitClaude => stage_commit_claude(root, state, args),
-        Stage::BookmarkBoth => stage_bookmark_both(root, state, args),
-        Stage::PushApp => stage_push_app(root, state, args),
-        Stage::FinalizeClaude => stage_finalize_claude(root, state, args),
+        Stage::Preflight => stage_preflight(root, state, params),
+        Stage::Review => stage_review(root, params),
+        Stage::Message => stage_message(root, state, params, layout),
+        Stage::CommitApp => stage_commit_app(root, state, params),
+        Stage::CommitClaude => stage_commit_claude(root, state, params),
+        Stage::BookmarkBoth => stage_bookmark_both(root, state, params),
+        Stage::PushApp => stage_push_app(root, state, params),
+        Stage::FinalizeClaude => stage_finalize_claude(root, state, params),
     }
 }
 
@@ -821,9 +868,9 @@ fn run_stage(
 fn stage_preflight(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if args.dry_run {
+    if params.dry_run {
         info!(
             "push preflight: [dry-run] would run verify-tracking / vc-x1 sync --check / cargo fmt / clippy / test"
         );
@@ -854,7 +901,7 @@ fn stage_preflight(
 /// prompt (required for scripted / non-tty use). In `--dry-run`
 /// the diff is still shown (that's the point of dry-run — see
 /// what *would* be reviewed) but approval is auto-granted.
-fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::Error>> {
+fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let claude = claude_path(root);
     let app_arg = root.to_string_lossy();
     let claude_arg = claude.to_string_lossy();
@@ -869,11 +916,11 @@ fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::
     for line in claude_stat.lines() {
         info!("    {line}");
     }
-    if args.yes {
+    if params.yes {
         info!("push review: auto-approved (--yes)");
         return Ok(());
     }
-    if args.dry_run {
+    if params.dry_run {
         info!("push review: [dry-run] auto-approved");
         return Ok(());
     }
@@ -901,25 +948,25 @@ fn stage_review(root: &Path, args: &PushArgs) -> Result<(), Box<dyn std::error::
 fn stage_message(
     root: &Path,
     state: &mut PushState,
-    args: &PushArgs,
+    params: &PushParams,
     layout: &StateLayout,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Resolve title/body by priority:
     //   1. --title / --body flags (both must be present to skip editor)
     //   2. persisted title/body from prior stage run (resume case)
     //   3. $EDITOR template (interactive); fails if --yes and nothing else
-    let (title, body) = match (args.title.clone(), args.body.clone()) {
+    let (title, body) = match (params.title.clone(), params.body.clone()) {
         (Some(t), Some(b)) => (t, b),
         _ => match (state.title.clone(), state.body.clone()) {
             (Some(t), Some(b)) => (t, b),
             _ => {
-                if args.yes {
+                if params.yes {
                     return Err("push message: --yes given but --title/--body missing \
                                 and no persisted message to resume — pass both flags \
                                 or run interactively."
                         .into());
                 }
-                if args.dry_run {
+                if params.dry_run {
                     return Err("push message: --dry-run given but --title/--body missing \
                                 and no persisted message — pass both flags so dry-run \
                                 has a message to preview."
@@ -1033,16 +1080,16 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 fn stage_commit_app(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (title, body) = resolve_message(state, args)?;
+    let (title, body) = resolve_message(state, params)?;
     let claude_chid = state
         .claude_chid
         .as_deref()
         .ok_or("push commit-app: claude_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
     let app_arg = root.to_string_lossy();
-    if args.dry_run {
+    if params.dry_run {
         info!(
             "push commit-app: [dry-run] would run jj commit -R {app_arg} -m \"{title}\" -m <body+ochid>"
         );
@@ -1071,14 +1118,14 @@ fn stage_commit_app(
 /// `stage_message` didn't run or was force-bypassed.
 fn resolve_message(
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
-    let title = args
+    let title = params
         .title
         .clone()
         .or_else(|| state.title.clone())
         .ok_or("push: title missing — message stage didn't run")?;
-    let body = args
+    let body = params
         .body
         .clone()
         .or_else(|| state.body.clone())
@@ -1092,13 +1139,13 @@ fn resolve_message(
 fn stage_commit_claude(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !state.claude_had_changes.unwrap_or(false) {
         info!("push commit-claude: skip (.claude had no pending changes)");
         return Ok(());
     }
-    let (title, body) = resolve_message(state, args)?;
+    let (title, body) = resolve_message(state, params)?;
     let app_chid = state
         .app_chid
         .as_deref()
@@ -1106,7 +1153,7 @@ fn stage_commit_claude(
     let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
-    if args.dry_run {
+    if params.dry_run {
         info!(
             "push commit-claude: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
         );
@@ -1133,13 +1180,13 @@ fn stage_commit_claude(
 fn stage_bookmark_both(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let app_arg = root.to_string_lossy();
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
-    if args.dry_run {
+    if params.dry_run {
         info!(
             "push bookmark-both: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}"
         );
@@ -1163,11 +1210,11 @@ fn stage_bookmark_both(
 fn stage_push_app(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let app_arg = root.to_string_lossy();
-    if args.dry_run {
+    if params.dry_run {
         info!("push push-app: [dry-run] would run jj git push --bookmark {bk} -R {app_arg}");
         return Ok(());
     }
@@ -1188,16 +1235,16 @@ fn stage_push_app(
 fn stage_finalize_claude(
     root: &Path,
     state: &PushState,
-    args: &PushArgs,
+    params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if args.no_finalize {
+    if params.no_finalize {
         info!("push finalize-claude: skip (--no-finalize)");
         return Ok(());
     }
     let bk = &state.bookmark;
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
-    if args.dry_run {
+    if params.dry_run {
         info!(
             "push finalize-claude: [dry-run] would run vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
         );

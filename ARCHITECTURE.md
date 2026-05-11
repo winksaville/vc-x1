@@ -148,7 +148,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `symlink.rs` | `symlink` | migrated (0.48.0-1) — `symlink(&Context, &SymlinkParams)`, `From<&SymlinkArgs>` |
 | `sync.rs` | `sync` | migrated (0.48.0-3) — `sync(&Context, &SyncParams)`, `From<&SyncArgs>` |
 | `finalize.rs` | `finalize` | migrated (0.46.0) — `finalize(&Context, &FinalizeParams)`, `TryFrom<&FinalizeArgs>` |
-| `push.rs` | `push` | resumable state machine |
+| `push.rs` | `push` | resumable state machine; migrated (0.48.0-6) — `push(&Context, &PushParams)`, `From<&PushArgs>` |
 
 Support:
 
@@ -206,7 +206,7 @@ Per-port status is the table below; the live checklist is the
 | `validate-desc` | done (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`; `From<&ValidateDescArgs>` |
 | `fix-desc` | done (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`; `From<&FixDescArgs>` |
 | `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
-| `push` | not started |
+| `push` | done (0.48.0-6) — `push(&Context, &PushParams)`; `From<&PushArgs>` (collapses the two bookmark spellings) |
 | `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |
 
 The rest are planned as one multi-step cycle (`0.48.0-N`), one

@@ -432,7 +432,17 @@ fn main() -> ExitCode {
             };
             run_command(finalize::finalize(&ctx, &params))
         }
-        Commands::Push(push_args) => run_command(push::push(&push_args)),
+        Commands::Push(push_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = push::PushParams::from(&push_args);
+            run_command(push::push(&ctx, &params))
+        }
     };
 
     if !is_detached_exec {

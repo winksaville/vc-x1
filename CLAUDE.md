@@ -289,6 +289,26 @@ Chores section headers use trailing version format:
 
 Example: `` ## Add `fn claude-symlink` (0.27.0) ``
 
+### Chores: scannable bullets, detail in subsections
+
+A per-step chores subsection opens with a short intro, then a
+`-` bullet list that mirrors the commit body — one line per
+file/edit, a scannable index. When a bullet starts wanting to
+explain *why* something is the way it is, or to flag a wrinkle,
+don't inflate the bullet:
+
+- Promote the explanation to its own `###` subsection inside the
+  same `chores-NN.md`; point the bullet at it with a markdown
+  anchor link (`[gist](#the-subsection-heading)`).
+- If the wrinkle is a live design concern — something that
+  *should* change, not just be recorded — also add a
+  `notes/todo.md` item, with a `[N]` ref pointing at that
+  subsection (todo→chores is the normal ref direction).
+
+**Why:** verbose bullets bury the index, and detail written
+twice (bullet + subsection) drifts. One source of truth, linked
+from wherever it's relevant.
+
 ### Pre-commit checklist
 
 Before proposing a commit, run all of the following and fix any issues:
