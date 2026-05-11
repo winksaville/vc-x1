@@ -353,7 +353,17 @@ fn main() -> ExitCode {
             run_command(validate_desc::validate_desc(&validate_desc_args))
         }
         Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
-        Commands::Clone(clone_args) => run_command(clone::clone_repo(&clone_args)),
+        Commands::Clone(clone_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = clone::CloneParams::from(&clone_args);
+            run_command(clone::clone_repo(&ctx, &params))
+        }
         Commands::Init(init_args) => {
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,

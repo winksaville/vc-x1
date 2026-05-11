@@ -143,7 +143,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `show.rs` | `show` | flattens `CommonArgs` |
 | `validate_desc.rs` | `validate-desc` | |
 | `fix_desc.rs` | `fix-desc` | |
-| `clone.rs` | `clone` | |
+| `clone.rs` | `clone` | migrated (0.48.0-2) — `clone_repo(&Context, &CloneParams)`, `From<&CloneArgs>` |
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
 | `symlink.rs` | `symlink` | migrated (0.48.0-1) — `symlink(&Context, &SymlinkParams)`, `From<&SymlinkArgs>` |
 | `sync.rs` | `sync` | |
@@ -188,9 +188,9 @@ Port each subcommand's `pub fn x(args: &XxxArgs)` to
 `pub fn x(ctx: &Context, params: &XxxParams)`, adding an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
 conversion is fallible) at the binary edge. `init` (0.44.0),
-`finalize` (0.46.0), and `symlink` (0.48.0-1) are done; the
-rest follow the same shape. The live checklist is the
-"Subcommand layer / CLI decoupling" item in
+`finalize` (0.46.0), `symlink` (0.48.0-1), and `clone`
+(0.48.0-2) are done; the rest follow the same shape. The live
+checklist is the "Subcommand layer / CLI decoupling" item in
 [`notes/todo.md`](notes/todo.md).
 
 | Subcommand | Status |
@@ -204,14 +204,14 @@ rest follow the same shape. The live checklist is the
 | `show` | not started |
 | `validate-desc` | not started |
 | `fix-desc` | not started |
-| `clone` | not started |
+| `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
 | `push` | not started |
 | `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |
 
-The remaining nine are planned as one multi-step cycle
-(`0.48.0-N`), one step per subcommand (`chid`/`desc`/`list`/
-`show` ride with the separate "CommonArgs sweep" since their
-Migration A and B are entangled).
+The rest are planned as one multi-step cycle (`0.48.0-N`), one
+step per subcommand (`chid`/`desc`/`list`/`show` ride with the
+separate "CommonArgs sweep" since their Migration A and B are
+entangled).
 
 Out of scope for the early ports (deferred until a real
 consumer surfaces): typed errors, returned outcomes vs

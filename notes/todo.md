@@ -19,7 +19,7 @@ A bulleted list of the in-progress task's development "ladder":
 separate CommonArgs sweep. [80],[88]
    - 0.48.0-0 plan + version bump + chores section + todo ladder (done)
    - 0.48.0-1 symlink (done)
-   - 0.48.0-2 clone
+   - 0.48.0-2 clone (done)
    - 0.48.0-3 sync
    - 0.48.0-4 validate-desc
    - 0.48.0-5 fix-desc

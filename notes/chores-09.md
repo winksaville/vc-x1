@@ -834,3 +834,21 @@ callers — a clean mechanical port.
   `///` on `symlink()` (pre-existing gaps, fixed in passing).
 - Tests untouched — they exercise `SymLink` / `encode_path` /
   `probe`, not the subcommand fn.
+
+## clone → Context + CloneParams (0.48.0-2)
+
+Step 2 of the Migration A sweep. Same shape as `symlink`:
+`clone` uses neither `UserConfig` nor `--log`, and its tests
+parse `CloneArgs` rather than calling the subcommand fn.
+
+- `CloneParams` (flat: `target` / `name` / `scope` / `dry_run`)
+  + `impl From<&CloneArgs>` (total) in `clone.rs`.
+- `pub fn clone_repo(args)` → `pub fn clone_repo(_ctx: &Context,
+  params: &CloneParams)`; `ctx` unused (uniform-signature
+  placeholder), body reads `params.*`.
+- `main.rs` `Clone` arm: build `Context::load(cli.log)` +
+  `CloneParams::from`.
+- `clone_one` / `clone_dual` (`pub(crate)` helpers) and the
+  tests unchanged.
+- File already had its `//!` docstring and `///` on `clone_repo`
+  — no doc-comment gaps to fix.

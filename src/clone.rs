@@ -22,6 +22,7 @@ use clap::Args;
 use log::info;
 
 use crate::common::run;
+use crate::context::Context;
 use crate::options_flags::scope::{ScopeKind, parse_scope_kind};
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
@@ -58,6 +59,34 @@ pub struct CloneArgs {
     pub dry_run: bool,
 }
 
+/// Inputs to the clone op, flat, owned, clap-free.
+///
+/// - `target`: the `TARGET` positional (URL, `owner/name`, or
+///   local path).
+/// - `name`: optional `NAME` positional override for the
+///   destination dir.
+/// - `scope`: `--scope` resolved (default `code,bot`).
+/// - `dry_run`: `--dry-run`.
+pub struct CloneParams {
+    pub target: String,
+    pub name: Option<String>,
+    pub scope: ScopeKind,
+    pub dry_run: bool,
+}
+
+impl From<&CloneArgs> for CloneParams {
+    /// Convert clap-derived `CloneArgs` into the flat `CloneParams`
+    /// (total — every field copies straight over).
+    fn from(a: &CloneArgs) -> Self {
+        Self {
+            target: a.target.clone(),
+            name: a.name.clone(),
+            scope: a.scope,
+            dry_run: a.dry_run,
+        }
+    }
+}
+
 /// Top-level clone driver.
 ///
 /// - Resolves TARGET to a concrete clone source (URL or path).
@@ -65,10 +94,14 @@ pub struct CloneArgs {
 ///   `derive_name(TARGET)`).
 /// - Pre-checks target dir doesn't exist.
 /// - Dispatches to `clone_one` (POR) or `clone_dual` (code,bot).
-pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `ctx` is unused today (clone reads neither user config nor the
+/// `--log` path); it's present for the uniform subcommand-layer
+/// signature.
+pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("clone: enter");
 
-    let parsed = parse_target(&args.target)?;
+    let parsed = parse_target(&params.target)?;
     let source = match parsed {
         Target::Url(u) => u,
         Target::OwnerName(o, n) => resolve_url(&format!("{o}/{n}")),
@@ -82,9 +115,9 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let name = match &args.name {
+    let name = match &params.name {
         Some(n) => n.clone(),
-        None => derive_name(&args.target)?,
+        None => derive_name(&params.target)?,
     };
     let parent_dir = std::env::current_dir()?;
     let project_dir = parent_dir.join(&name);
@@ -93,9 +126,9 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
         return Err(format!("'{}' already exists", project_dir.display()).into());
     }
 
-    if args.dry_run {
+    if params.dry_run {
         info!("Dry run — would execute:");
-        match args.scope {
+        match params.scope {
             ScopeKind::Por => {
                 info!("  1. jj git clone --colocate {source} {name}");
             }
@@ -111,7 +144,7 @@ pub fn clone_repo(args: &CloneArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
 
-    match args.scope {
+    match params.scope {
         ScopeKind::Por => {
             clone_one(&source, &project_dir, &parent_dir)?;
             info!("");
