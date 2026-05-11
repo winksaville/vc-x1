@@ -882,3 +882,20 @@ Step 4. Straight port — no helper threading, no test callers.
 - Added missing `//!` module docstring and `///` on `validate_desc()`.
 - Tagalong: `CLAUDE.md` codifies the 50/72 commit-message rule
   (subject ≤50, body lines ≤72).
+
+## fix-desc → Context + FixDescParams (0.48.0-5)
+
+Step 5. Straight port — no test callers; the only threading is
+the private `jj_describe` helper, which already took the repo
+path by value (no signature change there).
+
+- `FixDescParams` (mirrors `FixDescArgs` field-for-field:
+  `pos_rev`, `pos_count`, `revision`, `limit`, `max_fixes`,
+  `repo`, `other_repo`, `id_len`, `title`, `fallback`,
+  `no_dry_run`, `add_missing`) + `From<&FixDescArgs>` (total).
+- `fix_desc(args)` → `fix_desc(_ctx, params)`; `ctx` unused
+  (signature placeholder), body reads `params.*`.
+- `main.rs` `FixDesc` arm: `Context::load(cli.log)` +
+  `FixDescParams::from` (same shape as the `ValidateDesc` arm).
+- Added missing `//!` module docstring and `///` on
+  `fix_desc()` (pre-existing gaps, fixed in passing).

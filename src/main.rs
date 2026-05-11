@@ -360,7 +360,17 @@ fn main() -> ExitCode {
             let params = validate_desc::ValidateDescParams::from(&validate_desc_args);
             run_command(validate_desc::validate_desc(&ctx, &params))
         }
-        Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
+        Commands::FixDesc(fix_desc_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = fix_desc::FixDescParams::from(&fix_desc_args);
+            run_command(fix_desc::fix_desc(&ctx, &params))
+        }
         Commands::Clone(clone_args) => {
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,

@@ -22,7 +22,7 @@ separate CommonArgs sweep. [80],[88]
    - 0.48.0-2 clone (done)
    - 0.48.0-3 sync (done)
    - 0.48.0-4 validate-desc (done)
-   - 0.48.0-5 fix-desc
+   - 0.48.0-5 fix-desc (done)
    - 0.48.0-6 push (resumable state machine; may decompose into -6.N)
    - 0.48.0 close-out — drop suffix, todo→Done, Migration A table all-done
 

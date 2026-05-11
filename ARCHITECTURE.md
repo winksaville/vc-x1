@@ -142,7 +142,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `list.rs` | `list` | flattens `CommonArgs` |
 | `show.rs` | `show` | flattens `CommonArgs` |
 | `validate_desc.rs` | `validate-desc` | migrated (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`, `From<&ValidateDescArgs>` |
-| `fix_desc.rs` | `fix-desc` | |
+| `fix_desc.rs` | `fix-desc` | migrated (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`, `From<&FixDescArgs>` |
 | `clone.rs` | `clone` | migrated (0.48.0-2) — `clone_repo(&Context, &CloneParams)`, `From<&CloneArgs>` |
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
 | `symlink.rs` | `symlink` | migrated (0.48.0-1) — `symlink(&Context, &SymlinkParams)`, `From<&SymlinkArgs>` |
@@ -204,7 +204,7 @@ Per-port status is the table below; the live checklist is the
 | `list` | not started |
 | `show` | not started |
 | `validate-desc` | done (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`; `From<&ValidateDescArgs>` |
-| `fix-desc` | not started |
+| `fix-desc` | done (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`; `From<&FixDescArgs>` |
 | `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
 | `push` | not started |
 | `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |

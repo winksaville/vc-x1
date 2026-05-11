@@ -1,3 +1,11 @@
+//! The `fix-desc` subcommand: scan a revision range and repair
+//! each commit's `ochid:` trailer against the cross-referenced
+//! repo — fixing wrong prefixes/lengths, adding missing trailers
+//! (`--add-missing`), or substituting a fallback value.
+//!
+//! Dry-run by default; `--no-dry-run` actually rewrites
+//! descriptions via `jj describe --ignore-immutable`.
+
 use std::path::PathBuf;
 
 use clap::Args;
@@ -6,6 +14,7 @@ use jj_lib::repo::Repo;
 use log::{debug, info};
 
 use crate::common;
+use crate::context::Context;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, OchidIssues, TitleMatch, VC_CONFIG_FILE, append_ochid_trailer, extract_bare_id,
     extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description,
@@ -65,16 +74,66 @@ pub struct FixDescArgs {
     pub add_missing: bool,
 }
 
-pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
+/// Inputs to the fix-desc op, flat, owned, clap-free.
+///
+/// Mirrors `FixDescArgs` field-for-field: positional `REVISION` /
+/// `COMMITS` (`pos_rev` / `pos_count`), `--revision` / `--commits`
+/// (`revision` / `limit`), `--max-fixes`, `--repo`, `--other-repo`,
+/// `--id-len`, `--title`, `--fallback`, `--no-dry-run`,
+/// `--add-missing`.
+pub struct FixDescParams {
+    pub pos_rev: Option<String>,
+    pub pos_count: Option<usize>,
+    pub revision: String,
+    pub limit: Option<usize>,
+    pub max_fixes: Option<usize>,
+    pub repo: PathBuf,
+    pub other_repo: Option<PathBuf>,
+    pub id_len: usize,
+    pub title: Option<String>,
+    pub fallback: Option<String>,
+    pub no_dry_run: bool,
+    pub add_missing: bool,
+}
+
+impl From<&FixDescArgs> for FixDescParams {
+    /// Convert clap-derived `FixDescArgs` into the flat
+    /// `FixDescParams` (total — every field copies straight over).
+    fn from(a: &FixDescArgs) -> Self {
+        Self {
+            pos_rev: a.pos_rev.clone(),
+            pos_count: a.pos_count,
+            revision: a.revision.clone(),
+            limit: a.limit,
+            max_fixes: a.max_fixes,
+            repo: a.repo.clone(),
+            other_repo: a.other_repo.clone(),
+            id_len: a.id_len,
+            title: a.title.clone(),
+            fallback: a.fallback.clone(),
+            no_dry_run: a.no_dry_run,
+            add_missing: a.add_missing,
+        }
+    }
+}
+
+/// Run the `fix-desc` subcommand: scan the resolved revision range
+/// and repair each commit's ochid trailer against the other repo;
+/// errors if any commit could not be fixed.
+///
+/// `ctx` is unused today (fix-desc reads `.vc-config.toml`, not the
+/// user config, and doesn't touch the `--log` path); it's present
+/// for the uniform subcommand-layer signature.
+pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("fix-desc: enter");
-    let (workspace, repo) = common::load_repo(&args.repo)?;
+    let (workspace, repo) = common::load_repo(&params.repo)?;
 
     // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
-    let other_repo_path = if let Some(ref p) = args.other_repo {
+    let other_repo_path = if let Some(ref p) = params.other_repo {
         p.clone()
     } else {
-        let config = toml_simple::toml_load(&args.repo.join(VC_CONFIG_FILE))?;
-        args.repo.join(other_repo_from_config(&config)?)
+        let config = toml_simple::toml_load(&params.repo.join(VC_CONFIG_FILE))?;
+        params.repo.join(other_repo_from_config(&config)?)
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
@@ -82,10 +141,10 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
     let other_prefix = ochid_prefix_from_config(&other_config)?;
 
     let spec = common::resolve_spec(
-        args.pos_rev.as_deref(),
-        args.pos_count,
-        &args.revision,
-        args.limit,
+        params.pos_rev.as_deref(),
+        params.pos_count,
+        &params.revision,
+        params.limit,
         "@",
     );
 
@@ -97,7 +156,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         spec.anc_count,
     )?;
     if ids.is_empty() {
-        return Err(format!("no commits found for revision '{}'", args.revision).into());
+        return Err(format!("no commits found for revision '{}'", params.revision).into());
     }
 
     let root_id = repo.store().root_commit_id().clone();
@@ -128,17 +187,17 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             validate_ochid(
                 ochid_val,
                 &other_prefix,
-                args.id_len,
+                params.id_len,
                 &other_workspace,
                 &other_repo,
             )
-        } else if args.add_missing {
+        } else if params.add_missing {
             // Stop if we've hit the max-fixes limit
-            if let Some(max) = args.max_fixes
+            if let Some(max) = params.max_fixes
                 && fixed >= max
             {
                 skipped += 1;
-                if !args.no_dry_run {
+                if !params.no_dry_run {
                     info!("skip {change_short}  {display_title}  (max-fixes reached)");
                 }
                 continue;
@@ -147,20 +206,20 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             match find_matching_commit(&commit, &other_workspace, &other_repo)? {
                 TitleMatch::NoTitle => {
                     skipped += 1;
-                    if !args.no_dry_run {
+                    if !params.no_dry_run {
                         info!("skip {change_short}  {display_title}");
                     }
                     continue;
                 }
                 TitleMatch::One(matched_id) => {
                     let new_desc =
-                        append_ochid_trailer(desc, &other_prefix, &matched_id, args.id_len);
-                    let short_matched = &matched_id[..matched_id.len().min(args.id_len)];
-                    if !args.no_dry_run {
+                        append_ochid_trailer(desc, &other_prefix, &matched_id, params.id_len);
+                    let short_matched = &matched_id[..matched_id.len().min(params.id_len)];
+                    if !params.no_dry_run {
                         info!("add  {change_short}  {display_title}  [missing]");
                         info!("     -> ochid: {other_prefix}{short_matched}");
                     } else {
-                        jj_describe(commit_id, &new_desc, &args.repo, change_short)?;
+                        jj_describe(commit_id, &new_desc, &params.repo, change_short)?;
                         info!("added {change_short}  {display_title}");
                     }
                     fixed += 1;
@@ -168,7 +227,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 TitleMatch::Ambiguous(n) => {
                     skipped += 1;
-                    if !args.no_dry_run {
+                    if !params.no_dry_run {
                         info!(
                             "skip {change_short}  {display_title}  ({n} title matches, ambiguous)"
                         );
@@ -177,7 +236,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 TitleMatch::None => {
                     skipped += 1;
-                    if !args.no_dry_run {
+                    if !params.no_dry_run {
                         info!(
                             "skip {change_short}  {display_title}  (no matching title in other repo)"
                         );
@@ -188,7 +247,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             // No ochid trailer — nothing to fix
             skipped += 1;
-            if !args.no_dry_run {
+            if !params.no_dry_run {
                 info!("skip {change_short}  {display_title}  (no ochid trailer)");
             }
             continue;
@@ -196,18 +255,18 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
 
         if !issues.any() {
             skipped += 1;
-            if !args.no_dry_run {
+            if !params.no_dry_run {
                 info!("ok   {change_short}  {display_title}");
             }
             continue;
         }
 
         // Stop if we've hit the max-fixes limit
-        if let Some(max) = args.max_fixes
+        if let Some(max) = params.max_fixes
             && fixed >= max
         {
             skipped += 1;
-            if !args.no_dry_run {
+            if !params.no_dry_run {
                 info!("skip {change_short}  {display_title}  (max-fixes reached)");
             }
             continue;
@@ -226,8 +285,8 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         let mut new_desc = fix_ochid_in_description(
             desc,
             &other_prefix,
-            args.id_len,
-            args.title.as_deref(),
+            params.id_len,
+            params.title.as_deref(),
             resolved_id.as_deref(),
         );
 
@@ -235,7 +294,13 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         let mut fixed_ochid = extract_ochid_from_desc(&new_desc);
 
         let post_issues = if let Some(ref v) = fixed_ochid {
-            validate_ochid(v, &other_prefix, args.id_len, &other_workspace, &other_repo)
+            validate_ochid(
+                v,
+                &other_prefix,
+                params.id_len,
+                &other_workspace,
+                &other_repo,
+            )
         } else {
             OchidIssues {
                 wrong_prefix: None,
@@ -246,7 +311,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
         };
 
         if post_issues.not_found {
-            if let Some(ref fallback) = args.fallback {
+            if let Some(ref fallback) = params.fallback {
                 // Replace the ochid line with the fallback value
                 let mut fb_lines: Vec<String> = new_desc.lines().map(|l| l.to_string()).collect();
                 for line in &mut fb_lines {
@@ -271,7 +336,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        if !args.no_dry_run {
+        if !params.no_dry_run {
             info!(
                 "fix  {change_short}  {display_title}  [{}]",
                 issues.summary()
@@ -280,7 +345,7 @@ pub fn fix_desc(args: &FixDescArgs) -> Result<(), Box<dyn std::error::Error>> {
                 info!("     -> ochid: {v}");
             }
         } else {
-            jj_describe(commit_id, &new_desc, &args.repo, change_short)?;
+            jj_describe(commit_id, &new_desc, &params.repo, change_short)?;
             let fixed_title = new_desc.lines().next().unwrap_or(""); // OK: obvious
             info!("fixed {change_short}  {fixed_title}");
         }
