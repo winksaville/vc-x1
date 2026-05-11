@@ -123,12 +123,12 @@ a version suffix:
 - **Body line width**: wrap every body line at ≤72 cols (the "72"
   of the 50/72 rule); bullet continuations indent two spaces.
 - **App-repo body**: short intro paragraph (1–3 sentences), then a
-  terse bullet list. Each bullet corresponds one-to-one with the
-  edits structure already documented in `notes/chores-*.md` for
-  this step — just the file and a one-line gist (e.g.
-  `README.md: new Overview intro`). Do *not* restate the detail
-  that lives in chores; the commit body is a scan-able index, not
-  a duplicate. The chores section is the source of truth.
+  terse bullet list — one bullet per file changed, the file plus a
+  one-line gist (e.g. `README.md: new Overview intro`). This list
+  **is the source of truth** for the cycle's mechanical change
+  record; the chores section carries the narrative + design, not a
+  copy of it. Keep bullets terse — a scannable index, not prose;
+  promote any "why" to a chores `###` subsection.
 - **Session-repo body**: terse intro + a few session-activity
   bullets. Doesn't need to mirror chores since it describes
   in-session work, not code changes.
@@ -207,8 +207,12 @@ state instead of inspecting each step in isolation.
 
 ### Notes references
 
-Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
-See [Todo format](notes/README.md#todo-format) for details.
+Reference *citations* are double-bracketed so the brackets render
+— `[[N]]`, or `[[2]],[[3]]` for several (comma-separated, not
+`[2,3]` or `[[2]][[3]]`). The `[N]:` definitions in a file's
+`# References` section and inline `[text](url)` / `[text](#anchor)`
+links stay single-bracketed. See
+[Todo format](notes/README.md#todo-format) for details.
 
 ### Markdown anchor links
 
@@ -279,37 +283,114 @@ for the full protocol — when to use, per-substep contract
 close-out squash recipe, and recovery. Revset primitives the
 protocol relies on (`@`, `@-`, `..`, `::`, prefix matching) live in
 [`notes/jj-revsets.md`](notes/jj-revsets.md).
-### Chores section headers
 
-Chores section headers use trailing version format:
+### Headings and entries that record a commit
+
+A `chores-NN.md` `##` section header that records a specific
+commit, the matching `todo.md > ## Done` entry, and any `[N]`
+reference to that section all use **exactly that commit's
+title** — `<type>: <desc> (<version>)`, the same string the
+commit gets (see [Commit Message Style](#commit-message-style)).
+E.g. the chores header `## refactor: port push to Context
+(0.48.0-6)` and the Done line `- refactor: port push to Context
+(0.48.0-6) [[3]]`. For a multi-step cycle the `## Done` entry
+uses the close-out commit's title.
+
+This does **not** apply to organizational headings (`## Todo`,
+`## In Progress`, `# References`) or to design `###` subsections
+inside a chores section — those are named for whatever fits.
+Among the commit-recording ones, exact match is the strong
+default (nothing absolute): a near-miss just makes it harder to
+line a record up with its commit.
+
+A commit-recording header is provisional while the work is in
+progress; the *last* edit before `vc-x1 push` syncs it — and the
+`## Done` entry / `[N]` anchor for that commit — to the final
+commit title. See [Markdown anchor links](#markdown-anchor-links)
+for the slug algorithm; the pre-commit checklist catches a
+dangling `#anchor`, and a future `vc-x1 validate-repo` should too
+(and should verify the recorded title matches the commit).
+
+Existing sections and `## Done` entries (most of chores-01..09;
+the pre-`0.48.1` `## Done` lines) predate this and keep their
+free-form text; the convention applies going forward — `0.48.2`
+converts the `0.48.1` section + its Done entry as the worked
+example.
+
+### Chores section content — no edit list; git is the record
+
+A chores section is: a `Commits:` line (first line under the
+header — see below), a short intro paragraph (what changed and
+*why*, a notch above file-list granularity), and any `###`
+design subsections. It does **not** carry a per-file edit list —
+that lives in the commit message body, which is the source of
+truth for "what changed mechanically" (immutable, `git
+show`-able, naturally scoped to the commit). The chores section
+is the source of truth for the design thinking; the two
+cross-link, neither restates the other.
+
+When the intro starts wanting to explain a mechanism,
+hypothesis, or wrinkle, don't inflate it — promote that to its
+own `###` subsection inside the same `chores-NN.md`. If the
+wrinkle is a live design concern (something that *should*
+change, not just be recorded), also add a `notes/todo.md` item
+with a `[N]` ref pointing at that subsection (todo→chores is the
+normal ref direction).
+
+**Why:** a chores edit list and the commit body were specified
+to be the same content in two places — and detail written twice
+drifts. Git owns the mechanical record; chores owns the
+narrative; `Commits:` links them.
+
+### Chores commit references
+
+The first line under a chores section header is a `Commits:`
+line citing the git commit(s) that section records:
 
 ```
-## Description (X.Y.Z)
+## refactor: port push to Context (0.48.0-6)
+
+Commits: [[3]]
+
+<intro paragraph...>
 ```
 
-Example: `` ## Add `fn claude-symlink` (0.27.0) ``
+`Commits:` uses the file-local `[N]` reference machinery (see
+[notes/README.md](notes/README.md#reference-numbering)),
+**double-bracketed** so the brackets render — `Commits: [[3]]`,
+or `Commits: [[3]],[[5]]` for several. (`[[3]]` shows as a
+literal `[`, the `[3]` link, then a literal `]`; the inner
+`[3]` resolves against its `[3]:` definition — CommonMark /
+GitHub / VS Code all do this.) The `# References` definition
+puts the **commit URL** as the destination, with the **full
+40-hex SHA** in the title slot:
 
-### Chores: scannable bullets, detail in subsections
+```
+[3]: https://github.com/winksaville/vc-x1/commit/<12-hex> "<40-hex>"
+```
 
-A per-step chores subsection opens with a short intro, then a
-`-` bullet list that mirrors the commit body — one line per
-file/edit, a scannable index. When a bullet starts wanting to
-explain *why* something is the way it is, or to flag a wrinkle,
-don't inflate the bullet:
+- The 12-hex short SHA in the URL keeps it short; GitHub /
+  GitLab resolve a unique prefix to the canonical commit page
+  (GitLab's path has a `/-/` before `commit/`).
+- The full SHA in the title is host-agnostic and unambiguous —
+  it survives a repo host change, `git show <40-hex>` works in
+  any clone, and external tooling scraping the notes (a
+  database, say) gets the canonical identifier.
 
-- Promote the explanation to its own `###` subsection inside the
-  same `chores-NN.md`; point the bullet at it with a markdown
-  anchor link (`[gist](#the-subsection-heading)`).
-- If the wrinkle is a live design concern — something that
-  *should* change, not just be recorded — also add a
-  `notes/todo.md` item, with a `[N]` ref pointing at that
-  subsection (todo→chores is the normal ref direction).
-
-**Why:** verbose bullets bury the index, and detail written
-twice (bullet + subsection) drifts. One source of truth, linked
-from wherever it's relevant.
+**Timing.** The commit doesn't exist when its chores section is
+written, so the `Commits:` line is **backfilled when the next
+change to that repo is started** — the cycle-start step grabs
+the just-pushed commit's URL + SHA and fills it in. The single
+newest section is briefly `Commits:`-less; that's fine — the
+commit itself is the record, and `git log --grep "(X.Y.Z)"`
+finds it.
 
 ### Pre-commit checklist
+
+At cycle *start* (before the version bump): backfill the
+previous chores section's `Commits:` ref with the just-pushed
+commit's URL + full SHA — see
+[Chores commit references](#chores-commit-references).
 
 Before proposing a commit, run all of the following and fix any issues:
 
@@ -329,9 +410,14 @@ Before proposing a commit, run all of the following and fix any issues:
    Versioning multi-step section.)
 7. Update `notes/todo.md` — at cycle close-out (final commit),
    move the entry from `## In Progress` to `## Done`.
-8. Update `notes/chores-*.md` — add a subsection describing the change
-9. Update `notes/README.md` — if functionality changed (new flags,
-   new subcommands, changed behavior)
+8. Update `notes/chores-*.md` — add a section (header =
+   provisional commit title; intro paragraph + any `###` design
+   subsections; **no** per-file edit list — that's the commit
+   body).
+9. Sync the chores section header to the **final** commit title
+   and update every markdown anchor back-reference to it.
+10. Update `notes/README.md` — if functionality changed (new
+    flags, new subcommands, changed behavior).
 
 ## Sub-step Workflow
 
@@ -405,7 +491,8 @@ Per sub-step:
    file context, not chat-pasted diffs).
 6. User iterates if needed; bot squashes follow-ups into the
    sub-step commit via `jj squash --into @-` (and
-   `jj describe @-` if the title needs to change).
+   `jj describe @-` — plus the chores section header and its
+   anchor back-refs — if the title needs to change).
 7. User signals "go to (M+1)" to advance.
 
 This **replaces** the per-sub-step review pause that the
@@ -462,18 +549,25 @@ ref.
 
 Two valid shapes for landing the sub-step stack on `main`:
 
-- **Squash to one cycle commit** (default; matches the prior
-  `0.41.1-6.0`–`-6.6` pattern). Single entry on `main`;
+- **Squash to one cycle commit** — single entry on `main`;
   sub-step granularity preserved only in the commit body's
   edit list. Right when the work is one logical change with
-  intermediate validation points.
+  intermediate validation points. **Cost:** the per-sub-step
+  chores sections collapse into one, whose header becomes the
+  single close-out commit title, and every anchor back-ref to a
+  now-gone per-sub-step section gets re-pointed — real work,
+  done as part of the squash.
 - **Keep separate (N + 1 commits)** when the decomposition is
   itself informative (different conceptual stages, design
   progression worth showing in `git log`). Used on
   `0.41.1-6.7` (8 sub-sub-step commits + 1 close-out commit).
+  Each section keeps its own header / `Commits:` ref — no
+  consolidation churn.
 
-Pick at close-out, not at cycle start. Default is squash;
-deviate when the artifact is the decomposition.
+Pick at close-out, not at cycle start. No firm default — weigh
+the squash's chores-consolidation cost against a cleaner
+`git log`; that cost biases toward keeping separate unless the
+decomposition genuinely isn't informative.
 
 ### Reviewing committed sub-steps
 

@@ -52,18 +52,23 @@ renumbering, and reference an entry by its displayed number ("let's
 work on #3"). The Done section keeps `-` bullets — items aren't
 referenced by number once completed.
 
-Multiple references must be separated: `[2],[3]` not `[2,3]` or `[2][3]`.
-In markdown, `[2,3]` is a single ref key (won't resolve) and `[2][3]`
-is parsed as display text `2` with ref key `3` (so `[2]` won't resolve).
+Reference citations are **double-bracketed** — `[[1]]`, or
+`[[2]],[[3]]` for several — so the brackets show when rendered
+(a bare `[1]` renders as just `1`, which doesn't read as a
+reference). Separate multiple with a comma: `[[2]],[[3]]`, not
+`[2,3]` (a single ref key — won't resolve) or `[[2]][[3]]`. The
+`[N]:` definition lines and inline `[text](url)` / `[text](#anchor)`
+links stay single-bracketed (their brackets already show in
+source, and the link text reads as a link when rendered).
 
 Examples:
 
 # Todo
 - Add new feature X [details](features.md#feature-x)
-- Fix bug Y [1]
+- Fix bug Y [[1]]
 
 # Done
-- Fixed issue Z [2],[3]
+- Fixed issue Z [[2]],[[3]]
 
 [1]: bugs.md#bug-y
 [2]: issues.md#issue-z
@@ -76,6 +81,14 @@ file-local `# References` section at the bottom. Reference numbers
 are scoped to that file — `[1]` in `chores-07.md` and `[1]` in
 `chores-01.md` are independent slots that may point at completely
 different URLs. New chores files start their numbering at `[1]`.
+
+A `chores-NN.md` `# References` entry is usually a
+`/notes/<file>.md#anchor` (or `/ARCHITECTURE.md`) path, but may
+also be a **commit reference** —
+`[N]: <commit-url-with-12-hex-SHA> "<full-40-hex-SHA>"`, cited by
+a section's `Commits:` line. See
+[`../CLAUDE.md`](../CLAUDE.md#chores-commit-references) for the
+why and the exact shape.
 
 ## Retiring Done entries
 

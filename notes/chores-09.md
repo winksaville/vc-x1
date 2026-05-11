@@ -973,7 +973,9 @@ ladder: `symlink` (-1), `clone` (-2), `sync` (-3),
 - `notes/done.md`: received the five migrated entries + `[77]`
   `[78]` `[79]` `[81]` `[84]` refs.
 
-## por-dual parity capture + icr cleanup (0.48.1)
+## docs: por-dual capture + icr cleanup (0.48.1)
+
+Commits: [1]
 
 Docs-only follow-on to the 0.48.0 close-out (same shape as
 the 0.42.1 docs cycle). Records the por/dual parity +
@@ -982,24 +984,46 @@ stub, and clears stale `init-clone-refactor` verbiage now
 that the branch has landed in `main` (rebased at 0.42.0-4.7)
 and been deleted local + remote. No code change.
 
-### Edits
+## docs: chores edit list → commit message (0.48.2)
 
-- `Cargo.toml`: bump 0.48.0 → 0.48.1.
-- `notes/por-dual-parity.md` (new): forward-looking design
-  capture — the parity goal, `por → dual` / `dual → por`
-  conversion, open questions, see-also.
-- `notes/todo.md`: new `## Todo` item "por/dual parity +
-  bidirectional conversion" (`[91]` → the new stub); deleted
-  the stale "Decide merge direction for init-clone-refactor"
-  and "Rebase note — CLAUDE.md `### Per-file review
-  checkpoints`" items; reworded the "Cross-file chores-NN
-  ordering sanity pass" item to drop the icr / merge-time
-  framing; `## Done` entry added (`[92]`); `[78]` ref removed
-  (no longer cited); `[91]` / `[92]` refs added.
-- `notes/init-clone-refactor-conflict.md`: new
-  `## Resolution (2026-05-11)` section near the top recording
-  the 0.42.0-4.7 landing + branch deletion; intro sentence,
-  `## Strategic decision` heading/body, and `## Open
-  questions` section updated to match (the dated post-mortem
-  sections kept verbatim as historical record).
-- `notes/chores-09.md`: this subsection.
+Move the per-file edit list out of `chores-NN.md` sections
+into the commit message body — git becomes the source of
+truth for what each commit changed mechanically. A chores
+section now keeps only the narrative + `###` design
+subsections, cites its commit(s) via a `Commits:` ref, and —
+when it records a commit, as does a `todo.md > ## Done` entry —
+takes its header verbatim from that commit's title
+(organizational headings and design subsections don't).
+CLAUDE.md and `notes/README.md` codify it; the `0.48.1`
+section here and its `todo.md > ## Done` entry are converted
+as the worked example, this section is born in the new shape
+(its own `Commits:` ref backfilled at the next cycle's start).
+
+### Why git owns the edit record
+
+- **DRY.** The old setup had the commit body mirror a chores
+  `### Edits` list — the same content twice, which drifts.
+  Git's copy is immutable, `git show`-able, commit-scoped; it
+  wins as canonical. Chores keeps what git is bad at — the
+  why.
+- **`Commits:` ref shape.** Markdown reference-link
+  definitions put the destination first, so to keep the
+  `[[N]]` citation clickable the `[N]:` definition's
+  destination is the URL (`…/commit/<12-hex>` — short, and
+  GitHub / GitLab resolve a unique prefix), and the full
+  40-hex SHA rides in the title slot: host-agnostic,
+  unambiguous, and present in the raw markdown for external
+  tooling (a database, say) to scrape.
+- **Backfill timing.** A commit's URL/SHA don't exist when
+  its section is written, so `Commits:` is filled in at the
+  *next* cycle's start — the newest section is briefly
+  ref-less, which is fine (the commit itself is the record).
+- **Doubled citations.** Reference *citations* are written
+  `[[N]]` (not `[N]`) so the brackets render — `[27]` reads
+  as a reference, `27` doesn't. `[N]:` definitions and inline
+  links stay single-bracketed. `todo.md` is fully retrofitted;
+  `chores-01..09` are grandfathered.
+
+# References
+
+[1]: https://github.com/winksaville/vc-x1/commit/3f176b45235c "3f176b45235c4bc7da4b8de5b18a7f454c464d1e"

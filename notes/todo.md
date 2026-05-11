@@ -32,7 +32,7 @@ renumbering. Reference by displayed number ("let's work on #3").
    `clone`, `sync`, `validate-desc`, `fix-desc`, `push`. Only
    `chid`/`desc`/`list`/`show` remain; their Migration A rides
    the "CommonArgs sweep" item below (A + B entangled there).
-   [80],[88]
+   [[80]],[[88]]
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -41,12 +41,12 @@ renumbering. Reference by displayed number ("let's work on #3").
    leaves to match: `scope`, `repo`, `dry_run`, `private`,
    `account`, `config`, `use_template` + their consumers
    (`init.rs`, tests). Multi-field leaves (`push_retry`) keep
-   descriptive names. Candidate for `0.47.1`. [87]
+   descriptive names. Candidate for `0.47.1`. [[87]]
 1. **por/dual parity + bidirectional conversion.** Make
    `por` and `dual` first-class equals (dual is primary
    today, por bolted on); add `por → dual` / `dual → por`
    conversion. Builds on the `--scope` rollout below.
-   Pre-design; goal + open questions in the stub. [91]
+   Pre-design; goal + open questions in the stub. [[91]]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
@@ -57,7 +57,7 @@ renumbering. Reference by displayed number ("let's work on #3").
    flat-to-vendor migration; `.claude/` → `.bot/` rename
    (gated behind symmetric `.vc-config.toml` schema).
    Each piece is its own future TODO when the design
-   hardens. [82],[83]
+   hardens. [[82]],[[83]]
 1. **Symmetric `.vc-config.toml` schema.** Add `code = "/"`
    and `bot = "/.claude"` (workspace-root-relative paths) so
    both repos read from the same shape. Side detection walks
@@ -66,12 +66,12 @@ renumbering. Reference by displayed number ("let's work on #3").
    paths. Cwd-basename match is a fast-path shortcut at
    role-root level only — subdirs need the walk-up. Was the
    deferred half of `0.41.1-6`'s title. Migration story for
-   existing workspaces TBD at design time. [75]
+   existing workspaces TBD at design time. [[75]]
 1. **`test_helpers::Fixture` migration + downstream callers.**
    Plus rename `Fixture` → `TestFixtureDual` and `FixturePor`
    → `TestFixturePor` so call sites carry the test-only
    signal that `#[cfg(test)] mod test_helpers` doesn't
-   communicate. Was `0.41.1-7`. [73]
+   communicate. Was `0.41.1-7`. [[73]]
 1. **`--scope` sweep continuation: finalize + Single(_)
    dogfood.** Carry-over from 0.42.0 cycle (closed at -4.7;
    -5/-7 deferred). Two pieces: `vc-x1 finalize --scope`
@@ -79,7 +79,7 @@ renumbering. Reference by displayed number ("let's work on #3").
    end-to-end dogfood validation (was 0.42.0-7). The third
    originally-paired item, `vc-x1 clone --scope` (was
    0.42.0-6), is tracked in its own entry below. Design
-   lives in chores-07. [76]
+   lives in chores-07. [[76]]
 1. **init dual|por arg split.** Via `#[command(flatten)]` of
    `ProvisionOptionFlagBundle` (built in -6.7) +
    `provision_side(role, …)` shared helper. CLI surface
@@ -97,47 +97,47 @@ renumbering. Reference by displayed number ("let's work on #3").
    `bookmark` (`--bookmark` flag) for one logical value,
    forcing an `or_else` in `From<&PushArgs>`. Collapse to a
    single positional with `--bookmark` as a true clap alias,
-   or drop one spelling. [89]
+   or drop one spelling. [[89]]
 1. vc-x1 push: `--recheck` — implement or remove. Parsed by
    `PushArgs`, never read; mirrored into `PushParams` with
    `#[allow(dead_code)]`. Either wire the
-   skip-preflight-on-resume behavior or drop the flag. [90]
+   skip-preflight-on-resume behavior or drop the flag. [[90]]
 1. vc-x1 push: `--scope=code|bot|code,bot|<path>` flag.
    Was 0.42.0-4 (deferred when cycle pivoted to icr
    rebase work; cycle closed at -4.7). State machine
    becomes scope-aware (single-side path skips
    `commit-claude`/bookmark-claude/`finalize-claude`;
    `Single(_)` is single-repo mode).
-   [57],[60],[71],[72]
+   [[57]],[[60]],[[71]],[[72]]
 1. vc-x1 clone: `--scope=code|bot|code,bot|<path>` flag.
    Parallel to `init --scope`; single-repo clone target
    via the path form. Was 0.42.0-6 (deferred at -4.7
-   close-out). [60],[71],[72]
+   close-out). [[60]],[[71]],[[72]]
 1. vc-x1 validate-desc / fix-desc:
    `--scope=code|bot|code,bot` flag. Same role vocabulary
    as elsewhere — `code` validates code's commits against
    bot, `bot` reverses, `code,bot` does both (new
    default). `Single(_)` errors here (validate compares
-   two repos by definition). [60],[71],[72]
+   two repos by definition). [[60]],[[71]],[[72]]
 1. CommonArgs sweep — add `--scope=code|bot|code,bot|<path>`
    to `chid`/`desc`/`list`/`show` in one cycle (single
    shared `CommonArgs` change picks all four up). Drops
    the existing `-R`/`--repo` repeatable flag in favor of
-   the new path form. [60],[71],[76]
+   the new path form. [[60]],[[71]],[[76]]
 1. Unify `.vc-config.toml` accessors onto Pattern B
    (typed struct + `load_from(path)`, like new
    `config::UserConfig` and `push::resolve_state_layout`).
    Replaces the map-typed helpers in `desc_helpers.rs` /
    `fix_desc.rs` / `validate_desc.rs` with a typed
    `WorkspaceConfig` struct. ~50 LOC, mechanical.
-   Candidate for 0.41.2. [74]
+   Candidate for 0.41.2. [[74]]
 1. Layered config precedence (user → workspace → CLI)
    once `WorkspaceConfig` is typed. Workspace can
    override `[github].owner` etc. for a specific project;
    init can't use the layer (chicken-and-egg) but
    post-init commands can. Depends on the
    `WorkspaceConfig` typed-struct refactor above.
-   Candidate for 0.41.2. [74]
+   Candidate for 0.41.2. [[74]]
 1. Help layout: force over-under everywhere. Apply
    `next_line_help(true)` at the root (or via the existing
    `cli_with_banner` walker) so every subcommand's `-h` /
@@ -162,7 +162,7 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. Add `status` (alias `st`) subcommand: `jj st` across both
    repos in one shot. Uses `--scope` from day one. This is
    natural home for the working-copy signal called out and
-   it needs to include remotes, like remotes/origin/main. [54].
+   it needs to include remotes, like remotes/origin/main. [[54]].
 1. `vc-x1 init --dry-run` should bypass the
    `--repo-remote` path-existence preflight (currently fires
    before the dry-run early-return; observed dogfooding
@@ -170,29 +170,31 @@ renumbering. Reference by displayed number ("let's work on #3").
 1. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
    `--ignore-immutable` and force-pushes; needs
    `--force-with-lease`-equivalent + state-sanity preflight in
-   place first. [57]
+   place first. [[57]]
 1. vc-x1 push: `--message-file PATH` flag. Git-style commit
    message file (first line = title, blank, rest = body).
-   Alternative to `--title` + `--body`. [58]
+   Alternative to `--title` + `--body`. [[58]]
 1. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
    through to the preflight `vc-x1 sync` invocation).
    0.37.1 hard-codes `--check`; default stays `--check`.
 1. Add `validate-repo` subcommand: diagnostic that runs all
    `verify_*` checks (tracking, push state freshness, ochid
    integrity, conflicts, config sanity, working-copy state)
-   and reports per-check pass/fail. Exit code = number of
-   failed checks. Implementation: promote
-   `verify_state_sanity` / `verify_completion_sanity` from
-   push.rs to `common.rs`. [69]
+   plus chores↔commit consistency — every `[N]:` anchor
+   resolves, and each chores `##` section's recorded title
+   matches its `Commits:` commit's title — and reports
+   per-check pass/fail. Exit code = number of failed checks.
+   Implementation: promote `verify_state_sanity` /
+   `verify_completion_sanity` from push.rs to `common.rs`. [[69]]
 1. sync: surface working-copy state in the up-to-date summary
    (per-repo pending-files count or compact stat). Wording-only
-   fix shipped in 0.37.1; this is the design+impl. [54]
+   fix shipped in 0.37.1; this is the design+impl. [[54]]
 1. bm-track silent-when-clean refinement. Print on entry/exit
    only when state isn't fully tracked or when exit state
-   differs from entry. [62]
+   differs from entry. [[62]]
 1. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
    anchor dir. Idea-stage; every repo-mutating command drops a
-   pre-op snapshot, `vc-x1 undo` restores both repos. [57]
+   pre-op snapshot, `vc-x1 undo` restores both repos. [[57]]
 1. Restructure templates: replace separate `vc-template-x1` +
    `vc-template-x1.claude` repos with a single `vc-template-x1`
    that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
@@ -202,16 +204,16 @@ renumbering. Reference by displayed number ("let's work on #3").
    adopt section-name + `blob/main/...` URL pattern for source
    code refs to designs; codify in CLAUDE.md alongside the
    existing markdown ref conventions. Sweep targets:
-   src/push.rs lines 4, 121, 645, 1219. [68]
-1. Richer bookmark enumeration: per-bookmark remote presence + tracking status [52]
-1. Per-line/per-thread runtime log points (future, maybe) [36]
-1. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [37]
+   src/push.rs lines 4, 121, 645, 1219. [[68]]
+1. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[52]]
+1. Per-line/per-thread runtime log points (future, maybe) [[36]]
+1. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [[37]]
 1. Add "::" revision syntax for jj compatibility
 1. Add -p, --parents, -c, --children so parent and child counts can be asymmetric
 1. Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
-1. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [4],[5]
-1. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [27]
-1. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [28],[29]
+1. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [[4]],[[5]]
+1. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [[27]]
+1. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [[28]],[[29]]
 1. Test-tempdir override resolution chain. Both
    `src/test_helpers::unique_base` and
    `tests/common/unique_base` currently use
@@ -234,12 +236,13 @@ renumbering. Reference by displayed number ("let's work on #3").
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
-- InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [80]
-- ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [85]
-- finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [86]
-- finalize Migration B — squash options_flags leaf (0.47.0) [87]
-- Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [88]
-- por/dual parity capture + icr verbiage cleanup (0.48.1) [92]
+- InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [[80]]
+- ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [[85]]
+- finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [[86]]
+- finalize Migration B — squash options_flags leaf (0.47.0) [[87]]
+- Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [[88]]
+- docs: por-dual capture + icr cleanup (0.48.1) [[92]]
+- docs: chores edit list → commit message (0.48.2) [[93]]
 
 # References
 
@@ -274,4 +277,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [89]: /notes/chores-09.md#push-dual-bookmark-parameters
 [90]: /notes/chores-09.md#push-unimplemented-recheck-flag
 [91]: /notes/por-dual-parity.md
-[92]: /notes/chores-09.md#por-dual-parity-capture--icr-cleanup-0481
+[92]: /notes/chores-09.md#docs-por-dual-capture--icr-cleanup-0481
+[93]: /notes/chores-09.md#docs-chores-edit-list--commit-message-0482
