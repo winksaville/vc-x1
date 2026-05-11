@@ -1,3 +1,10 @@
+//! The `validate-desc` subcommand: scan a revision range and check
+//! each commit's `ochid:` trailer against the cross-referenced
+//! repo — flagging missing, malformed, or dangling links.
+//!
+//! Read-only diagnostic; exits non-zero if any commit has issues.
+//! The bot's "did the ochid wiring stay consistent?" check.
+
 use std::path::PathBuf;
 
 use clap::Args;
@@ -7,6 +14,7 @@ use jj_lib::repo::Repo;
 use log::{debug, info};
 
 use crate::common;
+use crate::context::Context;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
     ochid_prefix_from_config, other_repo_from_config, validate_ochid,
@@ -44,6 +52,37 @@ pub struct ValidateDescArgs {
     pub id_len: usize,
 }
 
+/// Inputs to the validate-desc op, flat, owned, clap-free.
+///
+/// Mirrors `ValidateDescArgs`: positional `REVISION` / `COMMITS`
+/// (`pos_rev` / `pos_count`), `--revision` / `--commits`
+/// (`revision` / `limit`), `--repo`, `--other-repo`, `--id-len`.
+pub struct ValidateDescParams {
+    pub pos_rev: Option<String>,
+    pub pos_count: Option<usize>,
+    pub revision: String,
+    pub limit: Option<usize>,
+    pub repo: PathBuf,
+    pub other_repo: Option<PathBuf>,
+    pub id_len: usize,
+}
+
+impl From<&ValidateDescArgs> for ValidateDescParams {
+    /// Convert clap-derived `ValidateDescArgs` into the flat
+    /// `ValidateDescParams` (total — every field copies straight over).
+    fn from(a: &ValidateDescArgs) -> Self {
+        Self {
+            pos_rev: a.pos_rev.clone(),
+            pos_count: a.pos_count,
+            revision: a.revision.clone(),
+            limit: a.limit,
+            repo: a.repo.clone(),
+            other_repo: a.other_repo.clone(),
+            id_len: a.id_len,
+        }
+    }
+}
+
 /// Status of a single commit's ochid validation.
 enum CommitStatus {
     Ok,
@@ -56,16 +95,26 @@ enum CommitStatus {
     MissingWithMatch(String), // no ochid, unique title match found
 }
 
-pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::Error>> {
+/// Run the `validate-desc` subcommand: scan the resolved revision
+/// range and report each commit's ochid status against the other
+/// repo; errors if any commit has issues.
+///
+/// `ctx` is unused today (validate-desc reads `.vc-config.toml`,
+/// not the user config, and doesn't touch the `--log` path); it's
+/// present for the uniform subcommand-layer signature.
+pub fn validate_desc(
+    _ctx: &Context,
+    params: &ValidateDescParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     debug!("validate-desc: enter");
-    let (workspace, repo) = common::load_repo(&args.repo)?;
+    let (workspace, repo) = common::load_repo(&params.repo)?;
 
     // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
-    let other_repo_path = if let Some(ref p) = args.other_repo {
+    let other_repo_path = if let Some(ref p) = params.other_repo {
         p.clone()
     } else {
-        let config = toml_simple::toml_load(&args.repo.join(VC_CONFIG_FILE))?;
-        args.repo.join(other_repo_from_config(&config)?)
+        let config = toml_simple::toml_load(&params.repo.join(VC_CONFIG_FILE))?;
+        params.repo.join(other_repo_from_config(&config)?)
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
@@ -73,10 +122,10 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
     let other_prefix = ochid_prefix_from_config(&other_config)?;
 
     let spec = common::resolve_spec(
-        args.pos_rev.as_deref(),
-        args.pos_count,
-        &args.revision,
-        args.limit,
+        params.pos_rev.as_deref(),
+        params.pos_count,
+        &params.revision,
+        params.limit,
         "@",
     );
 
@@ -88,7 +137,7 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
         spec.anc_count,
     )?;
     if ids.is_empty() {
-        return Err(format!("no commits found for revision '{}'", args.revision).into());
+        return Err(format!("no commits found for revision '{}'", params.revision).into());
     }
 
     let root_id = repo.store().root_commit_id().clone();
@@ -128,7 +177,7 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
                 let issues = validate_ochid(
                     ochid_val,
                     &other_prefix,
-                    args.id_len,
+                    params.id_len,
                     &other_workspace,
                     &other_repo,
                 );
@@ -142,7 +191,7 @@ pub fn validate_desc(args: &ValidateDescArgs) -> Result<(), Box<dyn std::error::
             match find_matching_commit(&commit, &other_workspace, &other_repo)? {
                 TitleMatch::NoTitle => CommitStatus::MissingNoTitle,
                 TitleMatch::One(id) => {
-                    let short_id = &id[..id.len().min(args.id_len)];
+                    let short_id = &id[..id.len().min(params.id_len)];
                     CommitStatus::MissingWithMatch(format!("{other_prefix}{short_id}"))
                 }
                 TitleMatch::Ambiguous(n) => CommitStatus::MissingAmbiguous(n),

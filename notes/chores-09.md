@@ -867,3 +867,18 @@ Step 3. First port where the args struct threads into private helpers.
 - `sync/integration_tests.rs`: `apply_args`→`apply_params` (drops
   `check`); `sync/tests.rs` untouched (clap-parse only).
 - Added missing `//!` docstring; `sync()` doc `-R`→`--scope`.
+
+## validate-desc → Context + ValidateDescParams (0.48.0-4)
+
+Step 4. Straight port — no helper threading, no test callers.
+
+- `ValidateDescParams` (mirrors `ValidateDescArgs`: `pos_rev`,
+  `pos_count`, `revision`, `limit`, `repo`, `other_repo`, `id_len`)
+  + `From<&ValidateDescArgs>`.
+- `validate_desc(args)` → `validate_desc(_ctx, params)`; `ctx`
+  unused (signature placeholder), body reads `params.*`.
+- `main.rs` `ValidateDesc` arm: `Context::load(cli.log)` +
+  `ValidateDescParams::from`.
+- Added missing `//!` module docstring and `///` on `validate_desc()`.
+- Tagalong: `CLAUDE.md` codifies the 50/72 commit-message rule
+  (subject ≤50, body lines ≤72).

@@ -141,7 +141,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `desc.rs` (+ `desc_helpers.rs`) | `desc` | flattens `CommonArgs` |
 | `list.rs` | `list` | flattens `CommonArgs` |
 | `show.rs` | `show` | flattens `CommonArgs` |
-| `validate_desc.rs` | `validate-desc` | |
+| `validate_desc.rs` | `validate-desc` | migrated (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`, `From<&ValidateDescArgs>` |
 | `fix_desc.rs` | `fix-desc` | |
 | `clone.rs` | `clone` | migrated (0.48.0-2) — `clone_repo(&Context, &CloneParams)`, `From<&CloneArgs>` |
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
@@ -203,7 +203,7 @@ Per-port status is the table below; the live checklist is the
 | `desc` | not started |
 | `list` | not started |
 | `show` | not started |
-| `validate-desc` | not started |
+| `validate-desc` | done (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`; `From<&ValidateDescArgs>` |
 | `fix-desc` | not started |
 | `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
 | `push` | not started |

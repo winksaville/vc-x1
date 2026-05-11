@@ -350,7 +350,15 @@ fn main() -> ExitCode {
         Commands::List(list_args) => run_command(list::list(&list_args)),
         Commands::Show(show_args) => run_command(show::show(&show_args)),
         Commands::ValidateDesc(validate_desc_args) => {
-            run_command(validate_desc::validate_desc(&validate_desc_args))
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = validate_desc::ValidateDescParams::from(&validate_desc_args);
+            run_command(validate_desc::validate_desc(&ctx, &params))
         }
         Commands::FixDesc(fix_desc_args) => run_command(fix_desc::fix_desc(&fix_desc_args)),
         Commands::Clone(clone_args) => {

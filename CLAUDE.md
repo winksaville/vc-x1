@@ -114,9 +114,14 @@ a version suffix:
 <type>: <short description> (<version>)
 ```
 
-- **Title**: target ~50 chars, short summary of *what* changed.
-  Include the version. Common types: `feat`, `fix`, `refactor`,
-  `test`, `docs`, `chore`.
+- **Title**: ≤50 chars (the "50" of the git 50/72 rule), a short
+  summary of *what* changed. The version suffix counts toward the
+  50 — the descriptive part gets whatever's left after `<type>: `
+  and ` (<version>)`, so favor terse phrasings (`port X to Context`
+  over `X → Context + XParams`) when the names run long. Common
+  types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+- **Body line width**: wrap every body line at ≤72 cols (the "72"
+  of the 50/72 rule); bullet continuations indent two spaces.
 - **App-repo body**: short intro paragraph (1–3 sentences), then a
   terse bullet list. Each bullet corresponds one-to-one with the
   edits structure already documented in `notes/chores-*.md` for
