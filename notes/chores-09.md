@@ -816,3 +816,21 @@ both repos with ochid trailers.
 - `notes/todo.md`: cycle ladder opened in `## In Progress`
   (-0 `(current)`); `[88]` ref added; `[88]` added to the
   "Subcommand layer / CLI decoupling" TODO entry.
+
+## symlink → Context + SymlinkParams (0.48.0-1)
+
+Step 1 of the Migration A sweep. `symlink` is the cycle's
+warm-up: no `UserConfig`, no `--log` use, no `symlink()` test
+callers — a clean mechanical port.
+
+- `SymlinkParams` (flat: `target` / `symlink_dir` / `list` /
+  `yes`) + `impl From<&SymlinkArgs>` (total) in `symlink.rs`.
+- `pub fn symlink(args)` → `pub fn symlink(_ctx: &Context,
+  params: &SymlinkParams)`; `ctx` unused (uniform-signature
+  placeholder), body reads `params.*`.
+- `main.rs` `Symlink` arm: build `Context::load(cli.log)` +
+  `SymlinkParams::from` (same shape as the init / finalize arms).
+- Added the missing `//!` module docstring and the missing
+  `///` on `symlink()` (pre-existing gaps, fixed in passing).
+- Tests untouched — they exercise `SymLink` / `encode_path` /
+  `probe`, not the subcommand fn.

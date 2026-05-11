@@ -1,7 +1,18 @@
+//! The `symlink` subcommand: manage the
+//! `~/.claude/projects/<encoded-cwd>` symlink that points Claude
+//! Code's per-project session directory at this workspace's
+//! `.claude` repo.
+//!
+//! Also home to the shared `SymLink` planner (`new` / `with_meta`
+//! / `create`), `encode_path`, and the `install` helper that
+//! `vc-x1 init` / `clone` reuse for dual-scope runs.
+
 use std::path::{Path, PathBuf};
 
 use clap::Args;
 use log::{debug, info};
+
+use crate::context::Context;
 
 /// What action the symlink operation needs to take.
 #[derive(Debug, PartialEq, Eq)]
@@ -239,16 +250,52 @@ pub struct SymlinkArgs {
     pub yes: bool,
 }
 
-pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
+/// Inputs to the symlink op, flat, owned, clap-free.
+///
+/// - `target`: the `TARGET` positional (None ⇒ `.claude`).
+/// - `symlink_dir`: `--symlink-dir` override (None ⇒
+///   `~/.claude/projects`).
+/// - `list`: `-l` / `--list` — list the linked dir's contents
+///   afterward.
+/// - `yes`: `-y` / `--yes` — replace an existing symlink without
+///   prompting.
+pub struct SymlinkParams {
+    pub target: Option<String>,
+    pub symlink_dir: Option<PathBuf>,
+    pub list: bool,
+    pub yes: bool,
+}
+
+impl From<&SymlinkArgs> for SymlinkParams {
+    /// Convert clap-derived `SymlinkArgs` into the flat
+    /// `SymlinkParams` (total — every field copies straight over).
+    fn from(a: &SymlinkArgs) -> Self {
+        Self {
+            target: a.target.clone(),
+            symlink_dir: a.symlink_dir.clone(),
+            list: a.list,
+            yes: a.yes,
+        }
+    }
+}
+
+/// Run the `symlink` subcommand: create — or replace, with a
+/// prompt unless `--yes` — the `~/.claude/projects/<encoded-cwd>`
+/// symlink for the current directory.
+///
+/// `ctx` is unused today (symlink reads neither user config nor
+/// the `--log` path); it's present for the uniform subcommand-layer
+/// signature.
+pub fn symlink(_ctx: &Context, params: &SymlinkParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("symlink: enter");
     let cwd = std::env::current_dir()?;
 
-    let target = match &args.target {
+    let target = match &params.target {
         Some(t) => PathBuf::from(t),
         None => PathBuf::from(".claude"),
     };
 
-    let symlink_dir = match &args.symlink_dir {
+    let symlink_dir = match &params.symlink_dir {
         Some(d) => d.clone(),
         None => default_symlink_dir()?,
     };
@@ -262,7 +309,7 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
             sl.symlink_path.display(),
             current_target.display()
         );
-        if !args.yes {
+        if !params.yes {
             let response = crate::common::prompt("Replace with new target? [y/N] ")?;
             if !response.eq_ignore_ascii_case("y") {
                 return Err("aborted".into());
@@ -285,7 +332,7 @@ pub fn symlink(args: &SymlinkArgs) -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if args.list {
+    if params.list {
         let abs_target = if target.is_absolute() {
             target
         } else {

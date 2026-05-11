@@ -17,8 +17,8 @@ A bulleted list of the in-progress task's development "ladder":
 `From`/`TryFrom<&XxxArgs>` at the binary edge. `init` (0.44.0) +
 `finalize` (0.46.0) done; `chid`/`desc`/`list`/`show` ride the
 separate CommonArgs sweep. [80],[88]
-   - 0.48.0-0 plan + version bump + chores section + todo ladder (current)
-   - 0.48.0-1 symlink
+   - 0.48.0-0 plan + version bump + chores section + todo ladder (done)
+   - 0.48.0-1 symlink (done)
    - 0.48.0-2 clone
    - 0.48.0-3 sync
    - 0.48.0-4 validate-desc

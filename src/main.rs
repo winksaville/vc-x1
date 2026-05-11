@@ -365,7 +365,17 @@ fn main() -> ExitCode {
             let params = init::InitParams::from(&init_args);
             run_command(init::init(&ctx, &params))
         }
-        Commands::Symlink(symlink_args) => run_command(symlink::symlink(&symlink_args)),
+        Commands::Symlink(symlink_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = symlink::SymlinkParams::from(&symlink_args);
+            run_command(symlink::symlink(&ctx, &params))
+        }
         Commands::Sync(sync_args) => run_command(sync::sync(&sync_args)),
         Commands::Finalize(finalize_args) => {
             let ctx = match context::Context::load(cli.log) {

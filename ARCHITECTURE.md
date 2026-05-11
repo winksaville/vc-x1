@@ -145,7 +145,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `fix_desc.rs` | `fix-desc` | |
 | `clone.rs` | `clone` | |
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
-| `symlink.rs` | `symlink` | |
+| `symlink.rs` | `symlink` | migrated (0.48.0-1) — `symlink(&Context, &SymlinkParams)`, `From<&SymlinkArgs>` |
 | `sync.rs` | `sync` | |
 | `finalize.rs` | `finalize` | migrated (0.46.0) — `finalize(&Context, &FinalizeParams)`, `TryFrom<&FinalizeArgs>` |
 | `push.rs` | `push` | resumable state machine |
@@ -187,10 +187,11 @@ Adding a subcommand `x`:
 Port each subcommand's `pub fn x(args: &XxxArgs)` to
 `pub fn x(ctx: &Context, params: &XxxParams)`, adding an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
-conversion is fallible) at the binary edge. `init` (0.44.0)
-and `finalize` (0.46.0) are done; the rest follow the same
-shape. The live checklist is the "Subcommand layer / CLI
-decoupling" item in [`notes/todo.md`](notes/todo.md).
+conversion is fallible) at the binary edge. `init` (0.44.0),
+`finalize` (0.46.0), and `symlink` (0.48.0-1) are done; the
+rest follow the same shape. The live checklist is the
+"Subcommand layer / CLI decoupling" item in
+[`notes/todo.md`](notes/todo.md).
 
 | Subcommand | Status |
 | --- | --- |
@@ -205,7 +206,7 @@ decoupling" item in [`notes/todo.md`](notes/todo.md).
 | `fix-desc` | not started |
 | `clone` | not started |
 | `push` | not started |
-| `symlink` | not started |
+| `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |
 
 The remaining nine are planned as one multi-step cycle
 (`0.48.0-N`), one step per subcommand (`chid`/`desc`/`list`/
