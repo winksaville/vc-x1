@@ -11,6 +11,21 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+**Subcommand layer / CLI decoupling — Migration A sweep
+(`0.48.0-N`).** Port the remaining subcommands `pub fn x(args)`
+→ `pub fn x(ctx, params)`; add `XxxParams` +
+`From`/`TryFrom<&XxxArgs>` at the binary edge. `init` (0.44.0) +
+`finalize` (0.46.0) done; `chid`/`desc`/`list`/`show` ride the
+separate CommonArgs sweep. [80],[88]
+   - 0.48.0-0 plan + version bump + chores section + todo ladder (current)
+   - 0.48.0-1 symlink
+   - 0.48.0-2 clone
+   - 0.48.0-3 sync
+   - 0.48.0-4 validate-desc
+   - 0.48.0-5 fix-desc
+   - 0.48.0-6 push (resumable state machine; may decompose into -6.N)
+   - 0.48.0 close-out — drop suffix, todo→Done, Migration A table all-done
+
 ## Todo
 
 A markdown list of tasks to do in the near future, ordered
@@ -28,11 +43,12 @@ renumbering. Reference by displayed number ("let's work on #3").
    `args.account.account`); `finalize` (0.46.0,
    `TryFrom<&FinalizeArgs>` — fallible boundary; `--log` moved
    onto `Context`). Remaining: sync, clone, push,
-   validate-desc, fix-desc, symlink — planned as one
-   multi-step cycle (`0.48.0-N`), one step per subcommand,
-   same shape (`<Mod>Params` + a `From`/`TryFrom<&XArgs>`).
-   `chid`/`desc`/`list`/`show` ride with the CommonArgs sweep
-   (their Migration A and B are entangled). [80]
+   validate-desc, fix-desc, symlink — in progress as
+   `0.48.0-N` (ladder in `## In Progress`), one step per
+   subcommand, same shape (`<Mod>Params` + a
+   `From`/`TryFrom<&XArgs>`). `chid`/`desc`/`list`/`show` ride
+   with the CommonArgs sweep (their Migration A and B are
+   entangled). [80],[88]
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -275,3 +291,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450
 [86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
 [87]: /notes/chores-09.md#finalize-migration-b--squash-options_flags-leaf-0470
+[88]: /notes/chores-09.md#migration-a-sweep-subcommand-layer-ports-0480

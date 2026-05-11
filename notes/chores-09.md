@@ -758,3 +758,61 @@ consumer) into a shared `options_flags` leaf.
   `#[arg(long = "…")]`, consumer reads `args.<leaf>.value`.
 - Pre-existing leaves keep field-name-as-flag — `0.47.1` sweep
   queued.
+
+## Migration A sweep: subcommand-layer ports (0.48.0)
+
+Multi-step. Port the remaining subcommands `pub fn x(args:
+&XxxArgs)` → `pub fn x(ctx: &Context, params: &XxxParams)`, same
+shape as `init` (0.44.0) / `finalize` (0.46.0). Mechanical; no
+behavior change.
+
+### Per-step shape
+
+- `XxxParams`: flat struct, plain fields (domain types OK, no
+  clap leaf wrappers) + `impl From<&XxxArgs>` (or `TryFrom`, if
+  the conversion is fallible) at the binary edge.
+- `pub fn x(args)` → `pub fn x(ctx, params)`; body reads
+  `params.*`.
+- `main.rs` dispatch arm builds `Context::load(cli.log)` + the
+  params.
+- Tests updated; flip the ARCHITECTURE.md Migration A table row.
+
+### Ladder
+
+Smallest/simplest first; `push` (state machine) last.
+
+- 0.48.0-0 plan + version bump + this section + todo ladder
+  (current)
+- 0.48.0-1 symlink
+- 0.48.0-2 clone
+- 0.48.0-3 sync
+- 0.48.0-4 validate-desc
+- 0.48.0-5 fix-desc
+- 0.48.0-6 push (may decompose into `-6.N` sub-steps)
+- 0.48.0 close-out — drop suffix, todo→Done, Migration A table
+  all-done
+
+`chid` / `desc` / `list` / `show` not in this cycle — they ride
+the separate CommonArgs sweep (Migration A + B entangled).
+
+### Out of scope
+
+Typed errors, returned-outcomes-vs-`println!`, `ProgressSink`,
+`Context` fields beyond `UserConfig` + `--log` — deferred until a
+real consumer surfaces.
+
+### Per-substep contract
+
+Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
+--all-targets -- -D warnings` / `test` / `install --path .
+--locked` + retest before each commit; bump `Cargo.toml` at
+sub-step start; flip todo ladder markers; pair commits across
+both repos with ochid trailers.
+
+### Edits (this sub-step, 0.48.0-0)
+
+- `Cargo.toml`: 0.47.0 → 0.48.0-0.
+- `notes/chores-09.md`: this section.
+- `notes/todo.md`: cycle ladder opened in `## In Progress`
+  (-0 `(current)`); `[88]` ref added; `[88]` added to the
+  "Subcommand layer / CLI decoupling" TODO entry.
