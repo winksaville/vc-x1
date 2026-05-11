@@ -42,6 +42,11 @@ renumbering. Reference by displayed number ("let's work on #3").
    `account`, `config`, `use_template` + their consumers
    (`init.rs`, tests). Multi-field leaves (`push_retry`) keep
    descriptive names. Candidate for `0.47.1`. [87]
+1. **por/dual parity + bidirectional conversion.** Make
+   `por` and `dual` first-class equals (dual is primary
+   today, por bolted on); add `por → dual` / `dual → por`
+   conversion. Builds on the `--scope` rollout below.
+   Pre-design; goal + open questions in the stub. [91]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
@@ -53,14 +58,6 @@ renumbering. Reference by displayed number ("let's work on #3").
    (gated behind symmetric `.vc-config.toml` schema).
    Each piece is its own future TODO when the design
    hardens. [82],[83]
-1. **Rebase note — CLAUDE.md `### Per-file review checkpoints`.**
-   Both `main` (0.42.0 work) and `init-clone-refactor`
-   (0.41.1) authored this subsection independently —
-   same intent, different wording. When 0.42.0 rebases on
-   top of 0.41.1 at close-out, resolve CAREFULLY: don't
-   take either side wholesale, reconcile to preserve the
-   best of both. Likely conflict surface is the bullet
-   list under "How to apply".
 1. **Symmetric `.vc-config.toml` schema.** Add `code = "/"`
    and `bot = "/.claude"` (workspace-root-relative paths) so
    both repos read from the same shape. Side detection walks
@@ -89,15 +86,11 @@ renumbering. Reference by displayed number ("let's work on #3").
    decision (subcommands `init dual|por` vs preserved
    `--scope` flag with manual two-pass parse) deferred to
    design time. Was `0.41.1-6.9`; may or may not happen.
-1. Decide merge direction for `init-clone-refactor`
-   (recovered 2026-05-02). Rebase `0.41.1` onto
-   `0.42.0` → `0.43.0`-or-`0.42.1`, vs force-rewrite
-   main, vs other topology. [78]
-1. Cross-file chores-NN ordering sanity pass at
-   `init-clone-refactor` merge time. Bring chores-08.md
-   (0.41.1 per-step subsections) onto main alongside
-   chores-06/07; normalize section ordering across all
-   three. Tied to merge-direction decision above. [78]
+1. Cross-file `chores-NN.md` ordering sanity pass.
+   `chores-08.md` (the 0.41.1 cycle) landed on `main` via
+   the `0.42.0-4.7` rebase; check that section ordering
+   across `chores-06`/`-07`/`-08`/`-09` is chronologically
+   coherent and normalize if not. Low priority.
 1. Add a vc-x1 validate-repo?
 1. vc-x1 push: rework the two bookmark parameters.
    `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
@@ -246,6 +239,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [86]
 - finalize Migration B — squash options_flags leaf (0.47.0) [87]
 - Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [88]
+- por/dual parity capture + icr verbiage cleanup (0.48.1) [92]
 
 # References
 
@@ -270,7 +264,6 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [74]: /notes/chores-08.md#user-config-0411-3
 [75]: /notes/chores-08.md#operations
 [76]: /notes/chores-07.md#--scope-enum-refactor-0420
-[78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
 [80]: /ARCHITECTURE.md
 [82]: /notes/forks-multi-user.md
 [83]: /notes/bot-data-formats.md
@@ -280,3 +273,5 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [88]: /notes/chores-09.md#migration-a-sweep-subcommand-layer-ports-0480
 [89]: /notes/chores-09.md#push-dual-bookmark-parameters
 [90]: /notes/chores-09.md#push-unimplemented-recheck-flag
+[91]: /notes/por-dual-parity.md
+[92]: /notes/chores-09.md#por-dual-parity-capture--icr-cleanup-0481

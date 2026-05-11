@@ -3,8 +3,25 @@
 Drafted 2026-05-01 as a forward-looking brief while the
 branch was still broken; rewritten 2026-05-02 after the
 recovery completed. Documents what went wrong, the
-playbook that fixed it, and the strategic decisions
-still open.
+playbook that fixed it, and the strategic decisions taken
+(see Resolution below).
+
+## Resolution (2026-05-11)
+
+`init-clone-refactor` landed into `main` at `0.42.0-4.7`
+(see `notes/chores-09.md > ## init-clone-refactor rebase
+landing (0.42.0-4.7)`): `main`'s `0.42.0-0..-4.6` work was
+rebased on top of the branch at its `0.41.1` close-out tip,
+so the branch's commits are now ancestors of `main`. The
+branch has since been deleted locally and remotely.
+
+The "still deferred" / "still open" wording in the dated
+sections below is superseded — the merge-direction question
+is resolved (rebase-main-onto-branch), and the chores-NN
+ordering follow-up survives only as a low-priority entry in
+`notes/todo.md > ## Todo`. This file is retained as a
+historical post-mortem; the recovery playbook and
+diagnostic techniques remain reusable.
 
 ## Status as of 2026-05-02 (post-recovery)
 
@@ -85,11 +102,10 @@ descendant inherited a conflict against the changed
 parent tree. The remote was untouched and held the
 canonical-good version of all of it.
 
-## Strategic decision (still deferred)
+## Strategic decision (resolved 2026-05-11)
 
-Keep `main` + the `0.42.0-X` series as-is. Now that
-`init-clone-refactor` is recovered, we have a clean
-branch from which to make the merge-direction call:
+The merge-direction call, once the recovered branch
+gave a clean base to choose from:
 
 - rebase `0.41.1` on top of `0.42.0` as a `0.43.0`
   (or `0.42.1`), or
@@ -98,10 +114,12 @@ branch from which to make the merge-direction call:
   history),
 - or some other topology.
 
-Decision still deferred. The recovery removes the
-"is the branch even salvageable" risk; the topology
-question is now purely about scope and review
-ergonomics, not technical feasibility.
+Resolved: the "vice versa" topology — `main`'s
+`0.42.0-0..-4.6` work rebased on top of the branch at
+its `0.41.1` close-out tip, force-pushed at close-out
+(`0.42.0-4.7`). See Resolution above and
+`notes/chores-09.md > ## init-clone-refactor rebase
+landing (0.42.0-4.7)`.
 
 ## Recovery playbook (used 2026-05-02)
 
@@ -210,18 +228,21 @@ invariants get confused. The README itself includes
 the recovery hint (`jj abandon` if you accidentally
 end up in this state).
 
-## Open questions
+## Open questions (resolved — see Resolution above)
 
-Merge direction and chores-NN ordering moved to
-`notes/todo.md > ## Todo` (top entries) for
-discoverability. Remaining technical question:
+All resolved by the `0.42.0-4.7` rebase landing:
 
-- **Conflict surface against 0.42.0.** Now that
-  `init-clone-refactor` is clean, what's the actual
-  diff vs current `main`? `0.42.0-1/2/3` rewrote
-  `init.rs` / `scope.rs` / `common.rs`; `0.41.1-5/
-  -6.x` also touched those. Real conflicts will
-  surface only at the rebase step.
+- **Merge direction** — settled: `main`'s `0.42.0-X`
+  work rebased on top of the branch at its `0.41.1`
+  close-out tip.
+- **chores-NN ordering** — survives only as a
+  low-priority entry in `notes/todo.md > ## Todo`.
+- **Conflict surface against 0.42.0** — the real
+  conflicts (`Cargo.toml`, `notes/todo.md`,
+  `notes/chores-08.md`, CLAUDE.md, `src/init.rs`,
+  `src/scope.rs`, `src/common.rs`) surfaced and were
+  resolved during the cascade; see
+  `notes/chores-09.md > ### What needed real work`.
 
 ## References
 
