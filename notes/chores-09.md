@@ -852,3 +852,18 @@ parse `CloneArgs` rather than calling the subcommand fn.
   tests unchanged.
 - File already had its `//!` docstring and `///` on `clone_repo`
   — no doc-comment gaps to fix.
+
+## sync → Context + SyncParams (0.48.0-3)
+
+Step 3. First port where the args struct threads into private helpers.
+
+- `SyncParams` (`quiet`,`bookmark`,`remote`,`no_check`,`scope`) +
+  `From<&SyncArgs>`; drops `--check` (op reads only `no_check`).
+- `sync(args)` → `sync(_ctx, params)`; `ctx` unused (signature
+  placeholder).
+- `&SyncArgs`→`&SyncParams` in `sync_repos`/`run_plan`/`act_on_state`
+  and `resolve_args_to_repos`→`resolve_params_to_repos`.
+- `main.rs` `Sync` arm: `Context::load(cli.log)` + `SyncParams::from`.
+- `sync/integration_tests.rs`: `apply_args`→`apply_params` (drops
+  `check`); `sync/tests.rs` untouched (clap-parse only).
+- Added missing `//!` docstring; `sync()` doc `-R`→`--scope`.

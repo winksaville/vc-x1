@@ -1,3 +1,13 @@
+//! The `sync` subcommand: fetch + classify + (optionally) rebase /
+//! fast-forward a workspace's repos against their remotes.
+//!
+//! Default is `--check` (fetch + report, error if any repo needs
+//! action); `--no-check` applies. On any failure every repo is
+//! reverted to its pre-sync op via `jj op restore`.
+//!
+//! `current_op_id` / `op_restore` are `pub(crate)` so `push` reuses
+//! the same snapshot-and-restore pattern.
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -5,6 +15,7 @@ use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
 use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
+use crate::context::Context;
 use crate::scope::{Scope, parse_scope};
 
 /// Fetch and sync a set of repos to their remotes.
@@ -73,14 +84,51 @@ pub struct SyncArgs {
     pub scope: Option<Scope>,
 }
 
-/// Resolve `args` into the concrete repo list `sync_repos` operates on.
+/// Inputs to the sync op, flat, owned, clap-free.
+///
+/// - `quiet`: `-q` / `--quiet` — clamp output to `Warn` for the run.
+/// - `bookmark`: bookmark to sync in each repo (default `main`).
+/// - `remote`: remote to sync against (default `origin`).
+/// - `no_check`: `--no-check` — actually rebase / fast-forward
+///   (absent ⇒ check mode: fetch + report only). The `--check`
+///   flag is the explicit form of the default and carries no
+///   value of its own, so it isn't mirrored here.
+/// - `scope`: `--scope` parsed (None ⇒ resolve via the
+///   workspace-default scope at run time).
+pub struct SyncParams {
+    pub quiet: bool,
+    pub bookmark: String,
+    pub remote: String,
+    pub no_check: bool,
+    pub scope: Option<Scope>,
+}
+
+impl From<&SyncArgs> for SyncParams {
+    /// Convert clap-derived `SyncArgs` into the flat `SyncParams`.
+    /// `--check` is dropped — it's the explicit form of the
+    /// default; the op only ever consults `no_check`.
+    fn from(a: &SyncArgs) -> Self {
+        Self {
+            quiet: a.quiet,
+            bookmark: a.bookmark.clone(),
+            remote: a.remote.clone(),
+            no_check: a.no_check,
+            scope: a.scope.clone(),
+        }
+    }
+}
+
+/// Resolve `params` into the concrete repo list `sync_repos`
+/// operates on.
 ///
 /// Explicit `--scope` wins; otherwise resolves via `default_scope`
 /// against the discovered workspace root and cwd.
-fn resolve_args_to_repos(args: &SyncArgs) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+fn resolve_params_to_repos(
+    params: &SyncParams,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let workspace_root = find_workspace_root();
     let cwd = std::env::current_dir()?;
-    let scope = match &args.scope {
+    let scope = match &params.scope {
         Some(s) => s.clone(),
         None => default_scope(workspace_root.as_deref(), &cwd),
     };
@@ -113,26 +161,28 @@ struct RepoCtx {
 
 /// CLI entry point for the `sync` subcommand.
 ///
-/// Thin wrapper over `sync_repos` that resolves the `-R` flag into a
-/// concrete repo list (falling back to the dual-repo default) and
-/// forwards the rest of the args. Tests call `sync_repos` directly
-/// with absolute fixture paths.
+/// Thin wrapper over `sync_repos` that resolves `--scope` into a
+/// concrete repo list (falling back to the workspace-default
+/// scope) and forwards the rest. Tests call `sync_repos` directly
+/// with absolute fixture paths. `ctx` is unused today — present
+/// for the uniform subcommand-layer signature.
 ///
-/// When `--quiet` is set, the global log filter is temporarily clamped
-/// to `Warn` for the duration of the call and restored on return, so
-/// `info!` calls throughout sync (plus any subprocess-stderr routed
-/// through `common::run`) go dark. Errors still surface at `Warn` /
-/// `Error` so script callers don't lose diagnostics.
-pub fn sync(args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let repos = resolve_args_to_repos(args)?;
-    if args.quiet {
+/// When `--quiet` is set, the global log filter is temporarily
+/// clamped to `Warn` for the duration of the call and restored on
+/// return, so `info!` calls throughout sync (plus any
+/// subprocess-stderr routed through `common::run`) go dark. Errors
+/// still surface at `Warn` / `Error` so script callers don't lose
+/// diagnostics.
+pub fn sync(_ctx: &Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
+    let repos = resolve_params_to_repos(params)?;
+    if params.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);
-        let result = sync_repos(&repos, args);
+        let result = sync_repos(&repos, params);
         log::set_max_level(prev);
         result
     } else {
-        sync_repos(&repos, args)
+        sync_repos(&repos, params)
     }
 }
 
@@ -147,10 +197,13 @@ pub fn sync(args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
 /// Paths may be relative (resolved against the process cwd) or
 /// absolute. Tests use absolute tempdir paths to avoid cwd dependence
 /// under parallel `cargo test`.
-pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn sync_repos(
+    repos: &[PathBuf],
+    params: &SyncParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     debug!(
         "sync: enter (no_check={}, bookmark={}, remote={})",
-        args.no_check, args.bookmark, args.remote
+        params.no_check, params.bookmark, params.remote
     );
 
     // Preflight: verify bookmark tracking on every repo before any
@@ -158,7 +211,7 @@ pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std:
     // — design at:
     //   https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#non-tracking-remote-bookmark-detection-design
     for repo in repos {
-        crate::common::verify_tracking(repo, &args.bookmark)?;
+        crate::common::verify_tracking(repo, &params.bookmark)?;
     }
 
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
@@ -168,7 +221,7 @@ pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std:
         snapshots.push((repo.clone(), op_id));
     }
 
-    let result = run_plan(&snapshots, args);
+    let result = run_plan(&snapshots, params);
 
     if let Err(e) = &result {
         warn!("sync failed: {e}");
@@ -192,7 +245,7 @@ pub fn sync_repos(repos: &[PathBuf], args: &SyncArgs) -> Result<(), Box<dyn std:
 /// end state for this command.
 fn run_plan(
     snapshots: &[(PathBuf, String)],
-    args: &SyncArgs,
+    params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Phase 1 — fetch + classify silently.
     //
@@ -204,9 +257,9 @@ fn run_plan(
     let mut fetched: Vec<(PathBuf, String)> = Vec::new();
     let mut ctxs: Vec<RepoCtx> = Vec::new();
     for (repo, op_id) in snapshots {
-        let stderr = fetch_silent(repo, &args.remote)?;
+        let stderr = fetch_silent(repo, &params.remote)?;
         fetched.push((repo.clone(), stderr));
-        let state = classify(repo, &args.bookmark, &args.remote)?;
+        let state = classify(repo, &params.bookmark, &params.remote)?;
         ctxs.push(RepoCtx {
             path: repo.clone(),
             op_id: op_id.clone(),
@@ -227,7 +280,7 @@ fn run_plan(
         info!("sync: {n} {noun}, all bookmarks up-to-date");
     } else {
         for (repo, stderr) in &fetched {
-            info!("{}: fetch {}", repo.display(), args.remote);
+            info!("{}: fetch {}", repo.display(), params.remote);
             for line in stderr.lines() {
                 info!("{line}");
             }
@@ -239,15 +292,15 @@ fn run_plan(
 
     // Phase 3 — act (subprocess output streams through as usual).
     // `act_on_state` and `ensure_at_on_main` short-circuit when
-    // `args.no_check` is false, so check mode is a true no-op here.
+    // `params.no_check` is false, so check mode is a true no-op here.
     for ctx in &ctxs {
-        act_on_state(ctx, args)?;
-        ensure_at_on_main(&ctx.path, &args.bookmark, args.no_check)?;
+        act_on_state(ctx, params)?;
+        ensure_at_on_main(&ctx.path, &params.bookmark, params.no_check)?;
     }
 
     // Phase 4 — check mode is fatal when action would be needed.
     // Apply mode (`--no-check`) ran the action above and is done.
-    if !args.no_check && any_action_needed {
+    if !params.no_check && any_action_needed {
         let n_action = ctxs
             .iter()
             .filter(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }))
@@ -336,20 +389,20 @@ fn ensure_at_on_main(
 ///   `conflicts()`. A non-empty result means the rebase produced
 ///   conflicted commits; return `Err` so the outer revert restores the
 ///   pre-fetch state.
-fn act_on_state(ctx: &RepoCtx, args: &SyncArgs) -> Result<(), Box<dyn std::error::Error>> {
+fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
     let repo = &ctx.path;
-    let remote_rev = format!("{}@{}", args.bookmark, args.remote);
+    let remote_rev = format!("{}@{}", params.bookmark, params.remote);
     match &ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
-            if args.no_check {
-                info!("{}: fast-forwarding '{}'", repo.display(), args.bookmark);
+            if params.no_check {
+                info!("{}: fast-forwarding '{}'", repo.display(), params.bookmark);
                 run(
                     "jj",
                     &[
                         "bookmark",
                         "set",
-                        &args.bookmark,
+                        &params.bookmark,
                         "-r",
                         &remote_rev,
                         "-R",
@@ -361,7 +414,7 @@ fn act_on_state(ctx: &RepoCtx, args: &SyncArgs) -> Result<(), Box<dyn std::error
             Ok(())
         }
         State::Diverged { local, remote } => {
-            if args.no_check {
+            if params.no_check {
                 // `local` is either a single commit id or a comma-joined list
                 // of heads when the bookmark is conflicted. Pick the head
                 // that isn't the remote — that's the local-only tip. The

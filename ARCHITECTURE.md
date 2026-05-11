@@ -146,7 +146,7 @@ struct and a `pub fn x(...)` entrypoint:
 | `clone.rs` | `clone` | migrated (0.48.0-2) — `clone_repo(&Context, &CloneParams)`, `From<&CloneArgs>` |
 | `init.rs` (+ `init/params.rs`) | `init` | subcommand-layer worked example (0.44.0) |
 | `symlink.rs` | `symlink` | migrated (0.48.0-1) — `symlink(&Context, &SymlinkParams)`, `From<&SymlinkArgs>` |
-| `sync.rs` | `sync` | |
+| `sync.rs` | `sync` | migrated (0.48.0-3) — `sync(&Context, &SyncParams)`, `From<&SyncArgs>` |
 | `finalize.rs` | `finalize` | migrated (0.46.0) — `finalize(&Context, &FinalizeParams)`, `TryFrom<&FinalizeArgs>` |
 | `push.rs` | `push` | resumable state machine |
 
@@ -187,17 +187,18 @@ Adding a subcommand `x`:
 Port each subcommand's `pub fn x(args: &XxxArgs)` to
 `pub fn x(ctx: &Context, params: &XxxParams)`, adding an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
-conversion is fallible) at the binary edge. `init` (0.44.0),
-`finalize` (0.46.0), `symlink` (0.48.0-1), and `clone`
-(0.48.0-2) are done; the rest follow the same shape. The live
-checklist is the "Subcommand layer / CLI decoupling" item in
+conversion is fallible) at the binary edge. `init` (0.44.0)
+is the worked example; `finalize` (0.46.0) added the `TryFrom`
+/ `Context.log` variant; the `0.48.0-N` cycle sweeps the rest.
+Per-port status is the table below; the live checklist is the
+"Subcommand layer / CLI decoupling" item in
 [`notes/todo.md`](notes/todo.md).
 
 | Subcommand | Status |
 | --- | --- |
 | `init` | done (0.44.0) — `init(&Context, &InitParams)`; `From<&InitArgs>` |
 | `finalize` | done (0.46.0) — `finalize(&Context, &FinalizeParams)`; `TryFrom<&FinalizeArgs>` (fallible boundary); `--log` moved onto `Context` |
-| `sync` | not started |
+| `sync` | done (0.48.0-3) — `sync(&Context, &SyncParams)`; `From<&SyncArgs>` |
 | `chid` | not started |
 | `desc` | not started |
 | `list` | not started |

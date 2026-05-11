@@ -75,7 +75,7 @@ fn resolver_chain_against_init_repo_local() {
     // — the resolver's output is shaped the way sync expects.
     let resolved =
         scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
-    sync_repos(&resolved, &apply_args()).expect("sync should succeed on resolved repos");
+    sync_repos(&resolved, &apply_params()).expect("sync should succeed on resolved repos");
 }
 
 /// Run `jj <args> -R <repo>` and assert success; returns trimmed stdout.
@@ -103,14 +103,13 @@ fn cid(repo: &Path, rev: &str) -> String {
     )
 }
 
-/// Sync args with `--no-check` set (apply mode).
+/// Sync params with `--no-check` set (apply mode).
 ///
 /// Integration tests pass explicit repo paths through `sync_repos`
 /// directly, so `scope` stays `None` here and the CLI-side default
 /// resolution is not exercised by this helper.
-fn apply_args() -> SyncArgs {
-    SyncArgs {
-        check: false,
+fn apply_params() -> SyncParams {
+    SyncParams {
         no_check: true,
         quiet: false,
         bookmark: "main".to_string(),
@@ -169,7 +168,7 @@ fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
     let work_main = cid(&fx.work, "main");
     let claude_main = cid(&fx.claude, "main");
-    sync_repos(&fx.repos(), &apply_args()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), work_main);
     assert_eq!(cid(&fx.claude, "main"), claude_main);
 }
@@ -184,7 +183,7 @@ fn sync_tolerates_trailing_at_up_to_date() {
     let fx = Fixture::new("trailing-uptodate");
     let pre_main = cid(&fx.claude, "main");
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
-    sync_repos(&fx.repos(), &apply_args()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
     let on_main = jj(
         &fx.claude,
@@ -224,7 +223,7 @@ fn sync_rebases_trailing_at_when_main_moves() {
     );
     // Trailing writes on @
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":2}\n").expect("write trailing file");
-    sync_repos(&fx.repos(), &apply_args()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.claude, "main"),
         remote_head,
@@ -284,7 +283,7 @@ fn sync_conflict_preserves_trailing_at_on_revert() {
     let pre_main = cid(&fx.claude, "main");
     let pre_remote = cid(&fx.claude, "main@origin");
 
-    let err = sync_repos(&fx.repos(), &apply_args())
+    let err = sync_repos(&fx.repos(), &apply_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -331,7 +330,7 @@ fn sync_ahead_is_noop() {
     let fx = Fixture::new("ahead");
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
     let ahead_head = cid(&fx.work, "main");
-    sync_repos(&fx.repos(), &apply_args()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), ahead_head);
 }
 
@@ -352,7 +351,7 @@ fn sync_diverged_rebases() {
     );
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
 
-    sync_repos(&fx.repos(), &apply_args()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
 
     // Remote tracking bookmark now points at the pushed remote commit.
     assert_eq!(
@@ -422,7 +421,7 @@ fn sync_diverged_conflict_reverts() {
     let pre_main = cid(&fx.work, "main");
     let pre_remote = cid(&fx.work, "main@origin");
 
-    let err = sync_repos(&fx.repos(), &apply_args())
+    let err = sync_repos(&fx.repos(), &apply_params())
         .unwrap_err()
         .to_string();
     assert!(
