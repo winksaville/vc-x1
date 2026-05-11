@@ -11,20 +11,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**Subcommand layer / CLI decoupling — Migration A sweep
-(`0.48.0-N`).** Port the remaining subcommands `pub fn x(args)`
-→ `pub fn x(ctx, params)`; add `XxxParams` +
-`From`/`TryFrom<&XxxArgs>` at the binary edge. `init` (0.44.0) +
-`finalize` (0.46.0) done; `chid`/`desc`/`list`/`show` ride the
-separate CommonArgs sweep. [80],[88]
-   - 0.48.0-0 plan + version bump + chores section + todo ladder (done)
-   - 0.48.0-1 symlink (done)
-   - 0.48.0-2 clone (done)
-   - 0.48.0-3 sync (done)
-   - 0.48.0-4 validate-desc (done)
-   - 0.48.0-5 fix-desc (done)
-   - 0.48.0-6 push (resumable state machine) (done)
-   - 0.48.0 close-out — drop suffix, todo→Done, Migration A table all-done
+(nothing in progress)
 
 ## Todo
 
@@ -36,19 +23,16 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Subcommand layer / CLI decoupling — sweep remaining
-   subcommands.** Done: `init` (0.44.0, `From<&InitArgs>`,
-   the worked example — `Context` + `InitParams` at the binary
-   edge, subcommand body reads `params.account` not
-   `args.account.account`); `finalize` (0.46.0,
-   `TryFrom<&FinalizeArgs>` — fallible boundary; `--log` moved
-   onto `Context`). Remaining: sync, clone, push,
-   validate-desc, fix-desc, symlink — in progress as
-   `0.48.0-N` (ladder in `## In Progress`), one step per
-   subcommand, same shape (`<Mod>Params` + a
-   `From`/`TryFrom<&XArgs>`). `chid`/`desc`/`list`/`show` ride
-   with the CommonArgs sweep (their Migration A and B are
-   entangled). [80],[88]
+1. **Subcommand layer / CLI decoupling — remaining
+   subcommands.** Migration A (the `fn x(&Context, &XxxParams)`
+   port + a `From`/`TryFrom<&XxxArgs>` at the binary edge) is
+   done for every standalone subcommand: `init` (0.44.0,
+   worked example), `finalize` (0.46.0, `TryFrom` + `--log`
+   onto `Context`), and the `0.48.0` sweep — `symlink`,
+   `clone`, `sync`, `validate-desc`, `fix-desc`, `push`. Only
+   `chid`/`desc`/`list`/`show` remain; their Migration A rides
+   the "CommonArgs sweep" item below (A + B entangled there).
+   [80],[88]
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -257,15 +241,11 @@ renumbering. Reference by displayed number ("let's work on #3").
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
-- Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [77]
-- init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [78]
-- Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
-- 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
-- Test-module extraction across init/push/sync/common (0.43.0) [84]
 - InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [80]
 - ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [85]
 - finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [86]
 - finalize Migration B — squash options_flags leaf (0.47.0) [87]
+- Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [88]
 
 # References
 
@@ -290,14 +270,10 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [74]: /notes/chores-08.md#user-config-0411-3
 [75]: /notes/chores-08.md#operations
 [76]: /notes/chores-07.md#--scope-enum-refactor-0420
-[77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
 [78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
-[79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
 [80]: /ARCHITECTURE.md
-[81]: /notes/chores-09.md#0420-close-out
 [82]: /notes/forks-multi-user.md
 [83]: /notes/bot-data-formats.md
-[84]: /notes/chores-09.md#test-module-extraction-0430
 [85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450
 [86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
 [87]: /notes/chores-09.md#finalize-migration-b--squash-options_flags-leaf-0470

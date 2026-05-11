@@ -941,3 +941,34 @@ skip-preflight-on-resume path. Mirrored into `PushParams` with
 `#[allow(dead_code)]` to keep the conversion total, but a dead
 field plus an `allow` is debt. Implement the behavior or remove
 the flag. Queued as a todo.
+
+## 0.48.0 close-out
+
+Migration A sweep complete. Every standalone subcommand now runs
+the `fn x(&Context, &XxxParams)` shape with a `From`/`TryFrom`
+at the binary edge — `init` (0.44.0, worked example), `finalize`
+(0.46.0, `TryFrom` + `--log` onto `Context`), and the `0.48.0`
+ladder: `symlink` (-1), `clone` (-2), `sync` (-3),
+`validate-desc` (-4), `fix-desc` (-5), `push` (-6).
+
+- Remaining: `chid` / `desc` / `list` / `show` — their
+  Migration A is bundled into the future "CommonArgs sweep"
+  (A + B entangled for the `CommonArgs`-flattening subcommands).
+- Two `push` design warts surfaced and queued as todos — see
+  [dual bookmark parameters](#push-dual-bookmark-parameters) and
+  [unimplemented `recheck` flag](#push-unimplemented-recheck-flag).
+
+### Edits (this commit, 0.48.0)
+
+- `Cargo.toml`: 0.48.0-6 → 0.48.0.
+- `ARCHITECTURE.md`: Migration A intro + table —
+  `chid`/`desc`/`list`/`show` rows → "deferred — rides the
+  CommonArgs sweep"; table reordered (worked examples → 0.48.0
+  ladder → deferred); intro past-tensed.
+- `notes/todo.md`: In-Progress Migration A entry removed (cycle
+  done); `## Done` gets the cycle entry; "Subcommand layer / CLI
+  decoupling" todo item slimmed (only CommonArgs-coupled
+  subcommands left); close-out sweep — 0.42.0-* / 0.43.0 `## Done`
+  entries migrated to `done.md` with their refs.
+- `notes/done.md`: received the five migrated entries + `[77]`
+  `[78]` `[79]` `[81]` `[84]` refs.

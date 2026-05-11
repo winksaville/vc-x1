@@ -110,6 +110,11 @@ As todo.md `## Done` sections fills move them to here.
 - Init+clone redesign: init reshape — TARGET + NAME + --account + --repo (0.41.1-5) [73]
 - Init+clone redesign: init refactor — substep ladder -6.0 through -6.8 (0.41.1-6) [75]
 - Init+clone redesign: cycle close-out — symmetric schema + Fixture migration + dual|por split deferred (0.41.1) [72]
+- Substep protocol formalization + jj revsets cheatsheet (0.42.0-4.5) [77]
+- init-clone-refactor recovery + post-mortem playbook (0.42.0-4.6) [78]
+- Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
+- 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
+- Test-module extraction across init/push/sync/common (0.43.0) [84]
 
 # References
 
@@ -175,3 +180,8 @@ As todo.md `## Done` sections fills move them to here.
 [73]: /notes/chores-08.md#cycle-structure--multi-step
 [74]: /notes/chores-08.md#user-config-0411-3
 [75]: /notes/chores-08.md#operations
+[77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
+[78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
+[79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
+[81]: /notes/chores-09.md#0420-close-out
+[84]: /notes/chores-09.md#test-module-extraction-0430

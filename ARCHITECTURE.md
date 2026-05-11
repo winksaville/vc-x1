@@ -187,10 +187,13 @@ Adding a subcommand `x`:
 Port each subcommand's `pub fn x(args: &XxxArgs)` to
 `pub fn x(ctx: &Context, params: &XxxParams)`, adding an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
-conversion is fallible) at the binary edge. `init` (0.44.0)
-is the worked example; `finalize` (0.46.0) added the `TryFrom`
-/ `Context.log` variant; the `0.48.0-N` cycle sweeps the rest.
-Per-port status is the table below; the live checklist is the
+conversion is fallible) at the binary edge. `init` (0.44.0) is
+the worked example; `finalize` (0.46.0) added the `TryFrom` /
+`Context.log` variant; the `0.48.0` cycle swept the rest of the
+standalone subcommands. Only `chid` / `desc` / `list` / `show`
+remain — their Migration A is bundled into the future
+"CommonArgs sweep" (Migration A + B are entangled for the
+`CommonArgs`-flattening subcommands). The live checklist is the
 "Subcommand layer / CLI decoupling" item in
 [`notes/todo.md`](notes/todo.md).
 
@@ -198,26 +201,21 @@ Per-port status is the table below; the live checklist is the
 | --- | --- |
 | `init` | done (0.44.0) — `init(&Context, &InitParams)`; `From<&InitArgs>` |
 | `finalize` | done (0.46.0) — `finalize(&Context, &FinalizeParams)`; `TryFrom<&FinalizeArgs>` (fallible boundary); `--log` moved onto `Context` |
+| `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |
+| `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
 | `sync` | done (0.48.0-3) — `sync(&Context, &SyncParams)`; `From<&SyncArgs>` |
-| `chid` | not started |
-| `desc` | not started |
-| `list` | not started |
-| `show` | not started |
 | `validate-desc` | done (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`; `From<&ValidateDescArgs>` |
 | `fix-desc` | done (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`; `From<&FixDescArgs>` |
-| `clone` | done (0.48.0-2) — `clone_repo(&Context, &CloneParams)`; `From<&CloneArgs>` |
 | `push` | done (0.48.0-6) — `push(&Context, &PushParams)`; `From<&PushArgs>` (collapses the two bookmark spellings) |
-| `symlink` | done (0.48.0-1) — `symlink(&Context, &SymlinkParams)`; `From<&SymlinkArgs>` |
+| `chid` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
+| `desc` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
+| `list` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
+| `show` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
 
-The rest are planned as one multi-step cycle (`0.48.0-N`), one
-step per subcommand (`chid`/`desc`/`list`/`show` ride with the
-separate "CommonArgs sweep" since their Migration A and B are
-entangled).
-
-Out of scope for the early ports (deferred until a real
-consumer surfaces): typed errors, returned outcomes vs
-`println!`, the `ProgressSink`, and `Context` fields beyond
-`UserConfig` + the `--log` path (`finalize` surfaced `log`).
+Out of scope for these ports (deferred until a real consumer
+surfaces): typed errors, returned outcomes vs `println!`, the
+`ProgressSink`, and `Context` fields beyond `UserConfig` + the
+`--log` path (`finalize` surfaced `log`).
 
 ## Migration B — per-subcommand flags → `src/options_flags/`
 
