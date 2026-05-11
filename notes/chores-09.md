@@ -10,7 +10,9 @@ boundary.
 Subsection headers use the trailing-version format from CLAUDE.md
 when they correspond to a release: `## Description (X.Y.Z)`.
 
-## init-clone-refactor rebase landing (0.42.0-4.7)
+## chore: init-clone-refactor rebase landing (0.42.0-4.7)
+
+Commits: [[2]]
 
 Rebased main (0.42.0-0..-4.6) onto init-clone-refactor at its
 0.41.1 close-out tip (`slvprlpw`). Chids preserved; ochid
@@ -80,17 +82,9 @@ Skip the duplicate bookmarks, reference clones, and
 filesystem snapshots unless a specific reason emerges. The
 op-log + origin are the safety net.
 
-### Edits
+## chore: close 0.42.0 cycle at -4.7 (0.42.0)
 
-- `notes/chores-09.md`: this file (new).
-- `notes/todo.md`: ladder marker flips
-  (-4.6 (current)→(done), add -4.7 (current)); add `-4.7`
-  Done entry referenced as `[79]`; add `[79]:` ref target;
-  move pre-0.42.0 Done entries to `notes/done.md`.
-- `notes/done.md`: append migrated 0.40/0.41 Done entries.
-- `Cargo.toml`: bump 0.42.0-4.6 → 0.42.0-4.7.
-
-## 0.42.0 close-out
+Commits: [[3]]
 
 Cycle closed at -4.7 (init-clone-refactor rebase landing)
 rather than completing the originally planned full
@@ -111,7 +105,7 @@ rather than completing the originally planned full
 Originally-planned -4 / -5 / -6 / -7 substeps — the
 `--scope` sweep across the remaining subcommands — moved
 back to `notes/todo.md > ## Todo`. Design references stay
-at chores-07 [76]:
+at chores-07 [[24]]:
 
 - `vc-x1 push --scope` (was -4; pivoted into substep
   protocol + icr work).
@@ -140,55 +134,18 @@ The cycle started as a `--scope` sweep but pivoted at
    narrative coherence; closing here and reopening
    fresh later produces cleaner history.
 
-### Edits
+## docs: bot-data-formats + multi-user notes (0.42.1)
 
-- `notes/todo.md`: 0.42.0 ladder removed from `## In
-  Progress`; consolidated `--scope` continuation TODO
-  entry added; four existing scope-related entries
-  updated to drop "0.42.0 cycle" claims; `0.42.0 cycle
-  close-out` Done line added; `[81]` reference target
-  added.
-- `notes/chores-09.md`: this subsection (new).
-- `Cargo.toml`: bump 0.42.0-4.7 → 0.42.0.
-
-## Design notes: bot-data + multi-user updates (0.42.1)
+Commits: [[4]]
 
 Documentation-only follow-on to the 0.42.0 close-out.
 Forward-looking design captures for multi-user
 collaboration, multi-bot vendor support, and bot-repo
 scaling thresholds. No code change.
 
-### Edits
+## chore: open 0.43.0 cycle (0.43.0-0)
 
-- `notes/bot-data-formats.md`: new file. Format-agnostic
-  principle, dual-repo merits-based defense,
-  vendor-subdir layout
-  (`.bot/<vendor>/<version>/<id>.<ext>`), multi-bot in
-  one repo, format versioning, flat-to-vendor migration,
-  `.claude` → `.bot` rename, viewer layer, open
-  questions.
-- `notes/forks-multi-user.md`: four new subsections
-  (bot-repo size and scaling thresholds;
-  monotonic-growth asymmetry; mitigation menu; tracking
-  trigger). One new subsection on URL-shaped ochid for
-  per-user repos (link-rot mitigations: project-side
-  mirroring, cryptographic stapling, CI-enforced live
-  ochid). Cross-ref to `bot-data-formats.md` added in
-  intro.
-- `notes/todo.md`: replace multi-user TODO entry with
-  `forks-multi-user + bot-data-formats follow-through`;
-  add `[82]` / `[83]` refs to the two design docs
-  (slight extension of the existing
-  `chores-NN.md#anchor` reference style for whole-file
-  pointers).
-- `README.md`: TOC entry +
-  `## Thoughts for the future` section pointing at
-  `notes/forks-multi-user.md`. Reader chain: README →
-  forks-multi-user → bot-data-formats.
-- `notes/chores-09.md`: this subsection (new).
-- `Cargo.toml`: bump 0.42.0 → 0.42.1.
-
-## Test-module extraction (0.43.0)
+Commits: [[5]]
 
 Multi-step cycle to extract `#[cfg(test)] mod tests` (and
 `mod integration_tests` where present) from oversized
@@ -306,16 +263,9 @@ exempts. Each sub-step commits as one unit; no
 checkpoint between original-file edit and new-file
 creation.
 
-### Edits (this sub-step, 0.43.0-0)
+## refactor: extract init test module (0.43.0-1)
 
-- `Cargo.toml`: bump 0.42.1 → 0.43.0-0.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: open `## In Progress` ladder for the
-  cycle; mark -0 `(current)`; add `[84]` ref pointing
-  here; add `[84]` to the existing Test-module
-  extraction TODO entry.
-
-## init test extraction (0.43.0-1)
+Commits: [[6]]
 
 Extracted `mod tests` from `src/init.rs` into sibling
 `src/init/tests.rs`. Production file keeps its top-level
@@ -339,18 +289,9 @@ revised to non-mod.rs layout (`src/init.rs` retained,
 `src/init/` holds children only) before commit. See
 Per-file shape rationale above.
 
-### Edits
+## refactor: extract push test modules (0.43.0-2)
 
-- `src/init.rs`: production code retained at the original
-  path; trailing `mod tests;` forward declaration added.
-- `src/init/tests.rs`: de-indented test body with new
-  `//!` header.
-- `Cargo.toml`: bump 0.43.0-0 → 0.43.0-1.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: ladder marker flips (-0 (current) →
-  (done); -1 → (done)).
-
-## push test extraction (0.43.0-2)
+Commits: [[7]]
 
 Extracted both `mod tests` and `mod integration_tests`
 from `src/push.rs` into siblings `src/push/tests.rs` and
@@ -367,23 +308,9 @@ the original `//!` header block as file-level docs).
 `cargo test` baseline preserved: 358 unit + 14
 integration tests, identical to pre-extraction.
 
-### Edits
+## refactor: extract sync test modules (0.43.0-3)
 
-- `src/push.rs`: production code retained at the
-  original path; trailing test bodies replaced with
-  `mod tests;` + `mod integration_tests;` forward
-  declarations.
-- `src/push/tests.rs`: de-indented unit test body with
-  new `//!` header.
-- `src/push/integration_tests.rs`: de-indented
-  integration test body; existing file-level `//!`
-  block preserved (single new top-line header added).
-- `Cargo.toml`: bump 0.43.0-1 → 0.43.0-2.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: ladder marker flips (-2 (current) →
-  (done)).
-
-## sync test extraction (0.43.0-3)
+Commits: [[8]]
 
 Extracted `mod tests` and `mod integration_tests` from
 `src/sync.rs` into siblings `src/sync/tests.rs` and
@@ -407,28 +334,9 @@ carries test-only `use` lines.
 `cargo test` baseline preserved: 358 unit + 14
 integration tests, identical to pre-extraction.
 
-### Edits
+## refactor: extract common test module (0.43.0-4)
 
-- `src/sync.rs`: production code retained at the
-  original path; trailing test bodies replaced with
-  `mod tests;` + `mod integration_tests;` forward
-  declarations; the test-only
-  `#[cfg(test)] use crate::scope::Side;` lines
-  removed.
-- `src/sync/tests.rs`: de-indented unit test body with
-  new `//!` header; explicit `use crate::scope::Side;`
-  added under `use super::*;`.
-- `src/sync/integration_tests.rs`: de-indented
-  integration test body; existing file-level `//!`
-  block preserved (single new top-line header added);
-  explicit `use crate::scope::Side;` added with the
-  rest of the imports.
-- `Cargo.toml`: bump 0.43.0-2 → 0.43.0-3.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: ladder marker flips (-3 (current) →
-  (done)).
-
-## common test extraction (0.43.0-4)
+Commits: [[9]]
 
 Extracted `mod tests` from `src/common.rs` into sibling
 `src/common/tests.rs`. Same non-mod.rs layout as the
@@ -447,19 +355,9 @@ The chores-09 plan flagged this sub-step as
 below the threshold where extraction visibly helps.
 Done anyway for consistency with the cycle pattern.
 
-### Edits
+## chore: close 0.43.0 cycle (0.43.0)
 
-- `src/common.rs`: production code retained at the
-  original path; trailing test body replaced with
-  `mod tests;` forward declaration.
-- `src/common/tests.rs`: de-indented unit test body
-  with new `//!` header.
-- `Cargo.toml`: bump 0.43.0-3 → 0.43.0-4.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: ladder marker flips (-4 (current) →
-  (done)).
-
-## 0.43.0 close-out
+Commits: [[10]]
 
 Cycle landed as five separate commits on `main`
 (0.43.0-0 plan + four sub-step extractions). Chose
@@ -495,14 +393,6 @@ as obsolete (Rust 2018+ defaults to `src/X.rs` +
 -2. -1 was squashed to match (so all four sub-steps
 share the same shape on `main`).
 
-### Edits (this commit)
-
-- `Cargo.toml`: bump 0.43.0-4 → 0.43.0.
-- `notes/chores-09.md`: this section (new).
-- `notes/todo.md`: drop the cycle's `## In Progress`
-  ladder; add a `## Done` entry; remove the
-  Test-module extraction `## Todo` item.
-
 ## Subcommand-layer architecture — moved to `ARCHITECTURE.md`
 
 A forward-looking design capture lived here (written
@@ -530,7 +420,9 @@ Conclusions worth keeping in the journal:
 `ARCHITECTURE.md` is authoritative; update it (not this
 section) as the migrations progress.
 
-## InitParams implementation (0.44.0)
+## refactor: introduce Context + InitParams (0.44.0)
+
+Commits: [[11]]
 
 Single-step cycle: introduce `Context` + `InitParams` and
 port `init` to the new shape. Establishes the worked
@@ -590,60 +482,9 @@ Standard: `cargo fmt`, `cargo clippy --all-targets --
 -D warnings`, `cargo test`, `cargo install --path .
 --locked`, retest.
 
-### Edits
+## docs: ARCHITECTURE.md + subcommand-layer naming (0.45.0)
 
-- `Cargo.toml`: bump 0.43.0 → 0.44.0.
-- `src/context.rs` (new): `Context` struct holding
-  `user_config: UserConfig` + `Context::load()` ctor;
-  declared `mod context;` in `src/main.rs`.
-- `src/init/params.rs` (new): `InitParams` flat struct
-  + `impl From<&InitArgs> for InitParams` (production
-  default sets `create_symlink: true`); declared
-  `mod params; pub use params::InitParams;` in
-  `src/init.rs`.
-- `src/init.rs`: `pub fn init` signature changed
-  from `init(args: &InitArgs, create_symlink: bool)`
-  to `init(ctx: &Context, params: &InitParams)`
-  (`create_symlink` folded into `InitParams`).
-  Internal helpers (`plan_init`, `plan_from_url`,
-  `plan_from_path`, `plan_from_bare_name`,
-  `plan_remote`, `plan_local`, `build_plan`,
-  `create_por`, `create_dual`, `push_repo`,
-  `run_remote_step`) all switched from
-  `args: &InitArgs` to `params: &InitParams`. Body
-  reads `params.account` instead of
-  `args.account.account` (and similarly across all
-  leaf nestings). `args.config.resolve(ConfigKind::None)`
-  call sites collapse to `&params.config` since the
-  resolve runs at the boundary now. `cfg` inside
-  `pub fn init` switched from `config::load()?` to
-  `&ctx.user_config`.
-- `src/main.rs`: `mod context;` added; init dispatch
-  builds `Context::load()` then converts
-  `InitParams::from(&init_args)` and calls
-  `init::init(&ctx, &params)`.
-- `src/test_helpers.rs`: `Fixture` and `FixturePor`
-  builders updated — load `Context`, build
-  `InitParams::from(&args)`, override
-  `params.create_symlink = false`, then call
-  `init(&ctx, &params)`. Imports updated to bring
-  `Context` and `InitParams` into scope.
-- `src/init/tests.rs`: every `plan_init(&args, ...)`
-  call site rewritten to
-  `plan_init(&InitParams::from(&args), ...)`. The two
-  `plan_init(&args_for(...), ...)` sites split across
-  multiple lines for readability. Tests of `InitArgs`
-  (parse/defaults) untouched — those exercise the
-  clap edge.
-- `notes/chores-09.md`: this section + the
-  `## InitParams implementation (0.44.0)` plan
-  section.
-- `notes/todo.md`: drop the cycle's `## In Progress`
-  entry; add `## Done` entry; rewrite the
-  `Ops layer / CLI decoupling` `## Todo` item to
-  reflect "init done, sweep remaining."
-
-## Architecture doc and terminology reconciliation (0.45.0)
+Commits: [[12]]
 
 Single-step docs cycle. Promotes the forward-looking
 "Ops layer architecture" capture (this file) into a living
@@ -653,44 +494,9 @@ and "ops layer"; the 0.44.0 implementation shipped `Context`
 / `XxxParams`. Settled on "subcommand layer" everywhere. No
 code change beyond a doc comment.
 
-### Edits
+## refactor: finalize → Context + FinalizeParams (0.46.0)
 
-- `Cargo.toml`: bump 0.44.0 → 0.45.0.
-- `ARCHITECTURE.md` (new): module map (CLI layer +
-  subcommand-layer scaffolding + subcommand modules), the
-  two-layer split (`XxxArgs` ↔ `Context` + `XxxParams`,
-  boundary `From<&XxxArgs>`), the subcommand model, and
-  Migrations A (args → Context/Params) / B (per-subcommand
-  flags → `src/options_flags/`) with status tables; plus a
-  `### Naming` subsection.
-- `README.md`: TOC entry + `## Contributing` opening
-  paragraph pointing at `ARCHITECTURE.md`.
-- `notes/README.md`: intro paragraph pointing at
-  `../ARCHITECTURE.md`.
-- `src/options_flags/README.md`: intro note — this module
-  is the "Migration B" leaf store; points at
-  `../../ARCHITECTURE.md`.
-- `notes/chores-09.md`: "Ops layer architecture
-  (forward-looking)" section trimmed to a stub pointing at
-  `ARCHITECTURE.md` (keeps the load-bearing conclusions);
-  the InitParams section's `### Naming differs …`
-  subsection collapsed to a brief pointer; the InitParams
-  cross-ref + the 0.43.0 Goals' "ops-layer" mention renamed
-  to "subcommand layer"; this subsection.
-- `notes/todo.md`: `## Todo` #1 renamed `Ops layer / CLI
-  decoupling` → `Subcommand layer / CLI decoupling` (and
-  "op body" → "subcommand body"); `## Done` entry added;
-  `[80]` repointed to `/ARCHITECTURE.md`; `[85]` ref added
-  for this subsection.
-- `notes/bot-data-formats.md`: "ops-layer / CLI decoupling"
-  → "subcommand-layer / CLI decoupling"; cross-ref
-  repointed from `chores-09.md > Ops layer architecture` to
-  `ARCHITECTURE.md`; `Workspace` handle → `Context` handle.
-- `src/context.rs`: module doc — "op layer" → "subcommand
-  layer"; pointer repointed from `notes/chores-09.md > ##
-  Ops layer architecture …` to `ARCHITECTURE.md`.
-
-## finalize subcommand-layer migration (0.46.0)
+Commits: [[13]]
 
 Single-step cycle: bring `finalize` from "partial" to fully
 on the subcommand-layer shape. It already had a clap-free
@@ -708,42 +514,9 @@ the conversion is total (`init`), `TryFrom` when it isn't
 startup, like `UserConfig`) rather than staying a
 `FinalizeParams` field.
 
-### Edits
+## refactor: finalize --squash → options_flags leaf (0.47.0)
 
-- `Cargo.toml`: bump 0.45.0 → 0.46.0.
-- `src/context.rs`: `Context` gains `pub log: Option<PathBuf>`;
-  `Context::load()` → `Context::load(log: Option<PathBuf>)`;
-  doc comments updated.
-- `src/finalize.rs`: added module `//!` docstring (had none);
-  `FinalizeOpts` → `FinalizeParams` (dropped its `log` field —
-  moved to `Context`); `FinalizeArgs::into_opts(self, log)`
-  replaced by `impl TryFrom<&FinalizeArgs> for FinalizeParams`;
-  `finalize` / `detach` now `(ctx: &Context, params:
-  &FinalizeParams)` and read `ctx.log`; `build_exec_args(params,
-  log: Option<&Path>)`; `preflight` / `finalize_exec` /
-  `log_plan` / `write_failure_marker` param renamed
-  `opts` → `params`; tests updated, +2
-  (`try_from_canonicalizes_repo`, `try_from_bad_squash`).
-- `src/main.rs`: init arm passes `cli.log` to `Context::load`;
-  finalize arm builds `Context::load(cli.log)` +
-  `FinalizeParams::try_from(&finalize_args)` +
-  `finalize::finalize(&ctx, &params)`.
-- `src/test_helpers.rs`: `Context::load()` → `Context::load(None)`
-  (the two fixture builders).
-- `ARCHITECTURE.md`: Migration A table — `finalize` `partial` →
-  `done (0.46.0)`; "Boundary conversion" bullet now states the
-  `From` (total) vs `TryFrom` (fallible) rule; `Context` bullet
-  mentions the `--log` path; subcommand-modules table updated;
-  Migration A intro notes the planned `0.47.0-N` multi-step
-  cycle for the remaining nine.
-- `notes/todo.md`: `## Todo` #1 updated (finalize done; remaining
-  nine → `0.47.0-N` plan); new `## Todo` item for Migration B on
-  finalize (`--squash` → shared `options_flags` leaf, since
-  `vc-x1 push --squash` will reuse it); `## Done` entry added;
-  `[86]` ref added.
-- `notes/chores-09.md`: this subsection.
-
-## finalize Migration B — squash options_flags leaf (0.47.0)
+Commits: [[14]]
 
 Single-step. Lift `--squash` (the one flag with a planned second
 consumer) into a shared `options_flags` leaf.
@@ -759,7 +532,9 @@ consumer) into a shared `options_flags` leaf.
 - Pre-existing leaves keep field-name-as-flag — `0.47.1` sweep
   queued.
 
-## Migration A sweep: subcommand-layer ports (0.48.0)
+## chore: open 0.48.0 cycle — Migration A sweep (0.48.0-0)
+
+Commits: [[15]]
 
 Multi-step. Port the remaining subcommands `pub fn x(args:
 &XxxArgs)` → `pub fn x(ctx: &Context, params: &XxxParams)`, same
@@ -809,15 +584,9 @@ Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
 sub-step start; flip todo ladder markers; pair commits across
 both repos with ochid trailers.
 
-### Edits (this sub-step, 0.48.0-0)
+## refactor: symlink → Context + SymlinkParams (0.48.0-1)
 
-- `Cargo.toml`: 0.47.0 → 0.48.0-0.
-- `notes/chores-09.md`: this section.
-- `notes/todo.md`: cycle ladder opened in `## In Progress`
-  (-0 `(current)`); `[88]` ref added; `[88]` added to the
-  "Subcommand layer / CLI decoupling" TODO entry.
-
-## symlink → Context + SymlinkParams (0.48.0-1)
+Commits: [[16]]
 
 Step 1 of the Migration A sweep. `symlink` is the cycle's
 warm-up: no `UserConfig`, no `--log` use, no `symlink()` test
@@ -835,7 +604,9 @@ callers — a clean mechanical port.
 - Tests untouched — they exercise `SymLink` / `encode_path` /
   `probe`, not the subcommand fn.
 
-## clone → Context + CloneParams (0.48.0-2)
+## refactor: clone → Context + CloneParams (0.48.0-2)
+
+Commits: [[17]]
 
 Step 2 of the Migration A sweep. Same shape as `symlink`:
 `clone` uses neither `UserConfig` nor `--log`, and its tests
@@ -853,7 +624,9 @@ parse `CloneArgs` rather than calling the subcommand fn.
 - File already had its `//!` docstring and `///` on `clone_repo`
   — no doc-comment gaps to fix.
 
-## sync → Context + SyncParams (0.48.0-3)
+## refactor: sync → Context + SyncParams (0.48.0-3)
+
+Commits: [[18]]
 
 Step 3. First port where the args struct threads into private helpers.
 
@@ -868,7 +641,9 @@ Step 3. First port where the args struct threads into private helpers.
   `check`); `sync/tests.rs` untouched (clap-parse only).
 - Added missing `//!` docstring; `sync()` doc `-R`→`--scope`.
 
-## validate-desc → Context + ValidateDescParams (0.48.0-4)
+## refactor: port validate-desc to Context (0.48.0-4)
+
+Commits: [[19]]
 
 Step 4. Straight port — no helper threading, no test callers.
 
@@ -883,7 +658,9 @@ Step 4. Straight port — no helper threading, no test callers.
 - Tagalong: `CLAUDE.md` codifies the 50/72 commit-message rule
   (subject ≤50, body lines ≤72).
 
-## fix-desc → Context + FixDescParams (0.48.0-5)
+## refactor: port fix-desc to Context (0.48.0-5)
+
+Commits: [[20]]
 
 Step 5. Straight port — no test callers; the only threading is
 the private `jj_describe` helper, which already took the repo
@@ -900,7 +677,9 @@ path by value (no signature change there).
 - Added missing `//!` module docstring and `///` on
   `fix_desc()` (pre-existing gaps, fixed in passing).
 
-## push → Context + PushParams (0.48.0-6)
+## refactor: port push to Context (0.48.0-6)
+
+Commits: [[21]]
 
 Step 6 — last subcommand port before close-out. Biggest module
 (`PushArgs` threaded through `push_in` / `run_from` / `run_stage`
@@ -942,7 +721,9 @@ skip-preflight-on-resume path. Mirrored into `PushParams` with
 field plus an `allow` is debt. Implement the behavior or remove
 the flag. Queued as a todo.
 
-## 0.48.0 close-out
+## chore: close Migration A sweep cycle (0.48.0)
+
+Commits: [[22]]
 
 Migration A sweep complete. Every standalone subcommand now runs
 the `fn x(&Context, &XxxParams)` shape with a `From`/`TryFrom`
@@ -958,24 +739,9 @@ ladder: `symlink` (-1), `clone` (-2), `sync` (-3),
   [dual bookmark parameters](#push-dual-bookmark-parameters) and
   [unimplemented `recheck` flag](#push-unimplemented-recheck-flag).
 
-### Edits (this commit, 0.48.0)
-
-- `Cargo.toml`: 0.48.0-6 → 0.48.0.
-- `ARCHITECTURE.md`: Migration A intro + table —
-  `chid`/`desc`/`list`/`show` rows → "deferred — rides the
-  CommonArgs sweep"; table reordered (worked examples → 0.48.0
-  ladder → deferred); intro past-tensed.
-- `notes/todo.md`: In-Progress Migration A entry removed (cycle
-  done); `## Done` gets the cycle entry; "Subcommand layer / CLI
-  decoupling" todo item slimmed (only CommonArgs-coupled
-  subcommands left); close-out sweep — 0.42.0-* / 0.43.0 `## Done`
-  entries migrated to `done.md` with their refs.
-- `notes/done.md`: received the five migrated entries + `[77]`
-  `[78]` `[79]` `[81]` `[84]` refs.
-
 ## docs: por-dual capture + icr cleanup (0.48.1)
 
-Commits: [1]
+Commits: [[1]]
 
 Docs-only follow-on to the 0.48.0 close-out (same shape as
 the 0.42.1 docs cycle). Records the por/dual parity +
@@ -985,6 +751,8 @@ that the branch has landed in `main` (rebased at 0.42.0-4.7)
 and been deleted local + remote. No code change.
 
 ## docs: chores edit list → commit message (0.48.2)
+
+Commits: [[23]]
 
 Move the per-file edit list out of `chores-NN.md` sections
 into the commit message body — git becomes the source of
@@ -1022,8 +790,64 @@ as the worked example, this section is born in the new shape
   `[[N]]` (not `[N]`) so the brackets render — `[27]` reads
   as a reference, `27` doesn't. `[N]:` definitions and inline
   links stay single-bracketed. `todo.md` is fully retrofitted;
-  `chores-01..09` are grandfathered.
+  `chores-01..08` grandfathered (chores-09 retrofitted in
+  0.48.3).
+
+## docs: chores-09 → new shape (0.48.3)
+
+Retroactively convert every commit-recording section in
+`chores-09.md` to the 0.48.2 convention: section header =
+exact commit title; `Commits: [[N]]` first-line citing the
+section's commit; `### Edits` subsections removed (the commit
+body is the record). Line 114's bare `[76]` (a
+foreign-namespace citation attempt) → a `chores-09`-local ref
+to the chores-07 `--scope` design section. Lines 38–40's
+renumbering description left code-spanned (literal historical
+tokens, no stable current target). `notes/README.md` codifies
+the footnote framing — ref numbers are file-local slots; a
+`[N]` in a code span is a quoted identifier (data), not a
+citation; cross-file pointing uses an inline link.
+
+### Why retrofit one file
+
+- **Surfaced by adding `# References`.** 0.48.2 gave
+  `chores-09` a `# References` section; a reader then expects
+  it to define the page's `[N]` mentions — but most were
+  `todo.md`'s / `done.md`'s numbers written into `chores-09`
+  prose, a category error. Half-implemented was the worst of
+  both; either the page runs the convention fully or it
+  doesn't.
+- **Bounded.** One file, 21 historical commit-recording
+  sections, ~10 back-refs (`todo.md` `[85]`–`[88]`, `done.md`
+  `[79]`/`[81]`/`[84]`, two prose mentions in
+  `init-clone-refactor-conflict.md`). `chores-01..08` have
+  similar vestigials but no `# References` forcing the issue —
+  they stay grandfathered (the convention sunsets their
+  `### Edits` lists by attrition, not retrofit).
 
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/3f176b45235c "3f176b45235c4bc7da4b8de5b18a7f454c464d1e"
+[2]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"
+[3]: https://github.com/winksaville/vc-x1/commit/bb27daa86a07 "bb27daa86a078e2e06ebc56e0159e89829fb6356"
+[4]: https://github.com/winksaville/vc-x1/commit/7880bfe2700d "7880bfe2700d8ce47946e5d9f6bf7e05e34de5c6"
+[5]: https://github.com/winksaville/vc-x1/commit/c1525175948c "c1525175948c1a97118996bb0c997c37c81351ff"
+[6]: https://github.com/winksaville/vc-x1/commit/bc97a768e643 "bc97a768e6437279599311eb57ee3eb66b549295"
+[7]: https://github.com/winksaville/vc-x1/commit/29b2e9c73b2d "29b2e9c73b2d9cb29b7b05f5389b02338b7dab43"
+[8]: https://github.com/winksaville/vc-x1/commit/fc7b518a0731 "fc7b518a07319a40b580e149c3900b1b7bae27ad"
+[9]: https://github.com/winksaville/vc-x1/commit/3a0fa145fc69 "3a0fa145fc694477180179f58b1fb71043d070a8"
+[10]: https://github.com/winksaville/vc-x1/commit/545c7c725b31 "545c7c725b3143d6ed1e92b870e8370362eaafdf"
+[11]: https://github.com/winksaville/vc-x1/commit/be7f2502dded "be7f2502ddedbe6413212ef9df6bf93852c1a538"
+[12]: https://github.com/winksaville/vc-x1/commit/e966d65feef8 "e966d65feef8b93791dcfef1f3c64a37865ffb32"
+[13]: https://github.com/winksaville/vc-x1/commit/d02782e14eff "d02782e14eff44a969b45644bd893ec7bf8e5bb5"
+[14]: https://github.com/winksaville/vc-x1/commit/aad07a58e033 "aad07a58e033226734465078966cbfdde7dc48c7"
+[15]: https://github.com/winksaville/vc-x1/commit/c4daeef03551 "c4daeef0355187deac2f261572bc71ca3a0ef345"
+[16]: https://github.com/winksaville/vc-x1/commit/6a5299ea624d "6a5299ea624dbcbe87e115258656baf5d96010ac"
+[17]: https://github.com/winksaville/vc-x1/commit/0529aa50c877 "0529aa50c8777506d65232caa61a33f65d81d11a"
+[18]: https://github.com/winksaville/vc-x1/commit/a2a30f7ed1c1 "a2a30f7ed1c1c25cd164a4bcf0713f27737bb006"
+[19]: https://github.com/winksaville/vc-x1/commit/aa0ee07c7144 "aa0ee07c714448678651fab8a16b67fcc083ab8d"
+[20]: https://github.com/winksaville/vc-x1/commit/88b0e5c3b114 "88b0e5c3b114f799928d1d593aecdad46e1179cd"
+[21]: https://github.com/winksaville/vc-x1/commit/c9d89386fb06 "c9d89386fb06876d1ee29e5cf370acc3c83caf66"
+[22]: https://github.com/winksaville/vc-x1/commit/e284505c346c "e284505c346ca051e03d36889389e49229252904"
+[23]: https://github.com/winksaville/vc-x1/commit/79279d112791 "79279d112791c12190a755b8aec9be1ec174ecb8"
+[24]: /notes/chores-07.md#--scope-enum-refactor-0420

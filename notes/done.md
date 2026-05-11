@@ -182,6 +182,6 @@ As todo.md `## Done` sections fills move them to here.
 [75]: /notes/chores-08.md#operations
 [77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
 [78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
-[79]: /notes/chores-09.md#init-clone-refactor-rebase-landing-0420-47
-[81]: /notes/chores-09.md#0420-close-out
-[84]: /notes/chores-09.md#test-module-extraction-0430
+[79]: /notes/chores-09.md#chore-init-clone-refactor-rebase-landing-0420-47
+[81]: /notes/chores-09.md#chore-close-0420-cycle-at--47-0420
+[84]: /notes/chores-09.md#chore-open-0430-cycle-0430-0

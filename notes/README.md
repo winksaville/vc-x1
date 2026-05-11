@@ -82,6 +82,18 @@ are scoped to that file — `[1]` in `chores-07.md` and `[1]` in
 `chores-01.md` are independent slots that may point at completely
 different URLs. New chores files start their numbering at `[1]`.
 
+Treat `[N]` like a **footnote**: the number is a local slot, only
+meaningful within its file's `# References`. So a `[N]` *citation*
+(bare `[N]`, or doubled `[[N]]` — see below) never reuses another
+file's number; to cite a target a sibling file references, pick
+your own next-local slot and define it (the same target may carry
+a different number in each file). A `[N]` *inside a code span*
+(`` `[72]` ``) is different — that's a quoted identifier: literal
+text naming a ref-key (often from another file's namespace), data,
+not a citation; it needs no definition here. To point at a section
+of another file from prose, use an inline link with an anchor —
+`[that section](../chores-07.md#…)` — not a bare number.
+
 A `chores-NN.md` `# References` entry is usually a
 `/notes/<file>.md#anchor` (or `/ARCHITECTURE.md`) path, but may
 also be a **commit reference** —

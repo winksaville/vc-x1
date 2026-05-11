@@ -9,7 +9,7 @@ playbook that fixed it, and the strategic decisions taken
 ## Resolution (2026-05-11)
 
 `init-clone-refactor` landed into `main` at `0.42.0-4.7`
-(see `notes/chores-09.md > ## init-clone-refactor rebase
+(see `notes/chores-09.md > ## chore: init-clone-refactor rebase
 landing (0.42.0-4.7)`): `main`'s `0.42.0-0..-4.6` work was
 rebased on top of the branch at its `0.41.1` close-out tip,
 so the branch's commits are now ancestors of `main`. The
@@ -118,7 +118,7 @@ Resolved: the "vice versa" topology — `main`'s
 `0.42.0-0..-4.6` work rebased on top of the branch at
 its `0.41.1` close-out tip, force-pushed at close-out
 (`0.42.0-4.7`). See Resolution above and
-`notes/chores-09.md > ## init-clone-refactor rebase
+`notes/chores-09.md > ## chore: init-clone-refactor rebase
 landing (0.42.0-4.7)`.
 
 ## Recovery playbook (used 2026-05-02)

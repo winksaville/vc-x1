@@ -243,6 +243,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [[88]]
 - docs: por-dual capture + icr cleanup (0.48.1) [[92]]
 - docs: chores edit list → commit message (0.48.2) [[93]]
+- docs: chores-09 → new shape (0.48.3) [[94]]
 
 # References
 
@@ -270,12 +271,13 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [80]: /ARCHITECTURE.md
 [82]: /notes/forks-multi-user.md
 [83]: /notes/bot-data-formats.md
-[85]: /notes/chores-09.md#architecture-doc-and-terminology-reconciliation-0450
-[86]: /notes/chores-09.md#finalize-subcommand-layer-migration-0460
-[87]: /notes/chores-09.md#finalize-migration-b--squash-options_flags-leaf-0470
-[88]: /notes/chores-09.md#migration-a-sweep-subcommand-layer-ports-0480
+[85]: /notes/chores-09.md#docs-architecture-md--subcommand-layer-naming-0450
+[86]: /notes/chores-09.md#refactor-finalize--context--finalizeparams-0460
+[87]: /notes/chores-09.md#refactor-finalize---squash--options_flags-leaf-0470
+[88]: /notes/chores-09.md#chore-open-0480-cycle--migration-a-sweep-0480-0
 [89]: /notes/chores-09.md#push-dual-bookmark-parameters
 [90]: /notes/chores-09.md#push-unimplemented-recheck-flag
 [91]: /notes/por-dual-parity.md
 [92]: /notes/chores-09.md#docs-por-dual-capture--icr-cleanup-0481
 [93]: /notes/chores-09.md#docs-chores-edit-list--commit-message-0482
+[94]: /notes/chores-09.md#docs-chores-09--new-shape-0483
