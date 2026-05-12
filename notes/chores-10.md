@@ -115,6 +115,8 @@ both repos with ochid trailers.
 
 ## refactor: CommonArgs → options_flags (0.49.0-1.1)
 
+Commits: [[2]]
+
 The options_flags-extraction relocation, and where the cycle is
 re-scoped (see `### Cycle re-scope`). Relocate `common::CommonArgs`
 — the shared arg set for `chid` / `desc` / `list` / `show` —
@@ -230,6 +232,8 @@ Revised ladder (supersedes the 0.49.0-0 one):
 
 ## docs: slim ARCHITECTURE.md; chores-10 (0.49.0-1.2)
 
+Commits: [[3]]
+
 Acting on review feedback that `ARCHITECTURE.md` had drifted
 into "how" / transient territory — per-subcommand status,
 version-by-version tables, sub-step ladders. Pull that out so
@@ -264,6 +268,45 @@ Cycle re-scope` records the change).
 - `src/options_flags/README.md` — the "Migration B" mention →
   "the options_flags extraction".
 
+## chore: tidy todo + process rule (0.49.0-2.1)
+
+Opens `0.49.0-2` (the `-R`/`--repo` → `-s`/`--scope` rollout for
+`chid` / `desc` / `list` / `show` — design already in `### Cycle
+re-scope`'s `--scope` bullet) with a small bookkeeping/process
+pass the user asked for first.
+
+- Two `## Todo` items in `notes/todo.md` duplicated the
+  In-Progress "CommonArgs sweep" task — "Subcommand layer / CLI
+  decoupling — remaining subcommands" (its remaining work *is*
+  the In-Progress task; its done work is already in `## Done`)
+  and "CommonArgs sweep — add `--scope=…`" (= the `0.49.0-2`
+  step). Both removed.
+- New CLAUDE.md rule (in `### Versioning`, plus a catch-line in
+  the pre-commit checklist): a `## Todo` item is deleted when it
+  goes `## In Progress` — see `### Process: delete a Todo item
+  when it goes In Progress`.
+- Cycle-start chores: backfilled the `0.49.0-1.1` / `0.49.0-1.2`
+  chores `Commits:` refs (`[[2]]` / `[[3]]`); bumped `Cargo.toml`
+  to `0.49.0-2.1`; expanded the `notes/todo.md` In-Progress
+  ladder with the `-2.1` / `-2.2` sub-steps.
+
+### Process: delete a Todo item when it goes In Progress
+
+The `0.49.0` "CommonArgs sweep" In-Progress task absorbed three
+`## Todo` items (the Context+Params port for the four, the
+options_flags extraction, the `--scope` rollout) without those
+items being removed — so `## Todo` carried zombie entries
+describing work already underway. The fix is a rule, not a
+one-off cleanup: when a `## Todo` item is picked up — its `##
+In Progress` ladder created, or an existing ladder *re-scoped*
+to absorb it — the entry is deleted in the same commit. `## In
+Progress` is the sole record until close-out, then it moves to
+`## Done`. A `## Todo` entry that duplicates current In-Progress
+work is a process bug; the pre-commit checklist gets a
+catch-line for it.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
+[2]: https://github.com/winksaville/vc-x1/commit/cc19273e2ca3 "cc19273e2ca30f1beedd55198a11bdf045b281ee"
+[3]: https://github.com/winksaville/vc-x1/commit/f6438bc7394e "f6438bc7394e76a3d83de08467c6fafec7a819b7"

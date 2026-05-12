@@ -23,7 +23,9 @@ shape. Design:
    - 0.49.0-1 options_flags extraction — relocate `CommonArgs` → `options_flags/common_args.rs`; re-scope cycle. Kept separate — `-1.1` + `-1.2` land as-is, no `0.49.0-1` close-out commit:
      - 0.49.0-1.1 the relocation + all four importers (done)
      - 0.49.0-1.2 docs: slim ARCHITECTURE.md; start chores-10 (done)
-   - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` (wire `parse_scope` / `default_scope` / `scope_to_repos`; slim `for_each_repo`) — may split into `-2.N`
+   - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` for `chid`/`desc`/`list`/`show`. Sub-steps:
+     - 0.49.0-2.1 open the step; tidy `## Todo` (drop the two now-in-progress items); add a CLAUDE.md rule — a picked-up `## Todo` item is deleted when it goes `## In Progress`; backfill `-1.1`/`-1.2` chores `Commits:` refs (current)
+     - 0.49.0-2.2 the rollout — `CommonArgs.repos` → `scope` (`parse_scope`); wire `default_scope` / `scope_to_repos`; `for_each_repo` takes a resolved `Vec<PathBuf>`; help / README / CLAUDE.md (`chid -s code,bot`) update; tests
    - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
    - 0.49.0-4 desc Context+Params port
    - 0.49.0-5 list Context+Params port
@@ -40,16 +42,6 @@ in `notes/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Subcommand layer / CLI decoupling — remaining
-   subcommands.** The Context+Params port (the `fn x(&Context,
-   &XxxParams)` signature + a `From`/`TryFrom<&XxxArgs>` at the
-   binary edge) is done for every standalone subcommand: `init`
-   (0.44.0, worked example), `finalize` (0.46.0, `TryFrom` +
-   `--log` onto `Context`), and the `0.48.0` sweep — `symlink`,
-   `clone`, `sync`, `validate-desc`, `fix-desc`, `push`. Only
-   `chid`/`desc`/`list`/`show` remain; their port rides the
-   "CommonArgs sweep" item below (port + options_flags
-   extraction entangled there). [[1]],[[2]]
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -57,8 +49,7 @@ renumbering. Reference by displayed number ("let's work on #3").
    on the new `squash` leaf. Sweep the pre-existing single-field
    leaves to match: `scope`, `repo`, `dry_run`, `private`,
    `account`, `config`, `use_template` + their consumers
-   (`init.rs`, tests). Multi-field leaves (`push_retry`) keep
-   descriptive names. Candidate for `0.47.1`. [[3]]
+   (`init.rs`, tests).
 1. **por/dual parity + bidirectional conversion.** Make
    `por` and `dual` first-class equals (dual is primary
    today, por bolted on); add `por → dual` / `dual → por`
@@ -136,11 +127,6 @@ renumbering. Reference by displayed number ("let's work on #3").
    bot, `bot` reverses, `code,bot` does both (new
    default). `Single(_)` errors here (validate compares
    two repos by definition). [[13]],[[14]],[[15]]
-1. CommonArgs sweep — add `--scope=code|bot|code,bot|<path>`
-   to `chid`/`desc`/`list`/`show` in one cycle (single
-   shared `CommonArgs` change picks all four up). Drops
-   the existing `-R`/`--repo` repeatable flag in favor of
-   the new path form. [[9]],[[13]],[[14]]
 1. Unify `.vc-config.toml` accessors onto Pattern B
    (typed struct + `load_from(path)`, like new
    `config::UserConfig` and `push::resolve_state_layout`).

@@ -240,6 +240,15 @@ on scope:
 The plan should recommend one approach and get user approval before
 starting.
 
+A plan that picks up a `## Todo` item — or *re-scopes* an
+existing `## In Progress` ladder to absorb one — **deletes that
+`## Todo` entry in the same commit** (the version-bump / plan
+commit). `## In Progress` is the sole record of that work until
+close-out, when it moves to `## Done`; a cycle that merges
+several entangled `## Todo` items deletes all of them. A `## Todo`
+entry that duplicates current `## In Progress` work is a process
+bug.
+
 For multi-step:
 
 1. Bump version to `X.Y.Z-0` with the plan and commit as a chore
@@ -387,10 +396,13 @@ finds it.
 
 ### Pre-commit checklist
 
-At cycle *start* (before the version bump): backfill the
+At cycle *start* (before the version bump): (a) backfill the
 previous chores section's `Commits:` ref with the just-pushed
 commit's URL + full SHA — see
-[Chores commit references](#chores-commit-references).
+[Chores commit references](#chores-commit-references); (b) if
+this cycle picks up a `## Todo` item (or re-scopes `## In
+Progress` to absorb one), delete that `## Todo` entry — see
+[Versioning](#versioning).
 
 Before proposing a commit, run all of the following and fix any issues:
 
