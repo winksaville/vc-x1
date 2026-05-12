@@ -12,7 +12,7 @@ when they correspond to a release: `## Description (X.Y.Z)`.
 
 ## chore: init-clone-refactor rebase landing (0.42.0-4.7)
 
-Commits: [[2]]
+Commits: [[1]]
 
 Rebased main (0.42.0-0..-4.6) onto init-clone-refactor at its
 0.41.1 close-out tip (`slvprlpw`). Chids preserved; ochid
@@ -84,7 +84,7 @@ op-log + origin are the safety net.
 
 ## chore: close 0.42.0 cycle at -4.7 (0.42.0)
 
-Commits: [[3]]
+Commits: [[2]]
 
 Cycle closed at -4.7 (init-clone-refactor rebase landing)
 rather than completing the originally planned full
@@ -105,7 +105,7 @@ rather than completing the originally planned full
 Originally-planned -4 / -5 / -6 / -7 substeps — the
 `--scope` sweep across the remaining subcommands — moved
 back to `notes/todo.md > ## Todo`. Design references stay
-at chores-07 [[24]]:
+at chores-07 [[3]]:
 
 - `vc-x1 push --scope` (was -4; pivoted into substep
   protocol + icr work).
@@ -741,7 +741,7 @@ ladder: `symlink` (-1), `clone` (-2), `sync` (-3),
 
 ## docs: por-dual capture + icr cleanup (0.48.1)
 
-Commits: [[1]]
+Commits: [[23]]
 
 Docs-only follow-on to the 0.48.0 close-out (same shape as
 the 0.42.1 docs cycle). Records the por/dual parity +
@@ -752,7 +752,7 @@ and been deleted local + remote. No code change.
 
 ## docs: chores edit list → commit message (0.48.2)
 
-Commits: [[23]]
+Commits: [[24]]
 
 Move the per-file edit list out of `chores-NN.md` sections
 into the commit message body — git becomes the source of
@@ -795,6 +795,8 @@ as the worked example, this section is born in the new shape
 
 ## docs: chores-09 → new shape (0.48.3)
 
+Commits: [[25]]
+
 Retroactively convert every commit-recording section in
 `chores-09.md` to the 0.48.2 convention: section header =
 exact commit title; `Commits: [[N]]` first-line citing the
@@ -825,11 +827,62 @@ citation; cross-file pointing uses an inline link.
   they stay grandfathered (the convention sunsets their
   `### Edits` lists by attrition, not retrofit).
 
+## docs: renumber todo.md + chores-09 refs (0.48.4)
+
+Compact two files' `# References` to a contiguous `[1]..[N]` in
+first-citation-appearance order — walk the file's prose in
+document order (`todo.md`: `## Todo` items then `## Done` items;
+`chores-09.md`: top to bottom) and assign `[1]`, `[2]`, … as
+each ref's first `[[N]]` citation appears.
+
+- **`todo.md`** — the 0.48.2/0.48.3 retrofits and routine entry
+  churn left a sparse namespace (gaps from pruned entries,
+  numbers into the 90s); the re-pack makes the next new ref
+  `[N+1]`, not `[96]`.
+- **`chores-09.md`** — the 0.48.2/0.48.3 bulk retrofit allocated
+  slots in *conversion* order, not document order: `[1]` was the
+  first section converted (the 0.48.1 section, near the bottom),
+  `[2]..[22]` the historical sections top-to-bottom, `[24]` the
+  chores-07 design ref (first cited near the top). The re-pack
+  puts the numbers back in reading order — `[1]` is the topmost
+  citation.
+
+Properties of the renumber:
+
+- **File-local.** Only the file's own `[[N]]` citations and
+  `[N]:` definition lines move; every `[N]:` *target* and every
+  other note file is untouched (ref numbers are file-local
+  slots — `done.md` keeps its own numbering).
+- **First-citation order, not definition order.** The number a
+  reader meets first is `[1]`; following a citation walks *down*
+  the `# References` list, never up.
+- **Code spans are not citations.** A `[[N]]` inside a `` ` ``
+  span (e.g. this section's `[[9]],[[13]],[[14]]` example) is a
+  literal token, not a reference — the script masks fenced and
+  inline code before scanning.
+- **Cosmetic: multi-ref groups sorted ascending** — a cluster is
+  written `[[9]],[[13]],[[14]]`, not in the order the refs
+  happened to land.
+
+### When to re-pack a file's references
+
+- A renumber is a whole-file rewrite of citations + defs — do it
+  opportunistically (when the namespace has drifted enough to
+  annoy) rather than under a standing "keep it dense" rule that
+  would force a rewrite on every prune.
+- `todo.md` is the live churn surface (entries land and get
+  pruned every cycle) so it fragments fastest and is the usual
+  candidate. `chores-NN.md` / `done.md` are append-mostly; their
+  numbering only drifts out of reading order after an unusual
+  event like the 0.48.2/0.48.3 retrofit — which is exactly why
+  `chores-09` got re-packed here and the other chores files
+  don't need it.
+
 # References
 
-[1]: https://github.com/winksaville/vc-x1/commit/3f176b45235c "3f176b45235c4bc7da4b8de5b18a7f454c464d1e"
-[2]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"
-[3]: https://github.com/winksaville/vc-x1/commit/bb27daa86a07 "bb27daa86a078e2e06ebc56e0159e89829fb6356"
+[1]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"
+[2]: https://github.com/winksaville/vc-x1/commit/bb27daa86a07 "bb27daa86a078e2e06ebc56e0159e89829fb6356"
+[3]: /notes/chores-07.md#--scope-enum-refactor-0420
 [4]: https://github.com/winksaville/vc-x1/commit/7880bfe2700d "7880bfe2700d8ce47946e5d9f6bf7e05e34de5c6"
 [5]: https://github.com/winksaville/vc-x1/commit/c1525175948c "c1525175948c1a97118996bb0c997c37c81351ff"
 [6]: https://github.com/winksaville/vc-x1/commit/bc97a768e643 "bc97a768e6437279599311eb57ee3eb66b549295"
@@ -849,5 +902,6 @@ citation; cross-file pointing uses an inline link.
 [20]: https://github.com/winksaville/vc-x1/commit/88b0e5c3b114 "88b0e5c3b114f799928d1d593aecdad46e1179cd"
 [21]: https://github.com/winksaville/vc-x1/commit/c9d89386fb06 "c9d89386fb06876d1ee29e5cf370acc3c83caf66"
 [22]: https://github.com/winksaville/vc-x1/commit/e284505c346c "e284505c346ca051e03d36889389e49229252904"
-[23]: https://github.com/winksaville/vc-x1/commit/79279d112791 "79279d112791c12190a755b8aec9be1ec174ecb8"
-[24]: /notes/chores-07.md#--scope-enum-refactor-0420
+[23]: https://github.com/winksaville/vc-x1/commit/3f176b45235c "3f176b45235c4bc7da4b8de5b18a7f454c464d1e"
+[24]: https://github.com/winksaville/vc-x1/commit/79279d112791 "79279d112791c12190a755b8aec9be1ec174ecb8"
+[25]: https://github.com/winksaville/vc-x1/commit/47e5e854c922 "47e5e854c9220503ed46eda25ca40293e31bfdb1"

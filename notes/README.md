@@ -102,6 +102,21 @@ a section's `Commits:` line. See
 [`../CLAUDE.md`](../CLAUDE.md#chores-commit-references) for the
 why and the exact shape.
 
+A file's `# References` can be **re-packed** to a contiguous
+`[1]..[N]` in first-citation-appearance order — walk the file's
+prose in document order (`todo.md`: `## Todo` then `## Done`;
+`chores-NN.md`: top to bottom) and number refs as their first
+`[[N]]` citation appears. This is a file-local rewrite — only
+that file's `[[N]]` citations and `[N]:` definitions move; every
+target and sibling file is untouched. A `[[N]]` inside a `` ` ``
+code span is a literal token, not a citation, and is left alone.
+Do it opportunistically (when the namespace has drifted enough to
+annoy), not on a schedule: `todo.md` fragments fastest (entries
+land and get pruned every cycle) and is the usual candidate;
+`chores-NN.md` / `done.md` are append-mostly and only need it
+after an unusual event (e.g. a bulk retrofit that allocated slots
+out of document order).
+
 ## Retiring Done entries
 
 `todo.md`'s `## Done` section is a rolling buffer of recently shipped
