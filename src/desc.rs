@@ -1,15 +1,27 @@
+//! `desc` subcommand — print each commit in a revision range with
+//! its full description (changeID + commitID + bookmarks + title,
+//! then the body), the anchor commit bolded.
+//!
+//! - `DescArgs`: clap surface; flattens
+//!   `options_flags::common_args::CommonArgs`.
+//! - `desc(&DescArgs)`: the op — `resolve_spec` / `resolve_header` /
+//!   `for_each_repo` + `format_commit_full` + `indent_body`.
+
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info};
 
 use crate::common;
+use crate::options_flags::common_args::CommonArgs;
 
+/// CLI args for `desc` — just the shared read-only commit-query args.
 #[derive(Args, Debug)]
 pub struct DescArgs {
     #[command(flatten)]
-    pub common: common::CommonArgs,
+    pub common: CommonArgs,
 }
 
+/// Print each commit in the resolved range with its full description.
 pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!("desc: enter");
     let c = &args.common;
@@ -43,9 +55,10 @@ mod tests {
 
     use clap::Parser;
 
+    use crate::options_flags::common_args::CommonArgs;
     use crate::{Cli, Commands};
 
-    fn parse(args: &[&str]) -> crate::common::CommonArgs {
+    fn parse(args: &[&str]) -> CommonArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::Desc(a) => a.common,

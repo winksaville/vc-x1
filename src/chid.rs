@@ -1,15 +1,26 @@
+//! `chid` subcommand — print the short change ID of each commit in a
+//! revision range, one per line (script-friendly output).
+//!
+//! - `ChidArgs`: clap surface; flattens
+//!   `options_flags::common_args::CommonArgs`.
+//! - `chid(&ChidArgs)`: the op — `resolve_spec` / `resolve_header` /
+//!   `for_each_repo` + print `format_chid`.
+
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info};
 
 use crate::common;
+use crate::options_flags::common_args::CommonArgs;
 
+/// CLI args for `chid` — just the shared read-only commit-query args.
 #[derive(Args, Debug)]
 pub struct ChidArgs {
     #[command(flatten)]
-    pub common: common::CommonArgs,
+    pub common: CommonArgs,
 }
 
+/// Print the short change ID of each commit in the resolved range.
 pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!("chid: enter");
     let c = &args.common;
@@ -36,9 +47,10 @@ mod tests {
 
     use clap::Parser;
 
+    use crate::options_flags::common_args::CommonArgs;
     use crate::{Cli, Commands};
 
-    fn parse(args: &[&str]) -> crate::common::CommonArgs {
+    fn parse(args: &[&str]) -> CommonArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::Chid(a) => a.common,

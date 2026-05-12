@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use clap::Args;
-
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::scope::{Scope, Side};
 use crate::toml_simple;
@@ -23,44 +21,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
 use log::{debug, error, info, trace};
 use pollster::FutureExt;
-
-/// Common CLI args shared by read-only subcommands (chid, desc, list, show).
-#[derive(Args, Debug)]
-pub struct CommonArgs {
-    /// Revision (with optional .. notation)
-    #[arg(value_name = "REVISION")]
-    pub pos_rev: Option<String>,
-
-    /// Number of commits to show (per dotted side)
-    #[arg(value_name = "COMMITS")]
-    pub pos_count: Option<usize>,
-
-    /// Revision to query
-    #[arg(short, long, default_value = "@")]
-    pub revision: String,
-
-    /// Path to jj repo; repeatable or comma-separated [default: .]
-    #[arg(short = 'R', long = "repo", value_name = "PATH")]
-    pub repos: Vec<PathBuf>,
-
-    /// Number of commits to show
-    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
-    pub limit: Option<usize>,
-
-    /// Custom label decoration between repos
-    #[arg(
-        short = 'l',
-        long = "label",
-        value_name = "TEXT",
-        allow_hyphen_values = true,
-        default_value = "==="
-    )]
-    pub label: String,
-
-    /// Suppress label between repos
-    #[arg(short = 'L', long = "no-label")]
-    pub no_label: bool,
-}
 
 /// Result of parsing positional `..` notation.
 ///

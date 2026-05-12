@@ -1,0 +1,68 @@
+//! `CommonArgs` — the shared arg set for the read-only commit-query
+//! subcommands (`chid` / `desc` / `list` / `show`): a `REVISION` /
+//! `COMMITS` positional pair, `-r`/`--revision`, `-R`/`--repo`,
+//! `-n`/`--commits`, and the `-l`/`-L` inter-repo label pair.
+//!
+//! A "bundle" in the inline-fields sense (cf. `provision_bundle`'s
+//! flatten-of-leaves form): the fields aren't extracted into per-flag
+//! leaves because none of them is reused outside these four — if one
+//! ever is (e.g. a future command wants just `--revision`), extract
+//! that field into a leaf and `#[command(flatten)]` it here. Consumers
+//! flatten this and add their own extra `#[arg]` fields (`list`'s
+//! `-w`/`--width`, `show`'s `-f`/`--files`). See
+//! [options_flags](README.md) for shared architecture.
+
+use std::path::PathBuf;
+
+use clap::Args;
+
+/// Shared CLI args for the read-only commit-query subcommands —
+/// see [Bundle](README.md#architecture).
+///
+/// - `pos_rev` / `pos_count` — the `REVISION` / `COMMITS` positionals
+///   (`common::resolve_spec` reconciles them with `-r` / `-n`).
+/// - `revision` — `-r` / `--revision` (default `@`); `..` notation is
+///   parsed downstream by `common::parse_dot_rev`.
+/// - `repos` — `-R` / `--repo`, repeatable / comma-separated repo
+///   paths (the `.` default is applied in `common::for_each_repo`).
+/// - `limit` — `-n` / `--commits`, caps the output.
+/// - `label` / `no_label` — `-l` / `--label` (default `===`) and
+///   `-L` / `--no-label`; `common::resolve_header` combines them.
+#[derive(Args, Debug)]
+pub struct CommonArgs {
+    /// Revision (with optional .. notation)
+    #[arg(value_name = "REVISION")]
+    pub pos_rev: Option<String>,
+
+    /// Number of commits to show (per dotted side)
+    #[arg(value_name = "COMMITS")]
+    pub pos_count: Option<usize>,
+
+    /// Revision to query
+    #[arg(short, long, default_value = "@")]
+    pub revision: String,
+
+    /// Path to jj repo; repeatable or comma-separated [default: .]
+    #[arg(short = 'R', long = "repo", value_name = "PATH")]
+    pub repos: Vec<PathBuf>,
+
+    /// Number of commits to show
+    #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
+    pub limit: Option<usize>,
+
+    /// Custom label decoration between repos
+    #[arg(
+        short = 'l',
+        long = "label",
+        value_name = "TEXT",
+        allow_hyphen_values = true,
+        default_value = "==="
+    )]
+    pub label: String,
+
+    /// Suppress label between repos
+    #[arg(short = 'L', long = "no-label")]
+    pub no_label: bool,
+}
+
+impl super::OptionFlagBundle for CommonArgs {}

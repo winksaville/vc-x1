@@ -19,10 +19,20 @@ Three composition patterns:
   flag or a small fixed pair (e.g. `push_retry`'s two fields).
   Help text aims to be generic enough for any reasonable
   consumer.
-- **Bundle** — a `#[derive(Args)]` that flattens N leaves into a
-  named role (e.g. `ProvisionOptionFlagBundle`). One
-  `#[command(flatten)]` line at the consumer picks up the whole
-  bundle.
+- **Bundle** — a `#[derive(Args)]` shared by N subcommands,
+  picked up with one `#[command(flatten)]` line. Two forms:
+  - *flatten-of-leaves* — composes existing leaves into a named
+    role (e.g. `ProvisionOptionFlagBundle` = `dry_run` +
+    `private` + `push_retry`). Use this when the constituent
+    flags are themselves reused elsewhere.
+  - *inline-fields* — holds the `#[arg]` fields directly (e.g.
+    `common_args::CommonArgs` — the read-only commit-query arg
+    set). Use this when a whole *set* of args is shared but the
+    individual flags aren't reused outside the bundle —
+    extracting per-flag leaves would buy no reuse. If one of the
+    fields ever *is* reused (a future command wants just that
+    flag), extract it into a leaf then and
+    `#[command(flatten)]` it into the bundle.
 - **Pattern A escape hatch** — when a consumer needs unique help
   text (or different defaults), it skips the leaf's flatten and
   inlines its own `#[arg(value_parser = …)]` field, reusing the
@@ -56,6 +66,10 @@ Wire form is presentation; the category is the underlying domain.
      explicitly with `#[arg(long = "<flag>", …)]`. The consumer
      then reads `args.<leaf>.value` rather than doubling the flag
      name (`args.squash.value`, not `args.squash.squash`).
+     Caveat: clap derives an arg's *id* from the field name, so
+     if two `value`-field leaves can ever be flattened into the
+     same struct, give each an explicit `#[arg(id = "<unique>")]`
+     (else `clap_builder` panics — duplicate arg id `value`).
    - **Multi-field leaf** — descriptive per-field names
      (`push_retries`, `push_retry_delay`); clap derives each
      flag from its field name as usual.

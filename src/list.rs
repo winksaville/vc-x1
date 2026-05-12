@@ -1,13 +1,25 @@
+//! `list` subcommand — list commits in a jj repo, one per line:
+//! changeID + ochid (padded) + bookmarks + title, the anchor bolded.
+//!
+//! - `ListArgs`: clap surface; flattens
+//!   `options_flags::common_args::CommonArgs` plus a `-w`/`--width`
+//!   for the ochid column.
+//! - `list(&ListArgs)`: the op — `resolve_spec` / `resolve_header` /
+//!   `for_each_repo` + `format_commit_with_ochid`.
+
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info, trace, warn};
 
 use crate::common;
+use crate::options_flags::common_args::CommonArgs;
 
+/// CLI args for `list` — the shared read-only commit-query args plus
+/// the ochid column width.
 #[derive(Args, Debug)]
 pub struct ListArgs {
     #[command(flatten)]
-    pub common: common::CommonArgs,
+    pub common: CommonArgs,
 
     /// ochid column width
     #[arg(short = 'w', long = "width", default_value_t = DEFAULT_OCHID_WIDTH)]
@@ -16,6 +28,7 @@ pub struct ListArgs {
 
 const DEFAULT_OCHID_WIDTH: usize = 21;
 
+/// List commits in the resolved range with the ochid column.
 pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!("list: enter");
     let c = &args.common;

@@ -112,14 +112,25 @@ CLI layer:
   completer); Migration B tracks what's been moved here so
   far. See
   [`src/options_flags/README.md`](src/options_flags/README.md).
-  - reusable **leaves**: `account`, `config`, `dry_run`,
-    `private`, `push_retry`, `repo`, `scope`, `squash`,
-    `use_template`.
-  - reusable **bundles**: `provision_bundle`.
-- `src/common.rs` — `CommonArgs` (the shared positional-rev /
-  `-R` repo-list / `-n` / `--limit` / `-L` flag set flattened
-  by `chid`, `desc`, `list`, `show`) plus the repo-iteration
-  and revision-resolution helpers they share.
+  - reusable **leaves**: `account`, `commit_limit`, `config`,
+    `dry_run`, `private`, `push_retry`, `repo`, `repo_label`,
+    `revision`, `scope`, `squash`, `use_template`.
+  - reusable **bundles**: `common_bundle`
+    (`CommonOptionFlagBundle` — the read-only commit-query OFs,
+    flattened by `chid` / `desc` / `list` / `show`),
+    `provision_bundle`.
+- `src/common.rs` — the repo-iteration and revision-resolution
+  helpers the read-only commit-query subcommands share:
+  `for_each_repo`, `collect_ids`, `resolve_revset`, `DotSpec` /
+  `parse_dot_rev` / `resolve_spec` (`..` notation + count
+  reconciliation), `Header` / `resolve_header`, the `format_*`
+  printers, plus `find_workspace_root` / `default_scope` /
+  `scope_to_repos`. Also still holds `CommonArgs` — being
+  retired: the 0.49.0-1 sub-steps move the four read-only
+  subcommands onto `options_flags::common_bundle::CommonOptionFlagBundle`
+  one at a time (`chid` at 0.49.0-1.1), and `CommonArgs` is
+  removed once the last lands; 0.49.0-2 then swaps `-R` for
+  `-s`/`--scope`.
 
 Subcommand layer scaffolding:
 
@@ -130,17 +141,19 @@ Subcommand layer scaffolding:
 - `src/config.rs` — `UserConfig` (`~/.config/vc-x1/config.toml`).
 - `src/scope.rs` — `Scope` enum (`Roles(Vec<Side>)` for the
   dual-repo `code`/`bot` roles, `Single(PathBuf)` for
-  single-repo mode) and `parse_scope`.
+  single-repo mode) and `parse_scope`. `parse_scope` /
+  `Scope::Single` are `#[allow(dead_code)]` until 0.49.0-2
+  wires `-s`/`--scope` into the read-only commit-query commands.
 
 Subcommand modules — each holds an `XxxArgs` `#[derive(Args)]`
 struct and a `pub fn x(...)` entrypoint:
 
 | Module | Subcommand | Notes |
 | --- | --- | --- |
-| `chid.rs` | `chid` | flattens `CommonArgs` |
-| `desc.rs` (+ `desc_helpers.rs`) | `desc` | flattens `CommonArgs` |
-| `list.rs` | `list` | flattens `CommonArgs` |
-| `show.rs` | `show` | flattens `CommonArgs` |
+| `chid.rs` | `chid` | flattens `options_flags::common_bundle::CommonOptionFlagBundle` (0.49.0-1.1; Migration A → 0.49.0-3) |
+| `desc.rs` (+ `desc_helpers.rs`) | `desc` | flattens `common::CommonArgs` → `CommonOptionFlagBundle` in 0.49.0-1.2; Migration A → 0.49.0-4 |
+| `list.rs` | `list` | flattens `common::CommonArgs` + `-w`/`--width` → bundle in 0.49.0-1.3; Migration A → 0.49.0-5 |
+| `show.rs` | `show` | flattens `common::CommonArgs` + `-f`/`--files` → bundle in 0.49.0-1.4; Migration A → 0.49.0-6 |
 | `validate_desc.rs` | `validate-desc` | migrated (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`, `From<&ValidateDescArgs>` |
 | `fix_desc.rs` | `fix-desc` | migrated (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`, `From<&FixDescArgs>` |
 | `clone.rs` | `clone` | migrated (0.48.0-2) — `clone_repo(&Context, &CloneParams)`, `From<&CloneArgs>` |
@@ -189,12 +202,17 @@ Port each subcommand's `pub fn x(args: &XxxArgs)` to
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
 conversion is fallible) at the binary edge. `init` (0.44.0) is
 the worked example; `finalize` (0.46.0) added the `TryFrom` /
-`Context.log` variant; the `0.48.0` cycle swept the rest of the
-standalone subcommands. Only `chid` / `desc` / `list` / `show`
-remain — their Migration A is bundled into the future
-"CommonArgs sweep" (Migration A + B are entangled for the
-`CommonArgs`-flattening subcommands). The live checklist is the
-"Subcommand layer / CLI decoupling" item in
+`Context.log` variant; the `0.48.0` cycle swept the standalone
+subcommands; the `0.49.0` cycle is the "CommonArgs sweep" for
+the four `CommonArgs`-flattening ones — first Migration B
+(decompose `CommonArgs` → `options_flags/` leaf-bundle, -1) and
+the `--scope` rollout (`-R`/`--repo` → `-s`/`--scope`, -2), then
+Migration A against the final shape (`chid` -3, `desc` -4,
+`list` -5, `show` -6; these embed a shared clap-free
+`CommonParams`, and all four take a fallible `TryFrom<&XxxArgs>`
+because scope→repo resolution can error). See the Migration B
+section below and `notes/chores-09.md`. The live checklist is
+the "Subcommand layer / CLI decoupling" item in
 [`notes/todo.md`](notes/todo.md).
 
 | Subcommand | Status |
@@ -207,10 +225,10 @@ remain — their Migration A is bundled into the future
 | `validate-desc` | done (0.48.0-4) — `validate_desc(&Context, &ValidateDescParams)`; `From<&ValidateDescArgs>` |
 | `fix-desc` | done (0.48.0-5) — `fix_desc(&Context, &FixDescParams)`; `From<&FixDescArgs>` |
 | `push` | done (0.48.0-6) — `push(&Context, &PushParams)`; `From<&PushArgs>` (collapses the two bookmark spellings) |
-| `chid` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
-| `desc` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
-| `list` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
-| `show` | deferred — rides the CommonArgs sweep (Migration A + B entangled) |
+| `chid` | Migration A pending (0.49.0-3) — the 0.49.0 CommonArgs sweep; introduces the shared `CommonParams` |
+| `desc` | Migration A pending (0.49.0-4) — the 0.49.0 CommonArgs sweep |
+| `list` | Migration A pending (0.49.0-5) — the 0.49.0 CommonArgs sweep |
+| `show` | Migration A pending (0.49.0-6) — the 0.49.0 CommonArgs sweep (`TryFrom`, `FileLimit` parse) |
 
 Out of scope for these ports (deferred until a real consumer
 surfaces): typed errors, returned outcomes vs `println!`, the
@@ -232,12 +250,22 @@ State today:
 - **`init`** — fully composed from leaves/bundles
   (`account`, `repo`, `scope`, the `provision` bundle,
   `use_template`, `config`).
-- **`chid` / `desc` / `list` / `show`** — share
-  `common::CommonArgs`, a per-domain shared struct rather
-  than an `options_flags/` leaf. The "CommonArgs sweep"
-  todo item folds these into the leaf model (and drops the
-  repeatable `-R`/`--repo` in favor of the `--scope` path
-  form).
+- **`chid` / `desc` / `list` / `show`** — being migrated off
+  `common::CommonArgs` onto
+  `options_flags::common_bundle::CommonOptionFlagBundle` (the
+  0.49.0 "CommonArgs sweep" cycle, one subcommand per sub-step:
+  `chid` 0.49.0-1.1, `desc` -1.2, `list` -1.3, `show` -1.4 —
+  `CommonArgs` removed when the last lands). The bundle is
+  composed of the `revision` and `commit_limit` leaves, the
+  `repo_label` leaf (the `-l`/`-L` pair), plus the two
+  positionals (`REVISION` / `COMMITS`) and the `-R`/`--repo`
+  list inline; `-R`/`--repo` is then swapped for a `--scope`
+  leaf (`code|bot|code,bot|<path>` — wiring up `scope.rs`'s
+  `parse_scope` + `Scope::Single`) in 0.49.0-2; the positionals
+  stay inline. (Two of the leaves — `RevisionOption`,
+  `CommitLimitOption` — both use the `value` field-name
+  convention, so each carries an explicit `#[arg(id = …)]` to
+  keep clap arg ids unique when flattened into the same struct.)
 - **`finalize`** — `--squash` lifted to the `squash` leaf
   (which carries the `value`-field naming convention — see
   [`src/options_flags/README.md`](src/options_flags/README.md)

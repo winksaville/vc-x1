@@ -1,3 +1,13 @@
+//! `show` subcommand — for each commit in a revision range, print
+//! author / committer / ids / parents / children / branches /
+//! follows / precedes / description body / a changed-files summary.
+//!
+//! - `ShowArgs`: clap surface; flattens
+//!   `options_flags::common_args::CommonArgs` plus a `-f`/`--files`
+//!   cap parsed into [`FileLimit`].
+//! - `show(&ShowArgs)`: the op — `resolve_spec` / `resolve_header` /
+//!   `for_each_repo`, one `show_one_commit` per commit.
+
 use std::sync::Arc;
 
 use chrono::Offset;
@@ -14,6 +24,7 @@ use pollster::FutureExt;
 use log::{debug, info};
 
 use crate::common;
+use crate::options_flags::common_args::CommonArgs;
 
 /// Parsed file limit: None (suppress), Some(n) (cap at n), or all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,13 +53,15 @@ impl FileLimit {
 #[derive(Args, Debug)]
 pub struct ShowArgs {
     #[command(flatten)]
-    pub common: common::CommonArgs,
+    pub common: CommonArgs,
 
     /// Max changed files: number, 0 (none), or 'all'
     #[arg(short = 'f', long = "files", default_value = "50")]
     pub files: String,
 }
 
+/// Print full details + a changed-files summary for each commit in
+/// the resolved range.
 pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
     debug!("show: enter");
     let file_limit = FileLimit::parse(&args.files)?;

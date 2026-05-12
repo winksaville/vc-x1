@@ -11,15 +11,26 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**chid/desc/list/show Migration A** — finish the subcommand-layer
-port for the four `CommonArgs`-flattening subcommands. Design:
-[chores-09.md](chores-09.md#chore-open-0490--finish-migration-a-0490-0).
-   - 0.49.0-0 plan + version bump + chores section + this ladder (current)
-   - 0.49.0-1 chid + introduce `CommonParams` in `common.rs`
-   - 0.49.0-2 desc
-   - 0.49.0-3 list
-   - 0.49.0-4 show
-   - 0.49.0 close-out — drop suffix, todo→Done, ARCHITECTURE.md Migration A table 12/12
+**chid/desc/list/show — CommonArgs sweep** (Migration B +
+`--scope` + Migration A). Re-scoped at 0.49.0-1 from the
+original "finish Migration A" plan, B-first so the Migration A
+ports land once against the final `CommonArgs` shape. Design:
+[chores-09.md](chores-09.md#chore-open-0490--finish-migration-a-0490-0)
++ the 0.49.0-1 re-scope subsection; prior `--scope` design in
+[chores-06](chores-06.md#generalize---scope-across-commands-0400),[chores-07](chores-07.md#--scope-enum-refactor-0420).
+   - 0.49.0-0 plan + version bump + chores section + ladder (done)
+   - 0.49.0-1 Migration B — `CommonArgs` → `options_flags/` leaf-bundle + relocate; re-scope cycle
+     - 0.49.0-1.1 leaves + `common_bundle` + migrate `chid` (current)
+     - 0.49.0-1.2 migrate `desc`
+     - 0.49.0-1.3 migrate `list`
+     - 0.49.0-1.4 migrate `show`; remove `CommonArgs`; ARCHITECTURE.md
+     - 0.49.0-1 close-out (squash sub-steps or keep separate — decided then)
+   - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` (wire `parse_scope` / `default_scope` / `scope_to_repos`; slim `for_each_repo`) — may split into `-2.N`
+   - 0.49.0-3 chid Migration A + introduce `CommonParams`
+   - 0.49.0-4 desc Migration A
+   - 0.49.0-5 list Migration A
+   - 0.49.0-6 show Migration A (`TryFrom`, `FileLimit` parse)
+   - 0.49.0 close-out — drop suffix, todo→Done (Migration A 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
 
 ## Todo
 

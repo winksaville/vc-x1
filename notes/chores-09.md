@@ -944,6 +944,118 @@ Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
 sub-step start; flip todo ladder markers; pair commits across
 both repos with ochid trailers.
 
+## refactor: CommonArgs → options_flags (0.49.0-1)
+
+Step 1 of the cycle (Migration B), and the point where the
+cycle is re-scoped (see below). Decompose `common::CommonArgs`
+into `options_flags/` leaves + a `common_bundle` bundle, so the
+four read-only commit-query subcommands flatten a proper
+leaf-bundle the way `init` flattens `ProvisionOptionFlagBundle`.
+Pure refactor — no behavior change; `vc-x1 chid -h` etc. stay
+byte-identical.
+
+Landed across sub-steps so each commit is one migration, not a
+giant move:
+
+- **0.49.0-1.1** — create the leaves + bundle; migrate `chid`.
+  New leaves (modeled on `squash.rs`): `revision`
+  (`RevisionOption`, `-r`/`--revision`, default `@`),
+  `commit_limit` (`CommitLimitOption`, `-n`/`--commits`),
+  `repo_label` (`RepoLabelOptions`, the coupled `-l`/`-L`
+  pair). `CommonOptionFlagBundle` (`common_bundle.rs`,
+  `OptionFlagBundle` marker) flattens the three leaves +
+  inline `pos_rev` / `pos_count` / `repos` (the two positionals
+  and the `-R` list stay inline — no second consumer composes
+  them, and `-R` is dropped in 0.49.0-2). `chid` flattens the
+  bundle; its body reads `c.revision.value` / `c.limit.value` /
+  `c.repo_label.{label,no_label}`. `main.rs`'s `suppress_banner`
+  match reads `a.common.repo_label.no_label` for `Chid`.
+  `chid.rs` gains the `//!` docstring it was missing.
+  `desc` / `list` / `show` keep flattening `common::CommonArgs`
+  for now (the two coexist).
+- **0.49.0-1.2 / -1.3 / -1.4** — migrate `desc`, `list`, `show`
+  onto the bundle in turn; -1.4 removes `CommonArgs` from
+  `common.rs` (which keeps the `for_each_repo` / `collect_ids` /
+  `resolve_*` / `format_*` helpers — those don't move) once
+  nothing references it, and finishes the ARCHITECTURE.md
+  reframe.
+
+(Each `.rs` file also gains the `//!` module docstring it was
+missing, as it's migrated.)
+
+### `value`-field clash on flattened leaves
+
+`RevisionOption` and `CommitLimitOption` both follow the
+single-field-named-`value` convention
+([`options_flags/README.md`](../src/options_flags/README.md)
+"Adding a new leaf"). clap derives an arg's *id* from the field
+name, so two `value` fields flattened into the same struct
+collide — `clap_builder` panics at parse time ("Argument names
+must be unique, but 'value' is in use by more than one
+argument"). Fix: an explicit `#[arg(id = "revision")]` /
+`#[arg(id = "commits")]` on each. The convention's worked
+example (`finalize`'s `--squash`) never hit this because no
+command had flattened two `value` leaves before — this is the
+first; the README is updated to note the `id` requirement.
+
+### Cycle re-scope (0.49.0-1)
+
+The 0.49.0-0 plan opened a "finish Migration A" cycle for the
+four `CommonArgs`-flattening subcommands. During 0.49.0-1
+review the cycle was expanded to the full **"CommonArgs sweep"**
+long planned in `chores-06` / `chores-07` — Migration A is
+joined by Migration B and the `--scope` rollout for these four,
+and re-ordered B-first so the Migration A ports land once,
+against the final `CommonArgs` shape. (The 0.49.0-0 commit and
+its chores section keep the original narrow framing; this
+subsection is the record of the change of plan.)
+
+- **Migration B** (0.49.0-1, sub-steps -1.1..-1.4) — decompose
+  `CommonArgs` into `options_flags/` leaves + a bundle, migrate
+  the four subcommands one per sub-step, remove `CommonArgs`.
+  See above.
+- **`--scope`** (0.49.0-2) — replace the repeatable
+  `-R`/`--repo` with `-s`/`--scope` (`code|bot|code,bot|<path>`),
+  wiring up `scope.rs`'s `parse_scope` + `Scope::Single` (both
+  `#[allow(dead_code)]` — built in 0.42.0 for exactly this) and
+  `common.rs`'s `default_scope` / `scope_to_repos`. Per the
+  0.42.0 capture (`chores-06` 0.41.0-4): `-R` is dropped, not
+  aliased; arbitrary multi-repo (`-R . -R .claude`) is not
+  preserved — `--scope=<path>` covers single-repo, the default
+  is `default_scope()`. `for_each_repo` then takes an
+  already-resolved `Vec<PathBuf>` (comma-expansion + `["."]`
+  default move to the boundary). `init`'s `--scope` (the
+  separate `ScopeKind` `code,bot|por`) is left alone —
+  reconciling the two vocabularies is the "por/dual parity"
+  todo.
+- **Migration A** (0.49.0-3..-6) — `XxxParams` +
+  `fn x(&Context, &XxxParams)` ports against the post-B/-scope
+  `CommonArgs`; introduces the shared clap-free `CommonParams`
+  (resolved `DotSpec` + `Header` + repos). All four take a
+  fallible `TryFrom<&XxxArgs>` (scope→repo resolution can
+  error); `show` also parses `--files` into `FileLimit` at the
+  boundary.
+
+Revised ladder (supersedes the 0.49.0-0 one):
+
+- 0.49.0-1 Migration B — `CommonArgs` → `options_flags/`
+  leaf-bundle + relocate; this re-scope. Sub-steps:
+  - 0.49.0-1.1 leaves + bundle + migrate `chid`
+  - 0.49.0-1.2 migrate `desc`
+  - 0.49.0-1.3 migrate `list`
+  - 0.49.0-1.4 migrate `show`; remove `CommonArgs`; ARCH docs
+  - 0.49.0-1 close-out (squash to one commit or keep separate —
+    decided then)
+- 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` (wire `parse_scope` /
+  `default_scope` / `scope_to_repos`; slim `for_each_repo`) —
+  may split into `-2.N`
+- 0.49.0-3 chid Migration A + introduce `CommonParams`
+- 0.49.0-4 desc Migration A
+- 0.49.0-5 list Migration A
+- 0.49.0-6 show Migration A (`TryFrom`, `FileLimit` parse)
+- 0.49.0 close-out — drop suffix, todo→Done (Migration A
+  12/12 + CommonArgs sweep), README + ARCHITECTURE.md
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"

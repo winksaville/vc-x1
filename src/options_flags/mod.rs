@@ -54,6 +54,7 @@ pub trait OptionParser {
 }
 
 pub mod account;
+pub mod common_args;
 pub mod config;
 pub mod dry_run;
 pub mod private;
