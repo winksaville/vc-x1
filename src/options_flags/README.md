@@ -4,10 +4,10 @@ Per-flag CLI surfaces shared across multiple subcommands. Each
 shared option or flag (OF) lives in its own submodule so its
 type, parser, and tests stay together.
 
-This module is the CLI-layer leaf store for "Migration B" in
-[`../../ARCHITECTURE.md`](../../ARCHITECTURE.md); see there for
-how the leaves fit the wider clap-args / `Context`+`Params`
-split.
+This module is the CLI-layer leaf store for the options_flags
+extraction in [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md);
+see there for how the leaves fit the wider clap-args /
+`Context`+`Params` split.
 
 ## Architecture
 

@@ -11,26 +11,24 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**chid/desc/list/show — CommonArgs sweep** (Migration B +
-`--scope` + Migration A). Re-scoped at 0.49.0-1 from the
-original "finish Migration A" plan, B-first so the Migration A
-ports land once against the final `CommonArgs` shape. Design:
-[chores-09.md](chores-09.md#chore-open-0490--finish-migration-a-0490-0)
+**chid/desc/list/show — CommonArgs sweep** (options_flags
+extraction + `--scope` + Context+Params port). Re-scoped at
+0.49.0-1 from the original "finish Migration A" plan, B-first so
+the Context+Params ports land once against the final `CommonArgs`
+shape. Design:
+[chores-10.md](chores-10.md#chore-open-0490--finish-migration-a-0490-0)
 + the 0.49.0-1 re-scope subsection; prior `--scope` design in
 [chores-06](chores-06.md#generalize---scope-across-commands-0400),[chores-07](chores-07.md#--scope-enum-refactor-0420).
    - 0.49.0-0 plan + version bump + chores section + ladder (done)
-   - 0.49.0-1 Migration B — `CommonArgs` → `options_flags/` leaf-bundle + relocate; re-scope cycle
-     - 0.49.0-1.1 leaves + `common_bundle` + migrate `chid` (current)
-     - 0.49.0-1.2 migrate `desc`
-     - 0.49.0-1.3 migrate `list`
-     - 0.49.0-1.4 migrate `show`; remove `CommonArgs`; ARCHITECTURE.md
-     - 0.49.0-1 close-out (squash sub-steps or keep separate — decided then)
+   - 0.49.0-1 options_flags extraction — relocate `CommonArgs` → `options_flags/common_args.rs`; re-scope cycle. Kept separate — `-1.1` + `-1.2` land as-is, no `0.49.0-1` close-out commit:
+     - 0.49.0-1.1 the relocation + all four importers (done)
+     - 0.49.0-1.2 docs: slim ARCHITECTURE.md; start chores-10 (done)
    - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` (wire `parse_scope` / `default_scope` / `scope_to_repos`; slim `for_each_repo`) — may split into `-2.N`
-   - 0.49.0-3 chid Migration A + introduce `CommonParams`
-   - 0.49.0-4 desc Migration A
-   - 0.49.0-5 list Migration A
-   - 0.49.0-6 show Migration A (`TryFrom`, `FileLimit` parse)
-   - 0.49.0 close-out — drop suffix, todo→Done (Migration A 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
+   - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
+   - 0.49.0-4 desc Context+Params port
+   - 0.49.0-5 list Context+Params port
+   - 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse)
+   - 0.49.0 close-out — drop suffix, todo→Done (Context+Params port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
 
 ## Todo
 
@@ -43,15 +41,15 @@ Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
 1. **Subcommand layer / CLI decoupling — remaining
-   subcommands.** Migration A (the `fn x(&Context, &XxxParams)`
-   port + a `From`/`TryFrom<&XxxArgs>` at the binary edge) is
-   done for every standalone subcommand: `init` (0.44.0,
-   worked example), `finalize` (0.46.0, `TryFrom` + `--log`
-   onto `Context`), and the `0.48.0` sweep — `symlink`,
+   subcommands.** The Context+Params port (the `fn x(&Context,
+   &XxxParams)` signature + a `From`/`TryFrom<&XxxArgs>` at the
+   binary edge) is done for every standalone subcommand: `init`
+   (0.44.0, worked example), `finalize` (0.46.0, `TryFrom` +
+   `--log` onto `Context`), and the `0.48.0` sweep — `symlink`,
    `clone`, `sync`, `validate-desc`, `fix-desc`, `push`. Only
-   `chid`/`desc`/`list`/`show` remain; their Migration A rides
-   the "CommonArgs sweep" item below (A + B entangled there).
-   [[1]],[[2]]
+   `chid`/`desc`/`list`/`show` remain; their port rides the
+   "CommonArgs sweep" item below (port + options_flags
+   extraction entangled there). [[1]],[[2]]
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
