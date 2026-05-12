@@ -11,7 +11,15 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-(nothing in progress)
+**chid/desc/list/show Migration A** — finish the subcommand-layer
+port for the four `CommonArgs`-flattening subcommands. Design:
+[chores-09.md](chores-09.md#chore-open-0490--finish-migration-a-0490-0).
+   - 0.49.0-0 plan + version bump + chores section + this ladder (current)
+   - 0.49.0-1 chid + introduce `CommonParams` in `common.rs`
+   - 0.49.0-2 desc
+   - 0.49.0-3 list
+   - 0.49.0-4 show
+   - 0.49.0 close-out — drop suffix, todo→Done, ARCHITECTURE.md Migration A table 12/12
 
 ## Todo
 

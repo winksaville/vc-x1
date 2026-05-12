@@ -829,6 +829,8 @@ citation; cross-file pointing uses an inline link.
 
 ## docs: renumber todo.md + chores-09 refs (0.48.4)
 
+Commits: [[26]]
+
 Compact two files' `# References` to a contiguous `[1]..[N]` in
 first-citation-appearance order — walk the file's prose in
 document order (`todo.md`: `## Todo` items then `## Done` items;
@@ -878,6 +880,70 @@ Properties of the renumber:
   `chores-09` got re-packed here and the other chores files
   don't need it.
 
+## chore: open 0.49.0 — finish Migration A (0.49.0-0)
+
+Multi-step. Finish Migration A: port the last four subcommands
+`pub fn x(args: &XxxArgs)` → `pub fn x(ctx: &Context, params:
+&XxxParams)`, same shape as the `0.48.0` sweep. `chid` / `desc`
+/ `list` / `show` all `#[command(flatten)]` `common::CommonArgs`,
+so the cycle also adds a shared clap-free `CommonParams` they
+reuse. Mechanical; no behavior change.
+
+### Per-step shape
+
+- `common::CommonParams` (flat, clap-free): the resolved
+  `DotSpec` + `Header` + raw `repos: Vec<PathBuf>`, with
+  `impl From<&CommonArgs>` doing the `resolve_spec` /
+  `resolve_header` work at the binary edge. The `..` parsing and
+  `-l`/`-L` resolution move out of the subcommand bodies.
+- `XxxParams`: flat struct embedding `CommonParams`, plus the
+  subcommand's own fields — `list` adds `width: usize`, `show`
+  adds `files: FileLimit` (the `--files` string is parsed at the
+  boundary). `impl From<&XxxArgs>` (total) for `chid` / `desc` /
+  `list`; `impl TryFrom<&ShowArgs>` for `show` (fallible —
+  `FileLimit::parse`), mirroring `finalize`.
+- `pub fn x(args)` → `pub fn x(_ctx: &Context, params:
+  &XxxParams)`; `ctx` unused (uniform-signature placeholder, as
+  in `symlink` / `validate-desc` / `fix-desc`).
+- `main.rs` dispatch arm builds `Context::load(cli.log)` + the
+  params; the `suppress_banner` match keeps reading
+  `a.common.no_label` off the args (clap edge, unchanged).
+- Tests: existing `XxxArgs` parse tests untouched; add a small
+  "construct `XxxParams` directly" test per the worked-example
+  precedent.
+
+### Ladder
+
+Smallest first; `show` (the `TryFrom` + `FileLimit` parse) last.
+
+- 0.49.0-0 plan + version bump + this section + todo ladder
+  (current)
+- 0.49.0-1 chid + introduce `CommonParams` in `common.rs`
+- 0.49.0-2 desc
+- 0.49.0-3 list
+- 0.49.0-4 show
+- 0.49.0 close-out — drop suffix, todo→Done, ARCHITECTURE.md
+  Migration A table all-done (12/12)
+
+This cycle is Migration A only. Migration B for these four
+(folding `CommonArgs` into the `options_flags/` leaf model,
+dropping the repeatable `-R`/`--repo` for the `--scope` path
+form) stays the separate "CommonArgs sweep" todo.
+
+### Out of scope
+
+Typed errors, returned-outcomes-vs-`println!`, `ProgressSink`,
+`Context` fields beyond `UserConfig` + `--log` — deferred until a
+real consumer surfaces. Migration B (see above).
+
+### Per-substep contract
+
+Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
+--all-targets -- -D warnings` / `test` / `install --path .
+--locked` + retest before each commit; bump `Cargo.toml` at
+sub-step start; flip todo ladder markers; pair commits across
+both repos with ochid trailers.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"
@@ -905,3 +971,4 @@ Properties of the renumber:
 [23]: https://github.com/winksaville/vc-x1/commit/3f176b45235c "3f176b45235c4bc7da4b8de5b18a7f454c464d1e"
 [24]: https://github.com/winksaville/vc-x1/commit/79279d112791 "79279d112791c12190a755b8aec9be1ec174ecb8"
 [25]: https://github.com/winksaville/vc-x1/commit/47e5e854c922 "47e5e854c9220503ed46eda25ca40293e31bfdb1"
+[26]: https://github.com/winksaville/vc-x1/commit/24488a82d6d4 "24488a82d6d4b50d058406589d2850b9ced88e25"
