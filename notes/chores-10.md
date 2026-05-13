@@ -535,6 +535,8 @@ field next to its embedded `CommonParams`.
 
 ## refactor: show → Context+Params (0.49.0-6)
 
+Commits: [[11]]
+
 Fourth and last of the Context+Params ports, completing
 Migration A's 12/12. `show`'s wrinkle is that `--files` ships
 as a raw `String` on the args side and parses into `FileLimit`
@@ -561,6 +563,117 @@ uniform handling in `main`.
   (asserts the boundary parse error surfaces through
   `try_from`).
 
+## chore: close CommonArgs sweep cycle (0.49.0)
+
+The 0.49.0 cycle's close-out. The cycle started as "finish
+Migration A" (0.49.0-0), was re-scoped at 0.49.0-1 into the
+full **CommonArgs sweep** — options_flags extraction + `-s` /
+`--scope` flag + Context+Params ports — and ran B-first so the
+Context+Params ports landed once against the final
+`CommonArgs` shape. The Refactor tracking table at the top now
+reads all 12/12 done; new subcommands follow the established
+shape.
+
+- `Cargo.toml`: drop the suffix `0.49.0-6` → `0.49.0`.
+- `notes/todo.md`: move the In-Progress entry to Done as a
+  single line (`chid/desc/list/show CommonArgs sweep —
+  options_flags + -s/--scope + Context+Params ports 12/12
+  (0.49.0)`); new `[36]` ref points at the cycle's opening
+  section (matching the `0.48.0` precedent). The full ladder
+  detail is preserved in the `### As-built ladder` subsection
+  below, not deleted.
+- `ARCHITECTURE.md`: `## args → Context + Params` reworded —
+  drop "ongoing port" framing, note the 12/12 milestone, keep
+  the description of the pattern for new subcommands.
+- `notes/chores-10.md`: backfill `-6`'s `Commits:` ref ([[11]]);
+  add this close-out section and its `### As-built ladder`
+  subsection (the in-progress ladder, moved here from
+  `notes/todo.md` with `-2.4`'s leftover `(current)` marker
+  corrected to `(done)`).
+- `README.md` left alone — the `-s` / `--scope` Multi-repo
+  queries rewrite landed in `-2.3`; nothing else in user-facing
+  surface changed.
+- Process note: `-2.4`'s `(current)` marker in `notes/todo.md`
+  was never flipped to `(done)` (the substep-protocol step that
+  should have happened before the `-2.4` push). The ladder
+  moved here at close-out (with the marker corrected); the miss
+  is recorded against the substep-protocol checklist for future
+  cycles.
+
+### As-built ladder
+
+The full development ladder as it stood at close-out, moved
+from `notes/todo.md > ## In Progress`. Each sub-step's design /
+mechanics also lives in its own chores section above; this
+view preserves the cycle-wide shape — what was planned at each
+depth, what landed when, and the re-scope at `-1` that turned
+"finish Migration A" into the full CommonArgs sweep.
+
+**chid/desc/list/show — CommonArgs sweep** (options_flags
+extraction + `--scope` + Context+Params port). Re-scoped at
+0.49.0-1 from the original "finish Migration A" plan, B-first
+so the Context+Params ports land once against the final
+`CommonArgs` shape.
+
+Design:
+[chores-10.md](chores-10.md#chore-open-0490--finish-migration-a-0490-0)
++ the 0.49.0-1 re-scope subsection; prior `--scope` design in
+[chores-06](chores-06.md#generalize---scope-across-commands-0400),
+[chores-07](chores-07.md#--scope-enum-refactor-0420).
+
+- 0.49.0-0 plan + version bump + chores section + ladder (done) [[1]]
+- 0.49.0-1 options_flags extraction — relocate `CommonArgs`
+  → `options_flags/common_args.rs`. Kept separate; no `-1`
+  close-out commit.
+  - 0.49.0-1.1 the relocation + all four importers (done) [[2]]
+  - 0.49.0-1.2 docs: slim ARCHITECTURE.md; start chores-10 (done) [[3]]
+- 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` for `chid` /
+  `desc` / `list` / `show`.
+  - 0.49.0-2.1 open the step (done) [[4]]
+    - tidy `## Todo` (drop the two now-in-progress items).
+    - add CLAUDE.md rule — a picked-up `## Todo` item is
+      deleted when it goes `## In Progress`.
+    - backfill `-1.1` / `-1.2` chores `Commits:` refs.
+  - 0.49.0-2.2 the rollout — code (done) [[5]]
+    - kept `-R` as single path (`Option<PathBuf>`); added
+      `-s`/`--scope` (`Option<Scope>` via `parse_scope_roles`,
+      keyword-only — `-s <path>` is a future Todo).
+    - the two compose (no `conflicts_with`): `-R` overrides
+      workspace root, `-s` selects sides within it. New
+      `common::resolve_repos(repo, scope)` does the match;
+      `for_each_repo` takes a resolved `Vec<PathBuf>`.
+    - defaults preserve today: no flag → `[.]`, `-R foo`
+      alone → `[foo]`.
+    - scope: four subcommand bodies + `--help`; tests;
+      CLAUDE.md `chid -R .,.claude -L` → `chid -s code,bot -L`.
+  - 0.49.0-2.3 docs (done) [[6]]
+    - `README.md` `### Multi-repo queries` rewritten to lead
+      with `-s code,bot`; every example updated. The prior
+      `-R .,.claude` / `-R . -R .claude` forms no longer parse
+      since `-R` is now single-path.
+    - `-R PATH` retained for single-path use and as the
+      workspace-root override that composes with `-s`
+      (`-R ../other -s code,bot`).
+    - `ARCHITECTURE.md`: `resolve_repos` added to the
+      `common.rs` helper list with a one-line note on what it
+      composes.
+    - `notes/` swept; no stale `-R .,.claude` for these four.
+  - 0.49.0-2.4 unify prose form in CLAUDE.md (done) [[7]]
+    - new top-level `## Prose form` section as the single
+      source of truth for the intro+bullets shape across
+      commit bodies / chores / todo / done / doc comments.
+    - slim `## Commit Message Style`, `### Chores section
+      content`, and `### Doc comments…` to reference it.
+    - surfaced as process drift while writing the `-2.3`
+      chores section; deferred from -2.3 to keep that commit
+      scoped to the `-s/--scope` docs sweep.
+- 0.49.0-3 chid Context+Params port + introduce `CommonParams` (done) [[8]]
+- 0.49.0-4 desc Context+Params port (done) [[9]]
+- 0.49.0-5 list Context+Params port (done) [[10]]
+- 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse) (done) [[11]]
+- 0.49.0 close-out — drop suffix, todo→Done (Context+Params
+  port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md (done — this commit; ref backfilled at next cycle start)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -573,3 +686,4 @@ uniform handling in `main`.
 [8]: https://github.com/winksaville/vc-x1/commit/d0d886a09956 "d0d886a0995679d82cdb67c10b24c7c17f1915e0"
 [9]: https://github.com/winksaville/vc-x1/commit/6d453b551f78 "6d453b551f781c8c793da72cba0d4a70c44277ce"
 [10]: https://github.com/winksaville/vc-x1/commit/00f49f10b7a3 "00f49f10b7a3b55192f9feb6313e5968efa16bb0"
+[11]: https://github.com/winksaville/vc-x1/commit/d772a204be15 "d772a204be150ee8da8d2cbc33496410940aecb5"

@@ -165,16 +165,17 @@ Adding a subcommand `x`:
 
 ## args → Context + Params
 
-The ongoing port — "the Context+Params port" — of each
-subcommand's `pub fn x(args: &XxxArgs)` to
-`pub fn x(ctx: &Context, params: &XxxParams)`, adding an
+"The Context+Params port" — each subcommand's
+`pub fn x(args: &XxxArgs)` is structured as
+`pub fn x(ctx: &Context, params: &XxxParams)`, with an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
-conversion is fallible) at the binary edge. `init` (0.44.0) is
-the worked example. Out of scope for the ports until a real
-consumer surfaces: typed errors,
-returned-outcomes-vs-`println!`, `ProgressSink`, `Context`
-fields beyond `UserConfig` + `--log`. Per-subcommand status:
-`notes/chores-*.md` (the "Refactor tracking" section).
+conversion is fallible) at the binary edge. `init` (0.44.0)
+is the worked example; complete across all 12 current
+subcommands as of 0.49.0, and the shape new subcommands
+follow. Out of scope until a real consumer surfaces: typed
+errors, returned-outcomes-vs-`println!`, `ProgressSink`,
+`Context` fields beyond `UserConfig` + `--log`. Per-subcommand
+status: `notes/chores-*.md` (the "Refactor tracking" section).
 
 ## per-subcommand flags → `src/options_flags/`
 
