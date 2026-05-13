@@ -61,13 +61,15 @@ Design:
          `common.rs` helper list with a one-line note on what
          it composes.
        - `notes/` swept; no stale `-R .,.claude` for these four.
-     - 0.49.0-2.4 CLAUDE.md prose-form unification — new
-       top-level `## Prose form` section as the single source of
-       truth for the intro+bullets shape across commit bodies /
-       chores / todo / done / doc comments; slim
-       `## Commit Message Style`, `### Chores section content`,
-       and `### Doc comments…` to reference it. Surfaced as
-       process drift while writing the `-2.3` chores section.
+     - 0.49.0-2.4 unify prose form in CLAUDE.md (current)
+       - new top-level `## Prose form` section as the single
+         source of truth for the intro+bullets shape across
+         commit bodies / chores / todo / done / doc comments.
+       - slim `## Commit Message Style`, `### Chores section
+         content`, and `### Doc comments…` to reference it.
+       - surfaced as process drift while writing the `-2.3`
+         chores section; deferred from -2.3 to keep that
+         commit scoped to the `-s/--scope` docs sweep.
    - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
    - 0.49.0-4 desc Context+Params port
    - 0.49.0-5 list Context+Params port

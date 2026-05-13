@@ -362,6 +362,8 @@ the reusable primitive (a future `finalize --scope` /
 
 ## docs: chid+co -s/--scope flag (0.49.0-2.3)
 
+Commits: [[6]]
+
 The docs half of the `0.49.0-2` rollout. Code shipped in `-2.2`
 but `README.md` still showed the pre-`-R`-single-path multi-repo
 forms (`-R .,.claude` / `-R . -R .claude`) — anyone reading the
@@ -382,6 +384,60 @@ parse.
   `sync` still has the old repeatable/comma-list `-R`; its
   migration is queued under "Drop `-R` from `CommonArgs`".
 
+## docs: unify prose form in CLAUDE.md (0.49.0-2.4)
+
+Process drift caught while writing `-2.3`'s chores section: the
+intro+bullets shape that governs commits, chores, todo, and doc
+comments was codified in three places in CLAUDE.md — once inside
+`### Doc comments…`, once inside `## Commit Message Style`, once
+inside `### Chores section content`. The three copies drifted
+small-but-real and made it harder to remember which surfaces the
+shape covered (Done entries weren't mentioned anywhere). Unified
+into one top-level `## Prose form` section the others reference.
+See [§ Design: Prose form unification](#design-prose-form-unification).
+
+- New `## Prose form` section in CLAUDE.md is the single source
+  of truth: the shape (intro + bullets, ≤72 wrap), the list of
+  surfaces it covers, and the bullet-content rules per surface.
+- `## Commit Message Style` body bullets slimmed to reference
+  `## Prose form`; commit-specific bits (50-col title rule,
+  file-by-file bullets, source-of-truth claim) retained.
+- `### Chores section content` paragraph slimmed to reference
+  `## Prose form`; the no-edit-list rule and the conceptual-bullet
+  emphasis retained.
+- `### Doc comments on every file…` Shape paragraph removed in
+  favor of a one-line reference; the clap-derive
+  `verbatim_doc_comment` note retained.
+- Anchors on the three existing sections unchanged so `notes/`
+  cross-refs don't churn.
+
+### Design: Prose form unification
+
+Three alternatives considered before picking the top-level
+section:
+
+- **Expand the existing Shape rule's list** to add commits and
+  Done. Smallest change; leaves the rule buried in `### Doc
+  comments…` where it's hard to find when writing a commit body
+  or chores section.
+- **Cross-link three definitions to each other.** Each site
+  redefines the shape but pointers run between them. Reads
+  consistent but still drifts: three copies of the same
+  paragraph still need three edits to stay in sync.
+- **Promote to a single top-level `## Prose form` section**
+  (chosen). The shape is defined once; the consumer sites carry
+  only the surface-specific add-ons (50-col title for commits,
+  file-by-file bullets for commits, `Commits:` line + design
+  `###`s for chores, etc.). Anchors stay stable on the existing
+  sections so notes/ refs don't churn.
+
+The chosen form also distinguishes bullet *content* per
+surface — commit-body bullets are file-by-file (the source of
+truth for the mechanical edit list — `git show` is the record);
+chores / todo / done bullets are conceptual (design points,
+structural notes — never a copy of the commit's edit list);
+doc-comment bullets are whatever structure fits.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -389,3 +445,4 @@ parse.
 [3]: https://github.com/winksaville/vc-x1/commit/f6438bc7394e "f6438bc7394e76a3d83de08467c6fafec7a819b7"
 [4]: https://github.com/winksaville/vc-x1/commit/7e1ea28cc7f6 "7e1ea28cc7f62c2f0920d25ae7c21dba69629e02"
 [5]: https://github.com/winksaville/vc-x1/commit/af7d87a031ea "af7d87a031eaa6b4773fa01ed16a6eea734c5262"
+[6]: https://github.com/winksaville/vc-x1/commit/14a86674add0 "14a86674add076ec2fcb0784c9d6c955223f769c"

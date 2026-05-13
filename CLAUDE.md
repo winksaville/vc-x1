@@ -105,6 +105,39 @@ ochid: /<changeID>" \
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
 
+## Prose form
+
+Long-lived prose on this project follows one shape: a short intro
+that explains the *why* or the high-level *what*, then a `-` bullet
+list for the details. Wrap lines at ≤72 cols (bullet continuations
+indent two spaces). Avoid wall-of-prose paragraphs — they hide the
+structure that bullets make scannable.
+
+Surfaces that use this shape:
+
+- Module / function / struct / field doc comments in `.rs` files —
+  see [Doc comments](#doc-comments-on-every-file-function-and-method).
+- Commit message bodies (both app-repo and session-repo). The
+  ≤50-col title is the commit-specific add-on; see
+  [Commit Message Style](#commit-message-style).
+- Chore descriptions in `notes/chores-NN.md` — see
+  [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
+- Todo and Done entries in `notes/todo.md` when an entry needs more
+  than one line of detail. Pure one-liners are still fine.
+
+Bullet *content* differs by surface:
+
+- **Commit bodies** — bullets are file-by-file: one bullet per file
+  changed, file plus a one-line gist (e.g.
+  `README.md: new Overview intro`). Source of truth for the
+  mechanical edit list.
+- **Chores / todo / done** — bullets are conceptual (design points,
+  structural notes, the "what landed and why" at a notch above
+  file-list granularity). Never a copy of the commit's edit list —
+  see [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
+- **Doc comments** — bullets are whatever structure fits (fields,
+  cases, invariants).
+
 ## Commit Message Style
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) with
@@ -120,18 +153,15 @@ a version suffix:
   and ` (<version>)`, so favor terse phrasings (`port X to Context`
   over `X → Context + XParams`) when the names run long. Common
   types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
-- **Body line width**: wrap every body line at ≤72 cols (the "72"
-  of the 50/72 rule); bullet continuations indent two spaces.
-- **App-repo body**: short intro paragraph (1–3 sentences), then a
-  terse bullet list — one bullet per file changed, the file plus a
-  one-line gist (e.g. `README.md: new Overview intro`). This list
-  **is the source of truth** for the cycle's mechanical change
-  record; the chores section carries the narrative + design, not a
-  copy of it. Keep bullets terse — a scannable index, not prose;
-  promote any "why" to a chores `###` subsection.
-- **Session-repo body**: terse intro + a few session-activity
-  bullets. Doesn't need to mirror chores since it describes
-  in-session work, not code changes.
+- **Body**: [Prose form](#prose-form) shape (intro + bullets), wrap
+  ≤72 (the "72" of the 50/72 rule). App-repo bullets are
+  **file-by-file** — one bullet per file changed, file plus a
+  one-line gist. This list **is the source of truth** for the
+  cycle's mechanical change record; chores carries the narrative +
+  design, not a copy of it. Promote any "why" beyond one sentence
+  to a chores `###` subsection rather than expanding the intro.
+- **Session-repo body**: same shape; bullets describe in-session
+  activity rather than code changes.
 - Examples:
   - `feat: add fix-ochid subcommand (0.22.0)`
   - `fix: fix-ochid prefix bug (0.22.1)`
@@ -329,14 +359,15 @@ example.
 ### Chores section content — no edit list; git is the record
 
 A chores section is: a `Commits:` line (first line under the
-header — see below), a short intro paragraph (what changed and
-*why*, a notch above file-list granularity), and any `###`
-design subsections. It does **not** carry a per-file edit list —
-that lives in the commit message body, which is the source of
-truth for "what changed mechanically" (immutable, `git
-show`-able, naturally scoped to the commit). The chores section
-is the source of truth for the design thinking; the two
-cross-link, neither restates the other.
+header — see below), then [Prose form](#prose-form) (intro +
+bullets) for what landed and why, and any `###` design
+subsections. Bullets here are **conceptual** — design points,
+structural notes — never a per-file edit list. That lives in the
+commit message body, which is the source of truth for "what
+changed mechanically" (immutable, `git show`-able, naturally
+scoped to the commit). The chores section is the source of truth
+for the design thinking; the two cross-link, neither restates the
+other.
 
 When the intro starts wanting to explain a mechanism,
 hypothesis, or wrinkle, don't inflate it — promote that to its
@@ -626,23 +657,14 @@ Command Palette is a fallback.
 Every `.rs` file must begin with a `//!` module docstring. Every
 function and method must have a `///` doc comment. Keep them brief —
 one sentence of purpose is often enough; the discipline is that the
-comment exists, not that it be long.
+comment exists, not that it be long. Doc comments follow the
+[Prose form](#prose-form) shape (intro + bullets).
 
 This is a deliberate override of the generic "write no comments"
 default that applies to inline `//` comments. Doc comments on the
 module / item surface are expected; inline explanatory comments
 inside function bodies remain discouraged unless they capture a
 non-obvious WHY.
-
-**Shape:** short intro (1–3 sentences, shorter is better), then
-a `-` bullet list for any structured details. Avoid long prose
-paragraphs — they read as a wall of text and hide the structure
-that bullets make scannable. Same shape applies to:
-
-- Module / function / struct / field doc comments in `.rs` files.
-- Chore descriptions in `notes/chores-NN.md`.
-- Todo entries in `notes/todo.md` (when an item needs more than
-  one line of detail; pure one-liners are still fine).
 
 **Clap-derive args:** doc comments on `#[arg(...)]` fields drive
 `--help` output. Clap reflows by default and collapses bullets
