@@ -15,6 +15,7 @@ use log::{debug, info};
 use crate::common::{self, CommonParams};
 use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
+use crate::subcommand::SubcommandRunner;
 
 /// CLI args for `chid` — just the shared read-only commit-query args.
 #[derive(Args, Debug)]
@@ -24,20 +25,27 @@ pub struct ChidArgs {
 }
 
 /// Clap-free params for `chid`; embeds resolved `CommonParams`.
+///
+/// Carries a `suppress_banner` flag (read off `-L` / `--no-label`
+/// at the binary edge) so the trait's default `dispatch` can
+/// query it through `SubcommandRunner::suppress_banner` without
+/// re-touching clap.
 #[derive(Debug)]
 pub struct ChidParams {
     pub common: CommonParams,
+    pub suppress_banner: bool,
 }
 
 impl TryFrom<&ChidArgs> for ChidParams {
     type Error = String;
 
     /// Resolve clap `ChidArgs` into `ChidParams` by delegating to
-    /// `CommonParams::try_from`; `chid` has no fields beyond
-    /// `CommonArgs`.
+    /// `CommonParams::try_from` and copying the no-label flag
+    /// into `suppress_banner`.
     fn try_from(a: &ChidArgs) -> Result<Self, String> {
         Ok(ChidParams {
             common: CommonParams::try_from(&a.common)?,
+            suppress_banner: a.common.no_label,
         })
     }
 }
@@ -65,6 +73,27 @@ pub fn chid(_ctx: &Context, params: &ChidParams) -> Result<(), Box<dyn std::erro
     })?;
     debug!("chid: exit");
     Ok(())
+}
+
+impl SubcommandRunner for ChidArgs {
+    type Params = ChidParams;
+
+    /// Delegate to the existing `TryFrom<&ChidArgs>` impl above.
+    fn to_params(&self) -> Result<Self::Params, String> {
+        ChidParams::try_from(self)
+    }
+
+    /// Run the existing `chid` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        chid(ctx, params)
+    }
+
+    /// Read the banner-suppression flag off `ChidParams` for
+    /// `crate::sb_ide` (queried from the trait's default
+    /// `dispatch`).
+    fn suppress_banner(params: &Self::Params) -> bool {
+        params.suppress_banner
+    }
 }
 
 #[cfg(test)]

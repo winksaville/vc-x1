@@ -15,6 +15,7 @@ mod push;
 mod repo_utils;
 mod scope;
 mod show;
+mod subcommand;
 mod symlink;
 mod sync;
 #[cfg(test)]
@@ -31,6 +32,8 @@ use std::process::ExitCode;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::CompleteEnv;
 use log::error;
+
+use crate::subcommand::SubcommandRunner;
 
 /// Banner string emitted as the first line of normal command runs
 /// and shown at the top of subcommand `--help` output. Built from
@@ -209,6 +212,26 @@ pub(crate) enum Commands {
     Push(push::PushArgs),
 }
 
+/// Session chrome: emit the leading banner (unless suppressed) and
+/// surface any failures left over from the previous run, gated on
+/// "this isn't the detached `finalize --exec` re-entry".
+///
+/// Called from the trait's default `dispatch` (for ported
+/// subcommands, reading the bools from each command's `Params`)
+/// and from each unported arm in `fn main()` (reading the bools
+/// from the per-arm peek match). When all arms are ported, the
+/// `main`-side callers disappear; only the trait callers remain.
+pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool) {
+    if !is_detached_exec {
+        if !suppress_banner {
+            // Banner on every normal run, mirroring what `--help`
+            // shows at the top.
+            log::info!("{BANNER}");
+        }
+        finalize::surface_previous_failures();
+    }
+}
+
 fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -316,25 +339,18 @@ fn main() -> ExitCode {
     );
 
     // `-L` / `--no-label` on the read-only multi-repo subcommands
-    // (chid, desc, list, show) makes their output script-parseable
+    // (desc, list, show) makes their output script-parseable
     // — adding a leading `vc-x1 X.Y.Z` line would break that. Skip
     // the banner whenever the active subcommand has the flag set.
+    // `chid` is omitted because it's already ported to
+    // `SubcommandRunner::dispatch` (which reads suppression off
+    // `ChidParams`); each future port removes its variant here.
     let suppress_banner = match &cli.command {
-        Commands::Chid(a) => a.common.no_label,
         Commands::Desc(a) => a.common.no_label,
         Commands::List(a) => a.common.no_label,
         Commands::Show(a) => a.common.no_label,
         _ => false,
     };
-
-    if !is_detached_exec {
-        if !suppress_banner {
-            // Banner on every normal run, mirroring what `--help`
-            // shows at the top.
-            log::info!("{BANNER}");
-        }
-        finalize::surface_previous_failures();
-    }
 
     // Command name for bm-track output (first positional arg after
     // the binary; clap has already validated it by the time we get here).
@@ -345,24 +361,9 @@ fn main() -> ExitCode {
     }
 
     let exit_code = match cli.command {
-        Commands::Chid(chid_args) => {
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            let params = match chid::ChidParams::try_from(&chid_args) {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            run_command(chid::chid(&ctx, &params))
-        }
+        Commands::Chid(args) => args.dispatch(cli.log),
         Commands::Desc(desc_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -380,6 +381,7 @@ fn main() -> ExitCode {
             run_command(desc::desc(&ctx, &params))
         }
         Commands::List(list_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -397,6 +399,7 @@ fn main() -> ExitCode {
             run_command(list::list(&ctx, &params))
         }
         Commands::Show(show_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -414,6 +417,7 @@ fn main() -> ExitCode {
             run_command(show::show(&ctx, &params))
         }
         Commands::ValidateDesc(validate_desc_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -425,6 +429,7 @@ fn main() -> ExitCode {
             run_command(validate_desc::validate_desc(&ctx, &params))
         }
         Commands::FixDesc(fix_desc_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -436,6 +441,7 @@ fn main() -> ExitCode {
             run_command(fix_desc::fix_desc(&ctx, &params))
         }
         Commands::Clone(clone_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -447,6 +453,7 @@ fn main() -> ExitCode {
             run_command(clone::clone_repo(&ctx, &params))
         }
         Commands::Init(init_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -458,6 +465,7 @@ fn main() -> ExitCode {
             run_command(init::init(&ctx, &params))
         }
         Commands::Symlink(symlink_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -469,6 +477,7 @@ fn main() -> ExitCode {
             run_command(symlink::symlink(&ctx, &params))
         }
         Commands::Sync(sync_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -480,6 +489,7 @@ fn main() -> ExitCode {
             run_command(sync::sync(&ctx, &params))
         }
         Commands::Finalize(finalize_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {
@@ -497,6 +507,7 @@ fn main() -> ExitCode {
             run_command(finalize::finalize(&ctx, &params))
         }
         Commands::Push(push_args) => {
+            sb_ide(suppress_banner, is_detached_exec);
             let ctx = match context::Context::load(cli.log) {
                 Ok(c) => c,
                 Err(e) => {

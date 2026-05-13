@@ -678,6 +678,8 @@ Design:
 
 ## chore: open Subcommand trait sweep (0.50.0-0)
 
+Commits: [[13]]
+
 Multi-step. The 12 subcommand match arms in `main.rs` repeat
 the same `Context::load` + `try_from(&args)` + `run_command`
 boilerplate — ~12 lines per arm. This cycle introduces a
@@ -768,6 +770,202 @@ Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
 sub-step start; flip todo ladder markers; pair commits
 across both repos with ochid trailers.
 
+## refactor: SubcommandRunner trait + chid (0.50.0-1)
+
+Worked example for the 0.50.0 cycle: introduce the
+`SubcommandRunner` trait, validate its shape on `chid`, and
+extract `main.rs`'s session-chrome into a global `sb_ide`
+function consumed both by the trait's default `dispatch`
+(for ported commands) and from `main` directly (for
+unported arms). The Chid arm in `main` reaches its target
+one-liner — `Commands::Chid(args) => args.dispatch(cli.log),`
+— with chid's banner suppression riding on a new
+`suppress_banner` field in `ChidParams` that the trait's
+default `dispatch` reads via
+`SubcommandRunner::suppress_banner(&params)`.
+
+Three material design calls landed at this substep's
+evaluation gate (full discussion below): the trait was
+renamed from `Subcommand` to `SubcommandRunner` to sidestep
+a `clap::Subcommand` collision; the session-chrome block
+(banner + `surface_previous_failures`) was extracted into a
+global `pub fn sb_ide` in `main.rs`; and the trait's
+`suppress_banner` / `is_detached_exec` peeks were *kept* on
+the trait — default `false`, signature `(_params:
+&Self::Params)` — with the chrome data living on each
+command's `Params` (e.g. `ChidParams::suppress_banner`) so
+ported arms become true one-liners.
+
+- New `SubcommandRunner` trait (`src/subcommand.rs`):
+  associated `Params` type; required `to_params(&self) ->
+  Result<Params, String>` (absorbs both `From` and `TryFrom`
+  shapes uniformly, matching the `String` error type set by
+  `finalize` / `chid`); required `run(ctx, params)` as an
+  associated function (no `&self` — `params` carries
+  everything the body needs); default-`false` peek
+  associated functions `suppress_banner(params)` and
+  `is_detached_exec(params)`; default `dispatch(&self, log)`
+  that loads `Context`, builds `Params` via `to_params`,
+  calls `crate::sb_ide(Self::suppress_banner(&p),
+  Self::is_detached_exec(&p))`, then runs via `run` and
+  maps the result to `ExitCode`. Method name `to_params`
+  (not `into_params` per the -0 sketch — `&self`-borrowing
+  reads more truthfully).
+- `chid::ChidParams` gains a `suppress_banner: bool` field
+  (clap-free; `ChidParams::try_from` copies it from
+  `a.common.no_label` at the binary edge). `chid::ChidArgs
+  impl SubcommandRunner` overrides
+  `fn suppress_banner(params) -> bool { params.suppress_banner }`;
+  otherwise standard `to_params` / `run` delegations.
+  `is_detached_exec` keeps its trait default (chid is never
+  the detached child).
+- `src/main.rs`: pre-match `if !is_detached_exec { … banner
+  + surface_previous_failures }` block deleted; replaced by
+  a global `pub fn sb_ide(suppress_banner: bool,
+  is_detached_exec: bool)` defined near `BANNER` and
+  `bm_track`. Chid match arm collapses to
+  `Commands::Chid(args) => args.dispatch(cli.log),`. The
+  11 unported arms call `sb_ide(suppress_banner,
+  is_detached_exec)` directly, reading the bools from a
+  shrunken pre-match peek match (chid removed; each future
+  port removes its variant too). When the last command is
+  ported the pre-match peek and the unported-side `sb_ide`
+  callers both disappear; only the trait's call site
+  remains.
+- Tests unchanged — `ChidParams::try_from` happy-path is
+  the same code path the existing tests exercise; the
+  trait adds no new logic; banner / -L behavior preserved
+  end-to-end (see `### Session chrome: order shift`).
+
+### Naming: `SubcommandRunner`
+
+`clap::Subcommand` is the name of both a clap trait and a
+derive macro (used on `enum Commands`). Naming our trait
+`Subcommand` collides. Three real options:
+
+- **Rename our trait** ← landed: `SubcommandRunner`. The
+  `*Runner` suffix is idiomatic Rust (`TestRunner`,
+  `BenchmarkRunner`, …); reads cleanly at `impl
+  SubcommandRunner for ChidArgs`; no namespace gymnastics
+  anywhere.
+- **`SubcommandTrait`** — rejected. Rust style guides
+  specifically discourage `*Trait` suffixes (parallel to
+  `*Interface` in older Java style).
+- **`SubcommandExec`** — fine, just less idiomatic than
+  `*Runner`.
+- **Keep `Subcommand`, qualify clap at use site** — was the
+  first thing tried (`#[derive(clap::Subcommand, ...)]`,
+  drop `Subcommand` from `use clap::{...}`). Worked, but
+  the one ugly use site read worse than a clean rename.
+
+### Trait scope: peek methods read from Params
+
+The trait carries:
+
+- `type Params` (associated type for the clap-free domain
+  struct each subcommand operates on).
+- `to_params(&self) -> Result<Params, String>` (required).
+- `run(ctx, params) -> Result<(), Box<dyn Error>>` (required).
+- `suppress_banner(params: &Self::Params) -> bool { false }`
+  (peek, default false).
+- `is_detached_exec(params: &Self::Params) -> bool { false }`
+  (peek, default false).
+- `dispatch(&self, log) -> ExitCode` (default impl below).
+
+Earlier iterations considered dropping the peek methods —
+the reasoning was that they hid a field read without
+collapsing the per-arm match in `main.rs`. That argument
+no longer applies once the chrome lives in the trait's
+default `dispatch`: the peeks are read by `dispatch` (via
+`Self::suppress_banner(&params)` /
+`Self::is_detached_exec(&params)`) and passed into
+`crate::sb_ide(…)`. They're load-bearing, not indirection.
+
+The peeks take `params: &Self::Params` (not `&self`) so
+the chrome data lives on each command's `Params` struct
+(e.g. `ChidParams::suppress_banner`). Commands that don't
+need either flag (the 10 non-chid, non-finalize ones)
+just don't override; the default `false` applies.
+
+This makes ported arms in `main` true one-liners
+(`Commands::Chid(args) => args.dispatch(cli.log),`) —
+all the chrome behavior is driven by the command's own
+`Params` content, queried through trait methods, with no
+visible coupling to `main`.
+
+### Session chrome: order shift
+
+Today `main` has an inline `if !is_detached_exec { …
+log::info!("{BANNER}"); finalize::surface_previous_failures();
+}` block *before* the outer match. Each subcommand runs
+under that shared chrome.
+
+The extraction lifts this block into a global
+`pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool)`
+in `main.rs` (placed near `BANNER` and `bm_track`). Two
+call sites:
+
+- The trait's default `dispatch` calls `crate::sb_ide(...)`
+  for ported commands (after `Context::load` and
+  `to_params` succeed).
+- Each unported arm in `main` calls
+  `sb_ide(suppress_banner, is_detached_exec)` directly,
+  reading the bools from a shrunken pre-match peek match
+  (which only enumerates the unported `-L`-supporting
+  variants — chid is gone, future ports remove their
+  variants too).
+
+**Two visible output-order shifts vs. today.** Both
+stem from the chrome no longer running once-pre-match:
+
+- `bm-track enter` now prints *before* the banner. The
+  banner used to be the first line; `bm-track` now is.
+  Same logical content, swapped order.
+- For ported commands, the banner is emitted *after*
+  `Context::load` and `to_params`. If `to_params` fails
+  (e.g. workspace lookup error) the banner is suppressed
+  along with the rest of the chrome — the user sees the
+  error message only. Today the banner would have
+  printed before the error. Affects error paths only;
+  happy-path output is identical.
+
+The user has accepted both shifts; the rationale is that
+the banner content (and to a lesser extent `bm-track`)
+is informational chrome, not load-bearing for any
+script-parseable mode (which already uses `-L`).
+
+### Why no closure
+
+A closure in `fn main()` was the prior iteration's shape;
+this one promotes `sb_ide` to a global function so both
+the trait's default `dispatch` (via `crate::sb_ide`) and
+`main`'s unported arms can call it. A closure local to
+`fn main()` would not be reachable from the trait module.
+
+### Why peek methods take `&Self::Params` (not `&self`)
+
+The chrome data is naturally a Params concept (the
+clap-free domain struct each subcommand operates on),
+not an Args concept. Reading the peek off `Params` means
+the trait's default `dispatch` can be entirely
+clap-free; only `to_params` straddles the Args→Params
+boundary.
+
+A minor consequence: chrome runs *after* `to_params`
+rather than before, so a `to_params` failure suppresses
+the banner. See `### Session chrome: order shift`.
+
+### Evaluation hook
+
+Per the cycle's per-step evaluation gate (see the `-0`
+section's `### Per-step evaluation`), this `-1` was the
+first opportunity to modify the trait shape significantly
+or abandon the cycle. Three material design calls landed
+(see `### Naming: SubcommandRunner`, `### Trait scope:
+peek methods read from Params`, and `### Session chrome:
+order shift` above). The shape can still change at `-2`'s
+boundary based on how the worked example reads.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -782,3 +980,4 @@ across both repos with ochid trailers.
 [10]: https://github.com/winksaville/vc-x1/commit/00f49f10b7a3 "00f49f10b7a3b55192f9feb6313e5968efa16bb0"
 [11]: https://github.com/winksaville/vc-x1/commit/d772a204be15 "d772a204be150ee8da8d2cbc33496410940aecb5"
 [12]: https://github.com/winksaville/vc-x1/commit/4b73862668ab "4b73862668abe34675f06f97e53555f92c4dc08d"
+[13]: https://github.com/winksaville/vc-x1/commit/040aa2880421 "040aa28804211e529baa4ebf0a27f3ebfcef6e95"
