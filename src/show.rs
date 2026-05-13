@@ -4,9 +4,12 @@
 //!
 //! - `ShowArgs`: clap surface; flattens
 //!   `options_flags::common_args::CommonArgs` plus a `-f`/`--files`
-//!   cap parsed into [`FileLimit`].
-//! - `show(&ShowArgs)`: the op — `resolve_spec` / `resolve_header` /
-//!   `for_each_repo`, one `show_one_commit` per commit.
+//!   cap (raw `String`; parsed at the boundary into [`FileLimit`]).
+//! - `ShowParams`: clap-free; embeds `common::CommonParams` and the
+//!   parsed `FileLimit`. Built via `TryFrom<&ShowArgs>` at the
+//!   binary edge.
+//! - `show(&Context, &ShowParams)`: the op — `for_each_repo`, one
+//!   `show_one_commit` per commit.
 
 use std::sync::Arc;
 
@@ -23,7 +26,8 @@ use pollster::FutureExt;
 
 use log::{debug, info};
 
-use crate::common;
+use crate::common::{self, CommonParams};
+use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 
 /// Parsed file limit: None (suppress), Some(n) (cap at n), or all.
@@ -38,7 +42,10 @@ pub enum FileLimit {
 }
 
 impl FileLimit {
-    fn parse(s: &str) -> Result<Self, String> {
+    /// Parse the `--files` flag string into a `FileLimit` — `"0"` →
+    /// None, `"all"` → All, otherwise a positive integer → Cap(n).
+    /// Called at the boundary by `ShowParams::try_from`.
+    pub fn parse(s: &str) -> Result<Self, String> {
         match s {
             "0" => Ok(FileLimit::None),
             "all" => Ok(FileLimit::All),
@@ -60,20 +67,47 @@ pub struct ShowArgs {
     pub files: String,
 }
 
+/// Clap-free params for `show`; embeds `CommonParams` plus the parsed
+/// `FileLimit`.
+#[derive(Debug)]
+pub struct ShowParams {
+    pub common: CommonParams,
+    pub files: FileLimit,
+}
+
+impl TryFrom<&ShowArgs> for ShowParams {
+    type Error = String;
+
+    /// Resolve clap `ShowArgs` into `ShowParams`: delegate to
+    /// `CommonParams::try_from` for the shared fields and parse
+    /// `--files` into `FileLimit` at the boundary. Fallible for two
+    /// reasons (`resolve_repos` or `FileLimit::parse`); both errors
+    /// surface as `String` for uniform handling in `main`.
+    fn try_from(a: &ShowArgs) -> Result<Self, String> {
+        Ok(ShowParams {
+            common: CommonParams::try_from(&a.common)?,
+            files: FileLimit::parse(&a.files)?,
+        })
+    }
+}
+
 /// Print full details + a changed-files summary for each commit in
 /// the resolved range.
-pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `_ctx` is unused (show has no user-config or `--log` consumer);
+/// it's present for the uniform subcommand-layer signature.
+pub fn show(_ctx: &Context, params: &ShowParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("show: enter");
-    let file_limit = FileLimit::parse(&args.files)?;
-    let c = &args.common;
+    let c = &params.common;
 
-    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
-    let hdr = common::resolve_header(&c.label, c.no_label);
-    let repos = c.resolve_repos()?;
-
-    common::for_each_repo(&repos, &hdr, |workspace, repo| {
-        let (ids, anchor_index) =
-            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
+    common::for_each_repo(&c.repos, &c.header, |workspace, repo| {
+        let (ids, anchor_index) = common::collect_ids(
+            workspace,
+            repo,
+            &c.spec.rev,
+            c.spec.desc_count,
+            c.spec.anc_count,
+        )?;
 
         let mut first = true;
         for (i, commit_id) in ids.iter().enumerate() {
@@ -83,7 +117,7 @@ pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
             first = false;
 
             let commit = repo.store().get_commit(commit_id)?;
-            show_one_commit(&commit, workspace, repo, file_limit, i == anchor_index)?;
+            show_one_commit(&commit, workspace, repo, params.files, i == anchor_index)?;
         }
         Ok(())
     })?;
@@ -440,5 +474,40 @@ mod tests {
         assert_eq!(args.common.repo, Some(PathBuf::from("/tmp")));
         assert_eq!(args.files, "100");
         assert_eq!(args.common.limit, Some(3));
+    }
+
+    #[test]
+    fn params_from_args_defaults() {
+        // ShowParams::try_from goes through the binary-edge resolution
+        // and parses --files into a FileLimit. Default "50" → Cap(50).
+        use super::{FileLimit, ShowParams};
+        let args = parse(&["vc-x1", "show"]);
+        let params = ShowParams::try_from(&args).unwrap();
+        assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
+        assert_eq!(params.common.spec.rev, "@");
+        assert_eq!(params.files, FileLimit::Cap(50));
+    }
+
+    #[test]
+    fn params_from_args_files_variants() {
+        use super::{FileLimit, ShowParams};
+        let args = parse(&["vc-x1", "show", "-f", "0"]);
+        assert_eq!(ShowParams::try_from(&args).unwrap().files, FileLimit::None);
+        let args = parse(&["vc-x1", "show", "-f", "all"]);
+        assert_eq!(ShowParams::try_from(&args).unwrap().files, FileLimit::All);
+        let args = parse(&["vc-x1", "show", "-f", "5"]);
+        assert_eq!(
+            ShowParams::try_from(&args).unwrap().files,
+            FileLimit::Cap(5)
+        );
+    }
+
+    #[test]
+    fn params_from_args_files_invalid() {
+        // FileLimit::parse error surfaces through ShowParams::try_from.
+        use super::ShowParams;
+        let args = parse(&["vc-x1", "show", "-f", "bogus"]);
+        let err = ShowParams::try_from(&args).unwrap_err();
+        assert!(err.contains("invalid file limit"), "got: {err}");
     }
 }

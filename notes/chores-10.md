@@ -33,7 +33,7 @@ place as cycles land.
 | `chid` | done (0.49.0-3) — introduces shared `CommonParams`; `TryFrom` |
 | `desc` | done (0.49.0-4) — `TryFrom` |
 | `list` | done (0.49.0-5) — `TryFrom` |
-| `show` | pending (0.49.0-6) — `TryFrom`; also parses `--files` → `FileLimit` at the boundary |
+| `show` | done (0.49.0-6) — `TryFrom`; also parses `--files` → `FileLimit` at the boundary |
 
 Out of scope for the ports (deferred until a real consumer
 surfaces): typed errors, returned-outcomes-vs-`println!`,
@@ -512,6 +512,8 @@ so `DescParams` is just a `CommonParams` wrapper).
 
 ## refactor: list → Context+Params (0.49.0-5)
 
+Commits: [[10]]
+
 Third of the four Context+Params ports. First port with a
 subcommand-specific field beyond `CommonArgs` — `list` carries
 the ochid column `width: usize` — so `ListParams` adds that
@@ -531,6 +533,34 @@ field next to its embedded `CommonParams`.
   (defaults including `DEFAULT_OCHID_WIDTH`) and
   `params_from_args_with_width` (custom `-w 30`).
 
+## refactor: show → Context+Params (0.49.0-6)
+
+Fourth and last of the Context+Params ports, completing
+Migration A's 12/12. `show`'s wrinkle is that `--files` ships
+as a raw `String` on the args side and parses into `FileLimit`
+at the binary edge — so `ShowParams::try_from` is fallible for
+*two* reasons (`resolve_repos` + `FileLimit::parse`), not just
+the `CommonParams` one. Both surface as `String` errors for
+uniform handling in `main`.
+
+- `show::ShowParams`: `common: CommonParams` + `files: FileLimit`.
+  `impl TryFrom<&ShowArgs>` delegates `common` and calls
+  `FileLimit::parse(&a.files)` at the boundary; the earlier
+  in-`pub fn show` `FileLimit::parse` call moves out.
+  `FileLimit::parse` widened from `fn` to `pub fn` so the
+  boundary call can reach it.
+- `pub fn show(_ctx: &Context, params: &ShowParams)` — `ctx`
+  unused (uniform-signature placeholder); body reads
+  `params.files` directly (no more parse step inside).
+- `main.rs` dispatch builds `Context` + `ShowParams` (same
+  shape as `-3` / `-4` / `-5`).
+- Tests: existing `ShowArgs` parse tests untouched; three new
+  param-construction tests — `params_from_args_defaults`
+  (default `Cap(50)`), `params_from_args_files_variants`
+  (`0` / `all` / `5`), and `params_from_args_files_invalid`
+  (asserts the boundary parse error surfaces through
+  `try_from`).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -542,3 +572,4 @@ field next to its embedded `CommonParams`.
 [7]: https://github.com/winksaville/vc-x1/commit/c1784a0548df "c1784a0548dfb93dbbdbd93aeb69802b0561f258"
 [8]: https://github.com/winksaville/vc-x1/commit/d0d886a09956 "d0d886a0995679d82cdb67c10b24c7c17f1915e0"
 [9]: https://github.com/winksaville/vc-x1/commit/6d453b551f78 "6d453b551f781c8c793da72cba0d4a70c44277ce"
+[10]: https://github.com/winksaville/vc-x1/commit/00f49f10b7a3 "00f49f10b7a3b55192f9feb6313e5968efa16bb0"
