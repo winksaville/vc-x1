@@ -117,55 +117,60 @@ vc-x1 list ..x.. 1          # just x (1 commit)
 **Defaults:** with no arguments, REVISION is `@` and COMMITS is 1
 (just the working copy).
 
-Named flags `-r`/`--revision`, `-n`/`--commits`, and `-R`/`--repo`
-take precedence over positional arguments.
+Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and
+`-s`/`--scope` take precedence over positional arguments.
 
 ### Multi-repo queries
 
-The `-R`/`--repo` flag can be repeated or comma-separated to query
-multiple repos at once. When multiple repos are given, output is
-labeled with bold `=== path ===` headers by default:
+`-s`/`--scope` selects workspace sides by role keyword; `code` is the
+app repo, `bot` is the `.claude` repo, `code,bot` is both. The
+workspace root is found by walking up from cwd (the existing
+`find_workspace_root` rule).
 
 ```
-vc-x1 chid -R . -R .claude      # repeated flag
-vc-x1 chid -R .,.claude         # comma-separated
-vc-x1 list @.. 3 -R .,.claude   # works with all read-only subcommands
+vc-x1 chid -s code,bot          # both sides of the workspace
+vc-x1 chid -s code              # just the app repo
+vc-x1 chid -s bot               # just the bot repo
+vc-x1 list @.. 3 -s code,bot    # works with chid / desc / list / show
 ```
 
-Control the label between repos with `-l`/`--label` and `-L`/`--no-label`:
+`-R`/`--repo` takes a single path. Used alone it points at one jj
+repo (workspace lookup is skipped); combined with `-s` it overrides
+the workspace root for the role lookup:
 
 ```
-vc-x1 chid -R .,.claude            # default label: === path ===
-vc-x1 chid -R .,.claude -l "---"   # custom label:  --- path ---
-vc-x1 chid -R .,.claude -L         # no label (raw output)
+vc-x1 chid -R .                  # single repo at .
+vc-x1 chid -R .claude            # single repo at .claude
+vc-x1 chid -R ../other -s code,bot   # both sides of ../other workspace
+```
+
+Defaults preserve prior behavior — no flag → `[.]`, `-R foo` alone
+→ `[foo]`. When multiple repos are resolved (any `-s` that names
+more than one role), output is labeled with bold `=== path ===`
+headers by default. Control the label with `-l`/`--label` and
+`-L`/`--no-label`:
+
+```
+vc-x1 chid -s code,bot            # default label: === path ===
+vc-x1 chid -s code,bot -l "---"   # custom label:  --- path ---
+vc-x1 chid -s code,bot -L         # no label (raw output)
 ```
 
 Examples:
 
 ```
-$ vc-x1 chid -R . -R .claude
+$ vc-x1 chid -s code,bot
 === . ===
 kwoyvposvsmv
 
 === .claude ===
 zzpksklxyrnw
 
-$ vc-x1 chid -R . -R .claude -L
+$ vc-x1 chid -s code,bot -L
 kwoyvposvsmv
 zzpksklxyrnw
 
-$ vc-x1 chid -R .,.claude
-=== . ===
-kwoyvposvsmv
-
-=== .claude ===
-zzpksklxyrnw
-
-$ vc-x1 chid -R .,.claude -L
-kwoyvposvsmv
-zzpksklxyrnw
-
-$ vc-x1 list @.. 3 -R .,.claude
+$ vc-x1 list @.. 3 -s code,bot
 === . ===
 kwoyvposvsmv eae175c3c1b5 (no description set)
 pqxtxxpnsmot b0c46930a640 Reorganize notes (0.19.1)
@@ -176,11 +181,7 @@ zzpksklxyrnw 2388185e42ee (no description set)
 tzupykyyvnrp 81ce22e34d41 Reorganize notes (0.19.1)
 slmkmroqtqtp 1c33ccaa567d Unify .. notation and CLI (0.19.0)
 
-$ vc-x1 chid -R .,.claude -L
-kwoyvposvsmv
-zzpksklxyrnw
-
-$ vc-x1 desc -r @- -R .,.claude
+$ vc-x1 desc -r @- -s code,bot
 === . ===
 pqxtxxpnsmot b0c46930a640 Reorganize notes: move older done items to done.md, update todos (0.19.1)
 
@@ -196,7 +197,7 @@ tzupykyyvnrp 81ce22e34d41 Reorganize notes: move older done items to done.md, up
 
     ochid: pqxtxxpnsmot
 
-$ vc-x1 chid -R .,.claude -l "---"
+$ vc-x1 chid -s code,bot -l "---"
 --- . ---
 kwoyvposvsmv
 
@@ -209,9 +210,15 @@ Most decoration strings work unquoted (`---`, `===`, `>>>`, `:::`,
 like `*`, `!`, `#`, `$`, or `~` (e.g. `-l '***'`). Double quotes
 won't protect against `!` (bash history expansion).
 
-With a single repo (or no `-R`), no label is printed — backward
-compatible with previous behavior. Multi-repo is supported for
-`chid`, `desc`, `list`, and `show`. `finalize` remains single-repo.
+With a single repo resolved, no label is printed — backward
+compatible with the no-flag default. Multi-repo (`-s code,bot`) is
+supported for `chid`, `desc`, `list`, and `show`. `finalize` remains
+single-repo.
+
+`-s` is keyword-only today. Path-via-`-s` and a comma-list form
+mixing one path with role keywords (e.g. `-s ../foo,code,bot` as a
+workspace-root-plus-roles shorthand) are planned — see
+[`notes/todo.md`](notes/todo.md).
 
 ### validate-desc
 

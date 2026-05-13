@@ -15,23 +15,65 @@ A bulleted list of the in-progress task's development "ladder":
 extraction + `--scope` + Context+Params port). Re-scoped at
 0.49.0-1 from the original "finish Migration A" plan, B-first so
 the Context+Params ports land once against the final `CommonArgs`
-shape. Design:
+shape.
+
+Design:
 [chores-10.md](chores-10.md#chore-open-0490--finish-migration-a-0490-0)
 + the 0.49.0-1 re-scope subsection; prior `--scope` design in
-[chores-06](chores-06.md#generalize---scope-across-commands-0400),[chores-07](chores-07.md#--scope-enum-refactor-0420).
+[chores-06](chores-06.md#generalize---scope-across-commands-0400),
+[chores-07](chores-07.md#--scope-enum-refactor-0420).
+
    - 0.49.0-0 plan + version bump + chores section + ladder (done)
-   - 0.49.0-1 options_flags extraction — relocate `CommonArgs` → `options_flags/common_args.rs`; re-scope cycle. Kept separate — `-1.1` + `-1.2` land as-is, no `0.49.0-1` close-out commit:
+   - 0.49.0-1 options_flags extraction — relocate `CommonArgs`
+     → `options_flags/common_args.rs`. Kept separate; no `-1`
+     close-out commit.
      - 0.49.0-1.1 the relocation + all four importers (done)
      - 0.49.0-1.2 docs: slim ARCHITECTURE.md; start chores-10 (done)
-   - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` for `chid`/`desc`/`list`/`show`. Sub-steps:
-     - 0.49.0-2.1 open the step; tidy `## Todo` (drop the two now-in-progress items); add a CLAUDE.md rule — a picked-up `## Todo` item is deleted when it goes `## In Progress`; backfill `-1.1`/`-1.2` chores `Commits:` refs (done)
-     - 0.49.0-2.2 the rollout (code) — keep `-R` (single path, `Option<PathBuf>`); add `-s`/`--scope` (`Option<Scope>` via `parse_scope_roles`, keyword-only — paths via `-s` are a future Todo); they compose (no `conflicts_with`): `-R` overrides the workspace root, `-s` selects sides within it. `for_each_repo` takes a resolved `Vec<PathBuf>`; new `common::resolve_repos(repo, scope)` does the match. Defaults preserve today: no flag → `[.]`, `-R foo` alone → `[foo]`. The four subcommand bodies + `--help`; tests; CLAUDE.md `chid -R .,.claude -L` → `chid -s code,bot -L`. (current)
-     - 0.49.0-2.3 docs — `notes/README.md` (the `-s`/`--scope` flag); ARCHITECTURE.md + any `notes/` mentions of `-R .,.claude` for these four
+   - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` for `chid` /
+     `desc` / `list` / `show`.
+     - 0.49.0-2.1 open the step (done)
+       - tidy `## Todo` (drop the two now-in-progress items).
+       - add CLAUDE.md rule — a picked-up `## Todo` item is
+         deleted when it goes `## In Progress`.
+       - backfill `-1.1` / `-1.2` chores `Commits:` refs.
+     - 0.49.0-2.2 the rollout — code (done)
+       - kept `-R` as single path (`Option<PathBuf>`); added
+         `-s`/`--scope` (`Option<Scope>` via
+         `parse_scope_roles`, keyword-only — `-s <path>` is a
+         future Todo).
+       - the two compose (no `conflicts_with`): `-R` overrides
+         workspace root, `-s` selects sides within it. New
+         `common::resolve_repos(repo, scope)` does the match;
+         `for_each_repo` takes a resolved `Vec<PathBuf>`.
+       - defaults preserve today: no flag → `[.]`, `-R foo`
+         alone → `[foo]`.
+       - scope: four subcommand bodies + `--help`; tests;
+         CLAUDE.md `chid -R .,.claude -L` → `chid -s code,bot -L`.
+     - 0.49.0-2.3 docs (done)
+       - `README.md` `### Multi-repo queries` rewritten to lead
+         with `-s code,bot`; every example updated. The prior
+         `-R .,.claude` / `-R . -R .claude` forms no longer
+         parse since `-R` is now single-path.
+       - `-R PATH` retained for single-path use and as the
+         workspace-root override that composes with `-s`
+         (`-R ../other -s code,bot`).
+       - `ARCHITECTURE.md`: `resolve_repos` added to the
+         `common.rs` helper list with a one-line note on what
+         it composes.
+       - `notes/` swept; no stale `-R .,.claude` for these four.
+     - 0.49.0-2.4 CLAUDE.md prose-form unification — new
+       top-level `## Prose form` section as the single source of
+       truth for the intro+bullets shape across commit bodies /
+       chores / todo / done / doc comments; slim
+       `## Commit Message Style`, `### Chores section content`,
+       and `### Doc comments…` to reference it. Surfaced as
+       process drift while writing the `-2.3` chores section.
    - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
    - 0.49.0-4 desc Context+Params port
    - 0.49.0-5 list Context+Params port
    - 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse)
-   - 0.49.0 close-out — drop suffix, todo→Done (Context+Params port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
+   - 0.49.0 close-out — drop suffix, todo→Done (Context+Params
+     port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
 
 ## Todo
 

@@ -106,8 +106,11 @@ per-subcommand refactor status):
   subcommands (`chid` / `desc` / `list` / `show`) share:
   `for_each_repo`, `collect_ids`, `resolve_revset`, the
   `DotSpec` / `..`-notation parsing, `Header` /
-  `resolve_header`, the `format_*` printers, and
-  `find_workspace_root` / `default_scope` / `scope_to_repos`.
+  `resolve_header`, the `format_*` printers, and the
+  `-R`/`-s` resolution stack — `find_workspace_root` /
+  `default_scope` / `scope_to_repos` / `resolve_repos`
+  (the top-level entry combining the `-R PATH` override and
+  the `-s code|bot|code,bot` role selection).
 
 **Subcommand-layer scaffolding:**
 

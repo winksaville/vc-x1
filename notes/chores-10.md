@@ -309,7 +309,9 @@ catch-line for it.
 
 ## feat: chid+co -s/--scope flag (0.49.0-2.2)
 
-The code half of the `0.49.0-2` rollout (`0.49.0-2.3` will sweep
+Commits: [[5]]
+
+The code half of the `0.49.0-2` rollout (`0.49.0-2.3` sweeps
 the docs). Replaces today's `-R .,.claude` / `-R . -R .claude`
 multi-repo forms with a roles flag (`-s code | bot | code,bot`),
 keeps `-R` for single-path operation, and lets the two compose
@@ -358,9 +360,32 @@ explainer the doc-comment links to. The free function stays as
 the reusable primitive (a future `finalize --scope` /
 `push --scope` calls it directly, not through `CommonArgs`).
 
+## docs: chid+co -s/--scope flag (0.49.0-2.3)
+
+The docs half of the `0.49.0-2` rollout. Code shipped in `-2.2`
+but `README.md` still showed the pre-`-R`-single-path multi-repo
+forms (`-R .,.claude` / `-R . -R .claude`) — anyone reading the
+user-facing docs would be steered into invocations that no longer
+parse.
+
+- `README.md` `### Multi-repo queries` rewritten to lead with
+  `-s code,bot`; every example updated to the new form.
+- `-R PATH` retained as the single-path escape hatch (`-R .`,
+  `-R .claude`, `-R ../other`) and as the workspace-root
+  override that composes with `-s` (`-R ../other -s code,bot`).
+- Trailing paragraph forward-links to the `-s <path>` and
+  `-s <path>,roles` future-Todos so readers see the deferred
+  expressivity.
+- `ARCHITECTURE.md` gains `resolve_repos` in the `common.rs`
+  helper list with a one-line note on what it composes.
+- `sync` flag table at the bottom of `README.md` left alone —
+  `sync` still has the old repeatable/comma-list `-R`; its
+  migration is queued under "Drop `-R` from `CommonArgs`".
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
 [2]: https://github.com/winksaville/vc-x1/commit/cc19273e2ca3 "cc19273e2ca30f1beedd55198a11bdf045b281ee"
 [3]: https://github.com/winksaville/vc-x1/commit/f6438bc7394e "f6438bc7394e76a3d83de08467c6fafec7a819b7"
 [4]: https://github.com/winksaville/vc-x1/commit/7e1ea28cc7f6 "7e1ea28cc7f62c2f0920d25ae7c21dba69629e02"
+[5]: https://github.com/winksaville/vc-x1/commit/af7d87a031ea "af7d87a031eaa6b4773fa01ed16a6eea734c5262"
