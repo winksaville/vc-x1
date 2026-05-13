@@ -407,36 +407,25 @@ pub fn resolve_header(label: &str, suppress: bool) -> Header {
     }
 }
 
-/// Expand comma-separated repo paths, default to `["."]`, and run a closure for each.
+/// Run a closure once per resolved repo, with optional header decoration between repos.
 ///
-/// Header style controls output between repos.
-/// Continues past errors, printing them to stderr, and returns an error if any failed.
+/// Takes an already-resolved `&[PathBuf]` — the caller is responsible
+/// for any flag-driven expansion (see `resolve_repos`). Continues past
+/// errors, printing them to stderr, and returns an error if any
+/// repo's body failed.
 pub fn for_each_repo<F>(
-    raw_repos: &[PathBuf],
+    repos: &[PathBuf],
     header: &Header,
     mut body: F,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     F: FnMut(&Workspace, &Arc<ReadonlyRepo>) -> Result<(), Box<dyn std::error::Error>>,
 {
-    let repos: Vec<PathBuf> = if raw_repos.is_empty() {
-        vec![PathBuf::from(".")]
-    } else {
-        raw_repos
-            .iter()
-            .flat_map(|p| {
-                p.to_string_lossy()
-                    .split(',')
-                    .map(|s| PathBuf::from(s.trim()))
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    };
     let multi = repos.len() > 1;
     let mut first = true;
     let mut errors: Vec<String> = Vec::new();
 
-    for repo_path in &repos {
+    for repo_path in repos {
         if multi {
             match header {
                 Header::Label(deco) => {
@@ -669,6 +658,38 @@ pub fn scope_to_repos(
         }
     }
     Ok(repos)
+}
+
+/// Resolve `CommonArgs.repo` + `CommonArgs.scope` into concrete repo paths.
+///
+/// The four `CommonArgs` consumers (`chid` / `desc` / `list` / `show`)
+/// call this at the start of their body to translate the clap surface
+/// into the `&[PathBuf]` that `for_each_repo` iterates. Behavior matches
+/// today's defaults plus a composing rule for the new `--scope` flag:
+///
+/// - neither flag → `[.]` (today's no-arg default).
+/// - `-R PATH` alone → `[PATH]` (today's `-R <path>` behavior;
+///   workspace context not consulted).
+/// - `-s ROLES` alone → resolves against `find_workspace_root()` —
+///   the surrounding workspace if there is one, else POR
+///   (`Side::Code` → `.`, `Side::Bot` → error).
+/// - `-R PATH -s ROLES` → resolves with `PATH` as the workspace root
+///   (overrides `find_workspace_root`). This is the composing case;
+///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
+///
+/// `--scope` is keyword-only today (the `parse_scope_roles` value
+/// parser rejects path forms); the planned `-s <path>` /
+/// `-s <path>,roles` workspace-root override is a future feature.
+pub fn resolve_repos(
+    repo: Option<&Path>,
+    scope: Option<&Scope>,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    match (repo, scope) {
+        (None, None) => Ok(vec![PathBuf::from(".")]),
+        (Some(p), None) => Ok(vec![p.to_path_buf()]),
+        (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
+        (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
+    }
 }
 
 #[cfg(test)]

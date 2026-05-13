@@ -6,8 +6,7 @@
 //!     keyword form (`code`, `bot`, `code,bot`, `bot,code`).
 //!   - `Single(PathBuf)` — explicit single-repo mode; ignores
 //!     `.vc-config.toml` and operates on the one repo at the
-//!     given path. Wired up incrementally (parser lands in
-//!     0.42.0-2, consumers in later steps).
+//!     given path.
 //! - Helpers (`has_code`, `is_both`, etc.) reflect the `Roles`
 //!   arm only; on `Single(_)` they all return `false`. Callers
 //!   that must distinguish modes match on the enum directly.
@@ -36,7 +35,6 @@ pub enum Side {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Scope {
     Roles(Vec<Side>),
-    #[allow(dead_code)]
     Single(PathBuf),
 }
 
@@ -55,7 +53,6 @@ pub enum Scope {
 /// empty string, or an unrecognized keyword combination — is an
 /// error. The error message hints at the path-prefix requirement
 /// so users see the disambiguation rule when they mistype.
-#[allow(dead_code)]
 pub fn parse_scope(s: &str) -> Result<Scope, String> {
     if s == "~"
         || s.starts_with("./")
@@ -78,6 +75,27 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
              Bare names without `./` are reserved for keywords; \
              prefix paths with `./` to disambiguate."
         )),
+    }
+}
+
+/// Parse `--scope` value, accepting only role keywords today.
+///
+/// Wraps [`parse_scope`] and rejects the path forms (`./X`, `../X`,
+/// `/X`, `~`, `~/X`) with a hint pointing users at `-R`/`--repo` for
+/// single-path operation. Path-via-`--scope` (including the planned
+/// `--scope=<path>,bot,code` workspace-root override) is a future
+/// feature tracked in `notes/todo.md`; keeping the path branch in
+/// `parse_scope` itself avoids re-implementing the disambiguation
+/// when that feature lands.
+pub fn parse_scope_roles(s: &str) -> Result<Scope, String> {
+    match parse_scope(s)? {
+        Scope::Single(_) => Err(format!(
+            "--scope: '{s}' looks like a path; path-via-`--scope` isn't \
+             supported yet (planned). Use `-R/--repo <path>` for \
+             single-repo operation, or `--scope=code|bot|code,bot` for \
+             role-based selection."
+        )),
+        scope => Ok(scope),
     }
 }
 
@@ -280,5 +298,39 @@ mod tests {
         assert!(parse_scope("code,code").is_err());
         assert!(parse_scope("code,bot,code").is_err());
         assert!(parse_scope("bot,bot").is_err());
+    }
+
+    // ---------- parse_scope_roles ----------
+
+    #[test]
+    fn parse_roles_accepts_keywords() {
+        assert_eq!(
+            parse_scope_roles("code").unwrap(),
+            Scope::Roles(vec![Side::Code])
+        );
+        assert_eq!(
+            parse_scope_roles("bot").unwrap(),
+            Scope::Roles(vec![Side::Bot])
+        );
+        assert_eq!(
+            parse_scope_roles("code,bot").unwrap(),
+            Scope::Roles(vec![Side::Code, Side::Bot])
+        );
+    }
+
+    #[test]
+    fn parse_roles_rejects_path_with_repo_hint() {
+        let err = parse_scope_roles("./foo").unwrap_err();
+        assert!(err.contains("path"), "got: {err}");
+        assert!(err.contains("--repo"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_roles_propagates_parse_error() {
+        // Bare-name / empty / unknown-combo errors come from
+        // parse_scope and pass through.
+        assert!(parse_scope_roles("foo").is_err());
+        assert!(parse_scope_roles("").is_err());
+        assert!(parse_scope_roles("code,code").is_err());
     }
 }

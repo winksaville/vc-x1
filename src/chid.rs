@@ -26,8 +26,9 @@ pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
     let c = &args.common;
     let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
     let hdr = common::resolve_header(&c.label, c.no_label);
+    let repos = c.resolve_repos()?;
 
-    common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
+    common::for_each_repo(&repos, &hdr, |workspace, repo| {
         let (ids, _) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
@@ -62,7 +63,8 @@ mod tests {
     fn defaults() {
         let c = parse(&["vc-x1", "chid"]);
         assert_eq!(c.revision, "@");
-        assert!(c.repos.is_empty());
+        assert_eq!(c.repo, None);
+        assert_eq!(c.scope, None);
         assert_eq!(c.limit, None);
     }
 
@@ -75,7 +77,42 @@ mod tests {
     #[test]
     fn with_repo() {
         let c = parse(&["vc-x1", "chid", "-R", ".claude"]);
-        assert_eq!(c.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(c.repo, Some(PathBuf::from(".claude")));
+    }
+
+    #[test]
+    fn with_scope_code() {
+        use crate::scope::{Scope, Side};
+        let c = parse(&["vc-x1", "chid", "-s", "code"]);
+        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code])));
+    }
+
+    #[test]
+    fn with_scope_code_bot() {
+        use crate::scope::{Scope, Side};
+        let c = parse(&["vc-x1", "chid", "-s", "code,bot"]);
+        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code, Side::Bot])));
+    }
+
+    #[test]
+    fn with_repo_and_scope_compose() {
+        // `-R` and `-s` compose: the path is the workspace root, the
+        // roles are resolved within it. Both fields parse cleanly.
+        use crate::scope::{Scope, Side};
+        let c = parse(&["vc-x1", "chid", "-R", "../foo", "-s", "bot"]);
+        assert_eq!(c.repo, Some(PathBuf::from("../foo")));
+        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Bot])));
+    }
+
+    #[test]
+    fn scope_path_rejected_with_hint() {
+        // Path-via-`-s` is a planned feature; today rejected with a
+        // hint pointing at `-R`/`--repo`.
+        let err = crate::Cli::try_parse_from(["vc-x1", "chid", "-s", "./foo"])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("path"), "got: {err}");
+        assert!(err.contains("--repo"), "got: {err}");
     }
 
     #[test]
@@ -88,20 +125,8 @@ mod tests {
     fn all_opts() {
         let c = parse(&["vc-x1", "chid", "-r", "@--", "-R", ".claude", "-n", "3"]);
         assert_eq!(c.revision, "@--");
-        assert_eq!(c.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(c.repo, Some(PathBuf::from(".claude")));
         assert_eq!(c.limit, Some(3));
-    }
-
-    #[test]
-    fn multi_repo() {
-        let c = parse(&["vc-x1", "chid", "-R", ".", "-R", ".claude"]);
-        assert_eq!(c.repos, vec![PathBuf::from("."), PathBuf::from(".claude")]);
-    }
-
-    #[test]
-    fn comma_repo() {
-        let c = parse(&["vc-x1", "chid", "-R", ".,.claude"]);
-        assert_eq!(c.repos, vec![PathBuf::from(".,.claude")]);
     }
 
     #[test]

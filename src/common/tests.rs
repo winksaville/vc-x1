@@ -382,3 +382,53 @@ fn scope_to_repos_single_returns_path() {
         vec![p]
     );
 }
+
+/// `resolve_repos`: no flags → today's `["."]` default.
+#[test]
+fn resolve_repos_no_flags_defaults_to_dot() {
+    let repos = resolve_repos(None, None).unwrap();
+    assert_eq!(repos, vec![PathBuf::from(".")]);
+}
+
+/// `resolve_repos`: `-R <path>` alone → `[path]`, workspace context not consulted.
+#[test]
+fn resolve_repos_repo_only_returns_path() {
+    let p = PathBuf::from("/some/repo");
+    let repos = resolve_repos(Some(&p), None).unwrap();
+    assert_eq!(repos, vec![p]);
+}
+
+/// `resolve_repos`: `-R <ws> -s code,bot` composes — the path is the
+/// workspace root, the roles are resolved within it.
+#[test]
+fn resolve_repos_repo_plus_scope_uses_path_as_workspace_root() {
+    let base = ws_tempdir("resolve-compose");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+    )
+    .unwrap();
+    let scope = Scope::Roles(vec![Side::Code, Side::Bot]);
+    let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
+    assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `resolve_repos`: `-R <ws> -s bot` composes to just the bot side.
+#[test]
+fn resolve_repos_repo_plus_scope_bot_only() {
+    let base = ws_tempdir("resolve-compose-bot");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+    )
+    .unwrap();
+    let scope = Scope::Roles(vec![Side::Bot]);
+    let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
+    assert_eq!(repos, vec![root.join(".claude")]);
+    std::fs::remove_dir_all(&base).ok();
+}

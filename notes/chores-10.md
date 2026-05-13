@@ -270,6 +270,8 @@ Cycle re-scope` records the change).
 
 ## chore: tidy todo + process rule (0.49.0-2.1)
 
+Commits: [[4]]
+
 Opens `0.49.0-2` (the `-R`/`--repo` → `-s`/`--scope` rollout for
 `chid` / `desc` / `list` / `show` — design already in `### Cycle
 re-scope`'s `--scope` bullet) with a small bookkeeping/process
@@ -305,8 +307,60 @@ Progress` is the sole record until close-out, then it moves to
 work is a process bug; the pre-commit checklist gets a
 catch-line for it.
 
+## feat: chid+co -s/--scope flag (0.49.0-2.2)
+
+The code half of the `0.49.0-2` rollout (`0.49.0-2.3` will sweep
+the docs). Replaces today's `-R .,.claude` / `-R . -R .claude`
+multi-repo forms with a roles flag (`-s code | bot | code,bot`),
+keeps `-R` for single-path operation, and lets the two compose
+as a workspace-root override. See `### Cycle re-scope`'s
+`--scope` bullet for the wider plan; the two `###` subsections
+below capture the design pivots that landed in this commit.
+
+### Design: `-R` and `-s` compose rather than conflict
+
+The chores plan had `-R` dropped, with `--scope=<path>` covering
+single-repo via `Scope::Single`. On review the design walked
+through three iterations:
+
+- **Drop `-R`.** `--scope=./foo` covers single-path via
+  `Scope::Single`; one flag, the `./` prefix disambiguates from
+  the role keywords.
+- **Mutually-exclusive `-R` + `-s`.** Keep `-R` for paths, add
+  `-s` for roles, `conflicts_with` between them. Familiar `-R`
+  preserved; redundant on the path side.
+- **Composing `-R` + `-s`** (chosen). `-R` overrides the
+  workspace root (replaces `find_workspace_root()`), `-s`
+  selects sides (replaces `default_scope(...)`). Together:
+  `-R <ws> -s <roles>` resolves the roles within `<ws>`. Each
+  flag alone reads as today's behavior: `-R foo` → `[foo]`, no
+  flag → `[.]`. The net-new expressivity is the combined form
+  (e.g. `vc-x1 chid -R ../foo -s bot` → `[../foo/.claude]`).
+  `-s` is keyword-only today (`parse_scope_roles` rejects paths
+  with a hint at `-R`); `-s <path>` and the `-s <path>,roles`
+  workspace-root override are queued as `## Todo` (a future
+  `Scope::RolesAt { root, sides }` variant, probably). "Drop
+  `-R` once `-s` is established" is a separate `## Todo` for
+  after the migration period — kept for backwards-compat now.
+
+### Design: `CommonArgs::resolve_repos(&self)` helper
+
+`common::resolve_repos(repo, scope)` takes `Option<&Path>` +
+`Option<&Scope>` — the standard "borrowed unsized" convention
+(`&Path`, not `&PathBuf`). At each call site that produces an
+asymmetric `c.repo.as_deref()` / `c.scope.as_ref()` pair — four
+times across the subcommand bodies, with another four to come in
+`0.49.0-3..-6`'s `TryFrom<&XxxArgs>` impls. A method on
+`CommonArgs` localizes the conversion ceremony to one place so
+callers read `c.resolve_repos()?`, and a new
+`notes/rust-idioms.md` carries the `as_deref` vs `as_ref`
+explainer the doc-comment links to. The free function stays as
+the reusable primitive (a future `finalize --scope` /
+`push --scope` calls it directly, not through `CommonArgs`).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
 [2]: https://github.com/winksaville/vc-x1/commit/cc19273e2ca3 "cc19273e2ca30f1beedd55198a11bdf045b281ee"
 [3]: https://github.com/winksaville/vc-x1/commit/f6438bc7394e "f6438bc7394e76a3d83de08467c6fafec7a819b7"
+[4]: https://github.com/winksaville/vc-x1/commit/7e1ea28cc7f6 "7e1ea28cc7f62c2f0920d25ae7c21dba69629e02"

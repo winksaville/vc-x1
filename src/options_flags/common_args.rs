@@ -1,7 +1,8 @@
 //! `CommonArgs` — the shared arg set for the read-only commit-query
 //! subcommands (`chid` / `desc` / `list` / `show`): a `REVISION` /
 //! `COMMITS` positional pair, `-r`/`--revision`, `-R`/`--repo`,
-//! `-n`/`--commits`, and the `-l`/`-L` inter-repo label pair.
+//! `-s`/`--scope`, `-n`/`--commits`, and the `-l`/`-L` inter-repo
+//! label pair.
 //!
 //! A "bundle" in the inline-fields sense (cf. `provision_bundle`'s
 //! flatten-of-leaves form): the fields aren't extracted into per-flag
@@ -16,6 +17,8 @@ use std::path::PathBuf;
 
 use clap::Args;
 
+use crate::scope::{Scope, parse_scope_roles};
+
 /// Shared CLI args for the read-only commit-query subcommands —
 /// see [Bundle](README.md#architecture).
 ///
@@ -23,8 +26,14 @@ use clap::Args;
 ///   (`common::resolve_spec` reconciles them with `-r` / `-n`).
 /// - `revision` — `-r` / `--revision` (default `@`); `..` notation is
 ///   parsed downstream by `common::parse_dot_rev`.
-/// - `repos` — `-R` / `--repo`, repeatable / comma-separated repo
-///   paths (the `.` default is applied in `common::for_each_repo`).
+/// - `repo` / `scope` — `-R PATH` overrides the workspace root, `-s
+///   code|bot|code,bot` selects sides; they compose
+///   (`common::resolve_repos`). Defaults preserve today's behavior:
+///   no flag → `[.]`, `-R foo` alone → `[foo]`. `-s` alone resolves
+///   against `find_workspace_root()`; `-R + -s` resolves against the
+///   `-R` path. `-s` is keyword-only today (path-via-`-s` and the
+///   `-s <path>,roles` workspace-root override are planned — see
+///   `notes/todo.md`).
 /// - `limit` — `-n` / `--commits`, caps the output.
 /// - `label` / `no_label` — `-l` / `--label` (default `===`) and
 ///   `-L` / `--no-label`; `common::resolve_header` combines them.
@@ -42,9 +51,18 @@ pub struct CommonArgs {
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
-    /// Path to jj repo; repeatable or comma-separated [default: .]
+    /// Workspace root or single jj repo path [default: .]
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
-    pub repos: Vec<PathBuf>,
+    pub repo: Option<PathBuf>,
+
+    /// Side(s) to query; composes with --repo as workspace root
+    #[arg(
+        short = 's',
+        long = "scope",
+        value_name = "code|bot|code,bot",
+        value_parser = parse_scope_roles
+    )]
+    pub scope: Option<Scope>,
 
     /// Number of commits to show
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
@@ -63,6 +81,22 @@ pub struct CommonArgs {
     /// Suppress label between repos
     #[arg(short = 'L', long = "no-label")]
     pub no_label: bool,
+}
+
+impl CommonArgs {
+    /// Resolve `-R` + `-s` into the concrete repo paths to iterate
+    /// (delegates to [`crate::common::resolve_repos`]).
+    ///
+    /// Bundles the `.as_deref()` / `.as_ref()` conversion ceremony
+    /// (`Option<PathBuf>` → `Option<&Path>`,
+    /// `Option<Scope>` → `Option<&Scope>`) into one well-named place
+    /// so the four subcommand bodies stay clean. See
+    /// [`../../notes/rust-idioms.md`](../../notes/rust-idioms.md)
+    /// for why the two fields need different conversion methods
+    /// (`PathBuf: Deref<Target = Path>`; `Scope` is a plain enum).
+    pub fn resolve_repos(&self) -> Result<Vec<std::path::PathBuf>, Box<dyn std::error::Error>> {
+        crate::common::resolve_repos(self.repo.as_deref(), self.scope.as_ref())
+    }
 }
 
 impl super::OptionFlagBundle for CommonArgs {}

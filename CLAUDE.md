@@ -525,7 +525,7 @@ repos (same shape as top-level cycle commits):
 - App body: `ochid: /.claude/<.claude-chid>`
 - `.claude` body: `ochid: /<app-chid>`
 
-Use `vc-x1 chid -R .,.claude -L` to capture both pre-commit
+Use `vc-x1 chid -s code,bot -L` to capture both pre-commit
 change IDs (first line app, second `.claude`).
 
 ### `.claude` cadence
@@ -711,7 +711,7 @@ path followed by the changeID:
 - App repo commits point to `.claude`: `ochid: /.claude/<changeID>`
 - Bot session commits point to app repo: `ochid: /<changeID>`
 
-Use `vc-x1 chid -R .,.claude -L` to get both changeIDs (first line
+Use `vc-x1 chid -s code,bot -L` to get both changeIDs (first line
 is app repo, second is `.claude`).
 
 ## Commit-Push-Finalize Flow

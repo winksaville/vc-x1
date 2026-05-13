@@ -69,8 +69,9 @@ pub fn show(args: &ShowArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
     let hdr = common::resolve_header(&c.label, c.no_label);
+    let repos = c.resolve_repos()?;
 
-    common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
+    common::for_each_repo(&repos, &hdr, |workspace, repo| {
         let (ids, anchor_index) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
@@ -371,7 +372,8 @@ mod tests {
     fn defaults() {
         let args = parse(&["vc-x1", "show"]);
         assert_eq!(args.common.revision, "@");
-        assert!(args.common.repos.is_empty());
+        assert_eq!(args.common.repo, None);
+        assert_eq!(args.common.scope, None);
         assert_eq!(args.files, "50");
         assert_eq!(args.common.pos_rev, None);
         assert_eq!(args.common.pos_count, None);
@@ -387,7 +389,14 @@ mod tests {
     #[test]
     fn with_repo() {
         let args = parse(&["vc-x1", "show", "-R", ".claude"]);
-        assert_eq!(args.common.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(args.common.repo, Some(PathBuf::from(".claude")));
+    }
+
+    #[test]
+    fn with_scope_code() {
+        use crate::scope::{Scope, Side};
+        let args = parse(&["vc-x1", "show", "-s", "code"]);
+        assert_eq!(args.common.scope, Some(Scope::Roles(vec![Side::Code])));
     }
 
     #[test]
@@ -428,17 +437,8 @@ mod tests {
             "vc-x1", "show", "-r", "@--", "-R", "/tmp", "-f", "100", "-n", "3",
         ]);
         assert_eq!(args.common.revision, "@--");
-        assert_eq!(args.common.repos, vec![PathBuf::from("/tmp")]);
+        assert_eq!(args.common.repo, Some(PathBuf::from("/tmp")));
         assert_eq!(args.files, "100");
         assert_eq!(args.common.limit, Some(3));
-    }
-
-    #[test]
-    fn multi_repo() {
-        let args = parse(&["vc-x1", "show", "-R", ".", "-R", ".claude"]);
-        assert_eq!(
-            args.common.repos,
-            vec![PathBuf::from("."), PathBuf::from(".claude")]
-        );
     }
 }

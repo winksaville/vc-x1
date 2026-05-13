@@ -27,8 +27,9 @@ pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
     let c = &args.common;
     let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
     let hdr = common::resolve_header(&c.label, c.no_label);
+    let repos = c.resolve_repos()?;
 
-    common::for_each_repo(&c.repos, &hdr, |workspace, repo| {
+    common::for_each_repo(&repos, &hdr, |workspace, repo| {
         let (ids, anchor_index) =
             common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
 
@@ -70,7 +71,8 @@ mod tests {
     fn defaults() {
         let c = parse(&["vc-x1", "desc"]);
         assert_eq!(c.revision, "@");
-        assert!(c.repos.is_empty());
+        assert_eq!(c.repo, None);
+        assert_eq!(c.scope, None);
     }
 
     #[test]
@@ -82,7 +84,14 @@ mod tests {
     #[test]
     fn with_repo() {
         let c = parse(&["vc-x1", "desc", "-R", "/tmp"]);
-        assert_eq!(c.repos, vec![PathBuf::from("/tmp")]);
+        assert_eq!(c.repo, Some(PathBuf::from("/tmp")));
+    }
+
+    #[test]
+    fn with_scope_code_bot() {
+        use crate::scope::{Scope, Side};
+        let c = parse(&["vc-x1", "desc", "-s", "code,bot"]);
+        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code, Side::Bot])));
     }
 
     #[test]
@@ -116,13 +125,7 @@ mod tests {
     fn all_opts() {
         let c = parse(&["vc-x1", "desc", "-r", "@-", "-R", ".claude", "-n", "5"]);
         assert_eq!(c.revision, "@-");
-        assert_eq!(c.repos, vec![PathBuf::from(".claude")]);
+        assert_eq!(c.repo, Some(PathBuf::from(".claude")));
         assert_eq!(c.limit, Some(5));
-    }
-
-    #[test]
-    fn multi_repo() {
-        let c = parse(&["vc-x1", "desc", "-R", ".", "-R", ".claude"]);
-        assert_eq!(c.repos, vec![PathBuf::from("."), PathBuf::from(".claude")]);
     }
 }

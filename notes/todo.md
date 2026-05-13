@@ -24,8 +24,9 @@ shape. Design:
      - 0.49.0-1.1 the relocation + all four importers (done)
      - 0.49.0-1.2 docs: slim ARCHITECTURE.md; start chores-10 (done)
    - 0.49.0-2 `-R`/`--repo` → `-s`/`--scope` for `chid`/`desc`/`list`/`show`. Sub-steps:
-     - 0.49.0-2.1 open the step; tidy `## Todo` (drop the two now-in-progress items); add a CLAUDE.md rule — a picked-up `## Todo` item is deleted when it goes `## In Progress`; backfill `-1.1`/`-1.2` chores `Commits:` refs (current)
-     - 0.49.0-2.2 the rollout — `CommonArgs.repos` → `scope` (`parse_scope`); wire `default_scope` / `scope_to_repos`; `for_each_repo` takes a resolved `Vec<PathBuf>`; help / README / CLAUDE.md (`chid -s code,bot`) update; tests
+     - 0.49.0-2.1 open the step; tidy `## Todo` (drop the two now-in-progress items); add a CLAUDE.md rule — a picked-up `## Todo` item is deleted when it goes `## In Progress`; backfill `-1.1`/`-1.2` chores `Commits:` refs (done)
+     - 0.49.0-2.2 the rollout (code) — keep `-R` (single path, `Option<PathBuf>`); add `-s`/`--scope` (`Option<Scope>` via `parse_scope_roles`, keyword-only — paths via `-s` are a future Todo); they compose (no `conflicts_with`): `-R` overrides the workspace root, `-s` selects sides within it. `for_each_repo` takes a resolved `Vec<PathBuf>`; new `common::resolve_repos(repo, scope)` does the match. Defaults preserve today: no flag → `[.]`, `-R foo` alone → `[foo]`. The four subcommand bodies + `--help`; tests; CLAUDE.md `chid -R .,.claude -L` → `chid -s code,bot -L`. (current)
+     - 0.49.0-2.3 docs — `notes/README.md` (the `-s`/`--scope` flag); ARCHITECTURE.md + any `notes/` mentions of `-R .,.claude` for these four
    - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
    - 0.49.0-4 desc Context+Params port
    - 0.49.0-5 list Context+Params port
@@ -50,6 +51,26 @@ renumbering. Reference by displayed number ("let's work on #3").
    leaves to match: `scope`, `repo`, `dry_run`, `private`,
    `account`, `config`, `use_template` + their consumers
    (`init.rs`, tests).
+1. **Drop `-R`/`--repo` from `CommonArgs` once `-s`/`--scope` is
+   established.**
+   - `0.49.0-2.2` kept `-R` (single path) alongside the new `-s`
+     (roles, composes with `-R` as workspace root) as a
+     backwards-compat alias for the migration period.
+   - Once users / scripts have moved, drop `-R` — `--scope` then
+     covers both path and role forms (`parse_scope` already
+     handles both; only `parse_scope_roles` would go away).
+1. **`-s <path>` and `-s <path>,roles` workspace-root override.**
+   - Today `-s` is keyword-only (`parse_scope_roles` rejects
+     paths, pointing users at `-R`).
+   - Future: have `parse_scope_roles` accept a comma list mixing
+     one path + role keywords, where the path is the workspace
+     root.
+   - `vc-x1 chid -s ../foo,bot,code` would resolve to `[../foo,
+     ../foo/.claude]` (today `-R ../foo -s code,bot`).
+   - Decisions to make at design time: comma-list syntax, error
+     cases (multiple paths, path without roles vs
+     path-as-`Scope::Single`), and whether to also accept bare
+     `-s <path>` as a synonym for `-R <path>`.
 1. **por/dual parity + bidirectional conversion.** Make
    `por` and `dual` first-class equals (dual is primary
    today, por bolted on); add `por → dual` / `dual → por`
