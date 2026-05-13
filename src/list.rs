@@ -4,14 +4,17 @@
 //! - `ListArgs`: clap surface; flattens
 //!   `options_flags::common_args::CommonArgs` plus a `-w`/`--width`
 //!   for the ochid column.
-//! - `list(&ListArgs)`: the op — `resolve_spec` / `resolve_header` /
-//!   `for_each_repo` + `format_commit_with_ochid`.
+//! - `ListParams`: clap-free; embeds `common::CommonParams` + `width`.
+//!   Built via `TryFrom<&ListArgs>` at the binary edge.
+//! - `list(&Context, &ListParams)`: the op — `for_each_repo` +
+//!   `format_commit_with_ochid`.
 
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info, trace, warn};
 
-use crate::common;
+use crate::common::{self, CommonParams};
+use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 
 /// CLI args for `list` — the shared read-only commit-query args plus
@@ -28,31 +31,58 @@ pub struct ListArgs {
 
 const DEFAULT_OCHID_WIDTH: usize = 21;
 
+/// Clap-free params for `list`; embeds `CommonParams` and the ochid
+/// column width.
+#[derive(Debug)]
+pub struct ListParams {
+    pub common: CommonParams,
+    pub width: usize,
+}
+
+impl TryFrom<&ListArgs> for ListParams {
+    type Error = String;
+
+    /// Resolve clap `ListArgs` into `ListParams`: delegate to
+    /// `CommonParams::try_from` for the shared fields; copy `width`
+    /// straight over (clap-applied default already resolved).
+    fn try_from(a: &ListArgs) -> Result<Self, String> {
+        Ok(ListParams {
+            common: CommonParams::try_from(&a.common)?,
+            width: a.width,
+        })
+    }
+}
+
 /// List commits in the resolved range with the ochid column.
-pub fn list(args: &ListArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `_ctx` is unused (list has no user-config or `--log` consumer);
+/// it's present for the uniform subcommand-layer signature.
+pub fn list(_ctx: &Context, params: &ListParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("list: enter");
-    let c = &args.common;
-    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
+    let c = &params.common;
     trace!(
         "list: spec rev={} desc={:?} anc={:?}",
-        spec.rev, spec.desc_count, spec.anc_count
+        c.spec.rev, c.spec.desc_count, c.spec.anc_count
     );
-    let hdr = common::resolve_header(&c.label, c.no_label);
-    let repos = c.resolve_repos()?;
 
-    common::for_each_repo(&repos, &hdr, |workspace, repo| {
-        let (ids, anchor_index) =
-            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
+    common::for_each_repo(&c.repos, &c.header, |workspace, repo| {
+        let (ids, anchor_index) = common::collect_ids(
+            workspace,
+            repo,
+            &c.spec.rev,
+            c.spec.desc_count,
+            c.spec.anc_count,
+        )?;
         debug!("list: {} commits, anchor at {anchor_index}", ids.len());
 
         if ids.is_empty() {
-            warn!("list: no commits found for revision '{}'", spec.rev);
+            warn!("list: no commits found for revision '{}'", c.spec.rev);
         }
 
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
             let bookmarks = common::format_bookmarks_at(repo, commit_id);
-            let line = common::format_commit_with_ochid(&commit, args.width, &bookmarks);
+            let line = common::format_commit_with_ochid(&commit, params.width, &bookmarks);
             if i == anchor_index {
                 info!("{}", common::bold(&line));
             } else {
@@ -149,5 +179,25 @@ mod tests {
     fn custom_width() {
         let args = parse(&["vc-x1", "list", "-w", "30"]);
         assert_eq!(args.width, 30);
+    }
+
+    #[test]
+    fn params_from_args_defaults() {
+        // ListParams::try_from goes through the binary-edge resolution
+        // and copies `width` straight over from the clap default.
+        use super::{DEFAULT_OCHID_WIDTH, ListParams};
+        let args = parse(&["vc-x1", "list"]);
+        let params = ListParams::try_from(&args).unwrap();
+        assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
+        assert_eq!(params.common.spec.rev, "@");
+        assert_eq!(params.width, DEFAULT_OCHID_WIDTH);
+    }
+
+    #[test]
+    fn params_from_args_with_width() {
+        use super::ListParams;
+        let args = parse(&["vc-x1", "list", "-w", "30"]);
+        let params = ListParams::try_from(&args).unwrap();
+        assert_eq!(params.width, 30);
     }
 }

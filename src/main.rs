@@ -379,7 +379,23 @@ fn main() -> ExitCode {
             };
             run_command(desc::desc(&ctx, &params))
         }
-        Commands::List(list_args) => run_command(list::list(&list_args)),
+        Commands::List(list_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = match list::ListParams::try_from(&list_args) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            run_command(list::list(&ctx, &params))
+        }
         Commands::Show(show_args) => run_command(show::show(&show_args)),
         Commands::ValidateDesc(validate_desc_args) => {
             let ctx = match context::Context::load(cli.log) {

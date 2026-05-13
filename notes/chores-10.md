@@ -32,7 +32,7 @@ place as cycles land.
 | `push` | done (0.48.0-6) — `From<&PushArgs>` (collapses the two bookmark spellings) |
 | `chid` | done (0.49.0-3) — introduces shared `CommonParams`; `TryFrom` |
 | `desc` | done (0.49.0-4) — `TryFrom` |
-| `list` | pending (0.49.0-5) — `TryFrom` |
+| `list` | done (0.49.0-5) — `TryFrom` |
 | `show` | pending (0.49.0-6) — `TryFrom`; also parses `--files` → `FileLimit` at the boundary |
 
 Out of scope for the ports (deferred until a real consumer
@@ -493,6 +493,8 @@ Two small calls worth recording.
 
 ## refactor: desc → Context+Params (0.49.0-4)
 
+Commits: [[9]]
+
 Second of the four Context+Params ports; uses the shared
 `CommonParams` introduced in `-3`. Mechanical follow-through —
 no new design, same shape as chid (no fields beyond `CommonArgs`,
@@ -508,6 +510,27 @@ so `DescParams` is just a `CommonParams` wrapper).
 - Tests: existing `DescArgs` parse tests untouched; new
   `params_from_args_defaults` exercises the boundary resolution.
 
+## refactor: list → Context+Params (0.49.0-5)
+
+Third of the four Context+Params ports. First port with a
+subcommand-specific field beyond `CommonArgs` — `list` carries
+the ochid column `width: usize` — so `ListParams` adds that
+field next to its embedded `CommonParams`.
+
+- `list::ListParams`: `common: CommonParams` + `width: usize`.
+  `impl TryFrom<&ListArgs>` delegates `common` to
+  `CommonParams::try_from` and copies `width` straight over
+  (clap-applied default already resolved on the args side).
+- `pub fn list(_ctx: &Context, params: &ListParams)` — `ctx`
+  unused (uniform-signature placeholder).
+- `main.rs` dispatch builds `Context` + `ListParams` (matches
+  the `-3` / `-4` arms; `list_args` carries the extra field
+  the same way `chid_args` / `desc_args` didn't).
+- Tests: existing `ListArgs` parse tests untouched; two new
+  param-construction tests — `params_from_args_defaults`
+  (defaults including `DEFAULT_OCHID_WIDTH`) and
+  `params_from_args_with_width` (custom `-w 30`).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -518,3 +541,4 @@ so `DescParams` is just a `CommonParams` wrapper).
 [6]: https://github.com/winksaville/vc-x1/commit/14a86674add0 "14a86674add076ec2fcb0784c9d6c955223f769c"
 [7]: https://github.com/winksaville/vc-x1/commit/c1784a0548df "c1784a0548dfb93dbbdbd93aeb69802b0561f258"
 [8]: https://github.com/winksaville/vc-x1/commit/d0d886a09956 "d0d886a0995679d82cdb67c10b24c7c17f1915e0"
+[9]: https://github.com/winksaville/vc-x1/commit/6d453b551f78 "6d453b551f781c8c793da72cba0d4a70c44277ce"

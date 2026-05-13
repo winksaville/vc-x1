@@ -72,7 +72,7 @@ Design:
          commit scoped to the `-s/--scope` docs sweep.
    - 0.49.0-3 chid Context+Params port + introduce `CommonParams` (done)
    - 0.49.0-4 desc Context+Params port (done)
-   - 0.49.0-5 list Context+Params port
+   - 0.49.0-5 list Context+Params port (done)
    - 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse)
    - 0.49.0 close-out — drop suffix, todo→Done (Context+Params
      port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md
