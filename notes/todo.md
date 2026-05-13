@@ -11,7 +11,19 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_(none — 0.49.0 cycle closed; pick up the next from `## Todo` below.)_
+**Subcommand trait sweep** — collapse the per-arm
+`Context::load` + `try_from` + `run_command` boilerplate in
+`main.rs` behind a `Subcommand` trait. Design in
+[chores-10.md](chores-10.md#chore-open-subcommand-trait-sweep-0500-0).
+Per-step evaluation gate: any substep may modify the shape
+significantly or abandon the cycle.
+
+- 0.50.0-0 plan + version bump + chores section + todo ladder
+  + linkme/inventory todos (current)
+- 0.50.0-1 add `subcommand.rs` (trait) + port `chid`
+- 0.50.0-2..N port remaining 11 subcommands (groupings TBD)
+- 0.50.0-K main.rs dispatch rework
+- 0.50.0 close-out
 
 ## Todo
 
@@ -31,6 +43,23 @@ renumbering. Reference by displayed number ("let's work on #3").
    leaves to match: `scope`, `repo`, `dry_run`, `private`,
    `account`, `config`, `use_template` + their consumers
    (`init.rs`, tests).
+1. **Investigate `linkme` for subcommand registration.**
+   Distributed-slice registry — each subcommand registers itself
+   at link time; `main.rs` discovers them via the slice rather
+   than matching a `Commands` enum. Reduces per-subcommand
+   touchpoints from 3 (mod decl + enum variant + match arm) to 1
+   (registration). Costs: loses compile-time exhaustiveness
+   (missing registration = runtime gap); help-output ordering
+   depends on link order unless sorted; macro-magic dependency.
+   Revisit once the `0.50.0` trait sweep's per-arm cost has been
+   felt under real "add a subcommand" load.
+   <https://github.com/dtolnay/linkme>
+1. **Investigate `inventory` as `linkme` alternative.** Same
+   shape as `linkme` — runtime-iterable registry populated by
+   `inventory::submit!` per subcommand. Trade-offs mirror
+   linkme's. Pick one if/when the trait sweep's match becomes
+   the felt bottleneck.
+   <https://github.com/dtolnay/inventory>
 1. **Drop `-R`/`--repo` from `CommonArgs` once `-s`/`--scope` is
    established.**
    - `0.49.0-2.2` kept `-R` (single path) alongside the new `-s`

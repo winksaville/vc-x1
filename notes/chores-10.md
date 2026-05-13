@@ -565,6 +565,8 @@ uniform handling in `main`.
 
 ## chore: close CommonArgs sweep cycle (0.49.0)
 
+Commits: [[12]]
+
 The 0.49.0 cycle's close-out. The cycle started as "finish
 Migration A" (0.49.0-0), was re-scoped at 0.49.0-1 into the
 full **CommonArgs sweep** — options_flags extraction + `-s` /
@@ -672,7 +674,99 @@ Design:
 - 0.49.0-5 list Context+Params port (done) [[10]]
 - 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse) (done) [[11]]
 - 0.49.0 close-out — drop suffix, todo→Done (Context+Params
-  port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md (done — this commit; ref backfilled at next cycle start)
+  port 12/12 + CommonArgs sweep), README + ARCHITECTURE.md (done) [[12]]
+
+## chore: open Subcommand trait sweep (0.50.0-0)
+
+Multi-step. The 12 subcommand match arms in `main.rs` repeat
+the same `Context::load` + `try_from(&args)` + `run_command`
+boilerplate — ~12 lines per arm. This cycle introduces a
+`Subcommand` trait so each arm collapses to a single
+`dispatch::<T>(args, cli.log)` line while keeping the
+`Commands` enum as the dispatch source of truth (compile-time
+exhaustiveness preserved). Plan-only opener; the trait + first
+worked-example port land in `-1`.
+
+### Trait shape (initial sketch)
+
+- `Subcommand` trait on each subcommand's `Args` type:
+  - `type Params`
+  - `fn into_params(&self) -> Result<Self::Params, String>`
+    — total `From` impls return `Ok(…)`; fallible `TryFrom`
+    impls forward their error.
+  - `fn run(ctx: &Context, params: &Self::Params)
+    -> Result<(), Box<dyn Error>>`
+  - `fn suppress_banner(&self) -> bool { false }` — `chid` /
+    `desc` / `list` / `show` override.
+  - `fn is_detached_exec(&self) -> bool { false }` —
+    `finalize` overrides.
+- Free helper `dispatch<S: Subcommand>(args: &S, log: …)
+  -> ExitCode` wraps the per-arm body.
+- `main.rs` match arms collapse to one line each; the
+  banner / detached-exec peek logic moves behind the trait.
+
+Shape is subject to refinement once `-1` exercises it on
+`chid`.
+
+### Ladder
+
+- 0.50.0-0 plan + version bump + this section + todo ladder
+  + linkme/inventory todos (current)
+- 0.50.0-1 add `subcommand.rs` (trait) + port `chid`
+  (worked example)
+- 0.50.0-2..N port remaining 11 subcommands. Grouping
+  decided per substep; candidate split:
+  - `From` (total): `validate_desc`, `fix_desc`, `clone`,
+    `init`, `symlink`, `sync`, `push`
+  - `TryFrom` (fallible): `desc`, `list`, `show`, `finalize`
+- 0.50.0-K `main.rs` dispatch rework — drop the per-arm
+  match boilerplate; move banner / detached-exec peeks
+  behind the trait.
+- 0.50.0 close-out — drop suffix, todo→Done.
+
+### Per-step evaluation
+
+Effectiveness of the trait approach is evaluated after each
+substep. Possible outcomes at any step boundary:
+
+- Continue as planned.
+- Significantly modify the trait shape (e.g. swap
+  `into_params`/`run` for a single `dispatch` method on the
+  trait; absorb the `Args` type as an associated type instead
+  of `impl Subcommand for ArgsType`; etc.) — recorded in a
+  new chores subsection at the next step.
+- Abandon: revert the cycle to a non-trait baseline (close
+  the cycle as a no-op with a chores `### Outcome` note
+  capturing what didn't fit). The version-bump and todo
+  entries land in Done as the record of "tried, didn't
+  ship."
+
+This is part of the cycle's contract, not an exceptional
+exit path — the trait sweep is the lower-risk reading of
+"reduce per-arm boilerplate" and `linkme` / `inventory` are
+the higher-leverage / higher-cost alternatives queued as
+follow-up todos.
+
+### Why not linkme / inventory now
+
+Both eliminate the `Commands` enum entirely (link-time
+distributed slice or runtime registry). They'd cut
+per-subcommand touchpoints from 3 (mod decl + enum variant +
+match arm) to 1 (registration). Costs: compile-time
+exhaustiveness check goes away (missing registration =
+runtime gap); help-output ordering becomes link-order
+unless sorted; either is macro-magic dependency. The trait
+sweep gets every match arm to one line with none of those
+costs; linkme + inventory are queued as separate Todo items
+to revisit if the per-arm cost ever feels burdensome.
+
+### Per-substep contract
+
+Per `notes/substep-protocol.md`: `cargo fmt` / `clippy
+--all-targets -- -D warnings` / `test` / `install --path .
+--locked` + retest before each commit; bump `Cargo.toml` at
+sub-step start; flip todo ladder markers; pair commits
+across both repos with ochid trailers.
 
 # References
 
@@ -687,3 +781,4 @@ Design:
 [9]: https://github.com/winksaville/vc-x1/commit/6d453b551f78 "6d453b551f781c8c793da72cba0d4a70c44277ce"
 [10]: https://github.com/winksaville/vc-x1/commit/00f49f10b7a3 "00f49f10b7a3b55192f9feb6313e5968efa16bb0"
 [11]: https://github.com/winksaville/vc-x1/commit/d772a204be15 "d772a204be150ee8da8d2cbc33496410940aecb5"
+[12]: https://github.com/winksaville/vc-x1/commit/4b73862668ab "4b73862668abe34675f06f97e53555f92c4dc08d"
