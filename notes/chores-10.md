@@ -30,7 +30,7 @@ place as cycles land.
 | `validate-desc` | done (0.48.0-4) — `From<&ValidateDescArgs>` |
 | `fix-desc` | done (0.48.0-5) — `From<&FixDescArgs>` |
 | `push` | done (0.48.0-6) — `From<&PushArgs>` (collapses the two bookmark spellings) |
-| `chid` | pending (0.49.0-3) — introduces the shared `CommonParams`; `TryFrom` |
+| `chid` | done (0.49.0-3) — introduces shared `CommonParams`; `TryFrom` |
 | `desc` | pending (0.49.0-4) — `TryFrom` |
 | `list` | pending (0.49.0-5) — `TryFrom` |
 | `show` | pending (0.49.0-6) — `TryFrom`; also parses `--files` → `FileLimit` at the boundary |
@@ -386,6 +386,8 @@ parse.
 
 ## docs: unify prose form in CLAUDE.md (0.49.0-2.4)
 
+Commits: [[7]]
+
 Process drift caught while writing `-2.3`'s chores section: the
 intro+bullets shape that governs commits, chores, todo, and doc
 comments was codified in three places in CLAUDE.md — once inside
@@ -438,6 +440,55 @@ chores / todo / done bullets are conceptual (design points,
 structural notes — never a copy of the commit's edit list);
 doc-comment bullets are whatever structure fits.
 
+## refactor: chid → Context+Params (0.49.0-3)
+
+First of the four `chid` / `desc` / `list` / `show` Context+Params
+ports (the chid leg of the cycle's Context+Params half — see
+`### Context+Params port` at the top). The Args/Params layering
+arrives at the read-only commit-query subcommands and introduces
+the shared `CommonParams` the next three reuse.
+
+- `common::CommonParams` (flat, clap-free): resolved `DotSpec` +
+  `Header` + `repos: Vec<PathBuf>`. `impl TryFrom<&CommonArgs>`
+  does the `resolve_spec` / `resolve_header` / `resolve_repos`
+  work at the binary edge — fallible because `resolve_repos`
+  can fail (workspace lookup, path issues).
+- `chid::ChidParams`: flat struct embedding `CommonParams`,
+  nothing else (chid has no fields beyond `CommonArgs`).
+  `impl TryFrom<&ChidArgs>` delegates to
+  `CommonParams::try_from`.
+- `pub fn chid(_ctx: &Context, params: &ChidParams)` — `ctx`
+  unused (uniform-signature placeholder, as in
+  `symlink` / `validate-desc` / `fix-desc`).
+- `main.rs` dispatch builds `Context::load(cli.log)` +
+  `ChidParams::try_from(&chid_args)` (mirrors the `Finalize`
+  arm, the other `TryFrom` site).
+- Tests: existing `ChidArgs` parse tests untouched; new
+  `params_from_args_defaults` exercises the boundary
+  resolution.
+
+### Design: error type and import direction
+
+Two small calls worth recording.
+
+- **Error type `String`** on `TryFrom<&CommonArgs>` matches
+  `finalize` (the existing fallible precedent), not
+  `Box<dyn std::error::Error>`. The actual fallibility is
+  `resolve_repos`'s `Box<dyn Error>` — coerced via
+  `map_err(|e| e.to_string())` at the boundary. `String` keeps
+  the param-construction error surface uniform across the four
+  ports.
+- **`common.rs` now imports
+  `options_flags::common_args::CommonArgs`** to write the
+  `TryFrom` impl — a new edge from `common` to `options_flags`.
+  `options_flags/common_args.rs` already imports
+  `crate::common::resolve_repos`, so the two modules now
+  cross-reference within the crate. Not a layering inversion:
+  `CommonParams` is the resolved/domain side, `CommonArgs` is
+  the CLI-surface side, and the conversion is a one-way edge
+  from CLI to domain. Defining the impl next to `CommonParams`
+  (the target) is the natural place.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -446,3 +497,4 @@ doc-comment bullets are whatever structure fits.
 [4]: https://github.com/winksaville/vc-x1/commit/7e1ea28cc7f6 "7e1ea28cc7f62c2f0920d25ae7c21dba69629e02"
 [5]: https://github.com/winksaville/vc-x1/commit/af7d87a031ea "af7d87a031eaa6b4773fa01ed16a6eea734c5262"
 [6]: https://github.com/winksaville/vc-x1/commit/14a86674add0 "14a86674add076ec2fcb0784c9d6c955223f769c"
+[7]: https://github.com/winksaville/vc-x1/commit/c1784a0548df "c1784a0548dfb93dbbdbd93aeb69802b0561f258"

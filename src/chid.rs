@@ -3,14 +3,17 @@
 //!
 //! - `ChidArgs`: clap surface; flattens
 //!   `options_flags::common_args::CommonArgs`.
-//! - `chid(&ChidArgs)`: the op — `resolve_spec` / `resolve_header` /
-//!   `for_each_repo` + print `format_chid`.
+//! - `ChidParams`: clap-free; embeds `common::CommonParams`. Built
+//!   via `TryFrom<&ChidArgs>` at the binary edge.
+//! - `chid(&Context, &ChidParams)`: the op — `for_each_repo` + print
+//!   `format_chid`.
 
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info};
 
-use crate::common;
+use crate::common::{self, CommonParams};
+use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 
 /// CLI args for `chid` — just the shared read-only commit-query args.
@@ -20,18 +23,40 @@ pub struct ChidArgs {
     pub common: CommonArgs,
 }
 
+/// Clap-free params for `chid`; embeds resolved `CommonParams`.
+#[derive(Debug)]
+pub struct ChidParams {
+    pub common: CommonParams,
+}
+
+impl TryFrom<&ChidArgs> for ChidParams {
+    type Error = String;
+
+    /// Resolve clap `ChidArgs` into `ChidParams` by delegating to
+    /// `CommonParams::try_from`; `chid` has no fields beyond
+    /// `CommonArgs`.
+    fn try_from(a: &ChidArgs) -> Result<Self, String> {
+        Ok(ChidParams {
+            common: CommonParams::try_from(&a.common)?,
+        })
+    }
+}
+
 /// Print the short change ID of each commit in the resolved range.
-pub fn chid(args: &ChidArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `_ctx` is unused (chid has no user-config or `--log` consumer);
+/// it's present for the uniform subcommand-layer signature.
+pub fn chid(_ctx: &Context, params: &ChidParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("chid: enter");
-    let c = &args.common;
-    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
-    let hdr = common::resolve_header(&c.label, c.no_label);
-    let repos = c.resolve_repos()?;
-
-    common::for_each_repo(&repos, &hdr, |workspace, repo| {
-        let (ids, _) =
-            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
-
+    let c = &params.common;
+    common::for_each_repo(&c.repos, &c.header, |workspace, repo| {
+        let (ids, _) = common::collect_ids(
+            workspace,
+            repo,
+            &c.spec.rev,
+            c.spec.desc_count,
+            c.spec.anc_count,
+        )?;
         for commit_id in &ids {
             let commit = repo.store().get_commit(commit_id)?;
             info!("{}", common::format_chid(&commit));
@@ -167,5 +192,22 @@ mod tests {
         let c = parse(&["vc-x1", "chid", "..abcd..", "3"]);
         assert_eq!(c.pos_rev, Some("..abcd..".to_string()));
         assert_eq!(c.pos_count, Some(3));
+    }
+
+    #[test]
+    fn params_from_args_defaults() {
+        // ChidParams::try_from goes through the binary-edge resolution:
+        // resolve_spec + resolve_header + resolve_repos.
+        use super::ChidParams;
+        let cli = Cli::try_parse_from(["vc-x1", "chid"]).unwrap();
+        let args = match cli.command {
+            Commands::Chid(a) => a,
+            _ => panic!("expected Chid"),
+        };
+        let params = ChidParams::try_from(&args).unwrap();
+        // default: no flags → repos resolves to [.]
+        assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
+        // default revision @
+        assert_eq!(params.common.spec.rev, "@");
     }
 }

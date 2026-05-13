@@ -70,7 +70,7 @@ Design:
        - surfaced as process drift while writing the `-2.3`
          chores section; deferred from -2.3 to keep that
          commit scoped to the `-s/--scope` docs sweep.
-   - 0.49.0-3 chid Context+Params port + introduce `CommonParams`
+   - 0.49.0-3 chid Context+Params port + introduce `CommonParams` (done)
    - 0.49.0-4 desc Context+Params port
    - 0.49.0-5 list Context+Params port
    - 0.49.0-6 show Context+Params port (`TryFrom`, `FileLimit` parse)

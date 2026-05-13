@@ -345,7 +345,23 @@ fn main() -> ExitCode {
     }
 
     let exit_code = match cli.command {
-        Commands::Chid(chid_args) => run_command(chid::chid(&chid_args)),
+        Commands::Chid(chid_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = match chid::ChidParams::try_from(&chid_args) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            run_command(chid::chid(&ctx, &params))
+        }
         Commands::Desc(desc_args) => run_command(desc::desc(&desc_args)),
         Commands::List(list_args) => run_command(list::list(&list_args)),
         Commands::Show(show_args) => run_command(show::show(&show_args)),

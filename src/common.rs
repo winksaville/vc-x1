@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::options_flags::common_args::CommonArgs;
 use crate::scope::{Scope, Side};
 use crate::toml_simple;
 use jj_lib::backend::CommitId;
@@ -689,6 +690,41 @@ pub fn resolve_repos(
         (Some(p), None) => Ok(vec![p.to_path_buf()]),
         (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
         (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
+    }
+}
+
+/// Resolved shared params for the read-only commit-query subcommands
+/// (`chid` / `desc` / `list` / `show`). Built once at the binary edge
+/// from `CommonArgs` via `TryFrom`; each subcommand's `XxxParams`
+/// embeds this.
+///
+/// - `spec` — resolved `DotSpec` (parsed `..` notation + per-side
+///   count budget).
+/// - `header` — resolved inter-repo `Header` (label vs none).
+/// - `repos` — resolved repo paths (`-R` + `-s` → `Vec<PathBuf>`).
+#[derive(Debug)]
+pub struct CommonParams {
+    pub spec: DotSpec,
+    pub header: Header,
+    pub repos: Vec<PathBuf>,
+}
+
+impl TryFrom<&CommonArgs> for CommonParams {
+    type Error = String;
+
+    /// Resolve clap `CommonArgs` into clap-free `CommonParams`: run
+    /// `resolve_spec` / `resolve_header` / `resolve_repos` at the
+    /// binary edge. Fallible because `resolve_repos` can fail
+    /// (workspace lookup, path issues).
+    fn try_from(a: &CommonArgs) -> Result<Self, String> {
+        let spec = resolve_spec(a.pos_rev.as_deref(), a.pos_count, &a.revision, a.limit, "@");
+        let header = resolve_header(&a.label, a.no_label);
+        let repos = a.resolve_repos().map_err(|e| e.to_string())?;
+        Ok(CommonParams {
+            spec,
+            header,
+            repos,
+        })
     }
 }
 
