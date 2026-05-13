@@ -31,7 +31,7 @@ place as cycles land.
 | `fix-desc` | done (0.48.0-5) — `From<&FixDescArgs>` |
 | `push` | done (0.48.0-6) — `From<&PushArgs>` (collapses the two bookmark spellings) |
 | `chid` | done (0.49.0-3) — introduces shared `CommonParams`; `TryFrom` |
-| `desc` | pending (0.49.0-4) — `TryFrom` |
+| `desc` | done (0.49.0-4) — `TryFrom` |
 | `list` | pending (0.49.0-5) — `TryFrom` |
 | `show` | pending (0.49.0-6) — `TryFrom`; also parses `--files` → `FileLimit` at the boundary |
 
@@ -442,6 +442,8 @@ doc-comment bullets are whatever structure fits.
 
 ## refactor: chid → Context+Params (0.49.0-3)
 
+Commits: [[8]]
+
 First of the four `chid` / `desc` / `list` / `show` Context+Params
 ports (the chid leg of the cycle's Context+Params half — see
 `### Context+Params port` at the top). The Args/Params layering
@@ -489,6 +491,23 @@ Two small calls worth recording.
   from CLI to domain. Defining the impl next to `CommonParams`
   (the target) is the natural place.
 
+## refactor: desc → Context+Params (0.49.0-4)
+
+Second of the four Context+Params ports; uses the shared
+`CommonParams` introduced in `-3`. Mechanical follow-through —
+no new design, same shape as chid (no fields beyond `CommonArgs`,
+so `DescParams` is just a `CommonParams` wrapper).
+
+- `desc::DescParams`: flat struct embedding `CommonParams`,
+  nothing else. `impl TryFrom<&DescArgs>` delegates to
+  `CommonParams::try_from`.
+- `pub fn desc(_ctx: &Context, params: &DescParams)` — `ctx`
+  unused (uniform-signature placeholder).
+- `main.rs` dispatch builds `Context` + `DescParams` (matches
+  the `-3` Chid arm verbatim, modulo the type names).
+- Tests: existing `DescArgs` parse tests untouched; new
+  `params_from_args_defaults` exercises the boundary resolution.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -498,3 +517,4 @@ Two small calls worth recording.
 [5]: https://github.com/winksaville/vc-x1/commit/af7d87a031ea "af7d87a031eaa6b4773fa01ed16a6eea734c5262"
 [6]: https://github.com/winksaville/vc-x1/commit/14a86674add0 "14a86674add076ec2fcb0784c9d6c955223f769c"
 [7]: https://github.com/winksaville/vc-x1/commit/c1784a0548df "c1784a0548dfb93dbbdbd93aeb69802b0561f258"
+[8]: https://github.com/winksaville/vc-x1/commit/d0d886a09956 "d0d886a0995679d82cdb67c10b24c7c17f1915e0"

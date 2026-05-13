@@ -4,14 +4,17 @@
 //!
 //! - `DescArgs`: clap surface; flattens
 //!   `options_flags::common_args::CommonArgs`.
-//! - `desc(&DescArgs)`: the op — `resolve_spec` / `resolve_header` /
-//!   `for_each_repo` + `format_commit_full` + `indent_body`.
+//! - `DescParams`: clap-free; embeds `common::CommonParams`. Built
+//!   via `TryFrom<&DescArgs>` at the binary edge.
+//! - `desc(&Context, &DescParams)`: the op — `for_each_repo` +
+//!   `format_commit_full` + `indent_body`.
 
 use clap::Args;
 use jj_lib::repo::Repo;
 use log::{debug, info};
 
-use crate::common;
+use crate::common::{self, CommonParams};
+use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 
 /// CLI args for `desc` — just the shared read-only commit-query args.
@@ -21,18 +24,40 @@ pub struct DescArgs {
     pub common: CommonArgs,
 }
 
+/// Clap-free params for `desc`; embeds resolved `CommonParams`.
+#[derive(Debug)]
+pub struct DescParams {
+    pub common: CommonParams,
+}
+
+impl TryFrom<&DescArgs> for DescParams {
+    type Error = String;
+
+    /// Resolve clap `DescArgs` into `DescParams` by delegating to
+    /// `CommonParams::try_from`; `desc` has no fields beyond
+    /// `CommonArgs`.
+    fn try_from(a: &DescArgs) -> Result<Self, String> {
+        Ok(DescParams {
+            common: CommonParams::try_from(&a.common)?,
+        })
+    }
+}
+
 /// Print each commit in the resolved range with its full description.
-pub fn desc(args: &DescArgs) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `_ctx` is unused (desc has no user-config or `--log` consumer);
+/// it's present for the uniform subcommand-layer signature.
+pub fn desc(_ctx: &Context, params: &DescParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("desc: enter");
-    let c = &args.common;
-    let spec = common::resolve_spec(c.pos_rev.as_deref(), c.pos_count, &c.revision, c.limit, "@");
-    let hdr = common::resolve_header(&c.label, c.no_label);
-    let repos = c.resolve_repos()?;
-
-    common::for_each_repo(&repos, &hdr, |workspace, repo| {
-        let (ids, anchor_index) =
-            common::collect_ids(workspace, repo, &spec.rev, spec.desc_count, spec.anc_count)?;
-
+    let c = &params.common;
+    common::for_each_repo(&c.repos, &c.header, |workspace, repo| {
+        let (ids, anchor_index) = common::collect_ids(
+            workspace,
+            repo,
+            &c.spec.rev,
+            c.spec.desc_count,
+            c.spec.anc_count,
+        )?;
         for (i, commit_id) in ids.iter().enumerate() {
             let commit = repo.store().get_commit(commit_id)?;
             let bookmarks = common::format_bookmarks_at(repo, commit_id);
@@ -127,5 +152,22 @@ mod tests {
         assert_eq!(c.revision, "@-");
         assert_eq!(c.repo, Some(PathBuf::from(".claude")));
         assert_eq!(c.limit, Some(5));
+    }
+
+    #[test]
+    fn params_from_args_defaults() {
+        // DescParams::try_from goes through the binary-edge resolution:
+        // resolve_spec + resolve_header + resolve_repos.
+        use super::DescParams;
+        let cli = Cli::try_parse_from(["vc-x1", "desc"]).unwrap();
+        let args = match cli.command {
+            Commands::Desc(a) => a,
+            _ => panic!("expected Desc"),
+        };
+        let params = DescParams::try_from(&args).unwrap();
+        // default: no flags → repos resolves to [.]
+        assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
+        // default revision @
+        assert_eq!(params.common.spec.rev, "@");
     }
 }

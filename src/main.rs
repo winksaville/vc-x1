@@ -362,7 +362,23 @@ fn main() -> ExitCode {
             };
             run_command(chid::chid(&ctx, &params))
         }
-        Commands::Desc(desc_args) => run_command(desc::desc(&desc_args)),
+        Commands::Desc(desc_args) => {
+            let ctx = match context::Context::load(cli.log) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let params = match desc::DescParams::try_from(&desc_args) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("{e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            run_command(desc::desc(&ctx, &params))
+        }
         Commands::List(list_args) => run_command(list::list(&list_args)),
         Commands::Show(show_args) => run_command(show::show(&show_args)),
         Commands::ValidateDesc(validate_desc_args) => {
