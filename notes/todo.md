@@ -80,11 +80,26 @@ renumbering. Reference by displayed number ("let's work on #3").
      cases (multiple paths, path without roles vs
      path-as-`Scope::Single`), and whether to also accept bare
      `-s <path>` as a synonym for `-R <path>`.
-1. **por/dual parity + bidirectional conversion.** Make
+1. **`por → dual` conversion.** Attach a `.claude`
+   companion repo + `.vc-config.toml` to an existing por
+   workspace; emit cross-links going forward. Manual
+   setup on an external por workspace (2026-05-14)
+   proved arduous; this should be a routine subcommand.
+   Design stub in [[4]] § 2.
+1. **Audit hardcoded `.claude` in diagnostics / logging.**
+   `vc-x1 finalize --repo .bot` on `../dicom-rs`
+   (2026-05-14) honored `--repo` throughout actual
+   operations, but `bm-track` still emitted
+   `.claude(main)=no-jj` — diagnostic strings have
+   `.claude` baked in. Cosmetic today; load-bearing once
+   bot-repo name becomes configurable (see Symmetric
+   `.vc-config.toml` schema entry below).
+1. **por/dual parity + `dual → por` conversion.** Make
    `por` and `dual` first-class equals (dual is primary
-   today, por bolted on); add `por → dual` / `dual → por`
-   conversion. Builds on the `--scope` rollout below.
-   Pre-design; goal + open questions in the stub. [[4]]
+   today, por bolted on); add `dual → por` conversion
+   (detach the `.claude` companion). Builds on the
+   `--scope` rollout below. Pre-design; goal + open
+   questions in the stub. [[4]]
 1. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:

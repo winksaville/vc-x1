@@ -772,6 +772,8 @@ across both repos with ochid trailers.
 
 ## refactor: SubcommandRunner trait + chid (0.50.0-1)
 
+Commits: [[14]]
+
 Worked example for the 0.50.0 cycle: introduce the
 `SubcommandRunner` trait, validate its shape on `chid`, and
 extract `main.rs`'s session-chrome into a global `sb_ide`
@@ -966,6 +968,45 @@ peek methods read from Params`, and `### Session chrome:
 order shift` above). The shape can still change at `-2`'s
 boundary based on how the worked example reads.
 
+## chore: dicom-rs gotchas → todo (0.50.0-1.1)
+
+Inter-substep tidy: record two surfacings from the
+manual por→dual conversion of `../dicom-rs`
+(2026-05-14) — the user not only converted a por
+workspace by hand but also named the bot side `.bot`
+(rather than `.claude`), exercising two
+not-yet-covered seams.
+
+**Gotcha 1 — por → dual is arduous.** The bundled
+`notes/todo.md` "por/dual parity + bidirectional
+conversion" entry was split: `por → dual` is promoted
+to its own higher-priority item; the remaining entry
+covers parity + the `dual → por` (detach) direction.
+The manual exercise was incoherent enough that the user
+plans to redo it, which makes a routine subcommand
+worth surfacing separately from the broader parity
+goal. Both items continue to point at
+`notes/por-dual-parity.md`; the design stub already
+covers both directions and needs no edit.
+
+**Gotcha 2 — `.claude` hardcoded in diagnostics.**
+`vc-x1 finalize --repo .bot` honored `--repo`
+throughout the actual operations (squash, bookmark set,
+push to origin all ran against `.bot/`), but the
+`bm-track` enter/exit lines still emitted
+`.claude(main)=no-jj` — the diagnostic label has
+`.claude` baked into the string. Cosmetic today (output
+text only), but load-bearing once bot-repo name
+becomes configurable.
+
+- `notes/todo.md`: new "**`por → dual` conversion.**"
+  entry inserted above the (now trimmed) parity item;
+  trimmed item retitled "**por/dual parity + `dual →
+  por` conversion.**" — wording adjusted to reflect
+  the remaining scope; both reference `[[4]]`. New
+  "**Audit hardcoded `.claude` in diagnostics /
+  logging.**" entry inserted just below them.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -981,3 +1022,4 @@ boundary based on how the worked example reads.
 [11]: https://github.com/winksaville/vc-x1/commit/d772a204be15 "d772a204be150ee8da8d2cbc33496410940aecb5"
 [12]: https://github.com/winksaville/vc-x1/commit/4b73862668ab "4b73862668abe34675f06f97e53555f92c4dc08d"
 [13]: https://github.com/winksaville/vc-x1/commit/040aa2880421 "040aa28804211e529baa4ebf0a27f3ebfcef6e95"
+[14]: https://github.com/winksaville/vc-x1/commit/9a447b843b81 "9a447b843b81eeca565db33cb12ece3095bff903"
