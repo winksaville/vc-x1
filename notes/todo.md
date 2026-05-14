@@ -20,7 +20,9 @@ significantly or abandon the cycle.
 
 - 0.50.0-0 plan + version bump + chores section + todo ladder
   + linkme/inventory todos (done)
-- 0.50.0-1 add `subcommand.rs` (trait) + port `chid` (current)
+- 0.50.0-1 add `subcommand.rs` (trait) + port `chid` (done)
+- 0.50.0-1.1 dicom-rs gotchas → todo (done)
+- 0.50.0-1.2 --exec doc + matches! → match (done)
 - 0.50.0-2..N port remaining 11 subcommands (groupings TBD)
 - 0.50.0-K main.rs dispatch rework
 - 0.50.0 close-out

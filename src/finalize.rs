@@ -109,7 +109,15 @@ pub struct FinalizeArgs {
     #[arg(long)]
     pub detach: bool,
 
-    /// Internal: run exec path (used by detach)
+    /// The above `pub detach` is true when `--detach` is passed
+    /// to the `finalize` subcommand. The app then `fork`s and
+    /// spawns `vc-x1 finalize --exec …`, replacing `--detach`
+    /// with `--exec`. The child sees `exec: true` and is routed
+    /// through `finalize_exec()` to do the squash/push work in
+    /// the background.
+    ///
+    /// Marked `hide = true` because it's an internal argument and
+    /// should not appear in `-h` / `--help` output.
     #[arg(long, hide = true)]
     pub exec: bool,
 }

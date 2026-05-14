@@ -333,10 +333,10 @@ fn main() -> ExitCode {
     // session-end child; it shouldn't print the banner (extra
     // chatter in its log) or surface user-facing failure markers
     // (those are meant for the user's next interactive run).
-    let is_detached_exec = matches!(
-        cli.command,
-        Commands::Finalize(ref f) if f.exec
-    );
+    let is_detached_exec: bool = match cli.command {
+        Commands::Finalize(ref f) => f.exec,
+        _ => false,
+    };
 
     // `-L` / `--no-label` on the read-only multi-repo subcommands
     // (desc, list, show) makes their output script-parseable

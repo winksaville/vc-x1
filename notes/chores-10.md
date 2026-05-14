@@ -970,6 +970,8 @@ boundary based on how the worked example reads.
 
 ## chore: dicom-rs gotchas → todo (0.50.0-1.1)
 
+Commits: [[15]]
+
 Inter-substep tidy: record two surfacings from the
 manual por→dual conversion of `../dicom-rs`
 (2026-05-14) — the user not only converted a por
@@ -1007,6 +1009,28 @@ becomes configurable.
   "**Audit hardcoded `.claude` in diagnostics /
   logging.**" entry inserted just below them.
 
+## chore: --exec doc + matches! → match (0.50.0-1.2)
+
+Inter-substep tidy: a small readability rewrite in
+`main.rs` and a doc expansion on `FinalizeArgs::exec` so
+the `--detach` / `--exec` handshake is spelled out at
+the field that implements it.
+
+- `src/main.rs`: `let is_detached_exec = matches!(cli.command,
+  Commands::Finalize(ref f) if f.exec)` → explicit
+  two-arm `match`. Semantically identical (both expand to
+  the same thing); the trailing-`if`-guard inside
+  `matches!` was found weird enough to be worth replacing
+  at this site.
+- `src/finalize.rs`: `FinalizeArgs::exec` doc expanded
+  from the one-liner "Internal: run exec path (used by
+  detach)" to a paragraph anchored on the sibling `pub
+  detach` field — when `--detach` is passed the parent
+  `fork`s and re-execs `vc-x1 finalize --exec …`, the
+  child sees `exec: true` and routes through
+  `finalize_exec()` for the background work — plus a
+  second paragraph spelling out why `hide = true` is set.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1023,3 +1047,4 @@ becomes configurable.
 [12]: https://github.com/winksaville/vc-x1/commit/4b73862668ab "4b73862668abe34675f06f97e53555f92c4dc08d"
 [13]: https://github.com/winksaville/vc-x1/commit/040aa2880421 "040aa28804211e529baa4ebf0a27f3ebfcef6e95"
 [14]: https://github.com/winksaville/vc-x1/commit/9a447b843b81 "9a447b843b81eeca565db33cb12ece3095bff903"
+[15]: https://github.com/winksaville/vc-x1/commit/9a7d33ba6556 "9a7d33ba6556cdb5a575c96236554cf19d57b23b"
