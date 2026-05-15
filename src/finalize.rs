@@ -19,6 +19,7 @@ use log::{debug, info};
 use crate::common::run;
 use crate::context::Context;
 use crate::options_flags::squash::{SquashOption, SquashSpec};
+use crate::subcommand::SubcommandRunner;
 
 /// Directory where the detached finalize child writes failure markers.
 /// A subsequent `vc-x1` invocation scans this directory and surfaces
@@ -157,6 +158,29 @@ impl TryFrom<&FinalizeArgs> for FinalizeParams {
             detach: a.detach,
             exec: a.exec,
         })
+    }
+}
+
+impl SubcommandRunner for FinalizeArgs {
+    type Params = FinalizeParams;
+
+    /// Delegate to the existing `TryFrom<&FinalizeArgs>` impl above.
+    fn to_params(&self) -> Result<Self::Params, String> {
+        FinalizeParams::try_from(self)
+    }
+
+    /// Run the existing `finalize` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        finalize(ctx, params)
+    }
+
+    /// The detached `finalize --exec` re-entry is the bot's
+    /// session-end child; report it as `is_detached_exec=true` so
+    /// the trait's default `dispatch` suppresses the banner via
+    /// `crate::sb_ide` (the child shouldn't print user-facing
+    /// chatter or surface failure markers in its log).
+    fn is_detached_exec(params: &Self::Params) -> bool {
+        params.exec
     }
 }
 

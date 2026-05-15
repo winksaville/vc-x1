@@ -232,16 +232,6 @@ pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool) {
     }
 }
 
-fn run_command(result: Result<(), Box<dyn std::error::Error>>) -> ExitCode {
-    match result {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            error!("{e}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
 /// Permanent sanity check for the `main`-bookmark tracking state
 /// in both repos of the dual-repo workspace. Prints one line on
 /// entry and one on exit of every command. If entry and exit
@@ -365,17 +355,7 @@ fn main() -> ExitCode {
         Commands::Init(args) => args.dispatch(&ctx),
         Commands::Symlink(args) => args.dispatch(&ctx),
         Commands::Sync(args) => args.dispatch(&ctx),
-        Commands::Finalize(finalize_args) => {
-            sb_ide(false, is_detached_exec);
-            let params = match finalize::FinalizeParams::try_from(&finalize_args) {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            run_command(finalize::finalize(&ctx, &params))
-        }
+        Commands::Finalize(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
     };
 

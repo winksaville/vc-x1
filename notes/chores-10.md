@@ -1141,6 +1141,8 @@ about the trait shape changes to accommodate the
 
 ## refactor: port 8 → SubcommandRunner (0.50.0-5)
 
+Commits: [[20]]
+
 Bulk port: the 8 subcommands that don't need the
 `is_detached_exec` peek — `show` (TryFrom +
 suppress_banner), and the 7 total-`From` commands
@@ -1190,6 +1192,55 @@ Shape per command:
   `(done)`; add `0.50.0-5 port 8 subcommands (current)`
   and `0.50.0-6 port finalize` entry.
 
+## refactor: finalize → SubcommandRunner (0.50.0-6)
+
+Last per-command port: `finalize` joins the other 11
+arms on `SubcommandRunner::dispatch`. The
+`is_detached_exec` slot on the trait (default `false`,
+unused since `-1`) finally gets its implementor —
+`FinalizeArgs::is_detached_exec(params)` returns
+`params.exec`, which the trait's default `dispatch`
+threads into `crate::sb_ide` so the detached
+`finalize --exec` child stays silent.
+
+`FinalizeParams` already carried `exec: bool` from
+the existing `TryFrom` impl — no new field needed.
+The trait override reads it directly.
+
+What lands in this commit:
+
+- The Finalize arm in `main.rs` collapses to one line.
+  Every match arm is now `args.dispatch(&ctx)`.
+- The `run_command` helper in `main.rs` becomes dead
+  (no remaining caller) and is deleted. Clippy
+  `-D warnings` would block the cycle otherwise; the
+  deletion is the natural consequence of the last
+  port.
+
+What does **not** land — deferred to `-K`:
+
+- The top-level `let is_detached_exec = match
+  cli.command { Commands::Finalize(ref f) => f.exec,
+  _ => false };` block in `main.rs` stays. It gates
+  the `bm_track` enter/exit pair which lives outside
+  `dispatch`. Moving those calls inside the trait
+  (so `main` no longer needs the peek) is `-K`'s job.
+
+After this commit `main.rs`'s exec_code match is
+twelve `args.dispatch(&ctx)` lines and nothing else.
+
+- `Cargo.toml`: `0.50.0-5` → `0.50.0-6`.
+- `src/finalize.rs`: `SubcommandRunner for FinalizeArgs`
+  impl added; `is_detached_exec(params)` override
+  returns `params.exec`.
+- `src/main.rs`: `Finalize` arm collapsed to
+  `args.dispatch(&ctx)`; `fn run_command` deleted
+  (now unused).
+- `notes/chores-10.md`: backfilled `Commits: [[20]]`
+  on the 0.50.0-5 section.
+- `notes/todo.md`: 0.50.0-5 → `(done)`; 0.50.0-6
+  marked `(current)`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1211,3 +1262,4 @@ Shape per command:
 [17]: https://github.com/winksaville/vc-x1/commit/25d515c7aa5d "25d515c7aa5df80a4ae39db2d19b84b4e6100a55"
 [18]: https://github.com/winksaville/vc-x1/commit/c4a9b73648a9 "c4a9b73648a9ba3d8e01139c6a32e0fccab444df"
 [19]: https://github.com/winksaville/vc-x1/commit/288b9627e380 "288b9627e380105ebe6703f28ec0683660e4c95f"
+[20]: https://github.com/winksaville/vc-x1/commit/5899dc21e7ec "5899dc21e7ec3fc6ad0ac79dbaf78fddfffc5075"
