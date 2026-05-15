@@ -225,7 +225,7 @@ pub fn sync_repos(
     // Preflight: verify bookmark tracking on every repo before any
     // fetch/rebase. Implements "Non-tracking-remote bookmark detection"
     // — design at:
-    //   https://github.com/winksaville/vc-x1/blob/main/notes/chores-06.md#non-tracking-remote-bookmark-detection-design
+    //   https://github.com/winksaville/vc-x1/blob/main/notes/chores/chores-06.md#non-tracking-remote-bookmark-detection-design
     for repo in repos {
         crate::common::verify_tracking(repo, &params.bookmark)?;
     }

@@ -23,7 +23,7 @@
 //! ```
 //!
 //! Three-layer resolution — see
-//! `notes/chores-08.md > User config (0.41.1-3, redesigned in 0.41.1-4)`:
+//! `notes/chores/chores-08.md > User config (0.41.1-3, redesigned in 0.41.1-4)`:
 //!
 //! 1. account: CLI `--account` → `[default].account` → error.
 //! 2. category: CLI `--repo <cat>` → `[account.<a>.repo].default`

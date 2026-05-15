@@ -10,8 +10,8 @@
 //! - Helpers (`has_code`, `is_both`, etc.) reflect the `Roles`
 //!   arm only; on `Single(_)` they all return `false`. Callers
 //!   that must distinguish modes match on the enum directly.
-//! - See `notes/chores-07.md > --scope enum refactor (0.42.0)`
-//!   for the migration plan, and `notes/chores-06.md > 0.41.0-4`
+//! - See `notes/chores/chores-07.md > --scope enum refactor (0.42.0)`
+//!   for the migration plan, and `notes/chores/chores-06.md > 0.41.0-4`
 //!   for the vocabulary capture.
 
 use clap::ValueEnum;

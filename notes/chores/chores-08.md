@@ -11,12 +11,12 @@ on chores-07 when `main` later rebases on top of
 
 For the broader forking model and partner-bookmark technique
 that drove this branch's existence, see
-[`forks-multi-user.md`](forks-multi-user.md).
+[`forks-multi-user.md`](../forks-multi-user.md).
 
 ## init + clone redesign (0.41.1)
 
 Empirical validation 2026-04-27 against `vc-x1 0.42.0-3` (see
-[`vc-x1-init.md`](vc-x1-init.md)) surfaced cosmetic anomalies
+[`vc-x1-init.md`](../vc-x1-init.md)) surfaced cosmetic anomalies
 and a substantive design gap. Init's flag surface
 (`--repo-local`, `--repo-remote`, `--owner`, `--dir`,
 `[NAME]`) carries 6+ mutually-exclusive preflight checks just
@@ -234,7 +234,7 @@ close-out).
   use the new `target` positional shape (and `[NAME]` if
   needed).
 - `notes/todo.md`: cycle ladder in `## In Progress`.
-- `notes/chores-08.md`: per-step post-impl subsections
+- `notes/chores/chores-08.md`: per-step post-impl subsections
   (this file).
 - `notes/vc-x1-init.md`: close out cosmetic anomalies (fold
   into final close-out).
@@ -242,7 +242,7 @@ close-out).
 ### Cycle structure — multi-step
 
 - `-0` — plan + version bump + `notes/forks-multi-user.md`
-  capture + `notes/chores-08.md` (this section) +
+  capture + `notes/chores/chores-08.md` (this section) +
   `notes/vc-x1-init.md` brought forward + partner
   bookmarks set up.
 - `-1` — lift `derive_name` / `resolve_url` /
@@ -573,7 +573,7 @@ behavior preservation directly.
   { init_one(...) }`). Three duplicate `session_*` unwraps from the
   original dual path consolidated to top-of-fn in `init_dual`.
 - `Cargo.toml`: 0.41.1-6.0 → 0.41.1-6.1.
-- `notes/chores-08.md`: this subsection.
+- `notes/chores/chores-08.md`: this subsection.
 - `notes/todo.md`: -6.0 → done, -6.1 → current.
 
 **Mechanics:**
@@ -1482,7 +1482,7 @@ Independent question from the symlink toggle. Parked to
   bookmark created at `6747a27`; bot-side partner bookmark
   at current `.claude` `main`. Main left alone as recovery
   anchor (code side). See
-  [`forks-multi-user.md`](forks-multi-user.md) for the full
+  [`forks-multi-user.md`](../forks-multi-user.md) for the full
   discussion.
 
   **Correction at close-out (0.41.1-6.7):** the bot-side
@@ -1560,4 +1560,4 @@ to be decided before the rebase actually runs.
 
 # References
 
-[1]: forks-multi-user.md
+[1]: ../forks-multi-user.md

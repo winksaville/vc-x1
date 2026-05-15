@@ -397,7 +397,7 @@ share the same shape on `main`).
 
 A forward-looking design capture lived here (written
 pre-implementation, with the names `Workspace` / `XOptions`).
-It is now the living [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+It is now the living [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
 at the repo root — the "Two layers: CLI args vs subcommand
 Context + Params" section plus Migrations A and B. The
 0.44.0 implementation settled the names as `Context` /
@@ -427,7 +427,7 @@ Commits: [[11]]
 Single-step cycle: introduce `Context` + `InitParams` and
 port `init` to the new shape. Establishes the worked
 example for the design now in
-[`ARCHITECTURE.md`](../ARCHITECTURE.md); remaining
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md); remaining
 subcommands defer to later cycles.
 
 ### Naming: `Context` / `XxxParams`
@@ -437,7 +437,7 @@ Cargo owns that word, as does this codebase's
 `find_workspace_root`) and the per-subcommand input
 `XxxParams` (not `XOptions` — avoids visual collision with
 `Option<T>`, and with `src/options_flags/`). Full rationale:
-[`ARCHITECTURE.md`](../ARCHITECTURE.md) § Naming.
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md) § Naming.
 
 ### Why init
 
@@ -884,7 +884,7 @@ Properties of the renumber:
 
 [1]: https://github.com/winksaville/vc-x1/commit/bdec8579c28b "bdec8579c28b76989e52807a9e6bba93ba301c96"
 [2]: https://github.com/winksaville/vc-x1/commit/bb27daa86a07 "bb27daa86a078e2e06ebc56e0159e89829fb6356"
-[3]: /notes/chores-07.md#--scope-enum-refactor-0420
+[3]: /notes/chores/chores-07.md#--scope-enum-refactor-0420
 [4]: https://github.com/winksaville/vc-x1/commit/7880bfe2700d "7880bfe2700d8ce47946e5d9f6bf7e05e34de5c6"
 [5]: https://github.com/winksaville/vc-x1/commit/c1525175948c "c1525175948c1a97118996bb0c997c37c81351ff"
 [6]: https://github.com/winksaville/vc-x1/commit/bc97a768e643 "bc97a768e6437279599311eb57ee3eb66b549295"

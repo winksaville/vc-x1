@@ -33,8 +33,8 @@
 //! - First implementor: [`crate::chid`].
 //!
 //! [arch]: https://github.com/winksaville/vc-x1/blob/main/ARCHITECTURE.md#args--context--params
-//! [open]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-10.md#chore-open-subcommand-trait-sweep-0500-0
-//! [port]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-10.md#refactor-subcommandrunner-trait--chid-0500-1
+//! [open]: https://github.com/winksaville/vc-x1/blob/main/notes/chores/chores-10.md#chore-open-subcommand-trait-sweep-0500-0
+//! [port]: https://github.com/winksaville/vc-x1/blob/main/notes/chores/chores-10.md#refactor-subcommandrunner-trait--chid-0500-1
 
 use std::process::ExitCode;
 

@@ -9,7 +9,7 @@ playbook that fixed it, and the strategic decisions taken
 ## Resolution (2026-05-11)
 
 `init-clone-refactor` landed into `main` at `0.42.0-4.7`
-(see `notes/chores-09.md > ## chore: init-clone-refactor rebase
+(see `notes/chores/chores-09.md > ## chore: init-clone-refactor rebase
 landing (0.42.0-4.7)`): `main`'s `0.42.0-0..-4.6` work was
 rebased on top of the branch at its `0.41.1` close-out tip,
 so the branch's commits are now ancestors of `main`. The
@@ -49,7 +49,7 @@ diagnostic techniques remain reusable.
   (POR baseline tests then progressive split of
   `create_local_repo`). Conflicts on the same files
   all the way down: `Cargo.toml`, `Cargo.lock`,
-  `notes/todo.md`, `notes/chores-08.md` (3-sided),
+  `notes/todo.md`, `notes/chores/chores-08.md` (3-sided),
   `src/config.rs`, `src/init.rs`, `src/clone.rs`.
 - Original brief's hypothesis — "interrupted rebase
   or substep-style rewrite" — turned out to be wrong.
@@ -72,7 +72,7 @@ important because every subcommand picking up
 `--scope` lands on the same `Scope` shape, and
 reusable foundations mean those changes happen in
 one place rather than parallel implementations.
-Design captured in `notes/chores-07.md > ## init +
+Design captured in `notes/chores/chores-07.md > ## init +
 clone redesign (0.41.1)`.
 
 ## Root cause (post-mortem)
@@ -118,7 +118,7 @@ Resolved: the "vice versa" topology — `main`'s
 `0.42.0-0..-4.6` work rebased on top of the branch at
 its `0.41.1` close-out tip, force-pushed at close-out
 (`0.42.0-4.7`). See Resolution above and
-`notes/chores-09.md > ## chore: init-clone-refactor rebase
+`notes/chores/chores-09.md > ## chore: init-clone-refactor rebase
 landing (0.42.0-4.7)`.
 
 ## Recovery playbook (used 2026-05-02)
@@ -239,14 +239,14 @@ All resolved by the `0.42.0-4.7` rebase landing:
   low-priority entry in `notes/todo.md > ## Todo`.
 - **Conflict surface against 0.42.0** — the real
   conflicts (`Cargo.toml`, `notes/todo.md`,
-  `notes/chores-08.md`, CLAUDE.md, `src/init.rs`,
+  `notes/chores/chores-08.md`, CLAUDE.md, `src/init.rs`,
   `src/scope.rs`, `src/common.rs`) surfaced and were
   resolved during the cascade; see
-  `notes/chores-09.md > ### What needed real work`.
+  `notes/chores/chores-09.md > ### What needed real work`.
 
 ## References
 
-- `notes/chores-07.md > ## init + clone redesign
+- `notes/chores/chores-07.md > ## init + clone redesign
   (0.41.1)` — full design captured in 0.42.0-4
   (docs-only commit on main).
 - `notes/jj-revsets.md` — revset primitives used in

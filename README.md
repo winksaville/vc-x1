@@ -38,7 +38,7 @@ The solution space is wide open, from trivial CLI, web or app based
 existing programming editors like vscode and zed or even creating our
 own IDE for vc.
 
-See [Initial commit with dual jj-git repos](./notes/chores-01.md#initial-commit-with-dual-jj-git-repos)
+See [Initial commit with dual jj-git repos](./notes/chores/chores-01.md#initial-commit-with-dual-jj-git-repos)
 for how the initial commit was created with the dual jj-git repos. After
 doing so and I then created this README.md file.
 
@@ -520,7 +520,7 @@ vc-x1 finalize --bookmark main
 vc-x1 finalize --squash @,@-- --bookmark main
 ```
 
-See [finalize subcommand](./notes/chores-01.md#finalize-subcommand-for-session-repo-coherence)
+See [finalize subcommand](./notes/chores/chores-01.md#finalize-subcommand-for-session-repo-coherence)
 for design details.
 
 ### push
@@ -585,8 +585,8 @@ state-file = "push-state.toml"  # default
 `push` warns (non-fatal) when the configured state dir isn't
 matched in `.gitignore`.
 
-See [Add push subcommand (0.37.0)](./notes/chores-05.md#add-push-subcommand-0370)
-for the full design and [per-step record](./notes/chores-05.md#per-step-record)
+See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370)
+for the full design and [per-step record](./notes/chores/chores-05.md#per-step-record)
 for what each `0.37.0-N` dev step shipped.
 
 ### Testing push + finalize
@@ -695,10 +695,10 @@ Each repo has a `.vc-config.toml` that identifies its location
 within the workspace, so tools can resolve these paths locally.
 
 For full details see:
-- [Git trailer convention](./notes/chores-01.md#git-trailer-convention)
-  — [ochid (Other Change ID)](./notes/chores-01.md#ochid-other-change-id)
-  — [ChangeID path syntax](./notes/chores-01.md#changeid-path-syntax)
-  — [.vc-config.toml](./notes/chores-01.md#vc-configtoml)
+- [Git trailer convention](./notes/chores/chores-01.md#git-trailer-convention)
+  — [ochid (Other Change ID)](./notes/chores/chores-01.md#ochid-other-change-id)
+  — [ChangeID path syntax](./notes/chores/chores-01.md#changeid-path-syntax)
+  — [.vc-config.toml](./notes/chores/chores-01.md#vc-configtoml)
 
 ## jj Tips for Git Users
 
@@ -855,7 +855,7 @@ contributor encounters them:
 
 Task tracking and release details live under [notes/](notes/):
 near-term tasks in [notes/todo.md](notes/todo.md), per-release
-details in `notes/chores-*.md`, and notes-specific formatting
+details in `notes/chores/chores-*.md`, and notes-specific formatting
 rules in [notes/README.md](notes/README.md).
 
 ## License

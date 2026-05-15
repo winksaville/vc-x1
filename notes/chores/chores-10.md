@@ -6,10 +6,10 @@ cycle onward, plus a living **refactor-tracking** section (the
 per-subcommand status — for the Context+Params port and the
 options_flags extraction — that used to sit in `ARCHITECTURE.md`).
 
-See [`../ARCHITECTURE.md`](../ARCHITECTURE.md) for what those
+See [`../ARCHITECTURE.md`](../../ARCHITECTURE.md) for what those
 two refactors *are* and why; this file is the *how* and the
 *live status*. Reference numbering is file-local — see
-[`README.md`](README.md#reference-numbering); chores-10 starts
+[`README.md`](../README.md#reference-numbering); chores-10 starts
 at `[1]`.
 
 ## Refactor tracking — Context+Params / options_flags
@@ -45,7 +45,7 @@ surfaces): typed errors, returned-outcomes-vs-`println!`,
 | --- | --- |
 | `init` | fully composed — `account` / `repo` / `scope` / the `provision` bundle / `use_template` / `config` |
 | `finalize` | `--squash` → `squash` leaf; `--delay` / `--detach` / `--exec` / `--repo` / `--push` still inline |
-| `chid` / `desc` / `list` / `show` | flatten `options_flags::common_args::CommonArgs` (relocated there at 0.49.0-1.1 — an inline-fields bundle, no per-flag sub-leaves; see [Bundle](../src/options_flags/README.md#architecture)); `-R`/`--repo` → `-s`/`--scope` leaf in 0.49.0-2 |
+| `chid` / `desc` / `list` / `show` | flatten `options_flags::common_args::CommonArgs` (relocated there at 0.49.0-1.1 — an inline-fields bundle, no per-flag sub-leaves; see [Bundle](../../src/options_flags/README.md#architecture)); `-R`/`--repo` → `-s`/`--scope` leaf in 0.49.0-2 |
 | `sync` / `push` / `clone` / `validate-desc` / `fix-desc` / `symlink` | mostly inline; the `--scope` retrofits queued in `todo.md` are the usual entry point |
 
 ## chore: open 0.49.0 — finish Migration A (0.49.0-0)
@@ -122,7 +122,7 @@ re-scoped (see `### Cycle re-scope`). Relocate `common::CommonArgs`
 — the shared arg set for `chid` / `desc` / `list` / `show` —
 from `src/common.rs` into `src/options_flags/common_args.rs`.
 Inline fields, no per-flag sub-leaves (an "inline-fields bundle"
-— see [Bundle](../src/options_flags/README.md#architecture);
+— see [Bundle](../../src/options_flags/README.md#architecture);
 rationale in `### Why not decompose into leaves`). Pure
 relocation — `vc-x1 chid -h` etc. byte-identical.
 
@@ -157,7 +157,7 @@ The first take decomposed `CommonArgs` into per-flag
   / `label` / etc. is reused elsewhere, so per-flag leaves buy
   nothing the shared struct doesn't already give.
 - **`value`/`id` friction.** Two single-field-`value` leaves
-  ([README](../src/options_flags/README.md)) collide on the clap
+  ([README](../../src/options_flags/README.md)) collide on the clap
   arg *id* (derived from the field name) when co-flattened —
   `clap_builder` panics. The fix (`#[arg(id = …)]` on each) is
   the "not obvious when `id` vs `value`" sharp edge —
@@ -254,10 +254,10 @@ Cycle re-scope` records the change).
     "what + why" + a pointer here for live status (the
     per-subcommand status table, the version-by-version "done"
     list, the "State today" bullets are gone).
-- `notes/chores-10.md` — new (this file): the `## Refactor
+- `notes/chores/chores-10.md` — new (this file): the `## Refactor
   tracking` tables (out of `ARCHITECTURE.md`) + the `0.49.0-*`
   sections moved out of `chores-09.md`.
-- `notes/chores-09.md` — the `0.49.0-*` sections removed; it now
+- `notes/chores/chores-09.md` — the `0.49.0-*` sections removed; it now
   ends at `0.48.4` (all done/closed).
 - `notes/README.md` — notes that `chores-09` is closed and
   `chores-10` is the active file with the tracking section.
@@ -587,7 +587,7 @@ shape.
 - `ARCHITECTURE.md`: `## args → Context + Params` reworded —
   drop "ongoing port" framing, note the 12/12 milestone, keep
   the description of the pattern for new subcommands.
-- `notes/chores-10.md`: backfill `-6`'s `Commits:` ref ([[11]]);
+- `notes/chores/chores-10.md`: backfill `-6`'s `Commits:` ref ([[11]]);
   add this close-out section and its `### As-built ladder`
   subsection (the in-progress ladder, moved here from
   `notes/todo.md` with `-2.4`'s leftover `(current)` marker
@@ -1100,7 +1100,7 @@ inside the file rather than re-advertised at the top.
   dropped from the `suppress_banner` match; doc
   comment over that match updated to reflect that
   `desc` is now trait-owned alongside `chid`.
-- `notes/chores-10.md`: backfilled `Commits: [[17]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[17]]`
   on the 0.50.0-2 section.
 - `notes/todo.md`: ladder updated — flip 0.50.0-2 →
   `(done)` (absorbing the missed flip from the prior
@@ -1133,7 +1133,7 @@ about the trait shape changes to accommodate the
   from the `suppress_banner` match; doc comment updated
   to reflect that `list` is now trait-owned alongside
   `chid` / `desc`.
-- `notes/chores-10.md`: backfilled `Commits: [[18]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[18]]`
   on the 0.50.0-3 section.
 - `notes/todo.md`: ladder updated — 0.50.0-3 →
   `(done)`; add `0.50.0-4 port list (current)`;
@@ -1186,7 +1186,7 @@ Shape per command:
   `args.dispatch(&ctx)`; `let suppress_banner = …`
   match deleted (no remaining consumer); finalize's
   `sb_ide(suppress_banner, …)` → `sb_ide(false, …)`.
-- `notes/chores-10.md`: backfilled `Commits: [[19]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[19]]`
   on the 0.50.0-4 section.
 - `notes/todo.md`: ladder updated — 0.50.0-4 →
   `(done)`; add `0.50.0-5 port 8 subcommands (current)`
@@ -1238,7 +1238,7 @@ twelve `args.dispatch(&ctx)` lines and nothing else.
 - `src/main.rs`: `Finalize` arm collapsed to
   `args.dispatch(&ctx)`; `fn run_command` deleted
   (now unused).
-- `notes/chores-10.md`: backfilled `Commits: [[20]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[20]]`
   on the 0.50.0-5 section.
 - `notes/todo.md`: 0.50.0-5 → `(done)`; 0.50.0-6
   marked `(current)`.
@@ -1287,13 +1287,15 @@ time `dispatch` runs.
   trait-method doc on `is_detached_exec` expanded to
   mention the second consumer; dispatch doc expanded
   to cover the new bracket.
-- `notes/chores-10.md`: backfilled `Commits: [[21]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[21]]`
   on the 0.50.0-6 section.
 - `notes/todo.md`: 0.50.0-6 → `(done)`; rename
   `0.50.0-K …` line to `0.50.0-7 main.rs dispatch
   rework (current)`.
 
 ## chore: close Subcommand trait sweep (0.50.0)
+
+Commits: [[23]]
 
 Cycle close-out. All 12 subcommands now run through
 `SubcommandRunner::dispatch`; `main.rs`'s `fn main`
@@ -1355,7 +1357,7 @@ queued in `## Todo` as separate items.
 
 - `Cargo.toml`: `0.50.0-7` → `0.50.0` (suffix
   dropped — cycle close marker).
-- `notes/chores-10.md`: backfilled `Commits: [[22]]`
+- `notes/chores/chores-10.md`: backfilled `Commits: [[22]]`
   on the 0.50.0-7 section; new close-out section
   with the as-built ladder + outcome notes.
 - `notes/todo.md`: deleted the In Progress ladder
@@ -1388,3 +1390,4 @@ queued in `## Todo` as separate items.
 [20]: https://github.com/winksaville/vc-x1/commit/5899dc21e7ec "5899dc21e7ec3fc6ad0ac79dbaf78fddfffc5075"
 [21]: https://github.com/winksaville/vc-x1/commit/56fac6ee4913 "56fac6ee4913051b112f064fd53ee37981898029"
 [22]: https://github.com/winksaville/vc-x1/commit/00c87177b85e "00c87177b85e1d3104b47279baf6aa214a362682"
+[23]: https://github.com/winksaville/vc-x1/commit/e5502f0462be "e5502f0462be1c31d65510a0b52311b1270d9329"

@@ -185,7 +185,7 @@ TODO: add actual output of ls or tree cmds (fill at close-out)
 - `src/test_helpers.rs`: `Fixture::new_opts` reshapes to use
   the new `target` positional shape (and `[NAME]` if needed).
 - `notes/todo.md`: add this cycle to In Progress.
-- `notes/chores-07.md`: per-step post-impl subsections.
+- `notes/chores/chores-07.md`: per-step post-impl subsections.
 - `notes/vc-x1-init.md`: close out cosmetic anomalies (fold
   into final close-out).
 
@@ -292,7 +292,7 @@ was documenting — dogfood validation in flight.
   commit body for next-cycle discussion.
 - `notes/todo.md`: `## Done` entry; reference [77] points
   here.
-- `notes/chores-07.md`: this subsection.
+- `notes/chores/chores-07.md`: this subsection.
 
 ### Substep ladder (squashed at close-out)
 
@@ -399,7 +399,7 @@ sequence.
 - `Cargo.toml`: bump to 0.42.0-4.6.
 - `notes/todo.md`: `## Done` entry; reference [78]
   points here.
-- `notes/chores-07.md`: this subsection.
+- `notes/chores/chores-07.md`: this subsection.
 
 ### Decisions made during recovery
 
@@ -433,7 +433,7 @@ new shape in dependency order.
 once each command's call sites are seen).**
 
 - **0.42.0-0** — this plan + version bump + new
-  `notes/chores-07.md`. Notes only.
+  `notes/chores/chores-07.md`. Notes only.
 - **0.42.0-1** — `scope.rs` enum. Internal only — no
   CLI changes yet, no consumers updated. Existing
   `Scope(Vec<Side>)` → `enum Scope { Roles(Vec<Side>),
@@ -631,5 +631,5 @@ Smoke-tested end-to-end:
 
 # References
 
-[1]: /notes/chores-06.md#--scope-continuation-0410
-[2]: /notes/chores-06.md#0410-4-capture---scope-enum-vocabulary
+[1]: /notes/chores/chores-06.md#--scope-continuation-0410
+[2]: /notes/chores/chores-06.md#0410-4-capture---scope-enum-vocabulary

@@ -52,6 +52,6 @@ shapes in place.
   cluster it builds on.
 - `src/options_flags/scope.rs` — `ScopeKind` (`CodeBot` /
   `Por`) and `parse_scope_kind`.
-- `notes/chores-07.md > ## init + clone redesign (0.41.1)`
+- `notes/chores/chores-07.md > ## init + clone redesign (0.41.1)`
   — the `init_one` / `clone_one` primitives that aim to
   give a single chokepoint for scope-shaped changes.

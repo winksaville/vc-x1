@@ -514,7 +514,7 @@ pub(crate) fn ensure_git_suffix(s: &str) -> String {
 }
 
 /// How init should provision the remote repositories it pushes to.
-/// See `notes/chores-06.md > Generalize --scope across commands
+/// See `notes/chores/chores-06.md > Generalize --scope across commands
 /// (0.40.0) > 0.40.0-1` for the dispatch rules.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Provisioner {

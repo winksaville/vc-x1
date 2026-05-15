@@ -115,73 +115,95 @@ As todo.md `## Done` sections fills move them to here.
 - Init-clone-refactor rebase landing — main rebased + .claude re-paired (0.42.0-4.7) [79]
 - 0.42.0 cycle close-out at -4.7 — partial --scope sweep, continuation deferred [81]
 - Test-module extraction across init/push/sync/common (0.43.0) [84]
+- InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [85]
+- ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [86]
+- finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [87]
+- finalize Migration B — squash options_flags leaf (0.47.0) [88]
+- Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [89]
+- docs: por-dual capture + icr cleanup (0.48.1) [90]
+- docs: chores edit list → commit message (0.48.2) [91]
+- docs: chores-09 → new shape (0.48.3) [92]
+- docs: renumber todo.md + chores-09 refs (0.48.4) [93]
+- chid/desc/list/show CommonArgs sweep — options_flags + `-s`/`--scope` + Context+Params ports 12/12 (0.49.0) [94]
+- Subcommand trait sweep — 12 subcommands ported via `SubcommandRunner` trait, `main.rs` collapsed to `Context::load` + thin dispatch (0.50.0) [95]
 
 # References
 
-[1]: /notes/chores-01.md#create-a-binary-that-lists-jj-info
-[2]: /notes/chores-01.md#git-trailer-convention
-[3]: /notes/chores-01.md#finalize-subcommand-for-session-repo-coherence
-[4]: /notes/chores-01.md#refactor-and-add-desc-subcommand
-[5]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2
-[6]: /notes/chores-01.md#migrate-cli-parsing-to-clap-080
-[7]: /notes/chores-01.md#move-subcommand-args-into-modules-090
-[8]: /notes/chores-01.md#add-revision-and-repo-options-to-list-and-desc-0100
-[9]: /notes/chores-01.md#show-changeid-and-commitid-in-desc-output-0110
-[10]: /notes/chores-01.md#add-chid-subcommand-0120
-[11]: /notes/chores-01.md#add---limit-to-chid-subcommand-0130
-[12]: /notes/chores-01.md#add-positional--revision-notation-0140
-[13]: /notes/chores-01.md#add-required---bookmark-to-finalize-0140
-[14]: /notes/chores-01.md#bold-primary-revision-in-output-0150
-[15]: /notes/chores-01.md#indent-desc-body-lines-0160
-[16]: /notes/chores-01.md#finalize-detach-and-manual-recovery-0170
-[17]: /notes/chores-02.md#jj-commit-organization-and-traversal-mechanisms-0170
-[18]: /notes/chores-02.md#0180--initial-show-subcommand
-[19]: /notes/chores-02.md#0200--multi-repo-support
-[20]: /notes/chores-02.md#0250--refactor-into-validate-desc--fix-desc
-[21]: /notes/chores-02.md#0250-dev1--add-validate-desc-extract-desc_helpers
-[22]: /notes/chores-02.md#0250-dev2--add-fix-desc-subcommand
-[23]: /notes/chores-02.md#special-ochid-values-lost-and-none
-[24]: /notes/chores-02.md#0250-dev3--read-other-repo-from-config
-[25]: /notes/chores-02.md#0250--remove-deprecated-fix-ochid
-[26]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
-[30]: /notes/chores-02.md#0262--fix-validate-descfix-desc-other-repo-resolution-with--r
-[31]: /notes/chores-03.md#add-fn-claude-symlink-0270
-[32]: /notes/chores-03.md#add-init-command-0280
-[33]: /notes/chores-03.md#add-clone-command-0290
-[34]: /notes/chores-03.md#universal---verbose-and-commonrun-refactor-0300
-[35]: /notes/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
-[38]: /notes/chores-03.md#remove-submodule-from-initclone-0311
-[39]: /notes/chores-04.md#audit-unwrapunwrap_or-usage-0320
-[40]: /notes/chores-04.md#make-finalize-failures-visible-0330
-[41]: /notes/chores-04.md#fix-deprecated-jj-bookmark-track-syntax-0331
-[42]: /notes/chores-04.md#silence-untracked-remote-hint-in-init-step-9-0332
-[43]: /notes/chores-04.md#compatible-dep-refresh-0333
-[44]: /notes/chores-04.md#add---use-template-to-init--test-fixture-0340
-[45]: /notes/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
-[46]: /notes/chores-04.md#add-sync-subcommand-0350
-[47]: /notes/chores-04.md#show-bookmarks-in-list-show-desc-output-0360
-[48]: /notes/chores-05.md#add-push-subcommand-0370
-[49]: /notes/chores-05.md#claudemd-refresh--memory-migration-0361
-[50]: /notes/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
-[51]: /notes/chores-05.md#test-harness-refactor-0362
-[53]: /notes/chores-05.md#first-dogfood-polish-for-push-0371
-[55]: /notes/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
-[56]: /notes/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
-[57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
-[58]: /notes/chores-05.md#capture---message-file-design-for-push-0375
-[59]: /notes/chores-05.md#claudemd-polish-0376
-[64]: /notes/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
-[65]: /notes/chores-06.md#scope-design-refinements-0378
-[66]: /notes/chores-06.md#bookmark-tracking-verification-0380
-[67]: /notes/chores-06.md#push-hardening-state--stage-sanity-0390
-[70]: /notes/chores-06.md#generalize---scope-across-commands-0400
-[71]: /notes/chores-06.md#--scope-continuation-0410
-[72]: /notes/chores-08.md#init--clone-redesign-0411
-[73]: /notes/chores-08.md#cycle-structure--multi-step
-[74]: /notes/chores-08.md#user-config-0411-3
-[75]: /notes/chores-08.md#operations
-[77]: /notes/chores-07.md#substep-protocol-formalization-0420-45
-[78]: /notes/chores-07.md#init-clone-refactor-recovery-0420-46
-[79]: /notes/chores-09.md#chore-init-clone-refactor-rebase-landing-0420-47
-[81]: /notes/chores-09.md#chore-close-0420-cycle-at--47-0420
-[84]: /notes/chores-09.md#chore-open-0430-cycle-0430-0
+[1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
+[2]: /notes/chores/chores-01.md#git-trailer-convention
+[3]: /notes/chores/chores-01.md#finalize-subcommand-for-session-repo-coherence
+[4]: /notes/chores/chores-01.md#refactor-and-add-desc-subcommand
+[5]: /notes/chores/chores-01.md#claude-repo-issue-070-dev0-through-dev2
+[6]: /notes/chores/chores-01.md#migrate-cli-parsing-to-clap-080
+[7]: /notes/chores/chores-01.md#move-subcommand-args-into-modules-090
+[8]: /notes/chores/chores-01.md#add-revision-and-repo-options-to-list-and-desc-0100
+[9]: /notes/chores/chores-01.md#show-changeid-and-commitid-in-desc-output-0110
+[10]: /notes/chores/chores-01.md#add-chid-subcommand-0120
+[11]: /notes/chores/chores-01.md#add---limit-to-chid-subcommand-0130
+[12]: /notes/chores/chores-01.md#add-positional--revision-notation-0140
+[13]: /notes/chores/chores-01.md#add-required---bookmark-to-finalize-0140
+[14]: /notes/chores/chores-01.md#bold-primary-revision-in-output-0150
+[15]: /notes/chores/chores-01.md#indent-desc-body-lines-0160
+[16]: /notes/chores/chores-01.md#finalize-detach-and-manual-recovery-0170
+[17]: /notes/chores/chores-02.md#jj-commit-organization-and-traversal-mechanisms-0170
+[18]: /notes/chores/chores-02.md#0180--initial-show-subcommand
+[19]: /notes/chores/chores-02.md#0200--multi-repo-support
+[20]: /notes/chores/chores-02.md#0250--refactor-into-validate-desc--fix-desc
+[21]: /notes/chores/chores-02.md#0250-dev1--add-validate-desc-extract-desc_helpers
+[22]: /notes/chores/chores-02.md#0250-dev2--add-fix-desc-subcommand
+[23]: /notes/chores/chores-02.md#special-ochid-values-lost-and-none
+[24]: /notes/chores/chores-02.md#0250-dev3--read-other-repo-from-config
+[25]: /notes/chores/chores-02.md#0250--remove-deprecated-fix-ochid
+[26]: /notes/chores/chores-02.md#0260--shell-completion-via-clap_complete-env
+[30]: /notes/chores/chores-02.md#0262--fix-validate-descfix-desc-other-repo-resolution-with--r
+[31]: /notes/chores/chores-03.md#add-fn-claude-symlink-0270
+[32]: /notes/chores/chores-03.md#add-init-command-0280
+[33]: /notes/chores/chores-03.md#add-clone-command-0290
+[34]: /notes/chores/chores-03.md#universal---verbose-and-commonrun-refactor-0300
+[35]: /notes/chores/chores-03.md#adopt-log-crate-with-per-module-filtering-0310
+[38]: /notes/chores/chores-03.md#remove-submodule-from-initclone-0311
+[39]: /notes/chores/chores-04.md#audit-unwrapunwrap_or-usage-0320
+[40]: /notes/chores/chores-04.md#make-finalize-failures-visible-0330
+[41]: /notes/chores/chores-04.md#fix-deprecated-jj-bookmark-track-syntax-0331
+[42]: /notes/chores/chores-04.md#silence-untracked-remote-hint-in-init-step-9-0332
+[43]: /notes/chores/chores-04.md#compatible-dep-refresh-0333
+[44]: /notes/chores/chores-04.md#add---use-template-to-init--test-fixture-0340
+[45]: /notes/chores/chores-04.md#bump-jj-lib-to-040--tighten-clap-floor-0341
+[46]: /notes/chores/chores-04.md#add-sync-subcommand-0350
+[47]: /notes/chores/chores-04.md#show-bookmarks-in-list-show-desc-output-0360
+[48]: /notes/chores/chores-05.md#add-push-subcommand-0370
+[49]: /notes/chores/chores-05.md#claudemd-refresh--memory-migration-0361
+[50]: /notes/chores/chores-05.md#sync-improvements--single-repo-support--quieter-dry-run-0363
+[51]: /notes/chores/chores-05.md#test-harness-refactor-0362
+[53]: /notes/chores/chores-05.md#first-dogfood-polish-for-push-0371
+[55]: /notes/chores/chores-05.md#temporary-bookmark-tracking-diagnostic-probe-0372
+[56]: /notes/chores/chores-05.md#fix-bm-track-bugs--rename--promote-to-permanent-0373
+[57]: /notes/chores/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[58]: /notes/chores/chores-05.md#capture---message-file-design-for-push-0375
+[59]: /notes/chores/chores-05.md#claudemd-polish-0376
+[64]: /notes/chores/chores-06.md#notes-restructure-chores-06--trim-long-todo-entries-0377
+[65]: /notes/chores/chores-06.md#scope-design-refinements-0378
+[66]: /notes/chores/chores-06.md#bookmark-tracking-verification-0380
+[67]: /notes/chores/chores-06.md#push-hardening-state--stage-sanity-0390
+[70]: /notes/chores/chores-06.md#generalize---scope-across-commands-0400
+[71]: /notes/chores/chores-06.md#--scope-continuation-0410
+[72]: /notes/chores/chores-08.md#init--clone-redesign-0411
+[73]: /notes/chores/chores-08.md#cycle-structure--multi-step
+[74]: /notes/chores/chores-08.md#user-config-0411-3
+[75]: /notes/chores/chores-08.md#operations
+[77]: /notes/chores/chores-07.md#substep-protocol-formalization-0420-45
+[78]: /notes/chores/chores-07.md#init-clone-refactor-recovery-0420-46
+[79]: /notes/chores/chores-09.md#chore-init-clone-refactor-rebase-landing-0420-47
+[81]: /notes/chores/chores-09.md#chore-close-0420-cycle-at--47-0420
+[84]: /notes/chores/chores-09.md#chore-open-0430-cycle-0430-0
+[85]: /ARCHITECTURE.md
+[86]: /notes/chores/chores-09.md#docs-architecture-md--subcommand-layer-naming-0450
+[87]: /notes/chores/chores-09.md#refactor-finalize--context--finalizeparams-0460
+[88]: /notes/chores/chores-09.md#refactor-finalize---squash--options_flags-leaf-0470
+[89]: /notes/chores/chores-09.md#chore-open-0480-cycle--migration-a-sweep-0480-0
+[90]: /notes/chores/chores-09.md#docs-por-dual-capture--icr-cleanup-0481
+[91]: /notes/chores/chores-09.md#docs-chores-edit-list--commit-message-0482
+[92]: /notes/chores/chores-09.md#docs-chores-09--new-shape-0483
+[93]: /notes/chores/chores-09.md#docs-renumber-todomd--chores-09-refs-0484
+[94]: /notes/chores/chores-10.md#chore-open-0490--finish-migration-a-0490-0
+[95]: /notes/chores/chores-10.md#chore-close-subcommand-trait-sweep-0500

@@ -13,7 +13,7 @@ implemented, the title can become a release-versioned chore.
 
 Notes-only release. Three doc-hygiene moves bundled:
 
-- Start `notes/chores-06.md` (this file). chores-05.md grew to
+- Start `notes/chores/chores-06.md` (this file). chores-05.md grew to
   ~1000 lines; new chore entries land here going forward. No
   reservation for design-only — chores-06 is general-purpose.
 - Trim long todo entries to 2-3 line summaries; move detail to
@@ -39,7 +39,7 @@ Also: removed the redundant "Allow `vc-x1 push` to work on code
 or bot repo together or independantly..." entry from todo —
 fully subsumed by the `--scope` + `--squash` work.
 
-- `notes/chores-06.md` — new file with intro + this chore entry +
+- `notes/chores/chores-06.md` — new file with intro + this chore entry +
   four design subsections.
 - `notes/todo.md` — Todo section rewritten in priority order;
   long entries trimmed to short summaries; redundant entry
@@ -296,7 +296,7 @@ implementation:
   needed in this case — but the doc remains correct for cases
   where prior push didn't clean up.
 
-- `notes/chores-06.md` — this subsection.
+- `notes/chores/chores-06.md` — this subsection.
 - `notes/todo.md` — Done entry + new `[65]` reference + new
   Todo entry for the template restructure (vc-template-x1 +
   `.claude/` subdir, captured separately for later
@@ -349,7 +349,7 @@ run `jj bookmark track {b} --remote={r} -R {repo}` to fix
 - `src/finalize.rs` — removed the local `find_non_tracking_remote`
   fn + 4 tests; preflight now calls `crate::common::verify_tracking`.
   Behavior unchanged.
-- `notes/chores-06.md` — new `## Bookmark tracking verification
+- `notes/chores/chores-06.md` — new `## Bookmark tracking verification
   (0.38.0)` parent + this `### 0.38.0-0` sub-section + stubs for
   `### 0.38.0-1` / `### 0.38.0-2`.
 - `notes/todo.md` — Done entry for this step + In Progress entries
@@ -402,7 +402,7 @@ new assertions there are short-circuit safety nets.
 - `src/clone.rs` — Step 3/4 add `jj bookmark track` + verify.
 - `src/init.rs` — Step 10 adds verify after existing track calls.
 - `src/test_fixture.rs` — Step 7 adds verify after each push.
-- `notes/chores-06.md` — promote `### 0.38.0-1` from TBD to
+- `notes/chores/chores-06.md` — promote `### 0.38.0-1` from TBD to
   filled (this).
 - `notes/todo.md` — Done entry + `## In Progress` entry for
   `0.38.0-1` removed.
@@ -444,7 +444,7 @@ new sync/push checks see the happy path.
 - `src/push.rs` — `stage_preflight` signature gains `state`,
   dispatcher arm updated, two `verify_tracking` calls added
   before `vc-x1 sync --check`.
-- `notes/chores-06.md` — promote `### 0.38.0-2` from TBD to
+- `notes/chores/chores-06.md` — promote `### 0.38.0-2` from TBD to
   filled (this) + new `# References` section at the bottom so
   inline `[N]` refs render as clickable links and the URLs are
   copy-pasteable from raw markdown.
@@ -492,7 +492,7 @@ repo path it's already using — no special cwd handling needed.
 Validates both the tracking design ([63]) and the cwd-independence
 claim ([65]).
 
-- `notes/chores-06.md` — this `### 0.38.0` close-out subsection.
+- `notes/chores/chores-06.md` — this `### 0.38.0` close-out subsection.
 - `notes/todo.md` — `## In Progress` cleared; Done bullet for
   `0.38.0` (the cycle marker).
 
@@ -549,11 +549,11 @@ covers the happy path; failure paths get manual dogfood.
 
 - `src/push.rs` — new `verify_state_sanity` fn; called from
   `run_from` before initial state save.
-- `notes/chores-06.md` — new `## Push hardening: state + stage
+- `notes/chores/chores-06.md` — new `## Push hardening: state + stage
   sanity (0.39.0)` parent + this `### 0.39.0-0` filled
   sub-section + `### 0.39.0-1` and `### 0.39.0` TBD stubs.
   References block converted from full GitHub URLs to anchor
-  links (`#name` for self-refs, `/notes/chores-05.md#name` for
+  links (`#name` for self-refs, `/notes/chores/chores-05.md#name` for
   cross-file [57]) — works in local markdown viewers and on
   GitHub render alike, cleaner in raw markdown view. Plus new
   `## Source-code design ref convention (design)` subsection
@@ -630,7 +630,7 @@ exactly why the integration tests were worth writing.
   after the stage loop. Success message qualified with
   "(verified)"; failure surfaces as a warning. 4 new
   integration tests in the `integration_tests` module.
-- `notes/chores-06.md` — promote `### 0.39.0-1` from TBD to
+- `notes/chores/chores-06.md` — promote `### 0.39.0-1` from TBD to
   filled (this) + new `### 0.39.0-2` TBD stub for the deferred
   per-stage prereq work + new `## vc-x1 validate-repo command
   (design)` subsection [69] capturing the diagnostic-command
@@ -693,7 +693,7 @@ tests added in -1 rather than manual probing (constructing
 stale state would require interrupt + tamper, not worth it
 given the test coverage).
 
-- `notes/chores-06.md` — `### 0.39.0-2` updated from TBD to
+- `notes/chores/chores-06.md` — `### 0.39.0-2` updated from TBD to
   SKIPPED with rationale. New `### 0.39.0` close-out
   subsection (this).
 - `notes/todo.md` — `## In Progress` cleared. Items #1
@@ -923,7 +923,7 @@ has a `debug!(…)` immediately above it documenting intent
   `derive_name_from_url`, `github_slug_from_url`,
   `split_slug`), 17 new tests, documentary `debug!`
   retrofit on every `run()`.
-- `notes/chores-06.md`: this subsection + amended cycle
+- `notes/chores/chores-06.md`: this subsection + amended cycle
   steps (`-1` ↔ `-2` swap, ordering rationale).
 
 ### 0.40.0-2: init --scope=code|bot|code,bot
@@ -1008,7 +1008,7 @@ no `.claude/`, `.vc-config.toml` has no `other-repo`,
   `init()`, `validate_template_one` split out,
   `VC_CONFIG_APP_ONLY` + `GITIGNORE_APP_ONLY`, 9 new
   tests (`scope_*` + config-content).
-- `notes/chores-06.md`: this subsection + amended cycle
+- `notes/chores/chores-06.md`: this subsection + amended cycle
   steps (vocabulary change `app|other|both` →
   `code|bot|code,bot`).
 
@@ -1048,7 +1048,7 @@ to `-4`. The module compiles but has no non-CLI callers.
   `Fixture::new` + new `Fixture::new_opts` call
   `init_with_symlink`. Pending-changes path moves to the
   caller side.
-- `notes/chores-06.md`: this subsection.
+- `notes/chores/chores-06.md`: this subsection.
 
 ### 0.40.0: cycle close-out
 
@@ -1093,7 +1093,7 @@ retirement) into this commit; the broader `--scope` rollout
 - `notes/todo.md`: removes the (now-meaningless)
   `vc-x1 test-fixture should refuse --path` entry; adds
   0.40.0 done marker; In Progress points to 0.41.0.
-- `notes/chores-06.md`: this subsection + cycle-steps
+- `notes/chores/chores-06.md`: this subsection + cycle-steps
   amendment + new `--scope continuation (0.41.0)` section.
 
 ## --scope continuation (0.41.0)
@@ -1170,7 +1170,7 @@ worktree where `cargo build --release` and
 
 Full background — including the upstream cargo issues
 and the internals.rust-lang.org design-debate thread —
-lives in [notes/cargo-locked-issue.md](cargo-locked-issue.md).
+lives in [notes/cargo-locked-issue.md](../cargo-locked-issue.md).
 The summary below is enough for the chores log; defer
 to that file for the linked references.
 
@@ -1198,7 +1198,7 @@ Edits:
 - `CLAUDE.md`: pre-commit checklist step 4 requires
   `--locked`, with a two-line reason inline so a
   future reader doesn't re-litigate.
-- `notes/chores-06.md`: this subsection + plan
+- `notes/chores/chores-06.md`: this subsection + plan
   renumber (sync moves from `-1` to `-2`, push to
   `-3`, finalize to `-4`).
 - `notes/cargo-locked-issue.md`: new standalone
@@ -1292,7 +1292,7 @@ Edits:
   `long_about`.
 - `README.md`: sync section rewritten — new examples table,
   resolution-precedence list, `--scope` flag row.
-- `notes/chores-06.md`: this subsection.
+- `notes/chores/chores-06.md`: this subsection.
 - `notes/todo.md`: Done entries (`0.41.0-1`, `0.41.0-2`) +
   In Progress update; two new Todo entries — uniform help
   layout (clap `next_line_help(true)` surfaced when
@@ -1361,7 +1361,7 @@ Edits:
 - `Cargo.toml`: bump to `0.41.0-3`.
 - `CLAUDE.md`: `### Versioning` cross-references the new
   In Progress dev-ladder convention.
-- `notes/chores-06.md`: refine the [71] cycle-step sketch
+- `notes/chores/chores-06.md`: refine the [71] cycle-step sketch
   to insert this `-3` notes step and renumber push (was
   `-3`) and finalize (was `-4`); add this subsection.
 - `notes/todo.md`: three new Todo entries — `clone`
@@ -1488,7 +1488,7 @@ Edits:
   in flight (`--scope` flag on `PushArgs`, scope-related
   imports). Push stays unchanged on main; its
   scope wiring lands in 0.42.0 against the new type.
-- `notes/chores-06.md`: cycle-step sketch updated (0.41.0-3
+- `notes/chores/chores-06.md`: cycle-step sketch updated (0.41.0-3
   marked shipped; 0.41.0-4 redefined as the enum
   capture; 0.41.0-5 dropped from the cycle); this
   subsection added; legacy default-scope rules marked
@@ -1557,14 +1557,14 @@ Edits:
   CLAUDE.md swap waits until after the
   `vc-x1 push --message-file` work, per direction
   captured during 0.41.0-2 close-out.
-- `notes/chores-06.md`: this subsection.
+- `notes/chores/chores-06.md`: this subsection.
 - `notes/todo.md`: In Progress cleared (no active cycle);
   Done entries added for `0.41.0-3`, `0.41.0-4`, and
   `0.41.0` close-out.
 
 # References
 
-[57]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[57]: /notes/chores/chores-05.md#capture-squash-mode--scope-design-for-push-0374
 [60]: #generalize---scope-to-all-commands-design
 [61]: #push-hardening-state--stage-sanity-design
 [63]: #non-tracking-remote-bookmark-detection-design

@@ -545,7 +545,7 @@ land.
 - `README.md` — new `### push` subsection under Usage: stage
   table, flag table, state-file config, link to this chore's
   per-step record.
-- `notes/chores-05.md` — per-step record filled in for this
+- `notes/chores/chores-05.md` — per-step record filled in for this
   step; block now complete through `0.37.0`.
 
 **Status: shipped.** The push subcommand design is implemented,
@@ -1006,7 +1006,7 @@ Doc-only commit:
 
 - `Cargo.toml` / `Cargo.lock` — `0.37.4` → `0.37.5`.
 - `notes/todo.md` — new Todo entry for `--message-file`.
-- `notes/chores-05.md` — this subsection.
+- `notes/chores/chores-05.md` — this subsection.
 
 ## CLAUDE.md polish (0.37.6)
 
@@ -1060,4 +1060,4 @@ clarifications driven by 0.37.x dogfood and inline correction.
 - `notes/todo.md` — two items (state-file clearing, recipe
   trimming) moved from `## Todo` to `## Done`; new `[59]`
   reference for this subsection.
-- `notes/chores-05.md` — this subsection.
+- `notes/chores/chores-05.md` — this subsection.

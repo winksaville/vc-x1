@@ -11,16 +11,31 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+_No cycle currently in progress._
+
 ## Todo
 
 A markdown list of tasks to do in the near future, ordered
 highest-priority first. Keep entries brief — 1-3 lines.
 Detailed motivation, safety requirements, and ordering belong
-in `notes/chores-NN.md` design subsections; link via `[N]` ref.
+in `notes/chores/chores-NN.md` design subsections; link via `[N]` ref.
 
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
+1. **Eliminate `sb_ide` / `SubcommandRunner::is_detached_exec`
+   / `suppress_banner`.** Relocate the per-run "session
+   chrome" out of the trait: drop the on-every-run
+   `vc-x1 X.Y.Z` banner (clap's `before_help` already shows
+   it on `--help`); demote `bm_track` to `debug!` so its
+   detached-exec gate goes away; move
+   `finalize::surface_previous_failures` trigger into
+   `finalize` itself. Once all three behaviors relocate,
+   the two trait peek methods and `sb_ide` itself have no
+   remaining consumers and can be deleted, along with the
+   `suppress_banner` field on `ChidParams` / `DescParams` /
+   `ListParams` / `ShowParams`. Multi-step cycle — likely
+   `0.52.0`.
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -270,54 +285,36 @@ renumbering. Reference by displayed number ("let's work on #3").
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
-- InitParams + Context — init subcommand-layer decoupling worked example (0.44.0) [[1]]
-- ARCHITECTURE.md + subcommand-layer terminology reconciliation (0.45.0) [[30]]
-- finalize subcommand-layer migration — Context.log + TryFrom (0.46.0) [[31]]
-- finalize Migration B — squash options_flags leaf (0.47.0) [[3]]
-- Migration A sweep — subcommand-layer ports: symlink/clone/sync/validate-desc/fix-desc/push (0.48.0) [[2]]
-- docs: por-dual capture + icr cleanup (0.48.1) [[32]]
-- docs: chores edit list → commit message (0.48.2) [[33]]
-- docs: chores-09 → new shape (0.48.3) [[34]]
-- docs: renumber todo.md + chores-09 refs (0.48.4) [[35]]
-- chid/desc/list/show CommonArgs sweep — options_flags + `-s`/`--scope` + Context+Params ports 12/12 (0.49.0) [[36]]
-- Subcommand trait sweep — 12 subcommands ported via `SubcommandRunner` trait, `main.rs` collapsed to `Context::load` + thin dispatch (0.50.0) [[37]]
+_Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
+
+- chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[1]]
 
 # References
 
-[1]: /ARCHITECTURE.md
-[2]: /notes/chores-09.md#chore-open-0480-cycle--migration-a-sweep-0480-0
-[3]: /notes/chores-09.md#refactor-finalize---squash--options_flags-leaf-0470
+[1]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
 [4]: /notes/por-dual-parity.md
 [5]: /notes/forks-multi-user.md
 [6]: /notes/bot-data-formats.md
-[7]: /notes/chores-08.md#operations
-[8]: /notes/chores-08.md#cycle-structure--multi-step
-[9]: /notes/chores-07.md#--scope-enum-refactor-0420
-[10]: /notes/chores-09.md#push-dual-bookmark-parameters
-[11]: /notes/chores-09.md#push-unimplemented-recheck-flag
-[12]: /notes/chores-05.md#capture-squash-mode--scope-design-for-push-0374
-[13]: /notes/chores-06.md#generalize---scope-to-all-commands-design
-[14]: /notes/chores-06.md#--scope-continuation-0410
-[15]: /notes/chores-08.md#init--clone-redesign-0411
-[16]: /notes/chores-08.md#user-config-0411-3
-[17]: /notes/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
-[18]: /notes/chores-05.md#capture---message-file-design-for-push-0375
-[19]: /notes/chores-06.md#vc-x1-validate-repo-command-design
-[20]: /notes/chores-06.md#bm-track-silent-when-clean-design
-[21]: /notes/chores-06.md#source-code-design-ref-convention-design
-[22]: /notes/chores-05.md#open-questions--tbd
-[23]: /notes/chores-03.md#per-lineper-thread-runtime-log-points-future
-[24]: /notes/chores-03.md#windows-symlink-support
-[25]: /notes/chores-01.md#refactor-and-add-desc-subcommand
-[26]: /notes/chores-01.md#claude-repo-issue-070-dev0-through-dev2
-[27]: /notes/chores-02.md#0260--shell-completion-via-clap_complete-env
-[28]: /notes/chores-02.md#testing-results
-[29]: /notes/chores-02.md#shell-completion-discovery
-[30]: /notes/chores-09.md#docs-architecture-md--subcommand-layer-naming-0450
-[31]: /notes/chores-09.md#refactor-finalize--context--finalizeparams-0460
-[32]: /notes/chores-09.md#docs-por-dual-capture--icr-cleanup-0481
-[33]: /notes/chores-09.md#docs-chores-edit-list--commit-message-0482
-[34]: /notes/chores-09.md#docs-chores-09--new-shape-0483
-[35]: /notes/chores-09.md#docs-renumber-todomd--chores-09-refs-0484
-[36]: /notes/chores-10.md#chore-open-0490--finish-migration-a-0490-0
-[37]: /notes/chores-10.md#chore-close-subcommand-trait-sweep-0500
+[7]: /notes/chores/chores-08.md#operations
+[8]: /notes/chores/chores-08.md#cycle-structure--multi-step
+[9]: /notes/chores/chores-07.md#--scope-enum-refactor-0420
+[10]: /notes/chores/chores-09.md#push-dual-bookmark-parameters
+[11]: /notes/chores/chores-09.md#push-unimplemented-recheck-flag
+[12]: /notes/chores/chores-05.md#capture-squash-mode--scope-design-for-push-0374
+[13]: /notes/chores/chores-06.md#generalize---scope-to-all-commands-design
+[14]: /notes/chores/chores-06.md#--scope-continuation-0410
+[15]: /notes/chores/chores-08.md#init--clone-redesign-0411
+[16]: /notes/chores/chores-08.md#user-config-0411-3
+[17]: /notes/chores/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
+[18]: /notes/chores/chores-05.md#capture---message-file-design-for-push-0375
+[19]: /notes/chores/chores-06.md#vc-x1-validate-repo-command-design
+[20]: /notes/chores/chores-06.md#bm-track-silent-when-clean-design
+[21]: /notes/chores/chores-06.md#source-code-design-ref-convention-design
+[22]: /notes/chores/chores-05.md#open-questions--tbd
+[23]: /notes/chores/chores-03.md#per-lineper-thread-runtime-log-points-future
+[24]: /notes/chores/chores-03.md#windows-symlink-support
+[25]: /notes/chores/chores-01.md#refactor-and-add-desc-subcommand
+[26]: /notes/chores/chores-01.md#claude-repo-issue-070-dev0-through-dev2
+[27]: /notes/chores/chores-02.md#0260--shell-completion-via-clap_complete-env
+[28]: /notes/chores/chores-02.md#testing-results
+[29]: /notes/chores/chores-02.md#shell-completion-discovery

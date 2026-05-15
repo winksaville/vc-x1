@@ -14,7 +14,7 @@
 //!
 //! `clone_one` and `clone_dual` are `pub(crate)` so init's `-3`
 //! reshape can reuse them for the "URL exists → clone" preflight
-//! path (per `notes/chores-08.md > init + clone redesign`).
+//! path (per `notes/chores/chores-08.md > init + clone redesign`).
 
 use std::path::Path;
 

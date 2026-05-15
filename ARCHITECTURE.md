@@ -3,7 +3,7 @@
 How the `vc-x1` binary is structured: the clap-aware CLI layer
 and the (emerging) clap-free subcommand layer. This is the
 "what + some why" — generic and slow-moving. The *how* and the
-per-cycle / per-subcommand status live in `notes/chores-*.md`
+per-cycle / per-subcommand status live in `notes/chores/chores-*.md`
 and `notes/todo.md`.
 
 This is a living document; the app is under continuous
@@ -86,7 +86,7 @@ the implementation (0.44.0) chose `Context` / `XxxParams`:
 ## Module map
 
 The *kinds* of module and what they're for — not an exhaustive
-catalog (read the `//!` docstrings; `notes/chores-*.md` for
+catalog (read the `//!` docstrings; `notes/chores/chores-*.md` for
 per-subcommand refactor status):
 
 **CLI layer:**
@@ -129,7 +129,7 @@ where one exists) and the entrypoint `pub fn x(...)`. Modules:
 `validate_desc`, `fix_desc`, `clone`, `init` (+ `init/params`),
 `symlink`, `sync`, `finalize`, `push` (a resumable state
 machine). Which ones have ported to `(ctx, params)` and which
-compose `options_flags/` leaves: `notes/chores-*.md` +
+compose `options_flags/` leaves: `notes/chores/chores-*.md` +
 `notes/todo.md`.
 
 **Support:**
@@ -175,7 +175,7 @@ subcommands as of 0.49.0, and the shape new subcommands
 follow. Out of scope until a real consumer surfaces: typed
 errors, returned-outcomes-vs-`println!`, `ProgressSink`,
 `Context` fields beyond `UserConfig` + `--log`. Per-subcommand
-status: `notes/chores-*.md` (the "Refactor tracking" section).
+status: `notes/chores/chores-*.md` (the "Refactor tracking" section).
 
 ## per-subcommand flags → `src/options_flags/`
 
@@ -185,7 +185,7 @@ lifted into reusable leaves/bundles under `src/options_flags/`
 so a flag is defined (parser, help, completer) exactly once. See
 [`src/options_flags/README.md`](src/options_flags/README.md)
 for the leaf / bundle / Pattern-A mechanics and the
-Flag-vs-Option classification; `notes/chores-*.md` for
+Flag-vs-Option classification; `notes/chores/chores-*.md` for
 per-subcommand status.
 
 ## See also
@@ -198,7 +198,7 @@ per-subcommand status.
   — leaf/bundle patterns for the options_flags extraction.
 - [`notes/todo.md`](notes/todo.md) — live task list, including
   both refactors.
-- `notes/chores-*.md` — per-cycle design captures and the
+- `notes/chores/chores-*.md` — per-cycle design captures and the
   refactor-tracking tables (currently
-  [`chores-10.md`](notes/chores-10.md); `chores-09.md` and
+  [`chores-10.md`](notes/chores/chores-10.md); `chores-09.md` and
   earlier are closed).

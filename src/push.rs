@@ -1,7 +1,7 @@
 //! `push` subcommand — collapse the dual-repo commit+push+finalize
 //! ceremony into a single resumable command.
 //!
-//! See `notes/chores-05.md > Add push subcommand (0.37.0)` for the
+//! See `notes/chores/chores-05.md > Add push subcommand (0.37.0)` for the
 //! full design.
 //!
 //! Dev-step ladder (expanded from original 4 to 6 after adding an
@@ -120,7 +120,7 @@ impl Stage {
 
 /// CLI arguments for the `push` subcommand.
 ///
-/// Flag set mirrors the design in `notes/chores-05.md`. Flags are
+/// Flag set mirrors the design in `notes/chores/chores-05.md`. Flags are
 /// parsed in 0.37.0-0; their real effects land across the remaining
 /// 0.37.0-N steps. See the module docstring for which flags activate
 /// when.

@@ -5,7 +5,7 @@
 //! callers without clap (tests, future TUI / library embedding)
 //! construct it directly.
 //!
-//! Per `notes/chores-09.md > ## InitParams implementation
+//! Per `notes/chores/chores-09.md > ## InitParams implementation
 //! (0.44.0)`: domain types pass through (`RepoSelector`,
 //! `ScopeKind`, `ConfigKind`, `PushRetryOptions`); leaf clap
 //! wrappers do not.

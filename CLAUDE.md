@@ -120,7 +120,7 @@ Surfaces that use this shape:
 - Commit message bodies (both app-repo and session-repo). The
   ≤50-col title is the commit-specific add-on; see
   [Commit Message Style](#commit-message-style).
-- Chore descriptions in `notes/chores-NN.md` — see
+- Chore descriptions in `notes/chores/chores-NN.md` — see
   [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
 - Todo and Done entries in `notes/todo.md` when an entry needs more
   than one line of detail. Pure one-liners are still fine.
@@ -286,7 +286,7 @@ For multi-step:
 2. Implement in one or more `X.Y.Z-N` commits (increment N as
    needed).
 3. Final commit bumps to `X.Y.Z` (no suffix), updates
-   `notes/todo.md` and `notes/chores-*.md` — this is the "done"
+   `notes/todo.md` and `notes/chores/chores-*.md` — this is the "done"
    marker.
 
 Multi-step cycles surface the ladder at the top of
@@ -453,7 +453,7 @@ Before proposing a commit, run all of the following and fix any issues:
    Versioning multi-step section.)
 7. Update `notes/todo.md` — at cycle close-out (final commit),
    move the entry from `## In Progress` to `## Done`.
-8. Update `notes/chores-*.md` — add a section (header =
+8. Update `notes/chores/chores-*.md` — add a section (header =
    provisional commit title; intro paragraph + any `###` design
    subsections; **no** per-file edit list — that's the commit
    body).
@@ -799,7 +799,7 @@ only the `ochid:` trailer differs per repo. Push collects the
 pre-commit chids internally so you don't hand-manage them.
 
 For the full flag list and stage machine, see `vc-x1 push --help`
-and `notes/chores-05.md > Add push subcommand (0.37.0)`.
+and `notes/chores/chores-05.md > Add push subcommand (0.37.0)`.
 
 ### Bot communication during the flow
 
