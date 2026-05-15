@@ -3,9 +3,9 @@
 //! The purpose is to simplify invoking a subcommand so `main`
 //! can invoke any subcommand with one line:
 //!
-//! `Commands::Chid(args) => args.dispatch(cli.log),`
+//! `Commands::Chid(args) => args.dispatch(&ctx),`
 //!
-//! Instead of the ~16 lines that the default `dispatch` below
+//! Instead of the ~11 lines that the default `dispatch` below
 //! now encapsulates.
 //!
 //! Implementors provide:
@@ -15,10 +15,12 @@
 //!   `TryFrom` shapes uniformly via `Result<_, String>`).
 //! - [`SubcommandRunner::run`] — the subcommand body.
 //!
-//! The default [`SubcommandRunner::dispatch`] loads `Context`,
-//! builds `Params` via `to_params`, runs via `run`, and maps
-//! the result to `ExitCode`. Errors at any stage log via
-//! `error!` and return `ExitCode::FAILURE`.
+//! The default [`SubcommandRunner::dispatch`] builds `Params`
+//! via `to_params`, runs via `run`, and maps the result to
+//! `ExitCode`. Errors at any stage log via `error!` and return
+//! `ExitCode::FAILURE`. `Context` is loaded once in `main` and
+//! passed in by reference so a single `Context` is shared across
+//! the (one) match arm that actually runs.
 //!
 //! ## See also
 //!
@@ -34,7 +36,6 @@
 //! [open]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-10.md#chore-open-subcommand-trait-sweep-0500-0
 //! [port]: https://github.com/winksaville/vc-x1/blob/main/notes/chores-10.md#refactor-subcommandrunner-trait--chid-0500-1
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use log::error;
@@ -42,7 +43,7 @@ use log::error;
 use crate::context::Context;
 
 /// Trait implemented by every subcommand's clap `Args` type so
-/// `main.rs` can dispatch via a single `args.dispatch(cli.log)`
+/// `main.rs` can dispatch via a single `args.dispatch(&ctx)`
 /// call.
 pub trait SubcommandRunner {
     /// The clap-free `Params` struct the subcommand body
@@ -72,19 +73,11 @@ pub trait SubcommandRunner {
         false
     }
 
-    /// Default dispatch: load `Context`, build `Params` via
-    /// `to_params`, emit session chrome via [`crate::sb_ide`],
-    /// run via `run`, and map the result to `ExitCode`. Errors
-    /// at any stage log via `error!` and return
-    /// `ExitCode::FAILURE`.
-    fn dispatch(&self, log: Option<PathBuf>) -> ExitCode {
-        let ctx = match Context::load(log) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("{e}");
-                return ExitCode::FAILURE;
-            }
-        };
+    /// Default dispatch: build `Params` via `to_params`, emit
+    /// session chrome via [`crate::sb_ide`], run via `run`, and
+    /// map the result to `ExitCode`. Errors at any stage log via
+    /// `error!` and return `ExitCode::FAILURE`.
+    fn dispatch(&self, ctx: &Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,
             Err(e) => {
@@ -96,7 +89,7 @@ pub trait SubcommandRunner {
             Self::suppress_banner(&params),
             Self::is_detached_exec(&params),
         );
-        match Self::run(&ctx, &params) {
+        match Self::run(ctx, &params) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 error!("{e}");

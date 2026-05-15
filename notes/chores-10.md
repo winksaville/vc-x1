@@ -1011,6 +1011,8 @@ becomes configurable.
 
 ## chore: --exec doc + matches! → match (0.50.0-1.2)
 
+Commits: [[16]]
+
 Inter-substep tidy: a small readability rewrite in
 `main.rs` and a doc expansion on `FinalizeArgs::exec` so
 the `--detach` / `--exec` handshake is spelled out at
@@ -1031,6 +1033,40 @@ the field that implements it.
   `finalize_exec()` for the background work — plus a
   second paragraph spelling out why `hide = true` is set.
 
+## refactor: hoist Context::load (0.50.0-2)
+
+`Context::load` was invoked in every match arm — once
+in `dispatch` for the ported `Chid` arm, and inline at
+the head of each of the 10 unported arms. The body is
+identical, the result is identical, only one arm runs
+per invocation. Hoist the load to a single site at the
+top of the match in `main`, change
+`SubcommandRunner::dispatch` to take `&Context` instead
+of building one itself, and let the unported arms read
+the same `&ctx`. Net `-63` lines in `main.rs`.
+
+The trait shape change is small but load-bearing for
+the rest of the cycle — every future port arrives at the
+settled `dispatch(&ctx)` shape rather than the
+`dispatch(cli.log)` shape. Splitting the hoist out as
+its own substep keeps the per-port commits (starting
+with `desc` at `-3`) reviewable in isolation: each one
+becomes "add `suppress_banner` + impl `SubcommandRunner`
++ collapse the arm" with no infrastructure churn mixed
+in.
+
+- `src/main.rs`: `Context::load` lifted out of each
+  match arm into a single block above the `match
+  cli.command`; 10 inline blocks deleted.
+- `src/subcommand.rs`: `dispatch(&self, log:
+  Option<PathBuf>)` → `dispatch(&self, ctx: &Context)`;
+  the inline `Context::load` inside dispatch deleted.
+  Module + item doc-comments updated for the new
+  signature (`args.dispatch(&ctx)`, "~11 lines"
+  encapsulated, "Context is loaded once in main and
+  passed in by reference"). Unused `use
+  std::path::PathBuf` deleted.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1048,3 +1084,4 @@ the field that implements it.
 [13]: https://github.com/winksaville/vc-x1/commit/040aa2880421 "040aa28804211e529baa4ebf0a27f3ebfcef6e95"
 [14]: https://github.com/winksaville/vc-x1/commit/9a447b843b81 "9a447b843b81eeca565db33cb12ece3095bff903"
 [15]: https://github.com/winksaville/vc-x1/commit/9a7d33ba6556 "9a7d33ba6556cdb5a575c96236554cf19d57b23b"
+[16]: https://github.com/winksaville/vc-x1/commit/8066eabc0752 "8066eabc0752a08880ff3bbc14e5a4674f7a7e4f"

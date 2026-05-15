@@ -360,17 +360,18 @@ fn main() -> ExitCode {
         bm_track("enter", &command_name);
     }
 
+    let ctx = match context::Context::load(cli.log) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
     let exit_code = match cli.command {
-        Commands::Chid(args) => args.dispatch(cli.log),
+        Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(desc_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = match desc::DescParams::try_from(&desc_args) {
                 Ok(p) => p,
                 Err(e) => {
@@ -382,13 +383,6 @@ fn main() -> ExitCode {
         }
         Commands::List(list_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = match list::ListParams::try_from(&list_args) {
                 Ok(p) => p,
                 Err(e) => {
@@ -400,13 +394,6 @@ fn main() -> ExitCode {
         }
         Commands::Show(show_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = match show::ShowParams::try_from(&show_args) {
                 Ok(p) => p,
                 Err(e) => {
@@ -418,85 +405,36 @@ fn main() -> ExitCode {
         }
         Commands::ValidateDesc(validate_desc_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = validate_desc::ValidateDescParams::from(&validate_desc_args);
             run_command(validate_desc::validate_desc(&ctx, &params))
         }
         Commands::FixDesc(fix_desc_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = fix_desc::FixDescParams::from(&fix_desc_args);
             run_command(fix_desc::fix_desc(&ctx, &params))
         }
         Commands::Clone(clone_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = clone::CloneParams::from(&clone_args);
             run_command(clone::clone_repo(&ctx, &params))
         }
         Commands::Init(init_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = init::InitParams::from(&init_args);
             run_command(init::init(&ctx, &params))
         }
         Commands::Symlink(symlink_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = symlink::SymlinkParams::from(&symlink_args);
             run_command(symlink::symlink(&ctx, &params))
         }
         Commands::Sync(sync_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = sync::SyncParams::from(&sync_args);
             run_command(sync::sync(&ctx, &params))
         }
         Commands::Finalize(finalize_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = match finalize::FinalizeParams::try_from(&finalize_args) {
                 Ok(p) => p,
                 Err(e) => {
@@ -508,13 +446,6 @@ fn main() -> ExitCode {
         }
         Commands::Push(push_args) => {
             sb_ide(suppress_banner, is_detached_exec);
-            let ctx = match context::Context::load(cli.log) {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let params = push::PushParams::from(&push_args);
             run_command(push::push(&ctx, &params))
         }
