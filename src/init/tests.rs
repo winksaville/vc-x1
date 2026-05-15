@@ -9,7 +9,7 @@ use clap::Parser;
 fn parse(args: &[&str]) -> InitArgs {
     let cli = Cli::try_parse_from(args).unwrap();
     match cli.command {
-        Commands::Init(a) => a,
+        Some(Commands::Init(a)) => a,
         _ => panic!("expected New"),
     }
 }

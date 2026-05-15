@@ -34,16 +34,10 @@ const DEFAULT_OCHID_WIDTH: usize = 21;
 
 /// Clap-free params for `list`; embeds `CommonParams` and the ochid
 /// column width.
-///
-/// Carries a `suppress_banner` flag (read off `-L` / `--no-label`
-/// at the binary edge) so the trait's default `dispatch` can
-/// query it through `SubcommandRunner::suppress_banner` without
-/// re-touching clap.
 #[derive(Debug)]
 pub struct ListParams {
     pub common: CommonParams,
     pub width: usize,
-    pub suppress_banner: bool,
 }
 
 impl TryFrom<&ListArgs> for ListParams {
@@ -51,13 +45,11 @@ impl TryFrom<&ListArgs> for ListParams {
 
     /// Resolve clap `ListArgs` into `ListParams`: delegate to
     /// `CommonParams::try_from` for the shared fields; copy `width`
-    /// straight over (clap-applied default already resolved); copy
-    /// the no-label flag into `suppress_banner`.
+    /// straight over (clap-applied default already resolved).
     fn try_from(a: &ListArgs) -> Result<Self, String> {
         Ok(ListParams {
             common: CommonParams::try_from(&a.common)?,
             width: a.width,
-            suppress_banner: a.common.no_label,
         })
     }
 }
@@ -73,13 +65,6 @@ impl SubcommandRunner for ListArgs {
     /// Run the existing `list` op.
     fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         list(ctx, params)
-    }
-
-    /// Read the banner-suppression flag off `ListParams` for
-    /// `crate::sb_ide` (queried from the trait's default
-    /// `dispatch`).
-    fn suppress_banner(params: &Self::Params) -> bool {
-        params.suppress_banner
     }
 }
 
@@ -136,7 +121,7 @@ mod tests {
     fn parse(args: &[&str]) -> super::ListArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::List(a) => a,
+            Some(Commands::List(a)) => a,
             _ => panic!("expected List"),
         }
     }

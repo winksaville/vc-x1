@@ -547,7 +547,7 @@ mod tests {
     fn parse(args: &[&str]) -> FinalizeArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::Finalize(a) => a,
+            Some(Commands::Finalize(a)) => a,
             _ => panic!("expected Finalize"),
         }
     }
@@ -598,7 +598,7 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
-        if let Commands::Finalize(args) = cli.command {
+        if let Some(Commands::Finalize(args)) = cli.command {
             assert_eq!(args.repo, PathBuf::from(".claude"));
             assert_eq!(args.squash.value, Some(squash_at()));
             assert_eq!(args.push, Some("dev-0.14.0".to_string()));
@@ -663,7 +663,7 @@ mod tests {
         full_args.extend(exec_args);
         let cli = Cli::try_parse_from(full_args).unwrap();
         assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
-        if let crate::Commands::Finalize(args) = cli.command {
+        if let Some(crate::Commands::Finalize(args)) = cli.command {
             let parsed = FinalizeParams::try_from(&args).unwrap();
             // repo is canonicalized, so compare the canonical form
             assert_eq!(parsed.repo, std::fs::canonicalize(&params.repo).unwrap());

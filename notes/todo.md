@@ -26,11 +26,14 @@ shape significantly or abandon the cycle.
 - 0.52.0-0 plan + version bump + chores-11 opener
   section + todo ladder (done)
 - 0.52.0-1 `bm_track` → `debug!`; drop bm_track gates
-  in `dispatch` (current)
-- 0.52.0-2..N eliminate `sb_ide` (banner-on-every-run,
-  surface_previous_failures relocation)
-- 0.52.0-K drop `is_detached_exec` + `suppress_banner`
-  from the trait
+  in `dispatch` (done)
+- 0.52.0-2 `-V` toggles version banner (replaces
+  clap's auto-version); banner-on-every-run gone;
+  `suppress_banner` trait method + `Params` fields
+  cascade out (current)
+- 0.52.0-3..N move `finalize::surface_previous_failures`
+  trigger into `finalize`; delete `sb_ide`
+- 0.52.0-K drop `is_detached_exec` from the trait
 - 0.52.0 close-out
 
 ## Todo

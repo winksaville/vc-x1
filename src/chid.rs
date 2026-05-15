@@ -25,27 +25,20 @@ pub struct ChidArgs {
 }
 
 /// Clap-free params for `chid`; embeds resolved `CommonParams`.
-///
-/// Carries a `suppress_banner` flag (read off `-L` / `--no-label`
-/// at the binary edge) so the trait's default `dispatch` can
-/// query it through `SubcommandRunner::suppress_banner` without
-/// re-touching clap.
 #[derive(Debug)]
 pub struct ChidParams {
     pub common: CommonParams,
-    pub suppress_banner: bool,
 }
 
 impl TryFrom<&ChidArgs> for ChidParams {
     type Error = String;
 
     /// Resolve clap `ChidArgs` into `ChidParams` by delegating to
-    /// `CommonParams::try_from` and copying the no-label flag
-    /// into `suppress_banner`.
+    /// `CommonParams::try_from`; `chid` has no fields beyond
+    /// `CommonArgs`.
     fn try_from(a: &ChidArgs) -> Result<Self, String> {
         Ok(ChidParams {
             common: CommonParams::try_from(&a.common)?,
-            suppress_banner: a.common.no_label,
         })
     }
 }
@@ -87,13 +80,6 @@ impl SubcommandRunner for ChidArgs {
     fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         chid(ctx, params)
     }
-
-    /// Read the banner-suppression flag off `ChidParams` for
-    /// `crate::sb_ide` (queried from the trait's default
-    /// `dispatch`).
-    fn suppress_banner(params: &Self::Params) -> bool {
-        params.suppress_banner
-    }
 }
 
 #[cfg(test)]
@@ -108,7 +94,7 @@ mod tests {
     fn parse(args: &[&str]) -> CommonArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::Chid(a) => a.common,
+            Some(Commands::Chid(a)) => a.common,
             _ => panic!("expected Chid"),
         }
     }
@@ -230,7 +216,7 @@ mod tests {
         use super::ChidParams;
         let cli = Cli::try_parse_from(["vc-x1", "chid"]).unwrap();
         let args = match cli.command {
-            Commands::Chid(a) => a,
+            Some(Commands::Chid(a)) => a,
             _ => panic!("expected Chid"),
         };
         let params = ChidParams::try_from(&args).unwrap();

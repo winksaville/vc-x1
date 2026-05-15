@@ -242,7 +242,7 @@ mod tests {
     fn parse(args: &[&str]) -> CloneArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::Clone(a) => a,
+            Some(Commands::Clone(a)) => a,
             _ => panic!("expected Clone"),
         }
     }

@@ -84,13 +84,19 @@ fn cli_with_banner() -> clap::Command {
 }
 
 #[derive(Parser, Debug)]
-#[command(
-    version,
-    propagate_version = true,
-    about = TOP_ABOUT,
-    max_term_width = 80
-)]
+#[command(about = TOP_ABOUT, max_term_width = 80)]
 pub struct Cli {
+    /// Print the `vc-x1 X.Y.Z` banner as the first line, then
+    /// continue. With no subcommand, prints the banner and exits.
+    ///
+    /// Replaces clap's auto-version (which would exit after
+    /// printing): the banner now rides along with normal
+    /// subcommand execution rather than gating it, so scripts
+    /// can capture the version *and* the command's output in
+    /// one invocation.
+    #[arg(short = 'V', long = "version", global = true, action = clap::ArgAction::SetTrue)]
+    pub version: bool,
+
     /// Verbose output: -v debug, -vv trace
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
@@ -100,7 +106,7 @@ pub struct Cli {
     pub log: Option<std::path::PathBuf>,
 
     #[command(subcommand)]
-    pub(crate) command: Commands,
+    pub(crate) command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -212,22 +218,21 @@ pub(crate) enum Commands {
     Push(push::PushArgs),
 }
 
-/// Session chrome: emit the leading banner (unless suppressed) and
-/// surface any failures left over from the previous run, gated on
-/// "this isn't the detached `finalize --exec` re-entry".
+/// Surface failures left over from the previous run, gated on
+/// "this isn't the detached `finalize --exec` re-entry" (the
+/// detached child's log isn't where users see surfaced failures).
 ///
-/// Called from the trait's default `dispatch` (for ported
-/// subcommands, reading the bools from each command's `Params`)
-/// and from each unported arm in `fn main()` (reading the bools
-/// from the per-arm peek match). When all arms are ported, the
-/// `main`-side callers disappear; only the trait callers remain.
-pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool) {
+/// Called from the trait's default `dispatch`. Banner emission
+/// used to live here too but was dropped in 0.52.0-2 — clap's
+/// `before_help` already shows `vc-x1 X.Y.Z` on `--help`, and
+/// `propagate_version = true` makes `-V` work on every
+/// subcommand, so the on-every-run emission was duplicate
+/// chatter. The `surface_previous_failures` body is finalize
+/// machinery; folding it into finalize itself is the next
+/// substep, after which `sb_ide` and `SubcommandRunner::is_detached_exec`
+/// disappear.
+pub fn sb_ide(is_detached_exec: bool) {
     if !is_detached_exec {
-        if !suppress_banner {
-            // Banner on every normal run, mirroring what `--help`
-            // shows at the top.
-            log::info!("{BANNER}");
-        }
         finalize::surface_previous_failures();
     }
 }
@@ -321,6 +326,29 @@ fn main() -> ExitCode {
     let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
     logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
+    // `-V` / `--version`: emit the `vc-x1 X.Y.Z` banner as the
+    // first line and continue. With no subcommand, the banner is
+    // the whole invocation. Uniform `BANNER` (not the
+    // `vc-x1-<sub>` form clap's `propagate_version` would print)
+    // — the version is the binary's regardless of which
+    // subcommand it routes to.
+    if cli.version {
+        log::info!("{BANNER}");
+    }
+
+    let Some(cmd) = cli.command else {
+        // No subcommand. If `-V` was set the banner has already
+        // printed, so exit success; otherwise mirror clap's "a
+        // subcommand is required" error by printing usage and
+        // exiting non-zero.
+        if cli.version {
+            return ExitCode::SUCCESS;
+        }
+        let mut cmd = cli_with_banner();
+        let _ = cmd.print_help();
+        return ExitCode::FAILURE;
+    };
+
     let ctx = match context::Context::load(cli.log) {
         Ok(c) => c,
         Err(e) => {
@@ -329,7 +357,7 @@ fn main() -> ExitCode {
         }
     };
 
-    match cli.command {
+    match cmd {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),

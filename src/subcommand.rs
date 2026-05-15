@@ -58,14 +58,6 @@ pub trait SubcommandRunner {
     /// Run the subcommand body.
     fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>>;
 
-    /// Whether to suppress the leading `vc-x1 X.Y.Z` banner.
-    /// Default `false`; commands whose `Params` carry a
-    /// banner-suppression flag (e.g. `chid` / `desc` / `list` /
-    /// `show` under `-L`) override to read it.
-    fn suppress_banner(_params: &Self::Params) -> bool {
-        false
-    }
-
     /// Whether this invocation is the detached `finalize --exec`
     /// child. Default `false`; `finalize` overrides to read it
     /// from its `Params`. Consumed by `dispatch` for both the
@@ -92,10 +84,7 @@ pub trait SubcommandRunner {
                 return ExitCode::FAILURE;
             }
         };
-        crate::sb_ide(
-            Self::suppress_banner(&params),
-            Self::is_detached_exec(&params),
-        );
+        crate::sb_ide(Self::is_detached_exec(&params));
 
         // Command name is the first positional after the binary;
         // clap has already validated it by the time we reach

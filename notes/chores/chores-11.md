@@ -167,6 +167,8 @@ outcomes at any step boundary:
 
 ## refactor: bm_track → debug! (0.52.0-1)
 
+Commits: [[3]]
+
 First substep. `bm_track` enter/exit lines were
 emitted at `log::info!`, which lit up on every
 command run as `bm-track enter vc-x1 X: app(main)=tracked,
@@ -204,7 +206,88 @@ gate, which the next substeps will dismantle.
 - `notes/todo.md`: 0.52.0-0 → `(done)`; 0.52.0-1
   marked `(current)`.
 
+## feat: -V toggles version banner (0.52.0-2)
+
+Second substep. `sb_ide` no longer emits the
+`vc-x1 X.Y.Z` banner on every command run, and `-V`
+becomes a banner-toggle rather than print-and-exit:
+
+- `vc-x1 chid -s code,bot` — runs silently (no banner).
+- `vc-x1 chid -s code,bot -V` — prints
+  `vc-x1 0.52.0-2` as the first line, then runs
+  `chid` normally.
+- `vc-x1 -V` — prints `vc-x1 0.52.0-2` and exits
+  success (no subcommand to run).
+- `vc-x1` (no flags, no subcommand) — prints help and
+  exits non-zero (mirroring clap's old
+  required-subcommand error path).
+
+Replacing clap's auto-version means scripts can capture
+the version *and* the command's output in one
+invocation. The banner is the uniform `vc-x1 X.Y.Z`
+regardless of subcommand — the version is the binary's
+either way, and `propagate_version`'s
+`vc-x1-<sub> X.Y.Z` form added noise without
+information.
+
+With the banner gone from the on-every-run path,
+`sb_ide`'s `suppress_banner` parameter loses its only
+consumer; the `SubcommandRunner::suppress_banner`
+trait method and the `suppress_banner` field on the
+four listing `Params` types (`ChidParams`,
+`DescParams`, `ListParams`, `ShowParams`) cascade out
+— they have no remaining callers once `sb_ide` stops
+asking.
+
+`-L` / `--no-label` still works — it suppresses the
+per-repo header label in `chid` / `desc` / `list` /
+`show` output, a concern that lives in the op layer
+(`CommonParams::header`) and was always separate from
+banner suppression. The trait peek was a duplicate
+spelling of `-L` that survived only as long as
+`sb_ide` asked for it.
+
+`sb_ide` retains one remaining responsibility: gating
+`finalize::surface_previous_failures` on
+`!is_detached_exec`. The next substep relocates that
+trigger into finalize itself, after which `sb_ide`
+and `SubcommandRunner::is_detached_exec` both
+disappear.
+
+- `Cargo.toml`: `0.52.0-1` → `0.52.0-2`.
+- `src/main.rs`: `Cli` drops `version,
+  propagate_version = true` from `#[command(...)]`
+  and adds a global `pub version: bool` arg (with
+  `short = 'V'` / `long = "version"`);
+  `command: Commands` → `command: Option<Commands>`;
+  `fn main` emits the banner ahead of dispatch when
+  `cli.version` is set, and handles the no-subcommand
+  paths (print + exit on `-V`, print help + exit on
+  no flags). `sb_ide` body drops the banner emission
+  and its `if !suppress_banner` wrapper; signature
+  drops the `suppress_banner: bool` parameter; doc
+  rewritten.
+- `src/subcommand.rs`: `dispatch` call updated to
+  `crate::sb_ide(Self::is_detached_exec(&params))`;
+  trait method `SubcommandRunner::suppress_banner`
+  removed (no remaining consumer).
+- `src/chid.rs` / `src/desc.rs` / `src/list.rs` /
+  `src/show.rs`: `suppress_banner: bool` field on
+  each `Params` struct removed; `TryFrom` impls drop
+  the `suppress_banner: a.common.no_label,`
+  assignment; trait `suppress_banner` overrides
+  removed; doc-comments updated.
+- `src/clone.rs` / `src/finalize.rs` / `src/init/tests.rs`:
+  test helpers updated for the `Option<Commands>`
+  shape (`match cli.command { Commands::X(a) => … }`
+  → `Some(Commands::X(a)) => …`).
+- `notes/chores/chores-11.md`: backfilled
+  `Commits: [[3]]` on the 0.52.0-1 section.
+- `notes/todo.md`: 0.52.0-1 → `(done)`; 0.52.0-2
+  marked `(current)`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
 [2]: https://github.com/winksaville/vc-x1/commit/48b79876ef3f "48b79876ef3f8f421eee81a63bb9937611558734"
+[3]: https://github.com/winksaville/vc-x1/commit/9a3e1605d453 "9a3e1605d453eaff6f7a45e50174fdfaee9f7b48"
