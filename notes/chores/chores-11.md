@@ -70,6 +70,8 @@ src `.rs` GitHub fragments.
 
 ## chore: open sb_ide elimination (0.52.0-0)
 
+Commits: [[2]]
+
 Multi-step. The `0.50.0` cycle landed every subcommand on
 `SubcommandRunner::dispatch` with two trait peek methods
 (`suppress_banner` / `is_detached_exec`) and one free
@@ -163,6 +165,46 @@ outcomes at any step boundary:
   baseline, closing as a no-op with an `### Outcome` note
   capturing what didn't fit.
 
+## refactor: bm_track → debug! (0.52.0-1)
+
+First substep. `bm_track` enter/exit lines were
+emitted at `log::info!`, which lit up on every
+command run as `bm-track enter vc-x1 X: app(main)=tracked,
+.claude(main)=tracked` plus its matching exit line.
+The doc comment recorded the intent to silence the
+steady-state noise "at which point a 'silent when
+clean' refinement would remove the noise without
+losing detection value" — `log::debug!` accomplishes
+exactly that: default runs go quiet, `-v` brings the
+signal back when investigating.
+
+With the demotion, the `if !is_detached { bm_track(…) }`
+gates inside `SubcommandRunner::dispatch` are
+unnecessary — the detached `finalize --exec` child
+runs at default verbosity, so debug-level output
+silently no-ops in that path too. The gates collapse;
+`is_detached_exec` survives the substep purely for
+`sb_ide`'s remaining banner / `surface_previous_failures`
+gate, which the next substeps will dismantle.
+
+- `Cargo.toml`: `0.52.0-0` → `0.52.0-1`.
+- `src/main.rs`: `bm_track`'s two `log::info!` calls
+  → `log::debug!`; module doc-comment reworded
+  (drop the "future refinement" paragraph, note the
+  new debug-level emission + why the gate isn't
+  needed at the call site).
+- `src/subcommand.rs`: `dispatch` drops the two `if
+  !is_detached { crate::bm_track(…) }` gates around
+  enter/exit; the local `let is_detached = …`
+  binding disappears (its remaining consumer,
+  `sb_ide`, reads the trait peek inline);
+  doc-comment updated accordingly.
+- `notes/chores/chores-11.md`: backfilled
+  `Commits: [[2]]` on the 0.52.0-0 opener.
+- `notes/todo.md`: 0.52.0-0 → `(done)`; 0.52.0-1
+  marked `(current)`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
+[2]: https://github.com/winksaville/vc-x1/commit/48b79876ef3f "48b79876ef3f8f421eee81a63bb9937611558734"

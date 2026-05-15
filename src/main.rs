@@ -233,17 +233,19 @@ pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool) {
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
-/// in both repos of the dual-repo workspace. Prints one line on
+/// in both repos of the dual-repo workspace. Emits one line on
 /// entry and one on exit of every command. If entry and exit
 /// differ, the executing command is the culprit; if entry differs
 /// from the previous command's exit, something *between*
 /// invocations broke it. Originally added in 0.37.2 as a temporary
 /// diagnostic; promoted to permanent in 0.37.4 after the user
-/// reported "happens more than once" — the signal is worth keeping
-/// in place until confidence in its correctness is well-established
-/// across varied use, at which point a "silent when clean"
-/// refinement would remove the steady-state noise without losing
-/// detection value (see `notes/todo.md`).
+/// reported "happens more than once".
+///
+/// Emits at `log::debug!` (since 0.52.0-1) — default runs stay
+/// quiet, and the signal remains available under `-v` when
+/// investigating. The detached `finalize --exec` child runs at
+/// default verbosity so it stays silent without needing a special
+/// gate at the call site.
 ///
 /// Walks up from cwd to locate the workspace root (the directory
 /// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
@@ -254,7 +256,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
     let root = match common::find_workspace_root() {
         Some(r) => r,
         None => {
-            log::info!("{header}: no-workspace");
+            log::debug!("{header}: no-workspace");
             return;
         }
     };
@@ -275,7 +277,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
             )),
         }
     }
-    log::info!("{header}: {}", parts.join(", "));
+    log::debug!("{header}: {}", parts.join(", "));
 }
 
 /// Query jj for whether `bookmark` in `repo` is tracking `remote`.
