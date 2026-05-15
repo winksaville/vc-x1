@@ -24,6 +24,7 @@ use log::info;
 use crate::common::run;
 use crate::context::Context;
 use crate::options_flags::scope::{ScopeKind, parse_scope_kind};
+use crate::subcommand::SubcommandRunner;
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
 
@@ -84,6 +85,21 @@ impl From<&CloneArgs> for CloneParams {
             scope: a.scope,
             dry_run: a.dry_run,
         }
+    }
+}
+
+impl SubcommandRunner for CloneArgs {
+    type Params = CloneParams;
+
+    /// Delegate to the existing `From<&CloneArgs>` impl above
+    /// (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(CloneParams::from(self))
+    }
+
+    /// Run the existing `clone_repo` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        clone_repo(ctx, params)
     }
 }
 

@@ -13,6 +13,7 @@ use clap::Args;
 use log::{debug, info};
 
 use crate::context::Context;
+use crate::subcommand::SubcommandRunner;
 
 /// What action the symlink operation needs to take.
 #[derive(Debug, PartialEq, Eq)]
@@ -276,6 +277,21 @@ impl From<&SymlinkArgs> for SymlinkParams {
             list: a.list,
             yes: a.yes,
         }
+    }
+}
+
+impl SubcommandRunner for SymlinkArgs {
+    type Params = SymlinkParams;
+
+    /// Delegate to the existing `From<&SymlinkArgs>` impl above
+    /// (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(SymlinkParams::from(self))
+    }
+
+    /// Run the existing `symlink` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        symlink(ctx, params)
     }
 }
 

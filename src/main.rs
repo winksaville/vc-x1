@@ -338,19 +338,6 @@ fn main() -> ExitCode {
         _ => false,
     };
 
-    // `-L` / `--no-label` on the read-only multi-repo subcommand
-    // `show` makes its output script-parseable — adding a leading
-    // `vc-x1 X.Y.Z` line would break that. Skip the banner whenever
-    // the active subcommand has the flag set. `chid`, `desc`, and
-    // `list` are omitted because they're already ported to
-    // `SubcommandRunner::dispatch` (which reads suppression off
-    // each command's `Params`); each future port removes its
-    // variant here.
-    let suppress_banner = match &cli.command {
-        Commands::Show(a) => a.common.no_label,
-        _ => false,
-    };
-
     // Command name for bm-track output (first positional arg after
     // the binary; clap has already validated it by the time we get here).
     let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
@@ -371,49 +358,15 @@ fn main() -> ExitCode {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
-        Commands::Show(show_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = match show::ShowParams::try_from(&show_args) {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            run_command(show::show(&ctx, &params))
-        }
-        Commands::ValidateDesc(validate_desc_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = validate_desc::ValidateDescParams::from(&validate_desc_args);
-            run_command(validate_desc::validate_desc(&ctx, &params))
-        }
-        Commands::FixDesc(fix_desc_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = fix_desc::FixDescParams::from(&fix_desc_args);
-            run_command(fix_desc::fix_desc(&ctx, &params))
-        }
-        Commands::Clone(clone_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = clone::CloneParams::from(&clone_args);
-            run_command(clone::clone_repo(&ctx, &params))
-        }
-        Commands::Init(init_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = init::InitParams::from(&init_args);
-            run_command(init::init(&ctx, &params))
-        }
-        Commands::Symlink(symlink_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = symlink::SymlinkParams::from(&symlink_args);
-            run_command(symlink::symlink(&ctx, &params))
-        }
-        Commands::Sync(sync_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = sync::SyncParams::from(&sync_args);
-            run_command(sync::sync(&ctx, &params))
-        }
+        Commands::Show(args) => args.dispatch(&ctx),
+        Commands::ValidateDesc(args) => args.dispatch(&ctx),
+        Commands::FixDesc(args) => args.dispatch(&ctx),
+        Commands::Clone(args) => args.dispatch(&ctx),
+        Commands::Init(args) => args.dispatch(&ctx),
+        Commands::Symlink(args) => args.dispatch(&ctx),
+        Commands::Sync(args) => args.dispatch(&ctx),
         Commands::Finalize(finalize_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
+            sb_ide(false, is_detached_exec);
             let params = match finalize::FinalizeParams::try_from(&finalize_args) {
                 Ok(p) => p,
                 Err(e) => {
@@ -423,11 +376,7 @@ fn main() -> ExitCode {
             };
             run_command(finalize::finalize(&ctx, &params))
         }
-        Commands::Push(push_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = push::PushParams::from(&push_args);
-            run_command(push::push(&ctx, &params))
-        }
+        Commands::Push(args) => args.dispatch(&ctx),
     };
 
     if !is_detached_exec {

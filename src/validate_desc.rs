@@ -19,6 +19,7 @@ use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
     ochid_prefix_from_config, other_repo_from_config, validate_ochid,
 };
+use crate::subcommand::SubcommandRunner;
 use crate::toml_simple;
 
 #[derive(Args, Debug)]
@@ -93,6 +94,21 @@ enum CommitStatus {
     MissingNoMatch,           // no ochid, no title match in other repo
     MissingAmbiguous(usize),  // no ochid, multiple title matches
     MissingWithMatch(String), // no ochid, unique title match found
+}
+
+impl SubcommandRunner for ValidateDescArgs {
+    type Params = ValidateDescParams;
+
+    /// Delegate to the existing `From<&ValidateDescArgs>` impl
+    /// above (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(ValidateDescParams::from(self))
+    }
+
+    /// Run the existing `validate_desc` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        validate_desc(ctx, params)
+    }
 }
 
 /// Run the `validate-desc` subcommand: scan the resolved revision

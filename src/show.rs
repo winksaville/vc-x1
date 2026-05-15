@@ -29,6 +29,7 @@ use log::{debug, info};
 use crate::common::{self, CommonParams};
 use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
+use crate::subcommand::SubcommandRunner;
 
 /// Parsed file limit: None (suppress), Some(n) (cap at n), or all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,25 +70,54 @@ pub struct ShowArgs {
 
 /// Clap-free params for `show`; embeds `CommonParams` plus the parsed
 /// `FileLimit`.
+///
+/// Carries a `suppress_banner` flag (read off `-L` / `--no-label`
+/// at the binary edge) so the trait's default `dispatch` can
+/// query it through `SubcommandRunner::suppress_banner` without
+/// re-touching clap.
 #[derive(Debug)]
 pub struct ShowParams {
     pub common: CommonParams,
     pub files: FileLimit,
+    pub suppress_banner: bool,
 }
 
 impl TryFrom<&ShowArgs> for ShowParams {
     type Error = String;
 
     /// Resolve clap `ShowArgs` into `ShowParams`: delegate to
-    /// `CommonParams::try_from` for the shared fields and parse
-    /// `--files` into `FileLimit` at the boundary. Fallible for two
+    /// `CommonParams::try_from` for the shared fields, parse
+    /// `--files` into `FileLimit` at the boundary, and copy the
+    /// no-label flag into `suppress_banner`. Fallible for two
     /// reasons (`resolve_repos` or `FileLimit::parse`); both errors
     /// surface as `String` for uniform handling in `main`.
     fn try_from(a: &ShowArgs) -> Result<Self, String> {
         Ok(ShowParams {
             common: CommonParams::try_from(&a.common)?,
             files: FileLimit::parse(&a.files)?,
+            suppress_banner: a.common.no_label,
         })
+    }
+}
+
+impl SubcommandRunner for ShowArgs {
+    type Params = ShowParams;
+
+    /// Delegate to the existing `TryFrom<&ShowArgs>` impl above.
+    fn to_params(&self) -> Result<Self::Params, String> {
+        ShowParams::try_from(self)
+    }
+
+    /// Run the existing `show` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        show(ctx, params)
+    }
+
+    /// Read the banner-suppression flag off `ShowParams` for
+    /// `crate::sb_ide` (queried from the trait's default
+    /// `dispatch`).
+    fn suppress_banner(params: &Self::Params) -> bool {
+        params.suppress_banner
     }
 }
 

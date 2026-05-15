@@ -32,6 +32,7 @@ use log::{debug, info, warn};
 
 use crate::common::{prompt, run};
 use crate::context::Context;
+use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
@@ -224,6 +225,21 @@ impl From<&PushArgs> for PushParams {
             body: a.body.clone(),
             yes: a.yes,
         }
+    }
+}
+
+impl SubcommandRunner for PushArgs {
+    type Params = PushParams;
+
+    /// Delegate to the existing `From<&PushArgs>` impl above
+    /// (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(PushParams::from(self))
+    }
+
+    /// Run the existing `push` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        push(ctx, params)
     }
 }
 

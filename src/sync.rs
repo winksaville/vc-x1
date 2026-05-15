@@ -17,6 +17,7 @@ use log::{LevelFilter, debug, info, warn};
 use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
 use crate::context::Context;
 use crate::scope::{Scope, parse_scope};
+use crate::subcommand::SubcommandRunner;
 
 /// Fetch and sync a set of repos to their remotes.
 ///
@@ -115,6 +116,21 @@ impl From<&SyncArgs> for SyncParams {
             no_check: a.no_check,
             scope: a.scope.clone(),
         }
+    }
+}
+
+impl SubcommandRunner for SyncArgs {
+    type Params = SyncParams;
+
+    /// Delegate to the existing `From<&SyncArgs>` impl above
+    /// (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(SyncParams::from(self))
+    }
+
+    /// Run the existing `sync` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        sync(ctx, params)
     }
 }
 

@@ -1109,6 +1109,8 @@ inside the file rather than re-advertised at the top.
 
 ## refactor: list → SubcommandRunner (0.50.0-4)
 
+Commits: [[19]]
+
 Second mechanical port off the trait shape settled in
 `-2`: `list` follows `desc` (`-3`) onto
 `SubcommandRunner::dispatch`. The arm in `main.rs`
@@ -1137,6 +1139,57 @@ about the trait shape changes to accommodate the
   `(done)`; add `0.50.0-4 port list (current)`;
   placeholder trimmed to "remaining 9".
 
+## refactor: port 8 → SubcommandRunner (0.50.0-5)
+
+Bulk port: the 8 subcommands that don't need the
+`is_detached_exec` peek — `show` (TryFrom +
+suppress_banner), and the 7 total-`From` commands
+(`validate_desc`, `fix_desc`, `clone`, `init`,
+`symlink`, `sync`, `push`). Each arm in `main.rs`
+collapses to `args.dispatch(&ctx)`. After this commit,
+`finalize` is the only remaining unported arm; it
+lands separately in `-6` because its
+`is_detached_exec=true` plumbing is the only
+non-mechanical bit left.
+
+The top-level `suppress_banner` match in `main.rs` is
+gone (show was its last consumer). The
+`is_detached_exec` match remains — `finalize`'s arm
+still reads it; the `bm_track` enter/exit gates also
+still consult it. Both will fold into the trait when
+finalize ports in `-6`.
+
+Shape per command:
+
+- **`show`** (TryFrom): same as `desc` / `list` —
+  added `suppress_banner: bool` to `ShowParams`, set
+  from `a.common.no_label` in `TryFrom`, impl
+  `SubcommandRunner` with `to_params` / `run` /
+  `suppress_banner` overrides.
+- **7 `From` commands**: no `suppress_banner` flag
+  needed (none of them have `-L`). `to_params`
+  returns `Ok(XxxParams::from(self))`; `run`
+  forwards to the existing op function. Trait
+  defaults cover `suppress_banner` / `is_detached_exec`
+  (both `false`).
+
+- `Cargo.toml`: `0.50.0-4` → `0.50.0-5`.
+- `src/show.rs`: `SubcommandRunner for ShowArgs` impl
+  added; `suppress_banner` field on `ShowParams`.
+- `src/validate_desc.rs` / `src/fix_desc.rs` /
+  `src/clone.rs` / `src/init.rs` / `src/symlink.rs` /
+  `src/sync.rs` / `src/push.rs`: `SubcommandRunner`
+  impl added per file.
+- `src/main.rs`: 8 arms collapsed to
+  `args.dispatch(&ctx)`; `let suppress_banner = …`
+  match deleted (no remaining consumer); finalize's
+  `sb_ide(suppress_banner, …)` → `sb_ide(false, …)`.
+- `notes/chores-10.md`: backfilled `Commits: [[19]]`
+  on the 0.50.0-4 section.
+- `notes/todo.md`: ladder updated — 0.50.0-4 →
+  `(done)`; add `0.50.0-5 port 8 subcommands (current)`
+  and `0.50.0-6 port finalize` entry.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1157,3 +1210,4 @@ about the trait shape changes to accommodate the
 [16]: https://github.com/winksaville/vc-x1/commit/8066eabc0752 "8066eabc0752a08880ff3bbc14e5a4674f7a7e4f"
 [17]: https://github.com/winksaville/vc-x1/commit/25d515c7aa5d "25d515c7aa5df80a4ae39db2d19b84b4e6100a55"
 [18]: https://github.com/winksaville/vc-x1/commit/c4a9b73648a9 "c4a9b73648a9ba3d8e01139c6a32e0fccab444df"
+[19]: https://github.com/winksaville/vc-x1/commit/288b9627e380 "288b9627e380105ebe6703f28ec0683660e4c95f"

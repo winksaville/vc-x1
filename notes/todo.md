@@ -25,8 +25,9 @@ significantly or abandon the cycle.
 - 0.50.0-1.2 --exec doc + matches! → match (done)
 - 0.50.0-2 hoist `Context::load` + `dispatch(&Context)` (done)
 - 0.50.0-3 port `desc` (done)
-- 0.50.0-4 port `list` (current)
-- 0.50.0-5..N port remaining 9 subcommands (groupings TBD)
+- 0.50.0-4 port `list` (done)
+- 0.50.0-5 port 8 subcommands (show + 7 From) (current)
+- 0.50.0-6 port `finalize` (`is_detached_exec` plumbing)
 - 0.50.0-K main.rs dispatch rework
 - 0.50.0 close-out
 

@@ -17,6 +17,7 @@ use crate::options_flags::scope::{ScopeKind, ScopeOption};
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
+use crate::subcommand::SubcommandRunner;
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target};
 
@@ -943,6 +944,21 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
         }
     }
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
+}
+
+impl SubcommandRunner for InitArgs {
+    type Params = InitParams;
+
+    /// Delegate to the existing `From<&InitArgs>` impl in
+    /// [`crate::init::params`] (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(InitParams::from(self))
+    }
+
+    /// Run the existing `init` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        init(ctx, params)
+    }
 }
 
 /// Init entry point — runs the dual or POR provisioning flow.

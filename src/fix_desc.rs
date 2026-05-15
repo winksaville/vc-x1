@@ -20,6 +20,7 @@ use crate::desc_helpers::{
     extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description,
     ochid_prefix_from_config, other_repo_from_config, resolve_full_change_id, validate_ochid,
 };
+use crate::subcommand::SubcommandRunner;
 use crate::toml_simple;
 
 /// Fix commit descriptions against the other repo.
@@ -114,6 +115,21 @@ impl From<&FixDescArgs> for FixDescParams {
             no_dry_run: a.no_dry_run,
             add_missing: a.add_missing,
         }
+    }
+}
+
+impl SubcommandRunner for FixDescArgs {
+    type Params = FixDescParams;
+
+    /// Delegate to the existing `From<&FixDescArgs>` impl above
+    /// (total — never fails).
+    fn to_params(&self) -> Result<Self::Params, String> {
+        Ok(FixDescParams::from(self))
+    }
+
+    /// Run the existing `fix_desc` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        fix_desc(ctx, params)
     }
 }
 
