@@ -1071,6 +1071,8 @@ in.
 
 ## refactor: desc → SubcommandRunner (0.50.0-3)
 
+Commits: [[18]]
+
 First port off the `chid` worked example: `desc` lands
 on the trait-based `dispatch` shape settled in `-2`.
 The arm in `main.rs` collapses to
@@ -1105,6 +1107,36 @@ inside the file rather than re-advertised at the top.
   commit); add `0.50.0-3 port desc (current)`;
   placeholder updated to "remaining 10 subcommands".
 
+## refactor: list → SubcommandRunner (0.50.0-4)
+
+Second mechanical port off the trait shape settled in
+`-2`: `list` follows `desc` (`-3`) onto
+`SubcommandRunner::dispatch`. The arm in `main.rs`
+collapses to `Commands::List(args) => args.dispatch(&ctx),`,
+and `list -L` joins `chid -L` / `desc -L` in the
+trait-owned banner-suppression path. Only `show` remains
+in the top-level `suppress_banner` match.
+
+Same shape as the `desc` port. `ListParams` already
+carried a non-`CommonParams` field (`width`) — the
+new `suppress_banner: bool` simply joins it; nothing
+about the trait shape changes to accommodate the
+"`Params` has extra fields" case.
+
+- `Cargo.toml`: `0.50.0-3` → `0.50.0-4`.
+- `src/list.rs`: `SubcommandRunner for ListArgs` impl
+  added; `suppress_banner: bool` field on `ListParams`.
+- `src/main.rs`: `List` arm collapsed to
+  `args.dispatch(&ctx)`; `Commands::List` line dropped
+  from the `suppress_banner` match; doc comment updated
+  to reflect that `list` is now trait-owned alongside
+  `chid` / `desc`.
+- `notes/chores-10.md`: backfilled `Commits: [[18]]`
+  on the 0.50.0-3 section.
+- `notes/todo.md`: ladder updated — 0.50.0-3 →
+  `(done)`; add `0.50.0-4 port list (current)`;
+  placeholder trimmed to "remaining 9".
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1124,3 +1156,4 @@ inside the file rather than re-advertised at the top.
 [15]: https://github.com/winksaville/vc-x1/commit/9a7d33ba6556 "9a7d33ba6556cdb5a575c96236554cf19d57b23b"
 [16]: https://github.com/winksaville/vc-x1/commit/8066eabc0752 "8066eabc0752a08880ff3bbc14e5a4674f7a7e4f"
 [17]: https://github.com/winksaville/vc-x1/commit/25d515c7aa5d "25d515c7aa5df80a4ae39db2d19b84b4e6100a55"
+[18]: https://github.com/winksaville/vc-x1/commit/c4a9b73648a9 "c4a9b73648a9ba3d8e01139c6a32e0fccab444df"

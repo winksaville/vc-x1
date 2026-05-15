@@ -338,16 +338,15 @@ fn main() -> ExitCode {
         _ => false,
     };
 
-    // `-L` / `--no-label` on the read-only multi-repo subcommands
-    // (list, show) makes their output script-parseable — adding a
-    // leading `vc-x1 X.Y.Z` line would break that. Skip the banner
-    // whenever the active subcommand has the flag set. `chid` and
-    // `desc` are omitted because they're already ported to
+    // `-L` / `--no-label` on the read-only multi-repo subcommand
+    // `show` makes its output script-parseable — adding a leading
+    // `vc-x1 X.Y.Z` line would break that. Skip the banner whenever
+    // the active subcommand has the flag set. `chid`, `desc`, and
+    // `list` are omitted because they're already ported to
     // `SubcommandRunner::dispatch` (which reads suppression off
     // each command's `Params`); each future port removes its
     // variant here.
     let suppress_banner = match &cli.command {
-        Commands::List(a) => a.common.no_label,
         Commands::Show(a) => a.common.no_label,
         _ => false,
     };
@@ -371,17 +370,7 @@ fn main() -> ExitCode {
     let exit_code = match cli.command {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
-        Commands::List(list_args) => {
-            sb_ide(suppress_banner, is_detached_exec);
-            let params = match list::ListParams::try_from(&list_args) {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("{e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            run_command(list::list(&ctx, &params))
-        }
+        Commands::List(args) => args.dispatch(&ctx),
         Commands::Show(show_args) => {
             sb_ide(suppress_banner, is_detached_exec);
             let params = match show::ShowParams::try_from(&show_args) {
