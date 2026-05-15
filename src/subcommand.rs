@@ -67,16 +67,21 @@ pub trait SubcommandRunner {
     }
 
     /// Whether this invocation is the detached `finalize --exec`
-    /// child. Default `false`; `finalize` (when ported) overrides
-    /// to read it from its `Params`.
+    /// child. Default `false`; `finalize` overrides to read it
+    /// from its `Params`. Consumed by `dispatch` for both the
+    /// banner suppression (via `crate::sb_ide`) and the
+    /// `bm_track` enter/exit gating (the detached child shouldn't
+    /// emit user-facing bookmark-tracking lines).
     fn is_detached_exec(_params: &Self::Params) -> bool {
         false
     }
 
     /// Default dispatch: build `Params` via `to_params`, emit
-    /// session chrome via [`crate::sb_ide`], run via `run`, and
-    /// map the result to `ExitCode`. Errors at any stage log via
-    /// `error!` and return `ExitCode::FAILURE`.
+    /// session chrome via [`crate::sb_ide`], bracket the run with
+    /// `crate::bm_track` enter/exit (skipped when
+    /// `is_detached_exec`), execute via `run`, and map the result
+    /// to `ExitCode`. Errors at any stage log via `error!` and
+    /// return `ExitCode::FAILURE`.
     fn dispatch(&self, ctx: &Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,
@@ -85,16 +90,27 @@ pub trait SubcommandRunner {
                 return ExitCode::FAILURE;
             }
         };
-        crate::sb_ide(
-            Self::suppress_banner(&params),
-            Self::is_detached_exec(&params),
-        );
-        match Self::run(ctx, &params) {
+        let is_detached = Self::is_detached_exec(&params);
+        crate::sb_ide(Self::suppress_banner(&params), is_detached);
+
+        // Command name is the first positional after the binary;
+        // clap has already validated it by the time we reach
+        // dispatch (top-level parse errors exit earlier).
+        let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
+
+        if !is_detached {
+            crate::bm_track("enter", &command_name);
+        }
+        let exit_code = match Self::run(ctx, &params) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 error!("{e}");
                 ExitCode::FAILURE
             }
+        };
+        if !is_detached {
+            crate::bm_track("exit ", &command_name);
         }
+        exit_code
     }
 }

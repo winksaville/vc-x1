@@ -1194,6 +1194,8 @@ Shape per command:
 
 ## refactor: finalize → SubcommandRunner (0.50.0-6)
 
+Commits: [[21]]
+
 Last per-command port: `finalize` joins the other 11
 arms on `SubcommandRunner::dispatch`. The
 `is_detached_exec` slot on the trait (default `false`,
@@ -1241,6 +1243,54 @@ twelve `args.dispatch(&ctx)` lines and nothing else.
 - `notes/todo.md`: 0.50.0-5 → `(done)`; 0.50.0-6
   marked `(current)`.
 
+## refactor: move bm_track into dispatch (0.50.0-7)
+
+Cycle cleanup (formerly the `-K` placeholder).
+With every subcommand on `SubcommandRunner::dispatch`,
+the top-level `is_detached_exec` match and the
+`bm_track` enter/exit gates that consumed it no longer
+need to live in `main`. Move them inside `dispatch`,
+where they read the trait's `is_detached_exec(&params)`
+directly. `main.rs`'s `fn main` collapses to:
+
+```
+let cli = …;
+let _log = …;
+let ctx = Context::load(…);
+match cli.command { Commands::X(args) => args.dispatch(&ctx), … }
+```
+
+— roughly the shape the cycle was aiming for. The
+twelve-arm match itself stays (compile-time
+exhaustiveness on `Commands`); each arm is a single
+`args.dispatch(&ctx)` line, and `main` does no other
+work.
+
+`bm_track` becomes `pub` so `dispatch` can call it
+across the module boundary. The function name lookup
+(`std::env::args().nth(1)`) moves into `dispatch`
+unchanged — clap has validated the positional by the
+time `dispatch` runs.
+
+- `Cargo.toml`: `0.50.0-6` → `0.50.0-7`.
+- `src/main.rs`: `fn bm_track` → `pub fn bm_track`;
+  top-level `let is_detached_exec = match …` block,
+  `let command_name = …` line, and both `if
+  !is_detached_exec { bm_track(…) }` blocks deleted;
+  the `let exit_code = match … ; … ; exit_code`
+  pattern collapses to a single `match` expression.
+- `src/subcommand.rs`: `dispatch` now resolves
+  `is_detached_exec` once, threads it into both
+  `sb_ide` and the `bm_track` enter/exit gates;
+  trait-method doc on `is_detached_exec` expanded to
+  mention the second consumer; dispatch doc expanded
+  to cover the new bracket.
+- `notes/chores-10.md`: backfilled `Commits: [[21]]`
+  on the 0.50.0-6 section.
+- `notes/todo.md`: 0.50.0-6 → `(done)`; rename
+  `0.50.0-K …` line to `0.50.0-7 main.rs dispatch
+  rework (current)`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1263,3 +1313,4 @@ twelve `args.dispatch(&ctx)` lines and nothing else.
 [18]: https://github.com/winksaville/vc-x1/commit/c4a9b73648a9 "c4a9b73648a9ba3d8e01139c6a32e0fccab444df"
 [19]: https://github.com/winksaville/vc-x1/commit/288b9627e380 "288b9627e380105ebe6703f28ec0683660e4c95f"
 [20]: https://github.com/winksaville/vc-x1/commit/5899dc21e7ec "5899dc21e7ec3fc6ad0ac79dbaf78fddfffc5075"
+[21]: https://github.com/winksaville/vc-x1/commit/56fac6ee4913 "56fac6ee4913051b112f064fd53ee37981898029"

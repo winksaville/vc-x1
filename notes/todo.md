@@ -27,8 +27,8 @@ significantly or abandon the cycle.
 - 0.50.0-3 port `desc` (done)
 - 0.50.0-4 port `list` (done)
 - 0.50.0-5 port 8 subcommands (show + 7 From) (done)
-- 0.50.0-6 port `finalize` (`is_detached_exec` plumbing) (current)
-- 0.50.0-K main.rs dispatch rework
+- 0.50.0-6 port `finalize` (`is_detached_exec` plumbing) (done)
+- 0.50.0-7 main.rs dispatch rework (current)
 - 0.50.0 close-out
 
 ## Todo

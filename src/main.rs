@@ -249,7 +249,7 @@ pub fn sb_ide(suppress_banner: bool, is_detached_exec: bool) {
 /// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
 /// and `<root>/.claude`. Same labeling whether the user runs from
 /// the app root, from `.claude`, or from any subdir.
-fn bm_track(phase: &str, command_name: &str) {
+pub fn bm_track(phase: &str, command_name: &str) {
     let header = format!("bm-track {phase} vc-x1 {command_name}");
     let root = match common::find_workspace_root() {
         Some(r) => r,
@@ -319,23 +319,6 @@ fn main() -> ExitCode {
     let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
     logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
-    // The detached `finalize --exec` re-entry is the bot's
-    // session-end child; it shouldn't print the banner (extra
-    // chatter in its log) or surface user-facing failure markers
-    // (those are meant for the user's next interactive run).
-    let is_detached_exec: bool = match cli.command {
-        Commands::Finalize(ref f) => f.exec,
-        _ => false,
-    };
-
-    // Command name for bm-track output (first positional arg after
-    // the binary; clap has already validated it by the time we get here).
-    let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
-
-    if !is_detached_exec {
-        bm_track("enter", &command_name);
-    }
-
     let ctx = match context::Context::load(cli.log) {
         Ok(c) => c,
         Err(e) => {
@@ -344,7 +327,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let exit_code = match cli.command {
+    match cli.command {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
@@ -357,13 +340,7 @@ fn main() -> ExitCode {
         Commands::Sync(args) => args.dispatch(&ctx),
         Commands::Finalize(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
-    };
-
-    if !is_detached_exec {
-        bm_track("exit ", &command_name);
     }
-
-    exit_code
 }
 
 #[cfg(test)]
