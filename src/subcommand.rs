@@ -58,24 +58,16 @@ pub trait SubcommandRunner {
     /// Run the subcommand body.
     fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>>;
 
-    /// Whether this invocation is the detached `finalize --exec`
-    /// child. Default `false`; `finalize` overrides to read it
-    /// from its `Params`. Consumed by `dispatch` for both the
-    /// banner suppression (via `crate::sb_ide`) and the
-    /// `bm_track` enter/exit gating (the detached child shouldn't
-    /// emit user-facing bookmark-tracking lines).
-    fn is_detached_exec(_params: &Self::Params) -> bool {
-        false
-    }
-
-    /// Default dispatch: build `Params` via `to_params`, emit
-    /// session chrome via [`crate::sb_ide`], bracket the run with
-    /// `crate::bm_track` enter/exit, execute via `run`, and map
-    /// the result to `ExitCode`. Errors at any stage log via
-    /// `error!` and return `ExitCode::FAILURE`. `bm_track` itself
-    /// emits at `debug!`, so default runs stay quiet and the
-    /// detached `finalize --exec` child (which runs without `-v`)
-    /// silently no-ops — no per-call gate is needed here.
+    /// Default dispatch: build `Params` via `to_params`, bracket
+    /// the run with `crate::bm_track` enter/exit, execute via
+    /// `run`, and map the result to `ExitCode`. Errors at any
+    /// stage log via `error!` and return `ExitCode::FAILURE`.
+    /// `bm_track` itself emits at `debug!`, so default runs stay
+    /// quiet and the detached `finalize --exec` child (which runs
+    /// without `-v`) silently no-ops — no per-call gate is needed
+    /// here. `surface_previous_failures` for finalize's failure
+    /// markers is handled in `main` before dispatch, so dispatch
+    /// has no session-chrome responsibility at all anymore.
     fn dispatch(&self, ctx: &Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,
@@ -84,7 +76,6 @@ pub trait SubcommandRunner {
                 return ExitCode::FAILURE;
             }
         };
-        crate::sb_ide(Self::is_detached_exec(&params));
 
         // Command name is the first positional after the binary;
         // clap has already validated it by the time we reach

@@ -208,6 +208,8 @@ gate, which the next substeps will dismantle.
 
 ## feat: -V toggles version banner (0.52.0-2)
 
+Commits: [[4]]
+
 Second substep. `sb_ide` no longer emits the
 `vc-x1 X.Y.Z` banner on every command run, and `-V`
 becomes a banner-toggle rather than print-and-exit:
@@ -286,8 +288,55 @@ disappear.
 - `notes/todo.md`: 0.52.0-1 → `(done)`; 0.52.0-2
   marked `(current)`.
 
+## refactor: remove is_detached_exec from trait (0.52.0-3)
+
+Third substep. The `SubcommandRunner::is_detached_exec`
+trait method goes away, taking `sb_ide` with it. The
+detached-exec gate is finalize-specific machinery —
+`finalize::surface_previous_failures` is the only
+behavior it ever protected, and `FinalizeArgs.exec` is
+the only field that ever set it. Lifting the gate into
+`main` (one `matches!` against `Commands::Finalize`
+with `args.exec`) cuts the trait peek + its sole
+override + the free function that consumed it.
+
+After this substep:
+
+- The `SubcommandRunner` trait surface is the
+  load-bearing minimum: `to_params`, `run`, and the
+  default `dispatch`. No more peek methods.
+- `main` owns the surface-previous-failures call,
+  with the exec-child skip inline at the call site.
+  Single home for the gate; no indirection through
+  `sb_ide` or the trait.
+- `dispatch` shrinks to "build params, bracket with
+  `bm_track`, run, map exit code." No session-chrome
+  responsibility at all.
+
+The cycle's stated goal — eliminate `sb_ide` and both
+trait peeks — is met after this substep. Close-out
+lands separately as `0.52.0` (todo→done, no code).
+
+- `Cargo.toml`: `0.52.0-2` → `0.52.0-3`.
+- `src/subcommand.rs`: `SubcommandRunner::is_detached_exec`
+  removed; `dispatch` drops its `crate::sb_ide(…)`
+  call; doc rewritten.
+- `src/finalize.rs`: `is_detached_exec` override on
+  `FinalizeArgs` removed.
+- `src/main.rs`: `pub fn sb_ide` deleted (no
+  callers); `main` adds an inline
+  `matches!(&cmd, Commands::Finalize(args) if args.exec)`
+  peek and calls `finalize::surface_previous_failures`
+  before loading `Context`.
+- `notes/chores/chores-11.md`: backfilled
+  `Commits: [[4]]` on the 0.52.0-2 section; new
+  0.52.0-3 section.
+- `notes/todo.md`: 0.52.0-2 → `(done)`; 0.52.0-3
+  marked `(current)`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
 [2]: https://github.com/winksaville/vc-x1/commit/48b79876ef3f "48b79876ef3f8f421eee81a63bb9937611558734"
 [3]: https://github.com/winksaville/vc-x1/commit/9a3e1605d453 "9a3e1605d453eaff6f7a45e50174fdfaee9f7b48"
+[4]: https://github.com/winksaville/vc-x1/commit/61454c56229a "61454c56229ac37afd89ab8bbcb7d2947eb9465c"

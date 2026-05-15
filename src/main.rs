@@ -218,25 +218,6 @@ pub(crate) enum Commands {
     Push(push::PushArgs),
 }
 
-/// Surface failures left over from the previous run, gated on
-/// "this isn't the detached `finalize --exec` re-entry" (the
-/// detached child's log isn't where users see surfaced failures).
-///
-/// Called from the trait's default `dispatch`. Banner emission
-/// used to live here too but was dropped in 0.52.0-2 — clap's
-/// `before_help` already shows `vc-x1 X.Y.Z` on `--help`, and
-/// `propagate_version = true` makes `-V` work on every
-/// subcommand, so the on-every-run emission was duplicate
-/// chatter. The `surface_previous_failures` body is finalize
-/// machinery; folding it into finalize itself is the next
-/// substep, after which `sb_ide` and `SubcommandRunner::is_detached_exec`
-/// disappear.
-pub fn sb_ide(is_detached_exec: bool) {
-    if !is_detached_exec {
-        finalize::surface_previous_failures();
-    }
-}
-
 /// Permanent sanity check for the `main`-bookmark tracking state
 /// in both repos of the dual-repo workspace. Emits one line on
 /// entry and one on exit of every command. If entry and exit
@@ -348,6 +329,25 @@ fn main() -> ExitCode {
         let _ = cmd.print_help();
         return ExitCode::FAILURE;
     };
+
+    // Surface any failure markers left by previous detached
+    // `finalize --exec` children before running the next command.
+    // Skip when this *is* the exec child — surfacing destroys the
+    // markers, and the child's log isn't where the user looks for
+    // them. This gate covers one race (detached child eating its
+    // own prior markers); the broader surfacing model has more
+    // gaps (stale-forever, concurrent double-print, mid-write torn
+    // read, no notify-at-failure) tracked at
+    // [../notes/todo.md#bugs] — see the
+    // `finalize::surface_previous_failures is racy` entry.
+    match &cmd {
+        Commands::Finalize(args) => {
+            if !args.exec {
+                finalize::surface_previous_failures();
+            }
+        }
+        _ => finalize::surface_previous_failures(),
+    }
 
     let ctx = match context::Context::load(cli.log) {
         Ok(c) => c,
