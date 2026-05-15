@@ -11,7 +11,27 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**`sb_ide` elimination** — eliminate `sb_ide` and the
+two trait peek methods (`SubcommandRunner::suppress_banner`
+/ `is_detached_exec`) by relocating each piece of
+session chrome to where it actually belongs: drop the
+on-every-run `vc-x1 X.Y.Z` banner (clap's `before_help`
+already covers `--help`), demote `bm_track` to `debug!`,
+move `finalize::surface_previous_failures` into finalize
+itself. Design in
+[chores-11.md](chores/chores-11.md#chore-open-sb_ide-elimination-0520-0).
+Per-step evaluation gate: any substep may modify the
+shape significantly or abandon the cycle.
+
+- 0.52.0-0 plan + version bump + chores-11 opener
+  section + todo ladder (current)
+- 0.52.0-1 `bm_track` → `debug!`; drop bm_track gates
+  in `dispatch`
+- 0.52.0-2..N eliminate `sb_ide` (banner-on-every-run,
+  surface_previous_failures relocation)
+- 0.52.0-K drop `is_detached_exec` + `suppress_banner`
+  from the trait
+- 0.52.0 close-out
 
 ## Todo
 
@@ -23,19 +43,6 @@ in `notes/chores/chores-NN.md` design subsections; link via `[N]` ref.
 Items use lazy numbering — every entry begins with `1. `; the
 markdown renderer auto-numbers them, so reorder/insert without
 renumbering. Reference by displayed number ("let's work on #3").
-1. **Eliminate `sb_ide` / `SubcommandRunner::is_detached_exec`
-   / `suppress_banner`.** Relocate the per-run "session
-   chrome" out of the trait: drop the on-every-run
-   `vc-x1 X.Y.Z` banner (clap's `before_help` already shows
-   it on `--help`); demote `bm_track` to `debug!` so its
-   detached-exec gate goes away; move
-   `finalize::surface_previous_failures` trigger into
-   `finalize` itself. Once all three behaviors relocate,
-   the two trait peek methods and `sb_ide` itself have no
-   remaining consumers and can be deleted, along with the
-   `suppress_banner` field on `ChidParams` / `DescParams` /
-   `ListParams` / `ShowParams`. Multi-step cycle — likely
-   `0.52.0`.
 1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
