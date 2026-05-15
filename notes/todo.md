@@ -23,8 +23,9 @@ significantly or abandon the cycle.
 - 0.50.0-1 add `subcommand.rs` (trait) + port `chid` (done)
 - 0.50.0-1.1 dicom-rs gotchas → todo (done)
 - 0.50.0-1.2 --exec doc + matches! → match (done)
-- 0.50.0-2 hoist `Context::load` + `dispatch(&Context)` (current)
-- 0.50.0-3..N port remaining 11 subcommands (groupings TBD)
+- 0.50.0-2 hoist `Context::load` + `dispatch(&Context)` (done)
+- 0.50.0-3 port `desc` (current)
+- 0.50.0-4..N port remaining 10 subcommands (groupings TBD)
 - 0.50.0-K main.rs dispatch rework
 - 0.50.0 close-out
 

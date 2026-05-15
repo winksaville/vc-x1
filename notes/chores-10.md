@@ -1035,6 +1035,8 @@ the field that implements it.
 
 ## refactor: hoist Context::load (0.50.0-2)
 
+Commits: [[17]]
+
 `Context::load` was invoked in every match arm — once
 in `dispatch` for the ported `Chid` arm, and inline at
 the head of each of the 10 unported arms. The body is
@@ -1067,6 +1069,42 @@ in.
   passed in by reference"). Unused `use
   std::path::PathBuf` deleted.
 
+## refactor: desc → SubcommandRunner (0.50.0-3)
+
+First port off the `chid` worked example: `desc` lands
+on the trait-based `dispatch` shape settled in `-2`.
+The arm in `main.rs` collapses to
+`Commands::Desc(args) => args.dispatch(&ctx),`, and
+`desc` joins `chid` in the trait-owned banner-suppression
+path (so `desc -L` no longer needs a special-case match
+arm at the top of `main`).
+
+Mechanical, no design calls. The shape mirrors `chid`
+(0.50.0-1) exactly: add a `suppress_banner: bool` to
+`DescParams`, set it in `TryFrom<&DescArgs>` from
+`a.common.no_label`, and implement `SubcommandRunner for
+DescArgs` with `to_params` / `run` / `suppress_banner`
+overrides. The `desc` module doc-comment is unchanged —
+`chid`'s isn't either, so the trait impl is left visible
+inside the file rather than re-advertised at the top.
+
+- `Cargo.toml`: `0.50.0-2` → `0.50.0-3`.
+- `src/desc.rs`: `SubcommandRunner for DescArgs` impl
+  added; `suppress_banner: bool` field added to
+  `DescParams`; `TryFrom<&DescArgs>` updated to copy
+  `a.common.no_label` into it.
+- `src/main.rs`: `Commands::Desc(...)` arm collapsed
+  to `args.dispatch(&ctx)`; `Commands::Desc` line
+  dropped from the `suppress_banner` match; doc
+  comment over that match updated to reflect that
+  `desc` is now trait-owned alongside `chid`.
+- `notes/chores-10.md`: backfilled `Commits: [[17]]`
+  on the 0.50.0-2 section.
+- `notes/todo.md`: ladder updated — flip 0.50.0-2 →
+  `(done)` (absorbing the missed flip from the prior
+  commit); add `0.50.0-3 port desc (current)`;
+  placeholder updated to "remaining 10 subcommands".
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1085,3 +1123,4 @@ in.
 [14]: https://github.com/winksaville/vc-x1/commit/9a447b843b81 "9a447b843b81eeca565db33cb12ece3095bff903"
 [15]: https://github.com/winksaville/vc-x1/commit/9a7d33ba6556 "9a7d33ba6556cdb5a575c96236554cf19d57b23b"
 [16]: https://github.com/winksaville/vc-x1/commit/8066eabc0752 "8066eabc0752a08880ff3bbc14e5a4674f7a7e4f"
+[17]: https://github.com/winksaville/vc-x1/commit/25d515c7aa5d "25d515c7aa5df80a4ae39db2d19b84b4e6100a55"

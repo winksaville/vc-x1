@@ -16,6 +16,7 @@ use log::{debug, info};
 use crate::common::{self, CommonParams};
 use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
+use crate::subcommand::SubcommandRunner;
 
 /// CLI args for `desc` — just the shared read-only commit-query args.
 #[derive(Args, Debug)]
@@ -25,21 +26,49 @@ pub struct DescArgs {
 }
 
 /// Clap-free params for `desc`; embeds resolved `CommonParams`.
+///
+/// Carries a `suppress_banner` flag (read off `-L` / `--no-label`
+/// at the binary edge) so the trait's default `dispatch` can
+/// query it through `SubcommandRunner::suppress_banner` without
+/// re-touching clap.
 #[derive(Debug)]
 pub struct DescParams {
     pub common: CommonParams,
+    pub suppress_banner: bool,
 }
 
 impl TryFrom<&DescArgs> for DescParams {
     type Error = String;
 
     /// Resolve clap `DescArgs` into `DescParams` by delegating to
-    /// `CommonParams::try_from`; `desc` has no fields beyond
-    /// `CommonArgs`.
+    /// `CommonParams::try_from` and copying the no-label flag
+    /// into `suppress_banner`.
     fn try_from(a: &DescArgs) -> Result<Self, String> {
         Ok(DescParams {
             common: CommonParams::try_from(&a.common)?,
+            suppress_banner: a.common.no_label,
         })
+    }
+}
+
+impl SubcommandRunner for DescArgs {
+    type Params = DescParams;
+
+    /// Delegate to the existing `TryFrom<&DescArgs>` impl above.
+    fn to_params(&self) -> Result<Self::Params, String> {
+        DescParams::try_from(self)
+    }
+
+    /// Run the existing `desc` op.
+    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        desc(ctx, params)
+    }
+
+    /// Read the banner-suppression flag off `DescParams` for
+    /// `crate::sb_ide` (queried from the trait's default
+    /// `dispatch`).
+    fn suppress_banner(params: &Self::Params) -> bool {
+        params.suppress_banner
     }
 }
 
