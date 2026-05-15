@@ -1245,6 +1245,8 @@ twelve `args.dispatch(&ctx)` lines and nothing else.
 
 ## refactor: move bm_track into dispatch (0.50.0-7)
 
+Commits: [[22]]
+
 Cycle cleanup (formerly the `-K` placeholder).
 With every subcommand on `SubcommandRunner::dispatch`,
 the top-level `is_detached_exec` match and the
@@ -1291,6 +1293,77 @@ time `dispatch` runs.
   `0.50.0-K …` line to `0.50.0-7 main.rs dispatch
   rework (current)`.
 
+## chore: close Subcommand trait sweep (0.50.0)
+
+Cycle close-out. All 12 subcommands now run through
+`SubcommandRunner::dispatch`; `main.rs`'s `fn main`
+is `Context::load` + a 12-arm dispatch match and
+nothing else. The per-arm boilerplate the cycle set
+out to remove (`Context::load` + `try_from` +
+`run_command`, ~12 lines × 12 arms) is gone; each arm
+is a single `args.dispatch(&ctx)` line. The
+`Commands` enum stays the dispatch source of truth
+(compile-time exhaustiveness preserved), so the
+`linkme` / `inventory` follow-up items in `## Todo`
+remain queued as higher-leverage alternatives if the
+per-arm cost ever feels burdensome again.
+
+### As-built ladder
+
+- 0.50.0-0 plan + version bump + chores section +
+  todo ladder + linkme/inventory todos
+- 0.50.0-1 add `subcommand.rs` (`SubcommandRunner`
+  trait) + port `chid` (worked example, three
+  material design calls landed: trait rename
+  `Subcommand` → `SubcommandRunner` to dodge
+  `clap::Subcommand` collision; session-chrome
+  extracted as `pub fn sb_ide`; peek methods read
+  from `Params`)
+- 0.50.0-1.1 dicom-rs gotchas → todo (inter-substep
+  tidy)
+- 0.50.0-1.2 --exec doc + matches! → match
+  (inter-substep tidy)
+- 0.50.0-2 hoist `Context::load` to a single site in
+  `main`; change `dispatch` to take `&Context`
+- 0.50.0-3 port `desc`
+- 0.50.0-4 port `list`
+- 0.50.0-5 bulk port: `show` + 7 `From` commands
+  (`validate_desc`, `fix_desc`, `clone`, `init`,
+  `symlink`, `sync`, `push`); top-level
+  `suppress_banner` match deleted
+- 0.50.0-6 port `finalize` (`is_detached_exec`
+  override wires `params.exec` through the trait);
+  `fn run_command` deleted from `main`
+- 0.50.0-7 move `bm_track` enter/exit into
+  `dispatch`; delete the top-level
+  `is_detached_exec` match in `main` (was the `-K`
+  placeholder)
+- 0.50.0 close-out
+
+### Outcome
+
+The trait approach landed cleanly — none of the
+per-substep evaluation gates fired the "modify shape
+significantly" or "abandon" outcomes the open
+section reserved. The shape settled at `-1` (with the
+three design calls noted above) held for the
+remaining 10 ports without revision. `linkme` /
+`inventory` would have gone further (eliminate the
+`Commands` enum entirely), but at compile-time
+exhaustiveness and macro-magic costs; they remain
+queued in `## Todo` as separate items.
+
+- `Cargo.toml`: `0.50.0-7` → `0.50.0` (suffix
+  dropped — cycle close marker).
+- `notes/chores-10.md`: backfilled `Commits: [[22]]`
+  on the 0.50.0-7 section; new close-out section
+  with the as-built ladder + outcome notes.
+- `notes/todo.md`: deleted the In Progress ladder
+  block; added `Subcommand trait sweep — 12
+  subcommands ported via SubcommandRunner trait,
+  main.rs collapsed to Context::load + thin dispatch
+  (0.50.0)` to `## Done` with `[[37]]` ref.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/10788bd158c4 "10788bd158c4574fe5a10fab41ea32e4becc86d3"
@@ -1314,3 +1387,4 @@ time `dispatch` runs.
 [19]: https://github.com/winksaville/vc-x1/commit/288b9627e380 "288b9627e380105ebe6703f28ec0683660e4c95f"
 [20]: https://github.com/winksaville/vc-x1/commit/5899dc21e7ec "5899dc21e7ec3fc6ad0ac79dbaf78fddfffc5075"
 [21]: https://github.com/winksaville/vc-x1/commit/56fac6ee4913 "56fac6ee4913051b112f064fd53ee37981898029"
+[22]: https://github.com/winksaville/vc-x1/commit/00c87177b85e "00c87177b85e1d3104b47279baf6aa214a362682"

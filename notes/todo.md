@@ -11,26 +11,6 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**Subcommand trait sweep** — collapse the per-arm
-`Context::load` + `try_from` + `run_command` boilerplate in
-`main.rs` behind a `Subcommand` trait. Design in
-[chores-10.md](chores-10.md#chore-open-subcommand-trait-sweep-0500-0).
-Per-step evaluation gate: any substep may modify the shape
-significantly or abandon the cycle.
-
-- 0.50.0-0 plan + version bump + chores section + todo ladder
-  + linkme/inventory todos (done)
-- 0.50.0-1 add `subcommand.rs` (trait) + port `chid` (done)
-- 0.50.0-1.1 dicom-rs gotchas → todo (done)
-- 0.50.0-1.2 --exec doc + matches! → match (done)
-- 0.50.0-2 hoist `Context::load` + `dispatch(&Context)` (done)
-- 0.50.0-3 port `desc` (done)
-- 0.50.0-4 port `list` (done)
-- 0.50.0-5 port 8 subcommands (show + 7 From) (done)
-- 0.50.0-6 port `finalize` (`is_detached_exec` plumbing) (done)
-- 0.50.0-7 main.rs dispatch rework (current)
-- 0.50.0 close-out
-
 ## Todo
 
 A markdown list of tasks to do in the near future, ordered
@@ -300,6 +280,7 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 - docs: chores-09 → new shape (0.48.3) [[34]]
 - docs: renumber todo.md + chores-09 refs (0.48.4) [[35]]
 - chid/desc/list/show CommonArgs sweep — options_flags + `-s`/`--scope` + Context+Params ports 12/12 (0.49.0) [[36]]
+- Subcommand trait sweep — 12 subcommands ported via `SubcommandRunner` trait, `main.rs` collapsed to `Context::load` + thin dispatch (0.50.0) [[37]]
 
 # References
 
@@ -339,3 +320,4 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 [34]: /notes/chores-09.md#docs-chores-09--new-shape-0483
 [35]: /notes/chores-09.md#docs-renumber-todomd--chores-09-refs-0484
 [36]: /notes/chores-10.md#chore-open-0490--finish-migration-a-0490-0
+[37]: /notes/chores-10.md#chore-close-subcommand-trait-sweep-0500
