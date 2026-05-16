@@ -11,30 +11,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**`sb_ide` elimination** — eliminate `sb_ide` and the
-two trait peek methods (`SubcommandRunner::suppress_banner`
-/ `is_detached_exec`) by relocating each piece of
-session chrome to where it actually belongs: drop the
-on-every-run `vc-x1 X.Y.Z` banner (clap's `before_help`
-already covers `--help`), demote `bm_track` to `debug!`,
-move `finalize::surface_previous_failures` into finalize
-itself. Design in
-[chores-11.md](chores/chores-11.md#chore-open-sb_ide-elimination-0520-0).
-Per-step evaluation gate: any substep may modify the
-shape significantly or abandon the cycle.
-
-- 0.52.0-0 plan + version bump + chores-11 opener
-  section + todo ladder (done)
-- 0.52.0-1 `bm_track` → `debug!`; drop bm_track gates
-  in `dispatch` (done)
-- 0.52.0-2 `-V` toggles version banner (replaces
-  clap's auto-version); banner-on-every-run gone;
-  `suppress_banner` trait method + `Params` fields
-  cascade out (done)
-- 0.52.0-3 remove `is_detached_exec` from trait;
-  gate moves to `main` inline; `sb_ide` deleted
-  (current)
-- 0.52.0 close-out
+_No cycle currently in progress._
 
 ## Todo
 
@@ -335,10 +312,12 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 
 - chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[1]]
+- `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[2]]
 
 # References
 
 [1]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
+[2]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
 [4]: /notes/por-dual-parity.md
 [5]: /notes/forks-multi-user.md
 [6]: /notes/bot-data-formats.md

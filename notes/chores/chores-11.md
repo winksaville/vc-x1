@@ -290,6 +290,8 @@ disappear.
 
 ## refactor: remove is_detached_exec from trait (0.52.0-3)
 
+Commits: [[5]]
+
 Third substep. The `SubcommandRunner::is_detached_exec`
 trait method goes away, taking `sb_ide` with it. The
 detached-exec gate is finalize-specific machinery —
@@ -334,9 +336,90 @@ lands separately as `0.52.0` (todo→done, no code).
 - `notes/todo.md`: 0.52.0-2 → `(done)`; 0.52.0-3
   marked `(current)`.
 
+## chore: close sb_ide elimination (0.52.0)
+
+Cycle close-out. The `0.50.0` Subcommand trait sweep
+left three pieces of per-run "session chrome" hanging
+off `SubcommandRunner` — `sb_ide` (free function) and
+the trait peek methods `suppress_banner` /
+`is_detached_exec`. All three are gone after this
+cycle:
+
+- The on-every-run `vc-x1 X.Y.Z` banner is replaced by
+  an opt-in `-V` flag that prints the banner as the
+  first line and continues (rather than clap's
+  exit-on-print default). Scripts can capture version
+  *and* output in one invocation.
+- `bm_track` enter/exit emit at `log::debug!` —
+  default runs stay quiet, the signal is available
+  under `-v`, and the detached `finalize --exec`
+  child stays silent without needing a per-call gate.
+- `finalize::surface_previous_failures` moved to a
+  single inline call in `main` with an exec-child
+  skip; `sb_ide` had no body left to keep and is
+  deleted; the `is_detached_exec` trait peek (its
+  only consumer) goes with it.
+- `SubcommandRunner::suppress_banner` and the
+  `suppress_banner: bool` field on the four listing
+  `Params` types cascaded out during 0.52.0-2 when
+  the banner emission left.
+
+`SubcommandRunner`'s trait surface is now the
+load-bearing minimum: `to_params`, `run`, and the
+default `dispatch` (which builds params, brackets
+`bm_track` enter/exit, runs, maps exit code). No
+peek methods, no chrome responsibility.
+
+### As-built ladder
+
+- 0.52.0-0 plan + version bump + chores-11 opener
+  section + todo ladder
+- 0.52.0-1 `bm_track` → `debug!`; drop bm_track
+  gates in `dispatch`
+- 0.52.0-2 `-V` toggles version banner (replaces
+  clap's auto-version); banner-on-every-run gone;
+  `suppress_banner` trait method + `Params` fields
+  cascade out
+- 0.52.0-3 remove `is_detached_exec` from trait;
+  gate moves to `main` inline; `sb_ide` deleted
+- 0.52.0 close-out
+
+### Outcome
+
+Three subtractive substeps after the opener; no
+evaluation-gate detours. The cycle's stated goal — a
+trait whose surface only carries what every
+subcommand actually needs — landed cleanly. The
+`-V`-toggles-banner shape (instead of the original
+"drop banner entirely" sketch) emerged mid-cycle when
+the user pointed out that opting into the version on
+demand is more useful than removing the signal
+altogether.
+
+While we were at it, the broader
+`surface_previous_failures` design gaps (stale-forever
+markers, concurrent surfacing double-print, mid-write
+torn reads, no notify-at-failure path) got captured
+as a new `## Bugs` section in `notes/todo.md`. The
+exec-child gate covers one race; the rest is queued.
+
+- `Cargo.toml`: `0.52.0-3` → `0.52.0` (suffix
+  dropped — cycle close marker).
+- `notes/chores/chores-11.md`: backfilled
+  `Commits: [[5]]` on the 0.52.0-3 section; new
+  close-out section with the as-built ladder +
+  outcome notes.
+- `notes/todo.md`: deleted the In Progress ladder
+  block; added `sb_ide elimination — banner off by
+  default (-V toggles), bm_track → debug!, sb_ide +
+  SubcommandRunner::{is_detached_exec,
+  suppress_banner} removed (0.52.0)` to `## Done`
+  with `[[2]]` ref.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
 [2]: https://github.com/winksaville/vc-x1/commit/48b79876ef3f "48b79876ef3f8f421eee81a63bb9937611558734"
 [3]: https://github.com/winksaville/vc-x1/commit/9a3e1605d453 "9a3e1605d453eaff6f7a45e50174fdfaee9f7b48"
 [4]: https://github.com/winksaville/vc-x1/commit/61454c56229a "61454c56229ac37afd89ab8bbcb7d2947eb9465c"
+[5]: https://github.com/winksaville/vc-x1/commit/90584bfbd171 "90584bfbd1710d9c4a5db6b93902b57c33875f6b"
