@@ -338,6 +338,8 @@ lands separately as `0.52.0` (todo→done, no code).
 
 ## chore: close sb_ide elimination (0.52.0)
 
+Commits: [[6]]
+
 Cycle close-out. The `0.50.0` Subcommand trait sweep
 left three pieces of per-run "session chrome" hanging
 off `SubcommandRunner` — `sb_ide` (free function) and
@@ -416,6 +418,55 @@ exec-child gate covers one race; the rest is queued.
   suppress_banner} removed (0.52.0)` to `## Done`
   with `[[2]]` ref.
 
+## chore: todo renumber + fix-todo.py (0.53.0)
+
+Notes-side hygiene cycle. Originally opened (and committed
+under the working title `refactor: clean up scope + todo
+list`) as a multi-step scope CLI cleanup, but re-scoped at
+the close-out boundary when the notes-side prep turned out
+to be a separable concern that landed cleanly on its own.
+The scope CLI cleanup opens fresh as `0.54.0` with a
+dedicated plan; the captured design (three orthogonal
+concerns: path on `-R`, roles on `-s`, topology on `--por`;
+`Scope` relocates into `options_flags/scope.rs`) carries
+forward to `0.54.0-0`'s chores section.
+
+### What landed
+
+- **Manual `N.` entry numbering** in `## Todo` and `## Bugs`
+  (was lazy `1.` everywhere). Each insert / delete / reorder
+  bumps numbers in lockstep; `notes/fix-todo.py` automates
+  this and shifts continuation-line indent across
+  prefix-width changes (3 ↔ 4 spaces).
+- **Intro prose indented 1 space** per line in `## Todo` and
+  `## Bugs` so it doesn't accidentally match the renumber
+  regex (`^\d+\.\s`). Convention documented at the top of
+  `todo.md` (and mirrored in `notes/fix-todo.py`'s
+  docstring).
+- **44 entries** after 1 insert (#1 — future `vc-x1
+  fix-todo` Rust subcommand), 3 deletes (was #4/#5/#13 —
+  design decisions superseded their content), 4 rewrites
+  (was #12/#18/#19/#20 — `Single(_)` and `<path>` references
+  dropped to reflect 0.54.0's design).
+
+### Outcome — re-scope note
+
+The cycle was opened bundling notes-side prep with the scope
+CLI cleanup. Mid-cycle, several observations pulled the two
+apart:
+
+- The notes-side change (renumbering, fix-todo.py, intro
+  indent rule) was substantial enough on its own to warrant
+  a clean review.
+- The scope CLI cleanup grew during planning — sync gained
+  `-R/--repo`, the runtime `Scope` type wanted relocation
+  into `options_flags/`, the substep ladder re-ordered.
+  Each tweak compounded.
+- Keeping both in one cycle would muddy both narratives.
+
+Closing `0.53.0` here as notes hygiene only keeps the two
+cycles' reviews independent.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -423,3 +474,4 @@ exec-child gate covers one race; the rest is queued.
 [3]: https://github.com/winksaville/vc-x1/commit/9a3e1605d453 "9a3e1605d453eaff6f7a45e50174fdfaee9f7b48"
 [4]: https://github.com/winksaville/vc-x1/commit/61454c56229a "61454c56229ac37afd89ab8bbcb7d2947eb9465c"
 [5]: https://github.com/winksaville/vc-x1/commit/90584bfbd171 "90584bfbd1710d9c4a5db6b93902b57c33875f6b"
+[6]: https://github.com/winksaville/vc-x1/commit/9ba2b672a29f "9ba2b672a29fa1dcd3aa9f5324ff18ea4b769f73"
