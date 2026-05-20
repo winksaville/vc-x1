@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use crate::scope::{Scope, parse_scope_roles};
+use super::scope::{Scope, parse_scope};
 
 /// Shared CLI args for the read-only commit-query subcommands —
 /// see [Bundle](README.md#architecture).
@@ -31,9 +31,8 @@ use crate::scope::{Scope, parse_scope_roles};
 ///   (`common::resolve_repos`). Defaults preserve today's behavior:
 ///   no flag → `[.]`, `-R foo` alone → `[foo]`. `-s` alone resolves
 ///   against `find_workspace_root()`; `-R + -s` resolves against the
-///   `-R` path. `-s` is keyword-only today (path-via-`-s` and the
-///   `-s <path>,roles` workspace-root override are planned — see
-///   `notes/todo.md`).
+///   `-R` path. `-s` is keyword-only (`code|bot|code,bot|bot,code`);
+///   path-based single-repo operation routes through `-R`.
 /// - `limit` — `-n` / `--commits`, caps the output.
 /// - `label` / `no_label` — `-l` / `--label` (default `===`) and
 ///   `-L` / `--no-label`; `common::resolve_header` combines them.
@@ -60,7 +59,7 @@ pub struct CommonArgs {
         short = 's',
         long = "scope",
         value_name = "code|bot|code,bot",
-        value_parser = parse_scope_roles
+        value_parser = parse_scope
     )]
     pub scope: Option<Scope>,
 

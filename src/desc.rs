@@ -129,9 +129,9 @@ mod tests {
 
     #[test]
     fn with_scope_code_bot() {
-        use crate::scope::{Scope, Side};
+        use crate::options_flags::scope::{Scope, Side};
         let c = parse(&["vc-x1", "desc", "-s", "code,bot"]);
-        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code, Side::Bot])));
+        assert_eq!(c.scope, Some(Scope(vec![Side::Code, Side::Bot])));
     }
 
     #[test]

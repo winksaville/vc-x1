@@ -258,10 +258,9 @@ fn default_scope_dual_workspace() {
         "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
     )
     .unwrap();
-    // cwd is irrelevant for the workspace branches — pass any path.
     assert_eq!(
-        default_scope(Some(&root), Path::new(".")),
-        Scope::Roles(vec![Side::Code, Side::Bot])
+        default_scope(Some(&root)),
+        Scope(vec![Side::Code, Side::Bot])
     );
     std::fs::remove_dir_all(&base).ok();
 }
@@ -273,10 +272,7 @@ fn default_scope_single_repo_workspace() {
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
-    assert_eq!(
-        default_scope(Some(&root), Path::new(".")),
-        Scope::Roles(vec![Side::Code])
-    );
+    assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
     std::fs::remove_dir_all(&base).ok();
 }
 
@@ -291,18 +287,15 @@ fn default_scope_empty_other_repo() {
         "[workspace]\npath = \"/\"\nother-repo = \"\"\n",
     )
     .unwrap();
-    assert_eq!(
-        default_scope(Some(&root), Path::new(".")),
-        Scope::Roles(vec![Side::Code])
-    );
+    assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Code]));
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: POR (None workspace_root) → `Single(cwd)`.
+/// Default scope: POR (no workspace_root) → `Scope([Code])`.
+/// `scope_to_repos` then resolves `Side::Code` to cwd's `.`.
 #[test]
-fn default_scope_por_returns_single_cwd() {
-    let cwd = PathBuf::from("/some/where");
-    assert_eq!(default_scope(None, &cwd), Scope::Single(cwd));
+fn default_scope_por_returns_code() {
+    assert_eq!(default_scope(None), Scope(vec![Side::Code]));
 }
 
 /// `scope_to_repos`: dual workspace resolves to root + root/other-repo.
@@ -316,7 +309,7 @@ fn scope_to_repos_dual() {
         "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
     )
     .unwrap();
-    let repos = scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&root)).unwrap();
+    let repos = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&root)).unwrap();
     assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
     std::fs::remove_dir_all(&base).ok();
 }
@@ -332,7 +325,7 @@ fn scope_to_repos_code_only() {
         "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
     )
     .unwrap();
-    let repos = scope_to_repos(&Scope::Roles(vec![Side::Code]), Some(&root)).unwrap();
+    let repos = scope_to_repos(&Scope(vec![Side::Code]), Some(&root)).unwrap();
     assert_eq!(repos, vec![root.clone()]);
     std::fs::remove_dir_all(&base).ok();
 }
@@ -340,14 +333,14 @@ fn scope_to_repos_code_only() {
 /// `scope_to_repos`: code-only with POR → cwd `.`.
 #[test]
 fn scope_to_repos_code_por() {
-    let repos = scope_to_repos(&Scope::Roles(vec![Side::Code]), None).unwrap();
+    let repos = scope_to_repos(&Scope(vec![Side::Code]), None).unwrap();
     assert_eq!(repos, vec![PathBuf::from(".")]);
 }
 
 /// `scope_to_repos`: bot in POR errors with the documented message.
 #[test]
 fn scope_to_repos_bot_por_errors() {
-    let err = scope_to_repos(&Scope::Roles(vec![Side::Bot]), None)
+    let err = scope_to_repos(&Scope(vec![Side::Bot]), None)
         .unwrap_err()
         .to_string();
     assert!(err.contains("not in a vc-x1 workspace"), "got: {err}");
@@ -360,27 +353,11 @@ fn scope_to_repos_bot_single_repo_errors() {
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
-    let err = scope_to_repos(&Scope::Roles(vec![Side::Bot]), Some(&root))
+    let err = scope_to_repos(&Scope(vec![Side::Bot]), Some(&root))
         .unwrap_err()
         .to_string();
     assert!(err.contains("no other-repo configured"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
-}
-
-/// `scope_to_repos`: `Single(p)` returns `vec![p]` directly,
-/// regardless of workspace_root.
-#[test]
-fn scope_to_repos_single_returns_path() {
-    let p = PathBuf::from("/explicit/single");
-    assert_eq!(
-        scope_to_repos(&Scope::Single(p.clone()), None).unwrap(),
-        vec![p.clone()]
-    );
-    // workspace_root is ignored for Single — same result.
-    assert_eq!(
-        scope_to_repos(&Scope::Single(p.clone()), Some(Path::new("/ws"))).unwrap(),
-        vec![p]
-    );
 }
 
 /// `resolve_repos`: no flags → today's `["."]` default.
@@ -410,7 +387,7 @@ fn resolve_repos_repo_plus_scope_uses_path_as_workspace_root() {
         "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
     )
     .unwrap();
-    let scope = Scope::Roles(vec![Side::Code, Side::Bot]);
+    let scope = Scope(vec![Side::Code, Side::Bot]);
     let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
     assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
     std::fs::remove_dir_all(&base).ok();
@@ -427,7 +404,7 @@ fn resolve_repos_repo_plus_scope_bot_only() {
         "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
     )
     .unwrap();
-    let scope = Scope::Roles(vec![Side::Bot]);
+    let scope = Scope(vec![Side::Bot]);
     let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
     assert_eq!(repos, vec![root.join(".claude")]);
     std::fs::remove_dir_all(&base).ok();

@@ -16,7 +16,7 @@ use log::{LevelFilter, debug, info, warn};
 
 use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
 use crate::context::Context;
-use crate::scope::{Scope, parse_scope};
+use crate::options_flags::scope::{Scope, parse_scope};
 use crate::subcommand::SubcommandRunner;
 
 /// Fetch and sync a set of repos to their remotes.
@@ -30,15 +30,15 @@ use crate::subcommand::SubcommandRunner;
 /// explicitly rather than relying on the default — defaults can shift,
 /// explicit flags lock in the contract.
 ///
-/// Repo set is resolved from `--scope`:
+/// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
-/// - Explicit `--scope=code|bot|code,bot|<path>` — keyword forms
-///   resolve via the project root's `.vc-config.toml`; the path
-///   form syncs that one repo (single-repo mode).
-/// - No `--scope` — workspace-default scope:
+/// - `-R PATH` — workspace root, or a single repo to sync alone.
+/// - `--scope=code|bot|code,bot` — keyword role selection,
+///   resolved via the workspace root's `.vc-config.toml`.
+/// - Neither — workspace-default scope:
 ///   - dual workspace (`.vc-config.toml` with `other-repo`) → `code,bot`
 ///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `code`
-///   - POR (no `.vc-config.toml`) → cwd as a single-repo target
+///   - POR (no `.vc-config.toml`) → cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Verify only — fetch + classify; error if any repo needs action.
@@ -62,19 +62,26 @@ pub struct SyncArgs {
     #[arg(long, default_value = "origin")]
     pub remote: String,
 
+    /// Workspace root, or a single jj repo to sync on its own.
+    ///
+    /// - `-R PATH` alone — sync just the repo at PATH.
+    /// - `-R PATH -s ROLES` — use PATH as the workspace root and
+    ///   sync the named side(s).
+    #[arg(short = 'R', long = "repo", value_name = "PATH", verbatim_doc_comment)]
+    pub repo: Option<PathBuf>,
+
     /// Which repo(s) of the workspace to sync.
     ///
-    /// `SCOPE=code|bot|code,bot|<path>`:
+    /// `SCOPE=code|bot|code,bot`:
     ///
     /// - `code` — sync only the app repo.
     /// - `bot` — sync only the bot repo (errors if no bot repo
     ///   is configured).
     /// - `code,bot` — sync both repos.
-    /// - `<path>` (`./X`, `/X`, `~/X`) — single-repo mode; sync
-    ///   only that repo, ignoring `.vc-config.toml`.
     ///
-    /// Default depends on workspace state: dual workspace →
-    /// `code,bot`; single-repo workspace → `code`; POR → cwd.
+    /// Composes with `-R` as the workspace root. Default depends
+    /// on workspace state: dual workspace → `code,bot`;
+    /// single-repo workspace or POR → `code`.
     #[arg(
         short = 's',
         long,
@@ -94,6 +101,8 @@ pub struct SyncArgs {
 ///   (absent ⇒ check mode: fetch + report only). The `--check`
 ///   flag is the explicit form of the default and carries no
 ///   value of its own, so it isn't mirrored here.
+/// - `repo`: `-R/--repo` path (None ⇒ discover the workspace
+///   root from cwd).
 /// - `scope`: `--scope` parsed (None ⇒ resolve via the
 ///   workspace-default scope at run time).
 pub struct SyncParams {
@@ -101,6 +110,7 @@ pub struct SyncParams {
     pub bookmark: String,
     pub remote: String,
     pub no_check: bool,
+    pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
 }
 
@@ -114,6 +124,7 @@ impl From<&SyncArgs> for SyncParams {
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
             no_check: a.no_check,
+            repo: a.repo.clone(),
             scope: a.scope.clone(),
         }
     }
@@ -137,18 +148,24 @@ impl SubcommandRunner for SyncArgs {
 /// Resolve `params` into the concrete repo list `sync_repos`
 /// operates on.
 ///
-/// Explicit `--scope` wins; otherwise resolves via `default_scope`
-/// against the discovered workspace root and cwd.
+/// `-R` and `--scope` compose:
+///
+/// - neither — workspace-default scope against the discovered root.
+/// - `-R PATH` alone — sync just that repo.
+/// - `-s ROLES` alone — roles against the discovered workspace root.
+/// - `-R PATH -s ROLES` — roles against `PATH` as the workspace root.
 fn resolve_params_to_repos(
     params: &SyncParams,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    let workspace_root = find_workspace_root();
-    let cwd = std::env::current_dir()?;
-    let scope = match &params.scope {
-        Some(s) => s.clone(),
-        None => default_scope(workspace_root.as_deref(), &cwd),
-    };
-    scope_to_repos(&scope, workspace_root.as_deref())
+    match (&params.repo, &params.scope) {
+        (None, None) => {
+            let root = find_workspace_root();
+            scope_to_repos(&default_scope(root.as_deref()), root.as_deref())
+        }
+        (Some(p), None) => Ok(vec![p.clone()]),
+        (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
+        (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
+    }
 }
 
 /// Relationship between a local bookmark and its remote counterpart.

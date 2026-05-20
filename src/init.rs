@@ -14,9 +14,9 @@ use crate::options_flags::por::PorFlag;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::push_retry::PushRetryOptions;
 use crate::options_flags::repo::RepoOption;
+use crate::options_flags::scope::{Scope, Side};
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
-use crate::scope::{Scope, Side};
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
 use crate::url::{Target, derive_name, derive_session_url, parse_target};
@@ -590,9 +590,9 @@ pub(crate) fn plan_init(
     );
 
     let scope = if params.por {
-        Scope::Roles(vec![Side::Code])
+        Scope(vec![Side::Code])
     } else {
-        Scope::Roles(vec![Side::Code, Side::Bot])
+        Scope(vec![Side::Code, Side::Bot])
     };
 
     if scope.is_code_only()

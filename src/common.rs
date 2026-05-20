@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::options_flags::common_args::CommonArgs;
-use crate::scope::{Scope, Side};
+use crate::options_flags::scope::{Scope, Side};
 use crate::toml_simple;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -595,49 +595,40 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 ///
 /// Reads `<workspace_root>/.vc-config.toml > [workspace] other-repo`:
 ///
-/// - dual workspace (non-empty `other-repo`) → `Roles([Code, Bot])`
-/// - single-repo workspace (missing / empty `other-repo`) → `Roles([Code])`
-/// - POR (no workspace_root) → `Single(cwd)` — operate on cwd as a
-///   one-off jj repo, ignoring any workspace context.
-pub fn default_scope(workspace_root: Option<&Path>, cwd: &Path) -> Scope {
+/// - dual workspace (non-empty `other-repo`) → `Scope([Code, Bot])`
+/// - single-repo workspace (missing / empty `other-repo`) →
+///   `Scope([Code])`
+/// - POR (no `workspace_root`) → `Scope([Code])` — `scope_to_repos`
+///   resolves `Side::Code` to cwd's `.` when no root is given, so a
+///   POR run still operates on the current directory.
+pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
     let Some(root) = workspace_root else {
-        return Scope::Single(cwd.to_path_buf());
+        return Scope(vec![Side::Code]);
     };
     let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
         Ok(c) => c,
-        Err(_) => return Scope::Roles(vec![Side::Code]),
+        Err(_) => return Scope(vec![Side::Code]),
     };
     match toml_simple::toml_get(&cfg, "workspace.other-repo") {
-        Some(v) if !v.is_empty() => Scope::Roles(vec![Side::Code, Side::Bot]),
-        _ => Scope::Roles(vec![Side::Code]),
+        Some(v) if !v.is_empty() => Scope(vec![Side::Code, Side::Bot]),
+        _ => Scope(vec![Side::Code]),
     }
 }
 
 /// Resolve a `Scope` to concrete repo paths.
 ///
-/// `Roles(...)` arm:
-///
-/// - `Side::Code` → `workspace_root` (or cwd's `.` when `workspace_root` is None).
+/// - `Side::Code` → `workspace_root` (or cwd's `.` when
+///   `workspace_root` is None).
 /// - `Side::Bot` → `workspace_root.join(other-repo)`.
 ///
-/// Errors when `Side::Bot` is requested but the workspace doesn't define
-/// one (POR or single-repo workspace).
-///
-/// `Single(p)` arm: returns `vec![p]` directly — no workspace lookup,
-/// no `other-repo` resolution. The path is whatever the caller stored
-/// (typically the value the user passed to `--scope=<path>`, or cwd
-/// from `default_scope`'s POR branch); shell-style expansion (tilde,
-/// `$VAR`) happens at the parser/consumer boundary, not here.
+/// Errors when `Side::Bot` is requested but the workspace doesn't
+/// define one (POR or single-repo workspace).
 pub fn scope_to_repos(
     scope: &Scope,
     workspace_root: Option<&Path>,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    let sides = match scope {
-        Scope::Roles(v) => v,
-        Scope::Single(p) => return Ok(vec![p.clone()]),
-    };
     let mut repos = Vec::new();
-    for side in sides {
+    for side in &scope.0 {
         match side {
             Side::Code => repos.push(
                 workspace_root
@@ -678,9 +669,8 @@ pub fn scope_to_repos(
 ///   (overrides `find_workspace_root`). This is the composing case;
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
-/// `--scope` is keyword-only today (the `parse_scope_roles` value
-/// parser rejects path forms); the planned `-s <path>` /
-/// `-s <path>,roles` workspace-root override is a future feature.
+/// `--scope` is keyword-only (`code|bot|code,bot|bot,code`);
+/// path-based single-repo operation routes through `-R/--repo`.
 pub fn resolve_repos(
     repo: Option<&Path>,
     scope: Option<&Scope>,

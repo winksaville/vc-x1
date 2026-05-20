@@ -10,7 +10,7 @@
 //! panicking test still removes its tempdir.
 
 use super::*;
-use crate::scope::Side;
+use crate::options_flags::scope::Side;
 use crate::test_helpers::Fixture;
 use std::fs;
 use std::process::Command;
@@ -26,8 +26,8 @@ use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
 /// - `find_workspace_root_from(&fx.claude)` walks up to `fx.work`
 ///   (proves cwd-portability against init's `path = "/.claude"` /
 ///   `path = "/"` config split).
-/// - `default_scope(Some(&fx.work))` reads the workspace config
-///   and resolves to the dual-repo default.
+/// - `default_scope(Some(&fx.work))` reads the workspace config and
+///   resolves to the dual-repo default.
 /// - `scope_to_repos` maps each `Scope` shape to the right
 ///   absolute path(s) under the fixture.
 ///
@@ -51,30 +51,29 @@ fn resolver_chain_against_init_repo_local() {
     );
 
     // init --repo-local writes other-repo = ".claude", so the
-    // workspace's default scope is dual; cwd is irrelevant here.
+    // workspace's default scope is dual.
     assert_eq!(
-        default_scope(Some(&fx.work), Path::new(".")),
-        Scope::Roles(vec![Side::Code, Side::Bot])
+        default_scope(Some(&fx.work)),
+        Scope(vec![Side::Code, Side::Bot])
     );
 
     // Each scope shape resolves to the right absolute path(s).
     assert_eq!(
-        scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
+        scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
         vec![fx.work.clone(), fx.claude.clone()]
     );
     assert_eq!(
-        scope_to_repos(&Scope::Roles(vec![Side::Code]), Some(&fx.work)).unwrap(),
+        scope_to_repos(&Scope(vec![Side::Code]), Some(&fx.work)).unwrap(),
         vec![fx.work.clone()]
     );
     assert_eq!(
-        scope_to_repos(&Scope::Roles(vec![Side::Bot]), Some(&fx.work)).unwrap(),
+        scope_to_repos(&Scope(vec![Side::Bot]), Some(&fx.work)).unwrap(),
         vec![fx.claude.clone()]
     );
 
     // sync_repos accepts the resolved list and reports up-to-date
     // — the resolver's output is shaped the way sync expects.
-    let resolved =
-        scope_to_repos(&Scope::Roles(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
+    let resolved = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
     sync_repos(&resolved, &apply_params()).expect("sync should succeed on resolved repos");
 }
 
@@ -106,14 +105,15 @@ fn cid(repo: &Path, rev: &str) -> String {
 /// Sync params with `--no-check` set (apply mode).
 ///
 /// Integration tests pass explicit repo paths through `sync_repos`
-/// directly, so `scope` stays `None` here and the CLI-side default
-/// resolution is not exercised by this helper.
+/// directly, so `repo` / `scope` stay `None` here and the CLI-side
+/// default resolution is not exercised by this helper.
 fn apply_params() -> SyncParams {
     SyncParams {
         no_check: true,
         quiet: false,
         bookmark: "main".to_string(),
         remote: "origin".to_string(),
+        repo: None,
         scope: None,
     }
 }

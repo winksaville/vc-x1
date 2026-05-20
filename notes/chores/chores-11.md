@@ -545,6 +545,8 @@ outcomes at any step boundary:
 
 ## refactor: add --por flag leaf (0.54.0-1)
 
+Commits: [[9]]
+
 First substep. The creation-side topology question — "dual
 workspace or single repo?" — was previously a value of
 `--scope` (`code,bot|por`) parsed into a `ScopeKind` enum.
@@ -583,6 +585,40 @@ the old `options_flags/scope.rs` (`ScopeKind`, `ScopeOption`,
   `(current)` (start of substep), flipped to `(done)`
   here (end of substep).
 
+## refactor: relocate Scope, add sync -R (0.54.0-2)
+
+Second substep. `src/scope.rs` moves into
+`options_flags/scope.rs`. Once `ScopeKind` was deleted in
+-1, the runtime `Scope` type is just "the typed value +
+parser for the `-s/--scope` flag" — exactly what
+`options_flags/` houses. The move also resolves the
+dual-`scope` naming ambiguity: there is now one `scope`
+module, period.
+
+Alongside the relocation:
+
+- `Scope` collapses from a two-variant enum
+  (`Roles(Vec<Side>)` | `Single(PathBuf)`) to a newtype
+  `Scope(pub Vec<Side>)`. The `Single` variant — the
+  path-bearing single-repo escape hatch — is gone; paths
+  live on `-R/--repo`. `parse_scope` now accepts only the
+  four role keywords; `parse_scope_roles` (the wrapper
+  that rejected path forms) is deleted, as is the unused
+  `Display` impl.
+- `default_scope` drops its `cwd` parameter. Its POR
+  branch returned `Single(cwd)`; it now returns
+  `Scope([Code])`, which `scope_to_repos` resolves to
+  cwd's `.` when no workspace root is given — identical
+  runtime behavior, no path variant needed.
+- `vc-x1 sync` gains `-R/--repo`, parallel to
+  `CommonArgs`'s `-R`. Today's `sync --scope <path>`
+  single-repo capability (lost when path-in-scope was
+  dropped) is preserved as `sync -R <path>`.
+  `resolve_params_to_repos` becomes the four-case
+  `(repo, scope)` compose, matching
+  `common::resolve_repos` except the no-flags case keeps
+  sync's workspace-default behavior.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -593,3 +629,4 @@ the old `options_flags/scope.rs` (`ScopeKind`, `ScopeOption`,
 [6]: https://github.com/winksaville/vc-x1/commit/9ba2b672a29f "9ba2b672a29fa1dcd3aa9f5324ff18ea4b769f73"
 [7]: https://github.com/winksaville/vc-x1/commit/6a4a193b8f0d "6a4a193b8f0d20c0a8c8dd62d69511c6ca0ff3cd"
 [8]: https://github.com/winksaville/vc-x1/commit/d272de2a15a5 "d272de2a15a540a94a45c7671b5fd520b858cb2d"
+[9]: https://github.com/winksaville/vc-x1/commit/f7cf60ef9d15 "f7cf60ef9d15137ffea6d09a457caf294b44fb0f"

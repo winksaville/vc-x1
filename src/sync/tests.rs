@@ -1,7 +1,7 @@
 //! Unit tests for the sync module.
 
 use super::*;
-use crate::scope::Side;
+use crate::options_flags::scope::Side;
 
 /// Default flags: neither `--check` nor `--no-check` set (the
 /// implicit default is check mode), bookmark "main", remote "origin",
@@ -90,7 +90,7 @@ fn parse_check_no_check_conflict() {
     assert!(Cli::try_parse_from(["test", "--check", "--no-check"]).is_err());
 }
 
-/// `--scope=code` parses into `Scope::Roles([Code])`.
+/// `--scope=code` parses into `Scope([Code])`.
 #[test]
 fn parse_scope_code() {
     use clap::Parser;
@@ -100,10 +100,10 @@ fn parse_scope_code() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--scope", "code"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope::Roles(vec![Side::Code])));
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code])));
 }
 
-/// `--scope=code,bot` parses into `Scope::Roles([Code, Bot])`.
+/// `--scope=code,bot` parses into `Scope([Code, Bot])`.
 #[test]
 fn parse_scope_code_bot() {
     use clap::Parser;
@@ -113,23 +113,21 @@ fn parse_scope_code_bot() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--scope", "code,bot"]).unwrap();
-    assert_eq!(
-        cli.args.scope,
-        Some(Scope::Roles(vec![Side::Code, Side::Bot]))
-    );
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code, Side::Bot])));
 }
 
-/// `--scope=./path` parses into `Scope::Single(_)` — single-repo mode.
+/// `-R PATH` parses into the `repo` field; `--scope` stays None.
 #[test]
-fn parse_scope_path_form() {
+fn parse_repo_flag() {
     use clap::Parser;
     #[derive(Parser)]
     struct Cli {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--scope", "./solo"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope::Single(PathBuf::from("./solo"))));
+    let cli = Cli::try_parse_from(["test", "-R", "./solo"]).unwrap();
+    assert_eq!(cli.args.repo, Some(PathBuf::from("./solo")));
+    assert!(cli.args.scope.is_none());
 }
 
 /// `-s` is the short form of `--scope`.
@@ -142,5 +140,5 @@ fn parse_scope_short_form() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "-s", "code"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope::Roles(vec![Side::Code])));
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code])));
 }

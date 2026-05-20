@@ -122,26 +122,26 @@ mod tests {
 
     #[test]
     fn with_scope_code() {
-        use crate::scope::{Scope, Side};
+        use crate::options_flags::scope::{Scope, Side};
         let c = parse(&["vc-x1", "chid", "-s", "code"]);
-        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code])));
+        assert_eq!(c.scope, Some(Scope(vec![Side::Code])));
     }
 
     #[test]
     fn with_scope_code_bot() {
-        use crate::scope::{Scope, Side};
+        use crate::options_flags::scope::{Scope, Side};
         let c = parse(&["vc-x1", "chid", "-s", "code,bot"]);
-        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Code, Side::Bot])));
+        assert_eq!(c.scope, Some(Scope(vec![Side::Code, Side::Bot])));
     }
 
     #[test]
     fn with_repo_and_scope_compose() {
         // `-R` and `-s` compose: the path is the workspace root, the
         // roles are resolved within it. Both fields parse cleanly.
-        use crate::scope::{Scope, Side};
+        use crate::options_flags::scope::{Scope, Side};
         let c = parse(&["vc-x1", "chid", "-R", "../foo", "-s", "bot"]);
         assert_eq!(c.repo, Some(PathBuf::from("../foo")));
-        assert_eq!(c.scope, Some(Scope::Roles(vec![Side::Bot])));
+        assert_eq!(c.scope, Some(Scope(vec![Side::Bot])));
     }
 
     #[test]

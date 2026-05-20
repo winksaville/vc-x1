@@ -13,7 +13,6 @@ mod logging;
 mod options_flags;
 mod push;
 mod repo_utils;
-mod scope;
 mod show;
 mod subcommand;
 mod symlink;

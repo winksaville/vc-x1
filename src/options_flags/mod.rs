@@ -62,5 +62,6 @@ pub mod private;
 pub mod provision_bundle;
 pub mod push_retry;
 pub mod repo;
+pub mod scope;
 pub mod squash;
 pub mod use_template;
