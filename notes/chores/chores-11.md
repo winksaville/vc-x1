@@ -420,6 +420,8 @@ exec-child gate covers one race; the rest is queued.
 
 ## chore: todo renumber + fix-todo.py (0.53.0)
 
+Commits: [[7]]
+
 Notes-side hygiene cycle. Originally opened (and committed
 under the working title `refactor: clean up scope + todo
 list`) as a multi-step scope CLI cleanup, but re-scoped at
@@ -467,6 +469,78 @@ apart:
 Closing `0.53.0` here as notes hygiene only keeps the two
 cycles' reviews independent.
 
+## refactor: scope CLI cleanup (0.54.0-0)
+
+Multi-step. Today, two `--scope` flags coexist with
+different value grammars: query-side `-s code|bot|code,bot`
+(which sides of an existing workspace) and creation-side
+`-s code,bot|por` (workspace topology). The cleanup factors
+the three concerns apart onto three orthogonal flags:
+
+- **Path** — `-R/--repo PATH`. Always present (defaults to
+  cwd). Independent of role selection.
+- **Roles** — `-s/--scope code|bot|code,bot|bot,code`.
+  Single-purpose: which side(s) of an existing dual
+  workspace.
+- **Topology** — `--por` boolean. Creation-only (init,
+  clone). The `code,bot|por` grammar collapses to "do
+  you want a `.claude` companion or not."
+
+After this cycle:
+
+- `Scope::Single(PathBuf)` — gone. `-R PATH` is the
+  path-only entry point.
+- `parse_scope_roles` — gone. Its job (reject path forms
+  in the roles slot) is moot once paths aren't a roles
+  form.
+- `options_flags/scope.rs` (`ScopeKind`, `ScopeOption`,
+  `parse_scope_kind`, `ScopeParser`) — deleted. A new
+  `PorFlag` boolean leaf in `options_flags/` takes over
+  the topology-selection job.
+- `src/scope.rs` — relocated into
+  `options_flags/scope.rs` (no longer ambiguous with the
+  deleted file). `Scope` becomes a newtype
+  `pub struct Scope(pub Vec<Side>)`; the `Single` variant
+  goes away.
+- `vc-x1 sync` gains `-R/--repo` for single-repo or
+  workspace-root override, parallel to `CommonArgs`'s
+  `-R`. Preserves today's `sync --scope <path>`
+  capability after path-in-scope drops.
+
+The design was captured during `0.53.0`'s opener (committed
+under the working title `refactor: clean up scope + todo
+list` then re-scoped) and carries forward here. The deeper
+symmetric-`.vc-config.toml` refactor (todo #11) is
+independent and lands in a later cycle.
+
+### Ladder
+
+- 0.54.0-0 plan + version bump + chores opener (current)
+- 0.54.0-1 add new `--por` boolean flag leaf in
+  `options_flags/`; delete `options_flags/scope.rs`
+  (`ScopeKind`, `ScopeOption`, etc.); migrate init / clone
+  / test_helpers
+- 0.54.0-2 collapse `Scope` to roles-only (newtype over
+  `Vec<Side>`); relocate `src/scope.rs` into
+  `options_flags/scope.rs`; drop `parse_scope_roles`;
+  add `-R/--repo` to sync
+- 0.54.0-3 docs/script sweep — README, ARCHITECTURE,
+  substep-test.sh, notes references to the old
+  `--scope code,bot|por` form; delete
+  `notes/fix-todo.py`
+- 0.54.0 close-out
+
+### Per-step evaluation
+
+Effectiveness is evaluated after each substep. Possible
+outcomes at any step boundary:
+
+- Continue as planned.
+- Significantly modify the shape — recorded in a new
+  chores subsection at the next step.
+- Abandon: revert the cycle to a no-op with an
+  `### Outcome` note capturing what didn't fit.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -475,3 +549,4 @@ cycles' reviews independent.
 [4]: https://github.com/winksaville/vc-x1/commit/61454c56229a "61454c56229ac37afd89ab8bbcb7d2947eb9465c"
 [5]: https://github.com/winksaville/vc-x1/commit/90584bfbd171 "90584bfbd1710d9c4a5db6b93902b57c33875f6b"
 [6]: https://github.com/winksaville/vc-x1/commit/9ba2b672a29f "9ba2b672a29fa1dcd3aa9f5324ff18ea4b769f73"
+[7]: https://github.com/winksaville/vc-x1/commit/6a4a193b8f0d "6a4a193b8f0d20c0a8c8dd62d69511c6ca0ff3cd"
