@@ -21,9 +21,11 @@ mod sync;
 mod test_helpers;
 #[cfg(test)]
 mod test_tmp_root;
+mod todo_helpers;
 mod toml_simple;
 mod url;
 mod validate_desc;
+mod validate_todo;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -146,6 +148,16 @@ pub(crate) enum Commands {
           skip  — skipped (no ochid, no match, or max-fixes reached)\n  \
           err   — ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
+
+    /// Check todo-file entry numbering and indent
+    #[command(
+        long_about = "Check a todo file's `## Todo` and `## Bugs` entry numbering.\n\n\
+        Verifies each section is numbered 1..N in document order and\n\
+        that continuation-line indent matches the number-prefix width.\n\
+        Read-only; exits non-zero if any entry needs fixing — use\n\
+        `fix-todo` to rewrite."
+    )]
+    ValidateTodo(validate_todo::ValidateTodoArgs),
 
     /// Clone a dual-repo project
     Clone(clone::CloneArgs),
@@ -363,6 +375,7 @@ fn main() -> ExitCode {
         Commands::Show(args) => args.dispatch(&ctx),
         Commands::ValidateDesc(args) => args.dispatch(&ctx),
         Commands::FixDesc(args) => args.dispatch(&ctx),
+        Commands::ValidateTodo(args) => args.dispatch(&ctx),
         Commands::Clone(args) => args.dispatch(&ctx),
         Commands::Init(args) => args.dispatch(&ctx),
         Commands::Symlink(args) => args.dispatch(&ctx),

@@ -20,9 +20,9 @@ A bulleted list of the in-progress task's development "ladder":
 
 [Current in progress](#current-in-progress)
 
-- 0.55.0-0 plan + version bump + chores opener (current)
+- 0.55.0-0 plan + version bump + chores opener (done)
 - 0.55.0-1 add validate-todo subcommand (todo_helpers.rs +
-  validate_todo.rs)
+  validate_todo.rs) (done)
 - 0.55.0-2 add fix-todo subcommand; delete notes/fix-todo.py;
   docs sweep
 - 0.55.0 close-out; renumber todo.md with fix-todo (dogfood)

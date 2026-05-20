@@ -701,6 +701,8 @@ stays until the Rust `vc-x1 fix-todo` subcommand (todo
 
 ## feat: open validate-todo + fix-todo (0.55.0-0)
 
+Commits: [[13]]
+
 Multi-step. `notes/todo.md`'s `## Todo` and `## Bugs`
 sections are manually numbered (`1.` `2.` … in document
 order); the interim `notes/fix-todo.py` renumbers them and
@@ -793,6 +795,30 @@ outcomes at any step boundary:
 - Abandon: revert the cycle to a no-op with an `### Outcome`
   note capturing what didn't fit.
 
+## feat: add validate-todo subcommand (0.55.0-1)
+
+First step of the cycle: `validate-todo` and its shared
+core `todo_helpers`. `fix-todo` (0.55.0-2) reuses the same
+core.
+
+- `todo_helpers::analyze` is the single-pass scanner — it
+  walks the file once, tracks the current `## ` section and
+  the entry being accumulated, and returns one `Change` per
+  entry whose number or continuation indent is off. The
+  `^\d+\. ` entry test is hand-rolled (no `regex` dep).
+- `validate-todo [FILE]` (FILE defaults to `notes/todo.md`)
+  is read-only: it prints each off entry as
+  `line N: number X → Y, indent A → B — <snippet>` and
+  exits non-zero if any are found. The check half of the
+  pair; `fix-todo` is the rewrite.
+- Continuation indent is measured against each entry's
+  minimum non-blank indent, so a deliberately nested `- `
+  sub-bullet (e.g. under `## Bugs` entry 1) is not
+  mistaken for a misindent.
+
+Docs (README / ARCHITECTURE) for both subcommands land
+together in the 0.55.0-2 sweep.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -807,3 +833,4 @@ outcomes at any step boundary:
 [10]: https://github.com/winksaville/vc-x1/commit/0637b17c2473 "0637b17c247310a82934cad9129b5df4b44211e0"
 [11]: https://github.com/winksaville/vc-x1/commit/e9210b3ebd8e "e9210b3ebd8e4af948f81850de1f8d44cff33e43"
 [12]: https://github.com/winksaville/vc-x1/commit/aaaeb09811be "aaaeb09811be04f5d2a426f7dd3c4120a78fdc9e"
+[13]: https://github.com/winksaville/vc-x1/commit/8524fbe0e66c "8524fbe0e66c4000b5e9e4fd2292891cbb061891"
