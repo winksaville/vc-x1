@@ -21,9 +21,9 @@ use crate::context::Context;
 use crate::init::{InitArgs, InitParams, init};
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::ConfigOption;
+use crate::options_flags::por::PorFlag;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::repo::RepoOption;
-use crate::options_flags::scope::{ScopeKind, ScopeOption};
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
@@ -102,9 +102,7 @@ impl Fixture {
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            scope: ScopeOption {
-                scope: ScopeKind::CodeBot,
-            },
+            por: PorFlag { value: false },
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption { use_template },
             config: ConfigOption::default(),
@@ -152,9 +150,9 @@ impl Drop for Fixture {
 
 /// Owned single-repo (POR) fixture with RAII cleanup.
 ///
-/// Sibling of `Fixture` for `--scope=por` flows. Drives
-/// `init::init` with `ScopeKind::Por` and a path
-/// TARGET; `--repo local=<base>` steers the bare origin to
+/// Sibling of `Fixture` for `--por` flows. Drives
+/// `init::init` with `por: true` and a path TARGET;
+/// `--repo local=<base>` steers the bare origin to
 /// `<base>/remote.git` (vs. dual's `remote-code.git` /
 /// `remote-claude.git`). No `.claude/` peer, no symlink.
 ///
@@ -195,9 +193,7 @@ impl FixturePor {
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            scope: ScopeOption {
-                scope: ScopeKind::Por,
-            },
+            por: PorFlag { value: true },
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption::default(),
             config: ConfigOption { raw: config },

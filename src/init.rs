@@ -10,10 +10,10 @@ use crate::config::{self, UserConfig};
 use crate::context::Context;
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::{ConfigKind, ConfigOption};
+use crate::options_flags::por::PorFlag;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::push_retry::PushRetryOptions;
 use crate::options_flags::repo::RepoOption;
-use crate::options_flags::scope::{ScopeKind, ScopeOption};
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::scope::{Scope, Side};
@@ -58,9 +58,11 @@ pub struct InitArgs {
     #[command(flatten)]
     pub repo: RepoOption,
 
-    /// `--scope` — flatten of the shared [`ScopeOption`] leaf.
+    /// `--por` — flatten of the shared [`PorFlag`] leaf. Absent
+    /// (default) → dual workspace (code + `.claude/` session
+    /// repo); present → plain single repo.
     #[command(flatten)]
-    pub scope: ScopeOption,
+    pub por: PorFlag,
 
     /// `--dry-run` + `--private` + `--push-retries` /
     /// `--push-retry-delay` — flatten of the shared
@@ -74,9 +76,10 @@ pub struct InitArgs {
     pub use_template: UseTemplateOption,
 
     /// `--config none|<path>` — flatten of the shared
-    /// [`ConfigOption`] leaf. Only meaningful with `--scope=por`;
-    /// rejected at preflight when paired with `--scope=code,bot`.
-    /// `.gitignore` is always written regardless of `--config`.
+    /// [`ConfigOption`] leaf. Only meaningful with `--por`;
+    /// rejected at preflight when paired with the default dual
+    /// shape. `.gitignore` is always written regardless of
+    /// `--config`.
     #[command(flatten)]
     pub config: ConfigOption,
 }
@@ -582,13 +585,14 @@ pub(crate) fn plan_init(
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     debug!(
-        "init args: target={:?}, name={:?}, account={:?}, repo={:?}, scope={:?}, private={}",
-        params.target, params.name, params.account, params.repo, params.scope, params.private
+        "init args: target={:?}, name={:?}, account={:?}, repo={:?}, por={}, private={}",
+        params.target, params.name, params.account, params.repo, params.por, params.private
     );
 
-    let scope = match params.scope {
-        ScopeKind::CodeBot => Scope::Roles(vec![Side::Code, Side::Bot]),
-        ScopeKind::Por => Scope::Roles(vec![Side::Code]),
+    let scope = if params.por {
+        Scope::Roles(vec![Side::Code])
+    } else {
+        Scope::Roles(vec![Side::Code, Side::Bot])
     };
 
     if scope.is_code_only()
@@ -596,14 +600,15 @@ pub(crate) fn plan_init(
         && t.contains(',')
     {
         return Err(format!(
-            "--scope=por takes a single template path; got '{t}' (drop the `,BOT` half)"
+            "--por takes a single template path; got '{t}' (drop the `,BOT` half)"
         )
         .into());
     }
 
-    if params.config.is_some() && params.scope == ScopeKind::CodeBot {
+    if params.config.is_some() && !params.por {
         return Err(
-            "--config is only valid with --scope=por (dual-mode configs are per-side and unconditional)".into(),
+            "--config is only valid with --por (dual configs are per-side and unconditional)"
+                .into(),
         );
     }
     if let Some(ConfigKind::Path(p)) = &params.config
@@ -1191,13 +1196,14 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         return Ok(());
     }
 
-    match params.scope {
-        ScopeKind::CodeBot => create_dual(params, &plan, templates, visibility, create_symlink),
-        ScopeKind::Por => create_por(params, &plan, templates, visibility, create_symlink),
+    if params.por {
+        create_por(params, &plan, templates, visibility, create_symlink)
+    } else {
+        create_dual(params, &plan, templates, visibility, create_symlink)
     }
 }
 
-/// Create-from-empty orchestrator for `--scope=por` (single repo).
+/// Create-from-empty orchestrator for `--por` (single repo).
 ///
 /// Composes (in order):
 /// - `prepare_local_repo` → conditional `.vc-config.toml` write
@@ -1258,7 +1264,7 @@ fn create_por(
     Ok(())
 }
 
-/// Create-from-empty orchestrator for `--scope=code,bot` (dual).
+/// Create-from-empty orchestrator for the default dual shape.
 ///
 /// Composes (in order):
 /// - Code side: `prepare_local_repo` → `write_code_config` →

@@ -168,8 +168,8 @@ a leaf has explicit parsing logic (custom `value_parser`):
   boolean leaves that take a value form (`--flag=true|false`).
   Presence/absence flags need no impl; clap parses directly.
 - `OptionParser` — non-boolean-domain parser. Implemented only
-  for leaves with custom parsing logic (e.g. `ScopeParser`,
-  `RepoParser`); bare `Option<String>` leaves need no impl.
+  for leaves with custom parsing logic (e.g. `RepoParser`);
+  bare `Option<String>` leaves need no impl.
 
 `FlagParser` and `OptionParser` share an identical method shape;
 the difference is documentation (which value-domain the parser

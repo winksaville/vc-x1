@@ -471,6 +471,8 @@ cycles' reviews independent.
 
 ## refactor: scope CLI cleanup (0.54.0-0)
 
+Commits: [[8]]
+
 Multi-step. Today, two `--scope` flags coexist with
 different value grammars: query-side `-s code|bot|code,bot`
 (which sides of an existing workspace) and creation-side
@@ -541,6 +543,46 @@ outcomes at any step boundary:
 - Abandon: revert the cycle to a no-op with an
   `### Outcome` note capturing what didn't fit.
 
+## refactor: add --por flag leaf (0.54.0-1)
+
+First substep. The creation-side topology question — "dual
+workspace or single repo?" — was previously a value of
+`--scope` (`code,bot|por`) parsed into a `ScopeKind` enum.
+It's more naturally a boolean: `--por` or not. The substep
+introduces a `PorFlag` boolean leaf in `options_flags/por.rs`
+and migrates `init` / `clone` / `test_helpers` to consume it;
+the old `options_flags/scope.rs` (`ScopeKind`, `ScopeOption`,
+`parse_scope_kind`, `ScopeParser`) is deleted.
+
+- `PorFlag` is the first leaf written to the `value`-field
+  convention from
+  [options_flags/README.md](README.md#adding-a-new-leaf):
+  the inner field is `value`, the flag is declared via
+  `#[arg(long = "por")]`, and consumers read `args.por.value`
+  rather than the doubled `args.por.por`. Existing
+  single-field leaves (`dry_run`, `private`, `account`,
+  `config`, `use_template`, `repo`) predate this and are
+  tracked for migration in `notes/todo.md > #2`.
+- Consumer dispatch collapses from a two-arm `match scope
+  { CodeBot / Por }` to a single boolean check. Both the
+  dry-run print path and the real dispatch path in `init`
+  / `clone` shrink; the error messages follow the same
+  rename (`--scope=por` → `--por`,
+  `--config is only valid with --scope=por` →
+  `--config is only valid with --por`).
+- Tests prune the obsolete `--scope=*` / `-s *` parses —
+  no value space left for `--scope` to error on. Net unit
+  test count drops 10: 5 clone `scope_*` tests + 1 init
+  `scope_short_flag_por` + 6 `options_flags::scope_kind_*`
+  tests deleted; 2 new `por_flag*` smoke tests added.
+  366 unit + 14 integration tests pass.
+- `Cargo.toml`: `0.54.0-0` → `0.54.0-1`.
+- `notes/chores/chores-11.md`: backfilled `Commits: [[8]]`
+  on the 0.54.0-0 opener.
+- `notes/todo.md`: 0.54.0-0 → `(done)`; 0.54.0-1 marked
+  `(current)` (start of substep), flipped to `(done)`
+  here (end of substep).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -550,3 +592,4 @@ outcomes at any step boundary:
 [5]: https://github.com/winksaville/vc-x1/commit/90584bfbd171 "90584bfbd1710d9c4a5db6b93902b57c33875f6b"
 [6]: https://github.com/winksaville/vc-x1/commit/9ba2b672a29f "9ba2b672a29fa1dcd3aa9f5324ff18ea4b769f73"
 [7]: https://github.com/winksaville/vc-x1/commit/6a4a193b8f0d "6a4a193b8f0d20c0a8c8dd62d69511c6ca0ff3cd"
+[8]: https://github.com/winksaville/vc-x1/commit/d272de2a15a5 "d272de2a15a540a94a45c7671b5fd520b858cb2d"

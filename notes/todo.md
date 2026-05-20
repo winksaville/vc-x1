@@ -18,8 +18,8 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-   - 0.54.0-0 plan + version bump + chores opener (current)
-   - 0.54.0-1 add `--por` flag leaf; delete `options_flags/scope.rs`
+   - 0.54.0-0 plan + version bump + chores opener (done)
+   - 0.54.0-1 add `--por` flag leaf; delete `options_flags/scope.rs` (done)
    - 0.54.0-2 collapse `Scope` to roles-only + relocate into `options_flags/` + sync `-R`
    - 0.54.0-3 docs/script sweep + delete `notes/fix-todo.py`
    - 0.54.0 close-out

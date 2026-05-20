@@ -21,7 +21,7 @@ fn defaults() {
     assert!(args.name.is_none());
     assert!(args.account.account.is_none());
     assert!(args.repo.repo.is_none());
-    assert_eq!(args.scope.scope, ScopeKind::CodeBot);
+    assert!(!args.por.value);
     assert!(!args.provision.private.private);
     assert!(!args.provision.dry_run.dry_run);
     assert_eq!(args.provision.push_retry.push_retries, 5);
@@ -40,8 +40,7 @@ fn all_opts() {
         "work",
         "--repo",
         "local=/tmp/xyz",
-        "--scope",
-        "por",
+        "--por",
         "--private",
         "--dry-run",
         "--push-retries",
@@ -57,7 +56,7 @@ fn all_opts() {
     let sel = args.repo.repo.as_ref().expect("--repo set");
     assert_eq!(sel.category, "local");
     assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
-    assert_eq!(args.scope.scope, ScopeKind::Por);
+    assert!(args.por.value);
     assert!(args.provision.private.private);
     assert!(args.provision.dry_run.dry_run);
     assert_eq!(args.provision.push_retry.push_retries, 10);
@@ -358,9 +357,9 @@ fn repo_cat_value_parses() {
 }
 
 #[test]
-fn scope_short_flag_por() {
-    let args = parse(&["vc-x1", "init", "tf1", "-s", "por"]);
-    assert_eq!(args.scope.scope, ScopeKind::Por);
+fn por_flag_parses() {
+    let args = parse(&["vc-x1", "init", "tf1", "--por"]);
+    assert!(args.por.value);
 }
 
 #[test]
@@ -455,7 +454,7 @@ fn args_for(target: &str) -> InitArgs {
         name: None,
         account: AccountOption::default(),
         repo: RepoOption::default(),
-        scope: ScopeOption::default(),
+        por: PorFlag::default(),
         provision: ProvisionOptionFlagBundle {
             dry_run: DryRunFlag { dry_run: true },
             ..Default::default()
@@ -712,7 +711,7 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
 #[test]
 fn plan_por_path_local_single_bare() {
     let mut args = args_for("/tmp/xyz/tf1");
-    args.scope.scope = ScopeKind::Por;
+    args.por.value = true;
     args.repo.repo = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
@@ -734,7 +733,7 @@ fn plan_por_path_local_single_bare() {
 #[test]
 fn plan_por_url_no_session() {
     let mut args = args_for("git@github.com:winksaville/tf1");
-    args.scope.scope = ScopeKind::Por;
+    args.por.value = true;
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_code_only());
     assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
@@ -835,12 +834,12 @@ fn error_por_with_comma_template() {
     // --scope=por + --use-template foo,bar is ambiguous — bot
     // half has no home in a single-repo workspace.
     let mut args = args_for("git@github.com:u/p");
-    args.scope.scope = ScopeKind::Por;
+    args.por.value = true;
     args.use_template.use_template = Some("/tmp/code,/tmp/bot".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
-    assert!(err.contains("--scope=por"), "got: {err}");
+    assert!(err.contains("--por"), "got: {err}");
     assert!(err.contains("single template path"), "got: {err}");
 }
 
@@ -973,28 +972,31 @@ fn por_config_path_copies_user_file() {
     );
 }
 
-/// `--config` with `--scope=code,bot` is rejected at preflight.
+/// `--config` without `--por` (i.e. the default dual shape) is
+/// rejected at preflight.
 #[test]
-fn config_rejected_with_scope_code_bot() {
+fn config_rejected_without_por() {
     let mut args = args_for("./foo");
-    args.scope.scope = ScopeKind::CodeBot;
+    args.por.value = false;
     args.config.raw = Some("none".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
     assert!(
-        err.contains("--config is only valid with --scope=por"),
+        err.contains("--config is only valid with --por"),
         "unexpected error: {err}"
     );
 }
 
 /// `--config <missing-path>` errors at preflight, not at write
 /// time, so the user gets a clear diagnostic before any
-/// repo-mutating side effects start.
+/// repo-mutating side effects start. The arg is meaningful only
+/// under `--por`; setting `args.por.value = true` keeps the
+/// preflight on the path-validation branch.
 #[test]
 fn config_path_missing_rejected_at_preflight() {
     let mut args = args_for("./foo");
-    args.scope.scope = ScopeKind::Por;
+    args.por.value = true;
     args.config.raw = Some("/nonexistent/path/to/config.toml".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
@@ -1002,14 +1004,14 @@ fn config_path_missing_rejected_at_preflight() {
     assert!(err.contains("does not exist"), "unexpected error: {err}");
 }
 
-/// `--config none` with `--scope=por` passes preflight (it's the
+/// `--config none` with `--por` passes preflight (it's the
 /// happy path — `none` is a literal keyword, not a path). URL
 /// target sidesteps the account-config lookup that plan_init
 /// would trigger for path-form targets in cfg_empty.
 #[test]
 fn config_none_passes_preflight() {
     let mut args = args_for("git@github.com:foo/bar.git");
-    args.scope.scope = ScopeKind::Por;
+    args.por.value = true;
     args.config.raw = Some("none".to_string());
     plan_init(&InitParams::from(&args), &cfg_empty())
         .expect("--config none with --scope=por should pass preflight");
