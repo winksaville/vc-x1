@@ -118,9 +118,8 @@ per-subcommand refactor status):
   (today: the loaded `UserConfig` + the `--log` path; built
   once at startup via `Context::load(log)`).
 - `src/config.rs` — `UserConfig` (`~/.config/vc-x1/config.toml`).
-- `src/scope.rs` — `Scope` (`Roles(Vec<Side>)` for the
-  dual-repo `code`/`bot` roles, `Single(PathBuf)` for explicit
-  single-repo mode) and `parse_scope`.
+- `src/options_flags/scope.rs` — `Scope` (a newtype over
+  `Vec<Side>` — the `code`/`bot` role set) and `parse_scope`.
 
 **Subcommand modules** — `src/<x>.rs` holds the subcommand's
 `XxxArgs` (`#[derive(Args)]`, composing `options_flags/` leaves

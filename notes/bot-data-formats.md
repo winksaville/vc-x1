@@ -78,9 +78,8 @@ if those merits weren't visible up front:
 
 The bot thinks dual is the right default; single is a
 valid mode for projects that don't need the separation.
-`Scope::Single(_)` already exists as the enum variant
-carrying that mode forward (deferred from 0.42.0; tracked
-in the `--scope` continuation TODO).
+The `--por` flag on `init` / `clone` selects that mode
+(see `src/options_flags/por.rs`).
 
 ## Vendor-subdir directory layout
 

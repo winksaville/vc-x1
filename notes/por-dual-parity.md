@@ -15,10 +15,9 @@ on. Two goals:
 
 por and dual should be first-class equals across every
 subcommand — same code paths, same quality of support, no
-"dual plus an afterthought" asymmetry. The `--scope`
-rollout (`code,bot` vs `por` — see `notes/todo.md` and
-`src/options_flags/scope.rs`'s `ScopeKind`) is the
-substrate; parity is the goal that rollout serves.
+"dual plus an afterthought" asymmetry. The `--por` topology
+flag (dual vs single — see `notes/todo.md`) is the
+substrate; parity is the goal it serves.
 
 ## 2. Bidirectional conversion
 
@@ -50,8 +49,8 @@ shapes in place.
 
 - `notes/todo.md` — the por/dual item, and the `--scope`
   cluster it builds on.
-- `src/options_flags/scope.rs` — `ScopeKind` (`CodeBot` /
-  `Por`) and `parse_scope_kind`.
+- `src/options_flags/por.rs` — `PorFlag`, the `--por`
+  topology flag.
 - `notes/chores/chores-07.md > ## init + clone redesign (0.41.1)`
   — the `init_one` / `clone_one` primitives that aim to
   give a single chokepoint for scope-shaped changes.

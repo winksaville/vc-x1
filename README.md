@@ -215,10 +215,8 @@ compatible with the no-flag default. Multi-repo (`-s code,bot`) is
 supported for `chid`, `desc`, `list`, and `show`. `finalize` remains
 single-repo.
 
-`-s` is keyword-only today. Path-via-`-s` and a comma-list form
-mixing one path with role keywords (e.g. `-s ../foo,code,bot` as a
-workspace-root-plus-roles shorthand) are planned — see
-[`notes/todo.md`](notes/todo.md).
+`-s` is keyword-only — `code`, `bot`, `code,bot`, `bot,code`.
+Path-based single-repo operation uses `-R` (above).
 
 ### validate-desc
 
@@ -390,13 +388,13 @@ vc-x1 symlink -l
 
 Fetch and sync a set of repos to their remotes in a single command.
 Repo set defaults to the dual-repo workspace pair (`.` and
-`.claude`); override with `-R` / `--repo` for single-repo projects
-or arbitrary multi-repo workspaces. Dry-run by default — re-run with
-`--no-dry-run` to apply.
+`.claude`); narrow it with `-s` / `--scope`, or point at a different
+workspace root or single repo with `-R` / `--repo`. Check-only by
+default — re-run with `--no-check` to apply.
 
 Per repo, `sync` classifies the local bookmark against its remote:
 
-| State | Meaning | Action on `--no-dry-run` |
+| State | Meaning | Action on `--no-check` |
 |------|---------|--------------------------|
 | up-to-date | local == remote | none |
 | behind | local is ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
@@ -424,8 +422,8 @@ vc-x1 sync --no-check                 # workspace-default scope, apply
 vc-x1 sync --scope=code               # only the app repo
 vc-x1 sync --scope=bot                # only the bot repo
 vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
-vc-x1 sync -R .                       # arbitrary repo set (no workspace lookup)
-vc-x1 sync -R .,.claude -R ../other   # mixed: repeat + comma-separate
+vc-x1 sync -R ../other                # sync ../other as a single repo
+vc-x1 sync -R ../other --scope=code,bot   # ../other as workspace root
 ```
 
 Scripts and automation should pass `--check` or `--no-check`
@@ -433,25 +431,25 @@ explicitly rather than rely on the default — defaults can shift,
 explicit flags lock in the contract. Interactive use can take the
 default.
 
-**Repo set resolution.** Sync picks the repo list in this order:
+**Repo set resolution.** `-R` and `--scope` compose:
 
-1. `-R` / `--repo` — exactly that list.
-2. `--scope=code|bot|code,bot` — workspace roles, resolved via the
-   workspace root's `.vc-config.toml` (`code` → root,
-   `bot` → `root.join(other-repo)`).
-3. Neither — workspace-default scope: `code,bot` if
+1. Neither — workspace-default scope: `code,bot` if
    `[workspace] other-repo` is non-empty, else `code`. POR (no
    `.vc-config.toml`) → `code` resolved to cwd.
+2. `-R PATH` alone — sync just the repo at `PATH`.
+3. `--scope=code|bot|code,bot` alone — workspace roles, resolved
+   via the discovered workspace root's `.vc-config.toml`
+   (`code` → root, `bot` → `root.join(other-repo)`).
+4. `-R PATH --scope=ROLES` — roles resolved against `PATH` as the
+   workspace root.
 
-`-R` and `--scope` are mutually exclusive — they answer different
-questions ("arbitrary repo set" vs "workspace roles"). Scope is
-cwd-portable: from `.claude/`, `vc-x1 sync` walks up to the
-workspace root and resolves repos by absolute path.
+Scope is cwd-portable: from `.claude/`, `vc-x1 sync` walks up to
+the workspace root and resolves repos by absolute path.
 
 | Flag | Description |
 |------|-------------|
-| `-R, --repo <PATH>` | Repo to sync; repeatable or comma-separated. Mutually exclusive with `--scope` |
-| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Mutually exclusive with `-R` |
+| `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
+| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Composes with `-R` |
 | `--check` | Verify only — fetch + classify, error if any repo needs action (default) |
 | `--no-check` | Apply — fetch + classify, then rebase/fast-forward as needed |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |

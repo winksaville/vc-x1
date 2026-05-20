@@ -21,7 +21,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.54.0-0 plan + version bump + chores opener (done)
    - 0.54.0-1 add `--por` flag leaf; delete `options_flags/scope.rs` (done)
    - 0.54.0-2 collapse `Scope` to roles-only + relocate into `options_flags/` + sync `-R` (done)
-   - 0.54.0-3 docs/script sweep + delete `notes/fix-todo.py`
+   - 0.54.0-3 update docs/script for the new scope surface (done)
    - 0.54.0 close-out
 
 ## Todo
@@ -53,6 +53,10 @@ A bulleted list of the in-progress task's development "ladder":
    leaves to match: `repo`, `dry_run`, `private`, `account`,
    `config`, `use_template` + their consumers
    (`init.rs`, tests).
+
+   Note: can a single field be defined as an type or enum instead
+   of a struct and to eliminate the `args.<leaf>.<leaf>` name
+   issue.
 3. **Investigate `linkme` for subcommand registration.**
    Distributed-slice registry — each subcommand registers itself
    at link time; `main.rs` discovers them via the slice rather

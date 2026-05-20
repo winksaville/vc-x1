@@ -587,6 +587,8 @@ the old `options_flags/scope.rs` (`ScopeKind`, `ScopeOption`,
 
 ## refactor: relocate Scope, add sync -R (0.54.0-2)
 
+Commits: [[10]]
+
 Second substep. `src/scope.rs` moves into
 `options_flags/scope.rs`. Once `ScopeKind` was deleted in
 -1, the runtime `Scope` type is just "the typed value +
@@ -619,6 +621,37 @@ Alongside the relocation:
   `common::resolve_repos` except the no-flags case keeps
   sync's workspace-default behavior.
 
+## docs: update for new scope surface (0.54.0-3)
+
+Third substep. Substeps -1 and -2 changed the scope CLI
+surface (code + tests updated as they went); this substep
+brings the prose and two design notes in line.
+
+- README.md `### sync` spec'd a `-R` flag the code never
+  had — repeatable / comma-separated, mutually exclusive
+  with `--scope`. `0.54.0-2` implemented `-R` differently:
+  single path, composes with `--scope`, mirroring
+  `CommonArgs`'s `-R`. The user chose to keep the
+  as-built design (one consistent `-R` across the CLI) and
+  the section is rewritten to match. The intro and the
+  state-table header also carried pre-existing rot —
+  `--dry-run` / `--no-dry-run` where sync actually uses
+  `--check` / `--no-check`; fixed.
+- README.md `### Multi-repo queries` dropped the stale
+  "path-via-`-s` planned" paragraph — paths route through
+  `-R`, never a future `-s` form.
+- ARCHITECTURE.md: the `src/scope.rs` module bullet became
+  `src/options_flags/scope.rs`, `Scope` described as the
+  roles-only newtype.
+- `notes/por-dual-parity.md` / `notes/bot-data-formats.md`:
+  dangling references to the deleted `ScopeKind` /
+  `Scope::Single` re-pointed at `--por` / `PorFlag`.
+
+`notes/fix-todo.py` is intentionally **not** deleted — it
+stays until the Rust `vc-x1 fix-todo` subcommand (todo #1)
+replaces it. The cycle-opener ladder said "delete
+`notes/fix-todo.py`"; that was dropped mid-cycle.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -630,3 +663,4 @@ Alongside the relocation:
 [7]: https://github.com/winksaville/vc-x1/commit/6a4a193b8f0d "6a4a193b8f0d20c0a8c8dd62d69511c6ca0ff3cd"
 [8]: https://github.com/winksaville/vc-x1/commit/d272de2a15a5 "d272de2a15a540a94a45c7671b5fd520b858cb2d"
 [9]: https://github.com/winksaville/vc-x1/commit/f7cf60ef9d15 "f7cf60ef9d15137ffea6d09a457caf294b44fb0f"
+[10]: https://github.com/winksaville/vc-x1/commit/0637b17c2473 "0637b17c247310a82934cad9129b5df4b44211e0"
