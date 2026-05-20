@@ -18,7 +18,14 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+[Current in progress](#current-in-progress)
+
+- 0.55.0-0 plan + version bump + chores opener (current)
+- 0.55.0-1 add validate-todo subcommand (todo_helpers.rs +
+  validate_todo.rs)
+- 0.55.0-2 add fix-todo subcommand; delete notes/fix-todo.py;
+  docs sweep
+- 0.55.0 close-out; renumber todo.md with fix-todo (dogfood)
 
 ## Todo
 
@@ -34,6 +41,7 @@ _No cycle currently in progress._
  ("let's work on #3"). Continuation lines under a two-digit
  entry indent 4 spaces (under `NN. `) rather than 3.
 
+### Current In Progress
 1. **`vc-x1 fix-todo` / `validate-todo` subcommands.** Parallel
    shape to `validate-desc` / `fix-desc` (check vs rewrite).
    Renumber `## Todo` and `## Bugs` entries in `notes/todo.md`,

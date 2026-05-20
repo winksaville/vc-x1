@@ -656,6 +656,8 @@ replaces it. The cycle-opener ladder said "delete
 
 ## refactor: scope CLI cleanup (0.54.0)
 
+Commits: [[12]]
+
 Cycle close-out. The two `--scope` flags that opened the
 cycle — query-side roles and creation-side topology — are
 now three orthogonal flags: `-R/--repo` (path),
@@ -697,6 +699,100 @@ opener ladder said "delete"; dropped mid-cycle) — it
 stays until the Rust `vc-x1 fix-todo` subcommand (todo
 #1) replaces it.
 
+## feat: open validate-todo + fix-todo (0.55.0-0)
+
+Multi-step. `notes/todo.md`'s `## Todo` and `## Bugs`
+sections are manually numbered (`1.` `2.` … in document
+order); the interim `notes/fix-todo.py` renumbers them and
+shifts continuation-line indent across prefix-width changes.
+This cycle replaces the script with a Rust subcommand pair —
+`validate-todo` (check) and `fix-todo` (rewrite) — parallel
+to the existing `validate-desc` / `fix-desc` pair.
+
+- `src/todo_helpers.rs` — shared core: a single-pass walk of
+  the todo file tracking section, entry number, and each
+  entry's continuation block, producing a list of per-entry
+  changes (old/new number, old/new continuation-indent base,
+  corrected first line). Entry first-lines match a
+  hand-rolled `^\d+\. ` test at column 0 — no `regex`
+  dependency.
+- `src/validate_todo.rs` — `vc-x1 validate-todo [FILE]`,
+  read-only; reports each mis-numbered or mis-indented entry
+  and exits non-zero if any are found.
+- `src/fix_todo.rs` — `vc-x1 fix-todo [FILE]`, dry-run by
+  default (prints the changed entries' corrected lines, so
+  the output *is* the result), `--no-dry-run` writes in
+  place.
+- Both born in the `(ctx, params)` + `SubcommandRunner`
+  shape; `[FILE]` defaults to `notes/todo.md`.
+
+Continuation-line indent is normalized against each entry's
+*measured* base indent (the minimum non-blank continuation
+indent) rather than flattened to the prefix width, which
+preserves deliberately nested structure such as the `- `
+sub-bullets under `## Bugs` entry 1. The Python script
+shifts indent only when an entry's number changes width;
+the Rust version normalizes the base unconditionally.
+
+### Why one helper, two subcommands
+
+`validate-desc` / `fix-desc` are separate because `fix-desc`
+does substantially more than its validator — `--add-missing`,
+`--fallback`, `--title`, change-ID resolution against the
+other repo. `fix-todo` has no such extras: renumber +
+reindent is a single computation, and "validate" is exactly
+that computation without the write. The single-pass state
+machine therefore lives once in `todo_helpers.rs`;
+`validate_todo` and `fix_todo` are thin presenters over it.
+The commands stay separate for CLI orthogonality — a
+consistent `validate-*` / `fix-*` family, and a clean fit
+for a future `validate-repo` — but share all non-trivial
+logic.
+
+### Keeping the active task in `## Todo`
+
+This cycle also changes how `notes/todo.md` records an
+in-progress task. The prior rule deleted the `## Todo`
+entry when its work moved to `## In Progress`, leaving the
+ladder as the sole record. Instead the entry stays in
+`## Todo` under a `### Current In Progress` heading, and
+the `## In Progress` ladder links to it —
+`[Current in progress](#current-in-progress)`.
+
+- The heading text is fixed, so the anchor
+  (`#current-in-progress`) is stable across cycles; the
+  `## In Progress` link never needs a per-cycle update.
+- The task description lives in one place (`## Todo`);
+  `## In Progress` carries only the ladder.
+- At close-out the entry moves to `## Done` and the
+  `### Current In Progress` heading goes away; the gap
+  that leaves in `## Todo` is closed by
+  `vc-x1 fix-todo --no-dry-run` — the cycle's renumber
+  dogfood.
+- CLAUDE.md's delete-on-pickup rule is updated in this
+  commit to match — see the Versioning section and
+  pre-commit checklist item b.
+
+### Ladder
+
+- 0.55.0-0 plan + version bump + chores opener (current)
+- 0.55.0-1 add validate-todo subcommand (todo_helpers.rs +
+  validate_todo.rs)
+- 0.55.0-2 add fix-todo subcommand; delete notes/fix-todo.py;
+  docs sweep
+- 0.55.0 close-out; renumber todo.md with fix-todo (dogfood)
+
+### Per-step evaluation
+
+Effectiveness is evaluated after each step. Possible
+outcomes at any step boundary:
+
+- Continue as planned.
+- Significantly modify the shape — recorded in a new chores
+  subsection at the next step.
+- Abandon: revert the cycle to a no-op with an `### Outcome`
+  note capturing what didn't fit.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -710,3 +806,4 @@ stays until the Rust `vc-x1 fix-todo` subcommand (todo
 [9]: https://github.com/winksaville/vc-x1/commit/f7cf60ef9d15 "f7cf60ef9d15137ffea6d09a457caf294b44fb0f"
 [10]: https://github.com/winksaville/vc-x1/commit/0637b17c2473 "0637b17c247310a82934cad9129b5df4b44211e0"
 [11]: https://github.com/winksaville/vc-x1/commit/e9210b3ebd8e "e9210b3ebd8e4af948f81850de1f8d44cff33e43"
+[12]: https://github.com/winksaville/vc-x1/commit/aaaeb09811be "aaaeb09811be04f5d2a426f7dd3c4120a78fdc9e"
