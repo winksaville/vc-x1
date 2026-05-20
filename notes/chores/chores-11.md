@@ -623,6 +623,8 @@ Alongside the relocation:
 
 ## docs: update for new scope surface (0.54.0-3)
 
+Commits: [[11]]
+
 Third substep. Substeps -1 and -2 changed the scope CLI
 surface (code + tests updated as they went); this substep
 brings the prose and two design notes in line.
@@ -652,6 +654,49 @@ stays until the Rust `vc-x1 fix-todo` subcommand (todo #1)
 replaces it. The cycle-opener ladder said "delete
 `notes/fix-todo.py`"; that was dropped mid-cycle.
 
+## refactor: scope CLI cleanup (0.54.0)
+
+Cycle close-out. The two `--scope` flags that opened the
+cycle — query-side roles and creation-side topology — are
+now three orthogonal flags: `-R/--repo` (path),
+`-s/--scope` (roles, keyword-only), `--por` (topology).
+One `scope` module, one `Scope` type (a roles-only
+newtype), no `ScopeKind`.
+
+### As-built ladder
+
+- 0.54.0-0 plan + version bump + chores opener
+- 0.54.0-1 `--por` boolean flag leaf replaces
+  `options_flags/scope.rs` (`ScopeKind`); init / clone /
+  test_helpers migrated
+- 0.54.0-2 `Scope` collapsed to a roles-only newtype and
+  relocated to `options_flags/scope.rs`;
+  `parse_scope_roles` dropped; `sync` gained `-R/--repo`
+- 0.54.0-3 docs updated for the new surface
+- 0.54.0 close-out
+
+### Outcome
+
+Four substeps after the opener, no evaluation-gate detours
+or abandonments. Two shape changes emerged mid-cycle:
+
+- The substep order swapped (delete `options_flags/scope`
+  in -1 before collapsing `src/scope.rs` in -2) so only
+  one `scope` module existed during the collapse — the
+  user flagged the dual-`scope` confusion at cycle start.
+- `0.54.0-3` surfaced that README's `### sync` had spec'd
+  a `-R` the code never had (repeatable, mutually
+  exclusive with `--scope`); `0.54.0-2` had implemented a
+  different `-R` (single path, composes). The user chose
+  the as-built design and the docs were rewritten to
+  match — the repeatable-set idea is unclaimed if anyone
+  wants it later.
+
+`notes/fix-todo.py` was kept rather than deleted (the
+opener ladder said "delete"; dropped mid-cycle) — it
+stays until the Rust `vc-x1 fix-todo` subcommand (todo
+#1) replaces it.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -664,3 +709,4 @@ replaces it. The cycle-opener ladder said "delete
 [8]: https://github.com/winksaville/vc-x1/commit/d272de2a15a5 "d272de2a15a540a94a45c7671b5fd520b858cb2d"
 [9]: https://github.com/winksaville/vc-x1/commit/f7cf60ef9d15 "f7cf60ef9d15137ffea6d09a457caf294b44fb0f"
 [10]: https://github.com/winksaville/vc-x1/commit/0637b17c2473 "0637b17c247310a82934cad9129b5df4b44211e0"
+[11]: https://github.com/winksaville/vc-x1/commit/e9210b3ebd8e "e9210b3ebd8e4af948f81850de1f8d44cff33e43"

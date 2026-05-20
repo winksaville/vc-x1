@@ -18,11 +18,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-   - 0.54.0-0 plan + version bump + chores opener (done)
-   - 0.54.0-1 add `--por` flag leaf; delete `options_flags/scope.rs` (done)
-   - 0.54.0-2 collapse `Scope` to roles-only + relocate into `options_flags/` + sync `-R` (done)
-   - 0.54.0-3 update docs/script for the new scope surface (done)
-   - 0.54.0 close-out
+_No cycle currently in progress._
 
 ## Todo
 
@@ -55,7 +51,7 @@ A bulleted list of the in-progress task's development "ladder":
    (`init.rs`, tests).
 
    Note: can a single field be defined as an type or enum instead
-   of a struct and to eliminate the `args.<leaf>.<leaf>` name
+   of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
 3. **Investigate `linkme` for subcommand registration.**
    Distributed-slice registry — each subcommand registers itself
@@ -311,6 +307,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[1]]
 - `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[2]]
 - todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[3]]
+- scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[30]]
 
 # References
 
@@ -343,3 +340,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [27]: /notes/chores/chores-02.md#0260--shell-completion-via-clap_complete-env
 [28]: /notes/chores/chores-02.md#testing-results
 [29]: /notes/chores/chores-02.md#shell-completion-discovery
+[30]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
