@@ -7,6 +7,8 @@
   - [Shell completion](#shell-completion)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
+  - [validate-todo](#validate-todo)
+  - [fix-todo](#fix-todo)
   - [clone](#clone)
   - [init](#init)
   - [symlink](#symlink)
@@ -51,6 +53,8 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
+vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
+vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
@@ -273,6 +277,48 @@ vc-x1 fix-desc @.. --fallback /.claude/lost
 | `--title <TEXT>` | Replace commit title at the same time |
 
 Use `--help` for the full status label legend.
+
+### validate-todo
+
+Check that the `## Todo` and `## Bugs` sections of a todo file
+are numbered `1..N` in document order, with continuation-line
+indent matching each entry's number-prefix width. Read-only;
+exits non-zero if any entry needs fixing.
+
+```
+# Check notes/todo.md (the default)
+vc-x1 validate-todo
+
+# Check a specific file
+vc-x1 validate-todo path/to/todo.md
+```
+
+Each flagged entry prints its corrected first line and a
+`[line: …]` tag — the entry's line number and what is off
+(`was N`, `indent A → B`). Use `fix-todo` to apply the fixes.
+
+### fix-todo
+
+Renumber a todo file's `## Todo` and `## Bugs` sections to
+`1..N` and normalize each entry's continuation-line indent.
+Dry-run by default — prints each changed entry's corrected
+line so the output is the result; `--no-dry-run` writes the
+file in place. Replaces the interim `notes/fix-todo.py`.
+
+```
+# Dry-run: print the corrected lines
+vc-x1 fix-todo
+
+# Renumber the file in place
+vc-x1 fix-todo --no-dry-run
+
+# Operate on a specific file
+vc-x1 fix-todo path/to/todo.md
+```
+
+| Flag | Description |
+|------|-------------|
+| `--no-dry-run` | Write the renumbered file in place [default: dry-run] |
 
 ### clone
 

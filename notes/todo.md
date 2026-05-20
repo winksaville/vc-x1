@@ -3,12 +3,9 @@
 This file contains near term tasks with a short description
 and reference links to more details.
 
-Intro paragraphs in `## Todo` and `## Bugs` below begin every
-line with exactly 1 leading space so they don't accidentally match
-the renumber script's entry regex (`^\d+\.\s`). Minimum is the
-principled choice — the convention's job is to dodge the
-column-0 anchor, not to add visual emphasis. See
-`notes/fix-todo.py`.
+Intro paragraphs in `## Todo` and `## Bugs` should begin every
+line with 1 leading space so they don't match the `^\d+\. `
+pattern that locates numbered entries; 2 or 3 spaces also work.
 
 ## In Progress
 
@@ -24,7 +21,7 @@ A bulleted list of the in-progress task's development "ladder":
 - 0.55.0-1 add validate-todo subcommand (todo_helpers.rs +
   validate_todo.rs) (done)
 - 0.55.0-2 add fix-todo subcommand; delete notes/fix-todo.py;
-  docs sweep
+  docs sweep (done)
 - 0.55.0 close-out; renumber todo.md with fix-todo (dogfood)
 
 ## Todo
@@ -268,6 +265,11 @@ A bulleted list of the in-progress task's development "ladder":
     env is the realistic surface for tests; for the
     `vc-x1` binary itself a flag is feasible but unclear
     it adds value over the resolution chain.
+45. **`validate-todo` / `fix-todo`: flag malformed lines.**
+    A column-0 line inside `## Todo` / `## Bugs` that is
+    neither an entry (`N. `) nor a heading is malformed;
+    it's currently tolerated silently. Report it so stray
+    lines / typos surface.
 
 ## Bugs
 

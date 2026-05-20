@@ -797,6 +797,8 @@ outcomes at any step boundary:
 
 ## feat: add validate-todo subcommand (0.55.0-1)
 
+Commits: [[14]]
+
 First step of the cycle: `validate-todo` and its shared
 core `todo_helpers`. `fix-todo` (0.55.0-2) reuses the same
 core.
@@ -819,6 +821,39 @@ core.
 Docs (README / ARCHITECTURE) for both subcommands land
 together in the 0.55.0-2 sweep.
 
+## feat: add fix-todo subcommand (0.55.0-2)
+
+Second step: `fix-todo`, the rewrite half of the pair, plus
+the cycle's docs sweep. `fix-todo` renumbers `## Todo` /
+`## Bugs` to `1..N` and normalizes continuation indent —
+dry-run by default (printing each changed entry's corrected
+line), `--no-dry-run` writes.
+
+- `todo_helpers::analyze` grew to also return `fixed`, the
+  fully renumbered / re-indented file content, so `fix-todo`
+  writes one assembled result; it round-trips an
+  already-correct file byte-for-byte.
+- `validate-todo` and `fix-todo` print an identical
+  per-entry line, `<corrected line>  [line: …]`. The tag
+  builder `change_tag` moved into `todo_helpers` as a shared
+  helper; this also de-noised `validate-todo`, which had
+  spelled out `number X → Y` against a truncated original.
+- `notes/fix-todo.py` deleted — the Rust pair replaces it.
+  Docs sweep: root `README.md`, `ARCHITECTURE.md` module
+  map, `notes/README.md`'s stale lazy-numbering text, and
+  the `notes/todo.md` intro.
+
+### Column-0 lines
+
+`fix-todo` measures an entry's continuation base indent as
+the minimum non-blank continuation indent. A line at column
+0 — neither an entry (`N. `) nor a heading, so malformed —
+would make that minimum 0 and shift the whole block by the
+prefix width. A list continuation must be indented, so
+column-0 lines are dropped from the measurement and passed
+through untouched. Flagging them as malformed input is a
+separate follow-up captured in `## Todo`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -834,3 +869,4 @@ together in the 0.55.0-2 sweep.
 [11]: https://github.com/winksaville/vc-x1/commit/e9210b3ebd8e "e9210b3ebd8e4af948f81850de1f8d44cff33e43"
 [12]: https://github.com/winksaville/vc-x1/commit/aaaeb09811be "aaaeb09811be04f5d2a426f7dd3c4120a78fdc9e"
 [13]: https://github.com/winksaville/vc-x1/commit/8524fbe0e66c "8524fbe0e66c4000b5e9e4fd2292891cbb061891"
+[14]: https://github.com/winksaville/vc-x1/commit/607cba52cff8 "607cba52cff8c2094ee714088781698a66018347"

@@ -49,15 +49,19 @@ Bot-facing workflow, versioning, and code conventions live in
 
 ## Todo format
 
-Todo.md contains two main sections "Todo" and "Done" each item is a
-short explanations of a tasks and links to more details using 1 or more
-references.
+Todo.md is organized into `## In Progress`, `## Todo`, `## Bugs`,
+and `## Done` sections; each item is a short description with
+reference links to more detail.
 
-Todo items use lazy numbering — every entry begins with `1. ` and the
-markdown renderer auto-numbers them. Reorder or insert items without
-renumbering, and reference an entry by its displayed number ("let's
-work on #3"). The Done section keeps `-` bullets — items aren't
-referenced by number once completed.
+`## Todo` and `## Bugs` entries are manually numbered (`1.`
+`2.` … in document order) so the index is readable in the raw
+markdown source. Inserting, deleting, or reordering an entry
+renumbers the ones below it — `vc-x1 fix-todo` does that
+renumbering (and normalizes continuation-line indent), and
+`vc-x1 validate-todo` checks it. Reference an entry by its
+displayed number ("let's work on #3"). The `## Done` section
+keeps `-` bullets — items aren't referenced by number once
+completed.
 
 Reference citations are **double-bracketed** — `[[1]]`, or
 `[[2]],[[3]]` for several — so the brackets show when rendered

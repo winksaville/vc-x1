@@ -7,6 +7,7 @@ mod desc;
 mod desc_helpers;
 mod finalize;
 mod fix_desc;
+mod fix_todo;
 mod init;
 mod list;
 mod logging;
@@ -158,6 +159,16 @@ pub(crate) enum Commands {
         `fix-todo` to rewrite."
     )]
     ValidateTodo(validate_todo::ValidateTodoArgs),
+
+    /// Renumber todo-file entries (dry-run by default)
+    #[command(
+        long_about = "Renumber a todo file's `## Todo` and `## Bugs` sections.\n\n\
+        Renumbers each section 1..N in document order and normalizes\n\
+        continuation-line indent to the number-prefix width. Dry-run\n\
+        by default — prints each changed entry's corrected line; pass\n\
+        --no-dry-run to write the file in place."
+    )]
+    FixTodo(fix_todo::FixTodoArgs),
 
     /// Clone a dual-repo project
     Clone(clone::CloneArgs),
@@ -376,6 +387,7 @@ fn main() -> ExitCode {
         Commands::ValidateDesc(args) => args.dispatch(&ctx),
         Commands::FixDesc(args) => args.dispatch(&ctx),
         Commands::ValidateTodo(args) => args.dispatch(&ctx),
+        Commands::FixTodo(args) => args.dispatch(&ctx),
         Commands::Clone(args) => args.dispatch(&ctx),
         Commands::Init(args) => args.dispatch(&ctx),
         Commands::Symlink(args) => args.dispatch(&ctx),

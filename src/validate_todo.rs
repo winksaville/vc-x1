@@ -55,19 +55,6 @@ impl SubcommandRunner for ValidateTodoArgs {
     }
 }
 
-/// Truncate `line` to a single-line snippet for the report,
-/// counting by `char` so a multi-byte character is never split.
-fn snippet(line: &str) -> String {
-    const MAX: usize = 56;
-    let chars: Vec<char> = line.chars().collect();
-    if chars.len() <= MAX {
-        line.to_string()
-    } else {
-        let head: String = chars[..MAX].iter().collect();
-        format!("{head}…")
-    }
-}
-
 /// Run the `validate-todo` subcommand: scan the todo file and
 /// report each `## Todo` / `## Bugs` entry whose number or
 /// continuation indent is off; errors if any are found.
@@ -93,64 +80,33 @@ pub fn validate_todo(
             info!("{}", c.section.header());
             last_section = Some(c.section);
         }
-        let mut parts: Vec<String> = Vec::new();
-        if c.num_old != c.num_new {
-            parts.push(format!("number {} → {}", c.num_old, c.num_new));
-        }
-        if let (Some(o), Some(n)) = (c.indent_old, c.indent_new)
-            && o != n
-        {
-            parts.push(format!("indent {o} → {n}"));
-        }
-        info!(
-            "  line {}: {} — {}",
-            c.line_no,
-            parts.join(", "),
-            snippet(&c.first_line)
-        );
+        info!("  {}  {}", c.new_first_line, todo_helpers::change_tag(c));
     }
 
     info!("");
     let total = analysis.todo_count + analysis.bugs_count;
-    if analysis.changes.is_empty() {
+    let n = analysis.changes.len();
+    if n == 0 {
         info!(
-            "{total} entries checked ({} Todo, {} Bugs) — all sequential",
-            analysis.todo_count, analysis.bugs_count
+            "{total} {} checked ({} Todo, {} Bugs) — all sequential",
+            todo_helpers::entry_word(total),
+            analysis.todo_count,
+            analysis.bugs_count
         );
         debug!("validate-todo: exit");
         Ok(())
     } else {
         info!(
-            "{total} entries checked ({} Todo, {} Bugs) — {} need fixing",
+            "{total} {} checked ({} Todo, {} Bugs) — {n} to fix",
+            todo_helpers::entry_word(total),
             analysis.todo_count,
-            analysis.bugs_count,
-            analysis.changes.len()
+            analysis.bugs_count
         );
         debug!("validate-todo: exit with issues");
         Err(format!(
-            "{} todo entry/entries need fixing — run `vc-x1 fix-todo`",
-            analysis.changes.len()
+            "{n} todo {} to fix — run `vc-x1 fix-todo`",
+            todo_helpers::entry_word(n)
         )
         .into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A line within the limit is returned unchanged.
-    #[test]
-    fn snippet_keeps_short_lines() {
-        assert_eq!(snippet("1. short entry"), "1. short entry");
-    }
-
-    /// A long line is cut on a `char` boundary and gets an
-    /// ellipsis — 56 chars plus `…`.
-    #[test]
-    fn snippet_truncates_on_char_boundary() {
-        let s = snippet(&"→".repeat(100));
-        assert_eq!(s.chars().count(), 57);
-        assert!(s.ends_with('…'));
     }
 }

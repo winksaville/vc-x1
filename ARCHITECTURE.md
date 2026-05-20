@@ -125,7 +125,8 @@ per-subcommand refactor status):
 `XxxArgs` (`#[derive(Args)]`, composing `options_flags/` leaves
 where one exists) and the entrypoint `pub fn x(...)`. Modules:
 `chid`, `desc` (+ `desc_helpers`), `list`, `show`,
-`validate_desc`, `fix_desc`, `clone`, `init` (+ `init/params`),
+`validate_desc`, `fix_desc`, `validate_todo` / `fix_todo`
+(+ `todo_helpers`), `clone`, `init` (+ `init/params`),
 `symlink`, `sync`, `finalize`, `push` (a resumable state
 machine). Which ones have ported to `(ctx, params)` and which
 compose `options_flags/` leaves: `notes/chores/chores-*.md` +
@@ -169,9 +170,9 @@ Adding a subcommand `x`:
 `pub fn x(ctx: &Context, params: &XxxParams)`, with an
 `XxxParams` flat struct + a `From` (or `TryFrom`, if the
 conversion is fallible) at the binary edge. `init` (0.44.0)
-is the worked example; complete across all 12 current
-subcommands as of 0.49.0, and the shape new subcommands
-follow. Out of scope until a real consumer surfaces: typed
+is the worked example; complete across all subcommands as of
+0.49.0, and the shape new subcommands follow. Out of scope
+until a real consumer surfaces: typed
 errors, returned-outcomes-vs-`println!`, `ProgressSink`,
 `Context` fields beyond `UserConfig` + `--log`. Per-subcommand
 status: `notes/chores/chores-*.md` (the "Refactor tracking" section).
