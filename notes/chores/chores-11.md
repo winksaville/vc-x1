@@ -858,6 +858,8 @@ separate follow-up captured in `## Todo`.
 
 ## feat: validate-todo + fix-todo (0.55.0)
 
+Commits: [[16]]
+
 Cycle close-out. The `validate-todo` / `fix-todo` subcommand
 pair — a Rust replacement for `notes/fix-todo.py` — is in:
 `validate-todo` checks `## Todo` / `## Bugs` numbering and
@@ -896,6 +898,40 @@ Dropping `## Todo` item 1 and renumbering was done with
 `vc-x1 fix-todo --no-dry-run` — the cycle's own tool on its
 own backlog, and the close-out dogfood.
 
+## docs: codify In-Progress pickup workflow (0.56.0)
+
+Captured from `## Todo` item 1 — the move-into-`## In
+Progress` workflow the `0.55.0` close-out queued. Mirrored
+here from `## In Progress` so the cycle stays readable
+after that section is cleared at close-out (the capture is
+itself the rule being codified).
+
+- On pickup, move the `## Todo` item's text into
+  `## In Progress` so the section is self-describing (not
+  a bare ladder).
+- Also capture it in the chores opener so the history
+  is readable without `git` spelunking.
+- At close-out completely remove the item from "In Progress".
+- Add a one liner to `## Done` and a reference to the
+  chores entry.
+
+Implementation: CLAUDE.md's `### Versioning` section
+currently says a pickup "**deletes that `## Todo` entry
+in the same commit**" — change that rule to *move* the
+entry's text into `## In Progress` instead, and sweep the
+section's other `## In Progress` / `## Todo` mentions to
+match the new shape.
+
+Plan — 3 sub-steps squashed into one `0.56.0` commit:
+
+- 0.56.0-0 chores opener + populate `## In Progress` +
+  version bump
+- 0.56.0-1 rewrite CLAUDE.md `### Versioning` + checklist
+  sweep
+- 0.56.0-2 close-out: clear `## In Progress`, add `## Done`
+  entry
+- 0.56.0 squash sub-steps → single commit, push
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -913,3 +949,4 @@ own backlog, and the close-out dogfood.
 [13]: https://github.com/winksaville/vc-x1/commit/8524fbe0e66c "8524fbe0e66c4000b5e9e4fd2292891cbb061891"
 [14]: https://github.com/winksaville/vc-x1/commit/607cba52cff8 "607cba52cff8c2094ee714088781698a66018347"
 [15]: https://github.com/winksaville/vc-x1/commit/65816b8ba212 "65816b8ba21208494d82f6deb9630489ac80099b"
+[16]: https://github.com/winksaville/vc-x1/commit/95ef1987a65a "95ef1987a65a37e7cea336871eb748661bc32185"
