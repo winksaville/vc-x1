@@ -303,7 +303,7 @@ Renumber a todo file's `## Todo` and `## Bugs` sections to
 `1..N` and normalize each entry's continuation-line indent.
 Dry-run by default — prints each changed entry's corrected
 line so the output is the result; `--no-dry-run` writes the
-file in place. Replaces the interim `notes/fix-todo.py`.
+file in place.
 
 ```
 # Dry-run: print the corrected lines

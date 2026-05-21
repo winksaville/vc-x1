@@ -15,14 +15,7 @@ A bulleted list of the in-progress task's development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-[Current in progress](#current-in-progress)
-
-- 0.55.0-0 plan + version bump + chores opener (done)
-- 0.55.0-1 add validate-todo subcommand (todo_helpers.rs +
-  validate_todo.rs) (done)
-- 0.55.0-2 add fix-todo subcommand; delete notes/fix-todo.py;
-  docs sweep (done)
-- 0.55.0 close-out; renumber todo.md with fix-todo (dogfood)
+_No cycle currently in progress._
 
 ## Todo
 
@@ -31,21 +24,23 @@ A bulleted list of the in-progress task's development "ladder":
  Detailed motivation, safety requirements, and ordering belong
  in `notes/chores/chores-NN.md` design subsections; link via `[N]` ref.
 
- Entries are manually numbered (`1.` `2.` …) so the index is
- readable in the raw markdown source. Reorder/insert renumbers the
- entries below — accept the diff churn in exchange for being
- able to count without rendering. Reference by entry number
- ("let's work on #3"). Continuation lines under a two-digit
- entry indent 4 spaces (under `NN. `) rather than 3.
+ Entries carry explicit `1.` `2.` … numbers in the source so
+ you can grep, count, and reference them ("let's work on
+ #3"). You don't hand-maintain the numbers — insert, delete,
+ or reorder entries freely, then `vc-x1 fix-todo --no-dry-run`
+ renumbers the list and normalizes continuation-line indent.
+ `vc-x1 fix-todo` alone only previews; `vc-x1 validate-todo`
+ is the read-only check.
 
-### Current In Progress
-1. **`vc-x1 fix-todo` / `validate-todo` subcommands.** Parallel
-   shape to `validate-desc` / `fix-desc` (check vs rewrite).
-   Renumber `## Todo` and `## Bugs` entries in `notes/todo.md`,
-   normalize continuation-line indent to match prefix width.
-   Rust replacement for the interim `notes/fix-todo.py`.
-   Belongs in the broader "notes/repo hygiene" wave alongside
-   `validate-repo` ([[19]]).
+1. **Codify the move-into-`## In Progress` workflow.**
+   On pickup, move the `## Todo` item's text into
+   `## In Progress` so the section is self-describing (not
+   a bare ladder), and capture it in the chores opener so
+   the history is readable without `git` spelunking; at
+   close-out remove it and add the `## Done` one-liner.
+   Supersedes the plain delete-on-pickup rule the 0.55.0
+   close-out reverted to — CLAUDE.md Versioning + checklist
+   + the `## In Progress` format.
 2. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
@@ -318,6 +313,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[2]]
 - todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[3]]
 - scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[30]]
+- validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[31]]
 
 # References
 
@@ -351,3 +347,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [28]: /notes/chores/chores-02.md#testing-results
 [29]: /notes/chores/chores-02.md#shell-completion-discovery
 [30]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
+[31]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550

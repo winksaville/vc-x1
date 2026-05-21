@@ -185,6 +185,11 @@ proposing the commit block. Changes during review are the norm,
 not the exception; proposing commit text too early creates noise
 and signals that I consider the work done when it usually isn't.
 
+Reviewing a unit of work typically takes a few loops before the
+user and I agree it is right. The commit title and body are
+drafted only *after* that agreement — they are a separate step,
+never bundled into the same message as the work summary.
+
 This applies per-step in a multi-step flow too — each step gets a
 review pause before its commit block appears.
 
@@ -271,18 +276,13 @@ The plan should recommend one approach and get user approval before
 starting.
 
 A plan that picks up a `## Todo` item — or *re-scopes* an
-existing `## In Progress` ladder to absorb one — **keeps that
-`## Todo` entry**: it stays in `## Todo` under a
-`### Current In Progress` heading placed immediately above it,
-and the `## In Progress` ladder links to it via
-`[Current in progress](#current-in-progress)` (the heading
-text is fixed, so that anchor is stable across cycles). The
-`## Todo` entry carries the task description; `## In Progress`
-carries only the ladder — neither duplicates the other. A
-cycle that absorbs several entangled `## Todo` items groups
-them all under the heading. At close-out the entry moves to
-`## Done` and the `### Current In Progress` heading is
-removed.
+existing `## In Progress` ladder to absorb one — **deletes that
+`## Todo` entry in the same commit** (the version-bump / plan
+commit). `## In Progress` is the sole record of that work until
+close-out, when it moves to `## Done`; a cycle that merges
+several entangled `## Todo` items deletes all of them. A `## Todo`
+entry that duplicates current `## In Progress` work is a process
+bug.
 
 For multi-step:
 
@@ -437,8 +437,7 @@ previous chores section's `Commits:` ref with the just-pushed
 commit's URL + full SHA — see
 [Chores commit references](#chores-commit-references); (b) if
 this cycle picks up a `## Todo` item (or re-scopes `## In
-Progress` to absorb one), keep that `## Todo` entry and put a
-`### Current In Progress` heading above it — see
+Progress` to absorb one), delete that `## Todo` entry — see
 [Versioning](#versioning).
 
 Before proposing a commit, run all of the following and fix any issues:
@@ -457,10 +456,8 @@ Before proposing a commit, run all of the following and fix any issues:
    should reflect the new state. (The next step's `(current)`
    marker is set later, at the *start* of that step — see the
    Versioning multi-step section.)
-7. Update `notes/todo.md` — at cycle close-out (final
-   commit): move the `### Current In Progress` task from
-   `## Todo` into `## Done`, drop that heading, clear the
-   `## In Progress` ladder, then renumber `## Todo`.
+7. Update `notes/todo.md` — at cycle close-out (final commit),
+   move the entry from `## In Progress` to `## Done`.
 8. Update `notes/chores/chores-*.md` — add a section (header =
    provisional commit title; intro paragraph + any `###` design
    subsections; **no** per-file edit list — that's the commit

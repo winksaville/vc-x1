@@ -53,15 +53,15 @@ Todo.md is organized into `## In Progress`, `## Todo`, `## Bugs`,
 and `## Done` sections; each item is a short description with
 reference links to more detail.
 
-`## Todo` and `## Bugs` entries are manually numbered (`1.`
-`2.` … in document order) so the index is readable in the raw
-markdown source. Inserting, deleting, or reordering an entry
-renumbers the ones below it — `vc-x1 fix-todo` does that
-renumbering (and normalizes continuation-line indent), and
-`vc-x1 validate-todo` checks it. Reference an entry by its
-displayed number ("let's work on #3"). The `## Done` section
-keeps `-` bullets — items aren't referenced by number once
-completed.
+`## Todo` and `## Bugs` entries carry explicit `1.` `2.` …
+numbers in the source so you can grep, count, and reference
+them ("let's work on #3"). You don't hand-maintain the
+numbers — insert, delete, or reorder entries freely, then
+`vc-x1 fix-todo --no-dry-run` renumbers the list and
+normalizes continuation-line indent. `vc-x1 fix-todo` alone
+only previews; `vc-x1 validate-todo` is the read-only check.
+The `## Done` section keeps `-` bullets — items aren't
+referenced by number once completed.
 
 Reference citations are **double-bracketed** — `[[1]]`, or
 `[[2]],[[3]]` for several — so the brackets show when rendered

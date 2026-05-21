@@ -823,6 +823,8 @@ together in the 0.55.0-2 sweep.
 
 ## feat: add fix-todo subcommand (0.55.0-2)
 
+Commits: [[15]]
+
 Second step: `fix-todo`, the rewrite half of the pair, plus
 the cycle's docs sweep. `fix-todo` renumbers `## Todo` /
 `## Bugs` to `1..N` and normalizes continuation indent —
@@ -854,6 +856,46 @@ column-0 lines are dropped from the measurement and passed
 through untouched. Flagging them as malformed input is a
 separate follow-up captured in `## Todo`.
 
+## feat: validate-todo + fix-todo (0.55.0)
+
+Cycle close-out. The `validate-todo` / `fix-todo` subcommand
+pair — a Rust replacement for `notes/fix-todo.py` — is in:
+`validate-todo` checks `## Todo` / `## Bugs` numbering and
+continuation indent, `fix-todo` renumbers and re-indents
+(dry-run by default). Both share the `todo_helpers` core and
+print an identical per-entry report line.
+
+### As-built ladder
+
+- 0.55.0-0 plan + version bump + chores opener
+- 0.55.0-1 add validate-todo subcommand + todo_helpers
+- 0.55.0-2 add fix-todo subcommand; docs sweep; delete
+  notes/fix-todo.py
+- 0.55.0 close-out
+
+### Outcome
+
+Two subcommands and a docs sweep over three steps, no
+evaluation-gate detours — the subcommand work landed as
+planned.
+
+The one reversal was the opener's workflow experiment.
+`0.55.0-0`'s `### Keeping the active task in ## Todo`
+switched CLAUDE.md from delete-on-pickup to a keep-#1 model
+(the picked-up `## Todo` entry stays under a `### Current In
+Progress` heading, linked from `## In Progress`). It did its
+job — the active task stayed visible in `## Todo` for easy
+dogfooding mid-cycle — but at close-out the user judged it
+not worth keeping. This commit reverts CLAUDE.md to plain
+delete-on-pickup. A refined idea — move the picked-up entry
+*into* `## In Progress` (self-describing, no heading hack)
+and capture it in the chores opener — is queued as a
+`## Todo` item for a later cycle.
+
+Dropping `## Todo` item 1 and renumbering was done with
+`vc-x1 fix-todo --no-dry-run` — the cycle's own tool on its
+own backlog, and the close-out dogfood.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -870,3 +912,4 @@ separate follow-up captured in `## Todo`.
 [12]: https://github.com/winksaville/vc-x1/commit/aaaeb09811be "aaaeb09811be04f5d2a426f7dd3c4120a78fdc9e"
 [13]: https://github.com/winksaville/vc-x1/commit/8524fbe0e66c "8524fbe0e66c4000b5e9e4fd2292891cbb061891"
 [14]: https://github.com/winksaville/vc-x1/commit/607cba52cff8 "607cba52cff8c2094ee714088781698a66018347"
+[15]: https://github.com/winksaville/vc-x1/commit/65816b8ba212 "65816b8ba21208494d82f6deb9630489ac80099b"
