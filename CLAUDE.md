@@ -66,32 +66,6 @@ because Y caches better"), a cause ("the drift was due to thermal
 state"), a prediction ("this should scale linearly"), or any
 reasoning not directly supported by the data on hand.
 
-## Committing
-
-Use `-R` (`--repository`) at the end to target the correct repo. Use
-relative paths to reduce noise. Putting `-R` last keeps the verb/action
-visible at the start of the command.
-
-### App repo
-```
-jj commit -m \
-"title" \
--m "body
-
-ochid: /.claude/<changeID>" \
--R .
-```
-
-### Bot session repo
-```
-jj commit -m \
-"title" \
--m "body
-
-ochid: /<changeID>" \
--R .claude
-```
-
 ## jj Basics
 
 - `jj st -R .` / `jj st -R .claude` — show working copy status
@@ -119,7 +93,7 @@ Surfaces that use this shape:
   see [Doc comments](#doc-comments-on-every-file-function-and-method).
 - Commit message bodies (both app-repo and session-repo). The
   ≤50-col title is the commit-specific add-on; see
-  [Commit Message Style](#commit-message-style).
+  [Per-commit flow](#per-commit-flow).
 - Chore descriptions in `notes/chores/chores-NN.md` — see
   [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
 - Todo and Done entries in `notes/todo.md` when an entry needs more
@@ -138,52 +112,7 @@ Bullet *content* differs by surface:
 - **Doc comments** — bullets are whatever structure fits (fields,
   cases, invariants).
 
-## Commit Message Style
-
-Use [Conventional Commits](https://www.conventionalcommits.org/) with
-a version suffix:
-
-```
-<type>: <short description> (<version>)
-```
-
-- **Title**: ≤50 chars (the "50" of the git 50/72 rule), a short
-  summary of *what* changed. The version suffix counts toward the
-  50 — the descriptive part gets whatever's left after `<type>: `
-  and ` (<version>)`, so favor terse phrasings (`port X to Context`
-  over `X → Context + XParams`) when the names run long. Common
-  types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
-- **Body**: [Prose form](#prose-form) shape (intro + bullets), wrap
-  ≤72 (the "72" of the 50/72 rule). App-repo bullets are
-  **file-by-file** — one bullet per file changed, file plus a
-  one-line gist. This list **is the source of truth** for the
-  cycle's mechanical change record; chores carries the narrative +
-  design, not a copy of it. Promote any "why" beyond one sentence
-  to a chores `###` subsection rather than expanding the intro.
-- **Session-repo body**: same shape; bullets describe in-session
-  activity rather than code changes.
-- Examples:
-  - `feat: add fix-ochid subcommand (0.22.0)`
-  - `fix: fix-ochid prefix bug (0.22.1)`
-  - `refactor: deduplicate common CLI flags (0.21.1)`
-
 ## Pre-commit Requirements
-
-### User approval
-
-Local jj commits are mutable, so the bot commits and squashes
-**freely** under the [commit-first review
-model](#commit-first-review-model) — no approval gate before a
-commit; review happens *after* each commit on the committed
-revision (with deviation / question / ESC-ESC as the
-overrides).
-
-**push and finalize cross the local→remote boundary and
-require explicit user approval** — the two-gate ceremony
-(review + message). Never run `vc-x1 push`, `jj git push`, or
-`vc-x1 finalize` without it. A late squash into an
-already-pushed commit (`jj squash --ignore-immutable`) is a
-remote rewrite and needs approval too.
 
 ### Notes references
 
@@ -206,107 +135,13 @@ publishes no official spec for auto-generated anchors; the
 de-facto reference implementation is
 [github-slugger](https://github.com/Flet/github-slugger).
 
-### Versioning
-
-Every plan starts with a version bump, and runs as one
-**cycle** with three phases:
-
-- **Preparation** — bump the version; populate `## In
-  Progress` with the cycle's overview and plan (moving in a
-  `## Todo` item if the cycle picks one up); open the chores
-  section.
-- **Work-N** — the implementation, in one or more commits.
-- **Close-out** — move the `## In Progress` item to a
-  `## Done` one-liner; finalize the chores section.
-
-There is one protocol — this. "Single-step" / "multi-step"
-are no longer separate protocols; a small change is just a
-cycle with few Work commits.
-
-**Pickup and close-out.** A plan that picks up a `## Todo`
-item — or *re-scopes* an existing `## In Progress` ladder to
-absorb one — **moves that entry into `## In Progress`** in
-the Preparation commit:
-
-- **Pickup:** the entry's text moves out of `## Todo` and
-  into `## In Progress` — its overview and to-do list,
-  followed by the plan ladder — so the section is
-  self-describing, not a bare ladder. The chores opener
-  **mirrors** that content so the cycle stays readable once
-  `## In Progress` is cleared.
-- **Close-out:** the item is removed from `## In Progress`
-  and a one-line entry (with a chores `[N]` ref) is added to
-  `## Done`.
-
-`## In Progress` is the sole live record of the work between
-those points; the chores opener is the durable capture. A
-cycle that merges several entangled `## Todo` items moves
-all of them. A `## Todo` entry that duplicates current
-`## In Progress` work is a process bug.
-
-**Numbering.** The version suffix carries the phase, with
-one separator — `.` — at every depth (semver mandates `-`
-once at the start of the prerelease, then `.` for each level
-after):
-
-- `X.Y.Z-0` — Preparation
-- `X.Y.Z-1`, `X.Y.Z-2`, … — Work commits
-- `X.Y.Z` — Close-out (bare version, no suffix)
-
-A **trailing `0` identifier marks a Preparation**, and the
-rule nests to any depth: when a Work commit needs
-subdividing into its own sub-cycle, append another level —
-`X.Y.Z-3.0` (Preparation of the `-3` sub-cycle), `X.Y.Z-3.1`
-/ `X.Y.Z-3.2` (its Work), `X.Y.Z-3` (its Close-out),
-`X.Y.Z-3.1.0` (Preparation of the `-3.1` sub-sub-cycle), and
-so on. A sub-cycle needing no Preparation just omits the
-`.0` (`-3.1`, `-3.2`, `-3`); one that grows a Preparation
-later adds `-3.0` with no renumbering of siblings.
-
-Each commit carries its phase version in its title **and**
-`Cargo.toml` — bump `Cargo.toml` at the start of each phase,
-so `vc-x1 -V` shows the active phase at build time.
-
-**Ordering caveat.** The one ordering guarantee semver gives
-is that the bare `X.Y.Z` close-out outranks every `X.Y.Z-…`
-dev version. Within the ladder it does *not* hold for nested
-close-outs — `X.Y.Z-3` sorts *before* its children
-`X.Y.Z-3.0` / `X.Y.Z-3.1`, because a prefix always precedes
-its extensions. Cosmetic — nothing depends on within-ladder
-order — but don't claim monotonicity.
-
-**Why numeric suffixes** (`-0`, `-1`, …) rather than
-`-devN`: semver pre-release identifiers compare per spec and
-Cargo accepts them. `-dev` adds no information the git log
-doesn't carry and doubles typing per commit. The final
-close-out commit (bare `X.Y.Z`) signals completion rather
-than amending prior commits — history stays readable,
-exploratory vs final commits obvious.
-
-**push and squash are discretionary.** A cycle's commits
-accumulate locally; **push** and **squash** are not modes
-fixed at cycle start but actions taken when wanted:
-
-- **push** — to back up work or to publish interim
-  progress. Interim pushes are a judgement call; the
-  **close-out push is mandatory** — a finished cycle must be
-  published.
-- **squash** — to tidy history, typically collapsing the
-  cycle's commits into one before a publishing push. Whether
-  to squash is decided at close-out, not cycle start.
-
-The cycle *mechanics* — per-commit cargo cycle, the
-commit-first review model, ochid trailers, `.claude`
-cadence, the squash recipe, reviewing committed work — are
-in [Cycle Protocol](#cycle-protocol).
-
 ### Headings and entries that record a commit
 
 A `chores-NN.md` `##` section header that records a specific
 commit, the matching `todo.md > ## Done` entry, and any `[N]`
 reference to that section all use **exactly that commit's
 title** — `<type>: <desc> (<version>)`, the same string the
-commit gets (see [Commit Message Style](#commit-message-style)).
+commit gets (see [Per-commit flow](#per-commit-flow)).
 E.g. the chores header `## refactor: port push to Context
 (0.48.0-6)` and the Done line `- refactor: port push to Context
 (0.48.0-6) [[3]]`. The `## Done` entry uses the close-out
@@ -402,107 +237,140 @@ newest section is briefly `Commits:`-less; that's fine — the
 commit itself is the record, and `git log --grep "(X.Y.Z)"`
 finds it.
 
-### Pre-commit checklist
-
-At cycle *start* (before the version bump): (a) backfill the
-previous chores section's `Commits:` ref with the just-pushed
-commit's URL + full SHA — see
-[Chores commit references](#chores-commit-references); (b) if
-this cycle picks up a `## Todo` item (or re-scopes `## In
-Progress` to absorb one), move that `## Todo` entry's text
-into `## In Progress` and mirror it in the chores opener —
-see [Versioning](#versioning).
-
-Before each commit, run all of the following and fix any issues:
-
-1. `cargo fmt`
-2. `cargo clippy`
-3. `cargo test`
-4. `cargo install --path . --locked` (if applicable) — `--locked`
-   is required: without it, `cargo install` ignores `Cargo.lock`
-   and re-resolves from scratch, which can pick incompatible
-   versions even when `cargo build` / `cargo test` succeed.
-5. Retest after install
-6. Update `notes/todo.md` — flip the just-completed commit's
-   ladder marker `(current)` → `(done)` **before** the commit
-   (see [todo.md status flips](#todomd-status-flips)). The
-   next commit's `(current)` marker is set at its start.
-7. Update `notes/todo.md` — at cycle close-out (final commit),
-   remove the picked-up item from `## In Progress` and add a
-   one-line entry (with a chores `[N]` ref) to `## Done`.
-8. Update `notes/chores/chores-*.md` — add a section (header =
-   provisional commit title; intro paragraph + any `###` design
-   subsections; **no** per-file edit list — that's the commit
-   body).
-9. Sync the chores section header to the **final** commit title
-   and update every markdown anchor back-reference to it.
-10. Update `notes/README.md` — if functionality changed (new
-    flags, new subcommands, changed behavior).
-
 ## Cycle Protocol
 
-The cycle — Preparation / Work-N / Close-out, with the
-numbering and nesting defined in [Versioning](#versioning) —
-runs by the mechanics below. They apply to every commit of
-the cycle, at any nesting depth.
+Every change runs as a **cycle**: Preparation → Work-N →
+Close-out. One protocol; push and squash are actions you take
+when wanted, not modes chosen up front. The mechanics below
+run in the order they happen.
 
-[`notes/substep-protocol.md`](notes/substep-protocol.md) is a
-longer-form companion (the validated close-out squash recipe,
-recovery); it predates this rewrite and still uses the old
-"sub-step" vocabulary — reconciling it is a follow-up. Revset
-primitives the protocol leans on (`@`, `@-`, `..`, `::`,
-prefix matching) are in
-[`notes/jj-revsets.md`](notes/jj-revsets.md).
+### Numbering
 
-### todo.md status flips
+The version suffix on each commit carries its phase, with one
+separator — `.` — at every depth (semver mandates `-` once at
+the start of the prerelease, then `.` for each level after):
 
-The plan ladder in `notes/todo.md > ## In Progress` carries
-`(current)` / `(done)` markers that flip on a fixed cadence:
+- `X.Y.Z-0` — Preparation
+- `X.Y.Z-1`, `X.Y.Z-2`, … — Work commits
+- `X.Y.Z` — Close-out (bare version, no suffix)
 
-- **Start of a commit:** mark its ladder entry `(current)`
-  as the first edit — before any code/doc work.
-- **End of a commit:** flip `(current)` → `(done)` **before**
-  the cargo cycle and the commit, so the commit captures the
-  completed state.
+A **trailing `0` identifier marks a Preparation**, and the
+rule nests to any depth: when a Work commit needs subdividing
+into its own sub-cycle, append another level — `X.Y.Z-3.0`
+(Preparation of the `-3` sub-cycle), `X.Y.Z-3.1` /
+`X.Y.Z-3.2` (its Work), `X.Y.Z-3` (its Close-out),
+`X.Y.Z-3.1.0` (Preparation of the `-3.1` sub-sub-cycle), and
+so on. A sub-cycle needing no Preparation just omits the `.0`
+(`-3.1`, `-3.2`, `-3`); one that grows a Preparation later
+adds `-3.0` with no renumbering of siblings.
 
-Each commit thus records "this entry is done"; the next
-commit's first edit records "next entry starts."
+Each commit carries its phase version in its title **and**
+`Cargo.toml` — bump `Cargo.toml` at the start of each phase,
+so `vc-x1 -V` shows the active phase at build time.
 
-### Pre-commit cargo cycle
+**Ordering caveat.** The one ordering guarantee semver gives
+is that the bare `X.Y.Z` close-out outranks every `X.Y.Z-…`
+dev version. Within the ladder it does *not* hold for nested
+close-outs — `X.Y.Z-3` sorts *before* its children
+`X.Y.Z-3.0` / `X.Y.Z-3.1`, because a prefix always precedes
+its extensions. Cosmetic — nothing depends on within-ladder
+order — but don't claim monotonicity.
 
-Run before every commit (not just at close-out):
+**Why numeric suffixes** (`-0`, `-1`, …) rather than `-devN`:
+semver pre-release identifiers compare per spec and Cargo
+accepts them. `-dev` adds no information the git log doesn't
+carry and doubles typing per commit. The final close-out
+commit (bare `X.Y.Z`) signals completion rather than amending
+prior commits — history stays readable, exploratory vs final
+commits obvious.
 
-1. `cargo fmt`
-2. `cargo clippy --all-targets -- -D warnings`
-3. `cargo test`
-4. `cargo install --path . --locked`
-5. (re-test if anything substantive changed)
+### Preparation
 
-Keeps every commit buildable, so bisection works across the
-cycle's stack.
+The cycle's first commit (`X.Y.Z-0`):
 
-### Commit-first review model
+- **Backfill the previous cycle's chores `Commits:` ref.**
+  Grab the just-pushed commit's URL + full SHA, fill in the
+  newest chores section that was left `Commits:`-less. See
+  [Chores commit references](#chores-commit-references).
+- **Bump the version** in `Cargo.toml` to `X.Y.Z-0`.
+- **Pick up a `## Todo` item** (if the cycle has one). Move
+  that entry's text out of `## Todo` and into `## In
+  Progress` — its overview and to-do list, followed by the
+  plan ladder — so `## In Progress` is self-describing, not
+  a bare ladder. A cycle that merges several entangled
+  `## Todo` items moves all of them. A `## Todo` entry that
+  duplicates current `## In Progress` work is a process bug.
+- **Open the chores section.** Header = provisional commit
+  title; intro that **mirrors** the `## In Progress` content
+  so the cycle stays readable once `## In Progress` is
+  cleared at close-out; any `###` design subsections. No
+  per-file edit list — that lives in the commit body.
 
-Review happens at each **commit** — the commit is the review
-unit. There is no per-file checkpoint and no separate
-"review before the commit block" pause. Per commit:
+### Per-commit flow
 
-1. Make the commit's changes.
-2. Run the cargo cycle.
-3. **Commit** — both repos, ochid trailers; no approval gate
-   before committing. Local jj commits are mutable, so
-   committing freely is safe.
-4. Summarize the commit briefly in chat.
-5. The user reviews the committed revision in their editor
-   (full file context — see [Reviewing committed
-   work](#reviewing-committed-work)).
-6. The user iterates if needed; the bot squashes follow-ups
-   into the commit via `jj squash --into @-` (and
-   `jj describe @-` — plus the chores header and its anchor
-   back-refs — if the title changes).
-7. The user signals to advance to the next commit.
+Every commit (Preparation, each Work commit, Close-out) goes
+through:
 
-Two things override the per-commit cadence:
+1. **Mark this commit `(current)`** as the first edit in
+   `notes/todo.md > ## In Progress`, before any code/doc
+   work.
+2. **Do the work.**
+3. **Flip this commit `(current)` → `(done)`** in `## In
+   Progress` — before the cargo cycle and the commit, so
+   the commit captures the completed state.
+4. **Cargo cycle** (skip-able for purely-docs commits; full
+   cycle mandatory at close-out):
+   1. `cargo fmt`
+   2. `cargo clippy --all-targets -- -D warnings`
+   3. `cargo test`
+   4. `cargo install --path . --locked`
+   5. (re-test if anything substantive changed)
+5. **Gate 1 — work review.** Stop *before* writing any
+   description; tell the user "ready to commit." The user
+   reviews the working-copy changes in their editor. Most
+   change requests come here — iterate until the work is
+   right.
+6. **Write the commit description.** [Conventional
+   Commits](https://www.conventionalcommits.org/) with a
+   version suffix:
+
+   ```
+   <type>: <short description> (<version>)
+   ```
+
+   - **Title**: ≤50 chars. Common types: `feat`, `fix`,
+     `refactor`, `test`, `docs`, `chore`. The version
+     suffix counts toward the 50 — favor terse phrasings.
+   - **Body**: [Prose form](#prose-form) (intro + bullets),
+     wrap ≤72. App-repo bullets are **file-by-file** — one
+     bullet per file changed, file plus a one-line gist.
+     That list is the source of truth for the cycle's
+     mechanical change record; chores carries the narrative
+     + design, not a copy of it. Promote any "why" beyond
+     one sentence to a chores `###` subsection.
+   - **`ochid:` trailer** as the last line of the body —
+     see [ochid trailers](#ochid-trailers).
+   - **Session-repo (`.claude`) body**: same shape; bullets
+     describe in-session activity rather than code changes.
+7. **Gate 2 — message review.** Show the title + body and
+   stop. The user reviews the description. Iterate.
+8. **Commit.** `jj commit -m "title" -m "body" -R .` for
+   the app repo, `-R .claude` for the bot repo (`-R` last
+   keeps the verb visible):
+
+   ```
+   jj commit -m \
+   "<type>: <short description> (<version>)" \
+   -m "<intro paragraph>
+
+   - file1: gist
+   - file2: gist
+
+   ochid: /.claude/<chid>" \
+   -R .
+   ```
+
+**Two overrides apply:**
 
 - **Deviation or question** — any time the work deviates
   from the agreed plan, or a question arises, stop and
@@ -510,112 +378,21 @@ Two things override the per-commit cadence:
 - **ESC-ESC** — the user can interrupt at any point to pull
   a review or question forward.
 
-The two-gate ceremony (review + message approval) still
-applies to the **push** — it crosses the local→remote
-boundary and warrants explicit approval.
+### Reviewing changes
 
-### Ochid trailers
-
-Every commit body carries `ochid:` trailer(s) linking it to
-its counterpart(s) in the other repo. `.claude` commits once
-per **push** (see [`.claude` cadence](#claude-cadence)), so:
-
-- **Code-side commits** each carry one
-  `ochid: /.claude/<.claude-chid>` — the `.claude`
-  working-copy change ID, stable until `.claude` is committed
-  at push time.
-- **The `.claude` commit** carries one `ochid: /<code-chid>`
-  per code commit in that push: a single trailer when one
-  code commit is pushed (the squashed case), a list when
-  several are.
-
-Use `vc-x1 chid -s code,bot -L` to capture the change IDs
-(first line app, second `.claude`). The multi-line `ochid:`
-list, and its fork / multi-user generalization, are designed
-in [`notes/forks-multi-user.md`](notes/forks-multi-user.md).
-
-### `.claude` cadence
-
-`.claude` commits **once per push**. The `.claude`
-working-copy node accumulates session data across the cycle's
-commits and is described + committed when a push happens —
-one push, one `.claude` commit, paired with every code commit
-in that push. Its change ID is stable from the first code
-commit that references it through to that `.claude` commit
-(working-copy snapshots, `jj describe`, and the finalize
-`jj commit` all preserve the change ID), so the `ochid:`
-trailers resolve across the push.
-
-This supersedes the older per-sub-step `.claude` cadence,
-which paired each sub-step commit with its own `.claude`
-commit to keep any sub-step promotable to its own push. With
-push decoupled from the commit cadence, `.claude` simply
-follows the push.
-
-**`.claude` is a linear journal — all session work lives on
-`main`.** The repo has no need for parallel feature-branch
-bookmarks to mirror app-side branches. When the app sits on
-e.g. a feature branch, `.claude` still commits to `main`.
-Cross-references between sides are carried by the `ochid:`
-trailer + commit timestamps; that's enough to associate
-session activity with whichever app-side branch the cycle was
-on.
-
-**Do not create or maintain `.claude` bookmarks that mirror
-app-side branches.** This was tried once during 0.41.1-6.7 on
-the impression that an app-side fork needed a `.claude`
-partner; the partner bookmark went unused for the cycle and
-the work landed on `.claude main` regardless. Keeping such
-bookmarks risks the bot misreading them as "this branch needs
-to advance" and steering session pushes to the wrong remote
-ref.
-
-### Cycle close-out — squash or keep separate?
-
-At close-out, two valid shapes for landing the cycle on its
-target bookmark:
-
-- **Squash to one commit** — a single entry; per-commit
-  granularity preserved only in the commit body's edit list.
-  Right when the work is one logical change with intermediate
-  validation points. **Cost:** the per-commit chores sections
-  collapse into one, whose header becomes the close-out
-  commit title, and every anchor back-ref to a now-gone
-  section gets re-pointed — real work, done as part of the
-  squash.
-- **Keep separate** — one commit per cycle entry — when the
-  decomposition is itself informative (distinct conceptual
-  stages, design progression worth showing in `git log`).
-  Used on `0.41.1-6.7` (8 commits + 1 close-out commit). Each
-  chores section keeps its own header / `Commits:` ref — no
-  consolidation churn.
-
-Pick at close-out, not at cycle start. No firm default —
-weigh the squash's chores-consolidation cost against a
-cleaner `git log`; that cost biases toward keeping separate
-unless the decomposition genuinely isn't informative.
-
-### Reviewing committed work
-
-The commit-first model assumes the reviewer can read the diff
-of an already-committed revision. Don't `jj edit -r @-` back
-into a past commit to view it — that marks the commit mutable,
-shifts the WC pointer, forces a `jj new -r <head>` recovery.
-Use one of:
-
-**Terminal (always works):**
+The two-gate model reviews **uncommitted working-copy
+changes** in your editor, on the way to commit. Zed shows
+the diff naturally; for terminal use:
 
 ```
-jj diff -r @-                  # diff of previous commit
-jj diff --from <X> --to <Y>    # diff between two arbitrary revs
-jj show -r <X>                 # description + diff for one rev
-jj log -r @-..@                # what's between two points
+jj diff                          # working-copy diff (uncommitted)
+jj diff -r @-                    # diff of the previous commit
+jj diff --from <X> --to <Y>      # any two revisions
+jj show -r <X>                   # description + diff for one rev
 ```
 
-Pipe through `delta` / `diff-so-fancy | less -R` for color and
-side-by-side.
-
-**External diff tool** — configure jj to launch your editor:
+Pipe through `delta` or `diff-so-fancy | less -R` for color
+and side-by-side. To launch your editor as the diff tool:
 
 ```
 # ~/.config/jj/config.toml
@@ -623,15 +400,161 @@ side-by-side.
 diff-editor = ["zed", "--diff", "$left", "$right"]
 ```
 
-Then `jj diff -r @-` opens the configured tool. Works for
-arbitrary `--from`/`--to` ranges.
+Then `jj diff --from X --to Y` opens it. Don't `jj edit
+-r @-` to view a past commit — that marks it mutable and
+shifts the working-copy pointer; use `jj diff -r @-` or
+`jj show -r @-`.
 
-**VS Code** — Source Control panel → Commit Graph →
-right-click commit A → "Copy Commit ID" → right-click commit
-B → "Compare with…" → paste / pick A. Two-commit diff opens
-with the changed-files list. GitLens extension adds richer
-"Open Comparison" actions; `Git: Compare with…` in the
-Command Palette is a fallback.
+[`notes/substep-protocol.md`](notes/substep-protocol.md) is
+a longer-form companion (close-out squash recipe, recovery)
+that predates this rewrite and still uses the old "sub-step"
+vocabulary — reconciling it is a follow-up. Revset
+primitives (`@`, `@-`, `..`, `::`, prefix matching) are in
+[`notes/jj-revsets.md`](notes/jj-revsets.md).
+
+### Close-out
+
+The cycle's last commit (bare `X.Y.Z`):
+
+- **Move the picked-up item** from `## In Progress` to a
+  one-line entry (with a chores `[N]` ref) in `## Done`.
+- **Finalize the chores section.** Sync the section header
+  to the **final** commit title and update every markdown
+  anchor back-reference to it; add an `### As-built ladder`
+  listing the cycle's commits; `### Outcome` notes if
+  useful.
+- **Decide squash or keep separate.** Two valid shapes:
+  - **Squash to one commit** — single entry on the target;
+    per-commit granularity preserved only in the commit
+    body's edit list. Right when the work is one logical
+    change with intermediate validation points. Cost: the
+    per-commit chores sections collapse into one (its
+    header becomes the close-out commit title), and every
+    anchor back-ref to a now-gone section gets re-pointed
+    — real work, done as part of the squash.
+  - **Keep separate** — one commit per cycle entry — when
+    the decomposition is itself informative (distinct
+    conceptual stages worth showing in `git log`). Each
+    chores section keeps its own header / `Commits:` ref;
+    no consolidation churn.
+- **Update `notes/README.md`** if functionality changed
+  (new flags, new subcommands, changed behavior).
+
+### Pushing
+
+**Push is discretionary** — done when you want to back up
+work or publish interim progress, and **always at
+close-out** (the cycle's result must be published). Interim
+pushes are a judgment call; nothing forces push-per-commit.
+
+The flow is wrapped by `vc-x1 push <bookmark>`, which runs:
+
+1. Preflight (`vc-x1 sync --check` + `cargo fmt` / `clippy`
+   / `test`).
+2. **Review-gate prompt** — shows `jj diff --stat` for both
+   repos and asks `[y/N]`.
+3. **Message-gate prompt** — uses `--title` / `--body` or
+   opens `$EDITOR`.
+4. Commits both repos with ochid trailers, advances the
+   bookmark, `jj git push --bookmark <bookmark>` for the
+   app, finalizes `.claude` (its single per-push commit).
+
+`<bookmark>` is the **app-side working branch** (often
+`main`, sometimes a feature branch). `.claude` always pushes
+its `main` regardless of the app-side bookmark. See
+`vc-x1 push --help` for the full flag list, resumability
+(`--from`, `--restart`, `--status`), and recovery; CLAUDE.md
+keeps only the rules that govern bot behavior. `vc-x1 sync
+--check` may also be run manually before editing to surface
+remote changes early.
+
+**`.claude` cadence — once per push.** The `.claude`
+working-copy node accumulates session data across the
+cycle's commits and is described + committed when a push
+happens — one push, one `.claude` commit, paired with every
+code commit in that push. Its change ID is stable from the
+first code commit that references it through to that
+`.claude` commit (working-copy snapshots, `jj describe`, and
+the finalize `jj commit` all preserve the change ID), so the
+`ochid:` trailers resolve across the push.
+
+`.claude` is a linear journal — all session work lives on
+`main`. The repo has no need for parallel feature-branch
+bookmarks to mirror app-side branches; when the app sits on
+a feature branch, `.claude` still commits to `main`.
+Cross-references between sides are carried by the `ochid:`
+trailer + commit timestamps; that is enough. **Do not
+create or maintain `.claude` bookmarks that mirror app-side
+branches** — tried during 0.41.1-6.7, went unused, and
+risks the bot steering session pushes to the wrong remote
+ref.
+
+**Bot communication at the gates.** Use plain prose — no
+insider jargon ("Gate N signal", "Checkpoint N", etc.):
+
+- **At work-review** — summarize what changed and stop.
+  "Work complete. Please review."
+- **At message-review** — present `$TITLE` and `$BODY`
+  explicitly, then ask permission to commit (or push).
+  Don't spell out the full
+  `vc-x1 push <bookmark> --yes --title "$TITLE" --body
+  "$BODY"` invocation by default; it's mechanical and
+  obvious from title/body. Show it only on explicit
+  request.
+
+**After finalize: stop and wait.** After `vc-x1 finalize`
+launches — whether mid-session per-push or at session-end —
+you **MUST NEVER** proceed to a next step, edit files, run
+tools, or emit any text (prose, recaps, acknowledgements),
+until the user explicitly directs you to continue. Treat
+finalize as a hard stop for the whole turn. Any final words
+must be said in the approval prompt *before* executing
+finalize; the finalize `Bash` call is the last thing in the
+turn and nothing follows it.
+
+This holds even when the next step seems obvious. Wait. The
+user controls cadence — every push+finalize is a checkpoint
+they may want to inspect, think about, hand off, or take a
+break at. Auto-proceeding bypasses that checkpoint.
+
+If push exits before `finalize-claude` (e.g. failure between
+`push-app` and `finalize-claude`), run finalize by hand:
+
+```
+vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
+```
+
+Clear push's saved state after any out-of-band recovery —
+`rm .vc-x1/push-state.toml` or `vc-x1 push <bookmark>
+--restart` — otherwise push resumes from a stale stage.
+
+A late code-repo tweak after `push-app` succeeded (e.g.
+updating CLAUDE.md or memory) requires `jj squash
+--ignore-immutable` and a re-push; that is a remote rewrite
+and needs explicit approval like any push.
+
+### ochid trailers
+
+Every commit body carries `ochid:` trailer(s) linking it to
+its counterpart(s) in the other repo. The path is
+workspace-root-relative — `/.claude/<chid>` from the app
+side, `/<chid>` from the `.claude` side.
+
+Because `.claude` commits once per push:
+
+- **Code-side commits** each carry one
+  `ochid: /.claude/<.claude-chid>` — the `.claude`
+  working-copy change ID, stable until `.claude` is
+  committed at push time.
+- **The `.claude` commit** carries one `ochid: /<code-chid>`
+  per code commit in that push: a single trailer when one
+  code commit is pushed (the squashed case), a list when
+  several are. The multi-line `ochid:` list and its
+  fork / multi-user generalization are designed in
+  [`notes/forks-multi-user.md`](notes/forks-multi-user.md).
+
+Use `vc-x1 chid -s code,bot -L` to capture the change IDs
+(first line app, second `.claude`).
 
 ## Code Conventions
 
@@ -707,204 +630,3 @@ requirements, unfamiliar API surface, conflicting signals — and ask.
 Continued flailing produces worse outcomes than a direct "I'm stuck
 on X."
 
-## ochid Trailers
-
-Every commit body must include an `ochid:` trailer pointing to the
-counterpart commit in the other repo. The value is a workspace-root-relative
-path followed by the changeID:
-
-- App repo commits point to `.claude`: `ochid: /.claude/<changeID>`
-- Bot session commits point to app repo: `ochid: /<changeID>`
-
-Use `vc-x1 chid -s code,bot -L` to get both changeIDs (first line
-is app repo, second is `.claude`).
-
-## Commit-Push-Finalize Flow
-
-**Use `vc-x1 push <bookmark>` — it wraps the full flow in one
-command with two interactive approval gates.** Push runs
-preflight (sync + fmt + clippy + test), prompts for review,
-composes the commit message (via `--title`/`--body` or `$EDITOR`),
-prompts for message approval, then commits both repos → advances
-bookmarks → pushes app → finalizes `.claude`. Failures inside the
-local mutation window roll both repos back via `jj op restore`;
-after `push-app` succeeds the remote boundary is crossed and
-recovery is forward-only.
-
-**Run this flow when you push** — push is discretionary: to
-back up work or to publish interim progress, and always at
-close-out (see [Versioning](#versioning) on push timing). A
-single push can carry one commit or a run of them.
-
-### Run `vc-x1 push`
-
-`<bookmark>` below is the **app-side working branch** — the
-bookmark sitting at the tip of the chain `vc-x1 push` should
-advance and push. For most cycles this is `main`; for
-feature-branch work it's the feature-branch name (e.g.
-`init-clone-refactor`). Pass the literal name, not the
-placeholder. **`.claude` always pushes its `main`** regardless
-of the app-side bookmark passed (see
-[`.claude` cadence](#claude-cadence) — `.claude` is a linear
-journal).
-
-```
-vc-x1 push <bookmark>                                  # interactive (review + $EDITOR)
-vc-x1 push <bookmark> --title "..." --body "..."       # flags skip $EDITOR
-vc-x1 push <bookmark> --yes --title "..." --body "..." # full non-interactive
-vc-x1 push <bookmark> --dry-run                        # preview (no side effects)
-vc-x1 push <bookmark> --from commit-app                # resume from specific stage
-vc-x1 push --status                                    # show saved state
-vc-x1 push <bookmark> --restart                        # clear saved state; start fresh
-```
-
-**Bookmark mismatch is currently silent.** `vc-x1 push`
-doesn't verify that `<bookmark>` matches the working-copy
-chain — passing a bookmark whose tip isn't an ancestor of `@`
-will (silently) push that bookmark anyway, leaving your work
-unpushed. Always confirm `jj log -r <bookmark>..@` shows the
-commits you mean to send. A safety check is on the 0.42.0
-todo (`vc-x1 push: --scope` flag item).
-
-The two approval gates are surfaced by push itself:
-
-1. **Review** — push prints `jj diff --stat` for both repos and
-   prompts `[y/N]`. Approve = "the work is done right".
-2. **Message** — push either uses `--title`/`--body` (non-editor
-   path) or opens `$EDITOR` on a template. Approve = "the message
-   reads right".
-
-Both titles and bodies are the **same** across the two commits;
-only the `ochid:` trailer differs per repo. Push collects the
-pre-commit chids internally so you don't hand-manage them.
-
-For the full flag list and stage machine, see `vc-x1 push --help`
-and `notes/chores/chores-05.md > Add push subcommand (0.37.0)`.
-
-### Bot communication during the flow
-
-When applying the flow on the user's behalf, use plain prose at
-each gate — no insider jargon ("Gate N signal", "Checkpoint N",
-etc.):
-
-1. **After completing the work** — summarize what changed
-   (file-by-file or feature-by-feature, terse) and end with
-   something like:
-
-   > Work complete. Please review. On approval I'll prep the
-   > commit title and body for a second approval before pushing.
-
-2. **After review approval** — present the proposed `$TITLE` and
-   `$BODY` explicitly, then ask permission to run `vc-x1 push`.
-   Do **not** spell out the full
-   `vc-x1 push <bookmark> --yes --title "$TITLE" --body "$BODY"`
-   invocation by default — it's mechanical and obvious from the
-   title/body. Show it only on explicit request (verbose mode /
-   debugging).
-
-3. **After execution approval** — run the push command. `push`
-   handles commit + bookmark + push + finalize internally;
-   nothing should be output after the push command (finalize is
-   detached and absolute-last; see "After finalize: stop and
-   wait" below).
-
-### Pre-step: `vc-x1 sync` (still useful)
-
-Push's preflight runs `vc-x1 sync --check` as its first step. Check
-mode verifies divergence without applying — if anything is `behind`
-or `diverged`, preflight errors and you resolve explicitly with
-`vc-x1 sync --no-check` before re-running push. This keeps the
-two approval gates (review, message) authoritative; push never
-performs an unsupervised rebase.
-
-Running sync manually before you *start* editing is still cheap
-(one line when clean) and surfaces remote changes earlier:
-
-```
-vc-x1 sync --check                    # dual-repo workspace, verify
-vc-x1 sync --no-check                 # apply (rebase / fast-forward)
-vc-x1 sync --check -R .               # single-repo project
-vc-x1 sync --check --quiet            # silent; exit code signals result
-```
-
-Bots and scripts must pass `--check` or `--no-check` explicitly —
-defaults can shift, explicit flags lock in the contract. Interactive
-use can take the default (which is `--check`).
-
-Output shape:
-
-- **Clean**: one line — `sync: N repos, all bookmarks up-to-date`.
-  Note: scope is bookmark-vs-remote tracking, not working-copy
-  cleanliness — `@` may have uncommitted changes; sync doesn't
-  speak to that. Proceed.
-- **Action needed** (`behind` / `diverged`) under `--check`:
-  per-repo fetch + state lines, then a fatal
-  `sync: N repos need action — resolve with vc-x1 sync --no-check
-  and re-run`. Inspect, run `vc-x1 sync --no-check`, then proceed.
-- **`--quiet`**: no output; exit code is the only signal.
-
-### After finalize: stop and wait
-
-After `vc-x1 finalize` is launched — **whether mid-session per-step
-or at session end** — you **MUST NEVER** proceed to a next step, edit
-files, run tools, or emit any text (prose, recaps, acknowledgements),
-until the user explicitly directs you to continue. Treat finalize as
-a hard stop for the whole turn. Any final words (e.g. "next is ...")
-must be said in the approval prompt *before* executing finalize; the
-finalize `Bash` call is the last thing in the turn and nothing
-follows it.
-
-This holds even when the next step seems obvious (e.g. "next is
-N+1" or "now I should bump the version and commit the release").
-Wait. The user controls cadence — every push+finalize is a checkpoint
-they may want to inspect, think about, hand off, or take a break at.
-Auto-proceeding bypasses that checkpoint and produces unwanted writes
-between finalize and the next explicit instruction.
-
-Exceptions to this rule may emerge later but are not authorized at
-this stage. Until told otherwise, treat as absolute.
-
-### Late changes after push
-
-If the app repo needs a tweak after `push-app` succeeded (e.g.
-updating CLAUDE.md or memory), the commit is immutable. Use
-`--ignore-immutable` to squash the changes into `@-` — the
-bookmark moves with the rewritten commit — then re-push:
-
-```
-jj squash --ignore-immutable -R .
-jj git push --bookmark <bookmark> -R .
-```
-
-If you squash somewhere other than `@-`, add
-`jj bookmark set <bookmark> -r <target> -R .` between those
-two commands so the bookmark lands on the rewritten commit.
-
-`.claude` is also mutable via this pattern when needed, though
-push's `finalize-claude` stage normally handles trailing session
-writes so you rarely hit this case there.
-
-### Manual finalize fallback
-
-If push exited before `finalize-claude` (e.g. `--no-finalize`
-was set, or a failure between `push-app` and `finalize-claude`),
-run finalize by hand:
-
-```
-vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
-```
-
-**Nothing should happen after finalize** — no memory writes, no
-tool calls, no additional output. If any work is done after
-finalize, run finalize again so the trailing writes are captured.
-Do **not** echo or restate the finalize output — the Bash tool
-already displays it.
-
-**Clear push's saved state after any out-of-band recovery** —
-manual `vc-x1 finalize`, manual `jj squash --ignore-immutable`
-+ force-push, etc., all leave `.vc-x1/push-state.toml` pointing
-at a now-stale halt point. Either `rm .vc-x1/push-state.toml`
-or run `vc-x1 push <bookmark> --restart` (which clears and
-restarts in one go) before the next `vc-x1 push`. Otherwise
-push resumes from a bogus stage and can falsely declare
-success.
