@@ -932,6 +932,33 @@ Plan — 3 sub-steps squashed into one `0.56.0` commit:
   entry
 - 0.56.0 squash sub-steps → single commit, push
 
+### Bot-repo cadence under squash close-out
+
+CLAUDE.md's `.claude` cadence rule commits `.claude` per
+sub-step, alongside the app repo; it explicitly rejected
+"accumulate across the cycle, commit once at close-out" to
+preserve the option of promoting any sub-step to its own
+push. A **squash** close-out voids that rationale — no
+sub-step is promoted — so this cycle ran the bot side as a
+single node:
+
+- `.claude` is one working-copy node for the whole cycle,
+  described and committed once at close-out. Its change ID
+  is stable from cycle start — working-copy snapshots,
+  `jj describe`, and the finalize `jj commit` all preserve
+  it.
+- All three app sub-step commits carry the same
+  `ochid: /.claude/<id>` — that stable `.claude` change ID.
+- The app stack squashes downward into node 1, so node 1's
+  change ID survives as the final `0.56.0` commit. Both
+  ochid directions are known at cycle start; the squash
+  needs no ochid fixup.
+
+The honest rule: per-sub-step `.claude` commits for a
+keep-separate close-out, one `.claude` node for a squash
+close-out. Codifying that in CLAUDE.md's `.claude` cadence
+section is a follow-up — see `## Todo`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"

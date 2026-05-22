@@ -171,74 +171,19 @@ a version suffix:
 
 ### User approval
 
-Never execute commit, squash, push, or finalize commands without the
-user's explicit approval. Present changes for review first; only run
-them after the user confirms. This applies to late changes too —
-pause for review before squashing into an existing commit.
+Local jj commits are mutable, so the bot commits and squashes
+**freely** under the [commit-first review
+model](#commit-first-review-model) — no approval gate before a
+commit; review happens *after* each commit on the committed
+revision (with deviation / question / ESC-ESC as the
+overrides).
 
-### Review before proposing the commit block
-
-After finishing a unit of work, **summarize what changed and stop
-there**. Do not pre-emptively lay out the Checkpoint-1 commit
-commands. Wait for the user to signal review is complete before
-proposing the commit block. Changes during review are the norm,
-not the exception; proposing commit text too early creates noise
-and signals that I consider the work done when it usually isn't.
-
-Reviewing a unit of work typically takes a few loops before the
-user and I agree it is right. The commit title and body are
-drafted only *after* that agreement — they are a separate step,
-never bundled into the same message as the work summary.
-
-This applies per-step in a multi-step flow too — each step gets a
-review pause before its commit block appears.
-
-Signals that review is complete include explicit approval ("let's
-commit", "looks good, commit it") **and any directive to start the
-next step** ("do step 4", "next", "go N+1"). In that case the
-previous step must be committed first — always commit the current
-step before starting the next; don't ask.
-
-### Per-file review checkpoints
-
-The "review before commit block" rule applies to in-progress work
-too, at finer grain. After each file edit, STOP, summarize what
-changed, and wait for explicit go-ahead before touching the next
-file or running follow-on commands (cargo test/install, dogfood
-invocations, `vc-x1 …`, etc.).
-
-**Exceptions** — both ride along with the change they accompany,
-no separate review pause:
-
-- **Refactors where code is moving across files** — e.g.
-  lifting helpers into a new module and updating the original
-  file's imports in the same change. Reviewing each half in
-  isolation isn't useful.
-- **`Cargo.toml` version bumps** that go with a specific code
-  change.
-
-**Why:** the user reviews diffs as work lands. Chaining multiple
-file edits without pausing forces them to untangle cumulative
-state instead of inspecting each step in isolation.
-
-**How to apply:**
-
-- "continue", "go", "do it", "lg" approves *the next unit
-  only*, not all remaining units of a multi-file plan. A green
-  light to proceed with a *direction* is not a green light to
-  skip per-step checkpoints.
-- After landing a unit: brief summary (2–5 lines) and stop. No
-  cargo build / test / install / dogfood runs unless the user
-  explicitly asks.
-- In addition to (not replacement for) the
-  Review-before-commit-block rule above.
-- **Sub-step exception:** within a multi-step cycle's
-  sub-step (or sub-sub-step) ladder, the per-step checkpoints
-  defer to the commit-first review model — see
-  [Sub-step Workflow > Commit-first review model](#commit-first-review-model).
-  Sub-step commits land as the bot finishes them; user reviews
-  the committed revision in their editor. The cycle-level
-  push at close-out keeps the two-gate ceremony.
+**push and finalize cross the local→remote boundary and
+require explicit user approval** — the two-gate ceremony
+(review + message). Never run `vc-x1 push`, `jj git push`, or
+`vc-x1 finalize` without it. A late squash into an
+already-pushed commit (`jj squash --ignore-immutable`) is a
+remote rewrite and needs approval too.
 
 ### Notes references
 
@@ -263,70 +208,97 @@ de-facto reference implementation is
 
 ### Versioning
 
-Every plan must start with a version bump. Choose the approach based
-on scope:
+Every plan starts with a version bump, and runs as one
+**cycle** with three phases:
 
-- **Single-step** (recommended for mechanical/focused changes): bump
-  directly to `X.Y.Z`, implement in one commit. Simpler history.
-- **Multi-step** (for exploratory/large changes): bump to `X.Y.Z-0`,
-  implement across multiple commits incrementing the numeric
-  suffix. The final commit drops the suffix.
+- **Preparation** — bump the version; populate `## In
+  Progress` with the cycle's overview and plan (moving in a
+  `## Todo` item if the cycle picks one up); open the chores
+  section.
+- **Work-N** — the implementation, in one or more commits.
+- **Close-out** — move the `## In Progress` item to a
+  `## Done` one-liner; finalize the chores section.
 
-The plan should recommend one approach and get user approval before
-starting.
+There is one protocol — this. "Single-step" / "multi-step"
+are no longer separate protocols; a small change is just a
+cycle with few Work commits.
 
-A plan that picks up a `## Todo` item — or *re-scopes* an
-existing `## In Progress` ladder to absorb one — **deletes that
-`## Todo` entry in the same commit** (the version-bump / plan
-commit). `## In Progress` is the sole record of that work until
-close-out, when it moves to `## Done`; a cycle that merges
-several entangled `## Todo` items deletes all of them. A `## Todo`
-entry that duplicates current `## In Progress` work is a process
-bug.
+**Pickup and close-out.** A plan that picks up a `## Todo`
+item — or *re-scopes* an existing `## In Progress` ladder to
+absorb one — **moves that entry into `## In Progress`** in
+the Preparation commit:
 
-For multi-step:
+- **Pickup:** the entry's text moves out of `## Todo` and
+  into `## In Progress` — its overview and to-do list,
+  followed by the plan ladder — so the section is
+  self-describing, not a bare ladder. The chores opener
+  **mirrors** that content so the cycle stays readable once
+  `## In Progress` is cleared.
+- **Close-out:** the item is removed from `## In Progress`
+  and a one-line entry (with a chores `[N]` ref) is added to
+  `## Done`.
 
-1. Bump version to `X.Y.Z-0` with the plan and commit as a chore
-   marker.
-2. Implement in one or more `X.Y.Z-N` commits (increment N as
-   needed).
-3. Final commit bumps to `X.Y.Z` (no suffix), updates
-   `notes/todo.md` and `notes/chores/chores-*.md` — this is the "done"
-   marker.
+`## In Progress` is the sole live record of the work between
+those points; the chores opener is the durable capture. A
+cycle that merges several entangled `## Todo` items moves
+all of them. A `## Todo` entry that duplicates current
+`## In Progress` work is a process bug.
 
-Multi-step cycles surface the ladder at the top of
-`notes/todo.md > ## In Progress` as a bullet list with `(done)` /
-`(current)` markers — see the file's intro paragraph for the
-format. When starting a new step, the *first* edit is to mark
-that step `(current)` in `notes/todo.md` — before any code/doc
-work — so the In Progress view reflects what's actually
-happening. The flip back to `(done)` is part of the pre-commit
-checklist (item 6).
+**Numbering.** The version suffix carries the phase, with
+one separator — `.` — at every depth (semver mandates `-`
+once at the start of the prerelease, then `.` for each level
+after):
 
-**Why numeric suffixes (`-0`, `-1`, …) rather than `-devN`:**
-semver pre-release identifiers may consist of a single numeric
-component, and they compare numerically per spec. So
-`X.Y.Z-1 < X.Y.Z-2 < … < X.Y.Z` correctly orders the dev ladder
-below the done marker. Cargo accepts this form. The `-dev` prefix
-adds no information the git log doesn't already convey and
-doubles typing per commit.
+- `X.Y.Z-0` — Preparation
+- `X.Y.Z-1`, `X.Y.Z-2`, … — Work commits
+- `X.Y.Z` — Close-out (bare version, no suffix)
 
-The final release commit (no suffix) signals completion rather than
-amending prior commits. This keeps history readable and makes it easy
-to see which commits were exploratory vs final.
+A **trailing `0` identifier marks a Preparation**, and the
+rule nests to any depth: when a Work commit needs
+subdividing into its own sub-cycle, append another level —
+`X.Y.Z-3.0` (Preparation of the `-3` sub-cycle), `X.Y.Z-3.1`
+/ `X.Y.Z-3.2` (its Work), `X.Y.Z-3` (its Close-out),
+`X.Y.Z-3.1.0` (Preparation of the `-3.1` sub-sub-cycle), and
+so on. A sub-cycle needing no Preparation just omits the
+`.0` (`-3.1`, `-3.2`, `-3`); one that grows a Preparation
+later adds `-3.0` with no renumbering of siblings.
 
-For decomposition finer than `X.Y.Z-N` — sub-steps (`X.Y.Z-N.M`)
-or sub-sub-steps (`X.Y.Z-N.M-K`) — see
-[Sub-step Workflow](#sub-step-workflow). The cycle close-out
-choice (squash to one commit vs land each sub-step separately)
-is made at close-out, not cycle start.
+Each commit carries its phase version in its title **and**
+`Cargo.toml` — bump `Cargo.toml` at the start of each phase,
+so `vc-x1 -V` shows the active phase at build time.
 
-See also [`notes/substep-protocol.md`](notes/substep-protocol.md)
-for the full protocol — when to use, per-substep contract
-(`cargo test --bins` is non-negotiable), navigation, the validated
-close-out squash recipe, and recovery. Revset primitives the
-protocol relies on (`@`, `@-`, `..`, `::`, prefix matching) live in
-[`notes/jj-revsets.md`](notes/jj-revsets.md).
+**Ordering caveat.** The one ordering guarantee semver gives
+is that the bare `X.Y.Z` close-out outranks every `X.Y.Z-…`
+dev version. Within the ladder it does *not* hold for nested
+close-outs — `X.Y.Z-3` sorts *before* its children
+`X.Y.Z-3.0` / `X.Y.Z-3.1`, because a prefix always precedes
+its extensions. Cosmetic — nothing depends on within-ladder
+order — but don't claim monotonicity.
+
+**Why numeric suffixes** (`-0`, `-1`, …) rather than
+`-devN`: semver pre-release identifiers compare per spec and
+Cargo accepts them. `-dev` adds no information the git log
+doesn't carry and doubles typing per commit. The final
+close-out commit (bare `X.Y.Z`) signals completion rather
+than amending prior commits — history stays readable,
+exploratory vs final commits obvious.
+
+**push and squash are discretionary.** A cycle's commits
+accumulate locally; **push** and **squash** are not modes
+fixed at cycle start but actions taken when wanted:
+
+- **push** — to back up work or to publish interim
+  progress. Interim pushes are a judgement call; the
+  **close-out push is mandatory** — a finished cycle must be
+  published.
+- **squash** — to tidy history, typically collapsing the
+  cycle's commits into one before a publishing push. Whether
+  to squash is decided at close-out, not cycle start.
+
+The cycle *mechanics* — per-commit cargo cycle, the
+commit-first review model, ochid trailers, `.claude`
+cadence, the squash recipe, reviewing committed work — are
+in [Cycle Protocol](#cycle-protocol).
 
 ### Headings and entries that record a commit
 
@@ -337,8 +309,8 @@ title** — `<type>: <desc> (<version>)`, the same string the
 commit gets (see [Commit Message Style](#commit-message-style)).
 E.g. the chores header `## refactor: port push to Context
 (0.48.0-6)` and the Done line `- refactor: port push to Context
-(0.48.0-6) [[3]]`. For a multi-step cycle the `## Done` entry
-uses the close-out commit's title.
+(0.48.0-6) [[3]]`. The `## Done` entry uses the close-out
+commit's title.
 
 This does **not** apply to organizational headings (`## Todo`,
 `## In Progress`, `# References`) or to design `###` subsections
@@ -437,10 +409,11 @@ previous chores section's `Commits:` ref with the just-pushed
 commit's URL + full SHA — see
 [Chores commit references](#chores-commit-references); (b) if
 this cycle picks up a `## Todo` item (or re-scopes `## In
-Progress` to absorb one), delete that `## Todo` entry — see
-[Versioning](#versioning).
+Progress` to absorb one), move that `## Todo` entry's text
+into `## In Progress` and mirror it in the chores opener —
+see [Versioning](#versioning).
 
-Before proposing a commit, run all of the following and fix any issues:
+Before each commit, run all of the following and fix any issues:
 
 1. `cargo fmt`
 2. `cargo clippy`
@@ -450,14 +423,13 @@ Before proposing a commit, run all of the following and fix any issues:
    and re-resolves from scratch, which can pick incompatible
    versions even when `cargo build` / `cargo test` succeed.
 5. Retest after install
-6. Update `notes/todo.md` — for multi-step cycles, flip the
-   just-completed step's marker from `(current)` to `(done)`
-   **before** running `vc-x1 push`. The commit being pushed
-   should reflect the new state. (The next step's `(current)`
-   marker is set later, at the *start* of that step — see the
-   Versioning multi-step section.)
+6. Update `notes/todo.md` — flip the just-completed commit's
+   ladder marker `(current)` → `(done)` **before** the commit
+   (see [todo.md status flips](#todomd-status-flips)). The
+   next commit's `(current)` marker is set at its start.
 7. Update `notes/todo.md` — at cycle close-out (final commit),
-   move the entry from `## In Progress` to `## Done`.
+   remove the picked-up item from `## In Progress` and add a
+   one-line entry (with a chores `[N]` ref) to `## Done`.
 8. Update `notes/chores/chores-*.md` — add a section (header =
    provisional commit title; intro paragraph + any `###` design
    subsections; **no** per-file edit list — that's the commit
@@ -467,118 +439,123 @@ Before proposing a commit, run all of the following and fix any issues:
 10. Update `notes/README.md` — if functionality changed (new
     flags, new subcommands, changed behavior).
 
-## Sub-step Workflow
+## Cycle Protocol
 
-Larger work decomposes into named depths. The version-suffix
-scheme nests:
+The cycle — Preparation / Work-N / Close-out, with the
+numbering and nesting defined in [Versioning](#versioning) —
+runs by the mechanics below. They apply to every commit of
+the cycle, at any nesting depth.
 
-- **Single step** — one change, one commit + push + finalize.
-- **Multi-step** — planned series within a target bump:
-  `0.5.0 → 0.6.0-0`, `0.6.0-0 → 0.6.0-1`, …, `0.6.0-N → 0.6.0`.
-- **Sub-step** — finer granularity within a step:
-  `0.6.0-3.1 → 0.6.0-3.2 → … → 0.6.0-3` (close-out).
-- **Sub-sub-step** — finer still:
-  `0.6.0-3.4-0 → 0.6.0-3.4-1 → … → 0.6.0-3.4` (close-out).
-
-The conventions below apply at **whichever leaf depth the
-current cycle planned to** — sub-step, sub-sub-step, etc.
-"Sub-step" reads as shorthand for that leaf level throughout
-this section.
-
-### Version suffix in titles and Cargo.toml
-
-Sub-step commits carry the leaf-level version in commit titles
-**and** `Cargo.toml`. So `vc-x1 -V` shows the active sub-step
-at build time. Bump Cargo.toml at the start of each sub-step
-(extends the existing `X.Y.Z-N` step-start bump rule down a
-level).
-
-Cargo accepts arbitrary numeric segments in semver pre-release
-identifiers; lexical comparison gives the expected ordering
-(`0.6.0-3.4-1 < 0.6.0-3.4-2 < 0.6.0-3.4`).
+[`notes/substep-protocol.md`](notes/substep-protocol.md) is a
+longer-form companion (the validated close-out squash recipe,
+recovery); it predates this rewrite and still uses the old
+"sub-step" vocabulary — reconciling it is a follow-up. Revset
+primitives the protocol leans on (`@`, `@-`, `..`, `::`,
+prefix matching) are in
+[`notes/jj-revsets.md`](notes/jj-revsets.md).
 
 ### todo.md status flips
 
-Markers in `notes/todo.md > ## In Progress` flip on a defined
-cadence:
+The plan ladder in `notes/todo.md > ## In Progress` carries
+`(current)` / `(done)` markers that flip on a fixed cadence:
 
-- **Start of (M):** mark (M) `(current)` as the first edit.
-- **End of (M):** flip (M) `(current)` → `(done)` **before**
-  the cargo cycle and commit. The commit captures the
+- **Start of a commit:** mark its ladder entry `(current)`
+  as the first edit — before any code/doc work.
+- **End of a commit:** flip `(current)` → `(done)` **before**
+  the cargo cycle and the commit, so the commit captures the
   completed state.
-- **Start of (M+1):** mark (M+1) `(current)` as that
-  sub-step's first edit.
 
-Each sub-step's commit carries the "this sub-step is done"
-record; the next sub-step's commit carries "next sub-step
-starts."
+Each commit thus records "this entry is done"; the next
+commit's first edit records "next entry starts."
 
-### Pre-commit cargo cycle (per sub-step)
+### Pre-commit cargo cycle
 
-Run before every sub-step commit (not just at cycle close-out):
+Run before every commit (not just at close-out):
 
 1. `cargo fmt`
 2. `cargo clippy --all-targets -- -D warnings`
 3. `cargo test`
 4. `cargo install --path . --locked`
-5. (re-test if anything substantive)
+5. (re-test if anything substantive changed)
 
-Keeps every intermediate commit buildable so bisection works
-across the cycle's stack.
+Keeps every commit buildable, so bisection works across the
+cycle's stack.
 
 ### Commit-first review model
 
-Per sub-step:
+Review happens at each **commit** — the commit is the review
+unit. There is no per-file checkpoint and no separate
+"review before the commit block" pause. Per commit:
 
-1. Make the sub-step changes.
+1. Make the commit's changes.
 2. Run the cargo cycle.
-3. **Commit immediately** (both repos with ochid trailers, no
-   separate approval gate at sub-step granularity).
+3. **Commit** — both repos, ochid trailers; no approval gate
+   before committing. Local jj commits are mutable, so
+   committing freely is safe.
 4. Summarize the commit briefly in chat.
-5. User reviews the committed revision in their editor (full
-   file context, not chat-pasted diffs).
-6. User iterates if needed; bot squashes follow-ups into the
-   sub-step commit via `jj squash --into @-` (and
-   `jj describe @-` — plus the chores section header and its
-   anchor back-refs — if the title needs to change).
-7. User signals "go to (M+1)" to advance.
+5. The user reviews the committed revision in their editor
+   (full file context — see [Reviewing committed
+   work](#reviewing-committed-work)).
+6. The user iterates if needed; the bot squashes follow-ups
+   into the commit via `jj squash --into @-` (and
+   `jj describe @-` — plus the chores header and its anchor
+   back-refs — if the title changes).
+7. The user signals to advance to the next commit.
 
-This **replaces** the per-sub-step review pause that the
-top-level `### Review before proposing the commit block` and
-`### Per-file review checkpoints` rules would otherwise
-impose. Local jj commits are mutable until close-out, so
-committing freely is safe.
+Two things override the per-commit cadence:
 
-The two-gate ceremony (review + message approval) is preserved
-for the **cycle-level push** at close-out — that crosses the
-local→remote boundary and warrants explicit approval.
+- **Deviation or question** — any time the work deviates
+  from the agreed plan, or a question arises, stop and
+  surface it; don't push through.
+- **ESC-ESC** — the user can interrupt at any point to pull
+  a review or question forward.
 
-### Ochid trailers on sub-step commits
+The two-gate ceremony (review + message approval) still
+applies to the **push** — it crosses the local→remote
+boundary and warrants explicit approval.
 
-Sub-step commits include ochid trailers paired across the two
-repos (same shape as top-level cycle commits):
+### Ochid trailers
 
-- App body: `ochid: /.claude/<.claude-chid>`
-- `.claude` body: `ochid: /<app-chid>`
+Every commit body carries `ochid:` trailer(s) linking it to
+its counterpart(s) in the other repo. `.claude` commits once
+per **push** (see [`.claude` cadence](#claude-cadence)), so:
 
-Use `vc-x1 chid -s code,bot -L` to capture both pre-commit
-change IDs (first line app, second `.claude`).
+- **Code-side commits** each carry one
+  `ochid: /.claude/<.claude-chid>` — the `.claude`
+  working-copy change ID, stable until `.claude` is committed
+  at push time.
+- **The `.claude` commit** carries one `ochid: /<code-chid>`
+  per code commit in that push: a single trailer when one
+  code commit is pushed (the squashed case), a list when
+  several are.
+
+Use `vc-x1 chid -s code,bot -L` to capture the change IDs
+(first line app, second `.claude`). The multi-line `ochid:`
+list, and its fork / multi-user generalization, are designed
+in [`notes/forks-multi-user.md`](notes/forks-multi-user.md).
 
 ### `.claude` cadence
 
-`.claude` commits **per sub-step alongside the app repo**.
-Each sub-step's `.claude` commit captures the session state at
-that moment.
+`.claude` commits **once per push**. The `.claude`
+working-copy node accumulates session data across the cycle's
+commits and is described + committed when a push happens —
+one push, one `.claude` commit, paired with every code commit
+in that push. Its change ID is stable from the first code
+commit that references it through to that `.claude` commit
+(working-copy snapshots, `jj describe`, and the finalize
+`jj commit` all preserve the change ID), so the `ochid:`
+trailers resolve across the push.
 
-Alternative considered (`.claude` accumulates across the cycle
-and commits once at close-out) was rejected — keeping the
-per-sub-step pairing preserves flexibility (any sub-step can
-be promoted to its own push without restructuring).
+This supersedes the older per-sub-step `.claude` cadence,
+which paired each sub-step commit with its own `.claude`
+commit to keep any sub-step promotable to its own push. With
+push decoupled from the commit cadence, `.claude` simply
+follows the push.
 
 **`.claude` is a linear journal — all session work lives on
 `main`.** The repo has no need for parallel feature-branch
 bookmarks to mirror app-side branches. When the app sits on
-e.g. `init-clone-refactor`, `.claude` still commits to `main`.
+e.g. a feature branch, `.claude` still commits to `main`.
 Cross-references between sides are carried by the `ochid:`
 trailer + commit timestamps; that's enough to associate
 session activity with whichever app-side branch the cycle was
@@ -595,29 +572,30 @@ ref.
 
 ### Cycle close-out — squash or keep separate?
 
-Two valid shapes for landing the sub-step stack on `main`:
+At close-out, two valid shapes for landing the cycle on its
+target bookmark:
 
-- **Squash to one cycle commit** — single entry on `main`;
-  sub-step granularity preserved only in the commit body's
-  edit list. Right when the work is one logical change with
-  intermediate validation points. **Cost:** the per-sub-step
-  chores sections collapse into one, whose header becomes the
-  single close-out commit title, and every anchor back-ref to a
-  now-gone per-sub-step section gets re-pointed — real work,
-  done as part of the squash.
-- **Keep separate (N + 1 commits)** when the decomposition is
-  itself informative (different conceptual stages, design
-  progression worth showing in `git log`). Used on
-  `0.41.1-6.7` (8 sub-sub-step commits + 1 close-out commit).
-  Each section keeps its own header / `Commits:` ref — no
+- **Squash to one commit** — a single entry; per-commit
+  granularity preserved only in the commit body's edit list.
+  Right when the work is one logical change with intermediate
+  validation points. **Cost:** the per-commit chores sections
+  collapse into one, whose header becomes the close-out
+  commit title, and every anchor back-ref to a now-gone
+  section gets re-pointed — real work, done as part of the
+  squash.
+- **Keep separate** — one commit per cycle entry — when the
+  decomposition is itself informative (distinct conceptual
+  stages, design progression worth showing in `git log`).
+  Used on `0.41.1-6.7` (8 commits + 1 close-out commit). Each
+  chores section keeps its own header / `Commits:` ref — no
   consolidation churn.
 
-Pick at close-out, not at cycle start. No firm default — weigh
-the squash's chores-consolidation cost against a cleaner
-`git log`; that cost biases toward keeping separate unless the
-decomposition genuinely isn't informative.
+Pick at close-out, not at cycle start. No firm default —
+weigh the squash's chores-consolidation cost against a
+cleaner `git log`; that cost biases toward keeping separate
+unless the decomposition genuinely isn't informative.
 
-### Reviewing committed sub-steps
+### Reviewing committed work
 
 The commit-first model assumes the reviewer can read the diff
 of an already-committed revision. Don't `jj edit -r @-` back
@@ -753,13 +731,10 @@ local mutation window roll both repos back via `jj op restore`;
 after `push-app` succeeds the remote boundary is crossed and
 recovery is forward-only.
 
-**Run this flow after every step** — not only at session end.
-Single-step and multi-step changes are of equal importance: a
-single-step change is one `push` invocation; a multi-step change
-is one `push` per `X.Y.Z-N` commit plus one for the final release
-commit. Each step gets its own commit, its own push, and its own
-finalize — so dev markers land on the remote and in `.claude` as
-they happen rather than being batched until the end.
+**Run this flow when you push** — push is discretionary: to
+back up work or to publish interim progress, and always at
+close-out (see [Versioning](#versioning) on push timing). A
+single push can carry one commit or a run of them.
 
 ### Run `vc-x1 push`
 

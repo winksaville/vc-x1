@@ -37,9 +37,9 @@ match the new shape.
 
 Plan — 3 sub-steps squashed into one `0.56.0` commit:
    - 0.56.0-0 chores opener + populate `## In Progress` +
-     version bump (current)
+     version bump (done)
    - 0.56.0-1 rewrite CLAUDE.md `### Versioning` + checklist
-     sweep
+     sweep (current)
    - 0.56.0-2 close-out: clear `## In Progress`, add
      `## Done` entry
    - 0.56.0 squash sub-steps → single commit, push

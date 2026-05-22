@@ -179,6 +179,58 @@ extend.
   stable). Same as today. Multi-user rebases work the same
   as single-user.
 
+### Staged fork integration
+
+How a contributed cycle's worth of changes enters a
+downstream repo, keeping the as-is record separate from the
+integration work:
+
+- **As-is acceptance.** A contributed set of changes lands
+  first in a dedicated branch *exactly as submitted* — no
+  merge, no squash, no tweak. The contributor's `ochid:`
+  trailers are preserved verbatim; the branch is a faithful
+  record of what was contributed.
+- **Integration as separate steps.** Merging, squashing, or
+  tweaking that work onto the target line happens
+  afterward, as one or more separate steps on an
+  intermediate branch. Each is its own cycle and may add
+  its own bot session.
+- **Resulting ochid set.** An integrated commit therefore
+  carries a *set* of ochids — the contributor's original
+  pointer(s) plus any integration-session pointer(s): the
+  [multi-line ochid trailer](#multi-line-ochid-trailer)
+  applied to the fork case rather than the octopus-merge
+  case.
+
+The contributing bot repos live in different locations
+(different users, different remotes), so each ochid in the
+set must name *which* bot repo as well as the chid. Three
+representations, in increasing indirection:
+
+- **Workspace-relative path** — `/.claude/<chid>`,
+  `/.claude-alice/<chid>`. Today's form; resolves only
+  repos under the local workspace root.
+- **Full URL** — `https://github.com/alice/bot#<chid>`
+  (see [Per-user bot repos via URL-shaped
+  ochid](#per-user-bot-repos-via-url-shaped-ochid)).
+  Self-contained, no external table; verbose, exposed to
+  link rot.
+- **`.vc-config.toml` repo index** — a tuple
+  `(repo-index, chid)` where `repo-index` keys a
+  repo-location table declared once in `.vc-config.toml`.
+  The trailer stays short, and relocating a repo is a
+  one-line config edit instead of rewriting every trailer.
+  Cost: indirection — the trailer is meaningless without
+  the config, so a commit inspected outside its workspace
+  (a raw `git show` elsewhere) can't resolve it.
+
+The bot thinks index and URL forms are complementary, not
+rivals — index for repos the project already tracks in
+`.vc-config.toml`, URL for one-off external contributors —
+and a resolver accepting all three (path, URL, index) is
+the one-rule dispatch the URL-shaped section already
+describes, with a third arm.
+
 ### Per-user vs shared bot repo
 
 Open question worth deciding before code lands.
