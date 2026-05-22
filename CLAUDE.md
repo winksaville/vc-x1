@@ -344,10 +344,23 @@ through:
    - **Body**: [Prose form](#prose-form) (intro + bullets),
      wrap ≤72. App-repo bullets are **file-by-file** — one
      bullet per file changed, file plus a one-line gist.
-     That list is the source of truth for the cycle's
-     mechanical change record; chores carries the narrative
-     + design, not a copy of it. Promote any "why" beyond
-     one sentence to a chores `###` subsection.
+     When a file has several distinct changes, list them
+     as `--` sub-bullets under the file bullet (commit
+     messages aren't rendered as markdown, so the
+     conventional nested `- ` would be ambiguous):
+
+     ```
+     - path/to/file
+       -- first distinct change
+       -- second distinct change, wrapping to next line
+          with continuation indented 5
+     ```
+
+     The file-by-file list is the source of truth for the
+     cycle's mechanical change record; chores carries the
+     narrative + design, not a copy of it. Promote any
+     "why" beyond one sentence to a chores `###`
+     subsection.
    - **`ochid:` trailer** as the last line of the body —
      see [ochid trailers](#ochid-trailers).
    - **Session-repo (`.claude`) body**: same shape; bullets
@@ -423,22 +436,12 @@ The cycle's last commit (bare `X.Y.Z`):
   anchor back-reference to it; add an `### As-built ladder`
   listing the cycle's commits; `### Outcome` notes if
   useful.
-- **Decide squash or keep separate.** Two valid shapes:
-  - **Squash to one commit** — single entry on the target;
-    per-commit granularity preserved only in the commit
-    body's edit list. Right when the work is one logical
-    change with intermediate validation points. Cost: the
-    per-commit chores sections collapse into one (its
-    header becomes the close-out commit title), and every
-    anchor back-ref to a now-gone section gets re-pointed
-    — real work, done as part of the squash.
-  - **Keep separate** — one commit per cycle entry — when
-    the decomposition is itself informative (distinct
-    conceptual stages worth showing in `git log`). Each
-    chores section keeps its own header / `Commits:` ref;
-    no consolidation churn.
 - **Update `notes/README.md`** if functionality changed
   (new flags, new subcommands, changed behavior).
+
+Whether to **squash** the cycle into one commit before the
+publishing push, or push as-is, is decided at push time —
+see [Pushing](#pushing).
 
 ### Pushing
 
@@ -446,6 +449,39 @@ The cycle's last commit (bare `X.Y.Z`):
 work or publish interim progress, and **always at
 close-out** (the cycle's result must be published). Interim
 pushes are a judgment call; nothing forces push-per-commit.
+
+**Squash, merge, or keep at the close-out push.** Before
+the publishing push, decide what shape the cycle lands as:
+
+- **Squash to one commit** — single entry on the target;
+  per-commit granularity preserved only in the commit
+  body's edit list. Right when the work is one logical
+  change with intermediate validation points. Cost: the
+  per-commit chores sections collapse into one (its header
+  becomes the close-out commit title), and every anchor
+  back-ref to a now-gone section gets re-pointed — real
+  work, done as part of the squash.
+- **Merge (non-FF)** — `main` gains one merge commit
+  (`X.Y.Z`) with parents `<prev>` and the cycle tip; the
+  sub-step commits stay reachable as the merge's second
+  parent. `git log` shows everything; `git log
+  --first-parent` shows main as one jump per cycle. Best
+  when the sub-steps are worth preserving but main should
+  read linearly. The paired `.claude` commit's body
+  carries a multi-line ochid listing every app commit in
+  the push — the multi-ochid case
+  [`notes/forks-multi-user.md`](notes/forks-multi-user.md)
+  designs. Set up with `jj rebase -r <tip> -d <prev> -d
+  <sub-tip>` before invoking `jj git push`.
+- **Keep separate** — one commit per cycle entry on main —
+  when the decomposition is itself informative and you
+  want `git log` to show every step. Each chores section
+  keeps its own header / `Commits:` ref; no consolidation
+  churn.
+
+If squashing or merging, do it before invoking `vc-x1
+push` (or push manually with `jj git push` for
+non-standard shapes).
 
 The flow is wrapped by `vc-x1 push <bookmark>`, which runs:
 

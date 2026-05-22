@@ -898,66 +898,98 @@ Dropping `## Todo` item 1 and renumbering was done with
 `vc-x1 fix-todo --no-dry-run` — the cycle's own tool on its
 own backlog, and the close-out dogfood.
 
-## docs: codify In-Progress pickup workflow (0.56.0)
+## docs: refine cycle protocol (0.56.0)
 
-Captured from `## Todo` item 1 — the move-into-`## In
-Progress` workflow the `0.55.0` close-out queued. Mirrored
-here from `## In Progress` so the cycle stays readable
-after that section is cleared at close-out (the capture is
-itself the rule being codified).
+Refines CLAUDE.md's cycle protocol end-to-end. Picked up
+from `## Todo` item 1 (codify the move-into-`## In
+Progress` workflow); grew through the cycle into a broader
+rework:
 
-- On pickup, move the `## Todo` item's text into
-  `## In Progress` so the section is self-describing (not
-  a bare ladder).
-- Also capture it in the chores opener so the history
-  is readable without `git` spelunking.
-- At close-out completely remove the item from "In Progress".
-- Add a one liner to `## Done` and a reference to the
-  chores entry.
+- **Pickup rule** — on picking up a `## Todo` item, *move*
+  its text into `## In Progress` so the section is
+  self-describing; the chores opener **mirrors** that
+  content so the cycle stays readable once `## In Progress`
+  is cleared at close-out; the `## Done` one-liner with a
+  chores `[N]` ref is added at close-out.
+- **One protocol** — single-step / multi-step / sub-step /
+  sub-sub retired; one cycle protocol with three phases:
+  **Preparation / Work-N / Close-out**. The `.`-separator
+  nested numbering, the trailing-`0`-marks-Preparation
+  rule, and the ordering caveat all live in
+  `### Numbering`.
+- **Push and squash are discretionary** — actions taken
+  when wanted (back up, publish, tidy), not modes chosen
+  at cycle start; the close-out push is mandatory; the
+  **squash / merge (non-FF) / keep** shape decision lives
+  at push time. The non-FF merge ("trapezoid": cycle's
+  sub-step commits stay reachable as a branch; main reads
+  linearly via `--first-parent`) is added as a third shape
+  this cycle.
+- **`.claude` once per push** — the bot repo accumulates
+  session data across the cycle's commits and commits once
+  per push. The per-sub-step `.claude` cadence is gone;
+  with push decoupled from the commit cadence, `.claude`
+  simply follows the push, and an N:1 push (no squash)
+  emits a multi-ochid list in the `.claude` commit.
+- **Two-gate review model** — review happens **before**
+  each commit: **Gate 1** (work — review the working-copy
+  changes in your editor), then write the description,
+  then **Gate 2** (message), then commit. ESC-ESC and
+  "stop on deviation/question" override. The earlier
+  commit-first model (review the committed revision) is
+  gone.
+- **CLAUDE.md consolidated** — the scattered cycle /
+  commit / push material collapses into one linear
+  `## Cycle Protocol` that reads top-to-bottom as the flow
+  (intro → `### Numbering` → `### Preparation` → `###
+  Per-commit flow` → `### Reviewing changes` → `###
+  Close-out` → `### Pushing` → `### ochid trailers`).
+  `## Committing`, `## Commit Message Style`, `### User
+  approval`, `### Versioning`, `### Pre-commit checklist`,
+  `## ochid Trailers`, and `## Commit-Push-Finalize Flow`
+  are gone; `vc-x1 push` flag/stage/recovery detail
+  deferred to `vc-x1 push --help`. CLAUDE.md shrinks ~39%
+  (1035 → 632 lines).
 
-Implementation: CLAUDE.md's `### Versioning` section
-currently says a pickup "**deletes that `## Todo` entry
-in the same commit**" — change that rule to *move* the
-entry's text into `## In Progress` instead, and sweep the
-section's other `## In Progress` / `## Todo` mentions to
-match the new shape.
+### As-built ladder
 
-Plan — 3 sub-steps squashed into one `0.56.0` commit:
+- 0.56.0-0 Preparation — version bump; populate
+  `## In Progress` (pickup of `## Todo` item 1); open
+  chores section.
+- 0.56.0-1 Work — rewrite `### Versioning` + `## Sub-step
+  Workflow` → `## Cycle Protocol`; rewrite the review
+  sections (provisionally to commit-first; corrected at
+  `-2`); add `notes/forks-multi-user.md` "Staged fork
+  integration" subsection.
+- 0.56.0-2 Work — the big-lever: collapse 8 sections into
+  one linear `## Cycle Protocol`; the two-gate
+  review-before-commit model lands here. (`Cargo.toml`
+  bump to `-2` backfilled at `-3` via `jj edit`.)
+- 0.56.0-3 Work + close-out bookkeeping — move
+  squash-or-keep text from `### Close-out` to `### Pushing`;
+  add **Merge (non-FF)** as a third close-out shape; clear
+  `## In Progress`, add `## Done` one-liner, finalize this
+  chores section.
+- 0.56.0 Close-out (bare, non-FF merge) — merge commit
+  with parents (`0.55.0`, `-3`); `Cargo.toml` `0.56.0-3` →
+  `0.56.0` (the merge's only content beyond the merge
+  itself).
 
-- 0.56.0-0 chores opener + populate `## In Progress` +
-  version bump
-- 0.56.0-1 rewrite CLAUDE.md `### Versioning` + checklist
-  sweep
-- 0.56.0-2 close-out: clear `## In Progress`, add `## Done`
-  entry
-- 0.56.0 squash sub-steps → single commit, push
+### Outcome
 
-### Bot-repo cadence under squash close-out
+A bigger cycle than the original pickup framed. Mid-cycle
+re-scoping (`-2` rewriting `-1`'s sections from scratch)
+and a review-model correction (two gates, before commit,
+instead of commit-first) drove the consolidation. Final
+CLAUDE.md reads as one linear protocol section instead of
+an eight-section assembly job.
 
-CLAUDE.md's `.claude` cadence rule commits `.claude` per
-sub-step, alongside the app repo; it explicitly rejected
-"accumulate across the cycle, commit once at close-out" to
-preserve the option of promoting any sub-step to its own
-push. A **squash** close-out voids that rationale — no
-sub-step is promoted — so this cycle ran the bot side as a
-single node:
-
-- `.claude` is one working-copy node for the whole cycle,
-  described and committed once at close-out. Its change ID
-  is stable from cycle start — working-copy snapshots,
-  `jj describe`, and the finalize `jj commit` all preserve
-  it.
-- All three app sub-step commits carry the same
-  `ochid: /.claude/<id>` — that stable `.claude` change ID.
-- The app stack squashes downward into node 1, so node 1's
-  change ID survives as the final `0.56.0` commit. Both
-  ochid directions are known at cycle start; the squash
-  needs no ochid fixup.
-
-The honest rule: per-sub-step `.claude` commits for a
-keep-separate close-out, one `.claude` node for a squash
-close-out. Codifying that in CLAUDE.md's `.claude` cadence
-section is a follow-up — see `## Todo`.
+Landed via the new **non-FF merge** ("trapezoid") shape —
+dogfooded for the first time this cycle. The merge commit
+at bare `0.56.0` brings 4 sub-step commits (`-0`/`-1`/`-2`/
+`-3`) back to `main`; `git log --first-parent main` shows
+one jump from `0.55.0` → `0.56.0`, the sub-steps stay
+reachable via the merge's second parent.
 
 # References
 

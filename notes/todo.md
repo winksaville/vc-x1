@@ -17,32 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**Codify the move-into-`## In Progress` workflow.**
-
-- On pickup, move the `## Todo` item's text into
-  `## In Progress` so the section is self-describing (not
-  a bare ladder).
-- Also capture it in the chores opener so the history
-  is readable without `git` spelunking.
-- At close-out completely remove the item from "In Progress".
-- Add a one liner to `## Done` and a reference to the
-  chores entry.
-
-Implementation: CLAUDE.md's `### Versioning` section
-currently says a pickup "**deletes that `## Todo` entry
-in the same commit**" — change that rule to *move* the
-entry's text into `## In Progress` instead, and sweep the
-section's other `## In Progress` / `## Todo` mentions to
-match the new shape.
-
-Plan — 3 sub-steps squashed into one `0.56.0` commit:
-   - 0.56.0-0 chores opener + populate `## In Progress` +
-     version bump (done)
-   - 0.56.0-1 rewrite CLAUDE.md `### Versioning` + checklist
-     sweep (current)
-   - 0.56.0-2 close-out: clear `## In Progress`, add
-     `## Done` entry
-   - 0.56.0 squash sub-steps → single commit, push
+_No cycle currently in progress._
 
 ## Todo
 
@@ -332,6 +307,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[3]]
 - scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[30]]
 - validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[31]]
+- refine cycle protocol — one protocol (Preparation/Work-N/Close-out), `.`-separator nested numbering with trailing-`0`=Preparation, push & squash discretionary, `.claude` once per push, two-gate review (work then message, both before commit), CLAUDE.md cycle/commit/push docs consolidated into one linear `## Cycle Protocol` (~39% smaller) (0.56.0) [[32]]
 
 # References
 
@@ -366,3 +342,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [29]: /notes/chores/chores-02.md#shell-completion-discovery
 [30]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
 [31]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550
+[32]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
