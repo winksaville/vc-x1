@@ -17,7 +17,25 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+Adds a `## Todo` entry recording a future `vc-x1 push:
+--merge` flag (close-out shape, sibling to the planned
+`--squash`) that automates setting up the non-FF merge
+("trapezoid") shape so users don't have to pre-rebase
+before `vc-x1 push`. The shape was dogfooded manually in
+`0.56.0`; this cycle captures the design as a todo and
+walks the Preparation → Work-N → Close-out protocol on a
+deliberately small change — the cycle's deliverable is one
+new todo entry, squashed at close-out and pushed.
+
+   - 0.57.0-0 Preparation: backfill `0.56.0` `Commits:`
+     ref; open chores section; set up `## In Progress`.
+     (done)
+   - 0.57.0-1 Work-1: add the `--merge` entry to `## Todo`
+     with intro + Preparation/Work-N/Close-out ladder.
+     (current)
+   - 0.57.0 Close-out: clear `## In Progress`; add `##
+     Done` one-liner; finalize chores section; squash and
+     push.
 
 ## Todo
 
