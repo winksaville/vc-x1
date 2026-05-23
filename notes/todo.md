@@ -27,15 +27,26 @@ walks the Preparation → Work-N → Close-out protocol on a
 deliberately small change — the cycle's deliverable is one
 new todo entry, squashed at close-out and pushed.
 
-   - 0.57.0-0 Preparation: backfill `0.56.0` `Commits:`
-     ref; open chores section; set up `## In Progress`.
-     (done)
-   - 0.57.0-1 Work-1: add the `--merge` entry to `## Todo`
-     with intro + Preparation/Work-N/Close-out ladder.
-     (done)
-   - 0.57.0 Close-out: clear `## In Progress`; add `##
-     Done` one-liner; finalize chores section; squash and
-     push.
+   - 0.57.0-0 Preparation (done):
+     - backfill `0.56.0` `Commits:` ref
+     - open chores section
+     - set up `## In Progress`
+   - 0.57.0-1 Work-1 (done): add the `--merge` entry to
+     `## Todo` with intro + Preparation/Work-N/Close-out
+     ladder.
+   - 0.57.0-2 Work-2 (done): CLAUDE.md protocol cleanup,
+     added mid-cycle when -0/-1 mishandled the close-out
+     → squash transition.
+     - rename gates to Work review / Commit Description
+       review (drop "Gate N" prefixes)
+     - add Post close-out review (shape + push decision)
+     - add shape-neutral close-out body guidance
+     - add semicolons-in-bullets prose rule
+     - add Post-amend `jj new` rule to `## jj Basics`
+   - 0.57.0 Close-out:
+     - clear `## In Progress`
+     - add `## Done` one-liner
+     - finalize chores section
 
 ## Todo
 
