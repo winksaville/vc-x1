@@ -78,6 +78,18 @@ reasoning not directly supported by the data on hand.
   `jj commit` finalizes it and creates a new empty working copy on top.
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
+- **Post-amend `jj new`** — `jj edit <rev>`,
+  `jj rebase -r <rev> -d ...`, and `jj squash --into <rev>`
+  all leave `@` on the rewritten commit rather than on an
+  empty change above. The most common case is the close-out
+  push for a [Merge (non-FF)](#pushing) shape (`jj rebase
+  -r <tip> -d <prev> -d <sub-tip>` leaves `@` on the new
+  merge). In a colocated jj+git repo, git then detaches
+  HEAD at the commit's first parent, so `git status`,
+  gitk, and IDE diff views read the commit's content as
+  uncommitted relative to HEAD. Follow up with `jj new` to
+  create an empty `@` above; HEAD shifts to the commit and
+  the working tree reads clean.
 
 ## Prose form
 
@@ -111,6 +123,15 @@ Bullet *content* differs by surface:
   see [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
 - **Doc comments** — bullets are whatever structure fits (fields,
   cases, invariants).
+
+**Semicolons inside bullets.** A bullet that joins
+multiple clauses with semicolons (`A; B; C`) is a list
+hiding inside running prose — break the clauses into
+sub-bullets so the structure shows. Semicolons in running
+prose (intro paragraphs, sentence-joins) are fine. Not
+absolute: very short clauses or tight pairs can stay
+joined inside a bullet when breaking would be more noise
+than signal.
 
 ## Pre-commit Requirements
 
@@ -325,11 +346,10 @@ through:
    3. `cargo test`
    4. `cargo install --path . --locked`
    5. (re-test if anything substantive changed)
-5. **Gate 1 — work review.** Stop *before* writing any
-   description; tell the user "ready to commit." The user
-   reviews the working-copy changes in their editor. Most
-   change requests come here — iterate until the work is
-   right.
+5. **Work review.** Stop *before* writing any description;
+   tell the user "ready to commit." The user reviews the
+   working-copy changes in their editor. Most change
+   requests come here — iterate until the work is right.
 6. **Write the commit description.** [Conventional
    Commits](https://www.conventionalcommits.org/) with a
    version suffix:
@@ -365,8 +385,8 @@ through:
      see [ochid trailers](#ochid-trailers).
    - **Session-repo (`.claude`) body**: same shape; bullets
      describe in-session activity rather than code changes.
-7. **Gate 2 — message review.** Show the title + body and
-   stop. The user reviews the description. Iterate.
+7. **Commit Description review.** Show the title + body
+   and stop. The user reviews the description. Iterate.
 8. **Commit.** `jj commit -m "title" -m "body" -R .` for
    the app repo, `-R .claude` for the bot repo (`-R` last
    keeps the verb visible):
@@ -393,9 +413,9 @@ through:
 
 ### Reviewing changes
 
-The two-gate model reviews **uncommitted working-copy
-changes** in your editor, on the way to commit. Zed shows
-the diff naturally; for terminal use:
+Work review looks at **uncommitted working-copy changes**
+in your editor, on the way to commit. Zed shows the diff
+naturally; for terminal use:
 
 ```
 jj diff                          # working-copy diff (uncommitted)
@@ -439,6 +459,15 @@ The cycle's last commit (bare `X.Y.Z`):
 - **Update `notes/README.md`** if functionality changed
   (new flags, new subcommands, changed behavior).
 
+The close-out commit's body should describe **only what's
+in that commit** (the bookkeeping: clearing `## In
+Progress`, the `## Done` entry, chores section finalize)
+— not what would happen post-squash. Squash / merge /
+keep is a separate push-time decision (Post close-out
+review, see [Pushing](#pushing) below); keeping the
+close-out body shape-neutral avoids locking in
+squash-language before the decision is made.
+
 Whether to **squash** the cycle into one commit before the
 publishing push, or push as-is, is decided at push time —
 see [Pushing](#pushing).
@@ -449,6 +478,16 @@ see [Pushing](#pushing).
 work or publish interim progress, and **always at
 close-out** (the cycle's result must be published). Interim
 pushes are a judgment call; nothing forces push-per-commit.
+
+**Post close-out review (close-out push only).** After
+the close-out commit and before any `jj squash` / `jj
+rebase` / `jj git push` invocation, stop and ask the user
+which shape the cycle lands as (squash / merge / keep)
+and to approve the push. The choice changes the commits
+on the target and is hard to undo cleanly once pushed;
+treat it like the Work and Commit Description reviews —
+surface the options, wait for the user, don't auto-pick.
+ESC-ESC and the deviation override apply as usual.
 
 **Squash, merge, or keep at the close-out push.** Before
 the publishing push, decide what shape the cycle lands as:
@@ -487,10 +526,10 @@ The flow is wrapped by `vc-x1 push <bookmark>`, which runs:
 
 1. Preflight (`vc-x1 sync --check` + `cargo fmt` / `clippy`
    / `test`).
-2. **Review-gate prompt** — shows `jj diff --stat` for both
-   repos and asks `[y/N]`.
-3. **Message-gate prompt** — uses `--title` / `--body` or
-   opens `$EDITOR`.
+2. **Work-review prompt** — shows `jj diff --stat` for
+   both repos and asks `[y/N]`.
+3. **Commit-description-review prompt** — uses `--title`
+   / `--body` or opens `$EDITOR`.
 4. Commits both repos with ochid trailers, advances the
    bookmark, `jj git push --bookmark <bookmark>` for the
    app, finalizes `.claude` (its single per-push commit).
@@ -525,18 +564,22 @@ branches** — tried during 0.41.1-6.7, went unused, and
 risks the bot steering session pushes to the wrong remote
 ref.
 
-**Bot communication at the gates.** Use plain prose — no
-insider jargon ("Gate N signal", "Checkpoint N", etc.):
+**Bot communication at the reviews.** Use plain prose —
+no insider jargon ("Gate N signal", "Checkpoint N", etc.):
 
-- **At work-review** — summarize what changed and stop.
+- **At Work review** — summarize what changed and stop.
   "Work complete. Please review."
-- **At message-review** — present `$TITLE` and `$BODY`
-  explicitly, then ask permission to commit (or push).
-  Don't spell out the full
-  `vc-x1 push <bookmark> --yes --title "$TITLE" --body
-  "$BODY"` invocation by default; it's mechanical and
-  obvious from title/body. Show it only on explicit
-  request.
+- **At Commit Description review** — present `$TITLE` and
+  `$BODY` explicitly, then ask permission to commit (or
+  push). Don't spell out the full `vc-x1 push <bookmark>
+  --yes --title "$TITLE" --body "$BODY"` invocation by
+  default; it's mechanical and obvious from title/body.
+  Show it only on explicit request.
+- **At Post close-out review** — surface the shape
+  options (squash / merge / keep) with a brief trade-off
+  summary, plus the push target; wait for the user's
+  choice before any `jj squash` / `jj rebase` / `jj git
+  push` invocation.
 
 **After finalize: stop and wait.** After `vc-x1 finalize`
 launches — whether mid-session per-push or at session-end —

@@ -900,6 +900,8 @@ own backlog, and the close-out dogfood.
 
 ## docs: refine cycle protocol (0.56.0)
 
+Commits: [[17]],[[18]],[[19]],[[20]],[[21]]
+
 Refines CLAUDE.md's cycle protocol end-to-end. Picked up
 from `## Todo` item 1 (codify the move-into-`## In
 Progress` workflow); grew through the cycle into a broader
@@ -991,6 +993,64 @@ at bare `0.56.0` brings 4 sub-step commits (`-0`/`-1`/`-2`/
 one jump from `0.55.0` → `0.56.0`, the sub-steps stay
 reachable via the merge's second parent.
 
+## docs: add --merge todo entry (0.57.0)
+
+Adds a `## Todo` entry recording a future `vc-x1 push:
+--merge` flag (close-out shape, sibling to the planned
+`--squash`) that automates setting up the non-FF merge
+("trapezoid") shape so users don't have to pre-rebase
+before `vc-x1 push`. The shape was dogfooded manually in
+`0.56.0`; this cycle captures the design as a todo and
+walks the Preparation → Work-N → Close-out protocol on a
+deliberately small change. The cycle's deliverable was
+intended to be one new todo entry, but grew a Work-2 when
+-0/-1 surfaced a protocol gap mid-cycle.
+
+### As-built ladder
+
+- 0.57.0-0 Preparation:
+  - backfill `0.56.0` `Commits:` ref
+  - open chores section
+  - set up `## In Progress`
+- 0.57.0-1 Work-1: add the `--merge` `## Todo` entry #1
+  with intro + Preparation/Work-N/Close-out ladder.
+- 0.57.0-2 Work-2: CLAUDE.md protocol cleanup added
+  mid-cycle after -0/-1 mishandled the close-out → squash
+  transition.
+  - rename gates to Work review / Commit Description
+    review (drop "Gate N" prefixes)
+  - add Post close-out review (shape + push decision)
+  - add shape-neutral close-out body guidance
+  - add semicolons-in-bullets prose rule
+  - add Post-amend `jj new` rule
+- 0.57.0 Close-out:
+  - clear `## In Progress`
+  - add `## Done` one-liner
+  - finalize chores section
+
+### Outcome
+
+Cycle grew from a planned 3 commits to 4 when -0/-1
+exposed protocol gaps: no stop-and-ask gate between
+close-out commit and any squash/merge/keep action, the
+close-out body language assumed the squash shape, and no
+guidance about `jj new` after a shape-changing
+`jj rebase -r` (surfaced when the merge non-FF setup
+left `@` on the merge and git tools read the merge's
+content as uncommitted). -2 lands all three fixes — Post
+close-out review, shape-neutral close-out body guidance,
+and the Post-amend `jj new` rule — plus the gate renames
+with descriptive names. The cycle's original deliverable
+— the `--merge` Todo entry — was unaffected; the
+re-scope landed entirely in CLAUDE.md prose.
+
+Landed as a non-FF merge — chosen at Post close-out
+review. `main` gains one merge commit (`0.57.0`) with
+parents `0.56.0` and `-2`; the three sub-step commits
+(`-0` / `-1` / `-2`) stay reachable via the merge's
+second parent. `git log --first-parent main` reads one
+jump from `0.56.0` → `0.57.0`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -1009,3 +1069,8 @@ reachable via the merge's second parent.
 [14]: https://github.com/winksaville/vc-x1/commit/607cba52cff8 "607cba52cff8c2094ee714088781698a66018347"
 [15]: https://github.com/winksaville/vc-x1/commit/65816b8ba212 "65816b8ba21208494d82f6deb9630489ac80099b"
 [16]: https://github.com/winksaville/vc-x1/commit/95ef1987a65a "95ef1987a65a37e7cea336871eb748661bc32185"
+[17]: https://github.com/winksaville/vc-x1/commit/5b09d19fca7c "5b09d19fca7c9675af01ca88f59c28f4e5cc1db1"
+[18]: https://github.com/winksaville/vc-x1/commit/6181e96dbccb "6181e96dbccbc4778bbcca0b4810f181b6dc788a"
+[19]: https://github.com/winksaville/vc-x1/commit/29d4367ae839 "29d4367ae839255d9d5bc4465fe9855d0b02d91f"
+[20]: https://github.com/winksaville/vc-x1/commit/90ffce5a7092 "90ffce5a709221ce1b16fc37c6dc15a8df615e4f"
+[21]: https://github.com/winksaville/vc-x1/commit/25dfcb8edfba "25dfcb8edfba7ed81b0a51dd971cdc2e3a371f0d"
