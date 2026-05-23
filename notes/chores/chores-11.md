@@ -858,6 +858,8 @@ separate follow-up captured in `## Todo`.
 
 ## feat: validate-todo + fix-todo (0.55.0)
 
+Commits: [[16]]
+
 Cycle close-out. The `validate-todo` / `fix-todo` subcommand
 pair — a Rust replacement for `notes/fix-todo.py` — is in:
 `validate-todo` checks `## Todo` / `## Bugs` numbering and
@@ -896,6 +898,99 @@ Dropping `## Todo` item 1 and renumbering was done with
 `vc-x1 fix-todo --no-dry-run` — the cycle's own tool on its
 own backlog, and the close-out dogfood.
 
+## docs: refine cycle protocol (0.56.0)
+
+Refines CLAUDE.md's cycle protocol end-to-end. Picked up
+from `## Todo` item 1 (codify the move-into-`## In
+Progress` workflow); grew through the cycle into a broader
+rework:
+
+- **Pickup rule** — on picking up a `## Todo` item, *move*
+  its text into `## In Progress` so the section is
+  self-describing; the chores opener **mirrors** that
+  content so the cycle stays readable once `## In Progress`
+  is cleared at close-out; the `## Done` one-liner with a
+  chores `[N]` ref is added at close-out.
+- **One protocol** — single-step / multi-step / sub-step /
+  sub-sub retired; one cycle protocol with three phases:
+  **Preparation / Work-N / Close-out**. The `.`-separator
+  nested numbering, the trailing-`0`-marks-Preparation
+  rule, and the ordering caveat all live in
+  `### Numbering`.
+- **Push and squash are discretionary** — actions taken
+  when wanted (back up, publish, tidy), not modes chosen
+  at cycle start; the close-out push is mandatory; the
+  **squash / merge (non-FF) / keep** shape decision lives
+  at push time. The non-FF merge ("trapezoid": cycle's
+  sub-step commits stay reachable as a branch; main reads
+  linearly via `--first-parent`) is added as a third shape
+  this cycle.
+- **`.claude` once per push** — the bot repo accumulates
+  session data across the cycle's commits and commits once
+  per push. The per-sub-step `.claude` cadence is gone;
+  with push decoupled from the commit cadence, `.claude`
+  simply follows the push, and an N:1 push (no squash)
+  emits a multi-ochid list in the `.claude` commit.
+- **Two-gate review model** — review happens **before**
+  each commit: **Gate 1** (work — review the working-copy
+  changes in your editor), then write the description,
+  then **Gate 2** (message), then commit. ESC-ESC and
+  "stop on deviation/question" override. The earlier
+  commit-first model (review the committed revision) is
+  gone.
+- **CLAUDE.md consolidated** — the scattered cycle /
+  commit / push material collapses into one linear
+  `## Cycle Protocol` that reads top-to-bottom as the flow
+  (intro → `### Numbering` → `### Preparation` → `###
+  Per-commit flow` → `### Reviewing changes` → `###
+  Close-out` → `### Pushing` → `### ochid trailers`).
+  `## Committing`, `## Commit Message Style`, `### User
+  approval`, `### Versioning`, `### Pre-commit checklist`,
+  `## ochid Trailers`, and `## Commit-Push-Finalize Flow`
+  are gone; `vc-x1 push` flag/stage/recovery detail
+  deferred to `vc-x1 push --help`. CLAUDE.md shrinks ~39%
+  (1035 → 632 lines).
+
+### As-built ladder
+
+- 0.56.0-0 Preparation — version bump; populate
+  `## In Progress` (pickup of `## Todo` item 1); open
+  chores section.
+- 0.56.0-1 Work — rewrite `### Versioning` + `## Sub-step
+  Workflow` → `## Cycle Protocol`; rewrite the review
+  sections (provisionally to commit-first; corrected at
+  `-2`); add `notes/forks-multi-user.md` "Staged fork
+  integration" subsection.
+- 0.56.0-2 Work — the big-lever: collapse 8 sections into
+  one linear `## Cycle Protocol`; the two-gate
+  review-before-commit model lands here. (`Cargo.toml`
+  bump to `-2` backfilled at `-3` via `jj edit`.)
+- 0.56.0-3 Work + close-out bookkeeping — move
+  squash-or-keep text from `### Close-out` to `### Pushing`;
+  add **Merge (non-FF)** as a third close-out shape; clear
+  `## In Progress`, add `## Done` one-liner, finalize this
+  chores section.
+- 0.56.0 Close-out (bare, non-FF merge) — merge commit
+  with parents (`0.55.0`, `-3`); `Cargo.toml` `0.56.0-3` →
+  `0.56.0` (the merge's only content beyond the merge
+  itself).
+
+### Outcome
+
+A bigger cycle than the original pickup framed. Mid-cycle
+re-scoping (`-2` rewriting `-1`'s sections from scratch)
+and a review-model correction (two gates, before commit,
+instead of commit-first) drove the consolidation. Final
+CLAUDE.md reads as one linear protocol section instead of
+an eight-section assembly job.
+
+Landed via the new **non-FF merge** ("trapezoid") shape —
+dogfooded for the first time this cycle. The merge commit
+at bare `0.56.0` brings 4 sub-step commits (`-0`/`-1`/`-2`/
+`-3`) back to `main`; `git log --first-parent main` shows
+one jump from `0.55.0` → `0.56.0`, the sub-steps stay
+reachable via the merge's second parent.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/1e7c979e5458 "1e7c979e5458189e4a5f380b18acd81d75ffe68b"
@@ -913,3 +1008,4 @@ own backlog, and the close-out dogfood.
 [13]: https://github.com/winksaville/vc-x1/commit/8524fbe0e66c "8524fbe0e66c4000b5e9e4fd2292891cbb061891"
 [14]: https://github.com/winksaville/vc-x1/commit/607cba52cff8 "607cba52cff8c2094ee714088781698a66018347"
 [15]: https://github.com/winksaville/vc-x1/commit/65816b8ba212 "65816b8ba21208494d82f6deb9630489ac80099b"
+[16]: https://github.com/winksaville/vc-x1/commit/95ef1987a65a "95ef1987a65a37e7cea336871eb748661bc32185"
