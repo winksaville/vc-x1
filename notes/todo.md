@@ -32,7 +32,7 @@ by the "plan" — a bulleted list of the development "ladder":
 - 0.58.0-2 move `## Bugs` → `notes/bugs.md`; pointer in todo.md (done)
 - 0.58.0-3 extract `notes/todo-backlog.md` (prioritized entries
   stay in todo.md; references re-packed per file) (done)
-- 0.58.0-4 expand CLAUDE.md `## File reads` to bugs.md / chores
+- 0.58.0-4 expand CLAUDE.md `## File reads` to bugs.md / chores (done)
 - 0.58.0 close-out: move In Progress block into chores-12;
   `## Done` entry; update `notes/README.md`
 

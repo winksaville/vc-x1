@@ -32,16 +32,29 @@ not a stylistic choice.
 
 ## File reads — read the slice you need
 
-`notes/todo.md` is read on most session-startups for current
-focus. Read only the first ~60 lines by default — `Read` with
-`offset=0, limit=60`. That covers the intro, `## In Progress`,
-and `## Priorities`. Read the full file only when picking up a
-`## Todo` entry, chasing a `[N]` reference, or auditing the
-whole list.
+Long notes files are appended to over time. Read only the
+slice your task needs; grep or read further on demand.
 
-**Why:** the file runs ~370 lines and grows; the routine
-acquaint read needs only ~60. Reading the whole file every
-session wastes tokens with no information gain.
+- **`notes/todo.md`** (the routine acquaint read) — first
+  ~60 lines covers intro + `## In Progress` + `## Priorities`.
+  `Read` with `offset=0, limit=60`. Read further only when
+  picking up a `## Todo` entry, chasing a `[N]` ref, or
+  auditing the whole list.
+- **`notes/todo-backlog.md`** — the long-tail backlog
+  (non-prioritized `## Todo` entries). Read only when
+  picking up a backlog item; grep to locate it first.
+- **`notes/bugs.md`** — the bug list. Small; read whole
+  when triaging a bug or chasing the `## Bugs` pointer in
+  todo.md.
+- **`notes/done.md`** + **`notes/chores/chores-NN.md`** —
+  historical / append-mostly. Scan headings first
+  (`grep '^## ' notes/chores/chores-NN.md`), then read only
+  the section you need.
+
+**Why:** before the 0.58.0 split, `notes/todo.md` ran ~370
+lines and grew every cycle. The split moved the backlog and
+bugs into sibling files so the routine read stays small; the
+same "slice you need" rule applies to historical files.
 
 ## Memory
 
