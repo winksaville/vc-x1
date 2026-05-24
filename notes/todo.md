@@ -28,26 +28,33 @@ by the "plan" — a bulleted list of the development "ladder":
   - open chores-12 with bare section header
   - add minimal `## File reads` to CLAUDE.md
   - populate `## In Progress` (this block)
-- 0.58.0-1 add `## Priorities` + trim `## Todo` intro
+- 0.58.0-1 add `## Priorities` + trim `## Todo` intro (done)
 - 0.58.0-2 move `## Bugs` → `notes/bugs.md`; pointer in todo.md
 - 0.58.0-3 expand CLAUDE.md `## File reads` to bugs.md / chores
 - 0.58.0 close-out: move In Progress block into chores-12;
   `## Done` entry; update `notes/README.md`
 
+## Priorities
+
+- P1 is highest priority, same priority are grouped equally
+- A line with `...` is a prefix-match against a `## Todo` title
+  - should be unique
+- Entries without a prefix-match are free-form
+  - chores tasks, ad-hoc reminders.
+
+P1: chores-11 is "full" > 1,000 lines, start chores-12.md
+P2: `**single-field...**`
+P3: `**por -> dual...**`
+P3: `**por/duality parity...**`
+
 ## Todo
 
- A markdown list of tasks to do in the near future, ordered
- highest-priority first. Keep entries brief — 1-3 lines.
- Detailed motivation, safety requirements, and ordering belong
- in `notes/chores/chores-NN.md` design subsections; link via `[N]` ref.
-
- Entries carry explicit `1.` `2.` … numbers in the source so
- you can grep, count, and reference them ("let's work on
- #3"). You don't hand-maintain the numbers — insert, delete,
- or reorder entries freely, then `vc-x1 fix-todo --no-dry-run`
- renumbers the list and normalizes continuation-line indent.
- `vc-x1 fix-todo` alone only previews; `vc-x1 validate-todo`
- is the read-only check.
+ A markdown list of tasks to do in the near future. Keep
+ entries brief — 1-3 lines. Detailed motivation, safety
+ requirements, and ordering belong in
+ `notes/chores/chores-NN.md` design subsections; link via
+ `[N]` ref. Run `vc-x1 fix-todo --no-dry-run` to renumber
+ after insert / delete / reorder.
 
 1. **vc-x1 push: `--merge` flag (close-out shape).** Teach
    push to set up the non-FF merge ("trapezoid") shape
