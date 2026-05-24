@@ -33,6 +33,9 @@ by the "plan" — a bulleted list of the development "ladder":
 - 0.58.0-3 extract `notes/todo-backlog.md` (prioritized entries
   stay in todo.md; references re-packed per file) (done)
 - 0.58.0-4 expand CLAUDE.md `## File reads` to bugs.md / chores (done)
+- 0.58.0-5 codify in CLAUDE.md: chores title-only during cycle,
+  In Progress moves into chores at close-out, problem+plan
+  shape for In Progress / chores intros / Todo entries (done)
 - 0.58.0 close-out: move In Progress block into chores-12;
   `## Done` entry; update `notes/README.md`
 
