@@ -30,6 +30,19 @@ paths (`/tmp/...`, `~/.config/...`) stay absolute. Read/Edit/Write
 tool args also stay absolute — that's a tool-boundary constraint,
 not a stylistic choice.
 
+## File reads — read the slice you need
+
+`notes/todo.md` is read on most session-startups for current
+focus. Read only the first ~60 lines by default — `Read` with
+`offset=0, limit=60`. That covers the intro, `## In Progress`,
+and `## Priorities`. Read the full file only when picking up a
+`## Todo` entry, chasing a `[N]` reference, or auditing the
+whole list.
+
+**Why:** the file runs ~370 lines and grows; the routine
+acquaint read needs only ~60. Reading the whole file every
+session wastes tokens with no information gain.
+
 ## Memory
 
 Do not use the bot's per-project memory directory

@@ -17,7 +17,22 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**refactor: notes/todo.md restructure + bugs.md split (0.58.0)**
+
+`notes/todo.md` is too large for routine reads and its
+`## Todo` intro duplicates `notes/README.md`.
+
+- 0.58.0-0 Preparation (done)
+  - backfill `0.57.0` `Commits:` ref in chores-11
+  - bump Cargo.toml to `0.58.0-0`
+  - open chores-12 with bare section header
+  - add minimal `## File reads` to CLAUDE.md
+  - populate `## In Progress` (this block)
+- 0.58.0-1 add `## Priorities` + trim `## Todo` intro
+- 0.58.0-2 move `## Bugs` → `notes/bugs.md`; pointer in todo.md
+- 0.58.0-3 expand CLAUDE.md `## File reads` to bugs.md / chores
+- 0.58.0 close-out: move In Progress block into chores-12;
+  `## Done` entry; update `notes/README.md`
 
 ## Todo
 
