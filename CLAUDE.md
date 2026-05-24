@@ -30,6 +30,32 @@ paths (`/tmp/...`, `~/.config/...`) stay absolute. Read/Edit/Write
 tool args also stay absolute — that's a tool-boundary constraint,
 not a stylistic choice.
 
+## File reads — read the slice you need
+
+Long notes files are appended to over time. Read only the
+slice your task needs; grep or read further on demand.
+
+- **`notes/todo.md`** (the routine acquaint read) — first
+  ~60 lines covers intro + `## In Progress` + `## Priorities`.
+  `Read` with `offset=0, limit=60`. Read further only when
+  picking up a `## Todo` entry, chasing a `[N]` ref, or
+  auditing the whole list.
+- **`notes/todo-backlog.md`** — the long-tail backlog
+  (non-prioritized `## Todo` entries). Read only when
+  picking up a backlog item; grep to locate it first.
+- **`notes/bugs.md`** — the bug list. Small; read whole
+  when triaging a bug or chasing the `## Bugs` pointer in
+  todo.md.
+- **`notes/done.md`** + **`notes/chores/chores-NN.md`** —
+  historical / append-mostly. Scan headings first
+  (`grep '^## ' notes/chores/chores-NN.md`), then read only
+  the section you need.
+
+**Why:** before the 0.58.0 split, `notes/todo.md` ran ~370
+lines and grew every cycle. The split moved the backlog and
+bugs into sibling files so the routine read stays small; the
+same "slice you need" rule applies to historical files.
+
 ## Memory
 
 Do not use the bot's per-project memory directory
@@ -123,6 +149,20 @@ Bullet *content* differs by surface:
   see [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
 - **Doc comments** — bullets are whatever structure fits (fields,
   cases, invariants).
+
+**Problem + plan shape.** `## In Progress` cycle blocks,
+chores section intros, and `## Todo` entries use a sharper
+form of the same shape:
+
+- **Problem statement** (the why) — one or two sentences;
+  don't pad with intent, don't restate the plan.
+- **Plan bullets** (the what/when) — formality differs by
+  surface:
+  - In Progress / chores: numbered ladder (`-N` suffixes,
+    `(current)` / `(done)` markers) — a committed sequence.
+  - Todo entries: rough informal bullets, no numbering;
+    formalized only when the entry is picked up into a
+    cycle.
 
 **Semicolons inside bullets.** A bullet that joins
 multiple clauses with semicolons (`A; B; C`) is a list
@@ -316,16 +356,20 @@ The cycle's first commit (`X.Y.Z-0`):
 - **Bump the version** in `Cargo.toml` to `X.Y.Z-0`.
 - **Pick up a `## Todo` item** (if the cycle has one). Move
   that entry's text out of `## Todo` and into `## In
-  Progress` — its overview and to-do list, followed by the
-  plan ladder — so `## In Progress` is self-describing, not
-  a bare ladder. A cycle that merges several entangled
-  `## Todo` items moves all of them. A `## Todo` entry that
-  duplicates current `## In Progress` work is a process bug.
-- **Open the chores section.** Header = provisional commit
-  title; intro that **mirrors** the `## In Progress` content
-  so the cycle stays readable once `## In Progress` is
-  cleared at close-out; any `###` design subsections. No
-  per-file edit list — that lives in the commit body.
+  Progress` — a **bold title line** (exact match for the
+  chores section header, minus the `## ` prefix) +
+  **succinct problem statement** + **plan ladder**. See
+  [Prose form](#prose-form) (Problem + plan shape). A cycle
+  that merges several entangled `## Todo` items moves all
+  of them. A `## Todo` entry that duplicates current
+  `## In Progress` work is a process bug.
+- **Open the chores section.** Header = the cycle's
+  **anticipated close-out title** (e.g. `## refactor: foo
+  bar (X.Y.Z)`). No body — the cycle's live narrative
+  lives in `## In Progress` and moves into the section at
+  close-out per the "title only holds position" rule. One
+  chores section per cycle is the default; per-commit
+  sections (like 0.55.0's four) are a deliberate choice.
 
 ### Per-commit flow
 
@@ -451,11 +495,17 @@ The cycle's last commit (bare `X.Y.Z`):
 
 - **Move the picked-up item** from `## In Progress` to a
   one-line entry (with a chores `[N]` ref) in `## Done`.
-- **Finalize the chores section.** Sync the section header
-  to the **final** commit title and update every markdown
-  anchor back-reference to it; add an `### As-built ladder`
-  listing the cycle's commits; `### Outcome` notes if
-  useful.
+- **Move the `## In Progress` block into the chores
+  section.** Cut the problem statement + plan ladder out of
+  `## In Progress` (drop the bold title line — the chores
+  `##` header carries the same string) and paste them
+  under the bare chores `##` header (the title-only
+  placeholder from Preparation). Sync the chores header to
+  the **final** commit title if the cycle's scope shifted,
+  and update every markdown anchor back-reference to it.
+  Add an `### As-built ladder` listing the cycle's
+  commits; `### Outcome` notes if useful. Replace
+  `## In Progress` with `_No cycle currently in progress._`.
 - **Update `notes/README.md`** if functionality changed
   (new flags, new subcommands, changed behavior).
 

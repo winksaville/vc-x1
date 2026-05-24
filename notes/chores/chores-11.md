@@ -995,6 +995,8 @@ reachable via the merge's second parent.
 
 ## docs: add --merge todo entry (0.57.0)
 
+Commits: [[22]]
+
 Adds a `## Todo` entry recording a future `vc-x1 push:
 --merge` flag (close-out shape, sibling to the planned
 `--squash`) that automates setting up the non-FF merge
@@ -1074,3 +1076,4 @@ jump from `0.56.0` → `0.57.0`.
 [19]: https://github.com/winksaville/vc-x1/commit/29d4367ae839 "29d4367ae839255d9d5bc4465fe9855d0b02d91f"
 [20]: https://github.com/winksaville/vc-x1/commit/90ffce5a7092 "90ffce5a709221ce1b16fc37c6dc15a8df615e4f"
 [21]: https://github.com/winksaville/vc-x1/commit/25dfcb8edfba "25dfcb8edfba7ed81b0a51dd971cdc2e3a371f0d"
+[22]: https://github.com/winksaville/vc-x1/commit/c0dcfe583cff "c0dcfe583cffb15cf13fb8191bc2a4d4a82aa9c9"

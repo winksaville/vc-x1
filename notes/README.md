@@ -49,9 +49,11 @@ Bot-facing workflow, versioning, and code conventions live in
 
 ## Todo format
 
-Todo.md is organized into `## In Progress`, `## Todo`, `## Bugs`,
-and `## Done` sections; each item is a short description with
-reference links to more detail.
+Todo.md is organized into `## In Progress`, `## Priorities`,
+`## Todo` (the prioritized subset; full backlog in
+[todo-backlog.md](todo-backlog.md)), `## Bugs` (pointer to
+[bugs.md](bugs.md)), and `## Done` sections. Each item is a
+short description with reference links to more detail.
 
 `## Todo` and `## Bugs` entries carry explicit `1.` `2.` …
 numbers in the source so you can grep, count, and reference
@@ -87,8 +89,9 @@ Examples:
 
 ## Reference numbering
 
-Every note file (`todo.md`, `chores-NN.md`, `done.md`) keeps a
-file-local `# References` section at the bottom. Reference numbers
+Every note file (`todo.md`, `todo-backlog.md`, `bugs.md`,
+`chores-NN.md`, `done.md`) keeps a file-local `# References`
+section at the bottom. Reference numbers
 are scoped to that file — `[1]` in `chores-07.md` and `[1]` in
 `chores-01.md` are independent slots that may point at completely
 different URLs. New chores files start their numbering at `[1]`.

@@ -1,0 +1,2 @@
+The CLAUDE.md convention update (formalize "problem + bullet plan" + the In-Progress-vs-Todo formality distinction) fits in -3 or close-out.
+
