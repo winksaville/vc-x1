@@ -30,7 +30,9 @@ by the "plan" — a bulleted list of the development "ladder":
   - populate `## In Progress` (this block)
 - 0.58.0-1 add `## Priorities` + trim `## Todo` intro (done)
 - 0.58.0-2 move `## Bugs` → `notes/bugs.md`; pointer in todo.md (done)
-- 0.58.0-3 expand CLAUDE.md `## File reads` to bugs.md / chores
+- 0.58.0-3 extract `notes/todo-backlog.md` (prioritized entries
+  stay in todo.md; references re-packed per file) (done)
+- 0.58.0-4 expand CLAUDE.md `## File reads` to bugs.md / chores
 - 0.58.0 close-out: move In Progress block into chores-12;
   `## Done` entry; update `notes/README.md`
 
@@ -38,47 +40,33 @@ by the "plan" — a bulleted list of the development "ladder":
 
 - P1 is highest priority, same priority are grouped equally
 - A line with `...` is a prefix-match against a `## Todo` title
-  - should be unique
+  - resolves locally (in this file); should be unique
 - Entries without a prefix-match are free-form
   - chores tasks, ad-hoc reminders.
 
-P1: chores-11 is "full" > 1,000 lines, start chores-12.md
-P2: `**single-field...**`
-P3: `**por -> dual...**`
-P3: `**por/duality parity...**`
+### P1
+
+- chores-11 is "full" > 1,000 lines, start chores-12.md
+
+### P2
+
+- `**single-field...**`
+
+### P3
+
+- `**por -> dual...**`
+- `**por/dual parity...**`
 
 ## Todo
 
- A markdown list of tasks to do in the near future. Keep
- entries brief — 1-3 lines. Detailed motivation, safety
- requirements, and ordering belong in
- `notes/chores/chores-NN.md` design subsections; link via
- `[N]` ref. Run `vc-x1 fix-todo --no-dry-run` to renumber
- after insert / delete / reorder.
+ Prioritized entries (referenced by `## Priorities`).
+ Full backlog in [todo-backlog.md](todo-backlog.md). Keep
+ entries brief — 1-3 lines; detail in
+ `notes/chores/chores-NN.md` design subsections (link via
+ `[N]` ref). Run `vc-x1 fix-todo --no-dry-run notes/todo.md`
+ to renumber.
 
-1. **vc-x1 push: `--merge` flag (close-out shape).** Teach
-   push to set up the non-FF merge ("trapezoid") shape
-   itself instead of requiring the user to pre-rebase
-   before invoking push. Sibling to `--squash` (#26);
-   both are close-out shape choices made at push time.
-   Dogfooded manually in `0.56.0`. [[32]]
-   - Preparation (`-0`): open chores section; settle flag
-     surface (`--merge` mutually exclusive with `--squash`
-     / `--keep`?) and preflight checks (cycle tip is
-     descendant of `<prev>`, not already a merge, sub-tip
-     reachable from current bookmark, etc.).
-   - Work-1 (`-1`): parse the flag through `PushArgs` →
-     `PushParams`; reject mutually-exclusive combinations.
-   - Work-2 (`-2`): implement the rebase setup inside
-     push's state machine — locate `<tip>` and
-     `<sub-tip>`, run the equivalent of `jj rebase -r
-     <tip> -d <prev> -d <sub-tip>`; ensure the `.claude`
-     commit emits a multi-line `ochid:` covering every
-     sub-step in the merge.
-   - Work-3 (`-3`): tests + dogfood on a real cycle.
-   - Close-out: finalize chores; `## Done` entry; CLAUDE.md
-     `### Pushing` text updated to describe the flag.
-2. **single-field `options_flags` leaves → `value` field.**
+1. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -90,218 +78,18 @@ P3: `**por/duality parity...**`
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-3. **Investigate `linkme` for subcommand registration.**
-   Distributed-slice registry — each subcommand registers itself
-   at link time; `main.rs` discovers them via the slice rather
-   than matching a `Commands` enum. Reduces per-subcommand
-   touchpoints from 3 (mod decl + enum variant + match arm) to 1
-   (registration). Costs: loses compile-time exhaustiveness
-   (missing registration = runtime gap); help-output ordering
-   depends on link order unless sorted; macro-magic dependency.
-   Revisit once the `0.50.0` trait sweep's per-arm cost has been
-   felt under real "add a subcommand" load.
-   <https://github.com/dtolnay/linkme>
-4. **Investigate `inventory` as `linkme` alternative.** Same
-   shape as `linkme` — runtime-iterable registry populated by
-   `inventory::submit!` per subcommand. Trade-offs mirror
-   linkme's. Pick one if/when the trait sweep's match becomes
-   the felt bottleneck.
-   <https://github.com/dtolnay/inventory>
-5. **`por → dual` conversion.** Attach a `.claude`
+2. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
-   Design stub in [[4]] § 2.
-6. **Audit hardcoded `.claude` in diagnostics / logging.**
-   `vc-x1 finalize --repo .bot` on `../dicom-rs`
-   (2026-05-14) honored `--repo` throughout actual
-   operations, but `bm-track` still emitted
-   `.claude(main)=no-jj` — diagnostic strings have
-   `.claude` baked in. Cosmetic today; load-bearing once
-   bot-repo name becomes configurable (see Symmetric
-   `.vc-config.toml` schema entry below).
-7. **por/dual parity + `dual → por` conversion.** Make
+   Design stub in [[1]] § 2.
+3. **por/dual parity + `dual → por` conversion.** Make
    `por` and `dual` first-class equals (dual is primary
    today, por bolted on); add `dual → por` conversion
    (detach the `.claude` companion). Builds on the
    `--scope` rollout below. Pre-design; goal + open
-   questions in the stub. [[4]]
-8. **forks-multi-user + bot-data-formats follow-through.**
-   Design captured across two notes; concrete work to
-   land when a cycle picks it up. Major pieces:
-   multi-line `ochid:` parser/emitter; bot-side
-   immutability enforcement; URL-shaped ochid (per-user
-   / cross-repo); vendor-subdir layout
-   (`.bot/<vendor>/<version>/<id>.<ext>`) +
-   flat-to-vendor migration; `.claude/` → `.bot/` rename
-   (gated behind symmetric `.vc-config.toml` schema).
-   Each piece is its own future TODO when the design
-   hardens. [[5]],[[6]]
-9. **Symmetric `.vc-config.toml` schema.** Add `code = "/"`
-   and `bot = "/.claude"` (workspace-root-relative paths) so
-   both repos read from the same shape. Side detection walks
-   up from cwd via existing `find_workspace_root`, then maps
-   cwd-relative-to-root onto the configured `code` / `bot`
-   paths. Cwd-basename match is a fast-path shortcut at
-   role-root level only — subdirs need the walk-up. Was the
-   deferred half of `0.41.1-6`'s title. Migration story for
-   existing workspaces TBD at design time. [[7]]
-10. **`test_helpers::Fixture` migration + downstream callers.**
-    Plus rename `Fixture` → `TestFixtureDual` and `FixturePor`
-    → `TestFixturePor` so call sites carry the test-only
-    signal that `#[cfg(test)] mod test_helpers` doesn't
-    communicate. Was `0.41.1-7`. [[8]]
-11. **`vc-x1 finalize --scope` flag.** Replace `--repo`
-    with the role vocabulary used elsewhere
-    (`code|bot|code,bot`). Carry-over from the 0.42.0
-    `--scope` sweep (was 0.42.0-5; deferred at -4.7
-    close-out). The paired `Single(_)` dogfood item
-    (0.42.0-7) is moot after `0.53.0` — `Single(_)`
-    deleted. Design lives in chores-07. [[9]]
-12. Cross-file `chores-NN.md` ordering sanity pass.
-    `chores-08.md` (the 0.41.1 cycle) landed on `main` via
-    the `0.42.0-4.7` rebase; check that section ordering
-    across `chores-06`/`-07`/`-08`/`-09` is chronologically
-    coherent and normalize if not. Low priority.
-13. Add a vc-x1 validate-repo?
-14. vc-x1 push: rework the two bookmark parameters.
-    `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
-    `bookmark` (`--bookmark` flag) for one logical value,
-    forcing an `or_else` in `From<&PushArgs>`. Collapse to a
-    single positional with `--bookmark` as a true clap alias,
-    or drop one spelling. [[10]]
-15. vc-x1 push: `--recheck` — implement or remove. Parsed by
-    `PushArgs`, never read; mirrored into `PushParams` with
-    `#[allow(dead_code)]`. Either wire the
-    skip-preflight-on-resume behavior or drop the flag. [[11]]
-16. vc-x1 push: `--scope=code|bot|code,bot` flag.
-    Was 0.42.0-4 (deferred when cycle pivoted to icr
-    rebase work; cycle closed at -4.7). State machine
-    becomes scope-aware — single-side scope skips
-    `commit-claude`/bookmark-claude/`finalize-claude`.
-    [[12]],[[13]],[[14]],[[15]]
-17. vc-x1 clone: `--scope=code|bot|code,bot` flag.
-    Parallel to `init --scope` for role selection;
-    topology (`--por` vs dual) is the separate `--por`
-    boolean. Was 0.42.0-6 (deferred at -4.7
-    close-out). [[13]],[[14]],[[15]]
-18. vc-x1 validate-desc / fix-desc:
-    `--scope=code|bot|code,bot` flag. Same role vocabulary
-    as elsewhere — `code` validates code's commits against
-    bot, `bot` reverses, `code,bot` does both (new
-    default). [[13]],[[14]],[[15]]
-19. Unify `.vc-config.toml` accessors onto Pattern B
-    (typed struct + `load_from(path)`, like new
-    `config::UserConfig` and `push::resolve_state_layout`).
-    Replaces the map-typed helpers in `desc_helpers.rs` /
-    `fix_desc.rs` / `validate_desc.rs` with a typed
-    `WorkspaceConfig` struct. ~50 LOC, mechanical.
-    Candidate for 0.41.2. [[16]]
-20. Layered config precedence (user → workspace → CLI)
-    once `WorkspaceConfig` is typed. Workspace can
-    override `[github].owner` etc. for a specific project;
-    init can't use the layer (chicken-and-egg) but
-    post-init commands can. Depends on the
-    `WorkspaceConfig` typed-struct refactor above.
-    Candidate for 0.41.2. [[16]]
-21. Help layout: force over-under everywhere. Apply
-    `next_line_help(true)` at the root (or via the existing
-    `cli_with_banner` walker) so every subcommand's `-h` /
-    `--help` uses the same layout. Today clap auto-picks
-    per-command based on the widest flag spec, so
-    `sync -h` is two-column but `init -h` is over-under —
-    visual inconsistency.
-22. Replace "Step N" log prefixes with single-word
-    `label: body` convention (`bookmark`, `provision`,
-    `colocate`, `cross-ref`, `symlink`, …); indent labels
-    under per-side `code:` / `bot:` headers in dual.
-    Originally planned as 0.41.1-6.7; deferred.
-23. Consider renaming the `.vc-config.toml` `[workspace]`
-    section. Rust readers expect `[workspace]` to mean a
-    Cargo workspace, which a vc-x1 dual-repo isn't.
-    Candidates: `[repo-list]`, `[project]`, `[dual-repo]`.
-    Breaking change — needs migration story (read both
-    names during a transition cycle, or one-shot rewrite
-    in `vc-x1 sync`/`init` on first contact). Drives the
-    broader "stop saying workspace in user-facing surfaces"
-    sweep.
-24. Add `status` (alias `st`) subcommand: `jj st` across both
-    repos in one shot. Uses `--scope` from day one. This is
-    natural home for the working-copy signal called out and
-    it needs to include remotes, like remotes/origin/main. [[17]].
-25. `vc-x1 init --dry-run` should bypass the
-    `--repo-remote` path-existence preflight (currently fires
-    before the dry-run early-return; observed dogfooding
-    2026-04-24).
-26. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
-    `--ignore-immutable` and force-pushes; needs
-    `--force-with-lease`-equivalent + state-sanity preflight in
-    place first. [[12]]
-27. vc-x1 push: `--message-file PATH` flag. Git-style commit
-    message file (first line = title, blank, rest = body).
-    Alternative to `--title` + `--body`. [[18]]
-28. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
-    through to the preflight `vc-x1 sync` invocation).
-    0.37.1 hard-codes `--check`; default stays `--check`.
-29. Add `validate-repo` subcommand: diagnostic that runs all
-    `verify_*` checks (tracking, push state freshness, ochid
-    integrity, conflicts, config sanity, working-copy state)
-    plus chores↔commit consistency — every `[N]:` anchor
-    resolves, and each chores `##` section's recorded title
-    matches its `Commits:` commit's title — and reports
-    per-check pass/fail. Exit code = number of failed checks.
-    Implementation: promote `verify_state_sanity` /
-    `verify_completion_sanity` from push.rs to `common.rs`. [[19]]
-30. sync: surface working-copy state in the up-to-date summary
-    (per-repo pending-files count or compact stat). Wording-only
-    fix shipped in 0.37.1; this is the design+impl. [[17]]
-31. bm-track silent-when-clean refinement. Print on entry/exit
-    only when state isn't fully tracked or when exit state
-    differs from entry. [[20]]
-32. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
-    anchor dir. Idea-stage; every repo-mutating command drops a
-    pre-op snapshot, `vc-x1 undo` restores both repos. [[12]]
-33. Restructure templates: replace separate `vc-template-x1` +
-    `vc-template-x1.claude` repos with a single `vc-template-x1`
-    that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
-    both sides in one place). Updates to `vc-x1 init` / `clone`
-    needed for the new layout.
-34. Source-code design ref sweep + CLAUDE.md codification:
-    adopt section-name + `blob/main/...` URL pattern for source
-    code refs to designs; codify in CLAUDE.md alongside the
-    existing markdown ref conventions. Sweep targets:
-    src/push.rs lines 4, 121, 645, 1219. [[21]]
-35. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[22]]
-36. Per-line/per-thread runtime log points (future, maybe) [[23]]
-37. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [[24]]
-38. Add "::" revision syntax for jj compatibility
-39. Add -p, --parents, -c, --children so parent and child counts can be asymmetric
-40. Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
-41. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [[25]],[[26]]
-42. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [[27]]
-43. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [[28]],[[29]]
-44. Test-tempdir override resolution chain. Both
-    `src/test_helpers::unique_base` and
-    `tests/common/unique_base` currently use
-    `std::env::temp_dir()` (= `$TMPDIR`). Generalize to
-    resolve in priority order: explicit env var (e.g.
-    `VC_X1_TEST_TMPDIR`) → user config
-    (`~/.config/vc-x1/config.toml`) → local
-    `.vc-config.toml` → `std::env::temp_dir()` fallback.
-    Useful when a developer wants tests on a tmpfs / SSD /
-    project-local path without exporting `TMPDIR` globally.
-    Open question: do we also expose a CLI parameter
-    (e.g. `vc-x1 --workspace-tmp …`)? Test binaries can't
-    easily accept arbitrary flags via `cargo test --`, so
-    env is the realistic surface for tests; for the
-    `vc-x1` binary itself a flag is feasible but unclear
-    it adds value over the resolution chain.
-45. **`validate-todo` / `fix-todo`: flag malformed lines.**
-    A column-0 line inside `## Todo` / `## Bugs` that is
-    neither an entry (`N. `) nor a heading is malformed;
-    it's currently tolerated silently. Report it so stray
-    lines / typos surface.
+   questions in the stub. [[1]]
 
 ## Bugs
 
@@ -314,46 +102,21 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 
 _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 
-- chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[1]]
-- `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[2]]
-- todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[3]]
-- scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[30]]
-- validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[31]]
-- refine cycle protocol — one protocol (Preparation/Work-N/Close-out), `.`-separator nested numbering with trailing-`0`=Preparation, push & squash discretionary, `.claude` once per push, two-gate review (work then message, both before commit), CLAUDE.md cycle/commit/push docs consolidated into one linear `## Cycle Protocol` (~39% smaller) (0.56.0) [[32]]
-- add `--merge` todo entry — Todo #1 records future `vc-x1 push --merge` flag (close-out shape, sibling to planned `--squash`); dogfoods the Preparation/Work-N/Close-out protocol on a deliberately small docs cycle (0.57.0) [[33]]
+- chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[2]]
+- `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[3]]
+- todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[4]]
+- scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[5]]
+- validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[6]]
+- refine cycle protocol — one protocol (Preparation/Work-N/Close-out), `.`-separator nested numbering with trailing-`0`=Preparation, push & squash discretionary, `.claude` once per push, two-gate review (work then message, both before commit), CLAUDE.md cycle/commit/push docs consolidated into one linear `## Cycle Protocol` (~39% smaller) (0.56.0) [[7]]
+- add `--merge` todo entry — Todo #1 records future `vc-x1 push --merge` flag (close-out shape, sibling to planned `--squash`); dogfoods the Preparation/Work-N/Close-out protocol on a deliberately small docs cycle (0.57.0) [[8]]
 
 # References
 
-[1]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
-[2]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
-[3]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530
-[4]: /notes/por-dual-parity.md
-[5]: /notes/forks-multi-user.md
-[6]: /notes/bot-data-formats.md
-[7]: /notes/chores/chores-08.md#operations
-[8]: /notes/chores/chores-08.md#cycle-structure--multi-step
-[9]: /notes/chores/chores-07.md#--scope-enum-refactor-0420
-[10]: /notes/chores/chores-09.md#push-dual-bookmark-parameters
-[11]: /notes/chores/chores-09.md#push-unimplemented-recheck-flag
-[12]: /notes/chores/chores-05.md#capture-squash-mode--scope-design-for-push-0374
-[13]: /notes/chores/chores-06.md#generalize---scope-to-all-commands-design
-[14]: /notes/chores/chores-06.md#--scope-continuation-0410
-[15]: /notes/chores/chores-08.md#init--clone-redesign-0411
-[16]: /notes/chores/chores-08.md#user-config-0411-3
-[17]: /notes/chores/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
-[18]: /notes/chores/chores-05.md#capture---message-file-design-for-push-0375
-[19]: /notes/chores/chores-06.md#vc-x1-validate-repo-command-design
-[20]: /notes/chores/chores-06.md#bm-track-silent-when-clean-design
-[21]: /notes/chores/chores-06.md#source-code-design-ref-convention-design
-[22]: /notes/chores/chores-05.md#open-questions--tbd
-[23]: /notes/chores/chores-03.md#per-lineper-thread-runtime-log-points-future
-[24]: /notes/chores/chores-03.md#windows-symlink-support
-[25]: /notes/chores/chores-01.md#refactor-and-add-desc-subcommand
-[26]: /notes/chores/chores-01.md#claude-repo-issue-070-dev0-through-dev2
-[27]: /notes/chores/chores-02.md#0260--shell-completion-via-clap_complete-env
-[28]: /notes/chores/chores-02.md#testing-results
-[29]: /notes/chores/chores-02.md#shell-completion-discovery
-[30]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
-[31]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550
-[32]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
-[33]: /notes/chores/chores-11.md#docs-add---merge-todo-entry-0570
+[1]: /notes/por-dual-parity.md
+[2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
+[3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
+[4]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530
+[5]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
+[6]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550
+[7]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
+[8]: /notes/chores/chores-11.md#docs-add---merge-todo-entry-0570
