@@ -3,7 +3,7 @@
 Continuation of `chores-11.md` (which is closed at `0.57.0` —
 the `--merge` todo entry cycle). This file covers the `0.58.0`
 cycle onward. Reference numbering is file-local — see
-[`README.md`](../README.md#reference-numbering); chores-12
+[`CLAUDE.md`](../../CLAUDE.md#reference-numbering); chores-12
 starts at `[1]`.
 
 ## refactor: notes/todo restructure (0.58.0)
@@ -50,7 +50,7 @@ future similar splits cheap.
 
 ## docs: extract cycle protocol (0.59.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[2]]
 
 `notes/cycle-protocol.md` becomes the canonical,
 self-contained home for the cycle workflow. CLAUDE.md
@@ -132,6 +132,56 @@ only by doing the cycle's work. Capture them at close-out
 (per the rule above) so they survive `/exit` between cycles
 — sessions don't carry conversational context across `/exit`.
 
+## docs: consolidate notes conventions (0.60.0)
+
+Commits: TBD (backfills at next cycle's Preparation)
+
+Bot is the primary writer of notes files, so the
+file-format conventions belong in CLAUDE.md as the single
+source of truth. Three notes-file sections (`Todo format`,
+`Reference numbering`, `Retiring Done entries`) move from
+notes/README.md into a new `## Notes file conventions`
+umbrella in CLAUDE.md, alongside the existing
+`## Chores conventions` umbrella; the `[[N]]` citation
+rule duplicated between CLAUDE.md `## Notes references`
+and notes/README.md `## Todo format` collapses into one
+place.
+
+### Cargo cycle discoverability
+
+Mid-cycle the bot lost track of where the per-commit
+cargo cycle (`fmt` / `clippy` / `test` / `install`)
+lived. It had been buried inside `notes/cycle-protocol.md
+> ## Per-commit flow > step 4` since the 0.59.0
+extraction, with no direct surface in CLAUDE.md or
+notes/README.md — and README.md `## Contributing` still
+listed seven `CLAUDE.md#…` anchors that had been removed
+in 0.59.0 (only `#code-conventions` still resolved).
+Cycle scope expanded to fix all three: CLAUDE.md
+`## Cycle Protocol` now names the cargo cycle inline;
+notes/README.md `## Workflow and conventions` breaks
+cycle-protocol.md into explicit pointers (Cycles /
+Per-commit flow / Commit description / Pushing);
+README.md `## Contributing` is rewritten against current
+anchor homes.
+
+### As-built ladder
+
+- 0.60.0-0 Preparation — backfill 0.59.0 chores
+  `Commits:` ref; bump Cargo.toml; pick up the "notes
+  conventions → CLAUDE.md" Idea into `## In Progress`;
+  open chores section.
+- 0.60.0-1 Consolidate notes-file conventions in
+  CLAUDE.md — three sections moved into the new
+  umbrella; `[[N]]` duplicate dropped; chores files'
+  reference-numbering pointer redirected to CLAUDE.md;
+  `cycle-protocol.md` broken anchor fixed; cargo cycle
+  surfaced at CLAUDE.md + notes/README.md; README.md
+  `## Contributing` rewritten.
+- 0.60.0 Close-out — chores narrative; `## Done` entry +
+  `[12]:` ref; `## In Progress` reset.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
+[2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"

@@ -54,9 +54,8 @@ with the cycle's anticipated close-out title (e.g.
 content arrives at close-out (see [Close-out](#close-out)).
 
 Fuller chores conventions (content rules, header sync,
-design subsection pattern, `Commits:` formatting) live
-in CLAUDE.md
-[Pre-commit Requirements](../CLAUDE.md#pre-commit-requirements).
+design subsection pattern, `Commits:` formatting) live in
+CLAUDE.md [Chores conventions](../CLAUDE.md#chores-conventions).
 
 ## Preparation
 

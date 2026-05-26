@@ -27,26 +27,7 @@ _No cycle currently in progress._
  `## Todo` / `notes/todo-backlog.md`, fold into a
  picked-up cycle, or drop.
 
-1. **Relocate CLAUDE.md chores conventions into
-   `notes/cycle-protocol.md`.** Makes cycle-protocol.md
-   fully self-contained on the cycle/chores workflow for
-   README.md and other consumers.
-   - Identify cross-refs in CLAUDE.md and elsewhere
-     pointing at the three subsections being moved.
-   - Move `### Headings and entries that record a
-     commit` from CLAUDE.md `## Pre-commit Requirements`
-     into cycle-protocol.md.
-   - Move `### Chores section content` from CLAUDE.md
-     into cycle-protocol.md.
-   - Move `### Chores commit references` from CLAUDE.md
-     into cycle-protocol.md.
-   - Restructure CLAUDE.md `## Pre-commit Requirements`
-     after the moves — it then holds only general
-     writing conventions (`### Notes references`,
-     `### Markdown anchor links`); consider renaming.
-   - Update all cross-refs to point at the new
-     locations.
-2. **Codify ochid invariant + bot-repo rules + squash
+1. **Codify ochid invariant + bot-repo rules + squash
    gating + cross-repo migration in
    `notes/cycle-protocol.md`.** Was planned for
    `0.59.0-2` but deferred when 0.59.0 closed out via
@@ -186,6 +167,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - add `--merge` todo entry — Todo #1 records future `vc-x1 push --merge` flag (close-out shape, sibling to planned `--squash`); dogfoods the Preparation/Work-N/Close-out protocol on a deliberately small docs cycle (0.57.0) [[8]]
 - notes/todo restructure — split `## Bugs` → `bugs.md` and the long-tail `## Todo` → `todo-backlog.md`; `## Priorities` with tier sub-headings (`### P1`/`### P2`/`### P3`); CLAUDE.md `## File reads` rule + protocol codification (chores title-only during cycle, In Progress moves into chores at close-out, problem+plan shape) (0.58.0) [[9]]
 - extract cycle protocol — `notes/cycle-protocol.md` becomes the canonical self-contained home for the cycle workflow (504 lines, extensively tightened from the CLAUDE.md extract); CLAUDE.md keeps a 10-line pointer; `notes/substep-protocol.md` folded in as `## Sub-cycle ladders`; `## Ideas` section added to `notes/todo.md`; first squash close-out via manual Option F (app squash + bot-side `af60f979` trailer rewrite + force-push) (0.59.0) [[11]]
+- consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[12]]
 
 # References
 
@@ -201,3 +183,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [9]: /notes/chores/chores-12.md#refactor-notestodo-restructure-0580
 [10]: /notes/forks-multi-user.md
 [11]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590
+[12]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
