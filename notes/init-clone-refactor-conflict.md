@@ -253,8 +253,9 @@ All resolved by the `0.42.0-4.7` rebase landing:
   the diagnostic and playbook above (`..` exclusive
   range, `::` inclusive DAG range, `heads()`,
   template `if(conflict, ...)`).
-- `notes/substep-protocol.md` — close-out squash
-  recipe for substep ladders. Note: this branch's
-  `-6.0..6.5` ladder was authored before the
-  protocol was formalized; the protocol postdates
-  it.
+- `notes/cycle-protocol.md > ## Sub-cycles` —
+  close-out squash recipe for sub-cycle ladders.
+  Note: this branch's `-6.0..6.5` ladder was authored
+  before the protocol was formalized; the protocol
+  postdates it. (Folded in from the retired
+  `notes/substep-protocol.md` during 0.59.0.)

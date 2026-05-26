@@ -8,6 +8,8 @@ starts at `[1]`.
 
 ## refactor: notes/todo restructure (0.58.0)
 
+Commits: [[1]]
+
 `notes/todo.md` is too large for routine reads and its
 `## Todo` intro duplicates `notes/README.md`.
 
@@ -46,4 +48,90 @@ the live surfaces. The split infrastructure (`notes/bugs.md`,
 `notes/todo-backlog.md`, re-packed per-file refs) makes
 future similar splits cheap.
 
+## docs: extract cycle protocol (0.59.0)
+
+Commits: TBD (backfills at next cycle's Preparation)
+
+`notes/cycle-protocol.md` becomes the canonical,
+self-contained home for the cycle workflow. CLAUDE.md
+keeps a 10-line pointer. Originally scoped as "verbatim
+relocate"; opened up into a top-to-bottom iterative
+tightening of the extracted protocol.
+
+Late-stage design (ochid invariant + bot-repo rules +
+squash gating + cross-repo migration + Ideas-aware
+Preparation/Close-out) was planned for `-2` but
+deferred at close-out. The rules were exercised
+manually via Option F (app squash + bot-side trailer
+rewrite + force-push), establishing the recipe that
+`vc-x1 push --squash` (Todo #2, P1) will automate.
+
+### As-built ladder
+
+- 0.59.0-0 Preparation — backfill 0.58.0 chores
+  `Commits:` ref; bump Cargo.toml; capture 0.58.0
+  follow-up Todo (`vc-x1 push` N:1 P1); refresh
+  Priorities.
+- 0.59.0-0.1 capture design notes for `-1` as `###`
+  subsections (see existing subsections below — they're
+  the early-stage design that got deferred when 0.59.0
+  pivoted to squash close-out).
+- 0.59.0-1 Extract + tighten cycle protocol —
+  `notes/cycle-protocol.md` (504 lines after iterative
+  tightening); `notes/substep-protocol.md` recipes
+  folded as `## Sub-cycle ladders`; CLAUDE.md `## Cycle
+  Protocol` (~390 lines) → 10-line pointer;
+  `init-clone-refactor-conflict.md` cross-ref updated;
+  2 entries added to `notes/todo-backlog.md` + 42
+  renumbered.
+- 0.59.0 Close-out via squash + Option F —
+  `## Ideas` section added to `notes/todo.md`
+  (chores-convention-relocation entry #1; deferred
+  codification entry #2); symmetric-squash captured as
+  Todo #2 (P1); close-out bookkeeping (In Progress →
+  chores; `## Done` entry); app squash; bot-side
+  `jj describe` of `af60f979` (replace two `ochid:`
+  trailers with one to squashed chid + rewrite note);
+  force-push `.claude/main`; push app `main`.
+
+### Outcome
+
+cycle-protocol.md landed at significantly higher quality
+than originally scoped — the "verbatim relocate" plan
+opened the door to a top-to-bottom tightening pass that
+improved structure throughout (phase-first overview;
+`###` subsections; Chores sections + Commit description
+extracted as their own `##` sections; Iterative work
+pattern captured; chid/ochid defined locally).
+
+First squash close-out via the manual Option F recipe;
+first cycle to rewrite a published bot-side commit's
+description. The codification follow-up that would make
+the recipe binding (and surface the ochid invariant in
+cycle-protocol.md) is captured as `## Ideas` entry #2.
+
+### Squash carve-out (for CLAUDE.md `### Pushing`)
+
+Default = merge for any multi-commit cycle. Squash = explicit
+opt-in for cycles whose sub-steps are intermediate validation
+points rather than distinct landings. Every cycle is ≥3
+commits (Preparation + ≥1 Work + Close-out), so the
+"merge of one parent" edge case is moot.
+
+### Close-out follow-up capture (for CLAUDE.md `### Close-out`)
+
+At close-out, write any follow-up Todos surfaced during the
+cycle to `notes/todo.md > ## Todo` (if prioritized) or
+`notes/todo-backlog.md` (if long-tail). List them in the
+close-out commit body so the additions are reviewable.
+
+### Close-out surfaces follow-ups (meta-note, for `## Cycle Protocol`)
+
+Close-out often surfaces follow-up items that became visible
+only by doing the cycle's work. Capture them at close-out
+(per the rule above) so they survive `/exit` between cycles
+— sessions don't carry conversational context across `/exit`.
+
 # References
+
+[1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
