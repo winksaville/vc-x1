@@ -277,6 +277,187 @@ orchestrator layer but asymmetric at the defaulting layer
 `--config` is por-only). Test coverage mirrors the code
 gap: `FixturePor` exists but only `init` exercises it.
 
+## Commonality
+
+The audit above inventoried *divergences*. This section
+inverts the view — for each subcommand, what's already
+shared between por and dual, what's dual-only, what's
+por-only. Equalization is cheapest where the shared bucket
+is already large and the dual-only bucket is a thin veneer.
+
+### Per-subcommand buckets
+
+#### `chid` / `desc` / `list` / `show` — fully shared
+
+- **Shared (all)** — these four route through the
+  `CommonArgs` + `common::for_each_repo(&c.repos, ...)`
+  shape (`src/chid.rs:53`, `src/desc.rs:68`,
+  `src/show.rs:118`, `src/list.rs`). Repos resolve via
+  `default_scope` + `scope_to_repos` (`src/common.rs:594`,
+  `:618`), which already handle por gracefully
+  (`Scope([Code])` when `other-repo` is missing/empty).
+- **Dual-only** — none in the runtime body. The dual case
+  just adds a second entry to the repo list.
+- **Por-only** — none.
+
+The bot thinks this family is the *template* for the rest
+of the codebase. Scope-driven iteration is the working
+model of topology-neutral dispatch.
+
+#### `sync` — fully shared
+
+- **Shared (all)** — same scope-driven shape as the
+  `CommonArgs` family; per the 0.54.0 cleanup
+  (`notes/todo.md > ## Done`) sync got `-R` and routes
+  through `default_scope` / `scope_to_repos`.
+- **Dual-only** — none.
+- **Por-only** — none.
+
+#### `validate-desc` / `fix-desc` — dual-only outliers
+
+- **Shared** — title-matching, ochid extraction, and the
+  per-commit walk (`src/desc_helpers.rs` exports
+  `extract_bare_id`, `find_matching_commit`,
+  `validate_ochid`, etc. and these are topology-neutral).
+- **Dual-only** — the entry shape. Both call
+  `other_repo_from_config(&config)?` directly
+  (`validate_desc.rs:133`, `fix_desc.rs:152`), which errors
+  on por instead of resolving to a no-op or single-repo
+  validation.
+- **Por-only** — none.
+
+The bot thinks equalization here is local: convert the
+dual-required prelude into a `default_scope`-style
+resolution that no-ops `Side::Bot` when absent. The shared
+body doesn't need changes.
+
+#### `init` / `clone` — shared body, dual default
+
+- **Shared** — repo-creation primitives (`init_one` /
+  `clone_one` per `chores-07.md > init + clone redesign
+  (0.41.1)`), GitHub remote provisioning, push retries,
+  template seeding mechanism, `--account` / `--repo`
+  resolution via `config.rs`.
+- **Dual-only** — the orchestration outer loop runs twice
+  (code + bot) when `--por` is absent; `.vc-config.toml`
+  write; `.claude/` directory creation; `--use-template
+  <code,bot>` accepts a bot value.
+- **Por-only** — `--config <none|PATH>` (overrides the
+  canned `.vc-config.toml` write, only meaningful when
+  there'd be one).
+
+The asymmetry is at the *defaulting* layer (dual is the
+implicit default; `--por` is the opt-out) more than the
+*code* layer. The body is already roughly symmetric.
+
+#### `push` — dual-only
+
+- **Shared** — bookmark tracking, the push state machine's
+  generic stages (`prepare`, `commit-app`, `push-app`),
+  the retry/resume scaffolding around `.vc-x1/push-state.toml`.
+- **Dual-only** — `claude_path()` resolution; the
+  `CommitClaude` / `FinalizeClaude` stages; ochid trailer
+  composition (`ochid: /.claude/<chid>` on app, multi-line
+  `ochid: /<code-chid>` on bot); the `--from
+  bookmark-both` flag; the 1:1 symmetric WC-commits
+  assumption flagged in T1.
+- **Por-only** — none.
+
+The largest gap. The bot thinks no por code path exists
+*at all* today; a por workspace running `vc-x1 push` would
+resolve nonexistent `.claude/` paths during the
+`CommitClaude` stage.
+
+#### `finalize` — body shared, use site dual
+
+- **Shared (all)** — the body is a single-repo operator
+  (squash + push + cleanup). Topology-neutral.
+- **Dual-only** — none in the body. The dual shape is
+  *external*: `push` schedules a detached `finalize`
+  against `.claude` only after `push-app` succeeds.
+- **Por-only** — none.
+
+Once `push` gains a por path, `finalize` requires no
+changes.
+
+#### Tests and fixtures
+
+- **Shared** — `Fixture` / `CliFixture` provide a dual
+  workspace; `FixturePor` provides a por workspace; both
+  honor `$VC_X1_TEST_TMPDIR` / `$VC_X1_TEST_KEEP` and the
+  RAII drop pattern.
+- **Dual-only** — every integration test for `push` (8
+  uses) and `sync` (9 uses); the `chid` / `desc` / `show` /
+  `list` test paths (these route through `CommonArgs`,
+  which works on por, but the fixtures don't cover that
+  case).
+- **Por-only** — five uses in `init/tests.rs` exercising
+  the `--por` initialization path.
+
+The bot thinks the test-coverage gap mirrors the runtime
+gap exactly: `push` and the desc outliers have zero por
+coverage because the runtime code doesn't support por
+there; the `CommonArgs` family has zero por coverage
+despite supporting it.
+
+### Equalization candidates, ranked
+
+Ordered from closest-to-shared (cheap wins) to
+furthest (architectural work):
+
+1. **`validate-desc` / `fix-desc`** — local refactor:
+   replace the `other_repo_from_config` prelude with a
+   scope-aware resolution that no-ops when `Side::Bot`
+   is absent. Body unchanged. The bot thinks this is the
+   smallest concrete equalization and a good prototype.
+2. **`CommonArgs`-family por test coverage** — pure test
+   work; surface bugs in scope handling without
+   architectural risk. Likely lands a `FixturePor` use
+   in `chid`/`desc`/`show`/`list` test modules.
+3. **`init` / `clone` defaulting** — make `--por` /
+   `--dual` peer flags rather than dual-default + `--por`
+   opt-out; thread the chosen topology through the body
+   without changing the inner primitives. User-config
+   `[default].topology` (the original user proposal)
+   becomes a small follow-on once peers exist.
+4. **`push`** — the structural one. `claude_path()`,
+   stage names, ochid composition all carry the
+   dual-shape baked in. The bot thinks this is best done
+   *after* `--por` becomes a runtime-known fact across
+   all subcommands (i.e. after the desc outliers and
+   defaulting are handled), so push has a stable contract
+   to dispatch against.
+5. **Topology-from-config rule** — codify (CLAUDE.md or a
+   small ARCHITECTURE note) that every runtime subcommand
+   resolves topology via `default_scope`, never from a
+   `--por` flag. The flag stays creation-time only. The
+   bot thinks this rule is the right *outcome* of the
+   equalization above, not a prerequisite — codify it
+   once the prototype validates the shape.
+
+### Summary
+
+Three structural classes today:
+
+- **Topology-neutral via scope** —
+  `chid` / `desc` / `list` / `show` / `sync` / `finalize`-body.
+  This is the working pattern.
+- **Topology-required (dual)** —
+  `push` / `validate-desc` / `fix-desc`. These bypass
+  scope and assume `.claude/` exists.
+- **Topology-creating** — `init` / `clone`. The `--por`
+  flag's only legitimate home; chooses the workspace
+  shape that downstream commands then read from
+  `.vc-config.toml`.
+
+Equalization is "make Topology-required match
+Topology-neutral via scope" — not a new pattern, just
+extending an existing one. The smallest concrete win is
+`validate-desc` / `fix-desc`; the largest is `push`. The
+two creation-time commands stay roughly as-is, with the
+defaulting layer (peer flags + optional user-config
+default) as the only change.
+
 # References
 
 [1]: /notes/todo.md

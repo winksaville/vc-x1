@@ -32,7 +32,8 @@ counter-proposed that a defaults knob shouldn't ship before
 the underlying paths are equalized, and the user agreed —
 audit first, equalize next, then expose defaults.
 
-Slim 3-commit ladder:
+Ladder (grew to 4 commits when the analysis pass was added
+mid-cycle):
 
 - 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
   ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
@@ -43,9 +44,17 @@ Slim 3-commit ladder:
   `notes/por-dual-parity-audit.md` with one section per
   divergence (init, clone, push, sync, finalize, show,
   chid, desc helpers, …). (done)
+- 0.61.0-2 Commonality analysis — append a
+  `## Commonality` section to the audit doc inverting
+  the view: per-subcommand buckets of shared / dual-only
+  / por-only code, with a summary picking equalization
+  candidates. (done)
 - 0.61.0 Close-out — synthesis: parity-gap list ranked
   for ease/value; seed follow-up `## Todo` entries that
-  will drive future cycles; chores narrative.
+  will drive future cycles; chores narrative. `-3`
+  codification cycle only if `-2` surfaces something
+  concretely codifiable; otherwise codify-via-prototype
+  in a 0.62.0 equalization cycle.
 
 ## Ideas
 
