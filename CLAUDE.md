@@ -173,16 +173,67 @@ absolute: very short clauses or tight pairs can stay
 joined inside a bullet when breaking would be more noise
 than signal.
 
-## Notes references
+## Notes file conventions
+
+Conventions the bot follows when writing notes files
+(`notes/todo.md`, `notes/todo-backlog.md`, `notes/bugs.md`,
+`notes/chores/chores-NN.md`, `notes/done.md`). One source
+of truth lives here; [`notes/README.md`](notes/README.md)
+points back.
+
+### Notes references
 
 Reference *citations* are double-bracketed so the brackets render
 — `[[N]]`, or `[[2]],[[3]]` for several (comma-separated, not
 `[2,3]` or `[[2]][[3]]`). The `[N]:` definitions in a file's
 `# References` section and inline `[text](url)` / `[text](#anchor)`
-links stay single-bracketed. See
-[Todo format](notes/README.md#todo-format) for details.
+links stay single-bracketed.
 
-## Markdown anchor links
+### Reference numbering
+
+Every note file (`todo.md`, `todo-backlog.md`, `bugs.md`,
+`chores-NN.md`, `done.md`) keeps a file-local `# References`
+section at the bottom. Reference numbers are scoped to that
+file — `[1]` in `chores-07.md` and `[1]` in `chores-01.md`
+are independent slots that may point at completely different
+URLs. New chores files start their numbering at `[1]`.
+
+Treat `[N]` like a **footnote**: the number is a local slot, only
+meaningful within its file's `# References`. So a `[N]` *citation*
+(bare `[N]`, or doubled `[[N]]`) never reuses another file's number; to cite a target a sibling
+file references, pick your own next-local slot and define it
+(the same target may carry a different number in each file). A
+`[N]` *inside a code span* (`` `[72]` ``) is different — that's
+a quoted identifier: literal text naming a ref-key (often from
+another file's namespace), data, not a citation; it needs no
+definition here. To point at a section of another file from
+prose, use an inline link with an anchor —
+`[that section](../chores-07.md#…)` — not a bare number.
+
+A `chores-NN.md` `# References` entry is usually a
+`/notes/<file>.md#anchor` (or `/ARCHITECTURE.md`) path, but may
+also be a **commit reference** —
+`[N]: <commit-url-with-12-hex-SHA> "<full-40-hex-SHA>"`, cited by
+a section's `Commits:` line. See
+[Chores commit references](#chores-commit-references) for the
+why and the exact shape.
+
+A file's `# References` can be **re-packed** to a contiguous
+`[1]..[N]` in first-citation-appearance order — walk the file's
+prose in document order (`todo.md`: `## Todo` then `## Done`;
+`chores-NN.md`: top to bottom) and number refs as their first
+`[[N]]` citation appears. This is a file-local rewrite — only
+that file's `[[N]]` citations and `[N]:` definitions move; every
+target and sibling file is untouched. A `[[N]]` inside a `` ` ``
+code span is a literal token, not a citation, and is left alone.
+Do it opportunistically (when the namespace has drifted enough to
+annoy), not on a schedule: `todo.md` fragments fastest (entries
+land and get pruned every cycle) and is the usual candidate;
+`chores-NN.md` / `done.md` are append-mostly and only need it
+after an unusual event (e.g. a bulk retrofit that allocated slots
+out of document order).
+
+### Markdown anchor links
 
 GitHub anchor algorithm: lowercase, strip non-alphanumeric
 characters in place, map remaining spaces to hyphens 1-for-1. Do
@@ -193,6 +244,63 @@ on both sides of `+`), but `a: b` → `a-b` (only trailing space on
 publishes no official spec for auto-generated anchors; the
 de-facto reference implementation is
 [github-slugger](https://github.com/Flet/github-slugger).
+
+### Todo format
+
+`todo.md` is organized into `## In Progress`, `## Priorities`,
+`## Todo` (the prioritized subset; full backlog in
+[todo-backlog.md](notes/todo-backlog.md)), `## Bugs` (pointer
+to [bugs.md](notes/bugs.md)), and `## Done` sections. Each item
+is a short description with reference links to more detail.
+
+`## Todo` and `## Bugs` entries carry explicit `1.` `2.` …
+numbers in the source so you can grep, count, and reference
+them ("let's work on #3"). You don't hand-maintain the
+numbers — insert, delete, or reorder entries freely, then
+`vc-x1 fix-todo --no-dry-run` renumbers the list and
+normalizes continuation-line indent. `vc-x1 fix-todo` alone
+only previews; `vc-x1 validate-todo` is the read-only check.
+The `## Done` section keeps `-` bullets — items aren't
+referenced by number once completed.
+
+Example shape:
+
+```
+# Todo
+- Add new feature X [details](features.md#feature-x)
+- Fix bug Y [[1]]
+
+# Done
+- Fixed issue Z [[2]],[[3]]
+
+[1]: bugs.md#bug-y
+[2]: issues.md#issue-z
+[3]: fixes.md#fix-z
+```
+
+### Retiring Done entries
+
+`todo.md`'s `## Done` section is a rolling buffer of recently
+shipped work, not a permanent log. Move entries into `done.md`
+at two natural beats:
+
+- **Closing a ladder** — when the final `X.Y.Z` (no suffix)
+  commit ships, decide which prior entries are no longer
+  needed for nearby context and migrate them.
+- **Opening a new ladder** — at `X.Y.Z-0`, do the same sweep
+  before bumping the version.
+
+Migration mechanics:
+
+- Move the bullet itself from `todo.md > ## Done` to
+  `done.md` (preserving the original ref number).
+- Copy any references the moved entries cite into
+  `done.md`'s `# References` section (those refs are
+  file-local, so coexisting with `todo.md`'s namespace is
+  fine).
+- Prune any references in `todo.md > # References` no longer
+  cited by anything in `## In Progress` / `## Todo` /
+  `## Done`. This frees the numbers for future reuse.
 
 ## Chores conventions
 
@@ -269,7 +377,7 @@ Commits: [[3]]
 ```
 
 `Commits:` uses the file-local `[N]` reference machinery (see
-[notes/README.md](notes/README.md#reference-numbering)),
+[Reference numbering](#reference-numbering)),
 **double-bracketed** so the brackets render — `Commits: [[3]]`,
 or `Commits: [[3]],[[5]]` for several. (`[[3]]` shows as a
 literal `[`, the `[3]` link, then a literal `]`; the inner
@@ -302,9 +410,13 @@ finds it.
 
 Every change runs as a **cycle**: Preparation (`X.Y.Z-0`) →
 Work commits (`X.Y.Z-1`, `X.Y.Z-2`, …) → Close-out (bare
-`X.Y.Z`). The full protocol — numbering, per-commit flow,
-reviewing changes, close-out, pushing, ochid trailers,
-sub-cycles — lives in
+`X.Y.Z`). Each commit runs through a per-commit flow whose
+cargo cycle is `cargo fmt`, `cargo clippy --all-targets
+-- -D warnings`, `cargo test`, `cargo install --path .
+--locked` (skip-able for purely-docs commits; mandatory at
+close-out). The full protocol — numbering, per-commit
+flow, reviewing changes, close-out, pushing, ochid
+trailers, sub-cycles — lives in
 [`notes/cycle-protocol.md`](notes/cycle-protocol.md). Read
 it before any commit work.
 

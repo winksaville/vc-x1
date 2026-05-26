@@ -26,7 +26,7 @@ duplicated across CLAUDE.md and notes/README.md should
 collapse into one place.
 
 - 0.60.0-0 Preparation (done)
-- 0.60.0-1 Consolidate notes-file conventions into
+- 0.60.0-1 (done) Consolidate notes-file conventions into
   CLAUDE.md (`## Todo format`, `## Reference numbering`,
   `## Retiring Done entries` move from notes/README.md
   into a new `## Notes file conventions` umbrella

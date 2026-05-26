@@ -868,34 +868,28 @@ ops-`Context`+`Params` split, the subcommand model, and the
 two in-flight migrations — is described in
 [ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.
 
-Bot-following workflow, commit conventions, and code style are
-canonical in [CLAUDE.md](CLAUDE.md). Roughly in the order a
-contributor encounters them:
+The bot-facing cycle workflow — cycles (Preparation /
+Work / Close-out), per-commit flow (with the cargo cycle:
+`fmt` / `clippy` / `test` / `install`), commit description
+shape, ochid trailers, pushing — lives in
+[`notes/cycle-protocol.md`](notes/cycle-protocol.md).
 
-- [Versioning](CLAUDE.md#versioning) — `-N` pre-release suffix
-  convention (single-step vs multi-step); cross-links to
-  Sub-step Workflow for finer depths.
-- [Sub-step Workflow](CLAUDE.md#sub-step-workflow) — sub-step
-  (`X.Y.Z-N.M`) / sub-sub-step (`X.Y.Z-N.M-K`) decomposition,
-  per-sub-step cargo cycle, commit-first review model, ochid
-  + `.claude` cadence, cycle close-out (squash vs keep
-  separate), reviewing committed sub-steps.
-- [Pre-commit Requirements](CLAUDE.md#pre-commit-requirements) —
-  user approval gates, review-before-commit-block, per-file
-  review checkpoints (with sub-step exception).
-- [Pre-commit checklist](CLAUDE.md#pre-commit-checklist) — fmt
-  / clippy / test / install + todo / chores / README updates.
-- [Commit Message Style](CLAUDE.md#commit-message-style) —
-  Conventional Commits + `(version)` suffix; body shape per
-  app vs `.claude` repo.
-- [ochid Trailers](CLAUDE.md#ochid-trailers) — paired
-  cross-references between app and `.claude` commits.
-- [Commit-Push-Finalize Flow](CLAUDE.md#commit-push-finalize-flow) —
-  `vc-x1 push` two-gate ceremony (review + message), preflight,
-  finalize-claude.
-- [Code Conventions](CLAUDE.md#code-conventions) — doc comments
-  on every file / fn / method, `// OK: …` on `unwrap*` calls,
-  ask-on-ambiguity, stuck detection.
+Bot-facing conventions are canonical in
+[CLAUDE.md](CLAUDE.md):
+
+- [Notes file conventions](CLAUDE.md#notes-file-conventions)
+  — Todo format, Reference numbering, Notes references
+  (`[[N]]` citation style), Markdown anchor links,
+  Retiring Done entries.
+- [Chores conventions](CLAUDE.md#chores-conventions) —
+  section headers / Done entries exact-title rule,
+  content rules, `Commits:` line format.
+- [Prose form](CLAUDE.md#prose-form) — intro + bullets
+  shape for long-lived prose (commit bodies, chores,
+  doc comments).
+- [Code Conventions](CLAUDE.md#code-conventions) — doc
+  comments on every file / fn / method, `// OK: …` on
+  `unwrap*` calls, ask-on-ambiguity, stuck detection.
 
 Task tracking and release details live under [notes/](notes/):
 near-term tasks in [notes/todo.md](notes/todo.md), per-release
