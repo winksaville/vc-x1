@@ -42,7 +42,7 @@ Slim 3-commit ladder:
   `options_flags/por.rs` gates; produce
   `notes/por-dual-parity-audit.md` with one section per
   divergence (init, clone, push, sync, finalize, show,
-  chid, desc helpers, …).
+  chid, desc helpers, …). (done)
 - 0.61.0 Close-out — synthesis: parity-gap list ranked
   for ease/value; seed follow-up `## Todo` entries that
   will drive future cycles; chores narrative.
