@@ -32,8 +32,11 @@ counter-proposed that a defaults knob shouldn't ship before
 the underlying paths are equalized, and the user agreed —
 audit first, equalize next, then expose defaults.
 
-Ladder (grew to 4 commits when the analysis pass was added
-mid-cycle):
+Ladder (grew to 5 commits as analysis and feature-axes
+passes were added mid-cycle — `-2` Commonality after the
+audit, `-3` Feature axes after the user surfaced that
+`--por` is a tangled bundle of independent axes, not a
+single topology toggle):
 
 - 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
   ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
@@ -49,12 +52,17 @@ mid-cycle):
   the view: per-subcommand buckets of shared / dual-only
   / por-only code, with a summary picking equalization
   candidates. (done)
-- 0.61.0 Close-out — synthesis: parity-gap list ranked
-  for ease/value; seed follow-up `## Todo` entries that
-  will drive future cycles; chores narrative. `-3`
-  codification cycle only if `-2` surfaces something
-  concretely codifiable; otherwise codify-via-prototype
-  in a 0.62.0 equalization cycle.
+- 0.61.0-3 Feature-axes decomposition — append a
+  `## Feature axes` section to the audit doc naming the
+  independent axes today bundled into `--por` (topology,
+  `.vc-config.toml` presence, remote provisioning, …),
+  their current and target defaults, and the mapping from
+  `--por` / `--dual` onto axis combinations.
+  Defining-only, no implementation. (done)
+- 0.61.0 Close-out — synthesize the three layers
+  (divergence × commonality × feature-axes) into ranked
+  follow-up `## Todo` entries that drive 0.62.0+
+  equalization cycles; chores narrative.
 
 ## Ideas
 
