@@ -134,7 +134,7 @@ only by doing the cycle's work. Capture them at close-out
 
 ## docs: consolidate notes conventions (0.60.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[3]]
 
 Bot is the primary writer of notes files, so the
 file-format conventions belong in CLAUDE.md as the single
@@ -181,7 +181,51 @@ anchor homes.
 - 0.60.0 Close-out — chores narrative; `## Done` entry +
   `[12]:` ref; `## In Progress` reset.
 
+## docs: por/dual parity audit (0.61.0)
+
+Commits: TBD (backfills at next cycle's Preparation)
+
+Audit cycle for T5 (`por/dual parity + dual → por`).
+Produces `notes/por-dual-parity-audit.md` — a per-area
+inventory of where `dual` (code + `.claude/` companion
+cross-linked by `ochid:`) gets a privileged code path
+over `por` (plain single repo). The audit's output is
+input for future equalization cycles; no code changes
+land in 0.61.0 itself.
+
+The decision to audit first (vs. starting from a user-config
+topology default) is captured in the
+[problem statement](../todo.md#in-progress): a defaults
+knob in front of asymmetric paths funnels users onto a
+still-bolted-on `por` path; equalize first, default later.
+
+### Audit scope
+
+Areas the audit walk inspects, each producing its own
+section in `notes/por-dual-parity-audit.md`:
+
+- **`options_flags/por.rs`** — the `--por` gate itself;
+  how it's threaded through commands.
+- **`init`** — `.vc-config.toml` write, `.claude/`
+  companion creation, template seeding, push retries.
+- **`clone`** — mirror of init for an existing remote.
+- **`push`** — two-repo coordination, `ochid:`
+  composition, finalize handoff.
+- **`sync`** — two-repo pull dance, `-R` flag wiring.
+- **`finalize`** — `.claude` cadence (one push = one
+  `.claude` commit), squash + push detach.
+- **`show` / `chid` / `desc` helpers / `validate-desc`
+  / `fix-desc`** — anything that reads or writes ochid
+  trailers or `.claude` state.
+- **Tests and fixtures** — where `FixturePor` and the
+  dual fixture diverge in coverage.
+
+The audit doesn't propose fixes inline; it produces a
+parity-gap table that close-out turns into ranked
+follow-up Todo entries.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
 [2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"
+[3]: https://github.com/winksaville/vc-x1/commit/41ef8842d885 "41ef8842d885a7713416a7321e2cd7ae67802b68"

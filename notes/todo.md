@@ -17,7 +17,35 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**por/dual parity audit.**
+
+Audit where `dual` (code + `.claude/` companion, cross-linked
+by `ochid:`) gets privileged code paths vs `por` (plain
+single repo). Goal: produce a parity-gap document that drives
+future parity-equalization cycles. T5 in `## Todo` is the
+parent design item; this cycle is the audit step that
+precedes any code-level equalization.
+
+The user proposed starting from `~/.config/vc-x1/config.toml`
+to make the topology choice user-configurable; the bot
+counter-proposed that a defaults knob shouldn't ship before
+the underlying paths are equalized, and the user agreed —
+audit first, equalize next, then expose defaults.
+
+Slim 3-commit ladder:
+
+- 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
+  ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
+  `## In Progress`; open chores section; lay out the audit
+  scope (subcommands + code paths to inspect). (done)
+- 0.61.0-1 Audit walk — read every subcommand and the
+  `options_flags/por.rs` gates; produce
+  `notes/por-dual-parity-audit.md` with one section per
+  divergence (init, clone, push, sync, finalize, show,
+  chid, desc helpers, …).
+- 0.61.0 Close-out — synthesis: parity-gap list ranked
+  for ease/value; seed follow-up `## Todo` entries that
+  will drive future cycles; chores narrative.
 
 ## Ideas
 
@@ -72,7 +100,6 @@ _No cycle currently in progress._
 ### P3
 
 - `**por -> dual...**`
-- `**por/dual parity...**`
 
 ## Todo
 
@@ -140,13 +167,6 @@ _No cycle currently in progress._
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-5. **por/dual parity + `dual → por` conversion.** Make
-   `por` and `dual` first-class equals (dual is primary
-   today, por bolted on); add `dual → por` conversion
-   (detach the `.claude` companion). Builds on the
-   `--scope` rollout below. Pre-design; goal + open
-   questions in the stub. [[1]]
-
 ## Bugs
 
 _See [bugs.md](bugs.md)._
