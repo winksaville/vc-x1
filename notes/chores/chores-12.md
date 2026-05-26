@@ -50,7 +50,7 @@ future similar splits cheap.
 
 ## docs: extract cycle protocol (0.59.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[2]]
 
 `notes/cycle-protocol.md` becomes the canonical,
 self-contained home for the cycle workflow. CLAUDE.md
@@ -132,6 +132,9 @@ only by doing the cycle's work. Capture them at close-out
 (per the rule above) so they survive `/exit` between cycles
 — sessions don't carry conversational context across `/exit`.
 
+## docs: notes conventions → CLAUDE.md (0.60.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
+[2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"

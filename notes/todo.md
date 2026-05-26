@@ -17,7 +17,25 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**docs: notes conventions → CLAUDE.md (0.60.0)**
+
+The bot is the primary writer of notes files, so the
+conventions it follows belong in CLAUDE.md as the single
+source of truth — and the `[[N]]` citation rule
+duplicated across CLAUDE.md and notes/README.md should
+collapse into one place.
+
+- 0.60.0-0 Preparation (done)
+- 0.60.0-1 Consolidate notes-file conventions into
+  CLAUDE.md (`## Todo format`, `## Reference numbering`,
+  `## Retiring Done entries` move from notes/README.md
+  into a new `## Notes file conventions` umbrella
+  alongside the existing `## Chores conventions`
+  umbrella; `## Notes references` and `## Markdown
+  anchor links` become `###` children of the new
+  umbrella; drop the `[[N]]` duplicate; update
+  cross-refs).
+- 0.60.0 Close-out.
 
 ## Ideas
 
@@ -27,26 +45,7 @@ _No cycle currently in progress._
  `## Todo` / `notes/todo-backlog.md`, fold into a
  picked-up cycle, or drop.
 
-1. **Relocate CLAUDE.md chores conventions into
-   `notes/cycle-protocol.md`.** Makes cycle-protocol.md
-   fully self-contained on the cycle/chores workflow for
-   README.md and other consumers.
-   - Identify cross-refs in CLAUDE.md and elsewhere
-     pointing at the three subsections being moved.
-   - Move `### Headings and entries that record a
-     commit` from CLAUDE.md `## Pre-commit Requirements`
-     into cycle-protocol.md.
-   - Move `### Chores section content` from CLAUDE.md
-     into cycle-protocol.md.
-   - Move `### Chores commit references` from CLAUDE.md
-     into cycle-protocol.md.
-   - Restructure CLAUDE.md `## Pre-commit Requirements`
-     after the moves — it then holds only general
-     writing conventions (`### Notes references`,
-     `### Markdown anchor links`); consider renaming.
-   - Update all cross-refs to point at the new
-     locations.
-2. **Codify ochid invariant + bot-repo rules + squash
+1. **Codify ochid invariant + bot-repo rules + squash
    gating + cross-repo migration in
    `notes/cycle-protocol.md`.** Was planned for
    `0.59.0-2` but deferred when 0.59.0 closed out via

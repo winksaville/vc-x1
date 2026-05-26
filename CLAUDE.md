@@ -173,9 +173,7 @@ absolute: very short clauses or tight pairs can stay
 joined inside a bullet when breaking would be more noise
 than signal.
 
-## Pre-commit Requirements
-
-### Notes references
+## Notes references
 
 Reference *citations* are double-bracketed so the brackets render
 — `[[N]]`, or `[[2]],[[3]]` for several (comma-separated, not
@@ -184,7 +182,7 @@ Reference *citations* are double-bracketed so the brackets render
 links stay single-bracketed. See
 [Todo format](notes/README.md#todo-format) for details.
 
-### Markdown anchor links
+## Markdown anchor links
 
 GitHub anchor algorithm: lowercase, strip non-alphanumeric
 characters in place, map remaining spaces to hyphens 1-for-1. Do
@@ -195,6 +193,8 @@ on both sides of `+`), but `a: b` → `a-b` (only trailing space on
 publishes no official spec for auto-generated anchors; the
 de-facto reference implementation is
 [github-slugger](https://github.com/Flet/github-slugger).
+
+## Chores conventions
 
 ### Headings and entries that record a commit
 
