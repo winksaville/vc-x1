@@ -32,11 +32,12 @@ counter-proposed that a defaults knob shouldn't ship before
 the underlying paths are equalized, and the user agreed —
 audit first, equalize next, then expose defaults.
 
-Ladder (grew to 5 commits as analysis and feature-axes
-passes were added mid-cycle — `-2` Commonality after the
-audit, `-3` Feature axes after the user surfaced that
-`--por` is a tangled bundle of independent axes, not a
-single topology toggle):
+Ladder (grew to 6 commits as analysis, feature-axes, and
+per-axis negotiation passes were added mid-cycle — `-2`
+Commonality after the audit, `-3` Feature axes after the
+user surfaced that `--por` is a tangled bundle, `-4` A2
+collapse + init-templating stub once A1's decisions
+revealed A2 was degenerate):
 
 - 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
   ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
@@ -59,10 +60,28 @@ single topology toggle):
   their current and target defaults, and the mapping from
   `--por` / `--dual` onto axis combinations.
   Defining-only, no implementation. (done)
+- 0.61.0-4 A2 collapse + copying stub —
+  per-axis negotiation surfaced that A2 collapses under
+  the A1 decisions (presence-of-`.vc-config.toml`
+  correlates 1:1 with topology); the `--config <path>`
+  capability is subsumed by a broader copying
+  design. Captures `notes/copying.md` as a forward-
+  looking stub (`--init-from-code` / `--init-from-bot`
+  flags, last-wins-on-collision, canned writes
+  suppressed when engaged, deferred dual validation).
+  Updates A2 in the audit doc to reflect the collapse.
+  Concept named "copying" (not "templating" /
+  "seeding" / "scaffolding") since the mechanism is
+  pure file copy — no parameterization, no growth,
+  no structure generation. (done)
 - 0.61.0 Close-out — synthesize the three layers
-  (divergence × commonality × feature-axes) into ranked
-  follow-up `## Todo` entries that drive 0.62.0+
-  equalization cycles; chores narrative.
+  (divergence × commonality × feature-axes) plus
+  per-axis negotiation decisions into ranked follow-up
+  `## Todo` entries that drive 0.62.0+ equalization
+  cycles; chores narrative. Also produce the
+  subcommand × parameter matrix (user request) as a
+  `## Subcommand × parameter matrix` subsection under
+  `## Feature axes`.
 
 ## Ideas
 

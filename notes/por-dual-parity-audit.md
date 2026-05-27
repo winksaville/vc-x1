@@ -488,24 +488,33 @@ across these axes lands in 0.62.0+ cycles.
   defaulting is asymmetric: you can be explicit about por
   but not about dual.
 
-#### A2. `.vc-config.toml` write
+#### A2. `.vc-config.toml` write — collapsed
 
-- **States** — `written` (canned content) | `not-written`
-  | `overridden` (caller-supplied path copied in).
-- **Today** — written by default. `--config none|<path>`
-  selects `not-written` or `overridden`, **but is rejected
-  unless `--por` is also set** (`init.rs:610`: "--config
-  is only valid with --por (dual configs are per-side and
-  unconditional)").
-- **Surface** — `--config <none|PATH>`.
-- **Gap** — not orthogonal to A1. The dual path forces
-  `written` with canned content; no way to override.
-- **Constraint** — dual `other-repo` resolution reads
-  `.vc-config.toml`; `(A1=dual, A2=not-written)` would
-  break runtime topology detection. So the matrix may
-  legitimately forbid that combination, but the error
-  shape should be "you asked for an impossible
-  combination," not "this flag is only valid with `--por`."
+A2 was originally written as an independent axis. After
+the A1 decisions, **A2 collapses** — presence of the
+workspace `.vc-config.toml` is perfectly correlated with
+A1's topology choice:
+
+- A1=por → no `.vc-config.toml` (por never reads or
+  writes the workspace file).
+- A1=dual → `.vc-config.toml` is mandatory (it's what
+  detects dual at runtime).
+
+A2 is **not an independent axis**.
+
+The capability `--config <path>` was meant to serve
+(custom workspace metadata, arbitrary file copy) is
+deferred to a broader **copying** design — see
+[`notes/copying.md`](copying.md) [[3]]. That design uses
+`--init-from-code` / `--init-from-bot` flags to copy
+arbitrary files (including `.vc-config.toml` and
+`.gitignore`), suppresses canned writes when engaged,
+and defers the "is this dual workspace functional?"
+check to the first downstream subcommand.
+
+Today's `--config <none|PATH>` flag (`init.rs:610`,
+"only valid with `--por`") becomes vestigial under the
+new design. The 0.62.0+ rollout drops it.
 
 #### A3. Remote provisioning
 
@@ -747,3 +756,4 @@ from `## Commonality` (axis fixes that overlap with
 
 [1]: /notes/todo.md
 [2]: /notes/por-dual-parity.md
+[3]: /notes/copying.md
