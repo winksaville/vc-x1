@@ -94,6 +94,16 @@ once all axes were negotiated):
   earlier request). Defers axis-label rename,
   Resolution-chain rewrite, and Gap-list refresh to
   close-out. (done)
+- 0.61.0-7 Axis-label rename + ledger — drop the
+  `A1`/`A2`/… prefixes from axis section headers in
+  favor of descriptive labels (Topology, Remote, …);
+  update prose mentions throughout the audit doc;
+  restructure the matrix's "Parameter families:" intro
+  into a clean ledger table mapping acronyms (T, A/R,
+  Priv, CP, CFG, NO-CFG, SC) to axis names and flags.
+  Updates the `## See also` section in
+  `notes/design-cli/copying.md` to use the new
+  descriptive label paths. (done)
 - 0.61.0 Close-out — synthesize the three layers
   (divergence × commonality × feature-axes) plus
   per-axis negotiation decisions into ranked follow-up

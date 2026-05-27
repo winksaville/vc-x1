@@ -6,7 +6,8 @@ follow-on cycle picks it up.
 
 Generalizes "copy these files into the new workspace at
 init time" into one composable mechanism that subsumes
-today's `--config <path>` (deprecated under A2 collapse —
+today's `--config <path>` (deprecated under the
+`.vc-config.toml` write axis collapse —
 see [[1]]), a hypothetical `--gitignore <path>`, and
 today's `--use-template <CODE[,BOT]>`.
 
@@ -100,7 +101,8 @@ through every subcommand's lookup code — `default_scope`,
 
 ## Subsumes
 
-- `--config <path>` — never really built; A2's collapse
+- `--config <path>` — never really built; the
+  `.vc-config.toml` write axis's collapse
   left the capability un-claimed. Equivalent under
   copying: `--init-from=<src>/.vc-config.toml`.
 - `--gitignore <path>` — never built; equivalent under
@@ -170,11 +172,12 @@ separate feature with its own name.
 
 ## See also
 
-- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > A2`
+- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > .vc-config.toml write — collapsed`
   — the collapse that motivates this design [[1]].
-- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > A5`
-  — `--use-template` today; this design subsumes it.
+- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > Copying`
+  — today's `--use-template` and the negotiated
+  decisions that this design subsumes.
 
 # References
 
-[1]: /notes/design-cli/por-dual-parity-audit.md#a2-vc-configtoml-write--collapsed
+[1]: /notes/design-cli/por-dual-parity-audit.md#vc-configtoml-write--collapsed

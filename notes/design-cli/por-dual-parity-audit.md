@@ -16,6 +16,26 @@ design stub is `por-dual-parity.md` [[2]].
   follow-up cycles).
 - Method: grep + read-through. No code changes.
 
+## Status
+
+**Pre-implementation design snapshot.** This document
+captures the audit findings (`## 1`–`## 8`), the
+commonality analysis (`## Commonality`), and the
+negotiated design (`## Feature axes`) at the end of cycle
+0.61.0. The matrix, the per-axis Decisions blocks, and
+the resolution chain are the *current target*, not the
+final shape.
+
+**The implementation will diverge from this.** Every
+design stub does — implementation surfaces edge cases,
+forces compromises, and reveals constraints the design
+pass didn't anticipate. Treat what's here as the starting
+position for 0.62.0+ equalization cycles, not a contract
+the code must conform to. When implementation finds the
+design wrong, update the design (or annotate the
+divergence in chores) — don't bend code to fit a stale
+sketch.
+
 ## 1. `options_flags/por.rs` — the `--por` gate
 
 - Files touched:
@@ -368,17 +388,25 @@ The largest gap. The bot thinks no por code path exists
 resolve nonexistent `.claude/` paths during the
 `CommitClaude` stage.
 
-#### `finalize` — body shared, use site dual
+#### `finalize` — body shared, today's only use site is `push`
 
 - **Shared (all)** — the body is a single-repo operator
-  (squash + push + cleanup). Topology-neutral.
+  (squash + commit-with-title-body + push). Topology-
+  neutral. Standalone use on either code or bot is
+  viable today (a user manually squashing a cycle into
+  one commit and pushing) — see the matrix's
+  topology-column note. `--scope=code` / `--scope=bot`
+  selects the side at runtime.
 - **Dual-only** — none in the body. The dual shape is
   *external*: `push` schedules a detached `finalize`
   against `.claude` only after `push-app` succeeds.
+  `--detach` and `--delay` exist for that scheduled
+  flow; standalone use ignores them.
 - **Por-only** — none.
 
 Once `push` gains a por path, `finalize` requires no
-changes.
+changes. The standalone use case (T runtime + SC) is
+already supported by the body; nothing new needed.
 
 #### Tests and fixtures
 
@@ -475,7 +503,7 @@ across these axes lands in 0.62.0+ cycles.
 
 ### Axes
 
-#### A1. Topology
+#### Topology
 
 - **States** — `single` (one code repo) | `dual` (code repo
   + `.claude/` companion cross-linked by `ochid:`).
@@ -512,19 +540,19 @@ across these axes lands in 0.62.0+ cycles.
   baked-in default (`dual`). No "Error" floor for
   Topology — baked-in always supplies.
 
-#### A2. `.vc-config.toml` write — collapsed
+#### `.vc-config.toml` write — collapsed
 
-A2 was originally written as an independent axis. After
-the A1 decisions, **A2 collapses** — presence of the
-workspace `.vc-config.toml` is perfectly correlated with
-A1's topology choice:
+This axis was originally written as independent. After
+the Topology decisions, **it collapses** — presence of
+the workspace `.vc-config.toml` is perfectly correlated
+with Topology's choice:
 
-- A1=por → no `.vc-config.toml` (por never reads or
-  writes the workspace file).
-- A1=dual → `.vc-config.toml` is mandatory (it's what
-  detects dual at runtime).
+- Topology=por → no `.vc-config.toml` (por never reads
+  or writes the workspace file).
+- Topology=dual → `.vc-config.toml` is mandatory (it's
+  what detects dual at runtime).
 
-A2 is **not an independent axis**.
+This is **not an independent axis**.
 
 The capability `--config <path>` was meant to serve
 (custom workspace metadata, arbitrary file copy) is
@@ -542,13 +570,13 @@ new design. The 0.62.0+ rollout drops it.
 
 **Decisions (0.61.0):**
 
-- **Collapse A2**. Not an independent axis; presence-of-
-  `.vc-config.toml` correlates 1:1 with A1's topology.
+- **Collapse this axis**. Not independent; presence-of-
+  `.vc-config.toml` correlates 1:1 with Topology.
 - **Drop `--config <path>`** from the surface; its
   capability moves under `--init-from*`.
-- **Drop A2 from the axis list at close-out**.
+- **Drop from the axis list at close-out**.
 
-#### A3. Remote provisioning
+#### Remote provisioning
 
 - **States** — `github-create` (default; creates
   `winksaville/<name>` via gh CLI) | `github-skip` (URL
@@ -595,12 +623,12 @@ new design. The 0.62.0+ rollout drops it.
   prefix still error at Global if unset (user-specific
   keys, no natural default possible).
 
-#### A4. Private vs public
+#### Privacy
 
 - **States** — `public` (default) | `private`.
 - **Today** — `--private` flag.
 - **Surface** — `--private`.
-- **Scope** — only meaningful when A3 = `github-create`.
+- **Scope** — only meaningful when Remote = `github-create`.
 - **Gap** — none structurally; the flag is independent
   and orthogonal.
 
@@ -622,7 +650,7 @@ new design. The 0.62.0+ rollout drops it.
 - **Resolution chain**: CLI > ENV > Local > Global >
   baked-in default (`public`). No error floor.
 
-#### A5. Template seeding (today) → Copying (designed)
+#### Copying (today: `--use-template`; designed: `--init-from*`)
 
 - **States** — `none` (default) | `code-only <path>` |
   `code-and-bot <path,path>`.
@@ -630,8 +658,8 @@ new design. The 0.62.0+ rollout drops it.
   is dual-only.
 - **Surface** — `--use-template`.
 - **Gap** — none structurally; per-side templating is
-  naturally A1-aware. Bot-side template under A1=single
-  is meaningless and rejected today.
+  naturally Topology-aware. Bot-side template under
+  Topology=single is meaningless and rejected today.
 
 **Decisions (0.61.0):**
 
@@ -675,14 +703,14 @@ behavior details live in the design stub.
 - **Default: `none`** (no copying). Resolution chain
   ends in baked-in default.
 
-#### A6. Working-tree scaffolding (jj init, `.gitignore`)
+#### Scaffolding (jj init, `.gitignore`)
 
 - **States** — `on` (default) | `off`.
 - **Today** — always `on`. No flag.
 - **Gap** — probably not worth a knob. jj is the workspace
   scaffolding; opting out doesn't yield a meaningful
   workspace. `.gitignore` is unconditional and a fixed
-  content list. The bot thinks A6 stays a non-axis
+  content list. The bot thinks this stays a non-axis
   unless a concrete use case surfaces.
 
 **Decisions (0.61.0):**
@@ -692,19 +720,19 @@ behavior details live in the design stub.
   `.gitignore` write is suppressed automatically when
   Copying engages (so users wanting custom contents
   pass `--init-from-code=.gitignore`).
-- **Drop A6 from the axis list at close-out** —
+- **Drop from the axis list at close-out** —
   documented here for completeness, then retired.
 
 ### Defaults summary
 
 | Axis | Default | Today's flag | Independent today? |
 | --- | --- | --- | --- |
-| A1 Topology | dual | `--por` (opt-out only) | No (no `--dual` peer) |
-| A2 `.vc-config.toml` | written | `--config <none\|PATH>` | No (rejected when dual) |
-| A3 Remote | github-create | `--repo <cat>[=<val>]` | Mostly (`none` missing) |
-| A4 Private | public | `--private` | Yes |
-| A5 Template | none | `--use-template <C[,B]>` | Yes (A1-aware) |
-| A6 Scaffolding | on | (none) | Not an axis today |
+| Topology | dual | `--por` (opt-out only) | No (no `--dual` peer) |
+| `.vc-config.toml` write | written | `--config <none\|PATH>` | No (rejected when dual) |
+| Remote | github-create | `--repo <cat>[=<val>]` | Mostly (`none` missing) |
+| Privacy | public | `--private` | Yes |
+| Copying | none | `--use-template <C[,B]>` | Yes (Topology-aware) |
+| Scaffolding | on | (none) | Not an axis today |
 
 ### Mapping `--por` / `--dual` onto axis combinations
 
@@ -712,12 +740,14 @@ Today `--por` and (implicit) `--dual` are *bundle
 shorthands*. After axes are independent, they remain as
 shorthands for the common combinations:
 
-- `--dual` (or no flag — back-compat) → `(A1=dual,
-  A2=written, A3=github-create, A4=public, A5=none)`.
-- `--por` → `(A1=single, A2=written, A3=github-create,
-  A4=public, A5=none)`. Note A2=written is what today's
-  `--por` actually does, not `not-written` (the
-  `.vc-config.toml` is still written, just degenerate).
+- `--dual` (or no flag — back-compat) →
+  `(Topology=dual, Vc-config=written, Remote=github-
+  create, Privacy=public, Copying=none)`.
+- `--por` → `(Topology=single, Vc-config=written,
+  Remote=github-create, Privacy=public, Copying=none)`.
+  Note `Vc-config=written` is what today's `--por`
+  actually does, not `not-written` (the `.vc-config.toml`
+  is still written, just degenerate).
 
 A user wanting a fully-plain single repo today can't
 spell it; tomorrow it would be `--por --config none --no-remote` (or
@@ -736,9 +766,10 @@ proposal that opened this cycle lands cleanly:
 - `[default].private = true | false`
 
 `--account`-scoped overrides ride on the existing
-`[account.<a>]` substrate. The bot thinks A3 is the most
-useful default to make user-configurable (different
-accounts → different remote providers), with A1 second.
+`[account.<a>]` substrate. The bot thinks Remote is the
+most useful default to make user-configurable (different
+accounts → different remote providers), with Topology
+second.
 
 ### Resolution chain
 
@@ -778,8 +809,8 @@ Each layer is **optional**. Per-axis behavior under
 the chain: the resolved value of a key is the value from
 the highest layer that defines it; absence at every layer
 falls to the error floor (or the axis's safe default if
-one is defined — A5 template defaults to `none` because
-"no template" is the only meaningful absence; no other
+one is defined — Copying defaults to `none` because
+"no copying" is the only meaningful absence; no other
 axis has a safe default today).
 
 #### Escape hatches
@@ -819,11 +850,11 @@ field name:
 
 | Axis | Env-var | Resolves to |
 | --- | --- | --- |
-| A1 | `VC_X1_TOPOLOGY` | `single` \| `dual` |
-| A3 account | `VC_X1_ACCOUNT` | account name |
-| A3 repo | `VC_X1_REPO` | `<cat>` or `<cat>=<val>` |
-| A4 | `VC_X1_PRIVATE` | `true` \| `false` |
-| A5 | `VC_X1_USE_TEMPLATE` | path or `<path,path>` |
+| Topology | `VC_X1_TOPOLOGY` | `single` \| `dual` |
+| Remote (account) | `VC_X1_ACCOUNT` | account name |
+| Remote (repo) | `VC_X1_REPO` | `<cat>` or `<cat>=<val>` |
+| Privacy | `VC_X1_PRIVATE` | `true` \| `false` |
+| Copying | `VC_X1_INIT_FROM*` | colon-separated globs |
 | — | `VC_X1_CONFIG` | local config path or `none` |
 | — | `VC_X1_GLOBAL_CONFIG` | global config path |
 | — | `VC_X1_NO_LOCAL_CONFIG` | `true` \| `false` |
@@ -864,24 +895,23 @@ state. Today many of these cells are gaps (per the audit
 findings); the matrix captures what 0.62.0+ equalization
 cycles drive toward.
 
-**Parameter families:**
+**Ledger — column acronyms map to axes (or to
+cross-cutting flag groups):**
 
-- **T** — `--por` / `--dual` topology. *Creation* on
-  init/clone (writes the workspace shape); *runtime
-  override* on every other subcommand (forces
-  por-scoped operation).
-- **A/R** — `--account` + `--repo` (remote provider
-  resolution; user-config-keyed).
-- **Priv** — `--private` / `--public` (GitHub
-  visibility).
-- **CP** — `--init-from*` family (file copying into
-  the workspace).
-- **CFG** — `--config <path>` / `--global-config
-  <path>` (point at non-default config files).
-- **NO-CFG** — `--no-local-config` / `--no-global-config`
-  (skip layers in the resolution chain).
-- **SC** — runtime `--scope` / `-R` (per-invocation
-  repo selection on dual workspaces).
+| Acronym | Axis / group | Flags |
+| --- | --- | --- |
+| **T** | Topology | `--por` / `--dual` (creation on `init`/`clone`; runtime override on every other subcommand) |
+| **A/R** | Remote | `--account` + `--repo` (remote provider resolution; user-config-keyed) |
+| **Priv** | Privacy | `--private` / `--public` (GitHub visibility) |
+| **CP** | Copying | `--init-from*` family (file copying into the workspace) |
+| **CFG** | *Config paths* (not an axis) | `--config <path>` / `--global-config <path>` (point at non-default config files) |
+| **NO-CFG** | *Config skip* (not an axis) | `--no-local-config` / `--no-global-config` (skip layers in the resolution chain) |
+| **SC** | *Scope* (runtime selection, not an axis) | `--scope` / `-R` (per-invocation repo selection on dual workspaces) |
+
+The first four acronyms match feature axes (negotiated
+in this cycle); the last three are cross-cutting flag
+groups that don't correspond to single axes but appear on
+many subcommands.
 
 **Cell legend:**
 
@@ -897,7 +927,7 @@ cycles drive toward.
 | `clone <URL>` | ✓ creation | ✓ | ✓ | ✓* | ✓ | ✓ | — |
 | `push <BM>` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
 | `sync` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
-| `finalize` | — | — | — | — | ✓ | ✓ | — |
+| `finalize` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `chid` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `desc` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `show` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
@@ -936,33 +966,41 @@ cycles drive toward.
   Default-dual still applies at the workspace level
   (the `.vc-config.toml` says dual, but the user is
   asking for "this command only, just my code").
-- `finalize` has no T cell because it's invoked from
-  inside `push`'s workflow against a specific repo path
-  — no topology choice; the caller has already
-  resolved.
+- `finalize` accepts T as a runtime override and SC for
+  per-side selection. Today's only use site is inside
+  `push`'s workflow against a specific repo path, but
+  the body itself is generic (squash + commit with
+  title/body + push) and works on either side
+  standalone — `--scope=code` or `--scope=bot`. Use
+  case: a user manually squashing a cycle into one
+  commit and pushing. `--squash` is logically optional
+  (auto-detect from `@` being empty); `--detach` and
+  `--delay` are unnecessary outside `push`'s schedule-
+  detached flow but still work.
 
 ### Gap list (input for close-out)
 
 The concrete gaps for follow-up cycles to seed Todos
 against:
 
-1. **A1 has no `--dual` peer** — asymmetric defaulting.
-   Add `--dual` (alias of "no `--por`") for explicit
-   parity; allow `--por`/`--dual` exactly one of.
-2. **A2 errors on dual** — change the error to
-   "(A1=dual, A2=not-written) is impossible because dual
-   needs `.vc-config.toml` for runtime topology" rather
-   than the current flag-restriction message; allow
-   `--config <path>` (override) under `--dual`.
-3. **A3 missing `none`** — add a way to spell "no remote."
-   Probably `--repo none` (orthogonal to the existing
-   `remote`/`local` categories) or a separate `--no-remote`
-   flag. The bot thinks `--repo none` keeps the
-   one-knob-for-A3 shape.
-4. **A6 is non-negotiable today** — confirm at close-out
-   whether to leave it that way; if so, drop A6 from the
-   axis list.
-5. **User-config keys** — once A1–A5 are independent,
+1. **Topology has no `--dual` peer** — asymmetric
+   defaulting. Add `--dual` (alias of "no `--por`") for
+   explicit parity; allow `--por`/`--dual` exactly one of.
+2. **`.vc-config.toml` write errors on dual** — change
+   the error to "(Topology=dual, Vc-config=not-written)
+   is impossible because dual needs `.vc-config.toml`
+   for runtime topology" rather than the current flag-
+   restriction message; allow `--config <path>`
+   (override) under `--dual`.
+3. **Remote missing `none`** — add a way to spell "no
+   remote." Probably `--repo none` (orthogonal to the
+   existing `remote`/`local` categories) or a separate
+   `--no-remote` flag. The bot thinks `--repo none`
+   keeps the one-knob-for-Remote shape.
+4. **Scaffolding is non-negotiable today** — confirm at
+   close-out whether to leave it that way; if so, drop
+   from the axis list.
+5. **User-config keys** — once the axes are independent,
    wire `[default].topology` / `.write-vc-config` /
    `.remote` / `.private` into the `init` resolution
    chain. Follow the three-step `resolve_repo` shape
