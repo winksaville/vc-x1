@@ -32,13 +32,15 @@ counter-proposed that a defaults knob shouldn't ship before
 the underlying paths are equalized, and the user agreed —
 audit first, equalize next, then expose defaults.
 
-Ladder (grew to 7 commits as analysis, feature-axes,
-per-axis negotiation, and design-corpus reorg passes
-were added mid-cycle — `-2` Commonality after the audit,
-`-3` Feature axes after the user surfaced that `--por` is
-a tangled bundle, `-4` A2 collapse + copying stub once
-A1's decisions revealed A2 was degenerate, `-5`
-`design-cli/` subdir as the design notes accumulated):
+Ladder (grew to 8 commits as analysis, feature-axes,
+per-axis negotiation, design-corpus reorg, and decision-
+capture passes were added mid-cycle — `-2` Commonality
+after the audit, `-3` Feature axes after the user
+surfaced that `--por` is a tangled bundle, `-4` A2
+collapse + copying stub once A1's decisions revealed A2
+was degenerate, `-5` `design-cli/` subdir as the design
+notes accumulated, `-6` decisions captured + matrix
+once all axes were negotiated):
 
 - 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
   ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
@@ -84,6 +86,14 @@ A1's decisions revealed A2 was degenerate, `-5`
   historical chores aren't retroactively rewritten).
   Updates cross-references in `todo.md` and the current
   cycle's `chores-12.md` entry. (done)
+- 0.61.0-6 Captures + matrix — consolidate per-axis
+  negotiation outcomes into `**Decisions (0.61.0):**`
+  blocks under each axis section in the audit doc, plus
+  a new `### Subcommand × parameter matrix` subsection
+  giving the at-a-glance designed-state view (user's
+  earlier request). Defers axis-label rename,
+  Resolution-chain rewrite, and Gap-list refresh to
+  close-out. (done)
 - 0.61.0 Close-out — synthesize the three layers
   (divergence × commonality × feature-axes) plus
   per-axis negotiation decisions into ranked follow-up

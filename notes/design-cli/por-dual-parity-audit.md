@@ -488,6 +488,30 @@ across these axes lands in 0.62.0+ cycles.
   defaulting is asymmetric: you can be explicit about por
   but not about dual.
 
+**Decisions (0.61.0):**
+
+- **Add `--dual` peer flag**. `--por` / `--dual`
+  exactly-one-of (clap-enforced). Internal value is an
+  enum, not a boolean — eliminates the `--por`/`!--por`
+  framing that the audit found everywhere.
+- **Default: `dual`** (user reversed from an earlier
+  strict-explicit-required position once the broader
+  "defaults where natural" principle landed). Dual is
+  the primary use case; defaulting to it matches
+  reality and minimizes new-user friction.
+- **Runtime override on every subcommand** (not just
+  `init` / `clone`). `--por` at runtime short-circuits
+  `default_scope` → `Scope([Code])` regardless of what
+  the workspace says. Escape hatch for "this command,
+  just my code, leave `.claude/` alone."
+- **Workspace `.vc-config.toml` is dual-only**. Por
+  never reads, never creates. Today's degenerate
+  `[workspace] path = "/"` write under `--por` gets
+  dropped.
+- **Resolution chain**: CLI > ENV > Local > Global >
+  baked-in default (`dual`). No "Error" floor for
+  Topology — baked-in always supplies.
+
 #### A2. `.vc-config.toml` write — collapsed
 
 A2 was originally written as an independent axis. After
@@ -516,6 +540,14 @@ Today's `--config <none|PATH>` flag (`init.rs:610`,
 "only valid with `--por`") becomes vestigial under the
 new design. The 0.62.0+ rollout drops it.
 
+**Decisions (0.61.0):**
+
+- **Collapse A2**. Not an independent axis; presence-of-
+  `.vc-config.toml` correlates 1:1 with A1's topology.
+- **Drop `--config <path>`** from the surface; its
+  capability moves under `--init-from*`.
+- **Drop A2 from the axis list at close-out**.
+
 #### A3. Remote provisioning
 
 - **States** — `github-create` (default; creates
@@ -533,6 +565,36 @@ new design. The 0.62.0+ rollout drops it.
   local workspace (or to provision the remote separately)
   has no clean way to express it.
 
+**Decisions (0.61.0):**
+
+- **Add `none` as a third peer category**. Spelled
+  `--repo none` (no value). User-config equivalent:
+  `[account.<a>].repo.default = "none"` or top-level
+  `[repo].default = "none"`. Three peer categories now:
+  `remote` / `local` / `none`. No special-casing.
+- **`none` is first-class** in the resolution chain.
+  Same `--repo` CLI > ENV > Local > Global > default
+  resolution path as the other categories.
+- **When `--repo none`, `--account` is skipped**.
+  Account is meaningless without a remote provider to
+  consult. The error floor only applies to keys *needed*
+  for the requested operation.
+- **`--private` errors when category != github-ish**
+  (not silent-ignore). Surfaces footgun cases like
+  `--repo local=... --private`.
+- **Uniform across dual sides**. `--repo` applies to
+  both code and `.claude/` companion (today's behavior).
+  Per-side `--repo-code` / `--repo-bot` deferred to a
+  future cycle if a real need surfaces.
+- **Remote-create-fail recovery flag** (`--remote-
+  provisioned` or similar) deferred to a follow-up
+  cycle. Today's abort-on-failure is acceptable.
+- **Default: `github-create`** (today's behavior;
+  natural-default axis). Resolution chain ends in
+  baked-in default for the category; account / URL
+  prefix still error at Global if unset (user-specific
+  keys, no natural default possible).
+
 #### A4. Private vs public
 
 - **States** — `public` (default) | `private`.
@@ -542,7 +604,25 @@ new design. The 0.62.0+ rollout drops it.
 - **Gap** — none structurally; the flag is independent
   and orthogonal.
 
-#### A5. Template seeding
+**Decisions (0.61.0):**
+
+- **Default: `public`** (preserves today's behavior).
+  User explicitly chose default-public over both
+  strict-explicit-required and default-private; rationale
+  is the user's personal context (no paid private plan)
+  and back-compat. Consistent with the broader "defaults
+  where natural" principle.
+- **Add `--public` peer flag**. `--private` / `--public`
+  exactly-one-of. Needed because `[default].private =
+  true` is settable in user-config, so a per-invocation
+  spelling for "public" must exist. Same shape as `--por`
+  / `--dual`.
+- **Errors when category != github-ish** (per Remote
+  decision; no silent ignore).
+- **Resolution chain**: CLI > ENV > Local > Global >
+  baked-in default (`public`). No error floor.
+
+#### A5. Template seeding (today) → Copying (designed)
 
 - **States** — `none` (default) | `code-only <path>` |
   `code-and-bot <path,path>`.
@@ -553,6 +633,48 @@ new design. The 0.62.0+ rollout drops it.
   naturally A1-aware. Bot-side template under A1=single
   is meaningless and rejected today.
 
+**Decisions (0.61.0):**
+
+This axis is renamed **Copying** and significantly
+expanded in scope — see [`notes/design-cli/copying.md`](copying.md) [[3]].
+The decisions below are the axis-level summary;
+behavior details live in the design stub.
+
+- **Surface**: `--init-from-code` / `--init-from-bot` /
+  `--init-from` (shorthand for `-code`) and their
+  `-recursive` variants. Each accepts a shell glob;
+  each may be specified multiple times (additive).
+- **Subsumes** `--use-template`, `--config <path>`, and
+  the hypothetical `--gitignore <path>`.
+- **Pure file copy**. No variable substitution
+  (deliberately — that's a different feature).
+- **Last-writer-wins + warning on collision** when
+  multiple sources resolve to the same destination.
+- **Canned writes suppressed when copying engaged**.
+  Any `--init-from*` present → `init` skips the canned
+  `.vc-config.toml` + `.gitignore` writes entirely.
+- **Deferred dual validation**. Missing `.vc-config.toml`
+  after copy is a warning at `init`; first downstream
+  subcommand errors. Lets users supply config post-init.
+- **Fixed filename**. `.vc-config.toml` is the only
+  workspace-config name; overriding is deferred.
+- **Symlink + exec-bit preservation** (`cp -a`
+  semantics).
+- **Source-not-found = hard error** (typo protection).
+  Empty glob expansion is fine.
+- **Config-pinnable** as a list-of-strings:
+  `[default].init-from = ["~/tpl/*", "~/tpl/.gitignore"]`.
+  Requires a small list-of-strings extension to the
+  config parser.
+- **CLI overrides config entirely** (no union). If user
+  passes any `--init-from*` on CLI, the config-pinned
+  list is ignored — match the broader chain rule.
+- **Env-var**: colon-separated for multi-value
+  (`VC_X1_INIT_FROM_CODE=a:b:c`), matches `PATH`
+  convention.
+- **Default: `none`** (no copying). Resolution chain
+  ends in baked-in default.
+
 #### A6. Working-tree scaffolding (jj init, `.gitignore`)
 
 - **States** — `on` (default) | `off`.
@@ -562,6 +684,16 @@ new design. The 0.62.0+ rollout drops it.
   workspace. `.gitignore` is unconditional and a fixed
   content list. The bot thinks A6 stays a non-axis
   unless a concrete use case surfaces.
+
+**Decisions (0.61.0):**
+
+- **Confirmed non-axis**. jj init is unconditional
+  (entire workspace model assumes jj). Canned
+  `.gitignore` write is suppressed automatically when
+  Copying engages (so users wanting custom contents
+  pass `--init-from-code=.gitignore`).
+- **Drop A6 from the axis list at close-out** —
+  documented here for completeness, then retired.
 
 ### Defaults summary
 
@@ -719,6 +851,95 @@ Following the decisions in this cycle:
   `init`/`clone`). In a dual workspace, runtime `--por`
   short-circuits `default_scope` → `Scope([Code])` and
   ignores `.claude/`.
+
+### Subcommand × parameter matrix
+
+The designed-state at-a-glance view — for each
+subcommand (rows), which parameter families it accepts
+(columns), and a short note on what the parameter does
+in that context.
+
+This is the **post-equalization target**, not today's
+state. Today many of these cells are gaps (per the audit
+findings); the matrix captures what 0.62.0+ equalization
+cycles drive toward.
+
+**Parameter families:**
+
+- **T** — `--por` / `--dual` topology. *Creation* on
+  init/clone (writes the workspace shape); *runtime
+  override* on every other subcommand (forces
+  por-scoped operation).
+- **A/R** — `--account` + `--repo` (remote provider
+  resolution; user-config-keyed).
+- **Priv** — `--private` / `--public` (GitHub
+  visibility).
+- **CP** — `--init-from*` family (file copying into
+  the workspace).
+- **CFG** — `--config <path>` / `--global-config
+  <path>` (point at non-default config files).
+- **NO-CFG** — `--no-local-config` / `--no-global-config`
+  (skip layers in the resolution chain).
+- **SC** — runtime `--scope` / `-R` (per-invocation
+  repo selection on dual workspaces).
+
+**Cell legend:**
+
+- `✓` — accepted; default behavior.
+- `✓*` — accepted with caveat (see footnotes).
+- `—` — not applicable for this subcommand.
+- `(new)` — subcommand or capability added by the
+  0.62.0+ rollout.
+
+| Subcommand | T | A/R | Priv | CP | CFG | NO-CFG | SC |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `init <TARGET>` | ✓ creation | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| `clone <URL>` | ✓ creation | ✓ | ✓ | ✓* | ✓ | ✓ | — |
+| `push <BM>` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
+| `sync` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `finalize` | — | — | — | — | ✓ | ✓ | — |
+| `chid` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `desc` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `show` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `list` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `validate-desc` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
+| `fix-desc` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
+| `validate-todo` | — | — | — | — | ✓ | ✓ | — |
+| `fix-todo` | — | — | — | — | ✓ | ✓ | — |
+| `config dump` (new) | — | — | — | — | — | — | — |
+
+**Footnotes:**
+
+- `clone CP*` — copying on `clone` overlays *on top of*
+  the cloned content (same flag set, same collision
+  rules as `init`).
+- `push SC*` — push uses bookmark scoping rather than
+  `--scope`; the cell marks "yes, push reads scope-ish
+  info" without implying surface identity.
+- `validate-desc` / `fix-desc` `SC*` — these are the
+  desc-family outliers that bypass `for_each_repo`
+  today (per `## Commonality`); post-equalization
+  they route through scope like the rest of the
+  `CommonArgs` family.
+- `config dump` is a new subcommand to be added — emits
+  the baked-in default config so users can save and
+  modify it.
+
+**Topology column (`T`) — quick reference:**
+
+- *Creation* (init/clone): `--por` / `--dual` chooses
+  the workspace shape that gets written into
+  `.vc-config.toml` (dual only — por writes nothing).
+- *Runtime override* (other subcommands): `--por` at
+  invocation short-circuits `default_scope` →
+  `Scope([Code])` regardless of workspace contents.
+  Default-dual still applies at the workspace level
+  (the `.vc-config.toml` says dual, but the user is
+  asking for "this command only, just my code").
+- `finalize` has no T cell because it's invoked from
+  inside `push`'s workflow against a specific repo path
+  — no topology choice; the caller has already
+  resolved.
 
 ### Gap list (input for close-out)
 
