@@ -32,12 +32,13 @@ counter-proposed that a defaults knob shouldn't ship before
 the underlying paths are equalized, and the user agreed —
 audit first, equalize next, then expose defaults.
 
-Ladder (grew to 6 commits as analysis, feature-axes, and
-per-axis negotiation passes were added mid-cycle — `-2`
-Commonality after the audit, `-3` Feature axes after the
-user surfaced that `--por` is a tangled bundle, `-4` A2
-collapse + init-templating stub once A1's decisions
-revealed A2 was degenerate):
+Ladder (grew to 7 commits as analysis, feature-axes,
+per-axis negotiation, and design-corpus reorg passes
+were added mid-cycle — `-2` Commonality after the audit,
+`-3` Feature axes after the user surfaced that `--por` is
+a tangled bundle, `-4` A2 collapse + copying stub once
+A1's decisions revealed A2 was degenerate, `-5`
+`design-cli/` subdir as the design notes accumulated):
 
 - 0.61.0-0 Preparation — backfill 0.60.0 chores `Commits:`
   ref; bump Cargo.toml to `0.61.0-0`; pick up T5 into
@@ -45,7 +46,7 @@ revealed A2 was degenerate):
   scope (subcommands + code paths to inspect). (done)
 - 0.61.0-1 Audit walk — read every subcommand and the
   `options_flags/por.rs` gates; produce
-  `notes/por-dual-parity-audit.md` with one section per
+  `notes/design-cli/por-dual-parity-audit.md` with one section per
   divergence (init, clone, push, sync, finalize, show,
   chid, desc helpers, …). (done)
 - 0.61.0-2 Commonality analysis — append a
@@ -65,7 +66,7 @@ revealed A2 was degenerate):
   the A1 decisions (presence-of-`.vc-config.toml`
   correlates 1:1 with topology); the `--config <path>`
   capability is subsumed by a broader copying
-  design. Captures `notes/copying.md` as a forward-
+  design. Captures `notes/design-cli/copying.md` as a forward-
   looking stub (`--init-from-code` / `--init-from-bot`
   flags, last-wins-on-collision, canned writes
   suppressed when engaged, deferred dual validation).
@@ -74,6 +75,15 @@ revealed A2 was degenerate):
   "seeding" / "scaffolding") since the mechanism is
   pure file copy — no parameterization, no growth,
   no structure generation. (done)
+- 0.61.0-5 design-cli/ subdir — group CLI design notes
+  into `notes/design-cli/`. Three files move:
+  `copying.md`, `por-dual-parity.md`, and the
+  `por-dual-parity-audit.md` cycle output.
+  `forks-multi-user.md` and historical chores files
+  stay put (forks is data-shape design, not CLI;
+  historical chores aren't retroactively rewritten).
+  Updates cross-references in `todo.md` and the current
+  cycle's `chores-12.md` entry. (done)
 - 0.61.0 Close-out — synthesize the three layers
   (divergence × commonality × feature-axes) plus
   per-axis negotiation decisions into ranked follow-up
@@ -228,7 +238,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 # References
 
 [0]: /CLAUDE.md#prose-form
-[1]: /notes/por-dual-parity.md
+[1]: /notes/design-cli/por-dual-parity.md
 [2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
 [3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
 [4]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530

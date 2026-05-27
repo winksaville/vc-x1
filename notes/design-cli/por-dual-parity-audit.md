@@ -505,7 +505,7 @@ A2 is **not an independent axis**.
 The capability `--config <path>` was meant to serve
 (custom workspace metadata, arbitrary file copy) is
 deferred to a broader **copying** design — see
-[`notes/copying.md`](copying.md) [[3]]. That design uses
+[`notes/design-cli/copying.md`](copying.md) [[3]]. That design uses
 `--init-from-code` / `--init-from-bot` flags to copy
 arbitrary files (including `.vc-config.toml` and
 `.gitignore`), suppresses canned writes when engaged,
@@ -755,5 +755,5 @@ from `## Commonality` (axis fixes that overlap with
 # References
 
 [1]: /notes/todo.md
-[2]: /notes/por-dual-parity.md
-[3]: /notes/copying.md
+[2]: /notes/design-cli/por-dual-parity.md
+[3]: /notes/design-cli/copying.md

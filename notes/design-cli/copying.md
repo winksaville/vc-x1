@@ -170,11 +170,11 @@ separate feature with its own name.
 
 ## See also
 
-- `notes/por-dual-parity-audit.md > ## Feature axes > A2`
+- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > A2`
   — the collapse that motivates this design [[1]].
-- `notes/por-dual-parity-audit.md > ## Feature axes > A5`
+- `notes/design-cli/por-dual-parity-audit.md > ## Feature axes > A5`
   — `--use-template` today; this design subsumes it.
 
 # References
 
-[1]: /notes/por-dual-parity-audit.md#a2-vc-configtoml-write--collapsed
+[1]: /notes/design-cli/por-dual-parity-audit.md#a2-vc-configtoml-write--collapsed

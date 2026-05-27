@@ -186,7 +186,7 @@ anchor homes.
 Commits: TBD (backfills at next cycle's Preparation)
 
 Audit cycle for T5 (`por/dual parity + dual → por`).
-Produces `notes/por-dual-parity-audit.md` — a per-area
+Produces `notes/design-cli/por-dual-parity-audit.md` — a per-area
 inventory of where `dual` (code + `.claude/` companion
 cross-linked by `ochid:`) gets a privileged code path
 over `por` (plain single repo). The audit's output is
@@ -202,7 +202,7 @@ still-bolted-on `por` path; equalize first, default later.
 ### Audit scope
 
 Areas the audit walk inspects, each producing its own
-section in `notes/por-dual-parity-audit.md`:
+section in `notes/design-cli/por-dual-parity-audit.md`:
 
 - **`options_flags/por.rs`** — the `--por` gate itself;
   how it's threaded through commands.
