@@ -134,7 +134,7 @@ only by doing the cycle's work. Capture them at close-out
 
 ## docs: consolidate notes conventions (0.60.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[3]]
 
 Bot is the primary writer of notes files, so the
 file-format conventions belong in CLAUDE.md as the single
@@ -181,7 +181,176 @@ anchor homes.
 - 0.60.0 Close-out — chores narrative; `## Done` entry +
   `[12]:` ref; `## In Progress` reset.
 
+## docs: por/dual parity design (0.61.0)
+
+Commits: TBD (backfills at next cycle's Preparation)
+
+Design cycle for T5 (`por/dual parity + dual → por`).
+Scope grew over eight commits from an audit to a full
+CLI design — the audit doc became the canonical record
+for both the parity divergences (where dual gets
+privileged code paths over por) and the negotiated
+designed surface (feature axes, decisions per axis,
+resolution chain with baked-in default, subcommand ×
+parameter matrix, copying mechanism for file seeding).
+Output is input for 0.62.0+ equalization cycles. No
+code changes land in 0.61.0 itself.
+
+The cycle started as "audit + ranked Todos for future
+fixes" and grew when the audit's findings made clear
+that defaulting topology (the user's original framing)
+wouldn't be safe before equalizing the underlying paths,
+and that `--por` itself was a tangled bundle of
+independent feature axes (topology, `.vc-config.toml`
+write, remote, privacy, copying, scaffolding) rather
+than a single toggle. The In Progress block (moved
+below) records the problem statement and the as-built
+ladder.
+
+### Problem statement (preserved from In Progress)
+
+Audit where `dual` (code + `.claude/` companion, cross-
+linked by `ochid:`) gets privileged code paths vs `por`
+(plain single repo). Goal: produce a parity-gap document
+that drives future parity-equalization cycles. T5 in
+`## Todo` is the parent design item; this cycle is the
+audit step that precedes any code-level equalization.
+
+The user proposed starting from `~/.config/vc-x1/config.
+toml` to make the topology choice user-configurable; the
+bot counter-proposed that a defaults knob shouldn't ship
+before the underlying paths are equalized, and the user
+agreed — audit first, equalize next, then expose
+defaults.
+
+### Scope arc
+
+The cycle's scope expanded mid-flight three times — each
+time a new pass revealed something the prior pass didn't:
+
+- **Audit walk (`-1`)** found that `push` is fully dual-
+  baked, `validate-desc` / `fix-desc` are dual-required
+  outliers, and `sync` already implements the topology-
+  neutral pattern via `default_scope` / `scope_to_repos`.
+- **Commonality (`-2`)** inverted the view and showed
+  that the codebase *already has* the right pattern;
+  half the subcommands route through it. The "por is
+  bolted on" framing inverted: por is bolted on
+  everywhere the scope pattern wasn't applied.
+- **Feature axes (`-3`)** decomposed `--por` from a
+  topology toggle into six axes: Topology,
+  `.vc-config.toml` write, Remote, Privacy, Copying,
+  Scaffolding. Plus a 4-layer resolution chain (CLI >
+  ENV > Local > Global) — later extended to 5 layers
+  with a baked-in default at the bottom.
+- **`.vc-config.toml` write collapse + copying stub
+  (`-4`)** showed that the `.vc-config.toml` write axis
+  is degenerate
+  post-Topology, and the broader file-copying mechanism
+  (`--init-from*`) subsumes both `--config` and
+  `--gitignore` flags. `notes/design-cli/copying.md`
+  captures the design.
+- **`design-cli/` subdir (`-5`)** grouped the
+  accumulating CLI design notes (copying.md,
+  por-dual-parity.md, and the cycle's audit doc) under
+  one home.
+- **Decisions + matrix (`-6`)** captured per-axis
+  negotiation outcomes as `**Decisions (0.61.0):**`
+  blocks inline, plus the subcommand × parameter matrix
+  the user requested.
+- **Label rename + ledger + finalize fix (`-7`)** dropped
+  `A1`–`A6` prefixes for descriptive axis names, added
+  a clean acronym-to-axis ledger to the matrix, and
+  acknowledged at the top of the doc that this is a
+  pre-implementation snapshot — the final shape will
+  differ.
+
+### Mid-cycle reversals worth noting
+
+Two negotiated reversals shaped the final design:
+
+- **Topology floor: strict-explicit-required → default-
+  dual.** Initial decision was "no implicit default;
+  error if not specified." User reframed to "sensible
+  defaults where natural, errors only for user-specific
+  keys" — landing default-dual as the natural primary
+  use case. Cascaded to Privacy (default-public),
+  Remote (default-github-create), Copying (default-
+  none).
+- **Baked-in default config as bottom-of-chain.** Closes
+  the "what does the error message say at the bottom"
+  question for natural-default axes — there's always a
+  fallback from the binary's `default-config.toml`. New
+  `vc-x1 config dump` subcommand exposes it for users
+  to save and modify.
+
+### Status note (in the audit doc top)
+
+The audit doc carries an explicit "this design is pre-
+implementation; the final shape will differ" note. Future
+readers (including the bot in 0.62.0 cycles) should treat
+the design as a starting position, update it when code
+reveals divergence, and not bend code to fit stale
+sketches.
+
+### As-built ladder
+
+- 0.61.0-0 Preparation — backfill 0.60.0 chores
+  `Commits:` ref; bump Cargo.toml; pick up T5 into
+  `## In Progress`; open chores section; lay out the
+  audit scope.
+- 0.61.0-1 Audit walk — produce
+  `notes/design-cli/por-dual-parity-audit.md` with 8
+  sections inventorying dual-privileged code paths
+  (per-area: files touched, divergence, severity,
+  equalization sketch).
+- 0.61.0-2 Commonality analysis — append `## Commonality`
+  inverting the view (per-subcommand shared / dual-only
+  / por-only buckets, ranked equalization candidates).
+- 0.61.0-3 Feature-axes decomposition — append
+  `## Feature axes` (six axes with current/target
+  states); 4-layer resolution chain (CLI > ENV >
+  Local > Global > Error); escape hatches; env-var
+  table; por's view of the chain.
+- 0.61.0-4 `.vc-config.toml` write collapse + copying
+  stub — `.vc-config.toml` write axis collapsed under
+  Topology decisions;
+  `notes/design-cli/copying.md` design stub captures
+  the broader file-copying mechanism that subsumes
+  `--config`, `--gitignore`, and `--use-template`.
+- 0.61.0-5 `design-cli/` subdir — group three CLI design
+  notes (copying, por-dual-parity, the audit doc) into
+  `notes/design-cli/`; update cross-references; leave
+  historical chores untouched.
+- 0.61.0-6 Captures + matrix — `**Decisions (0.61.0):**`
+  blocks under each axis section; new
+  `### Subcommand × parameter matrix` (14 subcommand
+  rows × 7 parameter families with ledger + legend +
+  footnotes).
+- 0.61.0-7 Label rename + ledger + status — drop
+  `A1`–`A6` prefixes for descriptive axis names; refactor
+  matrix parameter-families intro into clean ledger
+  table; correct `finalize` matrix row (T runtime + SC
+  for standalone use); add `## Status` note framing
+  this as pre-implementation.
+- 0.61.0 Close-out — Resolution-chain rewrite for the
+  baked-in-default 5-layer model + two-class principle;
+  Gap-list refresh (14 implementation-cycle gaps for
+  0.62.0+ to seed Todos from); In Progress → chores
+  migration; `## Done` entry; `## In Progress` reset.
+
+### Outcome — what's seeded for 0.62.0+
+
+The refreshed Gap list in the audit doc carries 14
+implementation gaps. The close-out commit promotes one
+into `## Todo` (T7: `validate-desc` / `fix-desc`
+equalization — cheapest concrete equalization, validates
+the topology-from-config rule via prototype). The rest
+live in the audit doc's Gap list for future Preparation
+passes to pick up.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
 [2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"
+[3]: https://github.com/winksaville/vc-x1/commit/41ef8842d885 "41ef8842d885a7713416a7321e2cd7ae67802b68"

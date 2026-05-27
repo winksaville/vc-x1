@@ -72,7 +72,6 @@ _No cycle currently in progress._
 ### P3
 
 - `**por -> dual...**`
-- `**por/dual parity...**`
 
 ## Todo
 
@@ -140,12 +139,19 @@ _No cycle currently in progress._
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-5. **por/dual parity + `dual → por` conversion.** Make
-   `por` and `dual` first-class equals (dual is primary
-   today, por bolted on); add `dual → por` conversion
-   (detach the `.claude` companion). Builds on the
-   `--scope` rollout below. Pre-design; goal + open
-   questions in the stub. [[1]]
+5. **`validate-desc` / `fix-desc` por equalization.**
+   Replace the `other_repo_from_config` prelude in both
+   subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
+   with a scope-aware resolution that no-ops `Side::Bot`
+   when absent. Body unchanged. The 0.61.0 audit/design
+   work [[13]] identified this as the cheapest concrete
+   equalization and the right prototype for the
+   topology-from-config rule (subcommand reads topology
+   from `default_scope`, not from a flag). Validates the
+   broader design before larger pieces (`push`,
+   `--init-from*`) commit to it. The remaining 13
+   implementation gaps live in [[13]]'s `## Gap list` for
+   future Preparation passes to pick up.
 
 ## Bugs
 
@@ -168,11 +174,12 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - notes/todo restructure — split `## Bugs` → `bugs.md` and the long-tail `## Todo` → `todo-backlog.md`; `## Priorities` with tier sub-headings (`### P1`/`### P2`/`### P3`); CLAUDE.md `## File reads` rule + protocol codification (chores title-only during cycle, In Progress moves into chores at close-out, problem+plan shape) (0.58.0) [[9]]
 - extract cycle protocol — `notes/cycle-protocol.md` becomes the canonical self-contained home for the cycle workflow (504 lines, extensively tightened from the CLAUDE.md extract); CLAUDE.md keeps a 10-line pointer; `notes/substep-protocol.md` folded in as `## Sub-cycle ladders`; `## Ideas` section added to `notes/todo.md`; first squash close-out via manual Option F (app squash + bot-side `af60f979` trailer rewrite + force-push) (0.59.0) [[11]]
 - consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[12]]
+- por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[13]]
 
 # References
 
 [0]: /CLAUDE.md#prose-form
-[1]: /notes/por-dual-parity.md
+[1]: /notes/design-cli/por-dual-parity.md
 [2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
 [3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
 [4]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530
@@ -184,3 +191,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [10]: /notes/forks-multi-user.md
 [11]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590
 [12]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
+[13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
