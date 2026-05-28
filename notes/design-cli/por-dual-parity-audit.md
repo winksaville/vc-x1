@@ -448,6 +448,9 @@ furthest (architectural work):
    without changing the inner primitives. User-config
    `[default].topology` (the original user proposal)
    becomes a small follow-on once peers exist.
+   *(Superseded: the design adopts a single
+   `--mode=<single|dual>` value flag instead of two peer
+   flags — see Topology Decisions.)*
 4. **`push`** — the structural one. `claude_path()`,
    stage names, ochid composition all carry the
    dual-shape baked in. The bot thinks this is best done
@@ -518,27 +521,40 @@ across these axes lands in 0.62.0+ cycles.
 
 **Decisions (0.61.0):**
 
-- **Add `--dual` peer flag**. `--por` / `--dual`
-  exactly-one-of (clap-enforced). Internal value is an
-  enum, not a boolean — eliminates the `--por`/`!--por`
-  framing that the audit found everywhere.
-- **Default: `dual`** (user reversed from an earlier
-  strict-explicit-required position once the broader
-  "defaults where natural" principle landed). Dual is
-  the primary use case; defaulting to it matches
-  reality and minimizes new-user friction.
+- **Topology selected by `--mode=<single|dual>`** — one
+  value-bearing flag, not two booleans. Replaces the
+  `--por` / `--dual` peer-flag pair; a single flag can't
+  conflict with itself, so the "exactly-one-of"
+  enforcement disappears. Optional `s` / `d` aliases for
+  brevity. Internal value is an enum — eliminates the
+  `--por`/`!--por` boolean framing the audit found
+  everywhere.
+  - `single` (≡ por, "Plain Old Repo"): one code repo,
+    no `.claude/` companion.
+  - `dual`: code repo + `.claude/` companion, cross-
+    linked by `ochid:`.
+  - "por" stays the internal / conceptual term (and
+    today's `PorFlag` / `FixturePor` code names);
+    `single` is the user-facing value.
+- **Default: `dual`** — absence of `--mode` → `dual` via
+  the resolution chain below. Dual is the primary use
+  case and the reason vc-x1 exists. (User reversed from
+  an earlier strict-explicit-required position once the
+  broader "defaults where natural" principle landed.)
 - **Runtime override on every subcommand** (not just
-  `init` / `clone`). `--por` declares the target repo
-  (`.` by default, or `-R/--repo <path>`) as single —
-  no sibling traversal, no `[workspace] other-repo`
+  `init` / `clone`). `--mode=single` declares the target
+  repo (`.` by default, or `-R/--repo <path>`) as single
+  — no sibling traversal, no `[workspace] other-repo`
   lookup, no cross-repo ochid validation. Symmetric
-  across code and bot — `--por` suppresses sibling
-  discovery for whichever repo is the target, it
-  doesn't privilege a side.
-- **Workspace `.vc-config.toml` is dual-only**. Por
+  across code and bot — it suppresses sibling discovery
+  for whichever repo is the target, it doesn't privilege
+  a side. At creation `--mode` sets the persistent
+  topology; at runtime it overrides the detected
+  topology for that invocation.
+- **Workspace `.vc-config.toml` is dual-only**. `single`
   never reads, never creates. Today's degenerate
-  `[workspace] path = "/"` write under `--por` gets
-  dropped.
+  `[workspace] path = "/"` write (under `--mode=single`)
+  gets dropped.
 - **Resolution chain**: CLI > ENV > Local > Global >
   baked-in default (`dual`). No "Error" floor for
   Topology — baked-in always supplies.
@@ -646,8 +662,10 @@ new design. The 0.62.0+ rollout drops it.
 - **Add `--public` peer flag**. `--private` / `--public`
   exactly-one-of. Needed because `[default].private =
   true` is settable in user-config, so a per-invocation
-  spelling for "public" must exist. Same shape as `--por`
-  / `--dual`.
+  spelling for "public" must exist. (Carries the same
+  exactly-one-of tension Topology had before `--mode`;
+  whether Privacy adopts a parallel `--visibility=
+  <private|public>` value flag is still open.)
 - **Errors when category != github-ish** (per Remote
   decision; no silent ignore).
 - **Resolution chain**: CLI > ENV > Local > Global >
@@ -737,25 +755,25 @@ behavior details live in the design stub.
 | Copying | none | `--use-template <C[,B]>` | Yes (Topology-aware) |
 | Scaffolding | on | (none) | Not an axis today |
 
-### Mapping `--por` / `--dual` onto axis combinations
+### Mapping `--mode` onto axis combinations
 
-Today `--por` and (implicit) `--dual` are *bundle
-shorthands*. After axes are independent, they remain as
-shorthands for the common combinations:
+`--mode=single` / `--mode=dual` are *bundle shorthands*.
+After axes are independent, they remain shorthands for
+the common combinations:
 
-- `--dual` (or no flag — back-compat) →
+- `--mode=dual` (or no flag — default) →
   `(Topology=dual, Vc-config=written, Remote=github-
   create, Privacy=public, Copying=none)`.
-- `--por` → `(Topology=single, Vc-config=written,
+- `--mode=single` → `(Topology=single, Vc-config=written,
   Remote=github-create, Privacy=public, Copying=none)`.
   Note `Vc-config=written` is what today's `--por`
   actually does, not `not-written` (the `.vc-config.toml`
   is still written, just degenerate).
 
 A user wanting a fully-plain single repo today can't
-spell it; tomorrow it would be `--por --config none --no-remote` (or
-shorthand `--bare` if that combination is common enough to
-deserve one).
+spell it; tomorrow it would be `--mode=single --config
+none --no-remote` (or shorthand `--bare` if that
+combination is common enough to deserve one).
 
 ### Connections to user-config
 
@@ -786,7 +804,7 @@ specific.
 
 #### Layers (highest precedence first)
 
-1. **CLI flag** — `--por`, `--account`, `--private`,
+1. **CLI flag** — `--mode`, `--account`, `--private`,
    `--config <path>`, `--global-config <path>`, etc. The
    per-invocation surface. CLI is god — wins over every
    other layer when present. CLI carries *values* only;
@@ -849,9 +867,9 @@ key is missing).
 
 - **`--no-local-config`** — skip layer 3 entirely for this
   invocation. Today functionally equivalent to runtime
-  `--por` (because local config carries only topology
-  metadata); add as a peer flag once local config gains
-  non-topology fields.
+  `--mode=single` (because local config carries only
+  topology metadata); add as a peer flag once local config
+  gains non-topology fields.
 - **`--no-global-config`** — skip layer 4 entirely.
   Necessary for tests / CI / "ignore my defaults this
   once."
@@ -902,26 +920,26 @@ established; `VC_X1_*` just extends it.
 Following the decisions in this cycle:
 
 - **Workspace `.vc-config.toml`** (layer 3) — dual-only.
-  Por never reads, never creates. Today's degenerate
-  `[workspace] path = "/"` write under `--por` is residue
-  from when `--por` was a half-implemented opt-out and
-  should be dropped.
+  `single` never reads, never creates. Today's degenerate
+  `[workspace] path = "/"` write is residue from when the
+  flag was a half-implemented boolean opt-out and should
+  be dropped.
 - **User-config `~/.config/vc-x1/config.toml`**
-  (layer 4) — topology-neutral. Both por and dual consult
-  it.
-- **Runtime `--por`** — overrides workspace topology
-  detection across every subcommand (not just
+  (layer 4) — topology-neutral. Both single and dual
+  consult it.
+- **Runtime `--mode=single`** — overrides workspace
+  topology detection across every subcommand (not just
   `init`/`clone`). Treats the target repo (`.` by
   default, or `-R/--repo <path>`) as single: no sibling
   traversal, no `[workspace] other-repo` lookup, no
   cross-repo ochid validation. Symmetric across code
   and bot:
-  - `--por -R .` (in a dual workspace) → operate on
-    code, no sibling.
-  - `--por -R .claude` → operate on `.claude`, no
-    sibling.
-  - `--por -R /vendored/single-repo` → operate on that
-    repo as-is.
+  - `--mode=single -R .` (in a dual workspace) → operate
+    on code, no sibling.
+  - `--mode=single -R .claude` → operate on `.claude`,
+    no sibling.
+  - `--mode=single -R /vendored/single-repo` → operate
+    on that repo as-is.
 
 ### Subcommand × parameter matrix
 
@@ -940,7 +958,7 @@ cross-cutting flag groups):**
 
 | Acronym | Axis / group | Flags |
 | --- | --- | --- |
-| **T** | Topology | `--por` / `--dual` (creation on `init`/`clone`; runtime override on every other subcommand) |
+| **T** | Topology | `--mode=<single\|dual>` (creation on `init`/`clone`; runtime override on every other subcommand) |
 | **A/R** | Remote | `--account` + `--repo` (remote provider resolution; user-config-keyed) |
 | **Priv** | Privacy | `--private` / `--public` (GitHub visibility) |
 | **CP** | Copying | `--init-from*` family (file copying into the workspace) |
@@ -997,16 +1015,16 @@ many subcommands.
 
 **Topology column (`T`) — quick reference:**
 
-- *Creation* (init/clone): `--por` / `--dual` chooses
+- *Creation* (init/clone): `--mode=<single|dual>` chooses
   the workspace shape that gets written into
-  `.vc-config.toml` (dual only — por writes nothing).
-- *Runtime override* (other subcommands): `--por`
+  `.vc-config.toml` (dual only — single writes nothing).
+- *Runtime override* (other subcommands): `--mode=single`
   treats the target repo (`.` by default, or
   `-R/--repo <path>`) as single — no sibling
   traversal, no `[workspace] other-repo` lookup.
   Symmetric across code and bot. Default-dual at the
   workspace level still applies (`.vc-config.toml`
-  still says dual); `--por` is a per-invocation
+  still says dual); `--mode=single` is a per-invocation
   override asking "treat the target as single for
   this command."
 - `finalize` accepts T as a runtime override and SC for
@@ -1041,10 +1059,10 @@ blast radius) to largest, consistent with the
    work. Add `FixturePor` exercises to `chid` / `desc` /
    `show` / `list` tests. Surfaces bugs without
    architectural risk.
-3. **`--dual` peer flag + internal enum** — add `--dual`
-   (alias of "no `--por`"); make the value an enum, not
-   a boolean. `--por` / `--dual` exactly-one-of. Threads
-   through `init` / `clone` + becomes runtime override
+3. **`--mode=<single|dual>` flag** — replace today's
+   boolean `--por` with one value-bearing flag (`single`
+   ≡ por, default `dual`, optional `s` / `d` aliases).
+   Threads through `init` / `clone` + becomes runtime override
    on every other subcommand.
 4. **`--public` peer flag** — add `--public` as peer to
    `--private`. Exactly-one-of. Needed so users with
@@ -1062,9 +1080,9 @@ blast radius) to largest, consistent with the
    is missing in a `.claude/`-present workspace is a
    footgun. Add explicit broken-dual error. Prerequisite
    for the copying design's deferred-validation flow.
-8. **Runtime `--por` on all subcommands** — add the flag
-   to every subcommand (not just `init`/`clone`); thread
-   it into `default_scope` as an override.
+8. **Runtime `--mode=single` on all subcommands** — add
+   the flag to every subcommand (not just `init`/`clone`);
+   thread it into `default_scope` as an override.
 9. **`--init-from*` family + copying mechanism** — the
    broader file-copy design (see [[3]]). Subsumes
    `--use-template` (with back-compat shim) and the
@@ -1077,8 +1095,8 @@ blast radius) to largest, consistent with the
     Local). See the Env-var table.
 11. **`--no-local-config` / `--no-global-config` flags**
     — skip layer 3 / layer 4 escape hatches. Today's
-    runtime `--por` covers the `--no-local-config` case
-    for topology (only field local carries today).
+    runtime `--mode=single` covers the `--no-local-config`
+    case for topology (only field local carries today).
 12. **Baked-in default config + `vc-x1 config dump`** —
     `default-config.toml` compiled in via `include_str!`.
     `vc-x1 config dump` emits it for the user to save

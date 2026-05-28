@@ -370,6 +370,21 @@ it from the list (git history holds the original).
   `-R/--repo <path>`) single and suppresses sibling
   discovery symmetrically across code and bot — it
   doesn't privilege a side.
+- **`--mode=<single|dual>` topology surface** (0.62.0-3).
+  Concern #2 flagged the contradictory "exactly-one-of
+  `--por` / `--dual` with default-dual" phrasing. Rather
+  than reword, replaced the two boolean flags with one
+  value-bearing flag `--mode=<single|dual>` (default
+  `dual`, `single` ≡ por, optional `s` / `d` aliases) —
+  a single flag can't conflict with itself, so the
+  contradiction dissolves. Propagated across the design
+  sections (Topology Decisions, Por's view, matrix +
+  quick-reference, Mapping section, Gap #8); the runtime
+  override from Concern #1 becomes `--mode=single`. Audit
+  findings (`## 1`–`## 8`) keep `--por` — they describe
+  today's code. Concern #2's Privacy half (same shape on
+  `--private` / `--public`) stays open; a parallel
+  `--visibility=<private|public>` would resolve it.
 
 # References
 
