@@ -528,10 +528,13 @@ across these axes lands in 0.62.0+ cycles.
   the primary use case; defaulting to it matches
   reality and minimizes new-user friction.
 - **Runtime override on every subcommand** (not just
-  `init` / `clone`). `--por` at runtime short-circuits
-  `default_scope` → `Scope([Code])` regardless of what
-  the workspace says. Escape hatch for "this command,
-  just my code, leave `.claude/` alone."
+  `init` / `clone`). `--por` declares the target repo
+  (`.` by default, or `-R/--repo <path>`) as single —
+  no sibling traversal, no `[workspace] other-repo`
+  lookup, no cross-repo ochid validation. Symmetric
+  across code and bot — `--por` suppresses sibling
+  discovery for whichever repo is the target, it
+  doesn't privilege a side.
 - **Workspace `.vc-config.toml` is dual-only**. Por
   never reads, never creates. Today's degenerate
   `[workspace] path = "/"` write under `--por` gets
@@ -908,9 +911,17 @@ Following the decisions in this cycle:
   it.
 - **Runtime `--por`** — overrides workspace topology
   detection across every subcommand (not just
-  `init`/`clone`). In a dual workspace, runtime `--por`
-  short-circuits `default_scope` → `Scope([Code])` and
-  ignores `.claude/`.
+  `init`/`clone`). Treats the target repo (`.` by
+  default, or `-R/--repo <path>`) as single: no sibling
+  traversal, no `[workspace] other-repo` lookup, no
+  cross-repo ochid validation. Symmetric across code
+  and bot:
+  - `--por -R .` (in a dual workspace) → operate on
+    code, no sibling.
+  - `--por -R .claude` → operate on `.claude`, no
+    sibling.
+  - `--por -R /vendored/single-repo` → operate on that
+    repo as-is.
 
 ### Subcommand × parameter matrix
 
@@ -989,12 +1000,15 @@ many subcommands.
 - *Creation* (init/clone): `--por` / `--dual` chooses
   the workspace shape that gets written into
   `.vc-config.toml` (dual only — por writes nothing).
-- *Runtime override* (other subcommands): `--por` at
-  invocation short-circuits `default_scope` →
-  `Scope([Code])` regardless of workspace contents.
-  Default-dual still applies at the workspace level
-  (the `.vc-config.toml` says dual, but the user is
-  asking for "this command only, just my code").
+- *Runtime override* (other subcommands): `--por`
+  treats the target repo (`.` by default, or
+  `-R/--repo <path>`) as single — no sibling
+  traversal, no `[workspace] other-repo` lookup.
+  Symmetric across code and bot. Default-dual at the
+  workspace level still applies (`.vc-config.toml`
+  still says dual); `--por` is a per-invocation
+  override asking "treat the target as single for
+  this command."
 - `finalize` accepts T as a runtime override and SC for
   per-side selection. Today's only use site is inside
   `push`'s workflow against a specific repo path, but

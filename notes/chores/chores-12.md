@@ -355,14 +355,21 @@ Commits: TBD (backfills at next cycle's Preparation)
 
 Apply accepted items from
 [`max-review-1.md`](../design-cli/max-review-1.md) to
-the por/dual parity audit doc and the copying stub.
-Walk concerns and nits one at a time; each accepted
-item lands as its own work commit. Concern #1
-(runtime `--por` semantics — three doc-text spots)
-and Concern #2 Topology half were applied in an
-abandoned-during-rebase snapshot in 0.61.0
-(`604fb9e8`) and need replaying on top of the 0.61.0
-merge.
+the por/dual parity audit doc. The review file is the
+cycle's working list: `0.62.0-1` seeds the full
+capture, each later `-N` applies one item and deletes
+it from the list (git history holds the original).
+
+- **Concern #1 — runtime `--por` semantics** (0.62.0-2).
+  Three doc-text spots (Topology Decisions "Runtime
+  override" bullet, "Por's view of the chain" bullet,
+  matrix Topology-column sub-bullet) read runtime
+  `--por` as code-privileged (`→ Scope([Code])`, "just
+  my code"). Rewrote all three to the target-relative
+  rule: `--por` declares the target repo (`.` or
+  `-R/--repo <path>`) single and suppresses sibling
+  discovery symmetrically across code and bot — it
+  doesn't privilege a side.
 
 # References
 

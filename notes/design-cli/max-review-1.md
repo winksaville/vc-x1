@@ -58,72 +58,6 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 1. Runtime `--por` semantics — doc text vs. intent
-
-**Original critique** (max, 2026-05-26): The Topology
-Decisions block at `audit.md:530-534` reads:
-
-> `--por` at runtime short-circuits `default_scope` →
-> **`Scope([Code])`** regardless of what the workspace
-> says. Escape hatch for "this command, just my code,
-> leave `.claude/` alone."
-
-The bot read that as code-privileged: creation-time
-`--por` means "this workspace is single," runtime `--por`
-means "ignore the bot side this invocation." Two
-different operations mounted on one spelling — felt
-overloaded.
-
-**User clarification** (wink, 2026-05-26): runtime `--por`
-isn't side-specific. It means **"treat the repo I'm
-pointed at (`.` by default, or `-R/--repo <path>`) as a
-single repo — no sibling lookup."** Symmetric across
-code and bot:
-
-- `--por -R .` (in a dual workspace) → operate on code,
-  no sibling.
-- `--por -R .claude` → operate on `.claude`, no sibling.
-- `--por -R /vendored/single-repo` → operate on that
-  repo as-is.
-
-Creation-time `--por` is a special case of the same rule
-(the target doesn't exist yet, so "treat as standalone"
-collapses to "create as standalone"). One rule, two life
-stages.
-
-**Bot retraction:** the "two meanings on one spelling"
-critique evaporates under this framing. Also: the bot's
-proposed alternative ("use `--scope code` instead") was
-wrong — it conflates *selecting one side of a known dual
-workspace* (`--scope`) with *declaring the target isn't
-dual* (`--por`). Different mental models, not
-interchangeable.
-
-**Status:** **resolved on framing; doc-text update
-pending.** The audit doc currently codifies the narrower
-code-asymmetric reading at two spots:
-
-- `audit.md:530-534` (Topology Decisions, "runtime
-  override" bullet) — says `→ Scope([Code])`, "just my
-  code."
-- `audit.md:897-913` (Por's view of the chain, "Runtime
-  `--por`" bullet) — says "short-circuits
-  `default_scope` → `Scope([Code])` and ignores
-  `.claude/`."
-
-**Action:** at the next pickup of this design (likely
-0.62.0 Preparation), rewrite both spots to spell out the
-target-relative semantics. Suggested text for the
-Topology bullet:
-
-> Runtime override on every subcommand: `--por` declares
-> the target repo (default `.`, or `-R/--repo <path>`)
-> as single — no sibling traversal, no `.vc-config.toml
-> > other-repo` lookup, no cross-repo ochid validation.
-> Symmetric across code and bot — `--por` doesn't
-> privilege a side, it suppresses the sibling-discovery
-> step.
-
 ### 2. "Exactly-one-of `--por` / `--dual` with default-dual" is contradictory phrasing
 
 **Critique:** `audit.md:521-522` says clap-enforced
@@ -273,7 +207,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 1 | Runtime `--por` semantics — doc text vs. intent | Resolved on framing; doc-text update pending | `audit.md` Topology Decisions + "Por's view" subsections |
 | 2 | "Exactly-one-of with default" phrasing | Open | `audit.md` Topology + Privacy Decisions |
 | 3 | `--init-from-recursive` doubles the surface | Open | `copying.md` Surface section |
 | 4 | `--repo none` × Topology interaction | Open | `audit.md` Remote Decisions or matrix footnote |
