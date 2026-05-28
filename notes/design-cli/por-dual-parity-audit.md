@@ -632,6 +632,19 @@ new design. The 0.62.0+ rollout drops it.
   both code and `.claude/` companion (today's behavior).
   Per-side `--repo-code` / `--repo-bot` deferred to a
   future cycle if a real need surfaces.
+- **`none` × dual is allowed, not rejected**. `--mode=dual
+  --repo none` creates both the code repo and the
+  `.claude/` companion as local jj repos with no remotes,
+  consistent with the deferred-validation stance (`init`
+  is permissive, downstream subcommands enforce):
+  - `sync`'s remote-touching steps no-op (nothing to sync
+    to). Local operations still work.
+  - `push` / `finalize` give a clear early error
+    ("`<side>` has no remote; provision one first") rather
+    than a confused failure deep in the workflow.
+  - Remotes can be added later (the planned `por -> dual`
+    conversion or a future add-remote), after which
+    push / finalize work normally.
 - **Remote-create-fail recovery flag** (`--remote-
   provisioned` or similar) deferred to a follow-up
   cycle. Today's abort-on-failure is acceptable.

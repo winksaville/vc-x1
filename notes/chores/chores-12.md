@@ -415,6 +415,19 @@ it from the list (git history holds the original).
     the only globbing path.
   - Edits land in the `copying.md` stub. The audit doc's
     Copying Decisions summary tracks the surface change.
+- **`--repo none` × dual: allowed, not rejected**
+  (0.62.0-6). Concern #4 flagged that the Remote axis
+  added `--repo none` without saying what it means under
+  dual. Resolved as first-class: `init --mode=dual --repo
+  none` creates both repos local with no remotes, matching
+  the deferred-validation stance (`init` permissive,
+  downstream enforces).
+  - `sync` no-ops its remote steps. `push` / `finalize`
+    error early and clearly when a side has no remote,
+    instead of failing deep in the workflow.
+  - Remotes can be added later (`por -> dual` or a future
+    add-remote). One Decisions bullet added to the audit
+    doc's Remote axis.
 
 # References
 

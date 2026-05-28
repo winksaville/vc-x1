@@ -58,26 +58,6 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 4. `--repo none` × Topology interaction isn't spelled out
-
-**Critique:** the Remote axis Decisions
-(`audit.md:596-624`) introduces `--repo none` as a peer
-category, with `--account` skipped under it. Fine in
-isolation. But `--repo none` × `--dual` means "dual
-workspace with no remote for either side." The
-bot/sync/push workflow assumes remote-backed `.claude/`.
-The doc doesn't say whether dual+no-remote is
-first-class or rejected at parse time.
-
-**Proposed action:** add one paragraph to the Remote
-axis (or matrix footnotes) on the Topology × Remote=none
-interaction. Don't leave it implicit. The bot thinks a
-future user trying `init --dual --repo none` will hit a
-confused error later in the workflow.
-
-**Status:** open. Affects implementation when `--repo
-none` lands (Gap #5).
-
 ### 5. List-valued CLI-vs-config "wins" semantics deserves an explicit callout
 
 **Critique:** `audit.md:697-699` says: "If user passes
@@ -168,7 +148,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 4 | `--repo none` × Topology interaction | Open | `audit.md` Remote Decisions or matrix footnote |
 | 5 | List-valued CLI-vs-config "wins" | Open | `audit.md` Copying Decisions |
 | 6 | Gap-list ordering hides one prereq | Open | `audit.md` Gap list intro |
 | N1 | `finalize` matrix row footnote | Open | `audit.md` matrix |

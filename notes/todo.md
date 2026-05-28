@@ -36,7 +36,9 @@ remains open.
   + clone-row fix (done)
 - 0.62.0-5 Concern #3 `--init-from*` surface
   halving (done)
-- 0.62.0-N remaining concerns #4–#6, nits N1–N4,
+- 0.62.0-6 Concern #4 `--repo none` × dual
+  interaction (done)
+- 0.62.0-N remaining concerns #5–#6, nits N1–N4,
   process observation (each its own commit)
 - 0.62.0 close-out
 
