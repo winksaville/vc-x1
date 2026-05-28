@@ -58,30 +58,6 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 2. Privacy `--private` / `--public` — same "exactly-one-of with default" tension
-
-**Topology half — resolved (0.62.0-3).** The original
-critique flagged the contradictory "exactly-one-of
-`--por` / `--dual` with default-dual" phrasing. Rather
-than reword it, `0.62.0-3` replaced the two flags with a
-single `--mode=<single|dual>` value flag — a single flag
-can't conflict with itself, so the contradiction is gone.
-
-**Privacy half — open.** The Privacy axis carries the
-identical shape: `--private` / `--public` exactly-one-of
-with a `[default].private` default (audit.md Privacy
-Decisions). If neither is passed, either clap rejects
-(friction) or the default kicks in ("exactly-one-of" is
-misleading).
-
-**Status:** open (Privacy half).
-
-**Proposed action:** mirror the Topology fix — adopt a
-single value flag `--visibility=<private|public>`
-(default `public`), optionally with `--private` /
-`--public` as shortcuts. Resolves the contradiction the
-same way `--mode` did for Topology.
-
 ### 3. `--init-from-recursive` doubles the surface for the same capability
 
 **Critique:** `copying.md:29-38` defines six flags:
@@ -214,7 +190,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 2 | Privacy `--private`/`--public` exactly-one-of (Topology half resolved via `--mode`, 0.62.0-3) | Open | `audit.md` Privacy Decisions |
 | 3 | `--init-from-recursive` doubles the surface | Open | `copying.md` Surface section |
 | 4 | `--repo none` × Topology interaction | Open | `audit.md` Remote Decisions or matrix footnote |
 | 5 | List-valued CLI-vs-config "wins" | Open | `audit.md` Copying Decisions |

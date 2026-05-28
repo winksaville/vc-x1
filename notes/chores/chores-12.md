@@ -382,9 +382,17 @@ it from the list (git history holds the original).
   quick-reference, Mapping section, Gap #8); the runtime
   override from Concern #1 becomes `--mode=single`. Audit
   findings (`## 1`–`## 8`) keep `--por` — they describe
-  today's code. Concern #2's Privacy half (same shape on
-  `--private` / `--public`) stays open; a parallel
-  `--visibility=<private|public>` would resolve it.
+  today's code.
+- **`--visibility` + clone-row fix** (0.62.0-4). Resolves
+  Concern #2's Privacy half the same way `--mode` did for
+  Topology: Privacy axis adopts
+  `--visibility=<public|private>` (default `public`,
+  `--private` / `--public` kept as shortcuts),
+  **`init`-only**. Empirically confirmed (`init -h`,
+  `clone -h`, `clone.rs`) that `clone` never provisions a
+  remote — so the matrix's clone row is corrected from
+  `A/R ✓ Priv ✓` to `—` for both, with a footnote. Closes
+  Concern #2.
 
 # References
 

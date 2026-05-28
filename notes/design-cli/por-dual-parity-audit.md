@@ -659,13 +659,19 @@ new design. The 0.62.0+ rollout drops it.
   is the user's personal context (no paid private plan)
   and back-compat. Consistent with the broader "defaults
   where natural" principle.
-- **Add `--public` peer flag**. `--private` / `--public`
-  exactly-one-of. Needed because `[default].private =
-  true` is settable in user-config, so a per-invocation
-  spelling for "public" must exist. (Carries the same
-  exactly-one-of tension Topology had before `--mode`;
-  whether Privacy adopts a parallel `--visibility=
-  <private|public>` value flag is still open.)
+- **Visibility via `--visibility=<public|private>`** —
+  one value-bearing flag, mirroring the Topology `--mode`
+  decision (a single flag can't conflict with itself, so
+  no "exactly-one-of" enforcement). Default `public`.
+  Needed because `[default].private = true` is settable
+  in user-config, so a per-invocation spelling for
+  "public" must exist; `--visibility=public` provides it.
+  `--private` / `--public` kept as optional boolean
+  shortcuts (back-compat — `--private` exists today).
+- **`init`-only**. Visibility sets a newly-provisioned
+  GitHub repo's public/private, so it's meaningless on
+  `clone` (clones existing repos, never provisions) and
+  on every runtime subcommand.
 - **Errors when category != github-ish** (per Remote
   decision; no silent ignore).
 - **Resolution chain**: CLI > ENV > Local > Global >
@@ -960,7 +966,7 @@ cross-cutting flag groups):**
 | --- | --- | --- |
 | **T** | Topology | `--mode=<single\|dual>` (creation on `init`/`clone`; runtime override on every other subcommand) |
 | **A/R** | Remote | `--account` + `--repo` (remote provider resolution; user-config-keyed) |
-| **Priv** | Privacy | `--private` / `--public` (GitHub visibility) |
+| **Priv** | Privacy | `--visibility=<public\|private>` (GitHub visibility; `init`-only) |
 | **CP** | Copying | `--init-from*` family (file copying into the workspace) |
 | **CFG** | *Config paths* (not an axis) | `--config <path>` / `--global-config <path>` (point at non-default config files) |
 | **NO-CFG** | *Config skip* (not an axis) | `--no-local-config` / `--no-global-config` (skip layers in the resolution chain) |
@@ -982,7 +988,7 @@ many subcommands.
 | Subcommand | T | A/R | Priv | CP | CFG | NO-CFG | SC |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | `init <TARGET>` | ✓ creation | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| `clone <URL>` | ✓ creation | ✓ | ✓ | ✓* | ✓ | ✓ | — |
+| `clone <URL>` | ✓ creation | — | — | ✓* | ✓ | ✓ | — |
 | `push <BM>` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
 | `sync` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `finalize` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
@@ -1001,6 +1007,11 @@ many subcommands.
 - `clone CP*` — copying on `clone` overlays *on top of*
   the cloned content (same flag set, same collision
   rules as `init`).
+- `clone A/R —, Priv —` — clone resolves its source from
+  `<TARGET>` and clones existing repos; it never
+  provisions a remote, so the Remote-create and Privacy
+  axes don't apply (verified: `clone.rs` has no
+  provisioning path).
 - `push SC*` — push uses bookmark scoping rather than
   `--scope`; the cell marks "yes, push reads scope-ish
   info" without implying surface identity.
