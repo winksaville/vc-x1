@@ -28,11 +28,16 @@ abandoned-during-rebase snapshot in 0.61.0
 Privacy, #3–#6, nits N1–N4, process observation)
 remains open.
 
-- 0.62.0-0 Preparation (current)
-- 0.62.0-1 replay abandoned audit-doc edits (Concern
-  #1 three spots + Concern #2 Topology)
-- 0.62.0-N walk remaining items (concerns then nits);
-  each accepted item lands as its own commit
+- 0.62.0-0 Preparation (done)
+- 0.62.0-1 seed max-review-1 working list (done)
+- 0.62.0-2 Concern #1 runtime `--por` rewrite (done)
+- 0.62.0-3 Concern #2 Topology → `--mode` (done)
+- 0.62.0-4 Concern #2 Privacy → `--visibility`
+  + clone-row fix (done)
+- 0.62.0-5 Concern #3 `--init-from*` surface
+  halving (done)
+- 0.62.0-N remaining concerns #4–#6, nits N1–N4,
+  process observation (each its own commit)
 - 0.62.0 close-out
 
 ## Ideas
@@ -98,7 +103,20 @@ remains open.
  Also, we use the  design subsections (link via `[N]` ref). Run
  `vc-x1 fix-todo --no-dry-run notes/todo.md` to renumber.
 
-1. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+1. **vc-x1 push: body starting with `-` breaks `commit-app`.**
+   Push builds `jj commit -m "<title>" -m "<body>"` in the
+   space form, so a body whose first line is a bullet
+   (`- file: …`, the normal app-repo body shape) makes jj's
+   parser reject the value as a stray flag. Hit on 0.62.0-5.
+   The rollback was clean, but the push can't land a
+   standard bullet-first body.
+   - Fix: invoke `jj commit -m=<body>` (equals form) or set
+     `allow_hyphen_values` on the message args.
+   - The same defect bites a raw `jj commit -m "<body>"`, so
+     the equals form is the general remedy.
+   - Workaround until fixed: prepend a non-dash intro line
+     to the body (a Prose-Form intro sentence).
+2. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -116,7 +134,7 @@ remains open.
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-2. **vc-x1 push --squash: symmetric squash on both repos.**
+3. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -137,7 +155,7 @@ remains open.
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-3. **single-field `options_flags` leaves → `value` field.**
+4. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -149,13 +167,13 @@ remains open.
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-4. **`por → dual` conversion.** Attach a `.claude`
+5. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-5. **`validate-desc` / `fix-desc` por equalization.**
+6. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`

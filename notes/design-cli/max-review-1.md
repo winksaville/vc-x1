@@ -58,28 +58,6 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 3. `--init-from-recursive` doubles the surface for the same capability
-
-**Critique:** `copying.md:29-38` defines six flags:
-`--init-from`, `--init-from-code`, `--init-from-bot`,
-and `-recursive` variants of each. But recursion is a
-property of the *operand*, not the flag: `cp src/* dst/`
-is recursive whether you said `-r` or not; `cp
-src/foo.txt dst/` isn't. The shell expands the glob; the
-bot thinks vc-x1 should walk each resolved path and do
-the right thing.
-
-**Proposed action:** one flag per side.
-`--init-from-code=<glob>` does the right thing per
-resolved path (file → file copy; dir → recursive copy).
-Cuts the surface in half, matches `cp` semantics users
-already have in their head. The `-recursive` naming
-muddies what the flag controls vs. what the operand
-controls.
-
-**Status:** open. Material to copying.md design before
-that cycle starts.
-
 ### 4. `--repo none` × Topology interaction isn't spelled out
 
 **Critique:** the Remote axis Decisions
@@ -190,7 +168,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 3 | `--init-from-recursive` doubles the surface | Open | `copying.md` Surface section |
 | 4 | `--repo none` × Topology interaction | Open | `audit.md` Remote Decisions or matrix footnote |
 | 5 | List-valued CLI-vs-config "wins" | Open | `audit.md` Copying Decisions |
 | 6 | Gap-list ordering hides one prereq | Open | `audit.md` Gap list intro |
@@ -202,14 +179,12 @@ action implied for the design itself).
 
 ## TL;DR
 
-Items 1 and 3 are the bot's highest-conviction concerns —
-the runtime `--por` semantics doc (now resolved on
-framing but doc text still needs the rewrite) and the
-`--init-from-recursive` surface doubling. The rest are
-docs-only edits that don't block 0.62.0 starting on T7,
-but each is cheaper to apply now (single design pass)
-than after the next ten cycles have referenced the
-current text.
+The two highest-conviction concerns — 1 (runtime `--por`
+semantics) and 3 (copying-surface doubling) — are applied
+and removed from this list. What remains (concerns #4–#6,
+nits N1–N4, and the process observation) is docs-only: low
+risk to defer, but cheaper to apply now in one design pass
+than after the next ten cycles cite the current text.
 
 # References
 

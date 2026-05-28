@@ -393,6 +393,28 @@ it from the list (git history holds the original).
   remote — so the matrix's clone row is corrected from
   `A/R ✓ Priv ✓` to `—` for both, with a footnote. Closes
   Concern #2.
+- **Copying surface: collapse to a single `--init-from`**
+  (0.62.0-5). Concern #3 flagged the six `--init-from*`
+  flags as surface doubling. The fix went further — to one
+  flag for every topology.
+  - Dropped the `-recursive` variants: a directory operand
+    always recurses. The review's `cp`-parity rationale
+    was wrong (`cp` errors on a directory without `-r`);
+    the honest reason is that a non-recursive directory
+    copy is meaningless here (an empty directory), so
+    nothing needs an opt-in to guard.
+  - Dropped the per-side `-code` / `-bot` split too — that
+    scope is the Topology axis `--mode=<single|dual>`
+    already owns. A dual seed comes from one
+    workspace-shaped source tree. Two different-origin
+    sources route through the planned `por -> dual`
+    conversion. Leaves `--mode` untouched.
+  - Added `@<file>` manifest semantics: literal source
+    paths, one per line, relative to the manifest's
+    location, no nested `@` — keeping shell-side expansion
+    the only globbing path.
+  - Edits land in the `copying.md` stub. The audit doc's
+    Copying Decisions summary tracks the surface change.
 
 # References
 

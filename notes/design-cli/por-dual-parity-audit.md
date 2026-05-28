@@ -577,8 +577,7 @@ The capability `--config <path>` was meant to serve
 (custom workspace metadata, arbitrary file copy) is
 deferred to a broader **copying** design — see
 [`notes/design-cli/copying.md`](copying.md) [[3]]. That design uses
-`--init-from-code` / `--init-from-bot` flags to copy
-arbitrary files (including `.vc-config.toml` and
+a single `--init-from` flag to copy arbitrary files (including `.vc-config.toml` and
 `.gitignore`), suppresses canned writes when engaged,
 and defers the "is this dual workspace functional?"
 check to the first downstream subcommand.
@@ -592,7 +591,7 @@ new design. The 0.62.0+ rollout drops it.
 - **Collapse this axis**. Not independent; presence-of-
   `.vc-config.toml` correlates 1:1 with Topology.
 - **Drop `--config <path>`** from the surface; its
-  capability moves under `--init-from*`.
+  capability moves under `--init-from`.
 - **Drop from the axis list at close-out**.
 
 #### Remote provisioning
@@ -677,7 +676,7 @@ new design. The 0.62.0+ rollout drops it.
 - **Resolution chain**: CLI > ENV > Local > Global >
   baked-in default (`public`). No error floor.
 
-#### Copying (today: `--use-template`; designed: `--init-from*`)
+#### Copying (today: `--use-template`; designed: `--init-from`)
 
 - **States** — `none` (default) | `code-only <path>` |
   `code-and-bot <path,path>`.
@@ -695,10 +694,13 @@ expanded in scope — see [`notes/design-cli/copying.md`](copying.md) [[3]].
 The decisions below are the axis-level summary;
 behavior details live in the design stub.
 
-- **Surface**: `--init-from-code` / `--init-from-bot` /
-  `--init-from` (shorthand for `-code`) and their
-  `-recursive` variants. Each accepts a shell glob;
-  each may be specified multiple times (additive).
+- **Surface**: a single `--init-from` (no per-side split
+  — that scope is the Topology axis `--mode` owns). Takes
+  a shell glob or an `@<file>` manifest. Recursion follows
+  the operand (a directory recurses), so there are no
+  `-recursive` variants. May be specified multiple times
+  (additive). See the stub for the dual-from-one-tree
+  rule.
 - **Subsumes** `--use-template`, `--config <path>`, and
   the hypothetical `--gitignore <path>`.
 - **Pure file copy**. No variable substitution
@@ -706,7 +708,7 @@ behavior details live in the design stub.
 - **Last-writer-wins + warning on collision** when
   multiple sources resolve to the same destination.
 - **Canned writes suppressed when copying engaged**.
-  Any `--init-from*` present → `init` skips the canned
+  Any `--init-from` present → `init` skips the canned
   `.vc-config.toml` + `.gitignore` writes entirely.
 - **Deferred dual validation**. Missing `.vc-config.toml`
   after copy is a warning at `init`; first downstream
@@ -722,10 +724,10 @@ behavior details live in the design stub.
   Requires a small list-of-strings extension to the
   config parser.
 - **CLI overrides config entirely** (no union). If user
-  passes any `--init-from*` on CLI, the config-pinned
+  passes any `--init-from` on CLI, the config-pinned
   list is ignored — match the broader chain rule.
 - **Env-var**: colon-separated for multi-value
-  (`VC_X1_INIT_FROM_CODE=a:b:c`), matches `PATH`
+  (`VC_X1_INIT_FROM=a:b:c`), matches `PATH`
   convention.
 - **Default: `none`** (no copying). Resolution chain
   ends in baked-in default.
@@ -746,7 +748,7 @@ behavior details live in the design stub.
   (entire workspace model assumes jj). Canned
   `.gitignore` write is suppressed automatically when
   Copying engages (so users wanting custom contents
-  pass `--init-from-code=.gitignore`).
+  pass `--init-from=.gitignore`).
 - **Drop from the axis list at close-out** —
   documented here for completeness, then retired.
 
@@ -967,7 +969,7 @@ cross-cutting flag groups):**
 | **T** | Topology | `--mode=<single\|dual>` (creation on `init`/`clone`; runtime override on every other subcommand) |
 | **A/R** | Remote | `--account` + `--repo` (remote provider resolution; user-config-keyed) |
 | **Priv** | Privacy | `--visibility=<public\|private>` (GitHub visibility; `init`-only) |
-| **CP** | Copying | `--init-from*` family (file copying into the workspace) |
+| **CP** | Copying | `--init-from` (file copying into the workspace) |
 | **CFG** | *Config paths* (not an axis) | `--config <path>` / `--global-config <path>` (point at non-default config files) |
 | **NO-CFG** | *Config skip* (not an axis) | `--no-local-config` / `--no-global-config` (skip layers in the resolution chain) |
 | **SC** | *Scope* (runtime selection, not an axis) | `--scope` / `-R` (per-invocation repo selection on dual workspaces) |
@@ -1094,7 +1096,7 @@ blast radius) to largest, consistent with the
 8. **Runtime `--mode=single` on all subcommands** — add
    the flag to every subcommand (not just `init`/`clone`);
    thread it into `default_scope` as an override.
-9. **`--init-from*` family + copying mechanism** — the
+9. **`--init-from` + copying mechanism** — the
    broader file-copy design (see [[3]]). Subsumes
    `--use-template` (with back-compat shim) and the
    speculative `--config <path>` / `--gitignore <path>`.
