@@ -183,7 +183,7 @@ anchor homes.
 
 ## docs: por/dual parity design (0.61.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[4]]
 
 Design cycle for T5 (`por/dual parity + dual → por`).
 Scope grew over eight commits from an audit to a full
@@ -349,8 +349,24 @@ the topology-from-config rule via prototype). The rest
 live in the audit doc's Gap list for future Preparation
 passes to pick up.
 
+## docs: apply max review #1 (0.62.0)
+
+Commits: TBD (backfills at next cycle's Preparation)
+
+Apply accepted items from
+[`max-review-1.md`](../design-cli/max-review-1.md) to
+the por/dual parity audit doc and the copying stub.
+Walk concerns and nits one at a time; each accepted
+item lands as its own work commit. Concern #1
+(runtime `--por` semantics — three doc-text spots)
+and Concern #2 Topology half were applied in an
+abandoned-during-rebase snapshot in 0.61.0
+(`604fb9e8`) and need replaying on top of the 0.61.0
+merge.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a199d062ff6e "a199d062ff6e88b5e2d87d57551d1c60e75b073b"
 [2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"
 [3]: https://github.com/winksaville/vc-x1/commit/41ef8842d885 "41ef8842d885a7713416a7321e2cd7ae67802b68"
+[4]: https://github.com/winksaville/vc-x1/commit/258b24101900 "258b24101900d5784095775386e4962350ed3098"

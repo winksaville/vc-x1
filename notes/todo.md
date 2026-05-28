@@ -17,7 +17,23 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**docs: apply max review #1 (0.62.0)**
+
+Apply accepted items from
+[max-review-1.md](design-cli/max-review-1.md) to the
+por/dual parity audit doc and the copying stub.
+Concern #1 + #2 Topology were applied in an
+abandoned-during-rebase snapshot in 0.61.0
+(`604fb9e8`); the rest of the review (concerns #2
+Privacy, #3–#6, nits N1–N4, process observation)
+remains open.
+
+- 0.62.0-0 Preparation (current)
+- 0.62.0-1 replay abandoned audit-doc edits (Concern
+  #1 three spots + Concern #2 Topology)
+- 0.62.0-N walk remaining items (concerns then nits);
+  each accepted item lands as its own commit
+- 0.62.0 close-out
 
 ## Ideas
 
