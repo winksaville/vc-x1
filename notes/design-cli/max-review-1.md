@@ -63,31 +63,8 @@ Disposition table below and the git log are the record._
 
 ## Nits
 
-Lower-priority items; do as time allows.
-
-- **`finalize` matrix row** marks T+SC support based on
-  the body being topology-neutral. True, but no command
-  path exercises it today. The bot thinks adding a
-  footnote — "currently latent — body supports it, no
-  caller surfaces it" — would prevent a future cycle
-  hardening a use case nobody asked for.
-
-- **Reading guide at top of audit doc.** The doc is ≈1090
-  lines and will be cited from many cycles. A `## Reading
-  guide` (matrix → §X; one axis → §Y; new axis → §Z)
-  costs 10 lines and pays back across many readings. The
-  bot thinks this is worth doing before 0.62.0 starts.
-
-- **"Por's view of the chain"** (`audit.md:897-913`)
-  duplicates the per-axis Decisions blocks. The bot
-  thinks it could be dropped or reframed as a
-  debugging cheat-sheet ("when does topology actually
-  get consulted?") — a different angle.
-
-- **`validate-todo` / `fix-todo`** are topology-blind by
-  design. Worth one sentence somewhere ("notes/-family
-  commands operate outside the workspace shape") so a
-  future reader doesn't suspect they were missed.
+_All nits (N1–N4) applied and removed from this list; the
+Disposition table below and the git log are the record._
 
 ## Process observation
 
@@ -114,20 +91,16 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| N1 | `finalize` matrix row footnote | Open | `audit.md` matrix |
-| N2 | Reading guide at top of audit doc | Open | `audit.md` top |
-| N3 | "Por's view of the chain" redundancy | Open | `audit.md` § "Por's view" |
-| N4 | `validate-todo` / `fix-todo` topology-blind note | Open | `audit.md` (anywhere appropriate) |
 | Pr | Original user framing acknowledgment | Open | Either `chores-12.md` cycle narrative or `audit.md` Decisions blocks |
 
 ## TL;DR
 
 The two highest-conviction concerns — 1 (runtime `--por`
 semantics) and 3 (copying-surface doubling) — are applied
-and removed from this list. What remains (nits N1–N4 and
-the process observation) is docs-only: low
-risk to defer, but cheaper to apply now in one design pass
-than after the next ten cycles cite the current text.
+and removed from this list. What remains (the process
+observation) is docs-only: low risk to defer, but cheaper
+to apply now in one design pass than after the next ten
+cycles cite the current text.
 
 # References
 

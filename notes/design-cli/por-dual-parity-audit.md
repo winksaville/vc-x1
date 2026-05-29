@@ -36,6 +36,26 @@ design wrong, update the design (or annotate the
 divergence in chores) — don't bend code to fit a stale
 sketch.
 
+## Reading guide
+
+The doc is long (~1200 lines) and cited from many cycles.
+Jump by task:
+
+- **Target surface for a subcommand?** →
+  [Subcommand × parameter matrix](#subcommand--parameter-matrix).
+- **How one axis (Topology / Remote / Privacy / Copying)
+  resolves?** → its Decisions block under
+  [Feature axes](#feature-axes).
+- **Where a value comes from (CLI / env / config)?** →
+  [Resolution chain](#resolution-chain).
+- **Adding a new axis or flag?** →
+  [Feature axes](#feature-axes) (axis pattern) + the
+  matrix Ledger.
+- **What's still unbuilt?** →
+  [Gap list](#gap-list-refreshed-for-0620).
+- **Why today's code diverges?** → the per-subcommand
+  audit findings (`## 1`–`## 8`) + [Commonality](#commonality).
+
 ## 1. `options_flags/por.rs` — the `--por` gate
 
 - Files touched:
@@ -942,8 +962,13 @@ Precedent in the codebase: `config.rs:113` already honors
 `VC_X1_TEST_TMPDIR` / `VC_X1_TEST_KEEP`. The pattern is
 established; `VC_X1_*` just extends it.
 
-#### Por's view of the chain
+#### When is topology consulted? (cheat-sheet)
 
+A quick debugging reference — which config layers and
+runtime flags actually consult workspace topology, and
+what `single` changes. This overlaps the per-axis
+Decisions blocks by design; it's the at-a-glance angle
+("when does topology get looked at?"), not a new decision.
 Following the decisions in this cycle:
 
 - **Workspace `.vc-config.toml`** (layer 3) — dual-only.
@@ -1012,7 +1037,7 @@ many subcommands.
 | `clone <URL>` | ✓ creation | — | — | ✓* | ✓ | ✓ | — |
 | `push <BM>` | ✓ runtime | — | — | — | ✓ | ✓ | ✓* |
 | `sync` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
-| `finalize` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
+| `finalize` | ✓* runtime | — | — | — | ✓ | ✓ | ✓* |
 | `chid` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `desc` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
 | `show` | ✓ runtime | — | — | — | ✓ | ✓ | ✓ |
@@ -1044,6 +1069,17 @@ many subcommands.
 - `config dump` is a new subcommand to be added — emits
   the baked-in default config so users can save and
   modify it.
+- `finalize T*/SC*` — currently *latent*: the body
+  supports topology override and per-side scope, but no
+  caller surfaces it (finalize's only use site is inside
+  `push`'s workflow). The cells mark "body supports it,"
+  not "a command path exercises it today." See the
+  Topology-column quick reference below; don't harden a
+  standalone-finalize use case until one is asked for.
+- `validate-todo` / `fix-todo` `T —` — these operate on
+  `notes/`-family files, outside the workspace topology
+  entirely (no repo-shape awareness), so the Topology axis
+  doesn't apply. Listed for completeness, not an oversight.
 
 **Topology column (`T`) — quick reference:**
 

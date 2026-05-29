@@ -43,6 +43,8 @@ remains open.
 - 0.62.0-8 gap prereq note + fold todo captures
   (done)
 - 0.62.0-9 nits N1–N4 (audit.md footnotes/guide)
+  + reframe Todo #1 + add validate-numbering Todo
+  (done)
 - 0.62.0-10 process observation → chores narrative
 - 0.62.0 close-out
 
@@ -113,7 +115,7 @@ remains open.
 ### P1
 
 - `**pre-commit: single rule...**`
-- `**vc-x1 push: body starting with `-` breaks `commit-app`.**`
+- `**vc-x1 push: validate body...**`
 - `**vc-x1 push: support...**`
 - `**vc-x1 push --squash...**`
 
@@ -134,19 +136,23 @@ remains open.
  Also, we use the  design subsections (link via `[N]` ref). Run
  `vc-x1 fix-todo --no-dry-run notes/todo.md` to renumber.
 
-1. **vc-x1 push: body starting with `-` breaks `commit-app`.**
-   Push builds `jj commit -m "<title>" -m "<body>"` in the
-   space form, so a body whose first line is a bullet
-   (`- file: …`, the normal app-repo body shape) makes jj's
-   parser reject the value as a stray flag. Hit on 0.62.0-5.
-   The rollback was clean, but the push can't land a
-   standard bullet-first body.
-   - Fix: invoke `jj commit -m=<body>` (equals form) or set
-     `allow_hyphen_values` on the message args.
-   - The same defect bites a raw `jj commit -m "<body>"`, so
-     the equals form is the general remedy.
-   - Workaround until fixed: prepend a non-dash intro line
-     to the body (a Prose-Form intro sentence).
+1. **vc-x1 push: validate body opens with an intro paragraph.**
+   A body whose first line is a bullet (`- file: …`) is a
+   Prose-Form violation — bodies must open with an intro
+   paragraph, then bullets. Today such a body trips jj's arg
+   parser (`jj commit -m "<body>"` reads the leading `-` as a
+   stray flag) and push fails with an opaque error. Hit on
+   0.62.0-5.
+   - Feature, not a parser bug (reframed): push should
+     *validate* the body opens with a non-dash intro line and
+     flag its absence with a clear, specific error pointing at
+     the offending first line — rather than letting jj emit a
+     confusing one, or quietly accepting a bullet-first body.
+   - Enforcing the intro is the intended behavior, matching
+     the Prose-Form convention; we are not "fixing" the parser
+     to accept bullet-first bodies.
+   - Workaround until the explicit check lands: prepend a
+     non-dash intro sentence to the body.
 2. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
@@ -159,15 +165,45 @@ remains open.
      safety-net, not the primary gate. (docs: CLAUDE.md Cycle
      Protocol summary + cycle-protocol.md per-commit-flow.)
    - Enrich the pre-commit so it's meaningful on docs commits:
-     add `vc-x1 validate-todo` now (and `validate-repo` when it
-     exists) to both the documented flow and push's `preflight`
-     stage (`push.rs`), with a test. (code)
+     add the doc validators — `validate-numbering` (its own
+     Todo, a prereq) plus `validate-repo` when it exists — to
+     both the documented flow and push's `preflight` stage
+     (`push.rs`), with a test. (code)
    - This dissolves the docs exception: with doc validators in
      the pre-commit there's always something to validate, so
      the carve-out stops making sense.
    - Target: its own 0.62.1 cycle (chosen over a 0.61.1 insert
      to avoid rewriting published 0.62.0-x history).
-3. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+3. **validate-numbering: rename the pair, check all
+   sequence-managed notes files generically.** `validate-todo`
+   / `fix-todo` only operate on the single file passed, so a
+   renumber slip in `bugs.md`, `todo-backlog.md`, or
+   `todo.md`'s `## Ideas` section passes unnoticed — too weak
+   for a pre-commit gate. Prereq for the pre-commit doc
+   validators (Todo "pre-commit: single rule ...").
+   - Rename the pair: `validate-todo` → `validate-numbering`,
+     `fix-todo` → `fix-numbering` — they validate numbered-
+     sequence integrity, not todos specifically.
+   - Generic detection: for every `#…#` section, validate the
+     column-0 `^\d+\.␠` entries form a contiguous 1..N run.
+     Drops the Todo/Bugs special-casing; auto-covers
+     `## Ideas` and any new numbered section. Keep the
+     column-0 anchor so indented sub-lists aren't counted.
+   - Default scope: a fixed list of sequence-managed notes
+     files (`todo.md`, `todo-backlog.md`, `bugs.md`) so the
+     no-arg pre-commit run covers them all. Fixed rather than
+     a `notes/**.md` walk because prose docs
+     (`cycle-protocol.md`, design notes) carry ordinary
+     numbered lists that aren't managed sequences — a walk
+     would false-positive (markdown renders `1. 1. 1.` as
+     1-2-3, a legitimate prose pattern).
+   - Override args follow the `--init-from` convention:
+     positional files/dirs (a dir → its `*.md`) plus an
+     `@<file>` manifest, additive — for ad-hoc validation of
+     a specific file.
+   - Open: revisit fixed-vs-glob at implementation if the
+     fixed list proves annoying to maintain.
+4. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -185,7 +221,7 @@ remains open.
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-4. **vc-x1 push --squash: symmetric squash on both repos.**
+5. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -206,7 +242,7 @@ remains open.
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-5. **single-field `options_flags` leaves → `value` field.**
+6. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -218,13 +254,13 @@ remains open.
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-6. **`por → dual` conversion.** Attach a `.claude`
+7. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-7. **`validate-desc` / `fix-desc` por equalization.**
+8. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`
