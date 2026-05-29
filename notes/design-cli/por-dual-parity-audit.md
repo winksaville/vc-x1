@@ -739,6 +739,12 @@ behavior details live in the design stub.
 - **CLI overrides config entirely** (no union). If user
   passes any `--init-from` on CLI, the config-pinned
   list is ignored — match the broader chain rule.
+  - **List-typed-axis rule**: this is the deliberate
+    choice for *list-valued* axes like Copying — CLI
+    *replaces* config, it does not merge. Users coming
+    from `PATH` / `LD_LIBRARY_PATH` may expect a merge;
+    we pick predictability over expressivity. To merge,
+    pass the config globs on the CLI too.
 - **Env-var**: colon-separated for multi-value
   (`VC_X1_INIT_FROM=a:b:c`), matches `PATH`
   convention.

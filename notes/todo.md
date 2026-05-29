@@ -38,8 +38,11 @@ remains open.
   halving (done)
 - 0.62.0-6 Concern #4 `--repo none` × dual
   interaction (done)
-- 0.62.0-N remaining concerns #5–#6, nits N1–N4,
-  process observation (each its own commit)
+- 0.62.0-7 Concern #5 list-valued CLI-vs-config
+  "wins" callout (done)
+- 0.62.0-8 Concern #6 gap-list ordering prereq note
+- 0.62.0-9 nits N1–N4 (audit.md footnotes/guide)
+- 0.62.0-10 process observation → chores narrative
 - 0.62.0 close-out
 
 ## Ideas
@@ -85,6 +88,7 @@ remains open.
 
 ### P1
 
+- `**vc-x1 push: body starting with `-` breaks `commit-app`.**`
 - `**vc-x1 push: support...**`
 - `**vc-x1 push --squash...**`
 

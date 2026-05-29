@@ -58,27 +58,6 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 5. List-valued CLI-vs-config "wins" semantics deserves an explicit callout
-
-**Critique:** `audit.md:697-699` says: "If user passes
-any `--init-from*` on CLI, the config-pinned list is
-ignored — match the broader chain rule."
-
-The "broader chain rule" is about *scalar* values where
-"wins" unambiguously means "replaces." For list-valued
-axes, the bot thinks users coming from `LD_LIBRARY_PATH`
-/ `PATH` will expect merge, not replace. The replace
-choice is defensible (predictability beats expressivity)
-but it's not the obvious choice.
-
-**Proposed action:** keep the replace semantics, but add
-an explicit "list-typed-axis rule" sentence — "for
-list-valued axes like Copying, CLI replaces config; to
-merge, pass the config globs on CLI too." Prevents the
-same conversation in 0.62.0.
-
-**Status:** open. Docs-only edit.
-
 ### 6. Gap-list ordering hides one structural dependency
 
 **Critique:** `audit.md:1010-1080` ranks gaps by "blast
@@ -148,7 +127,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 5 | List-valued CLI-vs-config "wins" | Open | `audit.md` Copying Decisions |
 | 6 | Gap-list ordering hides one prereq | Open | `audit.md` Gap list intro |
 | N1 | `finalize` matrix row footnote | Open | `audit.md` matrix |
 | N2 | Reading guide at top of audit doc | Open | `audit.md` top |
@@ -160,7 +138,7 @@ action implied for the design itself).
 
 The two highest-conviction concerns — 1 (runtime `--por`
 semantics) and 3 (copying-surface doubling) — are applied
-and removed from this list. What remains (concerns #4–#6,
+and removed from this list. What remains (concern #6,
 nits N1–N4, and the process observation) is docs-only: low
 risk to defer, but cheaper to apply now in one design pass
 than after the next ten cycles cite the current text.
