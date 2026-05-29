@@ -58,21 +58,8 @@ For balance — what the bot thinks works well:
 
 ## Concerns
 
-### 6. Gap-list ordering hides one structural dependency
-
-**Critique:** `audit.md:1010-1080` ranks gaps by "blast
-radius." But Gap #7 (`default_scope` broken-dual
-detection) is a *prerequisite* for Gap #9 (copying
-mechanism), per `copying.md:81-92` — copying defers
-validation to the first downstream subcommand, which
-means broken-dual detection has to exist first.
-
-**Proposed action:** one-line note above the list:
-"ranking is rough; some structural prerequisites (e.g.
-#7 before #9) override size ordering." Doesn't require
-renumbering.
-
-**Status:** open. Docs-only edit.
+_All concerns applied and removed from this list; the
+Disposition table below and the git log are the record._
 
 ## Nits
 
@@ -127,7 +114,6 @@ action implied for the design itself).
 
 | # | Title | Status | Action surface |
 | --- | --- | --- | --- |
-| 6 | Gap-list ordering hides one prereq | Open | `audit.md` Gap list intro |
 | N1 | `finalize` matrix row footnote | Open | `audit.md` matrix |
 | N2 | Reading guide at top of audit doc | Open | `audit.md` top |
 | N3 | "Por's view of the chain" redundancy | Open | `audit.md` § "Por's view" |
@@ -138,8 +124,8 @@ action implied for the design itself).
 
 The two highest-conviction concerns — 1 (runtime `--por`
 semantics) and 3 (copying-surface doubling) — are applied
-and removed from this list. What remains (concern #6,
-nits N1–N4, and the process observation) is docs-only: low
+and removed from this list. What remains (nits N1–N4 and
+the process observation) is docs-only: low
 risk to defer, but cheaper to apply now in one design pass
 than after the next ten cycles cite the current text.
 

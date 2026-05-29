@@ -1079,7 +1079,12 @@ This list captures the **implementation-cycle gaps** the
 design surfaces — concrete work for 0.62.0+ Todo entries.
 Ordered (roughly) from cheapest equalization (smallest
 blast radius) to largest, consistent with the
-`## Commonality` ranking.
+`## Commonality` ranking. The ranking is rough: some
+structural prerequisites override size ordering — e.g.
+#7 (`default_scope` broken-dual detection) must land
+before #9 (copying), since copying defers validation to
+the first downstream subcommand and so relies on
+broken-dual detection already existing.
 
 1. **`validate-desc` / `fix-desc` equalization** — local
    refactor: replace the `other_repo_from_config` prelude

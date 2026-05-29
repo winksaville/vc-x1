@@ -40,7 +40,8 @@ remains open.
   interaction (done)
 - 0.62.0-7 Concern #5 list-valued CLI-vs-config
   "wins" callout (done)
-- 0.62.0-8 Concern #6 gap-list ordering prereq note
+- 0.62.0-8 gap prereq note + fold todo captures
+  (done)
 - 0.62.0-9 nits N1–N4 (audit.md footnotes/guide)
 - 0.62.0-10 process observation → chores narrative
 - 0.62.0 close-out
@@ -78,6 +79,29 @@ remains open.
      drop) before declaring the plan; Close-out
      captures unresolved follow-ups into `## Ideas`.
 
+2. **Version-number protocol is fragile — versions are
+   baked into titles/bodies/todo/done/chores before the
+   change lands.** The cycle protocol embeds an `X.Y.Z-N`
+   version in commit titles and bodies, `## Todo` /
+   `## Done` entries, and chores headers — all written
+   while the work is in progress, i.e. before it lands.
+   But version numbers are subject to change: in a public,
+   merge-based flow (e.g. Linux), the version a change
+   ships under is only fixed when it merges into `main`,
+   so the landing version can't be anticipated while the
+   work is underway. Pervasive version-in-text is
+   therefore fragile for any non-linear / multi-contributor
+   workflow.
+   - No fix yet — capture the problem; triage at a later
+     Preparation.
+   - Open question: what identifies a cycle's commits if
+     not a pre-assigned version?
+     - Needs to be unique within some agreed upon domain.
+       A contributors email address would do it, but also
+       a UUID (short-version) for a contribution. I could
+       imagine a UUID generated from the initial email/issue
+       that and then "version number" schema appended to that.
+
 ## Priorities
 
 - P1 is highest priority, same priority are grouped equally
@@ -88,6 +112,7 @@ remains open.
 
 ### P1
 
+- `**pre-commit: single rule...**`
 - `**vc-x1 push: body starting with `-` breaks `commit-app`.**`
 - `**vc-x1 push: support...**`
 - `**vc-x1 push --squash...**`
@@ -122,7 +147,27 @@ remains open.
      the equals form is the general remedy.
    - Workaround until fixed: prepend a non-dash intro line
      to the body (a Prose-Form intro sentence).
-2. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+2. **pre-commit: single rule (no docs skip) + doc validators.**
+   The pre-commit (cargo cycle: fmt/clippy/test/install) only
+   checks code, so it's "skip-able for purely-docs commits" —
+   but that exception is exactly where checks slip (skipped on
+   0.62.0-7/-8 until caught). And `vc-x1 push`'s `preflight`
+   stage re-runs the same cycle, which invites treating push as
+   the gate rather than a redundant safety-net.
+   - Adopt one rule, no exception: the pre-commit runs before
+     Work review on every commit; push's `preflight` is a
+     safety-net, not the primary gate. (docs: CLAUDE.md Cycle
+     Protocol summary + cycle-protocol.md per-commit-flow.)
+   - Enrich the pre-commit so it's meaningful on docs commits:
+     add `vc-x1 validate-todo` now (and `validate-repo` when it
+     exists) to both the documented flow and push's `preflight`
+     stage (`push.rs`), with a test. (code)
+   - This dissolves the docs exception: with doc validators in
+     the pre-commit there's always something to validate, so
+     the carve-out stops making sense.
+   - Target: its own 0.62.1 cycle (chosen over a 0.61.1 insert
+     to avoid rewriting published 0.62.0-x history).
+3. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -140,7 +185,7 @@ remains open.
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-3. **vc-x1 push --squash: symmetric squash on both repos.**
+4. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -161,7 +206,7 @@ remains open.
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-4. **single-field `options_flags` leaves → `value` field.**
+5. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -173,13 +218,13 @@ remains open.
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-5. **`por → dual` conversion.** Attach a `.claude`
+6. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-6. **`validate-desc` / `fix-desc` por equalization.**
+7. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`
