@@ -207,6 +207,19 @@ than a single toggle. The In Progress block (moved
 below) records the problem statement and the as-built
 ladder.
 
+By close-out the deferred proposal had in fact landed:
+the negotiated design exposes `[default].topology =
+"single" | "dual"` in the user-config connections
+(`por-dual-parity-audit.md` → "Connections to user-
+config") — the very knob the user opened the cycle with.
+So the bot's pushback was about *sequencing* (don't ship
+the default before the underlying paths are equalized),
+not about the idea; the cycle delivered the user's
+original ask, just through a more thorough audit-first
+process. Recorded here so the per-axis Decisions blocks
+aren't read as if the design emerged from the bot's
+analysis alone.
+
 ### Problem statement (preserved from In Progress)
 
 Audit where `dual` (code + `.claude/` companion, cross-

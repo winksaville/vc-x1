@@ -46,6 +46,7 @@ remains open.
   + reframe Todo #1 + add validate-numbering Todo
   (done)
 - 0.62.0-10 process observation → chores narrative
+  (done)
 - 0.62.0 close-out
 
 ## Ideas

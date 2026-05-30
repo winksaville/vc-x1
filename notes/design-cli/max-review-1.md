@@ -68,39 +68,26 @@ Disposition table below and the git log are the record._
 
 ## Process observation
 
-The user-proposed-then-deferred `~/.config/vc-x1/config.
-toml` topology default that **opened** the cycle is, by
-close-out, **in** the design (`audit.md:763`:
-`[default].topology = "single" | "dual"`). The bot's
-initial "audit first, expose defaults later" pushback
-was about *ordering*, not the idea itself. Net: the cycle
-delivered what the user originally proposed, just through
-a more thorough process.
-
-The bot thinks this is worth noting because it shows the
-pushback shape ("don't ship that *yet*") working
-correctly — but also that the original ask was the right
-ask. The Decisions blocks currently read as if the design
-emerged from the bot's analysis alone; an acknowledgment
-of the original user framing would balance the record.
-
-**Status:** open. Optional chores narrative tweak (no
-action implied for the design itself).
+_Applied: the original-user-framing acknowledgment landed
+in the `0.61.0` chores narrative
+([chores-12.md](../chores/chores-12.md#docs-pordual-parity-design-0610)),
+closing the loop that the deferred user-config topology
+default reached the design by close-out._
 
 ## Disposition table
 
-| # | Title | Status | Action surface |
-| --- | --- | --- | --- |
-| Pr | Original user framing acknowledgment | Open | Either `chores-12.md` cycle narrative or `audit.md` Decisions blocks |
+_Fully drained — every item (concerns 1–6, nits N1–N4,
+process observation) is applied and removed. The git log
+(`0.62.0-2` … `0.62.0-10`) holds the per-item commits._
 
 ## TL;DR
 
-The two highest-conviction concerns — 1 (runtime `--por`
-semantics) and 3 (copying-surface doubling) — are applied
-and removed from this list. What remains (the process
-observation) is docs-only: low risk to defer, but cheaper
-to apply now in one design pass than after the next ten
-cycles cite the current text.
+All review items — concerns 1–6, nits N1–N4, and the
+process observation — are applied across `0.62.0`
+(`-2` … `-10`) and removed from this list. What survives
+in this doc is the record: Strengths, Scope reviewed, and
+the drained-section markers. The git log is the
+authoritative per-item trail.
 
 # References
 
