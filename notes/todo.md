@@ -337,6 +337,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[13]]
 - apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[14]]
 - docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[15]]
+- docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[16]]
 
 # References
 
@@ -356,3 +357,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
 [14]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620
 [15]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630
+[16]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631

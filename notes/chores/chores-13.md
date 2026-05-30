@@ -11,6 +11,8 @@ starts at `[1]`.
 
 ## docs: adopt AGENTS.md (0.63.0)
 
+Commits: [[1]]
+
 The bot-instructions file is renamed `CLAUDE.md` → `AGENTS.md`
 so Zed and the broader agent-tooling ecosystem (which now
 default to `AGENTS.md`) read it natively. Claude Code still
@@ -45,3 +47,44 @@ markdown, so a `CLAUDE.md#anchor` link through a symlink
 would not resolve — moot here since live links now point
 straight at `AGENTS.md`, but it reinforces keeping
 `CLAUDE.md` a real file.
+
+## docs: tighten after-finalize rule (0.63.1)
+
+The stop-and-wait rule in `cycle-protocol.md` was titled
+`### After finalize: stop and wait` and phrased as "final
+words go in the approval prompt *before* executing finalize"
+— wording that assumes finalize is a separate,
+manually-invoked step and names only finalize as the
+trigger. With `vc-x1 push` the push and `vc-x1 finalize` on
+`.claude` are bundled as the tail stages, so there is no
+"before finalize" gap left to speak in once the push is
+invoked. After `0.63.0`'s push the bot emitted a closing
+summary *after* `vc-x1 push` returned, violating the rule
+(and likely riding into the `.claude` commit via the
+`--delay 10` window).
+
+- **Renamed to "After push or finalize"** — both triggers
+  are named, in the title and the paragraph: the remote
+  crossing is the push itself, and `vc-x1 finalize` on
+  `.claude` is the detached step. This also covers a manual
+  `jj git push` (push, no finalize) and a manual
+  `vc-x1 finalize` (no wrapper).
+- **Wrapper case spelled out** — `vc-x1 push` does both as
+  tail stages (`push-app`, then `vc-x1 finalize` on
+  `.claude`): closing words go *before* invoking the wrapper,
+  and the bot does not purposely emit anything after it
+  returns. The rule names the `vc-x1 finalize` operation, not
+  the wrapper's internal `finalize-claude` stage label.
+
+The bot thinks the original lapse was a compliance slip (the
+rule was read and quoted, then broken), not a comprehension
+gap; the doc change closes the one genuine ambiguity (the
+wrapper bundles push + finalize, leaving no gap to speak in)
+rather than expecting prose alone to prevent the slip. The
+rule lives only in `cycle-protocol.md`; AGENTS.md already
+mandates reading it before commit work, so no duplicate
+restatement was added there.
+
+# References
+
+[1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"

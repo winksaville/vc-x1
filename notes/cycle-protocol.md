@@ -345,16 +345,34 @@ Use plain prose — no insider jargon ("Gate N signal",
   wait for the user's choice before any `jj squash` /
   `jj rebase` / `jj git push` invocation.
 
-### After finalize: stop and wait
+### After push or finalize: stop and wait
 
-After `vc-x1 finalize` launches (mid-session per-push or
-at session-end), you **MUST NEVER** proceed (next step,
-edit, tool call, text output) until the user explicitly
-directs you to continue. **Even when the next step seems
-obvious — wait.** Treat finalize as a hard stop for the
-whole turn; any final words go in the approval prompt
-*before* executing finalize. Auto-proceeding bypasses
-the push+finalize checkpoint the user controls.
+After you **push** (cross the remote boundary) or launch
+**finalize** on the `.claude` repo (`vc-x1 finalize --repo
+.claude --squash --push <bookmark> --delay 10 --detach`) — by
+hand or via the `vc-x1 push` wrapper — you **MUST NEVER**
+proceed (next step, edit, tool call, text output) until the
+user explicitly directs you to continue. **Even when the next
+step seems obvious — wait.** Treat push-or-finalize as a hard
+stop for the whole turn.
+
+`vc-x1 push` performs both as its tail stages — `push-app`
+then the detached `vc-x1 finalize` on `.claude` — so there is
+no gap left to speak in once the push is invoked. Put **all**
+closing words *before* invoking it; do not purposely emit anything
+after the tool returns.
+
+Why (`.claude` is the live journal finalize snapshots →
+squashes → pushes):
+
+- **`--detach`**: the bot always emits information after a tool
+  returns so by having the tool detach the bot may perform the
+  additional work.
+- **`--delay 10`**: gives the bot the time it needs to do
+  the additional work after the tool has detached and thus
+  the tool can include it in the commit.
+- **silence**: Reinforces that the bot must not summarize or
+  perform any unnecessary work after the tool returns.
 
 ### Recovery
 
