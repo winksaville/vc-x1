@@ -106,18 +106,18 @@ reasoning not directly supported by the data on hand.
   `jj commit` finalizes it and creates a new empty working copy on top.
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
-- **Post-amend `jj new`** — `jj edit <rev>`,
-  `jj rebase -r <rev> -d ...`, and `jj squash --into <rev>`
-  all leave `@` on the rewritten commit rather than on an
-  empty change above. The most common case is the close-out
-  push for a [Merge (non-FF)](notes/cycle-protocol.md#pushing) shape (`jj rebase
-  -r <tip> -d <prev> -d <sub-tip>` leaves `@` on the new
-  merge). In a colocated jj+git repo, git then detaches
-  HEAD at the commit's first parent, so `git status`,
-  gitk, and IDE diff views read the commit's content as
-  uncommitted relative to HEAD. Follow up with `jj new` to
-  create an empty `@` above; HEAD shifts to the commit and
-  the working tree reads clean.
+- `jj rebase` uses `--onto`/`-o` to name the destination(s).
+- **Post-amend `jj new`** — jj's working copy is always an
+  empty `@` on top of the tree. Commands that rewrite a
+  commit in place leave `@` *on* the rewritten commit
+  instead:
+  - `jj edit <rev>`
+  - `jj rebase -r <rev> --onto ...`
+  - `jj squash --into <rev>`
+
+  Run `jj new` afterward to restore the empty `@` on top.
+  Until you do, git/IDE diff views show that commit's
+  content as uncommitted — alarming-looking but expected.
 
 ## Prose form
 

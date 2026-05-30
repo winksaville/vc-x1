@@ -53,7 +53,7 @@ Plan ladder:
   caveat); trim the shape bullet to point at it. (done)
 - 0.64.0-2 AGENTS.md: standardize `-d` → `--onto` in the
   post-amend note; add a one-line "`-d` is an alias of
-  `--onto`".
+  `--onto`". (done)
 - 0.64.0 close-out and validation.
 
 ## Todo
