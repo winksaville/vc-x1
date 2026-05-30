@@ -50,6 +50,8 @@ straight at `AGENTS.md`, but it reinforces keeping
 
 ## docs: tighten after-finalize rule (0.63.1)
 
+Commits: [[2]]
+
 The stop-and-wait rule in `cycle-protocol.md` was titled
 `### After finalize: stop and wait` and phrased as "final
 words go in the approval prompt *before* executing finalize"
@@ -85,6 +87,9 @@ rule lives only in `cycle-protocol.md`; AGENTS.md already
 mandates reading it before commit work, so no duplicate
 restatement was added there.
 
+## docs: codify merge-non-ff recipe (0.64.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
+[2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

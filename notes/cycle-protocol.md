@@ -1,5 +1,7 @@
 # Cycle protocol
 
+This protocol uses [Prose form](../AGENTS.md#prose-form).
+
 ## Cycles
 
 A cycle has three phases:
@@ -65,16 +67,15 @@ The cycle's first commit (`X.Y.Z-0`):
   `Commits:` ref** — see
   [Chores commit references](../AGENTS.md#chores-commit-references).
 - **Bump the version** in `Cargo.toml` to `X.Y.Z-0`.
-- **Pick up a `## Todo` item** (if the cycle has one).
-  Move into `## In Progress` as:
-  - A **bold title line** — exact match of the chores
+- **Update `Cargo.lock`** to match — run `cargo build`
+  (or `cargo check`) so the lockfile's `vc-x1` version
+  tracks `Cargo.toml` in the same commit.
+- **Move a `## Todo` item** (if the cycle has one) into
+  `## In Progress` and the todo item should have:
+  - A **bold title line** — that will be the chores
     section header, minus the `## ` prefix.
-  - A **succinct problem statement**.
+  - A **succinct problem statement**; add if one is needed
   - A **plan ladder**.
-
-  See [Prose form](../AGENTS.md#prose-form). A Todo that
-  duplicates current `## In Progress` work is a process
-  bug.
 - **Open the [chores section](#chores-sections)** —
   append a `##` header with the cycle's anticipated
   close-out title.
