@@ -1,9 +1,10 @@
 # Todo Backlog
 
- Non-prioritized `## Todo` entries — the long tail. When an
+ Lower-priority `## Todo` entries — the long tail. When an
  entry becomes a priority, move it (and any refs it cites)
- to `notes/todo.md > ## Todo` and add a tier line under the
- right `### Pn` in `notes/todo.md > ## Priorities`.
+ into `notes/todo.md > ## Todo` at its priority rank (the
+ list is strict-ranked, #1 highest), then `fix-todo` to
+ renumber.
 
  Same formatting rules as `notes/todo.md > ## Todo` — see
  `notes/README.md > ## Todo format`. Run

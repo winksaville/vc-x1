@@ -36,13 +36,15 @@ Long notes files are appended to over time. Read only the
 slice your task needs; grep or read further on demand.
 
 - **`notes/todo.md`** (the routine acquaint read) — first
-  ~60 lines covers intro + `## In Progress` + `## Priorities`.
-  `Read` with `offset=0, limit=60`. Read further only when
-  picking up a `## Todo` entry, chasing a `[N]` ref, or
-  auditing the whole list.
+  ~60 lines covers intro + `## In Progress` + the top of the
+  ranked `## Todo` (priorities, #1 highest). `Read` with
+  `offset=0, limit=60`. `## Ideas` sits below `## Todo`; read
+  further only when chasing a lower-ranked entry, an Idea, a
+  `[N]` ref, or auditing the whole list.
 - **`notes/todo-backlog.md`** — the long-tail backlog
-  (non-prioritized `## Todo` entries). Read only when
-  picking up a backlog item; grep to locate it first.
+  (lower-priority entries below the ranked `## Todo`). Read
+  only when picking up a backlog item; grep to locate it
+  first.
 - **`notes/bugs.md`** — the bug list. Small; read whole
   when triaging a bug or chasing the `## Bugs` pointer in
   todo.md.
@@ -247,21 +249,38 @@ de-facto reference implementation is
 
 ### Todo format
 
-`todo.md` is organized into `## In Progress`, `## Priorities`,
-`## Todo` (the prioritized subset; full backlog in
-[todo-backlog.md](notes/todo-backlog.md)), `## Bugs` (pointer
-to [bugs.md](notes/bugs.md)), and `## Done` sections. Each item
-is a short description with reference links to more detail.
+`todo.md` is organized into `## In Progress`, `## Todo`
+(strict priority rank, #1 highest; long-tail backlog in
+[todo-backlog.md](notes/todo-backlog.md)), `## Ideas`,
+`## Bugs` (pointer to [bugs.md](notes/bugs.md)), and
+`## Done` sections. Each item is a short description with
+reference links to more detail.
 
 `## Todo` and `## Bugs` entries carry explicit `1.` `2.` …
-numbers in the source so you can grep, count, and reference
-them ("let's work on #3"). You don't hand-maintain the
-numbers — insert, delete, or reorder entries freely, then
-`vc-x1 fix-todo --no-dry-run` renumbers the list and
-normalizes continuation-line indent. `vc-x1 fix-todo` alone
-only previews; `vc-x1 validate-todo` is the read-only check.
-The `## Done` section keeps `-` bullets — items aren't
-referenced by number once completed.
+numbers in the source. For `## Todo` the number is its
+**priority rank** (#1 highest, descending); for `## Bugs`
+it's just an index. They're for grepping and at-a-glance
+"let's do #1" — **not stable IDs**: reorder (to
+reprioritize), insert, or delete freely, then
+`vc-x1 fix-todo --no-dry-run` renumbers and normalizes
+continuation-line indent, so any given number is positional.
+**To refer to a Todo durably, name it by its title — a
+plain, greppable text mention.** Not its number (positional,
+renumbered) and not a markdown link: a numbered list item has
+no anchor to link to.
+
+Numbering helps a human orient in a long list but makes links
+difficult and fragile — especially an external reference
+pointing in, which can't be auto-fixed when the list
+renumbers. A robust fix (a number-free anchor, or a
+number-tolerant dereference that matches the title slug and
+wildcards the numeric prefix — a GitHub slug like `5-foo` is
+encoded, not opaque, so the title is recoverable) is a
+`validate-numbering` design question, out of scope here.
+
+`vc-x1 fix-todo` alone only previews; `vc-x1 validate-todo`
+is the read-only check. The `## Done` section keeps `-`
+bullets — items aren't referenced by number once completed.
 
 Example shape:
 

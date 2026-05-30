@@ -364,7 +364,7 @@ passes to pick up.
 
 ## docs: apply max review #1 (0.62.0)
 
-Commits: TBD (backfills at next cycle's Preparation)
+Commits: [[5]]
 
 Apply the accepted items from the **max review #1**
 working list to the por/dual parity design (the
@@ -547,3 +547,4 @@ ambiguous" principle, T7-only Todo promotion, and the
 [2]: https://github.com/winksaville/vc-x1/commit/e67e44b8e1c5 "e67e44b8e1c55b8e7c33087b8f2184df87181885"
 [3]: https://github.com/winksaville/vc-x1/commit/41ef8842d885 "41ef8842d885a7713416a7321e2cd7ae67802b68"
 [4]: https://github.com/winksaville/vc-x1/commit/258b24101900 "258b24101900d5784095775386e4962350ed3098"
+[5]: https://github.com/winksaville/vc-x1/commit/8943992c6bb5 "8943992c6bb5f3afa3e59c09541aa47d37275067"

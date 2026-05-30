@@ -8,8 +8,8 @@ A cycle has three phases:
   first commit. Sets up the cycle:
   - Backfill the previous cycle's chores `Commits:` ref.
   - Bump `Cargo.toml` to `X.Y.Z-0`.
-  - Pick up a `## Todo` item (typically via `## Priorities`)
-    into `## In Progress` (bold title + succinct problem
+  - Pick up a `## Todo` item (typically the top-ranked,
+    #1) into `## In Progress` (bold title + succinct problem
     statement + plan ladder).
   - Open the [chores section](#chores-sections).
 - **[Work-N](#work-n)** (`X.Y.Z-1`, `X.Y.Z-2`, …) — the
