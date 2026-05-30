@@ -3,7 +3,7 @@
 Continuation of `chores-10.md` (which is closed at `0.50.0` —
 the Subcommand trait sweep). This file covers the `0.51.0`
 cycle onward. Reference numbering is file-local — see
-[`CLAUDE.md`](../../CLAUDE.md#reference-numbering); chores-11
+[`CLAUDE.md`](../../AGENTS.md#reference-numbering); chores-11
 starts at `[1]`.
 
 ## chore: move chores under notes/chores/ (0.51.0)

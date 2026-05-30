@@ -37,16 +37,16 @@ and using `jj-lib`
 ## Workflow and conventions
 
 Bot-facing workflow and conventions live in
-[`../CLAUDE.md`](../CLAUDE.md):
+[`../AGENTS.md`](../AGENTS.md):
 
-- [Notes file conventions](../CLAUDE.md#notes-file-conventions)
+- [Notes file conventions](../AGENTS.md#notes-file-conventions)
   — Todo format, Reference numbering, Notes references
   (`[[N]]` citation style), Markdown anchor links, Retiring
   Done entries.
-- [Chores conventions](../CLAUDE.md#chores-conventions) —
+- [Chores conventions](../AGENTS.md#chores-conventions) —
   section headers / Done entries exact-title rule, content
   rules, `Commits:` line format.
-- [Code Conventions](../CLAUDE.md#code-conventions) — doc
+- [Code Conventions](../AGENTS.md#code-conventions) — doc
   comments, `// OK: …` on `unwrap*` calls, ask-on-ambiguity,
   stuck detection.
 

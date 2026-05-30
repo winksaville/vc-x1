@@ -16,7 +16,7 @@ development and the repo will keep changing.
 with an app repo plus a `.claude` bot-session repo. The commits
 cross-reference each other via `ochid:` trailers at the bottom
 of each commit message. See [`README.md`](README.md) for the
-user-facing picture and [`CLAUDE.md`](CLAUDE.md) for the bot
+user-facing picture and [`AGENTS.md`](AGENTS.md) for the bot
 workflow.
 
 ## Two layers: CLI args vs subcommand Context + Params
@@ -192,7 +192,7 @@ per-subcommand status.
 
 - [`README.md`](README.md) — user-facing overview and
   per-subcommand usage.
-- [`CLAUDE.md`](CLAUDE.md) — bot workflow, versioning,
+- [`AGENTS.md`](AGENTS.md) — bot workflow, versioning,
   commit/push conventions, code conventions.
 - [`src/options_flags/README.md`](src/options_flags/README.md)
   — leaf/bundle patterns for the options_flags extraction.

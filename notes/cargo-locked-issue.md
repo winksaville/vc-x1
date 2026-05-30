@@ -1,6 +1,6 @@
 # `cargo install` and `Cargo.lock` — the `--locked` gotcha
 
-Background reference for the rule in `CLAUDE.md` pre-commit
+Background reference for the rule in `AGENTS.md` pre-commit
 checklist step 4: `cargo install --path . --locked` is required;
 plain `cargo install --path .` is unsafe.
 
@@ -65,7 +65,7 @@ reference](https://doc.rust-lang.org/cargo/reference/config.html):
 toggles lockfile behavior.
 
 The discipline therefore lives in the project's pre-commit
-checklist (CLAUDE.md step 4) and in shell aliases
+checklist (AGENTS.md step 4) and in shell aliases
 (e.g. `alias ci='cargo install --locked'`).
 
 ## Upstream tracking — cargo issues

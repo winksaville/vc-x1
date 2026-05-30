@@ -29,14 +29,14 @@ _No cycle currently in progress._
  a numbered list item has no anchor to link to), not its
  number. Long-tail entries
  live in [todo-backlog.md](todo-backlog.md). Use the
- [Prose Form in CLAUDE.md](/CLAUDE.md#prose-form); deeper
+ [Prose Form in AGENTS.md](/AGENTS.md#prose-form); deeper
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
 1. **merge-non-ff recipe: codify in `notes/cycle-protocol.md`.**
    Multi-commit cycles default to the merge-non-ff trapezoid,
    but the recipe is split between `cycle-protocol.md` and
-   CLAUDE.md with wrinkles re-derived each time (exercised
+   AGENTS.md with wrinkles re-derived each time (exercised
    manually on `0.62.0`). Codify the full recipe and
    standardize the flag spelling. Split out of Idea #1 (the
    broader cycle-protocol.md codification).
@@ -45,13 +45,13 @@ _No cycle currently in progress._
      parent), then `jj new <merge>` to lift `@` above the
      merge, then `jj git push --bookmark main`.
    - Standardize on `--onto` / `-o` (canonical), not the
-     `-d` alias — update CLAUDE.md's `-d` spellings (jj
+     `-d` alias — update AGENTS.md's `-d` spellings (jj
      Basics + the post-amend `jj new` note) to `--onto`,
      plus a one-line "`-d` is an alias of `--onto`" so the
      docs don't read as two different flags.
    - `@` reverts to the work-tip's content until the
      `jj new` (the "post-amend `jj new`" gotcha already in
-     CLAUDE.md).
+     AGENTS.md).
    - Post-hoc caveat: if the cycle was already pushed
      keep-separate (as `0.62.0` was), the rebase needs
      `--ignore-immutable` and the push is a force-update of
@@ -95,7 +95,7 @@ _No cycle currently in progress._
    the gate rather than a redundant safety-net.
    - Adopt one rule, no exception: the pre-commit runs before
      Work review on every commit; push's `preflight` is a
-     safety-net, not the primary gate. (docs: CLAUDE.md Cycle
+     safety-net, not the primary gate. (docs: AGENTS.md Cycle
      Protocol summary + cycle-protocol.md per-commit-flow.)
    - Enrich the pre-commit so it's meaningful on docs commits:
      add the doc validators — `validate-numbering` (its own
@@ -336,10 +336,11 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[12]]
 - por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[13]]
 - apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[14]]
+- docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[15]]
 
 # References
 
-[0]: /CLAUDE.md#prose-form
+[0]: /AGENTS.md#prose-form
 [1]: /notes/design-cli/por-dual-parity.md
 [2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
 [3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
@@ -354,3 +355,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [12]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
 [13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
 [14]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620
+[15]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630

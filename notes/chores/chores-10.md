@@ -9,7 +9,7 @@ options_flags extraction — that used to sit in `ARCHITECTURE.md`).
 See [`../ARCHITECTURE.md`](../../ARCHITECTURE.md) for what those
 two refactors *are* and why; this file is the *how* and the
 *live status*. Reference numbering is file-local — see
-[`CLAUDE.md`](../../CLAUDE.md#reference-numbering); chores-10 starts
+[`CLAUDE.md`](../../AGENTS.md#reference-numbering); chores-10 starts
 at `[1]`.
 
 ## Refactor tracking — Context+Params / options_flags

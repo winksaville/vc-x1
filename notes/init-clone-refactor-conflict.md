@@ -239,7 +239,7 @@ All resolved by the `0.42.0-4.7` rebase landing:
   low-priority entry in `notes/todo.md > ## Todo`.
 - **Conflict surface against 0.42.0** — the real
   conflicts (`Cargo.toml`, `notes/todo.md`,
-  `notes/chores/chores-08.md`, CLAUDE.md, `src/init.rs`,
+  `notes/chores/chores-08.md`, AGENTS.md, `src/init.rs`,
   `src/scope.rs`, `src/common.rs`) surfaced and were
   resolved during the cascade; see
   `notes/chores/chores-09.md > ### What needed real work`.

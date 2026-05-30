@@ -75,13 +75,13 @@ The user can then:
 
 ## Relationship to the existing two-gate flow
 
-CLAUDE.md's `Commit-Push-Finalize Flow` already specifies two
+AGENTS.md's `Commit-Push-Finalize Flow` already specifies two
 explicit approval gates: review (after work) and message
 (before push). Draft reviews refine the *first* gate — they
 make explicit that the "review" stage is iterative and lives
 on disk, not in jj. The second gate (commit message) is
 unaffected and still happens at `vc-x1 push` time.
 
-Codification in CLAUDE.md is deferred until the convention
+Codification in AGENTS.md is deferred until the convention
 has been used for a cycle or two and any wrinkles are
 ironed out.

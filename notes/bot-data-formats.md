@@ -254,7 +254,7 @@ stability.
 - **Vendor name registry.** Who decides `claude` vs
   `claude-code` vs `anthropic` as the canonical
   short-name? The bot thinks: project-level convention
-  (documented in CLAUDE.md or similar), with a default
+  (documented in AGENTS.md or similar), with a default
   registry shipped by vc-x1 / viewers but overridable
   per project.
 - **Sub-vendor variants.** Anthropic has Claude Code and

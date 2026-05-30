@@ -47,7 +47,7 @@
      commit emits a multi-line `ochid:` covering every
      sub-step in the merge.
    - Work-3 (`-3`): tests + dogfood on a real cycle.
-   - Close-out: finalize chores; `## Done` entry; CLAUDE.md
+   - Close-out: finalize chores; `## Done` entry; AGENTS.md
      `### Pushing` text updated to describe the flag.
 4. **Investigate `linkme` for subcommand registration.**
    Distributed-slice registry — each subcommand registers itself
@@ -214,9 +214,9 @@
     that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
     both sides in one place). Updates to `vc-x1 init` / `clone`
     needed for the new layout.
-33. Source-code design ref sweep + CLAUDE.md codification:
+33. Source-code design ref sweep + AGENTS.md codification:
     adopt section-name + `blob/main/...` URL pattern for source
-    code refs to designs; codify in CLAUDE.md alongside the
+    code refs to designs; codify in AGENTS.md alongside the
     existing markdown ref conventions. Sweep targets:
     src/push.rs lines 4, 121, 645, 1219. [[18]]
 34. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[19]]

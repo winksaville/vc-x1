@@ -478,7 +478,7 @@ furthest (architectural work):
    all subcommands (i.e. after the desc outliers and
    defaulting are handled), so push has a stable contract
    to dispatch against.
-5. **Topology-from-config rule** — codify (CLAUDE.md or a
+5. **Topology-from-config rule** — codify (AGENTS.md or a
    small ARCHITECTURE note) that every runtime subcommand
    resolves topology via `default_scope`, never from a
    `--por` flag. The flag stays creation-time only. The

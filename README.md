@@ -601,7 +601,7 @@ Failures in `commit-app` / `commit-claude` / `bookmark-both` roll
 both repos back via `jj op restore` to the snapshot recorded at
 the start of `commit-app`. Past `push-app` the remote boundary is
 crossed and recovery is forward-only (see "Late changes after
-push" in CLAUDE.md).
+push" in AGENTS.md).
 
 | Flag | Description |
 |------|-------------|
@@ -875,19 +875,19 @@ shape, ochid trailers, pushing — lives in
 [`notes/cycle-protocol.md`](notes/cycle-protocol.md).
 
 Bot-facing conventions are canonical in
-[CLAUDE.md](CLAUDE.md):
+[AGENTS.md](AGENTS.md):
 
-- [Notes file conventions](CLAUDE.md#notes-file-conventions)
+- [Notes file conventions](AGENTS.md#notes-file-conventions)
   — Todo format, Reference numbering, Notes references
   (`[[N]]` citation style), Markdown anchor links,
   Retiring Done entries.
-- [Chores conventions](CLAUDE.md#chores-conventions) —
+- [Chores conventions](AGENTS.md#chores-conventions) —
   section headers / Done entries exact-title rule,
   content rules, `Commits:` line format.
-- [Prose form](CLAUDE.md#prose-form) — intro + bullets
+- [Prose form](AGENTS.md#prose-form) — intro + bullets
   shape for long-lived prose (commit bodies, chores,
   doc comments).
-- [Code Conventions](CLAUDE.md#code-conventions) — doc
+- [Code Conventions](AGENTS.md#code-conventions) — doc
   comments on every file / fn / method, `// OK: …` on
   `unwrap*` calls, ask-on-ambiguity, stuck detection.
 

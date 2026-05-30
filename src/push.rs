@@ -877,7 +877,7 @@ fn run_stage(
 /// the two approval gates exist to prevent. If sync reports action
 /// needed, preflight errors and the user resolves explicitly with
 /// `vc-x1 sync --no-check` before re-running push. The cargo steps
-/// match CLAUDE.md's pre-commit checklist (minus `cargo install` /
+/// match AGENTS.md's pre-commit checklist (minus `cargo install` /
 /// retest, which are project-specific). All subprocesses run in the
 /// workspace root so cargo picks up the right `Cargo.toml`. Skipped
 /// in `--dry-run` since `cargo fmt` writes files.

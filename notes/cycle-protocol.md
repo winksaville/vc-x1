@@ -55,7 +55,7 @@ content arrives at close-out (see [Close-out](#close-out)).
 
 Fuller chores conventions (content rules, header sync,
 design subsection pattern, `Commits:` formatting) live in
-CLAUDE.md [Chores conventions](../CLAUDE.md#chores-conventions).
+AGENTS.md [Chores conventions](../AGENTS.md#chores-conventions).
 
 ## Preparation
 
@@ -63,7 +63,7 @@ The cycle's first commit (`X.Y.Z-0`):
 
 - **Backfill the previous cycle's chores section
   `Commits:` ref** — see
-  [Chores commit references](../CLAUDE.md#chores-commit-references).
+  [Chores commit references](../AGENTS.md#chores-commit-references).
 - **Bump the version** in `Cargo.toml` to `X.Y.Z-0`.
 - **Pick up a `## Todo` item** (if the cycle has one).
   Move into `## In Progress` as:
@@ -72,7 +72,7 @@ The cycle's first commit (`X.Y.Z-0`):
   - A **succinct problem statement**.
   - A **plan ladder**.
 
-  See [Prose form](../CLAUDE.md#prose-form). A Todo that
+  See [Prose form](../AGENTS.md#prose-form). A Todo that
   duplicates current `## In Progress` work is a process
   bug.
 - **Open the [chores section](#chores-sections)** —
@@ -220,7 +220,7 @@ with a version suffix:
 
 ### Body
 
-[Prose form](../CLAUDE.md#prose-form) (intro + bullets),
+[Prose form](../AGENTS.md#prose-form) (intro + bullets),
 wrap ≤72. Bullet content differs per repo:
 
 - **App-repo body**: file-by-file. One bullet per file
@@ -371,7 +371,7 @@ the push+finalize checkpoint the user controls.
   <bookmark> --restart` — otherwise push resumes from a
   stale stage.
 - **Late code-repo tweak after `push-app` succeeded**
-  (e.g. updating CLAUDE.md or memory) requires `jj
+  (e.g. updating AGENTS.md or memory) requires `jj
   squash --ignore-immutable` and a re-push; that is a
   remote rewrite and needs explicit approval like any
   push.
