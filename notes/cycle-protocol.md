@@ -277,21 +277,20 @@ the cycle's result must be published.
 
 ### Shape at close-out push
 
-Decide the shape and get user approval before pushing —
-the choice is hard to undo once on the target. Surface
-the options, wait for the user.
+At close-out the cycle's *work* is done; its *published
+shape* is the remaining choice, made at push time. Surface
+the options and get user approval before pushing — once on
+the target, changing shape is a remote rewrite (force-push,
+needs approval), so choose deliberately.
 
 - **Squash to one commit** — single entry on the target.
   Right for straightforward changes where the Work-N is
   focused on one or two files.
-- **Merge non-ff** — `main` gains a merge commit
-  (`X.Y.Z`); cycle commits stay reachable via two
-  parents. `jj log -r ..@ -n <N>` shows the trapezoidal
-  shape. Set up: `jj rebase -r <tip> --onto <prev>
-  --onto <sub-tip>` where `<prev>` is the previous
-  cycle's closed-out commit (current main tip). Two
-  `--onto` → `<tip>` becomes a merge of `<prev>` +
-  `<sub-tip>`.
+- **Merge non-ff** *(current default)* — `main` gains a
+  merge commit (`X.Y.Z`); cycle commits stay reachable via
+  two parents. `jj log -r ..@ -n <N>` shows the trapezoidal
+  shape. See [Merge non-ff recipe](#merge-non-ff-recipe)
+  for the full setup sequence.
 - **Keep separate** — one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
@@ -299,6 +298,34 @@ the options, wait for the user.
 
 Set up squash/merge before invoking `vc-x1 push`; use
 `jj git push` directly for non-standard shapes.
+
+### Merge non-ff recipe
+
+Setting up a [Merge non-ff](#shape-at-close-out-push)
+close-out is a fixed sequence. `<closeout>` is the cycle's
+close-out commit, `<prev>` the previous cycle's close-out
+(the current `main` tip), `<work-tip>` the cycle's last
+Work commit:
+
+1. **Rebase the close-out into a merge** — `jj rebase -r
+   <closeout> --onto <prev> --onto <work-tip>`.
+   - `-r <closeout>` keeps the `<closeout>` commit in place.
+   - `--onto <prev>` becomes its first parent (trunk).
+   - `--onto <work-tip>` becomes the second parent.
+
+   Together these make `<closeout>` a merge of
+   `<prev>` + `<work-tip>`, forming a trapezoidal commit.
+2. **Use `jj new <merge>`** to add an empty `@` node above
+   the merge. See
+   [post-amend `jj new`](../AGENTS.md#jj-basics) for why.
+3. **Push** — `jj git push --bookmark main -R .`.
+
+**Post-hoc caveat.** If the cycle was already pushed
+[Keep separate](#shape-at-close-out-push) its commits are
+immutable: the rebase needs `--ignore-immutable` and the
+push force-updates `main`.
+The standard sequence assumes the merge is set up *before*
+the close-out push.
 
 ### vc-x1 push wrapper
 

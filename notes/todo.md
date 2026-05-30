@@ -50,7 +50,7 @@ Plan ladder:
 - 0.64.0-1 cycle-protocol.md: promote the recipe to a
   `### Merge non-ff recipe` subsection (rebase → `jj new`
   lift → push, plus the `--ignore-immutable` post-hoc
-  caveat); trim the shape bullet to point at it.
+  caveat); trim the shape bullet to point at it. (done)
 - 0.64.0-2 AGENTS.md: standardize `-d` → `--onto` in the
   post-amend note; add a one-line "`-d` is an alias of
   `--onto`".
