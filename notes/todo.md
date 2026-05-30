@@ -18,6 +18,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y close-out and validation
 
 _No cycle currently in progress._
+- 0.62.0 close-out
 
 ## Ideas
 
@@ -52,6 +53,89 @@ _No cycle currently in progress._
      drop) before declaring the plan; Close-out
      captures unresolved follow-ups into `## Ideas`.
 
+2. **Version-number protocol is fragile — versions are
+   baked into titles/bodies/todo/done/chores before the
+   change lands.** The cycle protocol embeds an `X.Y.Z-N`
+   version in commit titles and bodies, `## Todo` /
+   `## Done` entries, and chores headers — all written
+   while the work is in progress, i.e. before it lands.
+   But version numbers are subject to change: in a public,
+   merge-based flow (e.g. Linux), the version a change
+   ships under is only fixed when it merges into `main`,
+   so the landing version can't be anticipated while the
+   work is underway. Pervasive version-in-text is
+   therefore fragile for any non-linear / multi-contributor
+   workflow.
+   - No fix yet — capture the problem; triage at a later
+     Preparation.
+   - Open question: what identifies a cycle's commits if
+     not a pre-assigned version?
+     - Needs to be unique within some agreed upon domain.
+       A contributors email address would do it, but also
+       a UUID (short-version) for a contribution. I could
+       imagine a UUID generated from the initial email/issue
+       that and then "version number" schema appended to that.
+
+3. **`vc` as a code+conversation provenance tool (grander
+   ambition).** Today `vc-x1` manages a dual repo (code +
+   `.claude`) cross-linked by `ochid:`. The larger aim is
+   to *surface* that link — view history with the
+   conversation and the code side by side: provenance, the
+   *why* of a change, not just the *what*. The dual-repo +
+   `ochid` design is already the substrate; the cross-links
+   make code↔conversation navigable, so the viewer is UI
+   over an already-solved data link.
+   - Build direction: keep resolution/assembly in `vc` — an
+     editor-agnostic Rust engine/lib extending the
+     `show` / `chid` / `desc` family ("given a commit,
+     resolve its ochid and assemble the paired diff +
+     conversation slice"); the editor add-on is a thin
+     presentation layer over it.
+   - Front-end leans a Zed add-on (Rust, preferred), maybe
+     VSCode / other. Verify Zed's extension API can host a
+     rich side-by-side panel before committing — an
+     editor-agnostic core hedges the bet.
+   - `vc-x2`? A rewrite is unwarranted: the audit's
+     Commonality pass found the architecture sound (por is
+     bolted on where an existing good pattern wasn't
+     applied) — equalize incrementally. "vc-x2" only makes
+     sense if the viewer changes the *core* architecture
+     (an index / daemon / data model). Separate
+     engine-rewrite (no) from product-reposition (open).
+   - Possible artifact: a top-level
+     `notes/design-cli/vision.md` framing the direction,
+     with the parity and conversion docs as sub-designs.
+4. **Restructure the design-cli parity docs (target
+   0.63.0).** `por-dual-parity-audit.md` (~1200 lines)
+   fuses a *frozen* audit (the `## 1`–`## 8` snapshot
+   evidence) with a *living* design (axes, decisions,
+   matrix, gap list); the "audit" name undersells it and
+   the halves have different lifecycles. And
+   `por-dual-parity.md` (the stub) overlaps on parity but
+   uniquely holds the `por ↔ dual` conversion design.
+   - Split the audit doc into a frozen audit snapshot + a
+     living design doc (names TBD; could reclaim
+     `por-dual-parity.md` for the design).
+   - Refocus the stub to conversion-only and rename (e.g.
+     `por-dual-conversion.md`); drop its redundant parity
+     half.
+   - Repoint refs (`todo.md` `[1]` / Todo #7 / P3,
+     `copying.md`, the audit's internal anchors + Reading
+     guide) and validate; `chores-10/11/12` mentions are
+     historical and stay.
+   - Promote the Gap-list items to anchored
+     `#### Gap N — <title>` sub-headings so cross-cycle
+     citations can deep-link a specific gap (markdown
+     anchors headings, not list items). Trade-off: stable
+     anchors, but the ordinal lives in the heading text
+     (manual renumber on reorder) — fine for a consumed
+     backlog. The 3 `Gap #N` links in the `0.62.0`
+     close-out chores narrative resolve only to the section
+     until this lands.
+   - Deferred from the 0.62.0 close-out: close-out is
+     bookkeeping-only, and the split is substantive,
+     anchor-heavy work warranting its own cycle.
+
 ## Priorities
 
 - P1 is highest priority, same priority are grouped equally
@@ -62,6 +146,8 @@ _No cycle currently in progress._
 
 ### P1
 
+- `**pre-commit: single rule...**`
+- `**vc-x1 push: validate body...**`
 - `**vc-x1 push: support...**`
 - `**vc-x1 push --squash...**`
 
@@ -82,7 +168,74 @@ _No cycle currently in progress._
  Also, we use the  design subsections (link via `[N]` ref). Run
  `vc-x1 fix-todo --no-dry-run notes/todo.md` to renumber.
 
-1. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+1. **vc-x1 push: validate body opens with an intro paragraph.**
+   A body whose first line is a bullet (`- file: …`) is a
+   Prose-Form violation — bodies must open with an intro
+   paragraph, then bullets. Today such a body trips jj's arg
+   parser (`jj commit -m "<body>"` reads the leading `-` as a
+   stray flag) and push fails with an opaque error. Hit on
+   0.62.0-5.
+   - Feature, not a parser bug (reframed): push should
+     *validate* the body opens with a non-dash intro line and
+     flag its absence with a clear, specific error pointing at
+     the offending first line — rather than letting jj emit a
+     confusing one, or quietly accepting a bullet-first body.
+   - Enforcing the intro is the intended behavior, matching
+     the Prose-Form convention; we are not "fixing" the parser
+     to accept bullet-first bodies.
+   - Workaround until the explicit check lands: prepend a
+     non-dash intro sentence to the body.
+2. **pre-commit: single rule (no docs skip) + doc validators.**
+   The pre-commit (cargo cycle: fmt/clippy/test/install) only
+   checks code, so it's "skip-able for purely-docs commits" —
+   but that exception is exactly where checks slip (skipped on
+   0.62.0-7/-8 until caught). And `vc-x1 push`'s `preflight`
+   stage re-runs the same cycle, which invites treating push as
+   the gate rather than a redundant safety-net.
+   - Adopt one rule, no exception: the pre-commit runs before
+     Work review on every commit; push's `preflight` is a
+     safety-net, not the primary gate. (docs: CLAUDE.md Cycle
+     Protocol summary + cycle-protocol.md per-commit-flow.)
+   - Enrich the pre-commit so it's meaningful on docs commits:
+     add the doc validators — `validate-numbering` (its own
+     Todo, a prereq) plus `validate-repo` when it exists — to
+     both the documented flow and push's `preflight` stage
+     (`push.rs`), with a test. (code)
+   - This dissolves the docs exception: with doc validators in
+     the pre-commit there's always something to validate, so
+     the carve-out stops making sense.
+   - Target: its own 0.62.1 cycle (chosen over a 0.61.1 insert
+     to avoid rewriting published 0.62.0-x history).
+3. **validate-numbering: rename the pair, check all
+   sequence-managed notes files generically.** `validate-todo`
+   / `fix-todo` only operate on the single file passed, so a
+   renumber slip in `bugs.md`, `todo-backlog.md`, or
+   `todo.md`'s `## Ideas` section passes unnoticed — too weak
+   for a pre-commit gate. Prereq for the pre-commit doc
+   validators (Todo "pre-commit: single rule ...").
+   - Rename the pair: `validate-todo` → `validate-numbering`,
+     `fix-todo` → `fix-numbering` — they validate numbered-
+     sequence integrity, not todos specifically.
+   - Generic detection: for every `#…#` section, validate the
+     column-0 `^\d+\.␠` entries form a contiguous 1..N run.
+     Drops the Todo/Bugs special-casing; auto-covers
+     `## Ideas` and any new numbered section. Keep the
+     column-0 anchor so indented sub-lists aren't counted.
+   - Default scope: a fixed list of sequence-managed notes
+     files (`todo.md`, `todo-backlog.md`, `bugs.md`) so the
+     no-arg pre-commit run covers them all. Fixed rather than
+     a `notes/**.md` walk because prose docs
+     (`cycle-protocol.md`, design notes) carry ordinary
+     numbered lists that aren't managed sequences — a walk
+     would false-positive (markdown renders `1. 1. 1.` as
+     1-2-3, a legitimate prose pattern).
+   - Override args follow the `--init-from` convention:
+     positional files/dirs (a dir → its `*.md`) plus an
+     `@<file>` manifest, additive — for ad-hoc validation of
+     a specific file.
+   - Open: revisit fixed-vs-glob at implementation if the
+     fixed list proves annoying to maintain.
+4. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -100,7 +253,7 @@ _No cycle currently in progress._
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-2. **vc-x1 push --squash: symmetric squash on both repos.**
+5. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -121,7 +274,7 @@ _No cycle currently in progress._
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-3. **single-field `options_flags` leaves → `value` field.**
+6. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -133,13 +286,13 @@ _No cycle currently in progress._
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-4. **`por → dual` conversion.** Attach a `.claude`
+7. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-5. **`validate-desc` / `fix-desc` por equalization.**
+8. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`
@@ -175,6 +328,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - extract cycle protocol — `notes/cycle-protocol.md` becomes the canonical self-contained home for the cycle workflow (504 lines, extensively tightened from the CLAUDE.md extract); CLAUDE.md keeps a 10-line pointer; `notes/substep-protocol.md` folded in as `## Sub-cycle ladders`; `## Ideas` section added to `notes/todo.md`; first squash close-out via manual Option F (app squash + bot-side `af60f979` trailer rewrite + force-push) (0.59.0) [[11]]
 - consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[12]]
 - por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[13]]
+- apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[14]]
 
 # References
 
@@ -192,3 +346,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [11]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590
 [12]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
 [13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
+[14]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620

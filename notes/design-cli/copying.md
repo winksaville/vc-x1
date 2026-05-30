@@ -26,39 +26,67 @@ workspace during the copy phase, before commits.
 
 ## Surface
 
-- `--init-from-code=<glob>` — copy files matched by
-  `<glob>` into the code repo (non-recursive).
-- `--init-from-bot=<glob>` — same, into the `.claude/`
-  companion. Only meaningful under dual.
-- `--init-from=<glob>` — shorthand for `--init-from-code`
-  (since por only has code, and dual users typically copy
-  into code more often than bot).
-- `--init-from-recursive=<glob>` /
-  `--init-from-code-recursive=<glob>` /
-  `--init-from-bot-recursive=<glob>` — recursive variants.
+A single flag, taking a glob or an `@<file>` manifest.
 
-Each flag accepts a **shell glob** (expansion done by the
-shell; `vc-x1` receives the expanded path list). Each may
-be specified multiple times — the result is the additive
-union of all sources. Order matters for collisions (see
-below).
+- `--init-from=<glob>` — copy paths matched by `<glob>`
+  into the new workspace.
+  - Value is a **shell glob** (the shell expands it, so
+    `vc-x1` receives the path list) or an **`@<file>`
+    manifest**.
+  - May be repeated — sources form an additive union.
+  - Order matters for collisions (see below).
+- **No per-side flags.** There is no `--init-from-code` /
+  `--init-from-bot` split — that scope is the Topology
+  axis, which `--mode=<single|dual>` already owns. A
+  second scoped surface here would only duplicate it.
+  - Under **single** the source lands in the lone code
+    repo. Under **dual** one workspace-shaped source tree
+    (code at the root, bot content under `.claude/`) seeds
+    both sides in one recursive copy.
+  - The source's VCS form doesn't matter — init copies
+    first, deletes any `.jj` / `.git` it finds, then runs
+    `jj git init` per side. A source that is a single
+    nested-`.claude` repo, or an already-dual repo, both
+    work. Only the file layout is read.
+  - Two genuinely different-origin sources for code vs.
+    bot aren't expressed here: run `init --mode=single`
+    twice, then convert the two por's into a dual (the
+    planned `por -> dual` path).
+- **Recursion follows the operand, not the flag** — a
+  directory operand copies recursively. There are no
+  `-recursive` variants.
+  - Unlike `cp` (which errors on a directory without
+    `-r`), but here a non-recursive directory copy is
+    meaningless — it yields an empty directory — so
+    nothing needs an opt-in to guard, and init targets a
+    fresh workspace where recursion can't clobber an
+    existing tree.
+- **`@<file>` is a manifest**, not a path — one source
+  path per line, `#` comments and blank lines ignored.
+  - Literal paths, no globbing (the shell never sees
+    them, so use the plain CLI form to glob).
+  - Resolved relative to the manifest's location, so it
+    and its sources move together.
+  - No nested `@`. Each entry follows the per-operand
+    recursion rule.
 
 ## Behavior
 
-- **Copy semantics** — files only; preserves relative
-  layout under the source root. The bot's working
-  assumption is `cp -a` semantics (preserve symbolic
-  links and executable bits); confirm at design time.
+- **Copy semantics** — per resolved path: files copy as
+  files and directories copy recursively, preserving
+  relative layout under the source root. The bot's working
+  assumption is `cp -a` semantics (preserve symbolic links
+  and executable bits); confirm at design time.
 - **Collision: last writer wins, with a warning.** If two
-  `--init-from*` flags resolve to the same destination
-  file, the later one overwrites the earlier; `vc-x1`
+  sources resolve to the same destination file, the later
+  one overwrites the earlier; `vc-x1`
   emits a warning naming both sources. The bot thinks
   warnings are right here — silent overwrite is a
   footgun; erroring would block valid layering use cases
   (a base directory + per-project tweaks).
 - **Canned writes suppressed when copying is engaged.**
   Today `init` writes a canned `.vc-config.toml` and
-  `.gitignore`. With any `--init-from*` present, **both
+  `.gitignore`. With `--init-from` present, **both
   canned writes are suppressed entirely**. The user opted
   in to full control of the copied content; init doesn't
   layer canned defaults underneath.
@@ -108,12 +136,14 @@ through every subcommand's lookup code — `default_scope`,
 - `--gitignore <path>` — never built; equivalent under
   copying: `--init-from=<src>/.gitignore`.
 - `--use-template <CODE[,BOT]>` — today's coarse
-  whole-repo flag. Subsumed by recursive variants:
-  - `--use-template code-tpl/` →
-    `--init-from-code-recursive=code-tpl/*`.
-  - `--use-template code-tpl/,bot-tpl/` → two flags:
-    `--init-from-code-recursive=code-tpl/*` +
-    `--init-from-bot-recursive=bot-tpl/*`.
+  whole-repo flag. Subsumed — a directory operand
+  recurses:
+  - `--use-template tpl/` → `--init-from=tpl/`.
+  - `--use-template code-tpl/,bot-tpl/` (two roots) has
+    no single-flag form: combine them into one
+    workspace-shaped tree (bot content under `.claude/`)
+    and `--init-from=tree/`, or init two singles and
+    convert to dual.
 
 The bot thinks `--use-template` can be retired once
 copying ships, but a back-compat shim that translates
@@ -136,9 +166,9 @@ something the mechanism doesn't do:
   `cp -r`, no structure-aware logic.
 
 "Copying" is literal: source files go to destination
-paths. The flag family `--init-from*` keeps the verb out
-of the surface — the flag describes *what* (source-to-
-destination), not *what kind of operation*. If a future
+paths. The flag `--init-from` keeps the verb out of the
+surface — it describes *what* (source-to-destination), not
+*what kind of operation*. If a future
 mechanism does layer substitution on top of copy, it's a
 separate feature with its own name.
 
@@ -161,13 +191,12 @@ separate feature with its own name.
   passing zero paths) is fine.
 - **Interaction with `vc-x1 clone`.** Clone seeds from
   an existing remote, so copying overlays *on top of*
-  the cloned content. Same flag set, same collision
-  rules.
+  the cloned content. Same flag, same collision rules.
 - **Mechanism beyond init?** A future
   `vc-x1 <subcommand> --copy-from=<glob>` to layer
   files into an existing workspace would be the same
   mechanism with a different host command. The bot
-  thinks defer until a real use surfaces; `--init-from*`
+  thinks defer until a real use surfaces; `--init-from`
   is the only surface today.
 
 ## See also
