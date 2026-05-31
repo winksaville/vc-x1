@@ -315,9 +315,10 @@ Work commit:
 
    Together these make `<closeout>` a merge of
    `<prev>` + `<work-tip>`, forming a trapezoidal commit.
-2. **Use `jj new <merge>`** to add an empty `@` node above
-   the merge. See
-   [post-amend `jj new`](../AGENTS.md#jj-basics) for why.
+2. **Use `jj new <merge>`** to add an empty `@` above the
+   merge. The rebase left `@` *on* the now-content-bearing
+   merge, which git/IDE diff views show as uncommitted;
+   `jj new` restores the clean empty `@` on top.
 3. **Push** — `jj git push --bookmark main -R .`.
 
 **Post-hoc caveat.** If the cycle was already pushed

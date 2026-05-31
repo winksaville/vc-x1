@@ -107,17 +107,6 @@ reasoning not directly supported by the data on hand.
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
-- **Post-amend `jj new`** — jj's working copy is always an
-  empty `@` on top of the tree. Commands that rewrite a
-  commit in place leave `@` *on* the rewritten commit
-  instead:
-  - `jj edit <rev>`
-  - `jj rebase -r <rev> --onto ...`
-  - `jj squash --into <rev>`
-
-  Run `jj new` afterward to restore the empty `@` on top.
-  Until you do, git/IDE diff views show that commit's
-  content as uncommitted — alarming-looking but expected.
 
 ## Prose form
 
