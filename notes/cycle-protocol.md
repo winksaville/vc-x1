@@ -358,6 +358,11 @@ create or maintain `.claude` bookmarks that mirror
 app-side branches** — risks the bot steering session
 pushes to the wrong remote ref.
 
+Ending a session: if the user runs `/exit` there will be
+session information created, which we don't worry about.
+The user can close the terminal instead and `@` will
+remain empty — this behavior was verified in 0.64.0.
+
 ### Bot communication at the reviews
 
 Use plain prose — no insider jargon ("Gate N signal",
@@ -394,14 +399,19 @@ after the tool returns.
 Why (`.claude` is the live journal finalize snapshots →
 squashes → pushes):
 
-- **`--detach`**: the bot always emits information after a tool
-  returns so by having the tool detach the bot may perform the
-  additional work.
-- **`--delay 10`**: gives the bot the time it needs to do
-  the additional work after the tool has detached and thus
-  the tool can include it in the commit.
-- **silence**: Reinforces that the bot must not summarize or
-  perform any unnecessary work after the tool returns.
+- **`--detach`**: lets the tool return immediately so the
+  harness can keep flushing the *trailing* session-data — the
+  tool call's own transcript and any words emitted *before*
+  the invoke — into the snapshot.
+- **`--delay 10`**: gives the harness time to complete that
+  flush before the snapshot is taken. It is **not** time for
+  the bot to do more work.
+- **silence**: the bot must not summarize or perform any work
+  after the tool returns.
+
+**Known slip**: the bot has emitted a summary after launching
+finalize. There is no "harmless" closing line — if it's worth
+saying, say it *before* the invoke.
 
 ### Recovery
 
@@ -413,6 +423,28 @@ squashes → pushes):
   vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
   ```
 
+- **Run finalize again if `@` is non-empty** after the
+  finalize's squash-and-commit (also desirable after
+  extra activity by the bot's agents).
+  - Why: finalize snapshots `.claude` at `--delay`, but the
+    bot keeps writing session data while it runs — the tool's
+    own invocation plus the bot's closing response land
+    *after* the snapshot.
+  - Safe to repeat: bot session data is append-only, so a
+    re-run never conflicts or overwrites. (This could
+    change; it is not under the user's control.)
+  - Fix: run `vc-x1 finalize --repo .claude --squash --push
+    <bookmark> --delay 10 --detach` another time to capture
+    that tail; one extra pass is generally enough.
+    - Verified 0.64.0: two finalizes were executed and
+      we purposely used the bot again and the second finalize
+      captured everything.
+  - No guarantees: events outside the bot's control can leave
+    `@` non-empty — e.g. the bot's back end may decide to
+    squash/consolidate session data, which can take minutes
+    and land after the snapshot. The remedy is the same: just
+    run finalize again. This is why a single pass is never
+    guaranteed to leave `@` empty.
 - **Clear push's saved state** after any out-of-band
   recovery — `rm .vc-x1/push-state.toml` or `vc-x1 push
   <bookmark> --restart` — otherwise push resumes from a

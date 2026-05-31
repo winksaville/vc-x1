@@ -89,6 +89,8 @@ restatement was added there.
 
 ## docs: codify merge-non-ff recipe (0.64.0)
 
+Commits: [[3]]
+
 Multi-commit cycles default to the merge-non-ff trapezoid,
 but the recipe is split between `cycle-protocol.md` and
 AGENTS.md with wrinkles re-derived each time (exercised
@@ -147,3 +149,4 @@ broader cycle-protocol.md codification).
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
+[3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"
