@@ -1,5 +1,7 @@
 # Cycle protocol
 
+This protocol uses [Prose form](../AGENTS.md#prose-form).
+
 ## Cycles
 
 A cycle has three phases:
@@ -65,16 +67,15 @@ The cycle's first commit (`X.Y.Z-0`):
   `Commits:` ref** — see
   [Chores commit references](../AGENTS.md#chores-commit-references).
 - **Bump the version** in `Cargo.toml` to `X.Y.Z-0`.
-- **Pick up a `## Todo` item** (if the cycle has one).
-  Move into `## In Progress` as:
-  - A **bold title line** — exact match of the chores
+- **Update `Cargo.lock`** to match — run `cargo build`
+  (or `cargo check`) so the lockfile's `vc-x1` version
+  tracks `Cargo.toml` in the same commit.
+- **Move a `## Todo` item** (if the cycle has one) into
+  `## In Progress` and the todo item should have:
+  - A **bold title line** — that will be the chores
     section header, minus the `## ` prefix.
-  - A **succinct problem statement**.
+  - A **succinct problem statement**; add if one is needed
   - A **plan ladder**.
-
-  See [Prose form](../AGENTS.md#prose-form). A Todo that
-  duplicates current `## In Progress` work is a process
-  bug.
 - **Open the [chores section](#chores-sections)** —
   append a `##` header with the cycle's anticipated
   close-out title.
@@ -276,21 +277,20 @@ the cycle's result must be published.
 
 ### Shape at close-out push
 
-Decide the shape and get user approval before pushing —
-the choice is hard to undo once on the target. Surface
-the options, wait for the user.
+At close-out the cycle's *work* is done; its *published
+shape* is the remaining choice, made at push time. Surface
+the options and get user approval before pushing — once on
+the target, changing shape is a remote rewrite (force-push,
+needs approval), so choose deliberately.
 
 - **Squash to one commit** — single entry on the target.
   Right for straightforward changes where the Work-N is
   focused on one or two files.
-- **Merge non-ff** — `main` gains a merge commit
-  (`X.Y.Z`); cycle commits stay reachable via two
-  parents. `jj log -r ..@ -n <N>` shows the trapezoidal
-  shape. Set up: `jj rebase -r <tip> --onto <prev>
-  --onto <sub-tip>` where `<prev>` is the previous
-  cycle's closed-out commit (current main tip). Two
-  `--onto` → `<tip>` becomes a merge of `<prev>` +
-  `<sub-tip>`.
+- **Merge non-ff** *(current default)* — `main` gains a
+  merge commit (`X.Y.Z`); cycle commits stay reachable via
+  two parents. `jj log -r ..@ -n <N>` shows the trapezoidal
+  shape. See [Merge non-ff recipe](#merge-non-ff-recipe)
+  for the full setup sequence.
 - **Keep separate** — one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
@@ -298,6 +298,35 @@ the options, wait for the user.
 
 Set up squash/merge before invoking `vc-x1 push`; use
 `jj git push` directly for non-standard shapes.
+
+### Merge non-ff recipe
+
+Setting up a [Merge non-ff](#shape-at-close-out-push)
+close-out is a fixed sequence. `<closeout>` is the cycle's
+close-out commit, `<prev>` the previous cycle's close-out
+(the current `main` tip), `<work-tip>` the cycle's last
+Work commit:
+
+1. **Rebase the close-out into a merge** — `jj rebase -r
+   <closeout> --onto <prev> --onto <work-tip>`.
+   - `-r <closeout>` keeps the `<closeout>` commit in place.
+   - `--onto <prev>` becomes its first parent (trunk).
+   - `--onto <work-tip>` becomes the second parent.
+
+   Together these make `<closeout>` a merge of
+   `<prev>` + `<work-tip>`, forming a trapezoidal commit.
+2. **Use `jj new <merge>`** to add an empty `@` above the
+   merge. The rebase left `@` *on* the now-content-bearing
+   merge, which git/IDE diff views show as uncommitted;
+   `jj new` restores the clean empty `@` on top.
+3. **Push** — `jj git push --bookmark main -R .`.
+
+**Post-hoc caveat.** If the cycle was already pushed
+[Keep separate](#shape-at-close-out-push) its commits are
+immutable: the rebase needs `--ignore-immutable` and the
+push force-updates `main`.
+The standard sequence assumes the merge is set up *before*
+the close-out push.
 
 ### vc-x1 push wrapper
 

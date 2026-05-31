@@ -50,6 +50,8 @@ straight at `AGENTS.md`, but it reinforces keeping
 
 ## docs: tighten after-finalize rule (0.63.1)
 
+Commits: [[2]]
+
 The stop-and-wait rule in `cycle-protocol.md` was titled
 `### After finalize: stop and wait` and phrased as "final
 words go in the approval prompt *before* executing finalize"
@@ -85,6 +87,63 @@ rule lives only in `cycle-protocol.md`; AGENTS.md already
 mandates reading it before commit work, so no duplicate
 restatement was added there.
 
+## docs: codify merge-non-ff recipe (0.64.0)
+
+Multi-commit cycles default to the merge-non-ff trapezoid,
+but the recipe is split between `cycle-protocol.md` and
+AGENTS.md with wrinkles re-derived each time (exercised
+manually on `0.62.0`). Codify the full recipe and
+standardize the flag spelling. Split out of Idea #1 (the
+broader cycle-protocol.md codification).
+
+- Recipe: `jj rebase -r <closeout> --onto <prev-closeout>
+  --onto <work-tip>` (first `--onto` = trunk → first
+  parent), then `jj new <merge>` to lift `@` above the
+  merge, then `jj git push --bookmark main`.
+- Standardize on `--onto` / `-o` (canonical), not the
+  `-d` alias — update AGENTS.md's `-d` spellings (jj
+  Basics + the post-amend `jj new` note) to `--onto`.
+- `@` reverts to the work-tip's content until the
+  `jj new` (the "post-amend `jj new`" gotcha already in
+  AGENTS.md).
+- Post-hoc caveat: if the cycle was already pushed
+  keep-separate (as `0.62.0` was), the rebase needs
+  `--ignore-immutable` and the push is a force-update of
+  `main`; the standard recipe assumes the merge is set up
+  before the close-out push.
+
+### As-built ladder
+
+- 0.64.0-0 Preparation — version bump, 0.63.1 `Commits:`
+  backfill, item pickup. Also clarified the Preparation
+  step itself: a Cargo.lock-update bullet, reworded the
+  Todo "move into In Progress", and a Prose-form intro
+  line at the top of `cycle-protocol.md`.
+- 0.64.0-1 cycle-protocol.md — promote the recipe to a
+  `### Merge non-ff recipe` subsection (rebase → `jj new`
+  lift → push, with the parents broken out as sub-bullets
+  and a post-hoc caveat); trim the shape bullet to point
+  at it. Also reword `### Shape at close-out push`: the
+  intro reframed (work done, shape chosen at push,
+  post-publish change is a remote rewrite) and Merge
+  non-ff tagged as the current default.
+- 0.64.0-2 AGENTS.md — standardize `-d` → `--onto` in the
+  post-amend note; add a jj Basics bullet for the
+  `--onto`/`-o` spelling; sub-bullet the post-amend
+  command list; reframe the note around jj's empty-`@`
+  final form, dropping the merge-specific example and the
+  HEAD-detach mechanism (the recipe now owns the merge
+  sequence).
+- 0.64.0-3 review round — make `### Merge non-ff recipe`
+  step 2 self-contained (own the empty-`@` why inline) and
+  drop the AGENTS.md post-amend `jj new` note entirely. The
+  note's non-merge cases proved mis-categorized: `jj squash
+  --into` leaves `@` clean on top, and `jj edit` lands `@`
+  on the commit deliberately (you `jj new` when done, not
+  to restore). One-directional ref (Shape → recipe), no
+  circle.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
+[2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

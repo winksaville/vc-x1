@@ -33,31 +33,7 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **merge-non-ff recipe: codify in `notes/cycle-protocol.md`.**
-   Multi-commit cycles default to the merge-non-ff trapezoid,
-   but the recipe is split between `cycle-protocol.md` and
-   AGENTS.md with wrinkles re-derived each time (exercised
-   manually on `0.62.0`). Codify the full recipe and
-   standardize the flag spelling. Split out of Idea #1 (the
-   broader cycle-protocol.md codification).
-   - Recipe: `jj rebase -r <closeout> --onto <prev-closeout>
-     --onto <work-tip>` (first `--onto` = trunk → first
-     parent), then `jj new <merge>` to lift `@` above the
-     merge, then `jj git push --bookmark main`.
-   - Standardize on `--onto` / `-o` (canonical), not the
-     `-d` alias — update AGENTS.md's `-d` spellings (jj
-     Basics + the post-amend `jj new` note) to `--onto`,
-     plus a one-line "`-d` is an alias of `--onto`" so the
-     docs don't read as two different flags.
-   - `@` reverts to the work-tip's content until the
-     `jj new` (the "post-amend `jj new`" gotcha already in
-     AGENTS.md).
-   - Post-hoc caveat: if the cycle was already pushed
-     keep-separate (as `0.62.0` was), the rebase needs
-     `--ignore-immutable` and the push is a force-update of
-     `main`; the standard recipe assumes the merge is set up
-     before the close-out push.
-2. **validate-numbering: rename the pair, check all
+1. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -86,7 +62,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-3. **pre-commit: single rule (no docs skip) + doc validators.**
+2. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -108,7 +84,7 @@ _No cycle currently in progress._
    - Its own near-term cycle (chosen over a 0.61.1 insert to
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see Idea #2 on fragile version targets.
-4. **vc-x1 push: validate body opens with an intro paragraph.**
+3. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -125,7 +101,7 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-5. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+4. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -143,7 +119,7 @@ _No cycle currently in progress._
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-6. **vc-x1 push --squash: symmetric squash on both repos.**
+5. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -164,7 +140,7 @@ _No cycle currently in progress._
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-7. **single-field `options_flags` leaves → `value` field.**
+6. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -176,13 +152,13 @@ _No cycle currently in progress._
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-8. **`por → dual` conversion.** Attach a `.claude`
+7. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-9. **`validate-desc` / `fix-desc` por equalization.**
+8. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`
@@ -338,6 +314,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[14]]
 - docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[15]]
 - docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[16]]
+- docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[17]]
 
 # References
 
@@ -358,3 +335,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [14]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620
 [15]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630
 [16]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631
+[17]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
