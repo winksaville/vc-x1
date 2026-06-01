@@ -518,8 +518,9 @@ pub fn resolve_revset(
     let revset = resolved.evaluate(repo.as_ref())?;
 
     let mut commit_ids = Vec::new();
-    for result in revset.iter() {
-        commit_ids.push(result?);
+    for result in revset.commit_change_ids() {
+        let (commit_id, _change_id) = result?;
+        commit_ids.push(commit_id);
     }
     Ok(commit_ids)
 }
