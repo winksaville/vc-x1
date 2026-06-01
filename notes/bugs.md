@@ -9,7 +9,39 @@ insert / delete / reorder.
 
 ## Bugs
 
-1. **`finalize::surface_previous_failures` is racy and
+1. **`finalize` squash silently drops the source journal's
+   ochids.** `finalize_exec` (`src/finalize.rs`) always runs
+   `jj squash --ignore-immutable --use-destination-message
+   --from <source> --into <target>`, so when the source
+   commit's message carries `ochid:` trailers the squash
+   discards them with the rest of the message — the
+   destination's message wins unconditionally.
+   - **When it bites:** the squash source (`@`) is a
+     *described* journal instead of a bare trailing-data
+     snapshot. Observed sequence (fc op log, 2026-06-08):
+     the bot wrote the journal message via
+     `jj describe wyrlsuusnyzz` while that change was still
+     the uncommitted `@`; finalize then squashed
+     `--from @ --into @-` where `@-` was the previous,
+     already-pushed journal — destination message won,
+     journal message + 6 ochids discarded. Finalize's
+     assumption (`@` is disposable, `@-` holds the real
+     message) inverts whenever the journal is described on
+     `@` rather than committed first.
+   - **Cost:** every code-side commit pointing at the
+     squashed journal is left with a dangling
+     `ochid: /.claude/<chid>` — the code↔session cross-link
+     breaks. Recovery requires op-log surgery on the machine
+     that still has the original object (this happened in the
+     fc project: journal `wyrlsuusnyzz`, 6 dangling app
+     ochids, recovered 2026-06-10 from a backup workspace's
+     op log plus a `.claude main` force-push).
+   - **Fix direction:** before squashing, detect `ochid:`
+     trailers in the source message that the destination
+     lacks; refuse (or merge the trailers into the
+     destination message) instead of dropping them.
+
+2. **`finalize::surface_previous_failures` is racy and
    bounded by "next vc-x1 run".** The current model has
    four gaps:
    - **Stale forever.** Markers sit on disk until the

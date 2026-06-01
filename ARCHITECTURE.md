@@ -196,9 +196,7 @@ per-subcommand status.
   commit/push conventions, code conventions.
 - [`src/options_flags/README.md`](src/options_flags/README.md)
   — leaf/bundle patterns for the options_flags extraction.
-- [`notes/todo.md`](notes/todo.md) — live task list, including
-  both refactors.
-- `notes/chores/chores-*.md` — per-cycle design captures and the
-  refactor-tracking tables (currently
-  [`chores-10.md`](notes/chores/chores-10.md); `chores-09.md` and
-  earlier are closed).
+- [`notes/todo.md`](notes/todo.md) — live task list
+- [`notes/chores/`](notes/chores) — chores-*.md files contain
+  discussion and notes on various chores in github compatible
+  markdown.

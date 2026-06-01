@@ -3,18 +3,16 @@
 This directory contains various notes and documentation related to the project.
 Each file is organized by topic for easy reference.
 
-By default there are chores-*.md and todo.md. Chores are general notes
-about tasks and todo.md contains short term tasks and their status.
-The chores-NN files are numbered in sequence; older ones are closed
-(chores-09.md and earlier — through the 0.48.x cycles), and the
-active one ([chores-10.md](chores-10.md), the 0.49.0 cycle onward)
-also carries the **refactor-tracking** tables (the Context+Params
-port and the options_flags extraction).
+By default there are todo.md and the chores-NN.md files in
+[chores/](chores). Chores are general notes about tasks and
+todo.md contains short term tasks and their status. The
+chores-NN files are numbered in sequence; the highest-numbered
+file is the active one, older ones are closed.
 
 App architecture — the CLI-args / `Context`+`Params` split, a
 generic module map, the subcommand model, and what the
 Context+Params port and the options_flags extraction *are* (the
-*live status* is in chores-10.md) — lives at the repo root in
+*live status* is in the chores files) — lives at the repo root in
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 In the future we I expect we may want to create a "notes"

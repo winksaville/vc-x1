@@ -30,6 +30,13 @@ paths (`/tmp/...`, `~/.config/...`) stay absolute. Read/Edit/Write
 tool args also stay absolute — that's a tool-boundary constraint,
 not a stylistic choice.
 
+Run **one command per shell invocation** — don't bundle several
+steps into a single compound script (`a && b; c`). Bundling hides
+which step produced which output and makes a failure ambiguous;
+executing one at a time keeps the details visible and reviewable.
+Exceptions are a genuine pipeline (`grep | sort`) or a tight,
+inseparable pair where the join is the point.
+
 ## File reads — read the slice you need
 
 Long notes files are appended to over time. Read only the
@@ -95,6 +102,15 @@ state"), a prediction ("this should scale linearly"), or any
 reasoning not directly supported by the data on hand.
 
 ## jj Basics
+
+**Use jj, not git, for version-control operations** (status, log,
+diff, commit, push, history rewrite). jj coexists with the git
+backend, so the repo *can* be driven with raw `git`, but this
+project's workflow — bookmarks, the working-copy `@` model, ochid
+trailers — is expressed in jj terms; reaching for `git` invites
+state that doesn't match the jj documentation here. There is no
+`jj mv`: to move/rename a tracked file, just `mv` it on disk and
+jj detects the rename by content.
 
 - `jj st -R .` / `jj st -R .claude` — show working copy status
 - `jj log -R .` / `jj log -R .claude` — show commit log

@@ -333,6 +333,10 @@ the close-out push.
 `vc-x1 push <bookmark>` wraps per-push mechanics. See
 `vc-x1 push --help` for current flags.
 
+`vc-x1 push` injects the `ochid:` trailers itself (the
+`commit-app` / `commit-claude` stages append them) — don't
+hand-write them into the commit body or `--title`/`--body`.
+
 **Current limitation**: only fully supports the
 [Keep separate](#shape-at-close-out-push) shape; other
 shapes need manual jj steps. Improvements tracked /
@@ -466,6 +470,24 @@ workspace-root-relative path. See
 [`forks-multi-user.md`](forks-multi-user.md) for the
 multi-line trailer design (multi-user / forking).
 
+Path semantics — paths start with `/`, the workspace root
+(the app repo); `/.claude` is the bot session sub-repo:
+
+- `ochid: /<chid>` references a change in the **app repo**.
+- `ochid: /.claude/<chid>` references a change in the
+  **`.claude` repo**.
+
+Trailers are blank-line-separated `key: value` lines at the
+end of the commit body, using the chid's **12-character**
+prefix:
+
+```
+ochid: /.claude/xvzvruqowktp   # points to a .claude change
+ochid: /wtpmottvxqzl           # points to an app change
+```
+
+How many, and which direction:
+
 - **Code-side commits** each carry one
   `ochid: /.claude/<.claude-chid>` — the `.claude`
   change ID.
@@ -476,6 +498,36 @@ multi-line trailer design (multi-user / forking).
 
 Use `vc-x1 chid -s code,bot -L` to capture the change
 IDs (first line app, second `.claude`).
+
+### Resolvability
+
+A change ID travels with its commit: a **pushed** commit
+resolves to the same chid in every clone — cloning the
+`.claude` repo gave the published `main` tip the same chid
+as an existing clone. The bot thinks jj carries the change
+ID in the git commit object, so it survives
+`jj git clone` / fetch.
+
+The local-only case is the **working-copy `@`**: jj mints a
+fresh random chid for `@` in each clone, so an unpushed `@`
+is never a stable ochid target. This is why a `.claude`
+ochid names `@-` (the last committed change), not `@`.
+
+### .vc-config.toml
+
+Each repo contains a `.vc-config.toml` that identifies its
+location within the workspace, so tools resolve these paths
+without repeating the workspace path in every trailer:
+
+```toml
+# In vc-x1 (workspace root):
+[workspace]
+path = "/"
+
+# In .claude (sub-repo):
+[workspace]
+path = "/.claude"
+```
 
 ## Iterative work
 

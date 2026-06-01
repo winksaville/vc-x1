@@ -145,6 +145,43 @@ broader cycle-protocol.md codification).
   to restore). One-directional ref (Shape → recipe), no
   circle.
 
+## docs: record finalize ochid-loss bug (0.65.1)
+
+The fc project hit a `finalize` squash that silently dropped a
+described journal's message and its 6 `ochid:` trailers
+(2026-06-08; recovered 2026-06-10 via op-log surgery). The bug
+write-up and two doc-link fixes sat uncommitted in the working
+copy; this cycle lands them, ports fc's AGENTS.md additions
+back, and queues the fix as Todo #1.
+
+- bugs.md gains the incident as Bugs #1: the failure mode
+  (finalize's `--use-destination-message` assumption inverts
+  when the journal is described on `@`), the cost (dangling
+  code-side ochids), and the fix direction (detect source-only
+  `ochid:` trailers; refuse or merge instead of dropping).
+- fc additions ported back:
+  - AGENTS.md: use-jj-not-git (jj Basics intro) and
+    one-command-per-shell-invocation (Working Directory).
+  - cycle-protocol.md `## ochid trailers`: path semantics,
+    trailer-format example, `### Resolvability`,
+    `### .vc-config.toml`.
+  - cycle-protocol.md `### vc-x1 push wrapper`: push injects
+    the `ochid:` trailers itself — don't hand-write them.
+- Stale "active chores file" prose genericized: notes/README.md
+  no longer names chores-10 as the active file (the
+  refactor-tracking tables remain in chores-10.md, reachable
+  via ARCHITECTURE.md); ARCHITECTURE.md's further-reading
+  bullets simplified to match.
+
+### As-built ladder
+
+The planned `-0`/`-1`/close-out ladder collapsed to a single
+commit once `vc-x1 push` (one app commit per invocation, ochid
+trailers injected by the tool) became the commit vehicle:
+
+- 0.65.1 — bug write-up, link fixes, fc port, Todo #1,
+  close-out bookkeeping; one `vc-x1 push main`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"

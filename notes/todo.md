@@ -33,7 +33,17 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **validate-numbering: rename the pair, check all
+1. **fix finalize ochid-dropping squash.** `finalize_exec`
+   (`src/finalize.rs`) squashes with
+   `--use-destination-message` unconditionally, so a described
+   journal on `@` loses its message and `ochid:` trailers —
+   this broke the code↔session cross-links in the fc project
+   (see [bugs.md](bugs.md) Bugs #1 for the incident).
+   - Before squashing, detect `ochid:` trailers present in the
+     source message but absent from the destination's.
+   - Refuse the squash (or merge the trailers into the
+     destination message) instead of dropping them.
+2. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -62,7 +72,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-2. **pre-commit: single rule (no docs skip) + doc validators.**
+3. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -84,7 +94,7 @@ _No cycle currently in progress._
    - Its own near-term cycle (chosen over a 0.61.1 insert to
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see Idea #2 on fragile version targets.
-3. **vc-x1 push: validate body opens with an intro paragraph.**
+4. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -101,7 +111,7 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-4. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+5. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -119,7 +129,7 @@ _No cycle currently in progress._
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-5. **vc-x1 push --squash: symmetric squash on both repos.**
+6. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -140,7 +150,7 @@ _No cycle currently in progress._
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-6. **single-field `options_flags` leaves → `value` field.**
+7. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -152,13 +162,13 @@ _No cycle currently in progress._
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-7. **`por → dual` conversion.** Attach a `.claude`
+8. **`por → dual` conversion.** Attach a `.claude`
    companion repo + `.vc-config.toml` to an existing por
    workspace; emit cross-links going forward. Manual
    setup on an external por workspace (2026-05-14)
    proved arduous; this should be a routine subcommand.
    Design stub in [[1]] § 2.
-8. **`validate-desc` / `fix-desc` por equalization.**
+9. **`validate-desc` / `fix-desc` por equalization.**
    Replace the `other_repo_from_config` prelude in both
    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
    with a scope-aware resolution that no-ops `Side::Bot`
@@ -315,6 +325,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[15]]
 - docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[16]]
 - docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[17]]
+- docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[18]]
 
 # References
 
@@ -336,3 +347,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [15]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630
 [16]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631
 [17]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
+[18]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
