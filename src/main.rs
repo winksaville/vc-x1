@@ -352,8 +352,9 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    // Surface any failure markers left by previous detached
-    // `finalize --exec` children before running the next command.
+    // Failure markers left by previous detached `finalize --exec`
+    // children are surfaced *after* the command runs, so historical
+    // failures can't be misread as part of the current run's output.
     // Skip when this *is* the exec child — surfacing destroys the
     // markers, and the child's log isn't where the user looks for
     // them. This gate covers one race (detached child eating its
@@ -362,14 +363,7 @@ fn main() -> ExitCode {
     // read, no notify-at-failure) tracked at
     // [../notes/todo.md#bugs] — see the
     // `finalize::surface_previous_failures is racy` entry.
-    match &cmd {
-        Commands::Finalize(args) => {
-            if !args.exec {
-                finalize::surface_previous_failures();
-            }
-        }
-        _ => finalize::surface_previous_failures(),
-    }
+    let surface_after = !matches!(&cmd, Commands::Finalize(args) if args.exec);
 
     let ctx = match context::Context::load(cli.log) {
         Ok(c) => c,
@@ -379,7 +373,7 @@ fn main() -> ExitCode {
         }
     };
 
-    match cmd {
+    let result = match cmd {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
@@ -394,7 +388,12 @@ fn main() -> ExitCode {
         Commands::Sync(args) => args.dispatch(&ctx),
         Commands::Finalize(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
+    };
+
+    if surface_after {
+        finalize::surface_previous_failures();
     }
+    result
 }
 
 #[cfg(test)]

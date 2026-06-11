@@ -31,6 +31,10 @@ fn status_dir() -> Option<PathBuf> {
 
 /// Drop a failure marker for the detached child whose non-zero exit
 /// the caller can't observe.
+///
+/// - The error is flattened to one line so the marker keeps its
+///   one-`key=value`-per-line shape (errors may wrap for terminal
+///   readability).
 fn write_failure_marker(params: &FinalizeParams, err: &str) {
     let Some(dir) = status_dir() else {
         return;
@@ -44,8 +48,9 @@ fn write_failure_marker(params: &FinalizeParams, err: &str) {
         .unwrap_or(0); // OK: filesystem-sortable timestamp; 0 on the impossible pre-epoch path
     let pid = std::process::id();
     let path = dir.join(format!("{ns}-{pid}.status"));
+    let err_flat = err.split_whitespace().collect::<Vec<_>>().join(" ");
     let content = format!(
-        "timestamp_ns={ns}\npid={pid}\nrepo={}\nbookmark={}\nerror={err}\n",
+        "timestamp_ns={ns}\npid={pid}\nrepo={}\nbookmark={}\nerror={err_flat}\n",
         params.repo.display(),
         params.bookmark.as_deref().unwrap_or(""),
     );
@@ -54,6 +59,10 @@ fn write_failure_marker(params: &FinalizeParams, err: &str) {
 
 /// Read, print, and delete any failure markers left by previous detached
 /// finalize children. Cheap no-op when the directory doesn't exist.
+///
+/// - Called after the current command's output (see `main`), so the
+///   block opens with a loud banner marking everything below it as
+///   historical — failures from earlier detached runs, not this one.
 pub fn surface_previous_failures() {
     let Some(dir) = status_dir() else {
         return;
@@ -67,10 +76,14 @@ pub fn surface_previous_failures() {
         .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("status"))
         .collect();
     paths.sort();
+    if paths.is_empty() {
+        return;
+    }
+    eprintln!("warn: ==== failure(s) from previous detached finalize run(s) ====");
     for path in paths {
         if let Ok(content) = std::fs::read_to_string(&path) {
             eprintln!(
-                "warn: previous finalize failure ({}):",
+                "warn: previous detached finalize failed ({}):",
                 path.file_stem()
                     .map(|s| s.to_string_lossy())
                     .unwrap_or_default() // OK: filename without extension; empty on unexpected absence
@@ -185,12 +198,14 @@ fn preflight(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> 
     let repo_str = params.repo.to_string_lossy();
     let cwd = std::path::Path::new(".");
 
-    // Verify squash revsets resolve to something.
+    // Verify squash revsets resolve to something, and that the squash
+    // won't drop source-only ochid: trailers.
     if let Some(ref sq) = params.squash {
         jj_rev_exists(&repo_str, cwd, &sq.source)
             .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
         jj_rev_exists(&repo_str, cwd, &sq.target)
             .map_err(|e| format!("squash target '{}' does not resolve: {e}", sq.target))?;
+        check_squash_keeps_ochids(&repo_str, cwd, sq)?;
     }
 
     // Refuse to operate on a repo with conflicts.
@@ -278,6 +293,79 @@ fn preflight(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
+/// Extract the values of column-0 `ochid:` trailer lines from a
+/// commit description, in order of appearance.
+fn extract_ochids(desc: &str) -> Vec<String> {
+    desc.lines()
+        .filter_map(|line| line.strip_prefix("ochid:"))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
+/// Return the `ochid:` trailer values present in `source_desc` but
+/// absent from `target_desc` — the trailers a squash with
+/// `--use-destination-message` would silently drop (Bugs #1).
+fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
+    let kept = extract_ochids(target_desc);
+    extract_ochids(source_desc)
+        .into_iter()
+        .filter(|ochid| !kept.contains(ochid))
+        .collect()
+}
+
+/// Refuse a squash that would drop the source message's `ochid:`
+/// trailers.
+///
+/// - Compares the two messages' `ochid:` trailers; errors when the
+///   source carries any the destination's message lacks —
+///   `--use-destination-message` would discard them, leaving the
+///   counterpart repo's cross-links dangling (Bugs #1).
+/// - Called from `preflight` (visible early failure) and again in
+///   `finalize_exec` right before the squash (authoritative — a
+///   `jj describe` can land between preflight and the delayed
+///   squash).
+fn check_squash_keeps_ochids(
+    repo: &str,
+    cwd: &std::path::Path,
+    sq: &SquashSpec,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let desc_of = |rev: &str| {
+        run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                rev,
+                "--no-graph",
+                "-T",
+                "description",
+                "-R",
+                repo,
+            ],
+            cwd,
+        )
+    };
+    let at_risk = ochids_at_risk(&desc_of(&sq.source)?, &desc_of(&sq.target)?);
+    if at_risk.is_empty() {
+        return Ok(());
+    }
+    let listed = at_risk
+        .iter()
+        .map(|ochid| format!("  {ochid}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Err(format!(
+        "refusing squash {} → {}: the squash would drop ochid: trailers\n\
+         the destination's message lacks:\n\
+         {listed}\n\
+         merge the messages by hand (`jj describe {} -R {}`) or clear\n\
+         the source's description, then retry",
+        sq.source, sq.target, sq.target, repo,
+    )
+    .into())
+}
+
 /// Return Ok(()) if the revset resolves to one or more commits in `repo`.
 fn jj_rev_exists(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<(), String> {
     run(
@@ -348,6 +436,11 @@ fn finalize_exec(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Erro
         let delay = std::time::Duration::from_secs_f64(params.delay_secs);
         debug!("finalize_exec: sleeping {delay:?}");
         std::thread::sleep(delay);
+
+        // Re-check after the delay: a `jj describe` can land between
+        // the parent's preflight and this point, so the pre-squash
+        // state is the one that matters.
+        check_squash_keeps_ochids(&repo_str, cwd, sq)?;
 
         info!("finalize: squashing {} → {}...", sq.source, sq.target);
         run(
@@ -633,6 +726,46 @@ mod tests {
     fn bad_squash() {
         let err = parse_err(&["vc-x1", "finalize", "--squash", "@", "--push", "main"]);
         assert!(err.contains("expected SOURCE,TARGET"), "got: {err}");
+    }
+
+    #[test]
+    fn extract_ochids_none() {
+        assert!(extract_ochids("").is_empty());
+        assert!(extract_ochids("title\n\nbody, no trailers\n").is_empty());
+    }
+
+    #[test]
+    fn extract_ochids_trailers() {
+        let desc = "title\n\nbody line\n\nochid: /abcdefabcdef\nochid: /.claude/xyzxyzxyzxyz\n";
+        assert_eq!(
+            extract_ochids(desc),
+            vec!["/abcdefabcdef", "/.claude/xyzxyzxyzxyz"]
+        );
+    }
+
+    #[test]
+    fn extract_ochids_column_zero_only() {
+        // Indented mentions aren't trailers; bare "ochid:" has no value.
+        let desc = "title\n\n  ochid: /indented\nochid:\nochid:   /trimmed  \n";
+        assert_eq!(extract_ochids(desc), vec!["/trimmed"]);
+    }
+
+    #[test]
+    fn ochids_at_risk_detects_source_only() {
+        let source = "journal\n\nochid: /aaa\nochid: /bbb\n";
+        let target = "previous journal\n\nochid: /aaa\n";
+        assert_eq!(ochids_at_risk(source, target), vec!["/bbb"]);
+    }
+
+    #[test]
+    fn ochids_at_risk_empty_cases() {
+        // Undescribed source (the normal finalize snapshot) is safe.
+        assert!(ochids_at_risk("", "prev\n\nochid: /aaa\n").is_empty());
+        // Source trailers all present in the destination are safe.
+        let both = "msg\n\nochid: /aaa\n";
+        assert!(ochids_at_risk(both, both).is_empty());
+        // Source without trailers is safe regardless of destination.
+        assert!(ochids_at_risk("described, no trailers\n", "prev\n").is_empty());
     }
 
     #[test]

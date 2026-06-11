@@ -722,6 +722,121 @@ revset unresolved, push target lacks a description) exit the parent
 synchronously with a non-zero status and a pointed error on stderr,
 before the child is ever spawned.
 
+### Testing the ochid-trailer guard
+
+`finalize --squash` refuses to drop `ochid:` trailers: when the
+squash source's message carries trailers the destination's message
+lacks, `--use-destination-message` would silently discard them and
+leave the counterpart repo's cross-links dangling (the incident is
+recorded as Bugs #1 in [notes/bugs.md](notes/bugs.md)). The guard
+runs twice — in the parent's pre-flight and again in the child
+right before the squash — so it also catches a `jj describe` that
+lands during the `--delay` window.
+
+The guard fires before any push, so no remote is needed; a plain
+scratch repo suffices. The three examples below are independent
+demonstrations — they share one scratch repo only for convenience;
+the final retry is the resolution of example 3:
+
+```bash
+repo=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
+jj git init "$repo"
+
+# previous journal: committed, no trailer
+echo a > "$repo/file.txt"
+jj commit -m 'prev journal' -R "$repo"
+
+# example 1 — synchronous refusal: journal described on @ WITH
+# an ochid trailer; finalize exits 1 naming the trailer
+echo b >> "$repo/file.txt"
+jj describe -R "$repo" -m 'new journal
+
+ochid: /abc123abc123'
+vc-x1 finalize --repo "$repo" --squash --delay 0
+
+# example 2 — normal case: clear the description; the squash
+# proceeds
+jj describe -R "$repo" -m ''
+vc-x1 finalize --repo "$repo" --squash --delay 0
+
+# example 3 — detached race: a clean @ passes the parent's
+# pre-flight, then a describe lands inside the delay window —
+# the child's re-check refuses and drops a failure marker
+echo c >> "$repo/file.txt"
+vc-x1 finalize --repo "$repo" --squash --delay 5 --detach
+jj describe -R "$repo" -m 'late journal
+
+ochid: /def456def456'
+
+# resolution of example 3: after the child exits (~5s), clear the
+# description and retry; the current run's output comes first,
+# then the child's failure marker is surfaced as a loud
+# historical block (any vc-x1 command surfaces pending markers)
+sleep 6
+jj describe -R "$repo" -m ''
+vc-x1 finalize --repo "$repo" --squash --delay 0
+
+# cleanup
+rm -rf "$repo"
+```
+
+Output captured from a real run (`/tmp/vc-x1-guard-GVHMGK` is the
+fixture); regenerate these transcripts with
+[`support/gen-exmpl-1-3.sh`](support/README.md#gen-example-1---3-output).
+Example 1 is refused synchronously with exit 1:
+
+```
+$ vc-x1 finalize --repo "$repo" --squash --delay 0
+error: refusing squash @ → @-: the squash would drop ochid: trailers
+the destination's message lacks:
+  /abc123abc123
+merge the messages by hand (`jj describe @- -R /tmp/vc-x1-guard-GVHMGK`) or clear
+the source's description, then retry
+```
+
+Example 2 with the description cleared squashes normally, exit 0:
+
+```
+$ vc-x1 finalize --repo "$repo" --squash --delay 0
+finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
+finalize: squashing @ → @-...
+finalize: done
+```
+
+Example 3's parent passes pre-flight on the still-clean `@` and
+detaches; the trailer-bearing describe then lands inside the
+child's 5-second delay window:
+
+```
+$ vc-x1 finalize --repo "$repo" --squash --delay 5 --detach
+finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
+finalize: detached (pid 256261)
+```
+
+Unlike examples 1–2 the refusal happens in the background — the
+parent already returned, so there is no terminal for the child's
+error to land on. The failure marker is what makes it visible:
+the next `vc-x1` run prints it *after its own output*, under a
+banner marking it as historical. Here the retry (after clearing
+the description) squashes cleanly — `finalize: done` — and then
+surfaces the child's recorded refusal (`error=`, flattened to
+keep the marker one key per line), exit 0:
+
+```
+$ jj describe -R "$repo" -m ''
+$ vc-x1 finalize --repo "$repo" --squash --delay 0
+finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
+finalize: squashing @ → @-...
+finalize: done
+warn: ==== failure(s) from previous detached finalize run(s) ====
+warn: previous detached finalize failed (1781213067506771156-256261):
+  timestamp_ns=1781213067506771156
+  pid=256261
+  repo=/tmp/vc-x1-guard-GVHMGK
+  bookmark=
+  error=refusing squash @ → @-: the squash would drop ochid: trailers the destination's message lacks: /def456def456 merge the messages by hand (`jj describe @- -R /tmp/vc-x1-guard-GVHMGK`) or clear the source's description, then retry
+```
+
 ## Cross-repo Linking with Git Trailers
 
 Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers)
@@ -849,6 +964,21 @@ Two shell gotchas worth remembering:
 `VC_X1_TEST_KEEP` is a debugging knob — every fixture-creating
 test in the run leaks its tempdir while it's set. Clean up with
 the `find` recipe above, or just `rm -rf` the announced paths.
+
+## Support
+
+Helper scripts for maintaining this repo's docs and examples live
+in [`support/`](support/) — see
+[support/README.md](support/README.md).
+
+### gen-exmpl-1-3.sh
+
+Regenerates the captured transcripts for
+[Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)
+by running the three examples (plus the example-3 resolution)
+against a scratch repo and printing the `$ command` + output
+blocks ready to paste. Details:
+[Gen Example 1 - 3 output](support/README.md#gen-example-1---3-output).
 
 ## Thoughts for the future
 

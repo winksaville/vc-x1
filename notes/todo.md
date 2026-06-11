@@ -30,6 +30,8 @@ so any automatic message merge guesses wrong in some direction.
      version, pick up this entry, open chores section (done)
    - 0.65.2-1 ochid-trailer guard in finalize: extract + compare
      trailers, refuse in preflight and finalize_exec; unit tests
+     + README manual-test section + post-run marker surfacing
+     + support/gen-exmpl-1-3.sh transcript regenerator (done)
    - 0.65.2 close-out and validation
 
 ## Todo
