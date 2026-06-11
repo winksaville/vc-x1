@@ -147,6 +147,8 @@ broader cycle-protocol.md codification).
 
 ## docs: record finalize ochid-loss bug (0.65.1)
 
+Commits: [[4]]
+
 The fc project hit a `finalize` squash that silently dropped a
 described journal's message and its 6 `ochid:` trailers
 (2026-06-08; recovered 2026-06-10 via op-log surgery). The bug
@@ -182,8 +184,11 @@ trailers injected by the tool) became the commit vehicle:
 - 0.65.1 — bug write-up, link fixes, fc port, Todo #1,
   close-out bookkeeping; one `vc-x1 push main`.
 
+## fix: refuse ochid-dropping squash (0.65.2)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
 [3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"
+[4]: https://github.com/winksaville/vc-x1/commit/28a0211a364a "28a0211a364aea03d19fc14a655275ba98c0498f"

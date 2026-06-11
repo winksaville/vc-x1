@@ -17,7 +17,20 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**fix finalize ochid-dropping squash.** `finalize_exec`
+(`src/finalize.rs`) squashes with `--use-destination-message`
+unconditionally, so a described journal on `@` loses its message
+and `ochid:` trailers — this broke the code↔session cross-links
+in the fc project ([bugs.md](bugs.md) Bugs #1). Decision: refuse
+the squash when the source message carries `ochid:` trailers the
+destination's message lacks — the destination has its own ochids,
+so any automatic message merge guesses wrong in some direction.
+
+   - 0.65.2-0 Preparation: backfill 0.65.1 Commits ref, bump
+     version, pick up this entry, open chores section (done)
+   - 0.65.2-1 ochid-trailer guard in finalize: extract + compare
+     trailers, refuse in preflight and finalize_exec; unit tests
+   - 0.65.2 close-out and validation
 
 ## Todo
 
@@ -33,16 +46,31 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **fix finalize ochid-dropping squash.** `finalize_exec`
-   (`src/finalize.rs`) squashes with
-   `--use-destination-message` unconditionally, so a described
-   journal on `@` loses its message and `ochid:` trailers —
-   this broke the code↔session cross-links in the fc project
-   (see [bugs.md](bugs.md) Bugs #1 for the incident).
-   - Before squashing, detect `ochid:` trailers present in the
-     source message but absent from the destination's.
-   - Refuse the squash (or merge the trailers into the
-     destination message) instead of dropping them.
+1. **Version-number protocol is fragile — versions are
+   baked into titles/bodies/todo/done/chores before the
+   change lands.** The cycle protocol embeds an `X.Y.Z-N`
+   version in commit titles and bodies, `## Todo` /
+   `## Done` entries, and chores headers — all written
+   while the work is in progress, i.e. before it lands.
+   But version numbers are subject to change: in a public,
+   merge-based flow (e.g. Linux), the version a change
+   ships under is only fixed when it merges into `main`,
+   so the landing version can't be anticipated while the
+   work is underway. Pervasive version-in-text is
+   therefore fragile for any non-linear / multi-contributor
+   workflow. Promoted from Ideas at 0.65.2-0; slated for
+   the cycle after 0.65.2.
+   - Open question: what identifies a cycle's commits if
+     not a pre-assigned version?
+     - Needs to be unique within some agreed upon domain.
+       A contributors email address would do it, but also
+       a UUID (short-version) for a contribution. I could
+       imagine a UUID generated from the initial email/issue
+       that and then "version number" schema appended to that.
+   - Surfaces to update once the identifier is chosen:
+     cycle-protocol.md (title shape, Numbering), AGENTS.md
+     (commit-recording headers), and the `vc-x1` validators
+     that parse `(X.Y.Z)` strings.
 2. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
@@ -93,7 +121,8 @@ _No cycle currently in progress._
      the carve-out stops making sense.
    - Its own near-term cycle (chosen over a 0.61.1 insert to
      avoid rewriting published 0.62.0-x history); no version
-     pre-assigned — see Idea #2 on fragile version targets.
+     pre-assigned — see the Todo "Version-number protocol is
+     fragile" on fragile version targets.
 4. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
@@ -216,30 +245,7 @@ _No cycle currently in progress._
      drop) before declaring the plan; Close-out
      captures unresolved follow-ups into `## Ideas`.
 
-2. **Version-number protocol is fragile — versions are
-   baked into titles/bodies/todo/done/chores before the
-   change lands.** The cycle protocol embeds an `X.Y.Z-N`
-   version in commit titles and bodies, `## Todo` /
-   `## Done` entries, and chores headers — all written
-   while the work is in progress, i.e. before it lands.
-   But version numbers are subject to change: in a public,
-   merge-based flow (e.g. Linux), the version a change
-   ships under is only fixed when it merges into `main`,
-   so the landing version can't be anticipated while the
-   work is underway. Pervasive version-in-text is
-   therefore fragile for any non-linear / multi-contributor
-   workflow.
-   - No fix yet — capture the problem; triage at a later
-     Preparation.
-   - Open question: what identifies a cycle's commits if
-     not a pre-assigned version?
-     - Needs to be unique within some agreed upon domain.
-       A contributors email address would do it, but also
-       a UUID (short-version) for a contribution. I could
-       imagine a UUID generated from the initial email/issue
-       that and then "version number" schema appended to that.
-
-3. **`vc` as a code+conversation provenance tool (grander
+2. **`vc` as a code+conversation provenance tool (grander
    ambition).** Today `vc-x1` manages a dual repo (code +
    `.claude`) cross-linked by `ochid:`. The larger aim is
    to *surface* that link — view history with the
@@ -268,7 +274,7 @@ _No cycle currently in progress._
    - Possible artifact: a top-level
      `notes/design-cli/vision.md` framing the direction,
      with the parity and conversion docs as sub-designs.
-4. **Restructure the design-cli parity docs (target
+3. **Restructure the design-cli parity docs (target
    0.63.0).** `por-dual-parity-audit.md` (~1200 lines)
    fuses a *frozen* audit (the `## 1`–`## 8` snapshot
    evidence) with a *living* design (axes, decisions,
