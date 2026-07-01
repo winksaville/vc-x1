@@ -19,9 +19,24 @@ fn parse_defaults() {
     assert!(!cli.args.check);
     assert!(!cli.args.no_check);
     assert!(!cli.args.quiet);
+    assert!(!cli.args.rebase);
     assert_eq!(cli.args.bookmark, "main");
     assert_eq!(cli.args.remote, "origin");
     assert!(cli.args.scope.is_none());
+}
+
+/// `--rebase` sets the flag; it flows through to `SyncParams`.
+#[test]
+fn parse_rebase_flag() {
+    use clap::Parser;
+    #[derive(Parser)]
+    struct Cli {
+        #[command(flatten)]
+        args: SyncArgs,
+    }
+    let cli = Cli::try_parse_from(["test", "--rebase"]).unwrap();
+    assert!(cli.args.rebase);
+    assert!(SyncParams::from(&cli.args).rebase);
 }
 
 /// `-q` / `--quiet` CLI form is honored.

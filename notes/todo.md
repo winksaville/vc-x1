@@ -45,14 +45,14 @@ Plan ladder:
 - 0.66.0-0 Preparation (done) — backfill 0.65.2 Commits
   ref, bump to 0.66.0-0, pick up this entry, open the chores
   section.
-- 0.66.0-1 scaffolding — `--rebase` bool on `SyncArgs` /
-  `SyncParams`; bot-repo re-derivation + `@` / `@-` empty and
-  ancestry probes; unit tests.
-- 0.66.0-2 reposition pass — implement the code + `.claude`
-  rules as a final apply-mode pass, outside the `op_restore`
-  revert region; fold out `ensure_at_on_main`; integration
-  tests (fast-forward, non-empty, diverged, `.claude`
-  off-main error).
+- 0.66.0-1 reposition pass (done) — `--rebase` flag +
+  helpers (session-repo id via `.vc-config.toml` path, `@` /
+  `@-` empty and ancestry probes) + the code and `.claude`
+  decision rules, wired as a final apply-mode pass in
+  `sync_repos` outside the `op_restore` revert region; fold
+  out `ensure_at_on_main`; unit + integration tests. (Scaffold
+  and pass are one commit — an unconsumed flag / helper trips
+  `-D warnings`.)
 - 0.66.0 close-out — Done entry, move `## In Progress` →
   chores, README update for `--rebase`.
 

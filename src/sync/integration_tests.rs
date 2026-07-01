@@ -113,9 +113,36 @@ fn apply_params() -> SyncParams {
         quiet: false,
         bookmark: "main".to_string(),
         remote: "origin".to_string(),
+        rebase: false,
         repo: None,
         scope: None,
     }
+}
+
+/// Apply-mode params with `--rebase` set (auto-confirm the code-repo
+/// non-empty `@` rebase).
+fn rebase_params() -> SyncParams {
+    SyncParams {
+        rebase: true,
+        ..apply_params()
+    }
+}
+
+/// True when `revset` matches at least one commit in `repo`.
+fn has(repo: &Path, revset: &str) -> bool {
+    !jj(
+        repo,
+        &[
+            "log",
+            "-r",
+            revset,
+            "--no-graph",
+            "-T",
+            r#"commit_id.short(12) ++ "\n""#,
+        ],
+    )
+    .trim()
+    .is_empty()
 }
 
 /// Add a local-only commit on `main` in `repo` (not pushed), then
@@ -174,44 +201,41 @@ fn sync_up_to_date() {
 }
 
 /// Scenario 2a: a non-empty `@` on top of main (simulates `/exit`
-/// trailing session writes in `.claude`) is tolerated when there's
-/// nothing new on the remote. `@`'s commit id changes because jj
-/// snapshots the written file, but its content is preserved and
-/// `@` stays reachable from main.
+/// trailing session writes in `.claude`) when there's nothing new on
+/// the remote. The session repo always `jj new main`s: `@` becomes a
+/// fresh empty child of the unmoved main, and the trailing commit is
+/// preserved as a non-empty sibling head (no longer in the working
+/// copy).
 #[test]
-fn sync_tolerates_trailing_at_up_to_date() {
-    let fx = Fixture::new("trailing-uptodate");
+fn sync_session_jj_new_when_up_to_date() {
+    let fx = Fixture::new("session-jjnew-uptodate");
     let pre_main = cid(&fx.claude, "main");
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
     sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    // main didn't move.
     assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
-    let on_main = jj(
-        &fx.claude,
-        &[
-            "log",
-            "-r",
-            "main::@",
-            "--no-graph",
-            "-T",
-            r#"commit_id.short(12) ++ "\n""#,
-        ],
+    // @ is a fresh empty child of main.
+    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
+    // The trailing session commit survives as a non-empty sibling head.
+    assert!(
+        has(&fx.claude, "heads(all()) & ~empty()"),
+        "former @ preserved as a non-empty sibling head"
     );
-    assert!(!on_main.trim().is_empty(), "@ should stay on main's line");
-    assert_eq!(
-        fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
-        "{\"line\":1}\n",
-        "trailing content preserved"
+    // The trailing file is no longer in the working copy (@ moved off it).
+    assert!(
+        !fx.claude.join("trailing.jsonl").exists(),
+        "@ no longer holds the trailing file"
     );
 }
 
-/// Scenario 2b: `@` has trailing writes and the remote advanced
-/// while the session was offline. jj's fetch auto-ff's main but
-/// leaves `@` behind; sync must then rebase `@` onto the new main
-/// so the session tail doesn't end up orphaned. Content is
-/// preserved across the rebase.
+/// Scenario 2b: `@` has trailing writes and the remote advanced while
+/// the session was offline. jj's fetch auto-ff's main; the session
+/// repo then `jj new main`s onto the new tip, leaving the trailing
+/// commit as a sibling head off the old tip.
 #[test]
-fn sync_rebases_trailing_at_when_main_moves() {
-    let fx = Fixture::new("trailing-rebase");
+fn sync_session_jj_new_when_main_moves() {
+    let fx = Fixture::new("session-jjnew-moved");
     let remote_claude = fx.base.join("remote-claude.git");
     let remote_head = push_from_clone(
         &fx.base,
@@ -229,27 +253,40 @@ fn sync_rebases_trailing_at_when_main_moves() {
         remote_head,
         "local main should match remote after auto-ff"
     );
-    // @ should now be a descendant of main.
-    let on_main = jj(
-        &fx.claude,
-        &[
-            "log",
-            "-r",
-            "main::@",
-            "--no-graph",
-            "-T",
-            r#"commit_id.short(12) ++ "\n""#,
-        ],
-    );
+    // @ is a fresh empty child of the new main.
+    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
+    // The trailing session commit survives as a non-empty sibling head.
     assert!(
-        !on_main.trim().is_empty(),
-        "@ should be reachable from main after ensure_at_on_main"
+        has(&fx.claude, "heads(all()) & ~empty()"),
+        "former @ preserved as a non-empty sibling head"
     );
-    // Trailing content preserved on disk.
-    assert_eq!(
-        fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
-        "{\"line\":2}\n",
-        "trailing content preserved across @ rebase"
+    // The trailing file is no longer in the working copy.
+    assert!(
+        !fx.claude.join("trailing.jsonl").exists(),
+        "@ no longer holds the trailing file"
+    );
+}
+
+/// Scenario 2c: the session repo refuses to reposition when `@-` is
+/// not on main. A local session commit ahead of main (main left
+/// behind) puts `@-` off main's line, so `jj new main` would strand
+/// it — sync errors instead.
+#[test]
+fn sync_session_errors_when_at_parent_off_main() {
+    let fx = Fixture::new("session-off-main");
+    // A described commit ahead of main, with a fresh @ above it, so
+    // @- is ahead of (not on) main.
+    fs::write(fx.claude.join("ahead.jsonl"), "{\"line\":9}\n").expect("write ahead file");
+    jj(&fx.claude, &["describe", "@", "-m", "feat: session ahead"]);
+    jj(&fx.claude, &["new"]);
+
+    let err = sync_repos(&fx.repos(), &apply_params())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("not on main"),
+        "expected off-main refusal, got: {err}"
     );
 }
 
@@ -452,4 +489,101 @@ fn sync_diverged_conflict_reverts() {
         conflicts.trim().is_empty(),
         "no conflicts should remain after revert"
     );
+}
+
+/// Scenario 6: code repo behind with a clean `@`. Fetch fast-forwards
+/// main; reposition then `jj new`s the empty `@` onto the new tip.
+#[test]
+fn sync_code_jj_new_when_behind() {
+    let fx = Fixture::new("code-jjnew-behind");
+    let remote_code = fx.base.join("remote-code.git");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_code,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    assert_eq!(
+        cid(&fx.work, "main"),
+        remote_head,
+        "main should ff to remote"
+    );
+    // @ is a fresh empty child of the new main.
+    assert!(has(&fx.work, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.work, "main::@"), "@ should be a child of main");
+    assert_eq!(
+        cid(&fx.work, "@-"),
+        remote_head,
+        "@- should be the new main"
+    );
+}
+
+/// Scenario 7: code repo behind with a non-empty `@` and no
+/// `--rebase`. Without a TTY the rebase prompt defaults to no, so `@`
+/// is left in place (off the new main) and its changes are preserved.
+#[test]
+fn sync_code_skips_rebase_without_flag() {
+    let fx = Fixture::new("code-skip-rebase");
+    let remote_code = fx.base.join("remote-code.git");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_code,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    // Uncommitted changes make @ non-empty.
+    fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
+    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    assert_eq!(
+        cid(&fx.work, "main"),
+        remote_head,
+        "main should ff to remote"
+    );
+    // @ left off the new main; changes preserved in place.
+    assert!(
+        !has(&fx.work, "main::@"),
+        "@ should be left off the new main"
+    );
+    assert_eq!(
+        fs::read_to_string(fx.work.join("wip.txt")).unwrap(),
+        "wip\n",
+        "WIP preserved in place"
+    );
+}
+
+/// Scenario 8: code repo behind with a non-empty `@` and `--rebase`.
+/// The flag auto-confirms, so `@` is carried onto the new main with
+/// its changes intact and no conflicts.
+#[test]
+fn sync_code_rebases_with_flag() {
+    let fx = Fixture::new("code-rebase-flag");
+    let remote_code = fx.base.join("remote-code.git");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_code,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
+    sync_repos(&fx.repos(), &rebase_params()).expect("sync should succeed");
+    assert_eq!(
+        cid(&fx.work, "main"),
+        remote_head,
+        "main should ff to remote"
+    );
+    // @ rebased onto the new main; changes preserved.
+    assert!(has(&fx.work, "main::@"), "@ should be rebased onto main");
+    assert_eq!(
+        fs::read_to_string(fx.work.join("wip.txt")).unwrap(),
+        "wip\n",
+        "WIP preserved across rebase"
+    );
+    assert!(!has(&fx.work, "conflicts()"), "no conflicts expected");
 }

@@ -8,16 +8,19 @@
 //! `current_op_id` / `op_restore` are `pub(crate)` so `push` reuses
 //! the same snapshot-and-restore pattern.
 
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
-use crate::common::{default_scope, find_workspace_root, run, scope_to_repos};
+use crate::common::{default_scope, find_workspace_root, prompt, run, scope_to_repos};
 use crate::context::Context;
+use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::options_flags::scope::{Scope, parse_scope};
 use crate::subcommand::SubcommandRunner;
+use crate::toml_simple;
 
 /// Fetch and sync a set of repos to their remotes.
 ///
@@ -62,6 +65,16 @@ pub struct SyncArgs {
     #[arg(long, default_value = "origin")]
     pub remote: String,
 
+    /// Rebase a non-empty `@` onto the synced bookmark without asking.
+    ///
+    /// After a successful `--no-check` sync, `@` is repositioned onto
+    /// the synced bookmark. When the code repo's `@` carries changes
+    /// it normally asks before rebasing; `--rebase` answers yes up
+    /// front for non-interactive use. Ignored in `--check` mode and
+    /// for the session repo (which always `jj new main`).
+    #[arg(long)]
+    pub rebase: bool,
+
     /// Workspace root, or a single jj repo to sync on its own.
     ///
     /// - `-R PATH` alone — sync just the repo at PATH.
@@ -101,6 +114,9 @@ pub struct SyncArgs {
 ///   (absent ⇒ check mode: fetch + report only). The `--check`
 ///   flag is the explicit form of the default and carries no
 ///   value of its own, so it isn't mirrored here.
+/// - `rebase`: `--rebase` — rebase a non-empty `@` onto the synced
+///   bookmark without prompting (code repo only; see
+///   `reposition_code`).
 /// - `repo`: `-R/--repo` path (None ⇒ discover the workspace
 ///   root from cwd).
 /// - `scope`: `--scope` parsed (None ⇒ resolve via the
@@ -110,6 +126,7 @@ pub struct SyncParams {
     pub bookmark: String,
     pub remote: String,
     pub no_check: bool,
+    pub rebase: bool,
     pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
 }
@@ -124,6 +141,7 @@ impl From<&SyncArgs> for SyncParams {
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
             no_check: a.no_check,
+            rebase: a.rebase,
             repo: a.repo.clone(),
             scope: a.scope.clone(),
         }
@@ -265,10 +283,23 @@ pub fn sync_repos(
                 Err(re) => warn!("  {}: revert failed: {re}", repo.display()),
             }
         }
+        debug!("sync: exit");
+        return result;
+    }
+
+    // Reposition `@` onto the freshly-synced bookmark. Runs only in
+    // apply mode and only after every repo synced cleanly, and sits
+    // OUTSIDE the `op_restore` revert region above: a reposition
+    // failure (e.g. the session repo's `@-` off main) is surfaced
+    // without rolling back the successful fetch / fast-forward.
+    if params.no_check {
+        for (repo, _) in &snapshots {
+            reposition_at(repo, &params.bookmark, params)?;
+        }
     }
 
     debug!("sync: exit");
-    result
+    Ok(())
 }
 
 /// Fetch and classify each repo, then act (or not, in dry-run).
@@ -324,11 +355,12 @@ fn run_plan(
     }
 
     // Phase 3 — act (subprocess output streams through as usual).
-    // `act_on_state` and `ensure_at_on_main` short-circuit when
-    // `params.no_check` is false, so check mode is a true no-op here.
+    // `act_on_state` short-circuits when `params.no_check` is false,
+    // so check mode is a true no-op here. Repositioning `@` onto the
+    // synced bookmark happens after `run_plan` returns (see
+    // `sync_repos`), outside the revert region.
     for ctx in &ctxs {
         act_on_state(ctx, params)?;
-        ensure_at_on_main(&ctx.path, &params.bookmark, params.no_check)?;
     }
 
     // Phase 4 — check mode is fatal when action would be needed.
@@ -372,45 +404,155 @@ fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error:
     Ok(stderr)
 }
 
-/// Ensure `@` is a descendant of `bookmark`, rebasing if not.
+/// Reposition `@` onto the freshly-synced bookmark after a successful
+/// apply-mode sync.
 ///
-/// `jj git fetch` fast-forwards a tracked local bookmark to the remote
-/// tip when local is a strict ancestor, but leaves `@` behind — still
-/// parented on the *pre-fetch* bookmark commit. The `.claude` repo is
-/// the motivating case: trailing session writes (e.g. `/exit`'s jsonl
-/// tail) sit in `@`, and without this step they'd end up orphaned on a
-/// stale branch when the remote advanced.
+/// Dispatches on repo role — the caller has already gated on apply
+/// mode:
 ///
-/// Skipped when `main::@` is already non-empty (i.e., `@` is already
-/// reachable from `bookmark`). On `--no-check`, runs
-/// `jj rebase -b @ -d <bookmark>` which carries all commits between
-/// the old parent and `@` forward, then checks `conflicts()` — any
-/// conflict in this step trips the outer revert the same way a
-/// conflicted `act_on_state` rebase would.
-fn ensure_at_on_main(
+/// - **session (bot) sub-repo** → always `jj new main`
+///   (see `reposition_session`).
+/// - **any other repo** → move `@` onto the synced `bookmark` under
+///   the code-repo safety rules (see `reposition_code`).
+fn reposition_at(
     repo: &Path,
     bookmark: &str,
-    apply: bool,
+    params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if revset_nonempty(repo, &format!("{bookmark}::@"))? {
+    if is_session_repo(repo) {
+        reposition_session(repo)
+    } else {
+        reposition_code(repo, bookmark, params.rebase)
+    }
+}
+
+/// True when `repo` is the session (bot) sub-repo.
+///
+/// Reads `<repo>/.vc-config.toml`'s `[workspace] path`: the code repo
+/// (workspace root) is `"/"`, the session sub-repo is `"/.claude"`. A
+/// missing / unreadable config (POR, single-repo workspace) is treated
+/// as a code repo.
+fn is_session_repo(repo: &Path) -> bool {
+    match toml_simple::toml_load(&repo.join(VC_CONFIG_FILE)) {
+        Ok(cfg) => {
+            toml_simple::toml_get(&cfg, "workspace.path").map(String::as_str) == Some("/.claude")
+        }
+        Err(_) => false,
+    }
+}
+
+/// Reposition the session repo's `@` onto `main`.
+///
+/// The session (`.claude`) repo is a linear journal on `main`, and its
+/// `@` normally carries live session writes:
+///
+/// - Errors when `@-` isn't on `main` (not an ancestor-or-equal of the
+///   bookmark) — refuse rather than guess.
+/// - Otherwise `jj new main` starts a fresh `@` on the bookmark; the
+///   prior `@` becomes a sibling head, which is expected for the
+///   journal. A conflict is very unlikely given `.claude`'s content;
+///   if one ever appears the user resolves it.
+fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let parent = commit_id(repo, "@-")?;
+    if !revset_nonempty(repo, &format!("{parent}::main"))? {
+        return Err(format!(
+            "{}: @- ({parent}) is not on main — refusing to reposition @",
+            repo.display()
+        )
+        .into());
+    }
+    info!("{}: jj new main", repo.display());
+    run(
+        "jj",
+        &["new", "main", "-R", &repo_str(repo)],
+        Path::new("."),
+    )?;
+    Ok(())
+}
+
+/// Reposition the code repo's `@` onto the synced `bookmark`.
+///
+/// Let `@-` be the parent of `@`:
+///
+/// - `bookmark == @-` → already positioned; no-op.
+/// - `bookmark` a proper descendant of `@-`, `@` empty →
+///   `jj new bookmark` (jj auto-abandons the old empty `@`).
+/// - `bookmark` a proper descendant of `@-`, `@` non-empty → rebase
+///   `@` onto `bookmark`, but only with `rebase` set (else prompt on a
+///   TTY; skip + inform when declined or not a TTY).
+/// - `bookmark` not a descendant of `@-` (diverged / `@` ahead) →
+///   leave `@` and inform why it didn't move.
+fn reposition_code(
+    repo: &Path,
+    bookmark: &str,
+    rebase: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let parent = commit_id(repo, "@-")?;
+    let tip = commit_id(repo, bookmark)?;
+    if tip == parent {
+        info!("{}: @ already on '{bookmark}'", repo.display());
+        return Ok(());
+    }
+    if !revset_nonempty(repo, &format!("{parent}::{tip}"))? {
+        info!(
+            "{}: @- ({parent}) is not behind '{bookmark}' ({tip}); leaving @ in place",
+            repo.display()
+        );
+        return Ok(());
+    }
+    // `bookmark` is a proper descendant of `@-` — safe to move a clean `@`.
+    if at_is_empty(repo)? {
+        info!("{}: jj new {bookmark}", repo.display());
+        run(
+            "jj",
+            &["new", bookmark, "-R", &repo_str(repo)],
+            Path::new("."),
+        )?;
+        return Ok(());
+    }
+    // `@` carries changes: rebase only on opt-in / confirmation.
+    if !rebase && !confirm_rebase(repo)? {
+        info!(
+            "{}: @ has changes; left in place (pass --rebase to rebase onto '{bookmark}')",
+            repo.display()
+        );
         return Ok(());
     }
     info!("{}: rebasing @ onto '{bookmark}'", repo.display());
-    if apply {
-        run(
-            "jj",
-            &["rebase", "-b", "@", "-d", bookmark, "-R", &repo_str(repo)],
-            Path::new("."),
-        )?;
-        if has_conflicts(repo)? {
-            return Err(format!(
-                "{}: rebase of @ onto '{bookmark}' produced conflicts",
-                repo.display()
-            )
-            .into());
-        }
+    run(
+        "jj",
+        &["rebase", "-b", "@", "-d", bookmark, "-R", &repo_str(repo)],
+        Path::new("."),
+    )?;
+    if has_conflicts(repo)? {
+        return Err(format!(
+            "{}: rebase of @ onto '{bookmark}' produced conflicts",
+            repo.display()
+        )
+        .into());
     }
     Ok(())
+}
+
+/// Ask whether to rebase a non-empty `@`, but only on a TTY.
+///
+/// Returns `Ok(false)` without prompting when stdin isn't a terminal
+/// (scripts): the caller then skips + informs rather than blocking on
+/// `read_line`. A `y`/`yes` (case-insensitive) answer confirms.
+fn confirm_rebase(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+    if !std::io::stdin().is_terminal() {
+        return Ok(false);
+    }
+    let ans = prompt(&format!(
+        "{}: @ has changes — rebase onto the synced bookmark? [y/N] ",
+        repo.display()
+    ))?;
+    Ok(matches!(ans.to_ascii_lowercase().as_str(), "y" | "yes"))
+}
+
+/// True when the working-copy commit `@` is empty (no changes).
+fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+    revset_nonempty(repo, "@ & empty()")
 }
 
 /// Perform the mutation corresponding to `ctx.state` when `--no-check`.
