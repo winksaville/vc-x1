@@ -448,23 +448,42 @@ Per repo, `sync` classifies the local bookmark against its remote:
 | diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
 | no remote | bookmark has no `@<remote>` counterpart | none — skip |
 
-After the bookmark action above, `sync` also rebases `@` onto the
-(possibly advanced) bookmark when `@` isn't already a descendant —
-without this step, `jj git fetch`'s auto-fast-forward would leave `@`
-dangling off the pre-fetch bookmark commit. This matters for `.claude`,
-where `/exit`'s trailing session writes always sit on `@`.
+After the bookmark action above, and only under `--no-check`, `sync`
+repositions `@` onto the freshly-synced bookmark as a final pass — run
+after every repo syncs cleanly, and *outside* the failure-revert
+region below, so a reposition problem never rolls back a good
+fetch/fast-forward. The rule differs by repo (`@-` is the parent of
+`@`; `<b>` is the synced `--bookmark`):
 
-On any failure — conflicted rebase, subprocess error, anything — `sync`
-restores every repo to its starting state via `jj op restore`. Either
-every repo advances or none do. Working-copy files are preserved
-across the revert: jj rewinds the operation log but leaves disk
-content untouched, and any conflicted commits introduced by the failed
-rebase are abandoned on the way back.
+- **Code repo** (the app / workspace root):
+  - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same
+    line → `jj new <b>` starts a fresh `@` on the new tip (the old
+    empty `@` is auto-abandoned).
+  - `@` has changes → `sync` asks before moving it; pass `--rebase`
+    to answer yes up front (`jj rebase -b @ -d <b>`). Declined — or
+    not a TTY and no `--rebase` — leaves `@` in place and says so.
+  - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line
+    (diverged / `@` ahead) → `@` is left untouched, with a note why.
+- **Session repo** (`.claude`): always `jj new main` when `@-` is on
+  `main`, so a fresh empty `@` starts each session on the tip; the
+  prior `@` (e.g. `/exit`'s trailing session writes) is preserved as
+  a sibling head. If `@-` isn't on `main`, `sync` errors rather than
+  strand it.
+
+On any failure during fetch/classify/act — conflicted rebase,
+subprocess error, anything — `sync` restores every repo to its
+starting state via `jj op restore`. Either every repo advances or
+none do. Working-copy files are preserved across the revert: jj
+rewinds the operation log but leaves disk content untouched, and any
+conflicted commits introduced by the failed rebase are abandoned on
+the way back. The `@`-reposition pass runs *after* this region, so a
+reposition error is surfaced without undoing the successful sync.
 
 ```
 vc-x1 sync                            # workspace-default scope, --check
 vc-x1 sync --check                    # explicit form of the default
 vc-x1 sync --no-check                 # workspace-default scope, apply
+vc-x1 sync --no-check --rebase        # apply; rebase a dirty @ onto the bookmark without asking
 vc-x1 sync --scope=code               # only the app repo
 vc-x1 sync --scope=bot                # only the bot repo
 vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
@@ -501,6 +520,7 @@ the workspace root and resolves repos by absolute path.
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
+| `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (code repo only) |
 
 **Output shape.** Sync collapses output based on what it finds:
 

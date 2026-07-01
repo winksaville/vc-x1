@@ -196,10 +196,12 @@ pub(crate) enum Commands {
         Scripts and automation should pass --check or --no-check\n\
         explicitly — defaults can shift, explicit flags lock in the\n\
         contract. Interactive use can rely on the default.\n\n\
-        After the bookmark action, `@` is rebased onto the (possibly\n\
-        advanced) bookmark if it isn't already a descendant, so trailing\n\
-        working-copy writes (e.g. `.claude`'s `/exit` tail) don't end up\n\
-        orphaned on a stale branch.\n\n\
+        After a successful --no-check sync, `@` is repositioned onto\n\
+        the synced bookmark: the code repo `jj new`s a clean `@` (or\n\
+        rebases a dirty one with --rebase / a prompt), the `.claude`\n\
+        session repo always `jj new main`s. This pass runs outside the\n\
+        revert region below, so a reposition problem doesn't undo the\n\
+        successful fetch / fast-forward.\n\n\
         On any failure, every repo is reverted to its starting state via\n\
         `jj op restore`. Working-copy files are preserved across the\n\
         revert — the operation log rewinds but disk content stays.\n\n\

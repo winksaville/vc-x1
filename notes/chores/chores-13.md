@@ -234,6 +234,69 @@ guard" section, regenerable via `support/gen-exmpl-1-3.sh`.
 
 ## feat: reposition @ onto synced bookmark (0.66.0)
 
+Commits: [[8]],[[9]]
+
+After `vc-x1 sync --no-check` fast-forwards a bookmark to the
+updated remote, `@` was often left parented on the pre-fetch
+tip. `sync` now runs a final apply-mode pass that repositions
+`@` onto the freshly-synced bookmark, per-repo, replacing the
+old `ensure_at_on_main` rebase step.
+
+Rules (code repo: `xxx` = the synced `--bookmark`; `@-` =
+parent of `@`):
+
+- `xxx` a proper descendant of `@-`, `@` empty → `jj new xxx`.
+- `xxx` a proper descendant of `@-`, `@` non-empty → rebase
+  `@` onto `xxx`, gated by `--rebase` (else prompt on a TTY;
+  skip + inform when declined or non-interactive).
+- `xxx == @-` → already positioned, no-op.
+- `xxx` not a descendant of `@-` → leave `@`, inform why.
+- `.claude`: `@-` on `main` (ancestor-or-equal) → `jj new
+  main`, else error. The prior `@` (session writes) is kept
+  as a sibling head.
+
+The pass runs after `run_plan` succeeds and *outside* the
+`op_restore` revert region, so a reposition failure (e.g. a
+session `@-` off main) is surfaced without rolling back the
+successful fetch / fast-forward.
+
+### Design notes
+
+- Repo role is re-derived from each repo's `.vc-config.toml`
+  `[workspace] path` (`/` = code, `/.claude` = session), since
+  the `Vec<PathBuf>` reaching `sync_repos` has dropped the
+  `Code`/`Bot` role.
+- Scaffold and pass landed as one commit: an unconsumed
+  `--rebase` field or helper trips `clippy -D warnings`
+  (unused field / dead_code), so the flag and its consumer
+  don't split cleanly.
+- The non-empty-`@` rebase prompt is TTY-gated: no terminal
+  and no `--rebase` → skip + inform rather than block on
+  `read_line`.
+
+### As-built ladder
+
+Keep-separate shape — each rung pushed as its own commit on
+`main` via `vc-x1 push`:
+
+- 0.66.0-0 Preparation: backfill 0.65.2 Commits ref, bump
+  version, pick up the entry, open this chores section.
+- 0.66.0-1 reposition pass: `--rebase` flag; `reposition_at`
+  dispatcher with `reposition_code` / `reposition_session`;
+  `is_session_repo` / `confirm_rebase` / `at_is_empty`
+  helpers; `ensure_at_on_main` removed; unit + integration
+  tests.
+- 0.66.0 close-out: this bookkeeping commit + README docs and
+  examples.
+
+### Outcome
+
+`vc-x1 sync --no-check` leaves `@` freshly seated on the synced
+bookmark: a clean code-repo `@` via `jj new`, a dirty one
+rebased only with `--rebase` (or an interactive yes), and the
+`.claude` journal restarted on `main` each sync. Documented in
+the README `### sync` section.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -243,3 +306,5 @@ guard" section, regenerable via `support/gen-exmpl-1-3.sh`.
 [5]: https://github.com/winksaville/vc-x1/commit/61e6da2bd448 "61e6da2bd44872d805251ced3ecb3785a7b9dfdd"
 [6]: https://github.com/winksaville/vc-x1/commit/e444d615142c "e444d615142c40ce2098008c0d18d46c299f35fe"
 [7]: https://github.com/winksaville/vc-x1/commit/604d3b75f012 "604d3b75f01215b8ee82bc2cc9c7ebfe37f219cb"
+[8]: https://github.com/winksaville/vc-x1/commit/766f3d4554a2 "766f3d4554a200f7bda8ac578479b6d9d917e290"
+[9]: https://github.com/winksaville/vc-x1/commit/7d80bcc521c5 "7d80bcc521c5309e0a24a4dd1fe2974cd99dca2a"

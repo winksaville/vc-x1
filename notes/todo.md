@@ -17,44 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: reposition @ onto synced bookmark (0.66.0)**
-
-After `vc-x1 sync --no-check` fast-forwards a bookmark to the
-updated remote, `@` is often left parented on the pre-fetch
-tip. Add a final apply-mode pass that moves `@` onto the
-freshly-synced bookmark, per-repo, only when it's safe —
-folding in / replacing the current `ensure_at_on_main` rebase.
-
-Rules (code repo: `xxx` = the synced `--bookmark`; `@-` =
-parent of `@`):
-
-- `xxx` a proper descendant of `@-`, `@` empty → `jj new xxx`.
-- `xxx` a proper descendant of `@-`, `@` non-empty → rebase
-  `@` onto `xxx`, gated by `--rebase` (else prompt / skip +
-  inform).
-- `xxx == @-` → already positioned, no-op.
-- `xxx` not a descendant of `@-` → leave `@`, inform why.
-- `.claude`: `@-` on `main` (ancestor-or-equal) →
-  `jj new main`, else error.
-- Reposition failures don't roll back the successful fetch /
-  fast-forward — the pass sits outside the `op_restore` revert
-  region.
-
-Plan ladder:
-
-- 0.66.0-0 Preparation (done) — backfill 0.65.2 Commits
-  ref, bump to 0.66.0-0, pick up this entry, open the chores
-  section.
-- 0.66.0-1 reposition pass (done) — `--rebase` flag +
-  helpers (session-repo id via `.vc-config.toml` path, `@` /
-  `@-` empty and ancestry probes) + the code and `.claude`
-  decision rules, wired as a final apply-mode pass in
-  `sync_repos` outside the `op_restore` revert region; fold
-  out `ensure_at_on_main`; unit + integration tests. (Scaffold
-  and pass are one commit — an unconsumed flag / helper trips
-  `-D warnings`.)
-- 0.66.0 close-out — Done entry, move `## In Progress` →
-  chores, README update for `--rebase`.
+_No cycle currently in progress._
 
 ## Todo
 
@@ -357,6 +320,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[17]]
 - docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[18]]
 - fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[19]]
+- feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
 
 # References
 
@@ -380,3 +344,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [17]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
 [18]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
 [19]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652
+[20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
