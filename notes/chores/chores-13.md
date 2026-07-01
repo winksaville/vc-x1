@@ -186,6 +186,8 @@ trailers injected by the tool) became the commit vehicle:
 
 ## fix: refuse ochid-dropping squash (0.65.2)
 
+Commits: [[5]],[[6]],[[7]]
+
 `finalize_exec` (`src/finalize.rs`) squashed with
 `--use-destination-message` unconditionally, so a described
 journal on `@` lost its message and `ochid:` trailers — this
@@ -230,9 +232,14 @@ squash, and the detached-race re-check with a surfaced marker
 — are demonstrated in the README's "Testing the ochid-trailer
 guard" section, regenerable via `support/gen-exmpl-1-3.sh`.
 
+## feat: reposition @ onto synced bookmark (0.66.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
 [3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"
 [4]: https://github.com/winksaville/vc-x1/commit/28a0211a364a "28a0211a364aea03d19fc14a655275ba98c0498f"
+[5]: https://github.com/winksaville/vc-x1/commit/61e6da2bd448 "61e6da2bd44872d805251ced3ecb3785a7b9dfdd"
+[6]: https://github.com/winksaville/vc-x1/commit/e444d615142c "e444d615142c40ce2098008c0d18d46c299f35fe"
+[7]: https://github.com/winksaville/vc-x1/commit/604d3b75f012 "604d3b75f01215b8ee82bc2cc9c7ebfe37f219cb"

@@ -17,7 +17,44 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**feat: reposition @ onto synced bookmark (0.66.0)**
+
+After `vc-x1 sync --no-check` fast-forwards a bookmark to the
+updated remote, `@` is often left parented on the pre-fetch
+tip. Add a final apply-mode pass that moves `@` onto the
+freshly-synced bookmark, per-repo, only when it's safe —
+folding in / replacing the current `ensure_at_on_main` rebase.
+
+Rules (code repo: `xxx` = the synced `--bookmark`; `@-` =
+parent of `@`):
+
+- `xxx` a proper descendant of `@-`, `@` empty → `jj new xxx`.
+- `xxx` a proper descendant of `@-`, `@` non-empty → rebase
+  `@` onto `xxx`, gated by `--rebase` (else prompt / skip +
+  inform).
+- `xxx == @-` → already positioned, no-op.
+- `xxx` not a descendant of `@-` → leave `@`, inform why.
+- `.claude`: `@-` on `main` (ancestor-or-equal) →
+  `jj new main`, else error.
+- Reposition failures don't roll back the successful fetch /
+  fast-forward — the pass sits outside the `op_restore` revert
+  region.
+
+Plan ladder:
+
+- 0.66.0-0 Preparation (done) — backfill 0.65.2 Commits
+  ref, bump to 0.66.0-0, pick up this entry, open the chores
+  section.
+- 0.66.0-1 scaffolding — `--rebase` bool on `SyncArgs` /
+  `SyncParams`; bot-repo re-derivation + `@` / `@-` empty and
+  ancestry probes; unit tests.
+- 0.66.0-2 reposition pass — implement the code + `.claude`
+  rules as a final apply-mode pass, outside the `op_restore`
+  revert region; fold out `ensure_at_on_main`; integration
+  tests (fast-forward, non-empty, diverged, `.claude`
+  off-main error).
+- 0.66.0 close-out — Done entry, move `## In Progress` →
+  chores, README update for `--rebase`.
 
 ## Todo
 
