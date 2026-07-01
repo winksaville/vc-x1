@@ -70,4 +70,30 @@ insert / delete / reorder.
    needs locking + atomic writes + maybe a
    notify-at-failure path for hands-off use.
 
+3. **`init --repo local` bare remotes keep HEAD at
+   `refs/heads/master`.** The only branch pushed is `main`,
+   so a later `jj git clone` of that bare repo has no default
+   branch to auto-track and `vc-x1 clone` fails its
+   `verify_tracking` check ("bookmark 'main' has non-tracking
+   remote 'main@origin'"). Found building `tests/cli_sync.rs`
+   (worked around there with `git symbolic-ref HEAD
+   refs/heads/main`).
+   - **Fix direction:** init's local bare provisioning sets
+     HEAD to `refs/heads/main` at creation.
+
+4. **`clone` session-remote derivation mismatches init's
+   local naming; relative TARGET breaks the session clone.**
+   Two related defects, both found building
+   `tests/cli_sync.rs`:
+   - `derive_session_url` maps `<x>.git` →
+     `<x>.claude.git`, but `init --repo local` names the
+     session remote `remote-claude.git` — so a dual clone of
+     a locally-init'd project's `remote-code.git` looks for
+     `remote-code.claude.git` and fails.
+   - A relative local-path TARGET fails on the session side
+     regardless: `clone_dual` runs the session `jj git
+     clone` with the just-cloned code repo as cwd, so the
+     relative source no longer resolves. Workaround: pass an
+     absolute TARGET.
+
 # References

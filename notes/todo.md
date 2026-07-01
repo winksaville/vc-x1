@@ -17,7 +17,39 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**feat: single-mode sync + revert command (0.67.0)**
+
+`vc-x1 sync` defaults to `--check`, whose "verify only"
+contract is a fiction (jj's fetch auto-fast-forwards tracked
+bookmarks) and whose two-invocation verify-then-apply flow is
+racy — the remote can move between the check run and the apply
+run. Observed on test-repo-1: default sync reported "all
+bookmarks up-to-date" while `@` stayed parented on the
+pre-fetch tip. Sync becomes a single atomic operation with no
+modes; failures stop for inspection instead of auto-reverting;
+a new `revert` command undoes a sync explicitly.
+
+   - 0.67.0-0 Preparation: backfill 0.66.0 Commits ref, bump
+     version, write this block, open the chores section
+     (current)
+   - 0.67.0-1 tests: two-clone peer-push coverage — in-process
+     `sync_clone_ffs_main_after_peer_push` plus end-to-end
+     `tests/cli_sync.rs` (init → clone trA/trB → change +
+     push on trA → sync on trB → main and @ move)
+   - 0.67.0-2 sync single-mode: drop `--no-check`; default
+     fetches, converges the bookmark, repositions `@`.
+     `--check` stays as a hidden deprecated alias of the old
+     verify-only mode until push preflight is rewired (its
+     own Todo)
+   - 0.67.0-3 stop-on-error: remove the auto `jj op restore`
+     revert; persist the pre-sync op snapshot
+     (`.vc-x1/sync-state.toml`); the error report names each
+     repo + op id and points at `vc-x1 revert`
+   - 0.67.0-4 `vc-x1 revert`: restore every repo to the
+     persisted snapshot via `jj op restore`, then clear the
+     state file
+   - 0.67.0 close-out: chores narrative, README update, Done
+     entry
 
 ## Todo
 
@@ -58,7 +90,32 @@ _No cycle currently in progress._
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-2. **validate-numbering: rename the pair, check all
+2. **sync follow-up: extract `move-bookmark` command.** The
+   "put the bookmark / `@` where it belongs" step at the end
+   of sync (reposition logic) is useful standalone — e.g. the
+   t1B scenario where `main` is right but `@` isn't on it —
+   and deserves an honestly-named command instead of a mode.
+   - `vc-x1 move-bookmark` (name open): no fetch; move `@`
+     (and optionally the bookmark) onto a target under the
+     same safety rules as sync's reposition step.
+   - Sync's final step becomes a call to the same logic.
+   - Follow-up to the 0.67.0 single-mode sync cycle.
+3. **sync follow-up: push preflight in-process; drop
+   `--check`; revisit push auto-rollback.** Push's preflight
+   shells out to `vc-x1 sync --check` — a verify-only pass
+   that is both racy (remote can move before the user's
+   later apply) and not actually read-only (jj's fetch
+   auto-ffs tracked bookmarks). Follow-up to the 0.67.0
+   single-mode sync cycle.
+   - Preflight becomes a real in-process sync (stop-on-error
+     halts the push before anything is committed); the
+     `sync --check` shell-out and PATH dependency go away.
+   - Remove the deprecated hidden `--check` alias once
+     nothing invokes it.
+   - Apply the stop-on-error + `vc-x1 revert` philosophy to
+     push's commit-stage rollback (today it auto-runs
+     `jj op restore`, hiding the evidence).
+4. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -87,7 +144,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-3. **pre-commit: single rule (no docs skip) + doc validators.**
+5. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -110,7 +167,7 @@ _No cycle currently in progress._
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-4. **vc-x1 push: validate body opens with an intro paragraph.**
+6. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -127,7 +184,7 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-5. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+7. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The new cycle protocol has a different shape on
    each side:
@@ -145,7 +202,7 @@ _No cycle currently in progress._
 
    Today's workaround: pre-commit `.claude` manually, then
    `vc-x1 push <bm> --from bookmark-both --yes`.
-6. **vc-x1 push --squash: symmetric squash on both repos.**
+8. **vc-x1 push --squash: symmetric squash on both repos.**
    Automate Option F (manually exercised in 0.59.0
    close-out): app-side squash + bot-side description
    rewrite + force-push, atomically. Without this,
@@ -166,7 +223,7 @@ _No cycle currently in progress._
      already in the protocol's design space.
    - Gates `Squash to one commit` as a routine
      close-out shape vs. the current manual recipe.
-7. **single-field `options_flags` leaves → `value` field.**
+9. **single-field `options_flags` leaves → `value` field.**
    `0.47.0` introduced the convention (single-field leaf names
    its field `value`, declares the flag via `#[arg(long = "…")]`,
    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -178,25 +235,25 @@ _No cycle currently in progress._
    Note: can a single field be defined as an type or enum instead
    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
    issue.
-8. **`por → dual` conversion.** Attach a `.claude`
-   companion repo + `.vc-config.toml` to an existing por
-   workspace; emit cross-links going forward. Manual
-   setup on an external por workspace (2026-05-14)
-   proved arduous; this should be a routine subcommand.
-   Design stub in [[1]] § 2.
-9. **`validate-desc` / `fix-desc` por equalization.**
-   Replace the `other_repo_from_config` prelude in both
-   subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
-   with a scope-aware resolution that no-ops `Side::Bot`
-   when absent. Body unchanged. The 0.61.0 audit/design
-   work [[13]] identified this as the cheapest concrete
-   equalization and the right prototype for the
-   topology-from-config rule (subcommand reads topology
-   from `default_scope`, not from a flag). Validates the
-   broader design before larger pieces (`push`,
-   `--init-from*`) commit to it. The remaining 13
-   implementation gaps live in [[13]]'s `## Gap list` for
-   future Preparation passes to pick up.
+10. **`por → dual` conversion.** Attach a `.claude`
+    companion repo + `.vc-config.toml` to an existing por
+    workspace; emit cross-links going forward. Manual
+    setup on an external por workspace (2026-05-14)
+    proved arduous; this should be a routine subcommand.
+    Design stub in [[1]] § 2.
+11. **`validate-desc` / `fix-desc` por equalization.**
+    Replace the `other_repo_from_config` prelude in both
+    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
+    with a scope-aware resolution that no-ops `Side::Bot`
+    when absent. Body unchanged. The 0.61.0 audit/design
+    work [[13]] identified this as the cheapest concrete
+    equalization and the right prototype for the
+    topology-from-config rule (subcommand reads topology
+    from `default_scope`, not from a flag). Validates the
+    broader design before larger pieces (`push`,
+    `--init-from*`) commit to it. The remaining 13
+    implementation gaps live in [[13]]'s `## Gap list` for
+    future Preparation passes to pick up.
 
 ## Ideas
 

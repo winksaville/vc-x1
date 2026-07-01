@@ -234,7 +234,7 @@ guard" section, regenerable via `support/gen-exmpl-1-3.sh`.
 
 ## feat: reposition @ onto synced bookmark (0.66.0)
 
-Commits: [[8]],[[9]]
+Commits: [[8]],[[9]],[[10]]
 
 After `vc-x1 sync --no-check` fast-forwards a bookmark to the
 updated remote, `@` was often left parented on the pre-fetch
@@ -297,6 +297,8 @@ rebased only with `--rebase` (or an interactive yes), and the
 `.claude` journal restarted on `main` each sync. Documented in
 the README `### sync` section.
 
+## feat: single-mode sync + revert command (0.67.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -308,3 +310,4 @@ the README `### sync` section.
 [7]: https://github.com/winksaville/vc-x1/commit/604d3b75f012 "604d3b75f01215b8ee82bc2cc9c7ebfe37f219cb"
 [8]: https://github.com/winksaville/vc-x1/commit/766f3d4554a2 "766f3d4554a200f7bda8ac578479b6d9d917e290"
 [9]: https://github.com/winksaville/vc-x1/commit/7d80bcc521c5 "7d80bcc521c5309e0a24a4dd1fe2974cd99dca2a"
+[10]: https://github.com/winksaville/vc-x1/commit/1a6d0bd8941b "1a6d0bd8941b7698f49aae1292f04f83d709dcc9"
