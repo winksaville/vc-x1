@@ -17,22 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**fix finalize ochid-dropping squash.** `finalize_exec`
-(`src/finalize.rs`) squashes with `--use-destination-message`
-unconditionally, so a described journal on `@` loses its message
-and `ochid:` trailers — this broke the code↔session cross-links
-in the fc project ([bugs.md](bugs.md) Bugs #1). Decision: refuse
-the squash when the source message carries `ochid:` trailers the
-destination's message lacks — the destination has its own ochids,
-so any automatic message merge guesses wrong in some direction.
-
-   - 0.65.2-0 Preparation: backfill 0.65.1 Commits ref, bump
-     version, pick up this entry, open chores section (done)
-   - 0.65.2-1 ochid-trailer guard in finalize: extract + compare
-     trailers, refuse in preflight and finalize_exec; unit tests
-     + README manual-test section + post-run marker surfacing
-     + support/gen-exmpl-1-3.sh transcript regenerator (done)
-   - 0.65.2 close-out and validation
+_No cycle currently in progress._
 
 ## Todo
 
@@ -334,6 +319,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[16]]
 - docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[17]]
 - docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[18]]
+- fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[19]]
 
 # References
 
@@ -356,3 +342,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [16]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631
 [17]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
 [18]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
+[19]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652

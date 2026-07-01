@@ -186,6 +186,50 @@ trailers injected by the tool) became the commit vehicle:
 
 ## fix: refuse ochid-dropping squash (0.65.2)
 
+`finalize_exec` (`src/finalize.rs`) squashed with
+`--use-destination-message` unconditionally, so a described
+journal on `@` lost its message and `ochid:` trailers — this
+broke the code↔session cross-links in the fc project (Bugs #1
+in [bugs.md](../bugs.md)). Decision: refuse the squash when the
+source message carries `ochid:` trailers the destination's
+message lacks — the destination has its own ochids, so any
+automatic message merge guesses wrong in some direction.
+
+- The guard compares the two messages' column-0 `ochid:`
+  trailers and errors when the source carries any the
+  destination lacks, listing them with a by-hand remedy.
+- It runs twice: in the parent's preflight (early, visible
+  failure) and again in `finalize_exec` right before the
+  squash, so a `jj describe` landing inside the `--delay`
+  window is still caught.
+- Adjacent hardening rode along: failure-marker surfacing
+  moved to *after* the command's own output (with a
+  historical banner) so a detached child's past failure
+  isn't misread as the current run's, and the marker's
+  `error=` value is flattened to keep one `key=value` per
+  line.
+
+### As-built ladder
+
+Cycle used the Keep-separate shape — each rung pushed as its
+own commit on `main` via `vc-x1 push`:
+
+- 0.65.2-0 Preparation: backfill 0.65.1 Commits ref, bump
+  version, pick up the entry, open this chores section.
+- 0.65.2-1 ochid-trailer guard: `extract_ochids` /
+  `ochids_at_risk` / `check_squash_keeps_ochids` + unit
+  tests; wired into preflight and `finalize_exec`; README
+  manual-test section; post-run marker surfacing;
+  `support/gen-exmpl-1-3.sh` regenerator.
+- 0.65.2 close-out: this bookkeeping commit.
+
+### Outcome
+
+The guard's three behaviors — synchronous refusal, normal
+squash, and the detached-race re-check with a surfaced marker
+— are demonstrated in the README's "Testing the ochid-trailer
+guard" section, regenerable via `support/gen-exmpl-1-3.sh`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
