@@ -37,12 +37,12 @@ a new `revert` command undoes a sync explicitly.
      `tests/cli_sync.rs` (init → clone trA/trB → change +
      push on trA → sync on trB → main and @ move); the
      default-mode test is `#[ignore]`d (red until -2)
-     (current)
+     (done)
    - 0.67.0-2 sync single-mode: drop `--no-check`; default
      fetches, converges the bookmark, repositions `@`.
      `--check` stays as a hidden deprecated alias of the old
      verify-only mode until push preflight is rewired (its
-     own Todo)
+     own Todo) (done)
    - 0.67.0-3 stop-on-error: remove the auto `jj op restore`
      revert; persist the pre-sync op snapshot
      (`.vc-x1/sync-state.toml`); the error report names each

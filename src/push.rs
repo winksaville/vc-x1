@@ -871,12 +871,14 @@ fn run_stage(
 /// Preflight: `vc-x1 sync --check && cargo fmt && cargo clippy
 /// -D warnings && cargo test`.
 ///
-/// Sync runs in `--check` mode so divergence with the remote is
-/// surfaced before we burn cargo cycles, but **not** auto-resolved —
-/// a rebase mid-push is exactly the kind of unsupervised mutation
-/// the two approval gates exist to prevent. If sync reports action
-/// needed, preflight errors and the user resolves explicitly with
-/// `vc-x1 sync --no-check` before re-running push. The cargo steps
+/// Sync runs in the hidden deprecated `--check` mode so divergence
+/// with the remote is surfaced before we burn cargo cycles, but
+/// **not** auto-resolved — a rebase mid-push is exactly the kind of
+/// unsupervised mutation the two approval gates exist to prevent. If
+/// sync reports action needed, preflight errors and the user
+/// resolves explicitly with `vc-x1 sync` before re-running push
+/// (rewiring this shell-out in-process is a `notes/todo.md` sync
+/// follow-up). The cargo steps
 /// match AGENTS.md's pre-commit checklist (minus `cargo install` /
 /// retest, which are project-specific). All subprocesses run in the
 /// workspace root so cargo picks up the right `Cargo.toml`. Skipped

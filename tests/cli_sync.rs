@@ -23,7 +23,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use common::{CliFixture, run_ok};
+use common::{CliFixture, run_err, run_ok};
 
 /// Directory holding the `vc-x1` binary under test, for prepending
 /// to `PATH` so subcommands that re-invoke `vc-x1` (push preflight,
@@ -196,29 +196,12 @@ fn assert_trb_synced(p: &PeerPush) {
     );
 }
 
-/// Apply mode (`sync --no-check`): trB converges — passes today.
+/// Plain `vc-x1 sync` (the invocation a user reaches for): trB
+/// must end fully synced — main at trA's pushed head, `@`
+/// repositioned in both repos. Encodes the t1A/t1B transcript
+/// (2026-07-02) where the pre-0.67.0 check-mode default left `@-`
+/// on the pre-fetch tip; red until 0.67.0-2 made sync single-mode.
 #[test]
-fn cli_sync_no_check_moves_main_after_peer_push() {
-    let p = setup_peer_push("sync-nocheck-peer-push");
-    run_ok(
-        p.fx.cmd()
-            .current_dir(&p.tr_b)
-            .env("PATH", test_path())
-            .args(["sync", "--no-check"]),
-    );
-    assert_trb_synced(&p);
-}
-
-/// Default mode (plain `vc-x1 sync`, the invocation a user
-/// reaches for): trB must end fully synced, exactly as in the
-/// t1A/t1B transcript (2026-07-02) where it did not.
-///
-/// Ignored until the 0.67.0 single-mode sync lands: today the
-/// default is `--check`, whose fetch auto-ffs `main` but skips the
-/// reposition step, leaving `@-` on the pre-fetch tip. Run
-/// explicitly with `cargo test -- --ignored` to see the failure.
-#[test]
-#[ignore = "fails until 0.67.0-2 single-mode sync (default must converge + reposition)"]
 fn cli_sync_default_moves_main_and_at_after_peer_push() {
     let p = setup_peer_push("sync-default-peer-push");
     run_ok(
@@ -228,4 +211,39 @@ fn cli_sync_default_moves_main_and_at_after_peer_push() {
             .arg("sync"),
     );
     assert_trb_synced(&p);
+}
+
+/// The hidden deprecated `--check` alias (push preflight's
+/// verify-only shell-out) still parses and still skips the
+/// reposition step: after it runs, trB's `main` has moved (jj's
+/// fetch auto-ffs the tracked bookmark — the mode was never fully
+/// read-only) but `@-` stays on the pre-fetch tip.
+#[test]
+fn cli_sync_check_alias_verifies_only() {
+    let p = setup_peer_push("sync-check-peer-push");
+    let pre_at_parent = cid(&p.fx.home, &p.tr_b, "@-");
+    run_ok(
+        p.fx.cmd()
+            .current_dir(&p.tr_b)
+            .env("PATH", test_path())
+            .args(["sync", "--check"]),
+    );
+    assert_eq!(
+        cid(&p.fx.home, &p.tr_b, "main"),
+        p.pushed,
+        "fetch auto-ff still moves trB's main under --check"
+    );
+    assert_eq!(
+        cid(&p.fx.home, &p.tr_b, "@-"),
+        pre_at_parent,
+        "--check must not reposition @"
+    );
+}
+
+/// `--no-check` is gone — a stale script invocation must fail
+/// loudly rather than silently flip semantics.
+#[test]
+fn cli_sync_no_check_rejected() {
+    let fx = CliFixture::new("sync-no-check-rejected");
+    run_err(fx.cmd().current_dir(&fx.base).args(["sync", "--no-check"]));
 }

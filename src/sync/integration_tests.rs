@@ -74,7 +74,7 @@ fn resolver_chain_against_init_repo_local() {
     // sync_repos accepts the resolved list and reports up-to-date
     // — the resolver's output is shaped the way sync expects.
     let resolved = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
-    sync_repos(&resolved, &apply_params()).expect("sync should succeed on resolved repos");
+    sync_repos(&resolved, &default_params()).expect("sync should succeed on resolved repos");
 }
 
 /// Run `jj <args> -R <repo>` and assert success; returns trimmed stdout.
@@ -102,14 +102,14 @@ fn cid(repo: &Path, rev: &str) -> String {
     )
 }
 
-/// Sync params with `--no-check` set (apply mode).
+/// Default sync params (the normal atomic sync — no flags).
 ///
 /// Integration tests pass explicit repo paths through `sync_repos`
 /// directly, so `repo` / `scope` stay `None` here and the CLI-side
 /// default resolution is not exercised by this helper.
-fn apply_params() -> SyncParams {
+fn default_params() -> SyncParams {
     SyncParams {
-        no_check: true,
+        check: false,
         quiet: false,
         bookmark: "main".to_string(),
         remote: "origin".to_string(),
@@ -119,12 +119,12 @@ fn apply_params() -> SyncParams {
     }
 }
 
-/// Apply-mode params with `--rebase` set (auto-confirm the code-repo
+/// Default params with `--rebase` set (auto-confirm the code-repo
 /// non-empty `@` rebase).
 fn rebase_params() -> SyncParams {
     SyncParams {
         rebase: true,
-        ..apply_params()
+        ..default_params()
     }
 }
 
@@ -202,7 +202,7 @@ fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
     let work_main = cid(&fx.work, "main");
     let claude_main = cid(&fx.claude, "main");
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), work_main);
     assert_eq!(cid(&fx.claude, "main"), claude_main);
 }
@@ -218,7 +218,7 @@ fn sync_session_jj_new_when_up_to_date() {
     let fx = Fixture::new("session-jjnew-uptodate");
     let pre_main = cid(&fx.claude, "main");
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     // main didn't move.
     assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
     // @ is a fresh empty child of main.
@@ -254,7 +254,7 @@ fn sync_session_jj_new_when_main_moves() {
     );
     // Trailing writes on @
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":2}\n").expect("write trailing file");
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.claude, "main"),
         remote_head,
@@ -288,7 +288,7 @@ fn sync_session_errors_when_at_parent_off_main() {
     jj(&fx.claude, &["describe", "@", "-m", "feat: session ahead"]);
     jj(&fx.claude, &["new"]);
 
-    let err = sync_repos(&fx.repos(), &apply_params())
+    let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -327,7 +327,7 @@ fn sync_conflict_preserves_trailing_at_on_revert() {
     let pre_main = cid(&fx.claude, "main");
     let pre_remote = cid(&fx.claude, "main@origin");
 
-    let err = sync_repos(&fx.repos(), &apply_params())
+    let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -367,14 +367,13 @@ fn sync_conflict_preserves_trailing_at_on_revert() {
 }
 
 /// Scenario 3: local has commits not yet pushed; sync classifies
-/// `ahead` and leaves the local bookmark alone even under
-/// `--no-check`.
+/// `ahead` and leaves the local bookmark alone.
 #[test]
 fn sync_ahead_is_noop() {
     let fx = Fixture::new("ahead");
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
     let ahead_head = cid(&fx.work, "main");
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), ahead_head);
 }
 
@@ -395,7 +394,7 @@ fn sync_diverged_rebases() {
     );
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
 
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
 
     // Remote tracking bookmark now points at the pushed remote commit.
     assert_eq!(
@@ -465,7 +464,7 @@ fn sync_diverged_conflict_reverts() {
     let pre_main = cid(&fx.work, "main");
     let pre_remote = cid(&fx.work, "main@origin");
 
-    let err = sync_repos(&fx.repos(), &apply_params())
+    let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -512,7 +511,7 @@ fn sync_code_jj_new_when_behind() {
         "remote\n",
         "feat: remote only",
     );
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.work, "main"),
         remote_head,
@@ -545,7 +544,7 @@ fn sync_code_skips_rebase_without_flag() {
     );
     // Uncommitted changes make @ non-empty.
     fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
-    sync_repos(&fx.repos(), &apply_params()).expect("sync should succeed");
+    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.work, "main"),
         remote_head,
@@ -584,7 +583,7 @@ fn sync_clone_ffs_main_after_peer_push() {
     );
     assert_ne!(pre_main, pushed, "A's push should advance the remote");
 
-    sync_repos(std::slice::from_ref(&clone_b), &apply_params()).expect("sync should succeed");
+    sync_repos(std::slice::from_ref(&clone_b), &default_params()).expect("sync should succeed");
 
     assert_eq!(
         cid(&clone_b, "main"),

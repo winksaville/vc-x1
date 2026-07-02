@@ -185,30 +185,24 @@ pub(crate) enum Commands {
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
           - `--scope=code|bot|code,bot` dual-repo roles via `.vc-config.toml`\n  \
           - neither             default: `code,bot` when dual, else `code`\n\n\
-        Default is --check (verify only) — fatal if any repo needs\n\
-        action. Re-run with --no-check to apply (rebase / fast-forward).\n\
-        Per repo:\n  \
+        One atomic operation: fetch, then per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
           - ahead             nothing to sync (local has unpushed work)\n  \
           - diverged          rebase local onto remote; fail on conflicts\n  \
           - no remote         bookmark has no @<remote> counterpart; skip\n\n\
-        Scripts and automation should pass --check or --no-check\n\
-        explicitly — defaults can shift, explicit flags lock in the\n\
-        contract. Interactive use can rely on the default.\n\n\
-        After a successful --no-check sync, `@` is repositioned onto\n\
-        the synced bookmark: the code repo `jj new`s a clean `@` (or\n\
-        rebases a dirty one with --rebase / a prompt), the `.claude`\n\
-        session repo always `jj new main`s. This pass runs outside the\n\
-        revert region below, so a reposition problem doesn't undo the\n\
+        After a successful sync, `@` is repositioned onto the synced\n\
+        bookmark: the code repo `jj new`s a clean `@` (or rebases a\n\
+        dirty one with --rebase / a prompt), the `.claude` session\n\
+        repo always `jj new main`s. This pass runs outside the revert\n\
+        region below, so a reposition problem doesn't undo the\n\
         successful fetch / fast-forward.\n\n\
         On any failure, every repo is reverted to its starting state via\n\
         `jj op restore`. Working-copy files are preserved across the\n\
         revert — the operation log rewinds but disk content stays.\n\n\
         Output shape:\n  \
           - all-up-to-date: one-line summary (`sync: N repos, all bookmarks up-to-date`)\n  \
-          - action needed (--check):  per-repo fetch + state + fatal error\n  \
-          - action needed (--no-check): per-repo fetch + state + actions\n  \
+          - action needed:  per-repo fetch + state + actions\n  \
           - --quiet:        no output; exit code signals success")]
     Sync(sync::SyncArgs),
 

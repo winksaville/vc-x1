@@ -1,9 +1,15 @@
-//! The `sync` subcommand: fetch + classify + (optionally) rebase /
-//! fast-forward a workspace's repos against their remotes.
+//! The `sync` subcommand: fetch + classify + rebase / fast-forward
+//! a workspace's repos against their remotes, then reposition `@`
+//! onto the synced bookmark.
 //!
-//! Default is `--check` (fetch + report, error if any repo needs
-//! action); `--no-check` applies. On any failure every repo is
-//! reverted to its pre-sync op via `jj op restore`.
+//! Sync is a single atomic operation — verify-then-act happens
+//! inside one invocation against one fetch snapshot (a separate
+//! check-then-apply pair of runs would race the remote). The
+//! hidden deprecated `--check` flag preserves the old verify-only
+//! mode for `push`'s preflight until that is rewired in-process.
+//! On any failure every repo is reverted to its pre-sync op via
+//! `jj op restore` (stop-on-error + `vc-x1 revert` replaces this
+//! in 0.67.0-3).
 //!
 //! `current_op_id` / `op_restore` are `pub(crate)` so `push` reuses
 //! the same snapshot-and-restore pattern.
@@ -24,14 +30,9 @@ use crate::toml_simple;
 
 /// Fetch and sync a set of repos to their remotes.
 ///
-/// Default is `--check`: fetch + classify + report, **error** if any
-/// repo is `behind` or `diverged`. Pass `--no-check` to actually
-/// rebase / fast-forward. On any failure the starting state of every
-/// repo is restored via `jj op restore`.
-///
-/// Scripts and automation should pass `--check` or `--no-check`
-/// explicitly rather than relying on the default — defaults can shift,
-/// explicit flags lock in the contract.
+/// One atomic operation: fetch, classify, fast-forward / rebase the
+/// bookmark as needed, then reposition `@` onto it. On any failure
+/// the starting state of every repo is restored via `jj op restore`.
 ///
 /// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
@@ -44,14 +45,16 @@ use crate::toml_simple;
 ///   - POR (no `.vc-config.toml`) → cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
-    /// Verify only — fetch + classify; error if any repo needs action.
-    /// This is the default; pass explicitly in scripts.
-    #[arg(long, conflicts_with = "no_check")]
+    /// Verify only — fetch + classify; error if any repo needs
+    /// action; no bookmark move, no `@` reposition.
+    ///
+    /// Deprecated and hidden: kept solely for `push`'s preflight
+    /// shell-out until that is rewired in-process (see the
+    /// `notes/todo.md` sync follow-up). Note the fetch still
+    /// auto-fast-forwards a tracked bookmark — this mode was never
+    /// fully read-only.
+    #[arg(long, hide = true)]
     pub check: bool,
-
-    /// Apply — fetch + classify, then rebase / fast-forward as needed.
-    #[arg(long, conflicts_with = "check")]
-    pub no_check: bool,
 
     /// Suppress all informational output (exit code signals result)
     #[arg(short, long)]
@@ -67,11 +70,11 @@ pub struct SyncArgs {
 
     /// Rebase a non-empty `@` onto the synced bookmark without asking.
     ///
-    /// After a successful `--no-check` sync, `@` is repositioned onto
-    /// the synced bookmark. When the code repo's `@` carries changes
-    /// it normally asks before rebasing; `--rebase` answers yes up
-    /// front for non-interactive use. Ignored in `--check` mode and
-    /// for the session repo (which always `jj new main`).
+    /// After a successful sync, `@` is repositioned onto the synced
+    /// bookmark. When the code repo's `@` carries changes it normally
+    /// asks before rebasing; `--rebase` answers yes up front for
+    /// non-interactive use. Ignored for the session repo (which
+    /// always `jj new main`).
     #[arg(long)]
     pub rebase: bool,
 
@@ -110,10 +113,10 @@ pub struct SyncArgs {
 /// - `quiet`: `-q` / `--quiet` — clamp output to `Warn` for the run.
 /// - `bookmark`: bookmark to sync in each repo (default `main`).
 /// - `remote`: remote to sync against (default `origin`).
-/// - `no_check`: `--no-check` — actually rebase / fast-forward
-///   (absent ⇒ check mode: fetch + report only). The `--check`
-///   flag is the explicit form of the default and carries no
-///   value of its own, so it isn't mirrored here.
+/// - `check`: hidden deprecated `--check` — verify-only mode
+///   (fetch + classify + report, error if action needed; no
+///   bookmark move, no `@` reposition). Absent ⇒ the normal
+///   atomic sync.
 /// - `rebase`: `--rebase` — rebase a non-empty `@` onto the synced
 ///   bookmark without prompting (code repo only; see
 ///   `reposition_code`).
@@ -125,22 +128,21 @@ pub struct SyncParams {
     pub quiet: bool,
     pub bookmark: String,
     pub remote: String,
-    pub no_check: bool,
+    pub check: bool,
     pub rebase: bool,
     pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
 }
 
 impl From<&SyncArgs> for SyncParams {
-    /// Convert clap-derived `SyncArgs` into the flat `SyncParams`.
-    /// `--check` is dropped — it's the explicit form of the
-    /// default; the op only ever consults `no_check`.
+    /// Convert clap-derived `SyncArgs` into the flat `SyncParams`
+    /// (total — every field copies straight over).
     fn from(a: &SyncArgs) -> Self {
         Self {
             quiet: a.quiet,
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
-            no_check: a.no_check,
+            check: a.check,
             rebase: a.rebase,
             repo: a.repo.clone(),
             scope: a.scope.clone(),
@@ -253,8 +255,8 @@ pub fn sync_repos(
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!(
-        "sync: enter (no_check={}, bookmark={}, remote={})",
-        params.no_check, params.bookmark, params.remote
+        "sync: enter (check={}, bookmark={}, remote={})",
+        params.check, params.bookmark, params.remote
     );
 
     // Preflight: verify bookmark tracking on every repo before any
@@ -287,12 +289,13 @@ pub fn sync_repos(
         return result;
     }
 
-    // Reposition `@` onto the freshly-synced bookmark. Runs only in
-    // apply mode and only after every repo synced cleanly, and sits
-    // OUTSIDE the `op_restore` revert region above: a reposition
-    // failure (e.g. the session repo's `@-` off main) is surfaced
-    // without rolling back the successful fetch / fast-forward.
-    if params.no_check {
+    // Reposition `@` onto the freshly-synced bookmark. Skipped in
+    // deprecated verify-only mode, runs only after every repo synced
+    // cleanly, and sits OUTSIDE the `op_restore` revert region above:
+    // a reposition failure (e.g. the session repo's `@-` off main) is
+    // surfaced without rolling back the successful fetch /
+    // fast-forward.
+    if !params.check {
         for (repo, _) in &snapshots {
             reposition_at(repo, &params.bookmark, params)?;
         }
@@ -355,17 +358,17 @@ fn run_plan(
     }
 
     // Phase 3 — act (subprocess output streams through as usual).
-    // `act_on_state` short-circuits when `params.no_check` is false,
-    // so check mode is a true no-op here. Repositioning `@` onto the
-    // synced bookmark happens after `run_plan` returns (see
-    // `sync_repos`), outside the revert region.
+    // `act_on_state` short-circuits in deprecated verify-only mode,
+    // making it a true no-op here. Repositioning `@` onto the synced
+    // bookmark happens after `run_plan` returns (see `sync_repos`),
+    // outside the revert region.
     for ctx in &ctxs {
         act_on_state(ctx, params)?;
     }
 
-    // Phase 4 — check mode is fatal when action would be needed.
-    // Apply mode (`--no-check`) ran the action above and is done.
-    if !params.no_check && any_action_needed {
+    // Phase 4 — verify-only mode is fatal when action would be
+    // needed. The normal sync ran the action above and is done.
+    if params.check && any_action_needed {
         let n_action = ctxs
             .iter()
             .filter(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }))
@@ -373,7 +376,7 @@ fn run_plan(
         let noun = if n_action == 1 { "repo" } else { "repos" };
         return Err(format!(
             "sync: {n_action} {noun} need action (see above) — \
-             resolve with `vc-x1 sync --no-check` and re-run"
+             resolve with `vc-x1 sync` and re-run"
         )
         .into());
     }
@@ -405,10 +408,10 @@ fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error:
 }
 
 /// Reposition `@` onto the freshly-synced bookmark after a successful
-/// apply-mode sync.
+/// sync.
 ///
-/// Dispatches on repo role — the caller has already gated on apply
-/// mode:
+/// Dispatches on repo role — the caller has already excluded the
+/// deprecated verify-only mode:
 ///
 /// - **session (bot) sub-repo** → always `jj new main`
 ///   (see `reposition_session`).
@@ -560,7 +563,8 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
     revset_nonempty(repo, "@ & empty()")
 }
 
-/// Perform the mutation corresponding to `ctx.state` when `--no-check`.
+/// Perform the mutation corresponding to `ctx.state` (skipped in
+/// deprecated verify-only mode).
 ///
 /// - `UpToDate` / `Ahead` / `NoRemote` → no-op (and no output, the state
 ///   was already logged by `log_state`).
@@ -575,7 +579,7 @@ fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::e
     match &ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
-            if params.no_check {
+            if !params.check {
                 info!("{}: fast-forwarding '{}'", repo.display(), params.bookmark);
                 run(
                     "jj",
@@ -594,7 +598,7 @@ fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::e
             Ok(())
         }
         State::Diverged { local, remote } => {
-            if params.no_check {
+            if !params.check {
                 // `local` is either a single commit id or a comma-joined list
                 // of heads when the bookmark is conflicted. Pick the head
                 // that isn't the remote — that's the local-only tip. The
@@ -641,10 +645,10 @@ fn log_state(repo: &Path, state: &State) {
             info!("{r}: ahead (local {local} > remote {remote}); nothing to sync")
         }
         State::Behind { local, remote } => {
-            info!("{r}: behind (local {local} < remote {remote}); would fast-forward")
+            info!("{r}: behind (local {local} < remote {remote}); fast-forward needed")
         }
         State::Diverged { local, remote } => {
-            info!("{r}: diverged (local {local} vs remote {remote}); would rebase")
+            info!("{r}: diverged (local {local} vs remote {remote}); rebase needed")
         }
     }
 }
