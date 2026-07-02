@@ -157,18 +157,9 @@ fn add_local_commit(repo: &Path, file: &str, content: &str, msg: &str) {
     jj(repo, &["new"]);
 }
 
-/// Clone `remote_url` into `<base>/<work_name>`, add a commit, push it.
-///
-/// Used to make the remote advance beyond the fixture's `main`
-/// from a separate working copy. Returns the pushed commit's id.
-fn push_from_clone(
-    base: &Path,
-    remote_url: &Path,
-    work_name: &str,
-    file: &str,
-    content: &str,
-    msg: &str,
-) -> String {
+/// Clone `remote_url` into `<base>/<work_name>` (colocated) and
+/// return the new workdir.
+fn clone(base: &Path, remote_url: &Path, work_name: &str) -> PathBuf {
     let workdir = base.join(work_name);
     let out = Command::new("jj")
         .args(["git", "clone", "--colocate"])
@@ -181,6 +172,22 @@ fn push_from_clone(
         "jj git clone failed: {}",
         String::from_utf8_lossy(&out.stderr)
     );
+    workdir
+}
+
+/// Clone `remote_url` into `<base>/<work_name>`, add a commit, push it.
+///
+/// Used to make the remote advance beyond the fixture's `main`
+/// from a separate working copy. Returns the pushed commit's id.
+fn push_from_clone(
+    base: &Path,
+    remote_url: &Path,
+    work_name: &str,
+    file: &str,
+    content: &str,
+    msg: &str,
+) -> String {
+    let workdir = clone(base, remote_url, work_name);
     fs::write(workdir.join(file), content).expect("write remote file");
     jj(&workdir, &["describe", "@", "-m", msg]);
     jj(&workdir, &["bookmark", "set", "main", "-r", "@"]);
@@ -553,6 +560,42 @@ fn sync_code_skips_rebase_without_flag() {
         fs::read_to_string(fx.work.join("wip.txt")).unwrap(),
         "wip\n",
         "WIP preserved in place"
+    );
+}
+
+/// Scenario 9: two independent clones of the same remote — the
+/// "two machines" shape. Clone B is made first (its `main@origin`
+/// is the pre-push head), clone A then commits and pushes; sync on
+/// clone B must fast-forward B's `main` to A's pushed head and
+/// reposition `@` onto it.
+#[test]
+fn sync_clone_ffs_main_after_peer_push() {
+    let fx = Fixture::new("clone-peer-push");
+    let remote_code = fx.base.join("remote-code.git");
+    let clone_b = clone(&fx.base, &remote_code, "clone-b");
+    let pre_main = cid(&clone_b, "main");
+    let pushed = push_from_clone(
+        &fx.base,
+        &remote_code,
+        "clone-a",
+        "from-a.txt",
+        "from clone A\n",
+        "feat: from clone A",
+    );
+    assert_ne!(pre_main, pushed, "A's push should advance the remote");
+
+    sync_repos(std::slice::from_ref(&clone_b), &apply_params()).expect("sync should succeed");
+
+    assert_eq!(
+        cid(&clone_b, "main"),
+        pushed,
+        "clone B's main should ff to A's pushed head"
+    );
+    assert!(has(&clone_b, "@ & empty()"), "@ should be empty");
+    assert_eq!(
+        cid(&clone_b, "@-"),
+        pushed,
+        "@ should be repositioned onto the new main"
     );
 }
 

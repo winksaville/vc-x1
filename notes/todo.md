@@ -31,11 +31,13 @@ a new `revert` command undoes a sync explicitly.
 
    - 0.67.0-0 Preparation: backfill 0.66.0 Commits ref, bump
      version, write this block, open the chores section
-     (current)
+     (done)
    - 0.67.0-1 tests: two-clone peer-push coverage — in-process
      `sync_clone_ffs_main_after_peer_push` plus end-to-end
      `tests/cli_sync.rs` (init → clone trA/trB → change +
-     push on trA → sync on trB → main and @ move)
+     push on trA → sync on trB → main and @ move); the
+     default-mode test is `#[ignore]`d (red until -2)
+     (current)
    - 0.67.0-2 sync single-mode: drop `--no-check`; default
      fetches, converges the bookmark, repositions `@`.
      `--check` stays as a hidden deprecated alias of the old

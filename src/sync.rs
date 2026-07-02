@@ -539,8 +539,13 @@ fn reposition_code(
 /// Returns `Ok(false)` without prompting when stdin isn't a terminal
 /// (scripts): the caller then skips + informs rather than blocking on
 /// `read_line`. A `y`/`yes` (case-insensitive) answer confirms.
+///
+/// Under `cargo test` the harness inherits the invoking terminal's
+/// stdin, so an in-process test reaching this path would block on
+/// `read_line` waiting for the user — the `cfg!(test)` arm pins the
+/// non-interactive answer instead.
 fn confirm_rebase(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
-    if !std::io::stdin().is_terminal() {
+    if cfg!(test) || !std::io::stdin().is_terminal() {
         return Ok(false);
     }
     let ans = prompt(&format!(
