@@ -196,7 +196,8 @@ fn push_from_clone(
 }
 
 /// Scenario 1: fresh fixture, nothing to do — `sync` leaves both
-/// repos untouched.
+/// repos untouched and clears the persisted snapshots on success
+/// (a stale file must not become a later revert target).
 #[test]
 fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
@@ -205,6 +206,16 @@ fn sync_up_to_date() {
     sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), work_main);
     assert_eq!(cid(&fx.claude, "main"), claude_main);
+    assert!(
+        state::load(&fx.work).expect("load work state").is_none(),
+        "state cleared on success (work)"
+    );
+    assert!(
+        state::load(&fx.claude)
+            .expect("load claude state")
+            .is_none(),
+        "state cleared on success (claude)"
+    );
 }
 
 /// Scenario 2a: a non-empty `@` on top of main (simulates `/exit`
@@ -299,11 +310,13 @@ fn sync_session_errors_when_at_parent_off_main() {
 
 /// Scenario 2c: `@` has trailing writes and local+remote both
 /// modify the same file differently. Rebase produces conflicts;
-/// sync fails and op-restores both repos. The trailing content
-/// must survive the revert — jj documents that op restore rolls
-/// back operation history without clobbering the working copy.
+/// sync stops with the conflicted state left in place for
+/// inspection (no auto-revert) and the persisted snapshot still
+/// present as the manual revert target. Trailing content stays on
+/// disk — the rebase carries `@` along, it never rewrites the
+/// working-copy file.
 #[test]
-fn sync_conflict_preserves_trailing_at_on_revert() {
+fn sync_conflict_stops_and_keeps_state() {
     let fx = Fixture::new("trailing-conflict");
     let remote_claude = fx.base.join("remote-claude.git");
     push_from_clone(
@@ -324,8 +337,7 @@ fn sync_conflict_preserves_trailing_at_on_revert() {
     // Trailing writes on new @
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":3}\n").expect("write trailing file");
 
-    let pre_main = cid(&fx.claude, "main");
-    let pre_remote = cid(&fx.claude, "main@origin");
+    let pre_op = current_op_id(&fx.claude).expect("pre-sync op id");
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -335,34 +347,21 @@ fn sync_conflict_preserves_trailing_at_on_revert() {
         "expected conflict error, got: {err}"
     );
 
-    // Post-revert: main and main@origin back to pre-sync.
-    assert_eq!(cid(&fx.claude, "main"), pre_main, "main reverted");
-    assert_eq!(
-        cid(&fx.claude, "main@origin"),
-        pre_remote,
-        "main@origin reverted"
-    );
-    // No conflicts remain.
-    let conflicts = jj(
-        &fx.claude,
-        &[
-            "log",
-            "-r",
-            "conflicts()",
-            "--no-graph",
-            "-T",
-            r#"commit_id ++ "\n""#,
-        ],
-    );
+    // Stop-on-error: the conflicted state is still there to inspect.
     assert!(
-        conflicts.trim().is_empty(),
-        "no conflicts should remain after revert"
+        has(&fx.claude, "conflicts()"),
+        "conflicted commits left in place for inspection"
     );
+    // The persisted snapshot names the pre-sync op (revert target).
+    let st = state::load(&fx.claude)
+        .expect("load sync state")
+        .expect("state file present after failure");
+    assert_eq!(st.op_id, pre_op, "state records the pre-sync op id");
     // Trailing content preserved on disk.
     assert_eq!(
         fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
         "{\"line\":3}\n",
-        "trailing content preserved across op restore"
+        "trailing content preserved across the stop"
     );
 }
 
@@ -440,10 +439,11 @@ fn sync_diverged_rebases() {
 }
 
 /// Scenario 5: conflicting divergence — both sides modify the
-/// same path differently. Rebase produces conflicts; sync fails
-/// and reverts both repos to their pre-sync state.
+/// same path differently. Rebase produces conflicts; sync stops
+/// with the conflicted state in place (no auto-revert) and the
+/// persisted snapshots as manual revert targets.
 #[test]
-fn sync_diverged_conflict_reverts() {
+fn sync_diverged_conflict_stops_and_keeps_state() {
     let fx = Fixture::new("conflict");
     let remote_code = fx.base.join("remote-code.git");
     push_from_clone(
@@ -461,8 +461,8 @@ fn sync_diverged_conflict_reverts() {
         "feat: local shared (conflicting)",
     );
 
-    let pre_main = cid(&fx.work, "main");
-    let pre_remote = cid(&fx.work, "main@origin");
+    let pre_op_work = current_op_id(&fx.work).expect("work op id");
+    let pre_op_claude = current_op_id(&fx.claude).expect("claude op id");
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -472,28 +472,27 @@ fn sync_diverged_conflict_reverts() {
         "unexpected error: {err}"
     );
 
-    // After revert: main and main@origin are back where they started.
-    assert_eq!(cid(&fx.work, "main"), pre_main, "main should be reverted");
-    assert_eq!(
-        cid(&fx.work, "main@origin"),
-        pre_remote,
-        "main@origin should be reverted (pre-fetch state)"
-    );
-    // No conflicts remain.
-    let conflicts = jj(
-        &fx.work,
-        &[
-            "log",
-            "-r",
-            "conflicts()",
-            "--no-graph",
-            "-T",
-            r#"commit_id ++ "\n""#,
-        ],
-    );
+    // Stop-on-error: the conflicted rebase result is left in place.
     assert!(
-        conflicts.trim().is_empty(),
-        "no conflicts should remain after revert"
+        has(&fx.work, "conflicts()"),
+        "conflicted commits left in place for inspection"
+    );
+    // Every repo's persisted snapshot survives as the revert target
+    // — including .claude, which synced cleanly before the failure.
+    let st_work = state::load(&fx.work)
+        .expect("load work sync state")
+        .expect("work state present after failure");
+    assert_eq!(st_work.op_id, pre_op_work, "work state = pre-sync op");
+    let st_claude = state::load(&fx.claude)
+        .expect("load claude sync state")
+        .expect("claude state present after failure");
+    assert_eq!(st_claude.op_id, pre_op_claude, "claude state = pre-sync op");
+    // Manual revert (what `vc-x1 revert` will drive in -4) restores
+    // the pre-sync state cleanly.
+    op_restore(&fx.work, &st_work.op_id).expect("manual op restore");
+    assert!(
+        !has(&fx.work, "conflicts()"),
+        "no conflicts after manual restore"
     );
 }
 

@@ -46,7 +46,7 @@ a new `revert` command undoes a sync explicitly.
    - 0.67.0-3 stop-on-error: remove the auto `jj op restore`
      revert; persist the pre-sync op snapshot
      (`.vc-x1/sync-state.toml`); the error report names each
-     repo + op id and points at `vc-x1 revert`
+     repo + op id and points at `vc-x1 revert` (done)
    - 0.67.0-4 `vc-x1 revert`: restore every repo to the
      persisted snapshot via `jj op restore`, then clear the
      state file

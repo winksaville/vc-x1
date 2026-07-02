@@ -7,12 +7,15 @@
 //! check-then-apply pair of runs would race the remote). The
 //! hidden deprecated `--check` flag preserves the old verify-only
 //! mode for `push`'s preflight until that is rewired in-process.
-//! On any failure every repo is reverted to its pre-sync op via
-//! `jj op restore` (stop-on-error + `vc-x1 revert` replaces this
-//! in 0.67.0-3).
 //!
-//! `current_op_id` / `op_restore` are `pub(crate)` so `push` reuses
-//! the same snapshot-and-restore pattern.
+//! **Stop-on-error**: a failure leaves state where the failing step
+//! stopped so the user can inspect it. Each repo's pre-sync op id
+//! is persisted to `.vc-x1/sync-state.toml` (see `state`); the
+//! error report points at `vc-x1 revert` to undo explicitly.
+//!
+//! `current_op_id` / `op_restore` are `pub(crate)` so `push` (and
+//! the `revert` subcommand) reuse the same snapshot-and-restore
+//! primitives.
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -242,10 +245,16 @@ pub fn sync(_ctx: &Context, params: &SyncParams) -> Result<(), Box<dyn std::erro
 /// Sync the given repos against their remotes.
 ///
 /// Orchestrates the full flow: pre-flight clean-check on every repo,
-/// snapshot each repo's current op id, then hand off to `run_plan` for
-/// fetch + classify + (optional) act. On any error, revert every repo
-/// to its snapshot op via `jj op restore` so the caller sees an atomic
-/// "either it all went through or nothing changed" outcome.
+/// snapshot each repo's current op id (persisted to
+/// `.vc-x1/sync-state.toml` per repo), then hand off to `run_plan`
+/// for fetch + classify + act, then reposition `@`.
+///
+/// **Stop-on-error**: a failure leaves every repo exactly where the
+/// failing step stopped so the user can inspect what happened —
+/// nothing is auto-reverted. The error report names each repo's
+/// pre-sync op id and points at `vc-x1 revert`, which consumes the
+/// persisted snapshots. On full success the snapshots are cleared
+/// (a stale file must not become a revert target later).
 ///
 /// Paths may be relative (resolved against the process cwd) or
 /// absolute. Tests use absolute tempdir paths to avoid cwd dependence
@@ -271,45 +280,49 @@ pub fn sync_repos(
     for repo in repos {
         let op_id = current_op_id(repo)?;
         debug!("{}: op snapshot = {op_id}", repo.display());
+        state::save(repo, &op_id, &params.bookmark, &params.remote)?;
         snapshots.push((repo.clone(), op_id));
     }
 
-    let result = run_plan(&snapshots, params);
+    // Run the plan, then reposition `@` onto the freshly-synced
+    // bookmark (skipped in deprecated verify-only mode). Both live
+    // inside the same stop-on-error region: any failure falls
+    // through to the report below with state left in place.
+    let result = run_plan(&snapshots, params).and_then(|()| {
+        if !params.check {
+            for (repo, _) in &snapshots {
+                reposition_at(repo, &params.bookmark, params)?;
+            }
+        }
+        Ok(())
+    });
 
     if let Err(e) = &result {
         warn!("sync failed: {e}");
-        warn!("reverting all repos to starting state...");
+        warn!("stopping — state left as-is for inspection (no auto-revert)");
+        warn!("pre-sync op snapshot per repo:");
         for (repo, op_id) in &snapshots {
-            match op_restore(repo, op_id) {
-                Ok(()) => info!("  {}: reverted to op {op_id}", repo.display()),
-                Err(re) => warn!("  {}: revert failed: {re}", repo.display()),
-            }
+            warn!("  {}: op {op_id}", repo.display());
         }
+        warn!("undo with `vc-x1 revert`, or per repo: jj op restore <op> -R <repo>");
         debug!("sync: exit");
         return result;
     }
 
-    // Reposition `@` onto the freshly-synced bookmark. Skipped in
-    // deprecated verify-only mode, runs only after every repo synced
-    // cleanly, and sits OUTSIDE the `op_restore` revert region above:
-    // a reposition failure (e.g. the session repo's `@-` off main) is
-    // surfaced without rolling back the successful fetch /
-    // fast-forward.
-    if !params.check {
-        for (repo, _) in &snapshots {
-            reposition_at(repo, &params.bookmark, params)?;
-        }
+    // Full success — the snapshots are no longer revert targets.
+    for (repo, _) in &snapshots {
+        state::clear(repo)?;
     }
 
     debug!("sync: exit");
     Ok(())
 }
 
-/// Fetch and classify each repo, then act (or not, in dry-run).
+/// Fetch and classify each repo, then act (or not, in verify-only).
 ///
-/// Returns `Err` on the first failure so the caller can trigger the
-/// cross-repo revert; partial success across repos is *not* a valid
-/// end state for this command.
+/// Returns `Err` on the first failure so the caller can stop and
+/// report; partial progress across repos is left in place for
+/// inspection (see `sync_repos`).
 fn run_plan(
     snapshots: &[(PathBuf, String)],
     params: &SyncParams,
@@ -679,9 +692,10 @@ pub(crate) fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::E
 
 /// Restore `repo` to the operation identified by `op_id`.
 ///
-/// Thin wrapper around `jj op restore`. Called during the failure
-/// revert path — drops the caller's returned stdout. Exposed at
-/// `pub(crate)` so `push` reuses the same restore call.
+/// Thin wrapper around `jj op restore` — drops the caller's returned
+/// stdout. Exposed at `pub(crate)` for `push`'s commit-stage
+/// rollback and the `revert` subcommand; sync itself no longer
+/// auto-reverts (stop-on-error).
 pub(crate) fn op_restore(repo: &Path, op_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     run(
         "jj",
@@ -835,6 +849,8 @@ fn has_conflicts(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 fn repo_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
+
+pub(crate) mod state;
 
 #[cfg(test)]
 mod tests;
