@@ -432,28 +432,29 @@ vc-x1 symlink -l
 
 ### sync
 
-Fetch and sync a set of repos to their remotes in a single command.
-Repo set defaults to the dual-repo workspace pair (`.` and
-`.claude`); narrow it with `-s` / `--scope`, or point at a different
-workspace root or single repo with `-R` / `--repo`. Check-only by
-default — re-run with `--no-check` to apply.
+Fetch and sync a set of repos to their remotes in one atomic
+operation: fetch, converge the bookmark, reposition `@`. Repo set
+defaults to the dual-repo workspace pair (`.` and `.claude`);
+narrow it with `-s` / `--scope`, or point at a different workspace
+root or single repo with `-R` / `--repo`. There are no modes —
+verify-then-act happens inside a single invocation against one
+fetch snapshot (a separate check-then-apply pair of runs would
+race the remote).
 
 Per repo, `sync` classifies the local bookmark against its remote:
 
-| State | Meaning | Action on `--no-check` |
-|------|---------|--------------------------|
+| State | Meaning | Action |
+|------|---------|--------|
 | up-to-date | local == remote | none |
 | behind | local is ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
 | ahead | remote is ancestor of local | none (push is a separate step) |
 | diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
 | no remote | bookmark has no `@<remote>` counterpart | none — skip |
 
-After the bookmark action above, and only under `--no-check`, `sync`
-repositions `@` onto the freshly-synced bookmark as a final pass — run
-after every repo syncs cleanly, and *outside* the failure-revert
-region below, so a reposition problem never rolls back a good
-fetch/fast-forward. The rule differs by repo (`@-` is the parent of
-`@`; `<b>` is the synced `--bookmark`):
+After the bookmark action above, `sync` repositions `@` onto the
+freshly-synced bookmark as a final pass, run after every repo syncs
+cleanly. The rule differs by repo (`@-` is the parent of `@`; `<b>`
+is the synced `--bookmark`):
 
 - **Code repo** (the app / workspace root):
   - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same
@@ -470,31 +471,26 @@ fetch/fast-forward. The rule differs by repo (`@-` is the parent of
   a sibling head. If `@-` isn't on `main`, `sync` errors rather than
   strand it.
 
-On any failure during fetch/classify/act — conflicted rebase,
-subprocess error, anything — `sync` restores every repo to its
-starting state via `jj op restore`. Either every repo advances or
-none do. Working-copy files are preserved across the revert: jj
-rewinds the operation log but leaves disk content untouched, and any
-conflicted commits introduced by the failed rebase are abandoned on
-the way back. The `@`-reposition pass runs *after* this region, so a
-reposition error is surfaced without undoing the successful sync.
+On any failure during fetch/classify/act/reposition — conflicted
+rebase, subprocess error, anything — `sync` **stops where the
+failing step stopped**. Nothing is auto-reverted, so the state can
+be inspected as-is (jj's operation log holds everything; nothing is
+lost by stopping). Before acting, sync persists each repo's
+pre-sync `jj op` id to `<repo>/.vc-x1/sync-state.toml`; the failure
+report lists every repo's op id and the undo is explicit:
+`vc-x1 revert` (see [revert](#revert)), or per repo
+`jj op restore <op> -R <repo>`. On full success the snapshots are
+cleared — a stale file must not become a revert target later.
 
 ```
-vc-x1 sync                            # workspace-default scope, --check
-vc-x1 sync --check                    # explicit form of the default
-vc-x1 sync --no-check                 # workspace-default scope, apply
-vc-x1 sync --no-check --rebase        # apply; rebase a dirty @ onto the bookmark without asking
+vc-x1 sync                            # workspace-default scope
+vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
 vc-x1 sync --scope=code               # only the app repo
 vc-x1 sync --scope=bot                # only the bot repo
 vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
 vc-x1 sync -R ../other                # sync ../other as a single repo
 vc-x1 sync -R ../other --scope=code,bot   # ../other as workspace root
 ```
-
-Scripts and automation should pass `--check` or `--no-check`
-explicitly rather than rely on the default — defaults can shift,
-explicit flags lock in the contract. Interactive use can take the
-default.
 
 **Repo set resolution.** `-R` and `--scope` compose:
 
@@ -515,8 +511,6 @@ the workspace root and resolves repos by absolute path.
 |------|-------------|
 | `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
 | `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Composes with `-R` |
-| `--check` | Verify only — fetch + classify, error if any repo needs action (default) |
-| `--no-check` | Apply — fetch + classify, then rebase/fast-forward as needed |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
@@ -531,9 +525,7 @@ the workspace root and resolves repos by absolute path.
   working-copy changes; sync intentionally doesn't speak to
   that (use `jj st` for working-copy state).
 - **Action needed** (`behind` / `diverged`) — per-repo fetch +
-  state lines, then **fatal in `--check` mode** with
-  `sync: N repos need action — resolve with vc-x1 sync --no-check
-  and re-run`. Under `--no-check`, the actions run instead.
+  state lines, then the actions run.
 - **`--quiet`** — no output at any level; exit code is the only
   signal. Intended for scripts that just need success/failure.
 
@@ -542,6 +534,35 @@ tracked local bookmark when it's a strict ancestor of the incoming
 remote, so in the common case `sync` reports `up-to-date` rather than
 `behind`. The `behind` branch covers untracked bookmarks and edge
 configs where auto-advance is disabled.
+
+### revert
+
+Restore repos to their persisted pre-sync snapshots — the explicit
+undo completing sync's stop-on-error contract. A failed
+`vc-x1 sync` leaves each repo's pre-sync `jj op` id in
+`<repo>/.vc-x1/sync-state.toml`; after inspecting what happened,
+`vc-x1 revert` runs `jj op restore <op>` in every repo holding a
+snapshot and clears the consumed state files. Working-copy files
+are preserved across the restore: jj rewinds the operation log but
+leaves disk content untouched.
+
+Repo set resolution is identical to sync's (`-R` / `--scope` /
+workspace default), so a failed sync and the following revert name
+the same repos when invoked the same way. Repos without a snapshot
+are skipped with a note — sync clears state on success, so that's
+the normal condition, not an error; finding no snapshot anywhere
+errors (`nothing to revert`).
+
+```
+vc-x1 sync            # fails — stops, names each repo's pre-sync op id
+# ...inspect with jj st / jj log / jj op log...
+vc-x1 revert          # restore every repo to its pre-sync snapshot
+```
+
+| Flag | Description |
+|------|-------------|
+| `-R, --repo <PATH>` | Workspace root, or a single repo to revert alone. Composes with `--scope` |
+| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to revert. Composes with `-R` |
 
 ### finalize
 

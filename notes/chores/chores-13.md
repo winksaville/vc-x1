@@ -299,6 +299,71 @@ the README `### sync` section.
 
 ## feat: single-mode sync + revert command (0.67.0)
 
+Commits: [[11]],[[12]],[[13]],[[14]],[[15]]
+
+`vc-x1 sync` defaulted to `--check`, whose "verify only"
+contract was a fiction (jj's fetch auto-fast-forwards tracked
+bookmarks) and whose two-invocation verify-then-apply flow was
+racy — the remote can move between the check run and the apply
+run. Observed on test-repo-1: default sync reported "all
+bookmarks up-to-date" while `@` stayed parented on the
+pre-fetch tip. Sync became a single atomic operation with no
+modes; failures stop for inspection instead of auto-reverting;
+a new `revert` command undoes a sync explicitly.
+
+- Diagnosis rode on TDD: the end-to-end `tests/cli_sync.rs`
+  test drives the user's exact flow through the binary
+  (`vc-x1 init` → `vc-x1 clone` trA/trB → change +
+  `vc-x1 push` on trA → `vc-x1 sync` on trB), landed red
+  (`#[ignore]`d) in -1, and went green when -2 flipped the
+  default.
+- `--check` survives hidden and deprecated solely for push's
+  preflight shell-out; `--no-check` is rejected loudly.
+  Removal is paired with the preflight rewire — see the
+  Todo "sync follow-up: push preflight in-process; drop
+  `--check`; revisit push auto-rollback".
+- Stop-on-error inverts the old atomicity contract: instead
+  of "either every repo advances or none do" (auto
+  `jj op restore` on failure, evidence destroyed), a failure
+  leaves state where it stopped; each repo's pre-sync op id
+  is persisted to `.vc-x1/sync-state.toml` (cleared on
+  success) and `vc-x1 revert` consumes it.
+- Building the CLI fixture surfaced three latent defects:
+  bugs.md 3–4 (init local bare remotes keep HEAD at
+  `master`; clone session-remote derivation mismatch +
+  relative-TARGET failure) and the `confirm_rebase` TTY
+  hang under `cargo test` (fixed in -1 via `cfg!(test)`).
+
+### As-built ladder
+
+- 0.67.0-0 Preparation: backfill 0.66.0 Commits ref, bump
+  version, write the In Progress block, open this section.
+- 0.67.0-1 tests: two-clone peer-push coverage — in-process
+  `sync_clone_ffs_main_after_peer_push` plus end-to-end
+  `tests/cli_sync.rs`; default-mode test `#[ignore]`d (red);
+  `confirm_rebase` TTY-hang fix.
+- 0.67.0-2 sync single-mode: drop `--no-check`; default
+  fetches, converges the bookmark, repositions `@`;
+  `--check` hidden deprecated alias; default-mode test
+  un-ignored (green).
+- 0.67.0-3 stop-on-error: auto-revert removed; pre-sync op
+  snapshot persisted per repo; failure report names repos +
+  op ids and both undo routes.
+- 0.67.0-4 `vc-x1 revert`: restore from the persisted
+  snapshots, clear consumed state; shared `resolve_repos`
+  with sync.
+- 0.67.0 close-out: this bookkeeping commit + README rewrite
+  (`### sync` single-mode + stop-on-error, new `### revert`).
+
+### Outcome
+
+Plain `vc-x1 sync` — the invocation a user reaches for — now
+converges the bookmark *and* seats `@` on it in both repos, and
+a failed sync ends with inspectable state plus an explicit,
+scoped undo (`vc-x1 revert`). Verified on the real test-repo-1
+clones: syncing t1B after a t1A push moved `main` and `@` for
+the first time.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -311,3 +376,8 @@ the README `### sync` section.
 [8]: https://github.com/winksaville/vc-x1/commit/766f3d4554a2 "766f3d4554a200f7bda8ac578479b6d9d917e290"
 [9]: https://github.com/winksaville/vc-x1/commit/7d80bcc521c5 "7d80bcc521c5309e0a24a4dd1fe2974cd99dca2a"
 [10]: https://github.com/winksaville/vc-x1/commit/1a6d0bd8941b "1a6d0bd8941b7698f49aae1292f04f83d709dcc9"
+[11]: https://github.com/winksaville/vc-x1/commit/85ec8d4ce289 "85ec8d4ce289593e52ede1fbf426e08af56271c1"
+[12]: https://github.com/winksaville/vc-x1/commit/261d53f43233 "261d53f43233173c266854a3a8d475d9d5dfac0a"
+[13]: https://github.com/winksaville/vc-x1/commit/8cc79af9a87c "8cc79af9a87c655892eabe56478f8ac7631882d3"
+[14]: https://github.com/winksaville/vc-x1/commit/98fc7df76bc3 "98fc7df76bc37058ebb746953b0efb20f7d4e4dd"
+[15]: https://github.com/winksaville/vc-x1/commit/50e06379e4a9 "50e06379e4a9d2cd439cfbf21c585153279db554"

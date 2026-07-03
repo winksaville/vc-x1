@@ -17,41 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: single-mode sync + revert command (0.67.0)**
-
-`vc-x1 sync` defaults to `--check`, whose "verify only"
-contract is a fiction (jj's fetch auto-fast-forwards tracked
-bookmarks) and whose two-invocation verify-then-apply flow is
-racy — the remote can move between the check run and the apply
-run. Observed on test-repo-1: default sync reported "all
-bookmarks up-to-date" while `@` stayed parented on the
-pre-fetch tip. Sync becomes a single atomic operation with no
-modes; failures stop for inspection instead of auto-reverting;
-a new `revert` command undoes a sync explicitly.
-
-   - 0.67.0-0 Preparation: backfill 0.66.0 Commits ref, bump
-     version, write this block, open the chores section
-     (done)
-   - 0.67.0-1 tests: two-clone peer-push coverage — in-process
-     `sync_clone_ffs_main_after_peer_push` plus end-to-end
-     `tests/cli_sync.rs` (init → clone trA/trB → change +
-     push on trA → sync on trB → main and @ move); the
-     default-mode test is `#[ignore]`d (red until -2)
-     (done)
-   - 0.67.0-2 sync single-mode: drop `--no-check`; default
-     fetches, converges the bookmark, repositions `@`.
-     `--check` stays as a hidden deprecated alias of the old
-     verify-only mode until push preflight is rewired (its
-     own Todo) (done)
-   - 0.67.0-3 stop-on-error: remove the auto `jj op restore`
-     revert; persist the pre-sync op snapshot
-     (`.vc-x1/sync-state.toml`); the error report names each
-     repo + op id and points at `vc-x1 revert` (done)
-   - 0.67.0-4 `vc-x1 revert`: restore every repo to the
-     persisted snapshot via `jj op restore`, then clear the
-     state file (done)
-   - 0.67.0 close-out: chores narrative, README update, Done
-     entry
+_No cycle currently in progress._
 
 ## Todo
 
@@ -380,6 +346,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[18]]
 - fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[19]]
 - feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
+- feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[21]]
 
 # References
 
@@ -404,3 +371,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [18]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
 [19]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652
 [20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
+[21]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
