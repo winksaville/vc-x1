@@ -168,19 +168,22 @@ impl SubcommandRunner for SyncArgs {
     }
 }
 
-/// Resolve `params` into the concrete repo list `sync_repos`
-/// operates on.
+/// Resolve a `-R`/`--scope` pair into a concrete repo list.
 ///
 /// `-R` and `--scope` compose:
 ///
 /// - neither — workspace-default scope against the discovered root.
-/// - `-R PATH` alone — sync just that repo.
+/// - `-R PATH` alone — just that repo.
 /// - `-s ROLES` alone — roles against the discovered workspace root.
 /// - `-R PATH -s ROLES` — roles against `PATH` as the workspace root.
-fn resolve_params_to_repos(
-    params: &SyncParams,
+///
+/// `pub(crate)` — shared by `sync` and `revert`, which must resolve
+/// the same invocation shape to the same repos.
+pub(crate) fn resolve_repos(
+    repo: &Option<PathBuf>,
+    scope: &Option<Scope>,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    match (&params.repo, &params.scope) {
+    match (repo, scope) {
         (None, None) => {
             let root = find_workspace_root();
             scope_to_repos(&default_scope(root.as_deref()), root.as_deref())
@@ -230,7 +233,7 @@ struct RepoCtx {
 /// still surface at `Warn` / `Error` so script callers don't lose
 /// diagnostics.
 pub fn sync(_ctx: &Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
-    let repos = resolve_params_to_repos(params)?;
+    let repos = resolve_repos(&params.repo, &params.scope)?;
     if params.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);

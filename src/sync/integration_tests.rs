@@ -496,6 +496,68 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
     );
 }
 
+/// Scenario 5b: `vc-x1 revert` after a failed sync — the full
+/// inspect-then-undo loop. Same conflict fixture as scenario 5;
+/// `revert_repos` restores every repo from its persisted snapshot
+/// (including `.claude`, which synced cleanly before the failure),
+/// clears the consumed state files, and a second revert errors
+/// ("nothing to revert").
+#[test]
+fn revert_restores_after_failed_sync() {
+    let fx = Fixture::new("revert-after-conflict");
+    let remote_code = fx.base.join("remote-code.git");
+    push_from_clone(
+        &fx.base,
+        &remote_code,
+        "work2",
+        "shared.txt",
+        "remote-version\n",
+        "feat: remote shared",
+    );
+    add_local_commit(
+        &fx.work,
+        "shared.txt",
+        "local-version\n",
+        "feat: local shared (conflicting)",
+    );
+
+    let pre_main = cid(&fx.work, "main");
+    let pre_remote = cid(&fx.work, "main@origin");
+
+    sync_repos(&fx.repos(), &default_params()).expect_err("sync should fail on conflicts");
+    assert!(has(&fx.work, "conflicts()"), "conflicted state to undo");
+
+    crate::revert::revert_repos(&fx.repos()).expect("revert should succeed");
+
+    // Pre-sync state is back: bookmark, remote-tracking, no conflicts.
+    assert_eq!(cid(&fx.work, "main"), pre_main, "main restored");
+    assert_eq!(
+        cid(&fx.work, "main@origin"),
+        pre_remote,
+        "main@origin restored (pre-fetch state)"
+    );
+    assert!(!has(&fx.work, "conflicts()"), "no conflicts after revert");
+    // Consumed snapshots are cleared in both repos.
+    assert!(
+        state::load(&fx.work).expect("load work state").is_none(),
+        "work state cleared by revert"
+    );
+    assert!(
+        state::load(&fx.claude)
+            .expect("load claude state")
+            .is_none(),
+        "claude state cleared by revert"
+    );
+    // Nothing left to revert — explicit error, not a silent no-op.
+    let err = crate::revert::revert_repos(&fx.repos())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("nothing to revert"),
+        "expected nothing-to-revert error, got: {err}"
+    );
+}
+
 /// Scenario 6: code repo behind with a clean `@`. Fetch fast-forwards
 /// main; reposition then `jj new`s the empty `@` onto the new tip.
 #[test]

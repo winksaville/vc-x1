@@ -14,6 +14,7 @@ mod logging;
 mod options_flags;
 mod push;
 mod repo_utils;
+mod revert;
 mod show;
 mod subcommand;
 mod symlink;
@@ -194,17 +195,30 @@ pub(crate) enum Commands {
         After a successful sync, `@` is repositioned onto the synced\n\
         bookmark: the code repo `jj new`s a clean `@` (or rebases a\n\
         dirty one with --rebase / a prompt), the `.claude` session\n\
-        repo always `jj new main`s. This pass runs outside the revert\n\
-        region below, so a reposition problem doesn't undo the\n\
-        successful fetch / fast-forward.\n\n\
-        On any failure, every repo is reverted to its starting state via\n\
-        `jj op restore`. Working-copy files are preserved across the\n\
-        revert — the operation log rewinds but disk content stays.\n\n\
+        repo always `jj new main`s.\n\n\
+        On failure sync stops where the failing step stopped — nothing\n\
+        is auto-reverted, so the state can be inspected. Each repo's\n\
+        pre-sync op id is persisted to `.vc-x1/sync-state.toml`; undo\n\
+        explicitly with `vc-x1 revert` (state is cleared on success).\n\n\
         Output shape:\n  \
           - all-up-to-date: one-line summary (`sync: N repos, all bookmarks up-to-date`)\n  \
           - action needed:  per-repo fetch + state + actions\n  \
           - --quiet:        no output; exit code signals success")]
     Sync(sync::SyncArgs),
+
+    /// Restore repos to their persisted pre-sync snapshots
+    #[command(
+        long_about = "Restore repos to their persisted pre-sync snapshots.\n\n\
+        A failed `vc-x1 sync` stops where it failed and leaves each\n\
+        repo's pre-sync `jj op` id in `.vc-x1/sync-state.toml` for\n\
+        inspection-then-undo. `revert` resolves repos the same way\n\
+        sync does (`-R` / `--scope` / workspace default), runs\n\
+        `jj op restore <op>` in every repo holding a snapshot, and\n\
+        clears the consumed state files.\n\n\
+        Repos without a snapshot are skipped (sync clears state on\n\
+        success); finding no snapshot anywhere is an error."
+    )]
+    Revert(revert::RevertArgs),
 
     /// Squash, set bookmark, and/or push a jj repo
     #[command(long_about = "Squash, set bookmark, and/or push a jj repo.\n\n\
@@ -382,6 +396,7 @@ fn main() -> ExitCode {
         Commands::Init(args) => args.dispatch(&ctx),
         Commands::Symlink(args) => args.dispatch(&ctx),
         Commands::Sync(args) => args.dispatch(&ctx),
+        Commands::Revert(args) => args.dispatch(&ctx),
         Commands::Finalize(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
     };

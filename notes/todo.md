@@ -49,7 +49,7 @@ a new `revert` command undoes a sync explicitly.
      repo + op id and points at `vc-x1 revert` (done)
    - 0.67.0-4 `vc-x1 revert`: restore every repo to the
      persisted snapshot via `jj op restore`, then clear the
-     state file
+     state file (done)
    - 0.67.0 close-out: chores narrative, README update, Done
      entry
 

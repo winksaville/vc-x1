@@ -30,10 +30,6 @@ const STATE_FORMAT_VERSION: u32 = 1;
 const STATE_REL_PATH: &str = ".vc-x1/sync-state.toml";
 
 /// One repo's pre-sync snapshot, as persisted.
-///
-/// Production reader is the `revert` subcommand (0.67.0-4); until
-/// it lands only tests construct/read this, hence the allow.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncState {
     /// State-file format version; must match `STATE_FORMAT_VERSION`
@@ -87,10 +83,6 @@ pub fn save(
 /// Load `repo`'s snapshot, `Ok(None)` when absent (no failed or
 /// in-flight sync), `Err` when present but unreadable / wrong
 /// version.
-///
-/// Production caller is the `revert` subcommand (0.67.0-4); until
-/// it lands only tests call this, hence the allow.
-#[allow(dead_code)]
 pub fn load(repo: &Path) -> Result<Option<SyncState>, Box<dyn std::error::Error>> {
     let path = state_path(repo);
     if !path.exists() {
