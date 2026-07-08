@@ -271,6 +271,27 @@
     revsets to chids). Separate gap on the jj side: no clean
     first-parent revset operator in jj 0.40 — equivalent
     today is `jj diff --from <fp-chid> --to <merge-chid>`.
+46. **`vc-x1 push --squash`: symmetric squash on both repos.**
+    Automate Option F (manually exercised in the 0.59.0
+    close-out [[27]]): app-side squash + bot-side description
+    rewrite + force-push, atomically. Demoted from `## Todo`
+    after 0.67.0 — merge non-ff is the routine close-out
+    shape and a pre-publication squash needs no tooling, so
+    this entry's domain (squashing already-published cycle
+    commits) is off the routine path.
+    - App side: squash cycle commits into one new commit;
+      capture the squashed chid.
+    - Bot side: rewrite the prior push commits' descriptions
+      — replace their per-commit `ochid:` trailers with one
+      pointing at the squashed chid; add a rewrite-note
+      acknowledging the change (preserves historical truth
+      for future readers).
+    - Force-push bot `main` (rewrites the published commit;
+      chid preserved via `jj describe`).
+    - Push app `main`. The new bot commit paired with this
+      push receives `ochid: /<squashed-chid>` as normal — K
+      prior bot records plus the new one gives (K+1):1
+      bot→code (2:1 in the 0.59.0 case).
 
 # References
 
@@ -300,3 +321,4 @@
 [24]: /notes/chores/chores-02.md#0260--shell-completion-via-clap_complete-env
 [25]: /notes/chores/chores-02.md#testing-results
 [26]: /notes/chores/chores-02.md#shell-completion-discovery
+[27]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590

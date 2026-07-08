@@ -33,7 +33,52 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Version-number protocol is fragile — versions are
+1. **push/sync: bookmark is code-repo-only; pin the bot repo to
+   main.** `vc-x1 push <bookmark>` applies the one bookmark name
+   to both repos (preflight tracking check, `bookmark-both`,
+   `finalize --push`), and sync's classify/fetch use the passed
+   bookmark for every repo — but the bot repo is a linear
+   journal on `main` by design. Pushing a feature bookmark would
+   create and push that bookmark in the bot repo, leave the bot
+   `main` behind, and wedge the next sync's
+   `reposition_session`. Prereq for the trapezoidal-commit
+   workflow (branch the code repo; bot stays on `main`).
+   - Extend the 0.67.0 `is_session_repo` dispatch: the session
+     repo hardcodes `main` in push preflight, the bookmark-set
+     stage, `finalize --push`, and sync classify/fetch.
+   - Rename/redoc the `bookmark-both` stage — the two repos
+     advance different bookmarks once this lands.
+   - `PushState` keeps its single `bookmark` field; the
+     `.claude` side becomes a constant.
+   - Already listed as "Per-repo bookmark names (planned)" in
+     [vc-x1 push wrapper](cycle-protocol.md#vc-x1-push-wrapper).
+
+2. **vc-x1 push: pause point between commit and publish
+   stages.** The merge non-ff close-out is a three-step
+   sequence:
+   - commit the close-out pair locally (normal 1:1 commit
+     stages, ochids injected both directions)
+   - rebase the code-side close-out into the merge (chids
+     survive rebase, so every ochid stays valid)
+   - publish
+
+   Push has no supported stop after `commit-claude`, so today
+   the recipe pre-commits both sides manually and resumes via
+   `--from bookmark-both --yes` — skipping exactly the stages
+   that inject `ochid:` trailers.
+   - Add a stop after the commit stages (`--to commit-claude`
+     or `--no-publish`; name open); the existing `--from
+     bookmark-both` is already the resume half.
+   - Retires the close-out workaround; the merge commit
+     carries its code→bot ochid because it was injected
+     normally, before the rebase.
+   - Together with the Todo "push/sync: bookmark is
+     code-repo-only; pin the bot repo to main", completes
+     the trapezoidal-commit workflow (1:1 bot↔code
+     throughout; the merge is a code-side-only shape
+     operation).
+
+3. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -58,7 +103,7 @@ _No cycle currently in progress._
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-2. **sync follow-up: extract `move-bookmark` command.** The
+4. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -68,7 +113,7 @@ _No cycle currently in progress._
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-3. **sync follow-up: push preflight in-process; drop
+5. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -83,7 +128,7 @@ _No cycle currently in progress._
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-4. **validate-numbering: rename the pair, check all
+6. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -112,7 +157,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-5. **pre-commit: single rule (no docs skip) + doc validators.**
+7. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -135,7 +180,7 @@ _No cycle currently in progress._
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-6. **vc-x1 push: validate body opens with an intro paragraph.**
+8. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -152,64 +197,51 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-7. **vc-x1 push: support new cycle protocol shape (N:1 code↔bot).**
+9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
-   title/body. The new cycle protocol has a different shape on
-   each side:
-   - code side: fully committed before push (N commits via
-     merge), nothing to commit at push time
-   - `.claude` side: one commit with its own message (distinct
-     from any code commit) and a multi-line `ochid:` listing
-     all N code commits
+   title/body. The interop / adoption scenario breaks that:
+   the code side is worked single-repo style (commit +
+   `jj git push` / `git push`, no `vc-x1 push` in the loop),
+   so no bot pairings exist — one bot commit then records
+   every code commit not yet covered by a prior `ochid:`,
+   via a multi-line `ochid:` per the design in [[10]].
+   - Also covers a cycle held local and published all at
+     once (the ochid-trailers section's "one ochid per Work
+     commit" on merge close-out) — work commits never
+     individually paired.
+   - Out of scope: the trapezoid close-out. That flow stays
+     1:1 (the close-out pair commits normally, then the
+     merge rebase; chids survive rebase, so ochids stay
+     valid); its enabler is the Todo "vc-x1 push: pause
+     point between commit and publish stages".
+   - Teach push to:
+     - detect the shape (code WC empty, uncovered commits at
+       the bookmark)
+     - skip `commit-app`
+     - compose a `.claude`-specific message
+     - emit one `ochid:` line per uncovered commit
+   - Open: computing "uncovered" — likely a revset from the
+     code bookmark back to the newest commit referenced by
+     the bot journal's ochids.
+10. **single-field `options_flags` leaves → `value` field.**
+    `0.47.0` introduced the convention (single-field leaf names
+    its field `value`, declares the flag via `#[arg(long = "…")]`,
+    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
+    on the new `squash` leaf. Sweep the pre-existing single-field
+    leaves to match: `repo`, `dry_run`, `private`, `account`,
+    `config`, `use_template` + their consumers
+    (`init.rs`, tests).
 
-   Teach push to:
-   - detect this shape
-   - skip `commit-app` when code WC is empty
-   - compose a `.claude`-specific message
-   - emit multi-line `ochid:` per the design in [[10]]
-
-   Today's workaround: pre-commit `.claude` manually, then
-   `vc-x1 push <bm> --from bookmark-both --yes`.
-8. **vc-x1 push --squash: symmetric squash on both repos.**
-   Automate Option F (manually exercised in 0.59.0
-   close-out): app-side squash + bot-side description
-   rewrite + force-push, atomically. Without this,
-   squash is a manual recipe that future cycles must
-   follow each time.
-   - App side: squash cycle commits into one new commit;
-     capture the squashed chid.
-   - Bot side: rewrite the prior push commit's
-     description — replace its per-commit `ochid:`
-     trailers with one pointing at the squashed chid;
-     add a rewrite-note acknowledging the change
-     (preserves historical truth for future readers).
-   - Force-push bot `main` (rewrites the published
-     commit; chid preserved via `jj describe`).
-   - Push app `main`. The new bot commit paired with
-     this push receives `ochid: /<squashed-chid>` as
-     normal — produces a 2:1 bot→code pattern that's
-     already in the protocol's design space.
-   - Gates `Squash to one commit` as a routine
-     close-out shape vs. the current manual recipe.
-9. **single-field `options_flags` leaves → `value` field.**
-   `0.47.0` introduced the convention (single-field leaf names
-   its field `value`, declares the flag via `#[arg(long = "…")]`,
-   so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
-   on the new `squash` leaf. Sweep the pre-existing single-field
-   leaves to match: `repo`, `dry_run`, `private`, `account`,
-   `config`, `use_template` + their consumers
-   (`init.rs`, tests).
-
-   Note: can a single field be defined as an type or enum instead
-   of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
-   issue.
-10. **`por → dual` conversion.** Attach a `.claude`
+    Note: can a single field be defined as an type or enum instead
+    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
+    issue.
+11. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-11. **`validate-desc` / `fix-desc` por equalization.**
+12. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`
@@ -347,6 +379,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[19]]
 - feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
 - feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[21]]
+- docs: todo cleanup + trapezoid entries (0.67.1) — push-related todos reshaped around the trapezoidal (merge non-ff) workflow: new #1 bookmark-invariant fix and #2 push pause point; "record uncovered code commits (N:1)" re-scoped to code worked outside vc-x1; `push --squash` demoted to todo-backlog.md; cycle-protocol.md push-wrapper list synced [[22]]
 
 # References
 
@@ -372,3 +405,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [19]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652
 [20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
 [21]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
+[22]: /notes/chores/chores-13.md#docs-todo-cleanup--trapezoid-entries-0671

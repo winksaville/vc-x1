@@ -342,9 +342,18 @@ hand-write them into the commit body or `--title`/`--body`.
 shapes need manual jj steps. Improvements tracked /
 planned:
 
-- N:1 code↔bot for Merge non-ff (`## Todo` entry P1).
-- Symmetric squash (planned, to be captured in `-2`).
-- Per-repo bookmark names (planned).
+- Merge non-ff close-out without the manual pre-commits
+  (`## Todo` entry "vc-x1 push: pause point between commit
+  and publish stages") — commit stages run normally, pause
+  for the merge rebase, resume via `--from bookmark-both`.
+- N:1 code↔bot for code worked outside vc-x1 (`## Todo`
+  entry "vc-x1 push: record uncovered code commits").
+- Symmetric squash — demoted to `todo-backlog.md`
+  ("vc-x1 push --squash"): after-publication squash is
+  off the routine path now that Merge non-ff is the
+  routine shape.
+- Per-repo bookmark names (`## Todo` entry "push/sync:
+  bookmark is code-repo-only; pin the bot repo to main").
 
 ### .claude cadence
 

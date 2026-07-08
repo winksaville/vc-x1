@@ -299,7 +299,7 @@ the README `### sync` section.
 
 ## feat: single-mode sync + revert command (0.67.0)
 
-Commits: [[11]],[[12]],[[13]],[[14]],[[15]]
+Commits: [[11]],[[12]],[[13]],[[14]],[[15]],[[16]]
 
 `vc-x1 sync` defaulted to `--check`, whose "verify only"
 contract was a fiction (jj's fetch auto-fast-forwards tracked
@@ -364,6 +364,39 @@ scoped undo (`vc-x1 revert`). Verified on the real test-repo-1
 clones: syncing t1B after a t1A push moved `main` and `@` for
 the first time.
 
+## docs: todo cleanup + trapezoid entries (0.67.1)
+
+A session on the trapezoidal-commit workflow (work a code-repo
+bookmark 1:1, land it as the merge non-ff close-out) turned
+into a reshape of the push-related todos. Verified that
+`vc-x1 push <bookmark>` applies the one bookmark name to both
+repos — violating the bot-repo-linear-on-`main` invariant the
+moment a feature bookmark is pushed. Single-commit cycle.
+
+- New Todo #1 "push/sync: bookmark is code-repo-only; pin the
+  bot repo to main" — the invariant fix; prereq for working
+  the code repo on feature bookmarks.
+- New Todo #2 "vc-x1 push: pause point between commit and
+  publish stages" — the trapezoid close-out stays 1:1: commit
+  stages run normally, pause for the merge rebase (chids
+  survive rebase, so every ochid stays valid), resume via
+  `--from bookmark-both`; retires the manual pre-commit
+  workaround.
+- "vc-x1 push: record uncovered code commits (N:1 code↔bot)"
+  re-scoped to code worked outside vc-x1 (no bot pairings
+  exist); the trapezoid close-out is explicitly out of scope.
+- "vc-x1 push --squash" demoted to todo-backlog.md —
+  after-publication squash is off the routine path now that
+  merge non-ff is the routine shape; pre-publication squash
+  needs no tooling.
+- cycle-protocol.md push-wrapper improvements list synced to
+  the reshaped todos.
+
+### As-built ladder
+
+- 0.67.1 single-commit cycle: todo reshape + backlog demotion
+  + wrapper-list sync + this section.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -381,3 +414,4 @@ the first time.
 [13]: https://github.com/winksaville/vc-x1/commit/8cc79af9a87c "8cc79af9a87c655892eabe56478f8ac7631882d3"
 [14]: https://github.com/winksaville/vc-x1/commit/98fc7df76bc3 "98fc7df76bc37058ebb746953b0efb20f7d4e4dd"
 [15]: https://github.com/winksaville/vc-x1/commit/50e06379e4a9 "50e06379e4a9d2cd439cfbf21c585153279db554"
+[16]: https://github.com/winksaville/vc-x1/commit/7f2f038ffc2c "7f2f038ffc2c065c9a4d5b468c25e6490fc7db3e"
