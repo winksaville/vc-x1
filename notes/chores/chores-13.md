@@ -366,6 +366,8 @@ the first time.
 
 ## docs: todo cleanup + trapezoid entries (0.67.1)
 
+Commits: [[17]]
+
 A session on the trapezoidal-commit workflow (work a code-repo
 bookmark 1:1, land it as the merge non-ff close-out) turned
 into a reshape of the push-related todos. Verified that
@@ -397,6 +399,8 @@ moment a feature bookmark is pushed. Single-commit cycle.
 - 0.67.1 single-commit cycle: todo reshape + backlog demotion
   + wrapper-list sync + this section.
 
+## feat: pin bot repo to main (0.68.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -415,3 +419,4 @@ moment a feature bookmark is pushed. Single-commit cycle.
 [14]: https://github.com/winksaville/vc-x1/commit/98fc7df76bc3 "98fc7df76bc37058ebb746953b0efb20f7d4e4dd"
 [15]: https://github.com/winksaville/vc-x1/commit/50e06379e4a9 "50e06379e4a9d2cd439cfbf21c585153279db554"
 [16]: https://github.com/winksaville/vc-x1/commit/7f2f038ffc2c "7f2f038ffc2c065c9a4d5b468c25e6490fc7db3e"
+[17]: https://github.com/winksaville/vc-x1/commit/01357c2bdec7 "01357c2bdec7ef10137a8b51351c77a3f14fc0ed"

@@ -17,7 +17,26 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**push/sync: bookmark is code-repo-only; pin the bot repo to
+main.** `vc-x1 push <bookmark>` applies the one bookmark name
+to both repos (preflight tracking check, `bookmark-both`,
+`finalize --push`), and sync's classify/fetch use the passed
+bookmark for every repo — but the bot repo is a linear journal
+on `main` by design. Pushing a feature bookmark would create
+and push that bookmark in the bot repo, leave the bot `main`
+behind, and wedge the next sync's `reposition_session`. Prereq
+for the trapezoidal-commit workflow (branch the code repo; bot
+stays on `main`).
+
+   - 0.68.0-0 prep: backfill Commits:, bump version, pick up
+     todo, open chores section (current)
+   - 0.68.0-1 sync: session repo pins `main` — tracking
+     preflight + classify/act use a per-repo bookmark; tests
+   - 0.68.0-2 push: session repo pins `main` — preflight
+     tracking, bookmark stage (renamed/redoc'd from
+     `bookmark-both`), `finalize --push`, completion
+     sanity; `PushState.bookmark` stays code-side; tests
+   - 0.68.0 close-out and validation
 
 ## Todo
 
@@ -33,27 +52,7 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **push/sync: bookmark is code-repo-only; pin the bot repo to
-   main.** `vc-x1 push <bookmark>` applies the one bookmark name
-   to both repos (preflight tracking check, `bookmark-both`,
-   `finalize --push`), and sync's classify/fetch use the passed
-   bookmark for every repo — but the bot repo is a linear
-   journal on `main` by design. Pushing a feature bookmark would
-   create and push that bookmark in the bot repo, leave the bot
-   `main` behind, and wedge the next sync's
-   `reposition_session`. Prereq for the trapezoidal-commit
-   workflow (branch the code repo; bot stays on `main`).
-   - Extend the 0.67.0 `is_session_repo` dispatch: the session
-     repo hardcodes `main` in push preflight, the bookmark-set
-     stage, `finalize --push`, and sync classify/fetch.
-   - Rename/redoc the `bookmark-both` stage — the two repos
-     advance different bookmarks once this lands.
-   - `PushState` keeps its single `bookmark` field; the
-     `.claude` side becomes a constant.
-   - Already listed as "Per-repo bookmark names (planned)" in
-     [vc-x1 push wrapper](cycle-protocol.md#vc-x1-push-wrapper).
-
-2. **vc-x1 push: pause point between commit and publish
+1. **vc-x1 push: pause point between commit and publish
    stages.** The merge non-ff close-out is a three-step
    sequence:
    - commit the close-out pair locally (normal 1:1 commit
@@ -78,7 +77,7 @@ _No cycle currently in progress._
      throughout; the merge is a code-side-only shape
      operation).
 
-3. **Version-number protocol is fragile — versions are
+2. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -103,7 +102,7 @@ _No cycle currently in progress._
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-4. **sync follow-up: extract `move-bookmark` command.** The
+3. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -113,7 +112,7 @@ _No cycle currently in progress._
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-5. **sync follow-up: push preflight in-process; drop
+4. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -128,7 +127,7 @@ _No cycle currently in progress._
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-6. **validate-numbering: rename the pair, check all
+5. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -157,7 +156,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-7. **pre-commit: single rule (no docs skip) + doc validators.**
+6. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -180,7 +179,7 @@ _No cycle currently in progress._
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-8. **vc-x1 push: validate body opens with an intro paragraph.**
+7. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -197,7 +196,7 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+8. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The interop / adoption scenario breaks that:
    the code side is worked single-repo style (commit +
@@ -223,25 +222,25 @@ _No cycle currently in progress._
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-10. **single-field `options_flags` leaves → `value` field.**
-    `0.47.0` introduced the convention (single-field leaf names
-    its field `value`, declares the flag via `#[arg(long = "…")]`,
-    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
-    on the new `squash` leaf. Sweep the pre-existing single-field
-    leaves to match: `repo`, `dry_run`, `private`, `account`,
-    `config`, `use_template` + their consumers
-    (`init.rs`, tests).
+9. **single-field `options_flags` leaves → `value` field.**
+   `0.47.0` introduced the convention (single-field leaf names
+   its field `value`, declares the flag via `#[arg(long = "…")]`,
+   so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
+   on the new `squash` leaf. Sweep the pre-existing single-field
+   leaves to match: `repo`, `dry_run`, `private`, `account`,
+   `config`, `use_template` + their consumers
+   (`init.rs`, tests).
 
-    Note: can a single field be defined as an type or enum instead
-    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
-    issue.
-11. **`por → dual` conversion.** Attach a `.claude`
+   Note: can a single field be defined as an type or enum instead
+   of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
+   issue.
+10. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-12. **`validate-desc` / `fix-desc` por equalization.**
+11. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`
