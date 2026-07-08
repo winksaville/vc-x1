@@ -29,10 +29,15 @@ for the trapezoidal-commit workflow (branch the code repo; bot
 stays on `main`).
 
    - 0.68.0-0 prep: backfill Commits:, bump version, pick up
-     todo, open chores section (current)
+     todo, open chores section (done)
    - 0.68.0-1 sync: session repo pins `main` — tracking
      preflight + classify/act use a per-repo bookmark; tests
-   - 0.68.0-2 push: session repo pins `main` — preflight
+     (done)
+   - 0.68.0-2 sync: `reposition_session` no-ops when `@-` is
+     already the `main` tip — today it always `jj new main`s
+     (empty `@`: chid/op churn; non-empty `@`: live session
+     writes stranded on a sibling head); tests
+   - 0.68.0-3 push: session repo pins `main` — preflight
      tracking, bookmark stage (renamed/redoc'd from
      `bookmark-both`), `finalize --push`, completion
      sanity; `PushState.bookmark` stays code-side; tests
@@ -382,7 +387,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 
 # References
 
-[0]: /AGENTS.md#prose-form
+[0]: AGENTS.md#prose-form
 [1]: /notes/design-cli/por-dual-parity.md
 [2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
 [3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520

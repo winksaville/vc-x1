@@ -659,6 +659,55 @@ fn sync_clone_ffs_main_after_peer_push() {
     );
 }
 
+/// Scenario 10: `--bookmark` is code-repo-only — the session repo
+/// pins `main`. Syncing a feature bookmark while the session remote
+/// advances `main` must still fast-forward the session repo's `main`
+/// and reposition its `@`, and must not touch a `feature` bookmark
+/// there. The code repo syncs `feature` as requested.
+#[test]
+fn sync_feature_bookmark_pins_session_to_main() {
+    let fx = Fixture::new("feature-pins-session");
+    // Code repo: create + push a feature bookmark so it tracks.
+    jj(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
+    jj(&fx.work, &["git", "push", "--bookmark", "feature"]);
+    // Session remote advances main while feature work is underway.
+    let remote_claude = fx.base.join("remote-claude.git");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_claude,
+        "claude2",
+        "remote.md",
+        "remote\n",
+        "feat: remote-added",
+    );
+
+    let params = SyncParams {
+        bookmark: "feature".to_string(),
+        ..default_params()
+    };
+    sync_repos(&fx.repos(), &params).expect("sync should succeed");
+
+    // Session repo synced main and repositioned @ onto it.
+    assert_eq!(
+        cid(&fx.claude, "main"),
+        remote_head,
+        "session main should ff to remote despite --bookmark feature"
+    );
+    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
+    // No feature bookmark appears in the session repo.
+    assert!(
+        !has(&fx.claude, "bookmarks(exact:feature)"),
+        "session repo must not grow a 'feature' bookmark"
+    );
+    // Code repo's feature bookmark is in sync with its remote.
+    assert_eq!(
+        cid(&fx.work, "feature"),
+        cid(&fx.work, "feature@origin"),
+        "code repo's feature bookmark synced as requested"
+    );
+}
+
 /// Scenario 8: code repo behind with a non-empty `@` and `--rebase`.
 /// The flag auto-confirms, so `@` is carried onto the new main with
 /// its changes intact and no conflicts.

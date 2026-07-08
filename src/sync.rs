@@ -2,6 +2,12 @@
 //! a workspace's repos against their remotes, then reposition `@`
 //! onto the synced bookmark.
 //!
+//! `--bookmark` names a **code-repo** bookmark only: the session
+//! (bot) repo is a linear journal on `main` by design, so every
+//! per-repo step (tracking preflight, classify, act, reposition)
+//! resolves its bookmark via `repo_bookmark`, which pins the
+//! session repo to `main`.
+//!
 //! Sync is a single atomic operation — verify-then-act happens
 //! inside one invocation against one fetch snapshot (a separate
 //! check-then-apply pair of runs would race the remote). The
@@ -63,7 +69,8 @@ pub struct SyncArgs {
     #[arg(short, long)]
     pub quiet: bool,
 
-    /// Bookmark to sync in each repo
+    /// Bookmark to sync in the code repo. The session (bot) repo
+    /// is a linear journal and always syncs `main`, regardless.
     #[arg(long, default_value = "main")]
     pub bookmark: String,
 
@@ -114,7 +121,8 @@ pub struct SyncArgs {
 /// Inputs to the sync op, flat, owned, clap-free.
 ///
 /// - `quiet`: `-q` / `--quiet` — clamp output to `Warn` for the run.
-/// - `bookmark`: bookmark to sync in each repo (default `main`).
+/// - `bookmark`: bookmark to sync in the code repo (default
+///   `main`); the session repo always syncs `main`.
 /// - `remote`: remote to sync against (default `origin`).
 /// - `check`: hidden deprecated `--check` — verify-only mode
 ///   (fetch + classify + report, error if action needed; no
@@ -276,14 +284,27 @@ pub fn sync_repos(
     // — design at:
     //   https://github.com/winksaville/vc-x1/blob/main/notes/chores/chores-06.md#non-tracking-remote-bookmark-detection-design
     for repo in repos {
-        crate::common::verify_tracking(repo, &params.bookmark)?;
+        let bookmark = repo_bookmark(repo, &params.bookmark);
+        if bookmark != params.bookmark {
+            info!(
+                "{}: session repo — syncing 'main' ('{}' is a code repo bookmark)",
+                repo.display(),
+                params.bookmark
+            );
+        }
+        crate::common::verify_tracking(repo, bookmark)?;
     }
 
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
     for repo in repos {
         let op_id = current_op_id(repo)?;
         debug!("{}: op snapshot = {op_id}", repo.display());
-        state::save(repo, &op_id, &params.bookmark, &params.remote)?;
+        state::save(
+            repo,
+            &op_id,
+            repo_bookmark(repo, &params.bookmark),
+            &params.remote,
+        )?;
         snapshots.push((repo.clone(), op_id));
     }
 
@@ -294,7 +315,7 @@ pub fn sync_repos(
     let result = run_plan(&snapshots, params).and_then(|()| {
         if !params.check {
             for (repo, _) in &snapshots {
-                reposition_at(repo, &params.bookmark, params)?;
+                reposition_at(repo, repo_bookmark(repo, &params.bookmark), params)?;
             }
         }
         Ok(())
@@ -342,7 +363,7 @@ fn run_plan(
     for (repo, op_id) in snapshots {
         let stderr = fetch_silent(repo, &params.remote)?;
         fetched.push((repo.clone(), stderr));
-        let state = classify(repo, &params.bookmark, &params.remote)?;
+        let state = classify(repo, repo_bookmark(repo, &params.bookmark), &params.remote)?;
         ctxs.push(RepoCtx {
             path: repo.clone(),
             op_id: op_id.clone(),
@@ -457,6 +478,20 @@ fn is_session_repo(repo: &Path) -> bool {
             toml_simple::toml_get(&cfg, "workspace.path").map(String::as_str) == Some("/.claude")
         }
         Err(_) => false,
+    }
+}
+
+/// Bookmark to sync for `repo`.
+///
+/// `--bookmark` is code-repo-only: the session (bot) repo is a
+/// linear journal on `main` by design, so it pins `main` regardless
+/// of the requested bookmark. Every other repo uses `bookmark`
+/// as passed.
+fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
+    if is_session_repo(repo) {
+        "main"
+    } else {
+        bookmark
     }
 }
 
@@ -591,18 +626,19 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 ///   pre-fetch state.
 fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
     let repo = &ctx.path;
-    let remote_rev = format!("{}@{}", params.bookmark, params.remote);
+    let bookmark = repo_bookmark(repo, &params.bookmark);
+    let remote_rev = format!("{}@{}", bookmark, params.remote);
     match &ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
             if !params.check {
-                info!("{}: fast-forwarding '{}'", repo.display(), params.bookmark);
+                info!("{}: setting '{bookmark}' to {remote_rev}", repo.display());
                 run(
                     "jj",
                     &[
                         "bookmark",
                         "set",
-                        &params.bookmark,
+                        bookmark,
                         "-r",
                         &remote_rev,
                         "-R",
