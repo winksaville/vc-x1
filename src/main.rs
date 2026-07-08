@@ -181,7 +181,7 @@ pub(crate) enum Commands {
     Symlink(symlink::SymlinkArgs),
 
     /// Fetch and sync a set of repos to their remotes
-    #[command(long_about = "Fetch and sync a set of repos to their remotes.\n\n\
+    #[command(long_about = format!("Fetch and sync a set of repos to their remotes.\n\n\
         Repo set is resolved (in order):\n  \
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
           - `--scope=code|bot|code,bot` dual-repo roles via `.vc-config.toml`\n  \
@@ -195,15 +195,16 @@ pub(crate) enum Commands {
         After a successful sync, `@` is repositioned onto the synced\n\
         bookmark: the code repo `jj new`s a clean `@` (or rebases a\n\
         dirty one with --rebase / a prompt), the `.claude` session\n\
-        repo always `jj new main`s.\n\n\
+        repo `jj new main`s when main moved (no-op when `@-` is\n\
+        already the main tip).\n\n\
         On failure sync stops where the failing step stopped — nothing\n\
         is auto-reverted, so the state can be inspected. Each repo's\n\
         pre-sync op id is persisted to `.vc-x1/sync-state.toml`; undo\n\
         explicitly with `vc-x1 revert` (state is cleared on success).\n\n\
         Output shape:\n  \
-          - all-up-to-date: one-line summary (`sync: N repos, all bookmarks up-to-date`)\n  \
+          - all-up-to-date: one-line summary (`sync: N repos are {}`)\n  \
           - action needed:  per-repo fetch + state + actions\n  \
-          - --quiet:        no output; exit code signals success")]
+          - --quiet:        no output; exit code signals success", sync::UP_TO_DATE_MSG))]
     Sync(sync::SyncArgs),
 
     /// Restore repos to their persisted pre-sync snapshots

@@ -342,6 +342,11 @@ pub fn sync_repos(
     Ok(())
 }
 
+/// Clean-case summary tail ("<N> repo(s) …" prefixed at the emit
+/// site). Shared with main.rs's `long_about` so the documented
+/// output shape can't drift from the emitted one.
+pub const UP_TO_DATE_MSG: &str = "up to date, nothing to sync";
+
 /// Fetch and classify each repo, then act (or not, in verify-only).
 ///
 /// Returns `Err` on the first failure so the caller can stop and
@@ -380,8 +385,8 @@ fn run_plan(
     // suppressed in scripts; we just shape the output here.
     if !any_action_needed {
         let n = ctxs.len();
-        let noun = if n == 1 { "repo" } else { "repos" };
-        info!("sync: {n} {noun}, all bookmarks up-to-date");
+        let noun = if n == 1 { "repo is" } else { "repos are" };
+        info!("sync: {n} {noun} {UP_TO_DATE_MSG}");
     } else {
         for (repo, stderr) in &fetched {
             info!("{}: fetch {}", repo.display(), params.remote);
@@ -515,7 +520,7 @@ fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parent = commit_id(repo, "@-")?;
     let tip = commit_id(repo, "main")?;
     if parent == tip {
-        info!("{}: @ already on 'main'", repo.display());
+        debug!("{}: @ already on 'main'", repo.display());
         return Ok(());
     }
     if !revset_nonempty(repo, &format!("{parent}::main"))? {
@@ -554,7 +559,7 @@ fn reposition_code(
     let parent = commit_id(repo, "@-")?;
     let tip = commit_id(repo, bookmark)?;
     if tip == parent {
-        info!("{}: @ already on '{bookmark}'", repo.display());
+        debug!("{}: @ already on '{bookmark}'", repo.display());
         return Ok(());
     }
     if !revset_nonempty(repo, &format!("{parent}::{tip}"))? {
