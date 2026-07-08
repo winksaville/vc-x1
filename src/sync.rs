@@ -500,14 +500,24 @@ fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
 /// The session (`.claude`) repo is a linear journal on `main`, and its
 /// `@` normally carries live session writes:
 ///
+/// - `@-` already the `main` tip → no-op: `@` is where it belongs,
+///   live writes stay in the working copy. (An unconditional
+///   `jj new main` here would churn an empty `@`'s chid/op every
+///   sync, or strand a non-empty `@`'s live writes — and any ochid
+///   captured against its chid — on a sibling head.)
 /// - Errors when `@-` isn't on `main` (not an ancestor-or-equal of the
 ///   bookmark) — refuse rather than guess.
-/// - Otherwise `jj new main` starts a fresh `@` on the bookmark; the
-///   prior `@` becomes a sibling head, which is expected for the
-///   journal. A conflict is very unlikely given `.claude`'s content;
-///   if one ever appears the user resolves it.
+/// - Otherwise `main` moved: `jj new main` starts a fresh `@` on the
+///   bookmark; the prior `@` becomes a sibling head, which is
+///   expected for the journal. A conflict is very unlikely given
+///   `.claude`'s content; if one ever appears the user resolves it.
 fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parent = commit_id(repo, "@-")?;
+    let tip = commit_id(repo, "main")?;
+    if parent == tip {
+        info!("{}: @ already on 'main'", repo.display());
+        return Ok(());
+    }
     if !revset_nonempty(repo, &format!("{parent}::main"))? {
         return Err(format!(
             "{}: @- ({parent}) is not on main — refusing to reposition @",

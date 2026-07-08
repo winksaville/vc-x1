@@ -220,30 +220,37 @@ fn sync_up_to_date() {
 
 /// Scenario 2a: a non-empty `@` on top of main (simulates `/exit`
 /// trailing session writes in `.claude`) when there's nothing new on
-/// the remote. The session repo always `jj new main`s: `@` becomes a
-/// fresh empty child of the unmoved main, and the trailing commit is
-/// preserved as a non-empty sibling head (no longer in the working
-/// copy).
+/// the remote. `@-` is already the main tip, so reposition no-ops:
+/// `@` keeps its chid and the trailing writes stay in the working
+/// copy — no sibling head, no `jj new` churn.
 #[test]
-fn sync_session_jj_new_when_up_to_date() {
-    let fx = Fixture::new("session-jjnew-uptodate");
+fn sync_session_noop_when_up_to_date() {
+    let fx = Fixture::new("session-noop-uptodate");
     let pre_main = cid(&fx.claude, "main");
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
+    let pre_at = jj(
+        &fx.claude,
+        &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
+    );
     sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     // main didn't move.
     assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
-    // @ is a fresh empty child of main.
-    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
-    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
-    // The trailing session commit survives as a non-empty sibling head.
-    assert!(
-        has(&fx.claude, "heads(all()) & ~empty()"),
-        "former @ preserved as a non-empty sibling head"
+    // @ is the same change — no jj new, no abandoned chid.
+    let post_at = jj(
+        &fx.claude,
+        &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
-    // The trailing file is no longer in the working copy (@ moved off it).
+    assert_eq!(post_at, pre_at, "@ should keep its change id");
+    // The trailing writes stay in the working copy.
+    assert_eq!(
+        fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
+        "{\"line\":1}\n",
+        "trailing writes stay in @"
+    );
+    // No sibling head was created.
     assert!(
-        !fx.claude.join("trailing.jsonl").exists(),
-        "@ no longer holds the trailing file"
+        !has(&fx.claude, "heads(all()) & ~empty() & ~@"),
+        "no non-empty sibling head should appear"
     );
 }
 

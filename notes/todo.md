@@ -36,7 +36,7 @@ stays on `main`).
    - 0.68.0-2 sync: `reposition_session` no-ops when `@-` is
      already the `main` tip — today it always `jj new main`s
      (empty `@`: chid/op churn; non-empty `@`: live session
-     writes stranded on a sibling head); tests
+     writes stranded on a sibling head); tests (done)
    - 0.68.0-3 push: session repo pins `main` — preflight
      tracking, bookmark stage (renamed/redoc'd from
      `bookmark-both`), `finalize --push`, completion
