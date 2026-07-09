@@ -401,6 +401,49 @@ moment a feature bookmark is pushed. Single-commit cycle.
 
 ## feat: pin bot repo to main (0.68.0)
 
+`vc-x1 push <bookmark>` applied the one bookmark name to both
+repos (preflight tracking check, `bookmark-both`,
+`finalize --push`), and sync's classify/fetch used the passed
+bookmark for every repo — but the bot repo is a linear journal
+on `main` by design. Pushing a feature bookmark would create
+and push that bookmark in the bot repo, leave the bot `main`
+behind, and wedge the next sync's `reposition_session`. Prereq
+for the trapezoidal-commit workflow (branch the code repo; bot
+stays on `main`).
+
+Two adjacent sync warts surfaced (and were fixed) mid-cycle
+while dogfooding: the unconditional `jj new main` on the
+session repo, and the three-lines-to-say-nothing clean-case
+output.
+
+### As-built ladder
+
+- 0.68.0-0 prep: backfill Commits:, bump version, pick up
+  todo, open chores section
+- 0.68.0-1 sync: session repo pins `main` — tracking
+  preflight + classify/act use a per-repo bookmark; tests
+- 0.68.0-2 sync: `reposition_session` no-ops when `@-` is
+  already the `main` tip — previously it always `jj new
+  main`ed (empty `@`: chid/op churn; non-empty `@`: live
+  session writes stranded on a sibling head); tests
+- 0.68.0-3 sync: quiet output — clean case prints one
+  summary line (`UP_TO_DATE_MSG` const shared with main.rs's
+  long_about); per-repo "@ already on" no-op lines demoted
+  to debug
+- 0.68.0-4 push: every stage's session-repo side uses
+  `main`, never the passed bookmark
+  - preflight verifies the session repo tracks `main`
+  - bookmark stage sets app → `<bookmark>`, session →
+    `main`; renamed `bookmark-both` → `bookmark-set` (no
+    legacy alias — nothing external invokes the old name)
+  - finalize-claude pushes `main`
+  - completion sanity checks the session repo's `main`
+  - `PushState.bookmark` holds the code-repo bookmark only
+  - test: a feature-bookmark push advances the session
+    repo's `main` and creates no `feature` bookmark there
+- 0.68.0 close-out: this section; README sync/push updates;
+  wrapper planned-list sync
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"

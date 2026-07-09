@@ -352,8 +352,10 @@ planned:
   ("vc-x1 push --squash"): after-publication squash is
   off the routine path now that Merge non-ff is the
   routine shape.
-- Per-repo bookmark names (`## Todo` entry "push/sync:
-  bookmark is code-repo-only; pin the bot repo to main").
+
+Landed: per-repo bookmark names (0.68.0) — `<bookmark>` is
+code-repo-only; the session repo is pinned to `main`
+throughout push and sync.
 
 ### .claude cadence
 

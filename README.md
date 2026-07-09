@@ -451,6 +451,11 @@ Per repo, `sync` classifies the local bookmark against its remote:
 | diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
 | no remote | bookmark has no `@<remote>` counterpart | none — skip |
 
+`--bookmark` names a **code-repo** bookmark only: the session repo
+is a linear journal on `main` by design, so its side of every step
+(tracking preflight, classify, act, reposition) always uses `main`
+regardless of the flag.
+
 After the bookmark action above, `sync` repositions `@` onto the
 freshly-synced bookmark as a final pass, run after every repo syncs
 cleanly. The rule differs by repo (`@-` is the parent of `@`; `<b>`
@@ -465,11 +470,12 @@ is the synced `--bookmark`):
     not a TTY and no `--rebase` — leaves `@` in place and says so.
   - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line
     (diverged / `@` ahead) → `@` is left untouched, with a note why.
-- **Session repo** (`.claude`): always `jj new main` when `@-` is on
-  `main`, so a fresh empty `@` starts each session on the tip; the
-  prior `@` (e.g. `/exit`'s trailing session writes) is preserved as
-  a sibling head. If `@-` isn't on `main`, `sync` errors rather than
-  strand it.
+- **Session repo** (`.claude`): no-op when `@-` is already the
+  `main` tip — `@` keeps its change id and any live session writes
+  stay in the working copy. When `main` moved, `jj new main` starts
+  a fresh empty `@` on the new tip; the prior `@` (e.g. `/exit`'s
+  trailing session writes) is preserved as a sibling head. If `@-`
+  isn't on `main`, `sync` errors rather than strand it.
 
 On any failure during fetch/classify/act/reposition — conflicted
 rebase, subprocess error, anything — `sync` **stops where the
@@ -512,14 +518,15 @@ the workspace root and resolves repos by absolute path.
 | `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
 | `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Composes with `-R` |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
-| `--bookmark <NAME>` | Bookmark to sync in each repo [default: main] |
+| `--bookmark <NAME>` | Bookmark to sync in the code repo (session repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
 | `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (code repo only) |
 
 **Output shape.** Sync collapses output based on what it finds:
 
 - **All up-to-date** — one-line summary:
-  `sync: N repos, all bookmarks up-to-date`. Nothing else.
+  `sync: N repos are up to date, nothing to sync`. Nothing else
+  (no-op reposition lines are debug-level).
   Makes "sprinkle sync everywhere" genuinely cheap. Scope is
   bookmark-vs-remote tracking — `@` may have uncommitted
   working-copy changes; sync intentionally doesn't speak to

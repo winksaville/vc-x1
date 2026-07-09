@@ -17,40 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**push/sync: bookmark is code-repo-only; pin the bot repo to
-main.** `vc-x1 push <bookmark>` applies the one bookmark name
-to both repos (preflight tracking check, `bookmark-both`,
-`finalize --push`), and sync's classify/fetch use the passed
-bookmark for every repo — but the bot repo is a linear journal
-on `main` by design. Pushing a feature bookmark would create
-and push that bookmark in the bot repo, leave the bot `main`
-behind, and wedge the next sync's `reposition_session`. Prereq
-for the trapezoidal-commit workflow (branch the code repo; bot
-stays on `main`).
-
-   - 0.68.0-0 prep: backfill Commits:, bump version, pick up
-     todo, open chores section (done)
-   - 0.68.0-1 sync: session repo pins `main` — tracking
-     preflight + classify/act use a per-repo bookmark; tests
-     (done)
-   - 0.68.0-2 sync: `reposition_session` no-ops when `@-` is
-     already the `main` tip — today it always `jj new main`s
-     (empty `@`: chid/op churn; non-empty `@`: live session
-     writes stranded on a sibling head); tests (done)
-   - 0.68.0-3 sync: quiet output — clean case prints one
-     summary line; per-repo "@ already on" no-op lines demoted
-     to debug (done)
-   - 0.68.0-4 push: every stage's session-repo side uses
-     `main`, never the passed bookmark (done)
-     - preflight verifies the session repo tracks `main`
-     - bookmark stage sets app → `<bookmark>`, session →
-       `main`; renamed `bookmark-both` → `bookmark-set`
-     - finalize-claude pushes `main`
-     - completion sanity checks the session repo's `main`
-     - `PushState.bookmark` holds the code-repo bookmark only
-     - test: a feature-bookmark push advances the session
-       repo's `main` and creates no `feature` bookmark there
-   - 0.68.0 close-out and validation
+_No cycle currently in progress._
 
 ## Todo
 
@@ -393,6 +360,7 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 - feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
 - feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[21]]
 - docs: todo cleanup + trapezoid entries (0.67.1) — push-related todos reshaped around the trapezoidal (merge non-ff) workflow: new #1 bookmark-invariant fix and #2 push pause point; "record uncovered code commits (N:1)" re-scoped to code worked outside vc-x1; `push --squash` demoted to todo-backlog.md; cycle-protocol.md push-wrapper list synced [[22]]
+- feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
 
 # References
 
@@ -419,3 +387,4 @@ _Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
 [20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
 [21]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
 [22]: /notes/chores/chores-13.md#docs-todo-cleanup--trapezoid-entries-0671
+[23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
