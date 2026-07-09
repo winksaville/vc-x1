@@ -8,7 +8,7 @@
 //! `Cargo.toml` in the fixture) and `--no-finalize` to avoid
 //! spawning a detached `vc-x1 finalize` child that would
 //! outlive the test. The remaining stages (message,
-//! commit-app, commit-claude, bookmark-both, push-app) are
+//! commit-app, commit-claude, bookmark-set, push-app) are
 //! exercised against the fixture's local bare-git remote.
 //!
 //! Stage execution + rollback are covered here;
@@ -89,7 +89,7 @@ fn test_params(title: &str, body: &str) -> PushParams {
 /// Happy path when `.claude` has no pending changes: the app
 /// commit lands with an `ochid` trailer pointing at `.claude`'s
 /// pre-existing `@-`, `commit-claude` is skipped, and both
-/// `bookmark-both` + `push-app` still run cleanly.
+/// `bookmark-set` + `push-app` still run cleanly.
 #[test]
 fn push_happy_claude_clean() {
     let fx = Fixture::new("push-clean");
@@ -156,6 +156,46 @@ fn push_happy_claude_dirty() {
     );
 }
 
+/// A feature-bookmark push pins the session repo to `main`: the
+/// app repo grows + pushes `feature`, while `.claude` advances and
+/// keeps only `main` — no `feature` bookmark may appear there.
+#[test]
+fn push_feature_bookmark_pins_session_to_main() {
+    let fx = Fixture::new("push-feature-pin");
+    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    let claude_main_before = cid(&fx.claude, "main");
+
+    let mut params = test_params("feat: on feature", "feature body");
+    params.bookmark = Some("feature".to_string());
+    push_in(&fx.work, &params).expect("push should succeed");
+
+    // App repo: feature created, pushed, and at the new commit.
+    assert_eq!(desc_first_line(&fx.work, "feature"), "feat: on feature");
+    assert_eq!(
+        cid(&fx.work, "feature"),
+        cid(&fx.work, "feature@origin"),
+        "app feature bookmark should be pushed"
+    );
+
+    // Session repo: main advanced with the paired commit...
+    assert_ne!(
+        cid(&fx.claude, "main"),
+        claude_main_before,
+        ".claude main should have advanced"
+    );
+    assert_eq!(desc_first_line(&fx.claude, "main"), "feat: on feature");
+    // ...and no feature bookmark exists there (bookmark-list lines
+    // are `name: ...`; match on the name position, not the whole
+    // line — commit titles may legitimately contain "feature").
+    let claude_bookmarks = jj(&fx.claude, &["bookmark", "list"]);
+    assert!(
+        !claude_bookmarks.lines().any(|l| l.starts_with("feature:")),
+        ".claude must not grow a 'feature' bookmark:\n{claude_bookmarks}"
+    );
+}
+
 /// `rollback_on_failure` rewinds both repos to their recorded
 /// `jj op` snapshots when triggered mid-flow.
 ///
@@ -206,11 +246,11 @@ fn push_rollback_restores_both_repos() {
         "setup should have moved .claude main"
     );
 
-    // State records we're at bookmark-both with snapshots from
+    // State records we're at bookmark-set with snapshots from
     // before any of the above mutations.
     let state = PushState {
         version: STATE_FORMAT_VERSION,
-        stage: Stage::BookmarkBoth,
+        stage: Stage::BookmarkSet,
         bookmark: "main".to_string(),
         started_at: "2026-04-21T20:00:00+00:00".to_string(),
         app_chid: None,

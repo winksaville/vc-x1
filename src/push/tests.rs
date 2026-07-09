@@ -115,7 +115,7 @@ fn parse_from_stage() {
         ("message", Stage::Message),
         ("commit-app", Stage::CommitApp),
         ("commit-claude", Stage::CommitClaude),
-        ("bookmark-both", Stage::BookmarkBoth),
+        ("bookmark-set", Stage::BookmarkSet),
         ("push-app", Stage::PushApp),
         ("finalize-claude", Stage::FinalizeClaude),
     ] {
@@ -144,7 +144,7 @@ fn stage_next_walks_full_flow() {
             Stage::Message,
             Stage::CommitApp,
             Stage::CommitClaude,
-            Stage::BookmarkBoth,
+            Stage::BookmarkSet,
             Stage::PushApp,
             Stage::FinalizeClaude,
         ]
@@ -160,7 +160,7 @@ fn stage_str_roundtrip() {
         Stage::Message,
         Stage::CommitApp,
         Stage::CommitClaude,
-        Stage::BookmarkBoth,
+        Stage::BookmarkSet,
         Stage::PushApp,
         Stage::FinalizeClaude,
     ] {
@@ -279,7 +279,7 @@ fn rollback_eligibility_covers_local_window() {
     assert!(!stage_is_rollback_eligible(Stage::Message));
     assert!(stage_is_rollback_eligible(Stage::CommitApp));
     assert!(stage_is_rollback_eligible(Stage::CommitClaude));
-    assert!(stage_is_rollback_eligible(Stage::BookmarkBoth));
+    assert!(stage_is_rollback_eligible(Stage::BookmarkSet));
     assert!(!stage_is_rollback_eligible(Stage::PushApp));
     assert!(!stage_is_rollback_eligible(Stage::FinalizeClaude));
 }

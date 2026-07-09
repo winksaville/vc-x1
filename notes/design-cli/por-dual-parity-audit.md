@@ -399,7 +399,7 @@ implicit default; `--por` is the opt-out) more than the
   `CommitClaude` / `FinalizeClaude` stages; ochid trailer
   composition (`ochid: /.claude/<chid>` on app, multi-line
   `ochid: /<code-chid>` on bot); the `--from
-  bookmark-both` flag; the 1:1 symmetric WC-commits
+  bookmark-set` flag; the 1:1 symmetric WC-commits
   assumption flagged in T1.
 - **Por-only** — none.
 

@@ -292,6 +292,22 @@
       push receives `ochid: /<squashed-chid>` as normal — K
       prior bot records plus the new one gives (K+1):1
       bot→code (2:1 in the 0.59.0 case).
+47. **`vc-x1 clone`: graceful single-repo fallback when no
+    companion `.claude` remote.** Default dual clone errors
+    mid-way when `<source>.claude` doesn't exist; `--por` is
+    the workaround (works, but you must know to pass it).
+    - After the code clone, probe the session URL with
+      `git ls-remote <url> HEAD`; on failure report "no
+      companion session repo — cloning code repo only"
+      (GitHub reports missing and no-access identically) and
+      skip the bot clone + symlink; done message says single
+      repo.
+    - A clone failure after a successful probe stays a real
+      error.
+    - Dry-run text notes steps 2/3 are skipped when no
+      companion exists.
+    - Integration-testable offline via path-form sources
+      (code bare repo present, no `.claude` bare repo).
 
 # References
 

@@ -345,7 +345,7 @@ planned:
 - Merge non-ff close-out without the manual pre-commits
   (`## Todo` entry "vc-x1 push: pause point between commit
   and publish stages") — commit stages run normally, pause
-  for the merge rebase, resume via `--from bookmark-both`.
+  for the merge rebase, resume via `--from bookmark-set`.
 - N:1 code↔bot for code worked outside vc-x1 (`## Todo`
   entry "vc-x1 push: record uncovered code commits").
 - Symmetric squash — demoted to `todo-backlog.md`

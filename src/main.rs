@@ -238,9 +238,10 @@ pub(crate) enum Commands {
         resume without re-doing completed stages.\n\n\
         Stages: preflight (fmt/clippy/test) → review (approve diff)\n\
         → message ($EDITOR / --title+--body, approve text) →\n\
-        commit-app → commit-claude (skipped if clean) → bookmark-both\n\
-        → push-app → finalize-claude. Failures in commit-app /\n\
-        commit-claude / bookmark-both roll both repos back via\n\
+        commit-app → commit-claude (skipped if clean) → bookmark-set\n\
+        (app → <bookmark>, session → main) → push-app →\n\
+        finalize-claude. Failures in commit-app / commit-claude /\n\
+        bookmark-set roll both repos back via\n\
         `jj op restore` to the snapshot recorded before commit-app.\n\
         After push-app succeeds the remote boundary is crossed and\n\
         recovery is forward-only.\n\n\

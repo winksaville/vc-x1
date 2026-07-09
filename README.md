@@ -634,11 +634,11 @@ to `.vc-x1/push-state.toml` so interrupts resume mid-flow):
 | `message` | Compose title+body from `--title`/`--body`, persisted state, or `$EDITOR` template; second approval gate |
 | `commit-app` | `jj commit` app repo with ochid trailer pointing at `.claude` |
 | `commit-claude` | `jj commit` `.claude` with ochid trailer pointing at app (skipped if `.claude` is clean) |
-| `bookmark-both` | `jj bookmark set <bookmark> -r @- -R .` and `-R .claude` |
+| `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
 | `push-app` | `jj git push --bookmark <bookmark> -R .` |
-| `finalize-claude` | `vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach` |
+| `finalize-claude` | `vc-x1 finalize --repo .claude --squash --push main --delay 10 --detach` |
 
-Failures in `commit-app` / `commit-claude` / `bookmark-both` roll
+Failures in `commit-app` / `commit-claude` / `bookmark-set` roll
 both repos back via `jj op restore` to the snapshot recorded at
 the start of `commit-app`. Past `push-app` the remote boundary is
 crossed and recovery is forward-only (see "Late changes after
@@ -646,7 +646,7 @@ push" in AGENTS.md).
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Bookmark to advance; positional form of `--bookmark` |
+| `[BOOKMARK]` | Code-repo bookmark to advance (the session repo always advances `main`); positional form of `--bookmark` |
 | `--bookmark <NAME>` | Same as positional (mutually exclusive) |
 | `-y, --yes` | Auto-approve both gates (non-interactive use) |
 | `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |

@@ -36,6 +36,11 @@ use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
+/// Bookmark the session (`.claude`) repo always advances and
+/// pushes. The session repo is a linear journal on `main` by
+/// design — `<bookmark>` names a code-repo bookmark only.
+const SESSION_BOOKMARK: &str = "main";
+
 /// Named stages of the `push` state machine.
 ///
 /// Used by `--from <stage>` to resume at a specific point and by
@@ -54,11 +59,12 @@ pub enum Stage {
     CommitApp,
     /// Commit the `.claude` session repo (skipped if empty).
     CommitClaude,
-    /// Advance both bookmarks to `@-`.
-    BookmarkBoth,
+    /// Advance each repo's bookmark to its `@-`: app → `<bookmark>`,
+    /// session → `main`.
+    BookmarkSet,
     /// `jj git push --bookmark <b> -R .`.
     PushApp,
-    /// `vc-x1 finalize --repo .claude --squash --push <b> ...`.
+    /// `vc-x1 finalize --repo .claude --squash --push main ...`.
     FinalizeClaude,
 }
 
@@ -73,7 +79,7 @@ impl Stage {
             Stage::Message => "message",
             Stage::CommitApp => "commit-app",
             Stage::CommitClaude => "commit-claude",
-            Stage::BookmarkBoth => "bookmark-both",
+            Stage::BookmarkSet => "bookmark-set",
             Stage::PushApp => "push-app",
             Stage::FinalizeClaude => "finalize-claude",
         }
@@ -90,7 +96,7 @@ impl Stage {
             "message" => Some(Stage::Message),
             "commit-app" => Some(Stage::CommitApp),
             "commit-claude" => Some(Stage::CommitClaude),
-            "bookmark-both" => Some(Stage::BookmarkBoth),
+            "bookmark-set" => Some(Stage::BookmarkSet),
             "push-app" => Some(Stage::PushApp),
             "finalize-claude" => Some(Stage::FinalizeClaude),
             _ => None,
@@ -105,8 +111,8 @@ impl Stage {
             Stage::Review => Some(Stage::Message),
             Stage::Message => Some(Stage::CommitApp),
             Stage::CommitApp => Some(Stage::CommitClaude),
-            Stage::CommitClaude => Some(Stage::BookmarkBoth),
-            Stage::BookmarkBoth => Some(Stage::PushApp),
+            Stage::CommitClaude => Some(Stage::BookmarkSet),
+            Stage::BookmarkSet => Some(Stage::PushApp),
             Stage::PushApp => Some(Stage::FinalizeClaude),
             Stage::FinalizeClaude => None,
         }
@@ -126,7 +132,8 @@ impl Stage {
 /// when.
 #[derive(Args, Debug)]
 pub struct PushArgs {
-    /// Bookmark to advance in both repos (positional form of `--bookmark`).
+    /// Bookmark to advance in the code repo (positional form of
+    /// `--bookmark`). The session repo always advances `main`.
     ///
     /// Accepting a positional lets the common case read as `vc-x1 push main`
     /// without the `--bookmark` ceremony; `--bookmark` is kept as an
@@ -135,7 +142,7 @@ pub struct PushArgs {
     #[arg(value_name = "BOOKMARK", conflicts_with = "bookmark")]
     pub bookmark_pos: Option<String>,
 
-    /// Bookmark to advance in both repos (flag form; see positional).
+    /// Bookmark to advance in the code repo (flag form; see positional).
     #[arg(long, conflicts_with = "bookmark_pos")]
     pub bookmark: Option<String>,
 
@@ -320,8 +327,9 @@ pub struct PushState {
     pub version: u32,
     /// The next stage to execute on resume.
     pub stage: Stage,
-    /// Bookmark being advanced by this run (persisted so resume
-    /// doesn't need `--bookmark` again).
+    /// Code-repo bookmark being advanced by this run (persisted so
+    /// resume doesn't need `--bookmark` again). The session repo's
+    /// side is pinned to `SESSION_BOOKMARK`, not stored here.
     pub bookmark: String,
     /// ISO-8601 UTC timestamp captured when the state was first
     /// written. Informational — helps the user spot stale state.
@@ -591,7 +599,7 @@ fn check_gitignore_coherence(
 /// stage, non-tty stdin fails fast when prompts are required,
 /// `--yes` opts out of all prompts. On any failure in stages 4-6
 /// (the local mutation window between `commit-app` and
-/// `bookmark-both`), both repos roll back to the `jj op` snapshot
+/// `bookmark-set`), both repos roll back to the `jj op` snapshot
 /// recorded at the start of `commit-app`. After `push-app` the
 /// remote boundary is crossed and recovery is forward-only.
 ///
@@ -695,7 +703,7 @@ fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
 /// Records a `jj op` snapshot in both repos the first time we enter
 /// `commit-app` and leaves it in state so resume inherits the
 /// rollback target. On failure inside the rollback-eligible window
-/// (`commit-app` / `commit-claude` / `bookmark-both`), both repos
+/// (`commit-app` / `commit-claude` / `bookmark-set`), both repos
 /// are restored before the error propagates.
 fn run_from(
     root: &Path,
@@ -818,7 +826,7 @@ fn run_from(
 fn stage_is_rollback_eligible(stage: Stage) -> bool {
     matches!(
         stage,
-        Stage::CommitApp | Stage::CommitClaude | Stage::BookmarkBoth
+        Stage::CommitApp | Stage::CommitClaude | Stage::BookmarkSet
     )
 }
 
@@ -862,7 +870,7 @@ fn run_stage(
         Stage::Message => stage_message(root, state, params, layout),
         Stage::CommitApp => stage_commit_app(root, state, params),
         Stage::CommitClaude => stage_commit_claude(root, state, params),
-        Stage::BookmarkBoth => stage_bookmark_both(root, state, params),
+        Stage::BookmarkSet => stage_bookmark_set(root, state, params),
         Stage::PushApp => stage_push_app(root, state, params),
         Stage::FinalizeClaude => stage_finalize_claude(root, state, params),
     }
@@ -896,7 +904,7 @@ fn stage_preflight(
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
-    crate::common::verify_tracking(&claude_path(root), &state.bookmark)?;
+    crate::common::verify_tracking(&claude_path(root), SESSION_BOOKMARK)?;
     info!("push preflight: vc-x1 sync --check");
     run("vc-x1", &["sync", "--check"], root)?;
     info!("push preflight: cargo fmt");
@@ -1194,8 +1202,11 @@ fn stage_commit_claude(
     Ok(())
 }
 
-/// Advance the bookmark to `@-` in both repos.
-fn stage_bookmark_both(
+/// Advance each repo's bookmark to its `@-`: the app repo advances
+/// `state.bookmark`, the session repo always advances
+/// `SESSION_BOOKMARK` (`main`) — a feature bookmark must never be
+/// created in the linear-journal session repo.
+fn stage_bookmark_set(
     root: &Path,
     state: &PushState,
     params: &PushParams,
@@ -1206,11 +1217,13 @@ fn stage_bookmark_both(
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
         info!(
-            "push bookmark-both: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}"
+            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {SESSION_BOOKMARK} -r @- -R {claude_arg}"
         );
         return Ok(());
     }
-    info!("push bookmark-both: jj bookmark set {bk} -r @- -R {app_arg} / {claude_arg}");
+    info!(
+        "push bookmark-set: jj bookmark set {bk} -r @- -R {app_arg} / {SESSION_BOOKMARK} -r @- -R {claude_arg}"
+    );
     run(
         "jj",
         &["bookmark", "set", bk, "-r", "@-", "-R", &app_arg],
@@ -1218,7 +1231,15 @@ fn stage_bookmark_both(
     )?;
     run(
         "jj",
-        &["bookmark", "set", bk, "-r", "@-", "-R", &claude_arg],
+        &[
+            "bookmark",
+            "set",
+            SESSION_BOOKMARK,
+            "-r",
+            "@-",
+            "-R",
+            &claude_arg,
+        ],
         root,
     )?;
     Ok(())
@@ -1245,21 +1266,23 @@ fn stage_push_app(
     Ok(())
 }
 
-/// Finalize `.claude` via an out-of-process `vc-x1 finalize` call.
+/// Finalize `.claude` via an out-of-process `vc-x1 finalize` call,
+/// always pushing `SESSION_BOOKMARK` (`main`) — the session repo's
+/// bookmark is pinned, so `state.bookmark` plays no part here.
 /// Shells out rather than calling `finalize::finalize` in-process
 /// so `--detach` can fork a child that outlives push's own
 /// lifetime. `--no-finalize` turns this stage into a no-op (which
 /// is how integration tests avoid spawning a detached process).
 fn stage_finalize_claude(
     root: &Path,
-    state: &PushState,
+    _state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if params.no_finalize {
         info!("push finalize-claude: skip (--no-finalize)");
         return Ok(());
     }
-    let bk = &state.bookmark;
+    let bk = SESSION_BOOKMARK;
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
@@ -1305,7 +1328,7 @@ fn stage_finalize_claude(
 /// Three checks (per chores-06 [61] design):
 ///
 /// 1. `state.app_chid` still resolves in the app repo (not abandoned).
-/// 2. After `bookmark-both` has run (state.stage ∈ {PushApp,
+/// 2. After `bookmark-set` has run (state.stage ∈ {PushApp,
 ///    FinalizeClaude}), the bookmark points at a commit whose chid
 ///    matches `state.app_chid`.
 /// 3. `state.claude_chid` still resolves in `.claude`.
@@ -1344,7 +1367,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
         .into()
     })?;
 
-    // 2. bookmark at app_chid (after bookmark-both has run).
+    // 2. bookmark at app_chid (after bookmark-set has run).
     if matches!(state.stage, Stage::PushApp | Stage::FinalizeClaude) {
         let bookmark_chid = run(
             "jj",
@@ -1471,7 +1494,7 @@ fn verify_completion_sanity(
         .into());
     }
 
-    // 3. .claude bookmark at state.claude_chid.
+    // 3. .claude's pinned bookmark (main) at state.claude_chid.
     if let Some(claude_chid) = &state.claude_chid {
         let claude = claude_path(root);
         let claude_str = claude.to_string_lossy();
@@ -1480,7 +1503,7 @@ fn verify_completion_sanity(
             &[
                 "log",
                 "-r",
-                bookmark,
+                SESSION_BOOKMARK,
                 "--no-graph",
                 "-T",
                 "change_id.short(12)",
@@ -1492,8 +1515,8 @@ fn verify_completion_sanity(
         let actual = actual.trim();
         if actual != claude_chid.as_str() {
             return Err(format!(
-                "completion sanity: .claude bookmark '{bookmark}' is at chid '{actual}' but \
-                 state.claude_chid is '{claude_chid}'."
+                "completion sanity: .claude bookmark '{SESSION_BOOKMARK}' is at chid \
+                 '{actual}' but state.claude_chid is '{claude_chid}'."
             )
             .into());
         }

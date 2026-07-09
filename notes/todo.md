@@ -40,10 +40,16 @@ stays on `main`).
    - 0.68.0-3 sync: quiet output — clean case prints one
      summary line; per-repo "@ already on" no-op lines demoted
      to debug (done)
-   - 0.68.0-4 push: session repo pins `main` — preflight
-     tracking, bookmark stage (renamed/redoc'd from
-     `bookmark-both`), `finalize --push`, completion
-     sanity; `PushState.bookmark` stays code-side; tests
+   - 0.68.0-4 push: every stage's session-repo side uses
+     `main`, never the passed bookmark (done)
+     - preflight verifies the session repo tracks `main`
+     - bookmark stage sets app → `<bookmark>`, session →
+       `main`; renamed `bookmark-both` → `bookmark-set`
+     - finalize-claude pushes `main`
+     - completion sanity checks the session repo's `main`
+     - `PushState.bookmark` holds the code-repo bookmark only
+     - test: a feature-bookmark push advances the session
+       repo's `main` and creates no `feature` bookmark there
    - 0.68.0 close-out and validation
 
 ## Todo
@@ -71,11 +77,11 @@ stays on `main`).
 
    Push has no supported stop after `commit-claude`, so today
    the recipe pre-commits both sides manually and resumes via
-   `--from bookmark-both --yes` — skipping exactly the stages
+   `--from bookmark-set --yes` — skipping exactly the stages
    that inject `ochid:` trailers.
    - Add a stop after the commit stages (`--to commit-claude`
      or `--no-publish`; name open); the existing `--from
-     bookmark-both` is already the resume half.
+     bookmark-set` is already the resume half.
    - Retires the close-out workaround; the merge commit
      carries its code→bot ochid because it was injected
      normally, before the rebase.
