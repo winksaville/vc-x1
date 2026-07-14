@@ -10,8 +10,9 @@
 //! that — it's the standard idiom for shared `tests/common/`.
 //!
 //! - `vc_x1()` returns a `Command` for the binary Cargo built for
-//!   the current test crate and is the value returned by
-//!   `env!("CARGO_BIN_EXE_vc-x1")`.
+//!   the current test crate, resolved via the
+//!   `CARGO_BIN_EXE_<bin-name>` env var with the name derived
+//!   from `CARGO_PKG_NAME` — rename-proof, see Cargo.toml.
 //! - `run_ok` / `run_err` wrap `Command::output` with a panic on
 //!   the unexpected exit status, embedding stdout/stderr in the
 //!   message so failures are debuggable.
@@ -51,11 +52,13 @@ pub fn unique_base(tag: &str) -> PathBuf {
     resolve_tmp_root().join(format!("vc-x1-cli-test-{tag}-{ts}-{n}"))
 }
 
-/// Build a `Command` invoking the `vc-x1` binary that Cargo built
-/// for this test crate. Cargo sets `CARGO_BIN_EXE_vc-x1` to the
-/// full path of the freshly-built binary; this `Command` runs it.
+/// Build a `Command` invoking the binary that Cargo built for
+/// this test crate. Cargo sets `CARGO_BIN_EXE_<bin-name>` to the
+/// full path of the freshly-built binary; the var name is built
+/// from `CARGO_PKG_NAME` (the default bin name is the package
+/// name) so a Cargo.toml rename needs no edit here.
 pub fn vc_x1() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_vc-x1"))
+    Command::new(env!(concat!("CARGO_BIN_EXE_", env!("CARGO_PKG_NAME"))))
 }
 
 /// Run `cmd`, panicking with stdout/stderr if it does not exit 0.

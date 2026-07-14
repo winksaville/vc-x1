@@ -583,6 +583,21 @@ fn detach(ctx: &Context, params: &FinalizeParams) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
+/// Run finalize fully in-process: preflight, then the
+/// squash / set-bookmark / push work — no detach, no re-exec.
+///
+/// Entry point for callers that hold no `Context` and must see
+/// the outcome synchronously — `vc-x1 push`'s `finalize-claude`
+/// stage uses this so a session-push failure is a visible push
+/// failure (Bugs #1: the detached child died silently at sandbox
+/// teardown). Callers pass `detach: false, exec: false` and
+/// typically `delay_secs: 0.0`.
+pub fn finalize_inline(params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("finalize_inline: entry params={params:?}");
+    preflight(params)?;
+    finalize_exec(params)
+}
+
 /// Run the `finalize` subcommand: preflight, then either detach a
 /// child to do the work or do it inline.
 pub fn finalize(ctx: &Context, params: &FinalizeParams) -> Result<(), Box<dyn std::error::Error>> {

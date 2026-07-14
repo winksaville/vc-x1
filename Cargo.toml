@@ -1,6 +1,10 @@
 [package]
-name = "vc-x1"
-version = "0.69.0-0"
+# Temporarily "vc-x1-dev" while another bot instance depends on the
+# installed stable `vc-x1` — `cargo install` then lands this dev
+# binary alongside it instead of replacing it. Rename back to
+# "vc-x1" when the dual-instance window closes.
+name = "vc-x1-dev"
+version = "0.69.0-1"
 edition = "2024"
 
 [dependencies]

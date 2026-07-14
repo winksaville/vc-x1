@@ -5,11 +5,12 @@
 //! unique tempdir via `crate::test_helpers::Fixture`).
 //!
 //! Every test uses `--from message` to skip `preflight` (no
-//! `Cargo.toml` in the fixture) and `--no-finalize` to avoid
-//! spawning a detached `vc-x1 finalize` child that would
-//! outlive the test. The remaining stages (message,
-//! commit-app, commit-claude, bookmark-set, push-app) are
-//! exercised against the fixture's local bare-git remote.
+//! `Cargo.toml` in the fixture). Most also use `--no-finalize`
+//! to focus on the earlier stages (message, commit-app,
+//! commit-claude, bookmark-set, push-app); the
+//! `push_finalize_claude_*` tests run the in-process
+//! `finalize-claude` stage for real. Everything is exercised
+//! against the fixture's local bare-git remotes.
 //!
 //! Stage execution + rollback are covered here;
 //! state-file / layout / stage-ordering mechanics are covered
@@ -68,7 +69,7 @@ fn desc_first_line(repo: &Path, rev: &str) -> String {
 }
 
 /// Standard test params: bookmark=main, `--from message` (skip
-/// preflight), `--no-finalize` (skip detached finalize),
+/// preflight), `--no-finalize` (skip the session squash+push),
 /// `--yes` (auto-approve any interactive prompts).
 fn test_params(title: &str, body: &str) -> PushParams {
     PushParams {
@@ -153,6 +154,80 @@ fn push_happy_claude_dirty() {
         cid(&fx.claude, "main"),
         claude_main_before,
         ".claude main should have advanced"
+    );
+}
+
+/// The real `finalize-claude` stage: a full push (no
+/// `--no-finalize`) squashes `.claude`'s tail and pushes `main`
+/// to the session repo's origin in-process — synchronously, no
+/// detached child (Bugs #1).
+#[test]
+fn push_finalize_claude_inline_pushes_session() {
+    let fx = Fixture::new("push-fin-inline");
+    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    let mut params = test_params("feat: inline finalize", "body");
+    params.no_finalize = false;
+    push_in(&fx.work, &params).expect("push should succeed");
+
+    // Session commit reached the bare origin before push returned.
+    assert_eq!(
+        cid(&fx.claude, "main@origin"),
+        cid(&fx.claude, "main"),
+        ".claude main should be pushed to origin"
+    );
+    // Working copy is clean after the tail squash.
+    assert_eq!(
+        jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+        "true",
+        ".claude @ should be empty after finalize-claude"
+    );
+}
+
+/// A tail (session write landing after `commit-claude`) is
+/// folded into the session commit by the stage's squash —
+/// preserving the commit's change id so app-side `ochid:`
+/// trailers stay valid — and pushed.
+#[test]
+fn push_finalize_claude_folds_micro_tail() {
+    let fx = Fixture::new("push-fin-tail");
+    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    // Earlier stages only: commit both repos, push app, skip the
+    // session squash+push.
+    push_in(&fx.work, &test_params("feat: tail case", "body")).expect("push should succeed");
+    let main_chid_before = chid(&fx.claude, "main");
+
+    // The tail lands after commit-claude.
+    fs::write(fx.claude.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail file");
+
+    let mut params = test_params("feat: tail case", "body");
+    params.no_finalize = false;
+    let state = PushState::new_for("main");
+    stage_finalize_claude(&fx.work, &state, &params).expect("finalize-claude should succeed");
+
+    // Tail folded in; chid stable; session commit pushed; @ clean.
+    let files = jj(&fx.claude, &["file", "list", "-r", "main"]);
+    assert!(
+        files.contains("tail.jsonl"),
+        "tail not folded into main: {files}"
+    );
+    assert_eq!(
+        chid(&fx.claude, "main"),
+        main_chid_before,
+        "squash must keep main's change id"
+    );
+    assert_eq!(
+        cid(&fx.claude, "main@origin"),
+        cid(&fx.claude, "main"),
+        ".claude main should be pushed to origin"
+    );
+    assert_eq!(
+        jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+        "true",
+        ".claude @ should be empty after finalize-claude"
     );
 }
 
@@ -328,7 +403,7 @@ fn completion_state(app_chid: Option<String>, claude_chid: Option<String>) -> Pu
     }
 }
 
-/// Happy path: bookmarks at the recorded chids, app WC clean.
+/// Happy path: bookmarks at the recorded chids, app working copy clean.
 /// `verify_completion_sanity` returns Ok.
 #[test]
 fn completion_sanity_pass() {
@@ -362,19 +437,20 @@ fn completion_sanity_fail_app_chid_mismatch() {
     assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
 }
 
-/// Check 2 fail: app WC has uncommitted changes.
+/// Check 2 fail: app working copy has uncommitted changes.
 #[test]
 fn completion_sanity_fail_dirty_wc() {
     let fx = Fixture::new("completion-fail-dirty");
     fs::write(fx.work.join("app.txt"), "x").expect("write app file");
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
-    // Now dirty the WC after push completed.
+    // Now dirty the working copy after push completed.
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
 
     let app_chid = chid(&fx.work, "main");
     let state = completion_state(Some(app_chid), None);
 
-    let err = verify_completion_sanity(&fx.work, &state).expect_err("dirty WC should fail check 2");
+    let err = verify_completion_sanity(&fx.work, &state)
+        .expect_err("dirty working copy should fail check 2");
     let msg = err.to_string();
     assert!(msg.contains("uncommitted changes"), "msg: {msg}");
 }

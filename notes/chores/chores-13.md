@@ -487,7 +487,7 @@ Todo #1. Single-commit cycle.
   collided with done.md's namespace), version bump + this
   section.
 
-## feat: inline session push + user finalize (0.69.0)
+## feat: inline session push + squash-push (0.69.0)
 
 # References
 

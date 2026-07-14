@@ -10,8 +10,8 @@ mod common;
 use common::{CliFixture, run_ok};
 
 /// `vc-x1 --version` exits 0 and prints a line containing the
-/// crate name. Pins that `env!("CARGO_BIN_EXE_vc-x1")` resolves and
-/// the binary actually runs.
+/// crate name. Pins that the `CARGO_BIN_EXE_<bin-name>` macro
+/// resolves and the binary actually runs.
 #[test]
 fn cli_version_runs() {
     let fx = CliFixture::new("smoke-version");

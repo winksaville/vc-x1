@@ -32,6 +32,7 @@ use log::{debug, info, warn};
 
 use crate::common::{prompt, run};
 use crate::context::Context;
+use crate::options_flags::squash::SquashSpec;
 use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
@@ -64,7 +65,8 @@ pub enum Stage {
     BookmarkSet,
     /// `jj git push --bookmark <b> -R .`.
     PushApp,
-    /// `vc-x1 finalize --repo .claude --squash --push main ...`.
+    /// In-process squash of `.claude`'s trailing session writes
+    /// + push `main`.
     FinalizeClaude,
 }
 
@@ -898,15 +900,21 @@ fn stage_preflight(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if params.dry_run {
         info!(
-            "push preflight: [dry-run] would run verify-tracking / vc-x1 sync --check / cargo fmt / clippy / test"
+            "push preflight: [dry-run] would run verify-tracking / <self> sync --check / cargo fmt / clippy / test"
         );
         return Ok(());
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
     crate::common::verify_tracking(&claude_path(root), SESSION_BOOKMARK)?;
-    info!("push preflight: vc-x1 sync --check");
-    run("vc-x1", &["sync", "--check"], root)?;
+    // Re-invoke this binary by its own path rather than a
+    // hard-coded name on PATH — keeps the shell-out correct while
+    // the crate is temporarily installed as `vc-x1-dev` (and for
+    // any future rename). Inlining sync entirely is a Todo.
+    let exe = std::env::current_exe()?;
+    let exe_str = exe.to_string_lossy();
+    info!("push preflight: {exe_str} sync --check");
+    run(&exe_str, &["sync", "--check"], root)?;
     info!("push preflight: cargo fmt");
     run("cargo", &["fmt"], root)?;
     info!("push preflight: cargo clippy --all-targets -- -D warnings");
@@ -1266,13 +1274,20 @@ fn stage_push_app(
     Ok(())
 }
 
-/// Finalize `.claude` via an out-of-process `vc-x1 finalize` call,
-/// always pushing `SESSION_BOOKMARK` (`main`) — the session repo's
-/// bookmark is pinned, so `state.bookmark` plays no part here.
-/// Shells out rather than calling `finalize::finalize` in-process
-/// so `--detach` can fork a child that outlives push's own
-/// lifetime. `--no-finalize` turns this stage into a no-op (which
-/// is how integration tests avoid spawning a detached process).
+/// Finalize `.claude` in-process, always pushing
+/// `SESSION_BOOKMARK` (`main`) — the session repo's bookmark is
+/// pinned, so `state.bookmark` plays no part here.
+///
+/// - Squashes the tail (session writes that landed since
+///   `commit-claude`) into the session commit, then pushes — via
+///   `finalize::finalize_inline`, so the ochid-drop guard
+///   (Bugs #2) applies and a failure is a visible push failure.
+/// - Replaces the detached `vc-x1 finalize --delay 10 --detach`
+///   shell-out, whose child a sandboxed run silently killed at
+///   command exit (Bugs #1) — and with it the `vc-x1`-on-PATH
+///   dependency.
+/// - `--no-finalize` turns this stage into a no-op so the
+///   squash+push can be run manually.
 fn stage_finalize_claude(
     root: &Path,
     _state: &PushState,
@@ -1287,31 +1302,24 @@ fn stage_finalize_claude(
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
         info!(
-            "push finalize-claude: [dry-run] would run vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
+            "push finalize-claude: [dry-run] would squash @ → @- and push {bk} in {claude_arg} (in-process)"
         );
         return Ok(());
     }
-    info!(
-        "push finalize-claude: vc-x1 finalize --repo {claude_arg} --squash --push {bk} --delay 10 --detach"
-    );
-    run(
-        "vc-x1",
-        &[
-            "finalize",
-            "--repo",
-            &claude_arg,
-            "--squash",
-            "--push",
-            bk,
-            "--delay",
-            "10",
-            "--detach",
-            "--log",
-            "/tmp/vc-x1-finalize.log",
-        ],
-        root,
-    )?;
-    Ok(())
+    info!("push finalize-claude: squash @ → @- + push {bk} -R {claude_arg} (in-process)");
+    let fin = crate::finalize::FinalizeParams {
+        repo: claude.clone(),
+        squash: Some(SquashSpec {
+            source: "@".to_string(),
+            target: "@-".to_string(),
+        }),
+        delay_secs: 0.0,
+        bookmark: Some(bk.to_string()),
+        push: true,
+        detach: false,
+        exec: false,
+    };
+    crate::finalize::finalize_inline(&fin)
 }
 
 /// Verify the saved state still matches reality before any stage runs.
@@ -1430,7 +1438,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 /// Counterpart to `verify_state_sanity` (which runs pre-stage). This
 /// runs after the stage loop completes and confirms the post-conditions
 /// are real — directly addresses the 0.37.1 false-success symptom
-/// (push declared "completed all stages" while WC still held
+/// (push declared "completed all stages" while the working copy still held
 /// uncommitted changes from a stale-state resume).
 ///
 /// Three checks:
@@ -1439,9 +1447,10 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 /// 2. App's working copy has no uncommitted changes (commit-app should
 ///    have captured anything that was there).
 /// 3. `.claude`'s bookmark is at `state.claude_chid`'s commit (when set).
-///    `.claude`'s WC may legitimately have new session writes from the
-///    push run itself — finalize-claude (detached) handles those — so
-///    no WC-clean check on `.claude`.
+///    `.claude`'s working copy (`@`) may legitimately have new
+///    session writes that landed after finalize-claude's squash —
+///    the tail rides into the next cycle's commit — so no
+///    working-copy-clean check on `.claude`.
 ///
 /// On any mismatch: returns `Err`. The caller surfaces as a loud
 /// warning rather than blocking — push has already crossed the remote
@@ -1481,7 +1490,7 @@ fn verify_completion_sanity(
         }
     }
 
-    // 2. app WC clean (no uncommitted changes). Use the `empty`
+    // 2. app working copy (`@`) clean (no uncommitted changes). Use the `empty`
     // template — `jj diff --stat` always emits a "0 files changed"
     // line even when clean, so plain output-emptiness check would
     // false-positive.
@@ -1489,7 +1498,7 @@ fn verify_completion_sanity(
         let wc_diff = run("jj", &["diff", "--stat", "-r", "@", "-R", &root_str], cwd)?;
         return Err(format!(
             "completion sanity: app working copy has uncommitted changes (push completed \
-             but WC dirty?). Diff stat:\n{wc_diff}"
+             but working copy dirty?). Diff stat:\n{wc_diff}"
         )
         .into());
     }

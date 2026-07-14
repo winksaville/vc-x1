@@ -25,11 +25,13 @@ use std::process::Command;
 
 use common::{CliFixture, run_err, run_ok};
 
-/// Directory holding the `vc-x1` binary under test, for prepending
-/// to `PATH` so subcommands that re-invoke `vc-x1` (push preflight,
-/// finalize) find the same binary.
+/// Directory holding the binary under test, for prepending to
+/// `PATH` so subcommands that re-invoke the binary (push
+/// preflight, finalize) find the same build. The env-var name is
+/// built from `CARGO_PKG_NAME` so a Cargo.toml rename needs no
+/// edit here.
 fn bin_dir() -> PathBuf {
-    Path::new(env!("CARGO_BIN_EXE_vc-x1"))
+    Path::new(env!(concat!("CARGO_BIN_EXE_", env!("CARGO_PKG_NAME"))))
         .parent()
         .expect("binary has a parent dir")
         .to_path_buf()

@@ -17,7 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: inline session push + user finalize (0.69.0)**
+**feat: inline session push + squash-push (0.69.0)**
 
 Push's `finalize-claude` stage detaches a delayed child to
 squash+push `.claude`; a sandboxed bot run kills the child at
@@ -28,30 +28,84 @@ forgoes it; only the user, acting after the turn, can capture
 the full tail.
 
 Design notes:
-- the repurposed `finalize` squash rewrites the just-pushed
-  session commit, so its push is a forced update — acceptable
-  as a deliberate user action, not an every-cycle bot one
-- safe anytime: `@` already empty → "nothing to fold", exit 0
-- the bot may also run `finalize` as a separate later command
-  to capture the `vc-x1 push` record (leaves only its own)
-- flag surface open: keep `--repo`/`--squash`/`--push` for
-  standalone use, or collapse to the zero-arg form
+- naming (decided 2026-07-15): `finalize` → `squash-push`
+  - mechanism-named and repo-generic: a squash `@ → @-` +
+    push
+  - needed frequently on the bot repo (the session tail)
+  - occasionally useful on the app repo: amend-and-push —
+    a deliberate published-history rewrite + forced update
+- squash-push of a just-pushed session commit rewrites it,
+  so its push is a forced update
+  - functions fine whether the bot or the user runs it
+  - but on the bot repo only the user gets an empty `@`:
+    the bot's own invocation writes new session data, so
+    its `@` is non-empty again immediately
+  - on any repo without a live writer it works as expected
+    for anyone
+- CLI shape
+  - `-R`/`--repo`, default `.` (house convention: `-R`
+    repo, `-r` revision)
+  - positional BOOKMARK defaulting to `main` (mirrors push)
+  - repo stays a flag — no command takes a positional repo
+- no-op feedback
+  - `@` empty and bookmark already at remote → "repo is
+    already sync'd with remote", exit 0
+  - `@` empty but remote behind → skip the squash, still
+    push
+- the bot may also run `squash-push` as a separate later
+  command to capture the `vc-x1 push` record (leaves only
+  its own)
 
 Plan:
 - 0.69.0-0 prep: backfill Commits:, bump version, pick up
   Todo #1, open chores section (done)
-- 0.69.0-1 push: replace the finalize-claude shell-out with
-  an in-process squash of the micro-tail + `jj git push
-  --bookmark main -R .claude`; a session-push failure is a
-  visible push failure; tests
-- 0.69.0-2 push preflight backstop: error (or auto-push)
+- 0.69.0-1 push: session squash+push inline (done)
+  - replace the finalize-claude shell-out with an
+    in-process squash of the trailing session writes +
+    `jj git push --bookmark main -R .claude`
+  - a session-push failure is a visible push failure
+  - crate temporarily named `vc-x1-dev` so per-commit
+    installs don't clobber the stable `vc-x1` another bot
+    instance uses
+  - tests
+- 0.69.0-2 squash-push: rename `finalize` → `squash-push`
+  - zero-ceremony default: `-R .`, BOOKMARK positional
+    defaulting to `main`, no-op feedback
+  - retire `--detach` / `--delay`
+  - module + types follow: `finalize.rs` →
+    `squash_push.rs`, `FinalizeArgs` / `FinalizeParams` →
+    `SquashPushArgs` / `SquashPushParams`
+  - `finalize_inline` dissolves: with the detach branch
+    gone, preflight + exec is the command's only path, so
+    the shim merges into the renamed entry point
+  - decide the detach failure-marker machinery
+    (`write_failure_marker` / `surface_previous_failures`):
+    retire with `--detach`, but consider keeping the
+    surfacing one cycle to drain markers from older
+    installed versions
+  - rename push stage `finalize-claude` →
+    `squash-push-claude`; `--no-finalize` →
+    `--no-squash-push`
+  - decide deprecated `finalize` alias
+  - tests
+- 0.69.0-3 push preflight backstop: error (or auto-push)
   when `.claude main` is ahead of `main@origin`; tests
-- 0.69.0-3 finalize: zero-arg user tidy-up — squash `@ → @-`
-  in `.claude` + push `main`, inline, no delay; retire
-  `--detach`/`--delay`; decide surviving flag surface; tests
 - 0.69.0-4 docs: cycle-protocol rewrite ("After push or
   finalize: stop and wait" rule, Recovery section), README
 - 0.69.0 close-out and validation
+
+Continuity (resume 2026-07-15):
+- next: pick up -2 (mark it `(current)`) — the squash-push
+  rename; every decision needed is in Design notes above
+- installs this cycle: `cargo install --path . --locked`
+  lands `vc-x1-dev`; PATH `vc-x1` stays 0.69.0-0 for the
+  other bot instance; rename the crate back to `vc-x1` when
+  that window closes (decide at close-out)
+- cycle pushes go straight to `main` (keep-separate shape;
+  -0 and -1 already published)
+- -1 was pushed with `vc-x1-dev push` — first dogfood of
+  the inline session push; push preflight + tests need an
+  unsandboxed run (`~/.config/jj` writes)
 
 ## Todo
 
