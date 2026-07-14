@@ -401,6 +401,8 @@ moment a feature bookmark is pushed. Single-commit cycle.
 
 ## feat: pin bot repo to main (0.68.0)
 
+Commits: [[18]],[[19]],[[20]],[[21]],[[22]],[[23]]
+
 `vc-x1 push <bookmark>` applied the one bookmark name to both
 repos (preflight tracking check, `bookmark-both`,
 `finalize --push`), and sync's classify/fetch used the passed
@@ -444,6 +446,45 @@ output.
 - 0.68.0 close-out: this section; README sync/push updates;
   wrapper planned-list sync
 
+## docs: diagnose silent session-push loss (0.68.1)
+
+Bugs #1 reported the session repo "sometimes not pushed"
+(tprobe: GitHub bot repo 8 commits behind while both local
+repos and the GitHub code repo agreed). Diagnosed 2026-07-14;
+this cycle records the diagnosis and queues the fix design as
+Todo #1. Single-commit cycle.
+
+- Root cause: push's `finalize-claude` stage delegates the
+  session push to a detached (`setsid`) child that sleeps 10s
+  first; a sandboxed Bash command kills its pid namespace at
+  command exit, so a bot-run push loses the child every time —
+  before its first `jj` command.
+- Evidence: tprobe app repo has 8 `push bookmark main` ops;
+  its `.claude` has zero squash/push ops since clone;
+  reproduced with a bare `setsid` child in this project's
+  sandbox.
+- Silent by construction:
+  - SIGKILL leaves no failure marker
+  - `~/.cache/vc-x1` is outside the sandbox write allowlist
+    and `write_failure_marker` swallows errors by design
+  - `verify_completion_sanity` checks local state only
+- Fix design (Todo #1): push does everything inline (squash
+  micro-tail + `jj git push` in-process); preflight errors
+  when `.claude main` is ahead of `main@origin`; `finalize`
+  becomes the user's zero-arg empty-@ tidy-up, run after the
+  bot goes quiet. The empty-@ goal is self-referential for
+  the bot — finalizing is itself session data — so only the
+  user can capture the full tail.
+
+### As-built ladder
+
+- 0.68.1 single-commit cycle: bugs.md diagnosis rewrite,
+  Todo #1 fix design, Done entry, 0.68.0 `Commits:`
+  backfill, Done 0.51.0–0.65.2 batch retired to done.md
+  (refs re-slotted to [96]..[112] — todo.md's numbers
+  collided with done.md's namespace), version bump + this
+  section.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -463,3 +504,9 @@ output.
 [15]: https://github.com/winksaville/vc-x1/commit/50e06379e4a9 "50e06379e4a9d2cd439cfbf21c585153279db554"
 [16]: https://github.com/winksaville/vc-x1/commit/7f2f038ffc2c "7f2f038ffc2c065c9a4d5b468c25e6490fc7db3e"
 [17]: https://github.com/winksaville/vc-x1/commit/01357c2bdec7 "01357c2bdec7ef10137a8b51351c77a3f14fc0ed"
+[18]: https://github.com/winksaville/vc-x1/commit/5e0f61e1e8ce "5e0f61e1e8ce2a075fc0bd51494ddd716477a30e"
+[19]: https://github.com/winksaville/vc-x1/commit/c1bff242430c "c1bff242430c0f602fbf360b03f609f17e443c06"
+[20]: https://github.com/winksaville/vc-x1/commit/93cdfe355632 "93cdfe355632ee5ee27610cddd9f0e38903db863"
+[21]: https://github.com/winksaville/vc-x1/commit/208a0a06ac81 "208a0a06ac81ba26fec97f323dcbf6d8a6602505"
+[22]: https://github.com/winksaville/vc-x1/commit/d56ea6b1455a "d56ea6b1455a344fe35b68c4de9a8596dfc5e692"
+[23]: https://github.com/winksaville/vc-x1/commit/0a83adea1491 "0a83adea1491eec57b66f10efaafdaa105d7a42f"

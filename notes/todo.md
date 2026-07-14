@@ -33,7 +33,40 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **vc-x1 push: pause point between commit and publish
+1. **push: inline the session-repo push; finalize becomes the
+   user's empty-@ tidy-up.** Push's `finalize-claude` stage
+   detaches a delayed child to squash+push `.claude`; a
+   sandboxed bot run kills the child at command exit —
+   silently, every cycle (see Bugs #1 [[24]]). The empty-@
+   goal behind the detach/delay dance is self-referential for
+   the bot (finalizing is itself session data), so the bot
+   forgoes it; only the user, acting after the turn, can
+   capture the full tail.
+   - push runs everything inline — no detach, no delay:
+     - fold the micro-tail into the session commit (squash)
+     - `jj git push --bookmark main -R .claude` in-process
+     - a session-push failure is a visible push failure
+   - preflight backstop: `.claude main` ahead of `main@origin`
+     is an error (or auto-push — always a safe forward move);
+     catches this whole failure class
+   - `finalize` repurposed as the user's tidy-up — zero-arg:
+     squash `@ → @-` in `.claude`, push `main`, inline
+     - run by the user after the bot goes quiet → both repos'
+       `@` truly empty
+     - the squash rewrites the just-pushed session commit, so
+       its push is a forced update — acceptable as a
+       deliberate user action, not an every-cycle bot one
+     - safe anytime: `@` already empty → "nothing to fold",
+       exit 0
+     - the bot may also run it as a separate later command to
+       capture the `vc-x1 push` record (leaves only its own)
+   - retire `--detach` / `--delay`; decide the surviving flag
+     surface (`--repo`/`--squash`/`--push` for standalone use,
+     or collapse to the zero-arg form)
+   - docs: cycle-protocol per-commit flow + README; the
+     "After push or finalize: stop and wait" rule and the
+     Recovery section rewrite around the new shape
+2. **vc-x1 push: pause point between commit and publish
    stages.** The merge non-ff close-out is a three-step
    sequence:
    - commit the close-out pair locally (normal 1:1 commit
@@ -58,7 +91,7 @@ _No cycle currently in progress._
      throughout; the merge is a code-side-only shape
      operation).
 
-2. **Version-number protocol is fragile — versions are
+3. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -83,7 +116,7 @@ _No cycle currently in progress._
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-3. **sync follow-up: extract `move-bookmark` command.** The
+4. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -93,7 +126,7 @@ _No cycle currently in progress._
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-4. **sync follow-up: push preflight in-process; drop
+5. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -108,7 +141,7 @@ _No cycle currently in progress._
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-5. **validate-numbering: rename the pair, check all
+6. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -137,7 +170,7 @@ _No cycle currently in progress._
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-6. **pre-commit: single rule (no docs skip) + doc validators.**
+7. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -160,7 +193,7 @@ _No cycle currently in progress._
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-7. **vc-x1 push: validate body opens with an intro paragraph.**
+8. **vc-x1 push: validate body opens with an intro paragraph.**
    A body whose first line is a bullet (`- file: …`) is a
    Prose-Form violation — bodies must open with an intro
    paragraph, then bullets. Today such a body trips jj's arg
@@ -177,7 +210,7 @@ _No cycle currently in progress._
      to accept bullet-first bodies.
    - Workaround until the explicit check lands: prepend a
      non-dash intro sentence to the body.
-8. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The interop / adoption scenario breaks that:
    the code side is worked single-repo style (commit +
@@ -203,25 +236,25 @@ _No cycle currently in progress._
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-9. **single-field `options_flags` leaves → `value` field.**
-   `0.47.0` introduced the convention (single-field leaf names
-   its field `value`, declares the flag via `#[arg(long = "…")]`,
-   so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
-   on the new `squash` leaf. Sweep the pre-existing single-field
-   leaves to match: `repo`, `dry_run`, `private`, `account`,
-   `config`, `use_template` + their consumers
-   (`init.rs`, tests).
+10. **single-field `options_flags` leaves → `value` field.**
+    `0.47.0` introduced the convention (single-field leaf names
+    its field `value`, declares the flag via `#[arg(long = "…")]`,
+    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
+    on the new `squash` leaf. Sweep the pre-existing single-field
+    leaves to match: `repo`, `dry_run`, `private`, `account`,
+    `config`, `use_template` + their consumers
+    (`init.rs`, tests).
 
-   Note: can a single field be defined as an type or enum instead
-   of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
-   issue.
-10. **`por → dual` conversion.** Attach a `.claude`
+    Note: can a single field be defined as an type or enum instead
+    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
+    issue.
+11. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-11. **`validate-desc` / `fix-desc` por equalization.**
+12. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`
@@ -338,53 +371,23 @@ _See [bugs.md](bugs.md)._
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
 
-_Migrated to [done.md](done.md) on 2026-05-15 (0.44.0–0.50.0 batch)._
+_Migrated to [done.md](done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
-- chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[2]]
-- `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[3]]
-- todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[4]]
-- scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[5]]
-- validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[6]]
-- refine cycle protocol — one protocol (Preparation/Work-N/Close-out), `.`-separator nested numbering with trailing-`0`=Preparation, push & squash discretionary, `.claude` once per push, two-gate review (work then message, both before commit), CLAUDE.md cycle/commit/push docs consolidated into one linear `## Cycle Protocol` (~39% smaller) (0.56.0) [[7]]
-- add `--merge` todo entry — Todo #1 records future `vc-x1 push --merge` flag (close-out shape, sibling to planned `--squash`); dogfoods the Preparation/Work-N/Close-out protocol on a deliberately small docs cycle (0.57.0) [[8]]
-- notes/todo restructure — split `## Bugs` → `bugs.md` and the long-tail `## Todo` → `todo-backlog.md`; `## Priorities` with tier sub-headings (`### P1`/`### P2`/`### P3`); CLAUDE.md `## File reads` rule + protocol codification (chores title-only during cycle, In Progress moves into chores at close-out, problem+plan shape) (0.58.0) [[9]]
-- extract cycle protocol — `notes/cycle-protocol.md` becomes the canonical self-contained home for the cycle workflow (504 lines, extensively tightened from the CLAUDE.md extract); CLAUDE.md keeps a 10-line pointer; `notes/substep-protocol.md` folded in as `## Sub-cycle ladders`; `## Ideas` section added to `notes/todo.md`; first squash close-out via manual Option F (app squash + bot-side `af60f979` trailer rewrite + force-push) (0.59.0) [[11]]
-- consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[12]]
-- por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[13]]
-- apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[14]]
-- docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[15]]
-- docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[16]]
-- docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[17]]
-- docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[18]]
-- fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[19]]
 - feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
 - feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[21]]
 - docs: todo cleanup + trapezoid entries (0.67.1) — push-related todos reshaped around the trapezoidal (merge non-ff) workflow: new #1 bookmark-invariant fix and #2 push pause point; "record uncovered code commits (N:1)" re-scoped to code worked outside vc-x1; `push --squash` demoted to todo-backlog.md; cycle-protocol.md push-wrapper list synced [[22]]
 - feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
+- docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
 
 # References
 
 [0]: AGENTS.md#prose-form
 [1]: /notes/design-cli/por-dual-parity.md
-[2]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
-[3]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
-[4]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530
-[5]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
-[6]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550
-[7]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
-[8]: /notes/chores/chores-11.md#docs-add---merge-todo-entry-0570
-[9]: /notes/chores/chores-12.md#refactor-notestodo-restructure-0580
 [10]: /notes/forks-multi-user.md
-[11]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590
-[12]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
 [13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
-[14]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620
-[15]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630
-[16]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631
-[17]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
-[18]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
-[19]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652
 [20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
 [21]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
 [22]: /notes/chores/chores-13.md#docs-todo-cleanup--trapezoid-entries-0671
 [23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
+[24]: /notes/bugs.md
+[25]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681

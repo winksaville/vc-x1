@@ -126,6 +126,23 @@ As todo.md `## Done` sections fills move them to here.
 - docs: renumber todo.md + chores-09 refs (0.48.4) [93]
 - chid/desc/list/show CommonArgs sweep — options_flags + `-s`/`--scope` + Context+Params ports 12/12 (0.49.0) [94]
 - Subcommand trait sweep — 12 subcommands ported via `SubcommandRunner` trait, `main.rs` collapsed to `Context::load` + thin dispatch (0.50.0) [95]
+- chores subdir reshape — `notes/chores-*.md` → `notes/chores/`; 0.44.0–0.50.0 Done batch migrated to done.md (0.51.0) [[96]]
+- `sb_ide` elimination — banner off by default (`-V` toggles), `bm_track` → `debug!`, `sb_ide` + `SubcommandRunner::{is_detached_exec, suppress_banner}` removed (0.52.0) [[97]]
+- todo renumber + `notes/fix-todo.py` interim script; cycle re-scoped at close-out, scope CLI cleanup deferred to 0.54.0 (0.53.0) [[98]]
+- scope CLI cleanup — `--scope` roles-only, `--por` boolean replaces `ScopeKind`, `Scope` relocated to `options_flags/`, sync gains `-R` (0.54.0) [[99]]
+- validate-todo / fix-todo subcommands — check + renumber `## Todo` / `## Bugs` entry numbering, replacing `notes/fix-todo.py` (0.55.0) [[100]]
+- refine cycle protocol — one protocol (Preparation/Work-N/Close-out), `.`-separator nested numbering with trailing-`0`=Preparation, push & squash discretionary, `.claude` once per push, two-gate review (work then message, both before commit), CLAUDE.md cycle/commit/push docs consolidated into one linear `## Cycle Protocol` (~39% smaller) (0.56.0) [[101]]
+- add `--merge` todo entry — Todo #1 records future `vc-x1 push --merge` flag (close-out shape, sibling to planned `--squash`); dogfoods the Preparation/Work-N/Close-out protocol on a deliberately small docs cycle (0.57.0) [[102]]
+- notes/todo restructure — split `## Bugs` → `bugs.md` and the long-tail `## Todo` → `todo-backlog.md`; `## Priorities` with tier sub-headings (`### P1`/`### P2`/`### P3`); CLAUDE.md `## File reads` rule + protocol codification (chores title-only during cycle, In Progress moves into chores at close-out, problem+plan shape) (0.58.0) [[103]]
+- extract cycle protocol — `notes/cycle-protocol.md` becomes the canonical self-contained home for the cycle workflow (504 lines, extensively tightened from the CLAUDE.md extract); CLAUDE.md keeps a 10-line pointer; `notes/substep-protocol.md` folded in as `## Sub-cycle ladders`; `## Ideas` section added to `notes/todo.md`; first squash close-out via manual Option F (app squash + bot-side `af60f979` trailer rewrite + force-push) (0.59.0) [[104]]
+- consolidate notes conventions — three notes-file sections (`Todo format`, `Reference numbering`, `Retiring Done entries`) move from notes/README.md into new CLAUDE.md `## Notes file conventions` umbrella alongside existing `## Chores conventions`; `[[N]]` citation duplicate dropped; cargo cycle (`fmt` / `clippy` / `test` / `install`) surfaced at CLAUDE.md `## Cycle Protocol` and notes/README.md (had been buried in cycle-protocol.md since 0.59.0); README.md `## Contributing` rewritten against current anchor homes (0.60.0) [[105]]
+- por/dual parity design — eight-commit audit + design cycle producing `notes/design-cli/por-dual-parity-audit.md` as the canonical CLI-design doc (audit + commonality + feature axes + 5-layer resolution chain + subcommand × parameter matrix + per-axis Decisions blocks); new sibling `notes/design-cli/copying.md` stub for the broader file-copy mechanism that subsumes `--config` / `--gitignore` / `--use-template`; `notes/design-cli/` subdir created and three design notes regrouped under it; 14 implementation gaps seeded for 0.62.0+ cycles; one Todo promoted (`validate-desc` / `fix-desc` equalization, cheapest prototype for the topology-from-config rule) (0.61.0) [[106]]
+- apply max review #1 — applied six concerns, four nits, and the process observation from the `max-review-1` working list to the por/dual parity design + copying stub; reframed Todo #1 (push validate body intro), seeded pre-commit-single-rule + `validate-numbering` Todos; working list fully drained, then retired (deleted — git history holds it) (0.62.0) [[107]]
+- docs: adopt AGENTS.md — rename `CLAUDE.md` → `AGENTS.md` (Zed and the agent-tooling ecosystem default to it); one-line `@AGENTS.md` import shim at `CLAUDE.md` keeps Claude Code auto-loading; live `CLAUDE.md` references repointed to `AGENTS.md` so links resolve in editors and on GitHub; history prose (`chores-01..12` / `done.md`) left as written, with only the 3 navigational anchor links in the `chores-10/11/12` headers repointed (0.63.0) [[108]]
+- docs: tighten after-finalize rule — rename to "After push or finalize: stop and wait" (both triggers named) and spell out that `vc-x1 push` bundles the push + `vc-x1 finalize` on `.claude` as tail stages, so all closing words go *before* invoking the wrapper and nothing is emitted after it returns (0.63.1) [[109]]
+- docs: codify merge-non-ff recipe — promote the merge-non-ff close-out recipe to a `### Merge non-ff recipe` subsection in cycle-protocol.md (rebase → `jj new` lift → push + post-hoc caveat); reword `### Shape at close-out push` (work-done framing, Merge non-ff tagged default); standardize jj rebase `-d` → `--onto`/`-o` in AGENTS.md and drop the post-amend `jj new` note (the recipe now owns the empty-`@` why); also clarified the Preparation step (Cargo.lock, In-Progress move wording) (0.64.0) [[110]]
+- docs: record finalize ochid-loss bug (0.65.1) — bugs.md gains the fc finalize ochid-drop incident as Bugs #1 with the fix queued as Todo #1; fc AGENTS.md additions ported (jj-not-git, one-command-per-invocation, push-injects-trailers, ochid resolvability + `.vc-config.toml`); stale chores-10 "active file" prose genericized in notes/README.md + ARCHITECTURE.md [[111]]
+- fix: refuse ochid-dropping squash (0.65.2) — `finalize` refuses a squash that would drop source-only `ochid:` trailers (`extract_ochids` / `ochids_at_risk` / `check_squash_keeps_ochids` + tests), guarding in preflight and again in `finalize_exec` after `--delay`; failure-marker surfacing moved after the command's output with a historical banner and the `error=` value flattened; README manual-test section + `support/gen-exmpl-1-3.sh` regenerator [[112]]
 
 # References
 
@@ -207,3 +224,20 @@ As todo.md `## Done` sections fills move them to here.
 [93]: /notes/chores/chores-09.md#docs-renumber-todomd--chores-09-refs-0484
 [94]: /notes/chores/chores-10.md#chore-open-0490--finish-migration-a-0490-0
 [95]: /notes/chores/chores-10.md#chore-close-subcommand-trait-sweep-0500
+[96]: /notes/chores/chores-11.md#chore-move-chores-under-noteschores-0510
+[97]: /notes/chores/chores-11.md#chore-close-sb_ide-elimination-0520
+[98]: /notes/chores/chores-11.md#chore-todo-renumber--fix-todopy-0530
+[99]: /notes/chores/chores-11.md#refactor-scope-cli-cleanup-0540
+[100]: /notes/chores/chores-11.md#feat-validate-todo--fix-todo-0550
+[101]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
+[102]: /notes/chores/chores-11.md#docs-add---merge-todo-entry-0570
+[103]: /notes/chores/chores-12.md#refactor-notestodo-restructure-0580
+[104]: /notes/chores/chores-12.md#docs-extract-cycle-protocol-0590
+[105]: /notes/chores/chores-12.md#docs-consolidate-notes-conventions-0600
+[106]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
+[107]: /notes/chores/chores-12.md#docs-apply-max-review-1-0620
+[108]: /notes/chores/chores-13.md#docs-adopt-agentsmd-0630
+[109]: /notes/chores/chores-13.md#docs-tighten-after-finalize-rule-0631
+[110]: /notes/chores/chores-13.md#docs-codify-merge-non-ff-recipe-0640
+[111]: /notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651
+[112]: /notes/chores/chores-13.md#fix-refuse-ochid-dropping-squash-0652
