@@ -448,6 +448,8 @@ output.
 
 ## docs: diagnose silent session-push loss (0.68.1)
 
+Commits: [[24]]
+
 Bugs #1 reported the session repo "sometimes not pushed"
 (tprobe: GitHub bot repo 8 commits behind while both local
 repos and the GitHub code repo agreed). Diagnosed 2026-07-14;
@@ -485,6 +487,8 @@ Todo #1. Single-commit cycle.
   collided with done.md's namespace), version bump + this
   section.
 
+## feat: inline session push + user finalize (0.69.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -510,3 +514,4 @@ Todo #1. Single-commit cycle.
 [21]: https://github.com/winksaville/vc-x1/commit/208a0a06ac81 "208a0a06ac81ba26fec97f323dcbf6d8a6602505"
 [22]: https://github.com/winksaville/vc-x1/commit/d56ea6b1455a "d56ea6b1455a344fe35b68c4de9a8596dfc5e692"
 [23]: https://github.com/winksaville/vc-x1/commit/0a83adea1491 "0a83adea1491eec57b66f10efaafdaa105d7a42f"
+[24]: https://github.com/winksaville/vc-x1/commit/bf59d5c1860e "bf59d5c1860e265ad78cc5f705f3672c36fc3b75"
