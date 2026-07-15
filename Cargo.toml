@@ -4,7 +4,7 @@
 # binary alongside it instead of replacing it. Rename back to
 # "vc-x1" when the dual-instance window closes.
 name = "vc-x1-dev"
-version = "0.69.0-1"
+version = "0.69.0-2"
 edition = "2024"
 
 [dependencies]

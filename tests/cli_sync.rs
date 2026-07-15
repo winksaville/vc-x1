@@ -27,7 +27,7 @@ use common::{CliFixture, run_err, run_ok};
 
 /// Directory holding the binary under test, for prepending to
 /// `PATH` so subcommands that re-invoke the binary (push
-/// preflight, finalize) find the same build. The env-var name is
+/// preflight) find the same build. The env-var name is
 /// built from `CARGO_PKG_NAME` so a Cargo.toml rename needs no
 /// edit here.
 fn bin_dir() -> PathBuf {
@@ -112,10 +112,9 @@ struct PeerPush {
 /// clone` trB then trA, change + `vc-x1 push` on trA.
 ///
 /// Push notes: `--from review` skips the cargo preflight (the
-/// fixture is not a Rust project); `--no-finalize` stops before
-/// finalize-claude (out of scope, and its detached form logs to a
-/// fixed /tmp path); PATH carries the binary under test for push's
-/// internal `vc-x1` calls.
+/// fixture is not a Rust project); `--no-squash-push` stops before
+/// squash-push-bot (out of scope); PATH carries the binary under
+/// test for push's internal `vc-x1` calls.
 fn setup_peer_push(tag: &str) -> PeerPush {
     let fx = CliFixture::new(tag);
     write_jj_config(&fx.home);
@@ -167,7 +166,7 @@ fn setup_peer_push(tag: &str) -> PeerPush {
         "--body",
         "add from-a.txt",
         "--yes",
-        "--no-finalize",
+        "--no-squash-push",
     ]));
     let pushed = cid(&fx.home, &tr_a, "main");
     assert_ne!(pre_main, pushed, "trA's push should advance the remote");

@@ -547,7 +547,7 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
 ///
 /// Returns `Err` with the exact `jj bookmark track …` remediation command if
 /// any non-tracking remote ref is found. Used as a preflight by repo-modifying
-/// commands (sync, push, finalize) and as a post-condition assertion by setup
+/// commands (sync, push, squash-push) and as a post-condition assertion by setup
 /// commands (init, clone, test-fixture).
 pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>> {
     let repo_str = repo.to_string_lossy();

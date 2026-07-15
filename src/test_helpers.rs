@@ -76,7 +76,7 @@ impl Fixture {
     ///
     /// - `with_pending` — after init, write a small file into each
     ///   repo so `@` carries uncommitted changes (useful for
-    ///   finalize / push tests).
+    ///   squash-push / push tests).
     /// - `use_template` — `CODE[,BOT]` forwarded to init.
     pub fn new_opts(tag: &str, with_pending: bool, use_template: Option<String>) -> Self {
         let base = unique_base(tag);
@@ -107,7 +107,7 @@ impl Fixture {
             use_template: UseTemplateOption { use_template },
             config: ConfigOption::default(),
         };
-        let ctx = Context::load(None).expect("load user config for test fixture");
+        let ctx = Context::load().expect("load user config for test fixture");
         let mut params = InitParams::from(&args);
         params.create_symlink = false;
         init(&ctx, &params).expect("build test fixture via init");
@@ -198,7 +198,7 @@ impl FixturePor {
             use_template: UseTemplateOption::default(),
             config: ConfigOption { raw: config },
         };
-        let ctx = Context::load(None).expect("load user config for POR test fixture");
+        let ctx = Context::load().expect("load user config for POR test fixture");
         let mut params = InitParams::from(&args);
         params.create_symlink = false;
         init(&ctx, &params).expect("build test fixture via init (POR)");

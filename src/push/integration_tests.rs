@@ -5,11 +5,11 @@
 //! unique tempdir via `crate::test_helpers::Fixture`).
 //!
 //! Every test uses `--from message` to skip `preflight` (no
-//! `Cargo.toml` in the fixture). Most also use `--no-finalize`
+//! `Cargo.toml` in the fixture). Most also use `--no-squash-push`
 //! to focus on the earlier stages (message, commit-app,
 //! commit-claude, bookmark-set, push-app); the
-//! `push_finalize_claude_*` tests run the in-process
-//! `finalize-claude` stage for real. Everything is exercised
+//! `push_squash_push_bot_*` tests run the in-process
+//! `squash-push-bot` stage for real. Everything is exercised
 //! against the fixture's local bare-git remotes.
 //!
 //! Stage execution + rollback are covered here;
@@ -69,7 +69,7 @@ fn desc_first_line(repo: &Path, rev: &str) -> String {
 }
 
 /// Standard test params: bookmark=main, `--from message` (skip
-/// preflight), `--no-finalize` (skip the session squash+push),
+/// preflight), `--no-squash-push` (skip the session squash+push),
 /// `--yes` (auto-approve any interactive prompts).
 fn test_params(title: &str, body: &str) -> PushParams {
     PushParams {
@@ -79,7 +79,7 @@ fn test_params(title: &str, body: &str) -> PushParams {
         step: false,
         status: false,
         recheck: false,
-        no_finalize: true,
+        no_squash_push: true,
         dry_run: false,
         title: Some(title.to_string()),
         body: Some(body.to_string()),
@@ -157,18 +157,18 @@ fn push_happy_claude_dirty() {
     );
 }
 
-/// The real `finalize-claude` stage: a full push (no
-/// `--no-finalize`) squashes `.claude`'s tail and pushes `main`
+/// The real `squash-push-bot` stage: a full push (no
+/// `--no-squash-push`) squashes `.claude`'s tail and pushes `main`
 /// to the session repo's origin in-process — synchronously, no
 /// detached child (Bugs #1).
 #[test]
-fn push_finalize_claude_inline_pushes_session() {
-    let fx = Fixture::new("push-fin-inline");
+fn push_squash_push_bot_inline_pushes_session() {
+    let fx = Fixture::new("push-sp-inline");
     fs::write(fx.work.join("app.txt"), "app").expect("write app file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
-    let mut params = test_params("feat: inline finalize", "body");
-    params.no_finalize = false;
+    let mut params = test_params("feat: inline squash-push", "body");
+    params.no_squash_push = false;
     push_in(&fx.work, &params).expect("push should succeed");
 
     // Session commit reached the bare origin before push returned.
@@ -181,7 +181,7 @@ fn push_finalize_claude_inline_pushes_session() {
     assert_eq!(
         jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
         "true",
-        ".claude @ should be empty after finalize-claude"
+        ".claude @ should be empty after squash-push-bot"
     );
 }
 
@@ -190,8 +190,8 @@ fn push_finalize_claude_inline_pushes_session() {
 /// preserving the commit's change id so app-side `ochid:`
 /// trailers stay valid — and pushed.
 #[test]
-fn push_finalize_claude_folds_micro_tail() {
-    let fx = Fixture::new("push-fin-tail");
+fn push_squash_push_bot_folds_micro_tail() {
+    let fx = Fixture::new("push-sp-tail");
     fs::write(fx.work.join("app.txt"), "app").expect("write app file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
@@ -204,9 +204,9 @@ fn push_finalize_claude_folds_micro_tail() {
     fs::write(fx.claude.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail file");
 
     let mut params = test_params("feat: tail case", "body");
-    params.no_finalize = false;
+    params.no_squash_push = false;
     let state = PushState::new_for("main");
-    stage_finalize_claude(&fx.work, &state, &params).expect("finalize-claude should succeed");
+    stage_squash_push_bot(&fx.work, &state, &params).expect("squash-push-bot should succeed");
 
     // Tail folded in; chid stable; session commit pushed; @ clean.
     let files = jj(&fx.claude, &["file", "list", "-r", "main"]);
@@ -227,7 +227,7 @@ fn push_finalize_claude_folds_micro_tail() {
     assert_eq!(
         jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
         "true",
-        ".claude @ should be empty after finalize-claude"
+        ".claude @ should be empty after squash-push-bot"
     );
 }
 
@@ -360,7 +360,7 @@ fn push_resume_after_push_failure() {
     // simulate via a second step rather than trying to force a
     // real push failure (which jj makes hard — local bare-git
     // remotes accept almost anything). Instead, split the run
-    // using --no-finalize on the second pass.
+    // using --no-squash-push on the second pass.
     let mut params1 = test_params("feat: resume", "resume body");
     params1.from = Some(Stage::Message);
     push_in(&fx.work, &params1).expect("first push run");
@@ -386,11 +386,11 @@ fn chid(repo: &Path, rev: &str) -> String {
 }
 
 /// Build a minimal `PushState` whose stage is post-everything
-/// (FinalizeClaude — the natural state at completion check time).
+/// (SquashPushBot — the natural state at completion check time).
 fn completion_state(app_chid: Option<String>, claude_chid: Option<String>) -> PushState {
     PushState {
         version: STATE_FORMAT_VERSION,
-        stage: Stage::FinalizeClaude,
+        stage: Stage::SquashPushBot,
         bookmark: "main".to_string(),
         started_at: "2026-04-24T00:00:00Z".to_string(),
         app_chid,

@@ -364,7 +364,7 @@ with every code commit in that push.
 
 The `.claude` working copy accumulates session data
 across the cycle; its change ID stays stable across
-snapshots, `jj describe`, and the finalize commit, so
+snapshots, `jj describe`, and the squash-push fold, so
 code-side `ochid:` trailers resolve.
 
 `.claude` is a linear journal — all session work lives
@@ -394,77 +394,66 @@ Use plain prose — no insider jargon ("Gate N signal",
   wait for the user's choice before any `jj squash` /
   `jj rebase` / `jj git push` invocation.
 
-### After push or finalize: stop and wait
+### After push or squash-push: stop and wait
 
-After you **push** (cross the remote boundary) or launch
-**finalize** on the `.claude` repo (`vc-x1 finalize --repo
-.claude --squash --push <bookmark> --delay 10 --detach`) — by
-hand or via the `vc-x1 push` wrapper — you **MUST NEVER**
-proceed (next step, edit, tool call, text output) until the
-user explicitly directs you to continue. **Even when the next
-step seems obvious — wait.** Treat push-or-finalize as a hard
-stop for the whole turn.
+After a **push** (crossing the remote boundary, by hand or
+via the `vc-x1 push` wrapper — whose last stage publishes
+the bot repo too) or a manual **squash-push** on the bot
+repo, stop for the turn: no next step, edit, tool call, or
+text output until the user directs otherwise. **Even when
+the next step seems obvious — wait.**
 
-`vc-x1 push` performs both as its tail stages — `push-app`
-then the detached `vc-x1 finalize` on `.claude` — so there is
-no gap left to speak in once the push is invoked. Put **all**
-closing words *before* invoking it; do not purposely emit anything
-after the tool returns.
-
-Why (`.claude` is the live journal finalize snapshots →
-squashes → pushes):
-
-- **`--detach`**: lets the tool return immediately so the
-  harness can keep flushing the *trailing* session-data — the
-  tool call's own transcript and any words emitted *before*
-  the invoke — into the snapshot.
-- **`--delay 10`**: gives the harness time to complete that
-  flush before the snapshot is taken. It is **not** time for
-  the bot to do more work.
-- **silence**: the bot must not summarize or perform any work
-  after the tool returns.
-
-**Known slip**: the bot has emitted a summary after launching
-finalize. There is no "harmless" closing line — if it's worth
-saying, say it *before* the invoke.
+- **Scope**: the stop follows the user's directive, not the
+  push. A standing directive covering more work ("finish
+  the remaining ladder commits on your own") makes an
+  intermediate push just a step; the hard stop lands on the
+  turn's *final* push.
+- **Why**: the bot repo is a live journal — everything after
+  the invocation (its own record, closing words) lands in
+  `@` as a trailing tail. Between delegated pushes the tail
+  rides into the next cycle's bot commit; the final push's
+  tail has no next commit, and the bot's own squash-push is
+  itself session data (`@` refills immediately), so only the
+  user, after the turn, can capture it
+  (`vc-x1 squash-push -R .claude`).
+- **Silence**: put all closing words *before* the final
+  push. There is no "harmless" closing line after it — a
+  known slip.
 
 ### Recovery
 
-- **If push exits before `finalize-claude`** (e.g.
-  failure between `push-app` and `finalize-claude`), run
-  finalize by hand:
+- **If push exits before its last stage** — `push-app`
+  succeeded but the bot-repo publish didn't run
+  (`squash-push-bot` in `vc-x1 push --status` / `--from`
+  stage names) — run the squash+push by hand:
 
   ```
-  vc-x1 finalize --repo .claude --squash --push <bookmark> --delay 10 --detach --log /tmp/vc-x1-finalize.log
+  vc-x1 squash-push -R .claude
   ```
 
-- **Run finalize again if `@` is non-empty** after the
-  finalize's squash-and-commit (also desirable after
-  extra activity by the bot's agents).
-  - Why: finalize snapshots `.claude` at `--delay`, but the
-    bot keeps writing session data while it runs — the tool's
-    own invocation plus the bot's closing response land
-    *after* the snapshot.
+  It runs in-process, so a failure is a visible non-zero
+  exit — no log file to chase.
+- **Run squash-push again if `@` is non-empty** after a
+  pass (also desirable after extra activity by the bot's
+  agents).
+  - Why: the bot keeps writing session data while the
+    command runs — the invocation's own record plus any
+    closing response land after the squash.
   - Safe to repeat: bot session data is append-only, so a
     re-run never conflicts or overwrites. (This could
     change; it is not under the user's control.)
-  - Fix: run `vc-x1 finalize --repo .claude --squash --push
-    <bookmark> --delay 10 --detach` another time to capture
-    that tail; one extra pass is generally enough.
-    - Verified 0.64.0: two finalizes were executed and
-      we purposely used the bot again and the second finalize
-      captured everything.
   - No guarantees: events outside the bot's control can leave
     `@` non-empty — e.g. the bot's back end may decide to
     squash/consolidate session data, which can take minutes
-    and land after the snapshot. The remedy is the same: just
-    run finalize again. This is why a single pass is never
+    and land after the pass. The remedy is the same: just
+    run squash-push again. This is why a single pass is never
     guaranteed to leave `@` empty.
 - **Clear push's saved state** after any out-of-band
   recovery — `rm .vc-x1/push-state.toml` or `vc-x1 push
   <bookmark> --restart` — otherwise push resumes from a
-  stale stage.
-- **Late code-repo tweak after `push-app` succeeded**
+  stale stage. A pre-0.69.0-2 state file names the retired
+  `finalize-claude` stage and also needs `--restart`.
+- **Late work-repo tweak after `push-app` succeeded**
   (e.g. updating AGENTS.md or memory) requires `jj
   squash --ignore-immutable` and a re-push; that is a
   remote rewrite and needs explicit approval like any

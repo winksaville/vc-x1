@@ -1,5 +1,5 @@
-//! `push` subcommand — collapse the dual-repo commit+push+finalize
-//! ceremony into a single resumable command.
+//! `push` subcommand — collapse the dual-repo commit+push+
+//! squash-push ceremony into a single resumable command.
 //!
 //! See `notes/chores/chores-05.md > Add push subcommand (0.37.0)` for the
 //! full design.
@@ -67,7 +67,7 @@ pub enum Stage {
     PushApp,
     /// In-process squash of `.claude`'s trailing session writes
     /// + push `main`.
-    FinalizeClaude,
+    SquashPushBot,
 }
 
 impl Stage {
@@ -83,7 +83,7 @@ impl Stage {
             Stage::CommitClaude => "commit-claude",
             Stage::BookmarkSet => "bookmark-set",
             Stage::PushApp => "push-app",
-            Stage::FinalizeClaude => "finalize-claude",
+            Stage::SquashPushBot => "squash-push-bot",
         }
     }
 
@@ -100,13 +100,13 @@ impl Stage {
             "commit-claude" => Some(Stage::CommitClaude),
             "bookmark-set" => Some(Stage::BookmarkSet),
             "push-app" => Some(Stage::PushApp),
-            "finalize-claude" => Some(Stage::FinalizeClaude),
+            "squash-push-bot" => Some(Stage::SquashPushBot),
             _ => None,
         }
     }
 
     /// The stage that follows this one, or `None` when this is the
-    /// last stage (`FinalizeClaude`).
+    /// last stage (`SquashPushBot`).
     pub fn next(self) -> Option<Self> {
         match self {
             Stage::Preflight => Some(Stage::Review),
@@ -115,8 +115,8 @@ impl Stage {
             Stage::CommitApp => Some(Stage::CommitClaude),
             Stage::CommitClaude => Some(Stage::BookmarkSet),
             Stage::BookmarkSet => Some(Stage::PushApp),
-            Stage::PushApp => Some(Stage::FinalizeClaude),
-            Stage::FinalizeClaude => None,
+            Stage::PushApp => Some(Stage::SquashPushBot),
+            Stage::SquashPushBot => None,
         }
     }
 
@@ -168,9 +168,9 @@ pub struct PushArgs {
     #[arg(long)]
     pub recheck: bool,
 
-    /// Stop before `finalize-claude` so it can be run manually.
+    /// Stop before `squash-push-bot` so it can be run manually.
     #[arg(long)]
-    pub no_finalize: bool,
+    pub no_squash_push: bool,
 
     /// Print the exact commands for every stage without side effects.
     #[arg(long)]
@@ -197,7 +197,7 @@ pub struct PushArgs {
 /// (positional `BOOKMARK` and `--bookmark`) collapsed into one
 /// `bookmark` field. The rest map straight over: `restart`, `from`
 /// (a `Stage`, a domain type — kept), `step`, `status`, `recheck`,
-/// `no_finalize`, `dry_run`, `title`, `body`, `yes`.
+/// `no_squash_push`, `dry_run`, `title`, `body`, `yes`.
 pub struct PushParams {
     pub bookmark: Option<String>,
     pub restart: bool,
@@ -209,7 +209,7 @@ pub struct PushParams {
     /// the field is in place when the behavior lands.
     #[allow(dead_code)]
     pub recheck: bool,
-    pub no_finalize: bool,
+    pub no_squash_push: bool,
     pub dry_run: bool,
     pub title: Option<String>,
     pub body: Option<String>,
@@ -228,7 +228,7 @@ impl From<&PushArgs> for PushParams {
             step: a.step,
             status: a.status,
             recheck: a.recheck,
-            no_finalize: a.no_finalize,
+            no_squash_push: a.no_squash_push,
             dry_run: a.dry_run,
             title: a.title.clone(),
             body: a.body.clone(),
@@ -606,8 +606,8 @@ fn check_gitignore_coherence(
 /// remote boundary is crossed and recovery is forward-only.
 ///
 /// `ctx` is unused today (push reads `.vc-config.toml` for its
-/// state-file layout and hard-codes the finalize `--log` path); it's
-/// present for the uniform subcommand-layer signature.
+/// state-file layout); it's present for the uniform
+/// subcommand-layer signature.
 pub fn push(_ctx: &Context, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
     push_in(&cwd, params)
@@ -874,7 +874,7 @@ fn run_stage(
         Stage::CommitClaude => stage_commit_claude(root, state, params),
         Stage::BookmarkSet => stage_bookmark_set(root, state, params),
         Stage::PushApp => stage_push_app(root, state, params),
-        Stage::FinalizeClaude => stage_finalize_claude(root, state, params),
+        Stage::SquashPushBot => stage_squash_push_bot(root, state, params),
     }
 }
 
@@ -1274,27 +1274,25 @@ fn stage_push_app(
     Ok(())
 }
 
-/// Finalize `.claude` in-process, always pushing
+/// Squash-push `.claude` in-process, always pushing
 /// `SESSION_BOOKMARK` (`main`) — the session repo's bookmark is
 /// pinned, so `state.bookmark` plays no part here.
 ///
 /// - Squashes the tail (session writes that landed since
 ///   `commit-claude`) into the session commit, then pushes — via
-///   `finalize::finalize_inline`, so the ochid-drop guard
+///   `squash_push::squash_push`, so the ochid-drop guard
 ///   (Bugs #2) applies and a failure is a visible push failure.
-/// - Replaces the detached `vc-x1 finalize --delay 10 --detach`
-///   shell-out, whose child a sandboxed run silently killed at
-///   command exit (Bugs #1) — and with it the `vc-x1`-on-PATH
-///   dependency.
-/// - `--no-finalize` turns this stage into a no-op so the
+/// - In-process since 0.69.0-1 (Bugs #1: the detached
+///   `vc-x1 finalize` child died silently at sandbox teardown).
+/// - `--no-squash-push` turns this stage into a no-op so the
 ///   squash+push can be run manually.
-fn stage_finalize_claude(
+fn stage_squash_push_bot(
     root: &Path,
     _state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if params.no_finalize {
-        info!("push finalize-claude: skip (--no-finalize)");
+    if params.no_squash_push {
+        info!("push squash-push-bot: skip (--no-squash-push)");
         return Ok(());
     }
     let bk = SESSION_BOOKMARK;
@@ -1302,30 +1300,27 @@ fn stage_finalize_claude(
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
         info!(
-            "push finalize-claude: [dry-run] would squash @ → @- and push {bk} in {claude_arg} (in-process)"
+            "push squash-push-bot: [dry-run] would squash @ → @- and push {bk} in {claude_arg} (in-process)"
         );
         return Ok(());
     }
-    info!("push finalize-claude: squash @ → @- + push {bk} -R {claude_arg} (in-process)");
-    let fin = crate::finalize::FinalizeParams {
+    info!("push squash-push-bot: squash @ → @- + push {bk} -R {claude_arg} (in-process)");
+    let sp = crate::squash_push::SquashPushParams {
         repo: claude.clone(),
-        squash: Some(SquashSpec {
+        squash: SquashSpec {
             source: "@".to_string(),
             target: "@-".to_string(),
-        }),
-        delay_secs: 0.0,
-        bookmark: Some(bk.to_string()),
-        push: true,
-        detach: false,
-        exec: false,
+        },
+        bookmark: bk.to_string(),
     };
-    crate::finalize::finalize_inline(&fin)
+    crate::squash_push::squash_push(&sp)
 }
 
 /// Verify the saved state still matches reality before any stage runs.
 ///
-/// Catches the failure mode where out-of-band activity (manual finalize,
-/// squash + force-push, abandon, etc.) moved the world forward between
+/// Catches the failure mode where out-of-band activity (manual
+/// squash-push, squash + force-push, abandon, etc.) moved the world
+/// forward between
 /// the prior push and this resume, leaving `state` pointing at a
 /// now-bogus halt point. The 0.37.1 dogfood incident is the canonical
 /// example: push parked at `finalize-claude` after a failure; manual
@@ -1337,7 +1332,7 @@ fn stage_finalize_claude(
 ///
 /// 1. `state.app_chid` still resolves in the app repo (not abandoned).
 /// 2. After `bookmark-set` has run (state.stage ∈ {PushApp,
-///    FinalizeClaude}), the bookmark points at a commit whose chid
+///    SquashPushBot}), the bookmark points at a commit whose chid
 ///    matches `state.app_chid`.
 /// 3. `state.claude_chid` still resolves in `.claude`.
 ///
@@ -1376,7 +1371,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
     })?;
 
     // 2. bookmark at app_chid (after bookmark-set has run).
-    if matches!(state.stage, Stage::PushApp | Stage::FinalizeClaude) {
+    if matches!(state.stage, Stage::PushApp | Stage::SquashPushBot) {
         let bookmark_chid = run(
             "jj",
             &[
@@ -1448,7 +1443,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 ///    have captured anything that was there).
 /// 3. `.claude`'s bookmark is at `state.claude_chid`'s commit (when set).
 ///    `.claude`'s working copy (`@`) may legitimately have new
-///    session writes that landed after finalize-claude's squash —
+///    session writes that landed after squash-push-bot's squash —
 ///    the tail rides into the next cycle's commit — so no
 ///    working-copy-clean check on `.claude`.
 ///

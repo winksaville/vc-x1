@@ -5,7 +5,6 @@ mod config;
 mod context;
 mod desc;
 mod desc_helpers;
-mod finalize;
 mod fix_desc;
 mod fix_todo;
 mod init;
@@ -16,6 +15,7 @@ mod push;
 mod repo_utils;
 mod revert;
 mod show;
+mod squash_push;
 mod subcommand;
 mod symlink;
 mod sync;
@@ -221,34 +221,41 @@ pub(crate) enum Commands {
     )]
     Revert(revert::RevertArgs),
 
-    /// Squash, set bookmark, and/or push a jj repo
-    #[command(long_about = "Squash, set bookmark, and/or push a jj repo.\n\n\
-        Designed for the bot to atomically finalize its session repo:\n\
-        --detach exits immediately, --delay waits for trailing writes,\n\
-        --squash folds them in, --bookmark + --push sends it upstream.\n\
-        Every flag is opt-in. See README.md for details.")]
-    Finalize(finalize::FinalizeArgs),
-
-    /// Dual-repo commit+push+finalize in one resumable command
+    /// Squash SOURCE into TARGET, advance a bookmark, and push
     #[command(
-        long_about = "Dual-repo commit+push+finalize in one resumable command.\n\n\
-        Collapses today's manual Commit-Push-Finalize Flow into a\n\
+        long_about = "Squash SOURCE into TARGET (defaults: SOURCE=@, TARGET=@-),\n\
+        advance a bookmark, and push.\n\n\
+        Captures a repo's trailing working-copy writes into the last\n\
+        commit and publishes it — rewriting an already-pushed commit,\n\
+        so the push is a forced update. Built for the bot repo\n\
+        (`.claude`, the session tail); also useful on the work repo\n\
+        as a deliberate amend-and-push.\n\n\
+        Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
+        @ → @- and pushes `main` in `.`. With an empty `@` the squash\n\
+        is skipped; if the bookmark already matches the remote the\n\
+        command reports \"already sync'd\" and exits 0."
+    )]
+    SquashPush(squash_push::SquashPushArgs),
+
+    /// Commit both repos, push the work repo, squash-push the bot repo
+    #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
+        squash-push the bot repo's `main` — one resumable command.\n\n\
+        Collapses the manual commit-push-publish ceremony into a\n\
         single subcommand with two interactive approval gates and a\n\
         state machine with persistent progress so interruptions can\n\
         resume without re-doing completed stages.\n\n\
         Stages: preflight (fmt/clippy/test) → review (approve diff)\n\
         → message ($EDITOR / --title+--body, approve text) →\n\
         commit-app → commit-claude (skipped if clean) → bookmark-set\n\
-        (app → <bookmark>, session → main) → push-app →\n\
-        finalize-claude. Failures in commit-app / commit-claude /\n\
+        (work repo → <bookmark>, bot repo → main) → push-app →\n\
+        squash-push-bot. Failures in commit-app / commit-claude /\n\
         bookmark-set roll both repos back via\n\
         `jj op restore` to the snapshot recorded before commit-app.\n\
         After push-app succeeds the remote boundary is crossed and\n\
         recovery is forward-only.\n\n\
         Non-interactive use: pass both --title and --body plus --yes\n\
         to skip the review gate. Saved state carries title/body\n\
-        across resumes so only the first invocation needs them."
-    )]
+        across resumes so only the first invocation needs them.")]
     Push(push::PushArgs),
 }
 
@@ -263,9 +270,7 @@ pub(crate) enum Commands {
 ///
 /// Emits at `log::debug!` (since 0.52.0-1) — default runs stay
 /// quiet, and the signal remains available under `-v` when
-/// investigating. The detached `finalize --exec` child runs at
-/// default verbosity so it stays silent without needing a special
-/// gate at the call site.
+/// investigating.
 ///
 /// Walks up from cwd to locate the workspace root (the directory
 /// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
@@ -364,20 +369,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    // Failure markers left by previous detached `finalize --exec`
-    // children are surfaced *after* the command runs, so historical
-    // failures can't be misread as part of the current run's output.
-    // Skip when this *is* the exec child — surfacing destroys the
-    // markers, and the child's log isn't where the user looks for
-    // them. This gate covers one race (detached child eating its
-    // own prior markers); the broader surfacing model has more
-    // gaps (stale-forever, concurrent double-print, mid-write torn
-    // read, no notify-at-failure) tracked at
-    // [../notes/todo.md#bugs] — see the
-    // `finalize::surface_previous_failures is racy` entry.
-    let surface_after = !matches!(&cmd, Commands::Finalize(args) if args.exec);
-
-    let ctx = match context::Context::load(cli.log) {
+    let ctx = match context::Context::load() {
         Ok(c) => c,
         Err(e) => {
             error!("{e}");
@@ -385,7 +377,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let result = match cmd {
+    match cmd {
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
@@ -399,14 +391,9 @@ fn main() -> ExitCode {
         Commands::Symlink(args) => args.dispatch(&ctx),
         Commands::Sync(args) => args.dispatch(&ctx),
         Commands::Revert(args) => args.dispatch(&ctx),
-        Commands::Finalize(args) => args.dispatch(&ctx),
+        Commands::SquashPush(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
-    };
-
-    if surface_after {
-        finalize::surface_previous_failures();
     }
-    result
 }
 
 #[cfg(test)]

@@ -38,7 +38,7 @@ fn parse_defaults() {
     assert!(!cli.args.step);
     assert!(!cli.args.status);
     assert!(!cli.args.recheck);
-    assert!(!cli.args.no_finalize);
+    assert!(!cli.args.no_squash_push);
     assert!(!cli.args.dry_run);
     assert!(cli.args.title.is_none());
     assert!(cli.args.body.is_none());
@@ -76,7 +76,7 @@ fn parse_bool_flags() {
         "--step",
         "--status",
         "--recheck",
-        "--no-finalize",
+        "--no-squash-push",
         "--dry-run",
     ])
     .unwrap();
@@ -84,7 +84,7 @@ fn parse_bool_flags() {
     assert!(cli.args.step);
     assert!(cli.args.status);
     assert!(cli.args.recheck);
-    assert!(cli.args.no_finalize);
+    assert!(cli.args.no_squash_push);
     assert!(cli.args.dry_run);
 }
 
@@ -117,7 +117,7 @@ fn parse_from_stage() {
         ("commit-claude", Stage::CommitClaude),
         ("bookmark-set", Stage::BookmarkSet),
         ("push-app", Stage::PushApp),
-        ("finalize-claude", Stage::FinalizeClaude),
+        ("squash-push-bot", Stage::SquashPushBot),
     ] {
         let cli = Cli::try_parse_from(["test", "--from", name]).unwrap();
         assert_eq!(cli.args.from, Some(expected), "stage {name}");
@@ -132,7 +132,7 @@ fn parse_from_stage_rejects_unknown() {
 }
 
 /// `Stage::next` walks every stage in order and terminates at
-/// `FinalizeClaude`.
+/// `SquashPushBot`.
 #[test]
 fn stage_next_walks_full_flow() {
     let walk: Vec<Stage> = std::iter::successors(Some(Stage::first()), |s| s.next()).collect();
@@ -146,7 +146,7 @@ fn stage_next_walks_full_flow() {
             Stage::CommitClaude,
             Stage::BookmarkSet,
             Stage::PushApp,
-            Stage::FinalizeClaude,
+            Stage::SquashPushBot,
         ]
     );
 }
@@ -162,7 +162,7 @@ fn stage_str_roundtrip() {
         Stage::CommitClaude,
         Stage::BookmarkSet,
         Stage::PushApp,
-        Stage::FinalizeClaude,
+        Stage::SquashPushBot,
     ] {
         assert_eq!(Stage::from_str(stage.as_str()), Some(stage));
     }
@@ -281,7 +281,7 @@ fn rollback_eligibility_covers_local_window() {
     assert!(stage_is_rollback_eligible(Stage::CommitClaude));
     assert!(stage_is_rollback_eligible(Stage::BookmarkSet));
     assert!(!stage_is_rollback_eligible(Stage::PushApp));
-    assert!(!stage_is_rollback_eligible(Stage::FinalizeClaude));
+    assert!(!stage_is_rollback_eligible(Stage::SquashPushBot));
 }
 
 /// Missing state file → `Ok(None)`, not an error (fresh-run case).

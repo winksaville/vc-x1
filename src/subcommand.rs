@@ -63,11 +63,7 @@ pub trait SubcommandRunner {
     /// `run`, and map the result to `ExitCode`. Errors at any
     /// stage log via `error!` and return `ExitCode::FAILURE`.
     /// `bm_track` itself emits at `debug!`, so default runs stay
-    /// quiet and the detached `finalize --exec` child (which runs
-    /// without `-v`) silently no-ops — no per-call gate is needed
-    /// here. `surface_previous_failures` for finalize's failure
-    /// markers is handled in `main` before dispatch, so dispatch
-    /// has no session-chrome responsibility at all anymore.
+    /// quiet — no per-call gate is needed here.
     fn dispatch(&self, ctx: &Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,

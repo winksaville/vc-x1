@@ -114,12 +114,12 @@ jj detects the rename by content.
 
 - `jj st -R .` / `jj st -R .claude` — show working copy status
 - `jj log -R .` / `jj log -R .claude` — show commit log
-- `jj commit -m "title" -m "body" -R <repo>` — finalize working copy into a commit
+- `jj commit -m "title" -m "body" -R <repo>` — seal the working copy into a commit
 - `jj describe -m "title" -m "body" -R <repo>` — set description without committing
 - `jj git push --bookmark <name> -R <repo>` — push a bookmark (no
   `--allow-new` flag; jj pushes new bookmarks without special flags)
 - In jj, the working copy (@) is always a mutable commit being edited.
-  `jj commit` finalizes it and creates a new empty working copy on top.
+  `jj commit` seals it and creates a new empty working copy on top.
 - The `.claude` repo always has uncommitted changes during an active
   session because session data updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).

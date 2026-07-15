@@ -68,7 +68,7 @@ Plan:
     installs don't clobber the stable `vc-x1` another bot
     instance uses
   - tests
-- 0.69.0-2 squash-push: rename `finalize` → `squash-push`
+- 0.69.0-2 squash-push: rename `finalize` → `squash-push` (done)
   - zero-ceremony default: `-R .`, BOOKMARK positional
     defaulting to `main`, no-op feedback
   - retire `--detach` / `--delay`
@@ -78,20 +78,37 @@ Plan:
   - `finalize_inline` dissolves: with the detach branch
     gone, preflight + exec is the command's only path, so
     the shim merges into the renamed entry point
-  - decide the detach failure-marker machinery
-    (`write_failure_marker` / `surface_previous_failures`):
-    retire with `--detach`, but consider keeping the
-    surfacing one cycle to drain markers from older
-    installed versions
+  - failure-marker machinery (decided at -2): retired
+    entirely with `--detach` — markers only existed for the
+    detached child's invisible exit; any stale ones under
+    `~/.cache/vc-x1/finalize-status` are inert (delete by
+    hand)
   - rename push stage `finalize-claude` →
-    `squash-push-claude`; `--no-finalize` →
-    `--no-squash-push`
-  - decide deprecated `finalize` alias
+    `squash-push-bot` (first use of the work/bot stage
+    vocabulary; the remaining app/claude stages sweep at
+    -4); `--no-finalize` → `--no-squash-push`
+  - deprecated `finalize` alias (decided at -2): none —
+    the flag surface changed incompatibly, so an alias
+    would trade a clear "unrecognized subcommand" for
+    confusing flag errors
+  - `Context.log` follows `--detach` out: its only reader
+    was the detach re-exec, so the field and `load(log)`
+    parameter are gone
   - tests
+  - docs pulled forward from -4: cycle-protocol.md
+    stop-and-wait + Recovery rewritten for the inline
+    world; AGENTS.md scrubbed of "finalize" as a plain
+    word (collides with the retired command name)
 - 0.69.0-3 push preflight backstop: error (or auto-push)
   when `.claude main` is ahead of `main@origin`; tests
-- 0.69.0-4 docs: cycle-protocol rewrite ("After push or
-  finalize: stop and wait" rule, Recovery section), README
+- 0.69.0-4 docs: README (cycle-protocol's stop-and-wait +
+  Recovery sections were rewritten at -2); repo-terminology
+  sweep — "bot repo" / "work repo" (decided 2026-07-15)
+  replace "session repo" / "code repo" / "app repo" across
+  AGENTS.md, cycle-protocol.md, and code doc comments; push
+  stage-name sweep to match (`commit-app` → `commit-work`,
+  `commit-claude` → `commit-bot`, `push-app` → `push-work`;
+  `squash-push-bot` landed at -2)
 - 0.69.0 close-out and validation
 
 Continuity (resume 2026-07-15):
@@ -104,8 +121,9 @@ Continuity (resume 2026-07-15):
 - cycle pushes go straight to `main` (keep-separate shape;
   -0 and -1 already published)
 - -1 was pushed with `vc-x1-dev push` — first dogfood of
-  the inline session push; push preflight + tests need an
-  unsandboxed run (`~/.config/jj` writes)
+  the inline session push; the bot sandbox now allows
+  `~/.config/jj`, `/tmp/`, and `~/.cargo` writes, so tests
+  and `cargo install` run sandboxed (fixed 2026-07-15)
 
 ## Todo
 
@@ -291,25 +309,81 @@ Continuity (resume 2026-07-15):
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-9. **single-field `options_flags` leaves → `value` field.**
-   `0.47.0` introduced the convention (single-field leaf names
-   its field `value`, declares the flag via `#[arg(long = "…")]`,
-   so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
-   on the new `squash` leaf. Sweep the pre-existing single-field
-   leaves to match: `repo`, `dry_run`, `private`, `account`,
-   `config`, `use_template` + their consumers
-   (`init.rs`, tests).
+9. **Dedup jj subprocess queries behind a typed facade.**
+   ~30 call sites hand-roll `run("jj", ["log", "-r", <rev>,
+   "--no-graph", "-T", <template>, "-R", <repo>])` and each
+   module has quietly grown a private wrapper:
+   `squash_push::{jj_rev_exists, jj_commit_id,
+   rev_is_empty_undescribed}`, `push::jj_log_empty` plus four
+   inline `change_id.short(12)` blocks, `init::jj_chid`,
+   three template variants in `sync.rs`. Spotted at 0.69.0-2:
+   `jj_rev_exists` read as "first of its kind" but is the
+   Nth reinvention.
+   - one facade module (name open: `src/jj.rs` or a
+     `common` split): `jj_log(repo, rev, template)` plus
+     typed helpers — `rev_exists`, `chid_of`, `cid_of`,
+     `desc_of`, `is_empty`
+   - fold `main::bm_track_one` (raw `std::process::Command`
+     + its own `@origin:` prefix parse) onto
+     `common::verify_tracking`'s parser — two tracking
+     parsers will eventually disagree
+   - unify string-level ochid trailer parsing:
+     `squash_push::extract_ochids` vs `common::extract_ochid`
+     (jj-lib `Commit`-based); one string-level parser in
+     `desc_helpers` both can call
+   - test dedup: promote the near-identical `jj()` / `cid()`
+     / `chid()` / `description()` helpers from
+     `push/integration_tests.rs`, `sync/integration_tests.rs`,
+     and `tests/cli_sync.rs` into `test_helpers.rs`
+10. **Split push.rs state machinery; document the jj-lib vs
+    subprocess rule.** `push.rs` (~1.6k lines, the largest
+    file) holds the `Stage` machine, TOML state persistence,
+    eight stage bodies, two sanity verifiers, and the
+    interactive gates; `sync/state.rs` is the in-repo
+    precedent for splitting.
+    - extract `push/state.rs`: `Stage`, `PushState`, state
+      layout resolution
+    - ARCHITECTURE.md: state the implicit access rule —
+      read-only display commands (`chid`, `desc`, `list`,
+      `show`, `validate-desc`) use jj-lib in-process;
+      mutating commands (`init`, `sync`, `push`,
+      `squash-push`) shell out to `jj` — so new subcommands
+      don't re-decide it ad hoc
+11. **Make the bot repo directory name configurable (not
+    hardcoded `.claude`).** The bot repo lives at `.claude`
+    because that is where Claude Code keeps session data,
+    but the concept is agent-agnostic and the user wants to
+    change it (decided 2026-07-15: the name does not need to
+    be `.claude`). Today the literal is embedded across
+    init/clone/push/sync, `claude_path()`, ochid path
+    semantics (`/.claude/<chid>`), the
+    `~/.claude/projects/<path>` symlink, and docs.
+    - `.vc-config.toml` already records each repo's
+      workspace path — likely the natural home for the
+      configurable name.
+    - Open: migration for existing workspaces, the ochid
+      trailer prefix (recorded in immutable history), and
+      the Claude Code symlink whose location the harness
+      controls.
+12. **single-field `options_flags` leaves → `value` field.**
+    `0.47.0` introduced the convention (single-field leaf names
+    its field `value`, declares the flag via `#[arg(long = "…")]`,
+    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
+    on the new `squash` leaf. Sweep the pre-existing single-field
+    leaves to match: `repo`, `dry_run`, `private`, `account`,
+    `config`, `use_template` + their consumers
+    (`init.rs`, tests).
 
-   Note: can a single field be defined as an type or enum instead
-   of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
-   issue.
-10. **`por → dual` conversion.** Attach a `.claude`
+    Note: can a single field be defined as an type or enum instead
+    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
+    issue.
+13. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-11. **`validate-desc` / `fix-desc` por equalization.**
+14. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`
