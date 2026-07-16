@@ -67,14 +67,15 @@ or other bookmark/branch the last step repositions @ so @- is main:
 
 ```
 jj edit -r xxx --ignore-immutable
-<Modify the commit such as, `jj describe or `vi README.md`>
+<Modify the commit such as, `jj describe` or `vi README.md`>
 jj git push --bookmark main
 jj new main
 ```
 
 A complete example, the `jj log` commands are to just give
-a little more visibility. The thing I'm changing is the conventaional
-commit type for of vnsyoswv is "feat" is should be "docs":
+a little more visibility. The thing I'm changing is the
+conventional commit type of vnsyoswv — it is "feat", it should
+be "docs":
 ```
 wink@3900x 26-03-13T17:32:17.819Z:~/data/prgs/rust/vc-template-x1 ((jj/keep/1a79f803025f75fb557a7b6f9d29e3dbee6a1724))
 $ jj log -r ::@

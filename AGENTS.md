@@ -716,7 +716,7 @@ When one is used, three obligations attach:
   ```
 
   Every panicking site is then opt-in and visible in the diff;
-  clippy (run by preflight) catches any that slip through. The
+  clippy (in the per-commit flow) catches any that slip through. The
   `_or*` siblings have no clippy lint — they are covered by the
   comment convention and the conversational alert. (The
   vc-template-x1 template's `CargoRust.toml` seeds a base
