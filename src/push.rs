@@ -50,7 +50,8 @@ const SESSION_BOOKMARK: &str = "main";
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "kebab-case")]
 pub enum Stage {
-    /// Run fmt / clippy / test / install / retest.
+    /// Verify bookmark tracking, the bot-published invariant,
+    /// and sync state.
     Preflight,
     /// Present diff for the first approval gate.
     Review,
@@ -878,21 +879,30 @@ fn run_stage(
     }
 }
 
-/// Preflight: `vc-x1 sync --check && cargo fmt && cargo clippy
-/// -D warnings && cargo test`.
+/// Preflight: version-control checks only — bookmark tracking,
+/// the bot-published invariant, and `vc-x1 sync --check`.
 ///
-/// Sync runs in the hidden deprecated `--check` mode so divergence
-/// with the remote is surfaced before we burn cargo cycles, but
-/// **not** auto-resolved — a rebase mid-push is exactly the kind of
-/// unsupervised mutation the two approval gates exist to prevent. If
-/// sync reports action needed, preflight errors and the user
-/// resolves explicitly with `vc-x1 sync` before re-running push
-/// (rewiring this shell-out in-process is a `notes/todo.md` sync
-/// follow-up). The cargo steps
-/// match AGENTS.md's pre-commit checklist (minus `cargo install` /
-/// retest, which are project-specific). All subprocesses run in the
-/// workspace root so cargo picks up the right `Cargo.toml`. Skipped
-/// in `--dry-run` since `cargo fmt` writes files.
+/// - Tracking: both repos' bookmarks must have their remote refs
+///   tracked.
+/// - Bot-published backstop: `.claude main` must match
+///   `main@origin` — an at-rest mismatch means an earlier publish
+///   was lost; preflight errors, no automatic fixing, and the
+///   user resolves with `vc-x1 squash-push -R .claude`.
+/// - Sync runs in the hidden deprecated `--check` mode so
+///   divergence with the remote is surfaced, but **not**
+///   auto-resolved — a rebase mid-push is exactly the kind of
+///   unsupervised mutation the two approval gates exist to
+///   prevent. If sync reports action needed, preflight errors and
+///   the user resolves explicitly with `vc-x1 sync` before
+///   re-running push (rewiring this shell-out in-process is a
+///   `notes/todo.md` sync follow-up).
+///
+/// No build/test steps: vc-x1 assumes nothing about a repo's
+/// contents beyond `.jj` and `.vc-config.toml` (decided
+/// 2026-07-15 — the hardcoded cargo fmt/clippy/test preflight was
+/// removed at 0.69.0-3). A project that wants pre-push checks
+/// runs them explicitly before invoking `vc-x1 push` (e.g.
+/// AGENTS.md's pre-commit cargo cycle).
 fn stage_preflight(
     root: &Path,
     state: &PushState,
@@ -900,31 +910,28 @@ fn stage_preflight(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if params.dry_run {
         info!(
-            "push preflight: [dry-run] would run verify-tracking / <self> sync --check / cargo fmt / clippy / test"
+            "push preflight: [dry-run] would run verify-tracking / verify bot published / <self> sync --check"
         );
         return Ok(());
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
     crate::common::verify_tracking(&claude_path(root), SESSION_BOOKMARK)?;
+    // Bot-repo published backstop (0.69.0-3): at rest `.claude
+    // main` matches `main@origin`; a mismatch means an earlier
+    // publish was lost. Errors — no automatic fixing.
+    info!(
+        "push preflight: verify bot repo published ({SESSION_BOOKMARK} == {SESSION_BOOKMARK}@origin)"
+    );
+    crate::common::verify_bot_published(&claude_path(root), SESSION_BOOKMARK)?;
     // Re-invoke this binary by its own path rather than a
-    // hard-coded name on PATH — keeps the shell-out correct while
-    // the crate is temporarily installed as `vc-x1-dev` (and for
-    // any future rename). Inlining sync entirely is a Todo.
+    // hard-coded name on PATH — keeps the shell-out correct across
+    // any crate rename (e.g. the 0.69.0 `vc-x1-dev` window).
+    // Inlining sync entirely is a Todo.
     let exe = std::env::current_exe()?;
     let exe_str = exe.to_string_lossy();
     info!("push preflight: {exe_str} sync --check");
     run(&exe_str, &["sync", "--check"], root)?;
-    info!("push preflight: cargo fmt");
-    run("cargo", &["fmt"], root)?;
-    info!("push preflight: cargo clippy --all-targets -- -D warnings");
-    run(
-        "cargo",
-        &["clippy", "--all-targets", "--", "-D", "warnings"],
-        root,
-    )?;
-    info!("push preflight: cargo test");
-    run("cargo", &["test"], root)?;
     Ok(())
 }
 

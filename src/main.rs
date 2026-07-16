@@ -26,6 +26,7 @@ mod test_tmp_root;
 mod todo_helpers;
 mod toml_simple;
 mod url;
+mod validate_bot;
 mod validate_desc;
 mod validate_todo;
 
@@ -125,6 +126,19 @@ pub(crate) enum Commands {
 
     /// Show commit details and diff summary
     Show(show::ShowArgs),
+
+    /// Check the bot repo is published (main matches main@origin)
+    #[command(
+        long_about = "Check the bot repo is published (main matches main@origin).\n\n\
+        At rest the bot repo's `main` always matches `main@origin` — the\n\
+        bookmark only moves inside a push / squash-push run, which\n\
+        publishes it in the same invocation. A mismatch means an earlier\n\
+        publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
+        steps); also verifies main's remote refs are tracked. Exits\n\
+        non-zero on any finding and fixes nothing — resolve with\n\
+        `vc-x1 squash-push -R <bot-repo>`."
+    )]
+    ValidateBot(validate_bot::ValidateBotArgs),
 
     /// Validate commit descriptions against the other repo
     #[command(
@@ -244,7 +258,9 @@ pub(crate) enum Commands {
         single subcommand with two interactive approval gates and a\n\
         state machine with persistent progress so interruptions can\n\
         resume without re-doing completed stages.\n\n\
-        Stages: preflight (fmt/clippy/test) → review (approve diff)\n\
+        Stages: preflight (tracking / bot-published / sync checks —\n\
+        no build steps; run project checks yourself before pushing)\n\
+        → review (approve diff)\n\
         → message ($EDITOR / --title+--body, approve text) →\n\
         commit-app → commit-claude (skipped if clean) → bookmark-set\n\
         (work repo → <bookmark>, bot repo → main) → push-app →\n\
@@ -382,6 +398,7 @@ fn main() -> ExitCode {
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
         Commands::Show(args) => args.dispatch(&ctx),
+        Commands::ValidateBot(args) => args.dispatch(&ctx),
         Commands::ValidateDesc(args) => args.dispatch(&ctx),
         Commands::FixDesc(args) => args.dispatch(&ctx),
         Commands::ValidateTodo(args) => args.dispatch(&ctx),

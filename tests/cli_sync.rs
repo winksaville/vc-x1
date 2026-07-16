@@ -111,8 +111,8 @@ struct PeerPush {
 /// Shared setup: `vc-x1 init` with local bare remotes, `vc-x1
 /// clone` trB then trA, change + `vc-x1 push` on trA.
 ///
-/// Push notes: `--from review` skips the cargo preflight (the
-/// fixture is not a Rust project); `--no-squash-push` stops before
+/// Push notes: `--from review` skips preflight (its checks are
+/// out of scope here); `--no-squash-push` stops before
 /// squash-push-bot (out of scope); PATH carries the binary under
 /// test for push's internal `vc-x1` calls.
 fn setup_peer_push(tag: &str) -> PeerPush {

@@ -99,8 +99,41 @@ Plan:
     stop-and-wait + Recovery rewritten for the inline
     world; AGENTS.md scrubbed of "finalize" as a plain
     word (collides with the retired command name)
-- 0.69.0-3 push preflight backstop: error (or auto-push)
-  when `.claude main` is ahead of `main@origin`; tests
+- 0.69.0-3 bot-repo published backstop (done)
+  - invariant (clarified 2026-07-15): at rest the bot
+    repo's `main == main@origin`; the bookmark only moves
+    inside a push / squash-push run, which publishes it in
+    the same invocation — an at-rest mismatch means a
+    previous publish was lost (or never happened)
+  - new `vc-x1 validate-bot` (name chosen 2026-07-15):
+    read-only check of that invariant + tracking; distinct
+    message when `main@origin` doesn't exist (never
+    pushed); non-zero exit on any finding; no cargo steps
+    — cheap enough for routine use (reacquaint, timers)
+  - push preflight runs the check and errors (decided
+    2026-07-15: no automatic fixing) — resolve with
+    `vc-x1 squash-push -R .claude`, rerun push
+  - squash-push detects the same condition and reports it
+    ("an earlier publish was likely lost"), then proceeds —
+    publishing is its job, so healing is not auto-fixing
+  - shared machinery in common.rs: `PublishState` +
+    `bookmark_publish_state` + `verify_bot_published`
+  - tests; new `test_helpers::jj_ok` for new tests instead
+    of a 4th hand-rolled jj helper copy (migrating the old
+    copies stays with the jj-facade Todo)
+  - the "run at every vc-x1 invocation, config-gated" idea
+    is queued as its own Todo (a could, not a should)
+  - push preflight's hardcoded cargo fmt/clippy/test removed
+    (decided 2026-07-15): vc-x1 assumes nothing about a
+    repo's contents beyond `.jj` and `.vc-config.toml`; a
+    project that wants pre-push checks runs them explicitly
+    before `vc-x1 push` (AGENTS.md's cargo cycle already
+    does) — preflight is now version-control checks only
+    (tracking, bot-published, sync --check)
+  - crate renamed back to `vc-x1` (decided 2026-07-15): the
+    other bot instance's dual-install window is closed, so
+    the temporary `vc-x1-dev` name retires early (was a
+    close-out decision)
 - 0.69.0-4 docs: README (cycle-protocol's stop-and-wait +
   Recovery sections were rewritten at -2); repo-terminology
   sweep — "bot repo" / "work repo" (decided 2026-07-15)
@@ -112,12 +145,11 @@ Plan:
 - 0.69.0 close-out and validation
 
 Continuity (resume 2026-07-15):
-- next: pick up -2 (mark it `(current)`) — the squash-push
-  rename; every decision needed is in Design notes above
-- installs this cycle: `cargo install --path . --locked`
-  lands `vc-x1-dev`; PATH `vc-x1` stays 0.69.0-0 for the
-  other bot instance; rename the crate back to `vc-x1` when
-  that window closes (decide at close-out)
+- -2 and -3 landed 2026-07-15; next: -4 (docs +
+  terminology / stage-name sweeps)
+- crate renamed back to `vc-x1` at -3 (the dual-instance
+  window closed); the stale `vc-x1-dev` install was removed
+  (`cargo uninstall vc-x1-dev`)
 - cycle pushes go straight to `main` (keep-separate shape;
   -0 and -1 already published)
 - -1 was pushed with `vc-x1-dev push` — first dogfood of
@@ -365,7 +397,19 @@ Continuity (resume 2026-07-15):
       trailer prefix (recorded in immutable history), and
       the Claude Code symlink whose location the harness
       controls.
-12. **single-field `options_flags` leaves → `value` field.**
+12. **Run validate-bot at every vc-x1 invocation
+    (config-gated).** The check is one jj spawn
+    (`jj bookmark list main --all-remotes`), cheap enough
+    to run at every execution — noted 2026-07-15 as a
+    "could, not should". Design points:
+    - locate the bot repo (`<cwd>/.claude` or config;
+      shares the lookup with the configurable-name Todo
+      above) and silently skip when absent
+    - severity knob in `.vc-config.toml`
+      (`warn|error|off`): unrelated commands (fix-todo)
+      warn at most; push / squash-push / validate-bot
+      already have their own handling from 0.69.0-3
+13. **single-field `options_flags` leaves → `value` field.**
     `0.47.0` introduced the convention (single-field leaf names
     its field `value`, declares the flag via `#[arg(long = "…")]`,
     so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -377,13 +421,13 @@ Continuity (resume 2026-07-15):
     Note: can a single field be defined as an type or enum instead
     of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
     issue.
-13. **`por → dual` conversion.** Attach a `.claude`
+14. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-14. **`validate-desc` / `fix-desc` por equalization.**
+15. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`

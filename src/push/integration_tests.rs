@@ -4,8 +4,10 @@
 //! fixtures (bare-git remotes + colocated jj repos under a
 //! unique tempdir via `crate::test_helpers::Fixture`).
 //!
-//! Every test uses `--from message` to skip `preflight` (no
-//! `Cargo.toml` in the fixture). Most also use `--no-squash-push`
+//! Most tests use `--from message` to skip `preflight` — its
+//! `sync --check` step re-invokes `current_exe()`, which under
+//! `cargo test` is the test harness, not the CLI binary. Most
+//! also use `--no-squash-push`
 //! to focus on the earlier stages (message, commit-app,
 //! commit-claude, bookmark-set, push-app); the
 //! `push_squash_push_bot_*` tests run the in-process
@@ -85,6 +87,28 @@ fn test_params(title: &str, body: &str) -> PushParams {
         body: Some(body.to_string()),
         yes: true,
     }
+}
+
+/// Preflight's bot-published backstop: an at-rest `.claude main`
+/// that doesn't match `main@origin` (a lost publish) errors — no
+/// automatic fixing.
+#[test]
+fn push_preflight_errors_on_unpublished_bot_main() {
+    let fx = Fixture::new("push-bot-unpub");
+    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    // Simulate the lost publish: seal a `.claude` commit and move
+    // `main` onto it without pushing.
+    fs::write(fx.claude.join("lost.txt"), "lost session data").expect("write lost file");
+    jj(&fx.claude, &["commit", "-m", "lost session commit"]);
+    jj(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
+
+    let mut params = test_params("feat: blocked", "app body");
+    params.from = None; // run preflight (errors before the sync check)
+    let err = push_in(&fx.work, &params)
+        .expect_err("preflight should error on unpublished bot main")
+        .to_string();
+    assert!(err.contains("does not match"), "got: {err}");
+    assert!(err.contains("squash-push"), "got: {err}");
 }
 
 /// Happy path when `.claude` has no pending changes: the app

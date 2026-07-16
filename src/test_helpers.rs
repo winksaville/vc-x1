@@ -11,7 +11,7 @@
 //! `#[cfg(test)] mod test_helpers;`.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -30,6 +30,29 @@ use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 /// Per-process counter so same-nanosecond tempdir collisions yield
 /// distinct paths when tests run in parallel.
 static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Run `jj <args> -R <repo>` in a test, asserting success; return
+/// trimmed stdout.
+///
+/// New tests should use this instead of hand-rolling a copy —
+/// migrating the pre-existing per-module copies is part of the
+/// jj-facade Todo ("Dedup jj subprocess queries behind a typed
+/// facade").
+pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("jj")
+        .args(args)
+        .arg("-R")
+        .arg(repo)
+        .output()
+        .expect("spawn jj");
+    assert!(
+        out.status.success(),
+        "jj {args:?} failed in {}: {}",
+        repo.display(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
 
 /// Build a unique tempdir path for a test fixture.
 ///

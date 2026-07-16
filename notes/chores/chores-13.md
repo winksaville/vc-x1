@@ -489,6 +489,8 @@ Todo #1. Single-commit cycle.
 
 ## feat: inline session push + squash-push (0.69.0)
 
+Commits: [[25]],[[26]],[[27]]
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
@@ -515,3 +517,6 @@ Todo #1. Single-commit cycle.
 [22]: https://github.com/winksaville/vc-x1/commit/d56ea6b1455a "d56ea6b1455a344fe35b68c4de9a8596dfc5e692"
 [23]: https://github.com/winksaville/vc-x1/commit/0a83adea1491 "0a83adea1491eec57b66f10efaafdaa105d7a42f"
 [24]: https://github.com/winksaville/vc-x1/commit/bf59d5c1860e "bf59d5c1860e265ad78cc5f705f3672c36fc3b75"
+[25]: https://github.com/winksaville/vc-x1/commit/0bd73998ca22 "0bd73998ca224879406ea41fe79e9305652b8f8a"
+[26]: https://github.com/winksaville/vc-x1/commit/ebd7465c724f "ebd7465c724f32c2034f1a66657d079ddf5cfc23"
+[27]: https://github.com/winksaville/vc-x1/commit/6bb848b7c7bd "6bb848b7c7bd036d57fee9386cefd3e1d44aaa60"

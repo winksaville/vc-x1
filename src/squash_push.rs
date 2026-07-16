@@ -8,6 +8,10 @@
 //!   published-history rewrite, so the push is a forced update).
 //! - Runs fully in-process: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit.
+//! - Reports an at-rest publish mismatch (BOOKMARK not matching
+//!   `BOOKMARK@origin` — an earlier publish was lost) and proceeds:
+//!   publishing is the command's job, so healing is not
+//!   auto-fixing.
 //! - Replaces the `finalize` subcommand (retired 0.69.0-2), whose
 //!   detached `--delay`/`--detach` child a sandboxed run silently
 //!   killed at command exit (Bugs #1). The detach failure-marker
@@ -18,7 +22,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::common::run;
 use crate::context::Context;
@@ -337,6 +341,24 @@ pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::
 
     preflight(params)?;
 
+    // Report an at-rest publish mismatch before touching anything
+    // (0.69.0-3): the bookmark should match its origin counterpart
+    // between runs, so a mismatch means an earlier publish was
+    // lost. Publishing is this command's job, so it proceeds — the
+    // report is the point, not a refusal.
+    match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
+        crate::common::PublishState::InSync => {}
+        crate::common::PublishState::NeverPushed => info!(
+            "squash-push: '{bookmark}' has never been pushed to origin — this run will publish it"
+        ),
+        crate::common::PublishState::Mismatch { local, remote } => warn!(
+            "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — an \
+             earlier publish was likely lost; this run will publish it",
+            &local[..local.len().min(12)],
+            &remote[..remote.len().min(12)]
+        ),
+    }
+
     // Empty-source handling: nothing to squash. If the bookmark
     // already matches both the target and the remote, nothing to
     // push either — report and exit 0.
@@ -506,6 +528,34 @@ mod tests {
         assert_eq!(params.repo, std::fs::canonicalize(".").unwrap());
         assert_eq!(params.bookmark, "main");
         assert_eq!(params.squash, squash_at());
+    }
+
+    /// A lost publish (`main` moved without a push) is healed by a
+    /// bare squash-push run: it reports the mismatch and publishes,
+    /// leaving `main == main@origin`.
+    #[test]
+    fn squash_push_publishes_unpushed_bookmark_move() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-heal");
+        std::fs::write(fx.claude.join("lost.txt"), "lost session data\n").expect("write lost file");
+        jj_ok(&fx.claude, &["commit", "-m", "lost session commit"]);
+        jj_ok(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
+
+        let params = SquashPushParams {
+            repo: fx.claude.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+        };
+        squash_push(&params).expect("squash-push should publish the lost commit");
+
+        let cid = |rev: &str| {
+            jj_ok(
+                &fx.claude,
+                &["log", "-r", rev, "--no-graph", "-T", "commit_id"],
+            )
+        };
+        assert_eq!(cid("main"), cid("main@origin"), "main should be published");
     }
 
     #[test]

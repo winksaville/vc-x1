@@ -567,6 +567,93 @@ pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// At-rest publish state of a bookmark vs its `@origin` counterpart.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PublishState {
+    /// Local bookmark and `bookmark@origin` point at the same commit.
+    InSync,
+    /// `bookmark@origin` does not exist — never pushed.
+    NeverPushed,
+    /// Local and origin point at different commits (full commit ids).
+    Mismatch { local: String, remote: String },
+}
+
+/// Resolve the at-rest publish state of `bookmark` in `repo`.
+///
+/// The bookmark only moves inside a push / squash-push run, which
+/// publishes it in the same invocation — so between commands
+/// `bookmark == bookmark@origin` is the invariant. A mismatch means
+/// an earlier publish was lost (or origin moved out from under us).
+///
+/// - Read-only: two `jj log` commit-id lookups, nothing else.
+/// - Errors when the local bookmark itself does not resolve.
+pub fn bookmark_publish_state(
+    repo: &Path,
+    bookmark: &str,
+) -> Result<PublishState, Box<dyn std::error::Error>> {
+    let repo_str = repo.to_string_lossy();
+    let cwd = Path::new(".");
+    let commit_id = |rev: &str| -> Result<String, Box<dyn std::error::Error>> {
+        Ok(run(
+            "jj",
+            &[
+                "log",
+                "-r",
+                rev,
+                "--no-graph",
+                "-T",
+                "commit_id",
+                "-R",
+                &repo_str,
+            ],
+            cwd,
+        )?
+        .trim()
+        .to_string())
+    };
+    let local = commit_id(bookmark)
+        .map_err(|e| format!("bookmark '{bookmark}' does not resolve in '{repo_str}': {e}"))?;
+    // `present(...)` maps a nonexistent remote bookmark to an empty
+    // result instead of a revset error.
+    let remote = commit_id(&format!("present({bookmark}@origin)"))?;
+    Ok(if remote.is_empty() {
+        PublishState::NeverPushed
+    } else if local == remote {
+        PublishState::InSync
+    } else {
+        PublishState::Mismatch { local, remote }
+    })
+}
+
+/// Verify the bot repo's `bookmark` is published at origin.
+///
+/// Error-raising wrapper over [`bookmark_publish_state`], used by
+/// `validate-bot` and push preflight. Fixes nothing (decided
+/// 2026-07-15: no automatic fixing) — the error names the
+/// `vc-x1 squash-push` resolution and the caller stops.
+pub fn verify_bot_published(
+    bot_repo: &Path,
+    bookmark: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_str = bot_repo.to_string_lossy();
+    match bookmark_publish_state(bot_repo, bookmark)? {
+        PublishState::InSync => Ok(()),
+        PublishState::NeverPushed => Err(format!(
+            "bot repo '{repo_str}': bookmark '{bookmark}' has never been pushed to origin — \
+             publish it with `vc-x1 squash-push -R {repo_str}`"
+        )
+        .into()),
+        PublishState::Mismatch { local, remote } => Err(format!(
+            "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — \
+             an earlier publish was likely lost; publish it with \
+             `vc-x1 squash-push -R {repo_str}`, then retry",
+            &local[..local.len().min(12)],
+            &remote[..remote.len().min(12)]
+        )
+        .into()),
+    }
+}
+
 /// Walk up from `start` to find the workspace root.
 ///
 /// The workspace root is the directory whose `.vc-config.toml` has
