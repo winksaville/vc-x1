@@ -1099,7 +1099,7 @@ fn dual_fixture_both_sides_track_origin() {
 }
 
 /// Code-side `git clean -xdf --exclude .claude` must preserve
-/// the nested session repo's `.jj/` and `.git/` state. This
+/// the nested bot repo's `.jj/` and `.git/` state. This
 /// pins `push_repo`'s `clean_exclude = Some(".claude")` path
 /// in the dual code-side call.
 #[test]

@@ -13,7 +13,7 @@
 //!   while the pushed branch is `main`, so a later `jj git clone`
 //!   has no default branch to auto-track and `vc-x1 clone` errors
 //!   → point HEAD at `main` with `git symbolic-ref`.
-//! - init names the session remote `remote-claude.git`, but clone
+//! - init names the bot remote `remote-claude.git`, but clone
 //!   derives `<code-source-stem>.claude.git` → symlink
 //!   `remote-code.claude.git` → `remote-claude.git`.
 
@@ -135,11 +135,11 @@ fn setup_peer_push(tag: &str) -> PeerPush {
         fx.path("remote-claude.git"),
         fx.path("remote-code.claude.git"),
     )
-    .expect("symlink session remote");
+    .expect("symlink bot remote");
 
     // vc-x1 clone <code-remote> trB / trA (B first, so its
     // main@origin is the pre-push head). Absolute source path —
-    // the derived session source is resolved from the clone's
+    // the derived bot-repo source is resolved from the clone's
     // target dir, so a relative path would not resolve.
     let code_remote = fx.path("remote-code.git");
     for name in ["trB", "trA"] {
@@ -174,8 +174,8 @@ fn setup_peer_push(tag: &str) -> PeerPush {
     PeerPush { fx, tr_b, pushed }
 }
 
-/// Assert trB ended in the fully-synced state: code-repo `main` at
-/// the pushed head with `@` repositioned onto it, and the session
+/// Assert trB ended in the fully-synced state: work-repo `main` at
+/// the pushed head with `@` repositioned onto it, and the bot
 /// repo's `@` repositioned onto its `main`.
 fn assert_trb_synced(p: &PeerPush) {
     let home = &p.fx.home;

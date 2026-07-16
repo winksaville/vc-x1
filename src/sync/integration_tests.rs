@@ -38,13 +38,13 @@ use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
 fn resolver_chain_against_init_repo_local() {
     let fx = Fixture::new("resolver-chain");
 
-    // Walk-up from the bot side lands on the app root.
+    // Walk-up from the bot side lands on the work root.
     assert_eq!(
         find_workspace_root_from(&fx.claude).as_deref(),
         Some(&*fx.work),
         "find_workspace_root should resolve from .claude up to work"
     );
-    // Walk-up from the app root finds itself.
+    // Walk-up from the work root finds itself.
     assert_eq!(
         find_workspace_root_from(&fx.work).as_deref(),
         Some(&*fx.work)
@@ -119,7 +119,7 @@ fn default_params() -> SyncParams {
     }
 }
 
-/// Default params with `--rebase` set (auto-confirm the code-repo
+/// Default params with `--rebase` set (auto-confirm the work-repo
 /// non-empty `@` rebase).
 fn rebase_params() -> SyncParams {
     SyncParams {
@@ -255,7 +255,7 @@ fn sync_session_noop_when_up_to_date() {
 }
 
 /// Scenario 2b: `@` has trailing writes and the remote advanced while
-/// the session was offline. jj's fetch auto-ff's main; the session
+/// the session was offline. jj's fetch auto-ff's main; the bot
 /// repo then `jj new main`s onto the new tip, leaving the trailing
 /// commit as a sibling head off the old tip.
 #[test]
@@ -293,7 +293,7 @@ fn sync_session_jj_new_when_main_moves() {
     );
 }
 
-/// Scenario 2c: the session repo refuses to reposition when `@-` is
+/// Scenario 2c: the bot repo refuses to reposition when `@-` is
 /// not on main. A local session commit ahead of main (main left
 /// behind) puts `@-` off main's line, so `jj new main` would strand
 /// it — sync errors instead.
@@ -565,7 +565,7 @@ fn revert_restores_after_failed_sync() {
     );
 }
 
-/// Scenario 6: code repo behind with a clean `@`. Fetch fast-forwards
+/// Scenario 6: work repo behind with a clean `@`. Fetch fast-forwards
 /// main; reposition then `jj new`s the empty `@` onto the new tip.
 #[test]
 fn sync_code_jj_new_when_behind() {
@@ -595,7 +595,7 @@ fn sync_code_jj_new_when_behind() {
     );
 }
 
-/// Scenario 7: code repo behind with a non-empty `@` and no
+/// Scenario 7: work repo behind with a non-empty `@` and no
 /// `--rebase`. Without a TTY the rebase prompt defaults to no, so `@`
 /// is left in place (off the new main) and its changes are preserved.
 #[test]
@@ -666,15 +666,15 @@ fn sync_clone_ffs_main_after_peer_push() {
     );
 }
 
-/// Scenario 10: `--bookmark` is code-repo-only — the session repo
-/// pins `main`. Syncing a feature bookmark while the session remote
-/// advances `main` must still fast-forward the session repo's `main`
+/// Scenario 10: `--bookmark` is work-repo-only — the bot repo
+/// pins `main`. Syncing a feature bookmark while the bot remote
+/// advances `main` must still fast-forward the bot repo's `main`
 /// and reposition its `@`, and must not touch a `feature` bookmark
-/// there. The code repo syncs `feature` as requested.
+/// there. The work repo syncs `feature` as requested.
 #[test]
 fn sync_feature_bookmark_pins_session_to_main() {
     let fx = Fixture::new("feature-pins-session");
-    // Code repo: create + push a feature bookmark so it tracks.
+    // Work repo: create + push a feature bookmark so it tracks.
     jj(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
     jj(&fx.work, &["git", "push", "--bookmark", "feature"]);
     // Session remote advances main while feature work is underway.
@@ -694,7 +694,7 @@ fn sync_feature_bookmark_pins_session_to_main() {
     };
     sync_repos(&fx.repos(), &params).expect("sync should succeed");
 
-    // Session repo synced main and repositioned @ onto it.
+    // Bot repo synced main and repositioned @ onto it.
     assert_eq!(
         cid(&fx.claude, "main"),
         remote_head,
@@ -702,20 +702,20 @@ fn sync_feature_bookmark_pins_session_to_main() {
     );
     assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
     assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
-    // No feature bookmark appears in the session repo.
+    // No feature bookmark appears in the bot repo.
     assert!(
         !has(&fx.claude, "bookmarks(exact:feature)"),
-        "session repo must not grow a 'feature' bookmark"
+        "bot repo must not grow a 'feature' bookmark"
     );
-    // Code repo's feature bookmark is in sync with its remote.
+    // Work repo's feature bookmark is in sync with its remote.
     assert_eq!(
         cid(&fx.work, "feature"),
         cid(&fx.work, "feature@origin"),
-        "code repo's feature bookmark synced as requested"
+        "work repo's feature bookmark synced as requested"
     );
 }
 
-/// Scenario 8: code repo behind with a non-empty `@` and `--rebase`.
+/// Scenario 8: work repo behind with a non-empty `@` and `--rebase`.
 /// The flag auto-confirms, so `@` is carried onto the new main with
 /// its changes intact and no conflicts.
 #[test]

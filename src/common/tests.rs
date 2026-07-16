@@ -242,7 +242,7 @@ fn find_workspace_root_skips_non_root_path() {
     )
     .unwrap();
     // From inside .claude, the root walker still resolves to the
-    // app root (path = "/"), not to .claude itself.
+    // work root (path = "/"), not to .claude itself.
     assert_eq!(find_workspace_root_from(&claude).as_deref(), Some(&*root));
     std::fs::remove_dir_all(&base).ok();
 }

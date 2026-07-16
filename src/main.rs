@@ -207,7 +207,7 @@ pub(crate) enum Commands {
           - diverged          rebase local onto remote; fail on conflicts\n  \
           - no remote         bookmark has no @<remote> counterpart; skip\n\n\
         After a successful sync, `@` is repositioned onto the synced\n\
-        bookmark: the code repo `jj new`s a clean `@` (or rebases a\n\
+        bookmark: the work repo `jj new`s a clean `@` (or rebases a\n\
         dirty one with --rebase / a prompt), the `.claude` session\n\
         repo `jj new main`s when main moved (no-op when `@-` is\n\
         already the main tip).\n\n\
@@ -262,12 +262,12 @@ pub(crate) enum Commands {
         no build steps; run project checks yourself before pushing)\n\
         → review (approve diff)\n\
         → message ($EDITOR / --title+--body, approve text) →\n\
-        commit-app → commit-claude (skipped if clean) → bookmark-set\n\
-        (work repo → <bookmark>, bot repo → main) → push-app →\n\
-        squash-push-bot. Failures in commit-app / commit-claude /\n\
+        commit-work → commit-bot (skipped if clean) → bookmark-set\n\
+        (work repo → <bookmark>, bot repo → main) → push-work →\n\
+        squash-push-bot. Failures in commit-work / commit-bot /\n\
         bookmark-set roll both repos back via\n\
-        `jj op restore` to the snapshot recorded before commit-app.\n\
-        After push-app succeeds the remote boundary is crossed and\n\
+        `jj op restore` to the snapshot recorded before commit-work.\n\
+        After push-work succeeds the remote boundary is crossed and\n\
         recovery is forward-only.\n\n\
         Non-interactive use: pass both --title and --body plus --yes\n\
         to skip the review gate. Saved state carries title/body\n\
@@ -291,7 +291,7 @@ pub(crate) enum Commands {
 /// Walks up from cwd to locate the workspace root (the directory
 /// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
 /// and `<root>/.claude`. Same labeling whether the user runs from
-/// the app root, from `.claude`, or from any subdir.
+/// the work root, from `.claude`, or from any subdir.
 pub fn bm_track(phase: &str, command_name: &str) {
     let header = format!("bm-track {phase} vc-x1 {command_name}");
     let root = match common::find_workspace_root() {
@@ -302,7 +302,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
         }
     };
     let repos: [(std::path::PathBuf, &str); 2] =
-        [(root.clone(), "app"), (root.join(".claude"), ".claude")];
+        [(root.clone(), "work"), (root.join(".claude"), ".claude")];
     let mut parts: Vec<String> = Vec::new();
     for (repo, label) in repos {
         if !repo.join(".jj").exists() {

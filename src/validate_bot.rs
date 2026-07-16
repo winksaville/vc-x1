@@ -22,7 +22,7 @@ use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 
 /// The bot repo's pinned bookmark — all session work publishes to
-/// `main` (mirrors push's `SESSION_BOOKMARK`).
+/// `main` (mirrors push's `BOT_BOOKMARK`).
 const BOT_BOOKMARK: &str = "main";
 
 /// Check the bot repo's at-rest invariant: `main` published at

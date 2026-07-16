@@ -82,9 +82,9 @@ pub fn unique_base(tag: &str) -> PathBuf {
 pub struct Fixture {
     /// Root tempdir that owns both repos and their bare-git remotes.
     pub base: PathBuf,
-    /// Code repo path (`<base>/work`).
+    /// Work repo path (`<base>/work`).
     pub work: PathBuf,
-    /// Bot session repo path (`<base>/work/.claude`).
+    /// Bot repo path (`<base>/work/.claude`).
     pub claude: PathBuf,
 }
 
@@ -110,8 +110,8 @@ impl Fixture {
         // basename ("work") becomes the repo name. `--repo local=<base>`
         // sets the bare-repo parent so the layout mirrors the old
         // `--repo-local <base>` + NAME=`work` shape:
-        //   <base>/work/                  (code repo)
-        //   <base>/work/.claude/          (bot session repo)
+        //   <base>/work/                  (work repo)
+        //   <base>/work/.claude/          (bot repo)
         //   <base>/remote-code.git        (code bare origin)
         //   <base>/remote-claude.git      (bot bare origin)
         let work_path = base.join("work");

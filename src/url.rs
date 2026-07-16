@@ -139,7 +139,7 @@ pub fn resolve_url(url: &str) -> String {
     url.to_string()
 }
 
-/// Derive the session URL from a code-side URL.
+/// Derive the bot-repo URL from a work-side URL.
 ///
 /// - With trailing `.git`: insert `.claude` before it
 ///   (`foo.git` → `foo.claude.git`).

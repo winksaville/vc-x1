@@ -16,10 +16,9 @@ use crate::config::{self, UserConfig};
 /// - `user_config`: the loaded user config
 ///   (`~/.config/vc-x1/config.toml` or its discovered equivalent).
 ///
-/// The `--log` path lived here while `finalize --detach` needed to
-/// forward it to its re-exec'd child; with detach retired
-/// (0.69.0-2) logging is fully handled at CLI startup and the
-/// field is gone.
+/// The `--log` path lived here while the retired detach machinery
+/// (0.69.0-2) needed to forward it to its re-exec'd child; logging
+/// is now fully handled at CLI startup and the field is gone.
 pub struct Context {
     pub user_config: UserConfig,
 }

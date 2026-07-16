@@ -132,17 +132,17 @@ pub fn commit_initial(
 ///
 /// Both sides must already have an initial commit shaped by
 /// `OchidStrategy::Placeholder`. After the rewrite, each commit's
-/// ochid trailer is a workspace-root-relative path: the code side
-/// points at `/.claude/<session_chid>`; the session side points at
+/// ochid trailer is a workspace-root-relative path: the work side
+/// points at `/.claude/<session_chid>`; the bot side points at
 /// `/<code_chid>`.
 ///
 /// Parameters:
-/// - `code_dir` — code repo on disk; receives `/.claude/<chid>`.
-/// - `code_chid` — code-side initial-commit chid; embedded into
-///   the session-side trailer.
-/// - `session_dir` — session repo on disk; receives `/<chid>`.
-/// - `session_chid` — session-side initial-commit chid; embedded
-///   into the code-side trailer.
+/// - `code_dir` — work repo on disk; receives `/.claude/<chid>`.
+/// - `code_chid` — work-side initial-commit chid; embedded into
+///   the bot-side trailer.
+/// - `session_dir` — bot repo on disk; receives `/<chid>`.
+/// - `session_chid` — bot-side initial-commit chid; embedded
+///   into the work-side trailer.
 pub fn cross_ref_ochids(
     code_dir: &Path,
     code_chid: &str,
@@ -153,14 +153,14 @@ pub fn cross_ref_ochids(
     let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
     let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
 
-    debug!("code side: rewrite initial commit's ochid to point at session chid");
+    debug!("work side: rewrite initial commit's ochid to point at session chid");
     run("jj", &["describe", "@-", "-m", &code_desc], code_dir)?;
-    debug!("session side: rewrite initial commit's ochid to point at code chid");
+    debug!("bot side: rewrite initial commit's ochid to point at code chid");
     run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
 
     debug!("surface post-describe git hashes for the debug log");
     let hash = run("git", &["rev-parse", "HEAD"], code_dir)?;
-    debug!("code repo: chid={code_chid} hash={hash}");
+    debug!("work repo: chid={code_chid} hash={hash}");
     let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
     debug!(".claude:   chid={session_chid} hash={hash}");
     Ok(())

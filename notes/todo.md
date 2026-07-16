@@ -134,14 +134,50 @@ Plan:
     other bot instance's dual-install window is closed, so
     the temporary `vc-x1-dev` name retires early (was a
     close-out decision)
-- 0.69.0-4 docs: README (cycle-protocol's stop-and-wait +
-  Recovery sections were rewritten at -2); repo-terminology
-  sweep — "bot repo" / "work repo" (decided 2026-07-15)
-  replace "session repo" / "code repo" / "app repo" across
-  AGENTS.md, cycle-protocol.md, and code doc comments; push
-  stage-name sweep to match (`commit-app` → `commit-work`,
-  `commit-claude` → `commit-bot`, `push-app` → `push-work`;
-  `squash-push-bot` landed at -2)
+- 0.69.0-4 docs + terminology / stage-name sweeps (done)
+  - push stage-name sweep: `commit-app` → `commit-work`,
+    `commit-claude` → `commit-bot`, `push-app` →
+    `push-work` (`squash-push-bot` landed at -2); state
+    keys follow (`work_chid`, `bot_chid`,
+    `bot_had_changes`); `SESSION_BOOKMARK` →
+    `BOT_BOOKMARK`; cycle-protocol's stale-state caveat
+    extended to the pre-0.69.0-4 names
+  - squash-push at-rest mismatch report suppressed when
+    run as push's stage (`report_publish_state: false` —
+    the bookmark-set → squash-push-bot window makes the
+    mismatch the normal state there; false-alarmed live
+    on the -3 push)
+  - repo-terminology sweep: "bot repo" / "work repo"
+    replace "session repo" / "code repo" / "app repo"
+    across AGENTS.md, cycle-protocol.md, ARCHITECTURE.md,
+    notes/README.md, and code prose (doc comments, help
+    text, log/test messages); identifier-level stragglers
+    queued as a Todo
+  - README rewritten for 0.69.0: new Terminology section
+    (defines work / bot / work repo / bot repo before
+    first use; notes the `-s code` keyword wrinkle),
+    finalize section → squash-push (zero-ceremony,
+    behavior notes), push
+    stage table (new names; preflight = vcs checks only),
+    new validate-bot section, testing walkthroughs redone
+    against live runs (init fixture via `--repo local=`,
+    squash-push transcripts), guard section reduced to
+    the two synchronous examples, `--no-finalize` →
+    `--no-squash-push`, TOC/usage updated, init section
+    flags corrected (documented retired `--owner` /
+    `--dir` / `--repo-local`)
+  - support/gen-exmpl-1-3.sh rewritten for squash-push
+    against an init fixture; run to regenerate the README
+    transcripts; support/README.md updated
+  - Todos queued: README-vs-CLI flag-table audit;
+    terminology stragglers (scope keyword `code`,
+    remote-*.git names, identifiers)
+  - "finalize" scrubbed from `*.rs` and cycle-protocol.md
+    (user request): historical doc comments reworded, the
+    `finalize`-no-longer-parses test dropped, the
+    stale-state caveat de-enumerated; README's one
+    "Replaces the `finalize` subcommand" history line
+    stays (user-facing changelog context)
 - 0.69.0 close-out and validation
 
 Continuity (resume 2026-07-15):
@@ -409,7 +445,30 @@ Continuity (resume 2026-07-15):
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-13. **single-field `options_flags` leaves → `value` field.**
+13. **README: audit flag tables and examples against the
+    current CLI.** 0.69.0-4 fixed the init section (it
+    documented retired `--owner` / `--dir` / `--repo-local`
+    flags) and the 0.69.0 surfaces, but the README's other
+    tables (clone, symlink, sync, revert, list/desc/chid/
+    show) have never had a systematic `-h` comparison and
+    drift silently.
+    - Sweep each section against `vc-x1 <cmd> -h`.
+    - Consider regenerating transcripts via support
+      scripts (the gen-exmpl pattern) so examples stay
+      reproducible.
+14. **Terminology stragglers from the work/bot sweep.** The
+    0.69.0-4 sweep renamed prose and push stage names but
+    left identifier-level uses of the old vocabulary:
+    - `-s` scope keyword `code` (CLI value — renaming to
+      `work` is a breaking change; `bot` already matches)
+    - init's literal remote names `remote-code.git` /
+      `remote-claude.git`
+    - identifiers: `derive_session_url`, `claude_path`,
+      `Fixture.claude`, `Side::Code`
+    - decide rename vs document-as-historical; overlaps
+      "Make the bot repo directory name configurable"
+      above
+15. **single-field `options_flags` leaves → `value` field.**
     `0.47.0` introduced the convention (single-field leaf names
     its field `value`, declares the flag via `#[arg(long = "…")]`,
     so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
@@ -421,13 +480,13 @@ Continuity (resume 2026-07-15):
     Note: can a single field be defined as an type or enum instead
     of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
     issue.
-14. **`por → dual` conversion.** Attach a `.claude`
+16. **`por → dual` conversion.** Attach a `.claude`
     companion repo + `.vc-config.toml` to an existing por
     workspace; emit cross-links going forward. Manual
     setup on an external por workspace (2026-05-14)
     proved arduous; this should be a routine subcommand.
     Design stub in [[1]] § 2.
-15. **`validate-desc` / `fix-desc` por equalization.**
+17. **`validate-desc` / `fix-desc` por equalization.**
     Replace the `other_repo_from_config` prelude in both
     subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
     with a scope-aware resolution that no-ops `Side::Bot`

@@ -4,15 +4,15 @@
 
 This project uses **two separate jj-git repos**:
 
-1. **App repo** (`/` — project root): Contains the application source code.
-2. **Bot session repo** (`/.claude/`): Contains Claude Code session data.
+1. **Work repo** (`/` — project root): Contains the application source code.
+2. **Bot repo** (`/.claude/`): Contains Claude Code session data.
 
 Both repos are managed with `jj` (Jujutsu), which coexists with git.
 
 ## Repo Paths (relative from project root)
 
-- App repo: `.` (project root)
-- Bot session repo: `.claude`
+- Work repo: `.` (project root)
+- Bot repo: `.claude`
   (symlink from `~/.claude/projects/<path-to-project-root>/.claude`)
 
 ## Working Directory
@@ -136,7 +136,7 @@ Surfaces that use this shape:
 
 - Module / function / struct / field doc comments in `.rs` files —
   see [Doc comments](#doc-comments-on-every-file-function-and-method).
-- Commit message bodies (both app-repo and session-repo). The
+- Commit message bodies (both work-repo and bot-repo). The
   ≤50-col title is the commit-specific add-on; see
   [Per-commit flow](notes/cycle-protocol.md#per-commit-flow).
 - Chore descriptions in `notes/chores/chores-NN.md` — see

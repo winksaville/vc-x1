@@ -374,15 +374,15 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-/// Write the dual-mode code-side `.vc-config.toml` and `.gitignore`
-/// into `dir`. Used by `create_dual` for the code repo.
+/// Write the dual-mode work-side `.vc-config.toml` and `.gitignore`
+/// into `dir`. Used by `create_dual` for the work repo.
 fn write_code_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
 }
 
-/// Write the dual-mode session-side `.vc-config.toml` and
+/// Write the dual-mode bot-side `.vc-config.toml` and
 /// `.gitignore` into `dir`. Used by `create_dual` for the bot repo.
 fn write_session_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
@@ -547,7 +547,7 @@ pub(crate) struct InitPlan {
     pub provisioner: Provisioner,
     /// Set only when `provisioner == LocalBareInit`.
     pub code_bare_path: Option<PathBuf>,
-    /// GitHub `owner/name` for the code side; only populated for
+    /// GitHub `owner/name` for the work side; only populated for
     /// the `GhCreate` path (`gh repo create` needs it).
     pub gh_code_slug: Option<String>,
     /// Session-side dir. None when `scope.is_code_only()`.
@@ -1099,7 +1099,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             if is_dual {
                 "both repos"
             } else {
-                "the code repo"
+                "the work repo"
             }
         );
         info!(
@@ -1138,7 +1138,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.session_url.as_deref().unwrap_or(""),     // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no session side in single-repo)");
+                    info!("  8. (skipped — no bot side in single-repo)");
                 }
                 info!(
                     "  9. gh repo create {} {visibility}; push to {}",
@@ -1157,7 +1157,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.session_url.as_deref().unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no session side in single-repo)");
+                    info!("  8. (skipped — no bot side in single-repo)");
                 }
                 info!(
                     "  9. git init --bare {}; push to {}",
@@ -1175,7 +1175,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.session_url.as_deref().unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no session side in single-repo)");
+                    info!("  8. (skipped — no bot side in single-repo)");
                 }
                 info!("  9. skip create; push to pre-existing {}", plan.code_url);
             }
@@ -1185,7 +1185,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             if is_dual {
                 "both repos"
             } else {
-                "the code repo"
+                "the work repo"
             }
         );
         if is_dual {
@@ -1209,7 +1209,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// - `prepare_local_repo` → conditional `.vc-config.toml` write
 ///   (gated by `--config`) → `write_por_gitignore` (always) →
 ///   `commit_initial` (`OchidStrategy::None`).
-/// - `push_repo` for code side (no `clean_exclude`).
+/// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no session), no session push, no symlink.
 ///
 /// `_create_symlink` is unused (no symlink in single-repo); kept in
@@ -1234,9 +1234,9 @@ fn create_por(
 
     info!("Step 6: (skipped — no cross-reference in single-repo)");
     let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
-    debug!("code repo: chid={code_chid} hash={hash}");
+    debug!("work repo: chid={code_chid} hash={hash}");
 
-    info!("Step 8: (skipped — no session side in single-repo)");
+    info!("Step 8: (skipped — no bot side in single-repo)");
 
     let code_chid_final = push_repo(
         &plan.project_dir,
@@ -1256,7 +1256,7 @@ fn create_por(
     info!("");
     info!("Done! Project created at {}", plan.project_dir.display());
     info!(
-        "  Code repo:    {}  (chid={code_chid_final})",
+        "  Work repo:    {}  (chid={code_chid_final})",
         plan.code_url
     );
 
@@ -1273,9 +1273,9 @@ fn create_por(
 ///   → `commit_initial` (`OchidStrategy::Placeholder`).
 /// - `cross_ref_ochids` — rewrite both initial commits' placeholder
 ///   trailers once each side's chid is known.
-/// - `push_repo` for session side (no `clean_exclude`).
-/// - `push_repo` for code side with `clean_exclude = Some(".claude")`
-///   so the nested session repo survives the code-side clean.
+/// - `push_repo` for bot side (no `clean_exclude`).
+/// - `push_repo` for work side with `clean_exclude = Some(".claude")`
+///   so the nested bot repo survives the work-side clean.
 /// - `symlink::install` (when `create_symlink`).
 fn create_dual(
     params: &InitParams,
@@ -1319,7 +1319,7 @@ fn create_dual(
         plan.session_bare_path.as_deref(),
     )?;
     // `Some(".claude")` clean_exclude preserves the nested session
-    // repo through the code-side `git clean -xdf`.
+    // repo through the work-side `git clean -xdf`.
     let code_chid_final = push_repo(
         &plan.project_dir,
         "code",
@@ -1344,10 +1344,10 @@ fn create_dual(
     info!("");
     info!("Done! Project created at {}", plan.project_dir.display());
     info!(
-        "  Code repo:    {}  (chid={code_chid_final})",
+        "  Work repo:    {}  (chid={code_chid_final})",
         plan.code_url
     );
-    info!("  Session repo: {session_url}  (chid={session_chid_final})");
+    info!("  Bot repo: {session_url}  (chid={session_chid_final})");
     if let Some(sl) = sl_opt.as_ref() {
         info!(
             "  Symlink:      {} -> {}",
@@ -1368,8 +1368,8 @@ fn create_dual(
 /// - `info_label` — narration tag (`"code"`, `"session"`, etc.).
 /// - `step_label_provision` — `"Step 8"` (session) or
 ///   `"Step 9"` (code) — appears in the provision/push narration.
-/// - `clean_exclude` — `Some(".claude")` for code-side dual to
-///   preserve the nested session repo across `git clean -xdf`;
+/// - `clean_exclude` — `Some(".claude")` for work-side dual to
+///   preserve the nested bot repo across `git clean -xdf`;
 ///   `None` otherwise.
 /// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /
 ///   `bare_path` — forwarded to `run_remote_step`.

@@ -9,7 +9,7 @@ todo.md contains short term tasks and their status. The
 chores-NN files are numbered in sequence; the highest-numbered
 file is the active one, older ones are closed.
 
-App architecture — the CLI-args / `Context`+`Params` split, a
+Tool architecture — the CLI-args / `Context`+`Params` split, a
 generic module map, the subcommand model, and what the
 Context+Params port and the options_flags extraction *are* (the
 *live status* is in the chores files) — lives at the repo root in
@@ -59,6 +59,6 @@ Per-cycle workflow lives in
   work + commit description review gates.
 - [Commit description](cycle-protocol.md#commit-description)
   — Conventional Commits + `(version)` suffix; body shape
-  per app vs `.claude` repo.
+  per work vs bot repo.
 - [Pushing](cycle-protocol.md#pushing) — push policy,
   close-out shape, `.claude` cadence.

@@ -2,11 +2,11 @@
 //! a workspace's repos against their remotes, then reposition `@`
 //! onto the synced bookmark.
 //!
-//! `--bookmark` names a **code-repo** bookmark only: the session
-//! (bot) repo is a linear journal on `main` by design, so every
+//! `--bookmark` names a **work-repo** bookmark only: the bot
+//! repo is a linear journal on `main` by design, so every
 //! per-repo step (tracking preflight, classify, act, reposition)
 //! resolves its bookmark via `repo_bookmark`, which pins the
-//! session repo to `main`.
+//! bot repo to `main`.
 //!
 //! Sync is a single atomic operation — verify-then-act happens
 //! inside one invocation against one fetch snapshot (a separate
@@ -69,7 +69,7 @@ pub struct SyncArgs {
     #[arg(short, long)]
     pub quiet: bool,
 
-    /// Bookmark to sync in the code repo. The session (bot) repo
+    /// Bookmark to sync in the work repo. The session (bot) repo
     /// is a linear journal and always syncs `main`, regardless.
     #[arg(long, default_value = "main")]
     pub bookmark: String,
@@ -81,9 +81,9 @@ pub struct SyncArgs {
     /// Rebase a non-empty `@` onto the synced bookmark without asking.
     ///
     /// After a successful sync, `@` is repositioned onto the synced
-    /// bookmark. When the code repo's `@` carries changes it normally
+    /// bookmark. When the work repo's `@` carries changes it normally
     /// asks before rebasing; `--rebase` answers yes up front for
-    /// non-interactive use. Ignored for the session repo (which
+    /// non-interactive use. Ignored for the bot repo (which
     /// always `jj new main`).
     #[arg(long)]
     pub rebase: bool,
@@ -100,7 +100,7 @@ pub struct SyncArgs {
     ///
     /// `SCOPE=code|bot|code,bot`:
     ///
-    /// - `code` — sync only the app repo.
+    /// - `code` — sync only the work repo.
     /// - `bot` — sync only the bot repo (errors if no bot repo
     ///   is configured).
     /// - `code,bot` — sync both repos.
@@ -121,15 +121,15 @@ pub struct SyncArgs {
 /// Inputs to the sync op, flat, owned, clap-free.
 ///
 /// - `quiet`: `-q` / `--quiet` — clamp output to `Warn` for the run.
-/// - `bookmark`: bookmark to sync in the code repo (default
-///   `main`); the session repo always syncs `main`.
+/// - `bookmark`: bookmark to sync in the work repo (default
+///   `main`); the bot repo always syncs `main`.
 /// - `remote`: remote to sync against (default `origin`).
 /// - `check`: hidden deprecated `--check` — verify-only mode
 ///   (fetch + classify + report, error if action needed; no
 ///   bookmark move, no `@` reposition). Absent ⇒ the normal
 ///   atomic sync.
 /// - `rebase`: `--rebase` — rebase a non-empty `@` onto the synced
-///   bookmark without prompting (code repo only; see
+///   bookmark without prompting (work repo only; see
 ///   `reposition_code`).
 /// - `repo`: `-R/--repo` path (None ⇒ discover the workspace
 ///   root from cwd).
@@ -287,7 +287,7 @@ pub fn sync_repos(
         let bookmark = repo_bookmark(repo, &params.bookmark);
         if bookmark != params.bookmark {
             info!(
-                "{}: session repo — syncing 'main' ('{}' is a code repo bookmark)",
+                "{}: bot repo — syncing 'main' ('{}' is a work repo bookmark)",
                 repo.display(),
                 params.bookmark
             );
@@ -458,7 +458,7 @@ fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error:
 /// - **session (bot) sub-repo** → always `jj new main`
 ///   (see `reposition_session`).
 /// - **any other repo** → move `@` onto the synced `bookmark` under
-///   the code-repo safety rules (see `reposition_code`).
+///   the work-repo safety rules (see `reposition_code`).
 fn reposition_at(
     repo: &Path,
     bookmark: &str,
@@ -471,12 +471,12 @@ fn reposition_at(
     }
 }
 
-/// True when `repo` is the session (bot) sub-repo.
+/// True when `repo` is the bot sub-repo.
 ///
-/// Reads `<repo>/.vc-config.toml`'s `[workspace] path`: the code repo
-/// (workspace root) is `"/"`, the session sub-repo is `"/.claude"`. A
+/// Reads `<repo>/.vc-config.toml`'s `[workspace] path`: the work repo
+/// (workspace root) is `"/"`, the bot sub-repo is `"/.claude"`. A
 /// missing / unreadable config (POR, single-repo workspace) is treated
-/// as a code repo.
+/// as a work repo.
 fn is_session_repo(repo: &Path) -> bool {
     match toml_simple::toml_load(&repo.join(VC_CONFIG_FILE)) {
         Ok(cfg) => {
@@ -488,7 +488,7 @@ fn is_session_repo(repo: &Path) -> bool {
 
 /// Bookmark to sync for `repo`.
 ///
-/// `--bookmark` is code-repo-only: the session (bot) repo is a
+/// `--bookmark` is work-repo-only: the bot repo is a
 /// linear journal on `main` by design, so it pins `main` regardless
 /// of the requested bookmark. Every other repo uses `bookmark`
 /// as passed.
@@ -500,7 +500,7 @@ fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
     }
 }
 
-/// Reposition the session repo's `@` onto `main`.
+/// Reposition the bot repo's `@` onto `main`.
 ///
 /// The session (`.claude`) repo is a linear journal on `main`, and its
 /// `@` normally carries live session writes:
@@ -539,7 +539,7 @@ fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Reposition the code repo's `@` onto the synced `bookmark`.
+/// Reposition the work repo's `@` onto the synced `bookmark`.
 ///
 /// Let `@-` be the parent of `@`:
 ///

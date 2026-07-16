@@ -2,6 +2,7 @@
 
 - [Overview](#vc-x1)
 - [Architecture](ARCHITECTURE.md)
+- [Terminology](#terminology)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
   - [Shell completion](#shell-completion)
@@ -9,11 +10,16 @@
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
   - [fix-todo](#fix-todo)
+  - [validate-bot](#validate-bot)
   - [clone](#clone)
   - [init](#init)
   - [symlink](#symlink)
-  - [finalize](#finalize)
-  - [Testing push + finalize](#testing-push--finalize)
+  - [sync](#sync)
+  - [revert](#revert)
+  - [squash-push](#squash-push)
+  - [push](#push)
+  - [Testing push + squash-push](#testing-push--squash-push)
+  - [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
 - [Thoughts for the future](#thoughts-for-the-future)
@@ -44,6 +50,24 @@ See [Initial commit with dual jj-git repos](./notes/chores/chores-01.md#initial-
 for how the initial commit was created with the dual jj-git repos. After
 doing so and I then created this README.md file.
 
+## Terminology
+
+A vc-x1 workspace pairs two jj-git repos, and this README names
+their two sides **work** and **bot**:
+
+- **work repo** — the repo at the project root, holding the work
+  product itself (source code, docs — the repo you would have
+  anyway).
+- **bot repo** — the `.claude` repo nested inside it, holding the
+  bot's session data (the conversation that produced the work).
+- **work** / **bot** — the two sides as roles, used wherever a
+  command or doc needs to say which repo it means (e.g. push's
+  `commit-work` / `commit-bot` stages).
+
+One historical wrinkle: the `-s`/`--scope` flag still spells the
+work side `code` (`-s code`, `-s code,bot`) — that keyword predates
+the work/bot naming.
+
 ## Usage
 
 ```
@@ -55,11 +79,14 @@ vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
 vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
 vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
+vc-x1 validate-bot [OPTS]                 # Check the bot repo is published
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
-vc-x1 init <NAME> [OPTS]                  # Create a new dual-repo project
+vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
-vc-x1 finalize --bookmark <B> [OPTS]       # Squash working copy into target
+vc-x1 revert [OPTS]                        # Restore repos to a prior operation
+vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
+vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
 ```
@@ -127,13 +154,13 @@ Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and
 ### Multi-repo queries
 
 `-s`/`--scope` selects workspace sides by role keyword; `code` is the
-app repo, `bot` is the `.claude` repo, `code,bot` is both. The
+work repo, `bot` is the `.claude` repo, `code,bot` is both. The
 workspace root is found by walking up from cwd (the existing
 `find_workspace_root` rule).
 
 ```
 vc-x1 chid -s code,bot          # both sides of the workspace
-vc-x1 chid -s code              # just the app repo
+vc-x1 chid -s code              # just the work repo
 vc-x1 chid -s bot               # just the bot repo
 vc-x1 list @.. 3 -s code,bot    # works with chid / desc / list / show
 ```
@@ -216,8 +243,8 @@ won't protect against `!` (bash history expansion).
 
 With a single repo resolved, no label is printed — backward
 compatible with the no-flag default. Multi-repo (`-s code,bot`) is
-supported for `chid`, `desc`, `list`, and `show`. `finalize` remains
-single-repo.
+supported for `chid`, `desc`, `list`, and `show`. `squash-push`
+remains single-repo.
 
 `-s` is keyword-only — `code`, `bot`, `code,bot`, `bot,code`.
 Path-based single-repo operation uses `-R` (above).
@@ -320,6 +347,32 @@ vc-x1 fix-todo path/to/todo.md
 |------|-------------|
 | `--no-dry-run` | Write the renumbered file in place [default: dry-run] |
 
+### validate-bot
+
+Check the bot repo is in its expected at-rest state: `main`
+matching `main@origin`, with its remote refs tracked. At rest the
+two always match — the bookmark only moves inside a `push` /
+`squash-push` run, which publishes it in the same invocation — so
+a mismatch means an earlier publish was lost. Read-only and cheap
+(two `jj` lookups, no build steps); exits non-zero on any finding
+and fixes nothing — resolve with `vc-x1 squash-push -R <bot-repo>`.
+
+```
+# Check ./.claude (run from the project root)
+vc-x1 validate-bot
+
+# Explicit bot-repo path
+vc-x1 validate-bot -R path/to/.claude
+```
+
+| Flag | Description |
+|------|-------------|
+| `-R, --repo <PATH>` | Path to the bot repo [default: .claude] |
+
+`vc-x1 push` runs the same check in its preflight and errors on a
+mismatch (no automatic fixing); `vc-x1 squash-push` reports the
+condition and proceeds, since publishing is its job.
+
 ### clone
 
 Clone an existing dual-repo project. Runs `git clone --recursive` to
@@ -349,26 +402,30 @@ vc-x1 clone owner/my-project --dry-run
 | `--dry-run` | Show what would be done without executing |
 | `-v, --verbose` | Verbose output |
 
-Requires `jj` to be installed. The `.claude` session repo is cloned
+Requires `jj` to be installed. The `.claude` bot repo is cloned
 automatically via `git submodule` if the source project was created
 with `vc-x1 init`.
 
 ### init
 
-Create a new dual-repo project — a code repo with a `.claude` session
+Create a new dual-repo project — a work repo with a `.claude` bot
 repo as a git submodule. Both repos are initialized with `git` and `jj`,
-configured with `.vc-config.toml`, and pushed to GitHub. The session
+configured with `.vc-config.toml`, and pushed to GitHub. The bot
 repo is added as a submodule so `git clone --recursive` clones both.
 
 ```
-# Create public project in current directory
+# Create public project in current directory (GitHub via gh)
 vc-x1 init my-project
 
-# Specify owner and parent directory
-vc-x1 init my-project --owner myorg --dir ~/projects
+# owner/name shorthand, path targets, or a parent directory
+vc-x1 init myorg/my-project
+vc-x1 init ~/projects/my-project
 
 # Create private repos
 vc-x1 init my-project --private
+
+# Local bare remotes instead of GitHub (offline; used by fixtures)
+vc-x1 init my-project --repo local=/path/to/parent
 
 # Preview without executing
 vc-x1 init my-project --dry-run
@@ -381,14 +438,17 @@ vc-x1 init my-project --use-template ../vc-template-x1,../vc-template-x1.claude
 
 | Flag | Description |
 |------|-------------|
-| `--owner <OWNER>` | GitHub user/org [default: current `gh` user] |
-| `--dir <PATH>` | Parent directory [default: cwd] |
+| `<TARGET>` | URL, owner/name shorthand, path, or bare NAME |
+| `[NAME]` | Repo directory name override (URL / owner/name forms only) |
+| `--account <NAME>` | Pick `[account.<a>]` from user config |
+| `--repo <CAT[=VAL]>` | Repo target — e.g. `local=<PARENT>` for local bare remotes |
+| `--por` | Plain single repo (no `.claude/` companion) |
 | `--private` | Create private GitHub repos [default: public] |
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
 | `--use-template <CODE[,BOT]>` | Seed both repos from template dirs (see below) |
-| `-v, --verbose` | Verbose output (show retry details) |
+| `--config <none\|PATH>` | Override the canned `.vc-config.toml` write |
 
 **`--use-template`**. Value is `CODE[,BOT]`. If `BOT` is omitted, defaults
 to the sibling directory `<CODE>.claude` (file-name concat, not path
@@ -397,12 +457,12 @@ copied recursively into each target; hidden entries (names starting
 with `.`) are skipped since init creates the repo's own hidden files
 (`.vc-config.toml`, `.gitignore`, `.git/`, `.jj/`). If either template
 has a `README.md` at its root, its first line is rewritten to
-`# <repo-name>` — `<name>` for the code repo and `<name>.claude` for
-the session repo. For local verification without hitting GitHub,
-combine `--use-template` with `--repo-local <PARENT>`.
+`# <repo-name>` — `<name>` for the work repo and `<name>.claude` for
+the bot repo. For local verification without hitting GitHub,
+combine `--use-template` with `--repo local=<PARENT>`.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is
-skipped under `--repo-local`).
+skipped under `--repo local=...`).
 
 ### symlink
 
@@ -451,7 +511,7 @@ Per repo, `sync` classifies the local bookmark against its remote:
 | diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
 | no remote | bookmark has no `@<remote>` counterpart | none — skip |
 
-`--bookmark` names a **code-repo** bookmark only: the session repo
+`--bookmark` names a **work-repo** bookmark only: the bot repo
 is a linear journal on `main` by design, so its side of every step
 (tracking preflight, classify, act, reposition) always uses `main`
 regardless of the flag.
@@ -461,7 +521,7 @@ freshly-synced bookmark as a final pass, run after every repo syncs
 cleanly. The rule differs by repo (`@-` is the parent of `@`; `<b>`
 is the synced `--bookmark`):
 
-- **Code repo** (the app / workspace root):
+- **Work repo** (the workspace root):
   - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same
     line → `jj new <b>` starts a fresh `@` on the new tip (the old
     empty `@` is auto-abandoned).
@@ -470,7 +530,7 @@ is the synced `--bookmark`):
     not a TTY and no `--rebase` — leaves `@` in place and says so.
   - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line
     (diverged / `@` ahead) → `@` is left untouched, with a note why.
-- **Session repo** (`.claude`): no-op when `@-` is already the
+- **Bot repo** (`.claude`): no-op when `@-` is already the
   `main` tip — `@` keeps its change id and any live session writes
   stay in the working copy. When `main` moved, `jj new main` starts
   a fresh empty `@` on the new tip; the prior `@` (e.g. `/exit`'s
@@ -491,7 +551,7 @@ cleared — a stale file must not become a revert target later.
 ```
 vc-x1 sync                            # workspace-default scope
 vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
-vc-x1 sync --scope=code               # only the app repo
+vc-x1 sync --scope=code               # only the work repo
 vc-x1 sync --scope=bot                # only the bot repo
 vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
 vc-x1 sync -R ../other                # sync ../other as a single repo
@@ -518,9 +578,9 @@ the workspace root and resolves repos by absolute path.
 | `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
 | `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Composes with `-R` |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
-| `--bookmark <NAME>` | Bookmark to sync in the code repo (session repo always syncs `main`) [default: main] |
+| `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
-| `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (code repo only) |
+| `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (work repo only) |
 
 **Output shape.** Sync collapses output based on what it finds:
 
@@ -571,63 +631,69 @@ vc-x1 revert          # restore every repo to its pre-sync snapshot
 | `-R, --repo <PATH>` | Workspace root, or a single repo to revert alone. Composes with `--scope` |
 | `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to revert. Composes with `-R` |
 
-### finalize
+### squash-push
 
-Atomically squash, set bookmark, and push a jj repo. The primary use
-case is the bot finalizing its own session repo (`.claude`) at the end
-of a session. The bot can't just `jj commit` because the act of
-committing generates more session data — files written after the commit
-would be lost. `finalize` solves this by:
+Squash `@` into `@-`, advance a bookmark, and push — capture a
+repo's trailing working-copy writes and publish them in one step.
+Rewriting an already-pushed commit this way is a deliberate
+published-history rewrite, so the push is a forced update.
 
-1. **`--detach`**: spawning a background process so the bot session can
-   end immediately (no more writes after the bot exits)
-2. **`--delay`**: waiting for trailing writes to settle
-3. **`--squash`**: squashing the working copy into the session commit
-4. **`--bookmark`** + **`--push`**: advancing the bookmark and pushing
-
-Every behavior is opt-in — omit any flag to skip that step.
-
-The bot's last action in a session:
+The primary use case is folding the bot repo's session tail: session
+data keeps landing in `@` after the last commit (including the record
+of the push itself), and only the user, acting after the bot goes
+quiet, can capture all of it. Zero ceremony by design:
 
 ```
-vc-x1 finalize --repo .claude --squash --bookmark main --delay 10 --detach --push
+# In .claude: squash @ → @-, advance main, push
+vc-x1 squash-push -R .claude
+
+# Bare invocation: same, in the current directory's repo
+vc-x1 squash-push
+
+# Custom bookmark and squash pair
+vc-x1 squash-push feature -R . --squash @,@--
 ```
 
-If there is non-written session data after a session ends (e.g.
-finalize failed or was skipped), run it manually:
+| Flag | Description |
+|------|-------------|
+| `[BOOKMARK]` | Bookmark to advance and push [default: main] |
+| `-R, --repo <PATH>` | Path to jj repo [default: .] |
+| `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
 
-```
-vc-x1 finalize --repo .claude --squash --bookmark main --push
-```
+Behavior notes:
 
-This runs in the foreground, squashes, advances the bookmark, and pushes.
+- Runs fully in-process — a failure is a visible non-zero exit.
+  (Replaces the `finalize` subcommand, whose detached background
+  child could be killed silently at command exit.)
+- With an empty `@` and the bookmark already at the remote it
+  reports "already sync'd" and exits 0; with an empty `@` but the
+  remote behind, it skips the squash and still pushes.
+- If the bookmark doesn't match `BOOKMARK@origin` at start (an
+  earlier publish was lost — see [validate-bot](#validate-bot)),
+  it says so and proceeds: publishing is its job.
+- Preflight refuses bad states before rewriting anything:
+  unresolvable squash revsets, an ochid-dropping squash (see
+  [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
+  conflicts, a missing / untracked / non-forward bookmark, an
+  undescribed push target.
 
-Other uses — `finalize` composes freely:
-
-```
-# Just set bookmark, no squash
-vc-x1 finalize --bookmark main
-
-# Squash with custom source/target
-vc-x1 finalize --squash @,@-- --bookmark main
-```
-
-See [finalize subcommand](./notes/chores/chores-01.md#finalize-subcommand-for-session-repo-coherence)
+See [inline session push + squash-push (0.69.0)](./notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690)
 for design details.
 
 ### push
 
-Dual-repo commit+push+finalize in one resumable command with two
-interactive approval gates. Replaces the old multi-step manual
-choreography (`jj commit` × 2 → `jj bookmark set` × 2 →
-`jj git push` → `vc-x1 finalize`) with a single invocation.
+Commit both repos, push the work repo's BOOKMARK, and squash-push
+the bot repo's `main` — one resumable command with two interactive
+approval gates. Replaces the old multi-step manual choreography
+(`jj commit` × 2 → `jj bookmark set` × 2 → `jj git push` →
+squash-push) with a single invocation.
 
 ```bash
 vc-x1 push main                                     # interactive
 vc-x1 push main --title "..." --body "..."          # skip $EDITOR
 vc-x1 push main --yes --title "..." --body "..."    # full non-interactive
 vc-x1 push main --dry-run                           # preview
-vc-x1 push main --from commit-app                   # resume at specific stage
+vc-x1 push main --from commit-work                  # resume at specific stage
 vc-x1 push --status                                 # show saved state
 ```
 
@@ -636,24 +702,24 @@ to `.vc-x1/push-state.toml` so interrupts resume mid-flow):
 
 | Stage | What it does |
 |-------|--------------|
-| `preflight` | `vc-x1 sync --check`, `cargo fmt`, `cargo clippy -D warnings`, `cargo test` |
+| `preflight` | Verify bookmark tracking, verify the bot repo is published ([validate-bot](#validate-bot)'s check — errors, no auto-fix), `vc-x1 sync --check`. No build/test steps — vc-x1 assumes nothing about a repo's contents beyond `.jj` and `.vc-config.toml`; run project checks yourself before pushing |
 | `review` | Print `jj diff --stat` for both repos; prompt `[y/N]` (first approval gate) |
 | `message` | Compose title+body from `--title`/`--body`, persisted state, or `$EDITOR` template; second approval gate |
-| `commit-app` | `jj commit` app repo with ochid trailer pointing at `.claude` |
-| `commit-claude` | `jj commit` `.claude` with ochid trailer pointing at app (skipped if `.claude` is clean) |
+| `commit-work` | `jj commit` work repo with ochid trailer pointing at `.claude` |
+| `commit-bot` | `jj commit` `.claude` with ochid trailer pointing at the work repo (skipped if `.claude` is clean) |
 | `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
-| `push-app` | `jj git push --bookmark <bookmark> -R .` |
-| `finalize-claude` | `vc-x1 finalize --repo .claude --squash --push main --delay 10 --detach` |
+| `push-work` | `jj git push --bookmark <bookmark> -R .` |
+| `squash-push-bot` | In-process squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
 
-Failures in `commit-app` / `commit-claude` / `bookmark-set` roll
+Failures in `commit-work` / `commit-bot` / `bookmark-set` roll
 both repos back via `jj op restore` to the snapshot recorded at
-the start of `commit-app`. Past `push-app` the remote boundary is
+the start of `commit-work`. Past `push-work` the remote boundary is
 crossed and recovery is forward-only (see "Late changes after
 push" in AGENTS.md).
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Code-repo bookmark to advance (the session repo always advances `main`); positional form of `--bookmark` |
+| `[BOOKMARK]` | Work-repo bookmark to advance (the bot repo always advances `main`); positional form of `--bookmark` |
 | `--bookmark <NAME>` | Same as positional (mutually exclusive) |
 | `-y, --yes` | Auto-approve both gates (non-interactive use) |
 | `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |
@@ -663,7 +729,7 @@ push" in AGENTS.md).
 | `--status` | Print saved state's current stage and exit |
 | `--restart` | Clear saved state; start from stage 1 |
 | `--recheck` | Re-run preflight on resume (default: skip if last succeeded) |
-| `--no-finalize` | Stop before `finalize-claude` (run it manually) |
+| `--no-squash-push` | Stop before `squash-push-bot` (run it manually) |
 
 State file path is configurable via `.vc-config.toml`'s `[push]`
 section:
@@ -681,208 +747,127 @@ See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcomma
 for the full design and [per-step record](./notes/chores/chores-05.md#per-step-record)
 for what each `0.37.0-N` dev step shipped.
 
-### Testing push + finalize
+### Testing push + squash-push
 
 Always test against a throwaway fixture, never the live workspace.
-Scaffold one with `vc-x1 init --repo-local <PARENT>` (no GitHub, no
-network), then run the complete push + finalize flow end-to-end.
-The code repo uses plain `jj git push`; the session repo uses
-`vc-x1 finalize` to squash trailing writes and push in one shot.
+Scaffold one with `vc-x1 init <TARGET> --repo local=<PARENT>` (no
+GitHub, no network), then run the complete flow end-to-end. The
+work repo uses plain `jj git push`; the bot repo uses
+`vc-x1 squash-push` to squash trailing writes and push in one shot.
 
-`--repo-local` lays out:
+`--repo local=<PARENT>` lays out:
 ```
 <PARENT>/
-  remote-code.git/     bare git remote for code repo
-  remote-claude.git/   bare git remote for .claude session repo
-  <NAME>/              code repo (jj colocated, main tracks origin)
+  remote-code.git/     bare git remote for the work repo
+  remote-claude.git/   bare git remote for the .claude bot repo
+  <NAME>/              work repo (jj colocated, main tracks origin)
     .vc-config.toml    path="/",       other-repo=".claude"
     .gitignore         /.claude /.git /.jj /target /.vc-x1
-    .claude/           session repo (jj colocated, main tracks origin)
+    .claude/           bot repo (jj colocated, main tracks origin)
       .vc-config.toml  path="/.claude", other-repo=".."
       .gitignore       .git .jj
 ```
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 init work --repo-local "$parent"
+vc-x1 init "$parent/work" --repo local="$parent"
 work="$parent/work"
-session="$parent/work/.claude"
+bot="$parent/work/.claude"
 
-# 1. code repo: described commit → advance main → push
+# 1. work repo: described commit → advance main → push
 echo hello > "$work/hello.txt"
 jj describe @ -R "$work" -m 'feat: add hello.txt'
 jj bookmark set main -r @ -R "$work"
 jj git push -R "$work"
 
-# 2. session repo: trailing writes → finalize (squash into @-, push)
-echo notes > "$session/notes.md"
-vc-x1 finalize --repo "$session" --squash --push main --detach \
-    --log "$session/finalize.log"
+# 2. bot repo: trailing writes → squash-push (fold into @-, push)
+echo notes > "$bot/notes.md"
+vc-x1 squash-push -R "$bot"
 
-# 3. inspect the detached child's log once it's done (≈10s by default)
-sleep 12 && cat "$session/finalize.log"
-
-# 4. cleanup when done
+# 3. cleanup when done (init also created a symlink under
+#    ~/.claude/projects/ pointing at the fixture — remove it too)
 rm -rf "$parent"
 ```
 
-**Why `jj git push` for code but `finalize` for `.claude`?** The
-code repo's workflow is a plain dev commit on `@-` that we push
-directly. The session repo mirrors the bot's runtime pattern:
-session writes land in `@` (above the last committed dev commit),
-and `finalize --squash @,@-` folds those trailing writes into the
-dev commit just before pushing, so one atomic state goes upstream.
+**Why `jj git push` for the work repo but `squash-push` for
+`.claude`?** The work repo's workflow is a plain dev commit on `@-`
+that we push directly. The bot repo mirrors the bot's runtime
+pattern: session writes land in `@` (above the last committed
+commit), and squash-push folds those trailing writes into that
+commit just before pushing, so one atomic state goes upstream.
 
-The log file shows timestamped (nanoseconds) entries with PIDs,
-covering the full flow: `main` entry/exit, `finalize` entry/exit,
-`detach` spawn, and `finalize_exec` in the child process.
-
-Example — detached finalize against a fresh fixture. What the user
-sees in the terminal (the parent process) is the pre-flight plan and
-the detach confirmation; the child's work continues in the background:
+The run is fully in-process and synchronous — what you see is the
+whole flow:
 ```
-$ vc-x1 finalize --repo "$session" --squash --push main \
-    --detach --delay 1 --log "$session/finalize.log"
-finalize: squash @ → @- in /tmp/vc-x1-test-8PD4x8/work/.claude
-finalize: set bookmark 'main' mwutluxv 31a49010 → mwutluxv 31a49010 (@-)
-finalize: push 'main' to remote
-finalize: detached (pid 103787), log: /tmp/vc-x1-test-8PD4x8/finalize.log
+$ vc-x1 squash-push -R "$bot"
+squash-push: squashing @ → @-...
+squash-push: setting bookmark 'main' to @-...
+squash-push: pushing 'main' to origin...
+squash-push: done
 ```
 
-A few seconds later the log file (authoritative when the caller
-closes the child's pipes) shows the full run, including the child's
-own squash/push output:
-```
-$ cat "$session/finalize.log"
-[INFO ] vc_x1::finalize: finalize: squash @ → @- in /tmp/vc-x1-test-8PD4x8/work/.claude
-[INFO ] vc_x1::finalize: finalize: set bookmark 'main' mwutluxv 31a49010 → mwutluxv 31a49010 (@-)
-[INFO ] vc_x1::finalize: finalize: push 'main' to remote
-[INFO ] vc_x1::finalize: finalize: detached (pid 103787), log: /tmp/vc-x1-test-8PD4x8/finalize.log
-[INFO ] vc_x1::common: Working copy  (@) now at: ovumtpup fa1cb861 (empty) (no description set)
-Parent commit (@-)      : mwutluxv 584571ba main* | initial commit
-[INFO ] vc_x1::common: Nothing changed.
-[INFO ] vc_x1::common: Changes to push to origin:
-  Move sideways bookmark main from 31a490102db7 to 584571ba54af
-```
-
-Pre-flight failures (bookmark missing, non-tracking remote, squash
-revset unresolved, push target lacks a description) exit the parent
-synchronously with a non-zero status and a pointed error on stderr,
-before the child is ever spawned.
+Preflight failures (bookmark missing, non-tracking remote, squash
+revset unresolved, conflicts, push target lacks a description) exit
+with a non-zero status and a pointed error on stderr before
+anything is rewritten.
 
 ### Testing the ochid-trailer guard
 
-`finalize --squash` refuses to drop `ochid:` trailers: when the
-squash source's message carries trailers the destination's message
-lacks, `--use-destination-message` would silently discard them and
-leave the counterpart repo's cross-links dangling (the incident is
-recorded as Bugs #1 in [notes/bugs.md](notes/bugs.md)). The guard
-runs twice — in the parent's pre-flight and again in the child
-right before the squash — so it also catches a `jj describe` that
-lands during the `--delay` window.
+`squash-push` refuses to drop `ochid:` trailers: when the squash
+source's message carries trailers the destination's message lacks,
+`--use-destination-message` would silently discard them and leave
+the counterpart repo's cross-links dangling (the incident is
+recorded as Bugs #2 in [notes/bugs.md](notes/bugs.md)). The guard
+runs in preflight, before anything is rewritten.
 
-The guard fires before any push, so no remote is needed; a plain
-scratch repo suffices. The three examples below are independent
-demonstrations — they share one scratch repo only for convenience;
-the final retry is the resolution of example 3:
+`squash-push` always pushes, so the examples run against a
+throwaway init fixture (same shape as
+[Testing push + squash-push](#testing-push--squash-push)) using
+its bot repo:
 
 ```bash
-repo=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
-jj git init "$repo"
+parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
+vc-x1 init "$parent/work" --repo local="$parent"
+bot="$parent/work/.claude"
 
-# previous journal: committed, no trailer
-echo a > "$repo/file.txt"
-jj commit -m 'prev journal' -R "$repo"
-
-# example 1 — synchronous refusal: journal described on @ WITH
-# an ochid trailer; finalize exits 1 naming the trailer
-echo b >> "$repo/file.txt"
-jj describe -R "$repo" -m 'new journal
+# example 1 — refusal: journal described on @ WITH an ochid
+# trailer; squash-push exits 1 naming the trailer
+echo b >> "$bot/notes.md"
+jj describe -R "$bot" -m 'new journal
 
 ochid: /abc123abc123'
-vc-x1 finalize --repo "$repo" --squash --delay 0
+vc-x1 squash-push -R "$bot"
 
 # example 2 — normal case: clear the description; the squash
-# proceeds
-jj describe -R "$repo" -m ''
-vc-x1 finalize --repo "$repo" --squash --delay 0
+# proceeds and the run pushes
+jj describe -R "$bot" -m ''
+vc-x1 squash-push -R "$bot"
 
-# example 3 — detached race: a clean @ passes the parent's
-# pre-flight, then a describe lands inside the delay window —
-# the child's re-check refuses and drops a failure marker
-echo c >> "$repo/file.txt"
-vc-x1 finalize --repo "$repo" --squash --delay 5 --detach
-jj describe -R "$repo" -m 'late journal
-
-ochid: /def456def456'
-
-# resolution of example 3: after the child exits (~5s), clear the
-# description and retry; the current run's output comes first,
-# then the child's failure marker is surfaced as a loud
-# historical block (any vc-x1 command surfaces pending markers)
-sleep 6
-jj describe -R "$repo" -m ''
-vc-x1 finalize --repo "$repo" --squash --delay 0
-
-# cleanup
-rm -rf "$repo"
+# cleanup (also remove the fixture's ~/.claude/projects symlink)
+rm -rf "$parent"
 ```
 
-Output captured from a real run (`/tmp/vc-x1-guard-GVHMGK` is the
-fixture); regenerate these transcripts with
+Output captured from a real run; regenerate these transcripts with
 [`support/gen-exmpl-1-3.sh`](support/README.md#gen-example-1---3-output).
-Example 1 is refused synchronously with exit 1:
+Example 1 is refused with exit 1:
 
 ```
-$ vc-x1 finalize --repo "$repo" --squash --delay 0
+$ vc-x1 squash-push -R "$bot"
 error: refusing squash @ → @-: the squash would drop ochid: trailers
 the destination's message lacks:
   /abc123abc123
-merge the messages by hand (`jj describe @- -R /tmp/vc-x1-guard-GVHMGK`) or clear
+merge the messages by hand (`jj describe @- -R /tmp/vc-x1-guard-hmevVM/work/.claude`) or clear
 the source's description, then retry
 ```
 
-Example 2 with the description cleared squashes normally, exit 0:
+Example 2 with the description cleared squashes and pushes, exit 0:
 
 ```
-$ vc-x1 finalize --repo "$repo" --squash --delay 0
-finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
-finalize: squashing @ → @-...
-finalize: done
-```
-
-Example 3's parent passes pre-flight on the still-clean `@` and
-detaches; the trailer-bearing describe then lands inside the
-child's 5-second delay window:
-
-```
-$ vc-x1 finalize --repo "$repo" --squash --delay 5 --detach
-finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
-finalize: detached (pid 256261)
-```
-
-Unlike examples 1–2 the refusal happens in the background — the
-parent already returned, so there is no terminal for the child's
-error to land on. The failure marker is what makes it visible:
-the next `vc-x1` run prints it *after its own output*, under a
-banner marking it as historical. Here the retry (after clearing
-the description) squashes cleanly — `finalize: done` — and then
-surfaces the child's recorded refusal (`error=`, flattened to
-keep the marker one key per line), exit 0:
-
-```
-$ jj describe -R "$repo" -m ''
-$ vc-x1 finalize --repo "$repo" --squash --delay 0
-finalize: squash @ → @- in /tmp/vc-x1-guard-GVHMGK
-finalize: squashing @ → @-...
-finalize: done
-warn: ==== failure(s) from previous detached finalize run(s) ====
-warn: previous detached finalize failed (1781213067506771156-256261):
-  timestamp_ns=1781213067506771156
-  pid=256261
-  repo=/tmp/vc-x1-guard-GVHMGK
-  bookmark=
-  error=refusing squash @ → @-: the squash would drop ochid: trailers the destination's message lacks: /def456def456 merge the messages by hand (`jj describe @- -R /tmp/vc-x1-guard-GVHMGK`) or clear the source's description, then retry
+$ vc-x1 squash-push -R "$bot"
+squash-push: squashing @ → @-...
+squash-push: setting bookmark 'main' to @-...
+squash-push: pushing 'main' to origin...
+squash-push: done
 ```
 
 ## Cross-repo Linking with Git Trailers
@@ -894,7 +879,7 @@ and jj changeID:
 
 ```
 ochid: /.claude/xvzvruqo   # points to a .claude repo change
-ochid: /wtpmottv            # points to an app repo change
+ochid: /wtpmottv            # points to an work repo change
 ```
 
 Paths always start with `/` (the workspace root, i.e. vc-x1).
@@ -1023,9 +1008,8 @@ in [`support/`](support/) — see
 
 Regenerates the captured transcripts for
 [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)
-by running the three examples (plus the example-3 resolution)
-against a scratch repo and printing the `$ command` + output
-blocks ready to paste. Details:
+by running the two examples against a throwaway init fixture and
+printing the `$ command` + output blocks ready to paste. Details:
 [Gen Example 1 - 3 output](support/README.md#gen-example-1---3-output).
 
 ## Thoughts for the future
@@ -1041,7 +1025,7 @@ implemented.
 
 ## Contributing
 
-The app's internal structure — module map, the CLI-args /
+The tool's internal structure — module map, the CLI-args /
 ops-`Context`+`Params` split, the subcommand model, and the
 two in-flight migrations — is described in
 [ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.

@@ -2,22 +2,19 @@
 //! parent, advance a bookmark, and push — capture a repo's trailing
 //! writes and publish them in one step.
 //!
-//! - Built for the bot's `.claude` session repo, whose working copy
+//! - Built for the bot's `.claude` bot repo, whose working copy
 //!   accumulates session data continuously (the session tail); also
-//!   useful on the app repo as a deliberate amend-and-push (a
+//!   useful on the work repo as a deliberate amend-and-push (a
 //!   published-history rewrite, so the push is a forced update).
 //! - Runs fully in-process: preflight validations, then squash +
-//!   bookmark-set + push. A failure is a visible non-zero exit.
+//!   bookmark-set + push. A failure is a visible non-zero exit
+//!   (the retired 0.69.0-2 predecessor delegated to a detached
+//!   child that a sandboxed run silently killed — Bugs #1).
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
 //!   `BOOKMARK@origin` — an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
-//!   auto-fixing.
-//! - Replaces the `finalize` subcommand (retired 0.69.0-2), whose
-//!   detached `--delay`/`--detach` child a sandboxed run silently
-//!   killed at command exit (Bugs #1). The detach failure-marker
-//!   machinery went with it; any stale markers under
-//!   `~/.cache/vc-x1/finalize-status` are inert and can be deleted
-//!   by hand.
+//!   auto-fixing. Suppressed when run as push's `squash-push-bot`
+//!   stage, where the mismatch is the normal mid-push state.
 
 use std::path::{Path, PathBuf};
 
@@ -59,6 +56,14 @@ pub struct SquashPushParams {
     pub repo: PathBuf,
     pub squash: SquashSpec,
     pub bookmark: String,
+    /// Report an at-rest publish mismatch (BOOKMARK not matching
+    /// `BOOKMARK@origin` — an earlier publish was lost) before
+    /// proceeding. True for CLI invocations, which run at rest;
+    /// `vc-x1 push`'s `squash-push-bot` stage sets false — there
+    /// the mismatch is the normal mid-push state (`bookmark-set`
+    /// just moved the bookmark, this stage publishes it), so the
+    /// report would be a false alarm.
+    pub report_publish_state: bool,
 }
 
 impl TryFrom<&SquashPushArgs> for SquashPushParams {
@@ -76,6 +81,7 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
                 target: "@-".to_string(),
             }), // OK: --squash absent → the command's default @,@- pair
             bookmark: a.bookmark.clone(),
+            report_publish_state: true,
         })
     }
 }
@@ -345,18 +351,21 @@ pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::
     // (0.69.0-3): the bookmark should match its origin counterpart
     // between runs, so a mismatch means an earlier publish was
     // lost. Publishing is this command's job, so it proceeds — the
-    // report is the point, not a refusal.
-    match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
-        crate::common::PublishState::InSync => {}
-        crate::common::PublishState::NeverPushed => info!(
-            "squash-push: '{bookmark}' has never been pushed to origin — this run will publish it"
-        ),
-        crate::common::PublishState::Mismatch { local, remote } => warn!(
-            "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — an \
-             earlier publish was likely lost; this run will publish it",
-            &local[..local.len().min(12)],
-            &remote[..remote.len().min(12)]
-        ),
+    // report is the point, not a refusal. Suppressed when run as
+    // push's `squash-push-bot` stage (see `report_publish_state`).
+    if params.report_publish_state {
+        match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
+            crate::common::PublishState::InSync => {}
+            crate::common::PublishState::NeverPushed => info!(
+                "squash-push: '{bookmark}' has never been pushed to origin — this run will publish it"
+            ),
+            crate::common::PublishState::Mismatch { local, remote } => warn!(
+                "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — an \
+                 earlier publish was likely lost; this run will publish it",
+                &local[..local.len().min(12)],
+                &remote[..remote.len().min(12)]
+            ),
+        }
     }
 
     // Empty-source handling: nothing to squash. If the bookmark
@@ -510,12 +519,6 @@ mod tests {
     }
 
     #[test]
-    fn finalize_subcommand_retired() {
-        let err = parse_err(&["vc-x1", "finalize", "--push", "main"]);
-        assert!(err.contains("finalize"), "got: {err}");
-    }
-
-    #[test]
     fn unknown_opt() {
         let err = parse_err(&["vc-x1", "squash-push", "--bogus"]);
         assert!(err.contains("--bogus"));
@@ -528,6 +531,7 @@ mod tests {
         assert_eq!(params.repo, std::fs::canonicalize(".").unwrap());
         assert_eq!(params.bookmark, "main");
         assert_eq!(params.squash, squash_at());
+        assert!(params.report_publish_state, "CLI invocations report");
     }
 
     /// A lost publish (`main` moved without a push) is healed by a
@@ -546,6 +550,7 @@ mod tests {
             repo: fx.claude.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
+            report_publish_state: true,
         };
         squash_push(&params).expect("squash-push should publish the lost commit");
 

@@ -180,7 +180,7 @@ through:
 7. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
 8. **Commit.** `jj commit -m "title" -m "body" -R .` for
-   the app repo, `-R .claude` for the bot repo (`-R` last
+   the work repo, `-R .claude` for the bot repo (`-R` last
    keeps the verb visible):
 
    ```
@@ -224,7 +224,7 @@ with a version suffix:
 [Prose form](../AGENTS.md#prose-form) (intro + bullets),
 wrap ≤72. Bullet content differs per repo:
 
-- **App-repo body**: file-by-file. One bullet per file
+- **Work-repo body**: file-by-file. One bullet per file
   changed (file plus a one-line gist). Sub-bullets for
   files with multiple distinct changes:
 
@@ -334,7 +334,7 @@ the close-out push.
 `vc-x1 push --help` for current flags.
 
 `vc-x1 push` injects the `ochid:` trailers itself (the
-`commit-app` / `commit-claude` stages append them) — don't
+`commit-work` / `commit-bot` stages append them) — don't
 hand-write them into the commit body or `--title`/`--body`.
 
 **Current limitation**: only fully supports the
@@ -354,7 +354,7 @@ planned:
   routine shape.
 
 Landed: per-repo bookmark names (0.68.0) — `<bookmark>` is
-code-repo-only; the session repo is pinned to `main`
+work-repo-only; the bot repo is pinned to `main`
 throughout push and sync.
 
 ### .claude cadence
@@ -368,9 +368,9 @@ snapshots, `jj describe`, and the squash-push fold, so
 code-side `ochid:` trailers resolve.
 
 `.claude` is a linear journal — all session work lives
-on `main`, regardless of the app-side bookmark. **Do not
+on `main`, regardless of the work-side bookmark. **Do not
 create or maintain `.claude` bookmarks that mirror
-app-side branches** — risks the bot steering session
+work-side branches** — risks the bot steering bot-repo
 pushes to the wrong remote ref.
 
 Ending a session: if the user runs `/exit` there will be
@@ -419,10 +419,15 @@ the next step seems obvious — wait.**
 - **Silence**: put all closing words *before* the final
   push. There is no "harmless" closing line after it — a
   known slip.
+- **Flush**: when the user wants `@` empty (no tail), they
+  run `vc-x1 squash-push -R .claude` after the bot goes
+  quiet — it flushes all bot session information into the
+  published commit. Repeat if new writes land (see
+  [Recovery](#recovery)).
 
 ### Recovery
 
-- **If push exits before its last stage** — `push-app`
+- **If push exits before its last stage** — `push-work`
   succeeded but the bot-repo publish didn't run
   (`squash-push-bot` in `vc-x1 push --status` / `--from`
   stage names) — run the squash+push by hand:
@@ -451,9 +456,9 @@ the next step seems obvious — wait.**
 - **Clear push's saved state** after any out-of-band
   recovery — `rm .vc-x1/push-state.toml` or `vc-x1 push
   <bookmark> --restart` — otherwise push resumes from a
-  stale stage. A pre-0.69.0-2 state file names the retired
-  `finalize-claude` stage and also needs `--restart`.
-- **Late work-repo tweak after `push-app` succeeded**
+  stale stage. A pre-0.69.0-4 state file may name a retired
+  stage and also needs `--restart`.
+- **Late work-repo tweak after `push-work` succeeded**
   (e.g. updating AGENTS.md or memory) requires `jj
   squash --ignore-immutable` and a re-push; that is a
   remote rewrite and needs explicit approval like any
@@ -471,9 +476,9 @@ workspace-root-relative path. See
 multi-line trailer design (multi-user / forking).
 
 Path semantics — paths start with `/`, the workspace root
-(the app repo); `/.claude` is the bot session sub-repo:
+(the work repo); `/.claude` is the bot sub-repo:
 
-- `ochid: /<chid>` references a change in the **app repo**.
+- `ochid: /<chid>` references a change in the **work repo**.
 - `ochid: /.claude/<chid>` references a change in the
   **`.claude` repo**.
 
@@ -483,7 +488,7 @@ prefix:
 
 ```
 ochid: /.claude/xvzvruqowktp   # points to a .claude change
-ochid: /wtpmottvxqzl           # points to an app change
+ochid: /wtpmottvxqzl           # points to a work-repo change
 ```
 
 How many, and which direction:
@@ -497,7 +502,7 @@ How many, and which direction:
   the cycle).
 
 Use `vc-x1 chid -s code,bot -L` to capture the change
-IDs (first line app, second `.claude`).
+IDs (first line work repo, second `.claude`).
 
 ### Resolvability
 

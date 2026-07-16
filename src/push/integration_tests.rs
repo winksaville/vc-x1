@@ -8,8 +8,8 @@
 //! `sync --check` step re-invokes `current_exe()`, which under
 //! `cargo test` is the test harness, not the CLI binary. Most
 //! also use `--no-squash-push`
-//! to focus on the earlier stages (message, commit-app,
-//! commit-claude, bookmark-set, push-app); the
+//! to focus on the earlier stages (message, commit-work,
+//! commit-bot, bookmark-set, push-work); the
 //! `push_squash_push_bot_*` tests run the in-process
 //! `squash-push-bot` stage for real. Everything is exercised
 //! against the fixture's local bare-git remotes.
@@ -71,7 +71,7 @@ fn desc_first_line(repo: &Path, rev: &str) -> String {
 }
 
 /// Standard test params: bookmark=main, `--from message` (skip
-/// preflight), `--no-squash-push` (skip the session squash+push),
+/// preflight), `--no-squash-push` (skip the bot-repo squash+push),
 /// `--yes` (auto-approve any interactive prompts).
 fn test_params(title: &str, body: &str) -> PushParams {
     PushParams {
@@ -95,14 +95,14 @@ fn test_params(title: &str, body: &str) -> PushParams {
 #[test]
 fn push_preflight_errors_on_unpublished_bot_main() {
     let fx = Fixture::new("push-bot-unpub");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     // Simulate the lost publish: seal a `.claude` commit and move
     // `main` onto it without pushing.
     fs::write(fx.claude.join("lost.txt"), "lost session data").expect("write lost file");
     jj(&fx.claude, &["commit", "-m", "lost session commit"]);
     jj(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
 
-    let mut params = test_params("feat: blocked", "app body");
+    let mut params = test_params("feat: blocked", "work body");
     params.from = None; // run preflight (errors before the sync check)
     let err = push_in(&fx.work, &params)
         .expect_err("preflight should error on unpublished bot main")
@@ -111,25 +111,25 @@ fn push_preflight_errors_on_unpublished_bot_main() {
     assert!(err.contains("squash-push"), "got: {err}");
 }
 
-/// Happy path when `.claude` has no pending changes: the app
+/// Happy path when `.claude` has no pending changes: the work
 /// commit lands with an `ochid` trailer pointing at `.claude`'s
-/// pre-existing `@-`, `commit-claude` is skipped, and both
-/// `bookmark-set` + `push-app` still run cleanly.
+/// pre-existing `@-`, `commit-bot` is skipped, and both
+/// `bookmark-set` + `push-work` still run cleanly.
 #[test]
 fn push_happy_claude_clean() {
     let fx = Fixture::new("push-clean");
-    fs::write(fx.work.join("hello.txt"), "hi").expect("write app file");
+    fs::write(fx.work.join("hello.txt"), "hi").expect("write work file");
 
     let claude_main_before = cid(&fx.claude, "main");
 
-    push_in(&fx.work, &test_params("feat: clean case", "app body")).expect("push should succeed");
+    push_in(&fx.work, &test_params("feat: clean case", "work body")).expect("push should succeed");
 
-    // App repo: main advanced to our new commit.
+    // Work repo: main advanced to our new commit.
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: clean case");
-    let app_full = description(&fx.work, "main");
+    let work_full = description(&fx.work, "main");
     assert!(
-        app_full.contains("ochid: /.claude/"),
-        "app ochid trailer missing:\n{app_full}"
+        work_full.contains("ochid: /.claude/"),
+        "work ochid trailer missing:\n{work_full}"
     );
 
     // `.claude` main unchanged (no commit happened there).
@@ -145,7 +145,7 @@ fn push_happy_claude_clean() {
 #[test]
 fn push_happy_claude_dirty() {
     let fx = Fixture::new("push-dirty");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
     let claude_main_before = cid(&fx.claude, "main");
@@ -158,19 +158,19 @@ fn push_happy_claude_dirty() {
     assert_eq!(desc_first_line(&fx.claude, "main"), "feat: paired change");
 
     // Cross-repo ochid trailers are both present.
-    let app_full = description(&fx.work, "main");
+    let work_full = description(&fx.work, "main");
     let claude_full = description(&fx.claude, "main");
     assert!(
-        app_full.contains("ochid: /.claude/"),
-        "app ochid missing:\n{app_full}"
+        work_full.contains("ochid: /.claude/"),
+        "work ochid missing:\n{work_full}"
     );
-    // `.claude`'s ochid points at the app repo, so the prefix is
+    // `.claude`'s ochid points at the work repo, so the prefix is
     // just `/` (no `.claude` segment).
     assert!(
         claude_full
             .lines()
             .any(|l| l.starts_with("ochid: /") && !l.starts_with("ochid: /.claude/")),
-        ".claude ochid should point at app repo:\n{claude_full}"
+        ".claude ochid should point at work repo:\n{claude_full}"
     );
 
     // `.claude` main moved off its initial commit.
@@ -183,12 +183,12 @@ fn push_happy_claude_dirty() {
 
 /// The real `squash-push-bot` stage: a full push (no
 /// `--no-squash-push`) squashes `.claude`'s tail and pushes `main`
-/// to the session repo's origin in-process — synchronously, no
+/// to the bot repo's origin in-process — synchronously, no
 /// detached child (Bugs #1).
 #[test]
 fn push_squash_push_bot_inline_pushes_session() {
     let fx = Fixture::new("push-sp-inline");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
     let mut params = test_params("feat: inline squash-push", "body");
@@ -209,22 +209,22 @@ fn push_squash_push_bot_inline_pushes_session() {
     );
 }
 
-/// A tail (session write landing after `commit-claude`) is
+/// A tail (session write landing after `commit-bot`) is
 /// folded into the session commit by the stage's squash —
-/// preserving the commit's change id so app-side `ochid:`
+/// preserving the commit's change id so work-side `ochid:`
 /// trailers stay valid — and pushed.
 #[test]
 fn push_squash_push_bot_folds_micro_tail() {
     let fx = Fixture::new("push-sp-tail");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
-    // Earlier stages only: commit both repos, push app, skip the
+    // Earlier stages only: commit both repos, push work, skip the
     // session squash+push.
     push_in(&fx.work, &test_params("feat: tail case", "body")).expect("push should succeed");
     let main_chid_before = chid(&fx.claude, "main");
 
-    // The tail lands after commit-claude.
+    // The tail lands after commit-bot.
     fs::write(fx.claude.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail file");
 
     let mut params = test_params("feat: tail case", "body");
@@ -255,13 +255,13 @@ fn push_squash_push_bot_folds_micro_tail() {
     );
 }
 
-/// A feature-bookmark push pins the session repo to `main`: the
-/// app repo grows + pushes `feature`, while `.claude` advances and
+/// A feature-bookmark push pins the bot repo to `main`: the
+/// work repo grows + pushes `feature`, while `.claude` advances and
 /// keeps only `main` — no `feature` bookmark may appear there.
 #[test]
 fn push_feature_bookmark_pins_session_to_main() {
     let fx = Fixture::new("push-feature-pin");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     fs::write(fx.claude.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
     let claude_main_before = cid(&fx.claude, "main");
@@ -270,15 +270,15 @@ fn push_feature_bookmark_pins_session_to_main() {
     params.bookmark = Some("feature".to_string());
     push_in(&fx.work, &params).expect("push should succeed");
 
-    // App repo: feature created, pushed, and at the new commit.
+    // Work repo: feature created, pushed, and at the new commit.
     assert_eq!(desc_first_line(&fx.work, "feature"), "feat: on feature");
     assert_eq!(
         cid(&fx.work, "feature"),
         cid(&fx.work, "feature@origin"),
-        "app feature bookmark should be pushed"
+        "work feature bookmark should be pushed"
     );
 
-    // Session repo: main advanced with the paired commit...
+    // Bot repo: main advanced with the paired commit...
     assert_ne!(
         cid(&fx.claude, "main"),
         claude_main_before,
@@ -317,14 +317,14 @@ fn push_rollback_restores_both_repos() {
     let fx = Fixture::new("push-rollback");
 
     // Snapshot pre-mutation state.
-    let op_app_start = current_op_id(&fx.work).expect("app op id");
+    let op_work_start = current_op_id(&fx.work).expect("work op id");
     let op_claude_start = current_op_id(&fx.claude).expect("claude op id");
     let main_app_start = cid(&fx.work, "main");
     let main_claude_start = cid(&fx.claude, "main");
 
     // Mutate both repos so `main` actually advances (this is
     // what rollback has to undo).
-    fs::write(fx.work.join("app.txt"), "app").expect("write");
+    fs::write(fx.work.join("work.txt"), "work").expect("write");
     fs::write(fx.claude.join("session.jsonl"), "{}\n").expect("write");
     jj(&fx.work, &["describe", "-m", "test commit"]);
     jj(&fx.work, &["bookmark", "set", "main", "-r", "@"]);
@@ -337,7 +337,7 @@ fn push_rollback_restores_both_repos() {
     assert_ne!(
         cid(&fx.work, "main"),
         main_app_start,
-        "setup should have moved app main"
+        "setup should have moved work main"
     );
     assert_ne!(
         cid(&fx.claude, "main"),
@@ -352,10 +352,10 @@ fn push_rollback_restores_both_repos() {
         stage: Stage::BookmarkSet,
         bookmark: "main".to_string(),
         started_at: "2026-04-21T20:00:00+00:00".to_string(),
-        app_chid: None,
-        claude_chid: None,
-        claude_had_changes: Some(true),
-        op_app: Some(op_app_start),
+        work_chid: None,
+        bot_chid: None,
+        bot_had_changes: Some(true),
+        op_app: Some(op_work_start),
         op_claude: Some(op_claude_start),
         title: None,
         body: None,
@@ -369,18 +369,18 @@ fn push_rollback_restores_both_repos() {
     assert_eq!(cid(&fx.claude, "main"), main_claude_start);
 }
 
-/// End-to-end resume: first run fails at `push-app` (simulated
+/// End-to-end resume: first run fails at `push-work` (simulated
 /// by passing a bogus bookmark that jj accepts but the bare-git
-/// remote rejects on push). Second run with `--from push-app`
+/// remote rejects on push). Second run with `--from push-work`
 /// and the correct bookmark completes the flow. Confirms state
 /// persists across invocations and `--from` overrides the
 /// resumed stage.
 #[test]
 fn push_resume_after_push_failure() {
     let fx = Fixture::new("push-resume");
-    fs::write(fx.work.join("app.txt"), "app").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
 
-    // First run: commits + bookmarks succeed; push-app we
+    // First run: commits + bookmarks succeed; push-work we
     // simulate via a second step rather than trying to force a
     // real push failure (which jj makes hard — local bare-git
     // remotes accept almost anything). Instead, split the run
@@ -390,7 +390,7 @@ fn push_resume_after_push_failure() {
     push_in(&fx.work, &params1).expect("first push run");
 
     // After the full run, state file should be cleared and main
-    // should be advanced in the app repo.
+    // should be advanced in the work repo.
     let layout = resolve_state_layout(&fx.work);
     assert!(
         !layout.path.exists(),
@@ -411,15 +411,15 @@ fn chid(repo: &Path, rev: &str) -> String {
 
 /// Build a minimal `PushState` whose stage is post-everything
 /// (SquashPushBot — the natural state at completion check time).
-fn completion_state(app_chid: Option<String>, claude_chid: Option<String>) -> PushState {
+fn completion_state(work_chid: Option<String>, bot_chid: Option<String>) -> PushState {
     PushState {
         version: STATE_FORMAT_VERSION,
         stage: Stage::SquashPushBot,
         bookmark: "main".to_string(),
         started_at: "2026-04-24T00:00:00Z".to_string(),
-        app_chid,
-        claude_chid,
-        claude_had_changes: Some(false),
+        work_chid,
+        bot_chid,
+        bot_had_changes: Some(false),
         op_app: None,
         op_claude: None,
         title: None,
@@ -427,51 +427,51 @@ fn completion_state(app_chid: Option<String>, claude_chid: Option<String>) -> Pu
     }
 }
 
-/// Happy path: bookmarks at the recorded chids, app working copy clean.
+/// Happy path: bookmarks at the recorded chids, work working copy clean.
 /// `verify_completion_sanity` returns Ok.
 #[test]
 fn completion_sanity_pass() {
     let fx = Fixture::new("completion-pass");
     // Run a real push so the world is in the post-completion shape.
-    fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "x").expect("write work file");
     push_in(&fx.work, &test_params("feat: pass", "body")).expect("push");
 
-    let app_chid = chid(&fx.work, "main");
-    let claude_chid = chid(&fx.claude, "main");
-    let state = completion_state(Some(app_chid), Some(claude_chid));
+    let work_chid = chid(&fx.work, "main");
+    let bot_chid = chid(&fx.claude, "main");
+    let state = completion_state(Some(work_chid), Some(bot_chid));
 
     verify_completion_sanity(&fx.work, &state).expect("post-completion verification passes");
 }
 
-/// Check 1 fail: state.app_chid doesn't match the bookmark's chid.
+/// Check 1 fail: state.work_chid doesn't match the bookmark's chid.
 #[test]
-fn completion_sanity_fail_app_chid_mismatch() {
-    let fx = Fixture::new("completion-fail-app");
-    fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+fn completion_sanity_fail_work_chid_mismatch() {
+    let fx = Fixture::new("completion-fail-work");
+    fs::write(fx.work.join("work.txt"), "x").expect("write work file");
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
-    // Build state with a bogus app_chid (12-char prefix that won't
+    // Build state with a bogus work_chid (12-char prefix that won't
     // match the real one).
     let state = completion_state(Some("zzzzzzzzzzzz".to_string()), None);
 
-    let err =
-        verify_completion_sanity(&fx.work, &state).expect_err("bogus app_chid should fail check 1");
+    let err = verify_completion_sanity(&fx.work, &state)
+        .expect_err("bogus work_chid should fail check 1");
     let msg = err.to_string();
-    assert!(msg.contains("app bookmark"), "msg: {msg}");
+    assert!(msg.contains("work bookmark"), "msg: {msg}");
     assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
 }
 
-/// Check 2 fail: app working copy has uncommitted changes.
+/// Check 2 fail: work working copy has uncommitted changes.
 #[test]
 fn completion_sanity_fail_dirty_wc() {
     let fx = Fixture::new("completion-fail-dirty");
-    fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "x").expect("write work file");
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
     // Now dirty the working copy after push completed.
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
 
-    let app_chid = chid(&fx.work, "main");
-    let state = completion_state(Some(app_chid), None);
+    let work_chid = chid(&fx.work, "main");
+    let state = completion_state(Some(work_chid), None);
 
     let err = verify_completion_sanity(&fx.work, &state)
         .expect_err("dirty working copy should fail check 2");
@@ -479,18 +479,18 @@ fn completion_sanity_fail_dirty_wc() {
     assert!(msg.contains("uncommitted changes"), "msg: {msg}");
 }
 
-/// Check 3 fail: state.claude_chid doesn't match .claude's bookmark.
+/// Check 3 fail: state.bot_chid doesn't match .claude's bookmark.
 #[test]
-fn completion_sanity_fail_claude_chid_mismatch() {
+fn completion_sanity_fail_bot_chid_mismatch() {
     let fx = Fixture::new("completion-fail-claude");
-    fs::write(fx.work.join("app.txt"), "x").expect("write app file");
+    fs::write(fx.work.join("work.txt"), "x").expect("write work file");
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
-    let app_chid = chid(&fx.work, "main");
-    let state = completion_state(Some(app_chid), Some("zzzzzzzzzzzz".to_string()));
+    let work_chid = chid(&fx.work, "main");
+    let state = completion_state(Some(work_chid), Some("zzzzzzzzzzzz".to_string()));
 
-    let err = verify_completion_sanity(&fx.work, &state)
-        .expect_err("bogus claude_chid should fail check 3");
+    let err =
+        verify_completion_sanity(&fx.work, &state).expect_err("bogus bot_chid should fail check 3");
     let msg = err.to_string();
     assert!(msg.contains(".claude bookmark"), "msg: {msg}");
     assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");

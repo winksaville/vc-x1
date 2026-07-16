@@ -8,8 +8,8 @@ use clap::Args;
 ///
 /// Workspace topology selector at creation time:
 ///
-/// - Absent (`--por` not passed) — dual workspace (app +
-///   `.claude/` session repo).
+/// - Absent (`--por` not passed) — dual workspace (work +
+///   `.claude/` bot repo).
 /// - Present (`--por` passed) — plain single repo, no
 ///   `.claude/`, no `.vc-config.toml`.
 #[derive(Args, Debug, Clone, Default)]

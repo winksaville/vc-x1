@@ -157,7 +157,7 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         clone_one(&source, &project_dir, &parent_dir)?;
         info!("");
         info!("Done! Project cloned to {}", project_dir.display());
-        info!("  Code repo: {}", project_dir.display());
+        info!("  Work repo: {}", project_dir.display());
     } else {
         clone_dual(&source, &project_dir, &parent_dir)?;
     }
@@ -214,8 +214,8 @@ pub(crate) fn clone_dual(
 
     info!("");
     info!("Done! Project cloned to {}", target_dir.display());
-    info!("  Code repo:    {}", target_dir.display());
-    info!("  Session repo: {}", session_dir.display());
+    info!("  Work repo:    {}", target_dir.display());
+    info!("  Bot repo: {}", session_dir.display());
     info!(
         "  Symlink:      {} -> {}",
         sl.symlink_path.display(),

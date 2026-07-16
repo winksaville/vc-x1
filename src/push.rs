@@ -11,7 +11,7 @@
 //! - `0.37.0-1` — state file + stage-dispatch loop with stage stubs;
 //!   `--status`, `--restart`, `--from`
 //! - `0.37.0-2` — real stage bodies (commits, bookmarks, push,
-//!   finalize) + `jj op` snapshot rollback
+//!   session push) + `jj op` snapshot rollback
 //! - `0.37.0-3` — integration tests + workspace-root refactor
 //!   (thread `root: &Path` through every stage so fixtures can
 //!   point them at tempdirs); first `vc-x1 push` dogfood ships
@@ -37,10 +37,10 @@ use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
 use crate::toml_simple::toml_load;
 
-/// Bookmark the session (`.claude`) repo always advances and
-/// pushes. The session repo is a linear journal on `main` by
-/// design — `<bookmark>` names a code-repo bookmark only.
-const SESSION_BOOKMARK: &str = "main";
+/// Bookmark the bot (`.claude`) repo always advances and
+/// pushes. The bot repo is a linear journal on `main` by
+/// design — `<bookmark>` names a work-repo bookmark only.
+const BOT_BOOKMARK: &str = "main";
 
 /// Named stages of the `push` state machine.
 ///
@@ -57,15 +57,15 @@ pub enum Stage {
     Review,
     /// Compose / edit the commit message; present for second gate.
     Message,
-    /// Commit the app repo.
-    CommitApp,
-    /// Commit the `.claude` session repo (skipped if empty).
-    CommitClaude,
-    /// Advance each repo's bookmark to its `@-`: app → `<bookmark>`,
-    /// session → `main`.
+    /// Commit the work repo.
+    CommitWork,
+    /// Commit the `.claude` bot repo (skipped if empty).
+    CommitBot,
+    /// Advance each repo's bookmark to its `@-`: work → `<bookmark>`,
+    /// bot → `main`.
     BookmarkSet,
     /// `jj git push --bookmark <b> -R .`.
-    PushApp,
+    PushWork,
     /// In-process squash of `.claude`'s trailing session writes
     /// + push `main`.
     SquashPushBot,
@@ -80,10 +80,10 @@ impl Stage {
             Stage::Preflight => "preflight",
             Stage::Review => "review",
             Stage::Message => "message",
-            Stage::CommitApp => "commit-app",
-            Stage::CommitClaude => "commit-claude",
+            Stage::CommitWork => "commit-work",
+            Stage::CommitBot => "commit-bot",
             Stage::BookmarkSet => "bookmark-set",
-            Stage::PushApp => "push-app",
+            Stage::PushWork => "push-work",
             Stage::SquashPushBot => "squash-push-bot",
         }
     }
@@ -97,10 +97,10 @@ impl Stage {
             "preflight" => Some(Stage::Preflight),
             "review" => Some(Stage::Review),
             "message" => Some(Stage::Message),
-            "commit-app" => Some(Stage::CommitApp),
-            "commit-claude" => Some(Stage::CommitClaude),
+            "commit-work" => Some(Stage::CommitWork),
+            "commit-bot" => Some(Stage::CommitBot),
             "bookmark-set" => Some(Stage::BookmarkSet),
-            "push-app" => Some(Stage::PushApp),
+            "push-work" => Some(Stage::PushWork),
             "squash-push-bot" => Some(Stage::SquashPushBot),
             _ => None,
         }
@@ -112,11 +112,11 @@ impl Stage {
         match self {
             Stage::Preflight => Some(Stage::Review),
             Stage::Review => Some(Stage::Message),
-            Stage::Message => Some(Stage::CommitApp),
-            Stage::CommitApp => Some(Stage::CommitClaude),
-            Stage::CommitClaude => Some(Stage::BookmarkSet),
-            Stage::BookmarkSet => Some(Stage::PushApp),
-            Stage::PushApp => Some(Stage::SquashPushBot),
+            Stage::Message => Some(Stage::CommitWork),
+            Stage::CommitWork => Some(Stage::CommitBot),
+            Stage::CommitBot => Some(Stage::BookmarkSet),
+            Stage::BookmarkSet => Some(Stage::PushWork),
+            Stage::PushWork => Some(Stage::SquashPushBot),
             Stage::SquashPushBot => None,
         }
     }
@@ -135,8 +135,8 @@ impl Stage {
 /// when.
 #[derive(Args, Debug)]
 pub struct PushArgs {
-    /// Bookmark to advance in the code repo (positional form of
-    /// `--bookmark`). The session repo always advances `main`.
+    /// Bookmark to advance in the work repo (positional form of
+    /// `--bookmark`). The bot repo always advances `main`.
     ///
     /// Accepting a positional lets the common case read as `vc-x1 push main`
     /// without the `--bookmark` ceremony; `--bookmark` is kept as an
@@ -145,7 +145,7 @@ pub struct PushArgs {
     #[arg(value_name = "BOOKMARK", conflicts_with = "bookmark")]
     pub bookmark_pos: Option<String>,
 
-    /// Bookmark to advance in the code repo (flag form; see positional).
+    /// Bookmark to advance in the work repo (flag form; see positional).
     #[arg(long, conflicts_with = "bookmark_pos")]
     pub bookmark: Option<String>,
 
@@ -258,7 +258,7 @@ impl SubcommandRunner for PushArgs {
 /// to resume instead of silently misinterpreting fields.
 const STATE_FORMAT_VERSION: u32 = 1;
 
-/// Default directory (relative to app-repo root) for the push state
+/// Default directory (relative to work-repo root) for the push state
 /// file when `.vc-config.toml` has no `[push]` override.
 const DEFAULT_STATE_DIR: &str = ".vc-x1";
 
@@ -331,32 +331,32 @@ pub struct PushState {
     /// The next stage to execute on resume.
     pub stage: Stage,
     /// Code-repo bookmark being advanced by this run (persisted so
-    /// resume doesn't need `--bookmark` again). The session repo's
-    /// side is pinned to `SESSION_BOOKMARK`, not stored here.
+    /// resume doesn't need `--bookmark` again). The bot repo's
+    /// side is pinned to `BOT_BOOKMARK`, not stored here.
     pub bookmark: String,
     /// ISO-8601 UTC timestamp captured when the state was first
     /// written. Informational — helps the user spot stale state.
     pub started_at: String,
-    /// App-repo changeID captured at `message` stage (before
-    /// `commit-app` runs). Stable across `jj commit` — becomes the
+    /// Work-repo changeID captured at `message` stage (before
+    /// `commit-work` runs). Stable across `jj commit` — becomes the
     /// chid of the just-committed change. Used when composing the
     /// `.claude` commit's ochid trailer. Added in 0.37.0-2.
-    pub app_chid: Option<String>,
-    /// `.claude` repo changeID used by the app-repo commit's ochid
+    pub work_chid: Option<String>,
+    /// `.claude` repo changeID used by the work-repo commit's ochid
     /// trailer. Either the pre-commit `@` chid (when `.claude` has
     /// pending changes — becomes `@-` after commit) or the current
     /// `@-` chid (when `.claude` is clean — stays stable). Added in
     /// 0.37.0-2.
-    pub claude_chid: Option<String>,
+    pub bot_chid: Option<String>,
     /// Whether `.claude`'s working copy had changes at `message`
-    /// time. Decides whether `commit-claude` actually runs or
+    /// time. Decides whether `commit-bot` actually runs or
     /// skips. Added in 0.37.0-2.
-    pub claude_had_changes: Option<bool>,
-    /// `jj op` id of the app repo captured before `commit-app`. On
+    pub bot_had_changes: Option<bool>,
+    /// `jj op` id of the work repo captured before `commit-work`. On
     /// failure in stages 4-6, `jj op restore` rewinds here. Added
     /// in 0.37.0-2.
     pub op_app: Option<String>,
-    /// `jj op` id of `.claude` captured before `commit-app`. Same
+    /// `jj op` id of `.claude` captured before `commit-work`. Same
     /// rollback target as `op_app`. Added in 0.37.0-2.
     pub op_claude: Option<String>,
     /// Composed commit title — persisted so resume doesn't need
@@ -379,9 +379,9 @@ impl PushState {
             stage: Stage::first(),
             bookmark: bookmark.to_string(),
             started_at: Utc::now().to_rfc3339(),
-            app_chid: None,
-            claude_chid: None,
-            claude_had_changes: None,
+            work_chid: None,
+            bot_chid: None,
+            bot_had_changes: None,
             op_app: None,
             op_claude: None,
             title: None,
@@ -412,14 +412,14 @@ impl PushState {
             "started_at = \"{}\"\n",
             escape_toml(&self.started_at)
         ));
-        if let Some(v) = &self.app_chid {
-            content.push_str(&format!("app_chid = \"{}\"\n", escape_toml(v)));
+        if let Some(v) = &self.work_chid {
+            content.push_str(&format!("work_chid = \"{}\"\n", escape_toml(v)));
         }
-        if let Some(v) = &self.claude_chid {
-            content.push_str(&format!("claude_chid = \"{}\"\n", escape_toml(v)));
+        if let Some(v) = &self.bot_chid {
+            content.push_str(&format!("bot_chid = \"{}\"\n", escape_toml(v)));
         }
-        if let Some(v) = self.claude_had_changes {
-            content.push_str(&format!("claude_had_changes = {v}\n"));
+        if let Some(v) = self.bot_had_changes {
+            content.push_str(&format!("bot_had_changes = {v}\n"));
         }
         if let Some(v) = &self.op_app {
             content.push_str(&format!("op_app = \"{}\"\n", escape_toml(v)));
@@ -466,10 +466,10 @@ impl PushState {
         let stage_str = require("push-state.stage")?;
         let stage = Stage::from_str(&stage_str)
             .ok_or_else(|| format!("push state {}: unknown stage '{stage_str}'", path.display()))?;
-        let claude_had_changes = match map.get("push-state.claude_had_changes") {
+        let bot_had_changes = match map.get("push-state.bot_had_changes") {
             Some(s) => Some(s.parse::<bool>().map_err(|e| {
                 format!(
-                    "push state {}: invalid claude_had_changes: {e}",
+                    "push state {}: invalid bot_had_changes: {e}",
                     path.display()
                 )
             })?),
@@ -480,9 +480,9 @@ impl PushState {
             stage,
             bookmark: require("push-state.bookmark")?,
             started_at: require("push-state.started_at")?,
-            app_chid: map.get("push-state.app_chid").cloned(),
-            claude_chid: map.get("push-state.claude_chid").cloned(),
-            claude_had_changes,
+            work_chid: map.get("push-state.work_chid").cloned(),
+            bot_chid: map.get("push-state.bot_chid").cloned(),
+            bot_had_changes,
             op_app: map.get("push-state.op_app").cloned(),
             op_claude: map.get("push-state.op_claude").cloned(),
             title: map.get("push-state.title").map(|s| unescape_multiline(s)),
@@ -601,9 +601,9 @@ fn check_gitignore_coherence(
 /// would run without side effects, `--step` pauses between every
 /// stage, non-tty stdin fails fast when prompts are required,
 /// `--yes` opts out of all prompts. On any failure in stages 4-6
-/// (the local mutation window between `commit-app` and
+/// (the local mutation window between `commit-work` and
 /// `bookmark-set`), both repos roll back to the `jj op` snapshot
-/// recorded at the start of `commit-app`. After `push-app` the
+/// recorded at the start of `commit-work`. After `push-work` the
 /// remote boundary is crossed and recovery is forward-only.
 ///
 /// `ctx` is unused today (push reads `.vc-config.toml` for its
@@ -671,9 +671,9 @@ pub(crate) fn push_in(
     run_from(workspace_root, &mut state, params, &layout)
 }
 
-/// Full path of the `.claude` session repo for a given workspace
+/// Full path of the `.claude` bot repo for a given workspace
 /// root. Centralized so a future layout change (e.g. configurable
-/// session-repo name) has one caller to update.
+/// bot-repo name) has one caller to update.
 fn claude_path(workspace_root: &Path) -> PathBuf {
     workspace_root.join(".claude")
 }
@@ -704,9 +704,9 @@ fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
 /// progress after each stage.
 ///
 /// Records a `jj op` snapshot in both repos the first time we enter
-/// `commit-app` and leaves it in state so resume inherits the
+/// `commit-work` and leaves it in state so resume inherits the
 /// rollback target. On failure inside the rollback-eligible window
-/// (`commit-app` / `commit-claude` / `bookmark-set`), both repos
+/// (`commit-work` / `commit-bot` / `bookmark-set`), both repos
 /// are restored before the error propagates.
 fn run_from(
     root: &Path,
@@ -728,9 +728,9 @@ fn run_from(
     loop {
         let stage = state.stage;
 
-        // Snapshot op ids once on first `commit-app` entry. Skipped
+        // Snapshot op ids once on first `commit-work` entry. Skipped
         // in dry-run since we won't mutate anything to roll back.
-        if stage == Stage::CommitApp && state.op_app.is_none() && !params.dry_run {
+        if stage == Stage::CommitWork && state.op_app.is_none() && !params.dry_run {
             state.op_app = Some(current_op_id(root)?);
             state.op_claude = Some(current_op_id(&claude_path(root))?);
             state.save(&layout.path)?;
@@ -822,14 +822,14 @@ fn run_from(
 }
 
 /// Whether a failure in `stage` should trigger the cross-repo op
-/// restore. Anything at or past `push-app` crosses the remote
-/// boundary — the app commit is live on origin, rollback is no
+/// restore. Anything at or past `push-work` crosses the remote
+/// boundary — the work commit is live on origin, rollback is no
 /// longer sound — so those failures propagate without touching
 /// snapshots.
 fn stage_is_rollback_eligible(stage: Stage) -> bool {
     matches!(
         stage,
-        Stage::CommitApp | Stage::CommitClaude | Stage::BookmarkSet
+        Stage::CommitWork | Stage::CommitBot | Stage::BookmarkSet
     )
 }
 
@@ -847,8 +847,8 @@ pub(crate) fn rollback_on_failure(
     warn!("push: rolling back both repos after: {original}");
     if let Some(op) = &state.op_app {
         match op_restore(root, op) {
-            Ok(()) => info!("push: restored app repo to op {op}"),
-            Err(e) => warn!("push: app repo restore failed: {e}"),
+            Ok(()) => info!("push: restored work repo to op {op}"),
+            Err(e) => warn!("push: work repo restore failed: {e}"),
         }
     }
     if let Some(op) = &state.op_claude {
@@ -871,10 +871,10 @@ fn run_stage(
         Stage::Preflight => stage_preflight(root, state, params),
         Stage::Review => stage_review(root, params),
         Stage::Message => stage_message(root, state, params, layout),
-        Stage::CommitApp => stage_commit_app(root, state, params),
-        Stage::CommitClaude => stage_commit_claude(root, state, params),
+        Stage::CommitWork => stage_commit_work(root, state, params),
+        Stage::CommitBot => stage_commit_bot(root, state, params),
         Stage::BookmarkSet => stage_bookmark_set(root, state, params),
-        Stage::PushApp => stage_push_app(root, state, params),
+        Stage::PushWork => stage_push_work(root, state, params),
         Stage::SquashPushBot => stage_squash_push_bot(root, state, params),
     }
 }
@@ -916,14 +916,12 @@ fn stage_preflight(
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
-    crate::common::verify_tracking(&claude_path(root), SESSION_BOOKMARK)?;
+    crate::common::verify_tracking(&claude_path(root), BOT_BOOKMARK)?;
     // Bot-repo published backstop (0.69.0-3): at rest `.claude
     // main` matches `main@origin`; a mismatch means an earlier
     // publish was lost. Errors — no automatic fixing.
-    info!(
-        "push preflight: verify bot repo published ({SESSION_BOOKMARK} == {SESSION_BOOKMARK}@origin)"
-    );
-    crate::common::verify_bot_published(&claude_path(root), SESSION_BOOKMARK)?;
+    info!("push preflight: verify bot repo published ({BOT_BOOKMARK} == {BOT_BOOKMARK}@origin)");
+    crate::common::verify_bot_published(&claude_path(root), BOT_BOOKMARK)?;
     // Re-invoke this binary by its own path rather than a
     // hard-coded name on PATH — keeps the shell-out correct across
     // any crate rename (e.g. the 0.69.0 `vc-x1-dev` window).
@@ -944,11 +942,11 @@ fn stage_preflight(
 /// what *would* be reviewed) but approval is auto-granted.
 fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let claude = claude_path(root);
-    let app_arg = root.to_string_lossy();
+    let work_arg = root.to_string_lossy();
     let claude_arg = claude.to_string_lossy();
     info!("push review: pending changes:");
-    info!("  app ({app_arg}):");
-    let app_stat = run("jj", &["diff", "--stat", "-R", &app_arg], root)?;
+    info!("  work ({work_arg}):");
+    let app_stat = run("jj", &["diff", "--stat", "-R", &work_arg], root)?;
     for line in app_stat.lines() {
         info!("    {line}");
     }
@@ -983,7 +981,7 @@ fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::err
 }
 
 /// Message: collect pre-commit changeIDs and record whether
-/// `.claude` has pending changes so `commit-claude` can skip when
+/// `.claude` has pending changes so `commit-bot` can skip when
 /// empty. `--title` and `--body` are required in 0.37.0-2; `$EDITOR`
 /// support + message persistence land in 0.37.0-3.
 fn stage_message(
@@ -1025,24 +1023,24 @@ fn stage_message(
     };
 
     // Persist the composed message so a later resume (e.g. after a
-    // commit-app retry) doesn't need the flags re-passed.
+    // commit-work retry) doesn't need the flags re-passed.
     state.title = Some(title.clone());
     state.body = Some(body.clone());
 
     let claude = claude_path(root);
-    let app_chid = get_change_id(root, "@")?;
+    let work_chid = get_change_id(root, "@")?;
     let claude_empty = jj_log_empty(&claude, "@")?;
-    let claude_had_changes = !claude_empty;
-    let claude_ref = if claude_had_changes { "@" } else { "@-" };
-    let claude_chid = get_change_id(&claude, claude_ref)?;
+    let bot_had_changes = !claude_empty;
+    let claude_ref = if bot_had_changes { "@" } else { "@-" };
+    let bot_chid = get_change_id(&claude, claude_ref)?;
 
     info!(
-        "push message: title=\"{}\", app_chid={app_chid}, claude_chid={claude_chid}, claude_had_changes={claude_had_changes}",
+        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, bot_had_changes={bot_had_changes}",
         title.lines().next().unwrap_or("") // OK: obvious
     );
-    state.app_chid = Some(app_chid);
-    state.claude_chid = Some(claude_chid);
-    state.claude_had_changes = Some(claude_had_changes);
+    state.work_chid = Some(work_chid);
+    state.bot_chid = Some(bot_chid);
+    state.bot_had_changes = Some(bot_had_changes);
     Ok(())
 }
 
@@ -1116,33 +1114,33 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
     Some((title, body))
 }
 
-/// Commit app repo with `title` / `body` and the `ochid:` trailer
+/// Commit work repo with `title` / `body` and the `ochid:` trailer
 /// pointing at `.claude`'s chid.
-fn stage_commit_app(
+fn stage_commit_work(
     root: &Path,
     state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (title, body) = resolve_message(state, params)?;
-    let claude_chid = state
-        .claude_chid
+    let bot_chid = state
+        .bot_chid
         .as_deref()
-        .ok_or("push commit-app: claude_chid not set (message stage didn't run)")?;
-    let body_with_trailer = format!("{body}\n\nochid: /.claude/{claude_chid}");
-    let app_arg = root.to_string_lossy();
+        .ok_or("push commit-work: bot_chid not set (message stage didn't run)")?;
+    let body_with_trailer = format!("{body}\n\nochid: /.claude/{bot_chid}");
+    let work_arg = root.to_string_lossy();
     if params.dry_run {
         info!(
-            "push commit-app: [dry-run] would run jj commit -R {app_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-work: [dry-run] would run jj commit -R {work_arg} -m \"{title}\" -m <body+ochid>"
         );
         return Ok(());
     }
-    info!("push commit-app: jj commit -R {app_arg}");
+    info!("push commit-work: jj commit -R {work_arg}");
     run(
         "jj",
         &[
             "commit",
             "-R",
-            &app_arg,
+            &work_arg,
             "-m",
             &title,
             "-m",
@@ -1175,32 +1173,32 @@ fn resolve_message(
 }
 
 /// Commit `.claude` with the same title/body and the ochid trailer
-/// pointing at the app commit's chid, or skip if `.claude` had no
+/// pointing at the work commit's chid, or skip if `.claude` had no
 /// pending changes.
-fn stage_commit_claude(
+fn stage_commit_bot(
     root: &Path,
     state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if !state.claude_had_changes.unwrap_or(false) {
-        info!("push commit-claude: skip (.claude had no pending changes)");
+    if !state.bot_had_changes.unwrap_or(false) {
+        info!("push commit-bot: skip (.claude had no pending changes)");
         return Ok(());
     }
     let (title, body) = resolve_message(state, params)?;
-    let app_chid = state
-        .app_chid
+    let work_chid = state
+        .work_chid
         .as_deref()
-        .ok_or("push commit-claude: app_chid not set (message stage didn't run)")?;
-    let body_with_trailer = format!("{body}\n\nochid: /{app_chid}");
+        .ok_or("push commit-bot: work_chid not set (message stage didn't run)")?;
+    let body_with_trailer = format!("{body}\n\nochid: /{work_chid}");
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
         info!(
-            "push commit-claude: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-bot: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
         );
         return Ok(());
     }
-    info!("push commit-claude: jj commit -R {claude_arg}");
+    info!("push commit-bot: jj commit -R {claude_arg}");
     run(
         "jj",
         &[
@@ -1217,31 +1215,31 @@ fn stage_commit_claude(
     Ok(())
 }
 
-/// Advance each repo's bookmark to its `@-`: the app repo advances
-/// `state.bookmark`, the session repo always advances
-/// `SESSION_BOOKMARK` (`main`) — a feature bookmark must never be
-/// created in the linear-journal session repo.
+/// Advance each repo's bookmark to its `@-`: the work repo advances
+/// `state.bookmark`, the bot repo always advances
+/// `BOT_BOOKMARK` (`main`) — a feature bookmark must never be
+/// created in the linear-journal bot repo.
 fn stage_bookmark_set(
     root: &Path,
     state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
-    let app_arg = root.to_string_lossy();
+    let work_arg = root.to_string_lossy();
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
         info!(
-            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {app_arg} / {SESSION_BOOKMARK} -r @- -R {claude_arg}"
+            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {claude_arg}"
         );
         return Ok(());
     }
     info!(
-        "push bookmark-set: jj bookmark set {bk} -r @- -R {app_arg} / {SESSION_BOOKMARK} -r @- -R {claude_arg}"
+        "push bookmark-set: jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {claude_arg}"
     );
     run(
         "jj",
-        &["bookmark", "set", bk, "-r", "@-", "-R", &app_arg],
+        &["bookmark", "set", bk, "-r", "@-", "-R", &work_arg],
         root,
     )?;
     run(
@@ -1249,7 +1247,7 @@ fn stage_bookmark_set(
         &[
             "bookmark",
             "set",
-            SESSION_BOOKMARK,
+            BOT_BOOKMARK,
             "-r",
             "@-",
             "-R",
@@ -1260,37 +1258,37 @@ fn stage_bookmark_set(
     Ok(())
 }
 
-/// Push the app repo's bookmark to origin.
-fn stage_push_app(
+/// Push the work repo's bookmark to origin.
+fn stage_push_work(
     root: &Path,
     state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
-    let app_arg = root.to_string_lossy();
+    let work_arg = root.to_string_lossy();
     if params.dry_run {
-        info!("push push-app: [dry-run] would run jj git push --bookmark {bk} -R {app_arg}");
+        info!("push push-work: [dry-run] would run jj git push --bookmark {bk} -R {work_arg}");
         return Ok(());
     }
-    info!("push push-app: jj git push --bookmark {bk} -R {app_arg}");
+    info!("push push-work: jj git push --bookmark {bk} -R {work_arg}");
     run(
         "jj",
-        &["git", "push", "--bookmark", bk, "-R", &app_arg],
+        &["git", "push", "--bookmark", bk, "-R", &work_arg],
         root,
     )?;
     Ok(())
 }
 
 /// Squash-push `.claude` in-process, always pushing
-/// `SESSION_BOOKMARK` (`main`) — the session repo's bookmark is
+/// `BOT_BOOKMARK` (`main`) — the bot repo's bookmark is
 /// pinned, so `state.bookmark` plays no part here.
 ///
 /// - Squashes the tail (session writes that landed since
-///   `commit-claude`) into the session commit, then pushes — via
+///   `commit-bot`) into the session commit, then pushes — via
 ///   `squash_push::squash_push`, so the ochid-drop guard
 ///   (Bugs #2) applies and a failure is a visible push failure.
-/// - In-process since 0.69.0-1 (Bugs #1: the detached
-///   `vc-x1 finalize` child died silently at sandbox teardown).
+/// - In-process since 0.69.0-1 (Bugs #1: the stage's detached
+///   child died silently at sandbox teardown).
 /// - `--no-squash-push` turns this stage into a no-op so the
 ///   squash+push can be run manually.
 fn stage_squash_push_bot(
@@ -1302,7 +1300,7 @@ fn stage_squash_push_bot(
         info!("push squash-push-bot: skip (--no-squash-push)");
         return Ok(());
     }
-    let bk = SESSION_BOOKMARK;
+    let bk = BOT_BOOKMARK;
     let claude = claude_path(root);
     let claude_arg = claude.to_string_lossy();
     if params.dry_run {
@@ -1319,6 +1317,10 @@ fn stage_squash_push_bot(
             target: "@-".to_string(),
         },
         bookmark: bk.to_string(),
+        // Mid-push the mismatch is the normal state (bookmark-set
+        // just moved main; this stage publishes it) — don't report
+        // a lost publish.
+        report_publish_state: false,
     };
     crate::squash_push::squash_push(&sp)
 }
@@ -1330,37 +1332,37 @@ fn stage_squash_push_bot(
 /// forward between
 /// the prior push and this resume, leaving `state` pointing at a
 /// now-bogus halt point. The 0.37.1 dogfood incident is the canonical
-/// example: push parked at `finalize-claude` after a failure; manual
+/// example: push parked at its last stage after a failure; manual
 /// recovery moved the world forward; the next push resumed at the
 /// parked stage, no-op'd, and falsely declared "completed all stages"
 /// while working copies still held uncommitted changes.
 ///
 /// Three checks (per chores-06 [61] design):
 ///
-/// 1. `state.app_chid` still resolves in the app repo (not abandoned).
-/// 2. After `bookmark-set` has run (state.stage ∈ {PushApp,
+/// 1. `state.work_chid` still resolves in the work repo (not abandoned).
+/// 2. After `bookmark-set` has run (state.stage ∈ {PushWork,
 ///    SquashPushBot}), the bookmark points at a commit whose chid
-///    matches `state.app_chid`.
-/// 3. `state.claude_chid` still resolves in `.claude`.
+///    matches `state.work_chid`.
+/// 3. `state.bot_chid` still resolves in `.claude`.
 ///
 /// On any mismatch: error with the exact `vc-x1 push <bookmark>
 /// --restart` remediation. A fresh state (no chids yet) is a no-op —
 /// nothing to verify.
 fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(app_chid) = &state.app_chid else {
+    let Some(work_chid) = &state.work_chid else {
         return Ok(()); // OK: fresh state, nothing to verify yet
     };
     let bookmark = &state.bookmark;
     let root_str = root.to_string_lossy();
     let cwd = Path::new(".");
 
-    // 1. app_chid still resolves.
+    // 1. work_chid still resolves.
     run(
         "jj",
         &[
             "log",
             "-r",
-            app_chid,
+            work_chid,
             "--no-graph",
             "-T",
             "\"x\"",
@@ -1371,14 +1373,14 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
     )
     .map_err(|_| -> Box<dyn std::error::Error> {
         format!(
-            "state-sanity: app_chid '{app_chid}' has been abandoned or no longer resolves \
-             in the app repo. State is stale — run `vc-x1 push {bookmark} --restart` to clear."
+            "state-sanity: work_chid '{work_chid}' has been abandoned or no longer resolves \
+             in the work repo. State is stale — run `vc-x1 push {bookmark} --restart` to clear."
         )
         .into()
     })?;
 
-    // 2. bookmark at app_chid (after bookmark-set has run).
-    if matches!(state.stage, Stage::PushApp | Stage::SquashPushBot) {
+    // 2. bookmark at work_chid (after bookmark-set has run).
+    if matches!(state.stage, Stage::PushWork | Stage::SquashPushBot) {
         let bookmark_chid = run(
             "jj",
             &[
@@ -1394,18 +1396,18 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
             cwd,
         )?;
         let bookmark_chid = bookmark_chid.trim();
-        if bookmark_chid != app_chid.as_str() {
+        if bookmark_chid != work_chid.as_str() {
             return Err(format!(
                 "state-sanity: bookmark '{bookmark}' is at chid '{bookmark_chid}' but \
-                 state.app_chid is '{app_chid}'. State is stale — run \
+                 state.work_chid is '{work_chid}'. State is stale — run \
                  `vc-x1 push {bookmark} --restart` to clear."
             )
             .into());
         }
     }
 
-    // 3. claude_chid still resolves.
-    if let Some(claude_chid) = &state.claude_chid {
+    // 3. bot_chid still resolves.
+    if let Some(bot_chid) = &state.bot_chid {
         let claude = claude_path(root);
         let claude_str = claude.to_string_lossy();
         run(
@@ -1413,7 +1415,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
             &[
                 "log",
                 "-r",
-                claude_chid,
+                bot_chid,
                 "--no-graph",
                 "-T",
                 "\"x\"",
@@ -1424,7 +1426,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
         )
         .map_err(|_| -> Box<dyn std::error::Error> {
             format!(
-                "state-sanity: claude_chid '{claude_chid}' has been abandoned or no longer \
+                "state-sanity: bot_chid '{bot_chid}' has been abandoned or no longer \
                  resolves in .claude. State is stale — run \
                  `vc-x1 push {bookmark} --restart` to clear."
             )
@@ -1445,10 +1447,10 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 ///
 /// Three checks:
 ///
-/// 1. App's bookmark is at a commit whose chid matches `state.app_chid`.
-/// 2. App's working copy has no uncommitted changes (commit-app should
+/// 1. Work's bookmark is at a commit whose chid matches `state.work_chid`.
+/// 2. Work's working copy has no uncommitted changes (commit-work should
 ///    have captured anything that was there).
-/// 3. `.claude`'s bookmark is at `state.claude_chid`'s commit (when set).
+/// 3. `.claude`'s bookmark is at `state.bot_chid`'s commit (when set).
 ///    `.claude`'s working copy (`@`) may legitimately have new
 ///    session writes that landed after squash-push-bot's squash —
 ///    the tail rides into the next cycle's commit — so no
@@ -1466,8 +1468,8 @@ fn verify_completion_sanity(
     let root_str = root.to_string_lossy();
     let cwd = Path::new(".");
 
-    // 1. app bookmark at state.app_chid.
-    if let Some(app_chid) = &state.app_chid {
+    // 1. work bookmark at state.work_chid.
+    if let Some(work_chid) = &state.work_chid {
         let actual = run(
             "jj",
             &[
@@ -1483,30 +1485,30 @@ fn verify_completion_sanity(
             cwd,
         )?;
         let actual = actual.trim();
-        if actual != app_chid.as_str() {
+        if actual != work_chid.as_str() {
             return Err(format!(
-                "completion sanity: app bookmark '{bookmark}' is at chid '{actual}' but \
-                 state.app_chid is '{app_chid}'."
+                "completion sanity: work bookmark '{bookmark}' is at chid '{actual}' but \
+                 state.work_chid is '{work_chid}'."
             )
             .into());
         }
     }
 
-    // 2. app working copy (`@`) clean (no uncommitted changes). Use the `empty`
+    // 2. work working copy (`@`) clean (no uncommitted changes). Use the `empty`
     // template — `jj diff --stat` always emits a "0 files changed"
     // line even when clean, so plain output-emptiness check would
     // false-positive.
     if !jj_log_empty(root, "@")? {
         let wc_diff = run("jj", &["diff", "--stat", "-r", "@", "-R", &root_str], cwd)?;
         return Err(format!(
-            "completion sanity: app working copy has uncommitted changes (push completed \
+            "completion sanity: work working copy has uncommitted changes (push completed \
              but working copy dirty?). Diff stat:\n{wc_diff}"
         )
         .into());
     }
 
-    // 3. .claude's pinned bookmark (main) at state.claude_chid.
-    if let Some(claude_chid) = &state.claude_chid {
+    // 3. .claude's pinned bookmark (main) at state.bot_chid.
+    if let Some(bot_chid) = &state.bot_chid {
         let claude = claude_path(root);
         let claude_str = claude.to_string_lossy();
         let actual = run(
@@ -1514,7 +1516,7 @@ fn verify_completion_sanity(
             &[
                 "log",
                 "-r",
-                SESSION_BOOKMARK,
+                BOT_BOOKMARK,
                 "--no-graph",
                 "-T",
                 "change_id.short(12)",
@@ -1524,10 +1526,10 @@ fn verify_completion_sanity(
             cwd,
         )?;
         let actual = actual.trim();
-        if actual != claude_chid.as_str() {
+        if actual != bot_chid.as_str() {
             return Err(format!(
-                "completion sanity: .claude bookmark '{SESSION_BOOKMARK}' is at chid \
-                 '{actual}' but state.claude_chid is '{claude_chid}'."
+                "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \
+                 '{actual}' but state.bot_chid is '{bot_chid}'."
             )
             .into());
         }

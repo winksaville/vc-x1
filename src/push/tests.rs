@@ -113,10 +113,10 @@ fn parse_from_stage() {
         ("preflight", Stage::Preflight),
         ("review", Stage::Review),
         ("message", Stage::Message),
-        ("commit-app", Stage::CommitApp),
-        ("commit-claude", Stage::CommitClaude),
+        ("commit-work", Stage::CommitWork),
+        ("commit-bot", Stage::CommitBot),
         ("bookmark-set", Stage::BookmarkSet),
-        ("push-app", Stage::PushApp),
+        ("push-work", Stage::PushWork),
         ("squash-push-bot", Stage::SquashPushBot),
     ] {
         let cli = Cli::try_parse_from(["test", "--from", name]).unwrap();
@@ -142,10 +142,10 @@ fn stage_next_walks_full_flow() {
             Stage::Preflight,
             Stage::Review,
             Stage::Message,
-            Stage::CommitApp,
-            Stage::CommitClaude,
+            Stage::CommitWork,
+            Stage::CommitBot,
             Stage::BookmarkSet,
-            Stage::PushApp,
+            Stage::PushWork,
             Stage::SquashPushBot,
         ]
     );
@@ -158,10 +158,10 @@ fn stage_str_roundtrip() {
         Stage::Preflight,
         Stage::Review,
         Stage::Message,
-        Stage::CommitApp,
-        Stage::CommitClaude,
+        Stage::CommitWork,
+        Stage::CommitBot,
         Stage::BookmarkSet,
-        Stage::PushApp,
+        Stage::PushWork,
         Stage::SquashPushBot,
     ] {
         assert_eq!(Stage::from_str(stage.as_str()), Some(stage));
@@ -202,12 +202,12 @@ fn state_save_load_roundtrip() {
     let path = tmp.join("push-state.toml");
     let original = PushState {
         version: STATE_FORMAT_VERSION,
-        stage: Stage::CommitClaude,
+        stage: Stage::CommitBot,
         bookmark: "feature/thing".to_string(),
         started_at: "2026-04-21T20:15:33+00:00".to_string(),
-        app_chid: Some("abc123def456".to_string()),
-        claude_chid: Some("fedcba654321".to_string()),
-        claude_had_changes: Some(true),
+        work_chid: Some("abc123def456".to_string()),
+        bot_chid: Some("fedcba654321".to_string()),
+        bot_had_changes: Some(true),
         op_app: Some("opapp12345".to_string()),
         op_claude: Some("opcla54321".to_string()),
         title: Some("feat: round-trip title".to_string()),
@@ -231,9 +231,9 @@ fn state_save_load_roundtrip_no_options() {
         stage: Stage::Preflight,
         bookmark: "main".to_string(),
         started_at: "2026-04-21T00:00:00+00:00".to_string(),
-        app_chid: None,
-        claude_chid: None,
-        claude_had_changes: None,
+        work_chid: None,
+        bot_chid: None,
+        bot_had_changes: None,
         op_app: None,
         op_claude: None,
         title: None,
@@ -245,20 +245,20 @@ fn state_save_load_roundtrip_no_options() {
     let _ = fs::remove_dir_all(&tmp);
 }
 
-/// `claude_had_changes = false` round-trips as `Some(false)`
+/// `bot_had_changes = false` round-trips as `Some(false)`
 /// (distinct from unset / `None`).
 #[test]
-fn state_save_load_claude_had_changes_false() {
+fn state_save_load_bot_had_changes_false() {
     let tmp = unique_tmp("state-cladechanges-false");
     let path = tmp.join("push-state.toml");
     let original = PushState {
         version: STATE_FORMAT_VERSION,
-        stage: Stage::CommitClaude,
+        stage: Stage::CommitBot,
         bookmark: "main".to_string(),
         started_at: "2026-04-21T00:00:00+00:00".to_string(),
-        app_chid: Some("abc".to_string()),
-        claude_chid: Some("def".to_string()),
-        claude_had_changes: Some(false),
+        work_chid: Some("abc".to_string()),
+        bot_chid: Some("def".to_string()),
+        bot_had_changes: Some(false),
         op_app: None,
         op_claude: None,
         title: None,
@@ -266,7 +266,7 @@ fn state_save_load_claude_had_changes_false() {
     };
     original.save(&path).expect("save");
     let loaded = PushState::load(&path).expect("load").expect("Some state");
-    assert_eq!(loaded.claude_had_changes, Some(false));
+    assert_eq!(loaded.bot_had_changes, Some(false));
     let _ = fs::remove_dir_all(&tmp);
 }
 
@@ -277,10 +277,10 @@ fn rollback_eligibility_covers_local_window() {
     assert!(!stage_is_rollback_eligible(Stage::Preflight));
     assert!(!stage_is_rollback_eligible(Stage::Review));
     assert!(!stage_is_rollback_eligible(Stage::Message));
-    assert!(stage_is_rollback_eligible(Stage::CommitApp));
-    assert!(stage_is_rollback_eligible(Stage::CommitClaude));
+    assert!(stage_is_rollback_eligible(Stage::CommitWork));
+    assert!(stage_is_rollback_eligible(Stage::CommitBot));
     assert!(stage_is_rollback_eligible(Stage::BookmarkSet));
-    assert!(!stage_is_rollback_eligible(Stage::PushApp));
+    assert!(!stage_is_rollback_eligible(Stage::PushWork));
     assert!(!stage_is_rollback_eligible(Stage::SquashPushBot));
 }
 

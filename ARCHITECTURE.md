@@ -6,14 +6,14 @@ and the (emerging) clap-free subcommand layer. This is the
 per-cycle / per-subcommand status live in `notes/chores/chores-*.md`
 and `notes/todo.md`.
 
-This is a living document; the app is under continuous
+This is a living document; the tool is under continuous
 development and the repo will keep changing.
 
 ## Overview
 
 `vc-x1` is a single binary that supports subcommands,
 `vc-x1 <subcommand>`, for managing a jj-git **dual-repo workspace**
-with an app repo plus a `.claude` bot-session repo. The commits
+with a work repo plus a `.claude` bot repo. The commits
 cross-reference each other via `ochid:` trailers at the bottom
 of each commit message. See [`README.md`](README.md) for the
 user-facing picture and [`AGENTS.md`](AGENTS.md) for the bot

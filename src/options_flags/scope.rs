@@ -12,8 +12,8 @@ use clap::ValueEnum;
 
 /// One side of a dual-repo workspace.
 ///
-/// - `Code` — the primary (app) repo.
-/// - `Bot` — the Claude Code session repo (typically at `.claude/`).
+/// - `Code` — the primary (work) repo.
+/// - `Bot` — the Claude Code bot repo (typically at `.claude/`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Side {
     Code,
