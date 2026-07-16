@@ -1286,9 +1286,10 @@ fn stage_push_work(
 /// - Squashes the tail (session writes that landed since
 ///   `commit-bot`) into the session commit, then pushes — via
 ///   `squash_push::squash_push`, so the ochid-drop guard
-///   (Bugs #2) applies and a failure is a visible push failure.
-/// - In-process since 0.69.0-1 (Bugs #1: the stage's detached
-///   child died silently at sandbox teardown).
+///   applies and a failure is a visible push failure.
+/// - In-process since 0.69.0-1 (the stage's detached child died
+///   silently at sandbox teardown — the loss diagnosed in
+///   0.68.1).
 /// - `--no-squash-push` turns this stage into a no-op so the
 ///   squash+push can be run manually.
 fn stage_squash_push_bot(

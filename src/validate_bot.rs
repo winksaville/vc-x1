@@ -4,7 +4,7 @@
 //! - `main` must match `main@origin`: the bookmark only moves
 //!   inside a push / squash-push run, which publishes it in the
 //!   same invocation, so an at-rest mismatch means an earlier
-//!   publish was lost (Bugs #1's silent session-push loss went
+//!   publish was lost (the 0.68.1-diagnosed silent session-push loss went
 //!   unnoticed for 8 cycles).
 //! - Also verifies `main`'s remote refs are tracked.
 //! - Exits non-zero on any finding and fixes nothing (decided

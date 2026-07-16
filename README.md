@@ -817,7 +817,9 @@ anything is rewritten.
 source's message carries trailers the destination's message lacks,
 `--use-destination-message` would silently discard them and leave
 the counterpart repo's cross-links dangling (the incident is
-recorded as Bugs #2 in [notes/bugs.md](notes/bugs.md)). The guard
+recorded in
+[record finalize ochid-loss bug (0.65.1)](./notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651)).
+The guard
 runs in preflight, before anything is rewritten.
 
 `squash-push` always pushes, so the examples run against a

@@ -9,7 +9,8 @@
 //! - Runs fully in-process: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
-//!   child that a sandboxed run silently killed — Bugs #1).
+//!   child that a sandboxed run silently killed — the loss
+//!   diagnosed in 0.68.1).
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
 //!   `BOOKMARK@origin` — an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
@@ -210,7 +211,7 @@ fn extract_ochids(desc: &str) -> Vec<String> {
 
 /// Return the `ochid:` trailer values present in `source_desc` but
 /// absent from `target_desc` — the trailers a squash with
-/// `--use-destination-message` would silently drop (Bugs #2).
+/// `--use-destination-message` would silently drop (the ochid-loss incident recorded in 0.65.1).
 fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
     let kept = extract_ochids(target_desc);
     extract_ochids(source_desc)
@@ -225,7 +226,7 @@ fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
 /// - Compares the two messages' `ochid:` trailers; errors when the
 ///   source carries any the destination's message lacks —
 ///   `--use-destination-message` would discard them, leaving the
-///   counterpart repo's cross-links dangling (Bugs #2).
+///   counterpart repo's cross-links dangling (recorded 0.65.1, guarded since 0.65.2).
 fn check_squash_keeps_ochids(
     repo: &str,
     cwd: &std::path::Path,

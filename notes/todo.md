@@ -17,182 +17,6 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: inline session push + squash-push (0.69.0)**
-
-Push's `finalize-claude` stage detaches a delayed child to
-squash+push `.claude`; a sandboxed bot run kills the child at
-command exit — silently, every cycle (see Bugs #1 [[24]]). The
-empty-@ goal behind the detach/delay dance is self-referential
-for the bot (finalizing is itself session data), so the bot
-forgoes it; only the user, acting after the turn, can capture
-the full tail.
-
-Design notes:
-- naming (decided 2026-07-15): `finalize` → `squash-push`
-  - mechanism-named and repo-generic: a squash `@ → @-` +
-    push
-  - needed frequently on the bot repo (the session tail)
-  - occasionally useful on the app repo: amend-and-push —
-    a deliberate published-history rewrite + forced update
-- squash-push of a just-pushed session commit rewrites it,
-  so its push is a forced update
-  - functions fine whether the bot or the user runs it
-  - but on the bot repo only the user gets an empty `@`:
-    the bot's own invocation writes new session data, so
-    its `@` is non-empty again immediately
-  - on any repo without a live writer it works as expected
-    for anyone
-- CLI shape
-  - `-R`/`--repo`, default `.` (house convention: `-R`
-    repo, `-r` revision)
-  - positional BOOKMARK defaulting to `main` (mirrors push)
-  - repo stays a flag — no command takes a positional repo
-- no-op feedback
-  - `@` empty and bookmark already at remote → "repo is
-    already sync'd with remote", exit 0
-  - `@` empty but remote behind → skip the squash, still
-    push
-- the bot may also run `squash-push` as a separate later
-  command to capture the `vc-x1 push` record (leaves only
-  its own)
-
-Plan:
-- 0.69.0-0 prep: backfill Commits:, bump version, pick up
-  Todo #1, open chores section (done)
-- 0.69.0-1 push: session squash+push inline (done)
-  - replace the finalize-claude shell-out with an
-    in-process squash of the trailing session writes +
-    `jj git push --bookmark main -R .claude`
-  - a session-push failure is a visible push failure
-  - crate temporarily named `vc-x1-dev` so per-commit
-    installs don't clobber the stable `vc-x1` another bot
-    instance uses
-  - tests
-- 0.69.0-2 squash-push: rename `finalize` → `squash-push` (done)
-  - zero-ceremony default: `-R .`, BOOKMARK positional
-    defaulting to `main`, no-op feedback
-  - retire `--detach` / `--delay`
-  - module + types follow: `finalize.rs` →
-    `squash_push.rs`, `FinalizeArgs` / `FinalizeParams` →
-    `SquashPushArgs` / `SquashPushParams`
-  - `finalize_inline` dissolves: with the detach branch
-    gone, preflight + exec is the command's only path, so
-    the shim merges into the renamed entry point
-  - failure-marker machinery (decided at -2): retired
-    entirely with `--detach` — markers only existed for the
-    detached child's invisible exit; any stale ones under
-    `~/.cache/vc-x1/finalize-status` are inert (delete by
-    hand)
-  - rename push stage `finalize-claude` →
-    `squash-push-bot` (first use of the work/bot stage
-    vocabulary; the remaining app/claude stages sweep at
-    -4); `--no-finalize` → `--no-squash-push`
-  - deprecated `finalize` alias (decided at -2): none —
-    the flag surface changed incompatibly, so an alias
-    would trade a clear "unrecognized subcommand" for
-    confusing flag errors
-  - `Context.log` follows `--detach` out: its only reader
-    was the detach re-exec, so the field and `load(log)`
-    parameter are gone
-  - tests
-  - docs pulled forward from -4: cycle-protocol.md
-    stop-and-wait + Recovery rewritten for the inline
-    world; AGENTS.md scrubbed of "finalize" as a plain
-    word (collides with the retired command name)
-- 0.69.0-3 bot-repo published backstop (done)
-  - invariant (clarified 2026-07-15): at rest the bot
-    repo's `main == main@origin`; the bookmark only moves
-    inside a push / squash-push run, which publishes it in
-    the same invocation — an at-rest mismatch means a
-    previous publish was lost (or never happened)
-  - new `vc-x1 validate-bot` (name chosen 2026-07-15):
-    read-only check of that invariant + tracking; distinct
-    message when `main@origin` doesn't exist (never
-    pushed); non-zero exit on any finding; no cargo steps
-    — cheap enough for routine use (reacquaint, timers)
-  - push preflight runs the check and errors (decided
-    2026-07-15: no automatic fixing) — resolve with
-    `vc-x1 squash-push -R .claude`, rerun push
-  - squash-push detects the same condition and reports it
-    ("an earlier publish was likely lost"), then proceeds —
-    publishing is its job, so healing is not auto-fixing
-  - shared machinery in common.rs: `PublishState` +
-    `bookmark_publish_state` + `verify_bot_published`
-  - tests; new `test_helpers::jj_ok` for new tests instead
-    of a 4th hand-rolled jj helper copy (migrating the old
-    copies stays with the jj-facade Todo)
-  - the "run at every vc-x1 invocation, config-gated" idea
-    is queued as its own Todo (a could, not a should)
-  - push preflight's hardcoded cargo fmt/clippy/test removed
-    (decided 2026-07-15): vc-x1 assumes nothing about a
-    repo's contents beyond `.jj` and `.vc-config.toml`; a
-    project that wants pre-push checks runs them explicitly
-    before `vc-x1 push` (AGENTS.md's cargo cycle already
-    does) — preflight is now version-control checks only
-    (tracking, bot-published, sync --check)
-  - crate renamed back to `vc-x1` (decided 2026-07-15): the
-    other bot instance's dual-install window is closed, so
-    the temporary `vc-x1-dev` name retires early (was a
-    close-out decision)
-- 0.69.0-4 docs + terminology / stage-name sweeps (done)
-  - push stage-name sweep: `commit-app` → `commit-work`,
-    `commit-claude` → `commit-bot`, `push-app` →
-    `push-work` (`squash-push-bot` landed at -2); state
-    keys follow (`work_chid`, `bot_chid`,
-    `bot_had_changes`); `SESSION_BOOKMARK` →
-    `BOT_BOOKMARK`; cycle-protocol's stale-state caveat
-    extended to the pre-0.69.0-4 names
-  - squash-push at-rest mismatch report suppressed when
-    run as push's stage (`report_publish_state: false` —
-    the bookmark-set → squash-push-bot window makes the
-    mismatch the normal state there; false-alarmed live
-    on the -3 push)
-  - repo-terminology sweep: "bot repo" / "work repo"
-    replace "session repo" / "code repo" / "app repo"
-    across AGENTS.md, cycle-protocol.md, ARCHITECTURE.md,
-    notes/README.md, and code prose (doc comments, help
-    text, log/test messages); identifier-level stragglers
-    queued as a Todo
-  - README rewritten for 0.69.0: new Terminology section
-    (defines work / bot / work repo / bot repo before
-    first use; notes the `-s code` keyword wrinkle),
-    finalize section → squash-push (zero-ceremony,
-    behavior notes), push
-    stage table (new names; preflight = vcs checks only),
-    new validate-bot section, testing walkthroughs redone
-    against live runs (init fixture via `--repo local=`,
-    squash-push transcripts), guard section reduced to
-    the two synchronous examples, `--no-finalize` →
-    `--no-squash-push`, TOC/usage updated, init section
-    flags corrected (documented retired `--owner` /
-    `--dir` / `--repo-local`)
-  - support/gen-exmpl-1-3.sh rewritten for squash-push
-    against an init fixture; run to regenerate the README
-    transcripts; support/README.md updated
-  - Todos queued: README-vs-CLI flag-table audit;
-    terminology stragglers (scope keyword `code`,
-    remote-*.git names, identifiers)
-  - "finalize" scrubbed from `*.rs` and cycle-protocol.md
-    (user request): historical doc comments reworded, the
-    `finalize`-no-longer-parses test dropped, the
-    stale-state caveat de-enumerated; README's one
-    "Replaces the `finalize` subcommand" history line
-    stays (user-facing changelog context)
-- 0.69.0 close-out and validation
-
-Continuity (resume 2026-07-15):
-- -2 and -3 landed 2026-07-15; next: -4 (docs +
-  terminology / stage-name sweeps)
-- crate renamed back to `vc-x1` at -3 (the dual-instance
-  window closed); the stale `vc-x1-dev` install was removed
-  (`cargo uninstall vc-x1-dev`)
-- cycle pushes go straight to `main` (keep-separate shape;
-  -0 and -1 already published)
-- -1 was pushed with `vc-x1-dev push` — first dogfood of
-  the inline session push; the bot sandbox now allows
-  `~/.config/jj`, `/tmp/`, and `~/.cargo` writes, so tests
-  and `cargo install` run sandboxed (fixed 2026-07-15)
-
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -216,11 +40,11 @@ Continuity (resume 2026-07-15):
      survive rebase, so every ochid stays valid)
    - publish
 
-   Push has no supported stop after `commit-claude`, so today
+   Push has no supported stop after `commit-bot`, so today
    the recipe pre-commits both sides manually and resumes via
    `--from bookmark-set --yes` — skipping exactly the stages
    that inject `ochid:` trailers.
-   - Add a stop after the commit stages (`--to commit-claude`
+   - Add a stop after the commit stages (`--to commit-bot`
      or `--no-publish`; name open); the existing `--from
      bookmark-set` is already the resume half.
    - Retires the close-out workaround; the merge commit
@@ -315,18 +139,21 @@ Continuity (resume 2026-07-15):
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
-   0.62.0-7/-8 until caught). And `vc-x1 push`'s `preflight`
-   stage re-runs the same cycle, which invites treating push as
-   the gate rather than a redundant safety-net.
+   0.62.0-7/-8 until caught). (Since 0.69.0-3 push's
+   `preflight` no longer re-runs the cargo cycle — vc-x1
+   assumes nothing about repo contents — so the pre-commit is
+   the *only* gate, strengthening the no-skip case.)
    - Adopt one rule, no exception: the pre-commit runs before
-     Work review on every commit; push's `preflight` is a
-     safety-net, not the primary gate. (docs: AGENTS.md Cycle
+     Work review on every commit. (docs: AGENTS.md Cycle
      Protocol summary + cycle-protocol.md per-commit-flow.)
    - Enrich the pre-commit so it's meaningful on docs commits:
      add the doc validators — `validate-numbering` (its own
-     Todo, a prereq) plus `validate-repo` when it exists — to
-     both the documented flow and push's `preflight` stage
-     (`push.rs`), with a test. (code)
+     Todo, a prereq) plus `validate-repo` when it exists.
+     Whether push's `preflight` may run them needs a decision
+     against the content-agnostic principle (they read
+     `notes/` — repo content; the repo-declared-checks idea
+     was rejected 2026-07-15 in favor of "run checks
+     yourself").
    - This dissolves the docs exception: with doc validators in
      the pre-commit there's always something to validate, so
      the carve-out stops making sense.
@@ -605,21 +432,15 @@ and older `## Done` sections are moved to [done.md](done.md) to keep this file s
 
 _Migrated to [done.md](done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
-- feat: reposition @ onto synced bookmark (0.66.0) — after a successful `--no-check` sync, `@` is repositioned onto the just-synced bookmark: code repo `jj new <b>` when clean (or `--rebase`/prompt-gated rebase when dirty; left in place when diverged/ahead), `.claude` always `jj new main` (or errors when `@-` is off main), all as a final pass *outside* the `op_restore` revert region; replaces `ensure_at_on_main`; new `--rebase` flag; README `### sync` docs + examples [[20]]
-- feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[21]]
-- docs: todo cleanup + trapezoid entries (0.67.1) — push-related todos reshaped around the trapezoidal (merge non-ff) workflow: new #1 bookmark-invariant fix and #2 push pause point; "record uncovered code commits (N:1)" re-scoped to code worked outside vc-x1; `push --squash` demoted to todo-backlog.md; cycle-protocol.md push-wrapper list synced [[22]]
 - feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
 - docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
+- feat: inline session push + squash-push (0.69.0) — push's session publish is in-process (`squash-push-bot` stage; a failure is a visible push failure — the silent session-push loss fixed); `finalize` renamed to the zero-ceremony `squash-push` (detach / delay / failure markers retired, no alias); new `vc-x1 validate-bot` + an erroring push-preflight backstop enforce the at-rest `main == main@origin` invariant (no auto-fix); push preflight drops the hardcoded cargo steps (vc-x1 assumes nothing about repo contents beyond `.jj` + `.vc-config.toml`); work/bot terminology + stage renames across code and docs, README rewritten (Terminology section, live-validated walkthroughs); crate renamed back to `vc-x1` [[20]]
 
 # References
 
-[0]: AGENTS.md#prose-form
 [1]: /notes/design-cli/por-dual-parity.md
 [10]: /notes/forks-multi-user.md
 [13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
-[20]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
-[21]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
-[22]: /notes/chores/chores-13.md#docs-todo-cleanup--trapezoid-entries-0671
+[20]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690
 [23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
-[24]: /notes/bugs.md
 [25]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681

@@ -184,7 +184,7 @@ fn push_happy_claude_dirty() {
 /// The real `squash-push-bot` stage: a full push (no
 /// `--no-squash-push`) squashes `.claude`'s tail and pushes `main`
 /// to the bot repo's origin in-process — synchronously, no
-/// detached child (Bugs #1).
+/// detached child (the 0.68.1-diagnosed loss).
 #[test]
 fn push_squash_push_bot_inline_pushes_session() {
     let fx = Fixture::new("push-sp-inline");

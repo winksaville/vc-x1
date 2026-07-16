@@ -489,7 +489,65 @@ Todo #1. Single-commit cycle.
 
 ## feat: inline session push + squash-push (0.69.0)
 
-Commits: [[25]],[[26]],[[27]],[[28]]
+Commits: [[25]],[[26]],[[27]],[[28]],[[29]]
+
+Bugs #1 (silent session-push loss): push's session publish ran in
+a detached, delayed child that a sandboxed bot run killed at
+command exit — every bot-run push, silently, while every local
+check passed (tprobe's bot repo sat 8 commits behind). This cycle
+makes the session publish in-process and visible, renames the
+mechanism, and adds a backstop that catches any future loss.
+
+- Inline session push: push's last stage (`squash-push-bot`)
+  squashes the session tail and pushes `main` in-process — a
+  failure is a visible push failure. No detach, no delay, no
+  failure markers.
+- `finalize` → `squash-push`: mechanism-named, repo-generic,
+  zero-ceremony (bare invocation squashes `@ → @-` and pushes
+  `main` in `.`). `--detach`/`--delay`/`--exec`/`--push` and the
+  failure-marker machinery retired; no deprecated alias (the flag
+  surface changed incompatibly).
+- At-rest publish invariant + backstop: between commands the bot
+  repo's `main == main@origin` — the bookmark only moves inside a
+  push / squash-push run, which publishes it in the same
+  invocation. New read-only `vc-x1 validate-bot` checks it; push
+  preflight errors on a mismatch (decided: no automatic fixing);
+  squash-push reports and proceeds (publishing is its job),
+  suppressed when run as push's stage where the mismatch is the
+  normal mid-push state.
+- Content-agnostic principle (decided 2026-07-15): vc-x1 assumes
+  nothing about a repo's contents beyond `.jj` and
+  `.vc-config.toml`. Push preflight's hardcoded cargo
+  fmt/clippy/test removed — preflight is version-control checks
+  only; projects run their own checks before pushing.
+- Work/bot vocabulary: push stages renamed (`commit-work`,
+  `commit-bot`, `push-work`, `squash-push-bot`), prose sweep
+  across docs and code, README rewritten for the new world (new
+  Terminology section; testing walkthroughs re-validated against
+  live fixture runs); cycle-protocol's stop-and-wait rewritten
+  succinct and directive-scoped, plus the user-side Flush recipe.
+- Crate temporarily `vc-x1-dev` during the cycle (dual-install
+  window for another bot instance), renamed back to `vc-x1` at
+  -3 when the window closed.
+- Dogfood: every cycle push ran the WIP binary. Two transient
+  `.git/index.lock` races at `bookmark-set` (the -3 and -4
+  pushes) were recovered by rollback + `--restart` and recorded
+  as a new bug.
+
+### As-built ladder
+
+- 0.69.0-0 prep: version bump, Todo #1 pickup, chores section
+- 0.69.0-1 inline session push (`squash-push-bot` in-process)
+- 0.69.0-2 `finalize` → `squash-push` rename; detach retired;
+  protocol docs rewritten for the inline world
+- 0.69.0-3 published backstop: `validate-bot`, erroring
+  preflight, squash-push report; cargo preflight removed;
+  crate renamed back to `vc-x1`
+- 0.69.0-4 work/bot terminology + stage-name sweep; README
+  rewrite; mismatch report suppressed mid-push; "finalize"
+  scrubbed from `*.rs` and cycle-protocol.md
+- 0.69.0 close-out: Bugs #1 pruned as fixed, index.lock race
+  recorded, notes retired
 
 # References
 
@@ -521,3 +579,4 @@ Commits: [[25]],[[26]],[[27]],[[28]]
 [26]: https://github.com/winksaville/vc-x1/commit/ebd7465c724f "ebd7465c724f32c2034f1a66657d079ddf5cfc23"
 [27]: https://github.com/winksaville/vc-x1/commit/6bb848b7c7bd "6bb848b7c7bd036d57fee9386cefd3e1d44aaa60"
 [28]: https://github.com/winksaville/vc-x1/commit/c1844659350b "c1844659350b00b2d04f6259493ad3a686b3d163"
+[29]: https://github.com/winksaville/vc-x1/commit/d2fa36840c89 "d2fa36840c8915ade0dd4eeab6a59701acc1710e"
