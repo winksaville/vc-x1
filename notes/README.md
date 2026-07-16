@@ -15,6 +15,13 @@ Context+Params port and the options_flags extraction *are* (the
 *live status* is in the chores files) — lives at the repo root in
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
+Multi-cycle programs too big for a todo.md entry get their own
+dated plan file — e.g.
+[refactor-20260716.md](refactor-20260716.md) (typed jj facade →
+jj-lib in-process): one `##` section per stage, so chores and
+todo entries can reference a stage by anchor. The plan file owns
+the forward design; chores still records each shipped cycle.
+
 In the future we I expect we may want to create a "notes"
 database to better manage the information, TBD.
 

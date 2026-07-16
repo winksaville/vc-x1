@@ -4,10 +4,49 @@
 
 This project uses **two separate jj-git repos**:
 
-1. **Work repo** (`/` — project root): Contains the application source code.
+1. **Work repo** (`/` — project root): the project's generated
+   artifact — code, prose, image, song, whatever it produces.
 2. **Bot repo** (`/.claude/`): Contains Claude Code session data.
 
 Both repos are managed with `jj` (Jujutsu), which coexists with git.
+
+**Terminology.** "Work repo" and "bot repo" are the standard
+names; write them as two words, adding a hyphen only when the
+pair sits directly in front of another noun ("work-repo
+commit", "bot-repo side"). Notes:
+
+- `.claude` is the bot repo's *path*, not its name — commands
+  (`-R .claude`) and ochid paths (`/.claude/<chid>`) keep the
+  literal path.
+- The vc-x1 CLI's scope name for the work repo is `code`
+  (`--scope=code|bot|code,bot`).
+- "Work commit" / "Work-N" (capitalized) is a cycle-stage term
+  (see [Cycle Protocol](#cycle-protocol)), not a repo name; a
+  generic commit landing in the work repo is a "work-repo
+  commit", never a bare "work commit".
+
+**Committing vs pushing.** Default to `vc-x1 push` — it commits and
+publishes both repos together, each carrying one `ochid:` pointing at
+the other (see [Cycle Protocol](#cycle-protocol) and
+[ochid trailers](#cross-repo-linking-ochid-trailers)). Use a bare
+`jj commit` (see [jj Basics](#jj-basics)) only when:
+
+- the change will never be published — no `ochid:`;
+- the commit will be squashed away before its series is pushed
+  (loop-and-squash) — no `ochid:`; it disappears in the squash;
+- the commit will be pushed later as a non-top commit — `jj commit`
+  and add its `ochid:` now, because `vc-x1 push` stamps only the
+  topmost commit it pushes, never the ancestors.
+
+**What "commit" and "push" mean.** In an instruction, "commit",
+"push", and "commit + push" all mean `vc-x1 push` — land *and*
+publish — unless stated otherwise. A bare `jj commit` is asked for
+by name: "local commit", "save locally", "just `jj commit`" (the
+cases above). So the spoken default is publish; the local-only
+save is the named exception. The approval around a push —
+interactive by default, waived only by an explicit scoped
+delegation — is the cycle protocol's
+[Pushing policy](notes/cycle-protocol.md#policy).
 
 ## Repo Paths (relative from project root)
 
@@ -60,10 +99,10 @@ slice your task needs; grep or read further on demand.
   (`grep '^## ' notes/chores/chores-NN.md`), then read only
   the section you need.
 
-**Why:** before the 0.58.0 split, `notes/todo.md` ran ~370
-lines and grew every cycle. The split moved the backlog and
-bugs into sibling files so the routine read stays small; the
-same "slice you need" rule applies to historical files.
+**Why:** the routine read should stay small. `notes/todo.md`
+grows every cycle, so the backlog and bugs live in sibling
+files rather than inline; the same "slice you need" rule
+applies to historical files.
 
 ## Memory
 
@@ -81,13 +120,30 @@ and it loses on discoverability:
 Easy for everyone to find beats convenient for the bot alone. Put
 durable context in AGENTS.md (or committed `notes/`) instead.
 
+## Plain synopsis after technical explanations
+
+When a conversational reply centers on a technical explanation
+(measurement theory, statistics, hardware behavior), end it
+with a short plain-language synopsis — no jargon, no symbols —
+so the reader can check their understanding against the
+technical version.
+
+**Why:** the technical form is precise but easy to misread;
+the plain form catches misunderstandings early, when they are
+cheap.
+
+**How to apply:** conversation only, not notes files (a notes
+entry should already lead with the why). Mark it clearly (e.g.
+"The plain version:"). A reply that is already plain needs no
+synopsis.
+
 ## Speculation marker
 
 Durable text the bot writes — AGENTS.md, `notes/`, commit bodies,
 chores sections — should stick to observations and direct descriptions
 of the code or data. If a mechanism, hypothesis, or causal claim
-enters the text, prefix it with "The bot thinks ..." so a reader can
-tell the measured from the inferred.
+enters the text, prefix it with "We think ..." (a royal "we") so a
+reader can tell the measured from the inferred.
 
 **Why:** unmarked speculation reads like evidence, and a future reader
 (or the bot on a later session) can pick it up as a known fact when
@@ -95,8 +151,8 @@ it's not. Measured / inferred is a distinction worth keeping visible
 in the written record.
 
 **How to apply:** observations and factual descriptions need no
-marker. Prefix with "The bot thinks ..." (or a close variant like
-"The bot's guess is ...") when the claim is a mechanism ("X wins
+marker. Prefix with "We think ..." (or a close variant like
+"Our guess is ...") when the claim is a mechanism ("X wins
 because Y caches better"), a cause ("the drift was due to thermal
 state"), a prediction ("this should scale linearly"), or any
 reasoning not directly supported by the data on hand.
@@ -114,15 +170,82 @@ jj detects the rename by content.
 
 - `jj st -R .` / `jj st -R .claude` — show working copy status
 - `jj log -R .` / `jj log -R .claude` — show commit log
-- `jj commit -m "title" -m "body" -R <repo>` — seal the working copy into a commit
+- `jj commit -m "title" -m "body" -R <repo>` — finalize working copy into a commit
 - `jj describe -m "title" -m "body" -R <repo>` — set description without committing
 - `jj git push --bookmark <name> -R <repo>` — push a bookmark (no
   `--allow-new` flag; jj pushes new bookmarks without special flags)
 - In jj, the working copy (@) is always a mutable commit being edited.
-  `jj commit` seals it and creates a new empty working copy on top.
-- The `.claude` repo always has uncommitted changes during an active
+  `jj commit` finalizes it and creates a new empty working copy on top.
+- The bot repo always has uncommitted changes during an active
   session because session data updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
+
+## Cross-repo linking (ochid trailers)
+
+The cross-reference between the work repo and the bot repo is
+what makes the dual-repo work: every commit points at its
+counterpart in the other repo, so the "what" (code) and the
+"why / how" (session) stay linked across time. That pointer is the
+**ochid** (Other Change ID) git trailer.
+
+A **chid** is jj's change ID — a permanent identifier that
+survives rebases and `describe`s (unlike the commit ID / git SHA,
+which changes on rewrite). An **ochid** trailer carries the
+counterpart commit's chid as a workspace-root-relative path:
+
+- Paths start with `/` — the workspace root, i.e. the work repo
+  (the project root). `/.claude` is the bot sub-repo.
+- `ochid: /<chid>` references a change in the **work repo**.
+- `ochid: /.claude/<chid>` references a change in the **bot
+  repo**.
+
+Trailers are blank-line-separated `key: value` lines at the end of
+the commit body, using the chid's **12-character** prefix:
+
+```
+ochid: /.claude/xvzvruqowktp   # points to a bot-repo change
+ochid: /wtpmottvxqzl           # points to a work-repo change
+```
+
+How many, and which direction:
+
+- **Work-repo commits** each carry one
+  `ochid: /.claude/<bot-chid>` — the bot repo's change ID.
+- **The bot-repo commit** carries one `ochid: /<work-chid>` per
+  work-repo commit in that push. More than one occurs on a Merge
+  non-ff close-out (one ochid per Work commit in the cycle).
+
+Use `vc-x1 chid -s code,bot -L` to capture the change IDs (first
+line work repo, second bot repo).
+
+### Resolvability
+
+A change ID travels with its commit: a **pushed** commit resolves
+to the same chid in every clone — cloning the bot repo gave
+the published `main` tip the same chid as an existing clone. We
+think jj carries the change ID in the git commit object, so it
+survives `jj git clone` / fetch.
+
+The local-only case is the **working-copy `@`**: jj mints a fresh
+random chid for `@` in each clone, so an unpushed `@` is never a
+stable ochid target. This is why a bot-repo ochid names `@-`
+(the last committed change), not `@`.
+
+### .vc-config.toml
+
+Each repo contains a `.vc-config.toml` that identifies its
+location within the workspace, so tools resolve these paths
+without repeating the workspace path in every trailer:
+
+```toml
+# In the work repo (workspace root):
+[workspace]
+path = "/"
+
+# In .claude (sub-repo):
+[workspace]
+path = "/.claude"
+```
 
 ## Prose form
 
@@ -157,28 +280,76 @@ Bullet *content* differs by surface:
 - **Doc comments** — bullets are whatever structure fits (fields,
   cases, invariants).
 
-**Problem + plan shape.** `## In Progress` cycle blocks,
-chores section intros, and `## Todo` entries use a sharper
-form of the same shape:
+### Problem + plan shape
+
+`## In Progress` cycle blocks, chores section intros, and `## Todo`
+entries use a sharper form of the same shape:
 
 - **Problem statement** (the why) — one or two sentences;
   don't pad with intent, don't restate the plan.
 - **Plan bullets** (the what/when) — formality differs by
   surface:
-  - In Progress / chores: numbered ladder (`-N` suffixes,
-    `(current)` / `(done)` markers) — a committed sequence.
+  - In Progress / chores: a committed ladder, one step per
+    commit — see
+    [Conventional-commit shape](#conventional-commit-shape-ladder--chores--commit)
+    for the per-step title + `(current)` / `(done)` form.
   - Todo entries: rough informal bullets, no numbering;
     formalized only when the entry is picked up into a
     cycle.
 
-**Semicolons inside bullets.** A bullet that joins
-multiple clauses with semicolons (`A; B; C`) is a list
-hiding inside running prose — break the clauses into
-sub-bullets so the structure shows. Semicolons in running
-prose (intro paragraphs, sentence-joins) are fine. Not
-absolute: very short clauses or tight pairs can stay
-joined inside a bullet when breaking would be more noise
-than signal.
+### Semicolons inside bullets
+
+A bullet that joins multiple clauses with semicolons (`A; B; C`)
+is a list hiding inside running prose — break the clauses into
+sub-bullets so the structure shows. Semicolons in running prose
+(intro paragraphs, sentence-joins) are fine. Not absolute: very
+short clauses or tight pairs can stay joined inside a bullet when
+breaking would be more noise than signal.
+
+### Conventional-commit shape (ladder / chores / commit)
+
+A ladder step, its chores section, and its commit description
+share a *title* shape — a
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+title over [Prose form](#prose-form) detail. They differ in the
+title's prefix / marker (below) and in bullet *content* — commit
+bodies are file-by-file, ladder / chores conceptual (see "Bullet
+*content* differs by surface" above). The shared template:
+
+```
+<optional - X.Y.Z[-N]> <title>   # <title> is the commit's `<type>: <desc>`
+<optional prose intro>
+  - <optional item>
+    <optional prose intro>
+      - <optional sub-item>
+      ...
+```
+
+The three surfaces apply it as:
+
+- **Ladder step** (`notes/todo.md` `## In Progress`): the title is
+  prefixed with the version — `X.Y.Z-N <title>` — and
+  carries a `(current)` / `(done)` marker. The bare three-element
+  `X.Y.Z` (no `-N`) is the close-out step. Detail is bulleted,
+  never `;`-joined inline.
+- **Chores section** (`notes/chores/chores-NN.md`): no version
+  prefix — the `##` header *is* the bare title, with a
+  `Commits: [[ref]]` line first under it (empty until backfilled —
+  see [Chores commit references](#chores-commit-references)).
+- **Commit description**: no version prefix — the title is the
+  ≤50-col first line; the body is the prose (file-by-file for the
+  work repo, per [Per-commit flow](notes/cycle-protocol.md#per-commit-flow)).
+
+The title is **identical** across all three for a given step, so a
+step's ladder entry, its chores `##` header, and its commit title
+line up verbatim — pick the commit title first and reuse it.
+
+That identity is **per step**, not per cycle: each step in a
+cycle gets its own distinct descriptive title — never one shared
+cycle title uniquified by a step marker. The cycle's chores
+section header carries the anticipated *close-out* title. To keep
+a cycle's commits collectable with one `git log --grep`, give the
+step titles a common greppable stem (e.g. `config loader`).
 
 ## Notes file conventions
 
@@ -291,8 +462,8 @@ Example shape:
 
 ```
 # Todo
-- Add new feature X [details](features.md#feature-x)
-- Fix bug Y [[1]]
+1. Add new feature X [details](features.md#feature-x)
+2. Fix bug Y [[1]]
 
 # Done
 - Fixed issue Z [[2]],[[3]]
@@ -312,7 +483,7 @@ at two natural beats:
   commit ships, decide which prior entries are no longer
   needed for nearby context and migrate them.
 - **Opening a new ladder** — at `X.Y.Z-0`, do the same sweep
-  before bumping the version.
+  before bumping the version-of-record.
 
 Migration mechanics:
 
@@ -330,15 +501,17 @@ Migration mechanics:
 
 ### Headings and entries that record a commit
 
-A `chores-NN.md` `##` section header that records a specific
-commit, the matching `todo.md > ## Done` entry, and any `[N]`
-reference to that section all use **exactly that commit's
-title** — `<type>: <desc> (<version>)`, the same string the
-commit gets (see [Per-commit flow](notes/cycle-protocol.md#per-commit-flow)).
-E.g. the chores header `## refactor: port push to Context
-(0.48.0-6)` and the Done line `- refactor: port push to Context
-(0.48.0-6) [[3]]`. The `## Done` entry uses the close-out
-commit's title.
+A commit's title is reused verbatim across its records — see
+[Conventional-commit shape](#conventional-commit-shape-ladder--chores--commit)
+for the rule. Beyond the chores `##` header, that same string is
+used for the matching `todo.md > ## Done` entry and any `[N]`
+reference to that section. Titles carry **no `(<version>)`
+suffix** — see
+[Commit description](notes/cycle-protocol.md#commit-description)
+for why.
+E.g. the chores header `## refactor: extract config loader`
+and the Done line `- refactor: extract config loader [[3]]`.
+The `## Done` entry uses the close-out commit's title.
 
 This does **not** apply to organizational headings (`## Todo`,
 `## In Progress`, `# References`) or to design `###` subsections
@@ -355,11 +528,9 @@ for the slug algorithm; the pre-commit checklist catches a
 dangling `#anchor`, and a future `vc-x1 validate-repo` should too
 (and should verify the recorded title matches the commit).
 
-Existing sections and `## Done` entries (most of chores-01..09;
-the pre-`0.48.1` `## Done` lines) predate this and keep their
-free-form text; the convention applies going forward — `0.48.2`
-converts the `0.48.1` section + its Done entry as the worked
-example.
+Any pre-existing sections and `## Done` entries that predate
+this convention keep their free-form text; the convention
+applies going forward.
 
 ### Chores section content — no edit list; git is the record
 
@@ -393,7 +564,7 @@ The first line under a chores section header is a `Commits:`
 line citing the git commit(s) that section records:
 
 ```
-## refactor: port push to Context (0.48.0-6)
+## refactor: extract config loader
 
 Commits: [[3]]
 
@@ -411,7 +582,7 @@ puts the **commit URL** as the destination, with the **full
 40-hex SHA** in the title slot:
 
 ```
-[3]: https://github.com/winksaville/vc-x1/commit/<12-hex> "<40-hex>"
+[3]: https://github.com/<owner>/<repo>/commit/<12-hex> "<40-hex>"
 ```
 
 - The 12-hex short SHA in the URL keeps it short; GitHub /
@@ -422,27 +593,63 @@ puts the **commit URL** as the destination, with the **full
   any clone, and external tooling scraping the notes (a
   database, say) gets the canonical identifier.
 
-**Timing.** The commit doesn't exist when its chores section is
-written, so the `Commits:` line is **backfilled when the next
-change to that repo is started** — the cycle-start step grabs
-the just-pushed commit's URL + SHA and fills it in. The single
-newest section is briefly `Commits:`-less; that's fine — the
-commit itself is the record, and `git log --grep "(X.Y.Z)"`
-finds it.
+**Timing.** A commit's SHA isn't stable until it lands on a
+**permanent branch** (`main`, or a long-lived release/patch
+branch) — a rebase or squash rewrites it on the way. A commit
+can't record its own SHA, so the fill lands one push later:
+every section opens with an **empty `Commits:`**, and each push
+backfills the `Commits:` of the commits the previous push made
+permanent. On a topic branch a section waits until the branch
+lands. The commit itself is the record, and
+`git log --grep "<title>"` finds it. See cycle-protocol
+[Commits backfill](notes/cycle-protocol.md#commits-backfill).
 
 ## Cycle Protocol
 
 Every change runs as a **cycle**: Preparation (`X.Y.Z-0`) →
 Work commits (`X.Y.Z-1`, `X.Y.Z-2`, …) → Close-out (bare
 `X.Y.Z`). Each commit runs through a per-commit flow whose
-cargo cycle is `cargo fmt`, `cargo clippy --all-targets
--- -D warnings`, `cargo test`, `cargo install --path .
---locked` (skip-able for purely-docs commits; mandatory at
-close-out). The full protocol — numbering, per-commit
-flow, reviewing changes, close-out, pushing, ochid
-trailers, sub-cycles — lives in
+validation step is medium-specific — the Rust example is the
+cargo cycle (fmt → clippy → test → install); skip-able for
+notes-only commits, mandatory at close-out. The full protocol
+— numbering, per-commit flow, reviewing changes, close-out,
+pushing, ochid trailers, sub-cycles — lives in
 [`notes/cycle-protocol.md`](notes/cycle-protocol.md). Read
-it before any commit work.
+it before any commit work — and before any push, cycle or
+not: pushes always need per-push user approval (see
+[Pushing policy](notes/cycle-protocol.md#policy)).
+
+**Versioning.** How this repo numbers cycles, where the
+version-of-record lives, and its bump cadence are
+project-specific and documented in
+[versioning.md](notes/versioning.md) — the single source of
+truth that AGENTS.md and cycle-protocol.md refer to
+abstractly.
+
+**Hard stop after push/squash-push.** Once a push or bot-repo
+squash-push is invoked (`vc-x1 push` does both), do no further
+work — no verification, no summary, no next-step offers —
+until the user speaks. Put all closing words *before* the
+invoke. The harness rejects an empty turn, so it may force a
+visible token after the tool returns; if so, emit a bare
+acknowledgment only (e.g. "landed") — never a summary or more
+work. Post-push verification happens next turn at the user's
+direction. See
+[After push or squash-push](notes/cycle-protocol.md#after-push-or-squash-push-stop-and-wait).
+
+**`vc-x1 push` behaviors to keep in mind.** Two, independent
+of project language:
+
+- **Preflight** checks repo state only — bookmark tracking,
+  the bot-published invariant (`main == main@origin` in the
+  bot repo), and a `sync --check`. It runs no build or
+  tests: vc-x1 assumes nothing about a repo's contents
+  beyond `.jj` and `.vc-config.toml`. The medium's
+  validation (e.g. the Rust cargo cycle) is the per-commit
+  flow's job, run *before* invoking `vc-x1 push`.
+- **ochid trailers** are injected by `vc-x1 push` itself —
+  don't hand-write them into the commit body or
+  `--title`/`--body`.
 
 
 ## Code Conventions
@@ -469,23 +676,51 @@ its own line in the rendered help.
 
 ### `// OK: …` comments on `unwrap*` calls (Rust)
 
-Non-test code that calls `.unwrap()`, `.unwrap_or(…)`,
-`.unwrap_or_default()`, or `.unwrap_or_else(…)` must have a trailing
-`// OK: …` comment that justifies why the call is acceptable.
+The default in non-test code is to **not** use `.unwrap()`,
+`.expect(…)`, or the `.unwrap_or*(…)` siblings — prefer a shape
+that doesn't need them (`match`, `if let`, slice patterns,
+infallible-by-construction APIs), which is usually also the
+clearer code. This is a lean, not a ban: some sites are
+legitimately best expressed with one. Two kinds of risk, both
+in scope:
 
-- `// OK: <specific reason>` — document the real precondition,
-  invariant, or domain reason. Preferred whenever the reason isn't
-  self-evident.
-- `// OK: obvious` — the default is self-evident from context (e.g.
-  `desc.lines().next().unwrap_or("")` — empty desc → empty title).
+- `.unwrap()` / `.expect(…)` — a panic path.
+- `.unwrap_or(…)` / `.unwrap_or_default()` /
+  `.unwrap_or_else(…)` — no panic, but a silently substituted
+  value that can hide a wrong result.
 
-Bare `// OK` is not used (reads like a truncated comment).
-Abbreviations (e.g. `SE`) are not used because they require a decoder
-ring for readers seeing the code out of context.
+When one is used, three obligations attach:
 
-For provably-unreachable `.unwrap()` calls, also prefix with
-`#[allow(clippy::unwrap_used)]` so the site stays silent if we enable
-the project-wide `clippy::unwrap_used` lint later.
+- A trailing `// OK: …` comment justifying why the call is
+  acceptable:
+  - `// OK: <specific reason>` — document the real
+    precondition, invariant, or domain reason. Preferred
+    whenever the reason isn't self-evident.
+  - `// OK: obvious` — the default is self-evident from context
+    (e.g. `desc.lines().next().unwrap_or("")` — empty desc →
+    empty title).
+  - Bare `// OK` is not used (reads like a truncated comment).
+    Abbreviations (e.g. `SE`) are not used because they require
+    a decoder ring for readers seeing the code out of context.
+- **Alert the user in conversation** when introducing one, so
+  the site gets reviewed and appropriate uses are learned —
+  don't let it ride in silently on a larger diff.
+- For `.unwrap()` / `.expect(…)`, an `#[allow(...)]` at the
+  site, because Rust projects enable the project-wide lints in
+  `Cargo.toml`:
+
+  ```toml
+  [lints.clippy]
+  unwrap_used = "warn"
+  expect_used = "warn"
+  ```
+
+  Every panicking site is then opt-in and visible in the diff;
+  clippy (run by preflight) catches any that slip through. The
+  `_or*` siblings have no clippy lint — they are covered by the
+  comment convention and the conversational alert. (The
+  vc-template-x1 template's `CargoRust.toml` seeds a base
+  `Cargo.toml` with this section already in place.)
 
 ```rust
 let max = stderr_level.unwrap_or(LevelFilter::Info); // OK: default verbosity when -v/-vv absent

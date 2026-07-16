@@ -489,7 +489,7 @@ Todo #1. Single-commit cycle.
 
 ## feat: inline session push + squash-push (0.69.0)
 
-Commits: [[25]],[[26]],[[27]],[[28]],[[29]]
+Commits: [[25]],[[26]],[[27]],[[28]],[[29]],[[30]]
 
 Bugs #1 (silent session-push loss): push's session publish ran in
 a detached, delayed child that a sandboxed bot run killed at
@@ -549,7 +549,33 @@ mechanism, and adds a backstop that catches any future loss.
 - 0.69.0 close-out: Bugs #1 pruned as fixed, index.lock race
   recorded, notes retired
 
-# References
+## docs: shared protocol sync + jj refactor plan
+
+Commits:
+
+Two docs threads landed together (first title under the new
+no-version-suffix convention — see versioning.md, adopted this
+commit).
+
+- Shared protocol sync: adopt the vc-template-x1 shared set —
+  AGENTS.md, cycle-protocol.md, versioning.md (new),
+  jj-tips.md (new, supersedes jj-revsets.md) — with vc-x1's
+  0.69.0 corrections applied and ratified template-side
+  (inline squash-push flow restored, current stage names,
+  preflight described as state-checks-only, roadmap material
+  de-projected from the wrapper section). The per-file
+  what/why is
+  [notes-sync-20260716.md](../notes-sync-20260716.md); the
+  goal is a byte-identical shared set across iiac-perf,
+  vc-x1, vc-template-x1.
+- jj refactor program: the `bookmark-set` index-lock race
+  investigation (bugs.md entry 3) grew into a staged program
+  — typed jj facade → jj-lib in-process, ending subprocess
+  spawning — absorbing eight existing Todos; plan and design
+  in [refactor-20260716.md](../refactor-20260716.md) (the
+  first dated plan file, one `##` section per stage for
+  stable anchors). todo.md restructured around it; the
+  TODO.md-move entry added as Todo #1.
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -580,3 +606,4 @@ mechanism, and adds a backstop that catches any future loss.
 [27]: https://github.com/winksaville/vc-x1/commit/6bb848b7c7bd "6bb848b7c7bd036d57fee9386cefd3e1d44aaa60"
 [28]: https://github.com/winksaville/vc-x1/commit/c1844659350b "c1844659350b00b2d04f6259493ad3a686b3d163"
 [29]: https://github.com/winksaville/vc-x1/commit/d2fa36840c89 "d2fa36840c8915ade0dd4eeab6a59701acc1710e"
+[30]: https://github.com/winksaville/vc-x1/commit/c169225e1f2b "c169225e1f2bcacc34fc02966695a05090f13297"

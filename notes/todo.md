@@ -31,7 +31,46 @@ by the "plan" — a bulleted list of the development "ladder":
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **vc-x1 push: pause point between commit and publish
+1. **Move `notes/todo.md` to `./TODO.md`.** The todo list is
+   the project's live state and the routine acquaint read;
+   root-level uppercase puts it in the conventional root-file
+   family (README, LICENSE, AGENTS.md, ARCHITECTURE.md) —
+   the same "easy for everyone to find" argument that put
+   AGENTS.md at the root. Siblings (`todo-backlog.md`,
+   `bugs.md`, `done.md`) stay in `notes/` — TODO.md is the
+   entry point, the README→docs/ shape.
+   - Reference churn: TODO.md's relative links gain `notes/`
+     prefixes; inbound links in `notes/README.md` and
+     `refactor-20260716.md` update; historical chores
+     mentions stay as-is.
+   - The AGENTS.md "File reads" section is part of the
+     shared verbatim set, so this is a three-project change
+     (vc-x1, vc-template-x1, iiac-perf) applied identically —
+     sequence it *after* the in-flight notes-sync review
+     round lands.
+   - Sweep src/ doc strings / help text naming
+     `notes/todo.md` (the tools take the path as an arg, so
+     code behavior is unaffected).
+   - Decision (2026-07-16): shared AGENTS.md keeps hard
+     paths (greppable) rather than naming the file
+     abstractly.
+2. **Refactor: typed jj facade → jj-lib in-process; end
+   subprocess spawning.** Version-control operations are
+   ~30 hand-rolled `run("jj", …)` spawns plus every
+   mutation, with per-module private wrappers and raw-git
+   vestiges in init — stderr parsing instead of typed
+   errors, and jj's single-attempt index-lock acquisition
+   (the push `bookmark-set` lock race in [bugs.md](bugs.md))
+   can't be retried where it fails. A multi-ladder program;
+   the staged plan, design detail, and the eight absorbed
+   former Todos live in
+   [refactor-20260716.md](refactor-20260716.md).
+   - Stages in execution order: DRY facade → hygiene
+     riders → facade owns topology → de-gitify init →
+     split push.rs → jj-lib migration → push body-intro
+     validation → trapezoid close-out → por → dual
+     conversion.
+3. **vc-x1 push: pause point between commit and publish
    stages.** The merge non-ff close-out is a three-step
    sequence:
    - commit the close-out pair locally (normal 1:1 commit
@@ -55,8 +94,12 @@ by the "plan" — a bulleted list of the development "ladder":
      the trapezoidal-commit workflow (1:1 bot↔code
      throughout; the merge is a code-side-only shape
      operation).
+   - Interim recipe only: the refactor program's
+     [trapezoid close-out stage](refactor-20260716.md#stage-trapezoid-close-out)
+     is the end state; this pause point remains the manual
+     path until it lands.
 
-2. **Version-number protocol is fragile — versions are
+4. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -81,7 +124,7 @@ by the "plan" — a bulleted list of the development "ladder":
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-3. **sync follow-up: extract `move-bookmark` command.** The
+5. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -91,7 +134,7 @@ by the "plan" — a bulleted list of the development "ladder":
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-4. **sync follow-up: push preflight in-process; drop
+6. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -106,7 +149,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-5. **validate-numbering: rename the pair, check all
+7. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -135,7 +178,7 @@ by the "plan" — a bulleted list of the development "ladder":
      a specific file.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-6. **pre-commit: single rule (no docs skip) + doc validators.**
+8. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -161,24 +204,7 @@ by the "plan" — a bulleted list of the development "ladder":
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-7. **vc-x1 push: validate body opens with an intro paragraph.**
-   A body whose first line is a bullet (`- file: …`) is a
-   Prose-Form violation — bodies must open with an intro
-   paragraph, then bullets. Today such a body trips jj's arg
-   parser (`jj commit -m "<body>"` reads the leading `-` as a
-   stray flag) and push fails with an opaque error. Hit on
-   0.62.0-5.
-   - Feature, not a parser bug (reframed): push should
-     *validate* the body opens with a non-dash intro line and
-     flag its absence with a clear, specific error pointing at
-     the offending first line — rather than letting jj emit a
-     confusing one, or quietly accepting a bullet-first body.
-   - Enforcing the intro is the intended behavior, matching
-     the Prose-Form convention; we are not "fixing" the parser
-     to accept bullet-first bodies.
-   - Workaround until the explicit check lands: prepend a
-     non-dash intro sentence to the body.
-8. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The interop / adoption scenario breaks that:
    the code side is worked single-repo style (commit +
@@ -204,75 +230,20 @@ by the "plan" — a bulleted list of the development "ladder":
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-9. **Dedup jj subprocess queries behind a typed facade.**
-   ~30 call sites hand-roll `run("jj", ["log", "-r", <rev>,
-   "--no-graph", "-T", <template>, "-R", <repo>])` and each
-   module has quietly grown a private wrapper:
-   `squash_push::{jj_rev_exists, jj_commit_id,
-   rev_is_empty_undescribed}`, `push::jj_log_empty` plus four
-   inline `change_id.short(12)` blocks, `init::jj_chid`,
-   three template variants in `sync.rs`. Spotted at 0.69.0-2:
-   `jj_rev_exists` read as "first of its kind" but is the
-   Nth reinvention.
-   - one facade module (name open: `src/jj.rs` or a
-     `common` split): `jj_log(repo, rev, template)` plus
-     typed helpers — `rev_exists`, `chid_of`, `cid_of`,
-     `desc_of`, `is_empty`
-   - fold `main::bm_track_one` (raw `std::process::Command`
-     + its own `@origin:` prefix parse) onto
-     `common::verify_tracking`'s parser — two tracking
-     parsers will eventually disagree
-   - unify string-level ochid trailer parsing:
-     `squash_push::extract_ochids` vs `common::extract_ochid`
-     (jj-lib `Commit`-based); one string-level parser in
-     `desc_helpers` both can call
-   - test dedup: promote the near-identical `jj()` / `cid()`
-     / `chid()` / `description()` helpers from
-     `push/integration_tests.rs`, `sync/integration_tests.rs`,
-     and `tests/cli_sync.rs` into `test_helpers.rs`
-10. **Split push.rs state machinery; document the jj-lib vs
-    subprocess rule.** `push.rs` (~1.6k lines, the largest
-    file) holds the `Stage` machine, TOML state persistence,
-    eight stage bodies, two sanity verifiers, and the
-    interactive gates; `sync/state.rs` is the in-repo
-    precedent for splitting.
-    - extract `push/state.rs`: `Stage`, `PushState`, state
-      layout resolution
-    - ARCHITECTURE.md: state the implicit access rule —
-      read-only display commands (`chid`, `desc`, `list`,
-      `show`, `validate-desc`) use jj-lib in-process;
-      mutating commands (`init`, `sync`, `push`,
-      `squash-push`) shell out to `jj` — so new subcommands
-      don't re-decide it ad hoc
-11. **Make the bot repo directory name configurable (not
-    hardcoded `.claude`).** The bot repo lives at `.claude`
-    because that is where Claude Code keeps session data,
-    but the concept is agent-agnostic and the user wants to
-    change it (decided 2026-07-15: the name does not need to
-    be `.claude`). Today the literal is embedded across
-    init/clone/push/sync, `claude_path()`, ochid path
-    semantics (`/.claude/<chid>`), the
-    `~/.claude/projects/<path>` symlink, and docs.
-    - `.vc-config.toml` already records each repo's
-      workspace path — likely the natural home for the
-      configurable name.
-    - Open: migration for existing workspaces, the ochid
-      trailer prefix (recorded in immutable history), and
-      the Claude Code symlink whose location the harness
-      controls.
-12. **Run validate-bot at every vc-x1 invocation
+10. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
     "could, not should". Design points:
     - locate the bot repo (`<cwd>/.claude` or config;
-      shares the lookup with the configurable-name Todo
-      above) and silently skip when absent
+      shares the lookup with the refactor program's
+      [facade-owns-topology stage](refactor-20260716.md#stage-facade-owns-topology))
+      and silently skip when absent
     - severity knob in `.vc-config.toml`
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-13. **README: audit flag tables and examples against the
+11. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -283,49 +254,6 @@ by the "plan" — a bulleted list of the development "ladder":
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-14. **Terminology stragglers from the work/bot sweep.** The
-    0.69.0-4 sweep renamed prose and push stage names but
-    left identifier-level uses of the old vocabulary:
-    - `-s` scope keyword `code` (CLI value — renaming to
-      `work` is a breaking change; `bot` already matches)
-    - init's literal remote names `remote-code.git` /
-      `remote-claude.git`
-    - identifiers: `derive_session_url`, `claude_path`,
-      `Fixture.claude`, `Side::Code`
-    - decide rename vs document-as-historical; overlaps
-      "Make the bot repo directory name configurable"
-      above
-15. **single-field `options_flags` leaves → `value` field.**
-    `0.47.0` introduced the convention (single-field leaf names
-    its field `value`, declares the flag via `#[arg(long = "…")]`,
-    so consumers read `args.<leaf>.value` not `args.<leaf>.<leaf>`)
-    on the new `squash` leaf. Sweep the pre-existing single-field
-    leaves to match: `repo`, `dry_run`, `private`, `account`,
-    `config`, `use_template` + their consumers
-    (`init.rs`, tests).
-
-    Note: can a single field be defined as an type or enum instead
-    of a struct and maybe eliminate the `args.<leaf>.<leaf>` name
-    issue.
-16. **`por → dual` conversion.** Attach a `.claude`
-    companion repo + `.vc-config.toml` to an existing por
-    workspace; emit cross-links going forward. Manual
-    setup on an external por workspace (2026-05-14)
-    proved arduous; this should be a routine subcommand.
-    Design stub in [[1]] § 2.
-17. **`validate-desc` / `fix-desc` por equalization.**
-    Replace the `other_repo_from_config` prelude in both
-    subcommands (`validate_desc.rs:133`, `fix_desc.rs:152`)
-    with a scope-aware resolution that no-ops `Side::Bot`
-    when absent. Body unchanged. The 0.61.0 audit/design
-    work [[13]] identified this as the cheapest concrete
-    equalization and the right prototype for the
-    topology-from-config rule (subcommand reads topology
-    from `default_scope`, not from a flag). Validates the
-    broader design before larger pieces (`push`,
-    `--init-from*`) commit to it. The remaining 13
-    implementation gaps live in [[13]]'s `## Gap list` for
-    future Preparation passes to pick up.
 
 ## Ideas
 
@@ -435,12 +363,12 @@ _Migrated to [done.md](done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 - feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
 - docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
 - feat: inline session push + squash-push (0.69.0) — push's session publish is in-process (`squash-push-bot` stage; a failure is a visible push failure — the silent session-push loss fixed); `finalize` renamed to the zero-ceremony `squash-push` (detach / delay / failure markers retired, no alias); new `vc-x1 validate-bot` + an erroring push-preflight backstop enforce the at-rest `main == main@origin` invariant (no auto-fix); push preflight drops the hardcoded cargo steps (vc-x1 assumes nothing about repo contents beyond `.jj` + `.vc-config.toml`); work/bot terminology + stage renames across code and docs, README rewritten (Terminology section, live-validated walkthroughs); crate renamed back to `vc-x1` [[20]]
+- docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](refactor-20260716.md), absorbing eight Todos [[1]]
 
 # References
 
-[1]: /notes/design-cli/por-dual-parity.md
+[1]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
 [10]: /notes/forks-multi-user.md
-[13]: /notes/chores/chores-12.md#docs-pordual-parity-design-0610
 [20]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690
 [23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
 [25]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681

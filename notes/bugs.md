@@ -58,7 +58,8 @@ insert / delete / reorder.
        contention is external, so this alone doesn't
        remove the race, but the retry loop becomes ours
        (catch the lock error, back off, retry) with real
-       error types instead of stderr parsing; overlaps the
-       jj-facade and jj-lib-vs-subprocess Todos
+       error types instead of stderr parsing; this is the
+       refactor program's
+       [jj-lib migration stage](refactor-20260716.md#stage-jj-lib-migration)
 
 # References

@@ -249,8 +249,9 @@ All resolved by the `0.42.0-4.7` rebase landing:
 - `notes/chores/chores-07.md > ## init + clone redesign
   (0.41.1)` — full design captured in 0.42.0-4
   (docs-only commit on main).
-- `notes/jj-revsets.md` — revset primitives used in
-  the diagnostic and playbook above (`..` exclusive
+- `notes/jj-tips.md > ## Revsets` (formerly
+  `jj-revsets.md`) — revset primitives used in the
+  diagnostic and playbook above (`..` exclusive
   range, `::` inclusive DAG range, `heads()`,
   template `if(conflict, ...)`).
 - `notes/cycle-protocol.md > ## Sub-cycles` —
