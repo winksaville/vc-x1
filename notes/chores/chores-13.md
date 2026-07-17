@@ -617,7 +617,7 @@ TODO.md is the entry point, the README→docs/ shape.
 - [[35]] 0.69.2-2 refactor: TODO.md as validate/fix-todo default
 - [[36]] 0.69.2 docs: move todo.md to root TODO.md (close-out)
 
-## feat: show-session transcript viewer
+## feat: bot-session transcript viewer
 
 Commits:
 

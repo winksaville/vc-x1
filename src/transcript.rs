@@ -34,6 +34,11 @@ pub struct FileTranscript {
 }
 
 /// One parsed JSONL line.
+// dead_code: fields extracted but not yet rendered (uuid
+// threading, raw retention, block ids) are the typed layer's
+// forward surface for later cycles (linking, index view,
+// cross-file refs); unit tests exercise them today.
+#[allow(dead_code)]
 pub struct Entry {
     /// 1-based line number in the source file.
     pub line_no: usize,
@@ -46,6 +51,8 @@ pub struct Entry {
 }
 
 /// Common top-level fields; each degrades gracefully when absent.
+// dead_code: see the Entry note.
+#[allow(dead_code)]
 pub struct EntryMeta {
     /// Unique id of this entry.
     pub uuid: Option<String>,
@@ -64,6 +71,8 @@ pub struct EntryMeta {
 }
 
 /// Classified payload by top-level `type`.
+// dead_code: see the Entry note.
+#[allow(dead_code)]
 pub enum EntryKind {
     /// `type=user`: a typed prompt (string content) or tool
     /// results (array content) — both normalized to blocks.
@@ -95,6 +104,8 @@ pub enum EntryKind {
 }
 
 /// One block of `message.content`.
+// dead_code: see the Entry note.
+#[allow(dead_code)]
 pub enum ContentBlock {
     /// Visible text.
     Text {

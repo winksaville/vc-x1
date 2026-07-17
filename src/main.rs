@@ -1,3 +1,4 @@
+mod bot_session;
 mod chid;
 mod clone;
 mod common;
@@ -25,8 +26,6 @@ mod test_helpers;
 mod test_tmp_root;
 mod todo_helpers;
 mod toml_simple;
-// dead_code: consumer (show-session, 0.70.0-2) not landed yet.
-#[allow(dead_code)]
 mod transcript;
 mod url;
 mod validate_bot;
@@ -129,6 +128,21 @@ pub(crate) enum Commands {
 
     /// Show commit details and diff summary
     Show(show::ShowArgs),
+
+    /// Display a bot session transcript as a conversation
+    #[command(
+        long_about = "Display a Claude Code bot session transcript (.jsonl) as a\n\
+        readable conversation.\n\n\
+        Default view shows user prompts and assistant text in full and\n\
+        tool calls as one-liners; thinking, tool results, and\n\
+        meta/system/sidechain entries are hidden — reveal them with\n\
+        --thinking / --results / --meta (or --all). A trailing summary\n\
+        line reports\n\
+        what was hidden or skipped. Malformed lines (e.g. a live\n\
+        session's truncated last line) warn to stderr and never fail\n\
+        the run."
+    )]
+    BotSession(bot_session::BotSessionArgs),
 
     /// Check the bot repo is published (main matches main@origin)
     #[command(
@@ -401,6 +415,7 @@ fn main() -> ExitCode {
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),
         Commands::Show(args) => args.dispatch(&ctx),
+        Commands::BotSession(args) => args.dispatch(&ctx),
         Commands::ValidateBot(args) => args.dispatch(&ctx),
         Commands::ValidateDesc(args) => args.dispatch(&ctx),
         Commands::FixDesc(args) => args.dispatch(&ctx),

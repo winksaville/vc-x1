@@ -62,4 +62,20 @@ insert / delete / reorder.
        refactor program's
        [jj-lib migration stage](refactor-20260716.md#stage-jj-lib-migration)
 
+4. **stdout output panics on a closed pipe (EPIPE).**
+   `vc-x1 bot-session <file> | head` panics once `head`
+   closes the pipe: the logger's `println!` aborts with
+   "failed printing to stdout: Broken pipe". Repo-wide
+   behavior of the `info!` → `println!` path, but
+   bot-session (0.70.0-2) is the first subcommand whose
+   output routinely feeds a pager/filter. Found during
+   0.70.0-2 verification.
+   - **Cost:** ugly panic + backtrace hint instead of the
+     Unix-conventional silent exit; output before the pipe
+     closed is intact.
+   - **Fix direction:** handle EPIPE in the logger (write
+     via `writeln!` to a locked stdout and exit 0 on
+     `BrokenPipe`), or reset SIGPIPE to default on unix at
+     startup.
+
 # References
