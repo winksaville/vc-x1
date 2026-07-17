@@ -551,7 +551,7 @@ mechanism, and adds a backstop that catches any future loss.
 
 ## docs: shared protocol sync + jj refactor plan
 
-Commits:
+Commits: [[31]],[[32]]
 
 Two docs threads landed together (first title under the new
 no-version-suffix convention — see versioning.md, adopted this
@@ -576,6 +576,14 @@ commit).
   first dated plan file, one `##` section per stage for
   stable anchors). todo.md restructured around it; the
   TODO.md-move entry added as Todo #1.
+- [[32]] (`docs: converge shared protocol doc set`) is the
+  follow-up review round: the four fixes agreed across the
+  three sessions, converging the shared set byte-identical
+  (agreed sha256s recorded in its commit body).
+
+## docs: move todo.md to root TODO.md
+
+Commits:
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -607,3 +615,5 @@ commit).
 [28]: https://github.com/winksaville/vc-x1/commit/c1844659350b "c1844659350b00b2d04f6259493ad3a686b3d163"
 [29]: https://github.com/winksaville/vc-x1/commit/d2fa36840c89 "d2fa36840c8915ade0dd4eeab6a59701acc1710e"
 [30]: https://github.com/winksaville/vc-x1/commit/c169225e1f2b "c169225e1f2bcacc34fc02966695a05090f13297"
+[31]: https://github.com/winksaville/vc-x1/commit/be71ef70e5b7 "be71ef70e5b7d26bda8477ce841a2e446772b21c"
+[32]: https://github.com/winksaville/vc-x1/commit/66bc1f2cfda8 "66bc1f2cfda8732226a3e7afc42ab9b7e6c83f45"
