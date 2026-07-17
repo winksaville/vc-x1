@@ -895,7 +895,7 @@ fn run_stage(
 ///   prevent. If sync reports action needed, preflight errors and
 ///   the user resolves explicitly with `vc-x1 sync` before
 ///   re-running push (rewiring this shell-out in-process is a
-///   `notes/todo.md` sync follow-up).
+///   `TODO.md` sync follow-up).
 ///
 /// No build/test steps: vc-x1 assumes nothing about a repo's
 /// contents beyond `.jj` and `.vc-config.toml` (decided

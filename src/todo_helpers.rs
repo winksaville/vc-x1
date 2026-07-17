@@ -1,5 +1,5 @@
 //! Shared core for the `validate-todo` / `fix-todo` subcommands:
-//! parse `notes/todo.md`'s numbered sections and compute the
+//! parse `TODO.md`'s numbered sections and compute the
 //! renumber / re-indent plan.
 //!
 //! - `## Todo` and `## Bugs` hold manually-numbered entries
@@ -12,7 +12,7 @@
 //!   their relative depth.
 
 /// Default todo file, relative to the workspace root.
-pub const TODO_FILE: &str = "notes/todo.md";
+pub const TODO_FILE: &str = "TODO.md";
 
 /// A manually-numbered section of the todo file.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

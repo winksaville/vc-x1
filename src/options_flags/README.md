@@ -77,7 +77,7 @@ Wire form is presentation; the category is the underlying domain.
      `dry_run`, `private`, `account`, `config`, `use_template`)
      predate this and still derive the flag from the field name;
      migrating them to `value` is tracked in
-     [`../../notes/todo.md`](../../notes/todo.md).
+     [`../../TODO.md`](../../TODO.md).
 4. Add `pub mod <name>;` to `mod.rs`.
 5. If the leaf has explicit parsing logic, declare a unit-struct
    implementor of `FlagParser` (boolean domain) or `OptionParser`

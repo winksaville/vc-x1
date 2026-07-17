@@ -59,7 +59,7 @@ pub struct SyncArgs {
     ///
     /// Deprecated and hidden: kept solely for `push`'s preflight
     /// shell-out until that is rewired in-process (see the
-    /// `notes/todo.md` sync follow-up). Note the fetch still
+    /// `TODO.md` sync follow-up). Note the fetch still
     /// auto-fast-forwards a tracked bookmark — this mode was never
     /// fully read-only.
     #[arg(long, hide = true)]

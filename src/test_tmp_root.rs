@@ -12,7 +12,7 @@
 //! crate has a different crate root and would fail to resolve
 //! them.
 //!
-//! Future work (per `notes/todo.md`) extends the priority chain
+//! Future work (per `TODO.md`) extends the priority chain
 //! through `~/.config/vc-x1/config.toml` and project-local
 //! `.vc-config.toml`. At that point, config-loading should pass
 //! its result *in* (function arg) rather than be invoked from

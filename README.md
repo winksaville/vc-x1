@@ -313,7 +313,7 @@ indent matching each entry's number-prefix width. Read-only;
 exits non-zero if any entry needs fixing.
 
 ```
-# Check notes/todo.md (the default)
+# Check TODO.md (the default)
 vc-x1 validate-todo
 
 # Check a specific file

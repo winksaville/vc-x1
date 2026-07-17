@@ -46,6 +46,7 @@ Plan:
     notes/README.md, bugs.md, refactor-20260716.md, live
     design notes).
 - 0.69.2-2 refactor: TODO.md as validate/fix-todo default
+  (done)
   - `TODO_FILE` const → `TODO.md` — the no-arg default must
     follow the move (a behavior change; the Todo entry's
     "code behavior is unaffected" held only for doc
@@ -189,6 +190,13 @@ Plan:
      positional files/dirs (a dir → its `*.md`) plus an
      `@<file>` manifest, additive — for ad-hoc validation of
      a specific file.
+   - Add wrapper-level tests while restructuring: the analyze
+     cores are covered (`todo_helpers` 15 tests,
+     `desc_helpers` 22) but the `validate-todo` / `fix-todo` /
+     `validate-desc` / `fix-desc` wrappers have none — file
+     I/O, output formatting, exit codes, and the no-arg
+     default path (changed to `TODO.md` at 0.69.2-2) are
+     unexercised.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
 7. **pre-commit: single rule (no docs skip) + doc validators.**
