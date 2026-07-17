@@ -120,6 +120,17 @@ and it loses on discoverability:
 Easy for everyone to find beats convenient for the bot alone. Put
 durable context in AGENTS.md (or committed `notes/`) instead.
 
+## Model delegation
+
+When spawning subagents, match the model to the task: use a
+lesser model (e.g. Haiku or Sonnet) for mechanical or simple
+subtasks — bulk searches, boilerplate sweeps, formulaic edits —
+and reserve the top model for design and tricky work.
+
+**Why:** top-model tokens are the scarce resource; mechanical
+subtasks don't benefit from them, and delegating them keeps
+cost and latency down at no quality loss.
+
 ## Plain synopsis after technical explanations
 
 When a conversational reply centers on a technical explanation

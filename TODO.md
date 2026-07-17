@@ -34,7 +34,7 @@ trailers), they go through jj-lib in-process per the typed
 jj facade Todo #1 — no new `run("jj", …)` sites.
 
 - 0.70.0-0 chore: open show-session cycle (done)
-- 0.70.0-1 feat: transcript parse + typed layer for show-session
+- 0.70.0-1 feat: transcript parse + typed layer for show-session (done)
 - 0.70.0-2 feat: show-session command + conversation renderer
 - 0.70.0 close-out and validation
 

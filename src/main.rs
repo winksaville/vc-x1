@@ -25,6 +25,9 @@ mod test_helpers;
 mod test_tmp_root;
 mod todo_helpers;
 mod toml_simple;
+// dead_code: consumer (show-session, 0.70.0-2) not landed yet.
+#[allow(dead_code)]
+mod transcript;
 mod url;
 mod validate_bot;
 mod validate_desc;
