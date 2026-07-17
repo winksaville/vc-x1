@@ -17,6 +17,27 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+**feat: show-session transcript viewer**
+
+Display one Claude Code session transcript
+(`.claude/<uuid>.jsonl`) as a readable conversation — first step
+toward seeing all bot sessions and linking prompts to the
+changes they produced. Two-layer parse: serde_json as text →
+`Value` only (no derive); hand-written extraction into our own
+structs that evolve as we learn the format. v1 is file-path in,
+conversation view out; index view, session discovery, and
+cross-file references (sidechain `agent-*.jsonl`, compaction
+chains) come in later cycles. Full design in the approved plan
+(bot session of 2026-07-17). v1 uses no version-control code;
+when later cycles link prompts to commits (chids, ochid
+trailers), they go through jj-lib in-process per the typed
+jj facade Todo #1 — no new `run("jj", …)` sites.
+
+- 0.70.0-0 chore: open show-session cycle (done)
+- 0.70.0-1 feat: transcript parse + typed layer for show-session
+- 0.70.0-2 feat: show-session command + conversation renderer
+- 0.70.0 close-out and validation
+
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -238,6 +259,17 @@ by the "plan" — a bulleted list of the development "ladder":
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
+11. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+    commit refs.** Adopted in chores-13 (0.69.2 ladder,
+    backfilled during 0.70.0-0): each rung is prepended
+    with its commit reference so the rung↔commit
+    correlation is direct; `Commits:` stays as the
+    section-level list. The convention's home —
+    cycle-protocol.md Close-out ("Add an `### As-built
+    ladder`…") — is in the byte-identical shared doc set
+    (vc-x1, vc-template-x1, iiac-perf), so the doc edit
+    needs a coordinated three-project sync, not a
+    mid-cycle local change.
 
 ## Ideas
 

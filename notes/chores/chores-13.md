@@ -583,7 +583,7 @@ commit).
 
 ## docs: move todo.md to root TODO.md
 
-Commits: [[33]],[[34]],[[35]]
+Commits: [[33]],[[34]],[[35]],[[36]]
 
 The todo list is the project's live state and the routine
 acquaint read; root-level uppercase puts it in the
@@ -612,10 +612,14 @@ TODO.md is the entry point, the README→docs/ shape.
 
 ### As-built ladder
 
-- 0.69.2-0 docs: open TODO.md move cycle
-- 0.69.2-1 docs: move notes/todo.md to TODO.md
-- 0.69.2-2 refactor: TODO.md as validate/fix-todo default
-- 0.69.2 docs: move todo.md to root TODO.md (close-out)
+- [[33]] 0.69.2-0 docs: open TODO.md move cycle
+- [[34]] 0.69.2-1 docs: move notes/todo.md to TODO.md
+- [[35]] 0.69.2-2 refactor: TODO.md as validate/fix-todo default
+- [[36]] 0.69.2 docs: move todo.md to root TODO.md (close-out)
+
+## feat: show-session transcript viewer
+
+Commits:
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -652,3 +656,4 @@ TODO.md is the entry point, the README→docs/ shape.
 [33]: https://github.com/winksaville/vc-x1/commit/638244e41ca4 "638244e41ca40aeeafd98dd365046ee0c90173c2"
 [34]: https://github.com/winksaville/vc-x1/commit/0268d454d5b7 "0268d454d5b772268bfe90eda2aa7e93629bc783"
 [35]: https://github.com/winksaville/vc-x1/commit/9cb62219a8ea "9cb62219a8ea4342c87f0a961dfbb4d5e11c6d9c"
+[36]: https://github.com/winksaville/vc-x1/commit/48886d3e38b6 "48886d3e38b61bc01c2d0613a27e9e0b8740fd2e"
