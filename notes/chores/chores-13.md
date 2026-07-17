@@ -583,7 +583,39 @@ commit).
 
 ## docs: move todo.md to root TODO.md
 
-Commits:
+Commits: [[33]],[[34]],[[35]]
+
+The todo list is the project's live state and the routine
+acquaint read; root-level uppercase puts it in the
+conventional root-file family (README, LICENSE, AGENTS.md,
+ARCHITECTURE.md) — the same "easy for everyone to find"
+argument that put AGENTS.md at the root. Siblings
+(`todo-backlog.md`, `bugs.md`, `done.md`) stay in `notes/` —
+TODO.md is the entry point, the README→docs/ shape.
+
+- Decision (2026-07-16): shared AGENTS.md keeps hard paths
+  (greppable) rather than naming the file abstractly.
+- The AGENTS.md "File reads" section (and cycle-protocol.md's
+  two mentions) are part of the shared byte-identical set, so
+  this is a three-project change (vc-x1, vc-template-x1,
+  iiac-perf) applied identically; vc-x1 went first, breaking
+  byte-identity until the other two apply the same change.
+- Historical files (chores-NN.md, done.md, dated
+  manifests/audits) keep their `notes/todo.md` mentions.
+- The no-arg `validate-todo` / `fix-todo` default
+  (`TODO_FILE`) had to follow the move — a behavior change
+  the original Todo entry's "code behavior is unaffected"
+  parenthetical missed (it held only for doc strings).
+- Surfaced in review: the validate/fix wrapper layer has no
+  tests (the analyze cores do) — noted as a bullet on the
+  validate-numbering Todo.
+
+### As-built ladder
+
+- 0.69.2-0 docs: open TODO.md move cycle
+- 0.69.2-1 docs: move notes/todo.md to TODO.md
+- 0.69.2-2 refactor: TODO.md as validate/fix-todo default
+- 0.69.2 docs: move todo.md to root TODO.md (close-out)
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -617,3 +649,6 @@ Commits:
 [30]: https://github.com/winksaville/vc-x1/commit/c169225e1f2b "c169225e1f2bcacc34fc02966695a05090f13297"
 [31]: https://github.com/winksaville/vc-x1/commit/be71ef70e5b7 "be71ef70e5b7d26bda8477ce841a2e446772b21c"
 [32]: https://github.com/winksaville/vc-x1/commit/66bc1f2cfda8 "66bc1f2cfda8732226a3e7afc42ab9b7e6c83f45"
+[33]: https://github.com/winksaville/vc-x1/commit/638244e41ca4 "638244e41ca40aeeafd98dd365046ee0c90173c2"
+[34]: https://github.com/winksaville/vc-x1/commit/0268d454d5b7 "0268d454d5b772268bfe90eda2aa7e93629bc783"
+[35]: https://github.com/winksaville/vc-x1/commit/9cb62219a8ea "9cb62219a8ea4342c87f0a961dfbb4d5e11c6d9c"

@@ -17,43 +17,6 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**docs: move todo.md to root TODO.md**
-
-The todo list is the project's live state and the routine
-acquaint read; root-level uppercase puts it in the
-conventional root-file family (README, LICENSE, AGENTS.md,
-ARCHITECTURE.md) — the same "easy for everyone to find"
-argument that put AGENTS.md at the root. Siblings
-(`todo-backlog.md`, `bugs.md`, `done.md`) stay in `notes/` —
-TODO.md is the entry point, the README→docs/ shape.
-
-- Decision (2026-07-16): shared AGENTS.md keeps hard paths
-  (greppable) rather than naming the file abstractly.
-- The AGENTS.md "File reads" section (and cycle-protocol.md's
-  two mentions) are part of the shared byte-identical set, so
-  this is a three-project change (vc-x1, vc-template-x1,
-  iiac-perf) applied identically; vc-x1 goes first, breaking
-  byte-identity until the other two apply the same change.
-- Historical files (chores-NN.md, done.md, dated
-  manifests/audits) keep their `notes/todo.md` mentions.
-
-Plan:
-- 0.69.2-0 docs: open TODO.md move cycle (done)
-- 0.69.2-1 docs: move notes/todo.md to TODO.md (done)
-  - `mv` + jj rename detection; TODO.md's relative links
-    gain `notes/` prefixes; inbound links update (AGENTS.md,
-    cycle-protocol.md, README.md, ARCHITECTURE.md,
-    notes/README.md, bugs.md, refactor-20260716.md, live
-    design notes).
-- 0.69.2-2 refactor: TODO.md as validate/fix-todo default
-  (done)
-  - `TODO_FILE` const → `TODO.md` — the no-arg default must
-    follow the move (a behavior change; the Todo entry's
-    "code behavior is unaffected" held only for doc
-    strings); src/ doc-string sweep + README default-path
-    mentions.
-- 0.69.2 docs: move todo.md to root TODO.md (close-out)
-
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -385,10 +348,12 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 - docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
 - feat: inline session push + squash-push (0.69.0) — push's session publish is in-process (`squash-push-bot` stage; a failure is a visible push failure — the silent session-push loss fixed); `finalize` renamed to the zero-ceremony `squash-push` (detach / delay / failure markers retired, no alias); new `vc-x1 validate-bot` + an erroring push-preflight backstop enforce the at-rest `main == main@origin` invariant (no auto-fix); push preflight drops the hardcoded cargo steps (vc-x1 assumes nothing about repo contents beyond `.jj` + `.vc-config.toml`); work/bot terminology + stage renames across code and docs, README rewritten (Terminology section, live-validated walkthroughs); crate renamed back to `vc-x1` [[20]]
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
+- docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
 
 # References
 
 [1]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
+[2]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
 [10]: /notes/forks-multi-user.md
 [20]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690
 [23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
