@@ -133,14 +133,14 @@ pub(crate) enum Commands {
     #[command(
         long_about = "Display a Claude Code bot session transcript (.jsonl) as a\n\
         readable conversation.\n\n\
-        Default view shows user prompts and assistant text in full and\n\
-        tool calls as one-liners; thinking, tool results, and\n\
-        meta/system/sidechain entries are hidden — reveal them with\n\
-        --thinking / --results / --meta (or --all). A trailing summary\n\
-        line reports\n\
-        what was hidden or skipped. Malformed lines (e.g. a live\n\
-        session's truncated last line) warn to stderr and never fail\n\
-        the run."
+        Output is a set of items — headers, user, assistant, tool,\n\
+        thinking, results, meta, summary — each toggled by --<item> /\n\
+        --no-<item> (last one wins), with --all / --none as bulk bases.\n\
+        The default set (headers, user, assistant, tool, summary) can\n\
+        be replaced by [bot-session].items in the user config\n\
+        (comma-separated list); CLI flags then adjust the resolved\n\
+        set. Malformed lines (e.g. a live session's truncated last\n\
+        line) warn to stderr and never fail the run."
     )]
     BotSession(bot_session::BotSessionArgs),
 

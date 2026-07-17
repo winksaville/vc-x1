@@ -31,9 +31,12 @@ fn sample() -> FileTranscript {
 /// hidden and counted.
 #[test]
 fn default_view() {
-    let (lines, stats) = render(&sample(), &RenderOptions::default());
+    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN);
     let out = lines.join("\n");
-    assert!(out.contains("=== user 04:17:09 ==="), "got:\n{out}");
+    assert!(
+        out.contains("=== user 2026-07-17 04:17:09Z ==="),
+        "got:\n{out}"
+    );
     assert!(out.contains("do the thing"));
     assert_eq!(out.matches("=== assistant").count(), 1);
     assert!(out.contains("on it"));
@@ -51,17 +54,12 @@ fn default_view() {
 /// Reveal flags surface thinking, results, and system lines.
 #[test]
 fn reveal_flags() {
-    let opts = RenderOptions {
-        thinking: true,
-        results: true,
-        meta: true,
-    };
-    let (lines, stats) = render(&sample(), &opts);
+    let (lines, stats) = render(&sample(), &ItemSet::ALL);
     let out = lines.join("\n");
     assert!(out.contains("  [thinking]"));
     assert!(out.contains("  secret plan"));
     assert!(out.contains("  [result] ok: 5 passed"));
-    assert!(out.contains("--- system turn_duration 04:17:20 ---"));
+    assert!(out.contains("--- system turn_duration 2026-07-17 04:17:20Z ---"));
     assert_eq!(stats.hidden_thinking, 0);
     assert_eq!(stats.hidden_tool_results, 0);
     assert_eq!(stats.hidden_meta, 0);
@@ -75,14 +73,14 @@ fn meta_and_sidechain_hidden() {
         "\n",
         r#"{"type":"assistant","isSidechain":true,"message":{"id":"m9","content":[{"type":"text","text":"sub work"}]}}"#,
     ));
-    let (lines, stats) = render(&t, &RenderOptions::default());
+    let (lines, stats) = render(&t, &ItemSet::BUILTIN);
     assert!(lines.is_empty());
     assert_eq!(stats.hidden_meta, 2);
     let (lines, _) = render(
         &t,
-        &RenderOptions {
+        &ItemSet {
             meta: true,
-            ..Default::default()
+            ..ItemSet::BUILTIN
         },
     );
     let out = lines.join("\n");
@@ -122,8 +120,16 @@ fn gists() {
 /// short_time slices ISO timestamps and degrades gracefully.
 #[test]
 fn short_time_cases() {
-    assert_eq!(short_time(Some("2026-07-17T04:17:09.100Z")), "04:17:09");
+    assert_eq!(
+        short_time(Some("2026-07-17T04:17:09.100Z")),
+        "2026-07-17 04:17:09Z"
+    );
     assert_eq!(short_time(Some("short")), "short");
+    assert_eq!(
+        short_time(Some("2026-07-17T04:17:09+02:00")),
+        "2026-07-17T04:17:09+02:00",
+        "non-Z passes through verbatim, never relabeled"
+    );
     assert_eq!(short_time(None), "");
 }
 
@@ -176,6 +182,99 @@ fn lines_slicing() {
     assert_eq!(none, vec!["… (10 lines skipped)"]);
     let none_at = apply_lines(ls, &LinesSpec::Pair(4, 0));
     assert_eq!(none_at, vec!["… (4 lines skipped)", "… (6 lines skipped)"]);
+}
+
+/// Item gating: headers off drops === lines but keeps blank
+/// separators; user-only shows just the prompt; tool off drops
+/// [tool] lines.
+#[test]
+fn item_gating() {
+    let no_headers = ItemSet {
+        headers: false,
+        ..ItemSet::BUILTIN
+    };
+    let (lines, stats) = render(&sample(), &no_headers);
+    let out = lines.join("\n");
+    assert!(!out.contains("==="), "got:\n{out}");
+    assert!(out.contains("do the thing"));
+    assert_eq!(stats.shown, 2, "turns still counted");
+
+    let user_only = ItemSet {
+        user: true,
+        ..ItemSet::NONE
+    };
+    let (lines, _) = render(&sample(), &user_only);
+    assert_eq!(lines, vec!["do the thing"]);
+
+    let no_tool = ItemSet {
+        tool: false,
+        ..ItemSet::BUILTIN
+    };
+    let (lines, _) = render(&sample(), &no_tool);
+    let out = lines.join("\n");
+    assert!(!out.contains("[tool]"), "got:\n{out}");
+    assert!(out.contains("on it"));
+}
+
+/// resolve_items: bases (builtin / config / --all / --none) and
+/// per-item overrides.
+#[test]
+fn resolve_items_cases() {
+    let t = ItemToggles::default();
+    assert_eq!(resolve_items(&t, None).unwrap(), ItemSet::BUILTIN);
+    assert_eq!(
+        resolve_items(&t, Some("user,summary")).unwrap(),
+        ItemSet {
+            user: true,
+            summary: true,
+            ..ItemSet::NONE
+        }
+    );
+    let t = ItemToggles {
+        all: true,
+        thinking: Some(false),
+        ..Default::default()
+    };
+    assert_eq!(
+        resolve_items(&t, None).unwrap(),
+        ItemSet {
+            thinking: false,
+            ..ItemSet::ALL
+        }
+    );
+    let t = ItemToggles {
+        none: true,
+        user: Some(true),
+        ..Default::default()
+    };
+    assert_eq!(
+        resolve_items(&t, None).unwrap(),
+        ItemSet {
+            user: true,
+            ..ItemSet::NONE
+        }
+    );
+    // CLI toggle beats the config base.
+    let t = ItemToggles {
+        tool: Some(true),
+        ..Default::default()
+    };
+    assert_eq!(
+        resolve_items(&t, Some("user")).unwrap(),
+        ItemSet {
+            user: true,
+            tool: true,
+            ..ItemSet::NONE
+        }
+    );
+    // Unknown config item errors.
+    let err = resolve_items(&ItemToggles::default(), Some("user,bogus")).unwrap_err();
+    assert!(err.contains("bogus"), "got: {err}");
+    // Empty list is allowed (start from nothing).
+    assert_eq!(
+        resolve_items(&ItemToggles::default(), Some("")).unwrap(),
+        ItemSet::NONE
+    );
 }
 
 /// Summary line includes only non-zero clauses.

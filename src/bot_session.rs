@@ -1,11 +1,13 @@
 //! The `bot-session` subcommand: display a Claude Code session
 //! transcript (`.jsonl`) as a readable conversation.
 //!
-//! Default view renders the dialogue — user prompts and assistant
-//! text in full, tool calls as one-liners — and hides thinking,
-//! tool results, meta/system/sidechain lines, and bookkeeping
-//! entry types. The "Items listed" flags — `--thinking`,
-//! `--results`, `--meta`, `--all` — add them back.
+//! Output is a set of *items* — headers, user, assistant, tool,
+//! thinking, results, meta, summary — each toggled by `--<item>` /
+//! `--no-<item>` flags (last one wins), with `--all` / `--none` as
+//! bulk bases. The default set (headers, user, assistant, tool,
+//! summary) can be replaced by the user config's
+//! `[bot-session].items` list; CLI flags then adjust the resolved
+//! set. Bookkeeping entry types are never rendered.
 //! A trailing summary line always reports what was hidden or
 //! skipped. Malformed lines (e.g. a live session's truncated
 //! last line) warn to stderr and never fail the run.
@@ -33,22 +35,151 @@ pub struct BotSessionArgs {
     #[arg(value_name = "FILE")]
     pub file: PathBuf,
 
-    /// Also list thinking blocks
-    #[arg(long, help_heading = "Items listed")]
+    /// List the trailing summary line [default: on]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_summary"
+    )]
+    pub summary: bool,
+    /// Do not list the trailing summary line
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "summary"
+    )]
+    pub no_summary: bool,
+
+    /// List turn headers (=== role time ===) [default: on]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_headers"
+    )]
+    pub headers: bool,
+    /// Do not list turn headers
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "headers"
+    )]
+    pub no_headers: bool,
+
+    /// List typed user prompts [default: on]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_user"
+    )]
+    pub user: bool,
+    /// Do not list typed user prompts
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "user"
+    )]
+    pub no_user: bool,
+
+    /// List assistant text [default: on]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_assistant"
+    )]
+    pub assistant: bool,
+    /// Do not list assistant text
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "assistant"
+    )]
+    pub no_assistant: bool,
+
+    /// List [tool] call one-liners [default: on]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_tool"
+    )]
+    pub tool: bool,
+    /// Do not list [tool] call one-liners
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "tool"
+    )]
+    pub no_tool: bool,
+
+    /// List thinking blocks [default: off]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_thinking"
+    )]
     pub thinking: bool,
+    /// Do not list thinking blocks
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "thinking"
+    )]
+    pub no_thinking: bool,
 
-    /// Also list tool results ([result] lines, truncated) under
-    /// the [tool] calls that produced them
-    #[arg(long, help_heading = "Items listed")]
+    /// List tool results ([result] lines, truncated) under the
+    /// [tool] calls that produced them [default: off]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_results"
+    )]
     pub results: bool,
+    /// Do not list tool results
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "results"
+    )]
+    pub no_results: bool,
 
-    /// Also list meta/system/sidechain entries
-    #[arg(long, help_heading = "Items listed")]
+    /// List meta/system/sidechain entries [default: off]
+    #[arg(
+        long,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "no_meta"
+    )]
     pub meta: bool,
+    /// Do not list meta/system/sidechain entries
+    #[arg(
+        long,
+        hide = true,
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "meta"
+    )]
+    pub no_meta: bool,
 
-    /// List everything: implies --thinking --results --meta
-    #[arg(long, help_heading = "Items listed")]
+    /// Start from every item on (then subtract with --no-<item>)
+    #[arg(
+        long,
+        alias = "no-none",
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "none"
+    )]
     pub all: bool,
+    /// Start from no items (then add with --<item>)
+    #[arg(
+        long,
+        alias = "no-all",
+        help_heading = "Items listed (--no-<item> to disable)",
+        overrides_with = "all"
+    )]
+    pub none: bool,
 
     /// Limit output to a slice of the rendered conversation
     /// lines (Note: Index is 0-based):
@@ -77,25 +208,109 @@ pub enum LinesSpec {
     Pair(i64, i64),
 }
 
-/// What the conversation view reveals beyond the default.
-#[derive(Default)]
-pub struct RenderOptions {
-    /// Render thinking blocks.
+/// The set of output items the renderer emits.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ItemSet {
+    /// Turn headers (`=== role time ===`).
+    pub headers: bool,
+    /// Typed user prompts.
+    pub user: bool,
+    /// Assistant text.
+    pub assistant: bool,
+    /// `[tool]` call one-liners.
+    pub tool: bool,
+    /// Thinking blocks.
     pub thinking: bool,
-    /// Render tool results.
+    /// `[result]` lines.
     pub results: bool,
-    /// Render meta/system/sidechain entries.
+    /// Meta/system/sidechain entries.
     pub meta: bool,
+    /// The trailing summary line.
+    pub summary: bool,
+}
+
+impl ItemSet {
+    /// Every item off.
+    pub const NONE: ItemSet = ItemSet {
+        headers: false,
+        user: false,
+        assistant: false,
+        tool: false,
+        thinking: false,
+        results: false,
+        meta: false,
+        summary: false,
+    };
+    /// Every item on.
+    pub const ALL: ItemSet = ItemSet {
+        headers: true,
+        user: true,
+        assistant: true,
+        tool: true,
+        thinking: true,
+        results: true,
+        meta: true,
+        summary: true,
+    };
+    /// Built-in default view: the conversation essentials.
+    pub const BUILTIN: ItemSet = ItemSet {
+        headers: true,
+        user: true,
+        assistant: true,
+        tool: true,
+        thinking: false,
+        results: false,
+        meta: false,
+        summary: true,
+    };
+}
+
+/// Per-item CLI toggles, pre-resolution.
+///
+/// - `Some(true)` from `--<item>`, `Some(false)` from
+///   `--no-<item>`, `None` when neither was given.
+/// - `all` / `none` pick the resolution base.
+#[derive(Default)]
+pub struct ItemToggles {
+    /// `--all`: base = every item on.
+    pub all: bool,
+    /// `--none`: base = every item off.
+    pub none: bool,
+    /// Per-item overrides, applied after the base.
+    pub headers: Option<bool>,
+    /// See `headers`.
+    pub user: Option<bool>,
+    /// See `headers`.
+    pub assistant: Option<bool>,
+    /// See `headers`.
+    pub tool: Option<bool>,
+    /// See `headers`.
+    pub thinking: Option<bool>,
+    /// See `headers`.
+    pub results: Option<bool>,
+    /// See `headers`.
+    pub meta: Option<bool>,
+    /// See `headers`.
+    pub summary: Option<bool>,
 }
 
 /// Inputs to the bot-session op, flat, owned, clap-free.
 pub struct BotSessionParams {
     /// Transcript file to display.
     pub file: PathBuf,
-    /// Reveal options for the renderer.
-    pub opts: RenderOptions,
+    /// Per-item CLI toggles (resolved against config in the op).
+    pub toggles: ItemToggles,
     /// Optional `--lines` slice of the rendered output.
     pub lines: Option<LinesSpec>,
+}
+
+/// Fold a `--<item>` / `--no-<item>` pair into an override.
+fn toggle(pos: bool, neg: bool) -> Option<bool> {
+    match (pos, neg) {
+        (true, _) => Some(true),
+        (_, true) => Some(false),
+        _ => None,
+    }
 }
 
 impl TryFrom<&BotSessionArgs> for BotSessionParams {
@@ -110,10 +325,17 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
         };
         Ok(Self {
             file: a.file.clone(),
-            opts: RenderOptions {
-                thinking: a.thinking || a.all,
-                results: a.results || a.all,
-                meta: a.meta || a.all,
+            toggles: ItemToggles {
+                all: a.all,
+                none: a.none,
+                headers: toggle(a.headers, a.no_headers),
+                user: toggle(a.user, a.no_user),
+                assistant: toggle(a.assistant, a.no_assistant),
+                tool: toggle(a.tool, a.no_tool),
+                thinking: toggle(a.thinking, a.no_thinking),
+                results: toggle(a.results, a.no_results),
+                meta: toggle(a.meta, a.no_meta),
+                summary: toggle(a.summary, a.no_summary),
             },
             lines,
         })
@@ -137,18 +359,24 @@ impl SubcommandRunner for BotSessionArgs {
 /// Run the `bot-session` subcommand: parse the transcript and
 /// print the conversation view plus the trailing summary line.
 ///
-/// `ctx` is unused — bot-session reads a plain file; it's present
-/// for the uniform subcommand-layer signature.
+/// The item set resolves git-style, most specific wins: CLI
+/// toggles > workspace `.vc-config.toml` > user config >
+/// built-in default (`--all`/`--none` are CLI-level bases).
 pub fn bot_session(
-    _ctx: &Context,
+    ctx: &Context,
     params: &BotSessionParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("bot-session: enter");
+    let workspace_items = workspace_items()?;
+    let config_items = workspace_items
+        .as_deref()
+        .or(ctx.user_config.bot_session_items.as_deref());
+    let items = resolve_items(&params.toggles, config_items)?;
     let t = transcript::parse_file(&params.file)?;
     for (line_no, err) in &t.malformed {
         warn!("bot-session: line {line_no}: {err}");
     }
-    let (lines, stats) = render(&t, &params.opts);
+    let (lines, stats) = render(&t, &items);
     let total = lines.len();
     let (lines, sliced) = match &params.lines {
         Some(spec) => {
@@ -160,10 +388,100 @@ pub fn bot_session(
     for line in &lines {
         info!("{line}");
     }
-    info!("");
-    info!("{}", summary_line(&stats, t.malformed.len(), sliced));
+    if items.summary {
+        info!("");
+        info!("{}", summary_line(&stats, t.malformed.len(), sliced));
+    }
     debug!("bot-session: exit");
     Ok(())
+}
+
+/// Read `[bot-session].items` from the workspace's
+/// `.vc-config.toml`, when cwd is inside a workspace.
+///
+/// - No workspace, no file, or no key → `Ok(None)`.
+/// - Unreadable/malformed file → error (it exists but can't be
+///   used; silence would mask a real config problem).
+fn workspace_items() -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let Some(root) = crate::common::find_workspace_root() else {
+        return Ok(None);
+    };
+    let path = root.join(".vc-config.toml");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let map = crate::toml_simple::toml_load(&path)?;
+    Ok(map.get("bot-session.items").cloned())
+}
+
+/// Resolve the effective item set from toggles + config.
+///
+/// - Base: `--all` → `ALL`; `--none` → `NONE`; else the config
+///   list when present; else `BUILTIN`.
+/// - Each per-item toggle then overrides its field.
+fn resolve_items(t: &ItemToggles, config: Option<&str>) -> Result<ItemSet, String> {
+    let mut s = if t.all {
+        ItemSet::ALL
+    } else if t.none {
+        ItemSet::NONE
+    } else {
+        match config {
+            Some(c) => parse_item_list(c)?,
+            None => ItemSet::BUILTIN,
+        }
+    };
+    if let Some(v) = t.headers {
+        s.headers = v;
+    }
+    if let Some(v) = t.user {
+        s.user = v;
+    }
+    if let Some(v) = t.assistant {
+        s.assistant = v;
+    }
+    if let Some(v) = t.tool {
+        s.tool = v;
+    }
+    if let Some(v) = t.thinking {
+        s.thinking = v;
+    }
+    if let Some(v) = t.results {
+        s.results = v;
+    }
+    if let Some(v) = t.meta {
+        s.meta = v;
+    }
+    if let Some(v) = t.summary {
+        s.summary = v;
+    }
+    Ok(s)
+}
+
+/// Parse a comma-separated item list (`[bot-session].items`).
+///
+/// - Unknown names error, naming the valid set.
+/// - An empty list is allowed (start from nothing).
+fn parse_item_list(s: &str) -> Result<ItemSet, String> {
+    let mut set = ItemSet::NONE;
+    for name in s.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+        match name {
+            "headers" => set.headers = true,
+            "user" => set.user = true,
+            "assistant" => set.assistant = true,
+            "tool" => set.tool = true,
+            "thinking" => set.thinking = true,
+            "results" => set.results = true,
+            "meta" => set.meta = true,
+            "summary" => set.summary = true,
+            _ => {
+                return Err(format!(
+                    "[bot-session].items: unknown item {name:?} (valid: headers, \
+                     user, assistant, tool, thinking, results, meta, summary)"
+                ));
+            }
+        }
+    }
+    Ok(set)
 }
 
 /// Counters for the trailing summary line.
@@ -190,13 +508,13 @@ type TurnKey = (String, Option<String>);
 /// - Returns the output lines and the hide/skip counters.
 /// - A turn header is emitted when the (role, assistant
 ///   message-id) identity changes.
-fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats) {
+fn render(t: &FileTranscript, items: &ItemSet) -> (Vec<String>, RenderStats) {
     let mut lines: Vec<String> = Vec::new();
     let mut stats = RenderStats::default();
     let mut turn: Option<TurnKey> = None;
 
     for e in &t.entries {
-        if e.meta.is_sidechain && !opts.meta {
+        if e.meta.is_sidechain && !items.meta {
             stats.hidden_meta += 1;
             continue;
         }
@@ -206,7 +524,7 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                 content,
                 prompt_source: _,
             } => {
-                if e.meta.is_meta && !opts.meta {
+                if e.meta.is_meta && !items.meta {
                     stats.hidden_meta += 1;
                     continue;
                 }
@@ -218,13 +536,15 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                 for b in content {
                     match b {
                         ContentBlock::Text { text } => {
-                            if !text.trim().is_empty() {
-                                header(&mut lines, &mut stats, &mut turn, label, None, &time);
+                            if items.user && !text.trim().is_empty() {
+                                header(
+                                    &mut lines, &mut stats, &mut turn, label, None, &time, items,
+                                );
                                 lines.extend(text.lines().map(str::to_string));
                             }
                         }
                         ContentBlock::ToolResult { text, is_error, .. } => {
-                            if opts.results {
+                            if items.results {
                                 push_result(&mut lines, text, *is_error);
                             } else {
                                 stats.hidden_tool_results += 1;
@@ -241,7 +561,7 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                 for b in content {
                     match b {
                         ContentBlock::Text { text } => {
-                            if !text.trim().is_empty() {
+                            if items.assistant && !text.trim().is_empty() {
                                 header(
                                     &mut lines,
                                     &mut stats,
@@ -249,26 +569,13 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                                     "assistant",
                                     message_id.as_deref(),
                                     &time,
+                                    items,
                                 );
                                 lines.extend(text.lines().map(str::to_string));
                             }
                         }
                         ContentBlock::ToolUse { name, input, .. } => {
-                            header(
-                                &mut lines,
-                                &mut stats,
-                                &mut turn,
-                                "assistant",
-                                message_id.as_deref(),
-                                &time,
-                            );
-                            lines.push(format!("  [tool] {}", tool_use_gist(name, input)));
-                        }
-                        ContentBlock::Thinking { thinking } => {
-                            if thinking.trim().is_empty() {
-                                continue;
-                            }
-                            if opts.thinking {
+                            if items.tool {
                                 header(
                                     &mut lines,
                                     &mut stats,
@@ -276,6 +583,24 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                                     "assistant",
                                     message_id.as_deref(),
                                     &time,
+                                    items,
+                                );
+                                lines.push(format!("  [tool] {}", tool_use_gist(name, input)));
+                            }
+                        }
+                        ContentBlock::Thinking { thinking } => {
+                            if thinking.trim().is_empty() {
+                                continue;
+                            }
+                            if items.thinking {
+                                header(
+                                    &mut lines,
+                                    &mut stats,
+                                    &mut turn,
+                                    "assistant",
+                                    message_id.as_deref(),
+                                    &time,
+                                    items,
                                 );
                                 lines.push("  [thinking]".to_string());
                                 lines.extend(thinking.lines().map(|l| format!("  {l}")));
@@ -288,7 +613,7 @@ fn render(t: &FileTranscript, opts: &RenderOptions) -> (Vec<String>, RenderStats
                 }
             }
             EntryKind::System { subtype } => {
-                if opts.meta {
+                if items.meta {
                     if !lines.is_empty() {
                         lines.push(String::new());
                     }
@@ -313,6 +638,7 @@ fn header(
     role: &str,
     message_id: Option<&str>,
     time: &str,
+    items: &ItemSet,
 ) {
     let key: TurnKey = (role.to_string(), message_id.map(str::to_string));
     if turn.as_ref() == Some(&key) {
@@ -321,7 +647,9 @@ fn header(
     if !lines.is_empty() {
         lines.push(String::new());
     }
-    lines.push(format!("=== {role} {time} ==="));
+    if items.headers {
+        lines.push(format!("=== {role} {time} ==="));
+    }
     *turn = Some(key);
     stats.shown += 1;
 }
@@ -390,11 +718,20 @@ fn truncate_chars(s: &str, max: usize) -> String {
     }
 }
 
-/// "HH:MM:SS" slice of an ISO-8601 timestamp; falls back to the
-/// raw string, or "" when absent.
+/// "YYYY-MM-DD HH:MM:SSZ" slice of an ISO-8601 UTC timestamp;
+/// "" when absent. Observed transcript timestamps are always
+/// UTC (trailing Z, all 56k lines to date) and the Z is kept so
+/// the display names its zone — but that's observation, not a
+/// documented guarantee, so a timestamp in any other shape
+/// (offset form, too short) passes through verbatim rather than
+/// being sliced and mislabeled.
 fn short_time(ts: Option<&str>) -> String {
     match ts {
-        Some(t) => t.get(11..19).unwrap_or(t).to_string(), // OK: obvious
+        Some(t) if t.ends_with('Z') => match t.get(..19) {
+            Some(dt) => format!("{}Z", dt.replacen('T', " ", 1)),
+            None => t.to_string(),
+        },
+        Some(t) => t.to_string(),
         None => String::new(),
     }
 }

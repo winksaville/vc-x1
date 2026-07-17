@@ -104,7 +104,10 @@ fn cli_bot_session_lines() {
             .args(["--lines", "2"]),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("=== user 04:17:09 ==="), "got: {stdout}");
+    assert!(
+        stdout.contains("=== user 2026-07-17 04:17:09Z ==="),
+        "got: {stdout}"
+    );
     assert!(stdout.contains("lines skipped)"), "got: {stdout}");
     assert!(!stdout.contains("[tool]"));
     assert!(
@@ -129,6 +132,185 @@ fn cli_bot_session_lines() {
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("--lines"), "got: {stderr}");
+}
+
+/// --none + --<item> composes a minimal view; --no-<item>
+/// subtracts from the default.
+#[test]
+fn cli_bot_session_item_toggles() {
+    let fx = CliFixture::new("bot-session-toggles");
+    let file = fixture_file(&fx);
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--none", "--user"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("please fix the bug"), "got: {stdout}");
+    assert!(!stdout.contains("==="), "no headers, got: {stdout}");
+    assert!(!stdout.contains("[tool]"));
+    assert!(!stdout.contains("turns shown"), "no summary");
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--no-tool", "--no-headers"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("looking at it"));
+    assert!(!stdout.contains("[tool]"), "got: {stdout}");
+    assert!(!stdout.contains("==="), "got: {stdout}");
+    assert!(stdout.contains("turns shown"), "summary still on");
+}
+
+/// [bot-session].items in the user config replaces the built-in
+/// default set; CLI flags still adjust it.
+#[test]
+fn cli_bot_session_config_items() {
+    let fx = CliFixture::new("bot-session-config");
+    let file = fixture_file(&fx);
+    let cfg_dir = fx.home.join(".config").join("vc-x1");
+    std::fs::create_dir_all(&cfg_dir).expect("mkdir config dir");
+    std::fs::write(
+        cfg_dir.join("config.toml"),
+        "[bot-session]\nitems = \"user,summary\"\n",
+    )
+    .expect("write config");
+    let out = run_ok(
+        fx.cmd()
+            .env("XDG_CONFIG_HOME", fx.home.join(".config"))
+            .arg("bot-session")
+            .arg(&file),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("please fix the bug"), "got: {stdout}");
+    assert!(!stdout.contains("==="), "config drops headers");
+    assert!(!stdout.contains("[tool]"));
+    assert!(stdout.contains("turns shown"), "summary kept");
+    let out = run_ok(
+        fx.cmd()
+            .env("XDG_CONFIG_HOME", fx.home.join(".config"))
+            .arg("bot-session")
+            .arg(&file)
+            .arg("--tool"),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("[tool]"), "CLI adds over config");
+}
+
+/// Every --no-<item> flag parses and subtracts (--all minus all
+/// eight = empty output); a --<item>/--no-<item> pair resolves
+/// last-one-wins; the --no-all/--no-none aliases behave as
+/// --none/--all.
+#[test]
+fn cli_bot_session_no_item_flags() {
+    let fx = CliFixture::new("bot-session-no-flags");
+    let file = fixture_file(&fx);
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+        "--all",
+        "--no-headers",
+        "--no-user",
+        "--no-assistant",
+        "--no-tool",
+        "--no-thinking",
+        "--no-results",
+        "--no-meta",
+        "--no-summary",
+    ]));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.trim().is_empty(), "got: {stdout}");
+
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+        "--none",
+        "--headers",
+        "--user",
+        "--assistant",
+        "--tool",
+        "--thinking",
+        "--results",
+        "--meta",
+        "--summary",
+    ]));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("secret reasoning"), "got: {stdout}");
+    assert!(stdout.contains("[result] all green"));
+    assert!(stdout.contains("--- system turn_duration"));
+    assert!(stdout.contains("injected context"));
+    assert!(stdout.contains("turns shown"));
+
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+        "--no-summary",
+        "--summary",
+        "--none",
+    ]));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("turns shown"),
+        "last of the pair wins, got: {stdout}"
+    );
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--summary", "--no-summary"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.contains("turns shown"), "got: {stdout}");
+
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--no-all"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.trim().is_empty(), "--no-all = --none, got: {stdout}");
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--no-none"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("secret reasoning"),
+        "--no-none = --all, got: {stdout}"
+    );
+}
+
+/// The workspace .vc-config.toml [bot-session].items layer wins
+/// over the user config; CLI still wins over both.
+#[test]
+fn cli_bot_session_workspace_items() {
+    let fx = CliFixture::new("bot-session-vc-config");
+    let file = fixture_file(&fx);
+    let cfg_dir = fx.home.join(".config").join("vc-x1");
+    std::fs::create_dir_all(&cfg_dir).expect("mkdir config dir");
+    std::fs::write(
+        cfg_dir.join("config.toml"),
+        "[bot-session]\nitems = \"assistant\"\n",
+    )
+    .expect("write user config");
+    std::fs::write(
+        fx.base.join(".vc-config.toml"),
+        "[workspace]\npath = \"/\"\n\n[bot-session]\nitems = \"user,summary\"\n",
+    )
+    .expect("write vc-config");
+    let out = run_ok(
+        fx.cmd()
+            .env("XDG_CONFIG_HOME", fx.home.join(".config"))
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("please fix the bug"), "got: {stdout}");
+    assert!(
+        !stdout.contains("looking at it"),
+        "workspace items beat user config, got: {stdout}"
+    );
+    assert!(stdout.contains("turns shown"), "summary from workspace");
+    let out = run_ok(
+        fx.cmd()
+            .env("XDG_CONFIG_HOME", fx.home.join(".config"))
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file)
+            .arg("--assistant"),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("looking at it"), "CLI beats workspace");
 }
 
 /// A missing file is the one hard error.

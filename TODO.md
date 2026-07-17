@@ -38,6 +38,13 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
 - 0.70.0-2 feat: bot-session command + conversation renderer (done)
   (command renamed from show-session mid-step; the pushed
   -0/-1 titles keep the old stem)
+- 0.70.0-3 feat: bot-session item flags + config defaults (done)
+  - items: headers, user, assistant, tool, thinking,
+    results, meta, summary — each --xxx / --no-xxx
+    (last-wins), plus --all / --none bulk toggles
+  - built-in default set: headers, user, assistant, tool,
+    summary; user config can override via a [bot-session]
+    items list; CLI flags adjust the resolved set
 - 0.70.0 close-out and validation
 
 ## Todo

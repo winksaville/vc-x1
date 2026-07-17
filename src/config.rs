@@ -92,6 +92,11 @@ pub struct UserConfig {
 
     /// Per-account configuration, keyed by account name.
     pub accounts: HashMap<String, AccountConfig>,
+
+    /// `[bot-session].items` — comma-separated default item list
+    /// for `bot-session` (e.g. `"headers,user,assistant,tool,summary"`).
+    /// Parsed and validated by the bot-session op, not here.
+    pub bot_session_items: Option<String>,
 }
 
 /// CLI selector for `--repo <cat>[=<val>]`.
@@ -151,6 +156,7 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
         default_debug: map.get("default.debug").cloned(),
         top_level_repo: None,
         accounts: HashMap::new(),
+        bot_session_items: map.get("bot-session.items").cloned(),
     };
 
     let mut top_level = AccountConfig::default();
@@ -558,6 +564,18 @@ repo.default = "remote"
     }
 
     #[test]
+    fn bot_session_items_parses() {
+        let (_cfg, path) = write_cfg(
+            "bot-session",
+            r#"[bot-session]
+items = "user,summary"
+"#,
+        );
+        let cfg = load_from(&path).unwrap();
+        assert_eq!(cfg.bot_session_items.as_deref(), Some("user,summary"));
+    }
+
+    #[test]
     fn unknown_keys_ignored() {
         // Forward-compat: unknown sections/sub-keys silently dropped.
         let (_cfg, path) = write_cfg(
@@ -597,6 +615,7 @@ some-key = "ignored"
             default_debug: None,
             top_level_repo: None,
             accounts: HashMap::from([("home".into(), home), ("work".into(), work)]),
+            bot_session_items: None,
         }
     }
 
@@ -736,6 +755,7 @@ some-key = "ignored"
             default_debug: None,
             top_level_repo: Some(tl),
             accounts: HashMap::new(),
+            bot_session_items: None,
         }
     }
 

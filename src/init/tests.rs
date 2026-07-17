@@ -478,6 +478,7 @@ fn cfg_top_level_remote(prefix: &str) -> UserConfig {
         default_debug: None,
         top_level_repo: Some(tl),
         accounts: HashMap::new(),
+        bot_session_items: None,
     }
 }
 
@@ -491,6 +492,7 @@ fn cfg_top_level_local(parent: &str) -> UserConfig {
         default_debug: None,
         top_level_repo: Some(tl),
         accounts: HashMap::new(),
+        bot_session_items: None,
     }
 }
 
@@ -514,6 +516,7 @@ fn cfg_two_accounts() -> UserConfig {
         default_debug: None,
         top_level_repo: None,
         accounts: HashMap::from([("home".into(), home), ("work".into(), work)]),
+        bot_session_items: None,
     }
 }
 
