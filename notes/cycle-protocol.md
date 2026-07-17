@@ -184,7 +184,8 @@ Every commit (Preparation, each Work commit, Close-out) goes
 through:
 
 1. **Mark this commit `(current)`** as the first edit in
-   `notes/todo.md > ## In Progress`.
+   `TODO.md > ## In Progress` (`TODO.md` is at the repo
+   root).
 2. **Do the work** (see [Iterative work](#iterative-work)
    for the loop-and-squash technique).
 3. **Flip this commit `(current)` → `(done)`** in `## In
@@ -425,7 +426,7 @@ work-repo bookmark only; the bot repo is always pinned to
 **Current limitation**: only fully supports the
 [Keep separate](#shape-at-close-out-push) shape; other
 shapes need manual jj steps. Planned improvements are
-project state, tracked in the project's `notes/todo.md` —
+project state, tracked in the project's `TODO.md` —
 this protocol describes only the stable mechanism.
 
 ### .claude cadence

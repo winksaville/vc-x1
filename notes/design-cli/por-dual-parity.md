@@ -2,7 +2,7 @@
 
 Forward-looking design capture (pre-design). Concrete work
 lands when a cycle picks it up — likely on top of the
-`--scope` rollout (the `0.50.0` work in `notes/todo.md`).
+`--scope` rollout (the `0.50.0` work in `TODO.md`).
 
 `vc-x1` today treats the **dual** workspace (a code repo
 plus a `.claude` bot-session repo, cross-linked by `ochid:`
@@ -16,7 +16,7 @@ on. Two goals:
 por and dual should be first-class equals across every
 subcommand — same code paths, same quality of support, no
 "dual plus an afterthought" asymmetry. The `--por` topology
-flag (dual vs single — see `notes/todo.md`) is the
+flag (dual vs single — see `TODO.md`) is the
 substrate; parity is the goal it serves.
 
 ## 2. Bidirectional conversion
@@ -47,7 +47,7 @@ shapes in place.
 
 ## See also
 
-- `notes/todo.md` — the por/dual item, and the `--scope`
+- `TODO.md` — the por/dual item, and the `--scope`
   cluster it builds on.
 - `src/options_flags/por.rs` — `PorFlag`, the `--por`
   topology flag.

@@ -81,7 +81,7 @@ inseparable pair where the join is the point.
 Long notes files are appended to over time. Read only the
 slice your task needs; grep or read further on demand.
 
-- **`notes/todo.md`** (the routine acquaint read) — first
+- **`TODO.md`** (the routine acquaint read) — first
   ~60 lines covers intro + `## In Progress` + the top of the
   ranked `## Todo` (priorities, #1 highest). `Read` with
   `offset=0, limit=60`. `## Ideas` sits below `## Todo`; read
@@ -93,16 +93,16 @@ slice your task needs; grep or read further on demand.
   first.
 - **`notes/bugs.md`** — the bug list. Small; read whole
   when triaging a bug or chasing the `## Bugs` pointer in
-  todo.md.
+  TODO.md.
 - **`notes/done.md`** + **`notes/chores/chores-NN.md`** —
   historical / append-mostly. Scan headings first
   (`grep '^## ' notes/chores/chores-NN.md`), then read only
   the section you need.
 
-**Why:** the routine read should stay small. `notes/todo.md`
-grows every cycle, so the backlog and bugs live in sibling
-files rather than inline; the same "slice you need" rule
-applies to historical files.
+**Why:** the routine read should stay small. `TODO.md`
+grows every cycle, so the backlog and bugs live in files
+under `notes/` rather than inline; the same "slice you
+need" rule applies to historical files.
 
 ## Memory
 
@@ -264,7 +264,7 @@ Surfaces that use this shape:
   [Per-commit flow](notes/cycle-protocol.md#per-commit-flow).
 - Chore descriptions in `notes/chores/chores-NN.md` — see
   [Chores section content](#chores-section-content--no-edit-list-git-is-the-record).
-- Todo and Done entries in `notes/todo.md` when an entry needs more
+- Todo and Done entries in `TODO.md` when an entry needs more
   than one line of detail. Pure one-liners are still fine.
 
 Bullet *content* differs by surface:
@@ -327,7 +327,7 @@ bodies are file-by-file, ladder / chores conceptual (see "Bullet
 
 The three surfaces apply it as:
 
-- **Ladder step** (`notes/todo.md` `## In Progress`): the title is
+- **Ladder step** (`TODO.md` `## In Progress`): the title is
   prefixed with the version — `X.Y.Z-N <title>` — and
   carries a `(current)` / `(done)` marker. The bare three-element
   `X.Y.Z` (no `-N`) is the close-out step. Detail is bulleted,
@@ -354,7 +354,7 @@ step titles a common greppable stem (e.g. `config loader`).
 ## Notes file conventions
 
 Conventions the bot follows when writing notes files
-(`notes/todo.md`, `notes/todo-backlog.md`, `notes/bugs.md`,
+(`TODO.md`, `notes/todo-backlog.md`, `notes/bugs.md`,
 `notes/chores/chores-NN.md`, `notes/done.md`). One source
 of truth lives here; [`notes/README.md`](notes/README.md)
 points back.
@@ -369,7 +369,7 @@ links stay single-bracketed.
 
 ### Reference numbering
 
-Every note file (`todo.md`, `todo-backlog.md`, `bugs.md`,
+Every note file (`TODO.md`, `todo-backlog.md`, `bugs.md`,
 `chores-NN.md`, `done.md`) keeps a file-local `# References`
 section at the bottom. Reference numbers are scoped to that
 file — `[1]` in `chores-07.md` and `[1]` in `chores-01.md`
@@ -398,14 +398,14 @@ why and the exact shape.
 
 A file's `# References` can be **re-packed** to a contiguous
 `[1]..[N]` in first-citation-appearance order — walk the file's
-prose in document order (`todo.md`: `## Todo` then `## Done`;
+prose in document order (`TODO.md`: `## Todo` then `## Done`;
 `chores-NN.md`: top to bottom) and number refs as their first
 `[[N]]` citation appears. This is a file-local rewrite — only
 that file's `[[N]]` citations and `[N]:` definitions move; every
 target and sibling file is untouched. A `[[N]]` inside a `` ` ``
 code span is a literal token, not a citation, and is left alone.
 Do it opportunistically (when the namespace has drifted enough to
-annoy), not on a schedule: `todo.md` fragments fastest (entries
+annoy), not on a schedule: `TODO.md` fragments fastest (entries
 land and get pruned every cycle) and is the usual candidate;
 `chores-NN.md` / `done.md` are append-mostly and only need it
 after an unusual event (e.g. a bulk retrofit that allocated slots
@@ -425,7 +425,7 @@ de-facto reference implementation is
 
 ### Todo format
 
-`todo.md` is organized into `## In Progress`, `## Todo`
+`TODO.md` is organized into `## In Progress`, `## Todo`
 (strict priority rank, #1 highest; long-tail backlog in
 [todo-backlog.md](notes/todo-backlog.md)), `## Ideas`,
 `## Bugs` (pointer to [bugs.md](notes/bugs.md)), and
@@ -475,7 +475,7 @@ Example shape:
 
 ### Retiring Done entries
 
-`todo.md`'s `## Done` section is a rolling buffer of recently
+`TODO.md`'s `## Done` section is a rolling buffer of recently
 shipped work, not a permanent log. Move entries into `done.md`
 at two natural beats:
 
@@ -487,13 +487,13 @@ at two natural beats:
 
 Migration mechanics:
 
-- Move the bullet itself from `todo.md > ## Done` to
+- Move the bullet itself from `TODO.md > ## Done` to
   `done.md` (preserving the original ref number).
 - Copy any references the moved entries cite into
   `done.md`'s `# References` section (those refs are
-  file-local, so coexisting with `todo.md`'s namespace is
+  file-local, so coexisting with `TODO.md`'s namespace is
   fine).
-- Prune any references in `todo.md > # References` no longer
+- Prune any references in `TODO.md > # References` no longer
   cited by anything in `## In Progress` / `## Todo` /
   `## Done`. This frees the numbers for future reuse.
 
@@ -504,7 +504,7 @@ Migration mechanics:
 A commit's title is reused verbatim across its records — see
 [Conventional-commit shape](#conventional-commit-shape-ladder--chores--commit)
 for the rule. Beyond the chores `##` header, that same string is
-used for the matching `todo.md > ## Done` entry and any `[N]`
+used for the matching `TODO.md > ## Done` entry and any `[N]`
 reference to that section. Titles carry **no `(<version>)`
 suffix** — see
 [Commit description](notes/cycle-protocol.md#commit-description)
@@ -549,7 +549,7 @@ When the intro starts wanting to explain a mechanism,
 hypothesis, or wrinkle, don't inflate it — promote that to its
 own `###` subsection inside the same `chores-NN.md`. If the
 wrinkle is a live design concern (something that *should*
-change, not just be recorded), also add a `notes/todo.md` item
+change, not just be recorded), also add a `TODO.md` item
 with a `[N]` ref pointing at that subsection (todo→chores is the
 normal ref direction).
 

@@ -4,7 +4,7 @@ How the `vc-x1` binary is structured: the clap-aware CLI layer
 and the (emerging) clap-free subcommand layer. This is the
 "what + some why" — generic and slow-moving. The *how* and the
 per-cycle / per-subcommand status live in `notes/chores/chores-*.md`
-and `notes/todo.md`.
+and `TODO.md`.
 
 This is a living document; the tool is under continuous
 development and the repo will keep changing.
@@ -130,7 +130,7 @@ where one exists) and the entrypoint `pub fn x(...)`. Modules:
 `symlink`, `sync`, `finalize`, `push` (a resumable state
 machine). Which ones have ported to `(ctx, params)` and which
 compose `options_flags/` leaves: `notes/chores/chores-*.md` +
-`notes/todo.md`.
+`TODO.md`.
 
 **Support:**
 
@@ -196,7 +196,7 @@ per-subcommand status.
   commit/push conventions, code conventions.
 - [`src/options_flags/README.md`](src/options_flags/README.md)
   — leaf/bundle patterns for the options_flags extraction.
-- [`notes/todo.md`](notes/todo.md) — live task list
+- [`TODO.md`](TODO.md) — live task list
 - [`notes/chores/`](notes/chores) — chores-*.md files contain
   discussion and notes on various chores in github compatible
   markdown.

@@ -972,9 +972,9 @@ find "${VC_X1_TEST_TMPDIR:-${TMPDIR:-/tmp}}" -maxdepth 1 \
      -name 'vc-x1-*test*' -mtime +1 -exec rm -rf {} +
 ```
 
-A future enhancement (tracked in `notes/todo.md`) extends the
-priority chain through `~/.config/vc-x1/config.toml` and project-local
-`.vc-config.toml`.
+A future enhancement (tracked in `TODO.md` at the repo root)
+extends the priority chain through `~/.config/vc-x1/config.toml`
+and project-local `.vc-config.toml`.
 
 ### Preserving fixtures for debugging
 
@@ -1055,9 +1055,9 @@ Bot-facing conventions are canonical in
   comments on every file / fn / method, `// OK: …` on
   `unwrap*` calls, ask-on-ambiguity, stuck detection.
 
-Task tracking and release details live under [notes/](notes/):
-near-term tasks in [notes/todo.md](notes/todo.md), per-release
-details in `notes/chores/chores-*.md`, and notes-specific formatting
+Task tracking and release details: near-term tasks in
+[TODO.md](TODO.md), per-release details in
+`notes/chores/chores-*.md`, and notes-specific formatting
 rules in [notes/README.md](notes/README.md).
 
 ## License

@@ -212,7 +212,7 @@ The rename is decoupled from the layout migration:
   files into vendor subdirs; requires viewer updates).
 - **Directory rename** is cosmetic (`.claude/` → `.bot/`).
   Once the symmetric `.vc-config.toml` schema lands (TODO
-  item — see `notes/todo.md`), the role-name → directory
+  item — see `TODO.md`), the role-name → directory
   mapping is config-driven; the rename becomes a config
   change, not a code change.
 

@@ -3,11 +3,12 @@
 This directory contains various notes and documentation related to the project.
 Each file is organized by topic for easy reference.
 
-By default there are todo.md and the chores-NN.md files in
-[chores/](chores). Chores are general notes about tasks and
-todo.md contains short term tasks and their status. The
-chores-NN files are numbered in sequence; the highest-numbered
-file is the active one, older ones are closed.
+By default there are the chores-NN.md files in
+[chores/](chores). Chores are general notes about tasks;
+short term tasks and their status live at the repo root in
+[../TODO.md](../TODO.md). The chores-NN files are numbered
+in sequence; the highest-numbered file is the active one,
+older ones are closed.
 
 Tool architecture — the CLI-args / `Context`+`Params` split, a
 generic module map, the subcommand model, and what the
@@ -15,7 +16,7 @@ Context+Params port and the options_flags extraction *are* (the
 *live status* is in the chores files) — lives at the repo root in
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
-Multi-cycle programs too big for a todo.md entry get their own
+Multi-cycle programs too big for a TODO.md entry get their own
 dated plan file — e.g.
 [refactor-20260716.md](refactor-20260716.md) (typed jj facade →
 jj-lib in-process): one `##` section per stage, so chores and

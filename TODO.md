@@ -39,7 +39,7 @@ TODO.md is the entry point, the README→docs/ shape.
 
 Plan:
 - 0.69.2-0 docs: open TODO.md move cycle (done)
-- 0.69.2-1 docs: move notes/todo.md to TODO.md
+- 0.69.2-1 docs: move notes/todo.md to TODO.md (done)
   - `mv` + jj rename detection; TODO.md's relative links
     gain `notes/` prefixes; inbound links update (AGENTS.md,
     cycle-protocol.md, README.md, ARCHITECTURE.md,
@@ -57,12 +57,12 @@ Plan:
 
  Entries are in **strict priority rank** — #1 highest,
  descending. Reprioritize by moving an entry, then
- `vc-x1 fix-todo --no-dry-run notes/todo.md` to renumber.
+ `vc-x1 fix-todo --no-dry-run TODO.md` to renumber.
  The numbers are positional rank, not stable IDs — to refer
  to a Todo, name it by its **title** (a greppable mention;
  a numbered list item has no anchor to link to), not its
  number. Long-tail entries
- live in [todo-backlog.md](todo-backlog.md). Use the
+ live in [todo-backlog.md](notes/todo-backlog.md). Use the
  [Prose Form in AGENTS.md](/AGENTS.md#prose-form); deeper
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
@@ -73,11 +73,11 @@ Plan:
    mutation, with per-module private wrappers and raw-git
    vestiges in init — stderr parsing instead of typed
    errors, and jj's single-attempt index-lock acquisition
-   (the push `bookmark-set` lock race in [bugs.md](bugs.md))
+   (the push `bookmark-set` lock race in [bugs.md](notes/bugs.md))
    can't be retried where it fails. A multi-ladder program;
    the staged plan, design detail, and the eight absorbed
    former Todos live in
-   [refactor-20260716.md](refactor-20260716.md).
+   [refactor-20260716.md](notes/refactor-20260716.md).
    - Stages in execution order: DRY facade → hygiene
      riders → facade owns topology → de-gitify init →
      split push.rs → jj-lib migration → push body-intro
@@ -108,7 +108,7 @@ Plan:
      throughout; the merge is a code-side-only shape
      operation).
    - Interim recipe only: the refactor program's
-     [trapezoid close-out stage](refactor-20260716.md#stage-trapezoid-close-out)
+     [trapezoid close-out stage](notes/refactor-20260716.md#stage-trapezoid-close-out)
      is the end state; this pause point remains the manual
      path until it lands.
 
@@ -166,7 +166,7 @@ Plan:
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
-   `todo.md`'s `## Ideas` section passes unnoticed — too weak
+   `TODO.md`'s `## Ideas` section passes unnoticed — too weak
    for a pre-commit gate. Prereq for the pre-commit doc
    validators (Todo "pre-commit: single rule ...").
    - Rename the pair: `validate-todo` → `validate-numbering`,
@@ -178,7 +178,7 @@ Plan:
      `## Ideas` and any new numbered section. Keep the
      column-0 anchor so indented sub-lists aren't counted.
    - Default scope: a fixed list of sequence-managed notes
-     files (`todo.md`, `todo-backlog.md`, `bugs.md`) so the
+     files (`TODO.md`, `todo-backlog.md`, `bugs.md`) so the
      no-arg pre-commit run covers them all. Fixed rather than
      a `notes/**.md` walk because prose docs
      (`cycle-protocol.md`, design notes) carry ordinary
@@ -250,7 +250,7 @@ Plan:
    "could, not should". Design points:
    - locate the bot repo (`<cwd>/.claude` or config;
      shares the lookup with the refactor program's
-     [facade-owns-topology stage](refactor-20260716.md#stage-facade-owns-topology))
+     [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
      and silently skip when absent
    - severity knob in `.vc-config.toml`
      (`warn|error|off`): unrelated commands (fix-todo)
@@ -364,19 +364,19 @@ Plan:
 
 ## Bugs
 
-_See [bugs.md](bugs.md)._
+_See [bugs.md](notes/bugs.md)._
 
 ## Done
 
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
-and older `## Done` sections are moved to [done.md](done.md) to keep this file small.
+and older `## Done` sections are moved to [done.md](notes/done.md) to keep this file small.
 
-_Migrated to [done.md](done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
+_Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
 - feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
 - docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
 - feat: inline session push + squash-push (0.69.0) — push's session publish is in-process (`squash-push-bot` stage; a failure is a visible push failure — the silent session-push loss fixed); `finalize` renamed to the zero-ceremony `squash-push` (detach / delay / failure markers retired, no alias); new `vc-x1 validate-bot` + an erroring push-preflight backstop enforce the at-rest `main == main@origin` invariant (no auto-fix); push preflight drops the hardcoded cargo steps (vc-x1 assumes nothing about repo contents beyond `.jj` + `.vc-config.toml`); work/bot terminology + stage renames across code and docs, README rewritten (Terminology section, live-validated walkthroughs); crate renamed back to `vc-x1` [[20]]
-- docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](refactor-20260716.md), absorbing eight Todos [[1]]
+- docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 
 # References
 

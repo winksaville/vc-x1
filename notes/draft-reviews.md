@@ -60,7 +60,7 @@ The user can then:
   from frequent checkpoints where the user can intervene
   before lost-work surface area grows. A `Cargo.toml` +
   `Cargo.lock` version-bump pair counts as one cluster; a
-  notes file + its `todo.md` reference update can also count
+  notes file + its `TODO.md` reference update can also count
   as one. Independent files each get their own prompt.
 - **Summary still required.** The pause-for-review message
   should include a short summary of what's in the draft

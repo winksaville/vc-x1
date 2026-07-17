@@ -1,6 +1,6 @@
 # Done
 
-As todo.md `## Done` sections fills move them to here.
+As TODO.md `## Done` sections fills move them to here.
 
 - Add --version and -V flags using std lib (clap not a dependency)
 - Use git trailers for inter/intra repo info: ochid trailer, changeID path syntax, .vc-config.toml[[2]]
