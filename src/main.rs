@@ -140,7 +140,11 @@ pub(crate) enum Commands {
         be replaced by [bot-session].items in the user config\n\
         (comma-separated list); CLI flags then adjust the resolved\n\
         set. Malformed lines (e.g. a live session's truncated last\n\
-        line) warn to stderr and never fail the run."
+        line) warn to stderr and never fail the run.\n\n\
+        Alternate views: --fields (field inventory per entry type),\n\
+        --unknown (only unmodeled paths — how the format moved), and\n\
+        --raw (pretty-printed source lines). --lines slices by source\n\
+        JSONL line — the same unit in every view."
     )]
     BotSession(bot_session::BotSessionArgs),
 

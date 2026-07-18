@@ -701,6 +701,51 @@ could not show a full tool result. First of two lightweight
 single-commit cycles from the --raw Todo; `--raw` itself is
 0.70.2.
 
+## feat: bot-session --fields + --raw explorer
+
+Commits:
+
+`--raw` reframed at review from a cat-like verbatim dump
+(barely beats jq) to *schema exploration*: the parser keeps
+every field Anthropic writes while the typed layer consumes a
+known subset — the difference is the unexplored surface, so
+format changes surface themselves instead of being discovered
+by accident.
+
+- `--fields`: aggregated inventory — every dotted leaf path
+  per entry type ( `[]` marks array elements) with count,
+  value kinds, and up to 3 short samples.
+- `--unknown`: inventory minus `KNOWN_PATHS` (the extractor's
+  consumed set, subtree semantics — e.g.
+  `message.content[].input` covers everything beneath it).
+  First real run: 132 unknown paths in one 485-line file
+  (message.model, stop_reason, thinking signatures,
+  content[].caller.*, requestId, userType, …).
+- `--raw [--lines]`: pretty-printed source lines for content
+  drill-down; unparseable lines pass through verbatim; no
+  summary, no markers. Conflicts with `--fields`.
+- `--lines` unified to *source JSONL lines* in **every** view
+  (matches jq/editors and the malformed-line warnings), the
+  conversation view included — it renders the entries whose
+  source lines fall in the slice, with source-line elision
+  markers and a "--lines selected K of L source lines"
+  summary clause. Surfaced across two review rounds:
+  --fields first ignored --lines entirely, then the
+  conversation view was still slicing *rendered* lines —
+  which selected different regions depending on the item
+  flags. One unit everywhere is stable and predictable;
+  rendered-line slicing (`| head`-style) is what pipes are
+  for. `apply_lines` and the old rendered-slice summary died
+  in the unification; `parse_file` lost its last caller and
+  was removed (each view reads the text itself).
+- `--per-line` (review round): one fields section per source
+  line (`=== Index N: <type> [time] ===` + path/kind/value
+  rows), malformed lines in place; composes with `--unknown`
+  for a line-by-line walk of just the unmodeled surface.
+- Deferred: drift-over-time baseline (first-seen dates across
+  the repo's dated transcripts) — discovery/index cycle
+  territory.
+
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
 [3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"

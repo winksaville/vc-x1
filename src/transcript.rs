@@ -22,7 +22,6 @@
 //!   `parse_file`, and `raw` retention could become optional.
 
 use serde_json::Value;
-use std::path::Path;
 
 /// One file's parsed transcript: every parseable line, in file order.
 pub struct FileTranscript {
@@ -140,16 +139,6 @@ pub enum ContentBlock {
         /// The original block `type` value.
         block_type: String,
     },
-}
-
-/// Parse a whole transcript file.
-///
-/// - Errors only on I/O (unreadable file).
-/// - Malformed lines are recorded in `FileTranscript::malformed`.
-pub fn parse_file(path: &Path) -> Result<FileTranscript, Box<dyn std::error::Error>> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-    Ok(parse_str(&text))
 }
 
 /// Parse transcript text (unit-testable without files).
@@ -277,6 +266,74 @@ fn tool_result_text(content: &Value) -> String {
             .collect::<Vec<_>>()
             .join("\n"),
         _ => String::new(),
+    }
+}
+
+/// Field paths the typed layer consumes (subtree semantics: a
+/// listed path also covers everything beneath it — e.g.
+/// `message.content[].input` is kept as raw JSON deliberately).
+/// The `--unknown` view subtracts these from the observed
+/// inventory, so what remains is the unmodeled surface.
+pub const KNOWN_PATHS: &[&str] = &[
+    "type",
+    "uuid",
+    "parentUuid",
+    "timestamp",
+    "sessionId",
+    "session_id",
+    "isSidechain",
+    "isMeta",
+    "cwd",
+    "promptSource",
+    "subtype",
+    "message.id",
+    "message.content",
+    "message.content[].type",
+    "message.content[].text",
+    "message.content[].thinking",
+    "message.content[].id",
+    "message.content[].name",
+    "message.content[].input",
+    "message.content[].tool_use_id",
+    "message.content[].content",
+    "message.content[].is_error",
+];
+
+/// True when `path` is consumed by the typed layer — an exact
+/// `KNOWN_PATHS` entry or anything beneath one (subtree rule).
+pub fn is_known(path: &str) -> bool {
+    KNOWN_PATHS.iter().any(|k| {
+        path == *k
+            || (path.len() > k.len()
+                && path.starts_with(k)
+                && (path.as_bytes()[k.len()] == b'.' || path.as_bytes()[k.len()] == b'['))
+    })
+}
+
+/// Collect every leaf field path in `v` (dotted keys, `[]` for
+/// array elements) with its leaf value, appending to `out`.
+///
+/// - Leaves are scalars (string / number / bool / null).
+/// - Empty objects / arrays are recorded as leaves too, so a
+///   path never silently vanishes.
+pub fn leaf_paths<'a>(v: &'a Value, prefix: &str, out: &mut Vec<(String, &'a Value)>) {
+    match v {
+        Value::Object(map) if !map.is_empty() => {
+            for (k, v2) in map {
+                let path = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
+                leaf_paths(v2, &path, out);
+            }
+        }
+        Value::Array(items) if !items.is_empty() => {
+            for item in items {
+                leaf_paths(item, &format!("{prefix}[]"), out);
+            }
+        }
+        _ => out.push((prefix.to_string(), v)),
     }
 }
 

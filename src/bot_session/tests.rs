@@ -31,7 +31,14 @@ fn sample() -> FileTranscript {
 /// hidden and counted.
 #[test]
 fn default_view() {
-    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP);
+    let (lines, stats) = render(
+        &sample(),
+        &ItemSet::BUILTIN,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     let out = lines.join("\n");
     assert!(
         out.contains("=== user 2026-07-17 04:17:09Z ==="),
@@ -54,7 +61,14 @@ fn default_view() {
 /// Reveal flags surface thinking, results, and system lines.
 #[test]
 fn reveal_flags() {
-    let (lines, stats) = render(&sample(), &ItemSet::ALL, RESULT_LINE_CAP);
+    let (lines, stats) = render(
+        &sample(),
+        &ItemSet::ALL,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     let out = lines.join("\n");
     assert!(out.contains("  [thinking]"));
     assert!(out.contains("  secret plan"));
@@ -73,7 +87,14 @@ fn meta_and_sidechain_hidden() {
         "\n",
         r#"{"type":"assistant","isSidechain":true,"message":{"id":"m9","content":[{"type":"text","text":"sub work"}]}}"#,
     ));
-    let (lines, stats) = render(&t, &ItemSet::BUILTIN, RESULT_LINE_CAP);
+    let (lines, stats) = render(
+        &t,
+        &ItemSet::BUILTIN,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     assert!(lines.is_empty());
     assert_eq!(stats.hidden_meta, 2);
     let (lines, _) = render(
@@ -83,6 +104,9 @@ fn meta_and_sidechain_hidden() {
             ..ItemSet::BUILTIN
         },
         RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
     );
     let out = lines.join("\n");
     assert!(out.contains("=== user (meta)"));
@@ -165,35 +189,34 @@ fn lines_spec_parsing() {
     assert!(parse_lines_spec("1,2,3").is_err());
 }
 
-/// --lines slicing: head, tail, anchored ranges, clamping, and
-/// elision markers.
+/// line_bounds: head, tail, anchored ranges, clamping, zero.
 #[test]
-fn lines_slicing() {
-    let ls: Vec<String> = (0..10).map(|i| format!("l{i}")).collect();
-    let head = apply_lines(ls.clone(), &LinesSpec::Single(3));
-    assert_eq!(head, vec!["l0", "l1", "l2", "… (7 lines skipped)"]);
-    let tail = apply_lines(ls.clone(), &LinesSpec::Single(-2));
-    assert_eq!(tail, vec!["… (8 lines skipped)", "l8", "l9"]);
-    let mid = apply_lines(ls.clone(), &LinesSpec::Pair(4, 2));
-    assert_eq!(
-        mid,
-        vec!["… (4 lines skipped)", "l4", "l5", "… (4 lines skipped)"]
-    );
-    let back = apply_lines(ls.clone(), &LinesSpec::Pair(4, -2));
-    assert_eq!(
-        back,
-        vec!["… (2 lines skipped)", "l2", "l3", "… (6 lines skipped)"]
-    );
-    let clamped = apply_lines(ls.clone(), &LinesSpec::Pair(8, 5));
-    assert_eq!(clamped, vec!["… (8 lines skipped)", "l8", "l9"]);
-    let over = apply_lines(ls.clone(), &LinesSpec::Single(99));
-    assert_eq!(over.len(), 10);
-    let back_clamped = apply_lines(ls.clone(), &LinesSpec::Pair(1, -5));
-    assert_eq!(back_clamped, vec!["l0", "… (9 lines skipped)"]);
-    let none = apply_lines(ls.clone(), &LinesSpec::Single(0));
-    assert_eq!(none, vec!["… (10 lines skipped)"]);
-    let none_at = apply_lines(ls, &LinesSpec::Pair(4, 0));
-    assert_eq!(none_at, vec!["… (4 lines skipped)", "… (6 lines skipped)"]);
+fn line_bounds_cases() {
+    assert_eq!(line_bounds(&LinesSpec::Single(3), 10), (0, 3));
+    assert_eq!(line_bounds(&LinesSpec::Single(-2), 10), (8, 10));
+    assert_eq!(line_bounds(&LinesSpec::Pair(4, 2), 10), (4, 6));
+    assert_eq!(line_bounds(&LinesSpec::Pair(4, -2), 10), (2, 4));
+    assert_eq!(line_bounds(&LinesSpec::Pair(8, 5), 10), (8, 10));
+    assert_eq!(line_bounds(&LinesSpec::Single(99), 10), (0, 10));
+    assert_eq!(line_bounds(&LinesSpec::Pair(1, -5), 10), (0, 1));
+    assert_eq!(line_bounds(&LinesSpec::Single(0), 10), (10, 10));
+    assert_eq!(line_bounds(&LinesSpec::Pair(4, 0), 10), (4, 4));
+}
+
+/// A sliced render keeps only in-range entries and marks the
+/// skipped source regions.
+#[test]
+fn render_source_slice() {
+    // sample() lines: 1 prompt, 2 thinking, 3 text, 4 tool_use,
+    // 5 tool_result, 6 system, 7 bookkeeping.
+    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP, 2, 4, 7);
+    let out = lines.join("\n");
+    assert!(out.starts_with("… (2 source lines skipped)"), "got:\n{out}");
+    assert!(out.ends_with("… (3 source lines skipped)"), "got:\n{out}");
+    assert!(out.contains("on it"), "line 3 text in range");
+    assert!(out.contains("[tool]"), "line 4 tool_use in range");
+    assert!(!out.contains("do the thing"), "line 1 out of range");
+    assert_eq!(stats.shown, 1, "one assistant turn in slice");
 }
 
 /// Item gating: headers off drops === lines but keeps blank
@@ -205,7 +228,14 @@ fn item_gating() {
         headers: false,
         ..ItemSet::BUILTIN
     };
-    let (lines, stats) = render(&sample(), &no_headers, RESULT_LINE_CAP);
+    let (lines, stats) = render(
+        &sample(),
+        &no_headers,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     let out = lines.join("\n");
     assert!(!out.contains("==="), "got:\n{out}");
     assert!(out.contains("do the thing"));
@@ -215,14 +245,28 @@ fn item_gating() {
         user: true,
         ..ItemSet::NONE
     };
-    let (lines, _) = render(&sample(), &user_only, RESULT_LINE_CAP);
+    let (lines, _) = render(
+        &sample(),
+        &user_only,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     assert_eq!(lines, vec!["do the thing"]);
 
     let no_tool = ItemSet {
         tool: false,
         ..ItemSet::BUILTIN
     };
-    let (lines, _) = render(&sample(), &no_tool, RESULT_LINE_CAP);
+    let (lines, _) = render(
+        &sample(),
+        &no_tool,
+        RESULT_LINE_CAP,
+        0,
+        usize::MAX,
+        usize::MAX,
+    );
     let out = lines.join("\n");
     assert!(!out.contains("[tool]"), "got:\n{out}");
     assert!(out.contains("on it"));
@@ -299,8 +343,8 @@ fn summary_lines() {
     assert_eq!(summary_line(&stats, 0, None), "bot-session: 3 turns shown");
     assert_eq!(
         summary_line(&stats, 0, Some((15, 1093))),
-        "bot-session: 15 of 1093 lines shown (--lines); \
-         full render: 3 turns"
+        "bot-session: 3 turns shown; \
+         --lines selected 15 of 1093 source lines"
     );
     let stats = RenderStats {
         shown: 2,

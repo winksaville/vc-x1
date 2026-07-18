@@ -181,13 +181,14 @@ pub struct BotSessionArgs {
     )]
     pub none: bool,
 
-    /// Limit output to a slice of the rendered conversation
-    /// lines (Note: Index is 0-based):
+    /// Limit output to a slice of the file's source JSONL lines
+    /// — the same unit in every view (Note: Index is 0-based):
     ///   N    — first N lines (0 = summary only)
     ///   -N   — last N lines
     ///   I,C  — C lines starting at Index I
     ///   I,-C — C lines ending at Index I
-    /// Cut points show an elision marker; the summary line always
+    /// The conversation view renders the entries in the slice,
+    /// with elision markers at cut points; the summary always
     /// prints.
     #[arg(
         long,
@@ -206,6 +207,44 @@ pub struct BotSessionArgs {
         help_heading = "Output range"
     )]
     pub result_lines: usize,
+
+    /// Field inventory instead of the conversation: every dotted
+    /// path observed per entry type, with count, value kinds, and
+    /// short samples
+    #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
+    pub fields: bool,
+
+    /// Like --fields but only paths the typed layer does not
+    /// consume — the unmodeled / new surface
+    #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
+    pub unknown: bool,
+
+    /// Pretty-printed source lines instead of the conversation
+    /// (unparseable lines pass through verbatim)
+    #[arg(long, help_heading = "Alternate views")]
+    pub raw: bool,
+
+    /// With --fields/--unknown (implies --fields): list each
+    /// selected source line's fields separately instead of
+    /// aggregating across the file
+    #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
+    pub per_line: bool,
+}
+
+/// Which view the invocation renders.
+pub enum View {
+    /// The default conversation rendering.
+    Conversation,
+    /// Field inventory; `unknown_only` filters to unmodeled paths,
+    /// `per_line` lists each source line separately.
+    Fields {
+        /// Show only paths not consumed by the typed layer.
+        unknown_only: bool,
+        /// Group by source line instead of aggregating.
+        per_line: bool,
+    },
+    /// Pretty-printed source lines.
+    Raw,
 }
 
 /// A parsed `--lines` slice spec (see `parse_lines_spec`).
@@ -313,6 +352,8 @@ pub struct BotSessionParams {
     pub lines: Option<LinesSpec>,
     /// Max lines per tool result (0 = unlimited).
     pub result_lines: usize,
+    /// Which view to render.
+    pub view: View,
 }
 
 /// Fold a `--<item>` / `--no-<item>` pair into an override.
@@ -350,6 +391,16 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
             },
             lines,
             result_lines: a.result_lines,
+            view: if a.raw {
+                View::Raw
+            } else if a.fields || a.unknown || a.per_line {
+                View::Fields {
+                    unknown_only: a.unknown,
+                    per_line: a.per_line,
+                }
+            } else {
+                View::Conversation
+            },
         })
     }
 }
@@ -379,33 +430,285 @@ pub fn bot_session(
     params: &BotSessionParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("bot-session: enter");
+    match params.view {
+        View::Raw => return raw_view(params),
+        View::Fields {
+            unknown_only,
+            per_line,
+        } => return fields_view(params, unknown_only, per_line),
+        View::Conversation => {}
+    }
     let workspace_items = workspace_items()?;
     let config_items = workspace_items
         .as_deref()
         .or(ctx.user_config.bot_session_items.as_deref());
     let items = resolve_items(&params.toggles, config_items)?;
-    let t = transcript::parse_file(&params.file)?;
+    let text = std::fs::read_to_string(&params.file)
+        .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
+    let total = text.lines().count();
+    let range = params.lines.as_ref().map(|spec| line_bounds(spec, total));
+    let (start, end) = range.unwrap_or((0, total));
+    let t = transcript::parse_str(&text);
     for (line_no, err) in &t.malformed {
-        warn!("bot-session: line {line_no}: {err}");
-    }
-    let (lines, stats) = render(&t, &items, params.result_lines);
-    let total = lines.len();
-    let (lines, sliced) = match &params.lines {
-        Some(spec) => {
-            let (start, end) = line_bounds(spec, total);
-            (apply_lines(lines, spec), Some((end - start, total)))
+        if *line_no > start && *line_no <= end {
+            warn!("bot-session: line {line_no}: {err}");
         }
-        None => (lines, None),
-    };
+    }
+    let (lines, stats) = render(&t, &items, params.result_lines, start, end, total);
     for line in &lines {
         info!("{line}");
     }
     if items.summary {
+        let malformed = t
+            .malformed
+            .iter()
+            .filter(|(n, _)| *n > start && *n <= end)
+            .count();
         info!("");
-        info!("{}", summary_line(&stats, t.malformed.len(), sliced));
+        info!(
+            "{}",
+            summary_line(&stats, malformed, range.map(|(s, e)| (e - s, total)))
+        );
     }
     debug!("bot-session: exit");
     Ok(())
+}
+
+/// Render the `--raw` view: pretty-printed source lines.
+///
+/// - `--lines` selects *source JSONL lines* (1-based file lines
+///   map to 0-based Index), matching what jq/editors see.
+/// - Parseable lines pretty-print; anything else (malformed,
+///   truncated) passes through verbatim.
+/// - No summary, no elision markers — the output is the data.
+fn raw_view(params: &BotSessionParams) -> Result<(), Box<dyn std::error::Error>> {
+    let text = std::fs::read_to_string(&params.file)
+        .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
+    let all: Vec<&str> = text.lines().collect();
+    let (start, end) = match &params.lines {
+        Some(spec) => line_bounds(spec, all.len()),
+        None => (0, all.len()),
+    };
+    for line in &all[start..end] {
+        match serde_json::from_str::<Value>(line) {
+            Ok(v) => match serde_json::to_string_pretty(&v) {
+                Ok(pretty) => info!("{pretty}"),
+                Err(_) => info!("{line}"),
+            },
+            Err(_) => info!("{line}"),
+        }
+    }
+    Ok(())
+}
+
+/// One path's aggregate in the `--fields` inventory.
+#[derive(Default)]
+struct FieldAgg {
+    /// How many leaves were observed at this path.
+    count: usize,
+    /// Value kinds seen (str / num / bool / null / empty-obj /
+    /// empty-arr).
+    kinds: std::collections::BTreeSet<&'static str>,
+    /// Up to `SAMPLE_CAP` distinct short sample values.
+    samples: Vec<String>,
+}
+
+/// Max distinct samples kept per path.
+const SAMPLE_CAP: usize = 3;
+
+/// Max chars of one sample value.
+const SAMPLE_CHAR_CAP: usize = 36;
+
+/// Render the `--fields` inventory: every dotted path per entry
+/// type with count, value kinds, and samples; `unknown_only`
+/// filters to paths the typed layer does not consume.
+fn fields_view(
+    params: &BotSessionParams,
+    unknown_only: bool,
+    per_line: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let text = std::fs::read_to_string(&params.file)
+        .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
+    let total = text.lines().count();
+    // --lines selects *source JSONL lines* here, like --raw.
+    let (start, end) = match &params.lines {
+        Some(spec) => line_bounds(spec, total),
+        None => (0, total),
+    };
+    let in_range = |line_no: usize| line_no > start && line_no <= end;
+    let t = transcript::parse_str(&text);
+    for (line_no, err) in &t.malformed {
+        if in_range(*line_no) {
+            warn!("bot-session: line {line_no}: {err}");
+        }
+    }
+    if per_line {
+        return per_line_view(&t, unknown_only, start, end, total, params.lines.is_some());
+    }
+    // (entry type, path) → aggregate, sorted for stable output.
+    let mut agg: std::collections::BTreeMap<(String, String), FieldAgg> =
+        std::collections::BTreeMap::new();
+    let mut type_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    for e in t.entries.iter().filter(|e| in_range(e.line_no)) {
+        let ty = e.raw["type"].as_str().unwrap_or("<none>").to_string(); // OK: obvious
+        *type_counts.entry(ty.clone()).or_default() += 1;
+        let mut leaves = Vec::new();
+        transcript::leaf_paths(&e.raw, "", &mut leaves);
+        for (path, v) in leaves {
+            if unknown_only && transcript::is_known(&path) {
+                continue;
+            }
+            let a = agg.entry((ty.clone(), path)).or_default();
+            a.count += 1;
+            a.kinds.insert(kind_name(v));
+            if a.samples.len() < SAMPLE_CAP
+                && let Some(sample) = sample_value(v)
+                && !a.samples.contains(&sample)
+            {
+                a.samples.push(sample);
+            }
+        }
+    }
+    let mut paths = 0usize;
+    let mut current_ty = None::<String>;
+    for ((ty, path), a) in &agg {
+        if current_ty.as_deref() != Some(ty) {
+            if current_ty.is_some() {
+                info!("");
+            }
+            let n = type_counts.get(ty).copied().unwrap_or(0); // OK: obvious
+            info!("=== {ty} ({n} lines) ===");
+            current_ty = Some(ty.clone());
+        }
+        paths += 1;
+        let kinds = a.kinds.iter().copied().collect::<Vec<_>>().join("|");
+        let samples = if a.samples.is_empty() {
+            String::new()
+        } else {
+            format!("  {}", a.samples.join(" | "))
+        };
+        info!("  {:<44} {:<9} x{}{}", path, kinds, a.count, samples);
+    }
+    info!("");
+    let label = if unknown_only {
+        "unknown paths"
+    } else {
+        "paths"
+    };
+    let selected = t.entries.iter().filter(|e| in_range(e.line_no)).count();
+    let malformed = t.malformed.iter().filter(|(n, _)| in_range(*n)).count();
+    let mut tail = format!("{malformed} malformed lines");
+    if params.lines.is_some() {
+        tail.push_str(&format!(
+            " (--lines selected {} of {total} source lines)",
+            end - start
+        ));
+    }
+    info!("bot-session: {paths} {label} across {selected} entries; {tail}");
+    Ok(())
+}
+
+/// List each selected source line's fields as its own section
+/// (`--per-line`): `=== Index N: <type> [time] ===` then one row
+/// per leaf path. Malformed lines appear in place with their
+/// error; the trailing summary matches the aggregated view.
+fn per_line_view(
+    t: &FileTranscript,
+    unknown_only: bool,
+    start: usize,
+    end: usize,
+    total: usize,
+    sliced: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let in_range = |line_no: usize| line_no > start && line_no <= end;
+    let mut sections: Vec<(usize, Option<&crate::transcript::Entry>, Option<&str>)> = t
+        .entries
+        .iter()
+        .filter(|e| in_range(e.line_no))
+        .map(|e| (e.line_no, Some(e), None))
+        .collect();
+    sections.extend(
+        t.malformed
+            .iter()
+            .filter(|(n, _)| in_range(*n))
+            .map(|(n, err)| (*n, None, Some(err.as_str()))),
+    );
+    sections.sort_by_key(|(n, _, _)| *n);
+    let mut paths = 0usize;
+    let mut first = true;
+    for (line_no, entry, err) in &sections {
+        if !first {
+            info!("");
+        }
+        first = false;
+        let index = line_no - 1;
+        match (entry, err) {
+            (Some(e), _) => {
+                let ty = e.raw["type"].as_str().unwrap_or("<none>"); // OK: obvious
+                let time = short_time(e.meta.timestamp.as_deref());
+                let time_part = if time.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {time}")
+                };
+                info!("=== Index {index}: {ty}{time_part} ===");
+                let mut leaves = Vec::new();
+                transcript::leaf_paths(&e.raw, "", &mut leaves);
+                for (path, v) in leaves {
+                    if unknown_only && transcript::is_known(&path) {
+                        continue;
+                    }
+                    paths += 1;
+                    let value = sample_value(v).unwrap_or_else(|| kind_name(v).to_string()); // OK: obvious
+                    info!("  {:<44} {:<9} {}", path, kind_name(v), value);
+                }
+            }
+            (None, Some(e)) => info!("=== Index {index}: <malformed: {e}> ==="),
+            (None, None) => {}
+        }
+    }
+    info!("");
+    let label = if unknown_only {
+        "unknown paths"
+    } else {
+        "paths"
+    };
+    let entries = sections.iter().filter(|(_, e, _)| e.is_some()).count();
+    let malformed = sections.len() - entries;
+    let mut tail = format!("{malformed} malformed lines");
+    if sliced {
+        tail.push_str(&format!(
+            " (--lines selected {} of {total} source lines)",
+            end - start
+        ));
+    }
+    info!("bot-session: {paths} {label} across {entries} entries; {tail}");
+    Ok(())
+}
+
+/// Short name of a leaf value's kind.
+fn kind_name(v: &Value) -> &'static str {
+    match v {
+        Value::String(_) => "str",
+        Value::Number(_) => "num",
+        Value::Bool(_) => "bool",
+        Value::Null => "null",
+        Value::Object(_) => "obj{}",
+        Value::Array(_) => "arr[]",
+    }
+}
+
+/// A short display sample of a leaf value; None for empty
+/// containers (nothing informative to show).
+fn sample_value(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) => Some(truncate_chars(&s.replace('\n', "\\n"), SAMPLE_CHAR_CAP)),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        Value::Null => Some("null".to_string()),
+        _ => None,
+    }
 }
 
 /// Read `[bot-session].items` from the workspace's
@@ -520,12 +823,26 @@ type TurnKey = (String, Option<String>);
 /// - Returns the output lines and the hide/skip counters.
 /// - A turn header is emitted when the (role, assistant
 ///   message-id) identity changes.
-fn render(t: &FileTranscript, items: &ItemSet, result_lines: usize) -> (Vec<String>, RenderStats) {
+fn render(
+    t: &FileTranscript,
+    items: &ItemSet,
+    result_lines: usize,
+    start: usize,
+    end: usize,
+    total: usize,
+) -> (Vec<String>, RenderStats) {
     let mut lines: Vec<String> = Vec::new();
     let mut stats = RenderStats::default();
     let mut turn: Option<TurnKey> = None;
 
-    for e in &t.entries {
+    if start > 0 {
+        lines.push(format!("… ({start} source lines skipped)"));
+    }
+    for e in t
+        .entries
+        .iter()
+        .filter(|e| e.line_no > start && e.line_no <= end)
+    {
         if e.meta.is_sidechain && !items.meta {
             stats.hidden_meta += 1;
             continue;
@@ -638,6 +955,9 @@ fn render(t: &FileTranscript, items: &ItemSet, result_lines: usize) -> (Vec<Stri
             }
             EntryKind::Other { .. } => stats.skipped_other += 1,
         }
+    }
+    if end < total {
+        lines.push(format!("… ({} source lines skipped)", total - end));
     }
     (lines, stats)
 }
@@ -796,36 +1116,13 @@ fn line_bounds(spec: &LinesSpec, len: usize) -> (usize, usize) {
     (start.min(end), end)
 }
 
-/// Slice the rendered lines per the spec, clamped to range, with
-/// an elision marker at each cut point.
-fn apply_lines(lines: Vec<String>, spec: &LinesSpec) -> Vec<String> {
-    let len = lines.len();
-    let (start, end) = line_bounds(spec, len);
-    let mut out = Vec::new();
-    if start > 0 {
-        out.push(format!("… ({start} lines skipped)"));
-    }
-    out.extend(lines[start..end].iter().cloned());
-    if end < len {
-        out.push(format!("… ({} lines skipped)", len - end));
-    }
-    out
-}
-
 /// Compose the trailing summary line, omitting zero clauses.
 ///
-/// `sliced` is `Some((displayed, total))` when `--lines` cut the
-/// output — the line then leads with the slice size and re-labels
-/// the file-wide stats as the full render, so it never claims
-/// more was shown than was.
+/// `sliced` is `Some((selected, total))` when `--lines` cut the
+/// input — the stats then describe only the selected source
+/// lines, and a trailing clause names the slice.
 fn summary_line(stats: &RenderStats, malformed: usize, sliced: Option<(usize, usize)>) -> String {
-    let mut parts = match sliced {
-        Some((displayed, total)) => vec![
-            format!("{displayed} of {total} lines shown (--lines)"),
-            format!("full render: {} turns", stats.shown),
-        ],
-        None => vec![format!("{} turns shown", stats.shown)],
-    };
+    let mut parts = vec![format!("{} turns shown", stats.shown)];
     let mut hidden = Vec::new();
     if stats.hidden_thinking > 0 {
         hidden.push(format!("{} thinking", stats.hidden_thinking));
@@ -847,6 +1144,11 @@ fn summary_line(stats: &RenderStats, malformed: usize, sliced: Option<(usize, us
     }
     if malformed > 0 {
         parts.push(format!("{malformed} malformed lines"));
+    }
+    if let Some((selected, total)) = sliced {
+        parts.push(format!(
+            "--lines selected {selected} of {total} source lines"
+        ));
     }
     format!("bot-session: {}", parts.join("; "))
 }

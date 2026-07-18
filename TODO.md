@@ -17,22 +17,6 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: bot-session --raw mode + --result-lines**
-
-Two "how much" knobs the item model deliberately left out.
-`--raw`: verbatim source lines (`cat`-like, no rendering) but
-honoring `--lines` — whose unit then becomes *source JSONL
-lines*, matching the malformed-line warnings and what
-jq/editors see, not rendered lines; the unit switch must be
-explicit in help, and raw output is verbatim-only (no summary,
-no elision markers). `--result-lines N` (0 = unlimited): the
-[result]-body cap, today hardwired to 10 even under --all.
-
-Two lightweight single-commit cycles (no Preparation):
-
-- 0.70.1 feat: bot-session --result-lines knob (done)
-- 0.70.2 feat: bot-session --raw mode (current)
-
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -282,6 +266,17 @@ Two lightweight single-commit cycles (no Preparation):
     - consider `validate-config`: flag unknown/misspelled
       keys in `.vc-config.toml` / user config.
     - applies to both config homes (workspace + user).
+13. **bot-session: --fields / --unknown output needs
+    clarification.** The inventory views work but their
+    presentation isn't self-explanatory yet — "dotted path per
+    entry type" needed explaining in conversation (0.70.2
+    review), and the README reword may still not land it.
+    - Revisit output labeling (column headers? a legend line?
+      per-section intro?) so the view teaches itself.
+    - Revisit the docs wording with fresh eyes; consider a
+      worked example annotated line by line.
+    - Wink: capture what stayed unclear next time it's used
+      in anger.
 
 ## Ideas
 
@@ -390,6 +385,16 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 - docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
+- feat: bot-session --fields + --raw explorer — bot-session
+  doubles as a schema explorer: --fields (dotted-path
+  inventory per entry type: count, kinds, samples),
+  --unknown (inventory minus the extractor's KNOWN_PATHS —
+  the unmodeled surface; 132 paths on first real run),
+  --raw (pretty-printed source lines); --per-line (a fields
+  section per source line, composes with --unknown); --lines
+  unified to source-JSONL-line units in every view,
+  conversation included; drift-over-time baseline deferred to the
+  discovery/index cycle [[5]]
 - feat: bot-session --result-lines knob — the [result]-body
   cap becomes a flag: `--result-lines N` (default 10, 0 =
   unlimited), Output-range help group; was hardwired to 10
@@ -402,4 +407,5 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [2]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
 [3]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
 [4]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
+[5]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
 [10]: /notes/forks-multi-user.md

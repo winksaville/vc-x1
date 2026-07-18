@@ -307,9 +307,9 @@ vc-x1 bot-session --none --user FILE
 # Default view minus tool calls and headers
 vc-x1 bot-session --no-tool --no-headers FILE
 
-# Slices of the rendered output
-vc-x1 bot-session --lines 40 FILE      # first 40 lines
-vc-x1 bot-session --lines -15 FILE     # last 15 lines
+# Slices by source JSONL line (same unit in every view)
+vc-x1 bot-session --lines 40 FILE      # first 40 source lines
+vc-x1 bot-session --lines -15 FILE     # last 15 source lines
 vc-x1 bot-session --lines 100,20 FILE  # 20 lines from Index 100
 vc-x1 bot-session --lines 100,-20 FILE # 20 lines ending at Index 100
 vc-x1 bot-session --lines 0 FILE       # stats summary only
@@ -319,15 +319,47 @@ vc-x1 bot-session --lines 0 FILE       # stats summary only
 |------|-------------|
 | `--<item>` / `--no-<item>` | Add / remove one of the eight items (last one wins) |
 | `--all` / `--none` | Base: every item on / off (aliases `--no-none` / `--no-all`) |
-| `--lines SPEC` | Slice the rendered lines (0-based Index): `N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only |
+| `--lines SPEC` | Slice by source JSONL line, 0-based Index (`N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only) — the same unit in every view |
 | `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited |
 
-Cut points show an `… (N lines skipped)` marker, and a sliced
-run's summary leads with `K of M lines shown` so it never
-claims more than was displayed. Timestamps are shown as UTC
+Cut points show an `… (N source lines skipped)` marker, and a
+sliced run's summary ends with `--lines selected K of M source
+lines` — its stats describe only the slice. Timestamps are shown as UTC
 (`Z`) exactly when the source timestamp carries it — observed
 always, but the format is undocumented, so anything else would
 pass through verbatim.
+
+**Alternate views** — the transcript format is undocumented
+and evolves, so bot-session doubles as a schema explorer. The
+parser keeps every field Anthropic writes while the typed
+layer consumes a known subset; the difference is the
+unexplored surface:
+
+| Flag | View |
+|------|------|
+| `--fields` | Field inventory, grouped by each line's `type`: every field observed (as a dotted path, e.g. `message.content[].type` — dots for nesting, `[]` for array elements) with its count, value kinds, and short samples |
+| `--unknown` | Like `--fields`, but only paths the typed layer does not consume — the unmodeled / new surface |
+| `--raw` | Pretty-printed source lines (unparseable lines pass through verbatim); no summary or markers |
+| `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
+
+`--lines` uses the same source-line unit here — e.g.
+`--fields --lines 0,1` inventories just the first line.
+`--fields`/`--unknown` ignore item flags; `--raw` conflicts
+with them.
+
+```
+# What does this format actually contain today?
+vc-x1 bot-session --fields FILE
+
+# What don't we model yet / what did Anthropic add?
+vc-x1 bot-session --unknown FILE
+
+# Inspect one entry in full (source line 42)
+vc-x1 bot-session --raw --lines 42,1 FILE
+
+# Walk a region line by line, fields-table style
+vc-x1 bot-session --per-line --lines 40,5 FILE
+```
 
 ### validate-desc
 

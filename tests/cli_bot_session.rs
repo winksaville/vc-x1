@@ -92,11 +92,13 @@ fn cli_bot_session_all() {
     assert!(stdout.contains("injected context"));
 }
 
-/// --lines slices the rendered output with elision markers.
+/// --lines slices by source JSONL line (same unit as the
+/// alternate views), with elision markers and a sliced summary.
 #[test]
 fn cli_bot_session_lines() {
     let fx = CliFixture::new("bot-session-lines");
     let file = fixture_file(&fx);
+    // Source lines 1-2: bookkeeping mode line + the user prompt.
     let out = run_ok(
         fx.cmd()
             .arg("bot-session")
@@ -104,17 +106,27 @@ fn cli_bot_session_lines() {
             .args(["--lines", "2"]),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         stdout.contains("=== user 2026-07-17 04:17:09Z ==="),
         "got: {stdout}"
     );
-    assert!(stdout.contains("lines skipped)"), "got: {stdout}");
-    assert!(!stdout.contains("[tool]"));
+    assert!(stdout.contains("please fix the bug"));
+    assert!(!stdout.contains("[tool]"), "line 5 out of range");
     assert!(
-        stdout.contains("lines shown (--lines)"),
-        "sliced summary, got: {stdout}"
+        stdout.contains("… (7 source lines skipped)"),
+        "got: {stdout}"
     );
-    assert!(stdout.contains("full render:"), "got: {stdout}");
+    assert!(stdout.contains("1 turns shown"), "got: {stdout}");
+    assert!(
+        stdout.contains("--lines selected 2 of 9 source lines"),
+        "got: {stdout}"
+    );
+    assert!(
+        !stderr.contains("warn:"),
+        "truncated line 9 out of range, got: {stderr}"
+    );
+    // 0 = nothing selected; summary only.
     let out = run_ok(
         fx.cmd()
             .arg("bot-session")
@@ -122,7 +134,11 @@ fn cli_bot_session_lines() {
             .args(["--lines", "0"]),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("0 of "), "summary-only, got: {stdout}");
+    assert!(stdout.contains("0 turns shown"), "got: {stdout}");
+    assert!(
+        stdout.contains("--lines selected 0 of 9 source lines"),
+        "got: {stdout}"
+    );
     assert!(!stdout.contains("==="), "no turns, got: {stdout}");
     let out = run_err(
         fx.cmd()
@@ -349,6 +365,106 @@ fn cli_bot_session_result_lines() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("r6"), "unlimited, got: {stdout}");
     assert!(!stdout.contains("lines)"), "no marker, got: {stdout}");
+}
+
+/// --fields inventories paths; --unknown filters to unmodeled
+/// ones; --raw pretty-prints source lines; --raw conflicts with
+/// --fields.
+#[test]
+fn cli_bot_session_alternate_views() {
+    let fx = CliFixture::new("bot-session-views");
+    let file = fixture_file(&fx);
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--fields"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("=== user ("), "got: {stdout}");
+    assert!(stdout.contains("promptSource"), "known path listed");
+    assert!(stdout.contains("durationMs"), "unknown path listed");
+    assert!(stdout.contains("paths across"), "got: {stdout}");
+
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--fields", "--lines", "1,1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("promptSource"),
+        "line 2 is the user prompt, got: {stdout}"
+    );
+    assert!(!stdout.contains("durationMs"), "other lines excluded");
+    assert!(
+        stdout.contains("across 1 entries"),
+        "sliced inventory, got: {stdout}"
+    );
+    assert!(stdout.contains("selected 1 of 9 source lines"));
+
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--unknown"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.contains("promptSource"), "known filtered out");
+    assert!(stdout.contains("durationMs"), "unknown kept");
+    assert!(stdout.contains("unknown paths across"));
+
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--raw", "--lines", "1,1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("\"promptSource\": \"typed\""),
+        "pretty-printed source line 1, got: {stdout}"
+    );
+    assert!(!stdout.contains("mode"), "only the selected line");
+
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--raw", "--lines", "-1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(r#"{"type":"assistant","message":{"id":"m2","content":[{"type":"te"#),
+        "truncated line passes through verbatim, got: {stdout}"
+    );
+
+    let out = run_err(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--raw", "--fields"]),
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("cannot be used with"), "got: {stderr}");
+
+    // --per-line: one section per source line, malformed in place.
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--per-line", "--lines", "0,2"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("=== Index 0: mode ==="), "got: {stdout}");
+    assert!(
+        stdout.contains("=== Index 1: user 2026-07-17 04:17:09Z ==="),
+        "got: {stdout}"
+    );
+    assert!(stdout.contains("promptSource"));
+    assert!(stdout.contains("across 2 entries"));
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+        "--unknown",
+        "--per-line",
+        "--lines",
+        "-1",
+    ]));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("<malformed:"),
+        "truncated line in place, got: {stdout}"
+    );
 }
 
 /// A missing file is the one hard error.

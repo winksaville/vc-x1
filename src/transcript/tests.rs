@@ -212,12 +212,29 @@ fn session_id_fallback() {
     assert_eq!(t.entries[1].meta.session_id.as_deref(), Some("b"));
 }
 
-/// parse_file: missing file is the one hard error.
+/// leaf_paths flattens nested objects/arrays; empty containers
+/// are leaves too.
 #[test]
-fn parse_file_missing() {
-    let err = parse_file(std::path::Path::new("/nonexistent/x.jsonl"))
-        .err()
-        .map(|e| e.to_string())
-        .unwrap_or_default();
-    assert!(err.contains("cannot read"), "got: {err}");
+fn leaf_paths_walks() {
+    let v: serde_json::Value =
+        serde_json::from_str(r#"{"a":{"b":1},"c":[{"d":"x"},{"d":"y"}],"e":[],"f":{}}"#).unwrap();
+    let mut out = Vec::new();
+    leaf_paths(&v, "", &mut out);
+    let paths: Vec<&str> = out.iter().map(|(p, _)| p.as_str()).collect();
+    assert_eq!(paths, vec!["a.b", "c[].d", "c[].d", "e", "f"]);
+}
+
+/// is_known: exact matches, subtree coverage, and misses.
+#[test]
+fn is_known_subtrees() {
+    assert!(is_known("uuid"));
+    assert!(is_known("message.content[].input"));
+    assert!(is_known("message.content[].input.command"), "subtree");
+    assert!(is_known("message.content[].content[].text"), "subtree");
+    assert!(!is_known("message.model"));
+    assert!(
+        !is_known("uuidX"),
+        "prefix without separator is not a match"
+    );
+    assert!(!is_known("message.contentx"));
 }
