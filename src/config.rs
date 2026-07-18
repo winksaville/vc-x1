@@ -4,7 +4,7 @@
 //! fallbacks — a missing file or missing key produces a
 //! predictable error pointing at the exact key to set.
 //!
-//! Schema (multi-account, dotted keys for compactness):
+//! Schema (multi-account, `.`-joined keys for compactness):
 //!
 //! ```toml
 //! [default]

@@ -30,7 +30,7 @@ pub struct FixDescArgs {
     #[arg(value_name = "REVISION")]
     pub pos_rev: Option<String>,
 
-    /// Number of commits (per dotted side)
+    /// Number of commits (per open side)
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 

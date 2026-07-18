@@ -25,15 +25,15 @@ use pollster::FutureExt;
 
 /// Result of parsing positional `..` notation.
 ///
-/// Counts are `Some(0)` for closed sides and `None` for open (dotted) sides.
+/// Counts are `Some(0)` for closed sides and `None` for open sides.
 /// Open sides become unlimited unless a positional count is applied later.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DotSpec {
     /// The bare revision (without `..`).
     pub rev: String,
-    /// Descendant count: `None` = open (dotted), `Some(0)` = closed.
+    /// Descendant count: `None` = open, `Some(0)` = closed.
     pub desc_count: Option<usize>,
-    /// Ancestor count: `None` = open (dotted), `Some(0)` = closed.
+    /// Ancestor count: `None` = open, `Some(0)` = closed.
     pub anc_count: Option<usize>,
 }
 

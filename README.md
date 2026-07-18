@@ -68,6 +68,19 @@ One historical wrinkle: the `-s`/`--scope` flag still spells the
 work side `code` (`-s code`, `-s code,bot`) — that keyword predates
 the work/bot naming.
 
+A few naming conventions this project keeps, to avoid ambiguous
+jargon:
+
+- **path** is reserved for a filesystem location, qualified as
+  **relative** or **absolute** when it matters (e.g. `../other`,
+  `/home/you/repo`).
+- a configuration setting is a **config key**, e.g.
+  `bot-session.col-width` (its TOML table and key joined by `.`);
+  not a "path".
+- a datum in a transcript's `--fields` inventory is a **field**,
+  e.g. `message.content[].type` — its levels joined by `.`, with
+  `[]` marking array elements.
+
 ## Usage
 
 ```
@@ -337,14 +350,14 @@ unexplored surface:
 
 | Flag | View |
 |------|------|
-| `--fields` | Field inventory, grouped by each line's `type`: every field observed (as a dotted path, e.g. `message.content[].type` — dots for nesting, `[]` for array elements) with its count, value kinds, and short samples |
-| `--unknown` | Like `--fields`, but only paths the typed layer does not consume — the unmodeled / new surface |
+| `--fields` | Field inventory, grouped by each line's `type`: every field observed (e.g. `message.content[].type` — `.` for nesting, `[]` for array elements) with its count, value kinds, and short samples |
+| `--unknown` | Like `--fields`, but only fields the typed layer does not consume — the unmodeled / new surface |
 | `--raw` | Pretty-printed source lines (unparseable lines pass through verbatim); no summary or markers |
 | `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
-| `--col-width N` | First-column (dotted-path) width in these views [default: 68]; longer paths overflow — resolves CLI > workspace `.vc-config.toml` `[bot-session].col-width` > user config > built-in, same as `[bot-session].items` |
+| `--col-width N` | First column width in these views [default: 68]; longer field names overflow — resolves CLI > workspace `.vc-config.toml` `[bot-session].col-width` > user config > built-in, same as `[bot-session].items` |
 
-The default 68 aligns the type column for ~99% of observed key
-paths; only a tail of `snapshot.trackedFileBackups.<absolute
+The default 68 aligns the type column for ~99% of observed field
+names; only a tail of `snapshot.trackedFileBackups.<absolute
 path>.*` keys — whose embedded absolute paths can be arbitrarily
 long — overflow.
 

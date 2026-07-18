@@ -57,7 +57,7 @@ pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::er
     Ok(map)
 }
 
-/// Look up a dotted key (e.g. `"workspace.path"`) in a loaded config map.
+/// Look up a `.`-joined config key (e.g. `"workspace.path"`) in a loaded config map.
 pub fn toml_get<'a>(map: &'a HashMap<String, String>, key: &str) -> Option<&'a String> {
     map.get(key)
 }

@@ -310,8 +310,8 @@ pub fn is_known(path: &str) -> bool {
     })
 }
 
-/// Collect every leaf field path in `v` (dotted keys, `[]` for
-/// array elements) with its leaf value, appending to `out`.
+/// Collect every leaf field in `v` (`.`-joined field names, `[]`
+/// for array elements) with its leaf value, appending to `out`.
 ///
 /// - Leaves are scalars (string / number / bool / null).
 /// - Empty objects / arrays are recorded as leaves too, so a

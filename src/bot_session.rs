@@ -25,7 +25,7 @@ use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 /// Default max lines of one tool result shown under `--results`.
 pub(crate) const RESULT_LINE_CAP: usize = 10;
 
-/// Default first-column (dotted-path) width in the `--fields` /
+/// Default first-column width in the `--fields` /
 /// `--unknown` / `--per-line` views.
 ///
 /// - 68 aligns the type column for ~99% of observed key paths —
@@ -215,19 +215,19 @@ pub struct BotSessionArgs {
     #[arg(long, value_name = "N", help_heading = "Output range")]
     pub result_lines: Option<usize>,
 
-    /// First-column (dotted-path) width in the --fields /
-    /// --unknown / --per-line views; longer paths overflow
+    /// First column width in the --fields / --unknown /
+    /// --per-line views; longer field names overflow
     /// [default: 68; or [bot-session].col-width]
     #[arg(long, value_name = "N", help_heading = "Alternate views")]
     pub col_width: Option<usize>,
 
-    /// Field inventory instead of the conversation: every dotted
-    /// path observed per entry type, with count, value kinds, and
+    /// Field inventory instead of the conversation: every field
+    /// observed per entry type, with count, value kinds, and
     /// short samples
     #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
     pub fields: bool,
 
-    /// Like --fields but only paths the typed layer does not
+    /// Like --fields but only fields the typed layer does not
     /// consume — the unmodeled / new surface
     #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
     pub unknown: bool,
@@ -551,9 +551,9 @@ const SAMPLE_CAP: usize = 3;
 /// Max chars of one sample value.
 const SAMPLE_CHAR_CAP: usize = 36;
 
-/// Render the `--fields` inventory: every dotted path per entry
-/// type with count, value kinds, and samples; `unknown_only`
-/// filters to paths the typed layer does not consume.
+/// Render the `--fields` inventory: every field per entry type
+/// with count, value kinds, and samples; `unknown_only` filters
+/// to fields the typed layer does not consume.
 fn fields_view(
     params: &BotSessionParams,
     unknown_only: bool,

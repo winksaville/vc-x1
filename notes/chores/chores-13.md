@@ -845,6 +845,14 @@ truth that a `config` command, init's commented defaults, and a
   `vc-x1 config` and init's generated .vc-config.toml use, so the
   two can't drift; text is schema-sourced (Clap extraction for
   the flag-backed keys deferred to a follow-up)
+- 0.71.0-7 docs: retire ambiguous "dotted" wording — "dotted
+  path / dotted key" was undefined jargon (and clashed with the
+  `..`-range "dotted side" usage). Reword every occurrence to
+  plain terms: a config setting is a "config key", a transcript
+  datum is a "field" (`.` joins levels, `[]` marks arrays), the
+  `..` sides are "open" / "closed"; "path" is reserved for
+  filesystem locations (relative or absolute), recorded in a new
+  README Terminology note
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

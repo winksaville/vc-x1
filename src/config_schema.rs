@@ -30,7 +30,8 @@ pub enum ValueKind {
 
 /// One settable configuration key.
 pub struct ConfigKey {
-    /// Dotted TOML path, e.g. `"bot-session.col-width"`.
+    /// The config key (TOML table and key joined by `.`), e.g.
+    /// `"bot-session.col-width"`.
     pub path: &'static str,
     /// Which home(s) accept this key.
     pub homes: &'static [Home],
@@ -204,7 +205,7 @@ pub fn schema() -> &'static [ConfigKey] {
     SCHEMA
 }
 
-/// Split a dotted key path on its last `.` into `(section, leaf)`.
+/// Split a config key on its last `.` into `(section, leaf)`.
 ///
 /// A path with no `.` (none exist in the current schema) falls
 /// back to an empty section so the key still renders under a
@@ -330,7 +331,7 @@ pub fn render_key_block(key: &ConfigKey) -> String {
 mod tests {
     use super::*;
 
-    /// Finds a schema entry by its dotted path.
+    /// Finds a schema entry by its config key.
     ///
     /// - Panics if not found: tests only, and a missing key is a
     ///   test bug worth failing loudly on.

@@ -118,7 +118,7 @@ fn print_group(title: &str, path_hint: &str, keys: &[&ConfigKey]) {
     info!("");
 }
 
-/// True if `actual` (a dotted key from a loaded config file) is
+/// True if `actual` (a config key from a loaded config file) is
 /// recognized by some `schema()` entry whose homes satisfy
 /// `home_pred`.
 ///

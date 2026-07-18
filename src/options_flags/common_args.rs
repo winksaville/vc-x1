@@ -42,7 +42,7 @@ pub struct CommonArgs {
     #[arg(value_name = "REVISION")]
     pub pos_rev: Option<String>,
 
-    /// Number of commits to show (per dotted side)
+    /// Number of commits to show (per open side)
     #[arg(value_name = "COMMITS")]
     pub pos_count: Option<usize>,
 
