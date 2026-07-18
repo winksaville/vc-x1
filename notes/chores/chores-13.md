@@ -861,6 +861,17 @@ truth that a `config` command, init's commented defaults, and a
   real entries, 5 entry types, arrays via a real assistant entry)
   through --per-line / --fields / --unknown / --raw / --lines;
   README's bot-session section links to it
+- 0.71.0-9 feat: config key descriptions + examples — tighten the
+  ambiguous descriptions (default.account → "[account.<name>]
+  profile"; repo.default enumerates its built-in categories) and
+  add an `example` field to ConfigKey so EVERY no-default key
+  renders a concrete value (marked `# example`) instead of a bare
+  <str> placeholder; a unit test enforces the rule (no key has
+  both default and example None). Keys with a real default (68,
+  10, .vc-x1, …) keep it — the default is the example. The
+  fabricated examples cohere around a fictional `acmehousing`
+  org (repo.default = "acmehousing", repo.category =
+  git@github.com:acmehousing)
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

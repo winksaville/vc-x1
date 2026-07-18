@@ -26,6 +26,18 @@ fn cli_config_default() {
     assert!(stdout.contains("push-state.toml"), "got: {stdout}");
     assert!(stdout.contains("[default]"), "got: {stdout}");
     assert!(stdout.contains("[repo]"), "got: {stdout}");
+    assert!(
+        stdout.contains("account = \"work\"   # example"),
+        "got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Account profile (an [account.<name>] section)"),
+        "got: {stdout}"
+    );
+    assert!(
+        stdout.contains("# col-width = 68") && !stdout.contains("68   # example"),
+        "got: {stdout}"
+    );
 }
 
 /// `--home user` prints only the User group: `[default]` shows up,

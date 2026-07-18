@@ -49,6 +49,11 @@ pub struct ConfigKey {
     /// The command/flag or structural context this key is
     /// associated with (e.g. `"bot-session --col-width"`).
     pub used_by: &'static str,
+    /// A representative example value for keys with no default;
+    /// rendered on the assignment line, marked `# example`,
+    /// instead of a bare placeholder. `None` when the key has a
+    /// real default (the default serves as the example).
+    pub example: Option<&'static str>,
 }
 
 /// Homes accepted by every `bot-session.*` key: all three homes,
@@ -75,8 +80,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: false,
-        doc: "Default account when --account is absent",
+        doc: "Account profile (an [account.<name>] section) to use when --account is absent",
         used_by: "--account (init and account-aware commands)",
+        example: Some("work"),
     },
     ConfigKey {
         path: "default.debug",
@@ -87,6 +93,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Default --debug value when used without an argument (reserved; not yet consumed)",
         used_by: "--debug (reserved; not yet consumed)",
+        example: Some("true"),
     },
     ConfigKey {
         path: "repo.default",
@@ -95,8 +102,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: false,
-        doc: "Top-level shorthand: repo category to use when --repo is absent",
+        doc: "Default repo category when --repo is bare — a [repo.category.<cat>] name: a built-in (remote, local) or your own",
         used_by: "--repo (default category when --repo is bare)",
+        example: Some("acmehousing"),
     },
     ConfigKey {
         path: "repo.category.<cat>",
@@ -105,8 +113,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Top-level shorthand: literal value for repo category <cat>",
+        doc: "Literal value for repo category <cat> — a remote URL prefix (init appends /<NAME>.git) or a local parent dir",
         used_by: "--repo <cat> (init remote/local resolution)",
+        example: Some("git@github.com:acmehousing"),
     },
     ConfigKey {
         path: "account.<name>.repo.default",
@@ -115,8 +124,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Per-account default repo category",
+        doc: "Per-account default repo category — a [repo.category.<cat>] name: a built-in (remote, local) or your own",
         used_by: "--account <name> with --repo",
+        example: Some("acmehousing"),
     },
     ConfigKey {
         path: "account.<name>.repo.category.<cat>",
@@ -125,8 +135,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Per-account literal value for repo category <cat>",
+        doc: "Per-account literal value for repo category <cat> (remote URL prefix or local parent dir)",
         used_by: "--account <name> with --repo <cat>",
+        example: Some("git@github.com:acmehousing"),
     },
     ConfigKey {
         path: "bot-session.items",
@@ -137,6 +148,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Default bot-session item set (comma-separated)",
         used_by: "bot-session --<item> / --no-<item> / --all / --none",
+        example: None,
     },
     ConfigKey {
         path: "bot-session.result-lines",
@@ -147,6 +159,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Default --result-lines: max lines shown per tool result (0 = unlimited)",
         used_by: "bot-session --result-lines",
+        example: None,
     },
     ConfigKey {
         path: "bot-session.col-width",
@@ -157,6 +170,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Default --col-width: first-column width in the field-inventory views",
         used_by: "bot-session --col-width",
+        example: None,
     },
     ConfigKey {
         path: "workspace.path",
@@ -167,6 +181,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "This repo's path relative to the workspace root (role-specific: \"/\" for the work repo, \"/.claude\" for the bot repo)",
         used_by: "find_workspace_root, sync, push, validate-desc (structural; written by init)",
+        example: Some("/"),
     },
     ConfigKey {
         path: "workspace.other-repo",
@@ -177,6 +192,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Relative path to the counterpart repo; presence signals dual-repo mode (role-specific: \".claude\" for the work repo, \"..\" for the bot repo)",
         used_by: "default_scope, validate-desc/fix-desc --other-repo (structural)",
+        example: Some(".claude"),
     },
     ConfigKey {
         path: "push.state-dir",
@@ -187,6 +203,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Directory (relative to repo root) holding the push state file",
         used_by: "push / squash-push (state-file directory)",
+        example: None,
     },
     ConfigKey {
         path: "push.state-file",
@@ -197,6 +214,7 @@ const SCHEMA: &[ConfigKey] = &[
         dynamic: false,
         doc: "Filename of the push state file under push.state-dir",
         used_by: "push / squash-push (state-file name)",
+        example: None,
     },
 ];
 
@@ -217,16 +235,23 @@ pub fn section_and_leaf(path: &str) -> (&str, &str) {
     }
 }
 
+/// Format a raw value string per `kind`, the way a default or an
+/// example is rendered on the assignment line: `Usize` bare,
+/// `Str`/`ItemList` quoted.
+fn format_value(kind: ValueKind, raw: &str) -> String {
+    match kind {
+        ValueKind::Usize => raw.to_string(),
+        ValueKind::Str | ValueKind::ItemList => format!("{raw:?}"),
+    }
+}
+
 /// Render a key's value cell: the quoted/bare default, or an
 /// angle-bracket placeholder by kind when there is no default —
 /// except a required key with no default, which renders
 /// `<required>` so it stands out.
 pub fn render_value(key: &ConfigKey) -> String {
     match key.default {
-        Some(d) => match key.kind {
-            ValueKind::Usize => d.to_string(),
-            ValueKind::Str | ValueKind::ItemList => format!("{d:?}"),
-        },
+        Some(d) => format_value(key.kind, d),
         None => {
             if key.required {
                 "<required>".to_string()
@@ -247,10 +272,7 @@ pub fn render_value(key: &ConfigKey) -> String {
 /// `(none)` otherwise.
 fn render_default_note(key: &ConfigKey) -> String {
     match key.default {
-        Some(d) => match key.kind {
-            ValueKind::Usize => d.to_string(),
-            ValueKind::Str | ValueKind::ItemList => format!("{d:?}"),
-        },
+        Some(d) => format_value(key.kind, d),
         None => {
             if key.required {
                 "(required; role-specific — see init)".to_string()
@@ -305,8 +327,9 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 ///   note>`,
 /// - the assignment line itself — uncommented for a `required` key
 ///   (init fills in the role-specific value), commented (`# `)
-///   otherwise, with the rendered default or a kind placeholder
-///   (`<str>` etc.) when there is no default,
+///   otherwise, with the rendered default, a `key.example` value
+///   marked with a trailing `# example` when there is no default,
+///   or (absent both) a kind placeholder (`<str>` etc.),
 /// - a trailing blank line, so consecutive blocks read as
 ///   paragraph-separated entries.
 ///
@@ -321,8 +344,16 @@ pub fn render_key_block(key: &ConfigKey) -> String {
     out.push_str(&format!("#   default: {}\n", render_default_note(key)));
     let (_section, leaf) = section_and_leaf(key.path);
     let prefix = if key.required { "" } else { "# " };
-    let value = render_value(key);
-    out.push_str(&format!("{prefix}{leaf} = {value}\n"));
+    match key.example {
+        Some(ex) => {
+            let value = format_value(key.kind, ex);
+            out.push_str(&format!("{prefix}{leaf} = {value}   # example\n"));
+        }
+        None => {
+            let value = render_value(key);
+            out.push_str(&format!("{prefix}{leaf} = {value}\n"));
+        }
+    }
     out.push('\n');
     out
 }
@@ -376,6 +407,20 @@ mod tests {
     fn homes_non_empty() {
         for key in schema() {
             assert!(!key.homes.is_empty(), "{} has no homes", key.path);
+        }
+    }
+
+    /// Every key must show a concrete value in the rendered
+    /// schema: a real `default`, or an `example` — never both
+    /// `None` (which would render a bare `<str>` placeholder).
+    #[test]
+    fn every_key_has_default_or_example() {
+        for key in schema() {
+            assert!(
+                key.default.is_some() || key.example.is_some(),
+                "{}: has neither a default nor an example",
+                key.path
+            );
         }
     }
 
