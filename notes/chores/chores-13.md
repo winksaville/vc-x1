@@ -833,6 +833,11 @@ truth that a `config` command, init's commented defaults, and a
   .vc-config.toml with the active role-specific [workspace] block
   plus a commented block of the optional push.* / bot-session.*
   keys, rendered from the schema (render_vc_config)
+- 0.71.0-5 feat: config --validate check — vc-x1 config
+  --validate loads the actual config file(s) and flags unknown /
+  misspelled keys (home-gated exact match for static keys,
+  segment-wise <placeholder> match for dynamic families), exits
+  non-zero
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

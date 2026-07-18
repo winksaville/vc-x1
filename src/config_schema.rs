@@ -3,10 +3,10 @@
 //! per-repo workspace config).
 //!
 //! - `crate::config_cmd` prints this registry as an annotated
-//!   schema.
-//! - Later commits derive init's commented defaults and a
-//!   `--validate` unknown-key check from `schema()`, so those
-//!   surfaces cannot drift from this list.
+//!   schema, and — with `--validate` — checks a config file's keys
+//!   against it (dynamic-segment aware).
+//! - `crate::init` derives init's commented defaults from
+//!   `schema()`, so these surfaces cannot drift from this list.
 
 /// Which config home a key belongs to.
 /// - `User` — `~/.config/vc-x1/config.toml`
@@ -42,8 +42,6 @@ pub struct ConfigKey {
     pub required: bool,
     /// The path has a `<placeholder>` segment matching a family
     /// of keys (e.g. `repo.category.<cat>`).
-    #[allow(dead_code)]
-    // OK: consumed by the `--validate` unknown-key check landing in 0.71.0-5
     pub dynamic: bool,
     /// One-line description.
     pub doc: &'static str,
