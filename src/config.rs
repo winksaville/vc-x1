@@ -97,6 +97,32 @@ pub struct UserConfig {
     /// for `bot-session` (e.g. `"headers,user,assistant,tool,summary"`).
     /// Parsed and validated by the bot-session op, not here.
     pub bot_session_items: Option<String>,
+
+    /// `[bot-session].result-lines` — default `--result-lines`
+    /// value (max lines shown per tool result; 0 = unlimited).
+    pub bot_session_result_lines: Option<usize>,
+
+    /// `[bot-session].col-width` — default `--col-width` value
+    /// (first-column width in the field-inventory views).
+    pub bot_session_col_width: Option<usize>,
+}
+
+/// Parse a config key's string value to `usize`.
+///
+/// - Absent key → `Ok(None)`.
+/// - Present but unparseable → `Err` naming the key and value
+///   (malformed config is fatal, not silently ignored).
+fn parse_usize_key(
+    map: &HashMap<String, String>,
+    key: &str,
+) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+    match map.get(key) {
+        None => Ok(None),
+        Some(s) => s
+            .parse::<usize>()
+            .map(Some)
+            .map_err(|e| format!("config key {key:?}: invalid usize {s:?}: {e}").into()),
+    }
 }
 
 /// CLI selector for `--repo <cat>[=<val>]`.
@@ -157,6 +183,8 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
         top_level_repo: None,
         accounts: HashMap::new(),
         bot_session_items: map.get("bot-session.items").cloned(),
+        bot_session_result_lines: parse_usize_key(&map, "bot-session.result-lines")?,
+        bot_session_col_width: parse_usize_key(&map, "bot-session.col-width")?,
     };
 
     let mut top_level = AccountConfig::default();
@@ -576,6 +604,32 @@ items = "user,summary"
     }
 
     #[test]
+    fn bot_session_scalars_parse() {
+        let (_cfg, path) = write_cfg(
+            "bot-session-scalars",
+            r#"[bot-session]
+result-lines = 3
+col-width = 40
+"#,
+        );
+        let cfg = load_from(&path).unwrap();
+        assert_eq!(cfg.bot_session_result_lines, Some(3));
+        assert_eq!(cfg.bot_session_col_width, Some(40));
+    }
+
+    #[test]
+    fn bot_session_scalar_bad_value_errors() {
+        let (_cfg, path) = write_cfg(
+            "bot-session-scalar-bad",
+            r#"[bot-session]
+col-width = "abc"
+"#,
+        );
+        let err = load_from(&path).unwrap_err().to_string();
+        assert!(err.contains("col-width"), "got: {err}");
+    }
+
+    #[test]
     fn unknown_keys_ignored() {
         // Forward-compat: unknown sections/sub-keys silently dropped.
         let (_cfg, path) = write_cfg(
@@ -616,6 +670,8 @@ some-key = "ignored"
             top_level_repo: None,
             accounts: HashMap::from([("home".into(), home), ("work".into(), work)]),
             bot_session_items: None,
+            bot_session_result_lines: None,
+            bot_session_col_width: None,
         }
     }
 
@@ -756,6 +812,8 @@ some-key = "ignored"
             top_level_repo: Some(tl),
             accounts: HashMap::new(),
             bot_session_items: None,
+            bot_session_result_lines: None,
+            bot_session_col_width: None,
         }
     }
 

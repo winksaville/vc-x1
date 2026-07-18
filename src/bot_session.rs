@@ -211,23 +211,15 @@ pub struct BotSessionArgs {
     pub lines: Option<String>,
 
     /// Max lines shown per tool result (0 = unlimited)
-    #[arg(
-        long,
-        value_name = "N",
-        default_value_t = RESULT_LINE_CAP,
-        help_heading = "Output range"
-    )]
-    pub result_lines: usize,
+    /// [default: 10; or [bot-session].result-lines]
+    #[arg(long, value_name = "N", help_heading = "Output range")]
+    pub result_lines: Option<usize>,
 
     /// First-column (dotted-path) width in the --fields /
     /// --unknown / --per-line views; longer paths overflow
-    #[arg(
-        long,
-        value_name = "N",
-        default_value_t = COL_WIDTH,
-        help_heading = "Alternate views"
-    )]
-    pub col_width: usize,
+    /// [default: 68; or [bot-session].col-width]
+    #[arg(long, value_name = "N", help_heading = "Alternate views")]
+    pub col_width: Option<usize>,
 
     /// Field inventory instead of the conversation: every dotted
     /// path observed per entry type, with count, value kinds, and
@@ -371,10 +363,14 @@ pub struct BotSessionParams {
     pub toggles: ItemToggles,
     /// Optional `--lines` slice of the rendered output.
     pub lines: Option<LinesSpec>,
-    /// Max lines per tool result (0 = unlimited).
-    pub result_lines: usize,
-    /// First-column width in the field-inventory views.
-    pub col_width: usize,
+    /// Max lines per tool result (0 = unlimited); `None` when
+    /// `--result-lines` was not given (resolved against config in
+    /// the op).
+    pub result_lines: Option<usize>,
+    /// First-column width in the field-inventory views; `None`
+    /// when `--col-width` was not given (resolved against config
+    /// in the op).
+    pub col_width: Option<usize>,
     /// Which view to render.
     pub view: View,
 }
@@ -446,24 +442,36 @@ impl SubcommandRunner for BotSessionArgs {
 /// Run the `bot-session` subcommand: parse the transcript and
 /// print the conversation view plus the trailing summary line.
 ///
-/// The item set resolves git-style, most specific wins: CLI
-/// toggles > workspace `.vc-config.toml` > user config >
-/// built-in default (`--all`/`--none` are CLI-level bases).
+/// The item set, `--result-lines`, and `--col-width` all resolve
+/// git-style, most specific wins: CLI > workspace
+/// `.vc-config.toml` > user config > built-in default
+/// (`--all`/`--none` are CLI-level bases for the item set).
 pub fn bot_session(
     ctx: &Context,
     params: &BotSessionParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("bot-session: enter");
+    let ws = workspace_bot_session()?;
+    let col_width = params
+        .col_width
+        .or(ws.col_width)
+        .or(ctx.user_config.bot_session_col_width)
+        .unwrap_or(COL_WIDTH);
+    let result_lines = params
+        .result_lines
+        .or(ws.result_lines)
+        .or(ctx.user_config.bot_session_result_lines)
+        .unwrap_or(RESULT_LINE_CAP);
     match params.view {
         View::Raw => return raw_view(params),
         View::Fields {
             unknown_only,
             per_line,
-        } => return fields_view(params, unknown_only, per_line),
+        } => return fields_view(params, unknown_only, per_line, col_width),
         View::Conversation => {}
     }
-    let workspace_items = workspace_items()?;
-    let config_items = workspace_items
+    let config_items = ws
+        .items
         .as_deref()
         .or(ctx.user_config.bot_session_items.as_deref());
     let items = resolve_items(&params.toggles, config_items)?;
@@ -478,7 +486,7 @@ pub fn bot_session(
             warn!("bot-session: line {line_no}: {err}");
         }
     }
-    let (lines, stats) = render(&t, &items, params.result_lines, start, end, total);
+    let (lines, stats) = render(&t, &items, result_lines, start, end, total);
     for line in &lines {
         info!("{line}");
     }
@@ -550,6 +558,7 @@ fn fields_view(
     params: &BotSessionParams,
     unknown_only: bool,
     per_line: bool,
+    col_width: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let text = std::fs::read_to_string(&params.file)
         .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
@@ -574,7 +583,7 @@ fn fields_view(
             end,
             total,
             params.lines.is_some(),
-            params.col_width,
+            col_width,
         );
     }
     // (entry type, path) → aggregate, sorted for stable output.
@@ -626,7 +635,7 @@ fn fields_view(
             kinds,
             a.count,
             samples,
-            width = params.col_width
+            width = col_width
         );
     }
     info!("");
@@ -757,22 +766,56 @@ fn sample_value(v: &Value) -> Option<String> {
     }
 }
 
-/// Read `[bot-session].items` from the workspace's
-/// `.vc-config.toml`, when cwd is inside a workspace.
+/// The `[bot-session]` scalars read from the workspace's
+/// `.vc-config.toml`, unresolved (CLI/user-config layering
+/// happens in `bot_session`).
+struct WorkspaceBotSession {
+    /// `[bot-session].items`.
+    items: Option<String>,
+    /// `[bot-session].result-lines`.
+    result_lines: Option<usize>,
+    /// `[bot-session].col-width`.
+    col_width: Option<usize>,
+}
+
+/// Read `[bot-session]` from the workspace's `.vc-config.toml`,
+/// when cwd is inside a workspace.
 ///
-/// - No workspace, no file, or no key → `Ok(None)`.
-/// - Unreadable/malformed file → error (it exists but can't be
-///   used; silence would mask a real config problem).
-fn workspace_items() -> Result<Option<String>, Box<dyn std::error::Error>> {
+/// - No workspace, no file, or no key → all fields `None`.
+/// - Unreadable/malformed file, or a present-but-unparseable
+///   scalar → error (it exists but can't be used; silence would
+///   mask a real config problem).
+fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Error>> {
     let Some(root) = crate::common::find_workspace_root() else {
-        return Ok(None);
+        return Ok(WorkspaceBotSession {
+            items: None,
+            result_lines: None,
+            col_width: None,
+        });
     };
     let path = root.join(".vc-config.toml");
     if !path.exists() {
-        return Ok(None);
+        return Ok(WorkspaceBotSession {
+            items: None,
+            result_lines: None,
+            col_width: None,
+        });
     }
     let map = crate::toml_simple::toml_load(&path)?;
-    Ok(map.get("bot-session.items").cloned())
+    let parse_usize = |key: &str| -> Result<Option<usize>, Box<dyn std::error::Error>> {
+        match map.get(key) {
+            None => Ok(None),
+            Some(s) => s
+                .parse::<usize>()
+                .map(Some)
+                .map_err(|e| format!("{key}: invalid usize {s:?}: {e}").into()),
+        }
+    };
+    Ok(WorkspaceBotSession {
+        items: map.get("bot-session.items").cloned(),
+        result_lines: parse_usize("bot-session.result-lines")?,
+        col_width: parse_usize("bot-session.col-width")?,
+    })
 }
 
 /// Resolve the effective item set from toggles + config.

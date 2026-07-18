@@ -400,6 +400,91 @@ fn cli_bot_session_col_width() {
     );
 }
 
+/// The workspace .vc-config.toml [bot-session].col-width layer
+/// sets the default pad; CLI --col-width still overrides it.
+#[test]
+fn cli_bot_session_workspace_col_width() {
+    let fx = CliFixture::new("bot-session-vc-config-col-width");
+    let file = fixture_file(&fx);
+    std::fs::write(
+        fx.base.join(".vc-config.toml"),
+        "[workspace]\npath = \"/\"\n\n[bot-session]\ncol-width = 20\n",
+    )
+    .expect("write vc-config");
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--per-line", "--lines", "0,1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("  {:<20} {:<9}", "type", "str")),
+        "workspace 20-wide pad, got: {stdout}"
+    );
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--per-line", "--col-width", "12", "--lines", "0,1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("  {:<12} {:<9}", "type", "str")),
+        "CLI beats workspace, got: {stdout}"
+    );
+}
+
+/// The workspace .vc-config.toml [bot-session].result-lines layer
+/// caps tool results by default; CLI --result-lines still
+/// overrides it.
+#[test]
+fn cli_bot_session_workspace_result_lines() {
+    let fx = CliFixture::new("bot-session-vc-config-result-lines");
+    let file = fx.path("multiline.jsonl");
+    let result = (1..=6)
+        .map(|i| format!("r{i}"))
+        .collect::<Vec<_>>()
+        .join("\\n");
+    let tool_use = r#"{"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"x"}}]}}"#;
+    let tool_result = format!(
+        r#"{{"type":"user","message":{{"content":[{{"type":"tool_result","tool_use_id":"t1","content":"{result}"}}]}}}}"#
+    );
+    std::fs::write(&file, format!("{tool_use}\n{tool_result}\n")).expect("write fixture");
+    std::fs::write(
+        fx.base.join(".vc-config.toml"),
+        "[workspace]\npath = \"/\"\n\n[bot-session]\nresult-lines = 2\n",
+    )
+    .expect("write vc-config");
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file)
+            .arg("--results"),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("[result] r1"), "got: {stdout}");
+    assert!(stdout.contains("r2"));
+    assert!(!stdout.contains("r3"), "workspace cap at 2, got: {stdout}");
+    assert!(stdout.contains("(+4 lines)"));
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--results", "--result-lines", "0"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("r6"),
+        "CLI override unlimited, got: {stdout}"
+    );
+    assert!(!stdout.contains("lines)"), "no marker, got: {stdout}");
+}
+
 /// --fields inventories paths; --unknown filters to unmodeled
 /// ones; --raw pretty-prints source lines; --raw conflicts with
 /// --fields.

@@ -816,6 +816,10 @@ truth that a `config` command, init's commented defaults, and a
 - 0.71.0-0 chore: open config cycle — version-of-record bump, In
   Progress ladder, chores section opened, --col-width Commits
   backfill
+- 0.71.0-1 feat: bot-session scalar config keys — --result-lines
+  / --col-width now resolve CLI > workspace > user > built-in
+  like [bot-session].items; args → Option, workspace_items() →
+  workspace_bot_session(), resolution moved into the op
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

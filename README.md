@@ -320,7 +320,7 @@ vc-x1 bot-session --lines 0 FILE       # stats summary only
 | `--<item>` / `--no-<item>` | Add / remove one of the eight items (last one wins) |
 | `--all` / `--none` | Base: every item on / off (aliases `--no-none` / `--no-all`) |
 | `--lines SPEC` | Slice by source JSONL line, 0-based Index (`N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only) — the same unit in every view |
-| `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited |
+| `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited — resolves CLI > workspace `.vc-config.toml` `[bot-session].result-lines` > user config > built-in, same as `[bot-session].items` |
 
 Cut points show an `… (N source lines skipped)` marker, and a
 sliced run's summary ends with `--lines selected K of M source
@@ -341,7 +341,7 @@ unexplored surface:
 | `--unknown` | Like `--fields`, but only paths the typed layer does not consume — the unmodeled / new surface |
 | `--raw` | Pretty-printed source lines (unparseable lines pass through verbatim); no summary or markers |
 | `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
-| `--col-width N` | First-column (dotted-path) width in these views [default: 68]; longer paths overflow |
+| `--col-width N` | First-column (dotted-path) width in these views [default: 68]; longer paths overflow — resolves CLI > workspace `.vc-config.toml` `[bot-session].col-width` > user config > built-in, same as `[bot-session].items` |
 
 The default 68 aligns the type column for ~99% of observed key
 paths; only a tail of `snapshot.trackedFileBackups.<absolute

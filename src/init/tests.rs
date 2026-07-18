@@ -479,6 +479,8 @@ fn cfg_top_level_remote(prefix: &str) -> UserConfig {
         top_level_repo: Some(tl),
         accounts: HashMap::new(),
         bot_session_items: None,
+        bot_session_result_lines: None,
+        bot_session_col_width: None,
     }
 }
 
@@ -493,6 +495,8 @@ fn cfg_top_level_local(parent: &str) -> UserConfig {
         top_level_repo: Some(tl),
         accounts: HashMap::new(),
         bot_session_items: None,
+        bot_session_result_lines: None,
+        bot_session_col_width: None,
     }
 }
 
@@ -517,6 +521,8 @@ fn cfg_two_accounts() -> UserConfig {
         top_level_repo: None,
         accounts: HashMap::from([("home".into(), home), ("work".into(), work)]),
         bot_session_items: None,
+        bot_session_result_lines: None,
+        bot_session_col_width: None,
     }
 }
 
