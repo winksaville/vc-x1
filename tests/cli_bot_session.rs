@@ -367,6 +367,39 @@ fn cli_bot_session_result_lines() {
     assert!(!stdout.contains("lines)"), "no marker, got: {stdout}");
 }
 
+/// --col-width sets the first-column (dotted-path) pad in the
+/// field views; the default is 68.
+#[test]
+fn cli_bot_session_col_width() {
+    let fx = CliFixture::new("bot-session-col-width");
+    let file = fixture_file(&fx);
+    // Narrow override: `type` pads to exactly 12 before the kind.
+    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+        "--per-line",
+        "--col-width",
+        "12",
+        "--lines",
+        "0,1",
+    ]));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("  {:<12} {:<9}", "type", "str")),
+        "12-wide pad, got: {stdout}"
+    );
+    // Default (68) pads the same row wider.
+    let out = run_ok(
+        fx.cmd()
+            .arg("bot-session")
+            .arg(&file)
+            .args(["--per-line", "--lines", "0,1"]),
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("  {:<68} {:<9}", "type", "str")),
+        "default 68-wide pad, got: {stdout}"
+    );
+}
+
 /// --fields inventories paths; --unknown filters to unmodeled
 /// ones; --raw pretty-prints source lines; --raw conflicts with
 /// --fields.

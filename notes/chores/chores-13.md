@@ -691,7 +691,7 @@ cycles.
 
 ## feat: bot-session --result-lines knob
 
-Commits:
+Commits: [[42]]
 
 The [result]-body cap becomes user-controllable:
 `--result-lines N` (default 10, `0` = unlimited) in the
@@ -703,7 +703,7 @@ single-commit cycles from the --raw Todo; `--raw` itself is
 
 ## feat: bot-session --fields + --raw explorer
 
-Commits:
+Commits: [[43]]
 
 `--raw` reframed at review from a cat-like verbatim dump
 (barely beats jq) to *schema exploration*: the parser keeps
@@ -746,6 +746,58 @@ by accident.
   the repo's dated transcripts) — discovery/index cycle
   territory.
 
+## feat: bot-session --col-width knob
+
+Commits:
+
+The field views' (`--fields`/`--unknown`/`--per-line`)
+first-column pad — the dotted-path column, previously a
+hardwired `{:<44}` at two sites — becomes `--col-width N`
+(Output default 68) and its default widens 44 → 68.
+
+- The pad is a *minimum* width (`{:<width$}`), so a longer
+  path overflows and pushes the type column out of alignment;
+  the knob is about where the type/value columns settle for
+  the common case, not truncation.
+- Single fixed width shared by both the aggregated
+  (`--fields`/`--unknown`) and the `--per-line` view — they
+  read from the same knob so the two never diverge.
+- `--col-width 12` (test) confirms the override; the default
+  68 is asserted separately.
+
+### Choosing 68
+
+We picked 68 from measured key-path lengths, not a guess. A
+real 55,642-line `--per-line` dump of one session gave, over
+its ~52k rendered rows:
+
+- median path 19 chars; 85th percentile 48 (the old pad);
+  95th 61.
+- 68 aligns the type column for ~99% of rows — every
+  structural key including the relative-path
+  `snapshot.trackedFileBackups.<rel>.backupFileName` (68) and
+  the `message.usage.iterations[]…ephemeral_*_input_tokens`
+  family (67), the 1,524-row knee of the distribution.
+- The only keys past 68 are ~216 outliers of one shape —
+  `snapshot.trackedFileBackups.<absolute path>.*`, where the
+  embedded absolute path (`/home/.../plans/*.md`) reaches
+  91–98 chars. An absolute path is unbounded, so no fixed
+  width should chase it; those overflow by design.
+- 73 would also catch the `toolUseResult.usage.iterations[]…`
+  variants but costs 5 columns of whitespace on every
+  short-key row — not worth ~216 more aligned rows.
+
+### Config-hierarchy scope (deferred)
+
+At review the knob's resolution was raised: `[bot-session].items`
+resolves CLI > workspace `.vc-config.toml` > user config >
+built-in, but `--col-width` (and the existing `--result-lines`)
+are plain clap defaults with no config layer. Bringing both
+scalar args under that hierarchy is a config-plumbing change
+(args → `Option`, new config keys, resolution in the op) folded
+into Todo #12 (config discoverability) rather than done here, so
+this cycle stays a single focused knob.
+
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
 [3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"
@@ -787,3 +839,5 @@ by accident.
 [39]: https://github.com/winksaville/vc-x1/commit/1ccba615836d "1ccba615836d67ec5dec5bd7dc1958d5cb842106"
 [40]: https://github.com/winksaville/vc-x1/commit/13080d695ae3 "13080d695ae3dce926f006bfc0665e759538a3f1"
 [41]: https://github.com/winksaville/vc-x1/commit/2d591fc32e98 "2d591fc32e987f20c024032b878aea903cd339f1"
+[42]: https://github.com/winksaville/vc-x1/commit/81638962f044 "81638962f044f69978dc62574140e1c7d6444fcd"
+[43]: https://github.com/winksaville/vc-x1/commit/8363696c8b21 "8363696c8b2185d93dd3603919caed09baff60fe"

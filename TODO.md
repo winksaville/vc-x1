@@ -266,6 +266,22 @@ by the "plan" — a bulleted list of the development "ladder":
     - consider `validate-config`: flag unknown/misspelled
       keys in `.vc-config.toml` / user config.
     - applies to both config homes (workspace + user).
+    - **bot-session scalar args honor the config hierarchy.**
+      `[bot-session].items` already resolves CLI > workspace
+      `.vc-config.toml` > user config > built-in, but the
+      scalar knobs `--result-lines` and `--col-width` are
+      plain clap defaults with no config layer. Give them
+      `[bot-session].result-lines` / `[bot-session].col-width`
+      keys resolving through the same four levels:
+      - the args become `Option<usize>` (drop
+        `default_value_t`) so "absent" is distinguishable from
+        "defaulted", mirroring the `Option<bool>` item toggles.
+      - resolution moves into the op (needs `ctx.user_config` +
+        workspace config), not `TryFrom` (no `Context`);
+        generalize `workspace_items()` to read all three keys.
+      - `toml_simple` yields strings, so parse to `usize` and
+        error on a bad value (consistent with malformed-file =
+        fatal).
 13. **bot-session: --fields / --unknown output needs
     clarification.** The inventory views work but their
     presentation isn't self-explanatory yet — "dotted path per
@@ -385,6 +401,12 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 - docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
+- feat: bot-session --col-width knob — the field views'
+  (`--fields`/`--unknown`/`--per-line`) first-column pad
+  becomes `--col-width N`, default widened 44 → 68 (aligns
+  the type column for ~99% of observed key paths; only the
+  long-tail `snapshot.trackedFileBackups.<abs path>.*` keys
+  overflow); config-hierarchy resolution deferred to Todo #12 [[6]]
 - feat: bot-session --fields + --raw explorer — bot-session
   doubles as a schema explorer: --fields (dotted-path
   inventory per entry type: count, kinds, samples),
@@ -408,4 +430,5 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [3]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
 [4]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
 [5]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
+[6]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
 [10]: /notes/forks-multi-user.md

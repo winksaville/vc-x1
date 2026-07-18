@@ -341,6 +341,12 @@ unexplored surface:
 | `--unknown` | Like `--fields`, but only paths the typed layer does not consume — the unmodeled / new surface |
 | `--raw` | Pretty-printed source lines (unparseable lines pass through verbatim); no summary or markers |
 | `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
+| `--col-width N` | First-column (dotted-path) width in these views [default: 68]; longer paths overflow |
+
+The default 68 aligns the type column for ~99% of observed key
+paths; only a tail of `snapshot.trackedFileBackups.<absolute
+path>.*` keys — whose embedded absolute paths can be arbitrarily
+long — overflow.
 
 `--lines` uses the same source-line unit here — e.g.
 `--fields --lines 0,1` inventories just the first line.

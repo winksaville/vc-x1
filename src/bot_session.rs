@@ -25,6 +25,17 @@ use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 /// Default max lines of one tool result shown under `--results`.
 const RESULT_LINE_CAP: usize = 10;
 
+/// Default first-column (dotted-path) width in the `--fields` /
+/// `--unknown` / `--per-line` views.
+///
+/// - 68 aligns the type column for ~99% of observed key paths —
+///   every structural key except a long tail of
+///   `snapshot.trackedFileBackups.<absolute path>.*` keys, whose
+///   embedded absolute paths can be arbitrarily long and so are
+///   left to overflow.
+/// - Override with `--col-width`.
+const COL_WIDTH: usize = 68;
+
 /// Max chars of a tool-use one-liner gist.
 const GIST_CHAR_CAP: usize = 100;
 
@@ -208,6 +219,16 @@ pub struct BotSessionArgs {
     )]
     pub result_lines: usize,
 
+    /// First-column (dotted-path) width in the --fields /
+    /// --unknown / --per-line views; longer paths overflow
+    #[arg(
+        long,
+        value_name = "N",
+        default_value_t = COL_WIDTH,
+        help_heading = "Alternate views"
+    )]
+    pub col_width: usize,
+
     /// Field inventory instead of the conversation: every dotted
     /// path observed per entry type, with count, value kinds, and
     /// short samples
@@ -352,6 +373,8 @@ pub struct BotSessionParams {
     pub lines: Option<LinesSpec>,
     /// Max lines per tool result (0 = unlimited).
     pub result_lines: usize,
+    /// First-column width in the field-inventory views.
+    pub col_width: usize,
     /// Which view to render.
     pub view: View,
 }
@@ -391,6 +414,7 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
             },
             lines,
             result_lines: a.result_lines,
+            col_width: a.col_width,
             view: if a.raw {
                 View::Raw
             } else if a.fields || a.unknown || a.per_line {
@@ -543,7 +567,15 @@ fn fields_view(
         }
     }
     if per_line {
-        return per_line_view(&t, unknown_only, start, end, total, params.lines.is_some());
+        return per_line_view(
+            &t,
+            unknown_only,
+            start,
+            end,
+            total,
+            params.lines.is_some(),
+            params.col_width,
+        );
     }
     // (entry type, path) → aggregate, sorted for stable output.
     let mut agg: std::collections::BTreeMap<(String, String), FieldAgg> =
@@ -588,7 +620,14 @@ fn fields_view(
         } else {
             format!("  {}", a.samples.join(" | "))
         };
-        info!("  {:<44} {:<9} x{}{}", path, kinds, a.count, samples);
+        info!(
+            "  {:<width$} {:<9} x{}{}",
+            path,
+            kinds,
+            a.count,
+            samples,
+            width = params.col_width
+        );
     }
     info!("");
     let label = if unknown_only {
@@ -620,6 +659,7 @@ fn per_line_view(
     end: usize,
     total: usize,
     sliced: bool,
+    col_width: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let in_range = |line_no: usize| line_no > start && line_no <= end;
     let mut sections: Vec<(usize, Option<&crate::transcript::Entry>, Option<&str>)> = t
@@ -661,7 +701,13 @@ fn per_line_view(
                     }
                     paths += 1;
                     let value = sample_value(v).unwrap_or_else(|| kind_name(v).to_string()); // OK: obvious
-                    info!("  {:<44} {:<9} {}", path, kind_name(v), value);
+                    info!(
+                        "  {:<width$} {:<9} {}",
+                        path,
+                        kind_name(v),
+                        value,
+                        width = col_width
+                    );
                 }
             }
             (None, Some(e)) => info!("=== Index {index}: <malformed: {e}> ==="),
