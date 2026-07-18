@@ -75,6 +75,7 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
+vc-x1 bot-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
 vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
@@ -248,6 +249,84 @@ remains single-repo.
 
 `-s` is keyword-only — `code`, `bot`, `code,bot`, `bot,code`.
 Path-based single-repo operation uses `-R` (above).
+
+### bot-session
+
+Display a Claude Code session transcript
+(`.claude/<uuid>.jsonl`) as a readable conversation. The
+transcript format is undocumented and evolves; parsing is
+tolerant — unknown entry types are skipped and counted,
+malformed lines (e.g. a live session's truncated last line)
+warn to stderr and never fail the run.
+
+Output is composed of eight **items**, each independently
+toggleable:
+
+| Item | Emits | Default |
+|------|-------|---------|
+| `summary` | trailing stats line (shown / hidden / skipped counts) | on |
+| `headers` | `=== role 2026-07-17 04:17:09Z ===` turn headers (UTC) | on |
+| `user` | typed user prompts | on |
+| `assistant` | assistant reply text | on |
+| `tool` | `[tool] Name: gist` call one-liners | on |
+| `thinking` | `[thinking]` blocks | off |
+| `results` | `[result]` / `[result:error]` lines (capped at 10) | off |
+| `meta` | meta user lines, `--- system … ---` lines, sidechain entries | off |
+
+Toggle with `--<item>` / `--no-<item>` (last one wins).
+`--all` / `--none` reset the base — every item on / off — then
+per-item flags adjust (`--no-all` and `--no-none` are aliases
+of `--none` and `--all`). Bookkeeping line types
+(file-history snapshots, progress markers, …) are never
+rendered — they're counted in the summary as "skipped".
+
+Default items resolve git-style, most specific wins:
+
+1. CLI `--<item>` / `--no-<item>` flags
+2. workspace `.vc-config.toml` — `[bot-session].items`
+3. user `~/.config/vc-x1/config.toml` — `[bot-session].items`
+4. built-in: `headers,user,assistant,tool,summary`
+
+```toml
+# In ~/.config/vc-x1/config.toml (all your workspaces) or
+# <workspace>/.vc-config.toml (this workspace, committed):
+[bot-session]
+items = "headers,user,assistant,tool,summary"
+```
+
+```
+# Default conversation view
+vc-x1 bot-session .claude/<uuid>.jsonl
+
+# Everything — thinking, tool results, meta/system too
+vc-x1 bot-session --all FILE
+
+# Prompts only: what was asked, nothing else
+vc-x1 bot-session --none --user FILE
+
+# Default view minus tool calls and headers
+vc-x1 bot-session --no-tool --no-headers FILE
+
+# Slices of the rendered output
+vc-x1 bot-session --lines 40 FILE      # first 40 lines
+vc-x1 bot-session --lines -15 FILE     # last 15 lines
+vc-x1 bot-session --lines 100,20 FILE  # 20 lines from Index 100
+vc-x1 bot-session --lines 100,-20 FILE # 20 lines ending at Index 100
+vc-x1 bot-session --lines 0 FILE       # stats summary only
+```
+
+| Flag | Description |
+|------|-------------|
+| `--<item>` / `--no-<item>` | Add / remove one of the eight items (last one wins) |
+| `--all` / `--none` | Base: every item on / off (aliases `--no-none` / `--no-all`) |
+| `--lines SPEC` | Slice the rendered lines (0-based Index): `N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only |
+
+Cut points show an `… (N lines skipped)` marker, and a sliced
+run's summary leads with `K of M lines shown` so it never
+claims more than was displayed. Timestamps are shown as UTC
+(`Z`) exactly when the source timestamp carries it — observed
+always, but the format is undocumented, so anything else would
+pass through verbatim.
 
 ### validate-desc
 

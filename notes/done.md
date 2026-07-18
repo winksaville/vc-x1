@@ -247,3 +247,6 @@ As TODO.md `## Done` sections fills move them to here.
 [113]: /notes/chores/chores-13.md#feat-reposition--onto-synced-bookmark-0660
 [114]: /notes/chores/chores-13.md#feat-single-mode-sync--revert-command-0670
 [115]: /notes/chores/chores-13.md#docs-todo-cleanup--trapezoid-entries-0671
+[116]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
+[117]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681
+[118]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690

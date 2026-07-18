@@ -619,7 +619,76 @@ TODO.md is the entry point, the README→docs/ shape.
 
 ## feat: bot-session transcript viewer
 
-Commits:
+Commits: [[37]],[[38]],[[39]],[[40]]
+
+Display one Claude Code session transcript
+(`.claude/<uuid>.jsonl`) as a readable conversation — first step
+toward seeing all bot sessions and linking prompts to the
+changes they produced. v1 is file-path in, conversation view
+out; index view, session discovery, and cross-file references
+(sidechain `agent-*.jsonl`, compaction chains) come in later
+cycles.
+
+- Own tolerant reader over any external crate: the transcript
+  format is undocumented and churns continuously, so every
+  full-schema crate permanently trails (surveyed: cct parses
+  today's files but silently drops newer fields, stale since
+  2026-05; weavr models the right tolerant posture). The
+  long-term goal — prompt ↔ commit linking via ochids — is
+  vc-x1-specific anyway.
+- Two-layer parse: serde_json as JSON-text → `Value` only (no
+  derive anywhere); hand-written extraction into our own
+  structs. Unknown fields ride along in the retained raw
+  `Value`; unknown entry/block types land in `Other` variants;
+  a live session's truncated last line is a warning, never a
+  failure. `FileTranscript` is one file's parse — a *session*
+  can span files; assembly is a later layer. Whole-file
+  in-memory by design (largest observed ~8 MB); streaming via
+  `BufRead` is a drop-in escape hatch.
+- Renamed `show-session` → `bot-session` mid-cycle: unique
+  `b<tab>` completion prefix, display-family naming (list /
+  desc / chid / show name what they display), and "bot"
+  matches the project's bot-repo terminology. The pushed
+  -0/-1 titles keep the old stem.
+- Output is eight composable items — headers, user, assistant,
+  tool, thinking, results, meta, summary — each `--<item>` /
+  `--no-<item>` (last-wins), `--all` / `--none` bulk bases
+  (aliases `--no-none` / `--no-all`). Defaults resolve
+  git-style, most specific wins: CLI > workspace
+  `.vc-config.toml` > user `~/.config/vc-x1/config.toml` >
+  built-in (`headers,user,assistant,tool,summary`), both
+  configs via `[bot-session].items` (comma-separated string —
+  toml_simple has no arrays).
+- `--lines SPEC` slices the rendered output: `N` first / `-N`
+  last / `I,C` from 0-based Index `I` / `I,-C` ending at `I`;
+  `0` = summary only; elision markers at cut points; a sliced
+  summary leads with "K of M lines shown" so it never claims
+  more than was displayed.
+- Plain-text output — the `===` header delimiters carry the
+  structure, no ANSI. Headers carry the full UTC date-time;
+  the `Z` is claimed only when the source timestamp ends in
+  `Z` (observed always across all ~56k lines, but
+  undocumented — we think Claude Code writes
+  `Date.toISOString()`); any other shape passes through
+  verbatim.
+- v1 uses no version-control code; when later cycles link
+  prompts to commits (chids, ochid trailers), they go through
+  jj-lib in-process per the typed jj facade Todo #1 — no new
+  `run("jj", …)` sites.
+- Deferred / recorded along the way: `--raw` mode (Todo #12,
+  source-line units); the As-built-ladder `[[N]]` ref
+  convention (Todo #11, shared-doc sync); the repo-wide
+  `info!`/`println!` EPIPE panic (Bugs #4), surfaced by the
+  first long-output subcommand.
+
+### As-built ladder
+
+- [[37]] 0.70.0-0 chore: open show-session cycle
+- [[38]] 0.70.0-1 feat: transcript parse + typed layer for show-session
+- [[39]] 0.70.0-2 feat: bot-session command + conversation renderer
+- [[40]] 0.70.0-3 feat: bot-session item flags + config defaults
+- 0.70.0 feat: bot-session transcript viewer (close-out; ref
+  backfills next push)
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -657,3 +726,7 @@ Commits:
 [34]: https://github.com/winksaville/vc-x1/commit/0268d454d5b7 "0268d454d5b772268bfe90eda2aa7e93629bc783"
 [35]: https://github.com/winksaville/vc-x1/commit/9cb62219a8ea "9cb62219a8ea4342c87f0a961dfbb4d5e11c6d9c"
 [36]: https://github.com/winksaville/vc-x1/commit/48886d3e38b6 "48886d3e38b61bc01c2d0613a27e9e0b8740fd2e"
+[37]: https://github.com/winksaville/vc-x1/commit/a6266e6ed0a0 "a6266e6ed0a0fea051e71c75958034d66d0fc603"
+[38]: https://github.com/winksaville/vc-x1/commit/300eb35136cc "300eb35136cc6035e03713d9cca5ee0c05aed635"
+[39]: https://github.com/winksaville/vc-x1/commit/1ccba615836d "1ccba615836d67ec5dec5bd7dc1958d5cb842106"
+[40]: https://github.com/winksaville/vc-x1/commit/13080d695ae3 "13080d695ae3dce926f006bfc0665e759538a3f1"

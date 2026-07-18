@@ -17,36 +17,6 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: bot-session transcript viewer**
-
-Display one Claude Code session transcript
-(`.claude/<uuid>.jsonl`) as a readable conversation — first step
-toward seeing all bot sessions and linking prompts to the
-changes they produced. Two-layer parse: serde_json as text →
-`Value` only (no derive); hand-written extraction into our own
-structs that evolve as we learn the format. v1 is file-path in,
-conversation view out; index view, session discovery, and
-cross-file references (sidechain `agent-*.jsonl`, compaction
-chains) come in later cycles. Full design in the approved plan
-(bot session of 2026-07-17). v1 uses no version-control code;
-when later cycles link prompts to commits (chids, ochid
-trailers), they go through jj-lib in-process per the typed
-jj facade Todo #1 — no new `run("jj", …)` sites.
-
-- 0.70.0-0 chore: open show-session cycle (done)
-- 0.70.0-1 feat: transcript parse + typed layer for show-session (done)
-- 0.70.0-2 feat: bot-session command + conversation renderer (done)
-  (command renamed from show-session mid-step; the pushed
-  -0/-1 titles keep the old stem)
-- 0.70.0-3 feat: bot-session item flags + config defaults (done)
-  - items: headers, user, assistant, tool, thinking,
-    results, meta, summary — each --xxx / --no-xxx
-    (last-wins), plus --all / --none bulk toggles
-  - built-in default set: headers, user, assistant, tool,
-    summary; user config can override via a [bot-session]
-    items list; CLI flags adjust the resolved set
-- 0.70.0 close-out and validation
-
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -61,22 +31,18 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Refactor: typed jj facade → jj-lib in-process; end
-   subprocess spawning.** Version-control operations are
-   ~30 hand-rolled `run("jj", …)` spawns plus every
-   mutation, with per-module private wrappers and raw-git
-   vestiges in init — stderr parsing instead of typed
-   errors, and jj's single-attempt index-lock acquisition
-   (the push `bookmark-set` lock race in [bugs.md](notes/bugs.md))
-   can't be retried where it fails. A multi-ladder program;
-   the staged plan, design detail, and the eight absorbed
-   former Todos live in
-   [refactor-20260716.md](notes/refactor-20260716.md).
-   - Stages in execution order: DRY facade → hygiene
-     riders → facade owns topology → de-gitify init →
-     split push.rs → jj-lib migration → push body-intro
-     validation → trapezoid close-out → por → dual
-     conversion.
+1. **bot-session --raw mode.** Verbatim source lines
+   (`cat`-like, no rendering) but honoring `--lines` —
+   whose unit then becomes *source JSONL lines*, matching
+   the malformed-line warnings and what jq/editors see, not
+   rendered lines. Needs its own small design pass (unit
+   switch must be explicit in help; summary suppressed or
+   to stderr in raw mode). Could ride with the index-view
+   cycle.
+   - Also add `--result-lines N` (0 = unlimited) — the
+     "how much of each item" knob for [result] bodies
+     (today hardwired to 10, even under --all); design it
+     alongside --raw's unit questions.
 2. **vc-x1 push: pause point between commit and publish
    stages.** The merge non-ff close-out is a three-step
    sequence:
@@ -106,7 +72,23 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
      is the end state; this pause point remains the manual
      path until it lands.
 
-3. **Version-number protocol is fragile — versions are
+3. **Refactor: typed jj facade → jj-lib in-process; end
+   subprocess spawning.** Version-control operations are
+   ~30 hand-rolled `run("jj", …)` spawns plus every
+   mutation, with per-module private wrappers and raw-git
+   vestiges in init — stderr parsing instead of typed
+   errors, and jj's single-attempt index-lock acquisition
+   (the push `bookmark-set` lock race in [bugs.md](notes/bugs.md))
+   can't be retried where it fails. A multi-ladder program;
+   the staged plan, design detail, and the eight absorbed
+   former Todos live in
+   [refactor-20260716.md](notes/refactor-20260716.md).
+   - Stages in execution order: DRY facade → hygiene
+     riders → facade owns topology → de-gitify init →
+     split push.rs → jj-lib migration → push body-intro
+     validation → trapezoid close-out → por → dual
+     conversion.
+4. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -131,7 +113,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-4. **sync follow-up: extract `move-bookmark` command.** The
+5. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -141,7 +123,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-5. **sync follow-up: push preflight in-process; drop
+6. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -156,7 +138,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-6. **validate-numbering: rename the pair, check all
+7. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -192,7 +174,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
      unexercised.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-7. **pre-commit: single rule (no docs skip) + doc validators.**
+8. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -218,7 +200,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-8. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The interop / adoption scenario breaks that:
    the code side is worked single-repo style (commit +
@@ -244,20 +226,20 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-9. **Run validate-bot at every vc-x1 invocation
-   (config-gated).** The check is one jj spawn
-   (`jj bookmark list main --all-remotes`), cheap enough
-   to run at every execution — noted 2026-07-15 as a
-   "could, not should". Design points:
-   - locate the bot repo (`<cwd>/.claude` or config;
-     shares the lookup with the refactor program's
-     [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
-     and silently skip when absent
-   - severity knob in `.vc-config.toml`
-     (`warn|error|off`): unrelated commands (fix-todo)
-     warn at most; push / squash-push / validate-bot
-     already have their own handling from 0.69.0-3
-10. **README: audit flag tables and examples against the
+10. **Run validate-bot at every vc-x1 invocation
+    (config-gated).** The check is one jj spawn
+    (`jj bookmark list main --all-remotes`), cheap enough
+    to run at every execution — noted 2026-07-15 as a
+    "could, not should". Design points:
+    - locate the bot repo (`<cwd>/.claude` or config;
+      shares the lookup with the refactor program's
+      [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
+      and silently skip when absent
+    - severity knob in `.vc-config.toml`
+      (`warn|error|off`): unrelated commands (fix-todo)
+      warn at most; push / squash-push / validate-bot
+      already have their own handling from 0.69.0-3
+11. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -268,7 +250,7 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-11. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+12. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -279,14 +261,6 @@ jj facade Todo #1 — no new `run("jj", …)` sites.
     (vc-x1, vc-template-x1, iiac-perf), so the doc edit
     needs a coordinated three-project sync, not a
     mid-cycle local change.
-12. **bot-session --raw mode.** Verbatim source lines
-    (`cat`-like, no rendering) but honoring `--lines` —
-    whose unit then becomes *source JSONL lines*, matching
-    the malformed-line warnings and what jq/editors see, not
-    rendered lines. Needs its own small design pass (unit
-    switch must be explicit in help; summary suppressed or
-    to stderr in raw mode). Could ride with the index-view
-    cycle.
 
 ## Ideas
 
@@ -393,17 +367,13 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 
 _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
-- feat: pin bot repo to main (0.68.0) — `--bookmark` is code-repo-only in push and sync; the session repo's side of every step (tracking preflight, classify/act, `bookmark-set` — renamed from `bookmark-both` — `finalize --push`, completion sanity) is pinned to `main`; plus two mid-cycle sync fixes: `reposition_session` no-ops when `@-` is the `main` tip, and the clean case prints one `nothing to sync` summary line [[23]]
-- docs: diagnose silent session-push loss (0.68.1) — Bugs #1 root-caused: push's detached finalize child is killed at sandbox teardown before its delayed squash/push runs, so bot-run pushes never push `.claude`; diagnosis recorded in bugs.md, fix design queued as Todo #1 (inline session push + preflight backstop + finalize as the user's empty-@ tidy-up); 0.68.0 chores `Commits:` backfilled [[25]]
-- feat: inline session push + squash-push (0.69.0) — push's session publish is in-process (`squash-push-bot` stage; a failure is a visible push failure — the silent session-push loss fixed); `finalize` renamed to the zero-ceremony `squash-push` (detach / delay / failure markers retired, no alias); new `vc-x1 validate-bot` + an erroring push-preflight backstop enforce the at-rest `main == main@origin` invariant (no auto-fix); push preflight drops the hardcoded cargo steps (vc-x1 assumes nothing about repo contents beyond `.jj` + `.vc-config.toml`); work/bot terminology + stage renames across code and docs, README rewritten (Terminology section, live-validated walkthroughs); crate renamed back to `vc-x1` [[20]]
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 - docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
+- feat: bot-session transcript viewer — display a session transcript as a conversation: two-layer tolerant parse (serde_json text → Value; hand extraction into our structs, raw retained), eight-item composable output (--<item> / --no-<item> / --all / --none) with git-style config defaults (CLI > .vc-config.toml > user config > built-in), --lines slicing, UTC headers; --raw and index view deferred (Todo #12), EPIPE logger panic recorded (Bugs #4) [[3]]
 
 # References
 
 [1]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
 [2]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
+[3]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
 [10]: /notes/forks-multi-user.md
-[20]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690
-[23]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
-[25]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681
