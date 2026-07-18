@@ -826,6 +826,9 @@ truth that a `config` command, init's commented defaults, and a
   validate surfaces derive from; drift tests pin the numeric/
   string defaults to their source consts (COL_WIDTH,
   RESULT_LINE_CAP, DEFAULT_STATE_*)
+- 0.71.0-3 feat: config print command — vc-x1 config [--home]
+  prints the annotated schema (sshd_config style, grouped by
+  home then TOML section); the first consumer of schema()
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

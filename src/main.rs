@@ -3,6 +3,7 @@ mod chid;
 mod clone;
 mod common;
 mod config;
+mod config_cmd;
 mod config_schema;
 mod context;
 mod desc;
@@ -273,6 +274,9 @@ pub(crate) enum Commands {
     )]
     SquashPush(squash_push::SquashPushArgs),
 
+    /// Print settable config keys and their defaults
+    Config(config_cmd::ConfigArgs),
+
     /// Commit both repos, push the work repo, squash-push the bot repo
     #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
         squash-push the bot repo's `main` — one resumable command.\n\n\
@@ -432,6 +436,7 @@ fn main() -> ExitCode {
         Commands::Sync(args) => args.dispatch(&ctx),
         Commands::Revert(args) => args.dispatch(&ctx),
         Commands::SquashPush(args) => args.dispatch(&ctx),
+        Commands::Config(args) => args.dispatch(&ctx),
         Commands::Push(args) => args.dispatch(&ctx),
     }
 }

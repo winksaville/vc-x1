@@ -2,13 +2,11 @@
 //! vc-x1's two config homes (the user config file and the
 //! per-repo workspace config).
 //!
-//! - This module only declares the registry — nothing in
-//!   non-test code consumes it yet.
-//! - Later commits derive a `config` print command, init's
-//!   commented defaults, and a `--validate` unknown-key check
-//!   from `schema()`, so those surfaces cannot drift from this
-//!   list.
-#![allow(dead_code)] // OK: consumers land in the following commits (config print, init, --validate)
+//! - `crate::config_cmd` prints this registry as an annotated
+//!   schema.
+//! - Later commits derive init's commented defaults and a
+//!   `--validate` unknown-key check from `schema()`, so those
+//!   surfaces cannot drift from this list.
 
 /// Which config home a key belongs to.
 /// - `User` — `~/.config/vc-x1/config.toml`
@@ -44,6 +42,8 @@ pub struct ConfigKey {
     pub required: bool,
     /// The path has a `<placeholder>` segment matching a family
     /// of keys (e.g. `repo.category.<cat>`).
+    #[allow(dead_code)]
+    // OK: consumed by the `--validate` unknown-key check landing in 0.71.0-5
     pub dynamic: bool,
     /// One-line description.
     pub doc: &'static str,
