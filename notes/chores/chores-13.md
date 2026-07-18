@@ -619,7 +619,7 @@ TODO.md is the entry point, the README→docs/ shape.
 
 ## feat: bot-session transcript viewer
 
-Commits: [[37]],[[38]],[[39]],[[40]]
+Commits: [[37]],[[38]],[[39]],[[40]],[[41]]
 
 Display one Claude Code session transcript
 (`.claude/<uuid>.jsonl`) as a readable conversation — first step
@@ -687,8 +687,19 @@ cycles.
 - [[38]] 0.70.0-1 feat: transcript parse + typed layer for show-session
 - [[39]] 0.70.0-2 feat: bot-session command + conversation renderer
 - [[40]] 0.70.0-3 feat: bot-session item flags + config defaults
-- 0.70.0 feat: bot-session transcript viewer (close-out; ref
-  backfills next push)
+- [[41]] 0.70.0 feat: bot-session transcript viewer (close-out)
+
+## feat: bot-session --result-lines knob
+
+Commits:
+
+The [result]-body cap becomes user-controllable:
+`--result-lines N` (default 10, `0` = unlimited) in the
+Output-range help group, threaded params → render →
+push_result. Before this the cap was hardwired — even `--all`
+could not show a full tool result. First of two lightweight
+single-commit cycles from the --raw Todo; `--raw` itself is
+0.70.2.
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -730,3 +741,4 @@ cycles.
 [38]: https://github.com/winksaville/vc-x1/commit/300eb35136cc "300eb35136cc6035e03713d9cca5ee0c05aed635"
 [39]: https://github.com/winksaville/vc-x1/commit/1ccba615836d "1ccba615836d67ec5dec5bd7dc1958d5cb842106"
 [40]: https://github.com/winksaville/vc-x1/commit/13080d695ae3 "13080d695ae3dce926f006bfc0665e759538a3f1"
+[41]: https://github.com/winksaville/vc-x1/commit/2d591fc32e98 "2d591fc32e987f20c024032b878aea903cd339f1"

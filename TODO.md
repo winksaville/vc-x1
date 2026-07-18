@@ -17,6 +17,22 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+**feat: bot-session --raw mode + --result-lines**
+
+Two "how much" knobs the item model deliberately left out.
+`--raw`: verbatim source lines (`cat`-like, no rendering) but
+honoring `--lines` — whose unit then becomes *source JSONL
+lines*, matching the malformed-line warnings and what
+jq/editors see, not rendered lines; the unit switch must be
+explicit in help, and raw output is verbatim-only (no summary,
+no elision markers). `--result-lines N` (0 = unlimited): the
+[result]-body cap, today hardwired to 10 even under --all.
+
+Two lightweight single-commit cycles (no Preparation):
+
+- 0.70.1 feat: bot-session --result-lines knob (done)
+- 0.70.2 feat: bot-session --raw mode (current)
+
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -31,19 +47,7 @@ by the "plan" — a bulleted list of the development "ladder":
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **bot-session --raw mode.** Verbatim source lines
-   (`cat`-like, no rendering) but honoring `--lines` —
-   whose unit then becomes *source JSONL lines*, matching
-   the malformed-line warnings and what jq/editors see, not
-   rendered lines. Needs its own small design pass (unit
-   switch must be explicit in help; summary suppressed or
-   to stderr in raw mode). Could ride with the index-view
-   cycle.
-   - Also add `--result-lines N` (0 = unlimited) — the
-     "how much of each item" knob for [result] bodies
-     (today hardwired to 10, even under --all); design it
-     alongside --raw's unit questions.
-2. **vc-x1 push: pause point between commit and publish
+1. **vc-x1 push: pause point between commit and publish
    stages.** The merge non-ff close-out is a three-step
    sequence:
    - commit the close-out pair locally (normal 1:1 commit
@@ -72,7 +76,7 @@ by the "plan" — a bulleted list of the development "ladder":
      is the end state; this pause point remains the manual
      path until it lands.
 
-3. **Refactor: typed jj facade → jj-lib in-process; end
+2. **Refactor: typed jj facade → jj-lib in-process; end
    subprocess spawning.** Version-control operations are
    ~30 hand-rolled `run("jj", …)` spawns plus every
    mutation, with per-module private wrappers and raw-git
@@ -88,7 +92,7 @@ by the "plan" — a bulleted list of the development "ladder":
      split push.rs → jj-lib migration → push body-intro
      validation → trapezoid close-out → por → dual
      conversion.
-4. **Version-number protocol is fragile — versions are
+3. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -113,7 +117,7 @@ by the "plan" — a bulleted list of the development "ladder":
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-5. **sync follow-up: extract `move-bookmark` command.** The
+4. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -123,7 +127,7 @@ by the "plan" — a bulleted list of the development "ladder":
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-6. **sync follow-up: push preflight in-process; drop
+5. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -138,7 +142,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-7. **validate-numbering: rename the pair, check all
+6. **validate-numbering: rename the pair, check all
    sequence-managed notes files generically.** `validate-todo`
    / `fix-todo` only operate on the single file passed, so a
    renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -174,7 +178,7 @@ by the "plan" — a bulleted list of the development "ladder":
      unexercised.
    - Open: revisit fixed-vs-glob at implementation if the
      fixed list proves annoying to maintain.
-8. **pre-commit: single rule (no docs skip) + doc validators.**
+7. **pre-commit: single rule (no docs skip) + doc validators.**
    The pre-commit (cargo cycle: fmt/clippy/test/install) only
    checks code, so it's "skip-able for purely-docs commits" —
    but that exception is exactly where checks slip (skipped on
@@ -200,7 +204,7 @@ by the "plan" — a bulleted list of the development "ladder":
      avoid rewriting published 0.62.0-x history); no version
      pre-assigned — see the Todo "Version-number protocol is
      fragile" on fragile version targets.
-9. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+8. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
    Today push assumes 1:1 symmetric WC commits with shared
    title/body. The interop / adoption scenario breaks that:
    the code side is worked single-repo style (commit +
@@ -226,20 +230,20 @@ by the "plan" — a bulleted list of the development "ladder":
    - Open: computing "uncovered" — likely a revset from the
      code bookmark back to the newest commit referenced by
      the bot journal's ochids.
-10. **Run validate-bot at every vc-x1 invocation
-    (config-gated).** The check is one jj spawn
-    (`jj bookmark list main --all-remotes`), cheap enough
-    to run at every execution — noted 2026-07-15 as a
-    "could, not should". Design points:
-    - locate the bot repo (`<cwd>/.claude` or config;
-      shares the lookup with the refactor program's
-      [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
-      and silently skip when absent
-    - severity knob in `.vc-config.toml`
-      (`warn|error|off`): unrelated commands (fix-todo)
-      warn at most; push / squash-push / validate-bot
-      already have their own handling from 0.69.0-3
-11. **README: audit flag tables and examples against the
+9. **Run validate-bot at every vc-x1 invocation
+   (config-gated).** The check is one jj spawn
+   (`jj bookmark list main --all-remotes`), cheap enough
+   to run at every execution — noted 2026-07-15 as a
+   "could, not should". Design points:
+   - locate the bot repo (`<cwd>/.claude` or config;
+     shares the lookup with the refactor program's
+     [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
+     and silently skip when absent
+   - severity knob in `.vc-config.toml`
+     (`warn|error|off`): unrelated commands (fix-todo)
+     warn at most; push / squash-push / validate-bot
+     already have their own handling from 0.69.0-3
+10. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -250,7 +254,7 @@ by the "plan" — a bulleted list of the development "ladder":
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-12. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+11. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -261,6 +265,23 @@ by the "plan" — a bulleted list of the development "ladder":
     (vc-x1, vc-template-x1, iiac-perf), so the doc edit
     needs a coordinated three-project sync, not a
     mid-cycle local change.
+12. **Config discoverability: commented defaults +
+    config-print command.** Settable config keys (today
+    `[workspace]` path/other-repo, `[bot-session]` items) are
+    only discoverable via docs; unknown keys are silently
+    ignored. Live default values in a generated file would
+    silently pin choices at generation time and go stale on
+    upgrade, so:
+    - init emits every settable key with its default value
+      commented out (sshd_config style) — documents the
+      surface, pins nothing.
+    - a config-print subcommand (name open: `config
+      --defaults`?) prints the complete annotated schema from
+      the installed binary — derived from code, cannot drift;
+      diff against your file to see what's new.
+    - consider `validate-config`: flag unknown/misspelled
+      keys in `.vc-config.toml` / user config.
+    - applies to both config homes (workspace + user).
 
 ## Ideas
 
@@ -369,6 +390,10 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 - docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
+- feat: bot-session --result-lines knob — the [result]-body
+  cap becomes a flag: `--result-lines N` (default 10, 0 =
+  unlimited), Output-range help group; was hardwired to 10
+  even under --all [[4]]
 - feat: bot-session transcript viewer — display a session transcript as a conversation: two-layer tolerant parse (serde_json text → Value; hand extraction into our structs, raw retained), eight-item composable output (--<item> / --no-<item> / --all / --none) with git-style config defaults (CLI > .vc-config.toml > user config > built-in), --lines slicing, UTC headers; --raw and index view deferred (Todo #12), EPIPE logger panic recorded (Bugs #4) [[3]]
 
 # References
@@ -376,4 +401,5 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [1]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
 [2]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
 [3]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
+[4]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
 [10]: /notes/forks-multi-user.md

@@ -270,7 +270,7 @@ toggleable:
 | `assistant` | assistant reply text | on |
 | `tool` | `[tool] Name: gist` call one-liners | on |
 | `thinking` | `[thinking]` blocks | off |
-| `results` | `[result]` / `[result:error]` lines (capped at 10) | off |
+| `results` | `[result]` / `[result:error]` lines (capped by `--result-lines`) | off |
 | `meta` | meta user lines, `--- system … ---` lines, sidechain entries | off |
 
 Toggle with `--<item>` / `--no-<item>` (last one wins).
@@ -320,6 +320,7 @@ vc-x1 bot-session --lines 0 FILE       # stats summary only
 | `--<item>` / `--no-<item>` | Add / remove one of the eight items (last one wins) |
 | `--all` / `--none` | Base: every item on / off (aliases `--no-none` / `--no-all`) |
 | `--lines SPEC` | Slice the rendered lines (0-based Index): `N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only |
+| `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited |
 
 Cut points show an `… (N lines skipped)` marker, and a sliced
 run's summary leads with `K of M lines shown` so it never

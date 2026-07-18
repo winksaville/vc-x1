@@ -22,7 +22,7 @@ use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 
-/// Max lines of one tool result shown under `--results`.
+/// Default max lines of one tool result shown under `--results`.
 const RESULT_LINE_CAP: usize = 10;
 
 /// Max chars of a tool-use one-liner gist.
@@ -197,6 +197,15 @@ pub struct BotSessionArgs {
         help_heading = "Output range"
     )]
     pub lines: Option<String>,
+
+    /// Max lines shown per tool result (0 = unlimited)
+    #[arg(
+        long,
+        value_name = "N",
+        default_value_t = RESULT_LINE_CAP,
+        help_heading = "Output range"
+    )]
+    pub result_lines: usize,
 }
 
 /// A parsed `--lines` slice spec (see `parse_lines_spec`).
@@ -302,6 +311,8 @@ pub struct BotSessionParams {
     pub toggles: ItemToggles,
     /// Optional `--lines` slice of the rendered output.
     pub lines: Option<LinesSpec>,
+    /// Max lines per tool result (0 = unlimited).
+    pub result_lines: usize,
 }
 
 /// Fold a `--<item>` / `--no-<item>` pair into an override.
@@ -338,6 +349,7 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
                 summary: toggle(a.summary, a.no_summary),
             },
             lines,
+            result_lines: a.result_lines,
         })
     }
 }
@@ -376,7 +388,7 @@ pub fn bot_session(
     for (line_no, err) in &t.malformed {
         warn!("bot-session: line {line_no}: {err}");
     }
-    let (lines, stats) = render(&t, &items);
+    let (lines, stats) = render(&t, &items, params.result_lines);
     let total = lines.len();
     let (lines, sliced) = match &params.lines {
         Some(spec) => {
@@ -508,7 +520,7 @@ type TurnKey = (String, Option<String>);
 /// - Returns the output lines and the hide/skip counters.
 /// - A turn header is emitted when the (role, assistant
 ///   message-id) identity changes.
-fn render(t: &FileTranscript, items: &ItemSet) -> (Vec<String>, RenderStats) {
+fn render(t: &FileTranscript, items: &ItemSet, result_lines: usize) -> (Vec<String>, RenderStats) {
     let mut lines: Vec<String> = Vec::new();
     let mut stats = RenderStats::default();
     let mut turn: Option<TurnKey> = None;
@@ -545,7 +557,7 @@ fn render(t: &FileTranscript, items: &ItemSet) -> (Vec<String>, RenderStats) {
                         }
                         ContentBlock::ToolResult { text, is_error, .. } => {
                             if items.results {
-                                push_result(&mut lines, text, *is_error);
+                                push_result(&mut lines, text, *is_error, result_lines);
                             } else {
                                 stats.hidden_tool_results += 1;
                             }
@@ -654,9 +666,9 @@ fn header(
     stats.shown += 1;
 }
 
-/// Append a tool result, indented and capped at
-/// `RESULT_LINE_CAP` lines.
-fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool) {
+/// Append a tool result, indented and capped at `cap` lines
+/// (`0` = unlimited).
+fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool, cap: usize) {
     let tag = if is_error {
         "[result:error]"
     } else {
@@ -667,11 +679,16 @@ fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool) {
         None => lines.push(format!("  {tag}")),
         Some((first, rest)) => {
             lines.push(format!("  {tag} {first}"));
-            for l in rest.iter().take(RESULT_LINE_CAP - 1) {
+            let limit = if cap == 0 {
+                rest.len()
+            } else {
+                cap.saturating_sub(1)
+            };
+            for l in rest.iter().take(limit) {
                 lines.push(format!("    {l}"));
             }
-            if body.len() > RESULT_LINE_CAP {
-                lines.push(format!("    … (+{} lines)", body.len() - RESULT_LINE_CAP));
+            if cap != 0 && body.len() > cap {
+                lines.push(format!("    … (+{} lines)", body.len() - cap));
             }
         }
     }

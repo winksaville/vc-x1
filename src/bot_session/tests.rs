@@ -31,7 +31,7 @@ fn sample() -> FileTranscript {
 /// hidden and counted.
 #[test]
 fn default_view() {
-    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN);
+    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP);
     let out = lines.join("\n");
     assert!(
         out.contains("=== user 2026-07-17 04:17:09Z ==="),
@@ -54,7 +54,7 @@ fn default_view() {
 /// Reveal flags surface thinking, results, and system lines.
 #[test]
 fn reveal_flags() {
-    let (lines, stats) = render(&sample(), &ItemSet::ALL);
+    let (lines, stats) = render(&sample(), &ItemSet::ALL, RESULT_LINE_CAP);
     let out = lines.join("\n");
     assert!(out.contains("  [thinking]"));
     assert!(out.contains("  secret plan"));
@@ -73,7 +73,7 @@ fn meta_and_sidechain_hidden() {
         "\n",
         r#"{"type":"assistant","isSidechain":true,"message":{"id":"m9","content":[{"type":"text","text":"sub work"}]}}"#,
     ));
-    let (lines, stats) = render(&t, &ItemSet::BUILTIN);
+    let (lines, stats) = render(&t, &ItemSet::BUILTIN, RESULT_LINE_CAP);
     assert!(lines.is_empty());
     assert_eq!(stats.hidden_meta, 2);
     let (lines, _) = render(
@@ -82,24 +82,36 @@ fn meta_and_sidechain_hidden() {
             meta: true,
             ..ItemSet::BUILTIN
         },
+        RESULT_LINE_CAP,
     );
     let out = lines.join("\n");
     assert!(out.contains("=== user (meta)"));
     assert!(out.contains("sub work"));
 }
 
-/// A long tool result is capped with a "+N lines" tail.
+/// A long tool result is capped with a "+N lines" tail; the cap
+/// is adjustable and 0 means unlimited.
 #[test]
 fn result_cap() {
     let body = (1..=15).map(|i| format!("l{i}")).collect::<Vec<_>>();
     let mut lines = Vec::new();
-    push_result(&mut lines, &body.join("\n"), false);
+    push_result(&mut lines, &body.join("\n"), false, RESULT_LINE_CAP);
     assert_eq!(lines.len(), RESULT_LINE_CAP + 1);
     assert_eq!(lines[0], "  [result] l1");
     assert!(lines[RESULT_LINE_CAP].contains("(+5 lines)"));
     let mut err_lines = Vec::new();
-    push_result(&mut err_lines, "boom", true);
+    push_result(&mut err_lines, "boom", true, RESULT_LINE_CAP);
     assert_eq!(err_lines[0], "  [result:error] boom");
+
+    let mut two = Vec::new();
+    push_result(&mut two, &body.join("\n"), false, 2);
+    assert_eq!(two.len(), 3, "first + 1 + tail marker");
+    assert!(two[2].contains("(+13 lines)"));
+
+    let mut unlimited = Vec::new();
+    push_result(&mut unlimited, &body.join("\n"), false, 0);
+    assert_eq!(unlimited.len(), 15, "cap 0 = every line, no marker");
+    assert!(!unlimited.last().unwrap().contains("lines)"));
 }
 
 /// Gists: Bash first line, Read file_path, fallback pairs,
@@ -193,7 +205,7 @@ fn item_gating() {
         headers: false,
         ..ItemSet::BUILTIN
     };
-    let (lines, stats) = render(&sample(), &no_headers);
+    let (lines, stats) = render(&sample(), &no_headers, RESULT_LINE_CAP);
     let out = lines.join("\n");
     assert!(!out.contains("==="), "got:\n{out}");
     assert!(out.contains("do the thing"));
@@ -203,14 +215,14 @@ fn item_gating() {
         user: true,
         ..ItemSet::NONE
     };
-    let (lines, _) = render(&sample(), &user_only);
+    let (lines, _) = render(&sample(), &user_only, RESULT_LINE_CAP);
     assert_eq!(lines, vec!["do the thing"]);
 
     let no_tool = ItemSet {
         tool: false,
         ..ItemSet::BUILTIN
     };
-    let (lines, _) = render(&sample(), &no_tool);
+    let (lines, _) = render(&sample(), &no_tool, RESULT_LINE_CAP);
     let out = lines.join("\n");
     assert!(!out.contains("[tool]"), "got:\n{out}");
     assert!(out.contains("on it"));

@@ -313,6 +313,44 @@ fn cli_bot_session_workspace_items() {
     assert!(stdout.contains("looking at it"), "CLI beats workspace");
 }
 
+/// --result-lines adjusts the [result] body cap; 0 = unlimited.
+#[test]
+fn cli_bot_session_result_lines() {
+    let fx = CliFixture::new("bot-session-result-lines");
+    let file = fx.path("multiline.jsonl");
+    let result = (1..=6)
+        .map(|i| format!("r{i}"))
+        .collect::<Vec<_>>()
+        .join("\\n");
+    let tool_use = r#"{"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"x"}}]}}"#;
+    let tool_result = format!(
+        r#"{{"type":"user","message":{{"content":[{{"type":"tool_result","tool_use_id":"t1","content":"{result}"}}]}}}}"#
+    );
+    std::fs::write(&file, format!("{tool_use}\n{tool_result}\n")).expect("write fixture");
+    let out =
+        run_ok(
+            fx.cmd()
+                .arg("bot-session")
+                .arg(&file)
+                .args(["--results", "--result-lines", "2"]),
+        );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("[result] r1"), "got: {stdout}");
+    assert!(stdout.contains("r2"));
+    assert!(!stdout.contains("r3"), "capped at 2, got: {stdout}");
+    assert!(stdout.contains("(+4 lines)"));
+    let out =
+        run_ok(
+            fx.cmd()
+                .arg("bot-session")
+                .arg(&file)
+                .args(["--results", "--result-lines", "0"]),
+        );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("r6"), "unlimited, got: {stdout}");
+    assert!(!stdout.contains("lines)"), "no marker, got: {stdout}");
+}
+
 /// A missing file is the one hard error.
 #[test]
 fn cli_bot_session_missing_file() {
