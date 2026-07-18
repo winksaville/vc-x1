@@ -748,7 +748,7 @@ by accident.
 
 ## feat: bot-session --col-width knob
 
-Commits:
+Commits: [[44]]
 
 The field views' (`--fields`/`--unknown`/`--per-line`)
 first-column pad — the dotted-path column, previously a
@@ -798,6 +798,25 @@ scalar args under that hierarchy is a config-plumbing change
 into Todo #12 (config discoverability) rather than done here, so
 this cycle stays a single focused knob.
 
+## feat: config discoverability + scalar hierarchy
+
+Commits:
+
+vc-x1 had two config homes — the typed user config
+(`~/.config/vc-x1/config.toml`) and the untyped workspace
+`.vc-config.toml` (read key-by-key) — with no way to discover
+settable keys or catch typos (unknown keys are silently
+ignored), and the bot-session scalar knobs (`--result-lines`,
+`--col-width`) had no config layer while `items` did. This cycle
+adds a code-declared **schema registry** as the single source of
+truth that a `config` command, init's commented defaults, and a
+`--validate` check all derive from, so they cannot drift.
+
+### As-built ladder
+- 0.71.0-0 chore: open config cycle — version-of-record bump, In
+  Progress ladder, chores section opened, --col-width Commits
+  backfill
+
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
 [3]: https://github.com/winksaville/vc-x1/commit/9a6839eb825d "9a6839eb825d3b8b9fce7be05d85f6f754514ed3"
@@ -841,3 +860,4 @@ this cycle stays a single focused knob.
 [41]: https://github.com/winksaville/vc-x1/commit/2d591fc32e98 "2d591fc32e987f20c024032b878aea903cd339f1"
 [42]: https://github.com/winksaville/vc-x1/commit/81638962f044 "81638962f044f69978dc62574140e1c7d6444fcd"
 [43]: https://github.com/winksaville/vc-x1/commit/8363696c8b21 "8363696c8b2185d93dd3603919caed09baff60fe"
+[44]: https://github.com/winksaville/vc-x1/commit/4edb63643923 "4edb63643923408d3576c225b5bdc7be83c579cd"

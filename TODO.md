@@ -17,6 +17,27 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
+**feat: config discoverability + scalar hierarchy.** vc-x1 has
+two config homes — user `~/.config/vc-x1/config.toml` (typed
+`UserConfig`) and workspace `.vc-config.toml` (untyped flat map,
+read key-by-key) — with no way to discover settable keys or
+catch typos (unknown keys are silently ignored), and the
+`bot-session` scalar knobs (`--result-lines`, `--col-width`)
+have no config layer while `items` does. A single code-declared
+**schema registry** becomes the source of truth that the new
+`config` command, init's commented defaults, and a `--validate`
+check all derive from — so they can't drift.
+
+Ladder:
+   - 0.71.0-0 chore: open config cycle (current)
+   - 0.71.0-1 feat: bot-session scalar config keys
+   - 0.71.0-2 feat: config schema registry
+   - 0.71.0-3 feat: config print command
+   - 0.71.0-4 feat: init commented config defaults
+   - 0.71.0-5 feat: config --validate check
+   - 0.71.0 feat: config discoverability + scalar hierarchy
+     (close-out)
+
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -249,40 +270,7 @@ by the "plan" — a bulleted list of the development "ladder":
     (vc-x1, vc-template-x1, iiac-perf), so the doc edit
     needs a coordinated three-project sync, not a
     mid-cycle local change.
-12. **Config discoverability: commented defaults +
-    config-print command.** Settable config keys (today
-    `[workspace]` path/other-repo, `[bot-session]` items) are
-    only discoverable via docs; unknown keys are silently
-    ignored. Live default values in a generated file would
-    silently pin choices at generation time and go stale on
-    upgrade, so:
-    - init emits every settable key with its default value
-      commented out (sshd_config style) — documents the
-      surface, pins nothing.
-    - a config-print subcommand (name open: `config
-      --defaults`?) prints the complete annotated schema from
-      the installed binary — derived from code, cannot drift;
-      diff against your file to see what's new.
-    - consider `validate-config`: flag unknown/misspelled
-      keys in `.vc-config.toml` / user config.
-    - applies to both config homes (workspace + user).
-    - **bot-session scalar args honor the config hierarchy.**
-      `[bot-session].items` already resolves CLI > workspace
-      `.vc-config.toml` > user config > built-in, but the
-      scalar knobs `--result-lines` and `--col-width` are
-      plain clap defaults with no config layer. Give them
-      `[bot-session].result-lines` / `[bot-session].col-width`
-      keys resolving through the same four levels:
-      - the args become `Option<usize>` (drop
-        `default_value_t`) so "absent" is distinguishable from
-        "defaulted", mirroring the `Option<bool>` item toggles.
-      - resolution moves into the op (needs `ctx.user_config` +
-        workspace config), not `TryFrom` (no `Context`);
-        generalize `workspace_items()` to read all three keys.
-      - `toml_simple` yields strings, so parse to `usize` and
-        error on a bad value (consistent with malformed-file =
-        fatal).
-13. **bot-session: --fields / --unknown output needs
+12. **bot-session: --fields / --unknown output needs
     clarification.** The inventory views work but their
     presentation isn't self-explanatory yet — "dotted path per
     entry type" needed explaining in conversation (0.70.2
