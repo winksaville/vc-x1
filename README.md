@@ -11,6 +11,7 @@
   - [validate-todo](#validate-todo)
   - [fix-todo](#fix-todo)
   - [validate-bot](#validate-bot)
+  - [config](#config)
   - [clone](#clone)
   - [init](#init)
   - [symlink](#symlink)
@@ -94,6 +95,7 @@ vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run def
 vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
 vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
 vc-x1 validate-bot [OPTS]                 # Check the bot repo is published
+vc-x1 config [OPTS]                       # Print / validate settable config keys
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
@@ -508,6 +510,72 @@ vc-x1 validate-bot -R path/to/.claude
 `vc-x1 push` runs the same check in its preflight and errors on a
 mismatch (no automatic fixing); `vc-x1 squash-push` reports the
 condition and proceeds, since publishing is its job.
+
+### config
+
+Print every settable config key across vc-x1's two config
+homes — the user config (`~/.config/vc-x1/config.toml`) and the
+workspace config (`<root>/.vc-config.toml`) — as an annotated,
+commented schema: for each key its description, the
+command/context it's `used by`, its default (or a value marked
+`# example` when there is no default), and a commented
+assignment line ready to paste in. The schema is generated from
+one in-code registry, so it can't drift from what the code
+actually reads.
+
+- `--home user|workspace|all` — filter to one home's keys
+  [default: all].
+- `--validate` — instead of printing, load the actual config
+  file(s) for the selected home(s) and flag any key the schema
+  doesn't recognize (a typo, a key in the wrong section, or an
+  unknown key). Exits non-zero if any are found. This is an
+  opt-in strict check — a normal config load silently ignores
+  unknown keys, for forward-compatibility.
+
+A short sample of the printed schema (workspace home):
+
+```
+[bot-session]
+# bot-session.col-width — Default --col-width: first-column width in
+#   the field-inventory views
+#   used by: bot-session --col-width
+#   default: 68
+# col-width = 68
+
+[workspace]
+# workspace.path — This repo's path relative to the workspace root
+#   (role-specific: "/" for the work repo, "/.claude" for the bot repo)
+#   used by: find_workspace_root, sync, push, validate-desc (structural; written by init)
+#   default: (required; role-specific — see init)
+path = "/"   # example
+```
+
+A key with no default (`default.account`, in the user home)
+instead renders a commented example value:
+
+```
+# default.account — Account profile (an [account.<name>] section) to
+#   use when --account is absent
+#   used by: --account (init and account-aware commands)
+#   default: (none)
+# account = "work"   # example
+```
+
+```
+# Print every settable key, both homes
+vc-x1 config
+
+# Print only the user-config keys
+vc-x1 config --home user
+
+# Check the current directory's config file(s) for unknown keys
+vc-x1 config --validate
+```
+
+| Flag | Description |
+|------|-------------|
+| `--home <user\|workspace\|all>` | Which config home(s) to print/validate [default: all] |
+| `--validate` | Check config file(s) for unknown keys instead of printing the schema |
 
 ### clone
 

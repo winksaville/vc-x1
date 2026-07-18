@@ -17,30 +17,7 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-**feat: config discoverability + scalar hierarchy.** vc-x1 has
-two config homes — user `~/.config/vc-x1/config.toml` (typed
-`UserConfig`) and workspace `.vc-config.toml` (untyped flat map,
-read key-by-key) — with no way to discover settable keys or
-catch typos (unknown keys are silently ignored), and the
-`bot-session` scalar knobs (`--result-lines`, `--col-width`)
-have no config layer while `items` does. A single code-declared
-**schema registry** becomes the source of truth that the new
-`config` command, init's commented defaults, and a `--validate`
-check all derive from — so they can't drift.
-
-Ladder:
-   - 0.71.0-0 chore: open config cycle (current)
-   - 0.71.0-1 feat: bot-session scalar config keys
-   - 0.71.0-2 feat: config schema registry
-   - 0.71.0-3 feat: config print command
-   - 0.71.0-4 feat: init commented config defaults
-   - 0.71.0-5 feat: config --validate check
-   - 0.71.0-6 feat: richer config output
-   - 0.71.0-7 docs: retire ambiguous "dotted" wording
-   - 0.71.0-8 docs: transcript-format notes + example
-   - 0.71.0-9 feat: config key descriptions + examples
-   - 0.71.0 feat: config discoverability + scalar hierarchy
-     (close-out)
+_No cycle currently in progress._
 
 ## Todo
 
@@ -274,17 +251,29 @@ Ladder:
     (vc-x1, vc-template-x1, iiac-perf), so the doc edit
     needs a coordinated three-project sync, not a
     mid-cycle local change.
-12. **bot-session: --fields / --unknown output needs
-    clarification.** The inventory views work but their
-    presentation isn't self-explanatory yet — "dotted path per
-    entry type" needed explaining in conversation (0.70.2
-    review), and the README reword may still not land it.
-    - Revisit output labeling (column headers? a legend line?
-      per-section intro?) so the view teaches itself.
-    - Revisit the docs wording with fresh eyes; consider a
-      worked example annotated line by line.
-    - Wink: capture what stayed unclear next time it's used
-      in anger.
+12. **Shared-doc sync: per-commit chores convention.**
+    0.71.0 changed how chores are recorded — each work commit
+    appends its As-built rung + narrative as it lands, rather
+    than the narrative waiting for close-out. That wording edit
+    was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md`
+    (the byte-identical shared doc set), so vc-template-x1 and
+    iiac-perf now diverge until the same edit is applied there —
+    a coordinated three-project sync (same family as Todo #11).
+13. **config: extract flag-backed key descriptions from Clap.**
+    `config`'s key descriptions live in `config_schema.rs`
+    (`doc`/`used_by`). For the handful of keys that map 1:1 to a
+    CLI flag (`bot-session.col-width` ↔ `--col-width`,
+    `--result-lines`), the description could instead be pulled
+    from the Clap arg's help via `Cli::command()` introspection,
+    so `vc-x1 config` and `--help` share one source and can't
+    disagree.
+    - Only ~2 keys map cleanly (most are config-only, flag-sets,
+      or value-providers), so it's a partial source — the schema
+      stays authoritative for the rest.
+    - Defaults still come from the schema/consts (the args
+      dropped `default_value_t`, so Clap no longer holds them).
+    - Output format is unchanged, only the text source — no
+      rework of the 0.71.0-9 rendering.
 
 ## Ideas
 
@@ -391,6 +380,22 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 
 _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
+- feat: config discoverability + scalar hierarchy — a
+  code-declared config schema registry (`config_schema.rs`) as
+  the single source of truth for every settable config key; the
+  new `config` command (print, `--home`, `--validate`), init's
+  commented `.vc-config.toml` defaults, and bot-session's
+  `--result-lines`/`--col-width` config layer all derive from it,
+  so they can't drift. Also a `notes/transcript-format.md` SSOT +
+  sample for the bot-session format, and a sweep retiring the
+  ambiguous "dotted" wording [[7]]
+- bot-session: --fields / --unknown output clarification — the
+  inventory views are now documented rather than opaque:
+  [transcript-format.md](notes/transcript-format.md) defines
+  entry / entry type and the `.`/`[]` field notation with a
+  bot-session example (0.71.0-8), and the ambiguous "dotted"
+  wording was retired (0.71.0-7). In-view column labeling
+  (headers / a legend) left as an optional nicety
 - docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
 - docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
 - feat: bot-session --col-width knob — the field views'
@@ -423,4 +428,5 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [4]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
 [5]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
 [6]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
+[7]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
 [10]: /notes/forks-multi-user.md

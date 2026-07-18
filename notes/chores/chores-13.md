@@ -800,7 +800,7 @@ this cycle stays a single focused knob.
 
 ## feat: config discoverability + scalar hierarchy
 
-Commits:
+Commits: see [As-built ladder](#as-built-ladder-11)
 
 vc-x1 had two config homes — the typed user config
 (`~/.config/vc-x1/config.toml`) and the untyped workspace
@@ -813,65 +813,102 @@ truth that a `config` command, init's commented defaults, and a
 `--validate` check all derive from, so they cannot drift.
 
 ### As-built ladder
-- 0.71.0-0 chore: open config cycle — version-of-record bump, In
-  Progress ladder, chores section opened, --col-width Commits
-  backfill
-- 0.71.0-1 feat: bot-session scalar config keys — --result-lines
-  / --col-width now resolve CLI > workspace > user > built-in
-  like [bot-session].items; args → Option, workspace_items() →
-  workspace_bot_session(), resolution moved into the op
-- 0.71.0-2 feat: config schema registry — src/config_schema.rs,
-  the keystone: one ConfigKey table (schema()) over all 13
-  settable keys, the single source of truth the print/init/
-  validate surfaces derive from; drift tests pin the numeric/
-  string defaults to their source consts (COL_WIDTH,
-  RESULT_LINE_CAP, DEFAULT_STATE_*)
-- 0.71.0-3 feat: config print command — vc-x1 config [--home]
-  prints the annotated schema (sshd_config style, grouped by
-  home then TOML section); the first consumer of schema()
-- 0.71.0-4 feat: init commented config defaults — init generates
-  .vc-config.toml with the active role-specific [workspace] block
-  plus a commented block of the optional push.* / bot-session.*
-  keys, rendered from the schema (render_vc_config)
-- 0.71.0-5 feat: config --validate check — vc-x1 config
-  --validate loads the actual config file(s) and flags unknown /
-  misspelled keys (home-gated exact match for static keys,
-  segment-wise <placeholder> match for dynamic families), exits
-  non-zero
-- 0.71.0-6 feat: richer config output — each settable key renders
-  as a self-documenting block (what it does, `used by:` command /
-  context association, default, blank-line-separated), via a
-  shared render_key_block() in config_schema.rs that both
-  `vc-x1 config` and init's generated .vc-config.toml use, so the
-  two can't drift; text is schema-sourced (Clap extraction for
-  the flag-backed keys deferred to a follow-up)
-- 0.71.0-7 docs: retire ambiguous "dotted" wording — "dotted
-  path / dotted key" was undefined jargon (and clashed with the
-  `..`-range "dotted side" usage). Reword every occurrence to
-  plain terms: a config setting is a "config key", a transcript
-  datum is a "field" (`.` joins levels, `[]` marks arrays), the
-  `..` sides are "open" / "closed"; "path" is reserved for
-  filesystem locations (relative or absolute), recorded in a new
-  README Terminology note
-- 0.71.0-8 docs: transcript-format notes + example — new
-  notes/transcript-format.md is the SSOT for the transcript
-  format: defines entry / entry type (the top-level `type`), the
-  `.`/`[]` field notation, and the two-layer tolerant parse, then
-  a bot-session example walking notes/transcript-sample.jsonl (7
-  real entries, 5 entry types, arrays via a real assistant entry)
-  through --per-line / --fields / --unknown / --raw / --lines;
-  README's bot-session section links to it
-- 0.71.0-9 feat: config key descriptions + examples — tighten the
-  ambiguous descriptions (default.account → "[account.<name>]
-  profile"; repo.default enumerates its built-in categories) and
-  add an `example` field to ConfigKey so EVERY no-default key
-  renders a concrete value (marked `# example`) instead of a bare
-  <str> placeholder; a unit test enforces the rule (no key has
-  both default and example None). Keys with a real default (68,
-  10, .vc-x1, …) keep it — the default is the example. The
-  fabricated examples cohere around a fictional `acmehousing`
-  org (repo.default = "acmehousing", repo.category =
-  git@github.com:acmehousing)
+
+- [[45]] 0.71.0-0 chore: open config cycle
+  - bump the version-of-record; pick Todo #12 into
+    `## In Progress`
+  - open the chores section; backfill the `--col-width`
+    `Commits:` [[44]]
+- [[46]] 0.71.0-1 feat: bot-session scalar config keys
+  - `--result-lines` / `--col-width` now resolve CLI >
+    workspace > user > built-in, like `[bot-session].items`
+  - args → `Option`; `workspace_items()` →
+    `workspace_bot_session()`; resolution moved into the op
+- [[47]] 0.71.0-2 feat: config schema registry
+  - `src/config_schema.rs`, the keystone: one `ConfigKey` table
+    (`schema()`) over all 13 settable keys — the single source
+    of truth the print / init / validate surfaces derive from
+  - drift tests pin the numeric / string defaults to their
+    source consts (`COL_WIDTH`, `RESULT_LINE_CAP`,
+    `DEFAULT_STATE_*`)
+- [[48]] 0.71.0-3 feat: config print command
+  - `vc-x1 config [--home]` prints the annotated schema
+    (sshd_config style, grouped by home then TOML section)
+  - the first consumer of `schema()`
+- [[49]] 0.71.0-4 feat: init commented config defaults
+  - init generates `.vc-config.toml` with the active
+    role-specific `[workspace]` block plus a commented block of
+    the optional `push.*` / `bot-session.*` keys, from the
+    schema (`render_vc_config`)
+- [[50]] 0.71.0-5 feat: config --validate check
+  - `vc-x1 config --validate` loads the actual config file(s)
+    and flags unknown / misspelled keys
+  - home-gated exact match for static keys, segment-wise
+    `<placeholder>` match for dynamic families; exits non-zero
+- [[51]] 0.71.0-6 feat: richer config output
+  - each key renders as a self-documenting block (what it does,
+    `used by:`, default, blank-separated), via a shared
+    `render_key_block()` used by both `config` and init
+  - text is schema-sourced (Clap extraction for the flag-backed
+    keys deferred — Todo #13)
+- [[52]] 0.71.0-7 docs: retire ambiguous "dotted" wording
+  - "dotted path / dotted key" was undefined jargon that clashed
+    with the `..`-range "dotted side" usage
+  - reword to plain terms: a config setting is a "config key", a
+    transcript datum a "field" (`.` joins levels, `[]` marks
+    arrays), the `..` sides "open" / "closed"
+  - "path" reserved for filesystem locations (relative or
+    absolute), recorded in a README Terminology note
+- [[53]] 0.71.0-8 docs: transcript-format notes + example
+  - new `notes/transcript-format.md` is the SSOT for the
+    format: entry / entry type, the `.`/`[]` field notation,
+    the two-layer tolerant parse
+  - a bot-session example walks `notes/transcript-sample.jsonl`
+    (7 real entries, 5 entry types, real arrays) through
+    `--per-line` / `--fields` / `--unknown` / `--raw` /
+    `--lines`; README's bot-session section links to it
+- [[54]] 0.71.0-9 feat: config key descriptions + examples
+  - tighten the ambiguous descriptions; add an `example` field
+    so every no-default key shows a concrete value (marked
+    `# example`), enforced by a unit test
+  - keys with a real default (68, 10, `.vc-x1`, …) keep it — the
+    default is the example
+  - the fabricated examples cohere around a fictional
+    `acmehousing` org (repo.default = `"acmehousing"`,
+    repo.category = `git@github.com:acmehousing`)
+- [[N]] 0.71.0 feat: config discoverability + scalar hierarchy
+  (close-out)
+  - README `config` section; Todo #12 → `## Done` and the
+    bot-session output-clarification Todo closed; two deferred
+    Todos filed; `## In Progress` retired
+  - chores design subsections; the per-commit-chores convention
+    into `cycle-protocol.md` / `AGENTS.md`
+
+### Single source of truth
+
+The registry (`config_schema::schema()`) is the keystone. Rather
+than three surfaces that could drift — the `config` print, init's
+generated `.vc-config.toml`, and the `--validate` check — one
+code-declared `ConfigKey` table feeds all three: a key added or
+renamed shows up everywhere, and a description edited once is
+right everywhere.
+
+- Numeric / string defaults are pinned to their source consts
+  (`COL_WIDTH`, `RESULT_LINE_CAP`, `DEFAULT_STATE_*`) by an
+  equality test, so a const change that outruns the schema fails
+  CI.
+- A shared `render_key_block()` formats each key identically for
+  both `config` and init, so those two can't diverge.
+- Every key must show a concrete value — a real default or a
+  marked `# example` — enforced by `every_key_has_default_or_example`.
+
+### Chores recorded per commit (convention change)
+
+This cycle switched to appending each work commit's As-built rung
++ narrative as it lands, rather than filling the chores narrative
+all at once at close-out. The wording was edited into
+`cycle-protocol.md` / `AGENTS.md` locally; the other two projects
+in the shared doc set still need the same edit (Todo #13).
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -917,3 +954,13 @@ truth that a `config` command, init's commented defaults, and a
 [42]: https://github.com/winksaville/vc-x1/commit/81638962f044 "81638962f044f69978dc62574140e1c7d6444fcd"
 [43]: https://github.com/winksaville/vc-x1/commit/8363696c8b21 "8363696c8b2185d93dd3603919caed09baff60fe"
 [44]: https://github.com/winksaville/vc-x1/commit/4edb63643923 "4edb63643923408d3576c225b5bdc7be83c579cd"
+[45]: https://github.com/winksaville/vc-x1/commit/e6ad5b1ffc58 "e6ad5b1ffc58e2fc0a1eca1b41583d77f2063863"
+[46]: https://github.com/winksaville/vc-x1/commit/f03c6ffa4029 "f03c6ffa402903ef9ef76ee709281a0fa37c63d6"
+[47]: https://github.com/winksaville/vc-x1/commit/8cc6f75a0976 "8cc6f75a0976b9499311ac3a048921588d93e164"
+[48]: https://github.com/winksaville/vc-x1/commit/65fc00ea59c7 "65fc00ea59c76c232a032f7c42b633ed0ef77ed8"
+[49]: https://github.com/winksaville/vc-x1/commit/019f47fe66d4 "019f47fe66d4245cc099d1c55428c89ca07a92eb"
+[50]: https://github.com/winksaville/vc-x1/commit/89d5679fb519 "89d5679fb519107094f8d0b428c310ae7169ae46"
+[51]: https://github.com/winksaville/vc-x1/commit/b4478acbfa4f "b4478acbfa4fc036a4e618b67c42713b04fe4e08"
+[52]: https://github.com/winksaville/vc-x1/commit/53d1f6687cb4 "53d1f6687cb414fbc562543d576690fc7aff2c40"
+[53]: https://github.com/winksaville/vc-x1/commit/ab84a99d1317 "ab84a99d1317e669e13fdd155a24c785bd033548"
+[54]: https://github.com/winksaville/vc-x1/commit/6aef47512d3b "6aef47512d3b77142e7c42628f9113d6c66e1cd8"

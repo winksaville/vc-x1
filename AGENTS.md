@@ -556,6 +556,14 @@ scoped to the commit). The chores section is the source of truth
 for the design thinking; the two cross-link, neither restates the
 other.
 
+The section is **built up per commit**: each work commit appends
+its own `### As-built ladder` rung + any narrative as it lands,
+rather than the narrative waiting for close-out (which only
+*finalizes* — header title sync, design subsections). Full
+when-in-the-cycle timing lives in cycle-protocol.md
+[Chores sections](notes/cycle-protocol.md#chores-sections); this
+note is the pointer, so the two don't drift.
+
 When the intro starts wanting to explain a mechanism,
 hypothesis, or wrinkle, don't inflate it — promote that to its
 own `###` subsection inside the same `chores-NN.md`. If the
