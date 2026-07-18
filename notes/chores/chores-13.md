@@ -853,6 +853,14 @@ truth that a `config` command, init's commented defaults, and a
   `..` sides are "open" / "closed"; "path" is reserved for
   filesystem locations (relative or absolute), recorded in a new
   README Terminology note
+- 0.71.0-8 docs: transcript-format notes + example — new
+  notes/transcript-format.md is the SSOT for the transcript
+  format: defines entry / entry type (the top-level `type`), the
+  `.`/`[]` field notation, and the two-layer tolerant parse, then
+  a bot-session example walking notes/transcript-sample.jsonl (7
+  real entries, 5 entry types, arrays via a real assistant entry)
+  through --per-line / --fields / --unknown / --raw / --lines;
+  README's bot-session section links to it
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"

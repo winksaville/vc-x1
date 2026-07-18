@@ -272,6 +272,11 @@ tolerant — unknown entry types are skipped and counted,
 malformed lines (e.g. a live session's truncated last line)
 warn to stderr and never fail the run.
 
+For what the transcript format looks like — entries, entry
+types, the `.`/`[]` field notation — and an example that walks
+a small sample through these commands, see
+[notes/transcript-format.md](notes/transcript-format.md).
+
 Output is composed of eight **items**, each independently
 toggleable:
 

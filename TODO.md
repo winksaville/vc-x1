@@ -37,6 +37,7 @@ Ladder:
    - 0.71.0-5 feat: config --validate check
    - 0.71.0-6 feat: richer config output
    - 0.71.0-7 docs: retire ambiguous "dotted" wording
+   - 0.71.0-8 docs: transcript-format notes + example
    - 0.71.0 feat: config discoverability + scalar hierarchy
      (close-out)
 
