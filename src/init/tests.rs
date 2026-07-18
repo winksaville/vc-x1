@@ -75,14 +75,59 @@ fn target_required_at_parse_time() {
 
 #[test]
 fn config_content_code() {
-    assert!(VC_CONFIG_CODE.contains("path = \"/\""));
-    assert!(VC_CONFIG_CODE.contains("other-repo = \".claude\""));
+    let code = render_vc_config(ConfigRole::Code);
+    assert!(code.contains("path = \"/\""));
+    assert!(code.contains("other-repo = \".claude\""));
 }
 
 #[test]
 fn config_content_session() {
-    assert!(VC_CONFIG_SESSION.contains("path = \"/.claude\""));
-    assert!(VC_CONFIG_SESSION.contains("other-repo = \"..\""));
+    let session = render_vc_config(ConfigRole::Session);
+    assert!(session.contains("path = \"/.claude\""));
+    assert!(session.contains("other-repo = \"..\""));
+}
+
+#[test]
+fn config_optional_keys_are_commented_only() {
+    let code = render_vc_config(ConfigRole::Code);
+    assert!(code.contains("# col-width = 68"));
+    assert!(code.contains("# state-file = \"push-state.toml\""));
+    assert!(
+        !code
+            .lines()
+            .any(|l| l.trim_start().starts_with("col-width"))
+    );
+    assert!(
+        !code
+            .lines()
+            .any(|l| l.trim_start().starts_with("state-file"))
+    );
+}
+
+#[test]
+fn config_generated_toml_parses_to_active_keys_only() {
+    let dir = std::env::temp_dir().join(format!(
+        "vcx1-init-config-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0) // OK: test-only uniqueness suffix; 0 fallback is harmless
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join(".vc-config.toml");
+    std::fs::write(&path, render_vc_config(ConfigRole::Code)).expect("write config");
+
+    let map = crate::toml_simple::toml_load(&path).expect("parse generated config");
+    assert_eq!(map.get("workspace.path").map(String::as_str), Some("/"));
+    assert_eq!(
+        map.get("workspace.other-repo").map(String::as_str),
+        Some(".claude")
+    );
+    assert!(!map.contains_key("bot-session.col-width"));
+    assert!(!map.contains_key("push.state-file"));
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -856,8 +901,9 @@ fn error_por_with_comma_template() {
 
 #[test]
 fn config_content_app_only() {
-    assert!(VC_CONFIG_APP_ONLY.contains("path = \"/\""));
-    assert!(!VC_CONFIG_APP_ONLY.contains("other-repo"));
+    let app_only = render_vc_config(ConfigRole::AppOnly);
+    assert!(app_only.contains("path = \"/\""));
+    assert!(!app_only.contains("other-repo"));
 }
 
 #[test]

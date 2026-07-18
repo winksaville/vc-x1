@@ -291,7 +291,22 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-pub(crate) const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace configuration
+/// Which repo a generated `.vc-config.toml` targets.
+#[derive(Clone, Copy)]
+pub(crate) enum ConfigRole {
+    /// The work repo in a dual-repo workspace.
+    Code,
+    /// The `.claude` bot repo in a dual-repo workspace.
+    Session,
+    /// The sole repo in a single-repo (POR) workspace.
+    AppOnly,
+}
+
+/// Renders the header comment + active `[workspace]` block for a
+/// generated `.vc-config.toml`, role-specific.
+fn render_workspace_header(role: ConfigRole) -> String {
+    match role {
+        ConfigRole::Code => r#"# vc-config: Vibe Coding workspace configuration
 #
 # workspace-path is this repo's path relative to the workspace root.
 # Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
@@ -300,9 +315,9 @@ pub(crate) const VC_CONFIG_CODE: &str = r#"# vc-config: Vibe Coding workspace co
 [workspace]
 path = "/"
 other-repo = ".claude"
-"#;
-
-const VC_CONFIG_SESSION: &str = r#"# vc-config: Vibe Coding workspace configuration
+"#
+        .to_string(),
+        ConfigRole::Session => r#"# vc-config: Vibe Coding workspace configuration
 #
 # workspace-path is this repo's path relative to the workspace root.
 # Used to resolve changeID paths in git trailers (e.g. ochid: /.claude/changeID).
@@ -311,7 +326,80 @@ const VC_CONFIG_SESSION: &str = r#"# vc-config: Vibe Coding workspace configurat
 [workspace]
 path = "/.claude"
 other-repo = ".."
-"#;
+"#
+        .to_string(),
+        ConfigRole::AppOnly => r#"# vc-config: Vibe Coding workspace configuration
+#
+# workspace-path is this repo's path relative to the workspace root.
+# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
+
+[workspace]
+path = "/"
+"#
+        .to_string(),
+    }
+}
+
+/// Renders a commented block documenting every settable workspace
+/// config key not already covered by the active `[workspace]`
+/// block above — currently the `push.*` and `bot-session.*`
+/// families, sourced from `config_schema::schema()` so this list
+/// cannot drift from the schema.
+///
+/// Grouped by TOML section (schema/first-seen order); each key is
+/// emitted as `# <leaf> = <value>   # <doc>` so the whole block
+/// parses as comments only.
+fn render_optional_keys_block() -> String {
+    use crate::config_schema::{Home, ValueKind, schema};
+
+    let mut out = String::new();
+    out.push_str(
+        "\n# Optional keys — uncomment and edit to override the built-in\n\
+         # default. `vc-x1 config` prints this list from the binary.\n",
+    );
+
+    let mut current_section: Option<String> = None;
+    for key in schema() {
+        if key.path.starts_with("workspace.") {
+            continue;
+        }
+        if !key
+            .homes
+            .iter()
+            .any(|h| matches!(h, Home::WorkspaceCode | Home::WorkspaceBot))
+        {
+            continue;
+        }
+        let (section, leaf) = match key.path.rsplit_once('.') {
+            Some((s, l)) => (s, l),
+            None => ("", key.path),
+        };
+        if current_section.as_deref() != Some(section) {
+            out.push_str(&format!("\n[{section}]\n"));
+            current_section = Some(section.to_string());
+        }
+        let Some(default) = key.default else {
+            continue;
+        };
+        let value = match key.kind {
+            ValueKind::Usize => default.to_string(),
+            ValueKind::Str | ValueKind::ItemList => format!("\"{default}\""),
+        };
+        out.push_str(&format!("# {leaf} = {value}   # {}\n", key.doc));
+    }
+
+    out
+}
+
+/// Renders the complete generated `.vc-config.toml` content for
+/// `role`: the active header + `[workspace]` block, followed by a
+/// commented block documenting the rest of the settable-key
+/// surface (see `render_optional_keys_block`).
+pub(crate) fn render_vc_config(role: ConfigRole) -> String {
+    let mut out = render_workspace_header(role);
+    out.push_str(&render_optional_keys_block());
+    out
+}
 
 pub(crate) const GITIGNORE_CODE: &str = "/target
 /.claude
@@ -323,19 +411,6 @@ pub(crate) const GITIGNORE_CODE: &str = "/target
 const GITIGNORE_SESSION: &str = ".git
 .jj
 ";
-
-/// Config for a single-repo workspace (`--scope=code`).
-///
-/// - No `other-repo` field — its absence is what downstream
-///   commands use to detect the single-repo state.
-pub(crate) const VC_CONFIG_APP_ONLY: &str = r#"# vc-config: Vibe Coding workspace configuration
-#
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
-
-[workspace]
-path = "/"
-"#;
 
 /// Gitignore for a single-repo workspace.
 ///
@@ -353,7 +428,10 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /// write is gateable by `--config` while the `.gitignore` write
 /// stays unconditional.
 fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_APP_ONLY)
+    write_file(
+        &dir.join(".vc-config.toml"),
+        &render_vc_config(ConfigRole::AppOnly),
+    )
 }
 
 /// Write the POR (single-repo) `.gitignore` into `dir`. Always
@@ -377,7 +455,10 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 /// Write the dual-mode work-side `.vc-config.toml` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
 fn write_code_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_CODE)?;
+    write_file(
+        &dir.join(".vc-config.toml"),
+        &render_vc_config(ConfigRole::Code),
+    )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
 }
@@ -385,7 +466,10 @@ fn write_code_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 /// Write the dual-mode bot-side `.vc-config.toml` and
 /// `.gitignore` into `dir`. Used by `create_dual` for the bot repo.
 fn write_session_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    write_file(&dir.join(".vc-config.toml"), VC_CONFIG_SESSION)?;
+    write_file(
+        &dir.join(".vc-config.toml"),
+        &render_vc_config(ConfigRole::Session),
+    )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())
 }

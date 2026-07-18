@@ -829,6 +829,10 @@ truth that a `config` command, init's commented defaults, and a
 - 0.71.0-3 feat: config print command — vc-x1 config [--home]
   prints the annotated schema (sshd_config style, grouped by
   home then TOML section); the first consumer of schema()
+- 0.71.0-4 feat: init commented config defaults — init generates
+  .vc-config.toml with the active role-specific [workspace] block
+  plus a commented block of the optional push.* / bot-session.*
+  keys, rendered from the schema (render_vc_config)
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
