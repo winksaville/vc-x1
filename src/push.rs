@@ -260,10 +260,10 @@ const STATE_FORMAT_VERSION: u32 = 1;
 
 /// Default directory (relative to work-repo root) for the push state
 /// file when `.vc-config.toml` has no `[push]` override.
-const DEFAULT_STATE_DIR: &str = ".vc-x1";
+pub(crate) const DEFAULT_STATE_DIR: &str = ".vc-x1";
 
 /// Default filename for the push state file under `state_dir`.
-const DEFAULT_STATE_FILE: &str = "push-state.toml";
+pub(crate) const DEFAULT_STATE_FILE: &str = "push-state.toml";
 
 /// Resolved state-file layout — just the full path today, structured
 /// so future additions (e.g. a `dir` exposed for `.gitignore`

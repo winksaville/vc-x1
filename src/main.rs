@@ -3,6 +3,7 @@ mod chid;
 mod clone;
 mod common;
 mod config;
+mod config_schema;
 mod context;
 mod desc;
 mod desc_helpers;

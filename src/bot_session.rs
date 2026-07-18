@@ -23,7 +23,7 @@ use crate::subcommand::SubcommandRunner;
 use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 
 /// Default max lines of one tool result shown under `--results`.
-const RESULT_LINE_CAP: usize = 10;
+pub(crate) const RESULT_LINE_CAP: usize = 10;
 
 /// Default first-column (dotted-path) width in the `--fields` /
 /// `--unknown` / `--per-line` views.
@@ -34,7 +34,7 @@ const RESULT_LINE_CAP: usize = 10;
 ///   embedded absolute paths can be arbitrarily long and so are
 ///   left to overflow.
 /// - Override with `--col-width`.
-const COL_WIDTH: usize = 68;
+pub(crate) const COL_WIDTH: usize = 68;
 
 /// Max chars of a tool-use one-liner gist.
 const GIST_CHAR_CAP: usize = 100;
