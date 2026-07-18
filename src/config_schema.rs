@@ -45,6 +45,9 @@ pub struct ConfigKey {
     pub dynamic: bool,
     /// One-line description.
     pub doc: &'static str,
+    /// The command/flag or structural context this key is
+    /// associated with (e.g. `"bot-session --col-width"`).
+    pub used_by: &'static str,
 }
 
 /// Homes accepted by every `bot-session.*` key: all three homes,
@@ -72,6 +75,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Default account when --account is absent",
+        used_by: "--account (init and account-aware commands)",
     },
     ConfigKey {
         path: "default.debug",
@@ -81,6 +85,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Default --debug value when used without an argument (reserved; not yet consumed)",
+        used_by: "--debug (reserved; not yet consumed)",
     },
     ConfigKey {
         path: "repo.default",
@@ -90,6 +95,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Top-level shorthand: repo category to use when --repo is absent",
+        used_by: "--repo (default category when --repo is bare)",
     },
     ConfigKey {
         path: "repo.category.<cat>",
@@ -99,6 +105,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: true,
         doc: "Top-level shorthand: literal value for repo category <cat>",
+        used_by: "--repo <cat> (init remote/local resolution)",
     },
     ConfigKey {
         path: "account.<name>.repo.default",
@@ -108,6 +115,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: true,
         doc: "Per-account default repo category",
+        used_by: "--account <name> with --repo",
     },
     ConfigKey {
         path: "account.<name>.repo.category.<cat>",
@@ -117,6 +125,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: true,
         doc: "Per-account literal value for repo category <cat>",
+        used_by: "--account <name> with --repo <cat>",
     },
     ConfigKey {
         path: "bot-session.items",
@@ -126,6 +135,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Default bot-session item set (comma-separated)",
+        used_by: "bot-session --<item> / --no-<item> / --all / --none",
     },
     ConfigKey {
         path: "bot-session.result-lines",
@@ -135,6 +145,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Default --result-lines: max lines shown per tool result (0 = unlimited)",
+        used_by: "bot-session --result-lines",
     },
     ConfigKey {
         path: "bot-session.col-width",
@@ -144,6 +155,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Default --col-width: first-column width in the field-inventory views",
+        used_by: "bot-session --col-width",
     },
     ConfigKey {
         path: "workspace.path",
@@ -153,6 +165,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: true,
         dynamic: false,
         doc: "This repo's path relative to the workspace root (role-specific: \"/\" for the work repo, \"/.claude\" for the bot repo)",
+        used_by: "find_workspace_root, sync, push, validate-desc (structural; written by init)",
     },
     ConfigKey {
         path: "workspace.other-repo",
@@ -162,6 +175,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Relative path to the counterpart repo; presence signals dual-repo mode (role-specific: \".claude\" for the work repo, \"..\" for the bot repo)",
+        used_by: "default_scope, validate-desc/fix-desc --other-repo (structural)",
     },
     ConfigKey {
         path: "push.state-dir",
@@ -171,6 +185,7 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Directory (relative to repo root) holding the push state file",
+        used_by: "push / squash-push (state-file directory)",
     },
     ConfigKey {
         path: "push.state-file",
@@ -180,12 +195,135 @@ const SCHEMA: &[ConfigKey] = &[
         required: false,
         dynamic: false,
         doc: "Filename of the push state file under push.state-dir",
+        used_by: "push / squash-push (state-file name)",
     },
 ];
 
 /// Returns the complete registry of settable config keys.
 pub fn schema() -> &'static [ConfigKey] {
     SCHEMA
+}
+
+/// Split a dotted key path on its last `.` into `(section, leaf)`.
+///
+/// A path with no `.` (none exist in the current schema) falls
+/// back to an empty section so the key still renders under a
+/// blank `[]` header rather than panicking.
+pub fn section_and_leaf(path: &str) -> (&str, &str) {
+    match path.rfind('.') {
+        Some(idx) => (&path[..idx], &path[idx + 1..]),
+        None => ("", path),
+    }
+}
+
+/// Render a key's value cell: the quoted/bare default, or an
+/// angle-bracket placeholder by kind when there is no default —
+/// except a required key with no default, which renders
+/// `<required>` so it stands out.
+pub fn render_value(key: &ConfigKey) -> String {
+    match key.default {
+        Some(d) => match key.kind {
+            ValueKind::Usize => d.to_string(),
+            ValueKind::Str | ValueKind::ItemList => format!("{d:?}"),
+        },
+        None => {
+            if key.required {
+                "<required>".to_string()
+            } else {
+                match key.kind {
+                    ValueKind::Str => "<str>".to_string(),
+                    ValueKind::Usize => "<usize>".to_string(),
+                    ValueKind::ItemList => "<items>".to_string(),
+                }
+            }
+        }
+    }
+}
+
+/// Render a key's `default:` note: the quoted/bare default, or a
+/// parenthetical explaining the absence — `(required; ...)` for a
+/// required key with no default (role-specific, filled by init),
+/// `(none)` otherwise.
+fn render_default_note(key: &ConfigKey) -> String {
+    match key.default {
+        Some(d) => match key.kind {
+            ValueKind::Usize => d.to_string(),
+            ValueKind::Str | ValueKind::ItemList => format!("{d:?}"),
+        },
+        None => {
+            if key.required {
+                "(required; role-specific — see init)".to_string()
+            } else {
+                "(none)".to_string()
+            }
+        }
+    }
+}
+
+/// Word-wrap `text` into `#`-prefixed lines, `first_prefix` on the
+/// first line and `cont_prefix` on continuations, each kept to
+/// `width` columns where possible (a single word longer than
+/// `width` still gets its own line, unsplit).
+fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: usize) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in text.split_whitespace() {
+        let prefix_len = if lines.is_empty() {
+            first_prefix.len()
+        } else {
+            cont_prefix.len()
+        };
+        let sep = usize::from(!current.is_empty());
+        let tentative_len = prefix_len + current.len() + sep + word.len();
+        if !current.is_empty() && tentative_len > width {
+            lines.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push(' ');
+        }
+        current.push_str(word);
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    }
+    let mut out = String::new();
+    for (i, l) in lines.iter().enumerate() {
+        let prefix = if i == 0 { first_prefix } else { cont_prefix };
+        out.push_str(prefix);
+        out.push_str(l);
+        out.push('\n');
+    }
+    out
+}
+
+/// Render one key as a thorough, self-documenting doc-block:
+/// - `# <path> — <doc>` (word-wrapped onto `#   ...`
+///   continuations past ~72 cols),
+/// - `#   used by: <used_by>`,
+/// - `#   default: <rendered default, or a "(none)"/"(required...)"
+///   note>`,
+/// - the assignment line itself — uncommented for a `required` key
+///   (init fills in the role-specific value), commented (`# `)
+///   otherwise, with the rendered default or a kind placeholder
+///   (`<str>` etc.) when there is no default,
+/// - a trailing blank line, so consecutive blocks read as
+///   paragraph-separated entries.
+///
+/// Shared by `crate::config_cmd` (printed schema) and `crate::init`
+/// (commented defaults in the generated `.vc-config.toml`) so the
+/// two surfaces cannot drift from each other's wording.
+pub fn render_key_block(key: &ConfigKey) -> String {
+    let mut out = String::new();
+    let header_text = format!("{} — {}", key.path, key.doc);
+    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 72));
+    out.push_str(&format!("#   used by: {}\n", key.used_by));
+    out.push_str(&format!("#   default: {}\n", render_default_note(key)));
+    let (_section, leaf) = section_and_leaf(key.path);
+    let prefix = if key.required { "" } else { "# " };
+    let value = render_value(key);
+    out.push_str(&format!("{prefix}{leaf} = {value}\n"));
+    out.push('\n');
+    out
 }
 
 #[cfg(test)]

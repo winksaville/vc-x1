@@ -13,7 +13,7 @@ use log::{info, warn};
 
 use crate::common::find_workspace_root;
 use crate::config::config_path;
-use crate::config_schema::{ConfigKey, Home, ValueKind, schema};
+use crate::config_schema::{ConfigKey, Home, render_key_block, schema, section_and_leaf};
 use crate::context::Context;
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::subcommand::SubcommandRunner;
@@ -89,45 +89,11 @@ fn in_workspace_group(key: &ConfigKey) -> bool {
     key.homes.contains(&Home::WorkspaceCode) || key.homes.contains(&Home::WorkspaceBot)
 }
 
-/// Split a dotted key path on its last `.` into `(section, leaf)`.
-///
-/// A path with no `.` (none exist in the current schema) falls
-/// back to an empty section so the key still renders under a
-/// blank `[]` header rather than panicking.
-fn section_and_leaf(path: &str) -> (&str, &str) {
-    match path.rfind('.') {
-        Some(idx) => (&path[..idx], &path[idx + 1..]),
-        None => ("", path),
-    }
-}
-
-/// Render a key's value cell: the quoted/bare default, or an
-/// angle-bracket placeholder by kind when there is no default —
-/// except a required key with no default, which renders
-/// `<required>` so it stands out.
-fn render_value(key: &ConfigKey) -> String {
-    match key.default {
-        Some(d) => match key.kind {
-            ValueKind::Usize => d.to_string(),
-            ValueKind::Str | ValueKind::ItemList => format!("{d:?}"),
-        },
-        None => {
-            if key.required {
-                "<required>".to_string()
-            } else {
-                match key.kind {
-                    ValueKind::Str => "<str>".to_string(),
-                    ValueKind::Usize => "<usize>".to_string(),
-                    ValueKind::ItemList => "<items>".to_string(),
-                }
-            }
-        }
-    }
-}
-
 /// Print one home group: a divider, then each key grouped by
 /// section (schema order, first-seen section order), one
-/// `[section]` header per section.
+/// `[section]` header per section. Each key renders as a
+/// multi-line doc-block via `render_key_block` (shared with
+/// `crate::init`'s generated `.vc-config.toml`).
 fn print_group(title: &str, path_hint: &str, keys: &[&ConfigKey]) {
     info!("# ── {title} config: {path_hint} ──");
     let mut sections: Vec<&str> = Vec::new();
@@ -140,13 +106,13 @@ fn print_group(title: &str, path_hint: &str, keys: &[&ConfigKey]) {
     for section in sections {
         info!("[{section}]");
         for key in keys {
-            let (key_section, leaf) = section_and_leaf(key.path);
+            let (key_section, _leaf) = section_and_leaf(key.path);
             if key_section != section {
                 continue;
             }
-            let prefix = if key.required { "" } else { "# " };
-            let value = render_value(key);
-            info!("{prefix}{leaf} = {value}   # {}", key.doc);
+            for line in render_key_block(key).lines() {
+                info!("{line}");
+            }
         }
     }
     info!("");
@@ -256,6 +222,9 @@ pub fn config(_ctx: &Context, params: &ConfigParams) -> Result<(), Box<dyn std::
         "# vc-x1 settable config keys (from vc-x1 {})",
         env!("CARGO_PKG_VERSION")
     );
+    info!("# Keys below are shown at their built-in default (commented");
+    info!("# unless required); run `vc-x1 config --validate` to check a");
+    info!("# config file's keys against this schema.");
     info!("");
 
     let all_keys = schema();

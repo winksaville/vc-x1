@@ -90,6 +90,10 @@ fn config_content_session() {
 #[test]
 fn config_optional_keys_are_commented_only() {
     let code = render_vc_config(ConfigRole::Code);
+    // The doc-block header/used-by/default lines precede the
+    // commented assignment.
+    assert!(code.contains("used by: bot-session --col-width"));
+    assert!(code.contains("used by: push / squash-push (state-file name)"));
     assert!(code.contains("# col-width = 68"));
     assert!(code.contains("# state-file = \"push-state.toml\""));
     assert!(

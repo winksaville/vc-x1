@@ -347,10 +347,14 @@ path = "/"
 /// cannot drift from the schema.
 ///
 /// Grouped by TOML section (schema/first-seen order); each key is
-/// emitted as `# <leaf> = <value>   # <doc>` so the whole block
-/// parses as comments only.
+/// emitted via `config_schema::render_key_block` — a multi-line
+/// doc-block whose assignment line is `# <leaf> = <value>` (a
+/// non-`required` key always renders commented, and every optional
+/// key here is non-`required` by construction — see the
+/// `workspace.*` skip below), so the whole block parses as
+/// comments only.
 fn render_optional_keys_block() -> String {
-    use crate::config_schema::{Home, ValueKind, schema};
+    use crate::config_schema::{Home, render_key_block, schema, section_and_leaf};
 
     let mut out = String::new();
     out.push_str(
@@ -370,22 +374,22 @@ fn render_optional_keys_block() -> String {
         {
             continue;
         }
-        let (section, leaf) = match key.path.rsplit_once('.') {
-            Some((s, l)) => (s, l),
-            None => ("", key.path),
-        };
+        let (section, _leaf) = section_and_leaf(key.path);
         if current_section.as_deref() != Some(section) {
-            out.push_str(&format!("\n[{section}]\n"));
+            // The first section needs a blank line separating it from
+            // the intro comment above; later sections already inherit
+            // one from the previous key block's trailing blank line
+            // (`render_key_block` always ends with one).
+            if current_section.is_none() {
+                out.push('\n');
+            }
+            out.push_str(&format!("[{section}]\n"));
             current_section = Some(section.to_string());
         }
-        let Some(default) = key.default else {
+        if key.default.is_none() {
             continue;
-        };
-        let value = match key.kind {
-            ValueKind::Usize => default.to_string(),
-            ValueKind::Str | ValueKind::ItemList => format!("\"{default}\""),
-        };
-        out.push_str(&format!("# {leaf} = {value}   # {}\n", key.doc));
+        }
+        out.push_str(&render_key_block(key));
     }
 
     out

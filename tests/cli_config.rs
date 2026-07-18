@@ -17,6 +17,10 @@ fn cli_config_default() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("col-width"), "got: {stdout}");
     assert!(stdout.contains("68"), "got: {stdout}");
+    assert!(
+        stdout.contains("used by: bot-session --col-width"),
+        "got: {stdout}"
+    );
     assert!(stdout.contains("[workspace]"), "got: {stdout}");
     assert!(stdout.contains("path"), "got: {stdout}");
     assert!(stdout.contains("push-state.toml"), "got: {stdout}");
@@ -46,6 +50,10 @@ fn cli_config_home_workspace() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("[workspace]"), "got: {stdout}");
     assert!(stdout.contains("push-state.toml"), "got: {stdout}");
+    assert!(
+        stdout.contains("used by: push / squash-push (state-file name)"),
+        "got: {stdout}"
+    );
     assert!(!stdout.contains("[default]"), "got: {stdout}");
 }
 

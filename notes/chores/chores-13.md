@@ -838,6 +838,13 @@ truth that a `config` command, init's commented defaults, and a
   misspelled keys (home-gated exact match for static keys,
   segment-wise <placeholder> match for dynamic families), exits
   non-zero
+- 0.71.0-6 feat: richer config output — each settable key renders
+  as a self-documenting block (what it does, `used by:` command /
+  context association, default, blank-line-separated), via a
+  shared render_key_block() in config_schema.rs that both
+  `vc-x1 config` and init's generated .vc-config.toml use, so the
+  two can't drift; text is schema-sourced (Clap extraction for
+  the flag-backed keys deferred to a follow-up)
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
