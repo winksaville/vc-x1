@@ -81,6 +81,7 @@ that inject `ochid:` trailers.
        refactor program's split-push.rs stage pulled
        forward (Stage, PushState, state layout) so the
        merge stage lands in a file that reviews cleanly
+       (done)
      - 0.72.0-2 push: `--merge [<base>]` flag + merge-work
        stage — two-parent rebase, `jj new` re-seat, state
        persistence/resume/--status/--dry-run/rollback;

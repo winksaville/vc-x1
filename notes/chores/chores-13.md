@@ -942,6 +942,18 @@ folds into the jj-lib migration stage.
     location qualifier"
   - open this chores section; backfill the 0.71.0 close-out
     `Commits:` ref
+- [[57]] 0.72.0-1 refactor: extract push/state.rs
+  - `Stage`, `PushState` (save/load + escape helpers), and
+    `StateLayout` / `resolve_state_layout` move to
+    `push/state.rs`; push.rs keeps args, stage bodies, and
+    verifiers — re-exports preserve every call site and the
+    `use super::*` test imports
+  - cycle pauses here, pushed to the
+    `support-trapezoid-commits` bookmark: the state-file
+    question at this step ("why does `Stage` live in a
+    file?") pivoted the plan to run the jj refactor program
+    first; main resets to the 0.71.0 tip and the merge
+    close-out resumes at the program's trapezoid stage
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -998,3 +1010,4 @@ folds into the jj-lib migration stage.
 [53]: https://github.com/winksaville/vc-x1/commit/ab84a99d1317 "ab84a99d1317e669e13fdd155a24c785bd033548"
 [54]: https://github.com/winksaville/vc-x1/commit/6aef47512d3b "6aef47512d3b77142e7c42628f9113d6c66e1cd8"
 [55]: https://github.com/winksaville/vc-x1/commit/f7decbcd20bd "f7decbcd20bd32a699762bc904dd16476576f896"
+[56]: https://github.com/winksaville/vc-x1/commit/eaf085774d0a "eaf085774d0a7b57978b66be966b50c8543c4064"
