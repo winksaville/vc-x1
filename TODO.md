@@ -17,7 +17,94 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**feat: push merge close-out (trapezoid)** — teach
+`vc-x1 push` the Merge non-ff close-out shape natively.
+The trapezoid is a first-party shape the user chooses at
+push time (this project's usual choice for a multi-commit
+cycle; `--merge` is opt-in, never automatic), but push
+only supports Keep separate: today a trapezoid close-out
+pre-commits both sides manually, rebases the code
+close-out into the merge, and resumes via
+`--from bookmark-set --yes` — skipping exactly the stages
+that inject `ochid:` trailers.
+   - Pulled forward from the refactor program's
+     [trapezoid close-out stage](notes/refactor-20260716.md#stage-trapezoid-close-out),
+     spawn-based for now — the in-process merge transaction
+     folds into the jj-lib migration stage.
+   - Absorbs the retired Todo "vc-x1 push: pause point
+     between commit and publish stages" — the pause was the
+     interim manual path for the same close-out; native
+     merge support supersedes it unimplemented.
+   - Folds in the retired Ideas "Codify ochid invariant …"
+     codification remnants at the docs step (ochid
+     invariant, bot-repo rules, Ideas-aware
+     Preparation/Close-out); its cross-repo migration
+     sketch moved to todo-backlog.md.
+   - Design points for the merge stage:
+     - merge sits after commit-bot, before bookmark-set —
+       chids survive the rebase, so both ochid directions
+       are injected normally and stay valid
+     - `--merge [<base>]` — base is the merge's first
+       parent (the parent of the task's first commit):
+       - branch style (task on a feature bookmark, target
+         bookmark sitting at the base): base defaults to
+         the target bookmark's position
+       - main style (task grew on the target, bookmark
+         sitting at the work tip): base can't be inferred
+         — the explicit `<base>` revision is required
+     - mechanics: `jj rebase -r <closeout> --onto <base>
+       --onto <work tip>` then `jj new <merge>` to re-seat
+       an empty `@`
+     - preconditions: base is a proper ancestor of the
+       work tip; close-out has exactly one parent
+       pre-rebase; target bookmark is at the base or at
+       the work tip — anything else is divergence (e.g.
+       another repo instance moved the target): reconcile
+       first, preflight's sync check catches the moved
+       remote
+     - both styles publish forward — the old bookmark
+       position is one of the merge's parents, so the push
+       never forces; post-hoc conversion of an
+       already-published close-out stays the manual
+       `--ignore-immutable` recipe (cycle-protocol's
+       post-hoc caveat), not this flag
+     - ochid list: one `ochid:` per work commit the push
+       newly publishes (held-local cycle: whole ladder +
+       merge); whether to skip commits already covered by
+       an interim 1:1 push decided at the stamping step
+       (cheap bot-journal trailer scan exists in
+       `squash_push::extract_ochids`)
+   - Ladder:
+     - 0.72.0-0 chore: open merge close-out cycle — version
+       bump, todo pickup + triage, chores section (done)
+     - 0.72.0-1 refactor: extract push/state.rs — the
+       refactor program's split-push.rs stage pulled
+       forward (Stage, PushState, state layout) so the
+       merge stage lands in a file that reviews cleanly
+     - 0.72.0-2 push: `--merge [<base>]` flag + merge-work
+       stage — two-parent rebase, `jj new` re-seat, state
+       persistence/resume/--status/--dry-run/rollback;
+       integration tests of both styles (branch-based and
+       on-target ladders)
+     - 0.72.0-3 push: N-ochid stamping — commit-bot emits
+       one `ochid:` per newly published work commit; tests
+     - 0.72.0-4 validators: validate-desc + push sanity
+       verifiers learn the merge shape (two parents, N
+       ochids); one string-level multi-ochid parser
+     - 0.72.0-5 docs:
+       - cycle-protocol.md: Merge non-ff recipe → wrapper
+         flag; wrapper-limitation note; ochid invariant +
+         bot-repo rules codified
+       - the two trapezoid variants — committer-owned
+         (close-out is the merge; this flag) vs PR-style
+         (the integrator authors the merge; needs no
+         vc-x1 machinery) — and why merge-commit
+         integration, never squash/rebase, preserves
+         chids and thus ochids; point at
+         forks-multi-user.md
+       - notes/README.md; refactor doc stage status
+     - 0.72.0 close-out and validation — dogfood: this
+       cycle lands via `push --merge`
 
 ## Todo
 
@@ -33,36 +120,7 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **vc-x1 push: pause point between commit and publish
-   stages.** The merge non-ff close-out is a three-step
-   sequence:
-   - commit the close-out pair locally (normal 1:1 commit
-     stages, ochids injected both directions)
-   - rebase the code-side close-out into the merge (chids
-     survive rebase, so every ochid stays valid)
-   - publish
-
-   Push has no supported stop after `commit-bot`, so today
-   the recipe pre-commits both sides manually and resumes via
-   `--from bookmark-set --yes` — skipping exactly the stages
-   that inject `ochid:` trailers.
-   - Add a stop after the commit stages (`--to commit-bot`
-     or `--no-publish`; name open); the existing `--from
-     bookmark-set` is already the resume half.
-   - Retires the close-out workaround; the merge commit
-     carries its code→bot ochid because it was injected
-     normally, before the rebase.
-   - Together with the Todo "push/sync: bookmark is
-     code-repo-only; pin the bot repo to main", completes
-     the trapezoidal-commit workflow (1:1 bot↔code
-     throughout; the merge is a code-side-only shape
-     operation).
-   - Interim recipe only: the refactor program's
-     [trapezoid close-out stage](notes/refactor-20260716.md#stage-trapezoid-close-out)
-     is the end state; this pause point remains the manual
-     path until it lands.
-
-2. **Refactor: typed jj facade → jj-lib in-process; end
+1. **Refactor: typed jj facade → jj-lib in-process; end
    subprocess spawning.** Version-control operations are
    ~30 hand-rolled `run("jj", …)` spawns plus every
    mutation, with per-module private wrappers and raw-git
@@ -78,6 +136,30 @@ _No cycle currently in progress._
      split push.rs → jj-lib migration → push body-intro
      validation → trapezoid close-out → por → dual
      conversion.
+   - split push.rs + trapezoid close-out pulled forward
+     into the in-progress "feat: push merge close-out
+     (trapezoid)" cycle, spawn-based; their in-process
+     form folds into the jj-lib migration stage.
+2. **ochid: bot-repo location qualifier.** An ochid is
+   workspace-relative (`/.claude/<chid>`) — nothing in a
+   published commit says *where* the companion bot repo
+   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+   discoverable only by convention). Anyone cloning just the
+   work repo can't resolve bot-side ochids. Design already
+   sketched in forks-multi-user.md
+   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+   URL-shaped trailers, plus the complementary
+   `.vc-config.toml` repo-index form; resolver dispatch is
+   one rule (URL → fetch, else workspace-relative), existing
+   path-form trailers stay the backward-compatible case.
+   - Cheap first rung: declare the companion's URL once in
+     the committed `.vc-config.toml` (no trailer-format
+     change; any work-repo clone then knows where the bot
+     repo lives). Rides naturally with the refactor
+     program's facade-owns-topology stage
+     (bot-repo-location config).
+   - Link rot + mirroring mitigations are in the same doc
+     section.
 3. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
@@ -198,15 +280,13 @@ _No cycle currently in progress._
    so no bot pairings exist — one bot commit then records
    every code commit not yet covered by a prior `ochid:`,
    via a multi-line `ochid:` per the design in [[10]].
-   - Also covers a cycle held local and published all at
-     once (the ochid-trailers section's "one ochid per Work
-     commit" on merge close-out) — work commits never
-     individually paired.
-   - Out of scope: the trapezoid close-out. That flow stays
-     1:1 (the close-out pair commits normally, then the
-     merge rebase; chids survive rebase, so ochids stay
-     valid); its enabler is the Todo "vc-x1 push: pause
-     point between commit and publish stages".
+   - Out of scope: the trapezoid close-out — handled
+     natively by the in-progress "feat: push merge
+     close-out (trapezoid)" cycle, whose N-ochid stamping
+     also covers a cycle held local and published all at
+     once. This Todo is only the no-bot-pairings interop
+     case; the stamping step's multi-line `ochid:` emit is
+     shared groundwork.
    - Teach push to:
      - detect the shape (code WC empty, uncovered commits at
        the bookmark)
@@ -258,7 +338,9 @@ _No cycle currently in progress._
     was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md`
     (the byte-identical shared doc set), so vc-template-x1 and
     iiac-perf now diverge until the same edit is applied there —
-    a coordinated three-project sync (same family as Todo #11).
+    a coordinated three-project sync (same family as the Todo
+    "Shared-doc sync: As-built ladder rungs carry `[[N]]`
+    commit refs").
 13. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
@@ -283,33 +365,7 @@ _No cycle currently in progress._
  `## Todo` / `notes/todo-backlog.md`, fold into a
  picked-up cycle, or drop.
 
-1. **Codify ochid invariant + bot-repo rules + squash
-   gating + cross-repo migration in
-   `notes/cycle-protocol.md`.** Was planned for
-   `0.59.0-2` but deferred when 0.59.0 closed out via
-   squash + Option F (manual bot-side rewrite). The
-   rules were exercised manually for the close-out;
-   this Idea formally codifies them.
-   - Codify the **ochid invariant** in `## ochid
-     trailers`: every public ochid must resolve in the
-     public graph.
-   - Codify bot-repo rules: never squashed; descriptions
-     editable (`jj describe` preserves chid).
-   - Codify squash gating: until `vc-x1 push --squash`
-     exists, manual symmetric squash (Option F: app
-     squash + bot-side trailer rewrite + force-push) is
-     the standard recipe; merge non-ff is the default
-     shape for multi-commit cycles (the concrete recipe is
-     its own Todo — "merge-non-ff recipe").
-   - Sketch cross-repo migration: ochids change at
-     every merge until the change reaches the canonical
-     repo's `main`.
-   - Apply Ideas-aware Preparation/Close-out updates:
-     Preparation triages `## Ideas` (promote / fold /
-     drop) before declaring the plan; Close-out
-     captures unresolved follow-ups into `## Ideas`.
-
-2. **`vc` as a code+conversation provenance tool (grander
+1. **`vc` as a code+conversation provenance tool (grander
    ambition).** Today `vc-x1` manages a dual repo (code +
    `.claude`) cross-linked by `ochid:`. The larger aim is
    to *surface* that link — view history with the
@@ -338,7 +394,7 @@ _No cycle currently in progress._
    - Possible artifact: a top-level
      `notes/design-cli/vision.md` framing the direction,
      with the parity and conversion docs as sub-designs.
-3. **Restructure the design-cli parity docs (target
+2. **Restructure the design-cli parity docs (target
    0.63.0).** `por-dual-parity-audit.md` (~1200 lines)
    fuses a *frozen* audit (the `## 1`–`## 8` snapshot
    evidence) with a *living* design (axes, decisions,

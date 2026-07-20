@@ -876,7 +876,7 @@ truth that a `config` command, init's commented defaults, and a
   - the fabricated examples cohere around a fictional
     `acmehousing` org (repo.default = `"acmehousing"`,
     repo.category = `git@github.com:acmehousing`)
-- [[N]] 0.71.0 feat: config discoverability + scalar hierarchy
+- [[55]] 0.71.0 feat: config discoverability + scalar hierarchy
   (close-out)
   - README `config` section; Todo #12 → `## Done` and the
     bot-session output-clarification Todo closed; two deferred
@@ -909,6 +909,39 @@ This cycle switched to appending each work commit's As-built rung
 all at once at close-out. The wording was edited into
 `cycle-protocol.md` / `AGENTS.md` locally; the other two projects
 in the shared doc set still need the same edit (Todo #13).
+
+## feat: push merge close-out (trapezoid)
+
+Commits: see [As-built ladder](#as-built-ladder-12)
+
+The trapezoid (Merge non-ff) is one of the close-out shapes
+chosen at push time — this project's usual choice for a
+multi-commit cycle — but `vc-x1 push` only supports Keep
+separate: a trapezoid close-out is set up manually and
+resumed via `--from bookmark-set --yes`, skipping exactly
+the stages that inject `ochid:` trailers. This cycle teaches push the
+shape natively: a `--merge [<base>]` flag forms the
+two-parent close-out (first parent the pre-task base, second
+the work tip), the bot commit is stamped with one `ochid:`
+per newly published work commit, and validate-desc + the
+push sanity verifiers learn the new legal shape. Pulled
+forward from the refactor program's trapezoid-close-out and
+split-push.rs stages, spawn-based — their in-process form
+folds into the jj-lib migration stage.
+
+### As-built ladder
+
+- [[56]] 0.72.0-0 chore: open merge close-out cycle
+  - bump the version-of-record; pick the trapezoid stage
+    into `## In Progress` (absorbing the retired pause-point
+    Todo, folding the retired "Codify ochid invariant …"
+    Idea; N:1 Todo re-scoped)
+  - side-bar capture in forks-multi-user.md (resolution is
+    by chid / URL as hint; integration-mode survival; the
+    git-rebase trap) and a new Todo "ochid: bot-repo
+    location qualifier"
+  - open this chores section; backfill the 0.71.0 close-out
+    `Commits:` ref
 
 [1]: https://github.com/winksaville/vc-x1/commit/fdfa388817f4 "fdfa388817f4ec794038767df454ed5064c8ad90"
 [2]: https://github.com/winksaville/vc-x1/commit/2cb596e45dd3 "2cb596e45dd3f895ff15f486e313cf9fb61f6621"
@@ -964,3 +997,4 @@ in the shared doc set still need the same edit (Todo #13).
 [52]: https://github.com/winksaville/vc-x1/commit/53d1f6687cb4 "53d1f6687cb414fbc562543d576690fc7aff2c40"
 [53]: https://github.com/winksaville/vc-x1/commit/ab84a99d1317 "ab84a99d1317e669e13fdd155a24c785bd033548"
 [54]: https://github.com/winksaville/vc-x1/commit/6aef47512d3b "6aef47512d3b77142e7c42628f9113d6c66e1cd8"
+[55]: https://github.com/winksaville/vc-x1/commit/f7decbcd20bd "f7decbcd20bd32a699762bc904dd16476576f896"

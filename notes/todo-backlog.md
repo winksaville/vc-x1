@@ -308,6 +308,14 @@
       companion exists.
     - Integration-testable offline via path-form sources
       (code bare repo present, no `.claude` bare repo).
+48. **Sketch cross-repo ochid migration in
+    cycle-protocol.md.** Remnant of the retired Ideas entry
+    "Codify ochid invariant + bot-repo rules + squash gating
+    + cross-repo migration" (rest folded into the 0.72.0
+    merge close-out cycle's docs step): in a
+    multi-contributor flow, ochids change at every merge
+    until the change reaches the canonical repo's `main` —
+    document the migration story.
 
 # References
 
