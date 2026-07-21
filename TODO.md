@@ -279,23 +279,22 @@ _No cycle currently in progress._
     section-level list. The convention's home —
     cycle-protocol.md Close-out ("Add an `### As-built
     ladder`…") — is in the byte-identical shared doc set
-    (family: vc-x1, vc-template-x1, iiac-perf, zc-msg-x1,
-    tprobe), so the doc edit needs a coordinated
-    family-wide sync, not a mid-cycle local change. Not
-    included in the 2026-07-20 vc-template-x1 sync (straight
-    copy); still pending for the whole family, vc-x1
-    included.
+    (family: vc-x1, vc-x1-work-repo-template, iiac-perf, zc-msg-x1,
+    tprobe), so the doc edit needs a coordinated family-wide sync, not a
+    mid-cycle local change. Not included in the 2026-07-20
+    vc-x1-work-repo-template sync (straight copy); still pending for the
+    whole family, vc-x1 included.
 20. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
-    was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md`
-    (the byte-identical shared doc set). vc-template-x1 synced
-    2026-07-20 (AGENTS.md + cycle-protocol.md byte-identical
-    again, plus the TODO.md move); iiac-perf, zc-msg-x1, and
-    tprobe still diverge — the plan is to fan out from
-    vc-template-x1 (same family as the Todo "Shared-doc sync:
-    As-built ladder rungs carry `[[N]]` commit refs").
+    was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md` (the
+    byte-identical shared doc set). vc-x1-work-repo-template synced
+    2026-07-20 (AGENTS.md + cycle-protocol.md byte-identical again, plus
+    the TODO.md move); iiac-perf, zc-msg-x1, and tprobe still diverge —
+    the plan is to fan out from vc-x1-work-repo-template (same family as
+    the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
+    commit refs").
 21. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
@@ -391,6 +390,13 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 
 _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
+- docs: adopt new template repo names — live mentions of
+  `vc-template-x1`(.claude) swept to `vc-x1-work-repo-template`
+  / `vc-x1-bot-repo-template` (AGENTS.md byte-identical with
+  the template again; README init examples now pass an
+  explicit `CODE,BOT` pair); historical records keep the old
+  name [[9]]
+
 - refactor: DRY jj facade — one typed facade (`src/jj.rs`)
   for every read-only jj query spawn (log templates +
   bookmark listings), the tracking and ochid trailer parsers
@@ -449,4 +455,5 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [6]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
 [7]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
 [8]: /notes/chores/chores-14.md#refactor-dry-jj-facade
+[9]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
 [10]: /notes/forks-multi-user.md

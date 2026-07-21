@@ -128,7 +128,32 @@ de-gitify-init stage and the by-design `gh` calls, push's
 direct spawns in test harnesses — the surface the jj-lib
 migration stage inherits.
 
+## docs: adopt new template repo names
+
+Commits:
+
+The template repos were renamed (`vc-template-x1` →
+`vc-x1-work-repo-template`, `vc-template-x1.claude` →
+`vc-x1-bot-repo-template`); the template side adopted the new
+names 2026-07-21. Sweep vc-x1's live mentions to match and
+restore shared-doc-set byte-identity.
+
+- AGENTS.md re-syncs byte-identical with the template's copy
+  (the `CargoRust.toml` mention was the one divergent hunk)
+- README.md init examples: the real templates no longer
+  satisfy the `<CODE>.claude` sibling default, so the sweep
+  makes that example an explicit `CODE,BOT` pair; a generic
+  `../tmpl` example keeps the default documented
+- Historical records keep the old name (`## Done` entries,
+  the notes-sync manifest, chores, jj-tips) — GitHub
+  redirects renamed repos. `src/init/tests.rs` fixture names
+  are arbitrary strings, not repo references, and stay.
+
+# References
+
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
 [2]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
 [3]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"
 [4]: https://github.com/winksaville/vc-x1/commit/c3a6d258f511 "c3a6d258f511ae4a3a6f0b6e42aba80d5005d4e8"
+[5]: https://github.com/winksaville/vc-x1/commit/303d163196ab "303d163196ab4c387428e4bec0fc65430ead4206"
+[6]: https://github.com/winksaville/vc-x1/commit/6c93a011a54d "6c93a011a54dd990035733e49f0bfa169ebad609"

@@ -635,9 +635,13 @@ vc-x1 init my-project --repo local=/path/to/parent
 vc-x1 init my-project --dry-run
 
 # Seed both repos from template directories (sibling layout)
-vc-x1 init my-project --use-template ../vc-template-x1
+vc-x1 init my-project --use-template \
+    ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
+
+# BOT omitted defaults to the `<CODE>.claude` sibling
+vc-x1 init my-project --use-template ../tmpl
 # Equivalent to:
-vc-x1 init my-project --use-template ../vc-template-x1,../vc-template-x1.claude
+vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
 ```
 
 | Flag | Description |

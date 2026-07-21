@@ -209,11 +209,11 @@
 31. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
     anchor dir. Idea-stage; every repo-mutating command drops a
     pre-op snapshot, `vc-x1 undo` restores both repos. [[9]]
-32. Restructure templates: replace separate `vc-template-x1` +
-    `vc-template-x1.claude` repos with a single `vc-template-x1`
-    that has `.claude/` as a subdir (covers `LICENSE-*` etc. for
-    both sides in one place). Updates to `vc-x1 init` / `clone`
-    needed for the new layout.
+32. Restructure templates: replace separate
+    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template` repos
+    with a single `vc-x1-work-repo-template` that has `.claude/` as
+    a subdir (covers `LICENSE-*` etc. for both sides in one place).
+    Updates to `vc-x1 init` / `clone` needed for the new layout.
 33. Source-code design ref sweep + AGENTS.md codification:
     adopt section-name + `blob/main/...` URL pattern for source
     code refs to designs; codify in AGENTS.md alongside the

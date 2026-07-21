@@ -738,7 +738,7 @@ When one is used, three obligations attach:
   clippy (in the per-commit flow) catches any that slip through. The
   `_or*` siblings have no clippy lint — they are covered by the
   comment convention and the conversational alert. (The
-  vc-template-x1 template's `CargoRust.toml` seeds a base
+  vc-x1-work-repo-template's `CargoRust.toml` seeds a base
   `Cargo.toml` with this section already in place.)
 
 ```rust
