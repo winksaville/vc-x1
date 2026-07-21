@@ -32,6 +32,7 @@ use log::{debug, info, warn};
 
 use crate::common::{prompt, run};
 use crate::context::Context;
+use crate::jj;
 use crate::options_flags::squash::SquashSpec;
 use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
@@ -1028,11 +1029,11 @@ fn stage_message(
     state.body = Some(body.clone());
 
     let claude = claude_path(root);
-    let work_chid = get_change_id(root, "@")?;
-    let claude_empty = jj_log_empty(&claude, "@")?;
+    let work_chid = jj::chid_of(root, "@")?;
+    let claude_empty = jj::is_empty(&claude, "@")?;
     let bot_had_changes = !claude_empty;
     let claude_ref = if bot_had_changes { "@" } else { "@-" };
-    let bot_chid = get_change_id(&claude, claude_ref)?;
+    let bot_chid = jj::chid_of(&claude, claude_ref)?;
 
     info!(
         "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, bot_had_changes={bot_had_changes}",
@@ -1354,50 +1355,23 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
         return Ok(()); // OK: fresh state, nothing to verify yet
     };
     let bookmark = &state.bookmark;
-    let root_str = root.to_string_lossy();
-    let cwd = Path::new(".");
 
-    // 1. work_chid still resolves.
-    run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            work_chid,
-            "--no-graph",
-            "-T",
-            "\"x\"",
-            "-R",
-            &root_str,
-        ],
-        cwd,
-    )
-    .map_err(|_| -> Box<dyn std::error::Error> {
-        format!(
+    // 1. work_chid still resolves. Any query failure — not just
+    // an unresolvable revision — reads as stale state, matching
+    // the pre-facade behavior.
+    if !jj::rev_exists(root, work_chid).unwrap_or(false) {
+        // OK: any failure → the stale-state remediation message
+        return Err(format!(
             "state-sanity: work_chid '{work_chid}' has been abandoned or no longer resolves \
              in the work repo. State is stale — run `vc-x1 push {bookmark} --restart` to clear."
         )
-        .into()
-    })?;
+        .into());
+    }
 
     // 2. bookmark at work_chid (after bookmark-set has run).
     if matches!(state.stage, Stage::PushWork | Stage::SquashPushBot) {
-        let bookmark_chid = run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                bookmark,
-                "--no-graph",
-                "-T",
-                "change_id.short(12)",
-                "-R",
-                &root_str,
-            ],
-            cwd,
-        )?;
-        let bookmark_chid = bookmark_chid.trim();
-        if bookmark_chid != work_chid.as_str() {
+        let bookmark_chid = jj::chid_of(root, bookmark)?;
+        if bookmark_chid != *work_chid {
             return Err(format!(
                 "state-sanity: bookmark '{bookmark}' is at chid '{bookmark_chid}' but \
                  state.work_chid is '{work_chid}'. State is stale — run \
@@ -1408,31 +1382,16 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
     }
 
     // 3. bot_chid still resolves.
-    if let Some(bot_chid) = &state.bot_chid {
-        let claude = claude_path(root);
-        let claude_str = claude.to_string_lossy();
-        run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                bot_chid,
-                "--no-graph",
-                "-T",
-                "\"x\"",
-                "-R",
-                &claude_str,
-            ],
-            cwd,
+    if let Some(bot_chid) = &state.bot_chid
+        && !jj::rev_exists(&claude_path(root), bot_chid).unwrap_or(false)
+    {
+        // OK: any failure → the stale-state remediation message
+        return Err(format!(
+            "state-sanity: bot_chid '{bot_chid}' has been abandoned or no longer \
+             resolves in .claude. State is stale — run \
+             `vc-x1 push {bookmark} --restart` to clear."
         )
-        .map_err(|_| -> Box<dyn std::error::Error> {
-            format!(
-                "state-sanity: bot_chid '{bot_chid}' has been abandoned or no longer \
-                 resolves in .claude. State is stale — run \
-                 `vc-x1 push {bookmark} --restart` to clear."
-            )
-            .into()
-        })?;
+        .into());
     }
 
     Ok(())
@@ -1471,22 +1430,8 @@ fn verify_completion_sanity(
 
     // 1. work bookmark at state.work_chid.
     if let Some(work_chid) = &state.work_chid {
-        let actual = run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                bookmark,
-                "--no-graph",
-                "-T",
-                "change_id.short(12)",
-                "-R",
-                &root_str,
-            ],
-            cwd,
-        )?;
-        let actual = actual.trim();
-        if actual != work_chid.as_str() {
+        let actual = jj::chid_of(root, bookmark)?;
+        if actual != *work_chid {
             return Err(format!(
                 "completion sanity: work bookmark '{bookmark}' is at chid '{actual}' but \
                  state.work_chid is '{work_chid}'."
@@ -1499,7 +1444,7 @@ fn verify_completion_sanity(
     // template — `jj diff --stat` always emits a "0 files changed"
     // line even when clean, so plain output-emptiness check would
     // false-positive.
-    if !jj_log_empty(root, "@")? {
+    if !jj::is_empty(root, "@")? {
         let wc_diff = run("jj", &["diff", "--stat", "-r", "@", "-R", &root_str], cwd)?;
         return Err(format!(
             "completion sanity: work working copy has uncommitted changes (push completed \
@@ -1510,24 +1455,8 @@ fn verify_completion_sanity(
 
     // 3. .claude's pinned bookmark (main) at state.bot_chid.
     if let Some(bot_chid) = &state.bot_chid {
-        let claude = claude_path(root);
-        let claude_str = claude.to_string_lossy();
-        let actual = run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                BOT_BOOKMARK,
-                "--no-graph",
-                "-T",
-                "change_id.short(12)",
-                "-R",
-                &claude_str,
-            ],
-            cwd,
-        )?;
-        let actual = actual.trim();
-        if actual != bot_chid.as_str() {
+        let actual = jj::chid_of(&claude_path(root), BOT_BOOKMARK)?;
+        if actual != *bot_chid {
             return Err(format!(
                 "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \
                  '{actual}' but state.bot_chid is '{bot_chid}'."
@@ -1537,49 +1466,6 @@ fn verify_completion_sanity(
     }
 
     Ok(())
-}
-
-/// Return the 12-character change ID for `rev` in `repo`.
-fn get_change_id(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "change_id.short(12)",
-            "-R",
-            &repo.to_string_lossy(),
-        ],
-        Path::new("."),
-    )?;
-    Ok(out.trim().to_string())
-}
-
-/// True when the given revision is empty (no working-copy changes
-/// relative to its parent).
-fn jj_log_empty(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "empty",
-            "-R",
-            &repo.to_string_lossy(),
-        ],
-        Path::new("."),
-    )?;
-    match out.trim() {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        other => Err(format!("jj_log_empty: unexpected template output {other:?}").into()),
-    }
 }
 
 #[cfg(test)]

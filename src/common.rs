@@ -592,25 +592,7 @@ pub fn bookmark_publish_state(
     bookmark: &str,
 ) -> Result<PublishState, Box<dyn std::error::Error>> {
     let repo_str = repo.to_string_lossy();
-    let cwd = Path::new(".");
-    let commit_id = |rev: &str| -> Result<String, Box<dyn std::error::Error>> {
-        Ok(run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                rev,
-                "--no-graph",
-                "-T",
-                "commit_id",
-                "-R",
-                &repo_str,
-            ],
-            cwd,
-        )?
-        .trim()
-        .to_string())
-    };
+    let commit_id = |rev: &str| crate::jj::cid_of(repo, rev);
     let local = commit_id(bookmark)
         .map_err(|e| format!("bookmark '{bookmark}' does not resolve in '{repo_str}': {e}"))?;
     // `present(...)` maps a nonexistent remote bookmark to an empty

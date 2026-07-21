@@ -11,6 +11,7 @@ mod desc_helpers;
 mod fix_desc;
 mod fix_todo;
 mod init;
+mod jj;
 mod list;
 mod logging;
 mod options_flags;

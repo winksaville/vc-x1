@@ -21,7 +21,8 @@ use std::path::Path;
 use log::{debug, info};
 
 use crate::common::{mkdir_p, run};
-use crate::init::{copy_template_recursive, jj_chid, rewrite_readme_first_line};
+use crate::init::{copy_template_recursive, rewrite_readme_first_line};
+use crate::jj;
 
 /// Initial-commit ochid policy used by `commit_initial`.
 ///
@@ -118,7 +119,7 @@ pub fn commit_initial(
     info!("Committing {info_label}...");
     run("jj", &["commit", "-m", msg], target)?;
 
-    let chid = jj_chid("@-", target)?;
+    let chid = jj::chid_of(target, "@-")?;
     info!(
         "Committed {info_label} initial at {} chid = {chid}",
         target.display()

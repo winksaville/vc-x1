@@ -40,3 +40,22 @@ the reinvention; first stage of the refactor program.
     tprobe)
   - version 0.73.0-0; backfill the 0.72.0-1 ref [57] in
     chores-13; open this file
+- [[2]] 0.73.0-1 refactor: jj facade query module
+  - new `src/jj.rs`: the `log(repo, rev, template)` primitive
+    plus typed helpers — `matches` / `rev_exists`, `chid_of`,
+    `cid_of` / `cid_short_of`, `desc_of`, `is_empty` — every
+    read-only `jj log -T` spawn now goes through it
+  - folded: `squash_push::{jj_rev_exists, jj_commit_id,
+    rev_is_empty_undescribed}` (the last two deleted, the
+    empty-undescribed check rebuilt on `is_empty` +
+    `desc_of`), `push::{get_change_id, jj_log_empty}`, the
+    sanity verifiers' inline template blocks, `init::jj_chid`,
+    `sync::{commit_id, revset_nonempty}` + the
+    `commit_ids_of_bookmark` template, and
+    `common::bookmark_publish_state`'s commit-id closure
+  - `rev_exists` folds jj's unresolvable-revision errors to
+    `false` (the `try_commit_id` patterns); the push
+    stale-state checks keep their any-failure-is-stale
+    behavior via `.unwrap_or(false)` at the call sites
+
+[1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"

@@ -40,7 +40,7 @@ program's
        jj_commit_id, rev_is_empty_undescribed}`,
        `push::jj_log_empty` + the four inline
        `change_id.short(12)` blocks, `init::jj_chid`, and
-       sync.rs's three template variants
+       sync.rs's three template variants (done)
      - 0.73.0-2 refactor: jj facade tracking parse — fold
        `main::bm_track_one` (raw `std::process::Command` +
        its own `@origin:` prefix parse) onto
