@@ -53,7 +53,14 @@ preserved and ochid trailers in both directions still resolve.
 The bot thinks the only operations that break this are
 `jj squash` (folding two commits into one — collapses two
 change_ids into one) and `jj abandon` (removing a commit —
-loses the change_id entirely). Pure rebase is safe.
+loses the change_id entirely). Pure rebase is safe — with
+a sharpening from the 2026-07-20 sidebar: "rebase" means
+*jj* rebase. The bot thinks plain `git rebase` and the
+forge-side rebase/squash buttons re-mint commits without
+jj's change-id header, giving fresh chids. History surgery
+in this workflow goes through jj, full stop; the full
+survival-by-operation rundown is in
+[Integration modes: what survives](#integration-modes-what-survives).
 
 ### Why not time-based linkers
 
@@ -351,6 +358,69 @@ and fast; per-user-via-URL needs a network fetch (or a
 warm mirror) to resolve any non-local trailer. Pick by
 project shape — small co-located teams favor shared;
 distributed open-source favors per-user-via-URL.
+
+### Canonical history points outward; resolution is by chid
+
+From the 2026-07-20 trapezoid-close-out sidebar. The
+wrinkle: after a PR merges, the *canonical* repo's history
+carries ochid URLs pointing at contributor-owned repos —
+the project's provenance record lives in personal
+namespaces the project doesn't control. Mirroring
+(mitigation 1 above) addresses the durability half; the
+bot thinks the framing that dissolves the rest is:
+
+- **The chid is the identifier; the URL is a location
+  hint.** chids are, in practice, globally unique — any
+  repo containing the referenced chid satisfies
+  resolution: a local clone, the project's mirror
+  archive, the original URL. A resolver should try known
+  locations in cost order (local → project mirror →
+  trailer URL) rather than treat the URL as the single
+  source of truth.
+- **Unilateral adoption.** The URL form needs nothing
+  upstream: no `.vc-config.toml`, no vc-x1, no project
+  awareness. A contributor's trailers ride through review
+  and merge as inert text; provenance is carried entirely
+  by the contributor's commits plus their published bot
+  repo. Adoption is one-sided, which is what makes the
+  scheme deployable on projects that never heard of it.
+- **The symmetric gap.** Bot→code trailers have the same
+  locating problem in reverse: `ochid: /<chid>` assumes
+  "the" work repo. Less pressing — after the merge the
+  chid resolves in the canonical repo and every clone of
+  it — but the URL qualifier generalizes to that
+  direction too. One for the "ochid: bot-repo location
+  qualifier" Todo's design pass.
+
+### Integration modes: what survives
+
+From the same sidebar: a link (an `ochid:` trailer)
+survives exactly when the commit it points at keeps its
+chid — the trailer itself is commit-message text and
+always rides along. By integration operation:
+
+- **Non-ff merge** — everything survives, *including when
+  the maintainer resolves conflicts*: the resolution
+  content lives in the new merge commit; the contributed
+  commits are untouched. The only loss is local — the
+  merge commit's resolution delta carries no session
+  pointer unless the integrator records their own
+  session (the conflict-resolution case in
+  [When multi-ochid actually applies](#when-multi-ochid-actually-applies)).
+- **jj rebase** (contributor rework, close-out shaping)
+  — new SHAs, same chids; links fine.
+- **Plain `git rebase`** — the bot thinks this re-mints
+  commits without jj's change-id header: fresh chids,
+  inbound links stale. The contributor-side trap:
+  reworking a PR with raw git breaks your own links
+  before the owner touches anything. Use jj for history
+  surgery, or merge main into the branch (append-only,
+  safest of all).
+- **Squash-merge / forge rebase-merge / cherry-pick** —
+  re-mint by design; bot→code links go stale until a
+  migration record repairs them (append a mapping, never
+  rewrite — same append-only discipline as everything
+  bot-side).
 
 ### Bot-side commit immutability
 

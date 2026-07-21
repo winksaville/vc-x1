@@ -17,7 +17,46 @@ by the "plan" — a bulleted list of the development "ladder":
    - 0.xx.y-2 blah blah blah
    - 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**refactor: DRY jj facade** — first stage of the jj
+refactor program
+([refactor-20260716.md](notes/refactor-20260716.md)):
+~30 call sites hand-roll `run("jj", ["log", …])` and each
+module has quietly grown a private wrapper; one typed
+facade module ends the reinvention. Worked on the
+`refactor-vc-x1` bookmark; main parks at the 0.71.0 tip.
+The 0.72.0 merge close-out cycle is parked on
+`support-trapezoid-commits`; its design moved into the
+program's
+[trapezoid stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
+   - Ladder:
+     - 0.73.0-0 chore: open jj facade cycle — restore the
+       notes files from the parked branch, re-plan
+       (trapezoid design → refactor doc, new stateless-push
+       stage), version bump, open chores-14 (current)
+     - 0.73.0-1 refactor: jj facade query module —
+       `src/jj.rs`: `jj_log(repo, rev, template)` + typed
+       helpers (rev_exists, chid_of, cid_of, desc_of,
+       is_empty); fold `squash_push::{jj_rev_exists,
+       jj_commit_id, rev_is_empty_undescribed}`,
+       `push::jj_log_empty` + the four inline
+       `change_id.short(12)` blocks, `init::jj_chid`, and
+       sync.rs's three template variants
+     - 0.73.0-2 refactor: jj facade tracking parse — fold
+       `main::bm_track_one` (raw `std::process::Command` +
+       its own `@origin:` prefix parse) onto
+       `common::verify_tracking`'s parser
+     - 0.73.0-3 refactor: jj facade ochid parse — one
+       string-level trailer parser in `desc_helpers`;
+       `squash_push::extract_ochids` and
+       `common::extract_ochid` both call it
+     - 0.73.0-4 test: jj facade fixture helpers — promote
+       the near-identical `jj()` / `cid()` / `chid()` /
+       `description()` helpers from
+       `push/integration_tests.rs`,
+       `sync/integration_tests.rs`, and `tests/cli_sync.rs`
+       into `test_helpers.rs`
+     - 0.73.0 refactor: DRY jj facade — close-out and
+       validation
 
 ## Todo
 
@@ -33,36 +72,7 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **vc-x1 push: pause point between commit and publish
-   stages.** The merge non-ff close-out is a three-step
-   sequence:
-   - commit the close-out pair locally (normal 1:1 commit
-     stages, ochids injected both directions)
-   - rebase the code-side close-out into the merge (chids
-     survive rebase, so every ochid stays valid)
-   - publish
-
-   Push has no supported stop after `commit-bot`, so today
-   the recipe pre-commits both sides manually and resumes via
-   `--from bookmark-set --yes` — skipping exactly the stages
-   that inject `ochid:` trailers.
-   - Add a stop after the commit stages (`--to commit-bot`
-     or `--no-publish`; name open); the existing `--from
-     bookmark-set` is already the resume half.
-   - Retires the close-out workaround; the merge commit
-     carries its code→bot ochid because it was injected
-     normally, before the rebase.
-   - Together with the Todo "push/sync: bookmark is
-     code-repo-only; pin the bot repo to main", completes
-     the trapezoidal-commit workflow (1:1 bot↔code
-     throughout; the merge is a code-side-only shape
-     operation).
-   - Interim recipe only: the refactor program's
-     [trapezoid close-out stage](notes/refactor-20260716.md#stage-trapezoid-close-out)
-     is the end state; this pause point remains the manual
-     path until it lands.
-
-2. **Refactor: typed jj facade → jj-lib in-process; end
+1. **Refactor: typed jj facade → jj-lib in-process; end
    subprocess spawning.** Version-control operations are
    ~30 hand-rolled `run("jj", …)` spawns plus every
    mutation, with per-module private wrappers and raw-git
@@ -75,9 +85,33 @@ _No cycle currently in progress._
    [refactor-20260716.md](notes/refactor-20260716.md).
    - Stages in execution order: DRY facade → hygiene
      riders → facade owns topology → de-gitify init →
-     split push.rs → jj-lib migration → push body-intro
-     validation → trapezoid close-out → por → dual
-     conversion.
+     split push.rs → stateless push → jj-lib migration →
+     push body-intro validation → trapezoid close-out →
+     por → dual conversion.
+   - split push.rs is built and parked on
+     `support-trapezoid-commits` (0.72.0-1) with the paused
+     merge close-out cycle — replay or redo when the stage
+     arrives; see the stage notes in the program doc.
+2. **ochid: bot-repo location qualifier.** An ochid is
+   workspace-relative (`/.claude/<chid>`) — nothing in a
+   published commit says *where* the companion bot repo
+   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+   discoverable only by convention). Anyone cloning just the
+   work repo can't resolve bot-side ochids. Design already
+   sketched in forks-multi-user.md
+   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+   URL-shaped trailers, plus the complementary
+   `.vc-config.toml` repo-index form; resolver dispatch is
+   one rule (URL → fetch, else workspace-relative), existing
+   path-form trailers stay the backward-compatible case.
+   - Cheap first rung: declare the companion's URL once in
+     the committed `.vc-config.toml` (no trailer-format
+     change; any work-repo clone then knows where the bot
+     repo lives). Rides naturally with the refactor
+     program's facade-owns-topology stage
+     (bot-repo-location config).
+   - Link rot + mirroring mitigations are in the same doc
+     section.
 3. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
@@ -198,15 +232,13 @@ _No cycle currently in progress._
    so no bot pairings exist — one bot commit then records
    every code commit not yet covered by a prior `ochid:`,
    via a multi-line `ochid:` per the design in [[10]].
-   - Also covers a cycle held local and published all at
-     once (the ochid-trailers section's "one ochid per Work
-     commit" on merge close-out) — work commits never
-     individually paired.
-   - Out of scope: the trapezoid close-out. That flow stays
-     1:1 (the close-out pair commits normally, then the
-     merge rebase; chids survive rebase, so ochids stay
-     valid); its enabler is the Todo "vc-x1 push: pause
-     point between commit and publish stages".
+   - Out of scope: the trapezoid close-out — handled
+     natively by the in-progress "feat: push merge
+     close-out (trapezoid)" cycle, whose N-ochid stamping
+     also covers a cycle held local and published all at
+     once. This Todo is only the no-bot-pairings interop
+     case; the stamping step's multi-line `ochid:` emit is
+     shared groundwork.
    - Teach push to:
      - detect the shape (code WC empty, uncovered commits at
        the bookmark)
@@ -248,17 +280,23 @@ _No cycle currently in progress._
     section-level list. The convention's home —
     cycle-protocol.md Close-out ("Add an `### As-built
     ladder`…") — is in the byte-identical shared doc set
-    (vc-x1, vc-template-x1, iiac-perf), so the doc edit
-    needs a coordinated three-project sync, not a
-    mid-cycle local change.
+    (family: vc-x1, vc-template-x1, iiac-perf, zc-msg-x1,
+    tprobe), so the doc edit needs a coordinated
+    family-wide sync, not a mid-cycle local change. Not
+    included in the 2026-07-20 vc-template-x1 sync (straight
+    copy); still pending for the whole family, vc-x1
+    included.
 12. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
     was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md`
-    (the byte-identical shared doc set), so vc-template-x1 and
-    iiac-perf now diverge until the same edit is applied there —
-    a coordinated three-project sync (same family as Todo #11).
+    (the byte-identical shared doc set). vc-template-x1 synced
+    2026-07-20 (AGENTS.md + cycle-protocol.md byte-identical
+    again, plus the TODO.md move); iiac-perf, zc-msg-x1, and
+    tprobe still diverge — the plan is to fan out from
+    vc-template-x1 (same family as the Todo "Shared-doc sync:
+    As-built ladder rungs carry `[[N]]` commit refs").
 13. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
@@ -283,33 +321,7 @@ _No cycle currently in progress._
  `## Todo` / `notes/todo-backlog.md`, fold into a
  picked-up cycle, or drop.
 
-1. **Codify ochid invariant + bot-repo rules + squash
-   gating + cross-repo migration in
-   `notes/cycle-protocol.md`.** Was planned for
-   `0.59.0-2` but deferred when 0.59.0 closed out via
-   squash + Option F (manual bot-side rewrite). The
-   rules were exercised manually for the close-out;
-   this Idea formally codifies them.
-   - Codify the **ochid invariant** in `## ochid
-     trailers`: every public ochid must resolve in the
-     public graph.
-   - Codify bot-repo rules: never squashed; descriptions
-     editable (`jj describe` preserves chid).
-   - Codify squash gating: until `vc-x1 push --squash`
-     exists, manual symmetric squash (Option F: app
-     squash + bot-side trailer rewrite + force-push) is
-     the standard recipe; merge non-ff is the default
-     shape for multi-commit cycles (the concrete recipe is
-     its own Todo — "merge-non-ff recipe").
-   - Sketch cross-repo migration: ochids change at
-     every merge until the change reaches the canonical
-     repo's `main`.
-   - Apply Ideas-aware Preparation/Close-out updates:
-     Preparation triages `## Ideas` (promote / fold /
-     drop) before declaring the plan; Close-out
-     captures unresolved follow-ups into `## Ideas`.
-
-2. **`vc` as a code+conversation provenance tool (grander
+1. **`vc` as a code+conversation provenance tool (grander
    ambition).** Today `vc-x1` manages a dual repo (code +
    `.claude`) cross-linked by `ochid:`. The larger aim is
    to *surface* that link — view history with the
@@ -338,7 +350,7 @@ _No cycle currently in progress._
    - Possible artifact: a top-level
      `notes/design-cli/vision.md` framing the direction,
      with the parity and conversion docs as sub-designs.
-3. **Restructure the design-cli parity docs (target
+2. **Restructure the design-cli parity docs (target
    0.63.0).** `por-dual-parity-audit.md` (~1200 lines)
    fuses a *frozen* audit (the `## 1`–`## 8` snapshot
    evidence) with a *living* design (axes, decisions,
