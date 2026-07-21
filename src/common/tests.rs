@@ -38,6 +38,48 @@ other@origin: abcd1234 5678efgh other stuff";
 }
 
 #[test]
+fn find_tracked_remote_synced() {
+    let output = "\
+main: zzwozmkn 40a8309a title here
+  @git: zzwozmkn 40a8309a title here
+  @origin: zzwozmkn 40a8309a title here";
+    assert!(find_tracked_remote(output, "origin"));
+}
+
+#[test]
+fn find_tracked_remote_divergent() {
+    let output = "\
+main: zzwozmkn 40a8309a title here
+  @origin (ahead by 2 commits): zzwozmkn 40a8309a title";
+    assert!(find_tracked_remote(output, "origin"));
+}
+
+#[test]
+fn find_tracked_remote_non_tracking_is_not_tracked() {
+    let output = "\
+main: zzwozmkn 40a8309a title here
+main@origin: zzwozmkn 40a8309a title here";
+    assert!(!find_tracked_remote(output, "origin"));
+}
+
+#[test]
+fn find_tracked_remote_absent() {
+    assert!(!find_tracked_remote(
+        "main: zzwozmkn 40a8309a title here",
+        "origin"
+    ));
+    assert!(!find_tracked_remote("", "origin"));
+}
+
+#[test]
+fn find_tracked_remote_other_remote_only() {
+    let output = "\
+main: zzwozmkn 40a8309a title here
+  @git: zzwozmkn 40a8309a title here";
+    assert!(!find_tracked_remote(output, "origin"));
+}
+
+#[test]
 fn parse_dot_rev_bare() {
     let spec = parse_dot_rev("@");
     assert_eq!(spec.rev, "@");

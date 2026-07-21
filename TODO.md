@@ -11,11 +11,15 @@ pattern that locates numbered entries; 2 or 3 spaces also work.
 
 When a `## Todo` item is picked up, its text moves here: the
 problem overview and its list of things to do. That is followed
-by the "plan" — a bulleted list of the development "ladder":
-   - 0.xx.y-0 blah (done)
-   - 0.xx.y-1 blah blah (current)
-   - 0.xx.y-2 blah blah blah
-   - 0.xx.y close-out and validation
+by the "plan" — a bulleted list of the development "ladder".
+Each rung is prepended with its commit reference — a literal
+`[[N]]` placeholder until the commit is pushed, then backfilled
+to a real file-local `[[n]]` ref (same pattern as the chores
+As-built rungs):
+   - [[N]] 0.xx.y-0 blah (done)
+   - [[N]] 0.xx.y-1 blah blah (current)
+   - [[N]] 0.xx.y-2 blah blah blah
+   - [[N]] 0.xx.y close-out and validation
 
 **refactor: DRY jj facade** — first stage of the jj
 refactor program
@@ -29,11 +33,11 @@ The 0.72.0 merge close-out cycle is parked on
 program's
 [trapezoid stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
    - Ladder:
-     - 0.73.0-0 chore: open jj facade cycle — restore the
-       notes files from the parked branch, re-plan
+     - [[8]] 0.73.0-0 chore: open jj facade cycle — restore
+       the notes files from the parked branch, re-plan
        (trapezoid design → refactor doc, new stateless-push
-       stage), version bump, open chores-14 (current)
-     - 0.73.0-1 refactor: jj facade query module —
+       stage), version bump, open chores-14 (done)
+     - [[9]] 0.73.0-1 refactor: jj facade query module —
        `src/jj.rs`: `jj_log(repo, rev, template)` + typed
        helpers (rev_exists, chid_of, cid_of, desc_of,
        is_empty); fold `squash_push::{jj_rev_exists,
@@ -41,21 +45,21 @@ program's
        `push::jj_log_empty` + the four inline
        `change_id.short(12)` blocks, `init::jj_chid`, and
        sync.rs's three template variants (done)
-     - 0.73.0-2 refactor: jj facade tracking parse — fold
-       `main::bm_track_one` (raw `std::process::Command` +
-       its own `@origin:` prefix parse) onto
-       `common::verify_tracking`'s parser
-     - 0.73.0-3 refactor: jj facade ochid parse — one
+     - [[N]] 0.73.0-2 refactor: jj facade tracking parse —
+       fold `main::bm_track_one` (raw `std::process::Command`
+       + its own `@origin:` prefix parse) onto
+       `common::verify_tracking`'s parser (done)
+     - [[N]] 0.73.0-3 refactor: jj facade ochid parse — one
        string-level trailer parser in `desc_helpers`;
        `squash_push::extract_ochids` and
        `common::extract_ochid` both call it
-     - 0.73.0-4 test: jj facade fixture helpers — promote
+     - [[N]] 0.73.0-4 test: jj facade fixture helpers — promote
        the near-identical `jj()` / `cid()` / `chid()` /
        `description()` helpers from
        `push/integration_tests.rs`,
        `sync/integration_tests.rs`, and `tests/cli_sync.rs`
        into `test_helpers.rs`
-     - 0.73.0 refactor: DRY jj facade — close-out and
+     - [[N]] 0.73.0 refactor: DRY jj facade — close-out and
        validation
 
 ## Todo
@@ -441,4 +445,6 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [5]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
 [6]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
 [7]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
+[8]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
+[9]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
 [10]: /notes/forks-multi-user.md

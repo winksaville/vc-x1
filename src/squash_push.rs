@@ -113,7 +113,6 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     debug!("preflight: checking params");
     let repo = &params.repo;
     let repo_str = params.repo.to_string_lossy();
-    let cwd = std::path::Path::new(".");
     let sq = &params.squash;
     let bookmark = &params.bookmark;
 
@@ -133,8 +132,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
-    let exists = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
-    if exists.is_empty() {
+    if jj::bookmark_list(repo, bookmark)?.is_empty() {
         return Err(format!("bookmark '{bookmark}' does not exist").into());
     }
 

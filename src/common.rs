@@ -543,6 +543,25 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
     None
 }
 
+/// Scan `jj bookmark list -a <name>` output for a *tracked* entry
+/// for `remote`.
+///
+/// - Tracked remotes appear indented under the local bookmark —
+///   `  @origin: …` when synced, or the decorated divergent form
+///   `  @origin (ahead by N commits): …`; both count as tracking.
+/// - A column-0 `<bookmark>@<remote>: …` line is a non-tracking
+///   ref (see `find_non_tracking_remote`), never a match here.
+pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
+    let colon = format!("@{remote}:");
+    let space = format!("@{remote} ");
+    list_output.lines().any(|line| {
+        line.starts_with(char::is_whitespace) && {
+            let t = line.trim_start();
+            t.starts_with(&colon) || t.starts_with(&space)
+        }
+    })
+}
+
 /// Verify all remote refs for `bookmark` in `repo` are tracked.
 ///
 /// Returns `Err` with the exact `jj bookmark track …` remediation command if
@@ -550,14 +569,9 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
 /// commands (sync, push, squash-push) and as a post-condition assertion by setup
 /// commands (init, clone, test-fixture).
 pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let repo_str = repo.to_string_lossy();
-    let cwd = Path::new(".");
-    let all = run(
-        "jj",
-        &["bookmark", "list", "-a", bookmark, "-R", &repo_str],
-        cwd,
-    )?;
+    let all = crate::jj::bookmark_list_all(repo, bookmark)?;
     if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
+        let repo_str = repo.to_string_lossy();
         return Err(format!(
             "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
              run `jj bookmark track {bookmark} --remote={remote} -R {repo_str}` to fix"

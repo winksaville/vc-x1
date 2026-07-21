@@ -57,5 +57,21 @@ the reinvention; first stage of the refactor program.
     `false` (the `try_commit_id` patterns); the push
     stale-state checks keep their any-failure-is-stale
     behavior via `.unwrap_or(false)` at the call sites
+- [[3]] 0.73.0-2 refactor: jj facade tracking parse
+  - the two tracking parsers unify on one listing:
+    `jj::bookmark_list` / `bookmark_list_all` join the
+    facade, and `common::find_tracked_remote` (positive:
+    indented `@remote` entry, synced or divergent form)
+    sits beside `find_non_tracking_remote` (negative:
+    column-0 ref) over the same `-a` output
+  - `main::bm_track_one` drops its raw
+    `std::process::Command` spawn + private parse — now a
+    thin wrapper; `verify_tracking` and squash-push's
+    bookmark-existence check use the facade
+  - five `find_tracked_remote` unit tests
+  - rider: TODO.md In Progress ladder rungs now carry
+    prepended `[[N]]` commit refs (backfilled once pushed,
+    like the chores As-built rungs); intro template updated
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
+[2]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"

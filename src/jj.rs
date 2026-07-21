@@ -1,9 +1,9 @@
 //! Typed facade over `jj` subprocess queries.
 //!
-//! Every read-only `jj log -T <template>` spawn goes through this
-//! module — one primitive plus typed helpers — so call sites stop
-//! hand-rolling argument lists (the DRY-facade stage of
-//! `notes/refactor-20260716.md`):
+//! Every read-only `jj log -T <template>` / `jj bookmark list`
+//! spawn goes through this module — primitives plus typed
+//! helpers — so call sites stop hand-rolling argument lists (the
+//! DRY-facade stage of `notes/refactor-20260716.md`):
 //!
 //! - `log` — the raw primitive; the helpers below cover the
 //!   common templates.
@@ -99,4 +99,34 @@ pub fn is_empty(repo: &Path, rev: &str) -> Result<bool> {
         "false" => Ok(false),
         other => Err(format!("jj::is_empty: unexpected template output {other:?}").into()),
     }
+}
+
+/// Run `jj bookmark list <bookmark> -R <repo>` and return its
+/// stdout — empty when the local bookmark doesn't exist.
+pub fn bookmark_list(repo: &Path, bookmark: &str) -> Result<String> {
+    run(
+        "jj",
+        &["bookmark", "list", bookmark, "-R", &repo.to_string_lossy()],
+        Path::new("."),
+    )
+}
+
+/// Like `bookmark_list` but with `-a`: includes remote refs —
+/// tracked ones indented (`  @origin: …`), non-tracking at
+/// column 0 (`<bookmark>@<remote>: …`). The input for
+/// `common::find_tracked_remote` /
+/// `common::find_non_tracking_remote`.
+pub fn bookmark_list_all(repo: &Path, bookmark: &str) -> Result<String> {
+    run(
+        "jj",
+        &[
+            "bookmark",
+            "list",
+            "-a",
+            bookmark,
+            "-R",
+            &repo.to_string_lossy(),
+        ],
+        Path::new("."),
+    )
 }
