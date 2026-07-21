@@ -136,3 +136,36 @@ impl Drop for CliFixture {
         }
     }
 }
+
+/// Run `jj <args>` in `dir` (inspection only) with `HOME` pointed
+/// at the fixture's isolated home; assert success and return
+/// trimmed stdout.
+///
+/// The `HOME` + `current_dir` shape (vs the in-crate
+/// `test_helpers::jj_ok`'s `-R` form) is deliberate: CLI tests
+/// isolate the jj user config under the fixture home, and this
+/// crate can't reach the binary's `test_helpers` module.
+pub fn jj(home: &Path, dir: &Path, args: &[&str]) -> String {
+    let out = Command::new("jj")
+        .args(args)
+        .env("HOME", home)
+        .current_dir(dir)
+        .output()
+        .expect("spawn jj");
+    assert!(
+        out.status.success(),
+        "jj {args:?} failed in {}: {}",
+        dir.display(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// Resolve `rev` to its short commit id in `repo`.
+pub fn cid(home: &Path, repo: &Path, rev: &str) -> String {
+    jj(
+        home,
+        repo,
+        &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
+    )
+}

@@ -11,7 +11,7 @@
 
 use super::*;
 use crate::options_flags::scope::Side;
-use crate::test_helpers::Fixture;
+use crate::test_helpers::{Fixture, cid, jj_ok};
 use std::fs;
 use std::process::Command;
 
@@ -77,31 +77,6 @@ fn resolver_chain_against_init_repo_local() {
     sync_repos(&resolved, &default_params()).expect("sync should succeed on resolved repos");
 }
 
-/// Run `jj <args> -R <repo>` and assert success; returns trimmed stdout.
-fn jj(repo: &Path, args: &[&str]) -> String {
-    let out = Command::new("jj")
-        .args(args)
-        .arg("-R")
-        .arg(repo)
-        .output()
-        .expect("spawn jj");
-    assert!(
-        out.status.success(),
-        "jj {args:?} failed in {}: {}",
-        repo.display(),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
-}
-
-/// Resolve `rev` to its short commit id in `repo`.
-fn cid(repo: &Path, rev: &str) -> String {
-    jj(
-        repo,
-        &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
-    )
-}
-
 /// Default sync params (the normal atomic sync — no flags).
 ///
 /// Integration tests pass explicit repo paths through `sync_repos`
@@ -130,7 +105,7 @@ fn rebase_params() -> SyncParams {
 
 /// True when `revset` matches at least one commit in `repo`.
 fn has(repo: &Path, revset: &str) -> bool {
-    !jj(
+    !jj_ok(
         repo,
         &[
             "log",
@@ -152,9 +127,9 @@ fn has(repo: &Path, revset: &str) -> bool {
 /// create a fresh empty `@` above it.
 fn add_local_commit(repo: &Path, file: &str, content: &str, msg: &str) {
     fs::write(repo.join(file), content).expect("write local file");
-    jj(repo, &["describe", "@", "-m", msg]);
-    jj(repo, &["bookmark", "set", "main", "-r", "@"]);
-    jj(repo, &["new"]);
+    jj_ok(repo, &["describe", "@", "-m", msg]);
+    jj_ok(repo, &["bookmark", "set", "main", "-r", "@"]);
+    jj_ok(repo, &["new"]);
 }
 
 /// Clone `remote_url` into `<base>/<work_name>` (colocated) and
@@ -189,9 +164,9 @@ fn push_from_clone(
 ) -> String {
     let workdir = clone(base, remote_url, work_name);
     fs::write(workdir.join(file), content).expect("write remote file");
-    jj(&workdir, &["describe", "@", "-m", msg]);
-    jj(&workdir, &["bookmark", "set", "main", "-r", "@"]);
-    jj(&workdir, &["git", "push", "--bookmark", "main"]);
+    jj_ok(&workdir, &["describe", "@", "-m", msg]);
+    jj_ok(&workdir, &["bookmark", "set", "main", "-r", "@"]);
+    jj_ok(&workdir, &["git", "push", "--bookmark", "main"]);
     cid(&workdir, "main")
 }
 
@@ -228,7 +203,7 @@ fn sync_session_noop_when_up_to_date() {
     let fx = Fixture::new("session-noop-uptodate");
     let pre_main = cid(&fx.claude, "main");
     fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
-    let pre_at = jj(
+    let pre_at = jj_ok(
         &fx.claude,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
@@ -236,7 +211,7 @@ fn sync_session_noop_when_up_to_date() {
     // main didn't move.
     assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
     // @ is the same change — no jj new, no abandoned chid.
-    let post_at = jj(
+    let post_at = jj_ok(
         &fx.claude,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
@@ -303,8 +278,8 @@ fn sync_session_errors_when_at_parent_off_main() {
     // A described commit ahead of main, with a fresh @ above it, so
     // @- is ahead of (not on) main.
     fs::write(fx.claude.join("ahead.jsonl"), "{\"line\":9}\n").expect("write ahead file");
-    jj(&fx.claude, &["describe", "@", "-m", "feat: session ahead"]);
-    jj(&fx.claude, &["new"]);
+    jj_ok(&fx.claude, &["describe", "@", "-m", "feat: session ahead"]);
+    jj_ok(&fx.claude, &["new"]);
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -415,7 +390,7 @@ fn sync_diverged_rebases() {
         "local main should be ahead of remote after rebase"
     );
     // Remote is an ancestor of local post-rebase.
-    let anc = jj(
+    let anc = jj_ok(
         &fx.work,
         &[
             "log",
@@ -431,7 +406,7 @@ fn sync_diverged_rebases() {
         "remote should be ancestor of local after rebase"
     );
     // No conflicts.
-    let conflicts = jj(
+    let conflicts = jj_ok(
         &fx.work,
         &[
             "log",
@@ -675,8 +650,8 @@ fn sync_clone_ffs_main_after_peer_push() {
 fn sync_feature_bookmark_pins_session_to_main() {
     let fx = Fixture::new("feature-pins-session");
     // Work repo: create + push a feature bookmark so it tracks.
-    jj(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
-    jj(&fx.work, &["git", "push", "--bookmark", "feature"]);
+    jj_ok(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
+    jj_ok(&fx.work, &["git", "push", "--bookmark", "feature"]);
     // Session remote advances main while feature work is underway.
     let remote_claude = fx.base.join("remote-claude.git");
     let remote_head = push_from_clone(

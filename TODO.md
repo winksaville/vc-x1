@@ -49,7 +49,7 @@ program's
        fold `main::bm_track_one` (raw `std::process::Command`
        + its own `@origin:` prefix parse) onto
        `common::verify_tracking`'s parser (done)
-     - [[N]] 0.73.0-3 refactor: jj facade ochid parse — one
+     - [[12]] 0.73.0-3 refactor: jj facade ochid parse — one
        string-level trailer parser in `desc_helpers`;
        `squash_push::extract_ochids` and
        `common::extract_ochid` both call it (done)
@@ -58,7 +58,7 @@ program's
        `description()` helpers from
        `push/integration_tests.rs`,
        `sync/integration_tests.rs`, and `tests/cli_sync.rs`
-       into `test_helpers.rs`
+       into `test_helpers.rs` (done)
      - [[N]] 0.73.0 refactor: DRY jj facade — close-out and
        validation
 
@@ -449,3 +449,4 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [9]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
 [10]: /notes/forks-multi-user.md
 [11]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"
+[12]: https://github.com/winksaville/vc-x1/commit/c3a6d258f511 "c3a6d258f511ae4a3a6f0b6e42aba80d5005d4e8"

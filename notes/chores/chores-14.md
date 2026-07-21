@@ -86,7 +86,23 @@ the reinvention; first stage of the refactor program.
   - behavior tightened: the single-value accessors are now
     column-0-only — an indented `ochid:` mention is prose,
     not a trailer (previously the trimmed scans matched it)
+- [[5]] 0.73.0-4 test: jj facade fixture helpers
+  - `test_helpers::jj_ok` (which anticipated this migration
+    in its doc note) gains `cid` / `chid` / `description`;
+    the near-identical private copies in
+    `push/integration_tests.rs` and
+    `sync/integration_tests.rs` are deleted (push keeps a
+    local `desc_first_line` built on `jj_ok`)
+  - deviation from the plan bullet: `tests/cli_sync.rs`
+    lives in its own test crate and can't reach the
+    binary's `test_helpers`, and its variant needs `HOME`
+    injection — its `jj` / `cid` move to the crate's shared
+    `tests/common/mod.rs` instead, with the why documented
+  - the shared helpers spawn directly rather than calling
+    `crate::jj`, so test inspection stays independent of
+    the facade under test
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
 [2]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
 [3]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"
+[4]: https://github.com/winksaville/vc-x1/commit/c3a6d258f511 "c3a6d258f511ae4a3a6f0b6e42aba80d5005d4e8"
