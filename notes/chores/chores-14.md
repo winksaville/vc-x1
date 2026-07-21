@@ -130,7 +130,7 @@ migration stage inherits.
 
 ## docs: adopt new template repo names
 
-Commits:
+Commits: [[7]]
 
 The template repos were renamed (`vc-template-x1` →
 `vc-x1-work-repo-template`, `vc-template-x1.claude` →
@@ -149,6 +149,38 @@ restore shared-doc-set byte-identity.
   redirects renamed repos. `src/init/tests.rs` fixture names
   are arbitrary strings, not repo references, and stay.
 
+## docs: notes rework + config refresh
+
+Commits:
+
+Alignment batch riding the template-side session: vc-x1
+adopts what the working pair (vc-x1 + the template) decided.
+
+- `.vc-config.toml` (both sides) now carries init's
+  generated optional-keys block, so the hand-seeded configs
+  are byte-identical with what `vc-x1 init` emits (the block
+  is schema-sourced and cannot drift from the binary).
+- jj-tips.md re-syncs with the template under a
+  reclassification: its recorded transcripts are pedagogy,
+  not history, so example names adopt
+  `vc-x1-work-repo-template`. This supersedes the previous
+  section's "historical records keep the old name" for this
+  one file; chores files and the notes-sync manifest remain
+  historical and keep old names.
+- The template-restructure design (single template repo +
+  fixed bot seed manifest, `<CODE>.claude` sibling default
+  dropped) is promoted to Todo #10; the `.bot` default-name
+  decision and the symmetric config schema fold into the
+  refactor program's facade-owns-topology stage.
+- New Idea recorded: chores retire into a session index
+  once the provenance viewer can present session + code
+  (the template already seeds no chores history — a new
+  project's history is its commits + bot session).
+- The bot repo gains its seed-manifest files: LICENSE-*
+  verbatim from vc-x1-bot-repo-template, README.md adapted
+  from it (the "source template" paragraph is
+  template-specific, so it becomes a partner-repo pointer).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -157,3 +189,4 @@ restore shared-doc-set byte-identity.
 [4]: https://github.com/winksaville/vc-x1/commit/c3a6d258f511 "c3a6d258f511ae4a3a6f0b6e42aba80d5005d4e8"
 [5]: https://github.com/winksaville/vc-x1/commit/303d163196ab "303d163196ab4c387428e4bec0fc65430ead4206"
 [6]: https://github.com/winksaville/vc-x1/commit/6c93a011a54d "6c93a011a54dd990035733e49f0bfa169ebad609"
+[7]: https://github.com/winksaville/vc-x1/commit/007cc5d5a030 "007cc5d5a030a2a0673ed5ef7b425c98dce40a74"

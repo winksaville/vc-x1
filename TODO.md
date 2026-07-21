@@ -91,7 +91,35 @@ _No cycle currently in progress._
    in the stage notes; see
    [the stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
    After stateless push (no state-file growth) and jj-lib.
-10. **ochid: bot-repo location qualifier.** An ochid is
+10. **Restructure templates: single template repo + fixed bot
+    seed manifest.** Replace the separate
+    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
+    repos with the one work-repo template, whose live
+    `.claude/` doubles as the bot-side seed source; retire
+    `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
+    for the new layout. First up after the refactor program.
+    - `--use-template` rule: explicit `CODE,BOT` copies all
+      non-hidden files from BOT (unchanged — the escape
+      hatch for rich bot seeds); `CODE` alone seeds the bot
+      side from a fixed manifest — `LICENSE-*`, `README.md`
+      — taken from `<CODE>/.claude/`. The `<CODE>.claude`
+      sibling default is dropped.
+    - The manifest is the safety property: a live `.claude`
+      has non-hidden session artifacts at top level, and
+      the known subset is what lets it double as the seed
+      source without leaking session history into new
+      projects.
+    - Manifest members missing in the source are skipped —
+      a code template with no `.claude/` content yields a
+      bare-but-valid bot repo (the bot template is
+      optional; init already generates the true minimum
+      itself).
+    - `memory/MEMORY.md` moves from copied to generated:
+      it is intentionally empty (seeded only because Claude
+      tends to create it otherwise), so init emits it like
+      `.vc-config.toml` instead of copying — no "is it
+      still empty?" invariant left in the template.
+11. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`) — nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -111,7 +139,7 @@ _No cycle currently in progress._
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-11. **Version-number protocol is fragile — versions are
+12. **Version-number protocol is fragile — versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -136,7 +164,7 @@ _No cycle currently in progress._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-12. **sync follow-up: extract `move-bookmark` command.** The
+13. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone — e.g. the
     t1B scenario where `main` is right but `@` isn't on it —
@@ -146,7 +174,7 @@ _No cycle currently in progress._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-13. **sync follow-up: push preflight in-process; drop
+14. **sync follow-up: push preflight in-process; drop
     `--check`; revisit push auto-rollback.** Push's preflight
     shells out to `vc-x1 sync --check` — a verify-only pass
     that is both racy (remote can move before the user's
@@ -161,7 +189,7 @@ _No cycle currently in progress._
     - Apply the stop-on-error + `vc-x1 revert` philosophy to
       push's commit-stage rollback (today it auto-runs
       `jj op restore`, hiding the evidence).
-14. **validate-numbering: rename the pair, check all
+15. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -197,7 +225,7 @@ _No cycle currently in progress._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-15. **pre-commit: single rule (no docs skip) + doc validators.**
+16. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -223,7 +251,7 @@ _No cycle currently in progress._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+17. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -247,7 +275,7 @@ _No cycle currently in progress._
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-17. **Run validate-bot at every vc-x1 invocation
+18. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -260,7 +288,7 @@ _No cycle currently in progress._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-18. **README: audit flag tables and examples against the
+19. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -271,7 +299,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+20. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -284,7 +312,7 @@ _No cycle currently in progress._
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-20. **Shared-doc sync: per-commit chores convention.**
+21. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -295,7 +323,7 @@ _No cycle currently in progress._
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-21. **config: extract flag-backed key descriptions from Clap.**
+22. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -378,6 +406,29 @@ _No cycle currently in progress._
    - Deferred from the 0.62.0 close-out: close-out is
      bookkeeping-only, and the split is substantive,
      anchor-heavy work warranting its own cycle.
+3. **Chores retire into a session index (post-viewer).**
+   Once the provenance viewer ("`vc` as a code+conversation
+   provenance tool" above) can present a commit's session
+   and code side by side, the hand-written chores narrative
+   is a distillation of a conversation the bot repo already
+   records verbatim — the DRY argument that removed edit
+   lists from chores (git owns the mechanics) then applies
+   to the narrative too (the session owns it). Chores
+   collapses to an index into the session.
+   - The `ochid:` trailer links a work commit to a session
+     *commit*; the index adds within-session granularity —
+     which conversation span produced the commit, where the
+     design argument happened. We think it can be generated
+     (the transcript records when pushes happen), making it
+     drift-proof where hand-written chores never were.
+   - What survives: the curated design layer (the
+     refactor-20260716.md pattern). Sessions are an
+     immutable journal — good as record, poor to cite
+     into — so live design references keep pointing at
+     curated docs, not per-cycle narrative sections.
+   - The template side already points this way: chores
+     files are not seeded; a new project's history is its
+     own commits + bot session from day one.
 
 ## Bugs
 
@@ -389,6 +440,15 @@ Completed tasks are moved from `## Todo` to here, `## Done`, as they are complet
 and older `## Done` sections are moved to [done.md](notes/done.md) to keep this file small.
 
 _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
+
+- docs: notes rework + config refresh — `.vc-config.toml`
+  (both sides) adopts init's generated optional-keys block;
+  jj-tips.md re-syncs with the template (reclassified as
+  pedagogy, not history); template-restructure design
+  promoted to Todo #10 with `.bot` / symmetric-schema
+  decisions folded into the refactor program; new Idea:
+  chores retire into a session index; bot repo seeded with
+  LICENSE-* / README.md from vc-x1-bot-repo-template [[11]]
 
 - docs: adopt new template repo names — live mentions of
   `vc-template-x1`(.claude) swept to `vc-x1-work-repo-template`
@@ -457,3 +517,4 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [8]: /notes/chores/chores-14.md#refactor-dry-jj-facade
 [9]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
 [10]: /notes/forks-multi-user.md
+[11]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
