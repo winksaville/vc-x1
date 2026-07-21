@@ -72,6 +72,21 @@ the reinvention; first stage of the refactor program.
   - rider: TODO.md In Progress ladder rungs now carry
     prepended `[[N]]` commit refs (backfilled once pushed,
     like the chores As-built rungs); intro template updated
+- [[4]] 0.73.0-3 refactor: jj facade ochid parse
+  - `desc_helpers::extract_ochids` (column-0 trailers, all,
+    in order, values trimmed) becomes the crate's one
+    string-level ochid parser; `extract_ochid_from_desc` is
+    now `.pop()` over it (the *last* trailer — matching
+    `common::extract_ochid`'s previous reverse scan) and
+    `common::extract_ochid` wraps that over
+    `commit.description()`
+  - `squash_push`'s local `extract_ochids` deleted; its
+    three parser tests move to desc_helpers, plus a new
+    multi-ochid last-wins test
+  - behavior tightened: the single-value accessors are now
+    column-0-only — an indented `ochid:` mention is prose,
+    not a trailer (previously the trimmed scans matched it)
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
 [2]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
+[3]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"

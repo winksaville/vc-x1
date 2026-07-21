@@ -254,15 +254,27 @@ pub fn append_ochid_trailer(
     result
 }
 
-/// Extract the ochid value from a description string (without needing a Commit).
+/// Extract the values of column-0 `ochid:` trailer lines from a
+/// commit description, in order of appearance — the crate's one
+/// string-level ochid parser.
+///
+/// - Column-0 only: an indented `ochid:` is quoted prose, not a
+///   trailer (git trailers sit at column 0).
+/// - Values are whitespace-trimmed; blank values are skipped.
+pub fn extract_ochids(desc: &str) -> Vec<String> {
+    desc.lines()
+        .filter_map(|line| line.strip_prefix("ochid:"))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
+/// Extract "the" ochid value from a description string (without
+/// needing a Commit) — the *last* `ochid:` trailer, since trailers
+/// sit at the end of the body; on a multi-ochid commit the
+/// single-value view is the final trailer.
 pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
-    for line in desc.lines() {
-        let trimmed = line.trim();
-        if let Some(v) = trimmed.strip_prefix("ochid:") {
-            return Some(v.trim().to_string());
-        }
-    }
-    None
+    extract_ochids(desc).pop()
 }
 
 #[cfg(test)]
@@ -430,5 +442,36 @@ mod tests {
     fn extract_ochid_from_desc_missing() {
         let desc = "Title\n\nNo trailer.\n";
         assert_eq!(extract_ochid_from_desc(desc), None);
+    }
+
+    #[test]
+    fn extract_ochid_from_desc_multi_takes_last() {
+        let desc = "Title\n\nBody.\n\nochid: /first0first0\nochid: /.claude/last1last1x\n";
+        assert_eq!(
+            extract_ochid_from_desc(desc),
+            Some("/.claude/last1last1x".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_ochids_none() {
+        assert!(extract_ochids("").is_empty());
+        assert!(extract_ochids("title\n\nbody, no trailers\n").is_empty());
+    }
+
+    #[test]
+    fn extract_ochids_trailers() {
+        let desc = "title\n\nbody line\n\nochid: /abcdefabcdef\nochid: /.claude/xyzxyzxyzxyz\n";
+        assert_eq!(
+            extract_ochids(desc),
+            vec!["/abcdefabcdef", "/.claude/xyzxyzxyzxyz"]
+        );
+    }
+
+    #[test]
+    fn extract_ochids_column_zero_only() {
+        // Indented mentions aren't trailers; bare "ochid:" has no value.
+        let desc = "title\n\n  ochid: /indented\nochid:\nochid:   /trimmed  \n";
+        assert_eq!(extract_ochids(desc), vec!["/trimmed"]);
     }
 }

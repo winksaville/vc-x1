@@ -24,6 +24,7 @@ use log::{debug, info, warn};
 
 use crate::common::run;
 use crate::context::Context;
+use crate::desc_helpers::extract_ochids;
 use crate::jj;
 use crate::options_flags::squash::{SquashOption, SquashSpec};
 use crate::subcommand::SubcommandRunner;
@@ -157,16 +158,6 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     Ok(())
-}
-
-/// Extract the values of column-0 `ochid:` trailer lines from a
-/// commit description, in order of appearance.
-fn extract_ochids(desc: &str) -> Vec<String> {
-    desc.lines()
-        .filter_map(|line| line.strip_prefix("ochid:"))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .collect()
 }
 
 /// Return the `ochid:` trailer values present in `source_desc` but
@@ -457,28 +448,6 @@ mod tests {
             )
         };
         assert_eq!(cid("main"), cid("main@origin"), "main should be published");
-    }
-
-    #[test]
-    fn extract_ochids_none() {
-        assert!(extract_ochids("").is_empty());
-        assert!(extract_ochids("title\n\nbody, no trailers\n").is_empty());
-    }
-
-    #[test]
-    fn extract_ochids_trailers() {
-        let desc = "title\n\nbody line\n\nochid: /abcdefabcdef\nochid: /.claude/xyzxyzxyzxyz\n";
-        assert_eq!(
-            extract_ochids(desc),
-            vec!["/abcdefabcdef", "/.claude/xyzxyzxyzxyz"]
-        );
-    }
-
-    #[test]
-    fn extract_ochids_column_zero_only() {
-        // Indented mentions aren't trailers; bare "ochid:" has no value.
-        let desc = "title\n\n  ochid: /indented\nochid:\nochid:   /trimmed  \n";
-        assert_eq!(extract_ochids(desc), vec!["/trimmed"]);
     }
 
     #[test]

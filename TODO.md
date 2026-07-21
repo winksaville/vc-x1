@@ -45,14 +45,14 @@ program's
        `push::jj_log_empty` + the four inline
        `change_id.short(12)` blocks, `init::jj_chid`, and
        sync.rs's three template variants (done)
-     - [[N]] 0.73.0-2 refactor: jj facade tracking parse —
+     - [[11]] 0.73.0-2 refactor: jj facade tracking parse —
        fold `main::bm_track_one` (raw `std::process::Command`
        + its own `@origin:` prefix parse) onto
        `common::verify_tracking`'s parser (done)
      - [[N]] 0.73.0-3 refactor: jj facade ochid parse — one
        string-level trailer parser in `desc_helpers`;
        `squash_push::extract_ochids` and
-       `common::extract_ochid` both call it
+       `common::extract_ochid` both call it (done)
      - [[N]] 0.73.0-4 test: jj facade fixture helpers — promote
        the near-identical `jj()` / `cid()` / `chid()` /
        `description()` helpers from
@@ -448,3 +448,4 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [8]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
 [9]: https://github.com/winksaville/vc-x1/commit/47e5075b90da "47e5075b90daa5e9b24fa7c93a5814a2eee0f03f"
 [10]: /notes/forks-multi-user.md
+[11]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"

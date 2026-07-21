@@ -222,15 +222,12 @@ pub fn indent_body(s: &str, n: usize) -> String {
     result
 }
 
-/// Extract the ochid trailer value from a commit description, if present.
+/// Extract the ochid trailer value from a commit description, if
+/// present — the shared string-level parser over the commit's
+/// description (the last trailer on a multi-ochid commit, matching
+/// this function's previous reverse scan).
 pub fn extract_ochid(commit: &Commit) -> Option<String> {
-    for line in commit.description().lines().rev() {
-        let trimmed = line.trim();
-        if let Some(value) = trimmed.strip_prefix("ochid:") {
-            return Some(value.trim().to_string());
-        }
-    }
-    None
+    crate::desc_helpers::extract_ochid_from_desc(commit.description())
 }
 
 /// Local bookmark names pointing exactly at `commit_id`, space-separated.
