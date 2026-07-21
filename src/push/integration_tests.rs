@@ -21,43 +21,12 @@
 //! Requires `jj` and the compiled `vc-x1` binary in `PATH`.
 
 use super::*;
-use crate::test_helpers::Fixture;
+use crate::test_helpers::{Fixture, chid, cid, description, jj_ok};
 use std::fs;
-use std::process::Command;
-
-/// Run `jj <args> -R <repo>` and return trimmed stdout on success.
-fn jj(repo: &Path, args: &[&str]) -> String {
-    let out = Command::new("jj")
-        .args(args)
-        .arg("-R")
-        .arg(repo)
-        .output()
-        .expect("spawn jj");
-    assert!(
-        out.status.success(),
-        "jj {args:?} failed in {}: {}",
-        repo.display(),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
-}
-
-/// Commit ID (short, 12 chars) for a revision.
-fn cid(repo: &Path, rev: &str) -> String {
-    jj(
-        repo,
-        &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
-    )
-}
-
-/// Full description of a revision.
-fn description(repo: &Path, rev: &str) -> String {
-    jj(repo, &["log", "-r", rev, "--no-graph", "-T", "description"])
-}
 
 /// First line of a revision's description.
 fn desc_first_line(repo: &Path, rev: &str) -> String {
-    jj(
+    jj_ok(
         repo,
         &[
             "log",
@@ -99,8 +68,8 @@ fn push_preflight_errors_on_unpublished_bot_main() {
     // Simulate the lost publish: seal a `.claude` commit and move
     // `main` onto it without pushing.
     fs::write(fx.claude.join("lost.txt"), "lost session data").expect("write lost file");
-    jj(&fx.claude, &["commit", "-m", "lost session commit"]);
-    jj(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
+    jj_ok(&fx.claude, &["commit", "-m", "lost session commit"]);
+    jj_ok(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
 
     let mut params = test_params("feat: blocked", "work body");
     params.from = None; // run preflight (errors before the sync check)
@@ -203,7 +172,7 @@ fn push_squash_push_bot_inline_pushes_session() {
     );
     // Working copy is clean after the tail squash.
     assert_eq!(
-        jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+        jj_ok(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
         "true",
         ".claude @ should be empty after squash-push-bot"
     );
@@ -233,7 +202,7 @@ fn push_squash_push_bot_folds_micro_tail() {
     stage_squash_push_bot(&fx.work, &state, &params).expect("squash-push-bot should succeed");
 
     // Tail folded in; chid stable; session commit pushed; @ clean.
-    let files = jj(&fx.claude, &["file", "list", "-r", "main"]);
+    let files = jj_ok(&fx.claude, &["file", "list", "-r", "main"]);
     assert!(
         files.contains("tail.jsonl"),
         "tail not folded into main: {files}"
@@ -249,7 +218,7 @@ fn push_squash_push_bot_folds_micro_tail() {
         ".claude main should be pushed to origin"
     );
     assert_eq!(
-        jj(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+        jj_ok(&fx.claude, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
         "true",
         ".claude @ should be empty after squash-push-bot"
     );
@@ -288,7 +257,7 @@ fn push_feature_bookmark_pins_session_to_main() {
     // ...and no feature bookmark exists there (bookmark-list lines
     // are `name: ...`; match on the name position, not the whole
     // line — commit titles may legitimately contain "feature").
-    let claude_bookmarks = jj(&fx.claude, &["bookmark", "list"]);
+    let claude_bookmarks = jj_ok(&fx.claude, &["bookmark", "list"]);
     assert!(
         !claude_bookmarks.lines().any(|l| l.starts_with("feature:")),
         ".claude must not grow a 'feature' bookmark:\n{claude_bookmarks}"
@@ -326,12 +295,12 @@ fn push_rollback_restores_both_repos() {
     // what rollback has to undo).
     fs::write(fx.work.join("work.txt"), "work").expect("write");
     fs::write(fx.claude.join("session.jsonl"), "{}\n").expect("write");
-    jj(&fx.work, &["describe", "-m", "test commit"]);
-    jj(&fx.work, &["bookmark", "set", "main", "-r", "@"]);
-    jj(&fx.work, &["new"]);
-    jj(&fx.claude, &["describe", "-m", "test session"]);
-    jj(&fx.claude, &["bookmark", "set", "main", "-r", "@"]);
-    jj(&fx.claude, &["new"]);
+    jj_ok(&fx.work, &["describe", "-m", "test commit"]);
+    jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@"]);
+    jj_ok(&fx.work, &["new"]);
+    jj_ok(&fx.claude, &["describe", "-m", "test session"]);
+    jj_ok(&fx.claude, &["bookmark", "set", "main", "-r", "@"]);
+    jj_ok(&fx.claude, &["new"]);
 
     // Sanity: main has advanced in both repos.
     assert_ne!(
@@ -398,15 +367,6 @@ fn push_resume_after_push_failure() {
         layout.path.display()
     );
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: resume");
-}
-
-/// Helper: 12-char change ID for a revision (analogous to `cid` for
-/// commit IDs, but jj's stable change identifier).
-fn chid(repo: &Path, rev: &str) -> String {
-    jj(
-        repo,
-        &["log", "-r", rev, "--no-graph", "-T", "change_id.short(12)"],
-    )
 }
 
 /// Build a minimal `PushState` whose stage is post-everything

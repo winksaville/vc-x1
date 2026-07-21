@@ -34,10 +34,10 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 /// Run `jj <args> -R <repo>` in a test, asserting success; return
 /// trimmed stdout.
 ///
-/// New tests should use this instead of hand-rolling a copy —
-/// migrating the pre-existing per-module copies is part of the
-/// jj-facade Todo ("Dedup jj subprocess queries behind a typed
-/// facade").
+/// The one copy — the per-module variants migrated here at
+/// 0.73.0-4 (the DRY-facade cycle's test-dedup step). Spawns
+/// directly rather than calling `crate::jj` so test inspection
+/// stays independent of the facade under test.
 pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
     let out = std::process::Command::new("jj")
         .args(args)
@@ -52,6 +52,27 @@ pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
         String::from_utf8_lossy(&out.stderr)
     );
     String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// 12-character commit id of `rev` (test inspection).
+pub fn cid(repo: &Path, rev: &str) -> String {
+    jj_ok(
+        repo,
+        &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
+    )
+}
+
+/// 12-character change id of `rev` (test inspection).
+pub fn chid(repo: &Path, rev: &str) -> String {
+    jj_ok(
+        repo,
+        &["log", "-r", rev, "--no-graph", "-T", "change_id.short(12)"],
+    )
+}
+
+/// Full description of `rev` (test inspection).
+pub fn description(repo: &Path, rev: &str) -> String {
+    jj_ok(repo, &["log", "-r", rev, "--no-graph", "-T", "description"])
 }
 
 /// Build a unique tempdir path for a test fixture.

@@ -11,6 +11,7 @@ mod desc_helpers;
 mod fix_desc;
 mod fix_todo;
 mod init;
+mod jj;
 mod list;
 mod logging;
 mod options_flags;
@@ -348,31 +349,16 @@ pub fn bm_track(phase: &str, command_name: &str) {
 }
 
 /// Query jj for whether `bookmark` in `repo` is tracking `remote`.
-/// Returns `Ok(true)` if the tracked-list entry for `bookmark` shows
-/// an `@<remote>` line (in any form — `@origin:` when synced, or
-/// `@origin (ahead by N commits):` / similar when divergent — both
-/// still count as tracking). `Ok(false)` when no such line exists
-/// (bookmark isn't tracking this remote or doesn't exist). `Err` on
-/// subprocess failure.
+/// Returns `Ok(true)` when the `-a` listing shows a tracked
+/// `@<remote>` entry (synced or divergent-decorated — both count),
+/// `Ok(false)` when it doesn't (not tracking, or the bookmark
+/// doesn't exist), `Err` on subprocess failure. Shares the listing
+/// (`jj::bookmark_list_all`) and parser family
+/// (`common::find_tracked_remote` alongside verify_tracking's
+/// `find_non_tracking_remote`) so the two can't drift.
 fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, String> {
-    let repo_str = repo.to_string_lossy();
-    let output = std::process::Command::new("jj")
-        .args(["bookmark", "list", "--tracked", bookmark, "-R", &repo_str])
-        .output()
-        .map_err(|e| format!("spawn: {e}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    // Accept both the synced form (`@origin:`) and the decorated
-    // divergent form (`@origin (ahead by N commits):`), which still
-    // represents a tracking relationship.
-    let colon = format!("@{remote}:");
-    let paren = format!("@{remote} ");
-    Ok(stdout.lines().any(|l| {
-        let t = l.trim_start();
-        t.starts_with(&colon) || t.starts_with(&paren)
-    }))
+    let all = jj::bookmark_list_all(repo, bookmark).map_err(|e| e.to_string())?;
+    Ok(common::find_tracked_remote(&all, remote))
 }
 
 fn main() -> ExitCode {

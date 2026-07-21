@@ -23,7 +23,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use common::{CliFixture, run_err, run_ok};
+use common::{CliFixture, cid, run_err, run_ok};
 
 /// Directory holding the binary under test, for prepending to
 /// `PATH` so subcommands that re-invoke the binary (push
@@ -41,34 +41,6 @@ fn bin_dir() -> PathBuf {
 fn test_path() -> String {
     let orig = std::env::var("PATH").unwrap_or_default();
     format!("{}:{orig}", bin_dir().display())
-}
-
-/// Run `jj <args>` in `dir` (inspection only) with `HOME` pointed
-/// at the fixture's isolated home; assert success and return
-/// trimmed stdout.
-fn jj(home: &Path, dir: &Path, args: &[&str]) -> String {
-    let out = Command::new("jj")
-        .args(args)
-        .env("HOME", home)
-        .current_dir(dir)
-        .output()
-        .expect("spawn jj");
-    assert!(
-        out.status.success(),
-        "jj {args:?} failed in {}: {}",
-        dir.display(),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
-}
-
-/// Resolve `rev` to its short commit id in `repo`.
-fn cid(home: &Path, repo: &Path, rev: &str) -> String {
-    jj(
-        home,
-        repo,
-        &["log", "-r", rev, "--no-graph", "-T", "commit_id.short(12)"],
-    )
 }
 
 /// Write a minimal jj user config under the fixture's isolated HOME

@@ -24,6 +24,8 @@ use log::{debug, info, warn};
 
 use crate::common::run;
 use crate::context::Context;
+use crate::desc_helpers::extract_ochids;
+use crate::jj;
 use crate::options_flags::squash::{SquashOption, SquashSpec};
 use crate::subcommand::SubcommandRunner;
 
@@ -110,61 +112,34 @@ impl SubcommandRunner for SquashPushArgs {
 /// so the run fails before the squash rewrites history.
 fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("preflight: checking params");
+    let repo = &params.repo;
     let repo_str = params.repo.to_string_lossy();
-    let cwd = std::path::Path::new(".");
     let sq = &params.squash;
     let bookmark = &params.bookmark;
 
     // Verify squash revsets resolve to something, and that the squash
     // won't drop source-only ochid: trailers.
-    jj_rev_exists(&repo_str, cwd, &sq.source)
-        .map_err(|e| format!("squash source '{}' does not resolve: {e}", sq.source))?;
-    jj_rev_exists(&repo_str, cwd, &sq.target)
-        .map_err(|e| format!("squash target '{}' does not resolve: {e}", sq.target))?;
-    check_squash_keeps_ochids(&repo_str, cwd, sq)?;
+    if !jj::rev_exists(repo, &sq.source)? {
+        return Err(format!("squash source '{}' does not resolve", sq.source).into());
+    }
+    if !jj::rev_exists(repo, &sq.target)? {
+        return Err(format!("squash target '{}' does not resolve", sq.target).into());
+    }
+    check_squash_keeps_ochids(repo, sq)?;
 
     // Refuse to operate on a repo with conflicts.
-    let conflicts = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            "conflicts()",
-            "--no-graph",
-            "-T",
-            "\"x\"",
-            "-R",
-            &repo_str,
-        ],
-        cwd,
-    )?;
-    if !conflicts.is_empty() {
+    if jj::matches(repo, "conflicts()")? {
         return Err(format!("repo '{repo_str}' has conflicts — resolve before squash-push").into());
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
-    let exists = run("jj", &["bookmark", "list", bookmark, "-R", &repo_str], cwd)?;
-    if exists.is_empty() {
+    if jj::bookmark_list(repo, bookmark)?.is_empty() {
         return Err(format!("bookmark '{bookmark}' does not exist").into());
     }
 
     crate::common::verify_tracking(&params.repo, bookmark)?;
 
-    let range = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            &format!("{bookmark}::({})", sq.target),
-            "--no-graph",
-            "-T",
-            "\"x\"",
-            "-R",
-            &repo_str,
-        ],
-        cwd,
-    )?;
-    if range.is_empty() {
+    if !jj::matches(repo, &format!("{bookmark}::({})", sq.target))? {
         return Err(format!(
             "bookmark '{bookmark}' move is not forward — current position is not an \
              ancestor of '{}' (would diverge)",
@@ -173,21 +148,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
         .into());
     }
 
-    let desc = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            &sq.target,
-            "--no-graph",
-            "-T",
-            "description",
-            "-R",
-            &repo_str,
-        ],
-        cwd,
-    )?;
-    if desc.trim().is_empty() {
+    if jj::desc_of(repo, &sq.target)?.is_empty() {
         return Err(format!(
             "push target '{}' has no description — push would fail \
              (run `jj describe -r {} -R {repo_str}` first)",
@@ -197,16 +158,6 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     Ok(())
-}
-
-/// Extract the values of column-0 `ochid:` trailer lines from a
-/// commit description, in order of appearance.
-fn extract_ochids(desc: &str) -> Vec<String> {
-    desc.lines()
-        .filter_map(|line| line.strip_prefix("ochid:"))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .collect()
 }
 
 /// Return the `ochid:` trailer values present in `source_desc` but
@@ -228,27 +179,13 @@ fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
 ///   `--use-destination-message` would discard them, leaving the
 ///   counterpart repo's cross-links dangling (recorded 0.65.1, guarded since 0.65.2).
 fn check_squash_keeps_ochids(
-    repo: &str,
-    cwd: &std::path::Path,
+    repo: &Path,
     sq: &SquashSpec,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let desc_of = |rev: &str| {
-        run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                rev,
-                "--no-graph",
-                "-T",
-                "description",
-                "-R",
-                repo,
-            ],
-            cwd,
-        )
-    };
-    let at_risk = ochids_at_risk(&desc_of(&sq.source)?, &desc_of(&sq.target)?);
+    let at_risk = ochids_at_risk(
+        &jj::desc_of(repo, &sq.source)?,
+        &jj::desc_of(repo, &sq.target)?,
+    );
     if at_risk.is_empty() {
         return Ok(());
     }
@@ -263,72 +200,21 @@ fn check_squash_keeps_ochids(
          {listed}\n\
          merge the messages by hand (`jj describe {} -R {}`) or clear\n\
          the source's description, then retry",
-        sq.source, sq.target, sq.target, repo,
+        sq.source,
+        sq.target,
+        sq.target,
+        repo.display(),
     )
     .into())
 }
 
-/// Return Ok(()) if the revset resolves to one or more commits in `repo`.
-fn jj_rev_exists(repo: &str, cwd: &std::path::Path, rev: &str) -> Result<(), String> {
-    run(
-        "jj",
-        &["log", "-r", rev, "--no-graph", "-T", "\"x\"", "-R", repo],
-        cwd,
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 /// True when `rev` has no file changes and no description — nothing
 /// worth squashing.
-fn rev_is_empty_undescribed(
-    repo: &str,
-    cwd: &Path,
-    rev: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    let empty = run(
-        "jj",
-        &["log", "-r", rev, "--no-graph", "-T", "empty", "-R", repo],
-        cwd,
-    )?;
-    if empty.trim() != "true" {
+fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    if !jj::is_empty(repo, rev)? {
         return Ok(false);
     }
-    let desc = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "description",
-            "-R",
-            repo,
-        ],
-        cwd,
-    )?;
-    Ok(desc.trim().is_empty())
-}
-
-/// Full commit id of a revset in `repo`.
-fn jj_commit_id(repo: &str, cwd: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    Ok(run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "commit_id",
-            "-R",
-            repo,
-        ],
-        cwd,
-    )?
-    .trim()
-    .to_string())
+    Ok(jj::desc_of(repo, rev)?.is_empty())
 }
 
 /// Run the `squash-push` op: preflight, then squash (skipped when
@@ -372,11 +258,11 @@ pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::
     // Empty-source handling: nothing to squash. If the bookmark
     // already matches both the target and the remote, nothing to
     // push either — report and exit 0.
-    if rev_is_empty_undescribed(&repo_str, cwd, &sq.source)? {
-        let target_cid = jj_commit_id(&repo_str, cwd, &sq.target)?;
-        let bookmark_cid = jj_commit_id(&repo_str, cwd, bookmark)?;
+    if rev_is_empty_undescribed(&params.repo, &sq.source)? {
+        let target_cid = jj::cid_of(&params.repo, &sq.target)?;
+        let bookmark_cid = jj::cid_of(&params.repo, bookmark)?;
         let remote_cid =
-            jj_commit_id(&repo_str, cwd, &format!("{bookmark}@origin")).unwrap_or_default(); // OK: unresolvable remote bookmark (never pushed) → treated as not sync'd
+            jj::cid_of(&params.repo, &format!("{bookmark}@origin")).unwrap_or_default(); // OK: unresolvable remote bookmark (never pushed) → treated as not sync'd
         if bookmark_cid == target_cid && bookmark_cid == remote_cid {
             info!("squash-push: repo '{repo_str}' is already sync'd with remote");
             return Ok(());
@@ -562,28 +448,6 @@ mod tests {
             )
         };
         assert_eq!(cid("main"), cid("main@origin"), "main should be published");
-    }
-
-    #[test]
-    fn extract_ochids_none() {
-        assert!(extract_ochids("").is_empty());
-        assert!(extract_ochids("title\n\nbody, no trailers\n").is_empty());
-    }
-
-    #[test]
-    fn extract_ochids_trailers() {
-        let desc = "title\n\nbody line\n\nochid: /abcdefabcdef\nochid: /.claude/xyzxyzxyzxyz\n";
-        assert_eq!(
-            extract_ochids(desc),
-            vec!["/abcdefabcdef", "/.claude/xyzxyzxyzxyz"]
-        );
-    }
-
-    #[test]
-    fn extract_ochids_column_zero_only() {
-        // Indented mentions aren't trailers; bare "ochid:" has no value.
-        let desc = "title\n\n  ochid: /indented\nochid:\nochid:   /trimmed  \n";
-        assert_eq!(extract_ochids(desc), vec!["/trimmed"]);
     }
 
     #[test]

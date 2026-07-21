@@ -111,6 +111,14 @@ per-subcommand refactor status):
   `default_scope` / `scope_to_repos` / `resolve_repos`
   (the top-level entry combining the `-R PATH` override and
   the `-s code|bot|code,bot` role selection).
+- `src/jj.rs` — the typed facade over `jj` subprocess
+  queries (`log` templates and bookmark listings):
+  `matches` / `rev_exists`, `chid_of` / `cid_of` /
+  `cid_short_of`, `desc_of` / `is_empty`,
+  `bookmark_list[_all]`. Mutations still spawn `jj` at
+  their call sites until the refactor program's jj-lib
+  migration stage moves both in-process
+  ([refactor-20260716.md](notes/refactor-20260716.md)).
 
 **Subcommand-layer scaffolding:**
 
@@ -126,9 +134,10 @@ per-subcommand refactor status):
 where one exists) and the entrypoint `pub fn x(...)`. Modules:
 `chid`, `desc` (+ `desc_helpers`), `list`, `show`,
 `validate_desc`, `fix_desc`, `validate_todo` / `fix_todo`
-(+ `todo_helpers`), `clone`, `init` (+ `init/params`),
-`symlink`, `sync`, `finalize`, `push` (a resumable state
-machine). Which ones have ported to `(ctx, params)` and which
+(+ `todo_helpers`), `validate_bot`, `clone`, `init`
+(+ `init/params`), `symlink`, `sync` (+ `sync/state`),
+`squash_push`, `revert`, `push` (a resumable state
+machine), `config_cmd`, `bot_session` (+ `transcript`). Which ones have ported to `(ctx, params)` and which
 compose `options_flags/` leaves: `notes/chores/chores-*.md` +
 `TODO.md`.
 

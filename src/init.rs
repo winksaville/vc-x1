@@ -8,6 +8,7 @@ use log::{debug, info};
 
 use crate::config::{self, UserConfig};
 use crate::context::Context;
+use crate::jj;
 use crate::options_flags::account::AccountOption;
 use crate::options_flags::config::{ConfigKind, ConfigOption};
 use crate::options_flags::por::PorFlag;
@@ -264,25 +265,6 @@ pub(crate) fn rewrite_readme_first_line(
     std::fs::write(&readme, new_content)?;
     debug!("rewrote first line of {}", readme.display());
     Ok(())
-}
-
-/// Get the short (12-char) jj change ID for a revision, without printing.
-pub(crate) fn jj_chid(rev: &str, cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let full = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "change_id",
-            "--limit",
-            "1",
-        ],
-        cwd,
-    )?;
-    Ok(full[..full.len().min(12)].to_string())
 }
 
 /// Check if a GitHub repo exists.
@@ -1514,7 +1496,7 @@ fn push_repo(
         target,
     )?;
     crate::common::verify_tracking(target, "main")?;
-    jj_chid("@-", target)
+    jj::chid_of(target, "@-")
 }
 
 /// Execute Step 8 or Step 9 for one side.

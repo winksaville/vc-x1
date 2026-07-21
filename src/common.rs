@@ -222,15 +222,12 @@ pub fn indent_body(s: &str, n: usize) -> String {
     result
 }
 
-/// Extract the ochid trailer value from a commit description, if present.
+/// Extract the ochid trailer value from a commit description, if
+/// present — the shared string-level parser over the commit's
+/// description (the last trailer on a multi-ochid commit, matching
+/// this function's previous reverse scan).
 pub fn extract_ochid(commit: &Commit) -> Option<String> {
-    for line in commit.description().lines().rev() {
-        let trimmed = line.trim();
-        if let Some(value) = trimmed.strip_prefix("ochid:") {
-            return Some(value.trim().to_string());
-        }
-    }
-    None
+    crate::desc_helpers::extract_ochid_from_desc(commit.description())
 }
 
 /// Local bookmark names pointing exactly at `commit_id`, space-separated.
@@ -543,6 +540,25 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
     None
 }
 
+/// Scan `jj bookmark list -a <name>` output for a *tracked* entry
+/// for `remote`.
+///
+/// - Tracked remotes appear indented under the local bookmark —
+///   `  @origin: …` when synced, or the decorated divergent form
+///   `  @origin (ahead by N commits): …`; both count as tracking.
+/// - A column-0 `<bookmark>@<remote>: …` line is a non-tracking
+///   ref (see `find_non_tracking_remote`), never a match here.
+pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
+    let colon = format!("@{remote}:");
+    let space = format!("@{remote} ");
+    list_output.lines().any(|line| {
+        line.starts_with(char::is_whitespace) && {
+            let t = line.trim_start();
+            t.starts_with(&colon) || t.starts_with(&space)
+        }
+    })
+}
+
 /// Verify all remote refs for `bookmark` in `repo` are tracked.
 ///
 /// Returns `Err` with the exact `jj bookmark track …` remediation command if
@@ -550,14 +566,9 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
 /// commands (sync, push, squash-push) and as a post-condition assertion by setup
 /// commands (init, clone, test-fixture).
 pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let repo_str = repo.to_string_lossy();
-    let cwd = Path::new(".");
-    let all = run(
-        "jj",
-        &["bookmark", "list", "-a", bookmark, "-R", &repo_str],
-        cwd,
-    )?;
+    let all = crate::jj::bookmark_list_all(repo, bookmark)?;
     if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
+        let repo_str = repo.to_string_lossy();
         return Err(format!(
             "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
              run `jj bookmark track {bookmark} --remote={remote} -R {repo_str}` to fix"
@@ -592,25 +603,7 @@ pub fn bookmark_publish_state(
     bookmark: &str,
 ) -> Result<PublishState, Box<dyn std::error::Error>> {
     let repo_str = repo.to_string_lossy();
-    let cwd = Path::new(".");
-    let commit_id = |rev: &str| -> Result<String, Box<dyn std::error::Error>> {
-        Ok(run(
-            "jj",
-            &[
-                "log",
-                "-r",
-                rev,
-                "--no-graph",
-                "-T",
-                "commit_id",
-                "-R",
-                &repo_str,
-            ],
-            cwd,
-        )?
-        .trim()
-        .to_string())
-    };
+    let commit_id = |rev: &str| crate::jj::cid_of(repo, rev);
     let local = commit_id(bookmark)
         .map_err(|e| format!("bookmark '{bookmark}' does not resolve in '{repo_str}': {e}"))?;
     // `present(...)` maps a nonexistent remote bookmark to an empty

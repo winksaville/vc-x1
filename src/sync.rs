@@ -33,6 +33,7 @@ use log::{LevelFilter, debug, info, warn};
 use crate::common::{default_scope, find_workspace_root, prompt, run, scope_to_repos};
 use crate::context::Context;
 use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::jj;
 use crate::options_flags::scope::{Scope, parse_scope};
 use crate::subcommand::SubcommandRunner;
 use crate::toml_simple;
@@ -517,13 +518,13 @@ fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
 ///   expected for the journal. A conflict is very unlikely given
 ///   `.claude`'s content; if one ever appears the user resolves it.
 fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let parent = commit_id(repo, "@-")?;
-    let tip = commit_id(repo, "main")?;
+    let parent = jj::cid_short_of(repo, "@-")?;
+    let tip = jj::cid_short_of(repo, "main")?;
     if parent == tip {
         debug!("{}: @ already on 'main'", repo.display());
         return Ok(());
     }
-    if !revset_nonempty(repo, &format!("{parent}::main"))? {
+    if !jj::matches(repo, &format!("{parent}::main"))? {
         return Err(format!(
             "{}: @- ({parent}) is not on main — refusing to reposition @",
             repo.display()
@@ -556,13 +557,13 @@ fn reposition_code(
     bookmark: &str,
     rebase: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let parent = commit_id(repo, "@-")?;
-    let tip = commit_id(repo, bookmark)?;
+    let parent = jj::cid_short_of(repo, "@-")?;
+    let tip = jj::cid_short_of(repo, bookmark)?;
     if tip == parent {
         debug!("{}: @ already on '{bookmark}'", repo.display());
         return Ok(());
     }
-    if !revset_nonempty(repo, &format!("{parent}::{tip}"))? {
+    if !jj::matches(repo, &format!("{parent}::{tip}"))? {
         info!(
             "{}: @- ({parent}) is not behind '{bookmark}' ({tip}); leaving @ in place",
             repo.display()
@@ -626,7 +627,7 @@ fn confirm_rebase(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 
 /// True when the working-copy commit `@` is empty (no changes).
 fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
-    revset_nonempty(repo, "@ & empty()")
+    jj::matches(repo, "@ & empty()")
 }
 
 /// Perform the mutation corresponding to `ctx.state` (skipped in
@@ -792,8 +793,8 @@ fn classify(
     if local == remote {
         return Ok(State::UpToDate);
     }
-    let local_is_anc = revset_nonempty(repo, &format!("{local}::{remote_rev}"))?;
-    let remote_is_anc = revset_nonempty(repo, &format!("{remote_rev}::{local}"))?;
+    let local_is_anc = jj::matches(repo, &format!("{local}::{remote_rev}"))?;
+    let remote_is_anc = jj::matches(repo, &format!("{remote_rev}::{local}"))?;
     Ok(match (local_is_anc, remote_is_anc) {
         (true, _) => State::Behind { local, remote },
         (false, true) => State::Ahead { local, remote },
@@ -810,19 +811,10 @@ fn local_bookmark_heads(
     repo: &Path,
     bookmark: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            &format!("bookmarks(exact:{bookmark})"),
-            "--no-graph",
-            "-T",
-            r#"commit_id.short(12) ++ "\n""#,
-            "-R",
-            &repo_str(repo),
-        ],
-        Path::new("."),
+    let out = jj::log(
+        repo,
+        &format!("bookmarks(exact:{bookmark})"),
+        r#"commit_id.short(12) ++ "\n""#,
     )?;
     Ok(out
         .lines()
@@ -831,37 +823,14 @@ fn local_bookmark_heads(
         .collect())
 }
 
-/// Return the short commit id that `rev` resolves to in `repo`.
-///
-/// Errors when the revset is unresolvable or matches multiple heads
-/// — callers that want to tolerate "revset doesn't resolve" should use
-/// `try_commit_id`.
-fn commit_id(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            rev,
-            "--no-graph",
-            "-T",
-            "commit_id.short(12)",
-            "-R",
-            &repo_str(repo),
-        ],
-        Path::new("."),
-    )?;
-    Ok(out.trim().to_string())
-}
-
-/// Like `commit_id`, but `Ok(None)` when the revset doesn't resolve.
+/// Like `jj::cid_short_of`, but `Ok(None)` when the revset doesn't resolve.
 ///
 /// jj reports missing revisions via stderr strings like
 /// `Revision \`foo@origin\` doesn't exist` or `No such revision …`;
 /// both get mapped to `Ok(None)` so callers can distinguish "missing"
 /// from "other subprocess failure".
 fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    match commit_id(repo, rev) {
+    match jj::cid_short_of(repo, rev) {
         Ok(id) if id.is_empty() => Ok(None),
         Ok(id) => Ok(Some(id)),
         Err(e) => {
@@ -875,28 +844,9 @@ fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::
     }
 }
 
-/// Return `true` when `revset` matches at least one commit in `repo`.
-fn revset_nonempty(repo: &Path, revset: &str) -> Result<bool, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "log",
-            "-r",
-            revset,
-            "--no-graph",
-            "-T",
-            r#"commit_id.short() ++ "\n""#,
-            "-R",
-            &repo_str(repo),
-        ],
-        Path::new("."),
-    )?;
-    Ok(!out.trim().is_empty())
-}
-
 /// Return `true` when `repo` has any conflicted commits.
 fn has_conflicts(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
-    revset_nonempty(repo, "conflicts()")
+    jj::matches(repo, "conflicts()")
 }
 
 /// Convert a path to a `String` suitable for passing as a subprocess arg.
