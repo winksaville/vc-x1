@@ -181,6 +181,41 @@ adopts what the working pair (vc-x1 + the template) decided.
   from it (the "source template" paragraph is
   template-specific, so it becomes a partner-repo pointer).
 
+## refactor: hygiene riders
+
+Commits: see [As-built ladder](#as-built-ladder-1)
+
+Terminology stragglers from the 0.69.0-4 work/bot sweep plus
+the single-field `options_flags` leaves that still name their
+field after the flag (`args.<leaf>.<leaf>` doubling) — sweeps
+that churn the same lines the later facade stages rewrite,
+done early so those stages diff cleanly. Second stage of the
+refactor program. Decisions at cycle open (2026-07-22):
+
+- Stragglers rename rather than document-as-historical;
+  `-s` gains `work` as the canonical scope keyword with
+  `code` kept as a compatible alias (no CLI break).
+- Single-field leaves keep the struct + `value` shape (the
+  `squash` exemplar) — the leaf structs' reason to exist is
+  the single-sourced flag definition (one doc comment /
+  parser / default shared by every subcommand), which the
+  bare-type alternative forfeits; clone.rs's inline
+  `dry_run` duplicate is the observed drift case and folds
+  onto the leaf.
+
+### As-built ladder
+
+- [[N]] 0.74.0-0 chore: open hygiene riders cycle
+  - version 0.74.0-0; hygiene riders picked into
+    `## In Progress` with the four-rung ladder; this
+    section opened
+  - stage decisions above recorded here, in the ladder
+    block, and in the stage section of
+    [refactor-20260716.md](../refactor-20260716.md#stage-hygiene-riders)
+  - rider: repo-local `tmp/` scratch area — gitignored,
+    convention in AGENTS.md; jj ignoring it is what parks
+    the trapezoidal-commits draft note outside this commit
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
