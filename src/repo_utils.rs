@@ -52,7 +52,7 @@ pub enum OchidStrategy {
 /// - `target` — destination directory for the new repo. Created
 ///   (along with its parent if needed); must not already exist
 ///   as a populated repo.
-/// - `info_label` — narration tag (`"code"`, `"bot"`, `"scratch"`,
+/// - `info_label` — narration tag (`"work"`, `"bot"`, `"scratch"`,
 ///   etc.); appears in `info!()` lines.
 /// - `template` — optional source dir. When present, copied
 ///   recursively (non-hidden only) and any `README.md`'s first
@@ -134,36 +134,36 @@ pub fn commit_initial(
 /// Both sides must already have an initial commit shaped by
 /// `OchidStrategy::Placeholder`. After the rewrite, each commit's
 /// ochid trailer is a workspace-root-relative path: the work side
-/// points at `/.claude/<session_chid>`; the bot side points at
-/// `/<code_chid>`.
+/// points at `/.claude/<bot_chid>`; the bot side points at
+/// `/<work_chid>`.
 ///
 /// Parameters:
-/// - `code_dir` — work repo on disk; receives `/.claude/<chid>`.
-/// - `code_chid` — work-side initial-commit chid; embedded into
+/// - `work_dir` — work repo on disk; receives `/.claude/<chid>`.
+/// - `work_chid` — work-side initial-commit chid; embedded into
 ///   the bot-side trailer.
-/// - `session_dir` — bot repo on disk; receives `/<chid>`.
-/// - `session_chid` — bot-side initial-commit chid; embedded
+/// - `bot_dir` — bot repo on disk; receives `/<chid>`.
+/// - `bot_chid` — bot-side initial-commit chid; embedded
 ///   into the work-side trailer.
 pub fn cross_ref_ochids(
-    code_dir: &Path,
-    code_chid: &str,
-    session_dir: &Path,
-    session_chid: &str,
+    work_dir: &Path,
+    work_chid: &str,
+    bot_dir: &Path,
+    bot_chid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Setting ochid cross-references...");
-    let code_desc = format!("Initial commit\n\nochid: /.claude/{session_chid}");
-    let session_desc = format!("Initial commit\n\nochid: /{code_chid}");
+    let work_desc = format!("Initial commit\n\nochid: /.claude/{bot_chid}");
+    let bot_desc = format!("Initial commit\n\nochid: /{work_chid}");
 
-    debug!("work side: rewrite initial commit's ochid to point at session chid");
-    run("jj", &["describe", "@-", "-m", &code_desc], code_dir)?;
-    debug!("bot side: rewrite initial commit's ochid to point at code chid");
-    run("jj", &["describe", "@-", "-m", &session_desc], session_dir)?;
+    debug!("work side: rewrite initial commit's ochid to point at bot chid");
+    run("jj", &["describe", "@-", "-m", &work_desc], work_dir)?;
+    debug!("bot side: rewrite initial commit's ochid to point at work chid");
+    run("jj", &["describe", "@-", "-m", &bot_desc], bot_dir)?;
 
     debug!("surface post-describe git hashes for the debug log");
-    let hash = run("git", &["rev-parse", "HEAD"], code_dir)?;
-    debug!("work repo: chid={code_chid} hash={hash}");
-    let hash = run("git", &["rev-parse", "HEAD"], session_dir)?;
-    debug!(".claude:   chid={session_chid} hash={hash}");
+    let hash = run("git", &["rev-parse", "HEAD"], work_dir)?;
+    debug!("work repo: chid={work_chid} hash={hash}");
+    let hash = run("git", &["rev-parse", "HEAD"], bot_dir)?;
+    debug!(".claude:   chid={bot_chid} hash={hash}");
     Ok(())
 }
 
@@ -179,8 +179,8 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        prepare_local_repo(&target, "code", None, "scratch").expect("prepare_local_repo");
-        let chid = commit_initial(&target, "code", OchidStrategy::None).expect("commit_initial");
+        prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
+        let chid = commit_initial(&target, "work", OchidStrategy::None).expect("commit_initial");
 
         assert!(!chid.is_empty(), "chid returned");
         assert!(target.join(".jj").exists(), "jj initialized");
@@ -205,9 +205,9 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        prepare_local_repo(&target, "code", None, "scratch").expect("prepare_local_repo");
+        prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
         let _chid =
-            commit_initial(&target, "code", OchidStrategy::Placeholder).expect("commit_initial");
+            commit_initial(&target, "work", OchidStrategy::Placeholder).expect("commit_initial");
 
         let log = run("git", &["log", "-1", "--format=%B"], &target).expect("git log");
         assert!(log.contains("Initial commit"));

@@ -85,7 +85,7 @@
    communicate. Was `0.41.1-7`. [[5]]
 8. **`vc-x1 finalize --scope` flag.** Replace `--repo`
    with the role vocabulary used elsewhere
-   (`code|bot|code,bot`). Carry-over from the 0.42.0
+   (`work|bot|work,bot`). Carry-over from the 0.42.0
    `--scope` sweep (was 0.42.0-5; deferred at -4.7
    close-out). The paired `Single(_)` dogfood item
    (0.42.0-7) is moot after `0.53.0` — `Single(_)`
@@ -106,21 +106,21 @@
     `PushArgs`, never read; mirrored into `PushParams` with
     `#[allow(dead_code)]`. Either wire the
     skip-preflight-on-resume behavior or drop the flag. [[8]]
-13. vc-x1 push: `--scope=code|bot|code,bot` flag.
+13. vc-x1 push: `--scope=work|bot|work,bot` flag.
     Was 0.42.0-4 (deferred when cycle pivoted to icr
     rebase work; cycle closed at -4.7). State machine
     becomes scope-aware — single-side scope skips
     `commit-claude`/bookmark-claude/`finalize-claude`.
     [[9]],[[10]],[[11]],[[12]]
-14. vc-x1 clone: `--scope=code|bot|code,bot` flag.
+14. vc-x1 clone: `--scope=work|bot|work,bot` flag.
     Parallel to `init --scope` for role selection;
     topology (`--por` vs dual) is the separate `--por`
     boolean. Was 0.42.0-6 (deferred at -4.7
     close-out). [[10]],[[11]],[[12]]
 15. vc-x1 validate-desc / fix-desc:
-    `--scope=code|bot|code,bot` flag. Same role vocabulary
-    as elsewhere — `code` validates code's commits against
-    bot, `bot` reverses, `code,bot` does both (new
+    `--scope=work|bot|work,bot` flag. Same role vocabulary
+    as elsewhere — `work` validates the work repo's commits against
+    bot, `bot` reverses, `work,bot` does both (new
     default). [[10]],[[11]],[[12]]
 16. Unify `.vc-config.toml` accessors onto Pattern B
     (typed struct + `load_from(path)`, like new

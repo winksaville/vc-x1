@@ -13,9 +13,9 @@
 //!   while the pushed branch is `main`, so a later `jj git clone`
 //!   has no default branch to auto-track and `vc-x1 clone` errors
 //!   → point HEAD at `main` with `git symbolic-ref`.
-//! - init names the bot remote `remote-claude.git`, but clone
-//!   derives `<code-source-stem>.claude.git` → symlink
-//!   `remote-code.claude.git` → `remote-claude.git`.
+//! - init names the bot remote `remote-bot.git`, but clone
+//!   derives `<work-source-stem>.claude.git` → symlink
+//!   `remote-work.claude.git` → `remote-bot.git`.
 
 mod common;
 
@@ -101,25 +101,22 @@ fn setup_peer_push(tag: &str) -> PeerPush {
     );
 
     // Workarounds — see module docs.
-    set_head_main(&fx.path("remote-code.git"));
-    set_head_main(&fx.path("remote-claude.git"));
-    std::os::unix::fs::symlink(
-        fx.path("remote-claude.git"),
-        fx.path("remote-code.claude.git"),
-    )
-    .expect("symlink bot remote");
+    set_head_main(&fx.path("remote-work.git"));
+    set_head_main(&fx.path("remote-bot.git"));
+    std::os::unix::fs::symlink(fx.path("remote-bot.git"), fx.path("remote-work.claude.git"))
+        .expect("symlink bot remote");
 
-    // vc-x1 clone <code-remote> trB / trA (B first, so its
+    // vc-x1 clone <work-remote> trB / trA (B first, so its
     // main@origin is the pre-push head). Absolute source path —
     // the derived bot-repo source is resolved from the clone's
     // target dir, so a relative path would not resolve.
-    let code_remote = fx.path("remote-code.git");
+    let work_remote = fx.path("remote-work.git");
     for name in ["trB", "trA"] {
         run_ok(
             fx.cmd()
                 .current_dir(&fx.base)
                 .arg("clone")
-                .arg(&code_remote)
+                .arg(&work_remote)
                 .arg(name),
         );
     }
@@ -161,10 +158,10 @@ fn assert_trb_synced(p: &PeerPush) {
         p.pushed,
         "trB's @ should be repositioned onto the new main"
     );
-    let claude = p.tr_b.join(".claude");
+    let bot = p.tr_b.join(".claude");
     assert_eq!(
-        cid(home, &claude, "@-"),
-        cid(home, &claude, "main"),
+        cid(home, &bot, "@-"),
+        cid(home, &bot, "main"),
         "trB/.claude's @ should be repositioned onto its main"
     );
 }

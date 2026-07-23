@@ -52,74 +52,69 @@ _No cycle currently in progress._
      "Refactor stage: …" entries below (listed in program
      order; the doc owns execution order, per-stage status,
      and design — DRY facade shipped at 0.73.0).
-2. **Refactor stage: hygiene riders.** Terminology
-   stragglers + single-field `options_flags` leaves — sweeps
-   that churn the lines later stages rewrite; see
-   [the stage](notes/refactor-20260716.md#stage-hygiene-riders).
-   Runs next, after the DRY facade.
-3. **Refactor stage: facade owns topology.** Repo resolution
+2. **Refactor stage: facade owns topology.** Repo resolution
    becomes facade state — `validate-desc`/`fix-desc` por
    equalization, configurable bot-repo dir; see
    [the stage](notes/refactor-20260716.md#stage-facade-owns-topology).
    After hygiene riders.
-4. **Refactor stage: de-gitify init.** Replace init's
+3. **Refactor stage: de-gitify init.** Replace init's
    strip-jj → git-push → re-colocate flow with the verified
    jj-only sequence; see
    [the stage](notes/refactor-20260716.md#stage-de-gitify-init).
    After facade owns topology.
-5. **Refactor stage: split push.rs.** Extract `push/state.rs`
+4. **Refactor stage: split push.rs.** Extract `push/state.rs`
    so the jj-lib migration reviews cleanly — built and parked
    on `support-trapezoid-commits` (0.72.0-1), replay or redo;
    see
    [the stage](notes/refactor-20260716.md#stage-split-pushrs).
-6. **Refactor stage: stateless push.** Retire the push state
+5. **Refactor stage: stateless push.** Retire the push state
    file — derive resume from repo reality; see
    [the stage](notes/refactor-20260716.md#stage-stateless-push).
    After split push.rs.
-7. **Refactor stage: jj-lib migration.** Facade internals and
+6. **Refactor stage: jj-lib migration.** Facade internals and
    mutations move in-process; the index-lock retry becomes
    ours; see
    [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
    After split push.rs and stateless push.
-8. **Refactor stage: push body-intro validation.** Validate
+7. **Refactor stage: push body-intro validation.** Validate
    the commit body opens with a non-dash intro line, with a
    clear error; see
    [the stage](notes/refactor-20260716.md#stage-push-body-intro-validation).
    After the jj-lib migration (program order).
-9. **Refactor stage: trapezoid close-out.** `push --merge
+8. **Refactor stage: trapezoid close-out.** `push --merge
    [<base>]` — the native trapezoid close-out; design settled
    in the stage notes; see
    [the stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
    After stateless push (no state-file growth) and jj-lib.
-10. **Restructure templates: single template repo + fixed bot
-    seed manifest.** Replace the separate
-    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
-    repos with the one work-repo template, whose live
-    `.claude/` doubles as the bot-side seed source; retire
-    `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
-    for the new layout. First up after the refactor program.
-    - `--use-template` rule: explicit `CODE,BOT` copies all
-      non-hidden files from BOT (unchanged — the escape
-      hatch for rich bot seeds); `CODE` alone seeds the bot
-      side from a fixed manifest — `LICENSE-*`, `README.md`
-      — taken from `<CODE>/.claude/`. The `<CODE>.claude`
-      sibling default is dropped.
-    - The manifest is the safety property: a live `.claude`
-      has non-hidden session artifacts at top level, and
-      the known subset is what lets it double as the seed
-      source without leaking session history into new
-      projects.
-    - Manifest members missing in the source are skipped —
-      a code template with no `.claude/` content yields a
-      bare-but-valid bot repo (the bot template is
-      optional; init already generates the true minimum
-      itself).
-    - `memory/MEMORY.md` moves from copied to generated:
-      it is intentionally empty (seeded only because Claude
-      tends to create it otherwise), so init emits it like
-      `.vc-config.toml` instead of copying — no "is it
-      still empty?" invariant left in the template.
-11. **ochid: bot-repo location qualifier.** An ochid is
+9. **Restructure templates: single template repo + fixed bot
+   seed manifest.** Replace the separate
+   `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
+   repos with the one work-repo template, whose live
+   `.claude/` doubles as the bot-side seed source; retire
+   `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
+   for the new layout. First up after the refactor program.
+   - `--use-template` rule: explicit `CODE,BOT` copies all
+     non-hidden files from BOT (unchanged — the escape
+     hatch for rich bot seeds); `CODE` alone seeds the bot
+     side from a fixed manifest — `LICENSE-*`, `README.md`
+     — taken from `<CODE>/.claude/`. The `<CODE>.claude`
+     sibling default is dropped.
+   - The manifest is the safety property: a live `.claude`
+     has non-hidden session artifacts at top level, and
+     the known subset is what lets it double as the seed
+     source without leaking session history into new
+     projects.
+   - Manifest members missing in the source are skipped —
+     a code template with no `.claude/` content yields a
+     bare-but-valid bot repo (the bot template is
+     optional; init already generates the true minimum
+     itself).
+   - `memory/MEMORY.md` moves from copied to generated:
+     it is intentionally empty (seeded only because Claude
+     tends to create it otherwise), so init emits it like
+     `.vc-config.toml` instead of copying — no "is it
+     still empty?" invariant left in the template.
+10. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`) — nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -139,7 +134,7 @@ _No cycle currently in progress._
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-12. **Version-number protocol is fragile — versions are
+11. **Version-number protocol is fragile — versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -164,7 +159,7 @@ _No cycle currently in progress._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-13. **sync follow-up: extract `move-bookmark` command.** The
+12. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone — e.g. the
     t1B scenario where `main` is right but `@` isn't on it —
@@ -174,7 +169,7 @@ _No cycle currently in progress._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-14. **sync follow-up: push preflight in-process; drop
+13. **sync follow-up: push preflight in-process; drop
     `--check`; revisit push auto-rollback.** Push's preflight
     shells out to `vc-x1 sync --check` — a verify-only pass
     that is both racy (remote can move before the user's
@@ -189,7 +184,7 @@ _No cycle currently in progress._
     - Apply the stop-on-error + `vc-x1 revert` philosophy to
       push's commit-stage rollback (today it auto-runs
       `jj op restore`, hiding the evidence).
-15. **validate-numbering: rename the pair, check all
+14. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -225,7 +220,7 @@ _No cycle currently in progress._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-16. **pre-commit: single rule (no docs skip) + doc validators.**
+15. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -251,7 +246,7 @@ _No cycle currently in progress._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-17. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -275,7 +270,7 @@ _No cycle currently in progress._
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-18. **Run validate-bot at every vc-x1 invocation
+17. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -288,7 +283,7 @@ _No cycle currently in progress._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-19. **README: audit flag tables and examples against the
+18. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -299,7 +294,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-20. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -312,7 +307,7 @@ _No cycle currently in progress._
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-21. **Shared-doc sync: per-commit chores convention.**
+20. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -323,7 +318,7 @@ _No cycle currently in progress._
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-22. **config: extract flag-backed key descriptions from Clap.**
+21. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -441,6 +436,15 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 
 _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 
+- refactor: hygiene riders — the work/bot terminology
+  stragglers swept (~380 identifier sites, `Side::Work`,
+  `ConfigRole`, narration labels, test remotes); the `-s`
+  scope keyword renamed `code` → `work` outright (no alias —
+  unreleased); the six single-field `options_flags` leaves
+  adopt the `value` field shape with clap ids pinned, and
+  clone.rs's drifted inline `dry_run` folds onto the leaf;
+  second stage of the jj refactor program [[12]]
+
 - docs: notes rework + config refresh — `.vc-config.toml`
   (both sides) adopts init's generated optional-keys block;
   jj-tips.md re-syncs with the template (reclassified as
@@ -518,3 +522,4 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [9]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
 [10]: /notes/forks-multi-user.md
 [11]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
+[12]: /notes/chores/chores-14.md#refactor-hygiene-riders

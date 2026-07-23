@@ -47,11 +47,11 @@ use crate::toml_simple;
 /// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
 /// - `-R PATH` — workspace root, or a single repo to sync alone.
-/// - `--scope=code|bot|code,bot` — keyword role selection,
+/// - `--scope=work|bot|work,bot` — keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
 /// - Neither — workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `other-repo`) → `code,bot`
-///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `code`
+///   - dual workspace (`.vc-config.toml` with `other-repo`) → `work,bot`
+///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `work`
 ///   - POR (no `.vc-config.toml`) → cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
@@ -99,16 +99,16 @@ pub struct SyncArgs {
 
     /// Which repo(s) of the workspace to sync.
     ///
-    /// `SCOPE=code|bot|code,bot`:
+    /// `SCOPE=work|bot|work,bot`:
     ///
-    /// - `code` — sync only the work repo.
+    /// - `work` — sync only the work repo.
     /// - `bot` — sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `code,bot` — sync both repos.
+    /// - `work,bot` — sync both repos.
     ///
     /// Composes with `-R` as the workspace root. Default depends
-    /// on workspace state: dual workspace → `code,bot`;
-    /// single-repo workspace or POR → `code`.
+    /// on workspace state: dual workspace → `work,bot`;
+    /// single-repo workspace or POR → `work`.
     #[arg(
         short = 's',
         long,
@@ -131,7 +131,7 @@ pub struct SyncArgs {
 ///   atomic sync.
 /// - `rebase`: `--rebase` — rebase a non-empty `@` onto the synced
 ///   bookmark without prompting (work repo only; see
-///   `reposition_code`).
+///   `reposition_work`).
 /// - `repo`: `-R/--repo` path (None ⇒ discover the workspace
 ///   root from cwd).
 /// - `scope`: `--scope` parsed (None ⇒ resolve via the
@@ -457,18 +457,18 @@ fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error:
 /// deprecated verify-only mode:
 ///
 /// - **session (bot) sub-repo** → always `jj new main`
-///   (see `reposition_session`).
+///   (see `reposition_bot`).
 /// - **any other repo** → move `@` onto the synced `bookmark` under
-///   the work-repo safety rules (see `reposition_code`).
+///   the work-repo safety rules (see `reposition_work`).
 fn reposition_at(
     repo: &Path,
     bookmark: &str,
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if is_session_repo(repo) {
-        reposition_session(repo)
+    if is_bot_repo(repo) {
+        reposition_bot(repo)
     } else {
-        reposition_code(repo, bookmark, params.rebase)
+        reposition_work(repo, bookmark, params.rebase)
     }
 }
 
@@ -478,7 +478,7 @@ fn reposition_at(
 /// (workspace root) is `"/"`, the bot sub-repo is `"/.claude"`. A
 /// missing / unreadable config (POR, single-repo workspace) is treated
 /// as a work repo.
-fn is_session_repo(repo: &Path) -> bool {
+fn is_bot_repo(repo: &Path) -> bool {
     match toml_simple::toml_load(&repo.join(VC_CONFIG_FILE)) {
         Ok(cfg) => {
             toml_simple::toml_get(&cfg, "workspace.path").map(String::as_str) == Some("/.claude")
@@ -494,11 +494,7 @@ fn is_session_repo(repo: &Path) -> bool {
 /// of the requested bookmark. Every other repo uses `bookmark`
 /// as passed.
 fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
-    if is_session_repo(repo) {
-        "main"
-    } else {
-        bookmark
-    }
+    if is_bot_repo(repo) { "main" } else { bookmark }
 }
 
 /// Reposition the bot repo's `@` onto `main`.
@@ -517,7 +513,7 @@ fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
 ///   bookmark; the prior `@` becomes a sibling head, which is
 ///   expected for the journal. A conflict is very unlikely given
 ///   `.claude`'s content; if one ever appears the user resolves it.
-fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn reposition_bot(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parent = jj::cid_short_of(repo, "@-")?;
     let tip = jj::cid_short_of(repo, "main")?;
     if parent == tip {
@@ -552,7 +548,7 @@ fn reposition_session(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
 ///   TTY; skip + inform when declined or not a TTY).
 /// - `bookmark` not a descendant of `@-` (diverged / `@` ahead) →
 ///   leave `@` and inform why it didn't move.
-fn reposition_code(
+fn reposition_work(
     repo: &Path,
     bookmark: &str,
     rebase: bool,

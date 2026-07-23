@@ -65,12 +65,13 @@ pub struct RepoOption {
     /// - Specific category meanings (`remote`, `local`,
     ///   …) depend on the consumer subcommand.
     #[arg(
-        long,
+        id = "repo",
+        long = "repo",
         value_name = "CAT[=VAL]",
         value_parser = parse_repo_arg,
         verbatim_doc_comment
     )]
-    pub repo: Option<RepoSelector>,
+    pub value: Option<RepoSelector>,
 }
 
 #[cfg(test)]

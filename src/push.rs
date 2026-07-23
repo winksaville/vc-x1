@@ -11,7 +11,7 @@
 //! - `0.37.0-1` — state file + stage-dispatch loop with stage stubs;
 //!   `--status`, `--restart`, `--from`
 //! - `0.37.0-2` — real stage bodies (commits, bookmarks, push,
-//!   session push) + `jj op` snapshot rollback
+//!   bot push) + `jj op` snapshot rollback
 //! - `0.37.0-3` — integration tests + workspace-root refactor
 //!   (thread `root: &Path` through every stage so fixtures can
 //!   point them at tempdirs); first `vc-x1 push` dogfood ships
@@ -257,7 +257,12 @@ impl SubcommandRunner for PushArgs {
 /// Current state-file format version — bump when the flat key set
 /// changes incompatibly so readers can detect stale state and refuse
 /// to resume instead of silently misinterpreting fields.
-const STATE_FORMAT_VERSION: u32 = 1;
+///
+/// - `2` (0.74.0-1): `op_app` / `op_claude` renamed to `op_work` /
+///   `op_bot` by the work/bot terminology sweep. A version-1 file
+///   would still parse but lose both rollback targets, so the bump
+///   makes a stale state an explicit `--restart` prompt instead.
+const STATE_FORMAT_VERSION: u32 = 2;
 
 /// Default directory (relative to work-repo root) for the push state
 /// file when `.vc-config.toml` has no `[push]` override.
@@ -331,7 +336,7 @@ pub struct PushState {
     pub version: u32,
     /// The next stage to execute on resume.
     pub stage: Stage,
-    /// Code-repo bookmark being advanced by this run (persisted so
+    /// Work-repo bookmark being advanced by this run (persisted so
     /// resume doesn't need `--bookmark` again). The bot repo's
     /// side is pinned to `BOT_BOOKMARK`, not stored here.
     pub bookmark: String,
@@ -356,10 +361,10 @@ pub struct PushState {
     /// `jj op` id of the work repo captured before `commit-work`. On
     /// failure in stages 4-6, `jj op restore` rewinds here. Added
     /// in 0.37.0-2.
-    pub op_app: Option<String>,
+    pub op_work: Option<String>,
     /// `jj op` id of `.claude` captured before `commit-work`. Same
-    /// rollback target as `op_app`. Added in 0.37.0-2.
-    pub op_claude: Option<String>,
+    /// rollback target as `op_work`. Added in 0.37.0-2.
+    pub op_bot: Option<String>,
     /// Composed commit title — persisted so resume doesn't need
     /// `--title` re-passed. Set during `message` stage from either
     /// `--title` or `$EDITOR`. Added in 0.37.0-4.
@@ -383,8 +388,8 @@ impl PushState {
             work_chid: None,
             bot_chid: None,
             bot_had_changes: None,
-            op_app: None,
-            op_claude: None,
+            op_work: None,
+            op_bot: None,
             title: None,
             body: None,
         }
@@ -422,11 +427,11 @@ impl PushState {
         if let Some(v) = self.bot_had_changes {
             content.push_str(&format!("bot_had_changes = {v}\n"));
         }
-        if let Some(v) = &self.op_app {
-            content.push_str(&format!("op_app = \"{}\"\n", escape_toml(v)));
+        if let Some(v) = &self.op_work {
+            content.push_str(&format!("op_work = \"{}\"\n", escape_toml(v)));
         }
-        if let Some(v) = &self.op_claude {
-            content.push_str(&format!("op_claude = \"{}\"\n", escape_toml(v)));
+        if let Some(v) = &self.op_bot {
+            content.push_str(&format!("op_bot = \"{}\"\n", escape_toml(v)));
         }
         if let Some(v) = &self.title {
             content.push_str(&format!("title = \"{}\"\n", escape_multiline(v)));
@@ -484,8 +489,8 @@ impl PushState {
             work_chid: map.get("push-state.work_chid").cloned(),
             bot_chid: map.get("push-state.bot_chid").cloned(),
             bot_had_changes,
-            op_app: map.get("push-state.op_app").cloned(),
-            op_claude: map.get("push-state.op_claude").cloned(),
+            op_work: map.get("push-state.op_work").cloned(),
+            op_bot: map.get("push-state.op_bot").cloned(),
             title: map.get("push-state.title").map(|s| unescape_multiline(s)),
             body: map.get("push-state.body").map(|s| unescape_multiline(s)),
         }))
@@ -675,7 +680,7 @@ pub(crate) fn push_in(
 /// Full path of the `.claude` bot repo for a given workspace
 /// root. Centralized so a future layout change (e.g. configurable
 /// bot-repo name) has one caller to update.
-fn claude_path(workspace_root: &Path) -> PathBuf {
+fn bot_path(workspace_root: &Path) -> PathBuf {
     workspace_root.join(".claude")
 }
 
@@ -731,9 +736,9 @@ fn run_from(
 
         // Snapshot op ids once on first `commit-work` entry. Skipped
         // in dry-run since we won't mutate anything to roll back.
-        if stage == Stage::CommitWork && state.op_app.is_none() && !params.dry_run {
-            state.op_app = Some(current_op_id(root)?);
-            state.op_claude = Some(current_op_id(&claude_path(root))?);
+        if stage == Stage::CommitWork && state.op_work.is_none() && !params.dry_run {
+            state.op_work = Some(current_op_id(root)?);
+            state.op_bot = Some(current_op_id(&bot_path(root))?);
             state.save(&layout.path)?;
         }
 
@@ -846,14 +851,14 @@ pub(crate) fn rollback_on_failure(
     original: &dyn std::error::Error,
 ) {
     warn!("push: rolling back both repos after: {original}");
-    if let Some(op) = &state.op_app {
+    if let Some(op) = &state.op_work {
         match op_restore(root, op) {
             Ok(()) => info!("push: restored work repo to op {op}"),
             Err(e) => warn!("push: work repo restore failed: {e}"),
         }
     }
-    if let Some(op) = &state.op_claude {
-        match op_restore(&claude_path(root), op) {
+    if let Some(op) = &state.op_bot {
+        match op_restore(&bot_path(root), op) {
             Ok(()) => info!("push: restored .claude to op {op}"),
             Err(e) => warn!("push: .claude restore failed: {e}"),
         }
@@ -917,12 +922,12 @@ fn stage_preflight(
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
-    crate::common::verify_tracking(&claude_path(root), BOT_BOOKMARK)?;
+    crate::common::verify_tracking(&bot_path(root), BOT_BOOKMARK)?;
     // Bot-repo published backstop (0.69.0-3): at rest `.claude
     // main` matches `main@origin`; a mismatch means an earlier
     // publish was lost. Errors — no automatic fixing.
     info!("push preflight: verify bot repo published ({BOT_BOOKMARK} == {BOT_BOOKMARK}@origin)");
-    crate::common::verify_bot_published(&claude_path(root), BOT_BOOKMARK)?;
+    crate::common::verify_bot_published(&bot_path(root), BOT_BOOKMARK)?;
     // Re-invoke this binary by its own path rather than a
     // hard-coded name on PATH — keeps the shell-out correct across
     // any crate rename (e.g. the 0.69.0 `vc-x1-dev` window).
@@ -942,18 +947,18 @@ fn stage_preflight(
 /// the diff is still shown (that's the point of dry-run — see
 /// what *would* be reviewed) but approval is auto-granted.
 fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
-    let claude = claude_path(root);
+    let bot = bot_path(root);
     let work_arg = root.to_string_lossy();
-    let claude_arg = claude.to_string_lossy();
+    let bot_arg = bot.to_string_lossy();
     info!("push review: pending changes:");
     info!("  work ({work_arg}):");
-    let app_stat = run("jj", &["diff", "--stat", "-R", &work_arg], root)?;
-    for line in app_stat.lines() {
+    let work_stat = run("jj", &["diff", "--stat", "-R", &work_arg], root)?;
+    for line in work_stat.lines() {
         info!("    {line}");
     }
-    info!("  .claude ({claude_arg}):");
-    let claude_stat = run("jj", &["diff", "--stat", "-R", &claude_arg], root)?;
-    for line in claude_stat.lines() {
+    info!("  .claude ({bot_arg}):");
+    let bot_stat = run("jj", &["diff", "--stat", "-R", &bot_arg], root)?;
+    for line in bot_stat.lines() {
         info!("    {line}");
     }
     if params.yes {
@@ -1028,12 +1033,12 @@ fn stage_message(
     state.title = Some(title.clone());
     state.body = Some(body.clone());
 
-    let claude = claude_path(root);
+    let bot = bot_path(root);
     let work_chid = jj::chid_of(root, "@")?;
-    let claude_empty = jj::is_empty(&claude, "@")?;
-    let bot_had_changes = !claude_empty;
-    let claude_ref = if bot_had_changes { "@" } else { "@-" };
-    let bot_chid = jj::chid_of(&claude, claude_ref)?;
+    let bot_empty = jj::is_empty(&bot, "@")?;
+    let bot_had_changes = !bot_empty;
+    let bot_ref = if bot_had_changes { "@" } else { "@-" };
+    let bot_chid = jj::chid_of(&bot, bot_ref)?;
 
     info!(
         "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, bot_had_changes={bot_had_changes}",
@@ -1191,21 +1196,21 @@ fn stage_commit_bot(
         .as_deref()
         .ok_or("push commit-bot: work_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /{work_chid}");
-    let claude = claude_path(root);
-    let claude_arg = claude.to_string_lossy();
+    let bot = bot_path(root);
+    let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push commit-bot: [dry-run] would run jj commit -R {claude_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-bot: [dry-run] would run jj commit -R {bot_arg} -m \"{title}\" -m <body+ochid>"
         );
         return Ok(());
     }
-    info!("push commit-bot: jj commit -R {claude_arg}");
+    info!("push commit-bot: jj commit -R {bot_arg}");
     run(
         "jj",
         &[
             "commit",
             "-R",
-            &claude_arg,
+            &bot_arg,
             "-m",
             &title,
             "-m",
@@ -1227,16 +1232,16 @@ fn stage_bookmark_set(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let work_arg = root.to_string_lossy();
-    let claude = claude_path(root);
-    let claude_arg = claude.to_string_lossy();
+    let bot = bot_path(root);
+    let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {claude_arg}"
+            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
         );
         return Ok(());
     }
     info!(
-        "push bookmark-set: jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {claude_arg}"
+        "push bookmark-set: jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
     );
     run(
         "jj",
@@ -1245,15 +1250,7 @@ fn stage_bookmark_set(
     )?;
     run(
         "jj",
-        &[
-            "bookmark",
-            "set",
-            BOT_BOOKMARK,
-            "-r",
-            "@-",
-            "-R",
-            &claude_arg,
-        ],
+        &["bookmark", "set", BOT_BOOKMARK, "-r", "@-", "-R", &bot_arg],
         root,
     )?;
     Ok(())
@@ -1285,7 +1282,7 @@ fn stage_push_work(
 /// pinned, so `state.bookmark` plays no part here.
 ///
 /// - Squashes the tail (session writes that landed since
-///   `commit-bot`) into the session commit, then pushes — via
+///   `commit-bot`) into the bot commit, then pushes — via
 ///   `squash_push::squash_push`, so the ochid-drop guard
 ///   applies and a failure is a visible push failure.
 /// - In-process since 0.69.0-1 (the stage's detached child died
@@ -1303,17 +1300,17 @@ fn stage_squash_push_bot(
         return Ok(());
     }
     let bk = BOT_BOOKMARK;
-    let claude = claude_path(root);
-    let claude_arg = claude.to_string_lossy();
+    let bot = bot_path(root);
+    let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push squash-push-bot: [dry-run] would squash @ → @- and push {bk} in {claude_arg} (in-process)"
+            "push squash-push-bot: [dry-run] would squash @ → @- and push {bk} in {bot_arg} (in-process)"
         );
         return Ok(());
     }
-    info!("push squash-push-bot: squash @ → @- + push {bk} -R {claude_arg} (in-process)");
+    info!("push squash-push-bot: squash @ → @- + push {bk} -R {bot_arg} (in-process)");
     let sp = crate::squash_push::SquashPushParams {
-        repo: claude.clone(),
+        repo: bot.clone(),
         squash: SquashSpec {
             source: "@".to_string(),
             target: "@-".to_string(),
@@ -1383,7 +1380,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 
     // 3. bot_chid still resolves.
     if let Some(bot_chid) = &state.bot_chid
-        && !jj::rev_exists(&claude_path(root), bot_chid).unwrap_or(false)
+        && !jj::rev_exists(&bot_path(root), bot_chid).unwrap_or(false)
     {
         // OK: any failure → the stale-state remediation message
         return Err(format!(
@@ -1455,7 +1452,7 @@ fn verify_completion_sanity(
 
     // 3. .claude's pinned bookmark (main) at state.bot_chid.
     if let Some(bot_chid) = &state.bot_chid {
-        let actual = jj::chid_of(&claude_path(root), BOT_BOOKMARK)?;
+        let actual = jj::chid_of(&bot_path(root), BOT_BOOKMARK)?;
         if actual != *bot_chid {
             return Err(format!(
                 "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \

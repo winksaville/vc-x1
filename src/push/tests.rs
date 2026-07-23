@@ -208,8 +208,8 @@ fn state_save_load_roundtrip() {
         work_chid: Some("abc123def456".to_string()),
         bot_chid: Some("fedcba654321".to_string()),
         bot_had_changes: Some(true),
-        op_app: Some("opapp12345".to_string()),
-        op_claude: Some("opcla54321".to_string()),
+        op_work: Some("opapp12345".to_string()),
+        op_bot: Some("opcla54321".to_string()),
         title: Some("feat: round-trip title".to_string()),
         body: Some("Multi-line\nbody with\n\tspecial \"chars\" and \\ backslash.".to_string()),
     };
@@ -234,8 +234,8 @@ fn state_save_load_roundtrip_no_options() {
         work_chid: None,
         bot_chid: None,
         bot_had_changes: None,
-        op_app: None,
-        op_claude: None,
+        op_work: None,
+        op_bot: None,
         title: None,
         body: None,
     };
@@ -259,8 +259,8 @@ fn state_save_load_bot_had_changes_false() {
         work_chid: Some("abc".to_string()),
         bot_chid: Some("def".to_string()),
         bot_had_changes: Some(false),
-        op_app: None,
-        op_claude: None,
+        op_work: None,
+        op_bot: None,
         title: None,
         body: None,
     };
@@ -322,11 +322,13 @@ fn state_load_rejects_unknown_stage() {
     let path = tmp.join("push-state.toml");
     fs::write(
         &path,
-        "[push-state]\n\
-         version = 1\n\
-         stage = \"bogus-stage\"\n\
-         bookmark = \"main\"\n\
-         started_at = \"2026-04-21T00:00:00+00:00\"\n",
+        format!(
+            "[push-state]\n\
+             version = {STATE_FORMAT_VERSION}\n\
+             stage = \"bogus-stage\"\n\
+             bookmark = \"main\"\n\
+             started_at = \"2026-04-21T00:00:00+00:00\"\n"
+        ),
     )
     .expect("write bad state");
     let err = PushState::load(&path).unwrap_err().to_string();
@@ -341,10 +343,12 @@ fn state_load_rejects_missing_key() {
     let path = tmp.join("push-state.toml");
     fs::write(
         &path,
-        "[push-state]\n\
-         version = 1\n\
-         stage = \"preflight\"\n\
-         started_at = \"2026-04-21T00:00:00+00:00\"\n",
+        format!(
+            "[push-state]\n\
+             version = {STATE_FORMAT_VERSION}\n\
+             stage = \"preflight\"\n\
+             started_at = \"2026-04-21T00:00:00+00:00\"\n"
+        ),
     )
     .expect("write state without bookmark");
     let err = PushState::load(&path).unwrap_err().to_string();

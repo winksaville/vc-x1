@@ -23,7 +23,7 @@ use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
 /// repos + the canonical `.vc-config.toml` pair init writes), then
 /// drives the resolver chain `sync()` uses when `-R` is empty:
 ///
-/// - `find_workspace_root_from(&fx.claude)` walks up to `fx.work`
+/// - `find_workspace_root_from(&fx.bot)` walks up to `fx.work`
 ///   (proves cwd-portability against init's `path = "/.claude"` /
 ///   `path = "/"` config split).
 /// - `default_scope(Some(&fx.work))` reads the workspace config and
@@ -40,7 +40,7 @@ fn resolver_chain_against_init_repo_local() {
 
     // Walk-up from the bot side lands on the work root.
     assert_eq!(
-        find_workspace_root_from(&fx.claude).as_deref(),
+        find_workspace_root_from(&fx.bot).as_deref(),
         Some(&*fx.work),
         "find_workspace_root should resolve from .claude up to work"
     );
@@ -54,26 +54,26 @@ fn resolver_chain_against_init_repo_local() {
     // workspace's default scope is dual.
     assert_eq!(
         default_scope(Some(&fx.work)),
-        Scope(vec![Side::Code, Side::Bot])
+        Scope(vec![Side::Work, Side::Bot])
     );
 
     // Each scope shape resolves to the right absolute path(s).
     assert_eq!(
-        scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap(),
-        vec![fx.work.clone(), fx.claude.clone()]
+        scope_to_repos(&Scope(vec![Side::Work, Side::Bot]), Some(&fx.work)).unwrap(),
+        vec![fx.work.clone(), fx.bot.clone()]
     );
     assert_eq!(
-        scope_to_repos(&Scope(vec![Side::Code]), Some(&fx.work)).unwrap(),
+        scope_to_repos(&Scope(vec![Side::Work]), Some(&fx.work)).unwrap(),
         vec![fx.work.clone()]
     );
     assert_eq!(
         scope_to_repos(&Scope(vec![Side::Bot]), Some(&fx.work)).unwrap(),
-        vec![fx.claude.clone()]
+        vec![fx.bot.clone()]
     );
 
     // sync_repos accepts the resolved list and reports up-to-date
     // — the resolver's output is shaped the way sync expects.
-    let resolved = scope_to_repos(&Scope(vec![Side::Code, Side::Bot]), Some(&fx.work)).unwrap();
+    let resolved = scope_to_repos(&Scope(vec![Side::Work, Side::Bot]), Some(&fx.work)).unwrap();
     sync_repos(&resolved, &default_params()).expect("sync should succeed on resolved repos");
 }
 
@@ -177,19 +177,17 @@ fn push_from_clone(
 fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
     let work_main = cid(&fx.work, "main");
-    let claude_main = cid(&fx.claude, "main");
+    let bot_main = cid(&fx.bot, "main");
     sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), work_main);
-    assert_eq!(cid(&fx.claude, "main"), claude_main);
+    assert_eq!(cid(&fx.bot, "main"), bot_main);
     assert!(
         state::load(&fx.work).expect("load work state").is_none(),
         "state cleared on success (work)"
     );
     assert!(
-        state::load(&fx.claude)
-            .expect("load claude state")
-            .is_none(),
-        "state cleared on success (claude)"
+        state::load(&fx.bot).expect("load bot state").is_none(),
+        "state cleared on success (bot)"
     );
 }
 
@@ -199,32 +197,32 @@ fn sync_up_to_date() {
 /// `@` keeps its chid and the trailing writes stay in the working
 /// copy — no sibling head, no `jj new` churn.
 #[test]
-fn sync_session_noop_when_up_to_date() {
-    let fx = Fixture::new("session-noop-uptodate");
-    let pre_main = cid(&fx.claude, "main");
-    fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
+fn sync_bot_noop_when_up_to_date() {
+    let fx = Fixture::new("bot-noop-uptodate");
+    let pre_main = cid(&fx.bot, "main");
+    fs::write(fx.bot.join("trailing.jsonl"), "{\"line\":1}\n").expect("write trailing file");
     let pre_at = jj_ok(
-        &fx.claude,
+        &fx.bot,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
     sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     // main didn't move.
-    assert_eq!(cid(&fx.claude, "main"), pre_main, "main should not move");
+    assert_eq!(cid(&fx.bot, "main"), pre_main, "main should not move");
     // @ is the same change — no jj new, no abandoned chid.
     let post_at = jj_ok(
-        &fx.claude,
+        &fx.bot,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
     assert_eq!(post_at, pre_at, "@ should keep its change id");
     // The trailing writes stay in the working copy.
     assert_eq!(
-        fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
+        fs::read_to_string(fx.bot.join("trailing.jsonl")).unwrap(),
         "{\"line\":1}\n",
         "trailing writes stay in @"
     );
     // No sibling head was created.
     assert!(
-        !has(&fx.claude, "heads(all()) & ~empty() & ~@"),
+        !has(&fx.bot, "heads(all()) & ~empty() & ~@"),
         "no non-empty sibling head should appear"
     );
 }
@@ -234,52 +232,52 @@ fn sync_session_noop_when_up_to_date() {
 /// repo then `jj new main`s onto the new tip, leaving the trailing
 /// commit as a sibling head off the old tip.
 #[test]
-fn sync_session_jj_new_when_main_moves() {
-    let fx = Fixture::new("session-jjnew-moved");
-    let remote_claude = fx.base.join("remote-claude.git");
+fn sync_bot_jj_new_when_main_moves() {
+    let fx = Fixture::new("bot-jjnew-moved");
+    let remote_bot = fx.base.join("remote-bot.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_claude,
+        &remote_bot,
         "claude2",
         "remote.md",
         "remote\n",
         "feat: remote-added",
     );
     // Trailing writes on @
-    fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":2}\n").expect("write trailing file");
+    fs::write(fx.bot.join("trailing.jsonl"), "{\"line\":2}\n").expect("write trailing file");
     sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
-        cid(&fx.claude, "main"),
+        cid(&fx.bot, "main"),
         remote_head,
         "local main should match remote after auto-ff"
     );
     // @ is a fresh empty child of the new main.
-    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
-    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
-    // The trailing session commit survives as a non-empty sibling head.
+    assert!(has(&fx.bot, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.bot, "main::@"), "@ should be a child of main");
+    // The trailing bot commit survives as a non-empty sibling head.
     assert!(
-        has(&fx.claude, "heads(all()) & ~empty()"),
+        has(&fx.bot, "heads(all()) & ~empty()"),
         "former @ preserved as a non-empty sibling head"
     );
     // The trailing file is no longer in the working copy.
     assert!(
-        !fx.claude.join("trailing.jsonl").exists(),
+        !fx.bot.join("trailing.jsonl").exists(),
         "@ no longer holds the trailing file"
     );
 }
 
 /// Scenario 2c: the bot repo refuses to reposition when `@-` is
-/// not on main. A local session commit ahead of main (main left
+/// not on main. A local bot commit ahead of main (main left
 /// behind) puts `@-` off main's line, so `jj new main` would strand
 /// it — sync errors instead.
 #[test]
-fn sync_session_errors_when_at_parent_off_main() {
-    let fx = Fixture::new("session-off-main");
+fn sync_bot_errors_when_at_parent_off_main() {
+    let fx = Fixture::new("bot-off-main");
     // A described commit ahead of main, with a fresh @ above it, so
     // @- is ahead of (not on) main.
-    fs::write(fx.claude.join("ahead.jsonl"), "{\"line\":9}\n").expect("write ahead file");
-    jj_ok(&fx.claude, &["describe", "@", "-m", "feat: session ahead"]);
-    jj_ok(&fx.claude, &["new"]);
+    fs::write(fx.bot.join("ahead.jsonl"), "{\"line\":9}\n").expect("write ahead file");
+    jj_ok(&fx.bot, &["describe", "@", "-m", "feat: bot ahead"]);
+    jj_ok(&fx.bot, &["new"]);
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -300,10 +298,10 @@ fn sync_session_errors_when_at_parent_off_main() {
 #[test]
 fn sync_conflict_stops_and_keeps_state() {
     let fx = Fixture::new("trailing-conflict");
-    let remote_claude = fx.base.join("remote-claude.git");
+    let remote_bot = fx.base.join("remote-bot.git");
     push_from_clone(
         &fx.base,
-        &remote_claude,
+        &remote_bot,
         "claude2",
         "shared.txt",
         "remote-version\n",
@@ -311,15 +309,15 @@ fn sync_conflict_stops_and_keeps_state() {
     );
     // Local commit on main with conflicting content
     add_local_commit(
-        &fx.claude,
+        &fx.bot,
         "shared.txt",
         "local-version\n",
         "feat: local shared (conflicting)",
     );
     // Trailing writes on new @
-    fs::write(fx.claude.join("trailing.jsonl"), "{\"line\":3}\n").expect("write trailing file");
+    fs::write(fx.bot.join("trailing.jsonl"), "{\"line\":3}\n").expect("write trailing file");
 
-    let pre_op = current_op_id(&fx.claude).expect("pre-sync op id");
+    let pre_op = current_op_id(&fx.bot).expect("pre-sync op id");
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -331,17 +329,17 @@ fn sync_conflict_stops_and_keeps_state() {
 
     // Stop-on-error: the conflicted state is still there to inspect.
     assert!(
-        has(&fx.claude, "conflicts()"),
+        has(&fx.bot, "conflicts()"),
         "conflicted commits left in place for inspection"
     );
     // The persisted snapshot names the pre-sync op (revert target).
-    let st = state::load(&fx.claude)
+    let st = state::load(&fx.bot)
         .expect("load sync state")
         .expect("state file present after failure");
     assert_eq!(st.op_id, pre_op, "state records the pre-sync op id");
     // Trailing content preserved on disk.
     assert_eq!(
-        fs::read_to_string(fx.claude.join("trailing.jsonl")).unwrap(),
+        fs::read_to_string(fx.bot.join("trailing.jsonl")).unwrap(),
         "{\"line\":3}\n",
         "trailing content preserved across the stop"
     );
@@ -364,10 +362,10 @@ fn sync_ahead_is_noop() {
 #[test]
 fn sync_diverged_rebases() {
     let fx = Fixture::new("diverged");
-    let remote_code = fx.base.join("remote-code.git");
+    let remote_work = fx.base.join("remote-work.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "remote.txt",
         "remote\n",
@@ -427,10 +425,10 @@ fn sync_diverged_rebases() {
 #[test]
 fn sync_diverged_conflict_stops_and_keeps_state() {
     let fx = Fixture::new("conflict");
-    let remote_code = fx.base.join("remote-code.git");
+    let remote_work = fx.base.join("remote-work.git");
     push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "shared.txt",
         "remote-version\n",
@@ -444,7 +442,7 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
     );
 
     let pre_op_work = current_op_id(&fx.work).expect("work op id");
-    let pre_op_claude = current_op_id(&fx.claude).expect("claude op id");
+    let pre_op_bot = current_op_id(&fx.bot).expect("bot op id");
 
     let err = sync_repos(&fx.repos(), &default_params())
         .unwrap_err()
@@ -465,10 +463,10 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
         .expect("load work sync state")
         .expect("work state present after failure");
     assert_eq!(st_work.op_id, pre_op_work, "work state = pre-sync op");
-    let st_claude = state::load(&fx.claude)
-        .expect("load claude sync state")
-        .expect("claude state present after failure");
-    assert_eq!(st_claude.op_id, pre_op_claude, "claude state = pre-sync op");
+    let st_bot = state::load(&fx.bot)
+        .expect("load bot sync state")
+        .expect("bot state present after failure");
+    assert_eq!(st_bot.op_id, pre_op_bot, "bot state = pre-sync op");
     // Manual revert (what `vc-x1 revert` will drive in -4) restores
     // the pre-sync state cleanly.
     op_restore(&fx.work, &st_work.op_id).expect("manual op restore");
@@ -487,10 +485,10 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
 #[test]
 fn revert_restores_after_failed_sync() {
     let fx = Fixture::new("revert-after-conflict");
-    let remote_code = fx.base.join("remote-code.git");
+    let remote_work = fx.base.join("remote-work.git");
     push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "shared.txt",
         "remote-version\n",
@@ -525,10 +523,8 @@ fn revert_restores_after_failed_sync() {
         "work state cleared by revert"
     );
     assert!(
-        state::load(&fx.claude)
-            .expect("load claude state")
-            .is_none(),
-        "claude state cleared by revert"
+        state::load(&fx.bot).expect("load bot state").is_none(),
+        "bot state cleared by revert"
     );
     // Nothing left to revert — explicit error, not a silent no-op.
     let err = crate::revert::revert_repos(&fx.repos())
@@ -543,12 +539,12 @@ fn revert_restores_after_failed_sync() {
 /// Scenario 6: work repo behind with a clean `@`. Fetch fast-forwards
 /// main; reposition then `jj new`s the empty `@` onto the new tip.
 #[test]
-fn sync_code_jj_new_when_behind() {
-    let fx = Fixture::new("code-jjnew-behind");
-    let remote_code = fx.base.join("remote-code.git");
+fn sync_work_jj_new_when_behind() {
+    let fx = Fixture::new("work-jjnew-behind");
+    let remote_work = fx.base.join("remote-work.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "remote.txt",
         "remote\n",
@@ -574,12 +570,12 @@ fn sync_code_jj_new_when_behind() {
 /// `--rebase`. Without a TTY the rebase prompt defaults to no, so `@`
 /// is left in place (off the new main) and its changes are preserved.
 #[test]
-fn sync_code_skips_rebase_without_flag() {
-    let fx = Fixture::new("code-skip-rebase");
-    let remote_code = fx.base.join("remote-code.git");
+fn sync_work_skips_rebase_without_flag() {
+    let fx = Fixture::new("work-skip-rebase");
+    let remote_work = fx.base.join("remote-work.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "remote.txt",
         "remote\n",
@@ -613,12 +609,12 @@ fn sync_code_skips_rebase_without_flag() {
 #[test]
 fn sync_clone_ffs_main_after_peer_push() {
     let fx = Fixture::new("clone-peer-push");
-    let remote_code = fx.base.join("remote-code.git");
-    let clone_b = clone(&fx.base, &remote_code, "clone-b");
+    let remote_work = fx.base.join("remote-work.git");
+    let clone_b = clone(&fx.base, &remote_work, "clone-b");
     let pre_main = cid(&clone_b, "main");
     let pushed = push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "clone-a",
         "from-a.txt",
         "from clone A\n",
@@ -647,16 +643,16 @@ fn sync_clone_ffs_main_after_peer_push() {
 /// and reposition its `@`, and must not touch a `feature` bookmark
 /// there. The work repo syncs `feature` as requested.
 #[test]
-fn sync_feature_bookmark_pins_session_to_main() {
-    let fx = Fixture::new("feature-pins-session");
+fn sync_feature_bookmark_pins_bot_to_main() {
+    let fx = Fixture::new("feature-pins-bot");
     // Work repo: create + push a feature bookmark so it tracks.
     jj_ok(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
     jj_ok(&fx.work, &["git", "push", "--bookmark", "feature"]);
-    // Session remote advances main while feature work is underway.
-    let remote_claude = fx.base.join("remote-claude.git");
+    // Bot remote advances main while feature work is underway.
+    let remote_bot = fx.base.join("remote-bot.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_claude,
+        &remote_bot,
         "claude2",
         "remote.md",
         "remote\n",
@@ -671,15 +667,15 @@ fn sync_feature_bookmark_pins_session_to_main() {
 
     // Bot repo synced main and repositioned @ onto it.
     assert_eq!(
-        cid(&fx.claude, "main"),
+        cid(&fx.bot, "main"),
         remote_head,
-        "session main should ff to remote despite --bookmark feature"
+        "bot main should ff to remote despite --bookmark feature"
     );
-    assert!(has(&fx.claude, "@ & empty()"), "@ should be empty");
-    assert!(has(&fx.claude, "main::@"), "@ should be a child of main");
+    assert!(has(&fx.bot, "@ & empty()"), "@ should be empty");
+    assert!(has(&fx.bot, "main::@"), "@ should be a child of main");
     // No feature bookmark appears in the bot repo.
     assert!(
-        !has(&fx.claude, "bookmarks(exact:feature)"),
+        !has(&fx.bot, "bookmarks(exact:feature)"),
         "bot repo must not grow a 'feature' bookmark"
     );
     // Work repo's feature bookmark is in sync with its remote.
@@ -694,12 +690,12 @@ fn sync_feature_bookmark_pins_session_to_main() {
 /// The flag auto-confirms, so `@` is carried onto the new main with
 /// its changes intact and no conflicts.
 #[test]
-fn sync_code_rebases_with_flag() {
-    let fx = Fixture::new("code-rebase-flag");
-    let remote_code = fx.base.join("remote-code.git");
+fn sync_work_rebases_with_flag() {
+    let fx = Fixture::new("work-rebase-flag");
+    let remote_work = fx.base.join("remote-work.git");
     let remote_head = push_from_clone(
         &fx.base,
-        &remote_code,
+        &remote_work,
         "work2",
         "remote.txt",
         "remote\n",

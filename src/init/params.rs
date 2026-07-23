@@ -55,13 +55,13 @@ impl From<&InitArgs> for InitParams {
         Self {
             target: a.target.clone(),
             name: a.name.clone(),
-            account: a.account.account.clone(),
-            repo: a.repo.repo.clone(),
+            account: a.account.value.clone(),
+            repo: a.repo.value.clone(),
             por: a.por.value,
-            private: a.provision.private.private,
-            dry_run: a.provision.dry_run.dry_run,
+            private: a.provision.private.value,
+            dry_run: a.provision.dry_run.value,
             push_retry: a.provision.push_retry.clone(),
-            use_template: a.use_template.use_template.clone(),
+            use_template: a.use_template.value.clone(),
             config: a.config.resolve(ConfigKind::None),
             create_symlink: true,
         }

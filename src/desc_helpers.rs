@@ -294,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn prefix_from_claude() {
+    fn prefix_from_bot() {
         let config = make_config("/.claude");
         assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/.claude/");
     }

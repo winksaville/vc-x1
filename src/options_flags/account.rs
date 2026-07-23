@@ -13,6 +13,11 @@ pub struct AccountOption {
     ///   `[repo]` shorthand) is used.
     /// - Meaningful only with Path or bare-NAME targets — URL /
     ///   owner/name targets supply the remote directly.
-    #[arg(long, value_name = "NAME", verbatim_doc_comment)]
-    pub account: Option<String>,
+    #[arg(
+        id = "account",
+        long = "account",
+        value_name = "NAME",
+        verbatim_doc_comment
+    )]
+    pub value: Option<String>,
 }

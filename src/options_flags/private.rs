@@ -12,6 +12,6 @@ pub struct PrivateFlag {
     /// - Only meaningful when the resolved provisioner is
     ///   `gh repo create` (GitHub URL or `--repo remote` whose
     ///   value points at GitHub).
-    #[arg(long, verbatim_doc_comment)]
-    pub private: bool,
+    #[arg(id = "private", long = "private", verbatim_doc_comment)]
+    pub value: bool,
 }

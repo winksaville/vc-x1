@@ -217,8 +217,8 @@ fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
 /// and to include the resulting `SymLink` in any final summary
 /// output.
 ///
-/// Shared by `vc-x1 clone --scope=code,bot` and `vc-x1 init
-/// --scope=code,bot`. The full `vc-x1 symlink` subcommand below
+/// Shared by `vc-x1 clone --scope=work,bot` and `vc-x1 init
+/// --scope=work,bot`. The full `vc-x1 symlink` subcommand below
 /// can't directly call `install` — it has different
 /// responsibilities (`--target` / `--symlink-dir` overrides,
 /// replace prompts, `--list`, and `sl.create(true)` vs `false`)

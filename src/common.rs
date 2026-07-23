@@ -676,29 +676,29 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 ///
 /// Reads `<workspace_root>/.vc-config.toml > [workspace] other-repo`:
 ///
-/// - dual workspace (non-empty `other-repo`) → `Scope([Code, Bot])`
+/// - dual workspace (non-empty `other-repo`) → `Scope([Work, Bot])`
 /// - single-repo workspace (missing / empty `other-repo`) →
-///   `Scope([Code])`
-/// - POR (no `workspace_root`) → `Scope([Code])` — `scope_to_repos`
-///   resolves `Side::Code` to cwd's `.` when no root is given, so a
+///   `Scope([Work])`
+/// - POR (no `workspace_root`) → `Scope([Work])` — `scope_to_repos`
+///   resolves `Side::Work` to cwd's `.` when no root is given, so a
 ///   POR run still operates on the current directory.
 pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
     let Some(root) = workspace_root else {
-        return Scope(vec![Side::Code]);
+        return Scope(vec![Side::Work]);
     };
     let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
         Ok(c) => c,
-        Err(_) => return Scope(vec![Side::Code]),
+        Err(_) => return Scope(vec![Side::Work]),
     };
     match toml_simple::toml_get(&cfg, "workspace.other-repo") {
-        Some(v) if !v.is_empty() => Scope(vec![Side::Code, Side::Bot]),
-        _ => Scope(vec![Side::Code]),
+        Some(v) if !v.is_empty() => Scope(vec![Side::Work, Side::Bot]),
+        _ => Scope(vec![Side::Work]),
     }
 }
 
 /// Resolve a `Scope` to concrete repo paths.
 ///
-/// - `Side::Code` → `workspace_root` (or cwd's `.` when
+/// - `Side::Work` → `workspace_root` (or cwd's `.` when
 ///   `workspace_root` is None).
 /// - `Side::Bot` → `workspace_root.join(other-repo)`.
 ///
@@ -711,14 +711,14 @@ pub fn scope_to_repos(
     let mut repos = Vec::new();
     for side in &scope.0 {
         match side {
-            Side::Code => repos.push(
+            Side::Work => repos.push(
                 workspace_root
                     .map(Path::to_path_buf)
                     .unwrap_or_else(|| PathBuf::from(".")),
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with path = \"/\") — drop --scope or use --scope=code",
+                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with path = \"/\") — drop --scope or use --scope=work",
                 )?;
                 let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
                 let other = toml_simple::toml_get(&cfg, "workspace.other-repo")
@@ -745,12 +745,12 @@ pub fn scope_to_repos(
 ///   workspace context not consulted).
 /// - `-s ROLES` alone → resolves against `find_workspace_root()` —
 ///   the surrounding workspace if there is one, else POR
-///   (`Side::Code` → `.`, `Side::Bot` → error).
+///   (`Side::Work` → `.`, `Side::Bot` → error).
 /// - `-R PATH -s ROLES` → resolves with `PATH` as the workspace root
 ///   (overrides `find_workspace_root`). This is the composing case;
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
-/// `--scope` is keyword-only (`code|bot|code,bot|bot,code`);
+/// `--scope` is keyword-only (`work|bot|work,bot|bot,work`);
 /// path-based single-repo operation routes through `-R/--repo`.
 pub fn resolve_repos(
     repo: Option<&Path>,

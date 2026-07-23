@@ -1,6 +1,6 @@
 //! `vc-x1 clone` — clone a repo (URL or local path) into a workspace.
 //!
-//! - Default (no `--por`): dual-repo layout — clones code, derives
+//! - Default (no `--por`): dual-repo layout — clones the work repo, derives
 //!   bot source (`<source>.claude`), clones bot into
 //!   `<target>/.claude`, creates the Claude Code symlink. Both
 //!   sides must succeed.
@@ -23,10 +23,11 @@ use log::info;
 
 use crate::common::run;
 use crate::context::Context;
+use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
-use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
+use crate::url::{Target, derive_bot_url, derive_name, parse_target, resolve_url};
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
@@ -50,9 +51,9 @@ pub struct CloneArgs {
     #[command(flatten)]
     pub por: PorFlag,
 
-    /// Dry run — show what would be done without executing.
-    #[arg(long)]
-    pub dry_run: bool,
+    /// Flatten of the shared [`DryRunFlag`] leaf.
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
 }
 
 /// Inputs to the clone op, flat, owned, clap-free.
@@ -79,7 +80,7 @@ impl From<&CloneArgs> for CloneParams {
             target: a.target.clone(),
             name: a.name.clone(),
             por: a.por.value,
-            dry_run: a.dry_run,
+            dry_run: a.dry_run.value,
         }
     }
 }
@@ -105,7 +106,7 @@ impl SubcommandRunner for CloneArgs {
 /// - Determines destination dir name (`[NAME]` override or
 ///   `derive_name(TARGET)`).
 /// - Pre-checks target dir doesn't exist.
-/// - Dispatches to `clone_one` (POR) or `clone_dual` (code,bot).
+/// - Dispatches to `clone_one` (POR) or `clone_dual` (work,bot).
 ///
 /// `ctx` is unused today (clone reads neither user config nor the
 /// `--log` path); it's present for the uniform subcommand-layer
@@ -143,9 +144,9 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         if params.por {
             info!("  1. jj git clone --colocate {source} {name}");
         } else {
-            let session_source = derive_session_url(&source);
+            let bot_source = derive_bot_url(&source);
             info!("  1. jj git clone --colocate {source} {name}");
-            info!("  2. jj git clone --colocate {session_source} {name}/.claude");
+            info!("  2. jj git clone --colocate {bot_source} {name}/.claude");
             info!("  3. Create Claude Code symlink");
         }
         return Ok(());
@@ -195,27 +196,27 @@ pub(crate) fn clone_one(
     Ok(())
 }
 
-/// Orchestrate a dual-repo clone: code via `clone_one`, bot via
+/// Orchestrate a dual-repo clone: work via `clone_one`, bot via
 /// `clone_one` (no graceful skip — both sides required by the
-/// default dual shape; users who want code-only pass `--por`),
+/// default dual shape; users who want work-only pass `--por`),
 /// then create the Claude Code symlink.
 pub(crate) fn clone_dual(
-    code_source: &str,
+    work_source: &str,
     target_dir: &Path,
     parent_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let session_source = derive_session_url(code_source);
-    let session_dir = target_dir.join(".claude");
+    let bot_source = derive_bot_url(work_source);
+    let bot_dir = target_dir.join(".claude");
 
-    clone_one(code_source, target_dir, parent_dir)?;
-    clone_one(&session_source, &session_dir, target_dir)?;
+    clone_one(work_source, target_dir, parent_dir)?;
+    clone_one(&bot_source, &bot_dir, target_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;
 
     info!("");
     info!("Done! Project cloned to {}", target_dir.display());
     info!("  Work repo:    {}", target_dir.display());
-    info!("  Bot repo: {}", session_dir.display());
+    info!("  Bot repo: {}", bot_dir.display());
     info!(
         "  Symlink:      {} -> {}",
         sl.symlink_path.display(),
@@ -249,7 +250,7 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
         assert!(!args.por.value);
-        assert!(!args.dry_run);
+        assert!(!args.dry_run.value);
     }
 
     #[test]
@@ -272,7 +273,7 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
         assert!(args.por.value);
-        assert!(args.dry_run);
+        assert!(args.dry_run.value);
     }
 
     #[test]
@@ -299,6 +300,6 @@ mod tests {
         assert_eq!(args.target, "./bare.git");
     }
 
-    // Unit tests for derive_name / resolve_url / derive_session_url
+    // Unit tests for derive_name / resolve_url / derive_bot_url
     // live in src/url.rs alongside the lifted functions.
 }

@@ -18,8 +18,8 @@ commit", "bot-repo side"). Notes:
 - `.claude` is the bot repo's *path*, not its name — commands
   (`-R .claude`) and ochid paths (`/.claude/<chid>`) keep the
   literal path.
-- The vc-x1 CLI's scope name for the work repo is `code`
-  (`--scope=code|bot|code,bot`).
+- The vc-x1 CLI's scope name for the work repo is `work`
+  (`--scope=work|bot|work,bot`).
 - "Work commit" / "Work-N" (capitalized) is a cycle-stage term
   (see [Cycle Protocol](#cycle-protocol)), not a repo name; a
   generic commit landing in the work repo is a "work-repo
@@ -75,6 +75,22 @@ which step produced which output and makes a failure ambiguous;
 executing one at a time keeps the details visible and reviewable.
 Exceptions are a genuine pipeline (`grep | sort`) or a tight,
 inseparable pair where the join is the point.
+
+## Scratch files — repo-local `tmp/`
+
+`tmp/` at the repo root is the scratch area for temporary
+files — parked notes, intermediate outputs, throwaway
+scripts. It is gitignored (jj honors `.gitignore`), so
+nothing in it can ride into a commit.
+
+- Prefer it over `/tmp` or the harness's session scratchpad:
+  it's on the project filesystem (fast moves, survives
+  reboots), visible to both user and bot, and invisible to
+  jj snapshots.
+- Created on demand (`mkdir -p tmp`); the dir itself is
+  never committed, so a fresh clone starts without it.
+- Out-of-project temporaries (nothing to do with this repo)
+  can still use `/tmp`.
 
 ## File reads — read the slice you need
 
@@ -226,7 +242,7 @@ How many, and which direction:
   work-repo commit in that push. More than one occurs on a Merge
   non-ff close-out (one ochid per Work commit in the cycle).
 
-Use `vc-x1 chid -s code,bot -L` to capture the change IDs (first
+Use `vc-x1 chid -s work,bot -L` to capture the change IDs (first
 line work repo, second bot repo).
 
 ### Resolvability
