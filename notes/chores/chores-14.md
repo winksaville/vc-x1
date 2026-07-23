@@ -437,6 +437,37 @@ the refactor program. Decisions at cycle open (2026-07-23):
     dual-preflight principle, and the bisect-skew note
     (the two repos rewind independently; old binaries fail
     loudly-but-cryptically against the new bot-side config)
+- [[N]] 0.75.0-4 feat: topology config target
+  - the `config` command reshape (decided at the `-2`
+    review): positional `work|bot|work,bot|<path>` target
+    (default `work,bot`) replaces `--home`; print stays the
+    default, one schema group per resolved side, the divider
+    naming the target keyword + resolved file path; the user
+    config has no keyword — reachable only via its explicit
+    path
+  - a path target gets the *whole* schema (decided during
+    this rung's review): a path carries no side information,
+    so nothing is guessed from it — the old `--home` group
+    labels (User / Workspace) died with the flag, and the
+    earlier sniff-the-user-config-path detection was dropped
+    as imprecise. Slightly laxer validation for a path
+    target (any home's key accepted) traded for exact
+    semantics: keywords = side-filtered, path = full
+    registry
+  - `--validate` now covers the target file(s)' unknown keys
+    *and* the topology invariants: the `[workspace]` grammar
+    (via `reject_legacy_config` at the root) and the
+    identical-`[workspace]`-block coherence check (riding
+    `bot_repo_path`'s dual preflight). A coherence failure is
+    a counted finding, not a hard error, so the work-side
+    report still lands; a single-repo workspace skips the bot
+    side with a note
+  - rider: `package.name` → `vc-x1-dev` (decided this
+    session): the per-commit `cargo install` no longer
+    clobbers the `vc-x1` binary concurrent workspaces run;
+    promotion to plain `vc-x1` is an explicit act — see
+    versioning.md's new
+    [Dev artifact name](../versioning.md#dev-artifact-name)
 
 # References
 

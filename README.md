@@ -509,22 +509,27 @@ condition and proceeds, since publishing is its job.
 
 ### config
 
-Print every settable config key across vc-x1's two config
-homes — the user config (`~/.config/vc-x1/config.toml`) and the
-workspace config (`<root>/.vc-config.toml`) — as an annotated,
-commented schema: for each key its description, the
+Print the settable config keys for a target config file as an
+annotated, commented schema: for each key its description, the
 command/context it's `used by`, its default (or a value marked
 `# example` when there is no default), and a commented
 assignment line ready to paste in. The schema is generated from
 one in-code registry, so it can't drift from what the code
 actually reads.
 
-- `--home user|workspace|all` — filter to one home's keys
-  [default: all].
-- `--validate` — instead of printing, load the actual config
-  file(s) for the selected home(s) and flag any key the schema
-  doesn't recognize (a typo, a key in the wrong section, or an
-  unknown key). Exits non-zero if any are found. This is an
+- `[TARGET]` — `work`, `bot`, `work,bot` (default), or an
+  explicit config-file path. The keywords resolve against the
+  surrounding workspace's `.vc-config.toml` files and filter to
+  that side's keys; a path carries no side information, so it
+  gets the whole schema. The user config
+  (`~/.config/vc-x1/config.toml`) has no keyword and is reached
+  only by passing its path.
+- `--validate` — instead of printing, load the target's actual
+  config file(s) and flag any key the schema doesn't recognize
+  (a typo, a key in the wrong section, or an unknown key), plus
+  — for keyword targets — the `[workspace]` path grammar and
+  the identical-`[workspace]`-block invariant of a dual
+  workspace. Exits non-zero if any problem is found. This is an
   opt-in strict check — a normal config load silently ignores
   unknown keys, for forward-compatibility.
 
@@ -559,20 +564,28 @@ instead renders a commented example value:
 ```
 
 ```
-# Print every settable key, both homes
+# Print the workspace-settable keys, both sides
 vc-x1 config
 
-# Print only the user-config keys
-vc-x1 config --home user
+# Print only the work side's keys
+vc-x1 config work
 
-# Check the current directory's config file(s) for unknown keys
+# Print the whole schema for one file (the user config has no
+# keyword — reach it by path)
+vc-x1 config ~/.config/vc-x1/config.toml
+
+# Check both sides' config files: unknown keys, [workspace]
+# grammar, and the identical-[workspace]-block invariant
 vc-x1 config --validate
+
+# Check one explicit file
+vc-x1 config ../other/.vc-config.toml --validate
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--home <user\|workspace\|all>` | Which config home(s) to print/validate [default: all] |
-| `--validate` | Check config file(s) for unknown keys instead of printing the schema |
+| `[TARGET]` | `work`, `bot`, `work,bot`, or a config-file path [default: work,bot] |
+| `--validate` | Check the target config file(s) instead of printing the schema |
 
 ### clone
 

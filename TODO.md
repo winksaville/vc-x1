@@ -51,7 +51,7 @@ user-home file reachable only via explicit `<path>`.
      (push's `bot_path` + ochid prefixes, bm-track probe,
      clone's local dir, repo_utils cross-ref, validate-bot /
      symlink defaults)
-   - [[N]] 0.75.0-4 feat: topology config target
+   - [[N]] 0.75.0-4 feat: topology config target (done)
      — [details](notes/refactor-20260716.md#stage-facade-owns-topology):
      the `config` command reshape (positional target,
      `--validate` both sides, `--home` retires)
@@ -86,36 +86,48 @@ user-home file reachable only via explicit `<path>`.
      "Refactor stage: …" entries below (listed in program
      order; the doc owns execution order, per-stage status,
      and design — DRY facade shipped at 0.73.0).
-2. **Refactor stage: de-gitify init.** Replace init's
+2. **Refactor stage: repo registry.** Drop the root-anchored
+   `[workspace]` path grammar: values become ordinary paths
+   (relative to the config file's dir, or absolute —
+   allowed but docs discourage), resolved agreement replaces
+   the identical-block invariant, ochid prefixes become
+   registry labels (URLs later — the local-path half of
+   "ochid: bot-repo location qualifier" below), and the
+   section is renamed ("workspace" is overloaded — jj itself
+   has `jj workspace`). Decided 2026-07-24; see
+   [the stage](notes/refactor-20260716.md#stage-repo-registry).
+   Right after facade owns topology, so the schema settles
+   in one migration wave and de-gitify init builds on it.
+3. **Refactor stage: de-gitify init.** Replace init's
    strip-jj → git-push → re-colocate flow with the verified
    jj-only sequence; see
    [the stage](notes/refactor-20260716.md#stage-de-gitify-init).
    After facade owns topology.
-3. **Refactor stage: split push.rs.** Extract `push/state.rs`
+4. **Refactor stage: split push.rs.** Extract `push/state.rs`
    so the jj-lib migration reviews cleanly — built and parked
    on `support-trapezoid-commits` (0.72.0-1), replay or redo;
    see
    [the stage](notes/refactor-20260716.md#stage-split-pushrs).
-4. **Refactor stage: stateless push.** Retire the push state
+5. **Refactor stage: stateless push.** Retire the push state
    file — derive resume from repo reality; see
    [the stage](notes/refactor-20260716.md#stage-stateless-push).
    After split push.rs.
-5. **Refactor stage: jj-lib migration.** Facade internals and
+6. **Refactor stage: jj-lib migration.** Facade internals and
    mutations move in-process; the index-lock retry becomes
    ours; see
    [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
    After split push.rs and stateless push.
-6. **Refactor stage: push body-intro validation.** Validate
+7. **Refactor stage: push body-intro validation.** Validate
    the commit body opens with a non-dash intro line, with a
    clear error; see
    [the stage](notes/refactor-20260716.md#stage-push-body-intro-validation).
    After the jj-lib migration (program order).
-7. **Refactor stage: trapezoid close-out.** `push --merge
+8. **Refactor stage: trapezoid close-out.** `push --merge
    [<base>]` — the native trapezoid close-out; design settled
    in the stage notes; see
    [the stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
    After stateless push (no state-file growth) and jj-lib.
-8. **Restructure templates: single template repo + fixed bot
+9. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -143,27 +155,27 @@ user-home file reachable only via explicit `<path>`.
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying — no "is it
      still empty?" invariant left in the template.
-9. **ochid: bot-repo location qualifier.** An ochid is
-   workspace-relative (`/.claude/<chid>`) — nothing in a
-   published commit says *where* the companion bot repo
-   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
-   discoverable only by convention). Anyone cloning just the
-   work repo can't resolve bot-side ochids. Design already
-   sketched in forks-multi-user.md
-   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
-   URL-shaped trailers, plus the complementary
-   `.vc-config.toml` repo-index form; resolver dispatch is
-   one rule (URL → fetch, else workspace-relative), existing
-   path-form trailers stay the backward-compatible case.
-   - Cheap first rung: declare the companion's URL once in
-     the committed `.vc-config.toml` (no trailer-format
-     change; any work-repo clone then knows where the bot
-     repo lives). Rides naturally with the refactor
-     program's facade-owns-topology stage
-     (bot-repo-location config).
-   - Link rot + mirroring mitigations are in the same doc
-     section.
-10. **Version-number protocol is fragile — versions are
+10. **ochid: bot-repo location qualifier.** An ochid is
+    workspace-relative (`/.claude/<chid>`) — nothing in a
+    published commit says *where* the companion bot repo
+    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+    discoverable only by convention). Anyone cloning just the
+    work repo can't resolve bot-side ochids. Design already
+    sketched in forks-multi-user.md
+    [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+    URL-shaped trailers, plus the complementary
+    `.vc-config.toml` repo-index form; resolver dispatch is
+    one rule (URL → fetch, else workspace-relative), existing
+    path-form trailers stay the backward-compatible case.
+    - Cheap first rung: declare the companion's URL once in
+      the committed `.vc-config.toml` (no trailer-format
+      change; any work-repo clone then knows where the bot
+      repo lives). Rides naturally with the refactor
+      program's facade-owns-topology stage
+      (bot-repo-location config).
+    - Link rot + mirroring mitigations are in the same doc
+      section.
+11. **Version-number protocol is fragile — versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -188,7 +200,7 @@ user-home file reachable only via explicit `<path>`.
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-11. **sync follow-up: extract `move-bookmark` command.** The
+12. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone — e.g. the
     t1B scenario where `main` is right but `@` isn't on it —
@@ -198,7 +210,7 @@ user-home file reachable only via explicit `<path>`.
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-12. **sync follow-up: push preflight in-process; drop
+13. **sync follow-up: push preflight in-process; drop
     `--check`; revisit push auto-rollback.** Push's preflight
     shells out to `vc-x1 sync --check` — a verify-only pass
     that is both racy (remote can move before the user's
@@ -213,7 +225,7 @@ user-home file reachable only via explicit `<path>`.
     - Apply the stop-on-error + `vc-x1 revert` philosophy to
       push's commit-stage rollback (today it auto-runs
       `jj op restore`, hiding the evidence).
-13. **validate-numbering: rename the pair, check all
+14. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -249,7 +261,7 @@ user-home file reachable only via explicit `<path>`.
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-14. **pre-commit: single rule (no docs skip) + doc validators.**
+15. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -275,7 +287,7 @@ user-home file reachable only via explicit `<path>`.
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-15. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -299,7 +311,7 @@ user-home file reachable only via explicit `<path>`.
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-16. **Run validate-bot at every vc-x1 invocation
+17. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -312,7 +324,7 @@ user-home file reachable only via explicit `<path>`.
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-17. **README: audit flag tables and examples against the
+18. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -323,7 +335,7 @@ user-home file reachable only via explicit `<path>`.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-18. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -336,7 +348,7 @@ user-home file reachable only via explicit `<path>`.
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-19. **Shared-doc sync: per-commit chores convention.**
+20. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -347,7 +359,7 @@ user-home file reachable only via explicit `<path>`.
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-20. **config: extract flag-backed key descriptions from Clap.**
+21. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
