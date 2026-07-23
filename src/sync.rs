@@ -47,11 +47,11 @@ use crate::toml_simple;
 /// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
 /// - `-R PATH` — workspace root, or a single repo to sync alone.
-/// - `--scope=code|bot|code,bot` — keyword role selection,
+/// - `--scope=work|bot|work,bot` — keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
 /// - Neither — workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `other-repo`) → `code,bot`
-///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `code`
+///   - dual workspace (`.vc-config.toml` with `other-repo`) → `work,bot`
+///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `work`
 ///   - POR (no `.vc-config.toml`) → cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
@@ -99,16 +99,16 @@ pub struct SyncArgs {
 
     /// Which repo(s) of the workspace to sync.
     ///
-    /// `SCOPE=code|bot|code,bot`:
+    /// `SCOPE=work|bot|work,bot`:
     ///
-    /// - `code` — sync only the work repo.
+    /// - `work` — sync only the work repo.
     /// - `bot` — sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `code,bot` — sync both repos.
+    /// - `work,bot` — sync both repos.
     ///
     /// Composes with `-R` as the workspace root. Default depends
-    /// on workspace state: dual workspace → `code,bot`;
-    /// single-repo workspace or POR → `code`.
+    /// on workspace state: dual workspace → `work,bot`;
+    /// single-repo workspace or POR → `work`.
     #[arg(
         short = 's',
         long,

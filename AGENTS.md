@@ -18,8 +18,8 @@ commit", "bot-repo side"). Notes:
 - `.claude` is the bot repo's *path*, not its name — commands
   (`-R .claude`) and ochid paths (`/.claude/<chid>`) keep the
   literal path.
-- The vc-x1 CLI's scope name for the work repo is `code`
-  (`--scope=code|bot|code,bot`).
+- The vc-x1 CLI's scope name for the work repo is `work`
+  (`--scope=work|bot|work,bot`).
 - "Work commit" / "Work-N" (capitalized) is a cycle-stage term
   (see [Cycle Protocol](#cycle-protocol)), not a repo name; a
   generic commit landing in the work repo is a "work-repo
@@ -242,7 +242,7 @@ How many, and which direction:
   work-repo commit in that push. More than one occurs on a Merge
   non-ff close-out (one ochid per Work commit in the cycle).
 
-Use `vc-x1 chid -s code,bot -L` to capture the change IDs (first
+Use `vc-x1 chid -s work,bot -L` to capture the change IDs (first
 line work repo, second bot repo).
 
 ### Resolvability

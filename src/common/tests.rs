@@ -417,7 +417,7 @@ fn resolve_repos_repo_only_returns_path() {
     assert_eq!(repos, vec![p]);
 }
 
-/// `resolve_repos`: `-R <ws> -s code,bot` composes — the path is the
+/// `resolve_repos`: `-R <ws> -s work,bot` composes — the path is the
 /// workspace root, the roles are resolved within it.
 #[test]
 fn resolve_repos_repo_plus_scope_uses_path_as_workspace_root() {

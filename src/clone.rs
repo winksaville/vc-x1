@@ -105,7 +105,7 @@ impl SubcommandRunner for CloneArgs {
 /// - Determines destination dir name (`[NAME]` override or
 ///   `derive_name(TARGET)`).
 /// - Pre-checks target dir doesn't exist.
-/// - Dispatches to `clone_one` (POR) or `clone_dual` (code,bot).
+/// - Dispatches to `clone_one` (POR) or `clone_dual` (work,bot).
 ///
 /// `ctx` is unused today (clone reads neither user config nor the
 /// `--log` path); it's present for the uniform subcommand-layer

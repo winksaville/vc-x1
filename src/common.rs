@@ -718,7 +718,7 @@ pub fn scope_to_repos(
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with path = \"/\") — drop --scope or use --scope=code",
+                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with path = \"/\") — drop --scope or use --scope=work",
                 )?;
                 let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
                 let other = toml_simple::toml_get(&cfg, "workspace.other-repo")
@@ -750,7 +750,7 @@ pub fn scope_to_repos(
 ///   (overrides `find_workspace_root`). This is the composing case;
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
-/// `--scope` is keyword-only (`code|bot|code,bot|bot,code`);
+/// `--scope` is keyword-only (`work|bot|work,bot|bot,work`);
 /// path-based single-repo operation routes through `-R/--repo`.
 pub fn resolve_repos(
     repo: Option<&Path>,

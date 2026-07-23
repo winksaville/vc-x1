@@ -193,8 +193,10 @@ done early so those stages diff cleanly. Second stage of the
 refactor program. Decisions at cycle open (2026-07-22):
 
 - Stragglers rename rather than document-as-historical;
-  `-s` gains `work` as the canonical scope keyword with
-  `code` kept as a compatible alias (no CLI break).
+  `-s` gains `work` as the canonical scope keyword.
+  Amended 2026-07-23: no `code` alias — vc-x1 is
+  unreleased, so the keyword renames outright rather than
+  carrying compatibility baggage; `code` now errors.
 - Single-field leaves keep the struct + `value` shape (the
   `squash` exemplar) — the leaf structs' reason to exist is
   the single-sourced flag definition (one doc comment /
@@ -236,6 +238,22 @@ refactor program. Decisions at cycle open (2026-07-22):
   - decision applied: full sweep of all three families (the
     stage named four identifiers; the actual old-terminology
     surface was ~380 sites)
+- [[N]] 0.74.0-2 refactor: hygiene work scope keyword
+  - the `-s`/`--scope` keyword `code` → `work`: `parse_scope`
+    now accepts `work`, `bot`, `work,bot`, `bot,work`; `code`
+    errors (a test pins the rejection)
+  - `value_name`s (`work|bot|work,bot`), the sync/revert/
+    common-args help, the `--scope=bot` not-in-workspace hint,
+    and every `-s code`/`code,bot` test invocation swept
+  - AGENTS.md: scope-name note + the `vc-x1 chid -s work,bot`
+    change-ID capture command updated (the latter is a live
+    command run each cycle); todo-backlog scope-vocabulary
+    references (`finalize`/`push`/`clone`/`validate-desc`
+    future `--scope` flags) swept to the new keyword
+  - amended decision: no `code` alias — vc-x1 is unreleased,
+    so the keyword renames outright rather than carrying
+    compatibility baggage (recorded here, in the ladder
+    block, and in the stage section of the refactor doc)
 
 # References
 

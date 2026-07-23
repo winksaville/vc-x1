@@ -1070,7 +1070,7 @@ fn config_none_passes_preflight() {
         .expect("--config none with --scope=por should pass preflight");
 }
 
-// ---------- Dual end-to-end fixture (drives init with --scope=code,bot) ----------
+// ---------- Dual end-to-end fixture (drives init with --scope=work,bot) ----------
 //
 // Counterparts to the POR fixture tests above; pin the dual-shape
 // invariants `push_repo` must preserve (-6.3 extraction).

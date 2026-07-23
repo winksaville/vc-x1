@@ -222,8 +222,8 @@ pub(crate) enum Commands {
     #[command(long_about = format!("Fetch and sync a set of repos to their remotes.\n\n\
         Repo set is resolved (in order):\n  \
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
-          - `--scope=code|bot|code,bot` dual-repo roles via `.vc-config.toml`\n  \
-          - neither             default: `code,bot` when dual, else `code`\n\n\
+          - `--scope=work|bot|work,bot` dual-repo roles via `.vc-config.toml`\n  \
+          - neither             default: `work,bot` when dual, else `work`\n\n\
         One atomic operation: fetch, then per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \

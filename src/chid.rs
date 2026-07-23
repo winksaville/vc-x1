@@ -123,14 +123,14 @@ mod tests {
     #[test]
     fn with_scope_work() {
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "chid", "-s", "code"]);
+        let c = parse(&["vc-x1", "chid", "-s", "work"]);
         assert_eq!(c.scope, Some(Scope(vec![Side::Work])));
     }
 
     #[test]
     fn with_scope_work_bot() {
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "chid", "-s", "code,bot"]);
+        let c = parse(&["vc-x1", "chid", "-s", "work,bot"]);
         assert_eq!(c.scope, Some(Scope(vec![Side::Work, Side::Bot])));
     }
 

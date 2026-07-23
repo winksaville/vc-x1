@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn with_scope_work() {
         use crate::options_flags::scope::{Scope, Side};
-        let args = parse(&["vc-x1", "show", "-s", "code"]);
+        let args = parse(&["vc-x1", "show", "-s", "work"]);
         assert_eq!(args.common.scope, Some(Scope(vec![Side::Work])));
     }
 

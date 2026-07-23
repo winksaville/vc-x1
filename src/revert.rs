@@ -33,7 +33,7 @@ pub struct RevertArgs {
 
     /// Which repo(s) of the workspace to revert.
     ///
-    /// `SCOPE=code|bot|code,bot` — same resolution as `sync`, so a
+    /// `SCOPE=work|bot|work,bot` — same resolution as `sync`, so a
     /// failed `vc-x1 sync` and the following `vc-x1 revert` name
     /// the same repos when invoked the same way.
     #[arg(
@@ -157,7 +157,7 @@ mod tests {
     /// `-R PATH` and `-s SCOPE` parse and flow through to params.
     #[test]
     fn parse_repo_and_scope() {
-        let cli = Cli::try_parse_from(["test", "-R", "./solo", "-s", "code"]).unwrap();
+        let cli = Cli::try_parse_from(["test", "-R", "./solo", "-s", "work"]).unwrap();
         let params = RevertParams::from(&cli.args);
         assert_eq!(params.repo, Some(PathBuf::from("./solo")));
         assert_eq!(params.scope, Some(Scope(vec![Side::Work])));

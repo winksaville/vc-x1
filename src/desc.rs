@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn with_scope_work_bot() {
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "desc", "-s", "code,bot"]);
+        let c = parse(&["vc-x1", "desc", "-s", "work,bot"]);
         assert_eq!(c.scope, Some(Scope(vec![Side::Work, Side::Bot])));
     }
 

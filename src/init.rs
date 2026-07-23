@@ -1355,11 +1355,11 @@ fn create_dual(
     create_symlink: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     #[allow(clippy::unwrap_used)]
-    let bot_dir = plan.bot_dir.as_ref().unwrap(); // OK: scope=code,bot ⇒ bot_dir set
+    let bot_dir = plan.bot_dir.as_ref().unwrap(); // OK: scope=work,bot ⇒ bot_dir set
     #[allow(clippy::unwrap_used)]
-    let bot_name = plan.bot_name.as_ref().unwrap(); // OK: scope=code,bot ⇒ bot_name set
+    let bot_name = plan.bot_name.as_ref().unwrap(); // OK: scope=work,bot ⇒ bot_name set
     #[allow(clippy::unwrap_used)]
-    let bot_url = plan.bot_url.as_deref().unwrap(); // OK: scope=code,bot ⇒ bot_url set
+    let bot_url = plan.bot_url.as_deref().unwrap(); // OK: scope=work,bot ⇒ bot_url set
 
     let (work_template, bot_template) = match templates.as_ref() {
         Some((c, b)) => (Some(c.as_path()), b.as_deref()),

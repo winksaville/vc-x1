@@ -28,11 +28,12 @@ flag — sweeps that churn the lines later stages rewrite, done
 early so those stages diff cleanly; see
 [the stage](notes/refactor-20260716.md#stage-hygiene-riders).
 Decisions (2026-07-22): rename all straggler identifiers;
-`-s` gains `work` as canonical with `code` kept as an alias;
-single-field leaves keep the struct + `value` shape.
+`-s` gains `work` as canonical; single-field leaves keep the
+struct + `value` shape. Amended 2026-07-23: no `code` alias —
+unreleased, so the scope keyword renames outright.
    - [[N]] 0.74.0-0 chore: open hygiene riders cycle (done)
-   - [[N]] 0.74.0-1 refactor: hygiene work/bot idents (current)
-   - [[N]] 0.74.0-2 feat: hygiene work scope alias
+   - [[N]] 0.74.0-1 refactor: hygiene work/bot idents (done)
+   - [[N]] 0.74.0-2 refactor: hygiene work scope keyword (current)
    - [[N]] 0.74.0-3 refactor: hygiene OF value fields
    - [[N]] 0.74.0 refactor: hygiene riders
 
