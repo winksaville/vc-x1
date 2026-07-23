@@ -21,7 +21,23 @@ As-built rungs):
    - [[N]] 0.xx.y-2 blah blah blah
    - [[N]] 0.xx.y close-out and validation
 
-_No cycle currently in progress._
+**Refactor stage: facade owns topology.** Repo resolution
+becomes facade state, not per-command preludes — the
+`validate-desc`/`fix-desc` por equalization and the
+configurable bot-repo dir; see
+[the stage](notes/refactor-20260716.md#stage-facade-owns-topology).
+Decisions (2026-07-23): `.vc-config.toml` `[workspace]` adopts
+the symmetric `work = "/"` / `bot = "/.bot"` pair replacing
+`path`/`other-repo` (identical block on both sides); side
+detection by location via `find_workspace_root` (root → work,
+`<root>/<bot-dir>` → bot); presence of `bot` is the dual-repo
+signal; `.bot` is the new-init default only — existing
+workspaces keep their recorded dir, no migration.
+   - [[N]] 0.75.0-0 chore: open facade owns topology cycle (done)
+   - [[N]] 0.75.0-1 refactor: topology por equalization
+   - [[N]] 0.75.0-2 feat: topology work/bot config schema
+   - [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+   - [[N]] 0.75.0 refactor: facade owns topology
 
 ## Todo
 
@@ -52,41 +68,36 @@ _No cycle currently in progress._
      "Refactor stage: …" entries below (listed in program
      order; the doc owns execution order, per-stage status,
      and design — DRY facade shipped at 0.73.0).
-2. **Refactor stage: facade owns topology.** Repo resolution
-   becomes facade state — `validate-desc`/`fix-desc` por
-   equalization, configurable bot-repo dir; see
-   [the stage](notes/refactor-20260716.md#stage-facade-owns-topology).
-   After hygiene riders.
-3. **Refactor stage: de-gitify init.** Replace init's
+2. **Refactor stage: de-gitify init.** Replace init's
    strip-jj → git-push → re-colocate flow with the verified
    jj-only sequence; see
    [the stage](notes/refactor-20260716.md#stage-de-gitify-init).
    After facade owns topology.
-4. **Refactor stage: split push.rs.** Extract `push/state.rs`
+3. **Refactor stage: split push.rs.** Extract `push/state.rs`
    so the jj-lib migration reviews cleanly — built and parked
    on `support-trapezoid-commits` (0.72.0-1), replay or redo;
    see
    [the stage](notes/refactor-20260716.md#stage-split-pushrs).
-5. **Refactor stage: stateless push.** Retire the push state
+4. **Refactor stage: stateless push.** Retire the push state
    file — derive resume from repo reality; see
    [the stage](notes/refactor-20260716.md#stage-stateless-push).
    After split push.rs.
-6. **Refactor stage: jj-lib migration.** Facade internals and
+5. **Refactor stage: jj-lib migration.** Facade internals and
    mutations move in-process; the index-lock retry becomes
    ours; see
    [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
    After split push.rs and stateless push.
-7. **Refactor stage: push body-intro validation.** Validate
+6. **Refactor stage: push body-intro validation.** Validate
    the commit body opens with a non-dash intro line, with a
    clear error; see
    [the stage](notes/refactor-20260716.md#stage-push-body-intro-validation).
    After the jj-lib migration (program order).
-8. **Refactor stage: trapezoid close-out.** `push --merge
+7. **Refactor stage: trapezoid close-out.** `push --merge
    [<base>]` — the native trapezoid close-out; design settled
    in the stage notes; see
    [the stage](notes/refactor-20260716.md#stage-trapezoid-close-out).
    After stateless push (no state-file growth) and jj-lib.
-9. **Restructure templates: single template repo + fixed bot
+8. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -114,27 +125,27 @@ _No cycle currently in progress._
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying — no "is it
      still empty?" invariant left in the template.
-10. **ochid: bot-repo location qualifier.** An ochid is
-    workspace-relative (`/.claude/<chid>`) — nothing in a
-    published commit says *where* the companion bot repo
-    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
-    discoverable only by convention). Anyone cloning just the
-    work repo can't resolve bot-side ochids. Design already
-    sketched in forks-multi-user.md
-    [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
-    URL-shaped trailers, plus the complementary
-    `.vc-config.toml` repo-index form; resolver dispatch is
-    one rule (URL → fetch, else workspace-relative), existing
-    path-form trailers stay the backward-compatible case.
-    - Cheap first rung: declare the companion's URL once in
-      the committed `.vc-config.toml` (no trailer-format
-      change; any work-repo clone then knows where the bot
-      repo lives). Rides naturally with the refactor
-      program's facade-owns-topology stage
-      (bot-repo-location config).
-    - Link rot + mirroring mitigations are in the same doc
-      section.
-11. **Version-number protocol is fragile — versions are
+9. **ochid: bot-repo location qualifier.** An ochid is
+   workspace-relative (`/.claude/<chid>`) — nothing in a
+   published commit says *where* the companion bot repo
+   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+   discoverable only by convention). Anyone cloning just the
+   work repo can't resolve bot-side ochids. Design already
+   sketched in forks-multi-user.md
+   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+   URL-shaped trailers, plus the complementary
+   `.vc-config.toml` repo-index form; resolver dispatch is
+   one rule (URL → fetch, else workspace-relative), existing
+   path-form trailers stay the backward-compatible case.
+   - Cheap first rung: declare the companion's URL once in
+     the committed `.vc-config.toml` (no trailer-format
+     change; any work-repo clone then knows where the bot
+     repo lives). Rides naturally with the refactor
+     program's facade-owns-topology stage
+     (bot-repo-location config).
+   - Link rot + mirroring mitigations are in the same doc
+     section.
+10. **Version-number protocol is fragile — versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -159,7 +170,7 @@ _No cycle currently in progress._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-12. **sync follow-up: extract `move-bookmark` command.** The
+11. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone — e.g. the
     t1B scenario where `main` is right but `@` isn't on it —
@@ -169,7 +180,7 @@ _No cycle currently in progress._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-13. **sync follow-up: push preflight in-process; drop
+12. **sync follow-up: push preflight in-process; drop
     `--check`; revisit push auto-rollback.** Push's preflight
     shells out to `vc-x1 sync --check` — a verify-only pass
     that is both racy (remote can move before the user's
@@ -184,7 +195,7 @@ _No cycle currently in progress._
     - Apply the stop-on-error + `vc-x1 revert` philosophy to
       push's commit-stage rollback (today it auto-runs
       `jj op restore`, hiding the evidence).
-14. **validate-numbering: rename the pair, check all
+13. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -220,7 +231,7 @@ _No cycle currently in progress._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-15. **pre-commit: single rule (no docs skip) + doc validators.**
+14. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -246,14 +257,14 @@ _No cycle currently in progress._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+15. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
     `jj git push` / `git push`, no `vc-x1 push` in the loop),
     so no bot pairings exist — one bot commit then records
     every code commit not yet covered by a prior `ochid:`,
-    via a multi-line `ochid:` per the design in [[10]].
+    via a multi-line `ochid:` per the design in [[1]].
     - Out of scope: the trapezoid close-out — handled
       natively by the in-progress "feat: push merge
       close-out (trapezoid)" cycle, whose N-ochid stamping
@@ -270,7 +281,7 @@ _No cycle currently in progress._
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-17. **Run validate-bot at every vc-x1 invocation
+16. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -283,7 +294,7 @@ _No cycle currently in progress._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-18. **README: audit flag tables and examples against the
+17. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -294,7 +305,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+18. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -307,7 +318,7 @@ _No cycle currently in progress._
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-20. **Shared-doc sync: per-commit chores convention.**
+19. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -318,7 +329,7 @@ _No cycle currently in progress._
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-21. **config: extract flag-backed key descriptions from Clap.**
+20. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -434,7 +445,7 @@ _See [bugs.md](notes/bugs.md)._
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](notes/done.md) to keep this file small.
 
-_Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
+_Migrated to [done.md](notes/done.md) on 2026-07-23 (0.69.1–0.71.0 batch)._
 
 - refactor: hygiene riders — the work/bot terminology
   stragglers swept (~380 identifier sites, `Side::Work`,
@@ -443,7 +454,7 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
   unreleased); the six single-field `options_flags` leaves
   adopt the `value` field shape with clap ids pinned, and
   clone.rs's drifted inline `dry_run` folds onto the leaf;
-  second stage of the jj refactor program [[12]]
+  second stage of the jj refactor program [[2]]
 
 - docs: notes rework + config refresh — `.vc-config.toml`
   (both sides) adopts init's generated optional-keys block;
@@ -452,14 +463,14 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
   promoted to Todo #10 with `.bot` / symmetric-schema
   decisions folded into the refactor program; new Idea:
   chores retire into a session index; bot repo seeded with
-  LICENSE-* / README.md from vc-x1-bot-repo-template [[11]]
+  LICENSE-* / README.md from vc-x1-bot-repo-template [[3]]
 
 - docs: adopt new template repo names — live mentions of
   `vc-template-x1`(.claude) swept to `vc-x1-work-repo-template`
   / `vc-x1-bot-repo-template` (AGENTS.md byte-identical with
   the template again; README init examples now pass an
   explicit `CODE,BOT` pair); historical records keep the old
-  name [[9]]
+  name [[4]]
 
 - refactor: DRY jj facade — one typed facade (`src/jj.rs`)
   for every read-only jj query spawn (log templates +
@@ -467,59 +478,12 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
   unified beside it, and the test fixture helpers deduped to
   one copy per crate; first stage of the jj refactor
   program, worked on `refactor-vc-x1` with main parked at
-  the 0.71.0 tip [[8]]
-
-- feat: config discoverability + scalar hierarchy — a
-  code-declared config schema registry (`config_schema.rs`) as
-  the single source of truth for every settable config key; the
-  new `config` command (print, `--home`, `--validate`), init's
-  commented `.vc-config.toml` defaults, and bot-session's
-  `--result-lines`/`--col-width` config layer all derive from it,
-  so they can't drift. Also a `notes/transcript-format.md` SSOT +
-  sample for the bot-session format, and a sweep retiring the
-  ambiguous "dotted" wording [[7]]
-- bot-session: --fields / --unknown output clarification — the
-  inventory views are now documented rather than opaque:
-  [transcript-format.md](notes/transcript-format.md) defines
-  entry / entry type and the `.`/`[]` field notation with a
-  bot-session example (0.71.0-8), and the ambiguous "dotted"
-  wording was retired (0.71.0-7). In-view column labeling
-  (headers / a legend) left as an optional nicety
-- docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[1]]
-- docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[2]]
-- feat: bot-session --col-width knob — the field views'
-  (`--fields`/`--unknown`/`--per-line`) first-column pad
-  becomes `--col-width N`, default widened 44 → 68 (aligns
-  the type column for ~99% of observed key paths; only the
-  long-tail `snapshot.trackedFileBackups.<abs path>.*` keys
-  overflow); config-hierarchy resolution deferred to Todo #12 [[6]]
-- feat: bot-session --fields + --raw explorer — bot-session
-  doubles as a schema explorer: --fields (dotted-path
-  inventory per entry type: count, kinds, samples),
-  --unknown (inventory minus the extractor's KNOWN_PATHS —
-  the unmodeled surface; 132 paths on first real run),
-  --raw (pretty-printed source lines); --per-line (a fields
-  section per source line, composes with --unknown); --lines
-  unified to source-JSONL-line units in every view,
-  conversation included; drift-over-time baseline deferred to the
-  discovery/index cycle [[5]]
-- feat: bot-session --result-lines knob — the [result]-body
-  cap becomes a flag: `--result-lines N` (default 10, 0 =
-  unlimited), Output-range help group; was hardwired to 10
-  even under --all [[4]]
-- feat: bot-session transcript viewer — display a session transcript as a conversation: two-layer tolerant parse (serde_json text → Value; hand extraction into our structs, raw retained), eight-item composable output (--<item> / --no-<item> / --all / --none) with git-style config defaults (CLI > .vc-config.toml > user config > built-in), --lines slicing, UTC headers; --raw and index view deferred (Todo #12), EPIPE logger panic recorded (Bugs #4) [[3]]
+  the 0.71.0 tip [[5]]
 
 # References
 
-[1]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
-[2]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
-[3]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
-[4]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
-[5]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
-[6]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
-[7]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
-[8]: /notes/chores/chores-14.md#refactor-dry-jj-facade
-[9]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
-[10]: /notes/forks-multi-user.md
-[11]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
-[12]: /notes/chores/chores-14.md#refactor-hygiene-riders
+[1]: /notes/forks-multi-user.md
+[2]: /notes/chores/chores-14.md#refactor-hygiene-riders
+[3]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
+[4]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
+[5]: /notes/chores/chores-14.md#refactor-dry-jj-facade

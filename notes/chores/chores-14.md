@@ -254,7 +254,7 @@ refactor program. Decisions at cycle open (2026-07-22):
     so the keyword renames outright rather than carrying
     compatibility baggage (recorded here, in the ladder
     block, and in the stage section of the refactor doc)
-- [[N]] 0.74.0-3 refactor: hygiene OF value fields
+- [[12]] 0.74.0-3 refactor: hygiene OF value fields
   - the six single-field `options_flags` leaves adopt the
     `value` field shape (the 0.47.0 `squash` convention):
     `DryRunFlag.dry_run`, `PrivateFlag.private`,
@@ -279,7 +279,7 @@ refactor program. Decisions at cycle open (2026-07-22):
     branch-unreachable), notes-rework `Commits:` filled
     ([[11]]), the `-0`/`-1`/`-2` As-built and TODO.md ladder
     rungs backfilled
-- [[N]] 0.74.0 refactor: hygiene riders (close-out)
+- [[13]] 0.74.0 refactor: hygiene riders (close-out)
   - `## Done` entry; `## In Progress` retired; TODO.md
     ladder commit refs pruned (this As-built ladder is the
     permanent record)
@@ -303,6 +303,46 @@ the literal directory name, ochid prefixes, URL-suffix
 derivation — owned by the facade-owns-topology stage's
 configurable bot-dir work.
 
+## refactor: facade owns topology
+
+Commits: see [As-built ladder](#as-built-ladder-2)
+
+Repo resolution is a per-command prelude (each command
+re-derives "where is the other repo" from
+`path`/`other-repo`); it becomes facade state. Third stage of
+the refactor program. Decisions at cycle open (2026-07-23):
+
+- `.vc-config.toml` `[workspace]` adopts the symmetric
+  `work = "/"` / `bot = "/.bot"` pair, *replacing*
+  `path`/`other-repo` — the block is identical on both
+  sides, so there is nothing to keep mutually consistent;
+  side detection comes from location (walk up from cwd via
+  `find_workspace_root`: at the root → work side, at
+  `<root>/<bot-dir>` → bot side).
+- Presence of `bot` is the dual-repo signal; POR is
+  `work = "/"` alone. One vocabulary across surfaces:
+  `-s work,bot`, config `work`/`bot`, `Side::Work`/`Side::Bot`.
+- `.bot` is the new-init default only — a recommendation.
+  Existing workspaces keep their recorded dir (vc-x1 stays
+  `bot = "/.claude"`), old `/.claude/<chid>` trailers keep
+  resolving verbatim; no migration.
+
+### As-built ladder
+
+- [[N]] 0.75.0-0 chore: open facade owns topology cycle
+  - version 0.75.0-0; stage picked into `## In Progress`
+    with the five-rung ladder; this section opened; stage
+    decisions recorded here, in the ladder block, and in the
+    stage section of
+    [refactor-20260716.md](../refactor-20260716.md#stage-facade-owns-topology)
+  - rider: 0.74.0 ladder-ref backfill (`-3` + close-out
+    rungs → [[12]],[[13]])
+  - rider: `## Done` retirement sweep — the 0.69.1–0.71.0
+    batch (eight entries) migrated to done.md; TODO.md
+    references re-packed to `[1]..[5]`
+  - rider: the DRY facade and hygiene stages' shipped-status
+    links verified in the refactor doc (added at 0.74.0)
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -316,3 +356,5 @@ configurable bot-dir work.
 [9]: https://github.com/winksaville/vc-x1/commit/efb66f992890 "efb66f992890e8f7f6434010b79f97c282b5bdd4"
 [10]: https://github.com/winksaville/vc-x1/commit/143743ec3bb4 "143743ec3bb4b067b7d53ce42e6b8f5c316ab5ec"
 [11]: https://github.com/winksaville/vc-x1/commit/f2a042452176 "f2a0424521765c72151c5d663e35b69d8b21fef7"
+[12]: https://github.com/winksaville/vc-x1/commit/31e8d95816ba "31e8d95816baad7dd7e1e5c66618de5070ba1b03"
+[13]: https://github.com/winksaville/vc-x1/commit/946dc964b75c "946dc964b75ca29e2cc4b6c59f03aec2c364feee"
