@@ -16,11 +16,10 @@ use log::{debug, info};
 use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
-    ochid_prefix_from_config, validate_ochid,
+    DEFAULT_ID_LEN, TitleMatch, extract_bare_id, find_matching_commit, ochid_prefix_for,
+    validate_ochid,
 };
 use crate::subcommand::SubcommandRunner;
-use crate::toml_simple;
 
 #[derive(Args, Debug)]
 pub struct ValidateDescArgs {
@@ -142,8 +141,7 @@ pub fn validate_desc(
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
-    let other_config = toml_simple::toml_load(&other_repo_path.join(VC_CONFIG_FILE))?;
-    let other_prefix = ochid_prefix_from_config(&other_config)?;
+    let other_prefix = ochid_prefix_for(&other_repo_path)?;
 
     let spec = common::resolve_spec(
         params.pos_rev.as_deref(),

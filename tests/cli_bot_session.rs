@@ -300,7 +300,7 @@ fn cli_bot_session_workspace_items() {
     .expect("write user config");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[workspace]\npath = \"/\"\n\n[bot-session]\nitems = \"user,summary\"\n",
+        "[workspace]\nwork = \"/\"\n\n[bot-session]\nitems = \"user,summary\"\n",
     )
     .expect("write vc-config");
     let out = run_ok(
@@ -408,7 +408,7 @@ fn cli_bot_session_workspace_col_width() {
     let file = fixture_file(&fx);
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[workspace]\npath = \"/\"\n\n[bot-session]\ncol-width = 20\n",
+        "[workspace]\nwork = \"/\"\n\n[bot-session]\ncol-width = 20\n",
     )
     .expect("write vc-config");
     let out = run_ok(
@@ -455,7 +455,7 @@ fn cli_bot_session_workspace_result_lines() {
     std::fs::write(&file, format!("{tool_use}\n{tool_result}\n")).expect("write fixture");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[workspace]\npath = \"/\"\n\n[bot-session]\nresult-lines = 2\n",
+        "[workspace]\nwork = \"/\"\n\n[bot-session]\nresult-lines = 2\n",
     )
     .expect("write vc-config");
     let out = run_ok(

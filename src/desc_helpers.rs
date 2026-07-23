@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use jj_lib::object_id::ObjectId;
@@ -11,22 +10,22 @@ use crate::toml_simple;
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
-/// Derive the ochid prefix from a repo's `.vc-config.toml`.
+/// Derive a repo's ochid prefix from its location + config.
 ///
-/// The `workspace.path` value is the repo's path relative to the workspace
-/// root, which is exactly the ochid prefix (with a trailing `/` when the
-/// path isn't just `/`).
-pub fn ochid_prefix_from_config(
-    config: &HashMap<String, String>,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let ws_path = toml_simple::toml_get(config, "workspace.path")
-        .ok_or("missing workspace.path in .vc-config.toml")?;
-    let trimmed = ws_path.trim_end_matches('/');
-    if trimmed.is_empty() {
-        Ok("/".to_string())
-    } else {
-        Ok(format!("{trimmed}/"))
+/// The `[workspace]` block is identical on both sides, so the
+/// prefix comes from *which side* the repo is (by location — see
+/// `common::is_bot_dir`) plus the recorded `bot` path:
+///
+/// - work side → `/`
+/// - bot side → `<workspace.bot>/` (e.g. `/.claude/`)
+pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::error::Error>> {
+    if !common::is_bot_dir(repo) {
+        return Ok("/".to_string());
     }
+    let cfg = toml_simple::toml_load(&repo.join(VC_CONFIG_FILE))?;
+    let bot = toml_simple::toml_get(&cfg, "workspace.bot")
+        .ok_or("missing workspace.bot in .vc-config.toml")?;
+    Ok(format!("{}/", bot.trim_end_matches('/')))
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -269,34 +268,62 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    fn make_config(ws_path: &str) -> HashMap<String, String> {
-        let mut map = HashMap::new();
-        map.insert("workspace.path".to_string(), ws_path.to_string());
-        map
+    /// Build `<base>/ws` (+ optional `<bot-dir>`) with the symmetric
+    /// dual-form `[workspace]` block in each repo dir.
+    fn ws_fixture(tag: &str, bot_dir: Option<&str>) -> (std::path::PathBuf, std::path::PathBuf) {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let base = std::env::temp_dir().join(format!("vc-x1-desc-helpers-{tag}-{ts}"));
+        let root = base.join("ws");
+        std::fs::create_dir_all(&root).unwrap();
+        let block = match bot_dir {
+            Some(b) => format!("[workspace]\nwork = \"/\"\nbot = \"/{b}\"\n"),
+            None => "[workspace]\nwork = \"/\"\n".to_string(),
+        };
+        std::fs::write(root.join(VC_CONFIG_FILE), &block).unwrap();
+        if let Some(b) = bot_dir {
+            let bot = root.join(b);
+            std::fs::create_dir_all(&bot).unwrap();
+            std::fs::write(bot.join(VC_CONFIG_FILE), &block).unwrap();
+        }
+        (base, root)
     }
 
+    /// Work side (the workspace root) → `/`.
     #[test]
-    fn prefix_from_root() {
-        let config = make_config("/");
-        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/");
+    fn prefix_for_work_side() {
+        let (base, root) = ws_fixture("prefix-work", Some(".claude"));
+        assert_eq!(ochid_prefix_for(&root).unwrap(), "/");
+        std::fs::remove_dir_all(&base).ok();
     }
 
+    /// Bot side (named by the parent's `bot`) → `<bot>/`.
     #[test]
-    fn prefix_from_bot() {
-        let config = make_config("/.claude");
-        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/.claude/");
+    fn prefix_for_bot_side() {
+        let (base, root) = ws_fixture("prefix-bot", Some(".claude"));
+        assert_eq!(
+            ochid_prefix_for(&root.join(".claude")).unwrap(),
+            "/.claude/"
+        );
+        std::fs::remove_dir_all(&base).ok();
     }
 
+    /// A non-`.claude` bot dir name flows through to the prefix.
     #[test]
-    fn prefix_from_nested_path() {
-        let config = make_config("/some/path");
-        assert_eq!(ochid_prefix_from_config(&config).unwrap(), "/some/path/");
+    fn prefix_for_custom_bot_dir() {
+        let (base, root) = ws_fixture("prefix-custom", Some(".bot"));
+        assert_eq!(ochid_prefix_for(&root.join(".bot")).unwrap(), "/.bot/");
+        std::fs::remove_dir_all(&base).ok();
     }
 
+    /// A repo that is no workspace's bot side → work prefix `/`.
     #[test]
-    fn prefix_missing_config_key() {
-        let config = HashMap::new();
-        assert!(ochid_prefix_from_config(&config).is_err());
+    fn prefix_for_por_repo() {
+        let (base, root) = ws_fixture("prefix-por", None);
+        assert_eq!(ochid_prefix_for(&root).unwrap(), "/");
+        std::fs::remove_dir_all(&base).ok();
     }
 
     #[test]

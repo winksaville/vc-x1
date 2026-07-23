@@ -16,12 +16,11 @@ use log::{debug, info};
 use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, OchidIssues, TitleMatch, VC_CONFIG_FILE, append_ochid_trailer, extract_bare_id,
-    extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description,
-    ochid_prefix_from_config, resolve_full_change_id, validate_ochid,
+    DEFAULT_ID_LEN, OchidIssues, TitleMatch, append_ochid_trailer, extract_bare_id,
+    extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description, ochid_prefix_for,
+    resolve_full_change_id, validate_ochid,
 };
 use crate::subcommand::SubcommandRunner;
-use crate::toml_simple;
 
 /// Fix commit descriptions against the other repo.
 #[derive(Args, Debug)]
@@ -161,8 +160,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
-    let other_config = toml_simple::toml_load(&other_repo_path.join(VC_CONFIG_FILE))?;
-    let other_prefix = ochid_prefix_from_config(&other_config)?;
+    let other_prefix = ochid_prefix_for(&other_repo_path)?;
 
     let spec = common::resolve_spec(
         params.pos_rev.as_deref(),

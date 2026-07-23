@@ -273,13 +273,15 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-/// Which repo a generated `.vc-config.toml` targets.
+/// Which shape of `.vc-config.toml` to generate.
+///
+/// The `[workspace]` block is identical on both sides of a dual
+/// workspace (side detection is by location, not content), so
+/// there is one dual variant, not a per-side pair.
 #[derive(Clone, Copy)]
 pub(crate) enum ConfigRole {
-    /// The work repo in a dual-repo workspace.
-    Work,
-    /// The `.claude` bot repo in a dual-repo workspace.
-    Bot,
+    /// Either repo of a dual-repo workspace.
+    Dual,
     /// The sole repo in a single-repo (POR) workspace.
     WorkOnly,
 }
@@ -288,35 +290,25 @@ pub(crate) enum ConfigRole {
 /// generated `.vc-config.toml`, role-specific.
 fn render_workspace_header(role: ConfigRole) -> String {
     match role {
-        ConfigRole::Work => r#"# vc-config: Vibe Coding workspace configuration
+        ConfigRole::Dual => r#"# vc-config: Vibe Coding workspace configuration
 #
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
-# other-repo is the relative path to the counterpart repo.
+# work and bot are the repos' paths relative to the workspace root,
+# used to resolve changeID paths in git trailers (e.g. ochid: /changeID,
+# ochid: /.claude/changeID). The [workspace] block is identical in both
+# repos; which side a repo is comes from its location, not this file.
 
 [workspace]
-path = "/"
-other-repo = ".claude"
-"#
-        .to_string(),
-        ConfigRole::Bot => r#"# vc-config: Vibe Coding workspace configuration
-#
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /.claude/changeID).
-# other-repo is the relative path to the counterpart repo.
-
-[workspace]
-path = "/.claude"
-other-repo = ".."
+work = "/"
+bot = "/.claude"
 "#
         .to_string(),
         ConfigRole::WorkOnly => r#"# vc-config: Vibe Coding workspace configuration
 #
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
+# work is this repo's path relative to the workspace root. Used to
+# resolve changeID paths in git trailers (e.g. ochid: /changeID).
 
 [workspace]
-path = "/"
+work = "/"
 "#
         .to_string(),
     }
@@ -443,7 +435,7 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Work),
+        &render_vc_config(ConfigRole::Dual),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
@@ -454,7 +446,7 @@ fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Bot),
+        &render_vc_config(ConfigRole::Dual),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())

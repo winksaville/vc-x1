@@ -316,7 +316,7 @@ pub(crate) enum Commands {
 /// investigating.
 ///
 /// Walks up from cwd to locate the workspace root (the directory
-/// whose `.vc-config.toml` has `path = "/"`), then probes `<root>`
+/// whose `.vc-config.toml` has a `work` key), then probes `<root>`
 /// and `<root>/.claude`. Same labeling whether the user runs from
 /// the work root, from `.claude`, or from any subdir.
 pub fn bm_track(phase: &str, command_name: &str) {

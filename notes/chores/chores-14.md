@@ -357,6 +357,46 @@ the refactor program. Decisions at cycle open (2026-07-23):
     helper's last two callers were these preludes
   - tests: three `bot_repo_path` units (dual / single-repo /
     no-config) + a `FixturePor` no-op end-to-end per command
+- [[N]] 0.75.0-2 feat: topology work/bot config schema
+  - `.vc-config.toml` `[workspace]` flips to the symmetric
+    `work = "/"` / `bot = "/.claude"` pair; `path` /
+    `other-repo` are gone (unreleased — replaced outright,
+    like the scope keyword). init emits one identical dual
+    block for both sides (`ConfigRole::{Work,Bot}` collapse
+    into `Dual`); this workspace's two committed configs
+    flipped in the same commit (the running binary is
+    installed before the push that uses them)
+  - side detection becomes location-based:
+    `common::is_bot_dir(dir)` — true iff the parent dir's
+    config names `dir` as its `bot`. `find_workspace_root`
+    keys on the `work` key and steps up when standing in the
+    bot repo; `sync::is_bot_repo` and the new
+    `desc_helpers::ochid_prefix_for(repo)` (replacing the
+    content-based `ochid_prefix_from_config`) both ride it
+  - `default_scope` / `scope_to_repos` read `bot` (presence =
+    dual signal; value is root-relative with leading `/`)
+  - legacy files error fast with the solution (decided
+    2026-07-23 mid-rung): a config with `path`/`other-repo`
+    but no `work` is still *found* by the root walk, and
+    every resolver rejects it via
+    `common::reject_legacy_config` — the message shows the
+    replacement block. Silent degradation to POR was the
+    alternative and a foot-gun. A file with both old and new
+    keys passes (new keys drive; `config --validate` flags
+    the strays as unknown).
+  - riders: README caught up — the stale "historical
+    wrinkle" paragraph (scope keyword renamed at 0.74.0-2),
+    `-s code` examples, `remote-code`/`remote-claude`
+    fixture names (missed by the 0.74.0-1 sweep), and the
+    layout/schema snippets; AGENTS.md `.vc-config.toml`
+    section rewritten to the symmetric form
+  - incident while landing this rung: the Bugs #3 lock race
+    fired at bookmark-set, and the `--yes` rerun resumed
+    from the stale state stage, skipping the commit stages —
+    session data squashed into the published `-1` bot
+    commit. Recorded as Bugs #5 (resume-after-rollback
+    replays from the wrong stage); no data loss, and the
+    strongest evidence yet for the stateless-push stage
 
 # References
 

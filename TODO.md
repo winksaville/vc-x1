@@ -32,11 +32,19 @@ the symmetric `work = "/"` / `bot = "/.bot"` pair replacing
 detection by location via `find_workspace_root` (root → work,
 `<root>/<bot-dir>` → bot); presence of `bot` is the dual-repo
 signal; `.bot` is the new-init default only — existing
-workspaces keep their recorded dir, no migration.
+workspaces keep their recorded dir, no migration. Added
+2026-07-23: legacy configs error fast with the replacement
+block (`common::reject_legacy_config`); the `config` command
+reshapes (decided during -2 review) — positional
+`work|bot|work,bot|<path>` target (default `work,bot`),
+print by default / `--validate` to check both sides plus the
+identical-`[workspace]`-block invariant, `--home` retires,
+user-home file reachable only via explicit `<path>`.
    - [[N]] 0.75.0-0 chore: open facade owns topology cycle (done)
    - [[N]] 0.75.0-1 refactor: topology por equalization (done)
-   - [[N]] 0.75.0-2 feat: topology work/bot config schema
+   - [[N]] 0.75.0-2 feat: topology work/bot config schema (done)
    - [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+   - [[N]] 0.75.0-4 feat: topology config target
    - [[N]] 0.75.0 refactor: facade owns topology
 
 ## Todo

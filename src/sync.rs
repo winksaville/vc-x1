@@ -32,11 +32,9 @@ use log::{LevelFilter, debug, info, warn};
 
 use crate::common::{default_scope, find_workspace_root, prompt, run, scope_to_repos};
 use crate::context::Context;
-use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::jj;
 use crate::options_flags::scope::{Scope, parse_scope};
 use crate::subcommand::SubcommandRunner;
-use crate::toml_simple;
 
 /// Fetch and sync a set of repos to their remotes.
 ///
@@ -50,8 +48,8 @@ use crate::toml_simple;
 /// - `--scope=work|bot|work,bot` — keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
 /// - Neither — workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `other-repo`) → `work,bot`
-///   - single-repo workspace (`.vc-config.toml`, no `other-repo`) → `work`
+///   - dual workspace (`.vc-config.toml` with `bot`) → `work,bot`
+///   - single-repo workspace (`.vc-config.toml`, no `bot`) → `work`
 ///   - POR (no `.vc-config.toml`) → cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
@@ -474,17 +472,11 @@ fn reposition_at(
 
 /// True when `repo` is the bot sub-repo.
 ///
-/// Reads `<repo>/.vc-config.toml`'s `[workspace] path`: the work repo
-/// (workspace root) is `"/"`, the bot sub-repo is `"/.claude"`. A
-/// missing / unreadable config (POR, single-repo workspace) is treated
-/// as a work repo.
+/// Thin wrapper over `common::is_bot_dir` — side detection is by
+/// location (the parent's config names this dir as its `bot`), not
+/// config content. A POR / single-repo workspace is a work repo.
 fn is_bot_repo(repo: &Path) -> bool {
-    match toml_simple::toml_load(&repo.join(VC_CONFIG_FILE)) {
-        Ok(cfg) => {
-            toml_simple::toml_get(&cfg, "workspace.path").map(String::as_str) == Some("/.claude")
-        }
-        Err(_) => false,
-    }
+    crate::common::is_bot_dir(repo)
 }
 
 /// Bookmark to sync for `repo`.

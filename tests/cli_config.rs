@@ -77,7 +77,7 @@ fn cli_config_validate_clean() {
     let fx = CliFixture::new("config-validate-clean");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[workspace]\npath = \"/\"\n\n[bot-session]\ncol-width = 40\n",
+        "[workspace]\nwork = \"/\"\n\n[bot-session]\ncol-width = 40\n",
     )
     .expect("write vc-config");
     let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config").args([
@@ -96,7 +96,7 @@ fn cli_config_validate_unknown() {
     let fx = CliFixture::new("config-validate-unknown");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[workspace]\npath = \"/\"\n\n[bot-session]\ncol-widht = 40\n\n[push]\nstate-fil = \"x\"\n",
+        "[workspace]\nwork = \"/\"\n\n[bot-session]\ncol-widht = 40\n\n[push]\nstate-fil = \"x\"\n",
     )
     .expect("write vc-config");
     let out = run_err(fx.cmd().current_dir(&fx.base).arg("config").args([

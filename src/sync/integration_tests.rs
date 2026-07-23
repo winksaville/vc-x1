@@ -50,7 +50,7 @@ fn resolver_chain_against_init_repo_local() {
         Some(&*fx.work)
     );
 
-    // init --repo-local writes other-repo = ".claude", so the
+    // init writes bot = "/.claude", so the
     // workspace's default scope is dual.
     assert_eq!(
         default_scope(Some(&fx.work)),
