@@ -141,14 +141,16 @@ impl Fixture {
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
-                repo: Some(RepoSelector {
+                value: Some(RepoSelector {
                     category: "local".to_string(),
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
             por: PorFlag { value: false },
             provision: ProvisionOptionFlagBundle::default(),
-            use_template: UseTemplateOption { use_template },
+            use_template: UseTemplateOption {
+                value: use_template,
+            },
             config: ConfigOption::default(),
         };
         let ctx = Context::load().expect("load user config for test fixture");
@@ -232,7 +234,7 @@ impl FixturePor {
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
-                repo: Some(RepoSelector {
+                value: Some(RepoSelector {
                     category: "local".to_string(),
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
@@ -240,7 +242,7 @@ impl FixturePor {
             por: PorFlag { value: true },
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption::default(),
-            config: ConfigOption { raw: config },
+            config: ConfigOption { value: config },
         };
         let ctx = Context::load().expect("load user config for POR test fixture");
         let mut params = InitParams::from(&args);

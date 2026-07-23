@@ -19,6 +19,11 @@ pub struct UseTemplateOption {
     ///   own hidden files.
     /// - If a copied tree has a `README.md`, its first line is
     ///   rewritten to `# <repo-name>`.
-    #[arg(long, value_name = "WORK[,BOT]", verbatim_doc_comment)]
-    pub use_template: Option<String>,
+    #[arg(
+        id = "use_template",
+        long = "use-template",
+        value_name = "WORK[,BOT]",
+        verbatim_doc_comment
+    )]
+    pub value: Option<String>,
 }

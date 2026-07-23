@@ -31,10 +31,10 @@ Decisions (2026-07-22): rename all straggler identifiers;
 `-s` gains `work` as canonical; single-field leaves keep the
 struct + `value` shape. Amended 2026-07-23: no `code` alias —
 unreleased, so the scope keyword renames outright.
-   - [[N]] 0.74.0-0 chore: open hygiene riders cycle (done)
-   - [[N]] 0.74.0-1 refactor: hygiene work/bot idents (done)
-   - [[N]] 0.74.0-2 refactor: hygiene work scope keyword (current)
-   - [[N]] 0.74.0-3 refactor: hygiene OF value fields
+   - [[12]] 0.74.0-0 chore: open hygiene riders cycle (done)
+   - [[13]] 0.74.0-1 refactor: hygiene work/bot idents (done)
+   - [[14]] 0.74.0-2 refactor: hygiene work scope keyword (done)
+   - [[N]] 0.74.0-3 refactor: hygiene OF value fields (done)
    - [[N]] 0.74.0 refactor: hygiene riders
 
 ## Todo
@@ -527,3 +527,6 @@ _Migrated to [done.md](notes/done.md) on 2026-07-14 (0.51.0–0.65.2 batch)._
 [9]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
 [10]: /notes/forks-multi-user.md
 [11]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
+[12]: https://github.com/winksaville/vc-x1/commit/1e4cfa5a04b2 "1e4cfa5a04b2961ec5c158b8baeb1aef677c5bdc"
+[13]: https://github.com/winksaville/vc-x1/commit/efb66f992890 "efb66f992890e8f7f6434010b79f97c282b5bdd4"
+[14]: https://github.com/winksaville/vc-x1/commit/143743ec3bb4 "143743ec3bb4b067b7d53ce42e6b8f5c316ab5ec"

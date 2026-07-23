@@ -34,14 +34,19 @@ pub struct ConfigOption {
     /// - `--config none`: skip writing entirely.
     /// - `--config <path>`: copy `<path>` to `.vc-config.toml`
     ///   (bytewise; no schema validation).
-    #[arg(long = "config", value_name = "none|PATH", verbatim_doc_comment)]
-    pub raw: Option<String>,
+    #[arg(
+        id = "config",
+        long = "config",
+        value_name = "none|PATH",
+        verbatim_doc_comment
+    )]
+    pub value: Option<String>,
 }
 
 impl ConfigOption {
-    /// Resolve `raw` against `default`; `None` when flag absent.
+    /// Resolve `value` against `default`; `None` when flag absent.
     pub fn resolve(&self, default: ConfigKind) -> Option<ConfigKind> {
-        self.raw.as_deref().map(|s| parse_config_kind(s, default))
+        self.value.as_deref().map(|s| parse_config_kind(s, default))
     }
 }
 
@@ -105,14 +110,14 @@ mod tests {
 
     #[test]
     fn config_option_resolve_absent() {
-        let flag = ConfigOption { raw: None };
+        let flag = ConfigOption { value: None };
         assert_eq!(flag.resolve(test_default()), None);
     }
 
     #[test]
     fn config_option_resolve_explicit_none() {
         let flag = ConfigOption {
-            raw: Some("none".to_string()),
+            value: Some("none".to_string()),
         };
         assert_eq!(flag.resolve(test_default()), Some(ConfigKind::None));
     }
@@ -120,7 +125,7 @@ mod tests {
     #[test]
     fn config_option_resolve_path() {
         let flag = ConfigOption {
-            raw: Some("/etc/foo.toml".to_string()),
+            value: Some("/etc/foo.toml".to_string()),
         };
         assert_eq!(
             flag.resolve(test_default()),
@@ -132,7 +137,7 @@ mod tests {
     fn config_option_resolve_empty_uses_default() {
         let default = ConfigKind::Path(PathBuf::from("/canned/init-por.toml"));
         let flag = ConfigOption {
-            raw: Some(String::new()),
+            value: Some(String::new()),
         };
         assert_eq!(flag.resolve(default.clone()), Some(default));
     }

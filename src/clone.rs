@@ -23,6 +23,7 @@ use log::info;
 
 use crate::common::run;
 use crate::context::Context;
+use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
@@ -50,9 +51,9 @@ pub struct CloneArgs {
     #[command(flatten)]
     pub por: PorFlag,
 
-    /// Dry run — show what would be done without executing.
-    #[arg(long)]
-    pub dry_run: bool,
+    /// Flatten of the shared [`DryRunFlag`] leaf.
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
 }
 
 /// Inputs to the clone op, flat, owned, clap-free.
@@ -79,7 +80,7 @@ impl From<&CloneArgs> for CloneParams {
             target: a.target.clone(),
             name: a.name.clone(),
             por: a.por.value,
-            dry_run: a.dry_run,
+            dry_run: a.dry_run.value,
         }
     }
 }
@@ -249,7 +250,7 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert!(args.name.is_none());
         assert!(!args.por.value);
-        assert!(!args.dry_run);
+        assert!(!args.dry_run.value);
     }
 
     #[test]
@@ -272,7 +273,7 @@ mod tests {
         assert_eq!(args.target, "owner/repo");
         assert_eq!(args.name.as_deref(), Some("my-dir"));
         assert!(args.por.value);
-        assert!(args.dry_run);
+        assert!(args.dry_run.value);
     }
 
     #[test]

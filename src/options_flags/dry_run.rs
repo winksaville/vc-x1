@@ -8,6 +8,6 @@ use clap::Args;
 #[derive(Args, Debug, Clone, Default)]
 pub struct DryRunFlag {
     /// Dry run — show what would be done without executing.
-    #[arg(long)]
-    pub dry_run: bool,
+    #[arg(id = "dry_run", long = "dry-run")]
+    pub value: bool,
 }

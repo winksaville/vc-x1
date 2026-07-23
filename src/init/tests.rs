@@ -19,14 +19,14 @@ fn defaults() {
     let args = parse(&["vc-x1", "init", "owner/repo"]);
     assert_eq!(args.target, "owner/repo");
     assert!(args.name.is_none());
-    assert!(args.account.account.is_none());
-    assert!(args.repo.repo.is_none());
+    assert!(args.account.value.is_none());
+    assert!(args.repo.value.is_none());
     assert!(!args.por.value);
-    assert!(!args.provision.private.private);
-    assert!(!args.provision.dry_run.dry_run);
+    assert!(!args.provision.private.value);
+    assert!(!args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 5);
     assert_eq!(args.provision.push_retry.push_retry_delay, 3);
-    assert!(args.use_template.use_template.is_none());
+    assert!(args.use_template.value.is_none());
 }
 
 #[test]
@@ -52,16 +52,16 @@ fn all_opts() {
     ]);
     assert_eq!(args.target, "owner/repo");
     assert_eq!(args.name.as_deref(), Some("my-dir"));
-    assert_eq!(args.account.account.as_deref(), Some("work"));
-    let sel = args.repo.repo.as_ref().expect("--repo set");
+    assert_eq!(args.account.value.as_deref(), Some("work"));
+    let sel = args.repo.value.as_ref().expect("--repo set");
     assert_eq!(sel.category, "local");
     assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
     assert!(args.por.value);
-    assert!(args.provision.private.private);
-    assert!(args.provision.dry_run.dry_run);
+    assert!(args.provision.private.value);
+    assert!(args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 10);
     assert_eq!(args.provision.push_retry.push_retry_delay, 5);
-    assert_eq!(args.use_template.use_template.as_deref(), Some("/tmp/tmpl"));
+    assert_eq!(args.use_template.value.as_deref(), Some("/tmp/tmpl"));
 }
 
 #[test]
@@ -386,13 +386,13 @@ fn name_positional_accepted() {
 #[test]
 fn account_flag_parses() {
     let args = parse(&["vc-x1", "init", "tf1", "--account", "work"]);
-    assert_eq!(args.account.account.as_deref(), Some("work"));
+    assert_eq!(args.account.value.as_deref(), Some("work"));
 }
 
 #[test]
 fn repo_cat_only_parses() {
     let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote"]);
-    let sel = args.repo.repo.expect("--repo set");
+    let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert!(sel.value.is_none());
 }
@@ -400,7 +400,7 @@ fn repo_cat_only_parses() {
 #[test]
 fn repo_cat_value_parses() {
     let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote=git@github.com:u"]);
-    let sel = args.repo.repo.expect("--repo set");
+    let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert_eq!(sel.value.as_deref(), Some("git@github.com:u"));
 }
@@ -505,7 +505,7 @@ fn args_for(target: &str) -> InitArgs {
         repo: RepoOption::default(),
         por: PorFlag::default(),
         provision: ProvisionOptionFlagBundle {
-            dry_run: DryRunFlag { dry_run: true },
+            dry_run: DryRunFlag { value: true },
             ..Default::default()
         },
         use_template: UseTemplateOption::default(),
@@ -665,7 +665,7 @@ fn plan_owner_name_eq_ssh_url_form() {
 #[test]
 fn plan_path_absolute_with_repo_local() {
     let mut args = args_for("/tmp/xyz/tf1");
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
@@ -688,7 +688,7 @@ fn plan_path_absolute_with_repo_local() {
 #[test]
 fn plan_path_relative_with_repo_local() {
     let mut args = args_for("./tf1");
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
@@ -735,7 +735,7 @@ fn plan_bare_name_uses_top_level_repo_local() {
 #[test]
 fn plan_bare_name_account_override_picks_work() {
     let mut args = args_for("tf1");
-    args.account.account = Some("work".into());
+    args.account.value = Some("work".into());
     let plan = plan_init(&InitParams::from(&args), &cfg_two_accounts()).unwrap();
     assert_eq!(plan.work_url, "git@github.com:anthropic/tf1.git");
     assert_eq!(plan.gh_work_slug.as_deref(), Some("anthropic/tf1"));
@@ -746,7 +746,7 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
     // --repo cat=val short-circuits resolve_repo; works even
     // with an empty config.
     let mut args = args_for("tf1");
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/explicit".into()),
     });
@@ -764,7 +764,7 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
 fn plan_por_path_local_single_bare() {
     let mut args = args_for("/tmp/xyz/tf1");
     args.por.value = true;
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
@@ -807,7 +807,7 @@ fn plan_default_scope_is_work_bot() {
 #[test]
 fn error_url_target_with_account() {
     let mut args = args_for("git@github.com:u/p");
-    args.account.account = Some("work".into());
+    args.account.value = Some("work".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
@@ -817,7 +817,7 @@ fn error_url_target_with_account() {
 #[test]
 fn error_url_target_with_repo() {
     let mut args = args_for("git@github.com:u/p");
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "remote".into(),
         value: Some("git@github.com:other".into()),
     });
@@ -831,7 +831,7 @@ fn error_url_target_with_repo() {
 fn error_path_target_with_name() {
     let mut args = args_for("./tf1");
     args.name = Some("custom".into());
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
@@ -846,7 +846,7 @@ fn error_path_target_with_name() {
 fn error_bare_name_target_with_name() {
     let mut args = args_for("tf1");
     args.name = Some("custom".into());
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
     });
@@ -871,7 +871,7 @@ fn error_bare_name_no_config() {
 #[test]
 fn error_unknown_category() {
     let mut args = args_for("tf1");
-    args.repo.repo = Some(RepoSelector {
+    args.repo.value = Some(RepoSelector {
         category: "weird".into(),
         value: Some("xyz".into()),
     });
@@ -887,7 +887,7 @@ fn error_por_with_comma_template() {
     // half has no home in a single-repo workspace.
     let mut args = args_for("git@github.com:u/p");
     args.por.value = true;
-    args.use_template.use_template = Some("/tmp/work,/tmp/bot".into());
+    args.use_template.value = Some("/tmp/work,/tmp/bot".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
@@ -1031,7 +1031,7 @@ fn por_config_path_copies_user_file() {
 fn config_rejected_without_por() {
     let mut args = args_for("./foo");
     args.por.value = false;
-    args.config.raw = Some("none".to_string());
+    args.config.value = Some("none".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
@@ -1050,7 +1050,7 @@ fn config_rejected_without_por() {
 fn config_path_missing_rejected_at_preflight() {
     let mut args = args_for("./foo");
     args.por.value = true;
-    args.config.raw = Some("/nonexistent/path/to/config.toml".to_string());
+    args.config.value = Some("/nonexistent/path/to/config.toml".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
@@ -1065,7 +1065,7 @@ fn config_path_missing_rejected_at_preflight() {
 fn config_none_passes_preflight() {
     let mut args = args_for("git@github.com:foo/bar.git");
     args.por.value = true;
-    args.config.raw = Some("none".to_string());
+    args.config.value = Some("none".to_string());
     plan_init(&InitParams::from(&args), &cfg_empty())
         .expect("--config none with --scope=por should pass preflight");
 }

@@ -151,7 +151,7 @@ restore shared-doc-set byte-identity.
 
 ## docs: notes rework + config refresh
 
-Commits:
+Commits: [[11]]
 
 Alignment batch riding the template-side session: vc-x1
 adopts what the working pair (vc-x1 + the template) decided.
@@ -207,7 +207,7 @@ refactor program. Decisions at cycle open (2026-07-22):
 
 ### As-built ladder
 
-- [[N]] 0.74.0-0 chore: open hygiene riders cycle
+- [[8]] 0.74.0-0 chore: open hygiene riders cycle
   - version 0.74.0-0; hygiene riders picked into
     `## In Progress` with the four-rung ladder; this
     section opened
@@ -217,7 +217,7 @@ refactor program. Decisions at cycle open (2026-07-22):
   - rider: repo-local `tmp/` scratch area — gitignored,
     convention in AGENTS.md; jj ignoring it is what parks
     the trapezoidal-commits draft note outside this commit
-- [[N]] 0.74.0-1 refactor: hygiene work/bot idents
+- [[9]] 0.74.0-1 refactor: hygiene work/bot idents
   - work/bot terminology sweep across `src/`: the three
     stragglers-plus-synonym families — `code_*` → `work_*`,
     `claude_*` / `session_*` → `bot_*` — covering
@@ -238,7 +238,7 @@ refactor program. Decisions at cycle open (2026-07-22):
   - decision applied: full sweep of all three families (the
     stage named four identifiers; the actual old-terminology
     surface was ~380 sites)
-- [[N]] 0.74.0-2 refactor: hygiene work scope keyword
+- [[10]] 0.74.0-2 refactor: hygiene work scope keyword
   - the `-s`/`--scope` keyword `code` → `work`: `parse_scope`
     now accepts `work`, `bot`, `work,bot`, `bot,work`; `code`
     errors (a test pins the rejection)
@@ -254,6 +254,31 @@ refactor program. Decisions at cycle open (2026-07-22):
     so the keyword renames outright rather than carrying
     compatibility baggage (recorded here, in the ladder
     block, and in the stage section of the refactor doc)
+- [[N]] 0.74.0-3 refactor: hygiene OF value fields
+  - the six single-field `options_flags` leaves adopt the
+    `value` field shape (the 0.47.0 `squash` convention):
+    `DryRunFlag.dry_run`, `PrivateFlag.private`,
+    `AccountOption.account`, `ConfigOption.raw`,
+    `RepoOption.repo`, `UseTemplateOption.use_template` →
+    `.value`; consumers swept (init params/tests,
+    test_helpers fixtures)
+  - clone.rs's inline `dry_run: bool` (the observed drifted
+    duplicate of the leaf) folds onto `DryRunFlag` via
+    `#[command(flatten)]`, matching its `por` sibling
+  - wrinkle: clap derives each arg's id from the Rust field
+    name, so six `value` fields flattened into one command
+    (`InitArgs`) collide at runtime ("Argument names must be
+    unique"). Each leaf now pins `id = "<flag-name>"` (and an
+    explicit `long`), decoupling the CLI surface from the
+    field name. The `squash`/`por` exemplars never surfaced
+    this — they don't coexist with another `value` leaf in
+    one command.
+  - rider: ladder-ref backfill — chores-14 `[6]`/`[7]`
+    re-pointed at the published post-rebase SHAs (the
+    trapezoid close-out rewrote them; the old SHAs are
+    branch-unreachable), notes-rework `Commits:` filled
+    ([[11]]), the `-0`/`-1`/`-2` As-built and TODO.md ladder
+    rungs backfilled
 
 # References
 
@@ -262,5 +287,9 @@ refactor program. Decisions at cycle open (2026-07-22):
 [3]: https://github.com/winksaville/vc-x1/commit/5a61ebdcbac8 "5a61ebdcbac872eac03d6b70141030217be1f850"
 [4]: https://github.com/winksaville/vc-x1/commit/c3a6d258f511 "c3a6d258f511ae4a3a6f0b6e42aba80d5005d4e8"
 [5]: https://github.com/winksaville/vc-x1/commit/303d163196ab "303d163196ab4c387428e4bec0fc65430ead4206"
-[6]: https://github.com/winksaville/vc-x1/commit/6c93a011a54d "6c93a011a54dd990035733e49f0bfa169ebad609"
-[7]: https://github.com/winksaville/vc-x1/commit/007cc5d5a030 "007cc5d5a030a2a0673ed5ef7b425c98dce40a74"
+[6]: https://github.com/winksaville/vc-x1/commit/b5e40e7458b8 "b5e40e7458b8506574b2ae01f52f7ccae9023418"
+[7]: https://github.com/winksaville/vc-x1/commit/e5d1aae2985a "e5d1aae2985af8408f20fbd63bef7f172ec2dc59"
+[8]: https://github.com/winksaville/vc-x1/commit/1e4cfa5a04b2 "1e4cfa5a04b2961ec5c158b8baeb1aef677c5bdc"
+[9]: https://github.com/winksaville/vc-x1/commit/efb66f992890 "efb66f992890e8f7f6434010b79f97c282b5bdd4"
+[10]: https://github.com/winksaville/vc-x1/commit/143743ec3bb4 "143743ec3bb4b067b7d53ce42e6b8f5c316ab5ec"
+[11]: https://github.com/winksaville/vc-x1/commit/f2a042452176 "f2a0424521765c72151c5d663e35b69d8b21fef7"
