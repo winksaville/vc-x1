@@ -340,6 +340,43 @@ fn default_scope_por_returns_work() {
     assert_eq!(default_scope(None), Scope(vec![Side::Work]));
 }
 
+/// `bot_repo_path`: dual workspace → `Some(root/other-repo)`.
+#[test]
+fn bot_repo_path_dual() {
+    let base = ws_tempdir("botpath-dual");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+    )
+    .unwrap();
+    assert_eq!(bot_repo_path(&root).unwrap(), Some(root.join(".claude")));
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `bot_repo_path`: single-repo workspace (no `other-repo`) →
+/// `None` — the caller's no-op case, not an error.
+#[test]
+fn bot_repo_path_single_repo_workspace() {
+    let base = ws_tempdir("botpath-single");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\npath = \"/\"\n").unwrap();
+    assert_eq!(bot_repo_path(&root).unwrap(), None);
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `bot_repo_path`: no `.vc-config.toml` at all (POR) → `None`.
+#[test]
+fn bot_repo_path_no_config() {
+    let base = ws_tempdir("botpath-por");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    assert_eq!(bot_repo_path(&root).unwrap(), None);
+    std::fs::remove_dir_all(&base).ok();
+}
+
 /// `scope_to_repos`: dual workspace resolves to root + root/other-repo.
 #[test]
 fn scope_to_repos_dual() {

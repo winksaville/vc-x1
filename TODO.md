@@ -34,7 +34,7 @@ detection by location via `find_workspace_root` (root → work,
 signal; `.bot` is the new-init default only — existing
 workspaces keep their recorded dir, no migration.
    - [[N]] 0.75.0-0 chore: open facade owns topology cycle (done)
-   - [[N]] 0.75.0-1 refactor: topology por equalization
+   - [[N]] 0.75.0-1 refactor: topology por equalization (done)
    - [[N]] 0.75.0-2 feat: topology work/bot config schema
    - [[N]] 0.75.0-3 refactor: topology bot-dir sweep
    - [[N]] 0.75.0 refactor: facade owns topology

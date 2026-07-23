@@ -342,6 +342,21 @@ the refactor program. Decisions at cycle open (2026-07-23):
     references re-packed to `[1]..[5]`
   - rider: the DRY facade and hygiene stages' shipped-status
     links verified in the refactor doc (added at 0.74.0)
+- [[N]] 0.75.0-1 refactor: topology por equalization
+  - `validate-desc` / `fix-desc` lose their dual-required
+    `other_repo_from_config` prelude: a single-repo / POR
+    workspace now no-ops with a clear message instead of
+    erroring; a dual workspace resolves as before, and
+    `--other-repo` still overrides
+  - the replacement is `common::bot_repo_path(root)` —
+    `default_scope` gates (has the workspace a bot side?),
+    `scope_to_repos` resolves; `Ok(None)` is the no-op
+    signal. This is the prototype of the
+    topology-from-config rule the rest of the stage extends.
+  - `desc_helpers::other_repo_from_config` deleted — the
+    helper's last two callers were these preludes
+  - tests: three `bot_repo_path` units (dual / single-repo /
+    no-config) + a `FixturePor` no-op end-to-end per command
 
 # References
 

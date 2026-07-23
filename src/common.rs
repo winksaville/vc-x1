@@ -733,6 +733,30 @@ pub fn scope_to_repos(
     Ok(repos)
 }
 
+/// Resolve the workspace's bot-repo path, or `None` when it has no
+/// bot side.
+///
+/// The scope-aware prelude for commands that *optionally* work
+/// against the bot repo (validate-desc / fix-desc): topology comes
+/// from `default_scope` (the workspace config), not a flag —
+/// `Ok(None)` means a POR / single-repo workspace, the caller's
+/// no-op case, while a configured-but-broken bot side still errors
+/// via `scope_to_repos`.
+pub fn bot_repo_path(workspace_root: &Path) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+    if !default_scope(Some(workspace_root)).has_bot() {
+        return Ok(None);
+    }
+    let repos = scope_to_repos(&Scope(vec![Side::Bot]), Some(workspace_root))?;
+    match repos.as_slice() {
+        [bot] => Ok(Some(bot.clone())),
+        other => Err(format!(
+            "bot_repo_path: expected one repo from scope_to_repos, got {}",
+            other.len()
+        )
+        .into()),
+    }
+}
+
 /// Resolve `CommonArgs.repo` + `CommonArgs.scope` into concrete repo paths.
 ///
 /// The four `CommonArgs` consumers (`chid` / `desc` / `list` / `show`)

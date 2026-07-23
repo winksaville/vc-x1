@@ -17,7 +17,7 @@ use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, VC_CONFIG_FILE, extract_bare_id, find_matching_commit,
-    ochid_prefix_from_config, other_repo_from_config, validate_ochid,
+    ochid_prefix_from_config, validate_ochid,
 };
 use crate::subcommand::SubcommandRunner;
 use crate::toml_simple;
@@ -125,12 +125,20 @@ pub fn validate_desc(
     debug!("validate-desc: enter");
     let (workspace, repo) = common::load_repo(&params.repo)?;
 
-    // Resolve other repo: --other-repo flag, or fall back to .vc-config.toml
-    let other_repo_path = if let Some(ref p) = params.other_repo {
-        p.clone()
-    } else {
-        let config = toml_simple::toml_load(&params.repo.join(VC_CONFIG_FILE))?;
-        params.repo.join(other_repo_from_config(&config)?)
+    // Resolve other repo: --other-repo flag, or scope-aware
+    // resolution from the workspace config. A single-repo / POR
+    // workspace has no bot side — nothing to validate against, so
+    // the command no-ops instead of erroring (por equalization;
+    // topology from `default_scope`, not a flag).
+    let other_repo_path = match &params.other_repo {
+        Some(p) => p.clone(),
+        None => match common::bot_repo_path(&params.repo)? {
+            Some(p) => p,
+            None => {
+                info!("validate-desc: single-repo workspace (no bot side) — nothing to validate");
+                return Ok(());
+            }
+        },
     };
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
@@ -266,5 +274,29 @@ pub fn validate_desc(
     } else {
         debug!("validate-desc: exit");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::FixturePor;
+
+    /// A POR workspace has no bot side: validate-desc no-ops with
+    /// `Ok(())` instead of erroring (por equalization).
+    #[test]
+    fn por_workspace_noops() {
+        let fx = FixturePor::new("vdesc-por-noop");
+        let ctx = Context::load().expect("load user config");
+        let params = ValidateDescParams {
+            pos_rev: None,
+            pos_count: None,
+            revision: "@".to_string(),
+            limit: None,
+            repo: fx.work.clone(),
+            other_repo: None,
+            id_len: DEFAULT_ID_LEN,
+        };
+        validate_desc(&ctx, &params).expect("por workspace should no-op, not error");
     }
 }
