@@ -317,8 +317,8 @@ pub(crate) enum Commands {
 ///
 /// Walks up from cwd to locate the workspace root (the directory
 /// whose `.vc-config.toml` has a `work` key), then probes `<root>`
-/// and `<root>/.claude`. Same labeling whether the user runs from
-/// the work root, from `.claude`, or from any subdir.
+/// and the config-resolved bot dir. Same labeling whether the user
+/// runs from the work root, from the bot dir, or from any subdir.
 pub fn bm_track(phase: &str, command_name: &str) {
     let header = format!("bm-track {phase} vc-x1 {command_name}");
     let root = match common::find_workspace_root() {
@@ -328,8 +328,16 @@ pub fn bm_track(phase: &str, command_name: &str) {
             return;
         }
     };
-    let repos: [(std::path::PathBuf, &str); 2] =
-        [(root.clone(), "work"), (root.join(".claude"), ".claude")];
+    // Diagnostics only — an unresolvable / single-repo workspace
+    // just probes the work side.
+    let mut repos: Vec<(std::path::PathBuf, String)> = vec![(root.clone(), "work".to_string())];
+    if let Ok(Some(bot)) = common::bot_repo_path(&root) {
+        let label = bot
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "bot".to_string());
+        repos.push((bot, label));
+    }
     let mut parts: Vec<String> = Vec::new();
     for (repo, label) in repos {
         if !repo.join(".jj").exists() {

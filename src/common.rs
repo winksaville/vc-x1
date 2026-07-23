@@ -734,6 +734,54 @@ pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>
         )
         .into());
     }
+    check_workspace_grammar(dir, &cfg)
+}
+
+/// Enforce the `[workspace]` path grammar (pinned 2026-07-23).
+///
+/// Values are ochid path syntax — a leading `/` is the workspace
+/// root, never filesystem-absolute:
+///
+/// - `work` must be exactly `"/"` (the root *is* the work repo;
+///   any other value would be silently ignored by every reader).
+/// - `bot` must be `/` + one path component, no trailing slash
+///   (side detection and the root walk assume the bot repo sits
+///   directly under the root; the value doubles as the bot-side
+///   ochid prefix, so an unanchored value corrupts trailers).
+///
+/// Called from [`reject_legacy_config`] so every resolver enforces
+/// the grammar at the same chokepoints; errors loudly, changing
+/// nothing.
+fn check_workspace_grammar(
+    dir: &Path,
+    cfg: &HashMap<String, String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(work) = toml_simple::toml_get(cfg, "workspace.work")
+        && work != "/"
+    {
+        return Err(format!(
+            "{}/.vc-config.toml: workspace.work is '{work}' but must be exactly \"/\" \
+             — the workspace root is the work repo by definition; nothing was changed",
+            dir.display()
+        )
+        .into());
+    }
+    if let Some(bot) = toml_simple::toml_get(cfg, "workspace.bot")
+        && !bot.is_empty()
+    {
+        let anchored = bot.strip_prefix('/');
+        let valid = matches!(anchored, Some(rest) if !rest.is_empty() && !rest.contains('/'));
+        if !valid {
+            return Err(format!(
+                "{}/.vc-config.toml: workspace.bot is '{bot}' but must be \"/\" plus one \
+                 path component, no trailing slash (e.g. \"/.claude\") — the bot repo \
+                 sits directly under the workspace root and the value doubles as the \
+                 bot-side ochid prefix; nothing was changed",
+                dir.display()
+            )
+            .into());
+        }
+    }
     Ok(())
 }
 
@@ -817,6 +865,25 @@ pub fn scope_to_repos(
 /// no-op case, while a configured-but-broken bot side still errors
 /// via `scope_to_repos`.
 pub fn bot_repo_path(workspace_root: &Path) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+    match configured_bot_dir(workspace_root)? {
+        Some(bot) => {
+            verify_workspace_coherence(workspace_root, &bot)?;
+            Ok(Some(bot))
+        }
+        None => Ok(None),
+    }
+}
+
+/// The bot dir the workspace config *declares* — a pure config
+/// read, no on-disk verification.
+///
+/// The pre-coherence half of [`bot_repo_path`], for callers that
+/// resolve the dir before it exists (clone names the local clone
+/// destination from the just-cloned work repo's config). `Ok(None)`
+/// when the workspace declares no bot side.
+pub fn configured_bot_dir(
+    workspace_root: &Path,
+) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
     reject_legacy_config(workspace_root)?;
     if !default_scope(Some(workspace_root)).has_bot() {
         return Ok(None);
@@ -825,11 +892,85 @@ pub fn bot_repo_path(workspace_root: &Path) -> Result<Option<PathBuf>, Box<dyn s
     match repos.as_slice() {
         [bot] => Ok(Some(bot.clone())),
         other => Err(format!(
-            "bot_repo_path: expected one repo from scope_to_repos, got {}",
+            "configured_bot_dir: expected one repo from scope_to_repos, got {}",
             other.len()
         )
         .into()),
     }
+}
+
+/// Resolve the bot repo of a workspace that *requires* one.
+///
+/// The dual-only sibling of [`bot_repo_path`] for operations that
+/// make no sense without a bot side (push): `None` becomes a loud
+/// error instead of a no-op signal.
+pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    bot_repo_path(workspace_root)?.ok_or_else(|| {
+        format!(
+            "{}/.vc-config.toml declares no bot repo (`[workspace] bot`) — \
+             this operation requires a dual workspace",
+            workspace_root.display()
+        )
+        .into()
+    })
+}
+
+/// Dual-mode entry preflight: verify the two repos' recorded
+/// topology agrees before any operation acts on it.
+///
+/// Checks, in order, erroring with everything known and changing
+/// nothing (the dual-preflight principle, 2026-07-23):
+///
+/// - the bot dir exists (and is a directory);
+/// - its `.vc-config.toml` loads;
+/// - the two sides' `[workspace]` blocks are identical (every
+///   `workspace.*` key compared; the schema promises the block is
+///   the same file content on both sides).
+///
+/// Mid-flight surprises stay per-operation concerns; this gates
+/// *entry* at the one topology resolver.
+fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if !bot.is_dir() {
+        return Err(format!(
+            "workspace incoherent: {}/.vc-config.toml declares bot repo '{}', \
+             but that directory does not exist — fix the `bot` value or \
+             restore the directory; nothing was changed",
+            root.display(),
+            bot.display()
+        )
+        .into());
+    }
+    let root_cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
+    let bot_cfg = toml_simple::toml_load(&bot.join(VC_CONFIG_FILE)).map_err(|e| {
+        format!(
+            "workspace incoherent: bot repo '{}' has no readable {VC_CONFIG_FILE} \
+             ({e}) — the [workspace] block must be identical on both sides; \
+             nothing was changed",
+            bot.display()
+        )
+    })?;
+    let ws_keys = |m: &HashMap<String, String>| -> Vec<(String, String)> {
+        let mut v: Vec<_> = m
+            .iter()
+            .filter(|(k, _)| k.starts_with("workspace."))
+            .map(|(k, val)| (k.clone(), val.clone()))
+            .collect();
+        v.sort();
+        v
+    };
+    let (root_ws, bot_ws) = (ws_keys(&root_cfg), ws_keys(&bot_cfg));
+    if root_ws != bot_ws {
+        return Err(format!(
+            "workspace incoherent: the [workspace] blocks differ — they must be \
+             identical on both sides; nothing was changed\n\
+             {}/{VC_CONFIG_FILE}: {root_ws:?}\n\
+             {}/{VC_CONFIG_FILE}: {bot_ws:?}",
+            root.display(),
+            bot.display()
+        )
+        .into());
+    }
+    Ok(())
 }
 
 /// Resolve `CommonArgs.repo` + `CommonArgs.scope` into concrete repo paths.

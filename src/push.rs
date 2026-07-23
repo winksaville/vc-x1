@@ -677,11 +677,13 @@ pub(crate) fn push_in(
     run_from(workspace_root, &mut state, params, &layout)
 }
 
-/// Full path of the `.claude` bot repo for a given workspace
-/// root. Centralized so a future layout change (e.g. configurable
-/// bot-repo name) has one caller to update.
-fn bot_path(workspace_root: &Path) -> PathBuf {
-    workspace_root.join(".claude")
+/// Full path of the bot repo for a given workspace root, resolved
+/// from `.vc-config.toml`'s `[workspace] bot` (push requires a dual
+/// workspace). Also the dual-mode entry preflight: resolution
+/// verifies both repos' recorded topology agrees and errors loudly
+/// — with everything known, changing nothing — when it doesn't.
+fn bot_path(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    crate::common::require_bot_dir(workspace_root)
 }
 
 /// Print the resumed stage (or "no saved state") and return.
@@ -738,7 +740,7 @@ fn run_from(
         // in dry-run since we won't mutate anything to roll back.
         if stage == Stage::CommitWork && state.op_work.is_none() && !params.dry_run {
             state.op_work = Some(current_op_id(root)?);
-            state.op_bot = Some(current_op_id(&bot_path(root))?);
+            state.op_bot = Some(current_op_id(&bot_path(root)?)?);
             state.save(&layout.path)?;
         }
 
@@ -858,9 +860,14 @@ pub(crate) fn rollback_on_failure(
         }
     }
     if let Some(op) = &state.op_bot {
-        match op_restore(&bot_path(root), op) {
-            Ok(()) => info!("push: restored .claude to op {op}"),
-            Err(e) => warn!("push: .claude restore failed: {e}"),
+        // Rollback is best-effort inside an error path — a failed
+        // bot-dir resolution is reported, not propagated.
+        match bot_path(root) {
+            Ok(bot) => match op_restore(&bot, op) {
+                Ok(()) => info!("push: restored bot repo to op {op}"),
+                Err(e) => warn!("push: bot repo restore failed: {e}"),
+            },
+            Err(e) => warn!("push: bot repo restore skipped (unresolvable): {e}"),
         }
     }
 }
@@ -922,12 +929,12 @@ fn stage_preflight(
     }
     info!("push preflight: verify bookmark tracking");
     crate::common::verify_tracking(root, &state.bookmark)?;
-    crate::common::verify_tracking(&bot_path(root), BOT_BOOKMARK)?;
+    crate::common::verify_tracking(&bot_path(root)?, BOT_BOOKMARK)?;
     // Bot-repo published backstop (0.69.0-3): at rest `.claude
     // main` matches `main@origin`; a mismatch means an earlier
     // publish was lost. Errors — no automatic fixing.
     info!("push preflight: verify bot repo published ({BOT_BOOKMARK} == {BOT_BOOKMARK}@origin)");
-    crate::common::verify_bot_published(&bot_path(root), BOT_BOOKMARK)?;
+    crate::common::verify_bot_published(&bot_path(root)?, BOT_BOOKMARK)?;
     // Re-invoke this binary by its own path rather than a
     // hard-coded name on PATH — keeps the shell-out correct across
     // any crate rename (e.g. the 0.69.0 `vc-x1-dev` window).
@@ -947,7 +954,7 @@ fn stage_preflight(
 /// the diff is still shown (that's the point of dry-run — see
 /// what *would* be reviewed) but approval is auto-granted.
 fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
-    let bot = bot_path(root);
+    let bot = bot_path(root)?;
     let work_arg = root.to_string_lossy();
     let bot_arg = bot.to_string_lossy();
     info!("push review: pending changes:");
@@ -1033,7 +1040,7 @@ fn stage_message(
     state.title = Some(title.clone());
     state.body = Some(body.clone());
 
-    let bot = bot_path(root);
+    let bot = bot_path(root)?;
     let work_chid = jj::chid_of(root, "@")?;
     let bot_empty = jj::is_empty(&bot, "@")?;
     let bot_had_changes = !bot_empty;
@@ -1132,7 +1139,8 @@ fn stage_commit_work(
         .bot_chid
         .as_deref()
         .ok_or("push commit-work: bot_chid not set (message stage didn't run)")?;
-    let body_with_trailer = format!("{body}\n\nochid: /.claude/{bot_chid}");
+    let bot_prefix = crate::desc_helpers::ochid_prefix_for(&bot_path(root)?)?;
+    let body_with_trailer = format!("{body}\n\nochid: {bot_prefix}{bot_chid}");
     let work_arg = root.to_string_lossy();
     if params.dry_run {
         info!(
@@ -1196,7 +1204,7 @@ fn stage_commit_bot(
         .as_deref()
         .ok_or("push commit-bot: work_chid not set (message stage didn't run)")?;
     let body_with_trailer = format!("{body}\n\nochid: /{work_chid}");
-    let bot = bot_path(root);
+    let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
@@ -1232,7 +1240,7 @@ fn stage_bookmark_set(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bk = &state.bookmark;
     let work_arg = root.to_string_lossy();
-    let bot = bot_path(root);
+    let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
@@ -1300,7 +1308,7 @@ fn stage_squash_push_bot(
         return Ok(());
     }
     let bk = BOT_BOOKMARK;
-    let bot = bot_path(root);
+    let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
@@ -1380,7 +1388,7 @@ fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std
 
     // 3. bot_chid still resolves.
     if let Some(bot_chid) = &state.bot_chid
-        && !jj::rev_exists(&bot_path(root), bot_chid).unwrap_or(false)
+        && !jj::rev_exists(&bot_path(root)?, bot_chid).unwrap_or(false)
     {
         // OK: any failure → the stale-state remediation message
         return Err(format!(
@@ -1452,7 +1460,7 @@ fn verify_completion_sanity(
 
     // 3. .claude's pinned bookmark (main) at state.bot_chid.
     if let Some(bot_chid) = &state.bot_chid {
-        let actual = jj::chid_of(&bot_path(root), BOT_BOOKMARK)?;
+        let actual = jj::chid_of(&bot_path(root)?, BOT_BOOKMARK)?;
         if actual != *bot_chid {
             return Err(format!(
                 "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \

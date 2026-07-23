@@ -255,6 +255,9 @@ refactor program. Decisions at cycle open (2026-07-22):
     compatibility baggage (recorded here, in the ladder
     block, and in the stage section of the refactor doc)
 - [[12]] 0.74.0-3 refactor: hygiene OF value fields
+  - "OF" is `options_flags` — the `src/options_flags/` leaf
+    structs (the title is immutable in the pushed commit;
+    this gloss is the decoder)
   - the six single-field `options_flags` leaves adopt the
     `value` field shape (the 0.47.0 `squash` convention):
     `DryRunFlag.dry_run`, `PrivateFlag.private`,
@@ -397,6 +400,43 @@ the refactor program. Decisions at cycle open (2026-07-23):
     commit. Recorded as Bugs #5 (resume-after-rollback
     replays from the wrong stage); no data loss, and the
     strongest evidence yet for the stateless-push stage
+- [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+  - every reader of the bot-repo location now resolves it
+    from `[workspace] bot`; `.claude` as a *choice* survives
+    only in init's `DEFAULT_BOT_DIR` (plus the `Dual` render
+    / `GITIGNORE_CODE` literals its doc comment binds to it)
+    and the remote-name suffix, which belongs to the
+    deferred `.bot`-flip decision set
+  - swept: push's `bot_path` (now `require_bot_dir`) and its
+    commit-work ochid prefix (via `ochid_prefix_for`),
+    `repo_utils::cross_ref_ochids` (prefix from the created
+    dir's name), `bm_track`'s probe + label, clone's local
+    destination (from the *cloned* work repo's config),
+    `validate-bot`'s `-R` default, `symlink`'s default
+    target (both fall back to `.claude` when unresolvable)
+  - dual-mode entry preflight (the 2026-07-23 principle):
+    `bot_repo_path` verifies coherence before anything acts —
+    bot dir exists, its config loads, and the two sides'
+    `[workspace]` blocks are identical — erroring with both
+    paths and both blocks, changing nothing.
+    `configured_bot_dir` is the pure-config-read half for
+    pre-existence callers (clone)
+  - field report, same day: a `vc-x1 push` in another
+    workspace (you.h2hist) hit the legacy-config error from
+    `-2`; the bot there applied the fix printed in the
+    message and the push went through — the
+    error-fast-with-the-solution loop working as designed
+  - path grammar pinned *and enforced* (pulled forward from
+    the `-4` plan during review — no downside):
+    `check_workspace_grammar` at the same resolver
+    chokepoints rejects `work` ≠ `"/"` (a name tag every
+    reader ignores — the last silent-lie case) and a `bot`
+    that isn't `/` + one component (an unanchored value
+    corrupts ochid trailers)
+  - stage-doc prose riders: the grammar definition, the
+    dual-preflight principle, and the bisect-skew note
+    (the two repos rewind independently; old binaries fail
+    loudly-but-cryptically against the new bot-side config)
 
 # References
 

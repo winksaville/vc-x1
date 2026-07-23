@@ -32,9 +32,9 @@ const BOT_BOOKMARK: &str = "main";
 /// with `vc-x1 squash-push -R <bot-repo>`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
-    /// Path to the bot repo
-    #[arg(short = 'R', long, default_value = ".claude")]
-    pub repo: PathBuf,
+    /// Path to the bot repo [default: from workspace.bot, else .claude]
+    #[arg(short = 'R', long)]
+    pub repo: Option<PathBuf>,
 }
 
 /// Per-invocation validate-bot inputs — the clap-free shape the op
@@ -47,10 +47,18 @@ pub struct ValidateBotParams {
 impl TryFrom<&ValidateBotArgs> for ValidateBotParams {
     type Error = String;
 
-    /// Canonicalize `--repo` (early, visible failure on a bad path).
+    /// Resolve `-R` (default: the workspace config's bot dir, else
+    /// `.claude`) and canonicalize it (early, visible failure on a
+    /// bad path).
     fn try_from(a: &ValidateBotArgs) -> Result<Self, String> {
-        let repo = std::fs::canonicalize(&a.repo)
-            .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
+        let raw = match &a.repo {
+            Some(p) => p.clone(),
+            None => crate::common::find_workspace_root()
+                .and_then(|root| crate::common::configured_bot_dir(&root).ok().flatten())
+                .unwrap_or_else(|| PathBuf::from(".claude")),
+        };
+        let repo = std::fs::canonicalize(&raw)
+            .map_err(|e| format!("cannot resolve repo path '{}': {e}", raw.display()))?;
         Ok(ValidateBotParams { repo })
     }
 }
@@ -109,14 +117,16 @@ mod tests {
 
     #[test]
     fn no_args_defaults() {
+        // `-R` absent parses to None; the default resolves at
+        // params time (workspace config's bot dir, else .claude).
         let args = parse(&["vc-x1", "validate-bot"]);
-        assert_eq!(args.repo, PathBuf::from(".claude"));
+        assert_eq!(args.repo, None);
     }
 
     #[test]
     fn long_repo_flag() {
         let args = parse(&["vc-x1", "validate-bot", "--repo", "some/dir"]);
-        assert_eq!(args.repo, PathBuf::from("some/dir"));
+        assert_eq!(args.repo, Some(PathBuf::from("some/dir")));
     }
 
     #[test]
@@ -130,7 +140,7 @@ mod tests {
     #[test]
     fn try_from_bad_path_errors() {
         let args = ValidateBotArgs {
-            repo: PathBuf::from("/nonexistent/vc-x1-validate-bot"),
+            repo: Some(PathBuf::from("/nonexistent/vc-x1-validate-bot")),
         };
         let err = ValidateBotParams::try_from(&args).unwrap_err();
         assert!(err.contains("cannot resolve repo path"), "got: {err}");

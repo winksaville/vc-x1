@@ -42,9 +42,19 @@ identical-`[workspace]`-block invariant, `--home` retires,
 user-home file reachable only via explicit `<path>`.
    - [[N]] 0.75.0-0 chore: open facade owns topology cycle (done)
    - [[N]] 0.75.0-1 refactor: topology por equalization (done)
+     — [details](notes/refactor-20260716.md#stage-facade-owns-topology)
    - [[N]] 0.75.0-2 feat: topology work/bot config schema (done)
-   - [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+     — [details](notes/refactor-20260716.md#stage-facade-owns-topology)
+   - [[N]] 0.75.0-3 refactor: topology bot-dir sweep (done)
+     — [details](notes/refactor-20260716.md#stage-facade-owns-topology):
+     every `.claude` literal resolves from `workspace.bot`
+     (push's `bot_path` + ochid prefixes, bm-track probe,
+     clone's local dir, repo_utils cross-ref, validate-bot /
+     symlink defaults)
    - [[N]] 0.75.0-4 feat: topology config target
+     — [details](notes/refactor-20260716.md#stage-facade-owns-topology):
+     the `config` command reshape (positional target,
+     `--validate` both sides, `--home` retires)
    - [[N]] 0.75.0 refactor: facade owns topology
 
 ## Todo

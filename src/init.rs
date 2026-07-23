@@ -152,6 +152,13 @@ pub(crate) fn parse_use_template(
     Ok((work, bot))
 }
 
+/// Default bot-repo directory name a fresh init records and
+/// creates. After the 0.75.0-3 sweep every *reader* resolves the
+/// dir from `[workspace] bot`; this constant (plus the literal in
+/// the `ConfigRole::Dual` render and `GITIGNORE_CODE`, which must
+/// change with it) is where a new workspace's default is chosen.
+pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
+
 /// Top-level non-hidden files init writes. Kept here so that if init is
 /// ever extended to write non-hidden top-level files, the pre-flight
 /// conflict scan flags any template that would clash. Currently empty
@@ -877,7 +884,7 @@ fn plan_local(
         });
     }
 
-    let bot_dir = project_dir.join(".claude");
+    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
     let work_bare = parent.join("remote-work.git");
     let bot_bare = parent.join("remote-bot.git");
     let bot_name = format!("{name}.claude");
@@ -927,7 +934,7 @@ fn build_plan(
     }
     let bot_url = derive_bot_url(&work_url);
     let bot_name = format!("{name}.claude");
-    let bot_dir = project_dir.join(".claude");
+    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
     let gh_bot_slug = if provisioner == Provisioner::GhCreate {
         Some(github_slug_from_url(&bot_url)?)
     } else {
