@@ -1,6 +1,6 @@
 //! `vc-x1 clone` — clone a repo (URL or local path) into a workspace.
 //!
-//! - Default (no `--por`): dual-repo layout — clones code, derives
+//! - Default (no `--por`): dual-repo layout — clones the work repo, derives
 //!   bot source (`<source>.claude`), clones bot into
 //!   `<target>/.claude`, creates the Claude Code symlink. Both
 //!   sides must succeed.
@@ -26,7 +26,7 @@ use crate::context::Context;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
-use crate::url::{Target, derive_name, derive_session_url, parse_target, resolve_url};
+use crate::url::{Target, derive_bot_url, derive_name, parse_target, resolve_url};
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
@@ -143,9 +143,9 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         if params.por {
             info!("  1. jj git clone --colocate {source} {name}");
         } else {
-            let session_source = derive_session_url(&source);
+            let bot_source = derive_bot_url(&source);
             info!("  1. jj git clone --colocate {source} {name}");
-            info!("  2. jj git clone --colocate {session_source} {name}/.claude");
+            info!("  2. jj git clone --colocate {bot_source} {name}/.claude");
             info!("  3. Create Claude Code symlink");
         }
         return Ok(());
@@ -195,27 +195,27 @@ pub(crate) fn clone_one(
     Ok(())
 }
 
-/// Orchestrate a dual-repo clone: code via `clone_one`, bot via
+/// Orchestrate a dual-repo clone: work via `clone_one`, bot via
 /// `clone_one` (no graceful skip — both sides required by the
-/// default dual shape; users who want code-only pass `--por`),
+/// default dual shape; users who want work-only pass `--por`),
 /// then create the Claude Code symlink.
 pub(crate) fn clone_dual(
-    code_source: &str,
+    work_source: &str,
     target_dir: &Path,
     parent_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let session_source = derive_session_url(code_source);
-    let session_dir = target_dir.join(".claude");
+    let bot_source = derive_bot_url(work_source);
+    let bot_dir = target_dir.join(".claude");
 
-    clone_one(code_source, target_dir, parent_dir)?;
-    clone_one(&session_source, &session_dir, target_dir)?;
+    clone_one(work_source, target_dir, parent_dir)?;
+    clone_one(&bot_source, &bot_dir, target_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;
 
     info!("");
     info!("Done! Project cloned to {}", target_dir.display());
     info!("  Work repo:    {}", target_dir.display());
-    info!("  Bot repo: {}", session_dir.display());
+    info!("  Bot repo: {}", bot_dir.display());
     info!(
         "  Symlink:      {} -> {}",
         sl.symlink_path.display(),
@@ -299,6 +299,6 @@ mod tests {
         assert_eq!(args.target, "./bare.git");
     }
 
-    // Unit tests for derive_name / resolve_url / derive_session_url
+    // Unit tests for derive_name / resolve_url / derive_bot_url
     // live in src/url.rs alongside the lifted functions.
 }

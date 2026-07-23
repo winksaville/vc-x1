@@ -106,7 +106,7 @@ pub struct Fixture {
     /// Work repo path (`<base>/work`).
     pub work: PathBuf,
     /// Bot repo path (`<base>/work/.claude`).
-    pub claude: PathBuf,
+    pub bot: PathBuf,
 }
 
 impl Fixture {
@@ -121,7 +121,7 @@ impl Fixture {
     /// - `with_pending` — after init, write a small file into each
     ///   repo so `@` carries uncommitted changes (useful for
     ///   squash-push / push tests).
-    /// - `use_template` — `CODE[,BOT]` forwarded to init.
+    /// - `use_template` — `WORK[,BOT]` forwarded to init.
     pub fn new_opts(tag: &str, with_pending: bool, use_template: Option<String>) -> Self {
         let base = unique_base(tag);
         // init refuses to reuse an existing project_dir, so `base`
@@ -133,8 +133,8 @@ impl Fixture {
         // `--repo-local <base>` + NAME=`work` shape:
         //   <base>/work/                  (work repo)
         //   <base>/work/.claude/          (bot repo)
-        //   <base>/remote-code.git        (code bare origin)
-        //   <base>/remote-claude.git      (bot bare origin)
+        //   <base>/remote-work.git        (work bare origin)
+        //   <base>/remote-bot.git      (bot bare origin)
         let work_path = base.join("work");
         let args = InitArgs {
             target: work_path.to_string_lossy().into_owned(),
@@ -157,25 +157,25 @@ impl Fixture {
         init(&ctx, &params).expect("build test fixture via init");
 
         let work = base.join("work");
-        let claude = work.join(".claude");
+        let bot = work.join(".claude");
 
         if with_pending {
             write_file(&work.join("TODO.md"), "# TODO\n- first feature\n")
                 .expect("write pending TODO.md");
             write_file(
-                &claude.join("session-notes.md"),
+                &bot.join("session-notes.md"),
                 "# Session notes\n- simulated pending work\n",
             )
             .expect("write pending session-notes.md");
         }
 
-        Fixture { base, work, claude }
+        Fixture { base, work, bot }
     }
 
     /// Convenience: return both repo paths as a `Vec<PathBuf>`
     /// suitable for `sync_repos` (or any other `&[PathBuf]` API).
     pub fn repos(&self) -> Vec<PathBuf> {
-        vec![self.work.clone(), self.claude.clone()]
+        vec![self.work.clone(), self.bot.clone()]
     }
 }
 
@@ -197,10 +197,10 @@ impl Drop for Fixture {
 /// Sibling of `Fixture` for `--por` flows. Drives
 /// `init::init` with `por: true` and a path TARGET;
 /// `--repo local=<base>` steers the bare origin to
-/// `<base>/remote.git` (vs. dual's `remote-code.git` /
-/// `remote-claude.git`). No `.claude/` peer, no symlink.
+/// `<base>/remote.git` (vs. dual's `remote-work.git` /
+/// `remote-bot.git`). No `.claude/` peer, no symlink.
 ///
-/// Field shape differs from `Fixture` — there is no `claude` peer
+/// Field shape differs from `Fixture` — there is no `bot` peer
 /// path — so it's a distinct type rather than an `Option<PathBuf>`
 /// on `Fixture` (the latter would force every dual-using caller to
 /// `.unwrap()` or pattern-match).

@@ -144,10 +144,10 @@ pub fn resolve_url(url: &str) -> String {
 /// - With trailing `.git`: insert `.claude` before it
 ///   (`foo.git` → `foo.claude.git`).
 /// - Without `.git`: append `.claude` (`foo` → `foo.claude`).
-pub fn derive_session_url(code_url: &str) -> String {
-    match code_url.strip_suffix(".git") {
+pub fn derive_bot_url(work_url: &str) -> String {
+    match work_url.strip_suffix(".git") {
         Some(stem) => format!("{stem}.claude.git"),
-        None => format!("{code_url}.claude"),
+        None => format!("{work_url}.claude"),
     }
 }
 
@@ -220,40 +220,40 @@ mod tests {
         assert_eq!(resolve_url(url), url);
     }
 
-    // --- derive_session_url ------------------------------------------
+    // --- derive_bot_url ------------------------------------------
 
     #[test]
-    fn session_url_ssh() {
+    fn bot_url_ssh() {
         assert_eq!(
-            derive_session_url("git@github.com:owner/repo.git"),
+            derive_bot_url("git@github.com:owner/repo.git"),
             "git@github.com:owner/repo.claude.git"
         );
     }
 
     #[test]
-    fn session_url_https_with_git() {
+    fn bot_url_https_with_git() {
         assert_eq!(
-            derive_session_url("https://github.com/owner/repo.git"),
+            derive_bot_url("https://github.com/owner/repo.git"),
             "https://github.com/owner/repo.claude.git"
         );
     }
 
     #[test]
-    fn session_url_https_no_suffix() {
+    fn bot_url_https_no_suffix() {
         assert_eq!(
-            derive_session_url("https://github.com/owner/repo"),
+            derive_bot_url("https://github.com/owner/repo"),
             "https://github.com/owner/repo.claude"
         );
     }
 
     #[test]
-    fn session_url_local_bare_with_git() {
-        assert_eq!(derive_session_url("/tmp/foo.git"), "/tmp/foo.claude.git");
+    fn bot_url_local_bare_with_git() {
+        assert_eq!(derive_bot_url("/tmp/foo.git"), "/tmp/foo.claude.git");
     }
 
     #[test]
-    fn session_url_local_bare_without_git() {
-        assert_eq!(derive_session_url("/tmp/foo"), "/tmp/foo.claude");
+    fn bot_url_local_bare_without_git() {
+        assert_eq!(derive_bot_url("/tmp/foo"), "/tmp/foo.claude");
     }
 
     // --- parse_target: URL forms -------------------------------------

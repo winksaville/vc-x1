@@ -4,7 +4,7 @@
 //! - `main` must match `main@origin`: the bookmark only moves
 //!   inside a push / squash-push run, which publishes it in the
 //!   same invocation, so an at-rest mismatch means an earlier
-//!   publish was lost (the 0.68.1-diagnosed silent session-push loss went
+//!   publish was lost (the 0.68.1-diagnosed silent bot-push loss went
 //!   unnoticed for 8 cycles).
 //! - Also verifies `main`'s remote refs are tracked.
 //! - Exits non-zero on any finding and fixes nothing (decided
@@ -21,7 +21,7 @@ use log::{debug, info};
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 
-/// The bot repo's pinned bookmark — all session work publishes to
+/// The bot repo's pinned bookmark — all bot-repo work publishes to
 /// `main` (mirrors push's `BOT_BOOKMARK`).
 const BOT_BOOKMARK: &str = "main";
 
@@ -103,7 +103,7 @@ mod tests {
     /// `main` onto it without pushing.
     fn move_main_unpushed(repo: &Path) {
         std::fs::write(repo.join("lost.txt"), "lost session data\n").expect("write lost file");
-        jj_ok(repo, &["commit", "-m", "lost session commit"]);
+        jj_ok(repo, &["commit", "-m", "lost bot commit"]);
         jj_ok(repo, &["bookmark", "set", "main", "-r", "@-"]);
     }
 
@@ -140,7 +140,7 @@ mod tests {
     fn publish_state_in_sync_after_init() {
         let fx = Fixture::new("vb-insync");
         assert_eq!(
-            bookmark_publish_state(&fx.claude, "main").unwrap(),
+            bookmark_publish_state(&fx.bot, "main").unwrap(),
             PublishState::InSync
         );
     }
@@ -148,8 +148,8 @@ mod tests {
     #[test]
     fn publish_state_mismatch_after_unpushed_move() {
         let fx = Fixture::new("vb-mismatch");
-        move_main_unpushed(&fx.claude);
-        match bookmark_publish_state(&fx.claude, "main").unwrap() {
+        move_main_unpushed(&fx.bot);
+        match bookmark_publish_state(&fx.bot, "main").unwrap() {
             PublishState::Mismatch { local, remote } => assert_ne!(local, remote),
             other => panic!("expected Mismatch, got {other:?}"),
         }
@@ -178,7 +178,7 @@ mod tests {
     fn validate_bot_ok_on_fresh_fixture() {
         let fx = Fixture::new("vb-ok");
         let params = ValidateBotParams {
-            repo: fx.claude.clone(),
+            repo: fx.bot.clone(),
         };
         validate_bot(&params).expect("fresh fixture should validate");
     }
@@ -186,9 +186,9 @@ mod tests {
     #[test]
     fn validate_bot_errors_on_unpushed_move() {
         let fx = Fixture::new("vb-err");
-        move_main_unpushed(&fx.claude);
+        move_main_unpushed(&fx.bot);
         let params = ValidateBotParams {
-            repo: fx.claude.clone(),
+            repo: fx.bot.clone(),
         };
         let err = validate_bot(&params).unwrap_err().to_string();
         assert!(err.contains("does not match"), "got: {err}");

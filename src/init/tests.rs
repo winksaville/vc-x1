@@ -74,35 +74,35 @@ fn target_required_at_parse_time() {
 }
 
 #[test]
-fn config_content_code() {
-    let code = render_vc_config(ConfigRole::Code);
-    assert!(code.contains("path = \"/\""));
-    assert!(code.contains("other-repo = \".claude\""));
+fn config_content_work() {
+    let work = render_vc_config(ConfigRole::Work);
+    assert!(work.contains("path = \"/\""));
+    assert!(work.contains("other-repo = \".claude\""));
 }
 
 #[test]
-fn config_content_session() {
-    let session = render_vc_config(ConfigRole::Session);
-    assert!(session.contains("path = \"/.claude\""));
-    assert!(session.contains("other-repo = \"..\""));
+fn config_content_bot() {
+    let bot = render_vc_config(ConfigRole::Bot);
+    assert!(bot.contains("path = \"/.claude\""));
+    assert!(bot.contains("other-repo = \"..\""));
 }
 
 #[test]
 fn config_optional_keys_are_commented_only() {
-    let code = render_vc_config(ConfigRole::Code);
+    let work = render_vc_config(ConfigRole::Work);
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
-    assert!(code.contains("used by: bot-session --col-width"));
-    assert!(code.contains("used by: push / squash-push (state-file name)"));
-    assert!(code.contains("# col-width = 68"));
-    assert!(code.contains("# state-file = \"push-state.toml\""));
+    assert!(work.contains("used by: bot-session --col-width"));
+    assert!(work.contains("used by: push / squash-push (state-file name)"));
+    assert!(work.contains("# col-width = 68"));
+    assert!(work.contains("# state-file = \"push-state.toml\""));
     assert!(
-        !code
+        !work
             .lines()
             .any(|l| l.trim_start().starts_with("col-width"))
     );
     assert!(
-        !code
+        !work
             .lines()
             .any(|l| l.trim_start().starts_with("state-file"))
     );
@@ -120,7 +120,7 @@ fn config_generated_toml_parses_to_active_keys_only() {
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let path = dir.join(".vc-config.toml");
-    std::fs::write(&path, render_vc_config(ConfigRole::Code)).expect("write config");
+    std::fs::write(&path, render_vc_config(ConfigRole::Work)).expect("write config");
 
     let map = crate::toml_simple::toml_load(&path).expect("parse generated config");
     assert_eq!(map.get("workspace.path").map(String::as_str), Some("/"));
@@ -135,7 +135,7 @@ fn config_generated_toml_parses_to_active_keys_only() {
 }
 
 #[test]
-fn gitignore_code_excludes_claude() {
+fn gitignore_work_excludes_bot() {
     assert!(GITIGNORE_CODE.contains("/.claude"));
     assert!(GITIGNORE_CODE.contains("/.git"));
     assert!(GITIGNORE_CODE.contains("/.jj"));
@@ -143,7 +143,7 @@ fn gitignore_code_excludes_claude() {
 }
 
 #[test]
-fn gitignore_session_excludes_git() {
+fn gitignore_bot_excludes_git() {
     assert!(GITIGNORE_SESSION.contains(".git"));
     assert!(GITIGNORE_SESSION.contains(".jj"));
 }
@@ -151,7 +151,7 @@ fn gitignore_session_excludes_git() {
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Create a unique temp dir for a test, sibling-style via file-name
-/// concat so both the code and bot template paths can live under it.
+/// concat so both the work and bot template paths can live under it.
 fn tmp_root(tag: &str) -> PathBuf {
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -164,35 +164,35 @@ fn tmp_root(tag: &str) -> PathBuf {
 
 #[test]
 fn parse_use_template_both() {
-    let (c, b) = parse_use_template("/a/code,/x/bot").unwrap();
-    assert_eq!(c, PathBuf::from("/a/code"));
+    let (c, b) = parse_use_template("/a/work,/x/bot").unwrap();
+    assert_eq!(c, PathBuf::from("/a/work"));
     assert_eq!(b, PathBuf::from("/x/bot"));
 }
 
 #[test]
 fn parse_use_template_default_bot() {
-    let (c, b) = parse_use_template("/a/code").unwrap();
-    assert_eq!(c, PathBuf::from("/a/code"));
-    assert_eq!(b, PathBuf::from("/a/code.claude"));
+    let (c, b) = parse_use_template("/a/work").unwrap();
+    assert_eq!(c, PathBuf::from("/a/work"));
+    assert_eq!(b, PathBuf::from("/a/work.claude"));
 }
 
 #[test]
 fn parse_use_template_default_bot_trailing_slash() {
     // with_file_name normalises away the effect of a trailing slash.
-    let (c, b) = parse_use_template("/a/code/").unwrap();
-    assert_eq!(c, PathBuf::from("/a/code/"));
-    assert_eq!(b, PathBuf::from("/a/code.claude"));
+    let (c, b) = parse_use_template("/a/work/").unwrap();
+    assert_eq!(c, PathBuf::from("/a/work/"));
+    assert_eq!(b, PathBuf::from("/a/work.claude"));
 }
 
 #[test]
 fn parse_use_template_empty_bot_falls_back_to_default() {
-    let (c, b) = parse_use_template("/a/code,").unwrap();
-    assert_eq!(c, PathBuf::from("/a/code"));
-    assert_eq!(b, PathBuf::from("/a/code.claude"));
+    let (c, b) = parse_use_template("/a/work,").unwrap();
+    assert_eq!(c, PathBuf::from("/a/work"));
+    assert_eq!(b, PathBuf::from("/a/work.claude"));
 }
 
 #[test]
-fn parse_use_template_empty_code_errors() {
+fn parse_use_template_empty_work_errors() {
     assert!(parse_use_template("").is_err());
     assert!(parse_use_template(",bot").is_err());
 }
@@ -269,13 +269,13 @@ fn rewrite_readme_missing_is_noop() {
 }
 
 #[test]
-fn validate_templates_missing_code() {
-    let root = tmp_root("validate-missing-code");
-    let code = root.join("nope");
+fn validate_templates_missing_work() {
+    let root = tmp_root("validate-missing-work");
+    let work = root.join("nope");
     let bot = root.join("bot");
     std::fs::create_dir_all(&bot).unwrap();
-    let err = validate_templates(&code, &bot).unwrap_err().to_string();
-    assert!(err.contains("code template"));
+    let err = validate_templates(&work, &bot).unwrap_err().to_string();
+    assert!(err.contains("work template"));
     assert!(err.contains("does not exist"));
     std::fs::remove_dir_all(&root).unwrap();
 }
@@ -283,11 +283,11 @@ fn validate_templates_missing_code() {
 #[test]
 fn validate_templates_not_a_dir() {
     let root = tmp_root("validate-not-dir");
-    let code = root.join("code-file");
+    let work = root.join("work-file");
     let bot = root.join("bot");
-    std::fs::write(&code, "i am a file").unwrap();
+    std::fs::write(&work, "i am a file").unwrap();
     std::fs::create_dir_all(&bot).unwrap();
-    let err = validate_templates(&code, &bot).unwrap_err().to_string();
+    let err = validate_templates(&work, &bot).unwrap_err().to_string();
     assert!(err.contains("is not a directory"));
     std::fs::remove_dir_all(&root).unwrap();
 }
@@ -298,52 +298,52 @@ fn end_to_end_copy_and_readme_rewrite() {
     // a README.md each, copied into two fresh target dirs, each
     // README retitled to the respective repo name.
     let root = tmp_root("e2e-copy-rewrite");
-    let code_tmpl = root.join("vc-template-x1");
+    let work_tmpl = root.join("vc-template-x1");
     let bot_tmpl = root.join("vc-template-x1.claude");
-    let code_dst = root.join("dst-code");
+    let work_dst = root.join("dst-work");
     let bot_dst = root.join("dst-bot");
-    std::fs::create_dir_all(&code_tmpl).unwrap();
+    std::fs::create_dir_all(&work_tmpl).unwrap();
     std::fs::create_dir_all(&bot_tmpl).unwrap();
-    std::fs::create_dir_all(&code_dst).unwrap();
+    std::fs::create_dir_all(&work_dst).unwrap();
     std::fs::create_dir_all(&bot_dst).unwrap();
 
     std::fs::write(
-        code_tmpl.join("README.md"),
+        work_tmpl.join("README.md"),
         "# vc-template-x1\nCode template body.\n",
     )
     .unwrap();
-    std::fs::write(code_tmpl.join("src.txt"), "code stuff").unwrap();
-    std::fs::write(code_tmpl.join(".gitignore"), "should-not-copy").unwrap();
+    std::fs::write(work_tmpl.join("src.txt"), "work stuff").unwrap();
+    std::fs::write(work_tmpl.join(".gitignore"), "should-not-copy").unwrap();
 
     std::fs::write(
         bot_tmpl.join("README.md"),
         "# vc-template-x1.claude\nBot template body.\n",
     )
     .unwrap();
-    std::fs::write(bot_tmpl.join("session.md"), "bot stuff").unwrap();
+    std::fs::write(bot_tmpl.join("bot.md"), "bot stuff").unwrap();
 
-    validate_templates(&code_tmpl, &bot_tmpl).unwrap();
+    validate_templates(&work_tmpl, &bot_tmpl).unwrap();
 
-    copy_template_recursive(&code_tmpl, &code_dst).unwrap();
-    rewrite_readme_first_line(&code_dst, "my-proj").unwrap();
+    copy_template_recursive(&work_tmpl, &work_dst).unwrap();
+    rewrite_readme_first_line(&work_dst, "my-proj").unwrap();
     copy_template_recursive(&bot_tmpl, &bot_dst).unwrap();
     rewrite_readme_first_line(&bot_dst, "my-proj.claude").unwrap();
 
     assert_eq!(
-        std::fs::read_to_string(code_dst.join("README.md")).unwrap(),
+        std::fs::read_to_string(work_dst.join("README.md")).unwrap(),
         "# my-proj\nCode template body.\n"
     );
     assert_eq!(
-        std::fs::read_to_string(code_dst.join("src.txt")).unwrap(),
-        "code stuff"
+        std::fs::read_to_string(work_dst.join("src.txt")).unwrap(),
+        "work stuff"
     );
-    assert!(!code_dst.join(".gitignore").exists());
+    assert!(!work_dst.join(".gitignore").exists());
     assert_eq!(
         std::fs::read_to_string(bot_dst.join("README.md")).unwrap(),
         "# my-proj.claude\nBot template body.\n"
     );
     assert_eq!(
-        std::fs::read_to_string(bot_dst.join("session.md")).unwrap(),
+        std::fs::read_to_string(bot_dst.join("bot.md")).unwrap(),
         "bot stuff"
     );
 
@@ -445,7 +445,7 @@ fn ensure_git_suffix_adds_when_missing() {
     );
 }
 
-// Unit tests for derive_session_url / derive_name live in
+// Unit tests for derive_bot_url / derive_name live in
 // src/repo_url.rs alongside the lifted functions.
 
 #[test]
@@ -583,16 +583,13 @@ fn plan_url_ssh_github_dual() {
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
     assert_eq!(plan.name, "tf1");
-    assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
     assert_eq!(
-        plan.session_url.as_deref(),
+        plan.bot_url.as_deref(),
         Some("git@github.com:winksaville/tf1.claude.git")
     );
-    assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
-    assert_eq!(
-        plan.gh_session_slug.as_deref(),
-        Some("winksaville/tf1.claude")
-    );
+    assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
+    assert_eq!(plan.gh_bot_slug.as_deref(), Some("winksaville/tf1.claude"));
 }
 
 #[test]
@@ -600,8 +597,8 @@ fn plan_url_https_github() {
     let args = args_for("https://github.com/owner/repo.git");
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
-    assert_eq!(plan.code_url, "https://github.com/owner/repo.git");
-    assert_eq!(plan.gh_code_slug.as_deref(), Some("owner/repo"));
+    assert_eq!(plan.work_url, "https://github.com/owner/repo.git");
+    assert_eq!(plan.gh_work_slug.as_deref(), Some("owner/repo"));
 }
 
 #[test]
@@ -609,11 +606,11 @@ fn plan_url_non_github_uses_external_provisioner() {
     let args = args_for("git@gitlab.com:winksaville/tf1.git");
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
-    assert!(plan.gh_code_slug.is_none());
-    assert!(plan.gh_session_slug.is_none());
-    assert_eq!(plan.code_url, "git@gitlab.com:winksaville/tf1.git");
+    assert!(plan.gh_work_slug.is_none());
+    assert!(plan.gh_bot_slug.is_none());
+    assert_eq!(plan.work_url, "git@gitlab.com:winksaville/tf1.git");
     assert_eq!(
-        plan.session_url.as_deref(),
+        plan.bot_url.as_deref(),
         Some("git@gitlab.com:winksaville/tf1.claude.git")
     );
 }
@@ -628,7 +625,7 @@ fn plan_url_with_name_override() {
     assert_eq!(plan.name, "custom-dir");
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("custom-dir"));
-    assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
 }
 
 // ---------- owner/name shorthand TARGET ----------
@@ -638,8 +635,8 @@ fn plan_owner_name_resolves_to_github_ssh() {
     let args = args_for("winksaville/tf1");
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
-    assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
-    assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
 }
 
 #[test]
@@ -656,11 +653,11 @@ fn plan_owner_name_eq_ssh_url_form() {
         &cfg_empty(),
     )
     .unwrap();
-    assert_eq!(p1.code_url, p2.code_url);
-    assert_eq!(p1.session_url, p2.session_url);
+    assert_eq!(p1.work_url, p2.work_url);
+    assert_eq!(p1.bot_url, p2.bot_url);
     assert_eq!(p1.provisioner, p2.provisioner);
-    assert_eq!(p1.gh_code_slug, p2.gh_code_slug);
-    assert_eq!(p1.gh_session_slug, p2.gh_session_slug);
+    assert_eq!(p1.gh_work_slug, p2.gh_work_slug);
+    assert_eq!(p1.gh_bot_slug, p2.gh_bot_slug);
 }
 
 // ---------- Path TARGET ----------
@@ -677,18 +674,15 @@ fn plan_path_absolute_with_repo_local() {
     assert_eq!(plan.project_dir, PathBuf::from("/tmp/xyz/tf1"));
     assert_eq!(plan.name, "tf1");
     assert_eq!(
-        plan.code_bare_path,
-        Some(PathBuf::from("/tmp/xyz/remote-code.git"))
+        plan.work_bare_path,
+        Some(PathBuf::from("/tmp/xyz/remote-work.git"))
     );
     assert_eq!(
-        plan.session_bare_path,
-        Some(PathBuf::from("/tmp/xyz/remote-claude.git"))
+        plan.bot_bare_path,
+        Some(PathBuf::from("/tmp/xyz/remote-bot.git"))
     );
-    assert_eq!(
-        plan.session_dir,
-        Some(PathBuf::from("/tmp/xyz/tf1/.claude"))
-    );
-    assert_eq!(plan.session_name.as_deref(), Some("tf1.claude"));
+    assert_eq!(plan.bot_dir, Some(PathBuf::from("/tmp/xyz/tf1/.claude")));
+    assert_eq!(plan.bot_name.as_deref(), Some("tf1.claude"));
 }
 
 #[test]
@@ -715,9 +709,9 @@ fn plan_bare_name_uses_top_level_repo_remote() {
     let cwd = std::env::current_dir().unwrap();
     assert_eq!(plan.project_dir, cwd.join("tf1"));
     assert_eq!(plan.name, "tf1");
-    assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
     assert_eq!(plan.provisioner, Provisioner::GhCreate);
-    assert_eq!(plan.gh_code_slug.as_deref(), Some("winksaville/tf1"));
+    assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
 }
 
 #[test]
@@ -729,12 +723,12 @@ fn plan_bare_name_uses_top_level_repo_local() {
     assert_eq!(plan.project_dir, cwd.join("tf1"));
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(
-        plan.code_bare_path,
-        Some(PathBuf::from("/tmp/fixtures/remote-code.git"))
+        plan.work_bare_path,
+        Some(PathBuf::from("/tmp/fixtures/remote-work.git"))
     );
     assert_eq!(
-        plan.session_bare_path,
-        Some(PathBuf::from("/tmp/fixtures/remote-claude.git"))
+        plan.bot_bare_path,
+        Some(PathBuf::from("/tmp/fixtures/remote-bot.git"))
     );
 }
 
@@ -743,8 +737,8 @@ fn plan_bare_name_account_override_picks_work() {
     let mut args = args_for("tf1");
     args.account.account = Some("work".into());
     let plan = plan_init(&InitParams::from(&args), &cfg_two_accounts()).unwrap();
-    assert_eq!(plan.code_url, "git@github.com:anthropic/tf1.git");
-    assert_eq!(plan.gh_code_slug.as_deref(), Some("anthropic/tf1"));
+    assert_eq!(plan.work_url, "git@github.com:anthropic/tf1.git");
+    assert_eq!(plan.gh_work_slug.as_deref(), Some("anthropic/tf1"));
 }
 
 #[test]
@@ -759,8 +753,8 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(
-        plan.code_bare_path,
-        Some(PathBuf::from("/tmp/explicit/remote-code.git"))
+        plan.work_bare_path,
+        Some(PathBuf::from("/tmp/explicit/remote-work.git"))
     );
 }
 
@@ -775,37 +769,37 @@ fn plan_por_path_local_single_bare() {
         value: Some("/tmp/xyz".into()),
     });
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
-    assert!(plan.scope.is_code_only());
+    assert!(plan.scope.is_work_only());
     assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
     assert_eq!(
-        plan.code_bare_path,
+        plan.work_bare_path,
         Some(PathBuf::from("/tmp/xyz/remote.git"))
     );
-    assert_eq!(plan.code_url, "/tmp/xyz/remote.git");
-    assert!(plan.session_bare_path.is_none());
-    assert!(plan.session_url.is_none());
-    assert!(plan.session_dir.is_none());
-    assert!(plan.session_name.is_none());
+    assert_eq!(plan.work_url, "/tmp/xyz/remote.git");
+    assert!(plan.bot_bare_path.is_none());
+    assert!(plan.bot_url.is_none());
+    assert!(plan.bot_dir.is_none());
+    assert!(plan.bot_name.is_none());
 }
 
 #[test]
-fn plan_por_url_no_session() {
+fn plan_por_url_no_bot() {
     let mut args = args_for("git@github.com:winksaville/tf1");
     args.por.value = true;
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
-    assert!(plan.scope.is_code_only());
-    assert_eq!(plan.code_url, "git@github.com:winksaville/tf1.git");
-    assert!(plan.session_url.is_none());
-    assert!(plan.gh_session_slug.is_none());
+    assert!(plan.scope.is_work_only());
+    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
+    assert!(plan.bot_url.is_none());
+    assert!(plan.gh_bot_slug.is_none());
 }
 
 #[test]
-fn plan_default_scope_is_code_bot() {
+fn plan_default_scope_is_work_bot() {
     let args = args_for("git@github.com:winksaville/tf1");
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_both());
-    assert!(plan.session_url.is_some());
-    assert!(plan.session_dir.is_some());
+    assert!(plan.bot_url.is_some());
+    assert!(plan.bot_dir.is_some());
 }
 
 // ---------- Errors ----------
@@ -893,7 +887,7 @@ fn error_por_with_comma_template() {
     // half has no home in a single-repo workspace.
     let mut args = args_for("git@github.com:u/p");
     args.por.value = true;
-    args.use_template.use_template = Some("/tmp/code,/tmp/bot".into());
+    args.use_template.use_template = Some("/tmp/work,/tmp/bot".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
@@ -904,14 +898,14 @@ fn error_por_with_comma_template() {
 // ---------- Constants ----------
 
 #[test]
-fn config_content_app_only() {
-    let app_only = render_vc_config(ConfigRole::AppOnly);
-    assert!(app_only.contains("path = \"/\""));
-    assert!(!app_only.contains("other-repo"));
+fn config_content_work_only() {
+    let work_only_repo = render_vc_config(ConfigRole::WorkOnly);
+    assert!(work_only_repo.contains("path = \"/\""));
+    assert!(!work_only_repo.contains("other-repo"));
 }
 
 #[test]
-fn gitignore_app_only_omits_claude() {
+fn gitignore_work_only_omits_bot() {
     assert!(!GITIGNORE_APP_ONLY.contains("/.claude"));
     assert!(GITIGNORE_APP_ONLY.contains("/.git"));
     assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
@@ -923,7 +917,7 @@ fn gitignore_app_only_omits_claude() {
 /// POR fixture builds without panic and lays down the
 /// single-repo tree: `<base>/work/` exists, no `.claude/`
 /// peer, bare origin sits at `<base>/remote.git` (not the
-/// dual `remote-code.git` / `remote-claude.git` pair).
+/// dual `remote-work.git` / `remote-bot.git` pair).
 #[test]
 fn por_fixture_creates_single_repo_layout() {
     let fx = crate::test_helpers::FixturePor::new("por-layout");
@@ -939,11 +933,11 @@ fn por_fixture_creates_single_repo_layout() {
         "POR uses <base>/remote.git as the bare origin"
     );
     assert!(
-        !fx.base.join("remote-code.git").exists(),
+        !fx.base.join("remote-work.git").exists(),
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.base.join("remote-claude.git").exists(),
+        !fx.base.join("remote-bot.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
@@ -952,7 +946,7 @@ fn por_fixture_creates_single_repo_layout() {
 /// — `path = "/"` with no `other-repo` field, and `.gitignore`
 /// has no `/.claude` exclusion.
 #[test]
-fn por_fixture_writes_app_only_config_files() {
+fn por_fixture_writes_work_only_config_files() {
     let fx = crate::test_helpers::FixturePor::new("por-config");
 
     let cfg =
@@ -1082,24 +1076,24 @@ fn config_none_passes_preflight() {
 // invariants `push_repo` must preserve (-6.3 extraction).
 
 /// Dual fixture lays down both repos and both bare origins:
-/// `<base>/work/`, `<base>/work/.claude/`, `<base>/remote-code.git`,
-/// `<base>/remote-claude.git`. POR-shape `remote.git` is absent.
+/// `<base>/work/`, `<base>/work/.claude/`, `<base>/remote-work.git`,
+/// `<base>/remote-bot.git`. POR-shape `remote.git` is absent.
 #[test]
 fn dual_fixture_creates_dual_repo_layout() {
     let fx = crate::test_helpers::Fixture::new("dual-layout");
 
     assert!(fx.work.exists() && fx.work.is_dir(), "work dir present");
     assert!(
-        fx.claude.exists() && fx.claude.is_dir(),
+        fx.bot.exists() && fx.bot.is_dir(),
         "nested .claude dir present"
     );
     assert!(
-        fx.base.join("remote-code.git").exists(),
-        "code-side bare origin present"
+        fx.base.join("remote-work.git").exists(),
+        "work-side bare origin present"
     );
     assert!(
-        fx.base.join("remote-claude.git").exists(),
-        "session-side bare origin present"
+        fx.base.join("remote-bot.git").exists(),
+        "bot-side bare origin present"
     );
     assert!(
         !fx.base.join("remote.git").exists(),
@@ -1107,40 +1101,40 @@ fn dual_fixture_creates_dual_repo_layout() {
     );
 }
 
-/// Dual fixture writes the CODE / SESSION config + .gitignore
-/// variants — code side has `path = "/"` and
-/// `other-repo = ".claude"`; session side has
-/// `path = "/.claude"` and `other-repo = ".."`. Code-side
-/// `.gitignore` excludes `/.claude` (session subdir is git-ignored
-/// from the code-side view).
+/// Dual fixture writes the WORK / BOT config + .gitignore
+/// variants — work side has `path = "/"` and
+/// `other-repo = ".claude"`; bot side has
+/// `path = "/.claude"` and `other-repo = ".."`. Work-side
+/// `.gitignore` excludes `/.claude` (bot subdir is git-ignored
+/// from the work-side view).
 #[test]
-fn dual_fixture_writes_code_and_session_config_files() {
+fn dual_fixture_writes_work_and_bot_config_files() {
     let fx = crate::test_helpers::Fixture::new("dual-config");
 
-    let code_cfg = std::fs::read_to_string(fx.work.join(".vc-config.toml"))
-        .expect("read code .vc-config.toml");
-    assert!(code_cfg.contains("path = \"/\""), "code path = \"/\"");
+    let work_cfg = std::fs::read_to_string(fx.work.join(".vc-config.toml"))
+        .expect("read work .vc-config.toml");
+    assert!(work_cfg.contains("path = \"/\""), "work path = \"/\"");
     assert!(
-        code_cfg.contains("other-repo = \".claude\""),
-        "code other-repo = \".claude\""
+        work_cfg.contains("other-repo = \".claude\""),
+        "work other-repo = \".claude\""
     );
 
-    let session_cfg = std::fs::read_to_string(fx.claude.join(".vc-config.toml"))
-        .expect("read session .vc-config.toml");
+    let bot_cfg =
+        std::fs::read_to_string(fx.bot.join(".vc-config.toml")).expect("read bot .vc-config.toml");
     assert!(
-        session_cfg.contains("path = \"/.claude\""),
-        "session path = \"/.claude\""
+        bot_cfg.contains("path = \"/.claude\""),
+        "bot path = \"/.claude\""
     );
     assert!(
-        session_cfg.contains("other-repo = \"..\""),
-        "session other-repo = \"..\""
+        bot_cfg.contains("other-repo = \"..\""),
+        "bot other-repo = \"..\""
     );
 
-    let code_gi =
-        std::fs::read_to_string(fx.work.join(".gitignore")).expect("read code .gitignore");
+    let work_gi =
+        std::fs::read_to_string(fx.work.join(".gitignore")).expect("read work .gitignore");
     assert!(
-        code_gi.contains("/.claude"),
-        "code .gitignore excludes /.claude"
+        work_gi.contains("/.claude"),
+        "work .gitignore excludes /.claude"
     );
 }
 
@@ -1152,29 +1146,29 @@ fn dual_fixture_both_sides_track_origin() {
     let fx = crate::test_helpers::Fixture::new("dual-tracking");
 
     crate::common::verify_tracking(&fx.work, "main")
-        .expect("code-side main should track origin/main after push_repo");
-    crate::common::verify_tracking(&fx.claude, "main")
-        .expect("session-side main should track origin/main after push_repo");
+        .expect("work-side main should track origin/main after push_repo");
+    crate::common::verify_tracking(&fx.bot, "main")
+        .expect("bot-side main should track origin/main after push_repo");
 }
 
-/// Code-side `git clean -xdf --exclude .claude` must preserve
+/// Work-side `git clean -xdf --exclude .claude` must preserve
 /// the nested bot repo's `.jj/` and `.git/` state. This
 /// pins `push_repo`'s `clean_exclude = Some(".claude")` path
-/// in the dual code-side call.
+/// in the dual work-side call.
 #[test]
-fn dual_fixture_preserves_claude_across_code_clean() {
+fn dual_fixture_preserves_bot_across_work_clean() {
     let fx = crate::test_helpers::Fixture::new("dual-clean-exclude");
 
     assert!(
-        fx.claude.join(".jj").exists(),
-        "session .jj must survive code-side clean (clean_exclude=.claude)"
+        fx.bot.join(".jj").exists(),
+        "bot .jj must survive work-side clean (clean_exclude=.claude)"
     );
     assert!(
-        fx.claude.join(".git").exists(),
-        "session .git must survive code-side clean"
+        fx.bot.join(".git").exists(),
+        "bot .git must survive work-side clean"
     );
     assert!(
-        fx.claude.join(".vc-config.toml").exists(),
-        "session .vc-config.toml must survive code-side clean"
+        fx.bot.join(".vc-config.toml").exists(),
+        "bot .vc-config.toml must survive work-side clean"
     );
 }

@@ -160,6 +160,6 @@ mod tests {
         let cli = Cli::try_parse_from(["test", "-R", "./solo", "-s", "code"]).unwrap();
         let params = RevertParams::from(&cli.args);
         assert_eq!(params.repo, Some(PathBuf::from("./solo")));
-        assert_eq!(params.scope, Some(Scope(vec![Side::Code])));
+        assert_eq!(params.scope, Some(Scope(vec![Side::Work])));
     }
 }

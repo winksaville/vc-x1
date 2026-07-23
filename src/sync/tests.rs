@@ -97,7 +97,7 @@ fn parse_no_check_rejected() {
     assert!(Cli::try_parse_from(["test", "--no-check"]).is_err());
 }
 
-/// `--scope=code` parses into `Scope([Code])`.
+/// `--scope=code` parses into `Scope([Work])`.
 #[test]
 fn parse_scope_code() {
     use clap::Parser;
@@ -107,10 +107,10 @@ fn parse_scope_code() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--scope", "code"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code])));
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work])));
 }
 
-/// `--scope=code,bot` parses into `Scope([Code, Bot])`.
+/// `--scope=code,bot` parses into `Scope([Work, Bot])`.
 #[test]
 fn parse_scope_code_bot() {
     use clap::Parser;
@@ -120,7 +120,7 @@ fn parse_scope_code_bot() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--scope", "code,bot"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code, Side::Bot])));
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work, Side::Bot])));
 }
 
 /// `-R PATH` parses into the `repo` field; `--scope` stays None.
@@ -147,5 +147,5 @@ fn parse_scope_short_form() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "-s", "code"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Code])));
+    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work])));
 }

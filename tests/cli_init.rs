@@ -42,11 +42,11 @@ fn cli_init_por_creates_layout() {
         "POR uses <base>/remote.git as the bare origin"
     );
     assert!(
-        !fx.path("remote-code.git").exists(),
+        !fx.path("remote-work.git").exists(),
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.path("remote-claude.git").exists(),
+        !fx.path("remote-bot.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
@@ -57,7 +57,7 @@ fn cli_init_por_creates_layout() {
 fn cli_init_dual_creates_layout() {
     let fx = CliFixture::new("init-dual-layout");
     let work = fx.path("work");
-    let claude = work.join(".claude");
+    let bot = work.join(".claude");
     let base_str = fx.base.to_string_lossy().into_owned();
     let work_str = work.to_string_lossy().into_owned();
 
@@ -69,16 +69,13 @@ fn cli_init_dual_creates_layout() {
     );
 
     assert!(work.exists() && work.is_dir(), "work dir present");
+    assert!(bot.exists() && bot.is_dir(), "nested .claude dir present");
     assert!(
-        claude.exists() && claude.is_dir(),
-        "nested .claude dir present"
-    );
-    assert!(
-        fx.path("remote-code.git").exists(),
+        fx.path("remote-work.git").exists(),
         "work-side bare origin present"
     );
     assert!(
-        fx.path("remote-claude.git").exists(),
+        fx.path("remote-bot.git").exists(),
         "bot-side bare origin present"
     );
     assert!(

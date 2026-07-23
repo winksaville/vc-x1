@@ -215,6 +215,27 @@ refactor program. Decisions at cycle open (2026-07-22):
   - rider: repo-local `tmp/` scratch area — gitignored,
     convention in AGENTS.md; jj ignoring it is what parks
     the trapezoidal-commits draft note outside this commit
+- [[N]] 0.74.0-1 refactor: hygiene work/bot idents
+  - work/bot terminology sweep across `src/`: the three
+    stragglers-plus-synonym families — `code_*` → `work_*`,
+    `claude_*` / `session_*` → `bot_*` — covering
+    identifiers, `Side::Code`→`Side::Work`,
+    `ConfigRole::{Code,Session,AppOnly}`→`{Work,Bot,WorkOnly}`,
+    the `derive_session_url`/`claude_path` functions, the
+    `Fixture.claude` field, `"code"`/`"session"` narration
+    labels, test-remote names (`remote-code`/`remote-claude`
+    → `remote-work`/`remote-bot`), and doc-comment prose
+  - not touched: `.claude` path literals, `.claude`-derived
+    URL suffixes, "Claude Code" prose, and genuine words
+    (`dead_code`, `encode_*`, `exit_code`, `session_id` from
+    the transcript JSON schema) — those aren't terminology
+  - `STATE_FORMAT_VERSION` 1→2: the push-state keys `op_app`
+    / `op_claude` renamed to `op_work` / `op_bot`; a v1 file
+    would parse but silently drop both rollback targets, so
+    the bump turns a stale state into a `--restart` prompt
+  - decision applied: full sweep of all three families (the
+    stage named four identifiers; the actual old-terminology
+    surface was ~380 sites)
 
 # References
 

@@ -429,12 +429,12 @@ mod tests {
         use crate::test_helpers::{Fixture, jj_ok};
 
         let fx = Fixture::new("sp-heal");
-        std::fs::write(fx.claude.join("lost.txt"), "lost session data\n").expect("write lost file");
-        jj_ok(&fx.claude, &["commit", "-m", "lost session commit"]);
-        jj_ok(&fx.claude, &["bookmark", "set", "main", "-r", "@-"]);
+        std::fs::write(fx.bot.join("lost.txt"), "lost session data\n").expect("write lost file");
+        jj_ok(&fx.bot, &["commit", "-m", "lost bot commit"]);
+        jj_ok(&fx.bot, &["bookmark", "set", "main", "-r", "@-"]);
 
         let params = SquashPushParams {
-            repo: fx.claude.clone(),
+            repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
             report_publish_state: true,
@@ -443,7 +443,7 @@ mod tests {
 
         let cid = |rev: &str| {
             jj_ok(
-                &fx.claude,
+                &fx.bot,
                 &["log", "-r", rev, "--no-graph", "-T", "commit_id"],
             )
         };

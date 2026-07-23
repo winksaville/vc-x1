@@ -2,7 +2,8 @@
 //! operates on. See [options_flags](README.md) for shared
 //! architecture.
 //!
-//! - `Side` is the clap `ValueEnum` — one of `code`, `bot`.
+//! - `Side` is the role enum — `Work` or `Bot`; the CLI
+//!   keywords that name them are `code` and `bot`.
 //! - `Scope` is a newtype over `Vec<Side>` — the parsed role
 //!   set (`code`, `bot`, `code,bot`, `bot,code`).
 //! - Path-based single-repo operation lives on `-R/--repo`,
@@ -12,11 +13,11 @@ use clap::ValueEnum;
 
 /// One side of a dual-repo workspace.
 ///
-/// - `Code` — the primary (work) repo.
-/// - `Bot` — the Claude Code bot repo (typically at `.claude/`).
+/// - `Work` — the primary work repo.
+/// - `Bot` — the bot repo (typically at `.claude/`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Side {
-    Code,
+    Work,
     Bot,
 }
 
@@ -37,10 +38,10 @@ pub struct Scope(pub Vec<Side>);
 /// operation uses `-R/--repo`, not `--scope`.
 pub fn parse_scope(s: &str) -> Result<Scope, String> {
     match s {
-        "code" => Ok(Scope(vec![Side::Code])),
+        "code" => Ok(Scope(vec![Side::Work])),
         "bot" => Ok(Scope(vec![Side::Bot])),
-        "code,bot" => Ok(Scope(vec![Side::Code, Side::Bot])),
-        "bot,code" => Ok(Scope(vec![Side::Bot, Side::Code])),
+        "code,bot" => Ok(Scope(vec![Side::Work, Side::Bot])),
+        "bot,code" => Ok(Scope(vec![Side::Bot, Side::Work])),
         "" => Err("--scope: value is empty".into()),
         other => Err(format!(
             "--scope: '{other}' is not a recognized form. \
@@ -51,9 +52,9 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
 }
 
 impl Scope {
-    /// True when the role set includes the code side.
-    pub fn has_code(&self) -> bool {
-        self.0.contains(&Side::Code)
+    /// True when the role set includes the work side.
+    pub fn has_work(&self) -> bool {
+        self.0.contains(&Side::Work)
     }
 
     /// True when the role set includes the bot side.
@@ -61,20 +62,20 @@ impl Scope {
         self.0.contains(&Side::Bot)
     }
 
-    /// Exactly the code side — a single-side dual-repo op.
-    pub fn is_code_only(&self) -> bool {
-        self.has_code() && !self.has_bot()
+    /// Exactly the work side — a single-side dual-repo op.
+    pub fn is_work_only(&self) -> bool {
+        self.has_work() && !self.has_bot()
     }
 
     /// Exactly the bot side — a single-side dual-repo op.
     #[allow(dead_code)]
     pub fn is_bot_only(&self) -> bool {
-        !self.has_code() && self.has_bot()
+        !self.has_work() && self.has_bot()
     }
 
     /// Both sides — a full dual-repo op.
     pub fn is_both(&self) -> bool {
-        self.has_code() && self.has_bot()
+        self.has_work() && self.has_bot()
     }
 }
 
@@ -83,9 +84,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn code_only() {
-        let s = Scope(vec![Side::Code]);
-        assert!(s.is_code_only());
+    fn work_only() {
+        let s = Scope(vec![Side::Work]);
+        assert!(s.is_work_only());
         assert!(!s.is_bot_only());
         assert!(!s.is_both());
     }
@@ -93,23 +94,23 @@ mod tests {
     #[test]
     fn bot_only() {
         let s = Scope(vec![Side::Bot]);
-        assert!(!s.is_code_only());
+        assert!(!s.is_work_only());
         assert!(s.is_bot_only());
         assert!(!s.is_both());
     }
 
     #[test]
-    fn both_code_then_bot() {
-        let s = Scope(vec![Side::Code, Side::Bot]);
-        assert!(!s.is_code_only());
+    fn both_work_then_bot() {
+        let s = Scope(vec![Side::Work, Side::Bot]);
+        assert!(!s.is_work_only());
         assert!(!s.is_bot_only());
         assert!(s.is_both());
     }
 
     #[test]
-    fn both_bot_then_code() {
+    fn both_bot_then_work() {
         // Order doesn't matter — contains-based checks.
-        let s = Scope(vec![Side::Bot, Side::Code]);
+        let s = Scope(vec![Side::Bot, Side::Work]);
         assert!(s.is_both());
     }
 
@@ -119,14 +120,14 @@ mod tests {
         // parser rejects empty input), but the helpers still need
         // to be well-defined on it.
         let s = Scope(vec![]);
-        assert!(!s.is_code_only());
+        assert!(!s.is_work_only());
         assert!(!s.is_bot_only());
         assert!(!s.is_both());
     }
 
     #[test]
     fn parse_keyword_code() {
-        assert_eq!(parse_scope("code").unwrap(), Scope(vec![Side::Code]));
+        assert_eq!(parse_scope("code").unwrap(), Scope(vec![Side::Work]));
     }
 
     #[test]
@@ -138,7 +139,7 @@ mod tests {
     fn parse_keyword_code_bot_preserves_order() {
         assert_eq!(
             parse_scope("code,bot").unwrap(),
-            Scope(vec![Side::Code, Side::Bot])
+            Scope(vec![Side::Work, Side::Bot])
         );
     }
 
@@ -146,7 +147,7 @@ mod tests {
     fn parse_keyword_bot_code_preserves_order() {
         assert_eq!(
             parse_scope("bot,code").unwrap(),
-            Scope(vec![Side::Bot, Side::Code])
+            Scope(vec![Side::Bot, Side::Work])
         );
     }
 
