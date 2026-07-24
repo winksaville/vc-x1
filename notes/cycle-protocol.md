@@ -279,6 +279,15 @@ wrap ≤72. Bullet content differs per repo:
        with continuation indented 5
   ```
 
+  The list **opens with the version bump** as its first
+  bullet — for the Rust example
+  `- Cargo.toml, Cargo.lock: version X.Y.Z-N` (generally:
+  the medium's version-of-record files). Titles stay
+  version-free (above), so this first bullet is the
+  version's durable, visible home — log viewers (e.g.
+  gitk's message pane) show it without opening the commit's
+  file list. Adopted 2026-07-24.
+
   The file-by-file list is the source of truth for the
   cycle's mechanical change record. Chores carries the
   narrative + design, not a copy of it. Promote any

@@ -332,7 +332,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
 
 ### As-built ladder
 
-- [[N]] 0.75.0-0 chore: open facade owns topology cycle
+- [[14]] 0.75.0-0 chore: open facade owns topology cycle
   - version 0.75.0-0; stage picked into `## In Progress`
     with the five-rung ladder; this section opened; stage
     decisions recorded here, in the ladder block, and in the
@@ -345,7 +345,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
     references re-packed to `[1]..[5]`
   - rider: the DRY facade and hygiene stages' shipped-status
     links verified in the refactor doc (added at 0.74.0)
-- [[N]] 0.75.0-1 refactor: topology por equalization
+- [[15]] 0.75.0-1 refactor: topology por equalization
   - `validate-desc` / `fix-desc` lose their dual-required
     `other_repo_from_config` prelude: a single-repo / POR
     workspace now no-ops with a clear message instead of
@@ -360,7 +360,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
     helper's last two callers were these preludes
   - tests: three `bot_repo_path` units (dual / single-repo /
     no-config) + a `FixturePor` no-op end-to-end per command
-- [[N]] 0.75.0-2 feat: topology work/bot config schema
+- [[16]] 0.75.0-2 feat: topology work/bot config schema
   - `.vc-config.toml` `[workspace]` flips to the symmetric
     `work = "/"` / `bot = "/.claude"` pair; `path` /
     `other-repo` are gone (unreleased — replaced outright,
@@ -400,7 +400,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
     commit. Recorded as Bugs #5 (resume-after-rollback
     replays from the wrong stage); no data loss, and the
     strongest evidence yet for the stateless-push stage
-- [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+- [[17]] 0.75.0-3 refactor: topology bot-dir sweep
   - every reader of the bot-repo location now resolves it
     from `[workspace] bot`; `.claude` as a *choice* survives
     only in init's `DEFAULT_BOT_DIR` (plus the `Dual` render
@@ -437,7 +437,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
     dual-preflight principle, and the bisect-skew note
     (the two repos rewind independently; old binaries fail
     loudly-but-cryptically against the new bot-side config)
-- [[N]] 0.75.0-4 feat: topology config target
+- [[18]] 0.75.0-4 feat: topology config target
   - the `config` command reshape (decided at the `-2`
     review): positional `work|bot|work,bot|<path>` target
     (default `work,bot`) replaces `--home`; print stays the
@@ -468,7 +468,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
     promotion to plain `vc-x1` is an explicit act — see
     versioning.md's new
     [Dev artifact name](../versioning.md#dev-artifact-name)
-- [[N]] 0.75.0 refactor: facade owns topology
+- [[19]] 0.75.0 refactor: facade owns topology
   - close-out bookkeeping: version 0.75.0; the
     `## In Progress` block retired (decisions live in this
     section's intro and the stage doc); Done entry added;
@@ -495,6 +495,47 @@ the refactor program. Decisions at cycle open (2026-07-23):
   fix; and the `-2` lock-race incident became Bugs #5, more
   evidence for the stateless-push stage.
 
+## docs: refactor program ladder + conventions
+
+Commits:
+
+The 0.75.1 planning interlude between the facade-owns-topology
+and repo-registry cycles: the refactor program's remaining
+stages consolidate into four cycles, `TODO.md > ## In
+Progress` adopts a heading shape, and the version-visibility
+convention lands.
+
+- Program restructure: the program entry moves to
+  `## In Progress` as a `###` heading (picked-up tasks are
+  `###`, a program's current stage a `####`) carrying a
+  program ladder — one rung per cycle, shipped rungs
+  backfilled with real commit refs, provisional versions on
+  the rest. Stages consolidated pairwise (repo registry +
+  de-gitify init, split push.rs + stateless push, jj-lib,
+  body-intro validation + trapezoid close-out) — small
+  stages ride as rungs of a neighbor. Rung / Todo titles
+  drop "stage": they are the anticipated close-out commit
+  titles.
+- Parked 0.72.0 disposition: `support-trapezoid-commits` is
+  quarry, not base — rebase or redo its extraction when the
+  split-push cycle opens, then delete the bookmark; 0.72.0
+  is an accepted version gap, recorded in the refactor doc's
+  split-push stage (versioning.md is shared byte-identical
+  across the template family, so the record stays
+  project-local). Logged as a live example on the Todo
+  "Version-number protocol is fragile".
+- Version-visibility convention (cycle-protocol.md Body):
+  the work-repo body's file list opens with
+  `- Cargo.toml, Cargo.lock: version X.Y.Z-N`, so log
+  viewers show the version without opening the commit's
+  file list. Evolves the shared protocol; template fan-out
+  after the refactor series (with the pending shared-doc
+  syncs).
+- Backfills: the 0.75.0 As-built rungs ([[14]]–[[19]]) and
+  the program ladder's shipped rungs — commit refs on
+  `refactor-vc-x1`, treated as permanent (long-lived
+  branch, lands on main merge-only, never rebased).
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -510,3 +551,9 @@ the refactor program. Decisions at cycle open (2026-07-23):
 [11]: https://github.com/winksaville/vc-x1/commit/f2a042452176 "f2a0424521765c72151c5d663e35b69d8b21fef7"
 [12]: https://github.com/winksaville/vc-x1/commit/31e8d95816ba "31e8d95816baad7dd7e1e5c66618de5070ba1b03"
 [13]: https://github.com/winksaville/vc-x1/commit/946dc964b75c "946dc964b75ca29e2cc4b6c59f03aec2c364feee"
+[14]: https://github.com/winksaville/vc-x1/commit/160cff19a7dc "160cff19a7dca70272998d970e5a6bc7c5c29b45"
+[15]: https://github.com/winksaville/vc-x1/commit/bd415793e0c4 "bd415793e0c443f3ee0b5694833b8ae8ab8b8fdc"
+[16]: https://github.com/winksaville/vc-x1/commit/49395a3a6a11 "49395a3a6a116f889b6a388f02680c6cc852abff"
+[17]: https://github.com/winksaville/vc-x1/commit/f896b8e67e0b "f896b8e67e0b224e3abbe938199951916059198a"
+[18]: https://github.com/winksaville/vc-x1/commit/3c0d15ea2fca "3c0d15ea2fca3db36135fa38d40687fdb923c239"
+[19]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
