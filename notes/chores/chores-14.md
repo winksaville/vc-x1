@@ -497,7 +497,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
 
 ## docs: refactor program ladder + conventions
 
-Commits:
+Commits: [[20]]
 
 The 0.75.1 planning interlude between the facade-owns-topology
 and repo-registry cycles: the refactor program's remaining
@@ -536,6 +536,65 @@ convention lands.
   `refactor-vc-x1`, treated as permanent (long-lived
   branch, lands on main merge-only, never rebased).
 
+## refactor: repo registry
+
+Commits: see [As-built ladder](#as-built-ladder-3)
+
+`.vc-config.toml`'s `[workspace]` block is a root-anchored
+path grammar (leading `/` = workspace root, pinned at
+0.75.0-3) kept coherent by a literal identical-block
+invariant. It becomes a **repo registry**: stable labels
+mapped to locations. Fourth cycle of the refactor program;
+de-gitify init rides as its last rung. Decisions at cycle
+open (2026-07-24):
+
+- The section is named `[repos]` — "workspace" is overloaded
+  (cargo, VS Code, and jj itself has `jj workspace`) and
+  vc-x1 is medium-agnostic; config-key paths become
+  `repos.work` / `repos.bot`.
+- `work` / `bot` values become ordinary paths: absolute, or
+  relative to the directory containing the config file that
+  states them (the standard file-relative rule — no
+  leading-`/`-means-root special case). Docs recommend
+  relative; absolute is allowed but discouraged, since it
+  commits one machine's layout.
+- The identical-block invariant cannot survive
+  file-relative values (the same bytes mean different dirs
+  on each side), so it is replaced by **resolved
+  agreement** — canonicalize each side's declared pair and
+  require both files to name the same two directories. The
+  0.75.0-3 coherence preflight keeps its role, comparing
+  reality instead of spelling.
+- Side detection: the entry resolving to the config's own
+  directory names the side (`work = "."` → work repo).
+  Repos need not be nested.
+- ochid trailer prefixes become opaque registry labels
+  resolved through `[repos]`, not filesystem spellings: `/`
+  and `/.claude` stay valid as historical labels for
+  work/bot, so published trailers keep resolving. Labels are
+  intended to grow into URLs — the local-path half of the
+  Todo "ochid: bot-repo location qualifier", whose published
+  half lives in
+  [forks-multi-user.md](../forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
+- Sequencing: this runs immediately after facade owns
+  topology because the schema is unreleased and freshly
+  adopted (one external workspace migrated at 0.75.0-2) —
+  one migration wave instead of two, and the init/clone
+  rework lands on the final schema. See the
+  [stage](../refactor-20260716.md#stage-repo-registry).
+
+### As-built ladder
+
+- [[N]] 0.76.0-0 chore: open repo registry cycle
+  - version 0.76.0-0; the stage picked into
+    `## In Progress` as the program ladder's current
+    `####` rung with a seven-rung ladder; this section
+    opened; the `[repos]` name settled and recorded here,
+    in the ladder block, and in the stage section of
+    [refactor-20260716.md](../refactor-20260716.md#stage-repo-registry)
+  - rider: 0.75.1 `Commits:` backfill ([[20]])
+  - rider: `## Done` retirement sweep into done.md
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -557,3 +616,4 @@ convention lands.
 [17]: https://github.com/winksaville/vc-x1/commit/f896b8e67e0b "f896b8e67e0b224e3abbe938199951916059198a"
 [18]: https://github.com/winksaville/vc-x1/commit/3c0d15ea2fca "3c0d15ea2fca3db36135fa38d40687fdb923c239"
 [19]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
+[20]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"

@@ -45,15 +45,67 @@ close-out commits on `refactor-vc-x1`, treated as permanent:
 the branch is long-lived and lands on main merge-only, never
 rebased.
 
-- [[7]] 0.73.0 refactor: DRY jj facade
-- [[8]] 0.74.0 refactor: hygiene riders
-- [[9]] 0.75.0 refactor: facade owns topology
-- [[N]] 0.76.0 refactor: repo registry (Todo #1)
+- [[1]] 0.73.0 refactor: DRY jj facade
+- [[2]] 0.74.0 refactor: hygiene riders
+- [[3]] 0.75.0 refactor: facade owns topology
+- [[N]] 0.76.0 refactor: repo registry (current, below)
 - [[N]] 0.77.0 refactor: split push.rs + stateless push
-  (Todo #2)
-- [[N]] 0.78.0 refactor: jj-lib migration (Todo #3)
+  (Todo #1)
+- [[N]] 0.78.0 refactor: jj-lib migration (Todo #2)
 - [[N]] 0.79.0 refactor: push body-intro validation +
-  trapezoid close-out (Todo #4)
+  trapezoid close-out (Todo #3)
+
+#### refactor: repo registry
+
+Picked up 2026-07-24; the `[repos]` section name was
+approved at pickup. Drop
+the root-anchored `[workspace]` path grammar: values become
+ordinary paths (relative to the config file's dir, or
+absolute — allowed but docs discourage), resolved agreement
+replaces the identical-block invariant, ochid prefixes become
+registry labels (URLs later — the local-path half of the Todo
+"ochid: bot-repo location qualifier"), and the section is
+renamed ("workspace" is overloaded — jj itself has
+`jj workspace`); see
+[the stage](notes/refactor-20260716.md#stage-repo-registry).
+First so the schema settles in one migration wave; de-gitify
+init rides as the last rung — a one-commit swap to the
+verified jj-only sequence
+([the stage](notes/refactor-20260716.md#stage-de-gitify-init)).
+
+Ladder (greppable stem `registry`; config-key paths become
+`repos.work` / `repos.bot`):
+
+- [[N]] 0.76.0-0 chore: open repo registry cycle (done) —
+  pickup into this block, version bump, chores section,
+  0.75.1 `Commits:` backfill (SHA
+  `eb4a12eb3b561234d176953d3773960fb9f4cdaa`), `## Done`
+  sweep into done.md
+- [[N]] 0.76.0-1 refactor: registry schema + side detection
+  — `[workspace]` → `[repos]`, file-relative path semantics
+  (no leading-`/`-means-root), side detection by
+  self-resolution (`work = "."` → work repo); both live
+  configs flip in the same commit (the 0.75.0-2 atomicity
+  precedent)
+- [[N]] 0.76.0-2 refactor: registry resolved-agreement
+  preflight — canonicalize each side's declared pair,
+  require both files to name the same two dirs; replaces
+  the identical-block invariant in the coherence preflight
+  and `config --validate`
+- [[N]] 0.76.0-3 refactor: registry ochid labels — trailer
+  prefixes resolve as opaque registry labels (`/` and
+  `/.claude` remain valid historical labels), decoupled
+  from filesystem spelling
+- [[N]] 0.76.0-4 docs: registry docs sweep — AGENTS.md's
+  `.vc-config.toml` section, README, ARCHITECTURE.md,
+  refactor-doc stage status (per-rung doc touches that keep
+  a file true ride with their rung; this is the systematic
+  sweep)
+- [[N]] 0.76.0-5 refactor: de-gitify init — the verified
+  jj-only sequence replaces strip-jj → git-push →
+  re-colocate
+- [[N]] 0.76.0 refactor: repo registry — close-out and
+  validation
 
 ## Todo
 
@@ -69,31 +121,7 @@ rebased.
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **refactor: repo registry.** Drop the root-anchored
-   `[workspace]` path grammar: values become ordinary paths
-   (relative to the config file's dir, or absolute — allowed
-   but docs discourage), resolved agreement replaces the
-   identical-block invariant, ochid prefixes become registry
-   labels (URLs later — the local-path half of the Todo
-   "ochid: bot-repo location qualifier"), and the section is
-   renamed ("workspace" is overloaded — jj itself has
-   `jj workspace`). Decided 2026-07-24; see
-   [the stage](notes/refactor-20260716.md#stage-repo-registry).
-   First so the schema settles in one migration wave;
-   de-gitify init rides as the last rung — a one-commit swap
-   to the verified jj-only sequence
-   ([the stage](notes/refactor-20260716.md#stage-de-gitify-init)).
-   - rename `[workspace]` (candidate `[repos]`);
-     file-relative path semantics; side detection by
-     self-resolution
-   - resolved-agreement preflight replaces the
-     identical-block invariant
-   - ochid prefixes become registry labels (`/` and
-     `/.claude` stay valid as historical labels for
-     work/bot)
-   - migrate both live configs + docs
-   - de-gitify init (last rung)
-2. **refactor: split push.rs + stateless push.** Retire
+1. **refactor: split push.rs + stateless push.** Retire
    the push state file — derive resume from repo reality —
    with the `push/state.rs` extraction as the first rung, so
    the extraction and the shrinkage it enables land in one
@@ -108,14 +136,14 @@ rebased.
      abandoned version (see the
      [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs)
      for the disposition).
-3. **refactor: jj-lib migration.** Facade internals and
+2. **refactor: jj-lib migration.** Facade internals and
    mutations move in-process; the index-lock retry becomes
    ours; see
    [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
    After split push.rs + stateless push. May split into two
    cycles (reads lift, then mutations lift) once the
    op-store-coexistence risk is spiked.
-4. **refactor: push body-intro validation + trapezoid
+3. **refactor: push body-intro validation + trapezoid
    close-out.** `push --merge [<base>]` — the native
    trapezoid close-out (design settled in the stage notes) —
    with the body-intro validation as the first rung; see
@@ -123,7 +151,7 @@ rebased.
    and
    [push body-intro validation](notes/refactor-20260716.md#stage-push-body-intro-validation).
    After stateless push (no state-file growth) and jj-lib.
-5. **Restructure templates: single template repo + fixed bot
+4. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -151,7 +179,7 @@ rebased.
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying — no "is it
      still empty?" invariant left in the template.
-6. **ochid: bot-repo location qualifier.** An ochid is
+5. **ochid: bot-repo location qualifier.** An ochid is
    workspace-relative (`/.claude/<chid>`) — nothing in a
    published commit says *where* the companion bot repo
    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -171,7 +199,7 @@ rebased.
      (bot-repo-location config).
    - Link rot + mirroring mitigations are in the same doc
      section.
-7. **Version-number protocol is fragile — versions are
+6. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -210,7 +238,7 @@ rebased.
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-8. **sync follow-up: extract `move-bookmark` command.** The
+7. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -220,7 +248,7 @@ rebased.
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-9. **sync follow-up: push preflight in-process; drop
+8. **sync follow-up: push preflight in-process; drop
    `--check`; revisit push auto-rollback.** Push's preflight
    shells out to `vc-x1 sync --check` — a verify-only pass
    that is both racy (remote can move before the user's
@@ -235,43 +263,43 @@ rebased.
    - Apply the stop-on-error + `vc-x1 revert` philosophy to
      push's commit-stage rollback (today it auto-runs
      `jj op restore`, hiding the evidence).
-10. **validate-numbering: rename the pair, check all
-    sequence-managed notes files generically.** `validate-todo`
-    / `fix-todo` only operate on the single file passed, so a
-    renumber slip in `bugs.md`, `todo-backlog.md`, or
-    `TODO.md`'s `## Ideas` section passes unnoticed — too weak
-    for a pre-commit gate. Prereq for the pre-commit doc
-    validators (Todo "pre-commit: single rule ...").
-    - Rename the pair: `validate-todo` → `validate-numbering`,
-      `fix-todo` → `fix-numbering` — they validate numbered-
-      sequence integrity, not todos specifically.
-    - Generic detection: for every `#…#` section, validate the
-      column-0 `^\d+\.␠` entries form a contiguous 1..N run.
-      Drops the Todo/Bugs special-casing; auto-covers
-      `## Ideas` and any new numbered section. Keep the
-      column-0 anchor so indented sub-lists aren't counted.
-    - Default scope: a fixed list of sequence-managed notes
-      files (`TODO.md`, `todo-backlog.md`, `bugs.md`) so the
-      no-arg pre-commit run covers them all. Fixed rather than
-      a `notes/**.md` walk because prose docs
-      (`cycle-protocol.md`, design notes) carry ordinary
-      numbered lists that aren't managed sequences — a walk
-      would false-positive (markdown renders `1. 1. 1.` as
-      1-2-3, a legitimate prose pattern).
-    - Override args follow the `--init-from` convention:
-      positional files/dirs (a dir → its `*.md`) plus an
-      `@<file>` manifest, additive — for ad-hoc validation of
-      a specific file.
-    - Add wrapper-level tests while restructuring: the analyze
-      cores are covered (`todo_helpers` 15 tests,
-      `desc_helpers` 22) but the `validate-todo` / `fix-todo` /
-      `validate-desc` / `fix-desc` wrappers have none — file
-      I/O, output formatting, exit codes, and the no-arg
-      default path (changed to `TODO.md` at 0.69.2-2) are
-      unexercised.
-    - Open: revisit fixed-vs-glob at implementation if the
-      fixed list proves annoying to maintain.
-11. **pre-commit: single rule (no docs skip) + doc validators.**
+9. **validate-numbering: rename the pair, check all
+   sequence-managed notes files generically.** `validate-todo`
+   / `fix-todo` only operate on the single file passed, so a
+   renumber slip in `bugs.md`, `todo-backlog.md`, or
+   `TODO.md`'s `## Ideas` section passes unnoticed — too weak
+   for a pre-commit gate. Prereq for the pre-commit doc
+   validators (Todo "pre-commit: single rule ...").
+   - Rename the pair: `validate-todo` → `validate-numbering`,
+     `fix-todo` → `fix-numbering` — they validate numbered-
+     sequence integrity, not todos specifically.
+   - Generic detection: for every `#…#` section, validate the
+     column-0 `^\d+\.␠` entries form a contiguous 1..N run.
+     Drops the Todo/Bugs special-casing; auto-covers
+     `## Ideas` and any new numbered section. Keep the
+     column-0 anchor so indented sub-lists aren't counted.
+   - Default scope: a fixed list of sequence-managed notes
+     files (`TODO.md`, `todo-backlog.md`, `bugs.md`) so the
+     no-arg pre-commit run covers them all. Fixed rather than
+     a `notes/**.md` walk because prose docs
+     (`cycle-protocol.md`, design notes) carry ordinary
+     numbered lists that aren't managed sequences — a walk
+     would false-positive (markdown renders `1. 1. 1.` as
+     1-2-3, a legitimate prose pattern).
+   - Override args follow the `--init-from` convention:
+     positional files/dirs (a dir → its `*.md`) plus an
+     `@<file>` manifest, additive — for ad-hoc validation of
+     a specific file.
+   - Add wrapper-level tests while restructuring: the analyze
+     cores are covered (`todo_helpers` 15 tests,
+     `desc_helpers` 22) but the `validate-todo` / `fix-todo` /
+     `validate-desc` / `fix-desc` wrappers have none — file
+     I/O, output formatting, exit codes, and the no-arg
+     default path (changed to `TODO.md` at 0.69.2-2) are
+     unexercised.
+   - Open: revisit fixed-vs-glob at implementation if the
+     fixed list proves annoying to maintain.
+10. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -297,14 +325,14 @@ rebased.
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-12. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+11. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
     `jj git push` / `git push`, no `vc-x1 push` in the loop),
     so no bot pairings exist — one bot commit then records
     every code commit not yet covered by a prior `ochid:`,
-    via a multi-line `ochid:` per the design in [[1]].
+    via a multi-line `ochid:` per the design in [[4]].
     - Out of scope: the trapezoid close-out — handled
       natively by the in-progress "feat: push merge
       close-out (trapezoid)" cycle, whose N-ochid stamping
@@ -321,7 +349,7 @@ rebased.
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-13. **Run validate-bot at every vc-x1 invocation
+12. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -334,7 +362,7 @@ rebased.
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-14. **README: audit flag tables and examples against the
+13. **README: audit flag tables and examples against the
     current CLI.** 0.69.0-4 fixed the init section (it
     documented retired `--owner` / `--dir` / `--repo-local`
     flags) and the 0.69.0 surfaces, but the README's other
@@ -345,7 +373,7 @@ rebased.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-15. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+14. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -358,7 +386,7 @@ rebased.
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-16. **Shared-doc sync: per-commit chores convention.**
+15. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -369,7 +397,7 @@ rebased.
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-17. **config: extract flag-backed key descriptions from Clap.**
+16. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -485,7 +513,8 @@ _See [bugs.md](notes/bugs.md)._
 Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
 and older `## Done` sections are moved to [done.md](notes/done.md) to keep this file small.
 
-_Migrated to [done.md](notes/done.md) on 2026-07-23 (0.69.1–0.71.0 batch)._
+_Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
+cycle and its two docs interludes: template repo names, notes rework)._
 
 - docs: refactor program ladder + conventions — the refactor
   program's remaining stages consolidated into four cycles
@@ -493,7 +522,7 @@ _Migrated to [done.md](notes/done.md) on 2026-07-23 (0.69.1–0.71.0 batch)._
   `## In Progress` shape; the parked 0.72.0 branch declared
   quarry (version gap accepted); the version-first-bullet
   body convention added to cycle-protocol.md; chores-14
-  0.75.0 rung refs backfilled [[10]]
+  0.75.0 rung refs backfilled [[5]]
 
 - refactor: facade owns topology — repo resolution is facade
   state: the symmetric `work`/`bot` `[workspace]` schema
@@ -511,41 +540,14 @@ _Migrated to [done.md](notes/done.md) on 2026-07-23 (0.69.1–0.71.0 batch)._
   unreleased); the six single-field `options_flags` leaves
   adopt the `value` field shape with clap ids pinned, and
   clone.rs's drifted inline `dry_run` folds onto the leaf;
-  second stage of the jj refactor program [[2]]
-
-- docs: notes rework + config refresh — `.vc-config.toml`
-  (both sides) adopts init's generated optional-keys block;
-  jj-tips.md re-syncs with the template (reclassified as
-  pedagogy, not history); template-restructure design
-  promoted to Todo #10 with `.bot` / symmetric-schema
-  decisions folded into the refactor program; new Idea:
-  chores retire into a session index; bot repo seeded with
-  LICENSE-* / README.md from vc-x1-bot-repo-template [[3]]
-
-- docs: adopt new template repo names — live mentions of
-  `vc-template-x1`(.claude) swept to `vc-x1-work-repo-template`
-  / `vc-x1-bot-repo-template` (AGENTS.md byte-identical with
-  the template again; README init examples now pass an
-  explicit `CODE,BOT` pair); historical records keep the old
-  name [[4]]
-
-- refactor: DRY jj facade — one typed facade (`src/jj.rs`)
-  for every read-only jj query spawn (log templates +
-  bookmark listings), the tracking and ochid trailer parsers
-  unified beside it, and the test fixture helpers deduped to
-  one copy per crate; first stage of the jj refactor
-  program, worked on `refactor-vc-x1` with main parked at
-  the 0.71.0 tip [[5]]
+  second stage of the jj refactor program [[7]]
 
 # References
 
-[1]: /notes/forks-multi-user.md
-[2]: /notes/chores/chores-14.md#refactor-hygiene-riders
-[3]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
-[4]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
-[5]: /notes/chores/chores-14.md#refactor-dry-jj-facade
+[1]: https://github.com/winksaville/vc-x1/commit/b5e40e7458b8 "b5e40e7458b8506574b2ae01f52f7ccae9023418"
+[2]: https://github.com/winksaville/vc-x1/commit/946dc964b75c "946dc964b75ca29e2cc4b6c59f03aec2c364feee"
+[3]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
+[4]: /notes/forks-multi-user.md
+[5]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
 [6]: /notes/chores/chores-14.md#refactor-facade-owns-topology
-[7]: https://github.com/winksaville/vc-x1/commit/b5e40e7458b8 "b5e40e7458b8506574b2ae01f52f7ccae9023418"
-[8]: https://github.com/winksaville/vc-x1/commit/946dc964b75c "946dc964b75ca29e2cc4b6c59f03aec2c364feee"
-[9]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
-[10]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
+[7]: /notes/chores/chores-14.md#refactor-hygiene-riders
