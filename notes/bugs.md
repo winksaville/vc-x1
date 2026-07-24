@@ -77,5 +77,34 @@ insert / delete / reorder.
      via `writeln!` to a locked stdout and exit 0 on
      `BrokenPipe`), or reset SIGPIPE to default on unix at
      startup.
+5. **`push` resume-after-rollback replays from the wrong
+   stage.** Observed at the 0.75.0-2 push (2026-07-23): the
+   bookmark-set lock race (Bugs #3) fired, the error path
+   `op restore`d both repos — undoing `commit-work` /
+   `commit-bot` — but the state file still said
+   `stage = bookmark-set`. The rerun resumed there,
+   *skipping the commit stages*: bookmark-set pinned the
+   bookmarks to `@-` (the **previous** cycle commit),
+   push-work no-op re-pushed it, and squash-push-bot
+   squashed the accumulated session data into the
+   already-published previous bot commit and republished
+   it. The completion sanity check caught the chid
+   mismatch and warned, but after the damage.
+   - **Cost:** no data loss (work `@` kept the uncommitted
+     changes; the bot chid is rebase-stable so the ochid
+     pairing survived) — but session data landed under the
+     previous commit's title, and the published bot commit
+     was rewritten in place.
+   - The state file and the op-restore rollback disagree
+     about where the run stopped: rollback rewinds the
+     *repos* to pre-commit, but not the *state* to the
+     `message` stage. Any `Err` between `commit-work` and
+     the stage save has the same shape.
+   - **Fix direction:** on rollback, rewind (or delete) the
+     state file in the same breath — or retire the state
+     file entirely and derive resume from repo reality,
+     which is the refactor program's
+     [stateless push stage](refactor-20260716.md#stage-stateless-push);
+     this incident is its strongest evidence yet.
 
 # References

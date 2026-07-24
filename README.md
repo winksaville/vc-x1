@@ -65,10 +65,6 @@ their two sides **work** and **bot**:
   command or doc needs to say which repo it means (e.g. push's
   `commit-work` / `commit-bot` stages).
 
-One historical wrinkle: the `-s`/`--scope` flag still spells the
-work side `code` (`-s code`, `-s code,bot`) — that keyword predates
-the work/bot naming.
-
 A few naming conventions this project keeps, to avoid ambiguous
 jargon:
 
@@ -169,16 +165,16 @@ Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and
 
 ### Multi-repo queries
 
-`-s`/`--scope` selects workspace sides by role keyword; `code` is the
-work repo, `bot` is the `.claude` repo, `code,bot` is both. The
+`-s`/`--scope` selects workspace sides by role keyword; `work` is the
+work repo, `bot` is the `.claude` repo, `work,bot` is both. The
 workspace root is found by walking up from cwd (the existing
 `find_workspace_root` rule).
 
 ```
-vc-x1 chid -s code,bot          # both sides of the workspace
-vc-x1 chid -s code              # just the work repo
+vc-x1 chid -s work,bot          # both sides of the workspace
+vc-x1 chid -s work              # just the work repo
 vc-x1 chid -s bot               # just the bot repo
-vc-x1 list @.. 3 -s code,bot    # works with chid / desc / list / show
+vc-x1 list @.. 3 -s work,bot    # works with chid / desc / list / show
 ```
 
 `-R`/`--repo` takes a single path. Used alone it points at one jj
@@ -188,7 +184,7 @@ the workspace root for the role lookup:
 ```
 vc-x1 chid -R .                  # single repo at .
 vc-x1 chid -R .claude            # single repo at .claude
-vc-x1 chid -R ../other -s code,bot   # both sides of ../other workspace
+vc-x1 chid -R ../other -s work,bot   # both sides of ../other workspace
 ```
 
 Defaults preserve prior behavior — no flag → `[.]`, `-R foo` alone
@@ -198,26 +194,26 @@ headers by default. Control the label with `-l`/`--label` and
 `-L`/`--no-label`:
 
 ```
-vc-x1 chid -s code,bot            # default label: === path ===
-vc-x1 chid -s code,bot -l "---"   # custom label:  --- path ---
-vc-x1 chid -s code,bot -L         # no label (raw output)
+vc-x1 chid -s work,bot            # default label: === path ===
+vc-x1 chid -s work,bot -l "---"   # custom label:  --- path ---
+vc-x1 chid -s work,bot -L         # no label (raw output)
 ```
 
 Examples:
 
 ```
-$ vc-x1 chid -s code,bot
+$ vc-x1 chid -s work,bot
 === . ===
 kwoyvposvsmv
 
 === .claude ===
 zzpksklxyrnw
 
-$ vc-x1 chid -s code,bot -L
+$ vc-x1 chid -s work,bot -L
 kwoyvposvsmv
 zzpksklxyrnw
 
-$ vc-x1 list @.. 3 -s code,bot
+$ vc-x1 list @.. 3 -s work,bot
 === . ===
 kwoyvposvsmv eae175c3c1b5 (no description set)
 pqxtxxpnsmot b0c46930a640 Reorganize notes (0.19.1)
@@ -228,7 +224,7 @@ zzpksklxyrnw 2388185e42ee (no description set)
 tzupykyyvnrp 81ce22e34d41 Reorganize notes (0.19.1)
 slmkmroqtqtp 1c33ccaa567d Unify .. notation and CLI (0.19.0)
 
-$ vc-x1 desc -r @- -s code,bot
+$ vc-x1 desc -r @- -s work,bot
 === . ===
 pqxtxxpnsmot b0c46930a640 Reorganize notes: move older done items to done.md, update todos (0.19.1)
 
@@ -244,7 +240,7 @@ tzupykyyvnrp 81ce22e34d41 Reorganize notes: move older done items to done.md, up
 
     ochid: pqxtxxpnsmot
 
-$ vc-x1 chid -s code,bot -l "---"
+$ vc-x1 chid -s work,bot -l "---"
 --- . ---
 kwoyvposvsmv
 
@@ -258,11 +254,11 @@ like `*`, `!`, `#`, `$`, or `~` (e.g. `-l '***'`). Double quotes
 won't protect against `!` (bash history expansion).
 
 With a single repo resolved, no label is printed — backward
-compatible with the no-flag default. Multi-repo (`-s code,bot`) is
+compatible with the no-flag default. Multi-repo (`-s work,bot`) is
 supported for `chid`, `desc`, `list`, and `show`. `squash-push`
 remains single-repo.
 
-`-s` is keyword-only — `code`, `bot`, `code,bot`, `bot,code`.
+`-s` is keyword-only — `work`, `bot`, `work,bot`, `bot,work`.
 Path-based single-repo operation uses `-R` (above).
 
 ### bot-session
@@ -390,7 +386,7 @@ vc-x1 bot-session --per-line --lines 40,5 FILE
 ### validate-desc
 
 Read-only scan of commit descriptions against the other repo. The other
-repo is read from `.vc-config.toml` (`workspace.other-repo`) by default,
+repo is read from `.vc-config.toml` (`workspace.bot`) by default,
 or overridden with `--other-repo`. Reports status per commit: `ok`
 (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err`
 (issues found), or `miss` (no ochid trailer).
@@ -513,22 +509,27 @@ condition and proceeds, since publishing is its job.
 
 ### config
 
-Print every settable config key across vc-x1's two config
-homes — the user config (`~/.config/vc-x1/config.toml`) and the
-workspace config (`<root>/.vc-config.toml`) — as an annotated,
-commented schema: for each key its description, the
+Print the settable config keys for a target config file as an
+annotated, commented schema: for each key its description, the
 command/context it's `used by`, its default (or a value marked
 `# example` when there is no default), and a commented
 assignment line ready to paste in. The schema is generated from
 one in-code registry, so it can't drift from what the code
 actually reads.
 
-- `--home user|workspace|all` — filter to one home's keys
-  [default: all].
-- `--validate` — instead of printing, load the actual config
-  file(s) for the selected home(s) and flag any key the schema
-  doesn't recognize (a typo, a key in the wrong section, or an
-  unknown key). Exits non-zero if any are found. This is an
+- `[TARGET]` — `work`, `bot`, `work,bot` (default), or an
+  explicit config-file path. The keywords resolve against the
+  surrounding workspace's `.vc-config.toml` files and filter to
+  that side's keys; a path carries no side information, so it
+  gets the whole schema. The user config
+  (`~/.config/vc-x1/config.toml`) has no keyword and is reached
+  only by passing its path.
+- `--validate` — instead of printing, load the target's actual
+  config file(s) and flag any key the schema doesn't recognize
+  (a typo, a key in the wrong section, or an unknown key), plus
+  — for keyword targets — the `[workspace]` path grammar and
+  the identical-`[workspace]`-block invariant of a dual
+  workspace. Exits non-zero if any problem is found. This is an
   opt-in strict check — a normal config load silently ignores
   unknown keys, for forward-compatibility.
 
@@ -543,11 +544,12 @@ A short sample of the printed schema (workspace home):
 # col-width = 68
 
 [workspace]
-# workspace.path — This repo's path relative to the workspace root
-#   (role-specific: "/" for the work repo, "/.claude" for the bot repo)
-#   used by: find_workspace_root, sync, push, validate-desc (structural; written by init)
-#   default: (required; role-specific — see init)
-path = "/"   # example
+# workspace.work — The work repo's path relative to the workspace root — always "/".
+#   The [workspace] block is identical on both sides; which side a repo
+#   is comes from its location, not this file
+#   used by: find_workspace_root, side detection (structural; written by init)
+#   default: (required — see init)
+work = "/"   # example
 ```
 
 A key with no default (`default.account`, in the user home)
@@ -562,20 +564,28 @@ instead renders a commented example value:
 ```
 
 ```
-# Print every settable key, both homes
+# Print the workspace-settable keys, both sides
 vc-x1 config
 
-# Print only the user-config keys
-vc-x1 config --home user
+# Print only the work side's keys
+vc-x1 config work
 
-# Check the current directory's config file(s) for unknown keys
+# Print the whole schema for one file (the user config has no
+# keyword — reach it by path)
+vc-x1 config ~/.config/vc-x1/config.toml
+
+# Check both sides' config files: unknown keys, [workspace]
+# grammar, and the identical-[workspace]-block invariant
 vc-x1 config --validate
+
+# Check one explicit file
+vc-x1 config ../other/.vc-config.toml --validate
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--home <user\|workspace\|all>` | Which config home(s) to print/validate [default: all] |
-| `--validate` | Check config file(s) for unknown keys instead of printing the schema |
+| `[TARGET]` | `work`, `bot`, `work,bot`, or a config-file path [default: work,bot] |
+| `--validate` | Check the target config file(s) instead of printing the schema |
 
 ### clone
 
@@ -759,22 +769,22 @@ cleared — a stale file must not become a revert target later.
 ```
 vc-x1 sync                            # workspace-default scope
 vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
-vc-x1 sync --scope=code               # only the work repo
+vc-x1 sync --scope=work               # only the work repo
 vc-x1 sync --scope=bot                # only the bot repo
-vc-x1 sync --scope=code,bot           # both (explicit form of the dual default)
+vc-x1 sync --scope=work,bot           # both (explicit form of the dual default)
 vc-x1 sync -R ../other                # sync ../other as a single repo
-vc-x1 sync -R ../other --scope=code,bot   # ../other as workspace root
+vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
 ```
 
 **Repo set resolution.** `-R` and `--scope` compose:
 
-1. Neither — workspace-default scope: `code,bot` if
-   `[workspace] other-repo` is non-empty, else `code`. POR (no
-   `.vc-config.toml`) → `code` resolved to cwd.
+1. Neither — workspace-default scope: `work,bot` if
+   `[workspace] bot` is non-empty, else `work`. POR (no
+   `.vc-config.toml`) → `work` resolved to cwd.
 2. `-R PATH` alone — sync just the repo at `PATH`.
-3. `--scope=code|bot|code,bot` alone — workspace roles, resolved
+3. `--scope=work|bot|work,bot` alone — workspace roles, resolved
    via the discovered workspace root's `.vc-config.toml`
-   (`code` → root, `bot` → `root.join(other-repo)`).
+   (`work` → root, `bot` → the root-joined `bot` path).
 4. `-R PATH --scope=ROLES` — roles resolved against `PATH` as the
    workspace root.
 
@@ -784,7 +794,7 @@ the workspace root and resolves repos by absolute path.
 | Flag | Description |
 |------|-------------|
 | `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
-| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to sync. Composes with `-R` |
+| `--scope <SCOPE>` | `work|bot|work,bot` — workspace roles to sync. Composes with `-R` |
 | `-q, --quiet` | Suppress all output; exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
@@ -837,7 +847,7 @@ vc-x1 revert          # restore every repo to its pre-sync snapshot
 | Flag | Description |
 |------|-------------|
 | `-R, --repo <PATH>` | Workspace root, or a single repo to revert alone. Composes with `--scope` |
-| `--scope <SCOPE>` | `code|bot|code,bot` — workspace roles to revert. Composes with `-R` |
+| `--scope <SCOPE>` | `work|bot|work,bot` — workspace roles to revert. Composes with `-R` |
 
 ### squash-push
 
@@ -966,13 +976,13 @@ work repo uses plain `jj git push`; the bot repo uses
 `--repo local=<PARENT>` lays out:
 ```
 <PARENT>/
-  remote-code.git/     bare git remote for the work repo
-  remote-claude.git/   bare git remote for the .claude bot repo
+  remote-work.git/     bare git remote for the work repo
+  remote-bot.git/   bare git remote for the .claude bot repo
   <NAME>/              work repo (jj colocated, main tracks origin)
-    .vc-config.toml    path="/",       other-repo=".claude"
+    .vc-config.toml    work="/", bot="/.claude"
     .gitignore         /.claude /.git /.jj /target /.vc-x1
     .claude/           bot repo (jj colocated, main tracks origin)
-      .vc-config.toml  path="/.claude", other-repo=".."
+      .vc-config.toml  work="/", bot="/.claude" (identical)
       .gitignore       .git .jj
 ```
 

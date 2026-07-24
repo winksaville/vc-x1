@@ -260,18 +260,17 @@ stable ochid target. This is why a bot-repo ochid names `@-`
 
 ### .vc-config.toml
 
-Each repo contains a `.vc-config.toml` that identifies its
-location within the workspace, so tools resolve these paths
-without repeating the workspace path in every trailer:
+Each repo contains a `.vc-config.toml` recording the workspace
+layout, so tools resolve ochid paths without repeating the
+workspace path in every trailer. The `[workspace]` block is
+**identical in both repos** — which side a repo is comes from
+its location (the root vs the root's recorded bot dir), not
+from this file:
 
 ```toml
-# In the work repo (workspace root):
 [workspace]
-path = "/"
-
-# In .claude (sub-repo):
-[workspace]
-path = "/.claude"
+work = "/"
+bot = "/.claude"
 ```
 
 ## Prose form

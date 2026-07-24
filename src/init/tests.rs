@@ -74,22 +74,17 @@ fn target_required_at_parse_time() {
 }
 
 #[test]
-fn config_content_work() {
-    let work = render_vc_config(ConfigRole::Work);
-    assert!(work.contains("path = \"/\""));
-    assert!(work.contains("other-repo = \".claude\""));
-}
-
-#[test]
-fn config_content_bot() {
-    let bot = render_vc_config(ConfigRole::Bot);
-    assert!(bot.contains("path = \"/.claude\""));
-    assert!(bot.contains("other-repo = \"..\""));
+fn config_content_dual() {
+    // One dual variant — the [workspace] block is identical on
+    // both sides; side detection is by location.
+    let dual = render_vc_config(ConfigRole::Dual);
+    assert!(dual.contains("work = \"/\""));
+    assert!(dual.contains("bot = \"/.claude\""));
 }
 
 #[test]
 fn config_optional_keys_are_commented_only() {
-    let work = render_vc_config(ConfigRole::Work);
+    let work = render_vc_config(ConfigRole::Dual);
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
     assert!(work.contains("used by: bot-session --col-width"));
@@ -120,13 +115,13 @@ fn config_generated_toml_parses_to_active_keys_only() {
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let path = dir.join(".vc-config.toml");
-    std::fs::write(&path, render_vc_config(ConfigRole::Work)).expect("write config");
+    std::fs::write(&path, render_vc_config(ConfigRole::Dual)).expect("write config");
 
     let map = crate::toml_simple::toml_load(&path).expect("parse generated config");
-    assert_eq!(map.get("workspace.path").map(String::as_str), Some("/"));
+    assert_eq!(map.get("workspace.work").map(String::as_str), Some("/"));
     assert_eq!(
-        map.get("workspace.other-repo").map(String::as_str),
-        Some(".claude")
+        map.get("workspace.bot").map(String::as_str),
+        Some("/.claude")
     );
     assert!(!map.contains_key("bot-session.col-width"));
     assert!(!map.contains_key("push.state-file"));
@@ -900,8 +895,8 @@ fn error_por_with_comma_template() {
 #[test]
 fn config_content_work_only() {
     let work_only_repo = render_vc_config(ConfigRole::WorkOnly);
-    assert!(work_only_repo.contains("path = \"/\""));
-    assert!(!work_only_repo.contains("other-repo"));
+    assert!(work_only_repo.contains("work = \"/\""));
+    assert!(!work_only_repo.contains("bot ="));
 }
 
 #[test]
@@ -942,19 +937,19 @@ fn por_fixture_creates_single_repo_layout() {
     );
 }
 
-/// POR fixture writes the APP_ONLY config + .gitignore variants
-/// — `path = "/"` with no `other-repo` field, and `.gitignore`
-/// has no `/.claude` exclusion.
+/// POR fixture writes the WorkOnly config + .gitignore variants
+/// — `work = "/"` with no `bot` key, and `.gitignore` has no
+/// `/.claude` exclusion.
 #[test]
 fn por_fixture_writes_work_only_config_files() {
     let fx = crate::test_helpers::FixturePor::new("por-config");
 
     let cfg =
         std::fs::read_to_string(fx.work.join(".vc-config.toml")).expect("read .vc-config.toml");
-    assert!(cfg.contains("path = \"/\""), "expected POR path = \"/\"");
+    assert!(cfg.contains("work = \"/\""), "expected POR work = \"/\"");
     assert!(
-        !cfg.contains("other-repo"),
-        "POR config must not reference other-repo"
+        !cfg.contains("bot ="),
+        "POR config must not declare a bot repo"
     );
 
     let gi = std::fs::read_to_string(fx.work.join(".gitignore")).expect("read .gitignore");
@@ -1102,33 +1097,25 @@ fn dual_fixture_creates_dual_repo_layout() {
 }
 
 /// Dual fixture writes the WORK / BOT config + .gitignore
-/// variants — work side has `path = "/"` and
-/// `other-repo = ".claude"`; bot side has
-/// `path = "/.claude"` and `other-repo = ".."`. Work-side
-/// `.gitignore` excludes `/.claude` (bot subdir is git-ignored
-/// from the work-side view).
+/// variants — the `[workspace]` block is identical on both
+/// sides (`work = "/"`, `bot = "/.claude"`); side detection is
+/// by location. Work-side `.gitignore` excludes `/.claude`
+/// (bot subdir is git-ignored from the work-side view).
 #[test]
 fn dual_fixture_writes_work_and_bot_config_files() {
     let fx = crate::test_helpers::Fixture::new("dual-config");
 
     let work_cfg = std::fs::read_to_string(fx.work.join(".vc-config.toml"))
         .expect("read work .vc-config.toml");
-    assert!(work_cfg.contains("path = \"/\""), "work path = \"/\"");
+    assert!(work_cfg.contains("work = \"/\""), "work work = \"/\"");
     assert!(
-        work_cfg.contains("other-repo = \".claude\""),
-        "work other-repo = \".claude\""
+        work_cfg.contains("bot = \"/.claude\""),
+        "work bot = \"/.claude\""
     );
 
     let bot_cfg =
         std::fs::read_to_string(fx.bot.join(".vc-config.toml")).expect("read bot .vc-config.toml");
-    assert!(
-        bot_cfg.contains("path = \"/.claude\""),
-        "bot path = \"/.claude\""
-    );
-    assert!(
-        bot_cfg.contains("other-repo = \"..\""),
-        "bot other-repo = \"..\""
-    );
+    assert_eq!(bot_cfg, work_cfg, "the two sides' configs are identical");
 
     let work_gi =
         std::fs::read_to_string(fx.work.join(".gitignore")).expect("read work .gitignore");

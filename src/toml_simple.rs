@@ -57,7 +57,7 @@ pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::er
     Ok(map)
 }
 
-/// Look up a `.`-joined config key (e.g. `"workspace.path"`) in a loaded config map.
+/// Look up a `.`-joined config key (e.g. `"workspace.work"`) in a loaded config map.
 pub fn toml_get<'a>(map: &'a HashMap<String, String>, key: &str) -> Option<&'a String> {
     map.get(key)
 }
@@ -71,10 +71,10 @@ mod tests {
         let dir = std::env::temp_dir().join("toml_simple_test");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("test.toml");
-        std::fs::write(&path, "# comment\n\n[workspace]\npath = \"/\"\n").unwrap();
+        std::fs::write(&path, "# comment\n\n[workspace]\nwork = \"/\"\n").unwrap();
 
         let map = toml_load(&path).unwrap();
-        assert_eq!(toml_get(&map, "workspace.path"), Some(&"/".to_string()));
+        assert_eq!(toml_get(&map, "workspace.work"), Some(&"/".to_string()));
         std::fs::remove_dir_all(&dir).ok();
     }
 

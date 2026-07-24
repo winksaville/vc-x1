@@ -254,7 +254,10 @@ refactor program. Decisions at cycle open (2026-07-22):
     so the keyword renames outright rather than carrying
     compatibility baggage (recorded here, in the ladder
     block, and in the stage section of the refactor doc)
-- [[N]] 0.74.0-3 refactor: hygiene OF value fields
+- [[12]] 0.74.0-3 refactor: hygiene OF value fields
+  - "OF" is `options_flags` — the `src/options_flags/` leaf
+    structs (the title is immutable in the pushed commit;
+    this gloss is the decoder)
   - the six single-field `options_flags` leaves adopt the
     `value` field shape (the 0.47.0 `squash` convention):
     `DryRunFlag.dry_run`, `PrivateFlag.private`,
@@ -279,7 +282,7 @@ refactor program. Decisions at cycle open (2026-07-22):
     branch-unreachable), notes-rework `Commits:` filled
     ([[11]]), the `-0`/`-1`/`-2` As-built and TODO.md ladder
     rungs backfilled
-- [[N]] 0.74.0 refactor: hygiene riders (close-out)
+- [[13]] 0.74.0 refactor: hygiene riders (close-out)
   - `## Done` entry; `## In Progress` retired; TODO.md
     ladder commit refs pruned (this As-built ladder is the
     permanent record)
@@ -303,6 +306,195 @@ the literal directory name, ochid prefixes, URL-suffix
 derivation — owned by the facade-owns-topology stage's
 configurable bot-dir work.
 
+## refactor: facade owns topology
+
+Commits: see [As-built ladder](#as-built-ladder-2)
+
+Repo resolution is a per-command prelude (each command
+re-derives "where is the other repo" from
+`path`/`other-repo`); it becomes facade state. Third stage of
+the refactor program. Decisions at cycle open (2026-07-23):
+
+- `.vc-config.toml` `[workspace]` adopts the symmetric
+  `work = "/"` / `bot = "/.bot"` pair, *replacing*
+  `path`/`other-repo` — the block is identical on both
+  sides, so there is nothing to keep mutually consistent;
+  side detection comes from location (walk up from cwd via
+  `find_workspace_root`: at the root → work side, at
+  `<root>/<bot-dir>` → bot side).
+- Presence of `bot` is the dual-repo signal; POR is
+  `work = "/"` alone. One vocabulary across surfaces:
+  `-s work,bot`, config `work`/`bot`, `Side::Work`/`Side::Bot`.
+- `.bot` is the new-init default only — a recommendation.
+  Existing workspaces keep their recorded dir (vc-x1 stays
+  `bot = "/.claude"`), old `/.claude/<chid>` trailers keep
+  resolving verbatim; no migration.
+
+### As-built ladder
+
+- [[N]] 0.75.0-0 chore: open facade owns topology cycle
+  - version 0.75.0-0; stage picked into `## In Progress`
+    with the five-rung ladder; this section opened; stage
+    decisions recorded here, in the ladder block, and in the
+    stage section of
+    [refactor-20260716.md](../refactor-20260716.md#stage-facade-owns-topology)
+  - rider: 0.74.0 ladder-ref backfill (`-3` + close-out
+    rungs → [[12]],[[13]])
+  - rider: `## Done` retirement sweep — the 0.69.1–0.71.0
+    batch (eight entries) migrated to done.md; TODO.md
+    references re-packed to `[1]..[5]`
+  - rider: the DRY facade and hygiene stages' shipped-status
+    links verified in the refactor doc (added at 0.74.0)
+- [[N]] 0.75.0-1 refactor: topology por equalization
+  - `validate-desc` / `fix-desc` lose their dual-required
+    `other_repo_from_config` prelude: a single-repo / POR
+    workspace now no-ops with a clear message instead of
+    erroring; a dual workspace resolves as before, and
+    `--other-repo` still overrides
+  - the replacement is `common::bot_repo_path(root)` —
+    `default_scope` gates (has the workspace a bot side?),
+    `scope_to_repos` resolves; `Ok(None)` is the no-op
+    signal. This is the prototype of the
+    topology-from-config rule the rest of the stage extends.
+  - `desc_helpers::other_repo_from_config` deleted — the
+    helper's last two callers were these preludes
+  - tests: three `bot_repo_path` units (dual / single-repo /
+    no-config) + a `FixturePor` no-op end-to-end per command
+- [[N]] 0.75.0-2 feat: topology work/bot config schema
+  - `.vc-config.toml` `[workspace]` flips to the symmetric
+    `work = "/"` / `bot = "/.claude"` pair; `path` /
+    `other-repo` are gone (unreleased — replaced outright,
+    like the scope keyword). init emits one identical dual
+    block for both sides (`ConfigRole::{Work,Bot}` collapse
+    into `Dual`); this workspace's two committed configs
+    flipped in the same commit (the running binary is
+    installed before the push that uses them)
+  - side detection becomes location-based:
+    `common::is_bot_dir(dir)` — true iff the parent dir's
+    config names `dir` as its `bot`. `find_workspace_root`
+    keys on the `work` key and steps up when standing in the
+    bot repo; `sync::is_bot_repo` and the new
+    `desc_helpers::ochid_prefix_for(repo)` (replacing the
+    content-based `ochid_prefix_from_config`) both ride it
+  - `default_scope` / `scope_to_repos` read `bot` (presence =
+    dual signal; value is root-relative with leading `/`)
+  - legacy files error fast with the solution (decided
+    2026-07-23 mid-rung): a config with `path`/`other-repo`
+    but no `work` is still *found* by the root walk, and
+    every resolver rejects it via
+    `common::reject_legacy_config` — the message shows the
+    replacement block. Silent degradation to POR was the
+    alternative and a foot-gun. A file with both old and new
+    keys passes (new keys drive; `config --validate` flags
+    the strays as unknown).
+  - riders: README caught up — the stale "historical
+    wrinkle" paragraph (scope keyword renamed at 0.74.0-2),
+    `-s code` examples, `remote-code`/`remote-claude`
+    fixture names (missed by the 0.74.0-1 sweep), and the
+    layout/schema snippets; AGENTS.md `.vc-config.toml`
+    section rewritten to the symmetric form
+  - incident while landing this rung: the Bugs #3 lock race
+    fired at bookmark-set, and the `--yes` rerun resumed
+    from the stale state stage, skipping the commit stages —
+    session data squashed into the published `-1` bot
+    commit. Recorded as Bugs #5 (resume-after-rollback
+    replays from the wrong stage); no data loss, and the
+    strongest evidence yet for the stateless-push stage
+- [[N]] 0.75.0-3 refactor: topology bot-dir sweep
+  - every reader of the bot-repo location now resolves it
+    from `[workspace] bot`; `.claude` as a *choice* survives
+    only in init's `DEFAULT_BOT_DIR` (plus the `Dual` render
+    / `GITIGNORE_CODE` literals its doc comment binds to it)
+    and the remote-name suffix, which belongs to the
+    deferred `.bot`-flip decision set
+  - swept: push's `bot_path` (now `require_bot_dir`) and its
+    commit-work ochid prefix (via `ochid_prefix_for`),
+    `repo_utils::cross_ref_ochids` (prefix from the created
+    dir's name), `bm_track`'s probe + label, clone's local
+    destination (from the *cloned* work repo's config),
+    `validate-bot`'s `-R` default, `symlink`'s default
+    target (both fall back to `.claude` when unresolvable)
+  - dual-mode entry preflight (the 2026-07-23 principle):
+    `bot_repo_path` verifies coherence before anything acts —
+    bot dir exists, its config loads, and the two sides'
+    `[workspace]` blocks are identical — erroring with both
+    paths and both blocks, changing nothing.
+    `configured_bot_dir` is the pure-config-read half for
+    pre-existence callers (clone)
+  - field report, same day: a `vc-x1 push` in another
+    workspace (you.h2hist) hit the legacy-config error from
+    `-2`; the bot there applied the fix printed in the
+    message and the push went through — the
+    error-fast-with-the-solution loop working as designed
+  - path grammar pinned *and enforced* (pulled forward from
+    the `-4` plan during review — no downside):
+    `check_workspace_grammar` at the same resolver
+    chokepoints rejects `work` ≠ `"/"` (a name tag every
+    reader ignores — the last silent-lie case) and a `bot`
+    that isn't `/` + one component (an unanchored value
+    corrupts ochid trailers)
+  - stage-doc prose riders: the grammar definition, the
+    dual-preflight principle, and the bisect-skew note
+    (the two repos rewind independently; old binaries fail
+    loudly-but-cryptically against the new bot-side config)
+- [[N]] 0.75.0-4 feat: topology config target
+  - the `config` command reshape (decided at the `-2`
+    review): positional `work|bot|work,bot|<path>` target
+    (default `work,bot`) replaces `--home`; print stays the
+    default, one schema group per resolved side, the divider
+    naming the target keyword + resolved file path; the user
+    config has no keyword — reachable only via its explicit
+    path
+  - a path target gets the *whole* schema (decided during
+    this rung's review): a path carries no side information,
+    so nothing is guessed from it — the old `--home` group
+    labels (User / Workspace) died with the flag, and the
+    earlier sniff-the-user-config-path detection was dropped
+    as imprecise. Slightly laxer validation for a path
+    target (any home's key accepted) traded for exact
+    semantics: keywords = side-filtered, path = full
+    registry
+  - `--validate` now covers the target file(s)' unknown keys
+    *and* the topology invariants: the `[workspace]` grammar
+    (via `reject_legacy_config` at the root) and the
+    identical-`[workspace]`-block coherence check (riding
+    `bot_repo_path`'s dual preflight). A coherence failure is
+    a counted finding, not a hard error, so the work-side
+    report still lands; a single-repo workspace skips the bot
+    side with a note
+  - rider: `package.name` → `vc-x1-dev` (decided this
+    session): the per-commit `cargo install` no longer
+    clobbers the `vc-x1` binary concurrent workspaces run;
+    promotion to plain `vc-x1` is an explicit act — see
+    versioning.md's new
+    [Dev artifact name](../versioning.md#dev-artifact-name)
+- [[N]] 0.75.0 refactor: facade owns topology
+  - close-out bookkeeping: version 0.75.0; the
+    `## In Progress` block retired (decisions live in this
+    section's intro and the stage doc); Done entry added;
+    ladder and Outcome finalized
+
+### Outcome
+
+- The stage shipped in four Work rungs on `refactor-vc-x1`;
+  repo resolution is facade state — topology comes from
+  `.vc-config.toml`'s symmetric `[workspace]` block, side
+  from location, and every `.claude` literal from config.
+- Spun off during the `-4` review: the
+  [repo registry stage](../refactor-20260716.md#stage-repo-registry)
+  (file-relative/absolute paths, resolved agreement
+  replacing identical blocks, ochid prefixes as registry
+  labels) — ranked Todo #2, so the schema settles in one
+  migration wave before de-gitify init.
+- Still open (recorded in the stage doc): the
+  harness-controlled symlink location and the vendor's
+  `<project>/.claude` settings dir when a workspace picks a
+  non-`.claude` bot dir.
+- Field-tested mid-cycle: another workspace (you.h2hist)
+  hit the legacy-config error and self-served the printed
+  fix; and the `-2` lock-race incident became Bugs #5, more
+  evidence for the stateless-push stage.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -316,3 +508,5 @@ configurable bot-dir work.
 [9]: https://github.com/winksaville/vc-x1/commit/efb66f992890 "efb66f992890e8f7f6434010b79f97c282b5bdd4"
 [10]: https://github.com/winksaville/vc-x1/commit/143743ec3bb4 "143743ec3bb4b067b7d53ce42e6b8f5c316ab5ec"
 [11]: https://github.com/winksaville/vc-x1/commit/f2a042452176 "f2a0424521765c72151c5d663e35b69d8b21fef7"
+[12]: https://github.com/winksaville/vc-x1/commit/31e8d95816ba "31e8d95816baad7dd7e1e5c66618de5070ba1b03"
+[13]: https://github.com/winksaville/vc-x1/commit/946dc964b75c "946dc964b75ca29e2cc4b6c59f03aec2c364feee"

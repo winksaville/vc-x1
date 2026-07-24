@@ -51,6 +51,29 @@ your medium:
   [Unique per commit](#unique-per-commit-preference-not-requirement);
   this project follows the per-commit preference.
 
+## Dev artifact name
+
+When other projects consume the built artifact (e.g. the
+installed CLI) while this repo is under active development,
+the dev build installs under a separate name so a mid-cycle
+install never clobbers the binary consumers are running:
+
+- **Name** — the manifest's package name carries a `-dev`
+  suffix (`vc-x1` → `vc-x1-dev`); if Rust, `[package].name`,
+  so the per-commit flow's `cargo install` produces
+  `<name>-dev` and leaves plain `<name>` untouched.
+- **Constant, not per-step** — the step already lives in the
+  version-of-record (`<name>-dev -V` reports the exact rung);
+  a per-step name would churn the manifest every commit and
+  litter the install dir with stale binaries.
+- **Promotion** — plain `<name>` updates only by an explicit
+  act: a separate clone built at the chosen commit with the
+  plain name (or a copy of the dev binary), never by the
+  per-commit flow's install.
+
+This project adopted the convention 2026-07-23 (during
+0.75.0); projects without external consumers can skip it.
+
 ## Unique per commit (preference, not requirement)
 
 Our general notion is that the version-of-record should change

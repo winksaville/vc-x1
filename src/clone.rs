@@ -206,9 +206,16 @@ pub(crate) fn clone_dual(
     parent_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bot_source = derive_bot_url(work_source);
-    let bot_dir = target_dir.join(".claude");
 
     clone_one(work_source, target_dir, parent_dir)?;
+    // The local bot dir name comes from the *cloned* work repo's
+    // config (`[workspace] bot`), so a workspace that chose a
+    // non-`.claude` dir round-trips through clone; absent/unreadable
+    // falls back to the default.
+    let bot_dir = match crate::common::configured_bot_dir(target_dir) {
+        Ok(Some(p)) => p,
+        _ => target_dir.join(".claude"),
+    };
     clone_one(&bot_source, &bot_dir, target_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;

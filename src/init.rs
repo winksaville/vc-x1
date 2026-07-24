@@ -152,6 +152,13 @@ pub(crate) fn parse_use_template(
     Ok((work, bot))
 }
 
+/// Default bot-repo directory name a fresh init records and
+/// creates. After the 0.75.0-3 sweep every *reader* resolves the
+/// dir from `[workspace] bot`; this constant (plus the literal in
+/// the `ConfigRole::Dual` render and `GITIGNORE_CODE`, which must
+/// change with it) is where a new workspace's default is chosen.
+pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
+
 /// Top-level non-hidden files init writes. Kept here so that if init is
 /// ever extended to write non-hidden top-level files, the pre-flight
 /// conflict scan flags any template that would clash. Currently empty
@@ -273,13 +280,15 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-/// Which repo a generated `.vc-config.toml` targets.
+/// Which shape of `.vc-config.toml` to generate.
+///
+/// The `[workspace]` block is identical on both sides of a dual
+/// workspace (side detection is by location, not content), so
+/// there is one dual variant, not a per-side pair.
 #[derive(Clone, Copy)]
 pub(crate) enum ConfigRole {
-    /// The work repo in a dual-repo workspace.
-    Work,
-    /// The `.claude` bot repo in a dual-repo workspace.
-    Bot,
+    /// Either repo of a dual-repo workspace.
+    Dual,
     /// The sole repo in a single-repo (POR) workspace.
     WorkOnly,
 }
@@ -288,35 +297,25 @@ pub(crate) enum ConfigRole {
 /// generated `.vc-config.toml`, role-specific.
 fn render_workspace_header(role: ConfigRole) -> String {
     match role {
-        ConfigRole::Work => r#"# vc-config: Vibe Coding workspace configuration
+        ConfigRole::Dual => r#"# vc-config: Vibe Coding workspace configuration
 #
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
-# other-repo is the relative path to the counterpart repo.
+# work and bot are the repos' paths relative to the workspace root,
+# used to resolve changeID paths in git trailers (e.g. ochid: /changeID,
+# ochid: /.claude/changeID). The [workspace] block is identical in both
+# repos; which side a repo is comes from its location, not this file.
 
 [workspace]
-path = "/"
-other-repo = ".claude"
-"#
-        .to_string(),
-        ConfigRole::Bot => r#"# vc-config: Vibe Coding workspace configuration
-#
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /.claude/changeID).
-# other-repo is the relative path to the counterpart repo.
-
-[workspace]
-path = "/.claude"
-other-repo = ".."
+work = "/"
+bot = "/.claude"
 "#
         .to_string(),
         ConfigRole::WorkOnly => r#"# vc-config: Vibe Coding workspace configuration
 #
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
+# work is this repo's path relative to the workspace root. Used to
+# resolve changeID paths in git trailers (e.g. ochid: /changeID).
 
 [workspace]
-path = "/"
+work = "/"
 "#
         .to_string(),
     }
@@ -443,7 +442,7 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Work),
+        &render_vc_config(ConfigRole::Dual),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
@@ -454,7 +453,7 @@ fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Bot),
+        &render_vc_config(ConfigRole::Dual),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())
@@ -885,7 +884,7 @@ fn plan_local(
         });
     }
 
-    let bot_dir = project_dir.join(".claude");
+    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
     let work_bare = parent.join("remote-work.git");
     let bot_bare = parent.join("remote-bot.git");
     let bot_name = format!("{name}.claude");
@@ -935,7 +934,7 @@ fn build_plan(
     }
     let bot_url = derive_bot_url(&work_url);
     let bot_name = format!("{name}.claude");
-    let bot_dir = project_dir.join(".claude");
+    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
     let gh_bot_slug = if provisioner == Provisioner::GhCreate {
         Some(github_slug_from_url(&bot_url)?)
     } else {

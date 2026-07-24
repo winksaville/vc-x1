@@ -1,12 +1,13 @@
 # vc-config: Vibe Coding workspace configuration
 #
-# workspace-path is this repo's path relative to the workspace root.
-# Used to resolve changeID paths in git trailers (e.g. ochid: /changeID).
-# other-repo is the relative path to the counterpart repo.
+# work and bot are the repos' paths relative to the workspace root,
+# used to resolve changeID paths in git trailers (e.g. ochid: /changeID,
+# ochid: /.claude/changeID). The [workspace] block is identical in both
+# repos; which side a repo is comes from its location, not this file.
 
 [workspace]
-path = "/"
-other-repo = ".claude"
+work = "/"
+bot = "/.claude"
 
 # Optional keys — uncomment and edit to override the built-in
 # default. `vc-x1 config` prints this list from the binary.

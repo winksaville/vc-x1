@@ -147,6 +147,46 @@ As TODO.md `## Done` sections fills move them to here.
 - feat: single-mode sync + revert command (0.67.0) — plain `vc-x1 sync` is one atomic operation (fetch, converge bookmark, reposition `@`; `--no-check` gone, `--check` a hidden deprecated alias for push preflight); failures stop for inspection with each repo's pre-sync op id persisted to `.vc-x1/sync-state.toml`; new `vc-x1 revert` restores from the snapshots; TDD via the two-clone `tests/cli_sync.rs` regression test of the t1A/t1B scenario [[114]]
 - docs: todo cleanup + trapezoid entries (0.67.1) — push-related todos reshaped around the trapezoidal (merge non-ff) workflow: new #1 bookmark-invariant fix and #2 push pause point; "record uncovered code commits (N:1)" re-scoped to code worked outside vc-x1; `push --squash` demoted to todo-backlog.md; cycle-protocol.md push-wrapper list synced [[115]]
 
+- feat: bot-session transcript viewer — display a session transcript as a conversation: two-layer tolerant parse (serde_json text → Value; hand extraction into our structs, raw retained), eight-item composable output (--<item> / --no-<item> / --all / --none) with git-style config defaults (CLI > .vc-config.toml > user config > built-in), --lines slicing, UTC headers; --raw and index view deferred (Todo #12), EPIPE logger panic recorded (Bugs #4) [[119]]
+- feat: bot-session --result-lines knob — the [result]-body
+  cap becomes a flag: `--result-lines N` (default 10, 0 =
+  unlimited), Output-range help group; was hardwired to 10
+  even under --all [[120]]
+- feat: bot-session --fields + --raw explorer — bot-session
+  doubles as a schema explorer: --fields (dotted-path
+  inventory per entry type: count, kinds, samples),
+  --unknown (inventory minus the extractor's KNOWN_PATHS —
+  the unmodeled surface; 132 paths on first real run),
+  --raw (pretty-printed source lines); --per-line (a fields
+  section per source line, composes with --unknown); --lines
+  unified to source-JSONL-line units in every view,
+  conversation included; drift-over-time baseline deferred to the
+  discovery/index cycle [[121]]
+- feat: bot-session --col-width knob — the field views'
+  (`--fields`/`--unknown`/`--per-line`) first-column pad
+  becomes `--col-width N`, default widened 44 → 68 (aligns
+  the type column for ~99% of observed key paths; only the
+  long-tail `snapshot.trackedFileBackups.<abs path>.*` keys
+  overflow); config-hierarchy resolution deferred to Todo #12 [[122]]
+- docs: move todo.md to root TODO.md — todo list moved from notes/ to the conventional root-file family; live references swept (AGENTS.md, cycle-protocol.md, README, ARCHITECTURE, notes/*); no-arg validate-todo / fix-todo default follows the move; historical files keep `notes/todo.md`; the shared doc set diverges until vc-template-x1 and iiac-perf apply the same change [[123]]
+- docs: shared protocol sync + jj refactor plan — adopted the vc-template-x1 shared notes set (AGENTS.md, cycle-protocol.md, versioning.md, jj-tips.md) with vc-x1's 0.69.0 corrections ratified template-side (manifest: [notes-sync-20260716.md](notes/notes-sync-20260716.md)); jj facade → jj-lib refactor program planned in [refactor-20260716.md](notes/refactor-20260716.md), absorbing eight Todos [[124]]
+- bot-session: --fields / --unknown output clarification — the
+  inventory views are now documented rather than opaque:
+  [transcript-format.md](notes/transcript-format.md) defines
+  entry / entry type and the `.`/`[]` field notation with a
+  bot-session example (0.71.0-8), and the ambiguous "dotted"
+  wording was retired (0.71.0-7). In-view column labeling
+  (headers / a legend) left as an optional nicety
+- feat: config discoverability + scalar hierarchy — a
+  code-declared config schema registry (`config_schema.rs`) as
+  the single source of truth for every settable config key; the
+  new `config` command (print, `--home`, `--validate`), init's
+  commented `.vc-config.toml` defaults, and bot-session's
+  `--result-lines`/`--col-width` config layer all derive from it,
+  so they can't drift. Also a `notes/transcript-format.md` SSOT +
+  sample for the bot-session format, and a sweep retiring the
+  ambiguous "dotted" wording [[125]]
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -250,3 +290,10 @@ As TODO.md `## Done` sections fills move them to here.
 [116]: /notes/chores/chores-13.md#feat-pin-bot-repo-to-main-0680
 [117]: /notes/chores/chores-13.md#docs-diagnose-silent-session-push-loss-0681
 [118]: /notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690
+[119]: /notes/chores/chores-13.md#feat-bot-session-transcript-viewer
+[120]: /notes/chores/chores-13.md#feat-bot-session---result-lines-knob
+[121]: /notes/chores/chores-13.md#feat-bot-session---fields----raw-explorer
+[122]: /notes/chores/chores-13.md#feat-bot-session---col-width-knob
+[123]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
+[124]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
+[125]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
