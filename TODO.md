@@ -88,16 +88,16 @@ Ladder (greppable stem `registry`; config-key paths become
   self-resolution (`work = "."` → work repo); both live
   configs flip in the same commit (the 0.75.0-2 atomicity
   precedent)
-- [[N]] 0.76.0-2 refactor: registry resolved-agreement
+- [[10]] 0.76.0-2 refactor: registry resolved-agreement
   preflight (done) — canonicalize each side's declared pair,
   require both files to name the same two dirs; replaces
   the identical-block invariant in the coherence preflight
   and `config --validate`
-- [[N]] 0.76.0-3 refactor: registry ochid labels (done) — trailer
+- [[11]] 0.76.0-3 refactor: registry ochid labels (done) — trailer
   prefixes resolve as opaque registry labels (`/` and
   `/.claude` remain valid historical labels), decoupled
   from filesystem spelling
-- [[N]] 0.76.0-4 docs: registry docs sweep — AGENTS.md's
+- [[N]] 0.76.0-4 docs: registry docs sweep (done) — AGENTS.md's
   `.vc-config.toml` section, README, ARCHITECTURE.md,
   refactor-doc stage status (per-rung doc touches that keep
   a file true ride with their rung; this is the systematic
@@ -554,3 +554,5 @@ cycle and its two docs interludes: template repo names, notes rework)._
 [7]: /notes/chores/chores-14.md#refactor-hygiene-riders
 [8]: https://github.com/winksaville/vc-x1/commit/da932d2293c8 "da932d2293c8de28cf2290d14502a991bdee5861"
 [9]: https://github.com/winksaville/vc-x1/commit/ff4a8d624cf3 "ff4a8d624cf3979ebad246f9c3961b7fed2dcba1"
+[10]: https://github.com/winksaville/vc-x1/commit/f8885f1e411f "f8885f1e411f0d2e8f6e0c26aa1b226b7a93a556"
+[11]: https://github.com/winksaville/vc-x1/commit/669e9fbb7fb8 "669e9fbb7fb816c3c584fa6f525128ee7ebb63bd"

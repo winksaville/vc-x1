@@ -623,7 +623,7 @@ open (2026-07-24):
     warn-to-update, the symlink default follows it, and the
     fix-it rewrite echoes the workspace's actual bot dir
     name; every other resolver still hard-rejects
-- [[N]] 0.76.0-2 refactor: registry resolved-agreement
+- [[23]] 0.76.0-2 refactor: registry resolved-agreement
   preflight
   - finishes the -1 seed: **self-identification** joins
     resolved agreement — each config's own directory must
@@ -655,7 +655,7 @@ open (2026-07-24):
     rule deleted), and the per-commit flow's step 8 now
     invokes `vc-x1 push --title --body` (the `jj commit`
     example deleted); net smaller
-- [[N]] 0.76.0-3 refactor: registry ochid labels
+- [[24]] 0.76.0-3 refactor: registry ochid labels
   - trailer prefixes are now canonical side labels —
     `OCHID_WORK_LABEL` (`/`) and `OCHID_BOT_LABEL`
     (`/.claude`) — chosen by side detection, never from the
@@ -680,6 +680,23 @@ open (2026-07-24):
     once every workspace is migrated: delete the module and
     simplify the call sites `grep -rn 'legacy_vc_config::'
     src/` lists
+- [[N]] 0.76.0-4 docs: registry docs sweep
+  - AGENTS.md's `.vc-config.toml` section rewritten for the
+    `[repos]` registry: per-side blocks, file-relative
+    semantics, resolved agreement, side labels
+  - README: validate-desc default read, `config --validate`
+    checks (legacy rejection + resolved agreement), the
+    printed-schema sample, and sync's repo-set resolution
+    all speak `[repos]`
+  - refactor-20260716.md stage status: rungs -1..-3 recorded
+    shipped with the legacy-consolidation note
+  - todo-backlog #20 rewritten: the `[workspace]` rename
+    itself shipped this cycle; the surviving remainder is
+    the broader "stop saying workspace" wording sweep
+  - ARCHITECTURE.md checked — no schema-level detail, no
+    edit needed
+  - incremental backfill rider: -2/-3 refs ([[23]],[[24]]
+    here; [[10]],[[11]] in TODO.md's ladder)
 
 # References
 
@@ -705,3 +722,5 @@ open (2026-07-24):
 [20]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
 [21]: https://github.com/winksaville/vc-x1/commit/da932d2293c8 "da932d2293c8de28cf2290d14502a991bdee5861"
 [22]: https://github.com/winksaville/vc-x1/commit/ff4a8d624cf3 "ff4a8d624cf3979ebad246f9c3961b7fed2dcba1"
+[23]: https://github.com/winksaville/vc-x1/commit/f8885f1e411f "f8885f1e411f0d2e8f6e0c26aa1b226b7a93a556"
+[24]: https://github.com/winksaville/vc-x1/commit/669e9fbb7fb8 "669e9fbb7fb816c3c584fa6f525128ee7ebb63bd"

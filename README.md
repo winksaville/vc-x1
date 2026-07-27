@@ -386,7 +386,7 @@ vc-x1 bot-session --per-line --lines 40,5 FILE
 ### validate-desc
 
 Read-only scan of commit descriptions against the other repo. The other
-repo is read from `.vc-config.toml` (`workspace.bot`) by default,
+repo is read from `.vc-config.toml` (`repos.bot`) by default,
 or overridden with `--other-repo`. Reports status per commit: `ok`
 (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err`
 (issues found), or `miss` (no ochid trailer).
@@ -527,9 +527,9 @@ actually reads.
 - `--validate` — instead of printing, load the target's actual
   config file(s) and flag any key the schema doesn't recognize
   (a typo, a key in the wrong section, or an unknown key), plus
-  — for keyword targets — the `[workspace]` path grammar and
-  the identical-`[workspace]`-block invariant of a dual
-  workspace. Exits non-zero if any problem is found. This is an
+  — for keyword targets — the legacy-schema rejection and the
+  resolved-agreement invariant of a dual workspace's `[repos]`
+  registries. Exits non-zero if any problem is found. This is an
   opt-in strict check — a normal config load silently ignores
   unknown keys, for forward-compatibility.
 
@@ -543,13 +543,13 @@ A short sample of the printed schema (workspace home):
 #   default: 68
 # col-width = 68
 
-[workspace]
-# workspace.work — The work repo's path relative to the workspace root — always "/".
-#   The [workspace] block is identical on both sides; which side a repo
-#   is comes from its location, not this file
+[repos]
+# repos.work — The work repo's path, relative to this config file's
+#   directory ("." in the work repo, ".." in the bot repo); the entry
+#   resolving to the config's own directory names the side
 #   used by: find_workspace_root, side detection (structural; written by init)
 #   default: (required — see init)
-work = "/"   # example
+work = "."   # example
 ```
 
 A key with no default (`default.account`, in the user home)
@@ -574,8 +574,8 @@ vc-x1 config work
 # keyword — reach it by path)
 vc-x1 config ~/.config/vc-x1/config.toml
 
-# Check both sides' config files: unknown keys, [workspace]
-# grammar, and the identical-[workspace]-block invariant
+# Check both sides' config files: unknown keys, legacy-schema
+# rejection, and the [repos] resolved-agreement invariant
 vc-x1 config --validate
 
 # Check one explicit file
@@ -779,7 +779,7 @@ vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
 **Repo set resolution.** `-R` and `--scope` compose:
 
 1. Neither — workspace-default scope: `work,bot` if
-   `[workspace] bot` is non-empty, else `work`. POR (no
+   `repos.bot` is non-empty, else `work`. POR (no
    `.vc-config.toml`) → `work` resolved to cwd.
 2. `-R PATH` alone — sync just the repo at `PATH`.
 3. `--scope=work|bot|work,bot` alone — workspace roles, resolved
