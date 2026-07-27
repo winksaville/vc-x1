@@ -154,8 +154,8 @@ pub(crate) fn parse_use_template(
 
 /// Default bot-repo directory name a fresh init records and
 /// creates. After the 0.75.0-3 sweep every *reader* resolves the
-/// dir from `[workspace] bot`; this constant (plus the literal in
-/// the `ConfigRole::Dual` render and `GITIGNORE_CODE`, which must
+/// dir from `repos.bot`; this constant (plus the literals in the
+/// `ConfigRole::DualWork` render and `GITIGNORE_CODE`, which must
 /// change with it) is where a new workspace's default is chosen.
 pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
 
@@ -282,47 +282,63 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
 
 /// Which shape of `.vc-config.toml` to generate.
 ///
-/// The `[workspace]` block is identical on both sides of a dual
-/// workspace (side detection is by location, not content), so
-/// there is one dual variant, not a per-side pair.
+/// The `[repos]` registry's values are file-relative, so the two
+/// sides of a dual workspace carry different blocks — the side
+/// whose entry resolves to the config's own directory (`"."`)
+/// names that side.
 #[derive(Clone, Copy)]
 pub(crate) enum ConfigRole {
-    /// Either repo of a dual-repo workspace.
-    Dual,
+    /// The work repo of a dual-repo workspace.
+    DualWork,
+    /// The bot repo of a dual-repo workspace.
+    DualBot,
     /// The sole repo in a single-repo (POR) workspace.
     WorkOnly,
 }
 
-/// Renders the header comment + active `[workspace]` block for a
+/// Renders the header comment + active `[repos]` registry for a
 /// generated `.vc-config.toml`, role-specific.
 fn render_workspace_header(role: ConfigRole) -> String {
     match role {
-        ConfigRole::Dual => r#"# vc-config: Vibe Coding workspace configuration
+        ConfigRole::DualWork => r#"# vc-config: Vibe Coding workspace configuration
 #
-# work and bot are the repos' paths relative to the workspace root,
-# used to resolve changeID paths in git trailers (e.g. ochid: /changeID,
-# ochid: /.claude/changeID). The [workspace] block is identical in both
-# repos; which side a repo is comes from its location, not this file.
+# [repos] is the workspace's repo registry: work and bot are paths
+# relative to this file's directory (absolute allowed, discouraged).
+# The entry that resolves to this config's own directory names the
+# side — work = "." makes this the work repo.
 
-[workspace]
-work = "/"
-bot = "/.claude"
+[repos]
+work = "."
+bot = ".claude"
+"#
+        .to_string(),
+        ConfigRole::DualBot => r#"# vc-config: Vibe Coding workspace configuration
+#
+# [repos] is the workspace's repo registry: work and bot are paths
+# relative to this file's directory (absolute allowed, discouraged).
+# The entry that resolves to this config's own directory names the
+# side — bot = "." makes this the bot repo.
+
+[repos]
+work = ".."
+bot = "."
 "#
         .to_string(),
         ConfigRole::WorkOnly => r#"# vc-config: Vibe Coding workspace configuration
 #
-# work is this repo's path relative to the workspace root. Used to
-# resolve changeID paths in git trailers (e.g. ochid: /changeID).
+# [repos] is the workspace's repo registry: work is this repo's
+# path relative to this file's directory. Used to resolve changeID
+# paths in git trailers (e.g. ochid: /changeID).
 
-[workspace]
-work = "/"
+[repos]
+work = "."
 "#
         .to_string(),
     }
 }
 
 /// Renders a commented block documenting every settable workspace
-/// config key not already covered by the active `[workspace]`
+/// config key not already covered by the active `[repos]`
 /// block above — currently the `push.*` and `bot-session.*`
 /// families, sourced from `config_schema::schema()` so this list
 /// cannot drift from the schema.
@@ -345,7 +361,7 @@ fn render_optional_keys_block() -> String {
 
     let mut current_section: Option<String> = None;
     for key in schema() {
-        if key.path.starts_with("workspace.") {
+        if key.path.starts_with("repos.") {
             continue;
         }
         if !key
@@ -377,7 +393,7 @@ fn render_optional_keys_block() -> String {
 }
 
 /// Renders the complete generated `.vc-config.toml` content for
-/// `role`: the active header + `[workspace]` block, followed by a
+/// `role`: the active header + `[repos]` registry, followed by a
 /// commented block documenting the rest of the settable-key
 /// surface (see `render_optional_keys_block`).
 pub(crate) fn render_vc_config(role: ConfigRole) -> String {
@@ -442,7 +458,7 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Dual),
+        &render_vc_config(ConfigRole::DualWork),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
@@ -453,7 +469,7 @@ fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(".vc-config.toml"),
-        &render_vc_config(ConfigRole::Dual),
+        &render_vc_config(ConfigRole::DualBot),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())

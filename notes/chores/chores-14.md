@@ -594,6 +594,35 @@ open (2026-07-24):
     [refactor-20260716.md](../refactor-20260716.md#stage-repo-registry)
   - rider: 0.75.1 `Commits:` backfill ([[20]])
   - rider: `## Done` retirement sweep into done.md
+- [[N]] 0.76.0-1 refactor: registry schema + side detection
+  - `[workspace]` → `[repos]` across the topology core,
+    schema registry, init renders, fixtures, and both live
+    configs (atomic flip, the 0.75.0-2 precedent)
+  - values are ordinary file-relative paths; side detection
+    by self-resolution (the entry resolving to the config's
+    own dir names the side), so the root walk needs no
+    nesting assumption
+  - rung-boundary decision (approved): the identical-block
+    invariant can't survive asymmetric per-side blocks, so
+    this rung seeds a minimal resolved-agreement coherence
+    check; 0.76.0-2 finishes the preflight (validate
+    wiring, error detail, edge cases, dedicated tests)
+  - the 0.75.x root-anchored schema joins pre-0.75.0
+    `path`/`other-repo` as a rejected legacy generation
+    (found by the root walk, rejected with the per-side
+    rewrite)
+  - interim ochid prefix: bot side rebuilt as
+    `/<dir name>/` from the canonicalized bot dir
+    (`repos.bot` is `"."` in its own config); 0.76.0-3
+    decouples labels from filesystem spelling
+  - rider (bug, found in review): clone of a legacy-schema
+    repo swallowed the rejection and guessed `.claude`.
+    Backward-compat read `legacy_configured_bot_dir` honors
+    both legacy generations at the bootstrap surfaces —
+    clone completes with the declared bot dir + a
+    warn-to-update, the symlink default follows it, and the
+    fix-it rewrite echoes the workspace's actual bot dir
+    name; every other resolver still hard-rejects
 
 # References
 

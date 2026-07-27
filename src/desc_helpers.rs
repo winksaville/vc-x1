@@ -5,27 +5,35 @@ use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
 
 use crate::common;
-use crate::toml_simple;
 
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
-/// Derive a repo's ochid prefix from its location + config.
+/// Derive a repo's ochid prefix from its side + directory name.
 ///
-/// The `[workspace]` block is identical on both sides, so the
-/// prefix comes from *which side* the repo is (by location — see
-/// `common::is_bot_dir`) plus the recorded `bot` path:
+/// The prefix comes from *which side* the repo is (by
+/// self-resolution — see `common::is_bot_dir`):
 ///
 /// - work side → `/`
-/// - bot side → `<workspace.bot>/` (e.g. `/.claude/`)
+/// - bot side → `/<dir name>/` (e.g. `/.claude/`)
+///
+/// Interim derivation for the 0.76.0 file-relative schema: the
+/// bot's `repos.bot` value is `"."` in its own config, so the
+/// historical root-anchored prefix is rebuilt from the bot dir's
+/// final component. The 0.76.0-3 rung decouples trailer prefixes
+/// from filesystem spelling (opaque registry labels).
 pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::error::Error>> {
     if !common::is_bot_dir(repo) {
         return Ok("/".to_string());
     }
-    let cfg = toml_simple::toml_load(&repo.join(VC_CONFIG_FILE))?;
-    let bot = toml_simple::toml_get(&cfg, "workspace.bot")
-        .ok_or("missing workspace.bot in .vc-config.toml")?;
-    Ok(format!("{}/", bot.trim_end_matches('/')))
+    let canon = repo.canonicalize()?;
+    let name = canon.file_name().ok_or_else(|| {
+        format!(
+            "cannot derive ochid prefix: '{}' has no dir name",
+            repo.display()
+        )
+    })?;
+    Ok(format!("/{}/", name.to_string_lossy()))
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -268,8 +276,8 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// Build `<base>/ws` (+ optional `<bot-dir>`) with the symmetric
-    /// dual-form `[workspace]` block in each repo dir.
+    /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
+    /// file-relative `[repos]` registries in each repo dir.
     fn ws_fixture(tag: &str, bot_dir: Option<&str>) -> (std::path::PathBuf, std::path::PathBuf) {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -278,15 +286,19 @@ mod tests {
         let base = std::env::temp_dir().join(format!("vc-x1-desc-helpers-{tag}-{ts}"));
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
-        let block = match bot_dir {
-            Some(b) => format!("[workspace]\nwork = \"/\"\nbot = \"/{b}\"\n"),
-            None => "[workspace]\nwork = \"/\"\n".to_string(),
+        let work_block = match bot_dir {
+            Some(b) => format!("[repos]\nwork = \".\"\nbot = \"{b}\"\n"),
+            None => "[repos]\nwork = \".\"\n".to_string(),
         };
-        std::fs::write(root.join(VC_CONFIG_FILE), &block).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), &work_block).unwrap();
         if let Some(b) = bot_dir {
             let bot = root.join(b);
             std::fs::create_dir_all(&bot).unwrap();
-            std::fs::write(bot.join(VC_CONFIG_FILE), &block).unwrap();
+            std::fs::write(
+                bot.join(VC_CONFIG_FILE),
+                "[repos]\nwork = \"..\"\nbot = \".\"\n",
+            )
+            .unwrap();
         }
         (base, root)
     }

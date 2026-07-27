@@ -32,7 +32,7 @@ const BOT_BOOKMARK: &str = "main";
 /// with `vc-x1 squash-push -R <bot-repo>`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
-    /// Path to the bot repo [default: from workspace.bot, else .claude]
+    /// Path to the bot repo [default: from repos.bot, else .claude]
     #[arg(short = 'R', long)]
     pub repo: Option<PathBuf>,
 }

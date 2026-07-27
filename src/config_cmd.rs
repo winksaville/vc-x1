@@ -12,9 +12,10 @@
 //!   carries no side information, so it gets the whole schema —
 //!   no guessing what kind of file the path names.
 //! - `--validate` checks the target file(s) instead of printing:
-//!   unknown keys, and — for keyword targets — the `[workspace]`
-//!   grammar plus the identical-`[workspace]`-block invariant of a
-//!   dual workspace (via the bot-side resolution).
+//!   unknown keys, and — for keyword targets — the legacy-schema
+//!   rejection plus the resolved-agreement invariant of a dual
+//!   workspace's `[repos]` registries (via the bot-side
+//!   resolution).
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -69,8 +70,8 @@ pub struct ConfigArgs {
     pub target: ConfigTarget,
 
     /// Check the target config file(s) — unknown/misspelled keys,
-    /// [workspace] grammar, identical-[workspace]-block invariant —
-    /// instead of printing the schema
+    /// legacy-schema rejection, [repos] resolved-agreement
+    /// invariant — instead of printing the schema
     #[arg(long)]
     pub validate: bool,
 }
@@ -224,7 +225,7 @@ fn validate_file(
 ///   there is nothing to check (info + `Ok(0)`).
 /// - The bot side resolves via `bot_repo_path`, which runs the
 ///   dual-preflight coherence check (bot dir exists, both configs
-///   load, identical `[workspace]` blocks) — its failure is
+///   load, resolved `[repos]` agreement) — its failure is
 ///   reported as a finding, not a hard error, so the work-side
 ///   report still lands.
 /// - A path target carries no side information, so it validates
@@ -446,14 +447,16 @@ mod tests {
 
     #[test]
     fn validate_flags_incoherent_workspace_blocks() {
-        // Diverge the bot side's [workspace] block: the bot-side
-        // resolution runs the dual-preflight coherence check, which
-        // must surface as a finding (not a hard error) so the
+        // Diverge the bot side's [repos] registry (its bot entry
+        // resolves to a different dir): the bot-side resolution
+        // runs the dual-preflight coherence check, which must
+        // surface as a finding (not a hard error) so the
         // work-side report still lands.
         let fx = Fixture::new("config-validate-incoherent");
+        std::fs::create_dir_all(fx.work.join("other")).expect("mkdir other");
         std::fs::write(
             fx.bot.join(VC_CONFIG_FILE),
-            "[workspace]\nwork = \"/\"\nbot = \"/other\"\n",
+            "[repos]\nwork = \"..\"\nbot = \"../other\"\n",
         )
         .expect("rewrite bot config");
         let params = ConfigParams {

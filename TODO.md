@@ -82,6 +82,7 @@ Ladder (greppable stem `registry`; config-key paths become
   `eb4a12eb3b561234d176953d3773960fb9f4cdaa`), `## Done`
   sweep into done.md
 - [[N]] 0.76.0-1 refactor: registry schema + side detection
+  (done)
   — `[workspace]` → `[repos]`, file-relative path semantics
   (no leading-`/`-means-root), side detection by
   self-resolution (`work = "."` → work repo); both live

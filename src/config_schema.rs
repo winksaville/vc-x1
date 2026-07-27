@@ -61,7 +61,7 @@ pub struct ConfigKey {
 /// carry a default.
 const BOT_SESSION_HOMES: &[Home] = &[Home::User, Home::WorkspaceCode, Home::WorkspaceBot];
 
-/// Homes accepted by workspace-only keys (`workspace.*`,
+/// Homes accepted by workspace-only keys (`repos.*`,
 /// `push.*`): the two `.vc-config.toml` homes, never the user
 /// config.
 const WORKSPACE_HOMES: &[Home] = &[Home::WorkspaceCode, Home::WorkspaceBot];
@@ -71,7 +71,7 @@ const WORKSPACE_HOMES: &[Home] = &[Home::WorkspaceCode, Home::WorkspaceBot];
 /// - User home: `default.*`, `repo.*`, and the per-account
 ///   `account.<name>.repo.*` family.
 /// - `bot-session.*`: accepted in all three homes.
-/// - Workspace-only: `workspace.*`, `push.*`.
+/// - Workspace-only: `repos.*`, `push.*`.
 const SCHEMA: &[ConfigKey] = &[
     ConfigKey {
         path: "default.account",
@@ -173,26 +173,26 @@ const SCHEMA: &[ConfigKey] = &[
         example: None,
     },
     ConfigKey {
-        path: "workspace.work",
+        path: "repos.work",
         homes: WORKSPACE_HOMES,
         kind: ValueKind::Str,
         default: None,
         required: true,
         dynamic: false,
-        doc: "The work repo's path relative to the workspace root — always \"/\". The [workspace] block is identical on both sides; which side a repo is comes from its location, not this file",
+        doc: "The work repo's path, relative to this config file's directory (\".\" in the work repo, \"..\" in the bot repo); the entry resolving to the config's own directory names the side",
         used_by: "find_workspace_root, side detection (structural; written by init)",
-        example: Some("/"),
+        example: Some("."),
     },
     ConfigKey {
-        path: "workspace.bot",
+        path: "repos.bot",
         homes: WORKSPACE_HOMES,
         kind: ValueKind::Str,
         default: None,
         required: false,
         dynamic: false,
-        doc: "The bot repo's path relative to the workspace root (e.g. \"/.claude\"); presence signals dual-repo mode",
+        doc: "The bot repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the bot repo); presence signals dual-repo mode",
         used_by: "default_scope, scope resolution, ochid prefixes (structural)",
-        example: Some("/.claude"),
+        example: Some(".claude"),
     },
     ConfigKey {
         path: "push.state-dir",
