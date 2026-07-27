@@ -242,7 +242,7 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
     crate::common::configured_bot_dir(project_dir)
         .ok()
         .flatten()
-        .or_else(|| crate::common::legacy_configured_bot_dir(project_dir))
+        .or_else(|| crate::legacy_vc_config::configured_bot_dir(project_dir))
         .and_then(|p| p.file_name().map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from(".claude"))
 }

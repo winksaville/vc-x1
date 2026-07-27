@@ -655,6 +655,31 @@ open (2026-07-24):
     rule deleted), and the per-commit flow's step 8 now
     invokes `vc-x1 push --title --body` (the `jj commit`
     example deleted); net smaller
+- [[N]] 0.76.0-3 refactor: registry ochid labels
+  - trailer prefixes are now canonical side labels —
+    `OCHID_WORK_LABEL` (`/`) and `OCHID_BOT_LABEL`
+    (`/.claude`) — chosen by side detection, never from the
+    directory's spelling; a non-`.claude` bot dir reads and
+    writes the `/.claude` label (the -1 interim dir-name
+    derivation retired)
+  - `/` and `/.claude` are the historical spellings, so
+    every published trailer stays valid; the constants are
+    the seam where URL labels grow in later
+    ([forks-multi-user](../forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid))
+  - legacy fallback (user review, verified on iiac-perf):
+    `is_bot_dir` falls back to the legacy location rule —
+    parent's `workspace.bot` *or* pre-0.75.0
+    `workspace.other-repo` — so the explicit `--other-repo`
+    escape hatch in validate-desc / fix-desc (which bypasses
+    the resolvers' legacy rejection) still sides a legacy
+    bot dir correctly instead of flagging (or rewriting!)
+    every valid `/.claude/` trailer as wrong-prefix
+  - the whole legacy surface consolidated into
+    `src/legacy_vc_config.rs` (side detection, bot-dir read,
+    root marker, the fix-it rejection) for easy retirement
+    once every workspace is migrated: delete the module and
+    simplify the call sites `grep -rn 'legacy_vc_config::'
+    src/` lists
 
 # References
 

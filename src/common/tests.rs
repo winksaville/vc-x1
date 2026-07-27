@@ -588,38 +588,6 @@ fn coherence_absolute_values_agree() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `legacy_configured_bot_dir`: the backward-compat clone read
-/// honors both rejected generations' bot declarations, and stays
-/// `None` for the `[repos]` schema (the normal path handles it)
-/// and for absent configs.
-#[test]
-fn legacy_configured_bot_dir_reads_old_schemas() {
-    let base = ws_tempdir("legacy-botdir");
-    let root = base.join("ws");
-    std::fs::create_dir_all(&root).unwrap();
-    // 0.75.x root-anchored schema.
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
-    assert_eq!(legacy_configured_bot_dir(&root), Some(root.join(".claude")));
-    // Pre-0.75.0 path/other-repo schema.
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\npath = \"/\"\nother-repo = \".bot\"\n",
-    )
-    .unwrap();
-    assert_eq!(legacy_configured_bot_dir(&root), Some(root.join(".bot")));
-    // Current [repos] schema → None (not legacy).
-    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
-    assert_eq!(legacy_configured_bot_dir(&root), None);
-    // No config at all → None.
-    std::fs::remove_file(root.join(VC_CONFIG_FILE)).unwrap();
-    assert_eq!(legacy_configured_bot_dir(&root), None);
-    std::fs::remove_dir_all(&base).ok();
-}
-
 /// Side detection by self-resolution: the bot side's own config
 /// (`bot = "."`) names it; the work side is not the bot side.
 #[test]
@@ -633,6 +601,33 @@ fn is_bot_dir_by_self_resolution() {
     assert!(is_bot_dir(&bot));
     assert!(!is_bot_dir(&root));
     std::fs::remove_dir_all(&base).ok();
+}
+
+/// `is_bot_dir` legacy fallback: both rejected generations'
+/// parent configs still name the bot side — 0.75.x
+/// `workspace.bot` and pre-0.75.0 `workspace.other-repo` — so
+/// read-only surfaces bypassing the resolvers stay correct.
+#[test]
+fn is_bot_dir_legacy_fallback() {
+    for (tag, block) in [
+        (
+            "legacy-075x",
+            "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
+        ),
+        (
+            "legacy-pre075",
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        ),
+    ] {
+        let base = ws_tempdir(tag);
+        let root = base.join("ws");
+        let bot = root.join(".claude");
+        std::fs::create_dir_all(&bot).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), block).unwrap();
+        assert!(is_bot_dir(&bot), "generation: {tag}");
+        assert!(!is_bot_dir(&root), "generation: {tag}");
+        std::fs::remove_dir_all(&base).ok();
+    }
 }
 
 /// `bot_repo_path`: no `.vc-config.toml` at all (POR) → `None`.

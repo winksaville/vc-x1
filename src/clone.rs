@@ -218,7 +218,7 @@ pub(crate) fn clone_dual(
     let bot_dir = match crate::common::configured_bot_dir(target_dir) {
         Ok(Some(p)) => p,
         Ok(None) => target_dir.join(".claude"),
-        Err(e) => match crate::common::legacy_configured_bot_dir(target_dir) {
+        Err(e) => match crate::legacy_vc_config::configured_bot_dir(target_dir) {
             Some(p) => {
                 warn!(
                     "cloned work repo uses a legacy .vc-config.toml schema; \

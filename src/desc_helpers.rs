@@ -9,31 +9,33 @@ use crate::common;
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
-/// Derive a repo's ochid prefix from its side + directory name.
+/// Canonical ochid label for the work side.
+pub const OCHID_WORK_LABEL: &str = "/";
+
+/// Canonical ochid label for the bot side.
+///
+/// An opaque label resolved through the `[repos]` registry — not
+/// a filesystem path: a workspace whose bot dir is named
+/// something else still reads and writes `/.claude`. Kept as the
+/// historical spelling so every published trailer stays valid;
+/// intended to grow into URL labels (see
+/// forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
+pub const OCHID_BOT_LABEL: &str = "/.claude";
+
+/// A repo's ochid prefix: its side's canonical label.
 ///
 /// The prefix comes from *which side* the repo is (by
-/// self-resolution — see `common::is_bot_dir`):
+/// self-resolution — see `common::is_bot_dir`), never from the
+/// directory's spelling:
 ///
 /// - work side → `/`
-/// - bot side → `/<dir name>/` (e.g. `/.claude/`)
-///
-/// Interim derivation for the 0.76.0 file-relative schema: the
-/// bot's `repos.bot` value is `"."` in its own config, so the
-/// historical root-anchored prefix is rebuilt from the bot dir's
-/// final component. The 0.76.0-3 rung decouples trailer prefixes
-/// from filesystem spelling (opaque registry labels).
+/// - bot side → `/.claude/` (the label + separator)
 pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::error::Error>> {
-    if !common::is_bot_dir(repo) {
-        return Ok("/".to_string());
+    if common::is_bot_dir(repo) {
+        Ok(format!("{OCHID_BOT_LABEL}/"))
+    } else {
+        Ok(OCHID_WORK_LABEL.to_string())
     }
-    let canon = repo.canonicalize()?;
-    let name = canon.file_name().ok_or_else(|| {
-        format!(
-            "cannot derive ochid prefix: '{}' has no dir name",
-            repo.display()
-        )
-    })?;
-    Ok(format!("/{}/", name.to_string_lossy()))
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -311,7 +313,7 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// Bot side (named by the parent's `bot`) → `<bot>/`.
+    /// Bot side → the canonical bot label `/.claude/`.
     #[test]
     fn prefix_for_bot_side() {
         let (base, root) = ws_fixture("prefix-bot", Some(".claude"));
@@ -322,11 +324,13 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// A non-`.claude` bot dir name flows through to the prefix.
+    /// A non-`.claude` bot dir still gets the canonical label —
+    /// the prefix is an opaque registry label, not a filesystem
+    /// spelling.
     #[test]
     fn prefix_for_custom_bot_dir() {
         let (base, root) = ws_fixture("prefix-custom", Some(".bot"));
-        assert_eq!(ochid_prefix_for(&root.join(".bot")).unwrap(), "/.bot/");
+        assert_eq!(ochid_prefix_for(&root.join(".bot")).unwrap(), "/.claude/");
         std::fs::remove_dir_all(&base).ok();
     }
 

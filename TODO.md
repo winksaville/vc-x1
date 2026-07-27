@@ -93,7 +93,7 @@ Ladder (greppable stem `registry`; config-key paths become
   require both files to name the same two dirs; replaces
   the identical-block invariant in the coherence preflight
   and `config --validate`
-- [[N]] 0.76.0-3 refactor: registry ochid labels — trailer
+- [[N]] 0.76.0-3 refactor: registry ochid labels (done) — trailer
   prefixes resolve as opaque registry labels (`/` and
   `/.claude` remain valid historical labels), decoupled
   from filesystem spelling

@@ -668,44 +668,25 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 /// Side detection is by *self-resolution*: `dir` is the bot side
 /// iff its own `.vc-config.toml`'s `repos.bot` resolves
 /// (file-relative) back to `dir` itself — the entry that names the
-/// config's own directory names the side. Paths are canonicalized
-/// so relative forms and symlinked tempdirs compare correctly;
+/// config's own directory names the side. Falls back to the
+/// legacy location rule ([`legacy_is_bot_dir`]) so read-only
+/// surfaces that bypass the resolvers' legacy rejection (explicit
+/// `--other-repo` paths in validate-desc / fix-desc) still see a
+/// legacy bot dir as the bot side. Paths are canonicalized so
+/// relative forms and symlinked tempdirs compare correctly;
 /// anything unreadable is "not the bot side".
 pub fn is_bot_dir(dir: &Path) -> bool {
     let Ok(dir) = dir.canonicalize() else {
         return false;
     };
-    let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE)) else {
-        return false;
-    };
-    match toml_simple::toml_get(&cfg, "repos.bot") {
-        Some(bot) if !bot.is_empty() => resolve_repo_path(&dir, bot)
+    if let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE))
+        && let Some(bot) = toml_simple::toml_get(&cfg, "repos.bot").filter(|v| !v.is_empty())
+    {
+        return resolve_repo_path(&dir, bot)
             .canonicalize()
-            .is_ok_and(|p| p == dir),
-        _ => false,
+            .is_ok_and(|p| p == dir);
     }
-}
-
-/// True when `dir` is a *legacy* (pre-0.76.0) workspace's bot repo.
-///
-/// The legacy schemas detect side by location: `dir` is the bot
-/// side iff the parent directory's `.vc-config.toml` names `dir`
-/// as the workspace's `bot`. Kept only so the root walk can point
-/// the legacy fix-it error at the work-side root.
-fn legacy_is_bot_dir(dir: &Path) -> bool {
-    let Ok(dir) = dir.canonicalize() else {
-        return false;
-    };
-    let Some(parent) = dir.parent() else {
-        return false;
-    };
-    let Ok(cfg) = toml_simple::toml_load(&parent.join(VC_CONFIG_FILE)) else {
-        return false;
-    };
-    match toml_simple::toml_get(&cfg, "workspace.bot") {
-        Some(bot) if !bot.is_empty() => parent.join(bot.trim_start_matches('/')) == dir,
-        _ => false,
-    }
+    crate::legacy_vc_config::is_bot_dir(&dir)
 }
 
 /// Walk up from `start` to find the workspace root (the work repo).
@@ -735,12 +716,8 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
                 // the resolvers' coherence checks, not here.
                 return Some(resolved.canonicalize().unwrap_or(resolved));
             }
-            // Legacy root markers: the 0.75.x symmetric schema's
-            // work side, and the pre-0.75.0 schema's `path = "/"`.
-            if toml_simple::toml_get(&map, "workspace.work").is_some()
-                || toml_simple::toml_get(&map, "workspace.path").map(String::as_str) == Some("/")
-            {
-                return if legacy_is_bot_dir(&cur) {
+            if crate::legacy_vc_config::is_root_marker(&map) {
+                return if crate::legacy_vc_config::is_bot_dir(&cur) {
                     cur.parent().map(Path::to_path_buf)
                 } else {
                     Some(cur)
@@ -751,84 +728,33 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
     }
 }
 
-/// The bot dir a *legacy* config declares — the
-/// backward-compatibility read for bootstrap paths (clone).
-///
-/// The resolvers hard-reject legacy schemas with a fix-it (see
-/// [`reject_legacy_config`]), but clone is where an old repo
-/// first arrives locally — it must complete correctly before the
-/// user can apply the rewrite. Reads the rejected generations'
-/// keys and resolves against `root`:
-///
-/// - 0.75.x `workspace.bot` — root-anchored (`"/.claude"`);
-/// - pre-0.75.0 `workspace.other-repo` — a bare dir name.
-///
-/// `None` when the config is missing, already `[repos]`-schema,
-/// or declares no bot side.
-pub fn legacy_configured_bot_dir(root: &Path) -> Option<PathBuf> {
-    let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE)).ok()?;
-    if toml_simple::toml_get(&cfg, "repos.work").is_some() {
-        return None;
-    }
-    let bot = toml_simple::toml_get(&cfg, "workspace.bot")
-        .or_else(|| toml_simple::toml_get(&cfg, "workspace.other-repo"))
-        .filter(|v| !v.is_empty())?;
-    Some(root.join(bot.trim_start_matches('/')))
-}
-
 /// Error fast on a legacy `.vc-config.toml` schema.
-///
-/// Two rejected generations, both under a `[workspace]` section:
-///
-/// - pre-0.75.0 `path`/`other-repo`;
-/// - 0.75.x root-anchored `work`/`bot` (leading-`/`-means-root).
 ///
 /// The topology readers treat unknown keys as absent, which would
 /// silently degrade a dual workspace to single-repo — so every
-/// resolver calls this first and fails with the rewrite instead. A
-/// config with both a `[repos]` registry and stray legacy keys
-/// passes (the registry drives behavior; `config --validate` flags
-/// the strays). Also rejects an empty `repos.work` — every reader
-/// would silently misresolve it.
+/// resolver calls this first and fails with the
+/// [`legacy_vc_config::reject`](crate::legacy_vc_config::reject)
+/// rewrite instead. A config with both a `[repos]` registry and
+/// stray legacy keys passes (the registry drives behavior;
+/// `config --validate` flags the strays). Also rejects an empty
+/// `repos.work` — every reader would silently misresolve it.
 pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE)) else {
         return Ok(());
     };
-    match toml_simple::toml_get(&cfg, "repos.work") {
-        Some(work) if work.is_empty() => Err(format!(
+    if let Some(msg) = crate::legacy_vc_config::reject(dir, &cfg) {
+        return Err(msg.into());
+    }
+    if toml_simple::toml_get(&cfg, "repos.work").is_some_and(|w| w.is_empty()) {
+        return Err(format!(
             "{}/.vc-config.toml: repos.work is empty — it must be a path \
              (relative to the config file's directory, e.g. \".\" in the \
              work repo); nothing was changed",
             dir.display()
         )
-        .into()),
-        Some(_) => Ok(()),
-        None if toml_simple::toml_get(&cfg, "workspace.work").is_some()
-            || toml_simple::toml_get(&cfg, "workspace.path").is_some()
-            || toml_simple::toml_get(&cfg, "workspace.other-repo").is_some() =>
-        {
-            let bot_name = legacy_configured_bot_dir(dir)
-                .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
-                .unwrap_or_else(|| ".claude".to_string()); // OK: default dir name for the rewrite example
-            Err(format!(
-                "{}/.vc-config.toml: legacy [workspace] schema. Replace it with a \
-                 [repos] registry — paths are relative to each config file's \
-                 directory, so the sides differ:\n\n\
-                 work side:\n\
-                 [repos]\n\
-                 work = \".\"\n\
-                 bot = \"{bot_name}\"\n\n\
-                 bot side:\n\
-                 [repos]\n\
-                 work = \"..\"\n\
-                 bot = \".\"\n\n\
-                 (drop `bot` for a single-repo workspace)",
-                dir.display()
-            )
-            .into())
-        }
-        None => Ok(()),
+        .into());
     }
+    Ok(())
 }
 
 /// Cwd-anchored wrapper over [`find_workspace_root_from`].
