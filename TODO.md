@@ -76,12 +76,12 @@ verified jj-only sequence
 Ladder (greppable stem `registry`; config-key paths become
 `repos.work` / `repos.bot`):
 
-- [[N]] 0.76.0-0 chore: open repo registry cycle (done) —
+- [[8]] 0.76.0-0 chore: open repo registry cycle (done) —
   pickup into this block, version bump, chores section,
   0.75.1 `Commits:` backfill (SHA
   `eb4a12eb3b561234d176953d3773960fb9f4cdaa`), `## Done`
   sweep into done.md
-- [[N]] 0.76.0-1 refactor: registry schema + side detection
+- [[9]] 0.76.0-1 refactor: registry schema + side detection
   (done)
   — `[workspace]` → `[repos]`, file-relative path semantics
   (no leading-`/`-means-root), side detection by
@@ -89,7 +89,7 @@ Ladder (greppable stem `registry`; config-key paths become
   configs flip in the same commit (the 0.75.0-2 atomicity
   precedent)
 - [[N]] 0.76.0-2 refactor: registry resolved-agreement
-  preflight — canonicalize each side's declared pair,
+  preflight (done) — canonicalize each side's declared pair,
   require both files to name the same two dirs; replaces
   the identical-block invariant in the coherence preflight
   and `config --validate`
@@ -552,3 +552,5 @@ cycle and its two docs interludes: template repo names, notes rework)._
 [5]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
 [6]: /notes/chores/chores-14.md#refactor-facade-owns-topology
 [7]: /notes/chores/chores-14.md#refactor-hygiene-riders
+[8]: https://github.com/winksaville/vc-x1/commit/da932d2293c8 "da932d2293c8de28cf2290d14502a991bdee5861"
+[9]: https://github.com/winksaville/vc-x1/commit/ff4a8d624cf3 "ff4a8d624cf3979ebad246f9c3961b7fed2dcba1"

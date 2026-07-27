@@ -502,6 +502,92 @@ fn legacy_guard_accepts_mixed_keys() {
     std::fs::remove_dir_all(&base).ok();
 }
 
+/// Coherence: a bot-side registry missing `repos.bot` errors with
+/// the missing-key detail, not a bare mismatch.
+#[test]
+fn coherence_missing_bot_key_errors() {
+    let base = ws_tempdir("coh-missing-key");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), "[repos]\nwork = \"..\"\n").unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(err.contains("no `repos.bot`"), "got: {err}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: a declared dir that doesn't exist errors with the
+/// unresolvable-value detail (which key, which value).
+#[test]
+fn coherence_unresolvable_dir_errors() {
+    let base = ws_tempdir("coh-unresolvable");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"../missing\"\nbot = \".\"\n",
+    )
+    .unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(err.contains("repos.work"), "got: {err}");
+    assert!(err.contains("../missing"), "got: {err}");
+    assert!(err.contains("does not resolve"), "got: {err}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence self-identification: both sides agreeing on the same
+/// *wrong* pair (root's `work` naming a third dir) is caught.
+#[test]
+fn coherence_self_identification_errors() {
+    let base = ws_tempdir("coh-selfid");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    let other = root.join("other");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::create_dir_all(&other).unwrap();
+    // Both sides name (other, .claude) — perfectly agreeing, but
+    // the root's own dir is not at `work`.
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"other\"\nbot = \".claude\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"../other\"\nbot = \".\"\n",
+    )
+    .unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(
+        err.contains("not to the workspace root itself"),
+        "got: {err}"
+    );
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: absolute values are allowed (discouraged) — a dual
+/// workspace mixing absolute and relative spellings still agrees
+/// on resolved reality.
+#[test]
+fn coherence_absolute_values_agree() {
+    let base = ws_tempdir("coh-absolute");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    let canon_bot = bot.canonicalize().unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        format!("[repos]\nwork = \".\"\nbot = \"{}\"\n", canon_bot.display()),
+    )
+    .unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    assert_eq!(bot_repo_path(&root).unwrap(), Some(canon_bot));
+    std::fs::remove_dir_all(&base).ok();
+}
+
 /// `legacy_configured_bot_dir`: the backward-compat clone read
 /// honors both rejected generations' bot declarations, and stays
 /// `None` for the `[repos]` schema (the normal path handles it)

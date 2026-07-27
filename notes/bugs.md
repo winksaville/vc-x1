@@ -18,7 +18,10 @@ insert / delete / reorder.
    (worked around there with `git symbolic-ref HEAD
    refs/heads/main`).
    - **Fix direction:** init's local bare provisioning sets
-     HEAD to `refs/heads/main` at creation.
+     HEAD to `refs/heads/main` at creation. Scheduled with
+     the repo-registry cycle's de-gitify init rung
+     (0.76.0-5), which rebuilds that provisioning
+     ([the stage](refactor-20260716.md#stage-de-gitify-init)).
 
 2. **`clone` session-remote derivation mismatches init's
    local naming; relative TARGET breaks the session clone.**
@@ -33,7 +36,13 @@ insert / delete / reorder.
      regardless: `clone_dual` runs the session `jj git
      clone` with the just-cloned code repo as cwd, so the
      relative source no longer resolves. Workaround: pass an
-     absolute TARGET.
+     absolute TARGET. (Reproduced 2026-07-27 during the
+     0.76.0-1 legacy-clone verification.)
+   - Scheduled with the de-gitify init rung (0.76.0-5) —
+     init's local naming and clone's derivation are the two
+     halves of the mismatch, and that rung rebuilds the
+     init side
+     ([the stage](refactor-20260716.md#stage-de-gitify-init)).
 
 3. **`push` `bookmark-set` races the git index lock.**
    `jj bookmark set` on the colocated work repo failed twice
@@ -106,5 +115,27 @@ insert / delete / reorder.
      which is the refactor program's
      [stateless push stage](refactor-20260716.md#stage-stateless-push);
      this incident is its strongest evidence yet.
+
+6. **`push` `commit-work` commits an empty `@`, minting a
+   duplicate stamped commit.** Observed at the 0.76.0-1 push
+   (2026-07-27): the work commit had been made by hand before
+   invoking `vc-x1 push`, so `@` was empty — `commit-bot`
+   skips a clean repo, but `commit-work` committed the empty
+   `@` anyway with the supplied `--title`/`--body`. The
+   result: an empty duplicate of the real commit on top of
+   it, the ochid trailer stamped on the duplicate (push
+   stamps only the topmost commit), the bookmark pushed at
+   the duplicate, and the bot commit's `ochid:` pointing at
+   the duplicate instead of the real commit.
+   - **Cost:** no data loss, but published history needed a
+     dual-repo repair — describe + abandon + sideways
+     force-push on both sides (`--ignore-immutable`).
+   - **Fix direction:** `commit-work` skips an empty `@`
+     like `commit-bot` does, and the ochid stamp then lands
+     on the real topmost commit; alternatively error loudly
+     when `@` is empty and no commit is needed. Fold into
+     the refactor program's
+     [split push.rs + stateless push stage](refactor-20260716.md#stage-split-pushrs),
+     which rebuilds this code path.
 
 # References

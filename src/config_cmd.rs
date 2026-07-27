@@ -239,8 +239,13 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
                 return Ok(0);
             };
             if let Err(e) = reject_legacy_config(root) {
+                // One finding, reported once: a legacy schema makes
+                // the remaining checks redundant — the unknown-key
+                // scan would re-flag the legacy keys and the
+                // bot-side resolution would re-print this same
+                // rejection.
                 warn!("{e}");
-                findings += 1;
+                return Ok(1);
             }
             for side in &scope.0 {
                 match side {
@@ -465,6 +470,31 @@ mod tests {
         };
         let findings = validate(&params, Some(&fx.work)).expect("validate");
         assert_eq!(findings, 1);
+    }
+
+    #[test]
+    fn validate_legacy_schema_is_one_finding() {
+        // A legacy schema short-circuits: one warn, one finding —
+        // no unknown-key re-flagging of the legacy keys, no
+        // repeated rejection via the bot-side resolution.
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!("vc-x1-config-legacy-{ts}"));
+        std::fs::create_dir_all(&root).expect("mkdir");
+        std::fs::write(
+            root.join(VC_CONFIG_FILE),
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        )
+        .expect("write legacy config");
+        let params = ConfigParams {
+            target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
+            validate: true,
+        };
+        let findings = validate(&params, Some(&root)).expect("validate");
+        assert_eq!(findings, 1);
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

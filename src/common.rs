@@ -974,7 +974,10 @@ pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::er
 ///   resolved file-relative and canonicalized, names the same two
 ///   directories (the file-relative schema makes the raw blocks
 ///   asymmetric by design, so agreement is checked on resolved
-///   reality, not spelling).
+///   reality, not spelling);
+/// - **self-identification**: each config's own directory sits at
+///   its side's key (root's `work`, bot's `bot`) — agreement
+///   alone can't catch both sides naming the same wrong pair.
 ///
 /// Mid-flight surprises stay per-operation concerns; this gates
 /// *entry* at the one topology resolver.
@@ -1014,6 +1017,31 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
             root_pair.1.display(),
             bot.display(),
             bot_pair.0.display(),
+            bot_pair.1.display()
+        )
+        .into());
+    }
+    // Self-identification: agreement alone can't catch both sides
+    // naming the same *wrong* pair — each config's own directory
+    // must sit at its side's key.
+    let canon_root = root.canonicalize()?;
+    if root_pair.0 != canon_root {
+        return Err(format!(
+            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.work` resolves to \
+             '{}', not to the workspace root itself — the work side's own entry \
+             must name its own directory; nothing was changed",
+            root.display(),
+            root_pair.0.display()
+        )
+        .into());
+    }
+    let canon_bot = bot.canonicalize()?;
+    if bot_pair.1 != canon_bot {
+        return Err(format!(
+            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.bot` resolves to \
+             '{}', not to the bot repo itself — the bot side's own entry must \
+             name its own directory; nothing was changed",
+            bot.display(),
             bot_pair.1.display()
         )
         .into());

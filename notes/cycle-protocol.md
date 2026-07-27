@@ -207,21 +207,14 @@ through:
    [Commit description](#commit-description).
 7. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
-8. **Commit.** `jj commit -m "title" -m "body" -R .` for
-   the work repo, `-R .claude` for the bot repo (`-R` last
-   keeps the verb visible):
-
-   ```
-   jj commit -m \
-   "<type>: <short description>" \
-   -m "<intro paragraph>
-
-   - file1: gist
-   - file2: gist
-
-   ochid: /.claude/<chid>" \
-   -R .
-   ```
+8. **Commit + push.** Hand the approved title/body to
+   `vc-x1 push <bookmark> --title "…" --body "…"` — its
+   commit stages commit both repos and stamp the `ochid:`
+   trailers. Never pre-commit the rung with `jj commit`: an
+   empty `@` at push mints a stamped empty duplicate
+   (bugs.md #6). Push approval is per-push — step 7's
+   review covers it only when the user's go explicitly
+   includes the push.
 
 **Two overrides apply:**
 

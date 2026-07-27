@@ -585,7 +585,7 @@ open (2026-07-24):
 
 ### As-built ladder
 
-- [[N]] 0.76.0-0 chore: open repo registry cycle
+- [[21]] 0.76.0-0 chore: open repo registry cycle
   - version 0.76.0-0; the stage picked into
     `## In Progress` as the program ladder's current
     `####` rung with a seven-rung ladder; this section
@@ -594,7 +594,7 @@ open (2026-07-24):
     [refactor-20260716.md](../refactor-20260716.md#stage-repo-registry)
   - rider: 0.75.1 `Commits:` backfill ([[20]])
   - rider: `## Done` retirement sweep into done.md
-- [[N]] 0.76.0-1 refactor: registry schema + side detection
+- [[22]] 0.76.0-1 refactor: registry schema + side detection
   - `[workspace]` → `[repos]` across the topology core,
     schema registry, init renders, fixtures, and both live
     configs (atomic flip, the 0.75.0-2 precedent)
@@ -623,6 +623,38 @@ open (2026-07-24):
     warn-to-update, the symlink default follows it, and the
     fix-it rewrite echoes the workspace's actual bot dir
     name; every other resolver still hard-rejects
+- [[N]] 0.76.0-2 refactor: registry resolved-agreement
+  preflight
+  - finishes the -1 seed: **self-identification** joins
+    resolved agreement — each config's own directory must
+    sit at its side's key (root's `work`, bot's `bot`),
+    since agreement alone can't catch both sides naming the
+    same wrong pair
+  - dedicated edge tests: missing `repos.bot`, unresolvable
+    declared dir, self-identification violation, and
+    absolute/relative spellings agreeing on resolved reality
+  - `config --validate` reports these through the bot-side
+    resolution's coherence check (wired at -1); no separate
+    validate path needed
+  - validate legacy dedupe (user report, iiac-perf): a
+    legacy schema printed the rejection twice (root call +
+    bot-side resolution) plus its own keys as unknown — now
+    one warn, one finding, remaining checks skipped as
+    redundant
+  - rider: incremental `Commits:` backfill of the pushed -0
+    / -1 rungs ([[21]],[[22]] here; [[8]],[[9]] in TODO.md's
+    ladder) — the per-push cadence the protocol implies,
+    rather than saving backfills for cycle boundaries
+  - rider: bugs.md #1/#2 annotated as scheduled with the
+    de-gitify init rung; #6 (push empty commit-work
+    duplicate) recorded from the -1 push incident
+  - rider: commit procedure clarified after the #6 incident
+    — AGENTS.md's Committing-vs-pushing condensed to "a
+    cycle rung is committed *by* `vc-x1 push`, never
+    pre-committed" (the stale non-top hand-written-ochid
+    rule deleted), and the per-commit flow's step 8 now
+    invokes `vc-x1 push --title --body` (the `jj commit`
+    example deleted); net smaller
 
 # References
 
@@ -646,3 +678,5 @@ open (2026-07-24):
 [18]: https://github.com/winksaville/vc-x1/commit/3c0d15ea2fca "3c0d15ea2fca3db36135fa38d40687fdb923c239"
 [19]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
 [20]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
+[21]: https://github.com/winksaville/vc-x1/commit/da932d2293c8 "da932d2293c8de28cf2290d14502a991bdee5861"
+[22]: https://github.com/winksaville/vc-x1/commit/ff4a8d624cf3 "ff4a8d624cf3979ebad246f9c3961b7fed2dcba1"
