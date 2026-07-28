@@ -53,10 +53,10 @@ struct PeerPush {
 /// Shared setup: `vc-x1 init` with local bare remotes, `vc-x1
 /// clone` trB then trA, change + `vc-x1 push` on trA.
 ///
-/// Push notes: `--from review` skips preflight (its checks are
-/// out of scope here); `--no-squash-push` stops before
-/// squash-push-bot (out of scope); PATH carries the binary under
-/// test for push's internal `vc-x1` calls.
+/// Push notes: `--no-squash-push` stops before squash-push-bot
+/// (out of scope); PATH carries the binary under test. Preflight
+/// is gone as of 0.77.0-3, so no stage-skipping flag is needed —
+/// which is what removing the `sync --check` self-spawn bought.
 fn setup_peer_push(tag: &str) -> PeerPush {
     let fx = CliFixture::new(tag);
 
@@ -91,8 +91,6 @@ fn setup_peer_push(tag: &str) -> PeerPush {
     run_ok(fx.cmd().current_dir(&tr_a).env("PATH", test_path()).args([
         "push",
         "main",
-        "--from",
-        "review",
         "--title",
         "feat: from clone A",
         "--body",

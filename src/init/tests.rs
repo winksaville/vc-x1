@@ -91,9 +91,9 @@ fn config_optional_keys_are_commented_only() {
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
     assert!(work.contains("used by: bot-session --col-width"));
-    assert!(work.contains("used by: push / squash-push (state-file name)"));
+    assert!(work.contains("used by: bot-session --result-lines"));
     assert!(work.contains("# col-width = 68"));
-    assert!(work.contains("# state-file = \"push-state.toml\""));
+    assert!(work.contains("# result-lines = 10"));
     assert!(
         !work
             .lines()
@@ -102,7 +102,7 @@ fn config_optional_keys_are_commented_only() {
     assert!(
         !work
             .lines()
-            .any(|l| l.trim_start().starts_with("state-file"))
+            .any(|l| l.trim_start().starts_with("result-lines"))
     );
 }
 

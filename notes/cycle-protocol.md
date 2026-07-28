@@ -430,10 +430,12 @@ underlying jj beneath it:
    `<closeout>` becomes the merge. Parent order is the
    argument order.
 3. `jj new <closeout>` — puts an empty `@` above the merge.
-4. `vc-x1 push <bookmark> --from bookmark-set
-   --no-squash-push` — advances the bookmark to the reshaped
-   `@-` and publishes it, leaving the bot repo to a separate
-   `vc-x1 squash-push`.
+4. `vc-x1 push <bookmark> --no-squash-push` — advances the
+   bookmark to the reshaped `@-` and publishes it, leaving the
+   bot repo to a separate `vc-x1 squash-push`. No stage flag is
+   needed: both repos are already committed, so `commit-work`
+   and `commit-bot` skip, and a run with nothing pending asks
+   for no message.
 
 Steps 2–4 are `jj bookmark set <bookmark> -r <closeout>` +
 `jj git push --bookmark <bookmark> -R .` for a project
@@ -470,9 +472,10 @@ without vc-x1; the jj half is the portable part.
   bookmark. Only when `<closeout>` is already on `trunk()`
   does the rebase need `--ignore-immutable`, and then the
   push force-updates the target.
-- **Step 4 needs the bookmark named.** A completed push
-  clears its state file, so pass `<bookmark>` positionally
-  rather than relying on a resume.
+- **Step 4 is an ordinary push.** It carries no resume or
+  stage-selection flag — push has neither. Every stage checks
+  its own precondition, so the ones whose work is done do
+  nothing.
 
 #### Recovery
 
@@ -574,9 +577,8 @@ the next step seems obvious — wait.**
 ### Recovery
 
 - **If push exits before its last stage** — `push-work`
-  succeeded but the bot-repo publish didn't run
-  (`squash-push-bot` in `vc-x1 push --status` / `--from`
-  stage names) — run the squash+push by hand:
+  succeeded but the bot-repo publish (`squash-push-bot`)
+  didn't run — run the squash+push by hand:
 
   ```
   vc-x1 squash-push -R .claude
@@ -599,10 +601,9 @@ the next step seems obvious — wait.**
     and land after the pass. The remedy is the same: just
     run squash-push again. This is why a single pass is never
     guaranteed to leave `@` empty.
-- **Clear push's saved state** after any out-of-band
-  recovery — `rm .vc-x1/push-state.toml` or `vc-x1 push
-  <bookmark> --restart` — otherwise push resumes from a
-  stale stage.
+- **Nothing to clear after an out-of-band recovery.** Push
+  keeps no saved state, so whatever you do to the repos by
+  hand is simply the state the next run sees.
 - **Late work-repo tweak after the work-repo push succeeded**
   (e.g. updating AGENTS.md or memory) requires `jj
   squash --ignore-immutable` and a re-push; that is a

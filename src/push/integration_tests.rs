@@ -39,45 +39,19 @@ fn desc_first_line(repo: &Path, rev: &str) -> String {
     )
 }
 
-/// Standard test params: bookmark=main, `--from message` (skip
-/// preflight), `--no-squash-push` (skip the bot-repo squash+push),
-/// `--yes` (auto-approve any interactive prompts).
+/// Standard test params: bookmark=main, `--no-squash-push` (skip
+/// the bot-repo squash+push), `--yes` (auto-approve any interactive
+/// prompts).
 fn test_params(title: &str, body: &str) -> PushParams {
     PushParams {
         bookmark: Some("main".to_string()),
-        restart: false,
-        from: Some(Stage::Message),
         step: false,
-        status: false,
-        recheck: false,
         no_squash_push: true,
         dry_run: false,
         title: Some(title.to_string()),
         body: Some(body.to_string()),
         yes: true,
     }
-}
-
-/// Preflight's bot-published backstop: an at-rest `.claude main`
-/// that doesn't match `main@origin` (a lost publish) errors — no
-/// automatic fixing.
-#[test]
-fn push_preflight_errors_on_unpublished_bot_main() {
-    let fx = Fixture::new("push-bot-unpub");
-    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
-    // Simulate the lost publish: seal a `.claude` commit and move
-    // `main` onto it without pushing.
-    fs::write(fx.bot.join("lost.txt"), "lost session data").expect("write lost file");
-    jj_ok(&fx.bot, &["commit", "-m", "lost bot commit"]);
-    jj_ok(&fx.bot, &["bookmark", "set", "main", "-r", "@-"]);
-
-    let mut params = test_params("feat: blocked", "work body");
-    params.from = None; // run preflight (errors before the sync check)
-    let err = push_in(&fx.work, &params)
-        .expect_err("preflight should error on unpublished bot main")
-        .to_string();
-    assert!(err.contains("does not match"), "got: {err}");
-    assert!(err.contains("squash-push"), "got: {err}");
 }
 
 /// Happy path when `.claude` has no pending changes: the work
@@ -106,6 +80,42 @@ fn push_happy_bot_clean() {
         cid(&fx.bot, "main"),
         bot_main_before,
         ".claude main should not have moved"
+    );
+}
+
+/// bugs.md #4: a work repo whose `@` is empty (the rung was
+/// committed by hand before invoking push) must not mint a
+/// stamped empty duplicate on top of the real commit. The
+/// pre-made commit is published as-is and the bot's ochid points
+/// at *it*, not at a duplicate.
+#[test]
+fn push_empty_work_at_skips_commit_work() {
+    let fx = Fixture::new("push-empty-work");
+    fs::write(fx.work.join("hand.txt"), "hand-made").expect("write work file");
+    jj_ok(
+        &fx.work,
+        &["commit", "-m", "feat: committed by hand", "-m", "body"],
+    );
+    fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    let hand_chid = chid(&fx.work, "@-");
+
+    push_in(
+        &fx.work,
+        &test_params("feat: would duplicate", "ignored body"),
+    )
+    .expect("push should succeed");
+
+    // The hand-made commit is what the bookmark publishes — no
+    // empty duplicate carrying the supplied title on top of it.
+    assert_eq!(desc_first_line(&fx.work, "main"), "feat: committed by hand");
+    assert_eq!(chid(&fx.work, "main"), hand_chid);
+
+    // The bot commit's ochid names the real commit, not a duplicate.
+    let bot_full = description(&fx.bot, "main");
+    assert!(
+        bot_full.contains(&format!("ochid: /{hand_chid}")),
+        "bot ochid should point at the hand-made commit {hand_chid}:\n{bot_full}"
     );
 }
 
@@ -198,8 +208,7 @@ fn push_squash_push_bot_folds_micro_tail() {
 
     let mut params = test_params("feat: tail case", "body");
     params.no_squash_push = false;
-    let state = PushState::new_for("main");
-    stage_squash_push_bot(&fx.work, &state, &params).expect("squash-push-bot should succeed");
+    stage_squash_push_bot(&fx.work, &params).expect("squash-push-bot should succeed");
 
     // Tail folded in; chid stable; bot commit pushed; @ clean.
     let files = jj_ok(&fx.bot, &["file", "list", "-r", "main"]);
@@ -314,81 +323,33 @@ fn push_rollback_restores_both_repos() {
         "setup should have moved .claude main"
     );
 
-    // State records we're at bookmark-set with snapshots from
-    // before any of the above mutations.
-    let state = PushState {
-        version: STATE_FORMAT_VERSION,
-        stage: Stage::BookmarkSet,
-        bookmark: "main".to_string(),
-        started_at: "2026-04-21T20:00:00+00:00".to_string(),
-        work_chid: None,
-        bot_chid: None,
-        bot_had_changes: Some(true),
-        op_work: Some(op_work_start),
-        op_bot: Some(op_bot_start),
-        title: None,
-        body: None,
+    // Snapshots from before any of the above mutations.
+    let snapshots = Snapshots {
+        work: op_work_start,
+        bot: op_bot_start,
     };
 
     let err: Box<dyn std::error::Error> = "forced for test".into();
-    rollback_on_failure(&fx.work, &state, err.as_ref());
+    rollback_on_failure(&fx.work, &snapshots, err.as_ref());
 
     // After rollback, `main` is restored in both repos.
     assert_eq!(cid(&fx.work, "main"), main_work_start);
     assert_eq!(cid(&fx.bot, "main"), main_bot_start);
 }
 
-/// End-to-end resume: first run fails at `push-work` (simulated
-/// by passing a bogus bookmark that jj accepts but the bare-git
-/// remote rejects on push). Second run with `--from push-work`
-/// and the correct bookmark completes the flow. Confirms state
-/// persists across invocations and `--from` overrides the
-/// resumed stage.
-#[test]
-fn push_resume_after_push_failure() {
-    let fx = Fixture::new("push-resume");
-    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
-
-    // First run: commits + bookmarks succeed; push-work we
-    // simulate via a second step rather than trying to force a
-    // real push failure (which jj makes hard — local bare-git
-    // remotes accept almost anything). Instead, split the run
-    // using --no-squash-push on the second pass.
-    let mut params1 = test_params("feat: resume", "resume body");
-    params1.from = Some(Stage::Message);
-    push_in(&fx.work, &params1).expect("first push run");
-
-    // After the full run, state file should be cleared and main
-    // should be advanced in the work repo.
-    let layout = resolve_state_layout(&fx.work);
-    assert!(
-        !layout.path.exists(),
-        "state file should be cleared after a successful run: {}",
-        layout.path.display()
-    );
-    assert_eq!(desc_first_line(&fx.work, "main"), "feat: resume");
-}
-
-/// Build a minimal `PushState` whose stage is post-everything
-/// (SquashPushBot — the natural state at completion check time).
-fn completion_state(work_chid: Option<String>, bot_chid: Option<String>) -> PushState {
-    PushState {
-        version: STATE_FORMAT_VERSION,
-        stage: Stage::SquashPushBot,
-        bookmark: "main".to_string(),
-        started_at: "2026-04-24T00:00:00Z".to_string(),
+/// Build a `Run` carrying the chids a completed push would have.
+fn completion_run(work_chid: String, bot_chid: String) -> Run {
+    Run {
+        title: String::new(),
+        body: String::new(),
         work_chid,
         bot_chid,
-        bot_had_changes: Some(false),
-        op_work: None,
-        op_bot: None,
-        title: None,
-        body: None,
+        bot_had_changes: false,
     }
 }
 
-/// Happy path: bookmarks at the recorded chids, work working copy clean.
-/// `verify_completion_sanity` returns Ok.
+/// Happy path: bookmarks at the run's chids, work working copy
+/// clean. `verify_completion` returns Ok.
 #[test]
 fn completion_sanity_pass() {
     let fx = Fixture::new("completion-pass");
@@ -398,24 +359,24 @@ fn completion_sanity_pass() {
 
     let work_chid = chid(&fx.work, "main");
     let bot_chid = chid(&fx.bot, "main");
-    let state = completion_state(Some(work_chid), Some(bot_chid));
+    let run = completion_run(work_chid, bot_chid);
 
-    verify_completion_sanity(&fx.work, &state).expect("post-completion verification passes");
+    verify_completion(&fx.work, "main", &run).expect("post-completion verification passes");
 }
 
-/// Check 1 fail: state.work_chid doesn't match the bookmark's chid.
+/// Check 1 fail: the run's work_chid doesn't match the bookmark.
 #[test]
 fn completion_sanity_fail_work_chid_mismatch() {
     let fx = Fixture::new("completion-fail-work");
     fs::write(fx.work.join("work.txt"), "x").expect("write work file");
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
-    // Build state with a bogus work_chid (12-char prefix that won't
-    // match the real one).
-    let state = completion_state(Some("zzzzzzzzzzzz".to_string()), None);
+    // A bogus work_chid (12-char prefix that won't match the real one).
+    let bot_chid = chid(&fx.bot, "main");
+    let run = completion_run("zzzzzzzzzzzz".to_string(), bot_chid);
 
-    let err = verify_completion_sanity(&fx.work, &state)
-        .expect_err("bogus work_chid should fail check 1");
+    let err =
+        verify_completion(&fx.work, "main", &run).expect_err("bogus work_chid should fail check 1");
     let msg = err.to_string();
     assert!(msg.contains("work bookmark"), "msg: {msg}");
     assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
@@ -431,15 +392,16 @@ fn completion_sanity_fail_dirty_wc() {
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
 
     let work_chid = chid(&fx.work, "main");
-    let state = completion_state(Some(work_chid), None);
+    let bot_chid = chid(&fx.bot, "main");
+    let run = completion_run(work_chid, bot_chid);
 
-    let err = verify_completion_sanity(&fx.work, &state)
+    let err = verify_completion(&fx.work, "main", &run)
         .expect_err("dirty working copy should fail check 2");
     let msg = err.to_string();
     assert!(msg.contains("uncommitted changes"), "msg: {msg}");
 }
 
-/// Check 3 fail: state.bot_chid doesn't match .claude's bookmark.
+/// Check 3 fail: the run's bot_chid doesn't match .claude's bookmark.
 #[test]
 fn completion_sanity_fail_bot_chid_mismatch() {
     let fx = Fixture::new("completion-fail-claude");
@@ -447,11 +409,68 @@ fn completion_sanity_fail_bot_chid_mismatch() {
     push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
 
     let work_chid = chid(&fx.work, "main");
-    let state = completion_state(Some(work_chid), Some("zzzzzzzzzzzz".to_string()));
+    let run = completion_run(work_chid, "zzzzzzzzzzzz".to_string());
 
     let err =
-        verify_completion_sanity(&fx.work, &state).expect_err("bogus bot_chid should fail check 3");
+        verify_completion(&fx.work, "main", &run).expect_err("bogus bot_chid should fail check 3");
     let msg = err.to_string();
     assert!(msg.contains(".claude bookmark"), "msg: {msg}");
     assert!(msg.contains("zzzzzzzzzzzz"), "msg: {msg}");
+}
+
+/// The property that replaced resume: rerunning a completed push
+/// is safe and changes nothing. Every stage no-ops — commit-work
+/// skips an empty `@`, `message` doesn't demand a title when
+/// neither side will commit, bookmark-set is a set, and jj's push
+/// reports nothing to do.
+#[test]
+fn push_rerun_after_completion_is_a_noop() {
+    let fx = Fixture::new("push-rerun");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
+    fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    push_in(&fx.work, &test_params("feat: once", "body")).expect("first push");
+    let work_after = cid(&fx.work, "main");
+    let bot_after = cid(&fx.bot, "main");
+
+    // Rerun with no message at all — nothing is pending, so none is
+    // needed. Before the message guard this errored with
+    // "--yes given but --title/--body missing".
+    let mut params = test_params("unused", "unused");
+    params.title = None;
+    params.body = None;
+    push_in(&fx.work, &params).expect("rerunning a completed push should succeed");
+
+    assert_eq!(
+        cid(&fx.work, "main"),
+        work_after,
+        "work main should not move"
+    );
+    assert_eq!(
+        cid(&fx.bot, "main"),
+        bot_after,
+        ".claude main should not move"
+    );
+    assert_eq!(desc_first_line(&fx.work, "main"), "feat: once");
+}
+
+/// A publish-only run: the commits exist and only the bookmark and
+/// the remote need advancing — the trapezoid recipe's final step,
+/// which used to require `--from bookmark-set`. A bare push now
+/// does it, with no message.
+#[test]
+fn push_publish_only_run_advances_bookmark() {
+    let fx = Fixture::new("push-publish-only");
+    fs::write(fx.work.join("work.txt"), "work").expect("write work file");
+    jj_ok(&fx.work, &["commit", "-m", "feat: sealed by hand"]);
+
+    let sealed = chid(&fx.work, "@-");
+
+    let mut params = test_params("unused", "unused");
+    params.title = None;
+    params.body = None;
+    push_in(&fx.work, &params).expect("publish-only push should succeed");
+
+    assert_eq!(chid(&fx.work, "main"), sealed);
+    assert_eq!(desc_first_line(&fx.work, "main"), "feat: sealed by hand");
 }

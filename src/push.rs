@@ -1,33 +1,29 @@
 //! `push` subcommand — collapse the dual-repo commit+push+
-//! squash-push ceremony into a single resumable command.
+//! squash-push ceremony into a single command.
 //!
 //! See `notes/chores/chores-05.md > Add push subcommand (0.37.0)` for the
-//! full design.
+//! original design.
 //!
-//! Dev-step ladder (expanded from original 4 to 6 after adding an
-//! integration-test step ahead of the first dogfood):
+//! The run is a straight line: review → message → commit-work →
+//! commit-bot → bookmark-set → push-work → squash-push-bot. There
+//! is no saved state and no resume, because a recorded position
+//! describes a world that may have changed for reasons push cannot
+//! know. What push owes instead is that **rerunning is always
+//! safe**: every stage checks its own precondition and no-ops when
+//! its work is already done, so a rerun after a failure is simply a
+//! run.
 //!
-//! - `0.37.0-0` — scaffolding: flag surface, `Stage` enum, stub `push()`
-//! - `0.37.0-1` — state file + stage-dispatch loop with stage stubs;
-//!   `--status`, `--restart`, `--from`
-//! - `0.37.0-2` — real stage bodies (commits, bookmarks, push,
-//!   bot push) + `jj op` snapshot rollback
-//! - `0.37.0-3` — integration tests + workspace-root refactor
-//!   (thread `root: &Path` through every stage so fixtures can
-//!   point them at tempdirs); first `vc-x1 push` dogfood ships
-//!   this commit
-//! - `0.37.0-4` — interactivity: two approval gates, `$EDITOR`,
-//!   message persistence across resumes
-//! - `0.37.0-5` — polish: `--dry-run`, `--step`, non-tty handling,
-//!   `.gitignore` coherence warning
-//! - `0.37.0` — docs + workflow migration (done marker)
+//! Failures before `push-work` are rolled back from `jj op`
+//! snapshots taken moments earlier in this same process. Failures
+//! from `push-work` on have crossed the remote boundary — push
+//! stops and reports, and putting the repos right is the user's
+//! call, not something a tool can infer.
 
 use std::fs;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
-use clap::{Args, ValueEnum};
+use clap::Args;
 use log::{debug, info, warn};
 
 use crate::common::{prompt, run};
@@ -36,97 +32,11 @@ use crate::jj;
 use crate::options_flags::squash::SquashSpec;
 use crate::subcommand::SubcommandRunner;
 use crate::sync::{current_op_id, op_restore};
-use crate::toml_simple::toml_load;
 
 /// Bookmark the bot (`.claude`) repo always advances and
 /// pushes. The bot repo is a linear journal on `main` by
 /// design — `<bookmark>` names a work-repo bookmark only.
 const BOT_BOOKMARK: &str = "main";
-
-/// Named stages of the `push` state machine.
-///
-/// Used by `--from <stage>` to resume at a specific point and by
-/// `--status` to report the current position. Ordered top-down so
-/// `Stage as u8` comparisons reflect progress through the flow.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum Stage {
-    /// Verify bookmark tracking, the bot-published invariant,
-    /// and sync state.
-    Preflight,
-    /// Present diff for the first approval gate.
-    Review,
-    /// Compose / edit the commit message; present for second gate.
-    Message,
-    /// Commit the work repo.
-    CommitWork,
-    /// Commit the `.claude` bot repo (skipped if empty).
-    CommitBot,
-    /// Advance each repo's bookmark to its `@-`: work → `<bookmark>`,
-    /// bot → `main`.
-    BookmarkSet,
-    /// `jj git push --bookmark <b> -R .`.
-    PushWork,
-    /// In-process squash of `.claude`'s trailing session writes
-    /// + push `main`.
-    SquashPushBot,
-}
-
-impl Stage {
-    /// Return the stage's kebab-case string identifier (matches what
-    /// the CLI accepts via `--from <stage>` and what `PushState`
-    /// persists to disk).
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Stage::Preflight => "preflight",
-            Stage::Review => "review",
-            Stage::Message => "message",
-            Stage::CommitWork => "commit-work",
-            Stage::CommitBot => "commit-bot",
-            Stage::BookmarkSet => "bookmark-set",
-            Stage::PushWork => "push-work",
-            Stage::SquashPushBot => "squash-push-bot",
-        }
-    }
-
-    /// Parse a kebab-case stage name back into a `Stage`.
-    ///
-    /// Unknown names return `None`; callers should surface a helpful
-    /// error rather than silently substituting a default.
-    pub fn from_str(name: &str) -> Option<Self> {
-        match name {
-            "preflight" => Some(Stage::Preflight),
-            "review" => Some(Stage::Review),
-            "message" => Some(Stage::Message),
-            "commit-work" => Some(Stage::CommitWork),
-            "commit-bot" => Some(Stage::CommitBot),
-            "bookmark-set" => Some(Stage::BookmarkSet),
-            "push-work" => Some(Stage::PushWork),
-            "squash-push-bot" => Some(Stage::SquashPushBot),
-            _ => None,
-        }
-    }
-
-    /// The stage that follows this one, or `None` when this is the
-    /// last stage (`SquashPushBot`).
-    pub fn next(self) -> Option<Self> {
-        match self {
-            Stage::Preflight => Some(Stage::Review),
-            Stage::Review => Some(Stage::Message),
-            Stage::Message => Some(Stage::CommitWork),
-            Stage::CommitWork => Some(Stage::CommitBot),
-            Stage::CommitBot => Some(Stage::BookmarkSet),
-            Stage::BookmarkSet => Some(Stage::PushWork),
-            Stage::PushWork => Some(Stage::SquashPushBot),
-            Stage::SquashPushBot => None,
-        }
-    }
-
-    /// The first stage in the flow — used when no saved state exists.
-    pub fn first() -> Self {
-        Stage::Preflight
-    }
-}
 
 /// CLI arguments for the `push` subcommand.
 ///
@@ -150,25 +60,9 @@ pub struct PushArgs {
     #[arg(long, conflicts_with = "bookmark_pos")]
     pub bookmark: Option<String>,
 
-    /// Clear any saved state file and start from stage 1.
-    #[arg(long)]
-    pub restart: bool,
-
-    /// Explicit stage to jump to (advanced / debug use).
-    #[arg(long, value_name = "STAGE")]
-    pub from: Option<Stage>,
-
     /// Pause between every stage for an interactive approval gate.
     #[arg(long)]
     pub step: bool,
-
-    /// Print where the saved state thinks we are and exit.
-    #[arg(long)]
-    pub status: bool,
-
-    /// Re-run `preflight` even on resume (default: skip if last run succeeded).
-    #[arg(long)]
-    pub recheck: bool,
 
     /// Stop before `squash-push-bot` so it can be run manually.
     #[arg(long)]
@@ -197,25 +91,43 @@ pub struct PushArgs {
 ///
 /// Mirrors `PushArgs`, with the two clap bookmark spellings
 /// (positional `BOOKMARK` and `--bookmark`) collapsed into one
-/// `bookmark` field. The rest map straight over: `restart`, `from`
-/// (a `Stage`, a domain type — kept), `step`, `status`, `recheck`,
+/// `bookmark` field. The rest map straight over: `step`,
 /// `no_squash_push`, `dry_run`, `title`, `body`, `yes`.
 pub struct PushParams {
     pub bookmark: Option<String>,
-    pub restart: bool,
-    pub from: Option<Stage>,
     pub step: bool,
-    pub status: bool,
-    /// `--recheck` is parsed by `PushArgs` but not yet wired into the
-    /// stage machine; carried here so the conversion stays total and
-    /// the field is in place when the behavior lands.
-    #[allow(dead_code)]
-    pub recheck: bool,
     pub no_squash_push: bool,
     pub dry_run: bool,
     pub title: Option<String>,
     pub body: Option<String>,
     pub yes: bool,
+}
+
+/// What the message stage resolves and the later stages consume.
+///
+/// Lives for one run in one process — the deliberate replacement
+/// for the persisted `PushState`. Both chids are captured before
+/// any commit happens, so each repo's `ochid:` trailer can name the
+/// other side's change.
+struct Run {
+    title: String,
+    body: String,
+    /// Chid of the work-repo change this run publishes: `@` when the
+    /// working copy has changes (it becomes `@-` once committed),
+    /// else the existing `@-`.
+    work_chid: String,
+    /// Same rule on the bot side.
+    bot_chid: String,
+    /// Whether the bot working copy had changes — decides whether
+    /// `commit-bot` runs.
+    bot_had_changes: bool,
+}
+
+/// `jj op` ids captured immediately before the first mutation, used
+/// to restore both repos if a pre-remote stage fails.
+pub(crate) struct Snapshots {
+    pub(crate) work: String,
+    pub(crate) bot: String,
 }
 
 impl From<&PushArgs> for PushParams {
@@ -225,11 +137,7 @@ impl From<&PushArgs> for PushParams {
     fn from(a: &PushArgs) -> Self {
         Self {
             bookmark: a.bookmark_pos.clone().or_else(|| a.bookmark.clone()),
-            restart: a.restart,
-            from: a.from,
             step: a.step,
-            status: a.status,
-            recheck: a.recheck,
             no_squash_push: a.no_squash_push,
             dry_run: a.dry_run,
             title: a.title.clone(),
@@ -254,304 +162,6 @@ impl SubcommandRunner for PushArgs {
     }
 }
 
-/// Current state-file format version — bump when the flat key set
-/// changes incompatibly so readers can detect stale state and refuse
-/// to resume instead of silently misinterpreting fields.
-///
-/// - `2` (0.74.0-1): `op_app` / `op_claude` renamed to `op_work` /
-///   `op_bot` by the work/bot terminology sweep. A version-1 file
-///   would still parse but lose both rollback targets, so the bump
-///   makes a stale state an explicit `--restart` prompt instead.
-const STATE_FORMAT_VERSION: u32 = 2;
-
-/// Default directory (relative to work-repo root) for the push state
-/// file when `.vc-config.toml` has no `[push]` override.
-pub(crate) const DEFAULT_STATE_DIR: &str = ".vc-x1";
-
-/// Default filename for the push state file under `state_dir`.
-pub(crate) const DEFAULT_STATE_FILE: &str = "push-state.toml";
-
-/// Resolved state-file layout — just the full path today, structured
-/// so future additions (e.g. a `dir` exposed for `.gitignore`
-/// coherence checks in 0.37.0-3) have a place to land without
-/// changing callers.
-#[derive(Debug, Clone)]
-pub struct StateLayout {
-    /// Full path `<repo>/<state-dir>/<state-file>`.
-    pub path: PathBuf,
-}
-
-/// Read `state_dir` / `state_file` from `<repo_root>/.vc-config.toml`
-/// under the `[push]` section, falling back to defaults (`.vc-x1`
-/// and `push-state.toml`).
-///
-/// Missing config file is not an error — every workspace has the
-/// defaults applied silently so `vc-x1 push --status` works on a
-/// fresh clone without ceremony.
-pub fn resolve_state_layout(repo_root: &Path) -> StateLayout {
-    let config_path = repo_root.join(".vc-config.toml");
-    let (dir, file) = if config_path.exists() {
-        match toml_load(&config_path) {
-            Ok(map) => {
-                let dir = map
-                    .get("push.state-dir")
-                    .cloned()
-                    .unwrap_or_else(|| DEFAULT_STATE_DIR.to_string());
-                let file = map
-                    .get("push.state-file")
-                    .cloned()
-                    .unwrap_or_else(|| DEFAULT_STATE_FILE.to_string());
-                (dir, file)
-            }
-            Err(e) => {
-                debug!("push: ignoring unparseable .vc-config.toml: {e}");
-                (
-                    DEFAULT_STATE_DIR.to_string(),
-                    DEFAULT_STATE_FILE.to_string(),
-                )
-            }
-        }
-    } else {
-        (
-            DEFAULT_STATE_DIR.to_string(),
-            DEFAULT_STATE_FILE.to_string(),
-        )
-    };
-    let path = repo_root.join(&dir).join(&file);
-    StateLayout { path }
-}
-
-/// Persistent state for an in-progress `push` run.
-///
-/// Serialized as flat TOML (`key = "value"`) under the dir/file
-/// configured in `.vc-config.toml`'s `[push]` section. Fields added
-/// across dev steps are all `Option<_>` so older states remain
-/// loadable — only `version` / `stage` / `bookmark` / `started_at`
-/// are required. See the module docstring for which dev step
-/// introduced which field.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PushState {
-    /// State-file format version; must match `STATE_FORMAT_VERSION`
-    /// to be considered readable.
-    pub version: u32,
-    /// The next stage to execute on resume.
-    pub stage: Stage,
-    /// Work-repo bookmark being advanced by this run (persisted so
-    /// resume doesn't need `--bookmark` again). The bot repo's
-    /// side is pinned to `BOT_BOOKMARK`, not stored here.
-    pub bookmark: String,
-    /// ISO-8601 UTC timestamp captured when the state was first
-    /// written. Informational — helps the user spot stale state.
-    pub started_at: String,
-    /// Work-repo changeID captured at `message` stage (before
-    /// `commit-work` runs). Stable across `jj commit` — becomes the
-    /// chid of the just-committed change. Used when composing the
-    /// `.claude` commit's ochid trailer. Added in 0.37.0-2.
-    pub work_chid: Option<String>,
-    /// `.claude` repo changeID used by the work-repo commit's ochid
-    /// trailer. Either the pre-commit `@` chid (when `.claude` has
-    /// pending changes — becomes `@-` after commit) or the current
-    /// `@-` chid (when `.claude` is clean — stays stable). Added in
-    /// 0.37.0-2.
-    pub bot_chid: Option<String>,
-    /// Whether `.claude`'s working copy had changes at `message`
-    /// time. Decides whether `commit-bot` actually runs or
-    /// skips. Added in 0.37.0-2.
-    pub bot_had_changes: Option<bool>,
-    /// `jj op` id of the work repo captured before `commit-work`. On
-    /// failure in stages 4-6, `jj op restore` rewinds here. Added
-    /// in 0.37.0-2.
-    pub op_work: Option<String>,
-    /// `jj op` id of `.claude` captured before `commit-work`. Same
-    /// rollback target as `op_work`. Added in 0.37.0-2.
-    pub op_bot: Option<String>,
-    /// Composed commit title — persisted so resume doesn't need
-    /// `--title` re-passed. Set during `message` stage from either
-    /// `--title` or `$EDITOR`. Added in 0.37.0-4.
-    pub title: Option<String>,
-    /// Composed commit body (sans ochid trailer, which each commit
-    /// stage appends). Persisted alongside title. Multi-line
-    /// content is escaped for the flat-TOML save format (see
-    /// `escape_multiline` / `unescape_multiline`). Added in
-    /// 0.37.0-4.
-    pub body: Option<String>,
-}
-
-impl PushState {
-    /// Build a fresh state for a new run.
-    pub fn new_for(bookmark: &str) -> Self {
-        PushState {
-            version: STATE_FORMAT_VERSION,
-            stage: Stage::first(),
-            bookmark: bookmark.to_string(),
-            started_at: Utc::now().to_rfc3339(),
-            work_chid: None,
-            bot_chid: None,
-            bot_had_changes: None,
-            op_work: None,
-            op_bot: None,
-            title: None,
-            body: None,
-        }
-    }
-
-    /// Write the state to `path`, creating parent dirs as needed.
-    ///
-    /// Values are single-line and contain no `"` characters under
-    /// normal operation (stage names are kebab-case, chids are
-    /// ASCII, bookmark names don't contain quotes, timestamps are
-    /// ASCII). A defensive escape pass replaces any stray `"` with
-    /// `\"` so the file always parses with `toml_simple`. Optional
-    /// fields are only emitted when set so older state files don't
-    /// carry a wall of blank keys.
-    pub fn save(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let mut content = String::new();
-        content.push_str("# vc-x1 push state — managed file, do not edit by hand\n");
-        content.push_str("[push-state]\n");
-        content.push_str(&format!("version = {}\n", self.version));
-        content.push_str(&format!("stage = \"{}\"\n", self.stage.as_str()));
-        content.push_str(&format!("bookmark = \"{}\"\n", escape_toml(&self.bookmark)));
-        content.push_str(&format!(
-            "started_at = \"{}\"\n",
-            escape_toml(&self.started_at)
-        ));
-        if let Some(v) = &self.work_chid {
-            content.push_str(&format!("work_chid = \"{}\"\n", escape_toml(v)));
-        }
-        if let Some(v) = &self.bot_chid {
-            content.push_str(&format!("bot_chid = \"{}\"\n", escape_toml(v)));
-        }
-        if let Some(v) = self.bot_had_changes {
-            content.push_str(&format!("bot_had_changes = {v}\n"));
-        }
-        if let Some(v) = &self.op_work {
-            content.push_str(&format!("op_work = \"{}\"\n", escape_toml(v)));
-        }
-        if let Some(v) = &self.op_bot {
-            content.push_str(&format!("op_bot = \"{}\"\n", escape_toml(v)));
-        }
-        if let Some(v) = &self.title {
-            content.push_str(&format!("title = \"{}\"\n", escape_multiline(v)));
-        }
-        if let Some(v) = &self.body {
-            content.push_str(&format!("body = \"{}\"\n", escape_multiline(v)));
-        }
-        fs::write(path, content)?;
-        debug!("push: wrote state to {}", path.display());
-        Ok(())
-    }
-
-    /// Load state from `path`, returning `Ok(None)` if the file is
-    /// absent (a fresh run) and `Err` if the file exists but is
-    /// unusable (stale format, missing required keys, unknown stage).
-    pub fn load(path: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
-        if !path.exists() {
-            return Ok(None);
-        }
-        let map = toml_load(path)?;
-        let require = |k: &str| -> Result<String, Box<dyn std::error::Error>> {
-            map.get(k)
-                .cloned()
-                .ok_or_else(|| format!("push state {}: missing key '{k}'", path.display()).into())
-        };
-        let version: u32 = require("push-state.version")?
-            .parse()
-            .map_err(|e| format!("push state {}: invalid version: {e}", path.display()))?;
-        if version != STATE_FORMAT_VERSION {
-            return Err(format!(
-                "push state {}: unsupported format version {version} (expected {}); \
-                 re-run with --restart to start fresh",
-                path.display(),
-                STATE_FORMAT_VERSION
-            )
-            .into());
-        }
-        let stage_str = require("push-state.stage")?;
-        let stage = Stage::from_str(&stage_str)
-            .ok_or_else(|| format!("push state {}: unknown stage '{stage_str}'", path.display()))?;
-        let bot_had_changes = match map.get("push-state.bot_had_changes") {
-            Some(s) => Some(s.parse::<bool>().map_err(|e| {
-                format!(
-                    "push state {}: invalid bot_had_changes: {e}",
-                    path.display()
-                )
-            })?),
-            None => None,
-        };
-        Ok(Some(PushState {
-            version,
-            stage,
-            bookmark: require("push-state.bookmark")?,
-            started_at: require("push-state.started_at")?,
-            work_chid: map.get("push-state.work_chid").cloned(),
-            bot_chid: map.get("push-state.bot_chid").cloned(),
-            bot_had_changes,
-            op_work: map.get("push-state.op_work").cloned(),
-            op_bot: map.get("push-state.op_bot").cloned(),
-            title: map.get("push-state.title").map(|s| unescape_multiline(s)),
-            body: map.get("push-state.body").map(|s| unescape_multiline(s)),
-        }))
-    }
-}
-
-/// Escape any `"` in a value so the single-line TOML strings we emit
-/// stay parseable. `toml_simple` trims the surrounding quotes on read
-/// but doesn't process escapes, so we just avoid characters that
-/// would break the single-line form.
-fn escape_toml(s: &str) -> String {
-    s.replace('"', "\\\"")
-}
-
-/// Escape a potentially multi-line string for persistence in a
-/// single-line TOML value. `toml_simple` only handles one line per
-/// value so we encode newlines as `\n`, tabs as `\t`, and any stray
-/// `"` / `\` as their escaped forms. The inverse is
-/// `unescape_multiline`.
-fn escape_multiline(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\t' => out.push_str("\\t"),
-            '\r' => out.push_str("\\r"),
-            c => out.push(c),
-        }
-    }
-    out
-}
-
-/// Invert `escape_multiline`. Unknown backslash-escapes pass through
-/// untouched (best-effort — this is a managed state file, so it's
-/// unlikely to encounter hand-edited escapes).
-fn unescape_multiline(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('r') => out.push('\r'),
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
-                }
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(ch);
-        }
-    }
-    out
-}
-
 /// Whether `stdin` is attached to a terminal.
 ///
 /// Interactive prompts (`stage_review`, `$EDITOR` launch in
@@ -561,43 +171,6 @@ fn unescape_multiline(s: &str) -> String {
 /// asserting "all prompts auto-approved".
 fn is_stdin_tty() -> bool {
     std::io::stdin().is_terminal()
-}
-
-/// Verify the configured state dir is matched by a `.gitignore` entry,
-/// erroring if not. The check is intentionally simple — looks for
-/// `<state_dir>` or `/<state_dir>` as a line in `.gitignore` at the
-/// repo root. Misses trickier patterns (nested wildcards, ignore files
-/// further down the tree) but catches the common "user changed the
-/// config and forgot to update .gitignore" case, which is the whole
-/// point. Fatal as of 0.37.1 — the warning was easy to miss in the
-/// preflight wall of output, and a committed state file is a real
-/// foot-gun. `vc-x1 init` and `vc-x1 test-fixture` write `/.vc-x1`
-/// into their generated `.gitignore` so the fresh-repo path is clean.
-fn check_gitignore_coherence(
-    root: &Path,
-    state_dir_name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let gitignore = root.join(".gitignore");
-    let matched = match fs::read_to_string(&gitignore) {
-        Ok(content) => content.lines().any(|line| {
-            let l = line.trim();
-            l == state_dir_name
-                || l == format!("/{state_dir_name}")
-                || l == format!("{state_dir_name}/")
-                || l == format!("/{state_dir_name}/")
-        }),
-        Err(_) => false,
-    };
-    if !matched {
-        return Err(format!(
-            "push: state dir '{state_dir_name}' is not in {} — \
-             add a '/{state_dir_name}' line so in-progress push-state \
-             files don't get committed",
-            gitignore.display()
-        )
-        .into());
-    }
-    Ok(())
 }
 
 /// Entry point for the `push` subcommand.
@@ -622,59 +195,128 @@ pub fn push(_ctx: &Context, params: &PushParams) -> Result<(), Box<dyn std::erro
 
 /// `push` parameterized on the workspace root. CLI dispatch calls
 /// this with `std::env::current_dir()`; integration tests call it
-/// with a fixture tempdir so the stage bodies mutate the fixture's
-/// repos instead of the developer's working tree.
+/// with a fixture tempdir so the stages mutate the fixture's repos
+/// instead of the developer's working tree.
+///
+/// The stages run in a straight line. The mutation window
+/// (`commit-work` → `bookmark-set`) is wrapped so a failure inside
+/// it restores both repos from snapshots taken just before it;
+/// after `push-work` the remote boundary is crossed and a failure
+/// simply propagates.
 pub(crate) fn push_in(
     workspace_root: &Path,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let layout = resolve_state_layout(workspace_root);
+    if params.dry_run {
+        info!("push: DRY-RUN — no side effects (no commits, no pushes)");
+    }
 
-    if params.status {
-        return cmd_status(&layout);
+    let bookmark = params.bookmark.as_deref().ok_or(
+        "push: a bookmark is required — pass it as a positional \
+         (`vc-x1 push main`) or via `--bookmark main`",
+    )?;
+
+    stage_review(workspace_root, params)?;
+    step_gate(params, "review", "message")?;
+
+    let run = stage_message(workspace_root, params)?;
+    step_gate(params, "message", "commit-work")?;
+
+    // Snapshot both repos before the first mutation. Dry-runs
+    // mutate nothing, so they need no rollback target.
+    let snapshots = if params.dry_run {
+        None
+    } else {
+        Some(Snapshots {
+            work: current_op_id(workspace_root)?,
+            bot: current_op_id(&bot_path(workspace_root)?)?,
+        })
+    };
+
+    if let Err(e) = mutate(workspace_root, bookmark, &run, params) {
+        if let Some(snapshots) = &snapshots {
+            rollback_on_failure(workspace_root, snapshots, e.as_ref());
+        }
+        return Err(e);
+    }
+
+    stage_push_work(workspace_root, bookmark, params)?;
+
+    if params.no_squash_push {
+        info!("push squash-push-bot: skip (--no-squash-push)");
+    } else {
+        step_gate(params, "push-work", "squash-push-bot")?;
+        stage_squash_push_bot(workspace_root, params)?;
     }
 
     if params.dry_run {
-        info!("push: DRY-RUN — no side effects (no commits, no pushes, no state written)");
+        info!("push: DRY-RUN complete — no changes written");
+        return Ok(());
     }
 
-    // Gitignore coherence check (fatal). Only checked when we
-    // actually have a file path with a parent (resolve_state_layout
-    // always gives one, so this is effectively always-on).
-    if let Some(dir_name) = layout
-        .path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|s| s.to_str())
-    {
-        check_gitignore_coherence(workspace_root, dir_name)?;
-    }
-
-    if params.restart && layout.path.exists() {
-        fs::remove_file(&layout.path)?;
-        debug!("push: --restart cleared state at {}", layout.path.display());
-    }
-
-    // Load existing state, or require a bookmark (positional or flag)
-    // to bootstrap one.
-    let mut state = match PushState::load(&layout.path)? {
-        Some(s) => s,
-        None => {
-            let bookmark = params.bookmark.as_deref().ok_or(
-                "push: no saved state; a bookmark is required to start a new run \
-                 — pass it as a positional (`vc-x1 push main`) or via `--bookmark main`",
-            )?;
-            PushState::new_for(bookmark)
+    // Honest completion: confirm the world matches what the stages
+    // claim to have done. Catches the 0.37.1 false-success symptom.
+    // Warning-only — work has crossed the remote boundary by now, so
+    // rollback isn't sound and the user needs to investigate.
+    match verify_completion(workspace_root, bookmark, &run) {
+        Ok(()) => info!("push: completed all stages (verified)"),
+        Err(e) => {
+            warn!("push: completed stages but post-completion verification failed:");
+            warn!("  {e}");
+            warn!("  investigate the discrepancy before the next push");
         }
-    };
-
-    // `--from` overrides the resumed stage (does not affect bookmark
-    // or other persisted fields).
-    if let Some(from) = params.from {
-        state.stage = from;
     }
+    Ok(())
+}
 
-    run_from(workspace_root, &mut state, params, &layout)
+/// The rollback-eligible window: everything that mutates a repo
+/// before anything reaches a remote.
+fn mutate(
+    root: &Path,
+    bookmark: &str,
+    run: &Run,
+    params: &PushParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    stage_commit_work(root, run, params)?;
+    step_gate(params, "commit-work", "commit-bot")?;
+    stage_commit_bot(root, run, params)?;
+    step_gate(params, "commit-bot", "bookmark-set")?;
+    stage_bookmark_set(root, bookmark, params)?;
+    step_gate(params, "bookmark-set", "push-work")?;
+    Ok(())
+}
+
+/// `--step`: pause between stages so the user can inspect the
+/// repos before the next one runs.
+///
+/// Skipped entirely without `--step`, and under `--yes` or a
+/// non-tty stdin the prompt would hang, so `--yes` bypasses it and
+/// a non-tty without `--yes` is an error rather than a hang.
+fn step_gate(
+    params: &PushParams,
+    done: &str,
+    next: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !params.step {
+        return Ok(());
+    }
+    if params.yes {
+        debug!("push step: --yes skips step gate between {done} and {next}");
+        return Ok(());
+    }
+    if !is_stdin_tty() {
+        return Err("push: --step requires a tty (stdin is not interactive); \
+                    add --yes to bypass step gates in non-interactive contexts"
+            .into());
+    }
+    let answer = prompt(&format!(
+        "push step: {done} done. Continue to {next}? [y/N] "
+    ))?;
+    let normalized = answer.trim().to_ascii_lowercase();
+    if normalized != "y" && normalized != "yes" {
+        return Err(format!("push: step gate declined after {done} (got {answer:?})").into());
+    }
+    Ok(())
 }
 
 /// Full path of the bot repo for a given workspace root, resolved
@@ -686,162 +328,7 @@ fn bot_path(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>
     crate::common::require_bot_dir(workspace_root)
 }
 
-/// Print the resumed stage (or "no saved state") and return.
-fn cmd_status(layout: &StateLayout) -> Result<(), Box<dyn std::error::Error>> {
-    match PushState::load(&layout.path)? {
-        Some(state) => {
-            info!(
-                "push-state: stage={} bookmark={} started={} (file: {})",
-                state.stage.as_str(),
-                state.bookmark,
-                state.started_at,
-                layout.path.display()
-            );
-        }
-        None => {
-            info!(
-                "push-state: no saved state ({} does not exist)",
-                layout.path.display()
-            );
-        }
-    }
-    Ok(())
-}
-
-/// Walk the state machine from `state.stage` to the end, saving
-/// progress after each stage.
-///
-/// Records a `jj op` snapshot in both repos the first time we enter
-/// `commit-work` and leaves it in state so resume inherits the
-/// rollback target. On failure inside the rollback-eligible window
-/// (`commit-work` / `commit-bot` / `bookmark-set`), both repos
-/// are restored before the error propagates.
-fn run_from(
-    root: &Path,
-    state: &mut PushState,
-    params: &PushParams,
-    layout: &StateLayout,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // State-sanity preflight: catch stale-state-after-out-of-band-recovery
-    // (no-op on fresh state). Runs before save so a bogus halt point isn't
-    // re-persisted. Per chores-06 [61] design.
-    verify_state_sanity(root, state)?;
-
-    // Only persist state in real runs. Dry-runs are inspection-only
-    // — carrying their inferred chids / op snapshots into real runs
-    // would mislead the user about what was actually recorded.
-    if !params.dry_run {
-        state.save(&layout.path)?;
-    }
-    loop {
-        let stage = state.stage;
-
-        // Snapshot op ids once on first `commit-work` entry. Skipped
-        // in dry-run since we won't mutate anything to roll back.
-        if stage == Stage::CommitWork && state.op_work.is_none() && !params.dry_run {
-            state.op_work = Some(current_op_id(root)?);
-            state.op_bot = Some(current_op_id(&bot_path(root)?)?);
-            state.save(&layout.path)?;
-        }
-
-        let result = run_stage(root, stage, state, params, layout);
-
-        if let Err(e) = &result {
-            if stage_is_rollback_eligible(stage) && !params.dry_run {
-                rollback_on_failure(root, state, e.as_ref());
-            }
-            return result;
-        }
-
-        let next = stage.next();
-
-        // --step: pause between every stage so the user can inspect
-        // intermediate state before the next one runs. Only if
-        // there's a next stage to gate, and skipped entirely when
-        // --yes is set or stdin isn't a tty (the prompt would hang
-        // in scripted contexts — the script is presumed consenting).
-        if params.step && next.is_some() {
-            if params.yes {
-                debug!(
-                    "push step: --yes skips step gate between {} and next",
-                    stage.as_str()
-                );
-            } else if !is_stdin_tty() {
-                return Err("push: --step requires a tty (stdin is not interactive); \
-                            add --yes to bypass step gates in non-interactive contexts"
-                    .into());
-            } else {
-                let answer = prompt(&format!(
-                    "push step: {} done. Continue to {}? [y/N] ",
-                    stage.as_str(),
-                    next.map(Stage::as_str).unwrap_or("")
-                ))?;
-                let normalized = answer.trim().to_ascii_lowercase();
-                if normalized != "y" && normalized != "yes" {
-                    return Err(format!(
-                        "push: step gate declined after {} (got {answer:?})",
-                        stage.as_str()
-                    )
-                    .into());
-                }
-            }
-        }
-
-        match next {
-            Some(n) => {
-                state.stage = n;
-                if !params.dry_run {
-                    state.save(&layout.path)?;
-                }
-            }
-            None => break,
-        }
-    }
-    if params.dry_run {
-        info!("push: DRY-RUN complete — no changes written");
-    } else {
-        // Honest completion: verify the world matches state before
-        // declaring success. Catches the 0.37.1 false-success symptom
-        // (stages "ran" but didn't actually commit / push what state
-        // says they did). Warning-only because work has already
-        // crossed the remote boundary by this point — rollback isn't
-        // sound, the user needs to investigate.
-        match verify_completion_sanity(root, state) {
-            Ok(()) => {
-                if layout.path.exists() {
-                    fs::remove_file(&layout.path)?;
-                }
-                info!("push: completed all stages (verified, state cleared)");
-            }
-            Err(e) => {
-                if layout.path.exists() {
-                    fs::remove_file(&layout.path)?;
-                }
-                warn!("push: completed stages but post-completion verification failed:");
-                warn!("  {e}");
-                warn!(
-                    "  state cleared anyway (work landed on remote); investigate the \
-                     discrepancy before next push"
-                );
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Whether a failure in `stage` should trigger the cross-repo op
-/// restore. Anything at or past `push-work` crosses the remote
-/// boundary — the work commit is live on origin, rollback is no
-/// longer sound — so those failures propagate without touching
-/// snapshots.
-fn stage_is_rollback_eligible(stage: Stage) -> bool {
-    matches!(
-        stage,
-        Stage::CommitWork | Stage::CommitBot | Stage::BookmarkSet
-    )
-}
-
-/// Restore both repos to their `jj op` snapshots, if we have them.
+/// Restore both repos to their `jj op` snapshots.
 ///
 /// Best-effort — if the restore itself fails we warn but don't
 /// shadow the original error the caller will propagate. Exposed at
@@ -849,101 +336,23 @@ fn stage_is_rollback_eligible(stage: Stage) -> bool {
 /// directly rather than forcing a stage failure.
 pub(crate) fn rollback_on_failure(
     root: &Path,
-    state: &PushState,
+    snapshots: &Snapshots,
     original: &dyn std::error::Error,
 ) {
     warn!("push: rolling back both repos after: {original}");
-    if let Some(op) = &state.op_work {
-        match op_restore(root, op) {
-            Ok(()) => info!("push: restored work repo to op {op}"),
-            Err(e) => warn!("push: work repo restore failed: {e}"),
-        }
+    match op_restore(root, &snapshots.work) {
+        Ok(()) => info!("push: restored work repo to op {}", snapshots.work),
+        Err(e) => warn!("push: work repo restore failed: {e}"),
     }
-    if let Some(op) = &state.op_bot {
-        // Rollback is best-effort inside an error path — a failed
-        // bot-dir resolution is reported, not propagated.
-        match bot_path(root) {
-            Ok(bot) => match op_restore(&bot, op) {
-                Ok(()) => info!("push: restored bot repo to op {op}"),
-                Err(e) => warn!("push: bot repo restore failed: {e}"),
-            },
-            Err(e) => warn!("push: bot repo restore skipped (unresolvable): {e}"),
-        }
+    // Rollback is best-effort inside an error path — a failed
+    // bot-dir resolution is reported, not propagated.
+    match bot_path(root) {
+        Ok(bot) => match op_restore(&bot, &snapshots.bot) {
+            Ok(()) => info!("push: restored bot repo to op {}", snapshots.bot),
+            Err(e) => warn!("push: bot repo restore failed: {e}"),
+        },
+        Err(e) => warn!("push: bot repo restore skipped (unresolvable): {e}"),
     }
-}
-
-/// Execute one stage. Arms mirror `Stage`'s declaration order.
-fn run_stage(
-    root: &Path,
-    stage: Stage,
-    state: &mut PushState,
-    params: &PushParams,
-    layout: &StateLayout,
-) -> Result<(), Box<dyn std::error::Error>> {
-    match stage {
-        Stage::Preflight => stage_preflight(root, state, params),
-        Stage::Review => stage_review(root, params),
-        Stage::Message => stage_message(root, state, params, layout),
-        Stage::CommitWork => stage_commit_work(root, state, params),
-        Stage::CommitBot => stage_commit_bot(root, state, params),
-        Stage::BookmarkSet => stage_bookmark_set(root, state, params),
-        Stage::PushWork => stage_push_work(root, state, params),
-        Stage::SquashPushBot => stage_squash_push_bot(root, state, params),
-    }
-}
-
-/// Preflight: version-control checks only — bookmark tracking,
-/// the bot-published invariant, and `vc-x1 sync --check`.
-///
-/// - Tracking: both repos' bookmarks must have their remote refs
-///   tracked.
-/// - Bot-published backstop: `.claude main` must match
-///   `main@origin` — an at-rest mismatch means an earlier publish
-///   was lost; preflight errors, no automatic fixing, and the
-///   user resolves with `vc-x1 squash-push -R .claude`.
-/// - Sync runs in the hidden deprecated `--check` mode so
-///   divergence with the remote is surfaced, but **not**
-///   auto-resolved — a rebase mid-push is exactly the kind of
-///   unsupervised mutation the two approval gates exist to
-///   prevent. If sync reports action needed, preflight errors and
-///   the user resolves explicitly with `vc-x1 sync` before
-///   re-running push (rewiring this shell-out in-process is a
-///   `TODO.md` sync follow-up).
-///
-/// No build/test steps: vc-x1 assumes nothing about a repo's
-/// contents beyond `.jj` and `.vc-config.toml` (decided
-/// 2026-07-15 — the hardcoded cargo fmt/clippy/test preflight was
-/// removed at 0.69.0-3). A project that wants pre-push checks
-/// runs them explicitly before invoking `vc-x1 push` (e.g.
-/// AGENTS.md's pre-commit cargo cycle).
-fn stage_preflight(
-    root: &Path,
-    state: &PushState,
-    params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if params.dry_run {
-        info!(
-            "push preflight: [dry-run] would run verify-tracking / verify bot published / <self> sync --check"
-        );
-        return Ok(());
-    }
-    info!("push preflight: verify bookmark tracking");
-    crate::common::verify_tracking(root, &state.bookmark)?;
-    crate::common::verify_tracking(&bot_path(root)?, BOT_BOOKMARK)?;
-    // Bot-repo published backstop (0.69.0-3): at rest `.claude
-    // main` matches `main@origin`; a mismatch means an earlier
-    // publish was lost. Errors — no automatic fixing.
-    info!("push preflight: verify bot repo published ({BOT_BOOKMARK} == {BOT_BOOKMARK}@origin)");
-    crate::common::verify_bot_published(&bot_path(root)?, BOT_BOOKMARK)?;
-    // Re-invoke this binary by its own path rather than a
-    // hard-coded name on PATH — keeps the shell-out correct across
-    // any crate rename (e.g. the 0.69.0 `vc-x1-dev` window).
-    // Inlining sync entirely is a Todo.
-    let exe = std::env::current_exe()?;
-    let exe_str = exe.to_string_lossy();
-    info!("push preflight: {exe_str} sync --check");
-    run(&exe_str, &["sync", "--check"], root)?;
-    Ok(())
 }
 
 /// Review: first approval gate — "is the work done right?".
@@ -993,88 +402,89 @@ fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::err
     }
 }
 
-/// Message: collect pre-commit changeIDs and record whether
-/// `.claude` has pending changes so `commit-bot` can skip when
-/// empty. `--title` and `--body` are required in 0.37.0-2; `$EDITOR`
-/// support + message persistence land in 0.37.0-3.
-fn stage_message(
-    root: &Path,
-    state: &mut PushState,
-    params: &PushParams,
-    layout: &StateLayout,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Resolve title/body by priority:
-    //   1. --title / --body flags (both must be present to skip editor)
-    //   2. persisted title/body from prior stage run (resume case)
-    //   3. $EDITOR template (interactive); fails if --yes and nothing else
-    let (title, body) = match (params.title.clone(), params.body.clone()) {
-        (Some(t), Some(b)) => (t, b),
-        _ => match (state.title.clone(), state.body.clone()) {
-            (Some(t), Some(b)) => (t, b),
-            _ => {
-                if params.yes {
-                    return Err("push message: --yes given but --title/--body missing \
-                                and no persisted message to resume — pass both flags \
-                                or run interactively."
-                        .into());
-                }
-                if params.dry_run {
-                    return Err("push message: --dry-run given but --title/--body missing \
-                                and no persisted message — pass both flags so dry-run \
-                                has a message to preview."
-                        .into());
-                }
-                if !is_stdin_tty() {
-                    return Err("push message: stdin is not a tty and no --title/--body \
-                                supplied; cannot launch $EDITOR in a non-interactive \
-                                context. Pass --title and --body, or run interactively."
-                        .into());
-                }
-                compose_message_via_editor(layout)?
-            }
-        },
-    };
-
-    // Persist the composed message so a later resume (e.g. after a
-    // commit-work retry) doesn't need the flags re-passed.
-    state.title = Some(title.clone());
-    state.body = Some(body.clone());
-
+/// Message: resolve the commit message and capture both repos'
+/// pre-commit changeIDs, so each side's `ochid:` trailer can name
+/// the other.
+///
+/// Title/body come from `--title`/`--body`, else `$EDITOR`. There
+/// is no persisted message to fall back on: a rerun supplies the
+/// flags again or opens the editor again, which is the cost of
+/// having no state file and a cheap one — the message is in the
+/// user's scrollback either way.
+///
+/// When neither repo has pending changes, no commit will be made on
+/// either side, so an absent message is not an error — the run is
+/// publish-only (bookmark + remote), which is the trapezoid
+/// recipe's final step.
+fn stage_message(root: &Path, params: &PushParams) -> Result<Run, Box<dyn std::error::Error>> {
     let bot = bot_path(root)?;
-    let work_chid = jj::chid_of(root, "@")?;
-    let bot_empty = jj::is_empty(&bot, "@")?;
-    let bot_had_changes = !bot_empty;
+    // Both sides resolve their chid the same way: `@` when the
+    // working copy has changes (it becomes `@-` once committed),
+    // else the existing `@-` (which stays put, because that side's
+    // commit stage skips). Taking `@` unconditionally on the work
+    // side is what minted an empty stamped duplicate in bugs.md #4.
+    let work_had_changes = !jj::is_empty(root, "@")?;
+    let work_ref = if work_had_changes { "@" } else { "@-" };
+    let work_chid = jj::chid_of(root, work_ref)?;
+    let bot_had_changes = !jj::is_empty(&bot, "@")?;
     let bot_ref = if bot_had_changes { "@" } else { "@-" };
     let bot_chid = jj::chid_of(&bot, bot_ref)?;
+    let will_commit = work_had_changes || bot_had_changes;
+
+    let (title, body) = match (params.title.clone(), params.body.clone()) {
+        (Some(t), Some(b)) => (t, b),
+        _ if !will_commit => {
+            info!("push message: skip (neither repo has pending changes)");
+            (String::new(), String::new())
+        }
+        _ => {
+            if params.yes {
+                return Err("push message: --yes given but --title/--body missing \
+                            — pass both flags or run interactively."
+                    .into());
+            }
+            if params.dry_run {
+                return Err("push message: --dry-run given but --title/--body missing \
+                            — pass both flags so dry-run has a message to preview."
+                    .into());
+            }
+            if !is_stdin_tty() {
+                return Err("push message: stdin is not a tty and no --title/--body \
+                            supplied; cannot launch $EDITOR in a non-interactive \
+                            context. Pass --title and --body, or run interactively."
+                    .into());
+            }
+            compose_message_via_editor()?
+        }
+    };
 
     info!(
-        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, bot_had_changes={bot_had_changes}",
+        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, work_had_changes={work_had_changes}, bot_had_changes={bot_had_changes}",
         title.lines().next().unwrap_or("") // OK: obvious
     );
-    state.work_chid = Some(work_chid);
-    state.bot_chid = Some(bot_chid);
-    state.bot_had_changes = Some(bot_had_changes);
-    Ok(())
+    Ok(Run {
+        title,
+        body,
+        work_chid,
+        bot_chid,
+        bot_had_changes,
+    })
 }
 
-/// Launch `$EDITOR` (falling back to `vi`) on a template file under
-/// `state_dir`, then parse the saved content into a `(title, body)`
-/// tuple. Lines starting with `#` are treated as comments and
-/// stripped. Empty input aborts the push.
-fn compose_message_via_editor(
-    layout: &StateLayout,
-) -> Result<(String, String), Box<dyn std::error::Error>> {
+/// Launch `$EDITOR` (falling back to `vi`) on a scratch template,
+/// then parse the saved content into a `(title, body)` tuple. Lines
+/// starting with `#` are treated as comments and stripped. Empty
+/// input aborts the push.
+///
+/// The template lives in the system temp dir, keyed by pid: with no
+/// state dir left to put it in, and the file being read back within
+/// the same call, it never needs to outlive the process.
+fn compose_message_via_editor() -> Result<(String, String), Box<dyn std::error::Error>> {
     let editor = std::env::var("EDITOR")
         .or_else(|_| std::env::var("VISUAL"))
         .unwrap_or_else(|_| "vi".to_string()); // OK: POSIX fallback when nothing is configured
-    let msg_path = layout
-        .path
-        .parent()
-        .ok_or("push message: state layout has no parent dir")?
-        .join("push-message.txt");
-    if let Some(parent) = msg_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
+    let msg_path =
+        std::env::temp_dir().join(format!("vc-x1-push-message-{}.txt", std::process::id()));
     let template = "\
 # Leave as-is to abort. Enter the Title on the first line,
 # optionally followed by the Body on subsequent lines. The
@@ -1128,19 +538,36 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 }
 
 /// Commit work repo with `title` / `body` and the `ochid:` trailer
-/// pointing at `.claude`'s chid.
+/// pointing at `.claude`'s chid, or skip when the working copy has
+/// nothing pending — the same rule `stage_commit_bot` follows.
+///
+/// Skipping matters in two situations:
+///
+/// - The rung was committed by hand before invoking push. Committing
+///   the empty `@` anyway minted a stamped empty duplicate on top of
+///   the real commit (bugs.md #4).
+/// - A publish-only run, where the commits already exist and only
+///   the bookmark and the remote still need advancing — the
+///   trapezoid recipe's final step.
+///
+/// In both cases the existing top commit is published as-is; push
+/// does not rewrite a description it didn't author.
 fn stage_commit_work(
     root: &Path,
-    state: &PushState,
+    run_msg: &Run,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (title, body) = resolve_message(state, params)?;
-    let bot_chid = state
-        .bot_chid
-        .as_deref()
-        .ok_or("push commit-work: bot_chid not set (message stage didn't run)")?;
+    if jj::is_empty(root, "@")? {
+        warn!(
+            "push commit-work: skip (work repo had no pending changes); \
+             the supplied message is not applied — the existing top \
+             commit is published as-is"
+        );
+        return Ok(());
+    }
+    let (title, body) = (&run_msg.title, &run_msg.body);
     let bot_prefix = crate::desc_helpers::ochid_prefix_for(&bot_path(root)?)?;
-    let body_with_trailer = format!("{body}\n\nochid: {bot_prefix}{bot_chid}");
+    let body_with_trailer = format!("{body}\n\nochid: {bot_prefix}{}", run_msg.bot_chid);
     let work_arg = root.to_string_lossy();
     if params.dry_run {
         info!(
@@ -1156,7 +583,7 @@ fn stage_commit_work(
             "-R",
             &work_arg,
             "-m",
-            &title,
+            title,
             "-m",
             &body_with_trailer,
         ],
@@ -1165,45 +592,20 @@ fn stage_commit_work(
     Ok(())
 }
 
-/// Pull the title/body pair from CLI args or persisted state,
-/// preferring CLI args (override-on-resume case). Returns `Err`
-/// when neither source has them — which only happens if
-/// `stage_message` didn't run or was force-bypassed.
-fn resolve_message(
-    state: &PushState,
-    params: &PushParams,
-) -> Result<(String, String), Box<dyn std::error::Error>> {
-    let title = params
-        .title
-        .clone()
-        .or_else(|| state.title.clone())
-        .ok_or("push: title missing — message stage didn't run")?;
-    let body = params
-        .body
-        .clone()
-        .or_else(|| state.body.clone())
-        .ok_or("push: body missing — message stage didn't run")?;
-    Ok((title, body))
-}
-
 /// Commit `.claude` with the same title/body and the ochid trailer
 /// pointing at the work commit's chid, or skip if `.claude` had no
 /// pending changes.
 fn stage_commit_bot(
     root: &Path,
-    state: &PushState,
+    run_msg: &Run,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if !state.bot_had_changes.unwrap_or(false) {
+    if !run_msg.bot_had_changes {
         info!("push commit-bot: skip (.claude had no pending changes)");
         return Ok(());
     }
-    let (title, body) = resolve_message(state, params)?;
-    let work_chid = state
-        .work_chid
-        .as_deref()
-        .ok_or("push commit-bot: work_chid not set (message stage didn't run)")?;
-    let body_with_trailer = format!("{body}\n\nochid: /{work_chid}");
+    let (title, body) = (&run_msg.title, &run_msg.body);
+    let body_with_trailer = format!("{body}\n\nochid: /{}", run_msg.work_chid);
     let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
@@ -1220,7 +622,7 @@ fn stage_commit_bot(
             "-R",
             &bot_arg,
             "-m",
-            &title,
+            title,
             "-m",
             &body_with_trailer,
         ],
@@ -1235,10 +637,10 @@ fn stage_commit_bot(
 /// created in the linear-journal bot repo.
 fn stage_bookmark_set(
     root: &Path,
-    state: &PushState,
+    bookmark: &str,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let bk = &state.bookmark;
+    let bk = bookmark;
     let work_arg = root.to_string_lossy();
     let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
@@ -1265,17 +667,28 @@ fn stage_bookmark_set(
 }
 
 /// Push the work repo's bookmark to origin.
+///
+/// Checks its own precondition — every remote ref for the bookmark
+/// is tracked — which is where preflight's tracking check moved
+/// when preflight was retired. A never-pushed bookmark has no
+/// remote ref and passes; the check catches a ref that exists but
+/// isn't tracked, which would otherwise push into a ref jj won't
+/// follow afterwards.
+///
+/// Rerunning is safe without a guard of its own: `jj git push` on
+/// an already-published bookmark reports nothing to do.
 fn stage_push_work(
     root: &Path,
-    state: &PushState,
+    bookmark: &str,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let bk = &state.bookmark;
+    let bk = bookmark;
     let work_arg = root.to_string_lossy();
     if params.dry_run {
         info!("push push-work: [dry-run] would run jj git push --bookmark {bk} -R {work_arg}");
         return Ok(());
     }
+    crate::common::verify_tracking(root, bk)?;
     info!("push push-work: jj git push --bookmark {bk} -R {work_arg}");
     run(
         "jj",
@@ -1287,7 +700,7 @@ fn stage_push_work(
 
 /// Squash-push `.claude` in-process, always pushing
 /// `BOT_BOOKMARK` (`main`) — the bot repo's bookmark is
-/// pinned, so `state.bookmark` plays no part here.
+/// pinned, so the work-repo bookmark plays no part here.
 ///
 /// - Squashes the tail (session writes that landed since
 ///   `commit-bot`) into the bot commit, then pushes — via
@@ -1300,13 +713,8 @@ fn stage_push_work(
 ///   squash+push can be run manually.
 fn stage_squash_push_bot(
     root: &Path,
-    _state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if params.no_squash_push {
-        info!("push squash-push-bot: skip (--no-squash-push)");
-        return Ok(());
-    }
     let bk = BOT_BOOKMARK;
     let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
@@ -1332,117 +740,46 @@ fn stage_squash_push_bot(
     crate::squash_push::squash_push(&sp)
 }
 
-/// Verify the saved state still matches reality before any stage runs.
+/// Verify the world matches what the stages claim to have done.
 ///
-/// Catches the failure mode where out-of-band activity (manual
-/// squash-push, squash + force-push, abandon, etc.) moved the world
-/// forward between
-/// the prior push and this resume, leaving `state` pointing at a
-/// now-bogus halt point. The 0.37.1 dogfood incident is the canonical
-/// example: push parked at its last stage after a failure; manual
-/// recovery moved the world forward; the next push resumed at the
-/// parked stage, no-op'd, and falsely declared "completed all stages"
-/// while working copies still held uncommitted changes.
-///
-/// Three checks (per chores-06 [61] design):
-///
-/// 1. `state.work_chid` still resolves in the work repo (not abandoned).
-/// 2. After `bookmark-set` has run (state.stage ∈ {PushWork,
-///    SquashPushBot}), the bookmark points at a commit whose chid
-///    matches `state.work_chid`.
-/// 3. `state.bot_chid` still resolves in `.claude`.
-///
-/// On any mismatch: error with the exact `vc-x1 push <bookmark>
-/// --restart` remediation. A fresh state (no chids yet) is a no-op —
-/// nothing to verify.
-fn verify_state_sanity(root: &Path, state: &PushState) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(work_chid) = &state.work_chid else {
-        return Ok(()); // OK: fresh state, nothing to verify yet
-    };
-    let bookmark = &state.bookmark;
-
-    // 1. work_chid still resolves. Any query failure — not just
-    // an unresolvable revision — reads as stale state, matching
-    // the pre-facade behavior.
-    if !jj::rev_exists(root, work_chid).unwrap_or(false) {
-        // OK: any failure → the stale-state remediation message
-        return Err(format!(
-            "state-sanity: work_chid '{work_chid}' has been abandoned or no longer resolves \
-             in the work repo. State is stale — run `vc-x1 push {bookmark} --restart` to clear."
-        )
-        .into());
-    }
-
-    // 2. bookmark at work_chid (after bookmark-set has run).
-    if matches!(state.stage, Stage::PushWork | Stage::SquashPushBot) {
-        let bookmark_chid = jj::chid_of(root, bookmark)?;
-        if bookmark_chid != *work_chid {
-            return Err(format!(
-                "state-sanity: bookmark '{bookmark}' is at chid '{bookmark_chid}' but \
-                 state.work_chid is '{work_chid}'. State is stale — run \
-                 `vc-x1 push {bookmark} --restart` to clear."
-            )
-            .into());
-        }
-    }
-
-    // 3. bot_chid still resolves.
-    if let Some(bot_chid) = &state.bot_chid
-        && !jj::rev_exists(&bot_path(root)?, bot_chid).unwrap_or(false)
-    {
-        // OK: any failure → the stale-state remediation message
-        return Err(format!(
-            "state-sanity: bot_chid '{bot_chid}' has been abandoned or no longer \
-             resolves in .claude. State is stale — run \
-             `vc-x1 push {bookmark} --restart` to clear."
-        )
-        .into());
-    }
-
-    Ok(())
-}
-
-/// Verify the world matches the saved state after all stages have run.
-///
-/// Counterpart to `verify_state_sanity` (which runs pre-stage). This
-/// runs after the stage loop completes and confirms the post-conditions
-/// are real — directly addresses the 0.37.1 false-success symptom
-/// (push declared "completed all stages" while the working copy still held
-/// uncommitted changes from a stale-state resume).
+/// Runs after the last stage and confirms the post-conditions are
+/// real — directly addresses the 0.37.1 false-success symptom (push
+/// declared "completed all stages" while the working copy still held
+/// uncommitted changes).
 ///
 /// Three checks:
 ///
-/// 1. Work's bookmark is at a commit whose chid matches `state.work_chid`.
-/// 2. Work's working copy has no uncommitted changes (commit-work should
-///    have captured anything that was there).
-/// 3. `.claude`'s bookmark is at `state.bot_chid`'s commit (when set).
+/// 1. Work's bookmark is at a commit whose chid matches the run's
+///    `work_chid`.
+/// 2. Work's working copy has no uncommitted changes (commit-work
+///    should have captured anything that was there).
+/// 3. `.claude`'s bookmark is at the run's `bot_chid`.
 ///    `.claude`'s working copy (`@`) may legitimately have new
 ///    session writes that landed after squash-push-bot's squash —
 ///    the tail rides into the next cycle's commit — so no
 ///    working-copy-clean check on `.claude`.
 ///
-/// On any mismatch: returns `Err`. The caller surfaces as a loud
-/// warning rather than blocking — push has already crossed the remote
-/// boundary, work is live on origin, the warning prompts the user to
-/// investigate.
-fn verify_completion_sanity(
+/// On any mismatch: returns `Err`. The caller surfaces it as a loud
+/// warning rather than blocking — push has already crossed the
+/// remote boundary, work is live on origin, and the warning prompts
+/// the user to investigate.
+fn verify_completion(
     root: &Path,
-    state: &PushState,
+    bookmark: &str,
+    run_msg: &Run,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let bookmark = &state.bookmark;
     let root_str = root.to_string_lossy();
     let cwd = Path::new(".");
 
-    // 1. work bookmark at state.work_chid.
-    if let Some(work_chid) = &state.work_chid {
-        let actual = jj::chid_of(root, bookmark)?;
-        if actual != *work_chid {
-            return Err(format!(
-                "completion sanity: work bookmark '{bookmark}' is at chid '{actual}' but \
-                 state.work_chid is '{work_chid}'."
-            )
-            .into());
-        }
+    // 1. work bookmark at the run's work_chid.
+    let actual = jj::chid_of(root, bookmark)?;
+    if actual != run_msg.work_chid {
+        return Err(format!(
+            "completion sanity: work bookmark '{bookmark}' is at chid '{actual}' but \
+             this run committed '{}'.",
+            run_msg.work_chid
+        )
+        .into());
     }
 
     // 2. work working copy (`@`) clean (no uncommitted changes). Use the `empty`
@@ -1458,16 +795,15 @@ fn verify_completion_sanity(
         .into());
     }
 
-    // 3. .claude's pinned bookmark (main) at state.bot_chid.
-    if let Some(bot_chid) = &state.bot_chid {
-        let actual = jj::chid_of(&bot_path(root)?, BOT_BOOKMARK)?;
-        if actual != *bot_chid {
-            return Err(format!(
-                "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \
-                 '{actual}' but state.bot_chid is '{bot_chid}'."
-            )
-            .into());
-        }
+    // 3. .claude's pinned bookmark (main) at the run's bot_chid.
+    let actual = jj::chid_of(&bot_path(root)?, BOT_BOOKMARK)?;
+    if actual != run_msg.bot_chid {
+        return Err(format!(
+            "completion sanity: .claude bookmark '{BOT_BOOKMARK}' is at chid \
+             '{actual}' but this run committed '{}'.",
+            run_msg.bot_chid
+        )
+        .into());
     }
 
     Ok(())
