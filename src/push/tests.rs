@@ -367,29 +367,6 @@ fn state_new_for_initializes_correctly() {
     assert!(!s.started_at.is_empty());
 }
 
-/// `escape_multiline` round-trips via `unescape_multiline`
-/// across every escape case we emit.
-#[test]
-fn multiline_escape_roundtrip() {
-    for original in [
-        "",
-        "simple",
-        "line one\nline two",
-        "tab\tseparated\tvalues",
-        "quoted \"text\" inside",
-        "backslash \\ here",
-        "mixed:\n\t\"quoted\"\\ path\r\n",
-    ] {
-        let escaped = escape_multiline(original);
-        // Escaped form contains no raw newlines, tabs, or CRs —
-        // safe for our single-line TOML value slot.
-        assert!(!escaped.contains('\n'), "escape leaked \\n: {escaped:?}");
-        assert!(!escaped.contains('\t'), "escape leaked \\t: {escaped:?}");
-        assert!(!escaped.contains('\r'), "escape leaked \\r: {escaped:?}");
-        assert_eq!(unescape_multiline(&escaped), original);
-    }
-}
-
 /// `parse_message` extracts title + body, strips `#` comments,
 /// and rejects all-comments / empty input.
 #[test]

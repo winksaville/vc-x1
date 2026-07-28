@@ -151,7 +151,44 @@ Decisions at cycle open (2026-07-28):
   lands early, at -2, so every later rung's dogfood push is
   protected by it.
 
+### As-built ladder
+
+- [[3]] 0.77.0-0 chore: open stateless push cycle
+  - version 0.77.0-0; the stage picked into `## In Progress`
+    as the program ladder's current `####` rung with a
+    five-rung ladder; this section opened
+  - rider: 0.76.1 `Commits:` backfill ([[2]])
+  - rider: `## Done` retirement sweep into done.md
+  - the push itself hit bugs.md #1 twice before landing —
+    recorded there as the fourth and fifth occurrences, and
+    as #3's second occurrence (clean rollback, poisoned
+    state file, `--restart` the safe rerun)
+- [[N]] 0.77.0-1 refactor: extract push/state.rs
+  - `Stage`, `StateLayout` / `resolve_state_layout`,
+    `PushState`, `STATE_FORMAT_VERSION`, the state-dir /
+    state-file defaults, and the escape helpers move to
+    `src/push/state.rs`; push.rs 1480 → 1101 lines with no
+    behavior change
+  - the parked 0.72.0-1 extraction was **reference, not
+    base**: `support-trapezoid-commits` turns out to be
+    published (`@origin`), so rebasing it would rewrite a
+    pushed commit. Its boundary was reused (the same item
+    set, plus `STATE_FORMAT_VERSION` which it left behind at
+    version 1) and the extraction redone against the current
+    file
+  - `escape_multiline` / `unescape_multiline` stay private,
+    so their round-trip test moves into `state.rs`'s own
+    `#[cfg(test)] mod tests` rather than widening visibility
+    for a test's benefit; the remaining state tests reach
+    `STATE_FORMAT_VERSION` through push.rs's `#[cfg(test)]`
+    re-export beside `DEFAULT_STATE_DIR` / `_FILE` (which
+    `config_schema`'s tests already used)
+  - the module doc records what the stateless-push rungs
+    delete, so the next reader knows the file is scaffolding
+    with a scheduled end
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
 [2]: https://github.com/winksaville/vc-x1/commit/2424e14f858d "2424e14f858d010e5c07e8821149a114b3d3dda5"
+[3]: https://github.com/winksaville/vc-x1/commit/4898d93e4172 "4898d93e41720070cddb995bfd4e53ffc38ccb88"

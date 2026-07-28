@@ -90,10 +90,11 @@ becomes safe.
 
 Ladder (greppable stem `push`):
 
-- [[N]] 0.77.0-0 chore: open stateless push cycle (current)
+- [[6]] 0.77.0-0 chore: open stateless push cycle (done)
   — pickup into this block, version bump, chores-15 section,
   0.76.1 `Commits:` backfill, `## Done` sweep into done.md
-- [[N]] 0.77.0-1 refactor: extract push/state.rs — pure
+- [[N]] 0.77.0-1 refactor: extract push/state.rs (done)
+  — pure
   move: `Stage`, `StateLayout` / `resolve_state_layout`,
   `PushState`, `STATE_FORMAT_VERSION`, the escape/unescape
   helpers. The 0.72.0-1 extraction parked on
@@ -598,6 +599,7 @@ hygiene-riders and facade-owns-topology cycles)._
 [3]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
 [4]: /notes/forks-multi-user.md
 [5]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
+[6]: https://github.com/winksaville/vc-x1/commit/4898d93e4172 "4898d93e41720070cddb995bfd4e53ffc38ccb88"
 [8]: /notes/chores/chores-14.md#refactor-repo-registry
 [9]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
 [10]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe
