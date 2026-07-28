@@ -238,20 +238,26 @@ fn ws_tempdir(tag: &str) -> PathBuf {
     dir
 }
 
+/// Work-side dual `[repos]` registry with a `.claude` bot dir.
+const WORK_DUAL: &str = "[repos]\nwork = \".\"\nbot = \".claude\"\n";
+/// Bot-side dual `[repos]` registry (nested directly under root).
+const BOT_DUAL: &str = "[repos]\nwork = \"..\"\nbot = \".\"\n";
+/// Single-repo (POR-workspace) `[repos]` registry.
+const WORK_ONLY: &str = "[repos]\nwork = \".\"\n";
+
 /// Workspace root walk finds the dir whose `.vc-config.toml`
-/// has a `work` key, even when starting from a deep subdir.
+/// has a `repos.work` key, even when starting from a deep subdir.
 #[test]
 fn find_workspace_root_walks_up() {
     let base = ws_tempdir("walk-up");
     let root = base.join("ws");
     let nested = root.join("a").join("b").join("c");
     std::fs::create_dir_all(&nested).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
-    assert_eq!(find_workspace_root_from(&nested).as_deref(), Some(&*root));
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    assert_eq!(
+        find_workspace_root_from(&nested),
+        Some(root.canonicalize().unwrap())
+    );
     std::fs::remove_dir_all(&base).ok();
 }
 
@@ -265,8 +271,9 @@ fn find_workspace_root_none_outside() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Starting inside the bot repo — whose config is identical to the
-/// root's — resolves to the *root*, not the bot dir itself.
+/// Starting inside the bot repo resolves to the *root* — its own
+/// config's `repos.work` points there (self-resolution needs no
+/// nesting assumption).
 #[test]
 fn find_workspace_root_from_bot_dir() {
     let base = ws_tempdir("skip-non-root");
@@ -275,17 +282,16 @@ fn find_workspace_root_from_bot_dir() {
     std::fs::create_dir_all(&bot).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.bot\"\n",
+        "[repos]\nwork = \".\"\nbot = \".bot\"\n",
     )
     .unwrap();
-    std::fs::write(
-        bot.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.bot\"\n",
-    )
-    .unwrap();
-    // From inside .bot, the root walker still resolves to the
-    // work root, not to .bot itself (side detection by location).
-    assert_eq!(find_workspace_root_from(&bot).as_deref(), Some(&*root));
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    // From inside .bot, the walk finds .bot's config first; its
+    // work = ".." resolves to the work root.
+    assert_eq!(
+        find_workspace_root_from(&bot),
+        Some(root.canonicalize().unwrap())
+    );
     std::fs::remove_dir_all(&base).ok();
 }
 
@@ -295,11 +301,7 @@ fn default_scope_dual_workspace() {
     let base = ws_tempdir("default-dual");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     assert_eq!(
         default_scope(Some(&root)),
         Scope(vec![Side::Work, Side::Bot])
@@ -313,7 +315,7 @@ fn default_scope_single_repo_workspace() {
     let base = ws_tempdir("default-single");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\nwork = \"/\"\n").unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_ONLY).unwrap();
     assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Work]));
     std::fs::remove_dir_all(&base).ok();
 }
@@ -326,7 +328,7 @@ fn default_scope_empty_other_repo() {
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"\"\n",
+        "[repos]\nwork = \".\"\nbot = \"\"\n",
     )
     .unwrap();
     assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Work]));
@@ -347,9 +349,8 @@ fn bot_repo_path_dual() {
     let root = base.join("ws");
     let bot = root.join(".claude");
     std::fs::create_dir_all(&bot).unwrap();
-    let block = "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n";
-    std::fs::write(root.join(VC_CONFIG_FILE), block).unwrap();
-    std::fs::write(bot.join(VC_CONFIG_FILE), block).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
     assert_eq!(bot_repo_path(&root).unwrap(), Some(root.join(".claude")));
     std::fs::remove_dir_all(&base).ok();
 }
@@ -361,38 +362,33 @@ fn bot_repo_path_missing_dir_errors() {
     let base = ws_tempdir("botpath-nodir");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
     assert!(err.contains("workspace incoherent"), "got: {err}");
     assert!(err.contains("does not exist"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Dual-mode entry preflight: differing `[workspace]` blocks error
-/// with both sides printed.
+/// Dual-mode entry preflight: `[repos]` registries resolving to
+/// different directories error with both sides printed.
 #[test]
 fn bot_repo_path_mismatched_blocks_error() {
     let base = ws_tempdir("botpath-mismatch");
     let root = base.join("ws");
     let bot = root.join(".claude");
+    let other = root.join("other");
     std::fs::create_dir_all(&bot).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::create_dir_all(&other).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    // The bot side claims a different bot dir than the root side.
     std::fs::write(
         bot.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.bot\"\n",
+        "[repos]\nwork = \"..\"\nbot = \"../other\"\n",
     )
     .unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
     assert!(err.contains("workspace incoherent"), "got: {err}");
-    assert!(err.contains("blocks differ"), "got: {err}");
+    assert!(err.contains("different directories"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
 }
 
@@ -403,11 +399,7 @@ fn configured_bot_dir_no_existence_check() {
     let base = ws_tempdir("botpath-configured");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     assert_eq!(
         configured_bot_dir(&root).unwrap(),
         Some(root.join(".claude"))
@@ -422,7 +414,7 @@ fn bot_repo_path_single_repo_workspace() {
     let base = ws_tempdir("botpath-single");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\nwork = \"/\"\n").unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_ONLY).unwrap();
     assert_eq!(bot_repo_path(&root).unwrap(), None);
     std::fs::remove_dir_all(&base).ok();
 }
@@ -447,57 +439,55 @@ fn legacy_config_found_and_rejected() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("legacy [workspace] schema"), "got: {err}");
-    assert!(err.contains("work = \"/\""), "got: {err}");
+    assert!(err.contains("work = \".\""), "got: {err}");
     let err = bot_repo_path(&root).unwrap_err().to_string();
     assert!(err.contains("legacy [workspace] schema"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Grammar guard: `work` must be exactly `"/"` — any other value
-/// would be silently ignored by every reader, so it errors instead.
+/// The 0.75.x root-anchored `[workspace] work`/`bot` schema is the
+/// second rejected legacy generation — still *found* as a root
+/// (via the legacy location rule), rejected with the rewrite.
 #[test]
-fn grammar_rejects_bad_work_value() {
-    let base = ws_tempdir("grammar-work");
+fn legacy_workspace_work_bot_rejected() {
+    let base = ws_tempdir("legacy-075x");
     let root = base.join("ws");
-    std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\nwork = \"/src\"\n").unwrap();
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    let block = "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n";
+    std::fs::write(root.join(VC_CONFIG_FILE), block).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), block).unwrap();
+    // The walk still locates the legacy root, even from the bot
+    // side (legacy location rule)...
+    assert_eq!(find_workspace_root_from(&root).as_deref(), Some(&*root));
+    assert_eq!(find_workspace_root_from(&bot).as_deref(), Some(&*root));
+    // ...and every resolver errors with the fix-it message.
     let err = scope_to_repos(&Scope(vec![Side::Work]), Some(&root))
         .unwrap_err()
         .to_string();
-    assert!(err.contains("must be exactly \"/\""), "got: {err}");
+    assert!(err.contains("legacy [workspace] schema"), "got: {err}");
+    assert!(err.contains("[repos]"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Grammar guard: `bot` must be `/` + one component — unanchored,
-/// multi-component, and trailing-slash forms all error.
+/// An empty `repos.work` errors — every reader would silently
+/// misresolve it.
 #[test]
-fn grammar_rejects_bad_bot_values() {
-    for bad in [".claude", "/a/b", "/.claude/", "/"] {
-        let base = ws_tempdir("grammar-bot");
-        let root = base.join("ws");
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(
-            root.join(VC_CONFIG_FILE),
-            format!("[workspace]\nwork = \"/\"\nbot = \"{bad}\"\n"),
-        )
-        .unwrap();
-        let err = scope_to_repos(&Scope(vec![Side::Work]), Some(&root))
-            .unwrap_err()
-            .to_string();
-        assert!(
-            err.contains(
-                "one \
-                 path component"
-            ),
-            "value '{bad}' should be rejected, got: {err}"
-        );
-        std::fs::remove_dir_all(&base).ok();
-    }
+fn empty_repos_work_rejected() {
+    let base = ws_tempdir("empty-work");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), "[repos]\nwork = \"\"\n").unwrap();
+    let err = scope_to_repos(&Scope(vec![Side::Work]), Some(&root))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("repos.work is empty"), "got: {err}");
+    std::fs::remove_dir_all(&base).ok();
 }
 
-/// A config carrying both old and new keys passes the legacy
-/// guard — the new keys drive behavior; `config --validate`
-/// flags the strays.
+/// A config carrying both a `[repos]` registry and stray legacy
+/// keys passes the legacy guard — the registry drives behavior;
+/// `config --validate` flags the strays.
 #[test]
 fn legacy_guard_accepts_mixed_keys() {
     let base = ws_tempdir("legacy-mixed");
@@ -505,11 +495,139 @@ fn legacy_guard_accepts_mixed_keys() {
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\npath = \"/\"\n",
+        "[repos]\nwork = \".\"\nbot = \".claude\"\n\n[workspace]\npath = \"/\"\n",
     )
     .unwrap();
     assert!(reject_legacy_config(&root).is_ok());
     std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: a bot-side registry missing `repos.bot` errors with
+/// the missing-key detail, not a bare mismatch.
+#[test]
+fn coherence_missing_bot_key_errors() {
+    let base = ws_tempdir("coh-missing-key");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), "[repos]\nwork = \"..\"\n").unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(err.contains("no `repos.bot`"), "got: {err}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: a declared dir that doesn't exist errors with the
+/// unresolvable-value detail (which key, which value).
+#[test]
+fn coherence_unresolvable_dir_errors() {
+    let base = ws_tempdir("coh-unresolvable");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"../missing\"\nbot = \".\"\n",
+    )
+    .unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(err.contains("repos.work"), "got: {err}");
+    assert!(err.contains("../missing"), "got: {err}");
+    assert!(err.contains("does not resolve"), "got: {err}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence self-identification: both sides agreeing on the same
+/// *wrong* pair (root's `work` naming a third dir) is caught.
+#[test]
+fn coherence_self_identification_errors() {
+    let base = ws_tempdir("coh-selfid");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    let other = root.join("other");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::create_dir_all(&other).unwrap();
+    // Both sides name (other, .claude) — perfectly agreeing, but
+    // the root's own dir is not at `work`.
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"other\"\nbot = \".claude\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"../other\"\nbot = \".\"\n",
+    )
+    .unwrap();
+    let err = bot_repo_path(&root).unwrap_err().to_string();
+    assert!(
+        err.contains("not to the workspace root itself"),
+        "got: {err}"
+    );
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: absolute values are allowed (discouraged) — a dual
+/// workspace mixing absolute and relative spellings still agrees
+/// on resolved reality.
+#[test]
+fn coherence_absolute_values_agree() {
+    let base = ws_tempdir("coh-absolute");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    let canon_bot = bot.canonicalize().unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        format!("[repos]\nwork = \".\"\nbot = \"{}\"\n", canon_bot.display()),
+    )
+    .unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    assert_eq!(bot_repo_path(&root).unwrap(), Some(canon_bot));
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Side detection by self-resolution: the bot side's own config
+/// (`bot = "."`) names it; the work side is not the bot side.
+#[test]
+fn is_bot_dir_by_self_resolution() {
+    let base = ws_tempdir("selfres");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    assert!(is_bot_dir(&bot));
+    assert!(!is_bot_dir(&root));
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `is_bot_dir` legacy fallback: both rejected generations'
+/// parent configs still name the bot side — 0.75.x
+/// `workspace.bot` and pre-0.75.0 `workspace.other-repo` — so
+/// read-only surfaces bypassing the resolvers stay correct.
+#[test]
+fn is_bot_dir_legacy_fallback() {
+    for (tag, block) in [
+        (
+            "legacy-075x",
+            "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
+        ),
+        (
+            "legacy-pre075",
+            "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
+        ),
+    ] {
+        let base = ws_tempdir(tag);
+        let root = base.join("ws");
+        let bot = root.join(".claude");
+        std::fs::create_dir_all(&bot).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), block).unwrap();
+        assert!(is_bot_dir(&bot), "generation: {tag}");
+        assert!(!is_bot_dir(&root), "generation: {tag}");
+        std::fs::remove_dir_all(&base).ok();
+    }
 }
 
 /// `bot_repo_path`: no `.vc-config.toml` at all (POR) → `None`.
@@ -528,11 +646,7 @@ fn scope_to_repos_dual() {
     let base = ws_tempdir("repos-dual");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let repos = scope_to_repos(&Scope(vec![Side::Work, Side::Bot]), Some(&root)).unwrap();
     assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
     std::fs::remove_dir_all(&base).ok();
@@ -544,11 +658,7 @@ fn scope_to_repos_work_only() {
     let base = ws_tempdir("repos-work");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let repos = scope_to_repos(&Scope(vec![Side::Work]), Some(&root)).unwrap();
     assert_eq!(repos, vec![root.clone()]);
     std::fs::remove_dir_all(&base).ok();
@@ -576,7 +686,7 @@ fn scope_to_repos_bot_single_repo_errors() {
     let base = ws_tempdir("repos-bot-single");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(root.join(VC_CONFIG_FILE), "[workspace]\nwork = \"/\"\n").unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_ONLY).unwrap();
     let err = scope_to_repos(&Scope(vec![Side::Bot]), Some(&root))
         .unwrap_err()
         .to_string();
@@ -606,11 +716,7 @@ fn resolve_repos_repo_plus_scope_uses_path_as_workspace_root() {
     let base = ws_tempdir("resolve-compose");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let scope = Scope(vec![Side::Work, Side::Bot]);
     let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
     assert_eq!(repos, vec![root.clone(), root.join(".claude")]);
@@ -623,11 +729,7 @@ fn resolve_repos_repo_plus_scope_bot_only() {
     let base = ws_tempdir("resolve-compose-bot");
     let root = base.join("ws");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(
-        root.join(VC_CONFIG_FILE),
-        "[workspace]\nwork = \"/\"\nbot = \"/.claude\"\n",
-    )
-    .unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let scope = Scope(vec![Side::Bot]);
     let repos = resolve_repos(Some(&root), Some(&scope)).unwrap();
     assert_eq!(repos, vec![root.join(".claude")]);

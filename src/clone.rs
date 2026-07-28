@@ -19,7 +19,7 @@
 use std::path::Path;
 
 use clap::Args;
-use log::info;
+use log::{info, warn};
 
 use crate::common::run;
 use crate::context::Context;
@@ -209,14 +209,39 @@ pub(crate) fn clone_dual(
 
     clone_one(work_source, target_dir, parent_dir)?;
     // The local bot dir name comes from the *cloned* work repo's
-    // config (`[workspace] bot`), so a workspace that chose a
+    // config (`repos.bot`), so a workspace that chose a
     // non-`.claude` dir round-trips through clone; absent/unreadable
-    // falls back to the default.
+    // falls back to the default. A legacy-schema config (which the
+    // resolvers reject) is honored here — clone is where an old
+    // repo first arrives, so it completes with the legacy-declared
+    // bot dir and a warning pointing at the [repos] rewrite.
     let bot_dir = match crate::common::configured_bot_dir(target_dir) {
         Ok(Some(p)) => p,
-        _ => target_dir.join(".claude"),
+        Ok(None) => target_dir.join(".claude"),
+        Err(e) => match crate::legacy_vc_config::configured_bot_dir(target_dir) {
+            Some(p) => {
+                warn!(
+                    "cloned work repo uses a legacy .vc-config.toml schema; \
+                     continuing with its declared bot dir '{}'. Update both \
+                     sides' configs to the [repos] registry — any vc-x1 \
+                     command in the workspace prints the exact rewrite",
+                    p.display()
+                );
+                p
+            }
+            None => {
+                warn!(
+                    "cannot read the cloned work repo's .vc-config.toml ({e}); \
+                     continuing with the default bot dir '.claude'"
+                );
+                target_dir.join(".claude")
+            }
+        },
     };
-    clone_one(&bot_source, &bot_dir, target_dir)?;
+    // Run the bot clone from `parent_dir`, not the just-cloned
+    // work repo: a relative local-path TARGET must resolve
+    // against the same cwd the work clone used (bugs.md #2).
+    clone_one(&bot_source, &bot_dir, parent_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;
 

@@ -647,42 +647,62 @@ pub fn verify_bot_published(
     }
 }
 
+/// Resolve a `[repos]` registry value against the directory of the
+/// config file that states it.
+///
+/// - relative value → joined onto `cfg_dir` (the standard
+///   file-relative rule);
+/// - absolute value → taken as-is (allowed but discouraged — it
+///   commits one machine's layout).
+pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
+    let p = Path::new(value);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        cfg_dir.join(p)
+    }
+}
+
 /// True when `dir` is a workspace's bot repo.
 ///
-/// Side detection is by *location*, not config content — the
-/// `[workspace]` block is identical on both sides. `dir` is the bot
-/// side iff the parent directory's `.vc-config.toml` names `dir` as
-/// the workspace's `bot`. Paths are canonicalized so relative forms
-/// (`.claude`) and symlinked tempdirs compare correctly; anything
-/// unreadable is "not the bot side".
+/// Side detection is by *self-resolution*: `dir` is the bot side
+/// iff its own `.vc-config.toml`'s `repos.bot` resolves
+/// (file-relative) back to `dir` itself — the entry that names the
+/// config's own directory names the side. Falls back to the
+/// legacy location rule ([`legacy_is_bot_dir`]) so read-only
+/// surfaces that bypass the resolvers' legacy rejection (explicit
+/// `--other-repo` paths in validate-desc / fix-desc) still see a
+/// legacy bot dir as the bot side. Paths are canonicalized so
+/// relative forms and symlinked tempdirs compare correctly;
+/// anything unreadable is "not the bot side".
 pub fn is_bot_dir(dir: &Path) -> bool {
     let Ok(dir) = dir.canonicalize() else {
         return false;
     };
-    let Some(parent) = dir.parent() else {
-        return false;
-    };
-    let Ok(cfg) = toml_simple::toml_load(&parent.join(VC_CONFIG_FILE)) else {
-        return false;
-    };
-    match toml_simple::toml_get(&cfg, "workspace.bot") {
-        Some(bot) if !bot.is_empty() => parent.join(bot.trim_start_matches('/')) == dir,
-        _ => false,
+    if let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE))
+        && let Some(bot) = toml_simple::toml_get(&cfg, "repos.bot").filter(|v| !v.is_empty())
+    {
+        return resolve_repo_path(&dir, bot)
+            .canonicalize()
+            .is_ok_and(|p| p == dir);
     }
+    crate::legacy_vc_config::is_bot_dir(&dir)
 }
 
-/// Walk up from `start` to find the workspace root.
+/// Walk up from `start` to find the workspace root (the work repo).
 ///
-/// The workspace root is the nearest ancestor whose
-/// `.vc-config.toml` has a `[workspace] work` key — except when
-/// that directory is itself the bot repo (the block is identical on
-/// both sides), in which case the root is its parent. Returns
-/// `None` if no such config is found up to the filesystem root —
-/// the caller is in a "plain old repo" (POR) with no vc-x1
-/// workspace metadata.
+/// The nearest ancestor with a `.vc-config.toml` decides: its
+/// `repos.work`, resolved file-relative, *is* the root — the walk
+/// finding the bot repo's config first still lands on the work
+/// repo (its `work` points there), so the two sides need no
+/// nesting assumption. Returns `None` if no config is found up to
+/// the filesystem root — the caller is in a "plain old repo" (POR)
+/// with no vc-x1 workspace metadata.
 ///
-/// A pre-0.75.0 legacy root (`path = "/"`, no `work`) is still
-/// *found* — so the resolvers can reject it with a fix-it message
+/// Legacy roots — the 0.75.x root-anchored `[workspace] work`
+/// schema and the pre-0.75.0 `path = "/"` schema — are still
+/// *found* (pointed at the work side via the legacy location
+/// rule), so the resolvers can reject them with a fix-it message
 /// via `reject_legacy_config` instead of silently degrading the
 /// workspace to POR.
 pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
@@ -690,97 +710,49 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
     loop {
         let cfg = cur.join(VC_CONFIG_FILE);
         if let Ok(map) = toml_simple::toml_load(&cfg) {
-            if toml_simple::toml_get(&map, "workspace.work").is_some() {
-                return if is_bot_dir(&cur) {
+            if let Some(work) = toml_simple::toml_get(&map, "repos.work") {
+                let resolved = resolve_repo_path(&cur, work);
+                // OK: a declared-but-missing work dir surfaces at
+                // the resolvers' coherence checks, not here.
+                return Some(resolved.canonicalize().unwrap_or(resolved));
+            }
+            if crate::legacy_vc_config::is_root_marker(&map) {
+                return if crate::legacy_vc_config::is_bot_dir(&cur) {
                     cur.parent().map(Path::to_path_buf)
                 } else {
                     Some(cur)
                 };
-            }
-            // Legacy root marker: the old schema's work side.
-            if toml_simple::toml_get(&map, "workspace.path").map(String::as_str) == Some("/") {
-                return Some(cur);
             }
         }
         cur = cur.parent()?.to_path_buf();
     }
 }
 
-/// Error fast on a pre-0.75.0 legacy `[workspace]` schema.
+/// Error fast on a legacy `.vc-config.toml` schema.
 ///
-/// A config with `path`/`other-repo` but no `work` predates the
-/// symmetric work/bot schema. The topology readers treat unknown
-/// keys as absent, which would silently degrade a dual workspace
-/// to single-repo — so every resolver calls this first and fails
-/// with the rewrite instead. A config with both old and new keys
-/// passes (the new keys drive behavior; `config --validate` flags
-/// the strays).
+/// The topology readers treat unknown keys as absent, which would
+/// silently degrade a dual workspace to single-repo — so every
+/// resolver calls this first and fails with the
+/// [`legacy_vc_config::reject`](crate::legacy_vc_config::reject)
+/// rewrite instead. A config with both a `[repos]` registry and
+/// stray legacy keys passes (the registry drives behavior;
+/// `config --validate` flags the strays). Also rejects an empty
+/// `repos.work` — every reader would silently misresolve it.
 pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE)) else {
         return Ok(());
     };
-    if toml_simple::toml_get(&cfg, "workspace.work").is_none()
-        && (toml_simple::toml_get(&cfg, "workspace.path").is_some()
-            || toml_simple::toml_get(&cfg, "workspace.other-repo").is_some())
-    {
+    if let Some(msg) = crate::legacy_vc_config::reject(dir, &cfg) {
+        return Err(msg.into());
+    }
+    if toml_simple::toml_get(&cfg, "repos.work").is_some_and(|w| w.is_empty()) {
         return Err(format!(
-            "{}/.vc-config.toml: legacy [workspace] schema (path/other-repo). \
-             Replace the [workspace] block with the symmetric pair:\n\n\
-             [workspace]\n\
-             work = \"/\"\n\
-             bot = \"/.claude\"\n\n\
-             (identical in both repos; drop `bot` for a single-repo workspace)",
+            "{}/.vc-config.toml: repos.work is empty — it must be a path \
+             (relative to the config file's directory, e.g. \".\" in the \
+             work repo); nothing was changed",
             dir.display()
         )
         .into());
-    }
-    check_workspace_grammar(dir, &cfg)
-}
-
-/// Enforce the `[workspace]` path grammar (pinned 2026-07-23).
-///
-/// Values are ochid path syntax — a leading `/` is the workspace
-/// root, never filesystem-absolute:
-///
-/// - `work` must be exactly `"/"` (the root *is* the work repo;
-///   any other value would be silently ignored by every reader).
-/// - `bot` must be `/` + one path component, no trailing slash
-///   (side detection and the root walk assume the bot repo sits
-///   directly under the root; the value doubles as the bot-side
-///   ochid prefix, so an unanchored value corrupts trailers).
-///
-/// Called from [`reject_legacy_config`] so every resolver enforces
-/// the grammar at the same chokepoints; errors loudly, changing
-/// nothing.
-fn check_workspace_grammar(
-    dir: &Path,
-    cfg: &HashMap<String, String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(work) = toml_simple::toml_get(cfg, "workspace.work")
-        && work != "/"
-    {
-        return Err(format!(
-            "{}/.vc-config.toml: workspace.work is '{work}' but must be exactly \"/\" \
-             — the workspace root is the work repo by definition; nothing was changed",
-            dir.display()
-        )
-        .into());
-    }
-    if let Some(bot) = toml_simple::toml_get(cfg, "workspace.bot")
-        && !bot.is_empty()
-    {
-        let anchored = bot.strip_prefix('/');
-        let valid = matches!(anchored, Some(rest) if !rest.is_empty() && !rest.contains('/'));
-        if !valid {
-            return Err(format!(
-                "{}/.vc-config.toml: workspace.bot is '{bot}' but must be \"/\" plus one \
-                 path component, no trailing slash (e.g. \"/.claude\") — the bot repo \
-                 sits directly under the workspace root and the value doubles as the \
-                 bot-side ochid prefix; nothing was changed",
-                dir.display()
-            )
-            .into());
-        }
     }
     Ok(())
 }
@@ -793,7 +765,7 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 
 /// Resolve the workspace's default `--scope`.
 ///
-/// Reads `<workspace_root>/.vc-config.toml > [workspace] bot`:
+/// Reads `<workspace_root>/.vc-config.toml > repos.bot`:
 ///
 /// - dual workspace (non-empty `bot`) → `Scope([Work, Bot])`
 /// - single-repo workspace (missing / empty `bot`) →
@@ -809,7 +781,7 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
         Ok(c) => c,
         Err(_) => return Scope(vec![Side::Work]),
     };
-    match toml_simple::toml_get(&cfg, "workspace.bot") {
+    match toml_simple::toml_get(&cfg, "repos.bot") {
         Some(v) if !v.is_empty() => Scope(vec![Side::Work, Side::Bot]),
         _ => Scope(vec![Side::Work]),
     }
@@ -819,7 +791,8 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
 ///
 /// - `Side::Work` → `workspace_root` (or cwd's `.` when
 ///   `workspace_root` is None).
-/// - `Side::Bot` → `workspace_root.join(<bot value, root-relative>)`.
+/// - `Side::Bot` → the root config's `repos.bot`, resolved
+///   file-relative against the root.
 ///
 /// Errors when `Side::Bot` is requested but the workspace doesn't
 /// define one (POR or single-repo workspace).
@@ -840,15 +813,15 @@ pub fn scope_to_repos(
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with work = \"/\") — drop --scope or use --scope=work",
+                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with a [repos] registry) — drop --scope or use --scope=work",
                 )?;
                 let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
-                let bot = toml_simple::toml_get(&cfg, "workspace.bot")
+                let bot = toml_simple::toml_get(&cfg, "repos.bot")
                     .filter(|v| !v.is_empty())
                     .ok_or(
-                        "--scope=bot: no bot repo configured. Add `bot = \"/…\"` to .vc-config.toml to enable dual-repo operations",
+                        "--scope=bot: no bot repo configured. Add `bot = \"…\"` to the [repos] registry to enable dual-repo operations",
                     )?;
-                repos.push(root.join(bot.trim_start_matches('/')));
+                repos.push(resolve_repo_path(root, bot));
             }
         }
     }
@@ -907,7 +880,7 @@ pub fn configured_bot_dir(
 pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     bot_repo_path(workspace_root)?.ok_or_else(|| {
         format!(
-            "{}/.vc-config.toml declares no bot repo (`[workspace] bot`) — \
+            "{}/.vc-config.toml declares no bot repo (`repos.bot`) — \
              this operation requires a dual workspace",
             workspace_root.display()
         )
@@ -923,9 +896,14 @@ pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::er
 ///
 /// - the bot dir exists (and is a directory);
 /// - its `.vc-config.toml` loads;
-/// - the two sides' `[workspace]` blocks are identical (every
-///   `workspace.*` key compared; the schema promises the block is
-///   the same file content on both sides).
+/// - **resolved agreement**: each side's declared `[repos]` pair,
+///   resolved file-relative and canonicalized, names the same two
+///   directories (the file-relative schema makes the raw blocks
+///   asymmetric by design, so agreement is checked on resolved
+///   reality, not spelling);
+/// - **self-identification**: each config's own directory sits at
+///   its side's key (root's `work`, bot's `bot`) — agreement
+///   alone can't catch both sides naming the same wrong pair.
 ///
 /// Mid-flight surprises stay per-operation concerns; this gates
 /// *entry* at the one topology resolver.
@@ -944,33 +922,93 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     let bot_cfg = toml_simple::toml_load(&bot.join(VC_CONFIG_FILE)).map_err(|e| {
         format!(
             "workspace incoherent: bot repo '{}' has no readable {VC_CONFIG_FILE} \
-             ({e}) — the [workspace] block must be identical on both sides; \
-             nothing was changed",
+             ({e}) — both sides must carry a [repos] registry naming the same \
+             directories; nothing was changed",
             bot.display()
         )
     })?;
-    let ws_keys = |m: &HashMap<String, String>| -> Vec<(String, String)> {
-        let mut v: Vec<_> = m
-            .iter()
-            .filter(|(k, _)| k.starts_with("workspace."))
-            .map(|(k, val)| (k.clone(), val.clone()))
-            .collect();
-        v.sort();
-        v
-    };
-    let (root_ws, bot_ws) = (ws_keys(&root_cfg), ws_keys(&bot_cfg));
-    if root_ws != bot_ws {
+    let (root_pair, bot_pair) = (
+        resolved_repos_pair(root, &root_cfg)?,
+        resolved_repos_pair(bot, &bot_cfg)?,
+    );
+    if root_pair != bot_pair {
         return Err(format!(
-            "workspace incoherent: the [workspace] blocks differ — they must be \
-             identical on both sides; nothing was changed\n\
-             {}/{VC_CONFIG_FILE}: {root_ws:?}\n\
-             {}/{VC_CONFIG_FILE}: {bot_ws:?}",
+            "workspace incoherent: the two sides' [repos] registries resolve to \
+             different directories — they must name the same work/bot pair; \
+             nothing was changed\n\
+             {}/{VC_CONFIG_FILE}: work={}, bot={}\n\
+             {}/{VC_CONFIG_FILE}: work={}, bot={}",
             root.display(),
-            bot.display()
+            root_pair.0.display(),
+            root_pair.1.display(),
+            bot.display(),
+            bot_pair.0.display(),
+            bot_pair.1.display()
+        )
+        .into());
+    }
+    // Self-identification: agreement alone can't catch both sides
+    // naming the same *wrong* pair — each config's own directory
+    // must sit at its side's key.
+    let canon_root = root.canonicalize()?;
+    if root_pair.0 != canon_root {
+        return Err(format!(
+            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.work` resolves to \
+             '{}', not to the workspace root itself — the work side's own entry \
+             must name its own directory; nothing was changed",
+            root.display(),
+            root_pair.0.display()
+        )
+        .into());
+    }
+    let canon_bot = bot.canonicalize()?;
+    if bot_pair.1 != canon_bot {
+        return Err(format!(
+            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.bot` resolves to \
+             '{}', not to the bot repo itself — the bot side's own entry must \
+             name its own directory; nothing was changed",
+            bot.display(),
+            bot_pair.1.display()
         )
         .into());
     }
     Ok(())
+}
+
+/// Resolve and canonicalize one side's declared `[repos]` pair.
+///
+/// The per-side half of the resolved-agreement check: reads
+/// `repos.work` / `repos.bot` from `cfg` (the config at
+/// `cfg_dir`), resolves each file-relative, and canonicalizes —
+/// a missing key or unresolvable directory is its own coherence
+/// error.
+fn resolved_repos_pair(
+    cfg_dir: &Path,
+    cfg: &HashMap<String, String>,
+) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    let resolve = |key: &str| -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let value = toml_simple::toml_get(cfg, key)
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                format!(
+                    "workspace incoherent: {}/{VC_CONFIG_FILE} has no `{key}` in its \
+                     [repos] registry — both sides must declare the work/bot pair; \
+                     nothing was changed",
+                    cfg_dir.display()
+                )
+            })?;
+        resolve_repo_path(cfg_dir, value)
+            .canonicalize()
+            .map_err(|e| {
+                format!(
+                    "workspace incoherent: {}/{VC_CONFIG_FILE}'s `{key}` (\"{value}\") does \
+                 not resolve to an existing directory ({e}); nothing was changed",
+                    cfg_dir.display()
+                )
+                .into()
+            })
+    };
+    Ok((resolve("repos.work")?, resolve("repos.bot")?))
 }
 
 /// Resolve `CommonArgs.repo` + `CommonArgs.scope` into concrete repo paths.

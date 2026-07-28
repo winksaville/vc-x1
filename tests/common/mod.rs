@@ -102,11 +102,23 @@ pub struct CliFixture {
 
 impl CliFixture {
     /// Allocate a fresh fixture; create `home/` so `HOME=…` points
-    /// at a real directory.
+    /// at a real directory, and seed it with a jj user identity.
+    ///
+    /// The identity is required, not cosmetic: since 0.76.0-5 init
+    /// publishes with `jj git push`, which refuses commits that
+    /// have no author/committer — and the isolated `HOME` has no
+    /// user config to inherit one from.
     pub fn new(tag: &str) -> Self {
         let base = unique_base(tag);
         let home = base.join("home");
         std::fs::create_dir_all(&home).expect("mkdir cli fixture home");
+        let jj_cfg = home.join(".config").join("jj");
+        std::fs::create_dir_all(&jj_cfg).expect("mkdir cli fixture jj config dir");
+        std::fs::write(
+            jj_cfg.join("config.toml"),
+            "[user]\nname = \"cli-test\"\nemail = \"cli-test@example.com\"\n",
+        )
+        .expect("write cli fixture jj config");
         CliFixture { base, home }
     }
 

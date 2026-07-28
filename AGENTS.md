@@ -25,28 +25,21 @@ commit", "bot-repo side"). Notes:
   generic commit landing in the work repo is a "work-repo
   commit", never a bare "work commit".
 
-**Committing vs pushing.** Default to `vc-x1 push` — it commits and
-publishes both repos together, each carrying one `ochid:` pointing at
-the other (see [Cycle Protocol](#cycle-protocol) and
-[ochid trailers](#cross-repo-linking-ochid-trailers)). Use a bare
-`jj commit` (see [jj Basics](#jj-basics)) only when:
-
-- the change will never be published — no `ochid:`;
-- the commit will be squashed away before its series is pushed
-  (loop-and-squash) — no `ochid:`; it disappears in the squash;
-- the commit will be pushed later as a non-top commit — `jj commit`
-  and add its `ochid:` now, because `vc-x1 push` stamps only the
-  topmost commit it pushes, never the ancestors.
-
-**What "commit" and "push" mean.** In an instruction, "commit",
-"push", and "commit + push" all mean `vc-x1 push` — land *and*
-publish — unless stated otherwise. A bare `jj commit` is asked for
-by name: "local commit", "save locally", "just `jj commit`" (the
-cases above). So the spoken default is publish; the local-only
-save is the named exception. The approval around a push —
-interactive by default, waived only by an explicit scoped
-delegation — is the cycle protocol's
-[Pushing policy](notes/cycle-protocol.md#policy).
+**Committing vs pushing.** A cycle rung is committed *by*
+`vc-x1 push` — never pre-commit it with `jj commit`. Push's
+commit stages commit both repos with the approved title/body
+and stamp each new commit's `ochid:` trailer (see
+[Cycle Protocol](#cycle-protocol) and
+[ochid trailers](#cross-repo-linking-ochid-trailers)); a
+pre-committed rung leaves `@` empty and push mints a stamped
+empty duplicate (bugs.md #6). In an instruction, "commit",
+"push", and "commit + push" all mean `vc-x1 push`. A bare
+`jj commit` is asked for by name ("local commit", "just
+`jj commit`") and is only for work that never publishes —
+local-only saves and loop-and-squash intermediates — no
+`ochid:`. The approval around a push — interactive by default,
+waived only by an explicit scoped delegation — is the cycle
+protocol's [Pushing policy](notes/cycle-protocol.md#policy).
 
 ## Repo Paths (relative from project root)
 
@@ -260,18 +253,23 @@ stable ochid target. This is why a bot-repo ochid names `@-`
 
 ### .vc-config.toml
 
-Each repo contains a `.vc-config.toml` recording the workspace
-layout, so tools resolve ochid paths without repeating the
-workspace path in every trailer. The `[workspace]` block is
-**identical in both repos** — which side a repo is comes from
-its location (the root vs the root's recorded bot dir), not
-from this file:
+Each repo contains a `.vc-config.toml` whose `[repos]` registry
+records the workspace layout. Values are ordinary paths relative
+to the config file's directory (absolute allowed, discouraged),
+so the two sides' blocks **differ** — the entry that resolves to
+the config's own directory names its side, and the two sides
+must agree on the same resolved work/bot pair:
 
 ```toml
-[workspace]
-work = "/"
-bot = "/.claude"
+# work side          # bot side
+[repos]              [repos]
+work = "."           work = ".."
+bot = ".claude"      bot = "."
 ```
+
+Ochid trailer prefixes are fixed per-side labels (`/` work,
+`/.claude` bot) resolved by side detection — not filesystem
+paths.
 
 ## Prose form
 

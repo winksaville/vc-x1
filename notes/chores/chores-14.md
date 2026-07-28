@@ -497,7 +497,7 @@ the refactor program. Decisions at cycle open (2026-07-23):
 
 ## docs: refactor program ladder + conventions
 
-Commits:
+Commits: [[20]]
 
 The 0.75.1 planning interlude between the facade-owns-topology
 and repo-registry cycles: the refactor program's remaining
@@ -536,6 +536,284 @@ convention lands.
   `refactor-vc-x1`, treated as permanent (long-lived
   branch, lands on main merge-only, never rebased).
 
+## refactor: repo registry
+
+Commits: see [As-built ladder](#as-built-ladder-3)
+
+`.vc-config.toml`'s `[workspace]` block is a root-anchored
+path grammar (leading `/` = workspace root, pinned at
+0.75.0-3) kept coherent by a literal identical-block
+invariant. It becomes a **repo registry**: stable labels
+mapped to locations. Fourth cycle of the refactor program;
+de-gitify init rides as its last rung. Decisions at cycle
+open (2026-07-24):
+
+- The section is named `[repos]` — "workspace" is overloaded
+  (cargo, VS Code, and jj itself has `jj workspace`) and
+  vc-x1 is medium-agnostic; config-key paths become
+  `repos.work` / `repos.bot`.
+- `work` / `bot` values become ordinary paths: absolute, or
+  relative to the directory containing the config file that
+  states them (the standard file-relative rule — no
+  leading-`/`-means-root special case). Docs recommend
+  relative; absolute is allowed but discouraged, since it
+  commits one machine's layout.
+- The identical-block invariant cannot survive
+  file-relative values (the same bytes mean different dirs
+  on each side), so it is replaced by **resolved
+  agreement** — canonicalize each side's declared pair and
+  require both files to name the same two directories. The
+  0.75.0-3 coherence preflight keeps its role, comparing
+  reality instead of spelling.
+- Side detection: the entry resolving to the config's own
+  directory names the side (`work = "."` → work repo).
+  Repos need not be nested.
+- ochid trailer prefixes become opaque registry labels
+  resolved through `[repos]`, not filesystem spellings: `/`
+  and `/.claude` stay valid as historical labels for
+  work/bot, so published trailers keep resolving. Labels are
+  intended to grow into URLs — the local-path half of the
+  Todo "ochid: bot-repo location qualifier", whose published
+  half lives in
+  [forks-multi-user.md](../forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
+- Sequencing: this runs immediately after facade owns
+  topology because the schema is unreleased and freshly
+  adopted (one external workspace migrated at 0.75.0-2) —
+  one migration wave instead of two, and the init/clone
+  rework lands on the final schema. See the
+  [stage](../refactor-20260716.md#stage-repo-registry).
+
+### As-built ladder
+
+- [[21]] 0.76.0-0 chore: open repo registry cycle
+  - version 0.76.0-0; the stage picked into
+    `## In Progress` as the program ladder's current
+    `####` rung with a seven-rung ladder; this section
+    opened; the `[repos]` name settled and recorded here,
+    in the ladder block, and in the stage section of
+    [refactor-20260716.md](../refactor-20260716.md#stage-repo-registry)
+  - rider: 0.75.1 `Commits:` backfill ([[20]])
+  - rider: `## Done` retirement sweep into done.md
+- [[22]] 0.76.0-1 refactor: registry schema + side detection
+  - `[workspace]` → `[repos]` across the topology core,
+    schema registry, init renders, fixtures, and both live
+    configs (atomic flip, the 0.75.0-2 precedent)
+  - values are ordinary file-relative paths; side detection
+    by self-resolution (the entry resolving to the config's
+    own dir names the side), so the root walk needs no
+    nesting assumption
+  - rung-boundary decision (approved): the identical-block
+    invariant can't survive asymmetric per-side blocks, so
+    this rung seeds a minimal resolved-agreement coherence
+    check; 0.76.0-2 finishes the preflight (validate
+    wiring, error detail, edge cases, dedicated tests)
+  - the 0.75.x root-anchored schema joins pre-0.75.0
+    `path`/`other-repo` as a rejected legacy generation
+    (found by the root walk, rejected with the per-side
+    rewrite)
+  - interim ochid prefix: bot side rebuilt as
+    `/<dir name>/` from the canonicalized bot dir
+    (`repos.bot` is `"."` in its own config); 0.76.0-3
+    decouples labels from filesystem spelling
+  - rider (bug, found in review): clone of a legacy-schema
+    repo swallowed the rejection and guessed `.claude`.
+    Backward-compat read `legacy_configured_bot_dir` honors
+    both legacy generations at the bootstrap surfaces —
+    clone completes with the declared bot dir + a
+    warn-to-update, the symlink default follows it, and the
+    fix-it rewrite echoes the workspace's actual bot dir
+    name; every other resolver still hard-rejects
+- [[23]] 0.76.0-2 refactor: registry resolved-agreement
+  preflight
+  - finishes the -1 seed: **self-identification** joins
+    resolved agreement — each config's own directory must
+    sit at its side's key (root's `work`, bot's `bot`),
+    since agreement alone can't catch both sides naming the
+    same wrong pair
+  - dedicated edge tests: missing `repos.bot`, unresolvable
+    declared dir, self-identification violation, and
+    absolute/relative spellings agreeing on resolved reality
+  - `config --validate` reports these through the bot-side
+    resolution's coherence check (wired at -1); no separate
+    validate path needed
+  - validate legacy dedupe (user report, iiac-perf): a
+    legacy schema printed the rejection twice (root call +
+    bot-side resolution) plus its own keys as unknown — now
+    one warn, one finding, remaining checks skipped as
+    redundant
+  - rider: incremental `Commits:` backfill of the pushed -0
+    / -1 rungs ([[21]],[[22]] here; [[8]],[[9]] in TODO.md's
+    ladder) — the per-push cadence the protocol implies,
+    rather than saving backfills for cycle boundaries
+  - rider: bugs.md #1/#2 annotated as scheduled with the
+    de-gitify init rung; #6 (push empty commit-work
+    duplicate) recorded from the -1 push incident
+  - rider: commit procedure clarified after the #6 incident
+    — AGENTS.md's Committing-vs-pushing condensed to "a
+    cycle rung is committed *by* `vc-x1 push`, never
+    pre-committed" (the stale non-top hand-written-ochid
+    rule deleted), and the per-commit flow's step 8 now
+    invokes `vc-x1 push --title --body` (the `jj commit`
+    example deleted); net smaller
+- [[24]] 0.76.0-3 refactor: registry ochid labels
+  - trailer prefixes are now canonical side labels —
+    `OCHID_WORK_LABEL` (`/`) and `OCHID_BOT_LABEL`
+    (`/.claude`) — chosen by side detection, never from the
+    directory's spelling; a non-`.claude` bot dir reads and
+    writes the `/.claude` label (the -1 interim dir-name
+    derivation retired)
+  - `/` and `/.claude` are the historical spellings, so
+    every published trailer stays valid; the constants are
+    the seam where URL labels grow in later
+    ([forks-multi-user](../forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid))
+  - legacy fallback (user review, verified on iiac-perf):
+    `is_bot_dir` falls back to the legacy location rule —
+    parent's `workspace.bot` *or* pre-0.75.0
+    `workspace.other-repo` — so the explicit `--other-repo`
+    escape hatch in validate-desc / fix-desc (which bypasses
+    the resolvers' legacy rejection) still sides a legacy
+    bot dir correctly instead of flagging (or rewriting!)
+    every valid `/.claude/` trailer as wrong-prefix
+  - the whole legacy surface consolidated into
+    `src/legacy_vc_config.rs` (side detection, bot-dir read,
+    root marker, the fix-it rejection) for easy retirement
+    once every workspace is migrated: delete the module and
+    simplify the call sites `grep -rn 'legacy_vc_config::'
+    src/` lists
+- [[25]] 0.76.0-4 docs: registry docs sweep
+  - AGENTS.md's `.vc-config.toml` section rewritten for the
+    `[repos]` registry: per-side blocks, file-relative
+    semantics, resolved agreement, side labels
+  - README: validate-desc default read, `config --validate`
+    checks (legacy rejection + resolved agreement), the
+    printed-schema sample, and sync's repo-set resolution
+    all speak `[repos]`
+  - refactor-20260716.md stage status: rungs -1..-3 recorded
+    shipped with the legacy-consolidation note
+  - todo-backlog #20 rewritten: the `[workspace]` rename
+    itself shipped this cycle; the surviving remainder is
+    the broader "stop saying workspace" wording sweep
+  - ARCHITECTURE.md checked — no schema-level detail, no
+    edit needed
+  - incremental backfill rider: -2/-3 refs ([[23]],[[24]]
+    here; [[10]],[[11]] in TODO.md's ladder)
+- [[26]] 0.76.0-5 refactor: de-gitify init
+  - init's publish path is jj-only: jj stays colocated
+    throughout, `jj git remote add` + `jj git push` replace
+    the strip-jj → git-push → re-colocate dance (`git clean
+    -xdf`, `git checkout`, `git remote add`, `git push -u`,
+    `jj git init --colocate`), and the push establishes
+    tracking as a side effect (no `--allow-new`, no
+    follow-up `jj bookmark track`)
+  - `prepare_local_repo` drops its explicit `git init` —
+    `jj git init --colocate` creates the git repo itself
+  - the strip-jj step is what forced `push_repo`'s
+    `clean_exclude` parameter (preserving the nested bot
+    repo through `git clean -xdf`); with no clean, the
+    parameter is gone
+  - bugs.md #1 fixed: local bares are created with
+    `--initial-branch=main`, so a clone of one has a default
+    branch to track
+  - bugs.md #2 fixed, both halves: init's bot bare is now
+    `derive_bot_url` of the work bare
+    (`remote-work.claude.git`), the same rule clone uses —
+    one naming convention instead of two; and the bot-side
+    clone runs from the invoking cwd, so a relative
+    local-path TARGET resolves on both sides
+  - `tests/cli_sync.rs` drops both workarounds (HEAD
+    symbolic-ref, bot-remote symlink) and now clones by
+    relative path, so the fixes are pinned by the test that
+    originally documented the bugs
+  - consequence worth knowing — where the identity check
+    happens moved, and it caught a latent defect. See
+    [Identity enforcement: git commits, jj pushes](#identity-enforcement-git-commits-jj-pushes)
+- [[N]] 0.76.0 refactor: repo registry — close-out
+  - `## In Progress`: the cycle's `####` block retires to the
+    no-cycle marker while the program `###` block and its
+    ladder stay (0.76.0 flipped `(done)`); decided this
+    close-out — the earlier program-free precedent retired the
+    whole section — and written into cycle-protocol.md's
+    Close-out so the next program cycle doesn't re-decide it
+  - `## Done` gains the cycle one-liner pointing here; the
+    cycle ladder's rung refs are pruned with the block, the
+    As-built ladder above being their durable home
+  - incremental backfill rider: -4/-5 refs ([[25]],[[26]])
+  - this section's `### Outcome`; refactor-20260716.md's
+    repo-registry and de-gitify-init stages marked shipped
+  - version 0.76.0
+
+### Identity enforcement: git commits, jj pushes
+
+Swapping init's publish path from `git push` to `jj git push`
+moved *when* a missing user identity is caught, which surfaced
+as two CLI-fixture tests failing at the new push step. The two
+tools enforce at opposite ends:
+
+- **git — at commit.** `git commit` with no `user.name` /
+  `user.email` tries to synthesize one from
+  `username@hostname`; if that isn't usable it refuses
+  outright (`fatal: unable to auto-detect email address (got
+  'wink@3900x.(none)')`). Nothing is checked at push time —
+  `git push` never inspects an existing commit's author.
+- **jj — at push.** `jj commit` succeeds with an explicit
+  *empty identity*, warning `Name and email not configured.
+  Until configured, your commits will be created with the
+  empty identity, and can't be pushed to remotes.` The
+  enforcement lands at `jj git push`: `Error: Won't push
+  commit <id> since it has no author and/or committer set`.
+
+We think jj's split follows from its model: local commits are
+cheap and rewritable, so it defers the check to the boundary
+where history becomes shared and permanent.
+
+The latent defect: init already used `jj commit` for the
+initial commit, so under the old flow the CLI fixtures — whose
+`HOME` is an isolated tempdir with no user config — produced
+empty-identity commits and `git push` shipped them to the bare
+remotes without complaint. Nothing verified authorship, so it
+went unnoticed. The jj-only path fails loudly instead, which is
+why `CliFixture::new` now seeds a `[user]` identity: not test
+scaffolding for its own sake, but the fixture finally supplying
+what a real workspace always has.
+
+Not documented upstream: jj's config, git-compatibility, and
+FAQ pages don't mention the empty identity or the push-time
+refusal (checked 2026-07-27) — jj's runtime warning and error
+text are the authoritative statement.
+
+### Outcome
+
+- Shipped in five Work rungs on `refactor-vc-x1`.
+  `.vc-config.toml` names repos instead of describing a
+  filesystem: `[repos]` maps labels to ordinary paths, each
+  side's file states its own view, and coherence is checked
+  against resolved directories (plus self-identification)
+  rather than identical bytes. ochid prefixes became canonical
+  side labels, so a workspace may name its bot dir anything
+  and still read/write `/.claude` trailers.
+- De-gitify init rode as the last rung and paid for itself
+  twice: bugs.md #1 and #2 fixed, both of whose workarounds
+  came out of `tests/cli_sync.rs`, and `push_repo`'s
+  `clean_exclude` parameter deleted with the `git clean` it
+  existed to survive.
+- Legacy handling is deliberately concentrated in
+  `src/legacy_vc_config.rs` — two pre-`[repos]` generations
+  read at the bootstrap surfaces only (clone, validate-desc /
+  fix-desc's `--other-repo`), every other resolver rejecting
+  with a rewrite hint. Retirement is a module delete plus the
+  call sites `grep -rn 'legacy_vc_config::' src/` lists, once
+  the workspaces are migrated.
+- Field notes: both legacy riders came from real workspaces
+  (a clone guessing `.claude`, iiac-perf's doubled validate
+  rejection and its mis-sided trailers), not from tests — the
+  migration wave itself was the test.
+- Protocol clarified at close-out: for a multi-cycle program
+  the no-cycle marker retires the stage `####` only; the
+  program `###` and its ladder stay in `## In Progress`.
+- Next: 0.77.0 split push.rs + stateless push, whose first
+  rung rebases or redoes the extraction parked on
+  `support-trapezoid-commits`.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/f761e89092df "f761e89092dfbb82e8ab355d6e5a058e77b07e23"
@@ -557,3 +835,10 @@ convention lands.
 [17]: https://github.com/winksaville/vc-x1/commit/f896b8e67e0b "f896b8e67e0b224e3abbe938199951916059198a"
 [18]: https://github.com/winksaville/vc-x1/commit/3c0d15ea2fca "3c0d15ea2fca3db36135fa38d40687fdb923c239"
 [19]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
+[20]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
+[21]: https://github.com/winksaville/vc-x1/commit/da932d2293c8 "da932d2293c8de28cf2290d14502a991bdee5861"
+[22]: https://github.com/winksaville/vc-x1/commit/ff4a8d624cf3 "ff4a8d624cf3979ebad246f9c3961b7fed2dcba1"
+[23]: https://github.com/winksaville/vc-x1/commit/f8885f1e411f "f8885f1e411f0d2e8f6e0c26aa1b226b7a93a556"
+[24]: https://github.com/winksaville/vc-x1/commit/669e9fbb7fb8 "669e9fbb7fb816c3c584fa6f525128ee7ebb63bd"
+[25]: https://github.com/winksaville/vc-x1/commit/5f850365903e "5f850365903e04f342bf9065449181690308f00c"
+[26]: https://github.com/winksaville/vc-x1/commit/c9250617c7c6 "c9250617c7c6585dc09dd31767b6cdd59f746834"

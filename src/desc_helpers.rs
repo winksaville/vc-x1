@@ -5,27 +5,37 @@ use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::workspace::Workspace;
 
 use crate::common;
-use crate::toml_simple;
 
 pub const DEFAULT_ID_LEN: usize = 12;
 pub const VC_CONFIG_FILE: &str = ".vc-config.toml";
 
-/// Derive a repo's ochid prefix from its location + config.
+/// Canonical ochid label for the work side.
+pub const OCHID_WORK_LABEL: &str = "/";
+
+/// Canonical ochid label for the bot side.
 ///
-/// The `[workspace]` block is identical on both sides, so the
-/// prefix comes from *which side* the repo is (by location — see
-/// `common::is_bot_dir`) plus the recorded `bot` path:
+/// An opaque label resolved through the `[repos]` registry — not
+/// a filesystem path: a workspace whose bot dir is named
+/// something else still reads and writes `/.claude`. Kept as the
+/// historical spelling so every published trailer stays valid;
+/// intended to grow into URL labels (see
+/// forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
+pub const OCHID_BOT_LABEL: &str = "/.claude";
+
+/// A repo's ochid prefix: its side's canonical label.
+///
+/// The prefix comes from *which side* the repo is (by
+/// self-resolution — see `common::is_bot_dir`), never from the
+/// directory's spelling:
 ///
 /// - work side → `/`
-/// - bot side → `<workspace.bot>/` (e.g. `/.claude/`)
+/// - bot side → `/.claude/` (the label + separator)
 pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::error::Error>> {
-    if !common::is_bot_dir(repo) {
-        return Ok("/".to_string());
+    if common::is_bot_dir(repo) {
+        Ok(format!("{OCHID_BOT_LABEL}/"))
+    } else {
+        Ok(OCHID_WORK_LABEL.to_string())
     }
-    let cfg = toml_simple::toml_load(&repo.join(VC_CONFIG_FILE))?;
-    let bot = toml_simple::toml_get(&cfg, "workspace.bot")
-        .ok_or("missing workspace.bot in .vc-config.toml")?;
-    Ok(format!("{}/", bot.trim_end_matches('/')))
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -268,8 +278,8 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// Build `<base>/ws` (+ optional `<bot-dir>`) with the symmetric
-    /// dual-form `[workspace]` block in each repo dir.
+    /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
+    /// file-relative `[repos]` registries in each repo dir.
     fn ws_fixture(tag: &str, bot_dir: Option<&str>) -> (std::path::PathBuf, std::path::PathBuf) {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -278,15 +288,19 @@ mod tests {
         let base = std::env::temp_dir().join(format!("vc-x1-desc-helpers-{tag}-{ts}"));
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
-        let block = match bot_dir {
-            Some(b) => format!("[workspace]\nwork = \"/\"\nbot = \"/{b}\"\n"),
-            None => "[workspace]\nwork = \"/\"\n".to_string(),
+        let work_block = match bot_dir {
+            Some(b) => format!("[repos]\nwork = \".\"\nbot = \"{b}\"\n"),
+            None => "[repos]\nwork = \".\"\n".to_string(),
         };
-        std::fs::write(root.join(VC_CONFIG_FILE), &block).unwrap();
+        std::fs::write(root.join(VC_CONFIG_FILE), &work_block).unwrap();
         if let Some(b) = bot_dir {
             let bot = root.join(b);
             std::fs::create_dir_all(&bot).unwrap();
-            std::fs::write(bot.join(VC_CONFIG_FILE), &block).unwrap();
+            std::fs::write(
+                bot.join(VC_CONFIG_FILE),
+                "[repos]\nwork = \"..\"\nbot = \".\"\n",
+            )
+            .unwrap();
         }
         (base, root)
     }
@@ -299,7 +313,7 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// Bot side (named by the parent's `bot`) → `<bot>/`.
+    /// Bot side → the canonical bot label `/.claude/`.
     #[test]
     fn prefix_for_bot_side() {
         let (base, root) = ws_fixture("prefix-bot", Some(".claude"));
@@ -310,11 +324,13 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// A non-`.claude` bot dir name flows through to the prefix.
+    /// A non-`.claude` bot dir still gets the canonical label —
+    /// the prefix is an opaque registry label, not a filesystem
+    /// spelling.
     #[test]
     fn prefix_for_custom_bot_dir() {
         let (base, root) = ws_fixture("prefix-custom", Some(".bot"));
-        assert_eq!(ochid_prefix_for(&root.join(".bot")).unwrap(), "/.bot/");
+        assert_eq!(ochid_prefix_for(&root.join(".bot")).unwrap(), "/.claude/");
         std::fs::remove_dir_all(&base).ok();
     }
 

@@ -162,7 +162,12 @@ what happens post-squash:
   - Add any `### design subsections`; optional `### Outcome`
     notes.
   - Replace the `## In Progress` cycle block with
-    `_No cycle currently in progress._`.
+    `_No cycle currently in progress._`. Under a multi-cycle
+    program (program `###`, current stage `####`) this retires
+    the stage `####` only — the program heading and its ladder
+    stay, the shipped rung flipped `(done)`, so the marker
+    sits inside the program block until the next stage is
+    picked up.
 - **Update `notes/README.md`** if functionality changed
   (new flags, new subcommands, changed behavior).
 
@@ -207,21 +212,14 @@ through:
    [Commit description](#commit-description).
 7. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
-8. **Commit.** `jj commit -m "title" -m "body" -R .` for
-   the work repo, `-R .claude` for the bot repo (`-R` last
-   keeps the verb visible):
-
-   ```
-   jj commit -m \
-   "<type>: <short description>" \
-   -m "<intro paragraph>
-
-   - file1: gist
-   - file2: gist
-
-   ochid: /.claude/<chid>" \
-   -R .
-   ```
+8. **Commit + push.** Hand the approved title/body to
+   `vc-x1 push <bookmark> --title "…" --body "…"` — its
+   commit stages commit both repos and stamp the `ochid:`
+   trailers. Never pre-commit the rung with `jj commit`: an
+   empty `@` at push mints a stamped empty duplicate
+   (bugs.md #6). Push approval is per-push — step 7's
+   review covers it only when the user's go explicitly
+   includes the push.
 
 **Two overrides apply:**
 

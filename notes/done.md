@@ -187,6 +187,30 @@ As TODO.md `## Done` sections fills move them to here.
   sample for the bot-session format, and a sweep retiring the
   ambiguous "dotted" wording [[125]]
 
+- refactor: DRY jj facade — one typed facade (`src/jj.rs`)
+  for every read-only jj query spawn (log templates +
+  bookmark listings), the tracking and ochid trailer parsers
+  unified beside it, and the test fixture helpers deduped to
+  one copy per crate; first stage of the jj refactor
+  program, worked on `refactor-vc-x1` with main parked at
+  the 0.71.0 tip [[126]]
+
+- docs: adopt new template repo names — live mentions of
+  `vc-template-x1`(.claude) swept to `vc-x1-work-repo-template`
+  / `vc-x1-bot-repo-template` (AGENTS.md byte-identical with
+  the template again; README init examples now pass an
+  explicit `CODE,BOT` pair); historical records keep the old
+  name [[127]]
+
+- docs: notes rework + config refresh — `.vc-config.toml`
+  (both sides) adopts init's generated optional-keys block;
+  jj-tips.md re-syncs with the template (reclassified as
+  pedagogy, not history); template-restructure design
+  promoted to a Todo with `.bot` / symmetric-schema
+  decisions folded into the refactor program; new Idea:
+  chores retire into a session index; bot repo seeded with
+  LICENSE-* / README.md from vc-x1-bot-repo-template [[128]]
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -297,3 +321,6 @@ As TODO.md `## Done` sections fills move them to here.
 [123]: /notes/chores/chores-13.md#docs-move-todomd-to-root-todomd
 [124]: /notes/chores/chores-13.md#docs-shared-protocol-sync--jj-refactor-plan
 [125]: /notes/chores/chores-13.md#feat-config-discoverability--scalar-hierarchy
+[126]: /notes/chores/chores-14.md#refactor-dry-jj-facade
+[127]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
+[128]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh

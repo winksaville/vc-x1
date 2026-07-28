@@ -6,22 +6,18 @@
 //! verify trB's `main` moved to the pushed head. Raw `jj` is used
 //! only to inspect results, never to mutate.
 //!
-//! Two init/clone incompatibilities are worked around inline (both
-//! recorded in `notes/bugs.md`):
-//!
-//! - init's local bare remotes leave HEAD at `refs/heads/master`
-//!   while the pushed branch is `main`, so a later `jj git clone`
-//!   has no default branch to auto-track and `vc-x1 clone` errors
-//!   → point HEAD at `main` with `git symbolic-ref`.
-//! - init names the bot remote `remote-bot.git`, but clone
-//!   derives `<work-source-stem>.claude.git` → symlink
-//!   `remote-work.claude.git` → `remote-bot.git`.
+//! The two init/clone incompatibilities this test used to work
+//! around inline (bugs.md #1 and #2) were fixed at 0.76.0-5:
+//! init's local bares are created with `--initial-branch=main`,
+//! and its bot bare is `derive_bot_url` of the work bare, so
+//! init's naming and clone's derivation agree. A relative
+//! local-path TARGET now resolves on both sides too, so the
+//! absolute-path requirement is gone.
 
 mod common;
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use common::{CliFixture, cid, run_err, run_ok};
 
@@ -45,32 +41,6 @@ fn test_path() -> String {
 
 /// Write a minimal jj user config under the fixture's isolated HOME
 /// so jj invocations spawned inside `vc-x1` have an identity.
-fn write_jj_config(home: &Path) {
-    let dir = home.join(".config/jj");
-    fs::create_dir_all(&dir).expect("mkdir jj config dir");
-    fs::write(
-        dir.join("config.toml"),
-        "[user]\nname = \"cli-test\"\nemail = \"cli-test@example.com\"\n",
-    )
-    .expect("write jj config");
-}
-
-/// Point a bare remote's HEAD at `main` (init leaves it at
-/// `refs/heads/master` — see module docs).
-fn set_head_main(bare: &Path) {
-    let out = Command::new("git")
-        .args(["symbolic-ref", "HEAD", "refs/heads/main"])
-        .current_dir(bare)
-        .output()
-        .expect("spawn git symbolic-ref");
-    assert!(
-        out.status.success(),
-        "git symbolic-ref failed in {}: {}",
-        bare.display(),
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 /// Fixture state after the shared peer-push setup: two clones of
 /// one init'ed project, with trA's pushed head recorded.
 struct PeerPush {
@@ -89,7 +59,6 @@ struct PeerPush {
 /// test for push's internal `vc-x1` calls.
 fn setup_peer_push(tag: &str) -> PeerPush {
     let fx = CliFixture::new(tag);
-    write_jj_config(&fx.home);
 
     // vc-x1 init ./tr --repo local=<base>
     run_ok(
@@ -100,17 +69,11 @@ fn setup_peer_push(tag: &str) -> PeerPush {
             .arg(format!("local={}", fx.base.display())),
     );
 
-    // Workarounds — see module docs.
-    set_head_main(&fx.path("remote-work.git"));
-    set_head_main(&fx.path("remote-bot.git"));
-    std::os::unix::fs::symlink(fx.path("remote-bot.git"), fx.path("remote-work.claude.git"))
-        .expect("symlink bot remote");
-
     // vc-x1 clone <work-remote> trB / trA (B first, so its
-    // main@origin is the pre-push head). Absolute source path —
-    // the derived bot-repo source is resolved from the clone's
-    // target dir, so a relative path would not resolve.
-    let work_remote = fx.path("remote-work.git");
+    // main@origin is the pre-push head). A relative source
+    // exercises the bugs.md #2 fix — both sides resolve it
+    // against the invoking cwd.
+    let work_remote = PathBuf::from("./remote-work.git");
     for name in ["trB", "trA"] {
         run_ok(
             fx.cmd()

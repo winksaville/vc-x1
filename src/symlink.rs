@@ -234,13 +234,15 @@ pub fn install(project_dir: &Path) -> Result<SymLink, Box<dyn std::error::Error>
     Ok(sl)
 }
 
-/// Default symlink target: the workspace config's bot dir name,
-/// falling back to `.claude` when the config doesn't resolve
-/// (e.g. mid-init before both sides exist).
+/// Default symlink target: the workspace config's bot dir name —
+/// honoring a legacy-schema declaration (the clone
+/// backward-compat path) — falling back to `.claude` when no
+/// config resolves (e.g. mid-init before both sides exist).
 fn default_bot_target(project_dir: &Path) -> PathBuf {
     crate::common::configured_bot_dir(project_dir)
         .ok()
         .flatten()
+        .or_else(|| crate::legacy_vc_config::configured_bot_dir(project_dir))
         .and_then(|p| p.file_name().map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from(".claude"))
 }
@@ -249,7 +251,7 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
 
 #[derive(Args, Debug)]
 pub struct SymlinkArgs {
-    /// Directory to link to [default: from workspace.bot, else .claude]
+    /// Directory to link to [default: from repos.bot, else .claude]
     #[arg(value_name = "TARGET")]
     pub target: Option<String>,
 

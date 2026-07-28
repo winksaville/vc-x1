@@ -148,15 +148,14 @@
     `colocate`, `cross-ref`, `symlink`, …); indent labels
     under per-side `code:` / `bot:` headers in dual.
     Originally planned as 0.41.1-6.7; deferred.
-20. Consider renaming the `.vc-config.toml` `[workspace]`
-    section. Rust readers expect `[workspace]` to mean a
-    Cargo workspace, which a vc-x1 dual-repo isn't.
-    Candidates: `[repo-list]`, `[project]`, `[dual-repo]`.
-    Breaking change — needs migration story (read both
-    names during a transition cycle, or one-shot rewrite
-    in `vc-x1 sync`/`init` on first contact). Drives the
-    broader "stop saying workspace in user-facing surfaces"
-    sweep.
+20. "Stop saying workspace in user-facing surfaces" sweep.
+    The `[workspace]` → `[repos]` rename itself shipped in
+    the 0.76.0 repo-registry cycle (legacy schemas hard-
+    reject with a fix-it; `src/legacy_vc_config.rs` holds
+    the compat surface until the repo migration sweep);
+    what remains of the original entry is the broader
+    wording sweep — prose, help text, and identifiers
+    still say "workspace" for the dual-repo project root.
 21. Add `status` (alias `st`) subcommand: `jj st` across both
     repos in one shot. Uses `--scope` from day one. This is
     natural home for the working-copy signal called out and

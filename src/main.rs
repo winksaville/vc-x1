@@ -12,6 +12,7 @@ mod fix_desc;
 mod fix_todo;
 mod init;
 mod jj;
+mod legacy_vc_config;
 mod list;
 mod logging;
 mod options_flags;
