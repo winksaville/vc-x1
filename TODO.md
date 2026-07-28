@@ -48,7 +48,8 @@ rebased.
 - [[1]] 0.73.0 refactor: DRY jj facade (done)
 - [[2]] 0.74.0 refactor: hygiene riders (done)
 - [[3]] 0.75.0 refactor: facade owns topology (done)
-- [[N]] 0.76.0 refactor: repo registry (done)
+- [[9]] 0.76.0 refactor: repo registry (done) — first
+  trapezoid published by the four-step recipe
 - [[N]] 0.77.0 refactor: split push.rs + stateless push
   (Todo #1)
 - [[N]] 0.78.0 refactor: jj-lib migration (Todo #2)
@@ -466,6 +467,15 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- docs: trapezoid close-out recipe — the four steps that
+  publish a trapezoid close-out consolidated into one
+  definitive procedure in cycle-protocol.md (base rule,
+  the two-parent verification, the sideways-move backfill
+  embargo, recovery), with the refactor stage keeping only
+  implementation deltas and README waiting for the flag;
+  vocabulary collapsed to "trapezoid"; chores-15 opened
+  [[10]]
+
 - refactor: repo registry — `.vc-config.toml`'s `[workspace]`
   block becomes a `[repos]` registry: ordinary file-relative
   (or absolute) paths, side detection by self-resolution,
@@ -513,3 +523,5 @@ cycle and its two docs interludes: template repo names, notes rework)._
 [6]: /notes/chores/chores-14.md#refactor-facade-owns-topology
 [7]: /notes/chores/chores-14.md#refactor-hygiene-riders
 [8]: /notes/chores/chores-14.md#refactor-repo-registry
+[9]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
+[10]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe

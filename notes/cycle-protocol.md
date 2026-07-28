@@ -95,7 +95,7 @@ squash rewrites it on the way. So:
   invalidate.
 
 Use `[[N]]` refs — several as `[[N]],[[M]]` only when one
-section records multiple commits (a merge non-ff close-out) —
+section records multiple commits (a push that publishes several) —
 with the commit URL + 40-hex SHA in the file's `# References`
 (format in AGENTS.md
 [Chores commit references](../AGENTS.md#chores-commit-references)).
@@ -383,47 +383,109 @@ needs approval), so choose deliberately.
 - **Squash to one commit** — single entry on the target.
   Right for straightforward changes where the Work-N is
   focused on one or two files.
-- **Merge non-ff** *(current default)* — `main` gains a
-  merge commit (`X.Y.Z`); cycle commits stay reachable via
-  two parents. `jj log -r ..@ -n <N>` shows the trapezoidal
-  shape. See [Merge non-ff recipe](#merge-non-ff-recipe)
-  for the full setup sequence.
+- **Trapezoid** (a `git merge --no-ff` merge commit)
+  *(current default)* — the target gains a merge commit
+  (`X.Y.Z`) whose first parent is the trunk line and whose
+  second parent is the cycle's ladder, so
+  `git log --first-parent` reads one commit per cycle while
+  every rung stays reachable. See
+  [Trapezoid close-out recipe](#trapezoid-close-out-recipe)
+  for the full sequence.
 - **Keep separate** — one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
   `Commits:` ref; no consolidation churn.
 
-Set up squash/merge before invoking `vc-x1 push`; use
-`jj git push` directly for non-standard shapes.
+A squash is set up before invoking `vc-x1 push`; a trapezoid
+is reshaped between two pushes (the recipe below). For any
+other shape, drive `jj git push` directly.
 
-### Merge non-ff recipe
+### Trapezoid close-out recipe
 
-Setting up a [Merge non-ff](#shape-at-close-out-push)
-close-out is a fixed sequence. `<closeout>` is the cycle's
-close-out commit, `<prev>` the previous cycle's close-out
-(the current `main` tip), `<work-tip>` the cycle's last
-Work commit:
+A [trapezoid](#shape-at-close-out-push) close-out is
+published in four steps: an ordinary close-out push, a
+two-command reshape, and a second push that re-points the
+bookmark at the reshaped commit.
 
-1. **Rebase the close-out into a merge** — `jj rebase -r
-   <closeout> --onto <prev> --onto <work-tip>`.
-   - `-r <closeout>` keeps the `<closeout>` commit in place.
-   - `--onto <prev>` becomes its first parent (trunk).
-   - `--onto <work-tip>` becomes the second parent.
+```
+  main line   …──<base>──────────────────<closeout>──
+                    \                    /
+  ladder             <rung-1>──…──<tip>─┘
+```
 
-   Together these make `<closeout>` a merge of
-   `<prev>` + `<work-tip>`, forming a trapezoidal commit.
-2. **Use `jj new <merge>`** to add an empty `@` above the
-   merge. The rebase left `@` *on* the now-content-bearing
-   merge, which git/IDE diff views show as uncommitted;
-   `jj new` restores the clean empty `@` on top.
-3. **Push** — `jj git push --bookmark main -R .`.
+- `<base>` — the **parent of the ladder's first rung**, which
+  is the trunk position when the cycle opened. It becomes the
+  first parent.
+- `<tip>` — the cycle's last Work commit. It becomes the
+  second parent.
+- `<closeout>` — the close-out commit, created by step 1.
 
-**Post-hoc caveat.** If the cycle was already pushed
-[Keep separate](#shape-at-close-out-push) its commits are
-immutable: the rebase needs `--ignore-immutable` and the
-push force-updates `main`.
-The standard sequence assumes the merge is set up *before*
-the close-out push.
+The steps, with this project's `vc-x1` binding first and the
+underlying jj beneath it:
+
+1. `vc-x1 push <bookmark> --title "…" --body "…"` — the
+   ordinary close-out push. It commits both repos, stamps the
+   `ochid:` trailers, and publishes `<closeout>` linearly.
+2. `jj rebase -r <closeout> --onto <base> --onto <tip>` —
+   `<closeout>` becomes the merge. Parent order is the
+   argument order.
+3. `jj new <closeout>` — puts an empty `@` above the merge.
+4. `vc-x1 push <bookmark> --from bookmark-set
+   --no-squash-push` — advances the bookmark to the reshaped
+   `@-` and publishes it, leaving the bot repo to a separate
+   `vc-x1 squash-push`.
+
+Steps 2–4 are `jj bookmark set <bookmark> -r <closeout>` +
+`jj git push --bookmark <bookmark> -R .` for a project
+without vc-x1; the jj half is the portable part.
+
+#### Details
+
+- **Verify two parents before step 4.** `jj log -r <closeout>
+  -T 'parents.map(|p| p.change_id().short(8))'` must list
+  both. jj preserves the second parent even though `<base>`
+  is an ancestor of `<tip>` (observed at `0.74.0`, `0.75.0`,
+  `0.76.0`), but a collapsed merge is indistinguishable from
+  a correct one in `jj log --no-graph` and is only visible
+  once published.
+- **`<base>` is not always the previous close-out.** A docs
+  or planning interlude between cycles sits on the trunk line
+  and must stay there; take the parent of the ladder's first
+  rung, not the last close-out.
+- **Step 3 is load-bearing.** `jj rebase -r` re-parents
+  descendants onto the rebased commit's **old** parent, so
+  the empty `@` left by step 1 ends up beside the merge, not
+  on it — and `bookmark-set` resolves `@-`. Skipping step 3
+  advances the bookmark to the wrong revision.
+- **Trailers survive.** The reshape changes `<closeout>`'s
+  SHA but not its change ID, so the `ochid:` trailers stamped
+  in step 1 stay valid in both directions. This is why the
+  reshape is safe after the trailers are written.
+- **Step 4 moves the bookmark sideways.** Step 1's SHA
+  becomes unreachable; anyone who fetched between the two
+  pushes holds a dangling commit. Consequently a
+  [`Commits:` backfill](#commits-backfill) must never read a
+  SHA from that window — wait until step 4 lands.
+- **Immutability.** No flag is needed on a long-lived topic
+  bookmark. Only when `<closeout>` is already on `trunk()`
+  does the rebase need `--ignore-immutable`, and then the
+  push force-updates the target.
+- **Step 4 needs the bookmark named.** A completed push
+  clears its state file, so pass `<bookmark>` positionally
+  rather than relying on a resume.
+
+#### Recovery
+
+- **Nothing is published between steps 2 and 3** — the local
+  reshape is undoable with `jj undo` / `jj op restore`.
+- **A collapsed or mis-parented merge** (step 2 verification
+  fails): undo and redo step 2 with the corrected revisions.
+  Do not push a shape you did not intend — after step 4 the
+  remote boundary is crossed and recovery is forward-only.
+- **Bookmark advanced to the wrong revision** (step 3
+  skipped): `jj bookmark set <bookmark> -r <closeout>` before
+  pushing. If step 4 already pushed it, the fix is a second
+  sideways move, not a rewrite.
 
 ### vc-x1 push wrapper
 

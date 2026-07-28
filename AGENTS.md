@@ -232,8 +232,10 @@ How many, and which direction:
 - **Work-repo commits** each carry one
   `ochid: /.claude/<bot-chid>` — the bot repo's change ID.
 - **The bot-repo commit** carries one `ochid: /<work-chid>` per
-  work-repo commit in that push. More than one occurs on a Merge
-  non-ff close-out (one ochid per Work commit in the cycle).
+  work-repo commit in that push — the count is per *push*, not
+  per cycle. A trapezoid close-out whose rungs were pushed 1:1
+  as they landed still carries exactly one; more than one occurs
+  when a single push publishes several work-repo commits.
 
 Use `vc-x1 chid -s work,bot -L` to capture the change IDs (first
 line work repo, second bot repo).

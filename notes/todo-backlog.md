@@ -20,36 +20,7 @@
    N:1 / `--squash` / `--merge` work — together they make
    push handle all close-out shapes with arbitrary
    bookmark layouts.
-2. **Trapezoidal-merge diagram in `notes/README.md`.**
-   Drawing (ASCII or other) of the trapezoidal merge
-   shape: close-out commit with two parents — `<prev>` on
-   the main line, `<sub-tip>` on the cycle chain.
-   `notes/cycle-protocol.md > ## Pushing > ### Shape at
-   close-out push > Merge non-ff` bullet should reference
-   it.
-3. **vc-x1 push: `--merge` flag (close-out shape).** Teach
-   push to set up the non-FF merge ("trapezoid") shape
-   itself instead of requiring the user to pre-rebase
-   before invoking push. Sibling to `--squash` (#23);
-   both are close-out shape choices made at push time.
-   Dogfooded manually in `0.56.0`. [[1]]
-   - Preparation (`-0`): open chores section; settle flag
-     surface (`--merge` mutually exclusive with `--squash`
-     / `--keep`?) and preflight checks (cycle tip is
-     descendant of `<prev>`, not already a merge, sub-tip
-     reachable from current bookmark, etc.).
-   - Work-1 (`-1`): parse the flag through `PushArgs` →
-     `PushParams`; reject mutually-exclusive combinations.
-   - Work-2 (`-2`): implement the rebase setup inside
-     push's state machine — locate `<tip>` and
-     `<sub-tip>`, run the equivalent of `jj rebase -r
-     <tip> -d <prev> -d <sub-tip>`; ensure the `.claude`
-     commit emits a multi-line `ochid:` covering every
-     sub-step in the merge.
-   - Work-3 (`-3`): tests + dogfood on a real cycle.
-   - Close-out: finalize chores; `## Done` entry; AGENTS.md
-     `### Pushing` text updated to describe the flag.
-4. **Investigate `linkme` for subcommand registration.**
+2. **Investigate `linkme` for subcommand registration.**
    Distributed-slice registry — each subcommand registers itself
    at link time; `main.rs` discovers them via the slice rather
    than matching a `Commands` enum. Reduces per-subcommand
@@ -60,13 +31,13 @@
    Revisit once the `0.50.0` trait sweep's per-arm cost has been
    felt under real "add a subcommand" load.
    <https://github.com/dtolnay/linkme>
-5. **Investigate `inventory` as `linkme` alternative.** Same
+3. **Investigate `inventory` as `linkme` alternative.** Same
    shape as `linkme` — runtime-iterable registry populated by
    `inventory::submit!` per subcommand. Trade-offs mirror
    linkme's. Pick one if/when the trait sweep's match becomes
    the felt bottleneck.
    <https://github.com/dtolnay/inventory>
-6. **forks-multi-user + bot-data-formats follow-through.**
+4. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
    multi-line `ochid:` parser/emitter; bot-side
@@ -78,77 +49,77 @@
    facade-owns-topology stage, config knob included.)
    Each piece is its own future TODO when the design
    hardens. [[2]],[[3]]
-7. **`test_helpers::Fixture` migration + downstream callers.**
+5. **`test_helpers::Fixture` migration + downstream callers.**
    Plus rename `Fixture` → `TestFixtureDual` and `FixturePor`
    → `TestFixturePor` so call sites carry the test-only
    signal that `#[cfg(test)] mod test_helpers` doesn't
    communicate. Was `0.41.1-7`. [[5]]
-8. **`vc-x1 finalize --scope` flag.** Replace `--repo`
+6. **`vc-x1 finalize --scope` flag.** Replace `--repo`
    with the role vocabulary used elsewhere
    (`work|bot|work,bot`). Carry-over from the 0.42.0
    `--scope` sweep (was 0.42.0-5; deferred at -4.7
    close-out). The paired `Single(_)` dogfood item
    (0.42.0-7) is moot after `0.53.0` — `Single(_)`
    deleted. Design lives in chores-07. [[6]]
-9. Cross-file `chores-NN.md` ordering sanity pass.
+7. Cross-file `chores-NN.md` ordering sanity pass.
    `chores-08.md` (the 0.41.1 cycle) landed on `main` via
    the `0.42.0-4.7` rebase; check that section ordering
    across `chores-06`/`-07`/`-08`/`-09` is chronologically
    coherent and normalize if not. Low priority.
-10. Add a vc-x1 validate-repo?
-11. vc-x1 push: rework the two bookmark parameters.
-    `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
-    `bookmark` (`--bookmark` flag) for one logical value,
-    forcing an `or_else` in `From<&PushArgs>`. Collapse to a
-    single positional with `--bookmark` as a true clap alias,
-    or drop one spelling. [[7]]
-12. vc-x1 push: `--recheck` — implement or remove. Parsed by
+8. Add a vc-x1 validate-repo?
+9. vc-x1 push: rework the two bookmark parameters.
+   `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
+   `bookmark` (`--bookmark` flag) for one logical value,
+   forcing an `or_else` in `From<&PushArgs>`. Collapse to a
+   single positional with `--bookmark` as a true clap alias,
+   or drop one spelling. [[7]]
+10. vc-x1 push: `--recheck` — implement or remove. Parsed by
     `PushArgs`, never read; mirrored into `PushParams` with
     `#[allow(dead_code)]`. Either wire the
     skip-preflight-on-resume behavior or drop the flag. [[8]]
-13. vc-x1 push: `--scope=work|bot|work,bot` flag.
+11. vc-x1 push: `--scope=work|bot|work,bot` flag.
     Was 0.42.0-4 (deferred when cycle pivoted to icr
     rebase work; cycle closed at -4.7). State machine
     becomes scope-aware — single-side scope skips
     `commit-claude`/bookmark-claude/`finalize-claude`.
     [[9]],[[10]],[[11]],[[12]]
-14. vc-x1 clone: `--scope=work|bot|work,bot` flag.
+12. vc-x1 clone: `--scope=work|bot|work,bot` flag.
     Parallel to `init --scope` for role selection;
     topology (`--por` vs dual) is the separate `--por`
     boolean. Was 0.42.0-6 (deferred at -4.7
     close-out). [[10]],[[11]],[[12]]
-15. vc-x1 validate-desc / fix-desc:
+13. vc-x1 validate-desc / fix-desc:
     `--scope=work|bot|work,bot` flag. Same role vocabulary
     as elsewhere — `work` validates the work repo's commits against
     bot, `bot` reverses, `work,bot` does both (new
     default). [[10]],[[11]],[[12]]
-16. Unify `.vc-config.toml` accessors onto Pattern B
+14. Unify `.vc-config.toml` accessors onto Pattern B
     (typed struct + `load_from(path)`, like new
     `config::UserConfig` and `push::resolve_state_layout`).
     Replaces the map-typed helpers in `desc_helpers.rs` /
     `fix_desc.rs` / `validate_desc.rs` with a typed
     `WorkspaceConfig` struct. ~50 LOC, mechanical.
     Candidate for 0.41.2. [[13]]
-17. Layered config precedence (user → workspace → CLI)
+15. Layered config precedence (user → workspace → CLI)
     once `WorkspaceConfig` is typed. Workspace can
     override `[github].owner` etc. for a specific project;
     init can't use the layer (chicken-and-egg) but
     post-init commands can. Depends on the
     `WorkspaceConfig` typed-struct refactor above.
     Candidate for 0.41.2. [[13]]
-18. Help layout: force over-under everywhere. Apply
+16. Help layout: force over-under everywhere. Apply
     `next_line_help(true)` at the root (or via the existing
     `cli_with_banner` walker) so every subcommand's `-h` /
     `--help` uses the same layout. Today clap auto-picks
     per-command based on the widest flag spec, so
     `sync -h` is two-column but `init -h` is over-under —
     visual inconsistency.
-19. Replace "Step N" log prefixes with single-word
+17. Replace "Step N" log prefixes with single-word
     `label: body` convention (`bookmark`, `provision`,
     `colocate`, `cross-ref`, `symlink`, …); indent labels
     under per-side `code:` / `bot:` headers in dual.
     Originally planned as 0.41.1-6.7; deferred.
-20. "Stop saying workspace in user-facing surfaces" sweep.
+18. "Stop saying workspace in user-facing surfaces" sweep.
     The `[workspace]` → `[repos]` rename itself shipped in
     the 0.76.0 repo-registry cycle (legacy schemas hard-
     reject with a fix-it; `src/legacy_vc_config.rs` holds
@@ -156,25 +127,25 @@
     what remains of the original entry is the broader
     wording sweep — prose, help text, and identifiers
     still say "workspace" for the dual-repo project root.
-21. Add `status` (alias `st`) subcommand: `jj st` across both
+19. Add `status` (alias `st`) subcommand: `jj st` across both
     repos in one shot. Uses `--scope` from day one. This is
     natural home for the working-copy signal called out and
     it needs to include remotes, like remotes/origin/main. [[14]].
-22. `vc-x1 init --dry-run` should bypass the
+20. `vc-x1 init --dry-run` should bypass the
     `--repo-remote` path-existence preflight (currently fires
     before the dry-run early-return; observed dogfooding
     2026-04-24).
-23. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
+21. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
     `--ignore-immutable` and force-pushes; needs
     `--force-with-lease`-equivalent + state-sanity preflight in
     place first. [[9]]
-24. vc-x1 push: `--message-file PATH` flag. Git-style commit
+22. vc-x1 push: `--message-file PATH` flag. Git-style commit
     message file (first line = title, blank, rest = body).
     Alternative to `--title` + `--body`. [[15]]
-25. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
+23. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
     through to the preflight `vc-x1 sync` invocation).
     0.37.1 hard-codes `--check`; default stays `--check`.
-26. Add `validate-repo` subcommand: diagnostic that runs all
+24. Add `validate-repo` subcommand: diagnostic that runs all
     `verify_*` checks (tracking, push state freshness, ochid
     integrity, conflicts, config sanity, working-copy state)
     plus chores↔commit consistency — every `[N]:` anchor
@@ -183,30 +154,30 @@
     per-check pass/fail. Exit code = number of failed checks.
     Implementation: promote `verify_state_sanity` /
     `verify_completion_sanity` from push.rs to `common.rs`. [[16]]
-27. sync: surface working-copy state in the up-to-date summary
+25. sync: surface working-copy state in the up-to-date summary
     (per-repo pending-files count or compact stat). Wording-only
     fix shipped in 0.37.1; this is the design+impl. [[14]]
-28. bm-track silent-when-clean refinement. Print on entry/exit
+26. bm-track silent-when-clean refinement. Print on entry/exit
     only when state isn't fully tracked or when exit state
     differs from entry. [[17]]
-29. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
+27. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
     anchor dir. Idea-stage; every repo-mutating command drops a
     pre-op snapshot, `vc-x1 undo` restores both repos. [[9]]
-30. Source-code design ref sweep + AGENTS.md codification:
+28. Source-code design ref sweep + AGENTS.md codification:
     adopt section-name + `blob/main/...` URL pattern for source
     code refs to designs; codify in AGENTS.md alongside the
     existing markdown ref conventions. Sweep targets:
     src/push.rs lines 4, 121, 645, 1219. [[18]]
-31. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[19]]
-32. Per-line/per-thread runtime log points (future, maybe) [[20]]
-33. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [[21]]
-34. Add "::" revision syntax for jj compatibility
-35. Add -p, --parents, -c, --children so parent and child counts can be asymmetric
-36. Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
-37. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [[22]],[[23]]
-38. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [[24]]
-39. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [[25]],[[26]]
-40. Test-tempdir override resolution chain. Both
+29. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[19]]
+30. Per-line/per-thread runtime log points (future, maybe) [[20]]
+31. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [[21]]
+32. Add "::" revision syntax for jj compatibility
+33. Add -p, --parents, -c, --children so parent and child counts can be asymmetric
+34. Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
+35. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [[22]],[[23]]
+36. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [[24]]
+37. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [[25]],[[26]]
+38. Test-tempdir override resolution chain. Both
     `src/test_helpers::unique_base` and
     `tests/common/unique_base` currently use
     `std::env::temp_dir()` (= `$TMPDIR`). Generalize to
@@ -222,12 +193,12 @@
     env is the realistic surface for tests; for the
     `vc-x1` binary itself a flag is feasible but unclear
     it adds value over the resolution chain.
-41. **`validate-todo` / `fix-todo`: flag malformed lines.**
+39. **`validate-todo` / `fix-todo`: flag malformed lines.**
     A column-0 line inside `## Todo` / `## Bugs` that is
     neither an entry (`N. `) nor a heading is malformed;
     it's currently tolerated silently. Report it so stray
     lines / typos surface.
-42. **`vc-x1` version-string ref resolution.** Today version
+40. **`vc-x1` version-string ref resolution.** Today version
     strings (`0.58.0`, `0.58.0-3`) live in commit titles and
     `Cargo.toml` but aren't git refs, so
     `git diff 0.58.0^1 0.58.0` fails with "ambiguous
@@ -249,7 +220,7 @@
     revsets to chids). Separate gap on the jj side: no clean
     first-parent revset operator in jj 0.40 — equivalent
     today is `jj diff --from <fp-chid> --to <merge-chid>`.
-43. **`vc-x1 push --squash`: symmetric squash on both repos.**
+41. **`vc-x1 push --squash`: symmetric squash on both repos.**
     Automate Option F (manually exercised in the 0.59.0
     close-out [[27]]): app-side squash + bot-side description
     rewrite + force-push, atomically. Demoted from `## Todo`
@@ -270,7 +241,7 @@
       push receives `ochid: /<squashed-chid>` as normal — K
       prior bot records plus the new one gives (K+1):1
       bot→code (2:1 in the 0.59.0 case).
-44. **`vc-x1 clone`: graceful single-repo fallback when no
+42. **`vc-x1 clone`: graceful single-repo fallback when no
     companion `.claude` remote.** Default dual clone errors
     mid-way when `<source>.claude` doesn't exist; `--por` is
     the workaround (works, but you must know to pass it).
@@ -286,7 +257,7 @@
       companion exists.
     - Integration-testable offline via path-form sources
       (code bare repo present, no `.claude` bare repo).
-45. **Sketch cross-repo ochid migration in
+43. **Sketch cross-repo ochid migration in
     cycle-protocol.md.** Remnant of the retired Ideas entry
     "Codify ochid invariant + bot-repo rules + squash gating
     + cross-repo migration" (rest folded into the 0.72.0
@@ -294,7 +265,7 @@
     multi-contributor flow, ochids change at every merge
     until the change reaches the canonical repo's `main` —
     document the migration story.
-46. **Refactor stage: por → dual conversion.** Attach a bot
+44. **Refactor stage: por → dual conversion.** Attach a bot
     companion + `.vc-config.toml` to an existing por
     workspace as a routine subcommand; see
     [the stage](refactor-20260716.md#stage-por--dual-conversion).
@@ -303,7 +274,6 @@
 
 # References
 
-[1]: /notes/chores/chores-11.md#docs-refine-cycle-protocol-0560
 [2]: /notes/forks-multi-user.md
 [3]: /notes/bot-data-formats.md
 [5]: /notes/chores/chores-08.md#cycle-structure--multi-step

@@ -7,6 +7,9 @@ the jj refactor program
 `0.73.0` onward, worked on the `refactor-vc-x1` bookmark
 while `main` parks at the `0.71.0` tip.
 
+Closed at `0.76.0` (the repo-registry close-out); continued in
+[`chores-15.md`](chores-15.md).
+
 Reference numbering is file-local — see
 [`AGENTS.md`](../../AGENTS.md#reference-numbering); chores-14
 starts at `[1]`.
@@ -727,7 +730,7 @@ open (2026-07-24):
   - consequence worth knowing — where the identity check
     happens moved, and it caught a latent defect. See
     [Identity enforcement: git commits, jj pushes](#identity-enforcement-git-commits-jj-pushes)
-- [[N]] 0.76.0 refactor: repo registry — close-out
+- [[27]] 0.76.0 refactor: repo registry — close-out
   - `## In Progress`: the cycle's `####` block retires to the
     no-cycle marker while the program `###` block and its
     ladder stay (0.76.0 flipped `(done)`); decided this
@@ -741,6 +744,13 @@ open (2026-07-24):
   - this section's `### Outcome`; refactor-20260716.md's
     repo-registry and de-gitify-init stages marked shipped
   - version 0.76.0
+  - published as a **trapezoid** — the first to use the
+    four-step procedure end to end, which is what exposed the
+    gaps the `0.76.1` interlude then consolidated
+    ([recipe](../cycle-protocol.md#trapezoid-close-out-recipe)).
+    Base was the `0.75.1` docs interlude, not the `0.75.0`
+    close-out; the reshape rewrote the SHA published by step 1
+    (`af931b81` → `71611891`), leaving the former unreachable
 
 ### Identity enforcement: git commits, jj pushes
 
@@ -842,3 +852,4 @@ text are the authoritative statement.
 [24]: https://github.com/winksaville/vc-x1/commit/669e9fbb7fb8 "669e9fbb7fb816c3c584fa6f525128ee7ebb63bd"
 [25]: https://github.com/winksaville/vc-x1/commit/5f850365903e "5f850365903e04f342bf9065449181690308f00c"
 [26]: https://github.com/winksaville/vc-x1/commit/c9250617c7c6 "c9250617c7c6585dc09dd31767b6cdd59f746834"
+[27]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
