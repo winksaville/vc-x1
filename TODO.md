@@ -79,10 +79,11 @@ below:
   [detail](#0770-0-chore-open-stateless-push-cycle)
 - [[7]] 0.77.0-1 refactor: extract push/state.rs (done)
   [detail](#0770-1-refactor-extract-pushstaters)
-- [[N]] 0.77.0-2 fix: push skips an empty work commit (done)
+- [[8]] 0.77.0-2 fix: push skips an empty work commit (done)
   [detail](#0770-2-fix-push-skips-an-empty-work-commit)
-- [[N]] 0.77.0-3 feat: push resume from repo reality
-- [[N]] 0.77.0-4 refactor: retire the push state file
+- [[N]] 0.77.0-3 refactor: drop push state and preflight
+  (current)
+  [detail](#0770-3-refactor-drop-push-state-and-preflight)
 - [[N]] 0.77.0 refactor: stateless push — close-out,
   published by the four-step recipe with its new step 4
 
@@ -191,6 +192,73 @@ no section for this cycle until close-out).
   back into this block and its two now-orphaned commit refs
   were pruned there, since TODO.md already carries them
 
+##### 0.77.0-3 refactor: drop push state and preflight
+
+Rungs -3 and -4 collapsed into one after the 2026-07-28
+design conversation went further than the ladder assumed. A
+first attempt at -3 derived the resume point from the repos
+instead of the state file; that work is superseded here and
+was never committed.
+
+The premise: **resume is not recoverable in general.** A
+recorded position describes a world we may no longer
+understand, and we cannot know why a run failed. If something
+goes wrong, push stops and the user and bot put the repos
+right — that is not vc-x1's job and cannot be. What vc-x1
+owes them is that *rerunning is always safe*, which is a
+property of each stage, not of a record.
+
+- **State file gone**, with `PushState`, `StateLayout` /
+  `resolve_state_layout`, `STATE_FORMAT_VERSION`, the escape
+  helpers, `src/push/state.rs`, the `[push]` `state-dir` /
+  `state-file` config keys, and the `.gitignore` coherence
+  check that existed only to keep the file out of commits.
+  `--restart` / `--from` / `--status` go with it — all three
+  are resume machinery.
+- **Per-stage guards instead of a start point.** Each stage
+  checks its own precondition and no-ops when its work is
+  already done, so a rerun after any failure is just a run.
+  `commit-work` already skips an empty `@` (-2);
+  `bookmark-set` is a set; `push-work` needs no guard of its
+  own — jj's push reports nothing to do when the bookmark is
+  already published — and instead picks up preflight's
+  tracking check, which is its real precondition;
+  `squash-push-bot` skips an empty `@`; `message` doesn't
+  demand a title when neither side will commit. This
+  subsumes the derived-start-point idea: nothing needs to
+  decide *where* to begin.
+- **Preflight dropped entirely.** Its three checks were
+  vc-x1's own preconditions, not project checks (the Rust
+  cargo cycle was always outside vc-x1). Bookmark tracking
+  moves to `push-work`, which is what needs it; `sync
+  --check` goes — it was the expensive one, it re-invoked
+  `current_exe()` as a subprocess, and that self-spawn is
+  why the integration tests needed `--from message` to skip
+  the stage at all. Dropping it takes the workaround with
+  it.
+- **The bot-published invariant goes too**, after being
+  argued down twice: jj's op log means local content isn't
+  lost, and a bot repo that hasn't been squash-pushed yet is
+  not a broken state — it's an unfinished errand with no
+  deadline, and it self-heals on the next push. What we
+  accept is a window where a published work trailer names a
+  bot commit no fresh clone can resolve; that only matters
+  to a third party, and that world is
+  [forks-multi-user](notes/forks-multi-user.md)'s to solve.
+- **The in-process `jj op` rollback stays.** Persisted state
+  is a guess; a snapshot taken moments earlier in the same
+  process is not. It is what makes a failure before the
+  remote boundary cost nothing — both of the -0 push's
+  index-lock failures rolled back clean.
+- `squash-push` stays repo-agnostic. It knows there is a
+  repo and a bookmark, not whether it is the bot side, and
+  it should not consult `.vc-config.toml` to find out. Its
+  exists-and-tracked check stays, for a reason unrelated to
+  topology: `jj bookmark set` creates rather than errors and
+  `jj git push` publishes a new bookmark without ceremony
+  (confirmed at 0.76.0-5), so a typo'd name would create a
+  branch on origin instead of failing.
+
 ## Todo
 
  Entries are in **strict priority rank** — #1 highest,
@@ -290,7 +358,30 @@ no section for this cycle until close-out).
      state file).
    - Cheap now, expensive later: few workspaces depend on it
      today.
-5. **Restructure templates: single template repo + fixed bot
+5. **`squash-push --title` / `--body`.** `squash-push` amends
+   content only — it folds the working copy into the last
+   commit and force-updates the remote, but the commit keeps
+   its existing message. Fixing a published commit's *message*
+   is therefore two steps (`jj describe -r @-`, then
+   `squash-push`). Accepting `--title` / `--body` makes it
+   one.
+   - No new risk: squash-push already rewrites a published
+     commit and force-updates the remote. This only changes
+     which part of the commit it edits.
+   - **ochid handling — tell, don't force.** A user-supplied
+     body drops the `ochid:` trailer unless it repeats it,
+     which silently breaks the cross-repo link. vc-x1 should
+     *not* inject the trailer (unlike `push`, which authors
+     the message and stamps it; here the user authors it and
+     the tool shouldn't rewrite their text). It should error
+     when the new message loses a trailer the commit had,
+     naming what would be lost — with an explicit override
+     flag for the case where dropping it is intended.
+   - The content-side guard is the precedent: squash-push
+     already refuses a squash that would drop source-only
+     trailers (the 0.65.1 ochid-loss incident). Same check,
+     new input.
+6. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -318,7 +409,7 @@ no section for this cycle until close-out).
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying — no "is it
      still empty?" invariant left in the template.
-6. **ochid: bot-repo location qualifier.** An ochid is
+7. **ochid: bot-repo location qualifier.** An ochid is
    workspace-relative (`/.claude/<chid>`) — nothing in a
    published commit says *where* the companion bot repo
    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -338,7 +429,7 @@ no section for this cycle until close-out).
      (bot-repo-location config).
    - Link rot + mirroring mitigations are in the same doc
      section.
-7. **Version-number protocol is fragile — versions are
+8. **Version-number protocol is fragile — versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -377,7 +468,7 @@ no section for this cycle until close-out).
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-8. **sync follow-up: extract `move-bookmark` command.** The
+9. **sync follow-up: extract `move-bookmark` command.** The
    "put the bookmark / `@` where it belongs" step at the end
    of sync (reposition logic) is useful standalone — e.g. the
    t1B scenario where `main` is right but `@` isn't on it —
@@ -387,22 +478,23 @@ no section for this cycle until close-out).
      same safety rules as sync's reposition step.
    - Sync's final step becomes a call to the same logic.
    - Follow-up to the 0.67.0 single-mode sync cycle.
-9. **sync follow-up: push preflight in-process; drop
-   `--check`; revisit push auto-rollback.** Push's preflight
-   shells out to `vc-x1 sync --check` — a verify-only pass
-   that is both racy (remote can move before the user's
-   later apply) and not actually read-only (jj's fetch
-   auto-ffs tracked bookmarks). Follow-up to the 0.67.0
-   single-mode sync cycle.
-   - Preflight becomes a real in-process sync (stop-on-error
-     halts the push before anything is committed); the
-     `sync --check` shell-out and PATH dependency go away.
-   - Remove the deprecated hidden `--check` alias once
-     nothing invokes it.
-   - Apply the stop-on-error + `vc-x1 revert` philosophy to
-     push's commit-stage rollback (today it auto-runs
-     `jj op restore`, hiding the evidence).
-10. **validate-numbering: rename the pair, check all
+10. **sync follow-up: retire the hidden `--check` alias;
+    revisit push's auto-rollback.** The first half of this
+    entry — push shelling out to `vc-x1 sync --check`, which
+    was racy and not actually read-only — is done: 0.77.0-3
+    deleted preflight outright, taking the shell-out and its
+    PATH dependency with it. What survives:
+    - Remove sync's deprecated hidden `--check` alias. Nothing
+      invokes it now except `tests/cli_sync.rs`'s alias test,
+      so this became actionable the moment preflight went.
+    - Push's commit-stage rollback auto-runs `jj op restore`,
+      which hides the evidence of what failed. This cycle
+      deliberately kept it — an in-process snapshot taken
+      moments earlier is knowledge, not a guess, and both
+      index-lock failures during 0.77.0 cost nothing because
+      of it. Revisit only with a concrete case where the
+      hidden evidence mattered.
+11. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -438,7 +530,7 @@ no section for this cycle until close-out).
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-11. **pre-commit: single rule (no docs skip) + doc validators.**
+12. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits" —
     but that exception is exactly where checks slip (skipped on
@@ -464,7 +556,7 @@ no section for this cycle until close-out).
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned — see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-12. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+13. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -488,7 +580,7 @@ no section for this cycle until close-out).
     - Open: computing "uncovered" — likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-13. **Run validate-bot at every vc-x1 invocation
+14. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution — noted 2026-07-15 as a
@@ -501,18 +593,41 @@ no section for this cycle until close-out).
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-14. **README: audit flag tables and examples against the
-    current CLI.** 0.69.0-4 fixed the init section (it
-    documented retired `--owner` / `--dir` / `--repo-local`
-    flags) and the 0.69.0 surfaces, but the README's other
-    tables (clone, symlink, sync, revert, list/desc/chid/
-    show) have never had a systematic `-h` comparison and
-    drift silently.
+15. **CLI reference lives in `--help`; README owns concepts.**
+    Each command is described in three places — clap's
+    `long_about`, a README section with a flag table, and
+    sometimes AGENTS.md — and only the flag *descriptions*
+    self-sync, because those come from the field doc
+    comments. Every hand-written block drifts silently:
+    0.69.0-4 found the init section documenting retired
+    `--owner` / `--dir` / `--repo-local`, and 0.77.0-3 found
+    push's `long_about` still advertising a state machine
+    that had just been deleted. The fix is removing the
+    duplication, not auditing it on a schedule.
+    - `--help` becomes the reference: what a command does,
+      its stages, its flags, its invariants. It ships with
+      the binary, so it always matches the binary being run.
+    - README keeps workflows and concepts — the dual-repo
+      model, the cycle, testing recipes, worked examples —
+      and points at `--help` instead of restating flag
+      tables. Delete the tables; that is the drift source.
+    - Clap reflows prose and collapses bullets unless a
+      field carries `verbatim_doc_comment`, so help owns the
+      reference, not the explanations. `long_about` does
+      preserve explicit newlines (0.77.0-3's push stage
+      list renders as an aligned two-column list).
+    - Optional enforcement, cheapest first: assert README
+      has no flag-table rows; snapshot-test `--help` output
+      so unintended changes surface in review; or generate
+      the reference from clap and assert the committed file
+      matches. The third rhymes with "config: extract
+      flag-backed key descriptions from Clap" — same
+      single-sourcing shape.
     - Sweep each section against `vc-x1 <cmd> -h`.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-15. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+16. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -525,7 +640,7 @@ no section for this cycle until close-out).
     mid-cycle local change. Not included in the 2026-07-20
     vc-x1-work-repo-template sync (straight copy); still pending for the
     whole family, vc-x1 included.
-16. **Shared-doc sync: per-commit chores convention.**
+17. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded — each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -536,7 +651,7 @@ no section for this cycle until close-out).
     the plan is to fan out from vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-17. **config: extract flag-backed key descriptions from Clap.**
+18. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -695,6 +810,7 @@ hygiene-riders and facade-owns-topology cycles)._
 [5]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
 [6]: https://github.com/winksaville/vc-x1/commit/4898d93e4172 "4898d93e41720070cddb995bfd4e53ffc38ccb88"
 [7]: https://github.com/winksaville/vc-x1/commit/ab3a07d4903b "ab3a07d4903bbe6ae7cec5490f5edd622161c72e"
+[8]: https://github.com/winksaville/vc-x1/commit/846b5eee5b98 "846b5eee5b988b0cd8887559a0fba3397155ee19"
 [8]: /notes/chores/chores-14.md#refactor-repo-registry
 [9]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
 [10]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe

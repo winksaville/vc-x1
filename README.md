@@ -503,9 +503,10 @@ vc-x1 validate-bot -R path/to/.claude
 |------|-------------|
 | `-R, --repo <PATH>` | Path to the bot repo [default: .claude] |
 
-`vc-x1 push` runs the same check in its preflight and errors on a
-mismatch (no automatic fixing); `vc-x1 squash-push` reports the
-condition and proceeds, since publishing is its job.
+`vc-x1 squash-push` reports the condition and proceeds, since
+publishing is its job. `vc-x1 push` no longer checks it: a bot
+repo that hasn't been squash-pushed yet isn't a broken state, and
+the next push publishes it anyway.
 
 ### config
 
@@ -901,8 +902,8 @@ for design details.
 ### push
 
 Commit both repos, push the work repo's BOOKMARK, and squash-push
-the bot repo's `main` — one resumable command with two interactive
-approval gates. Replaces the old multi-step manual choreography
+the bot repo's `main` — one command with two interactive approval
+gates. Replaces the old multi-step manual choreography
 (`jj commit` × 2 → `jj bookmark set` × 2 → `jj git push` →
 squash-push) with a single invocation.
 
@@ -911,29 +912,35 @@ vc-x1 push main                                     # interactive
 vc-x1 push main --title "..." --body "..."          # skip $EDITOR
 vc-x1 push main --yes --title "..." --body "..."    # full non-interactive
 vc-x1 push main --dry-run                           # preview
-vc-x1 push main --from commit-work                  # resume at specific stage
-vc-x1 push --status                                 # show saved state
 ```
 
-Stage machine (runs top-to-bottom; each stage's success persists
-to `.vc-x1/push-state.toml` so interrupts resume mid-flow):
+Stages, top to bottom:
 
 | Stage | What it does |
 |-------|--------------|
-| `preflight` | Verify bookmark tracking, verify the bot repo is published ([validate-bot](#validate-bot)'s check — errors, no auto-fix), `vc-x1 sync --check`. No build/test steps — vc-x1 assumes nothing about a repo's contents beyond `.jj` and `.vc-config.toml`; run project checks yourself before pushing |
 | `review` | Print `jj diff --stat` for both repos; prompt `[y/N]` (first approval gate) |
-| `message` | Compose title+body from `--title`/`--body`, persisted state, or `$EDITOR` template; second approval gate |
-| `commit-work` | `jj commit` work repo with ochid trailer pointing at `.claude` |
+| `message` | Compose title+body from `--title`/`--body` or an `$EDITOR` template; second approval gate. Skipped when neither repo has pending changes — a publish-only run needs no message |
+| `commit-work` | `jj commit` work repo with ochid trailer pointing at `.claude` (skipped when `@` is empty) |
 | `commit-bot` | `jj commit` `.claude` with ochid trailer pointing at the work repo (skipped if `.claude` is clean) |
 | `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
-| `push-work` | `jj git push --bookmark <bookmark> -R .` |
+| `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
 | `squash-push-bot` | In-process squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
 
+**Rerunning is always safe.** There is no saved state and no
+resume: every stage checks its own precondition and does nothing
+when its work is already done, so re-running after a failure is
+simply running. A recorded position would describe a world that
+may have changed for reasons push cannot know — if a run fails,
+push stops and reports. Please fix and try again.
+
 Failures in `commit-work` / `commit-bot` / `bookmark-set` roll
-both repos back via `jj op restore` to the snapshot recorded at
-the start of `commit-work`. Past `push-work` the remote boundary is
-crossed and recovery is forward-only (see "Late changes after
-push" in AGENTS.md).
+both repos back via `jj op restore` to a snapshot taken moments
+earlier in the same process. Once `push-work` succeeds the work
+is published: from there a change is either a new commit
+appended on top by the next push, or an amend of what was
+pushed — [`squash-push`](#squash-push) folds the working copy
+into the last commit and force-updates the remote. See
+[Recovery](./notes/cycle-protocol.md#recovery).
 
 | Flag | Description |
 |------|-------------|
@@ -941,25 +948,9 @@ push" in AGENTS.md).
 | `--bookmark <NAME>` | Same as positional (mutually exclusive) |
 | `-y, --yes` | Auto-approve both gates (non-interactive use) |
 | `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |
-| `--dry-run` | Print what would run, no side effects, no state written |
+| `--dry-run` | Print what would run, no side effects |
 | `--step` | Pause after every stage for an extra continue-prompt |
-| `--from <STAGE>` | Jump to a specific stage (advanced / resume) |
-| `--status` | Print saved state's current stage and exit |
-| `--restart` | Clear saved state; start from stage 1 |
-| `--recheck` | Re-run preflight on resume (default: skip if last succeeded) |
 | `--no-squash-push` | Stop before `squash-push-bot` (run it manually) |
-
-State file path is configurable via `.vc-config.toml`'s `[push]`
-section:
-
-```toml
-[push]
-state-dir = ".vc-x1"          # default
-state-file = "push-state.toml"  # default
-```
-
-`push` warns (non-fatal) when the configured state dir isn't
-matched in `.gitignore`.
 
 See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370)
 for the full design and [per-step record](./notes/chores/chores-05.md#per-step-record)

@@ -281,25 +281,38 @@ pub(crate) enum Commands {
 
     /// Commit both repos, push the work repo, squash-push the bot repo
     #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
-        squash-push the bot repo's `main` — one resumable command.\n\n\
+        squash-push the bot repo's `main` — one command.\n\n\
         Collapses the manual commit-push-publish ceremony into a\n\
-        single subcommand with two interactive approval gates and a\n\
-        state machine with persistent progress so interruptions can\n\
-        resume without re-doing completed stages.\n\n\
-        Stages: preflight (tracking / bot-published / sync checks —\n\
-        no build steps; run project checks yourself before pushing)\n\
-        → review (approve diff)\n\
-        → message ($EDITOR / --title+--body, approve text) →\n\
-        commit-work → commit-bot (skipped if clean) → bookmark-set\n\
-        (work repo → <bookmark>, bot repo → main) → push-work →\n\
-        squash-push-bot. Failures in commit-work / commit-bot /\n\
-        bookmark-set roll both repos back via\n\
-        `jj op restore` to the snapshot recorded before commit-work.\n\
-        After push-work succeeds the remote boundary is crossed and\n\
-        recovery is forward-only.\n\n\
+        single subcommand with two interactive approval gates.\n\n\
+        Stages, in order:\n\
+        \x20 - review           approve the diff (first gate)\n\
+        \x20 - message          $EDITOR, or --title/--body; approve\n\
+        \x20                    the text (second gate). Skipped when\n\
+        \x20                    neither repo has pending changes\n\
+        \x20 - commit-work      commit the work repo. Skipped when\n\
+        \x20                    `@` is empty\n\
+        \x20 - commit-bot       commit `.claude`. Skipped when it is\n\
+        \x20                    clean\n\
+        \x20 - bookmark-set     work repo → <bookmark>, bot → main\n\
+        \x20 - push-work        publish <bookmark> to origin\n\
+        \x20 - squash-push-bot  fold `.claude`'s trailing writes\n\
+        \x20                    into its commit and push main\n\n\
+        Rerunning is always safe: each stage does nothing when its\n\
+        work is already done, so a failed run is re-run rather than\n\
+        resumed. There is no saved state — vc-x1 cannot know why a\n\
+        run failed, so it stops and reports. Please fix and try\n\
+        again.\n\n\
+        Failures in commit-work / commit-bot / bookmark-set roll both\n\
+        repos back via `jj op restore` to a snapshot taken moments\n\
+        earlier. Once push-work succeeds the work is published: from\n\
+        there a change is either a new commit appended on top by the\n\
+        next push, or an amend of what was pushed — `vc-x1\n\
+        squash-push` folds the working copy into the last commit and\n\
+        force-updates the remote.\n\n\
+        vc-x1 runs no build or test steps — run your project's checks\n\
+        yourself before pushing.\n\n\
         Non-interactive use: pass both --title and --body plus --yes\n\
-        to skip the review gate. Saved state carries title/body\n\
-        across resumes so only the first invocation needs them.")]
+        to skip both gates.")]
     Push(push::PushArgs),
 }
 

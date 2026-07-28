@@ -671,16 +671,23 @@ work. Post-push verification happens next turn at the user's
 direction. See
 [After push or squash-push](notes/cycle-protocol.md#after-push-or-squash-push-stop-and-wait).
 
-**`vc-x1 push` behaviors to keep in mind.** Two, independent
+**`vc-x1 push` behaviors to keep in mind.** Three, independent
 of project language:
 
-- **Preflight** checks repo state only — bookmark tracking,
-  the bot-published invariant (`main == main@origin` in the
-  bot repo), and a `sync --check`. It runs no build or
-  tests: vc-x1 assumes nothing about a repo's contents
-  beyond `.jj` and `.vc-config.toml`. The medium's
-  validation (e.g. the Rust cargo cycle) is the per-commit
-  flow's job, run *before* invoking `vc-x1 push`.
+- **No checks of the project's own** — vc-x1 assumes nothing
+  about a repo's contents beyond `.jj` and `.vc-config.toml`,
+  and runs no build or tests. The medium's validation (e.g.
+  the Rust cargo cycle) is the per-commit flow's job, run
+  *before* invoking `vc-x1 push`. There is no preflight
+  stage at all as of 0.77.0-3; the one check that remains is
+  `push-work` verifying the bookmark's remote refs are
+  tracked, which is its own precondition.
+- **Rerunning is safe** — push keeps no state and cannot
+  resume. Every stage no-ops when its work is already done,
+  so a failed run is re-run, not resumed. If a run fails,
+  push stops and reports; getting the repos back to a
+  sensible state is the user's call, not something the tool
+  infers.
 - **ochid trailers** are injected by `vc-x1 push` itself —
   don't hand-write them into the commit body or
   `--title`/`--body`.

@@ -194,28 +194,6 @@ const SCHEMA: &[ConfigKey] = &[
         used_by: "default_scope, scope resolution, ochid prefixes (structural)",
         example: Some(".claude"),
     },
-    ConfigKey {
-        path: "push.state-dir",
-        homes: WORKSPACE_HOMES,
-        kind: ValueKind::Str,
-        default: Some(".vc-x1"),
-        required: false,
-        dynamic: false,
-        doc: "Directory (relative to repo root) holding the push state file",
-        used_by: "push / squash-push (state-file directory)",
-        example: None,
-    },
-    ConfigKey {
-        path: "push.state-file",
-        homes: WORKSPACE_HOMES,
-        kind: ValueKind::Str,
-        default: Some("push-state.toml"),
-        required: false,
-        dynamic: false,
-        doc: "Filename of the push state file under push.state-dir",
-        used_by: "push / squash-push (state-file name)",
-        example: None,
-    },
 ];
 
 /// Returns the complete registry of settable config keys.
@@ -383,14 +361,6 @@ mod tests {
         assert_eq!(
             find("bot-session.result-lines").default,
             Some(crate::bot_session::RESULT_LINE_CAP.to_string()).as_deref()
-        );
-        assert_eq!(
-            find("push.state-dir").default,
-            Some(crate::push::DEFAULT_STATE_DIR)
-        );
-        assert_eq!(
-            find("push.state-file").default,
-            Some(crate::push::DEFAULT_STATE_FILE)
         );
     }
 
