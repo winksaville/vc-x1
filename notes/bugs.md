@@ -14,7 +14,10 @@ insert / delete / reorder.
    (the 0.69.0-3 and 0.69.0-4 pushes, same stage) with
    "Failed to reset Git HEAD state … could not acquire lock
    for `.git/index` … after 1 attempt(s)"; the lockfile was
-   already gone on inspection seconds later.
+   already gone on inspection seconds later. Seen again at
+   the 0.75.0-2 push (which also triggered #3) and the
+   0.77.0-0 push (2026-07-28) — four occurrences, always at
+   `bookmark-set`, always transient.
    - **Cost:** push aborts mid-flow (rollback restored both
      repos cleanly both times); recovery is a `--restart`
      rerun, which succeeded both times.
@@ -81,6 +84,17 @@ insert / delete / reorder.
      which is the refactor program's
      [stateless push stage](refactor-20260716.md#stage-stateless-push);
      this incident is its strongest evidence yet.
+   - **Second occurrence, 0.77.0-0 push (2026-07-28)** — the
+     same #1 lock race, the same shape, caught before any
+     damage this time. The rollback was clean (both repos
+     back to pre-commit, `@` holding the uncommitted changes,
+     nothing published — the failure was two stages before
+     `push-work`), and the state file still read
+     `stage=bookmark-set`. A plain rerun would have set both
+     bookmarks to the *previous* cycle's commit and squashed
+     this session's data into the already-published bot
+     commit; `--restart` is the safe rerun until the fix
+     lands. Noted while opening the very cycle that fixes it.
 
 4. **`push` `commit-work` commits an empty `@`, minting a
    duplicate stamped commit.** Observed at the 0.76.0-1 push

@@ -211,6 +211,24 @@ As TODO.md `## Done` sections fills move them to here.
   chores retire into a session index; bot repo seeded with
   LICENSE-* / README.md from vc-x1-bot-repo-template [[128]]
 
+- refactor: hygiene riders — the work/bot terminology
+  stragglers swept (~380 identifier sites, `Side::Work`,
+  `ConfigRole`, narration labels, test remotes); the `-s`
+  scope keyword renamed `code` → `work` outright (no alias —
+  unreleased); the six single-field `options_flags` leaves
+  adopt the `value` field shape with clap ids pinned, and
+  clone.rs's drifted inline `dry_run` folds onto the leaf;
+  second stage of the jj refactor program [[129]]
+
+- refactor: facade owns topology — repo resolution is facade
+  state: the symmetric `work`/`bot` `[workspace]` schema
+  (identical block on both sides, side detection by location,
+  `.bot` as new-init default only), every `.claude` literal
+  resolved from config, dual-entry coherence preflight, the
+  validate-desc/fix-desc por equalization, and the `config`
+  command's positional target; third stage of the jj refactor
+  program [[130]]
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -324,3 +342,5 @@ As TODO.md `## Done` sections fills move them to here.
 [126]: /notes/chores/chores-14.md#refactor-dry-jj-facade
 [127]: /notes/chores/chores-14.md#docs-adopt-new-template-repo-names
 [128]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
+[129]: /notes/chores/chores-14.md#refactor-hygiene-riders
+[130]: /notes/chores/chores-14.md#refactor-facade-owns-topology

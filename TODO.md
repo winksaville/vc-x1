@@ -50,13 +50,73 @@ rebased.
 - [[3]] 0.75.0 refactor: facade owns topology (done)
 - [[9]] 0.76.0 refactor: repo registry (done) — first
   trapezoid published by the four-step recipe
-- [[N]] 0.77.0 refactor: split push.rs + stateless push
-  (Todo #1)
-- [[N]] 0.78.0 refactor: jj-lib migration (Todo #2)
-- [[N]] 0.79.0 refactor: push body-intro validation +
-  trapezoid close-out (Todo #3)
+- [[N]] 0.77.0 refactor: stateless push (current, below)
+- [[N]] 0.78.0 refactor: jj-lib migration (Todo #1)
+- [[N]] 0.79.0 refactor: trapezoid-push + body-intro
+  validation (Todo #2)
 
-_No cycle currently in progress._
+#### refactor: stateless push
+
+Picked up 2026-07-28. `push.rs` (~1.5k lines) holds the
+`Stage` machine, TOML state persistence, eight stage bodies,
+two sanity verifiers, and the interactive gates in one file.
+The state file is the defect source: bugs.md #3 — rollback
+rewinds the *repos* but not the *state*, so the rerun skipped
+the commit stages and republished a previous bot commit — and
+the two sanity verifiers exist largely to defend against that
+staleness. Retiring it, deriving resume from repo reality as
+standalone `squash-push` already does, deletes the class; see
+[split push.rs](notes/refactor-20260716.md#stage-split-pushrs)
+and
+[stateless push](notes/refactor-20260716.md#stage-stateless-push).
+
+The cycle stays lean — trapezoid support was folded in at
+pickup and unfolded again the same day (2026-07-28). The fold
+rested on rung -4 deleting `--from`, which the manual
+trapezoid recipe's step 4 uses; but that rung's own docs
+rider makes step 4 a bare `vc-x1 push <bookmark>`, because
+after the reshape the repos are exactly what reality-derived
+resume recognizes. Nothing is stranded, so the fold bought
+nothing and cost a seven-rung cycle. Trapezoid support
+returns to 0.79.0, where it lands in-process on jj-lib as its
+design always assumed.
+
+Doing this before jj-lib also shortens the exposure to
+bugs.md #1 (the `bookmark-set` index-lock race, which fired
+again on the -0 push): the race can't be fixed until jj-lib
+owns the retry, but rung -4 fixes bugs.md #3, so a rollback
+stops leaving a poisoned state file behind and a plain rerun
+becomes safe.
+
+Ladder (greppable stem `push`):
+
+- [[N]] 0.77.0-0 chore: open stateless push cycle (current)
+  — pickup into this block, version bump, chores-15 section,
+  0.76.1 `Commits:` backfill, `## Done` sweep into done.md
+- [[N]] 0.77.0-1 refactor: extract push/state.rs — pure
+  move: `Stage`, `StateLayout` / `resolve_state_layout`,
+  `PushState`, `STATE_FORMAT_VERSION`, the escape/unescape
+  helpers. The 0.72.0-1 extraction parked on
+  `support-trapezoid-commits` is quarry, not base — rebase
+  it onto the tip, else redo from its diff as reference,
+  then delete the bookmark
+- [[N]] 0.77.0-2 fix: push skips an empty work commit —
+  bugs.md #4; early, so every later rung's dogfood push is
+  protected
+- [[N]] 0.77.0-3 feat: push resume from repo reality — the
+  resume point derived from the repos (commits made?
+  bookmark ahead of origin? working copies clean?); the one
+  genuine cross-process resume is push-work failing with
+  commits already made
+- [[N]] 0.77.0-4 refactor: retire the push state file —
+  drops `PushState` persistence, the escape helpers, the
+  stale-state verifier arms, `--restart` / `--from`, the
+  `[push]` state config keys, and the `.gitignore`
+  coherence check; fixes bugs.md #3 by construction. Docs
+  rider: the trapezoid recipe's step 4 becomes a bare
+  `vc-x1 push <bookmark>`
+- [[N]] 0.77.0 refactor: stateless push — close-out,
+  published by the four-step recipe with its new step 4
 
 ## Todo
 
@@ -72,36 +132,69 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **refactor: split push.rs + stateless push.** Retire
-   the push state file — derive resume from repo reality —
-   with the `push/state.rs` extraction as the first rung, so
-   the extraction and the shrinkage it enables land in one
-   reviewable arc; see
-   [split push.rs](notes/refactor-20260716.md#stage-split-pushrs)
-   and
-   [stateless push](notes/refactor-20260716.md#stage-stateless-push).
-   - The 0.72.0-1 extraction parked on
-     `support-trapezoid-commits` is quarry, not base —
-     rebase or redo against the by-then-refactored push.rs,
-     then delete the bookmark; 0.72.0 itself is an
-     abandoned version (see the
-     [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs)
-     for the disposition).
-2. **refactor: jj-lib migration.** Facade internals and
+1. **refactor: jj-lib migration.** Facade internals and
    mutations move in-process; the index-lock retry becomes
    ours; see
    [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
    After split push.rs + stateless push. May split into two
    cycles (reads lift, then mutations lift) once the
    op-store-coexistence risk is spiked.
-3. **refactor: push body-intro validation + trapezoid
-   close-out.** `push --merge [<base>]` — the native
-   trapezoid close-out (design settled in the stage notes) —
-   with the body-intro validation as the first rung; see
+2. **refactor: trapezoid-push + body-intro validation.**
+   `vc-x1 trapezoid-push` — a **subcommand**, not a flag on
+   `push` (decided 2026-07-28) — publishes a close-out as a
+   non-fast-forward merge; body-intro validation rides as
+   the first rung. See
    [trapezoid close-out](notes/refactor-20260716.md#stage-trapezoid-close-out)
    and
    [push body-intro validation](notes/refactor-20260716.md#stage-push-body-intro-validation).
-   After stateless push (no state-file growth) and jj-lib.
+   After jj-lib, so the reshape is built in-process.
+   - `push` keeps a stateable invariant: it never produces
+     a merge. A mode flag that rewires the stage sequence
+     would cost that.
+   - Shared implementation, not a second copy: the common
+     pipeline (preflight, both gates, message, commit-work,
+     commit-bot, bookmark-set, push-work, bot squash) moves
+     into its own module that both subcommands call, with
+     the reshape as the one inserted step. The
+     stateless-push cycle shrinks that pipeline first,
+     which is what makes the extraction cheap.
+   - A backend `trait` (jj today, git or another VCS later)
+     is the natural next abstraction if a second backend
+     ever appears — worth converting these concepts to
+     traits then, not now: we are committed to jj, and a
+     one-implementation trait buys nothing but indirection.
+3. **Remove `revert` — and `.vc-x1/` with it.** `revert`
+   promises "undo the sync"; it restores the pre-sync `jj op`
+   recorded in `.vc-x1/sync-state.toml`, which means "rewind
+   the repo to that moment". The two coincide only while
+   nothing has happened since — one commit later, revert
+   would silently rewind that too, and nothing readable at
+   revert time distinguishes the cases. We are not in control
+   enough to do this reliably; jj's own `jj op log` /
+   `jj op undo` is both safer and more informative, since it
+   shows what is being undone before committing to it.
+   - Confirm what revert actually restores (both repos?
+     bookmarks only? full op state?) before deleting —
+     `src/revert.rs`, `src/sync/state.rs`.
+   - Delete the subcommand, sync's `sync-state.toml` write,
+     and the docs/help text that describe them
+     (`README.md`, `src/main.rs` help strings).
+   - `.vc-x1/` then empties — push's `push-state.toml` is
+     retired by the stateless-push cycle — so the directory,
+     `init`'s `/.vc-x1` `.gitignore` line, and any leftover
+     `[push]` state config keys go too.
+   - Existing workspaces: **never edit their `.gitignore`
+     automatically.** Inspect it, and when the `/.vc-x1` line
+     is found, report that it is no longer needed and leave
+     the removal to the user — a report, not a rewrite. It is
+     the user's file, and a stale ignore line is harmless.
+     *When* the check runs — which surface, and how often —
+     is TBD; `config --validate` and the proposed
+     `validate-repo` are the candidates, and push's
+     `check_gitignore_coherence` is not (it retires with the
+     state file).
+   - Cheap now, expensive later: few workspaces depend on it
+     today.
 4. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
@@ -495,23 +588,8 @@ cycle and its two docs interludes: template repo names, notes rework)._
   body convention added to cycle-protocol.md; chores-14
   0.75.0 rung refs backfilled [[5]]
 
-- refactor: facade owns topology — repo resolution is facade
-  state: the symmetric `work`/`bot` `[workspace]` schema
-  (identical block on both sides, side detection by location,
-  `.bot` as new-init default only), every `.claude` literal
-  resolved from config, dual-entry coherence preflight, the
-  validate-desc/fix-desc por equalization, and the `config`
-  command's positional target; third stage of the jj refactor
-  program [[6]]
-
-- refactor: hygiene riders — the work/bot terminology
-  stragglers swept (~380 identifier sites, `Side::Work`,
-  `ConfigRole`, narration labels, test remotes); the `-s`
-  scope keyword renamed `code` → `work` outright (no alias —
-  unreleased); the six single-field `options_flags` leaves
-  adopt the `value` field shape with clap ids pinned, and
-  clone.rs's drifted inline `dry_run` folds onto the leaf;
-  second stage of the jj refactor program [[7]]
+_Migrated to [done.md](notes/done.md) on 2026-07-28 (the
+hygiene-riders and facade-owns-topology cycles)._
 
 # References
 
@@ -520,8 +598,6 @@ cycle and its two docs interludes: template repo names, notes rework)._
 [3]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
 [4]: /notes/forks-multi-user.md
 [5]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
-[6]: /notes/chores/chores-14.md#refactor-facade-owns-topology
-[7]: /notes/chores/chores-14.md#refactor-hygiene-riders
 [8]: /notes/chores/chores-14.md#refactor-repo-registry
 [9]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
 [10]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe
