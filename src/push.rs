@@ -662,14 +662,20 @@ fn stage_message(
     state.body = Some(body.clone());
 
     let bot = bot_path(root)?;
-    let work_chid = jj::chid_of(root, "@")?;
-    let bot_empty = jj::is_empty(&bot, "@")?;
-    let bot_had_changes = !bot_empty;
+    // Both sides resolve their chid the same way: `@` when the
+    // working copy has changes (it becomes `@-` once committed),
+    // else the existing `@-` (which stays put, because that side's
+    // commit stage skips). Taking `@` unconditionally on the work
+    // side is what minted an empty stamped duplicate in bugs.md #4.
+    let work_had_changes = !jj::is_empty(root, "@")?;
+    let work_ref = if work_had_changes { "@" } else { "@-" };
+    let work_chid = jj::chid_of(root, work_ref)?;
+    let bot_had_changes = !jj::is_empty(&bot, "@")?;
     let bot_ref = if bot_had_changes { "@" } else { "@-" };
     let bot_chid = jj::chid_of(&bot, bot_ref)?;
 
     info!(
-        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, bot_had_changes={bot_had_changes}",
+        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, work_had_changes={work_had_changes}, bot_had_changes={bot_had_changes}",
         title.lines().next().unwrap_or("") // OK: obvious
     );
     state.work_chid = Some(work_chid);
@@ -749,12 +755,33 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 }
 
 /// Commit work repo with `title` / `body` and the `ochid:` trailer
-/// pointing at `.claude`'s chid.
+/// pointing at `.claude`'s chid, or skip when the working copy has
+/// nothing pending — the same rule `stage_commit_bot` follows.
+///
+/// Skipping matters in two situations:
+///
+/// - The rung was committed by hand before invoking push. Committing
+///   the empty `@` anyway minted a stamped empty duplicate on top of
+///   the real commit (bugs.md #4).
+/// - A publish-only run, where the commits already exist and only
+///   the bookmark and the remote still need advancing — the
+///   trapezoid recipe's final step.
+///
+/// In both cases the existing top commit is published as-is; push
+/// does not rewrite a description it didn't author.
 fn stage_commit_work(
     root: &Path,
     state: &PushState,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if jj::is_empty(root, "@")? {
+        warn!(
+            "push commit-work: skip (work repo had no pending changes); \
+             the supplied message is not applied — the existing top \
+             commit is published as-is"
+        );
+        return Ok(());
+    }
     let (title, body) = resolve_message(state, params)?;
     let bot_chid = state
         .bot_chid

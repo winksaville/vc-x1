@@ -109,6 +109,42 @@ fn push_happy_bot_clean() {
     );
 }
 
+/// bugs.md #4: a work repo whose `@` is empty (the rung was
+/// committed by hand before invoking push) must not mint a
+/// stamped empty duplicate on top of the real commit. The
+/// pre-made commit is published as-is and the bot's ochid points
+/// at *it*, not at a duplicate.
+#[test]
+fn push_empty_work_at_skips_commit_work() {
+    let fx = Fixture::new("push-empty-work");
+    fs::write(fx.work.join("hand.txt"), "hand-made").expect("write work file");
+    jj_ok(
+        &fx.work,
+        &["commit", "-m", "feat: committed by hand", "-m", "body"],
+    );
+    fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
+
+    let hand_chid = chid(&fx.work, "@-");
+
+    push_in(
+        &fx.work,
+        &test_params("feat: would duplicate", "ignored body"),
+    )
+    .expect("push should succeed");
+
+    // The hand-made commit is what the bookmark publishes — no
+    // empty duplicate carrying the supplied title on top of it.
+    assert_eq!(desc_first_line(&fx.work, "main"), "feat: committed by hand");
+    assert_eq!(chid(&fx.work, "main"), hand_chid);
+
+    // The bot commit's ochid names the real commit, not a duplicate.
+    let bot_full = description(&fx.bot, "main");
+    assert!(
+        bot_full.contains(&format!("ochid: /{hand_chid}")),
+        "bot ochid should point at the hand-made commit {hand_chid}:\n{bot_full}"
+    );
+}
+
 /// Happy path when `.claude` has pending changes: both repos
 /// commit, each with an ochid trailer pointing at the other.
 #[test]

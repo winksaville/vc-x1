@@ -110,12 +110,17 @@ insert / delete / reorder.
    - **Cost:** no data loss, but published history needed a
      dual-repo repair — describe + abandon + sideways
      force-push on both sides (`--ignore-immutable`).
-   - **Fix direction:** `commit-work` skips an empty `@`
-     like `commit-bot` does, and the ochid stamp then lands
-     on the real topmost commit; alternatively error loudly
-     when `@` is empty and no commit is needed. Fold into
-     the refactor program's
-     [split push.rs + stateless push stage](refactor-20260716.md#stage-split-pushrs),
-     which rebuilds this code path.
+   - **Fixed at 0.77.0-2** — `commit-work` now skips an empty
+     `@` exactly as `commit-bot` does, and `stage_message`
+     resolves the work chid from `@-` when `@` is empty, so
+     the bot's trailer names the real commit. Skipping rather
+     than erroring, because a legitimately empty `@` is the
+     publish-only case: the trapezoid recipe's last step has
+     the commits already made and only the bookmark and remote
+     left to advance. Push does not rewrite a description it
+     didn't author, so a hand-made commit keeps its message
+     and simply carries no work-side trailer —
+     `validate-desc` / `fix-desc` add one. Pinned by
+     `push_empty_work_at_skips_commit_work`.
 
 # References
