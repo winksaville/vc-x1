@@ -238,7 +238,10 @@ pub(crate) fn clone_dual(
             }
         },
     };
-    clone_one(&bot_source, &bot_dir, target_dir)?;
+    // Run the bot clone from `parent_dir`, not the just-cloned
+    // work repo: a relative local-path TARGET must resolve
+    // against the same cwd the work clone used (bugs.md #2).
+    clone_one(&bot_source, &bot_dir, parent_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;
 

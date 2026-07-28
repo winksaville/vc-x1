@@ -46,7 +46,7 @@ fn cli_init_por_creates_layout() {
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.path("remote-bot.git").exists(),
+        !fx.path("remote-work.claude.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
@@ -75,7 +75,7 @@ fn cli_init_dual_creates_layout() {
         "work-side bare origin present"
     );
     assert!(
-        fx.path("remote-bot.git").exists(),
+        fx.path("remote-work.claude.git").exists(),
         "bot-side bare origin present"
     );
     assert!(

@@ -9,42 +9,7 @@ insert / delete / reorder.
 
 ## Bugs
 
-1. **`init --repo local` bare remotes keep HEAD at
-   `refs/heads/master`.** The only branch pushed is `main`,
-   so a later `jj git clone` of that bare repo has no default
-   branch to auto-track and `vc-x1 clone` fails its
-   `verify_tracking` check ("bookmark 'main' has non-tracking
-   remote 'main@origin'"). Found building `tests/cli_sync.rs`
-   (worked around there with `git symbolic-ref HEAD
-   refs/heads/main`).
-   - **Fix direction:** init's local bare provisioning sets
-     HEAD to `refs/heads/main` at creation. Scheduled with
-     the repo-registry cycle's de-gitify init rung
-     (0.76.0-5), which rebuilds that provisioning
-     ([the stage](refactor-20260716.md#stage-de-gitify-init)).
-
-2. **`clone` session-remote derivation mismatches init's
-   local naming; relative TARGET breaks the session clone.**
-   Two related defects, both found building
-   `tests/cli_sync.rs`:
-   - `derive_session_url` maps `<x>.git` →
-     `<x>.claude.git`, but `init --repo local` names the
-     session remote `remote-claude.git` — so a dual clone of
-     a locally-init'd project's `remote-code.git` looks for
-     `remote-code.claude.git` and fails.
-   - A relative local-path TARGET fails on the session side
-     regardless: `clone_dual` runs the session `jj git
-     clone` with the just-cloned code repo as cwd, so the
-     relative source no longer resolves. Workaround: pass an
-     absolute TARGET. (Reproduced 2026-07-27 during the
-     0.76.0-1 legacy-clone verification.)
-   - Scheduled with the de-gitify init rung (0.76.0-5) —
-     init's local naming and clone's derivation are the two
-     halves of the mismatch, and that rung rebuilds the
-     init side
-     ([the stage](refactor-20260716.md#stage-de-gitify-init)).
-
-3. **`push` `bookmark-set` races the git index lock.**
+1. **`push` `bookmark-set` races the git index lock.**
    `jj bookmark set` on the colocated work repo failed twice
    (the 0.69.0-3 and 0.69.0-4 pushes, same stage) with
    "Failed to reset Git HEAD state … could not acquire lock
@@ -71,7 +36,7 @@ insert / delete / reorder.
        refactor program's
        [jj-lib migration stage](refactor-20260716.md#stage-jj-lib-migration)
 
-4. **stdout output panics on a closed pipe (EPIPE).**
+2. **stdout output panics on a closed pipe (EPIPE).**
    `vc-x1 bot-session <file> | head` panics once `head`
    closes the pipe: the logger's `println!` aborts with
    "failed printing to stdout: Broken pipe". Repo-wide
@@ -86,9 +51,10 @@ insert / delete / reorder.
      via `writeln!` to a locked stdout and exit 0 on
      `BrokenPipe`), or reset SIGPIPE to default on unix at
      startup.
-5. **`push` resume-after-rollback replays from the wrong
+
+3. **`push` resume-after-rollback replays from the wrong
    stage.** Observed at the 0.75.0-2 push (2026-07-23): the
-   bookmark-set lock race (Bugs #3) fired, the error path
+   `push` `bookmark-set` git-index-lock race fired, the error path
    `op restore`d both repos — undoing `commit-work` /
    `commit-bot` — but the state file still said
    `stage = bookmark-set`. The rerun resumed there,
@@ -116,7 +82,7 @@ insert / delete / reorder.
      [stateless push stage](refactor-20260716.md#stage-stateless-push);
      this incident is its strongest evidence yet.
 
-6. **`push` `commit-work` commits an empty `@`, minting a
+4. **`push` `commit-work` commits an empty `@`, minting a
    duplicate stamped commit.** Observed at the 0.76.0-1 push
    (2026-07-27): the work commit had been made by hand before
    invoking `vc-x1 push`, so `@` was empty — `commit-bot`

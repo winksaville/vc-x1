@@ -697,6 +697,75 @@ open (2026-07-24):
     edit needed
   - incremental backfill rider: -2/-3 refs ([[23]],[[24]]
     here; [[10]],[[11]] in TODO.md's ladder)
+- [[N]] 0.76.0-5 refactor: de-gitify init
+  - init's publish path is jj-only: jj stays colocated
+    throughout, `jj git remote add` + `jj git push` replace
+    the strip-jj → git-push → re-colocate dance (`git clean
+    -xdf`, `git checkout`, `git remote add`, `git push -u`,
+    `jj git init --colocate`), and the push establishes
+    tracking as a side effect (no `--allow-new`, no
+    follow-up `jj bookmark track`)
+  - `prepare_local_repo` drops its explicit `git init` —
+    `jj git init --colocate` creates the git repo itself
+  - the strip-jj step is what forced `push_repo`'s
+    `clean_exclude` parameter (preserving the nested bot
+    repo through `git clean -xdf`); with no clean, the
+    parameter is gone
+  - bugs.md #1 fixed: local bares are created with
+    `--initial-branch=main`, so a clone of one has a default
+    branch to track
+  - bugs.md #2 fixed, both halves: init's bot bare is now
+    `derive_bot_url` of the work bare
+    (`remote-work.claude.git`), the same rule clone uses —
+    one naming convention instead of two; and the bot-side
+    clone runs from the invoking cwd, so a relative
+    local-path TARGET resolves on both sides
+  - `tests/cli_sync.rs` drops both workarounds (HEAD
+    symbolic-ref, bot-remote symlink) and now clones by
+    relative path, so the fixes are pinned by the test that
+    originally documented the bugs
+  - consequence worth knowing — where the identity check
+    happens moved, and it caught a latent defect. See
+    [Identity enforcement: git commits, jj pushes](#identity-enforcement-git-commits-jj-pushes)
+
+### Identity enforcement: git commits, jj pushes
+
+Swapping init's publish path from `git push` to `jj git push`
+moved *when* a missing user identity is caught, which surfaced
+as two CLI-fixture tests failing at the new push step. The two
+tools enforce at opposite ends:
+
+- **git — at commit.** `git commit` with no `user.name` /
+  `user.email` tries to synthesize one from
+  `username@hostname`; if that isn't usable it refuses
+  outright (`fatal: unable to auto-detect email address (got
+  'wink@3900x.(none)')`). Nothing is checked at push time —
+  `git push` never inspects an existing commit's author.
+- **jj — at push.** `jj commit` succeeds with an explicit
+  *empty identity*, warning `Name and email not configured.
+  Until configured, your commits will be created with the
+  empty identity, and can't be pushed to remotes.` The
+  enforcement lands at `jj git push`: `Error: Won't push
+  commit <id> since it has no author and/or committer set`.
+
+We think jj's split follows from its model: local commits are
+cheap and rewritable, so it defers the check to the boundary
+where history becomes shared and permanent.
+
+The latent defect: init already used `jj commit` for the
+initial commit, so under the old flow the CLI fixtures — whose
+`HOME` is an isolated tempdir with no user config — produced
+empty-identity commits and `git push` shipped them to the bare
+remotes without complaint. Nothing verified authorship, so it
+went unnoticed. The jj-only path fails loudly instead, which is
+why `CliFixture::new` now seeds a `[user]` identity: not test
+scaffolding for its own sake, but the fixture finally supplying
+what a real workspace always has.
+
+Not documented upstream: jj's config, git-compatibility, and
+FAQ pages don't mention the empty identity or the push-time
+refusal (checked 2026-07-27) — jj's runtime warning and error
+text are the authoritative statement.
 
 # References
 

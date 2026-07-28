@@ -4,7 +4,7 @@
 //! local-state mechanics that don't depend on URL form. As of
 //! 0.41.1-6.5:
 //!
-//! - `prepare_local_repo` — mkdir, git init, jj init, optional
+//! - `prepare_local_repo` — mkdir, colocated jj init, optional
 //!   template copy. Leaves the working copy uncommitted.
 //! - `commit_initial` — jj commit of the prepared tree; returns
 //!   its chid.
@@ -44,7 +44,7 @@ pub enum OchidStrategy {
 ///
 /// Performs:
 /// - Creates `target` (and its parent if needed).
-/// - `git init` + `jj git init --colocate`.
+/// - `jj git init --colocate` (which creates the git repo too).
 /// - Optionally copies a template tree, rewriting any
 ///   `README.md`'s first line to `# <name>`.
 ///
@@ -74,9 +74,9 @@ pub fn prepare_local_repo(
     }
     mkdir_p(target)?;
 
-    info!("Initializing {info_label} repo (git + jj)...");
-    run("git", &["init"], target)?;
-    info!("colocate jj atop the {info_label} git repo");
+    // `jj git init --colocate` creates the git repo itself — the
+    // former explicit `git init` was redundant (0.76.0-5).
+    info!("Initializing {info_label} repo (jj, colocated)...");
     run("jj", &["git", "init", "--colocate"], target)?;
 
     if let Some(t) = template {

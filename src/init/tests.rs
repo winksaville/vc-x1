@@ -674,7 +674,7 @@ fn plan_path_absolute_with_repo_local() {
     );
     assert_eq!(
         plan.bot_bare_path,
-        Some(PathBuf::from("/tmp/xyz/remote-bot.git"))
+        Some(PathBuf::from("/tmp/xyz/remote-work.claude.git"))
     );
     assert_eq!(plan.bot_dir, Some(PathBuf::from("/tmp/xyz/tf1/.claude")));
     assert_eq!(plan.bot_name.as_deref(), Some("tf1.claude"));
@@ -723,7 +723,7 @@ fn plan_bare_name_uses_top_level_repo_local() {
     );
     assert_eq!(
         plan.bot_bare_path,
-        Some(PathBuf::from("/tmp/fixtures/remote-bot.git"))
+        Some(PathBuf::from("/tmp/fixtures/remote-work.claude.git"))
     );
 }
 
@@ -912,7 +912,7 @@ fn gitignore_work_only_omits_bot() {
 /// POR fixture builds without panic and lays down the
 /// single-repo tree: `<base>/work/` exists, no `.claude/`
 /// peer, bare origin sits at `<base>/remote.git` (not the
-/// dual `remote-work.git` / `remote-bot.git` pair).
+/// dual `remote-work.git` / `remote-work.claude.git` pair).
 #[test]
 fn por_fixture_creates_single_repo_layout() {
     let fx = crate::test_helpers::FixturePor::new("por-layout");
@@ -932,7 +932,7 @@ fn por_fixture_creates_single_repo_layout() {
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.base.join("remote-bot.git").exists(),
+        !fx.base.join("remote-work.claude.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
@@ -1072,7 +1072,7 @@ fn config_none_passes_preflight() {
 
 /// Dual fixture lays down both repos and both bare origins:
 /// `<base>/work/`, `<base>/work/.claude/`, `<base>/remote-work.git`,
-/// `<base>/remote-bot.git`. POR-shape `remote.git` is absent.
+/// `<base>/remote-work.claude.git`. POR-shape `remote.git` is absent.
 #[test]
 fn dual_fixture_creates_dual_repo_layout() {
     let fx = crate::test_helpers::Fixture::new("dual-layout");
@@ -1087,7 +1087,7 @@ fn dual_fixture_creates_dual_repo_layout() {
         "work-side bare origin present"
     );
     assert!(
-        fx.base.join("remote-bot.git").exists(),
+        fx.base.join("remote-work.claude.git").exists(),
         "bot-side bare origin present"
     );
     assert!(

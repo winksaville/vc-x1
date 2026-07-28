@@ -872,8 +872,12 @@ fn plan_remote(
 
 /// Plan for `category = "local"`: bare repos under a parent dir.
 ///
-/// - Dual: `<parent>/remote-work.git` + `<parent>/remote-bot.git`.
+/// - Dual: `<parent>/remote-work.git` + `<parent>/remote-work.claude.git`.
 /// - POR: `<parent>/remote.git`.
+///
+/// The bot bare is `derive_bot_url` of the work bare — the same
+/// rule `clone` uses to locate a bot source — so a locally
+/// init'd project round-trips through `vc-x1 clone` (bugs.md #2).
 fn plan_local(
     scope: Scope,
     name: String,
@@ -902,7 +906,7 @@ fn plan_local(
 
     let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
     let work_bare = parent.join("remote-work.git");
-    let bot_bare = parent.join("remote-bot.git");
+    let bot_bare = PathBuf::from(crate::url::derive_bot_url(&work_bare.to_string_lossy()));
     let bot_name = format!("{name}.claude");
     Ok(InitPlan {
         scope,
@@ -1327,7 +1331,6 @@ fn create_por(
         &plan.project_dir,
         "work",
         "Step 9",
-        None,
         plan,
         params,
         visibility,
@@ -1395,7 +1398,6 @@ fn create_dual(
         bot_dir,
         "bot",
         "Step 8",
-        None,
         plan,
         params,
         visibility,
@@ -1403,13 +1405,10 @@ fn create_dual(
         plan.gh_bot_slug.as_deref(),
         plan.bot_bare_path.as_deref(),
     )?;
-    // `Some(".claude")` clean_exclude preserves the nested bot
-    // repo through the work-side `git clean -xdf`.
     let work_chid_final = push_repo(
         &plan.project_dir,
         "work",
         "Step 9",
-        Some(".claude"),
         plan,
         params,
         visibility,
@@ -1445,17 +1444,23 @@ fn create_dual(
     Ok(())
 }
 
-/// Push primitive: steps 7, 8|9, 10 on `target`. Returns the
-/// final chid (`jj @-`) after re-init.
+/// Push primitive: bookmark + provision + publish on `target`.
+/// Returns the final chid (`jj @-`).
+///
+/// jj-only since 0.76.0-5: jj stays colocated throughout — set
+/// the bookmark, provision the remote, `jj git remote add`, then
+/// `jj git push`, which establishes tracking as a side effect
+/// (no `--allow-new`). The former strip-jj → git-push →
+/// re-colocate dance (`git clean -xdf`, `git checkout`,
+/// `git remote add`, `git push -u`, `jj git init --colocate`)
+/// was a leftover of the abandoned submodule design; the symlink
+/// design never needed jj evicted.
 ///
 /// - `target` — repo working dir (already populated by
 ///   `prepare_local_repo` + `commit_initial`).
 /// - `info_label` — narration tag (`"work"`, `"bot"`, etc.).
 /// - `step_label_provision` — `"Step 8"` (bot) or
 ///   `"Step 9"` (work) — appears in the provision/push narration.
-/// - `clean_exclude` — `Some(".claude")` for work-side dual to
-///   preserve the nested bot repo across `git clean -xdf`;
-///   `None` otherwise.
 /// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /
 ///   `bare_path` — forwarded to `run_remote_step`.
 #[allow(clippy::too_many_arguments)]
@@ -1463,7 +1468,6 @@ fn push_repo(
     target: &Path,
     info_label: &str,
     step_label_provision: &str,
-    clean_exclude: Option<&str>,
     plan: &InitPlan,
     params: &InitParams,
     visibility: &str,
@@ -1471,21 +1475,9 @@ fn push_repo(
     gh_slug: Option<&str>,
     bare_path: Option<&Path>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Step 7: Setting {info_label} bookmark and removing jj...");
+    info!("Step 7: Setting {info_label} bookmark...");
     debug!("place {info_label}-side main bookmark at the initial commit");
     run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
-    match clean_exclude {
-        Some(ex) => {
-            debug!("strip jj state from {info_label} side, preserving nested {ex}/");
-            run("git", &["clean", "-xdf", "--exclude", ex], target)?;
-        }
-        None => {
-            debug!("strip jj state from {info_label} side");
-            run("git", &["clean", "-xdf"], target)?;
-        }
-    }
-    debug!("re-attach {info_label} HEAD to main after clean");
-    run("git", &["checkout", "main"], target)?;
 
     run_remote_step(
         step_label_provision,
@@ -1499,17 +1491,6 @@ fn push_repo(
         params,
     )?;
 
-    info!("Step 10: Re-initializing jj on the {info_label} repo...");
-    debug!("re-colocate jj atop the now-remote-linked {info_label} repo");
-    run("jj", &["--quiet", "git", "init", "--colocate"], target)?;
-    debug!("restore {info_label}-side main bookmark after re-init");
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
-    debug!("enable jj tracking of {info_label}-side main against origin");
-    run(
-        "jj",
-        &["bookmark", "track", "main", "--remote=origin"],
-        target,
-    )?;
     crate::common::verify_tracking(target, "main")?;
     jj::chid_of(target, "@-")
 }
@@ -1555,7 +1536,12 @@ fn run_remote_step(
             debug!("init {side_label}-side bare repo as the local origin");
             run(
                 "git",
-                &["init", "--bare", &bare.to_string_lossy()],
+                &[
+                    "init",
+                    "--bare",
+                    "--initial-branch=main",
+                    &bare.to_string_lossy(),
+                ],
                 Path::new("."),
             )?;
         }
@@ -1563,12 +1549,18 @@ fn run_remote_step(
             info!("{step_label}: Using pre-existing {side_label} remote {remote_url}");
         }
     }
-    debug!("point {side_label}-side git at its remote");
-    run("git", &["remote", "add", "origin", remote_url], push_from)?;
+    debug!("point {side_label}-side jj at its remote");
+    run(
+        "jj",
+        &["git", "remote", "add", "origin", remote_url],
+        push_from,
+    )?;
     debug!("publish {side_label}-side initial commit; retry for GhCreate's async propagation");
+    // `jj git push` establishes tracking as a side effect — no
+    // `--allow-new`, no follow-up `jj bookmark track`.
     run_retry(
-        "git",
-        &["push", "-u", "origin", "main"],
+        "jj",
+        &["git", "push", "--bookmark", "main"],
         push_from,
         &params.push_retry,
     )?;

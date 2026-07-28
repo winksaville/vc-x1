@@ -102,7 +102,7 @@ Ladder (greppable stem `registry`; config-key paths become
   refactor-doc stage status (per-rung doc touches that keep
   a file true ride with their rung; this is the systematic
   sweep)
-- [[N]] 0.76.0-5 refactor: de-gitify init — the verified
+- [[N]] 0.76.0-5 refactor: de-gitify init (done) — the verified
   jj-only sequence replaces strip-jj → git-push →
   re-colocate
 - [[N]] 0.76.0 refactor: repo registry — close-out and

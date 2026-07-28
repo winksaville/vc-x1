@@ -134,7 +134,7 @@ impl Fixture {
         //   <base>/work/                  (work repo)
         //   <base>/work/.claude/          (bot repo)
         //   <base>/remote-work.git        (work bare origin)
-        //   <base>/remote-bot.git      (bot bare origin)
+        //   <base>/remote-work.claude.git      (bot bare origin)
         let work_path = base.join("work");
         let args = InitArgs {
             target: work_path.to_string_lossy().into_owned(),
@@ -200,7 +200,7 @@ impl Drop for Fixture {
 /// `init::init` with `por: true` and a path TARGET;
 /// `--repo local=<base>` steers the bare origin to
 /// `<base>/remote.git` (vs. dual's `remote-work.git` /
-/// `remote-bot.git`). No `.claude/` peer, no symlink.
+/// `remote-work.claude.git`). No `.claude/` peer, no symlink.
 ///
 /// Field shape differs from `Fixture` — there is no `bot` peer
 /// path — so it's a distinct type rather than an `Option<PathBuf>`
