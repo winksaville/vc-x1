@@ -26,7 +26,7 @@ A cycle has three phases:
     #1) into `## In Progress` (bold title + succinct problem
     statement + plan ladder).
   - Open the [chores section](#chores-sections).
-- **[Work-N](#work-n)** (`X.Y.Z-1`, `X.Y.Z-2`, …) — the
+- **[Work-N](#work-n)** (`X.Y.Z-1`, `X.Y.Z-2`, ...) — the
   commits that implement the change. As many as the change
   needs; each runs through the
   [per-commit flow](#per-commit-flow).
@@ -130,7 +130,7 @@ setup (a lightweight cycle omits it — see
 
 ## Work-N
 
-The cycle's work commits (`X.Y.Z-1`, `X.Y.Z-2`, …)
+The cycle's work commits (`X.Y.Z-1`, `X.Y.Z-2`, ...)
 implement the change. As many as needed:
 
 - Each commit runs through the
@@ -178,7 +178,7 @@ see [Pushing](#pushing).
 ## Numbering
 
 Each commit's phase is encoded in the version suffix — `-0`
-Preparation, `-1`/`-2`/… Work, bare `X.Y.Z` Close-out,
+Preparation, `-1`/`-2`/... Work, bare `X.Y.Z` Close-out,
 recursively for sub-cycles. The full scheme — disambiguation,
 nesting, optional Preparation, the project's version-of-record
 format, and the per-phase bump — lives in
@@ -195,7 +195,7 @@ through:
    root).
 2. **Do the work** (see [Iterative work](#iterative-work)
    for the loop-and-squash technique).
-3. **Flip this commit `(current)` → `(done)`** in `## In
+3. **Flip this commit `(current)` -> `(done)`** in `## In
    Progress` — before the cargo cycle and the commit.
 4. **Validate the artifact** — a medium-specific step, skip-able
    for notes-only commits, mandatory at close-out. For the Rust
@@ -213,7 +213,7 @@ through:
 7. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
 8. **Commit + push.** Hand the approved title/body to
-   `vc-x1 push <bookmark> --title "…" --body "…"` — its
+   `vc-x1 push <bookmark> --title "..." --body "..."` — its
    commit stages commit both repos and stamp the `ochid:`
    trailers. Never pre-commit the rung with `jj commit`: an
    empty `@` at push mints a stamped empty duplicate
@@ -408,9 +408,9 @@ two-command reshape, and a second push that re-points the
 bookmark at the reshaped commit.
 
 ```
-  main line   …──<base>──────────────────<closeout>──
-                    \                    /
-  ladder             <rung-1>──…──<tip>─┘
+  main line   ...──<base>──────────────────<closeout>──
+                      \                    /
+  ladder             <rung-1>──...──<tip>─┘
 ```
 
 - `<base>` — the **parent of the ladder's first rung**, which
@@ -420,26 +420,34 @@ bookmark at the reshaped commit.
   second parent.
 - `<closeout>` — the close-out commit, created by step 1.
 
-The steps, with this project's `vc-x1` binding first and the
-underlying jj beneath it:
+The steps. Only step 1 is a `vc-x1 push`; the rest is jj,
+because after step 1 the commits already exist and all that
+remains is reshaping and publishing them:
 
-1. `vc-x1 push <bookmark> --title "…" --body "…"` — the
-   ordinary close-out push. It commits both repos, stamps the
+1. `vc-x1 push <bookmark> --title "..." --body "..."`
+   - the ordinary close-out push. It commits both repos, stamps the
    `ochid:` trailers, and publishes `<closeout>` linearly.
-2. `jj rebase -r <closeout> --onto <base> --onto <tip>` —
-   `<closeout>` becomes the merge. Parent order is the
+2. `jj rebase -r <closeout> --onto <base> --onto <tip>`
+   - `<closeout>` becomes the merge. Parent order is the
    argument order.
-3. `jj new <closeout>` — puts an empty `@` above the merge.
-4. `vc-x1 push <bookmark> --no-squash-push` — advances the
-   bookmark to the reshaped `@-` and publishes it, leaving the
-   bot repo to a separate `vc-x1 squash-push`. No stage flag is
-   needed: both repos are already committed, so `commit-work`
-   and `commit-bot` skip, and a run with nothing pending asks
-   for no message.
+3. `jj new <closeout>`
+   -  puts an empty `@` above the merge.
+4. `jj git push --bookmark <bookmark> -R .`
+   - publishes the reshaped commit. The bookmark needs no `jj bookmark set`:
+   it follows the rewrite in step 2 automatically. The bot
+   repo is untouched, and its session tail goes out with a
+   separate `vc-x1 squash-push` afterwards.
 
-Steps 2–4 are `jj bookmark set <bookmark> -r <closeout>` +
-`jj git push --bookmark <bookmark> -R .` for a project
-without vc-x1; the jj half is the portable part.
+**Step 4 is not a `vc-x1 push`** (corrected at the `0.77.0`
+close-out, which tried it). Push runs its whole pipeline or
+none of it, and the bot repo is never quiet for long: by the
+time the reshape is done, `.claude` holds the session writes
+from steps 1–3, so `commit-bot` wants to run and the message
+stage demands a title for it. The result is a bot-side
+requirement blocking a work-side publish that needs nothing
+but a moved ref. Publishing an already-made commit is a
+different operation from committing and publishing, and only
+the latter is push's job.
 
 #### Details
 
@@ -454,11 +462,16 @@ without vc-x1; the jj half is the portable part.
   or planning interlude between cycles sits on the trunk line
   and must stay there; take the parent of the ladder's first
   rung, not the last close-out.
-- **Step 3 is load-bearing.** `jj rebase -r` re-parents
-  descendants onto the rebased commit's **old** parent, so
-  the empty `@` left by step 1 ends up beside the merge, not
-  on it — and `bookmark-set` resolves `@-`. Skipping step 3
-  advances the bookmark to the wrong revision.
+- **Step 3 is about `@`, not the bookmark.** The bookmark
+  follows the rewrite in step 2 on its own. What step 2
+  leaves misplaced is the working copy: `jj rebase -r`
+  re-parents descendants onto the rebased commit's **old**
+  parent, so the empty `@` from step 1 lands beside the merge
+  on `<tip>` — and the working tree reverts to pre-close-out
+  content, which looks alarming and isn't. `jj new` puts `@`
+  back on top of the merge so the tree is right and the next
+  commit continues from there. Skipping it doesn't break the
+  publish; it leaves you working from the wrong parent.
 - **Trailers survive.** The reshape changes `<closeout>`'s
   SHA but not its change ID, so the `ochid:` trailers stamped
   in step 1 stay valid in both directions. This is why the
@@ -472,10 +485,11 @@ without vc-x1; the jj half is the portable part.
   bookmark. Only when `<closeout>` is already on `trunk()`
   does the rebase need `--ignore-immutable`, and then the
   push force-updates the target.
-- **Step 4 is an ordinary push.** It carries no resume or
-  stage-selection flag — push has neither. Every stage checks
-  its own precondition, so the ones whose work is done do
-  nothing.
+- **The bot repo is left for afterwards.** Step 4 touches only
+  the work repo, so `.claude` still holds every session write
+  from the whole procedure. `vc-x1 squash-push` folds that
+  tail into the bot commit — its change id survives the
+  squash, so the work-side `ochid:` keeps resolving.
 
 #### Recovery
 
@@ -485,9 +499,14 @@ without vc-x1; the jj half is the portable part.
   fails): undo and redo step 2 with the corrected revisions.
   Do not push a shape you did not intend — after step 4 the
   remote boundary is crossed and recovery is forward-only.
-- **Bookmark advanced to the wrong revision** (step 3
-  skipped): `jj bookmark set <bookmark> -r <closeout>` before
-  pushing. If step 4 already pushed it, the fix is a second
+- **Working copy left beside the merge** (step 3 skipped):
+  `jj new <closeout>` after the fact. Nothing published is
+  affected — the bookmark was never wrong — but any commit
+  made in the meantime branches off `<tip>` and needs a
+  rebase onto the merge.
+- **A wrong bookmark position**, however it arose:
+  `jj bookmark set <bookmark> -r <closeout>` before pushing.
+  If step 4 already published it, the fix is a second
   sideways move, not a rewrite.
 
 ### vc-x1 push wrapper
@@ -676,7 +695,7 @@ jj squash --from "<base>..@-" --into @ -u -R .
 
 `<base>` is the parent of the first ladder commit; `-u`
 keeps `@`'s description and discards the sources'.
-After squash, history is linear: `<base> → @`;
+After squash, history is linear: `<base> -> @`;
 intermediate commits are auto-abandoned.
 
 Then `vc-x1 push <bookmark>` as for any other commit.

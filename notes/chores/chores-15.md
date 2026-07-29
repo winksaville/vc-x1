@@ -108,6 +108,8 @@ the `--merge` flag is built from it.
 
 ## refactor: stateless push
 
+Commits: [[3]],[[4]],[[5]],[[6]],[[7]]
+
 Picked up 2026-07-28. `push.rs` (~1.5k lines) holds the
 `Stage` machine, TOML state persistence, eight stage bodies,
 two sanity verifiers, and the interactive gates in one file.
@@ -134,7 +136,7 @@ below:
   [detail](#0770-2-fix-push-skips-an-empty-work-commit)
 - [[6]] 0.77.0-3 refactor: drop push state and preflight
   [detail](#0770-3-refactor-drop-push-state-and-preflight)
-- [[N]] 0.77.0 refactor: stateless push — close-out
+- [[7]] 0.77.0 refactor: stateless push — close-out
 
 This section was written as one block in `TODO.md > ## In
 Progress` while the cycle ran and moved here wholesale at
@@ -382,6 +384,39 @@ ran through close-out. Verdict: keep it.
   genuinely useful in the raw file, which was the argument for
   keeping them.
 
+## docs: jj-lib design notes + trapezoid recipe
+
+Commits:
+
+A trunk-line interlude between `0.77.0` and the punctuation
+cycle, carrying two threads from the 2026-07-29 session plus
+the corrections the `0.77.0` close-out earned by attempting
+the trapezoid recipe as written.
+
+- The op-store coexistence risk was a stub asking for a spike;
+  it is now answered, and the answer is "unenforceable,
+  probably fine". Read out of jj-lib 0.41 source against an
+  installed jj 0.40.0: structural change fails closed, the
+  index self-heals by reindexing, the op store serializes with
+  protobuf and carries no version stamp, and jj publishes no
+  on-disk compatibility policy. We think the residual risk is
+  low-probability, silent, and low-blast-radius.
+- The mitigation that looked obvious does not work. A
+  `jj --version` gate samples what `$PATH` resolves to, which
+  says nothing about the jj an editor integration or a later
+  session runs against the same repo. This workspace already
+  has two.
+- Consequence for the ladder: taking the coupling is a
+  decision, not a step 0.78.0 can assume. The index-lock prize
+  (bugs.md #1) does not require it, since a retry can wrap the
+  existing spawn today.
+- The trapezoid recipe's step 4 is `jj git push`, not
+  `vc-x1 push`. Push runs its whole pipeline or none of it,
+  and the bot repo is never quiet: by the time the reshape is
+  done, `.claude` holds the session writes from steps 1-3, so
+  `commit-bot` wants a title for a work-side publish that
+  needs nothing but a moved ref.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
@@ -390,3 +425,4 @@ ran through close-out. Verdict: keep it.
 [4]: https://github.com/winksaville/vc-x1/commit/ab3a07d4903b "ab3a07d4903bbe6ae7cec5490f5edd622161c72e"
 [5]: https://github.com/winksaville/vc-x1/commit/846b5eee5b98 "846b5eee5b988b0cd8887559a0fba3397155ee19"
 [6]: https://github.com/winksaville/vc-x1/commit/66aa3f67d4b1 "66aa3f67d4b1308bb08388ccb929fc27967e8259"
+[7]: https://github.com/winksaville/vc-x1/commit/9d6f7c0b0f05 "9d6f7c0b0f05ae74dd7100d457b92b72d913404f"
