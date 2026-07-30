@@ -154,6 +154,15 @@
     per-check pass/fail. Exit code = number of failed checks.
     Implementation: promote `verify_state_sanity` /
     `verify_completion_sanity` from push.rs to `common.rs`. [[16]]
+    - **A punctuation check cannot be a byte scan.** The
+      typeable-punctuation rule forbids *authoring* the four
+      characters, not their presence: transcribed tool output
+      and published commit titles keep theirs, and no scanner
+      distinguishes authored from transcribed. Record a
+      per-file count baseline and fail when a count rises.
+      This supersedes the chores-15 note asking the checker to
+      read its character set from one place, which assumed a
+      checkable zero.
 25. sync: surface working-copy state in the up-to-date summary
     (per-repo pending-files count or compact stat). Wording-only
     fix shipped in 0.37.1; this is the design+impl. [[14]]
@@ -271,6 +280,23 @@
     [the stage](refactor-20260716.md#stage-por--dual-conversion).
     Last program stage on purpose — leans on facade-owns-
     topology and the in-process init pieces.
+45. **Write down what an interlude is.** A docs or planning
+    commit that lands between cycles on the trunk line, taking
+    a patch bump rather than a `-N` rung. The facts exist but
+    are scattered across four places: `TODO.md`'s program
+    ladder, cycle-protocol's trapezoid details, the chores
+    `Commits:` convention, and the numbering visible in the
+    shipped versions. Consolidation, not new information, so
+    the rank is low.
+    - The one load-bearing fact is already written down: a
+      trapezoid's `<base>` is the parent of the ladder's first
+      rung, not the last close-out, because an interlude sits
+      on the trunk line and must stay there. It bit at 0.76.0
+      and again at 0.77.0, and now lives in
+      [the trapezoid details](cycle-protocol.md#details).
+    - What is missing is the decision rule: when unplanned
+      work becomes an interlude rather than a rung appended to
+      the running cycle.
 
 # References
 

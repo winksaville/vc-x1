@@ -650,7 +650,7 @@ single-commit scope, so the version doesn't change.
 
 When a Work commit subdivides into a sub-cycle (see
 [Numbering](#numbering) for suffix nesting), its Work
-commits typically live as a local jj `@` chain and
+commits will live as a local jj `@` chain and
 **collapse into the sub-cycle's Close-out** before the
 parent cycle continues. Ladder commits are scratch, for
 review and bisection only.
@@ -668,6 +668,15 @@ For each Work commit in the ladder:
 4. `jj describe -m "..." -m "..." -R .`: working title
    only; the sub-cycle Close-out collects everything
    into one final commit.
+
+**Nothing here is pushed.** The ladder is local until the
+[Close-out squash](#close-out-squash-the-ladder), so no ladder
+commit ever carries an `ochid:` trailer: the trailer is stamped
+once, by `vc-x1 push`, on the squashed commit. Step 4 is
+therefore first-time authoring of a scratch description, not a
+rewrite of a published or stamped one, and is the named
+exception to
+[Re-describing](../AGENTS.md#re-describing-coordinate-first-and-keep-the-trailer).
 
 ### Navigating the ladder
 
@@ -697,7 +706,13 @@ keeps `@`'s description and discards the sources'.
 After squash, history is linear: `<base> -> @`;
 intermediate commits are auto-abandoned.
 
-Then `vc-x1 push <bookmark>` as for any other commit.
+Then `vc-x1 push <bookmark>` as for any other commit. This is
+the ladder's first and only publish, and where its `ochid:`
+trailer is stamped. The scratch descriptions written at step 4
+of the
+[per-Work-commit contract](#per-work-commit-contract-within-a-ladder)
+never left the machine and never carried one, which is why
+describing them freely is safe.
 
 For N = 1 the squash is a no-op (`<base>..@-` is empty
 when `@-` is `<base>`); push the single commit directly.

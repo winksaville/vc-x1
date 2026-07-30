@@ -66,20 +66,11 @@ ladder side, which already bit at 0.76.0, whose base was the
 - [[13]] 0.76.1 docs: trapezoid close-out recipe (done)
 - [[10]] 0.77.0 refactor: stateless push (done)
 - [[11]] 0.77.1 docs: jj-lib design notes + trapezoid recipe (done)
-- [[N]] 0.77.2 docs: typeable punctuation (done)
-- [[N]] 0.77.3 docs: interlude shape + ochid describe caution
-- [[N]] 0.77.4 refactor: typeable punctuation in src
-  - 655 em dashes. Three kinds, and only one is prose:
-    `config_schema.rs` `doc:` strings and the error/log
-    messages are user-visible output, so changing them
-    changes what the binary prints. The cargo cycle is
-    therefore mandatory, unlike 0.77.2.
-  - unblocks the four `vc-x1 config` sample lines in
-    README.md, which stay verbatim until then because they
-    correctly transcribe what the installed binary prints.
-    No generator exists for them, so this rung regenerates
-    them by hand after `cargo install`.
-  - no test asserts on an em dash, so nothing else breaks
+- [[16]] 0.77.2 docs: typeable punctuation (done)
+- [[N]] 0.77.3 docs: re-describe rule + defer punctuation
+  sweep (current)
+  - retires the two `0.77.x` docs rungs into a `## Todo`
+    (source sweep) and the backlog (interlude shape)
 - [[N]] 0.78.0 refactor: jj-lib migration (Todo #1)
 - [[N]] 0.79.0 refactor: trapezoid-push + body-intro
   validation (Todo #2)
@@ -595,6 +586,32 @@ _No cycle currently in progress._
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
+20. **typeable punctuation: source sweep + rule rewording.**
+    The [Typeable punctuation only](/AGENTS.md#typeable-punctuation-only)
+    rule says "Banned" and then says transcribed text keeps its
+    characters. Both cannot be true. The rule prohibits
+    *authoring*; presence in a file is legitimate, so the
+    rewording comes first and bounds the sweep that follows.
+    Deferred out of the `0.77.x` ladder 2026-07-30, behind the
+    refactor program.
+    - Reword: "never authored" in place of "banned", and the
+      absolute clause scoped to text we write rather than to
+      bytes on disk.
+    - Sweep `src/` + `tests/`, ~875 sites across all four
+      characters (655 em dash, 166 arrow, 39 ellipsis, 1 en
+      dash). The retired ladder entry counted em dashes only,
+      the same subset-audit defect the 0.77.2 close-out
+      recorded one section earlier.
+    - `config_schema.rs` `doc:` strings and the error/log
+      messages are user-visible output, so the cargo cycle is
+      mandatory and the four README `vc-x1 config` samples
+      regenerate by hand after `cargo install`. No test asserts
+      on any of the four characters.
+    - `notes/` (~805 sites) and the chores archive (1965) stay
+      out of scope under "converts when touched". The archive
+      is thick with transcribed tool output and published
+      commit titles that must not convert, and heading
+      conversions move anchors the notes files link into.
 
 ## Ideas
 
@@ -699,14 +716,22 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
-- docs: typeable punctuation: `—`, `–`, `…` and `→` banned in
-  durable text, and the 551 sites in the five prose files
-  converted. None can be typed at a terminal, so none can be
-  grepped for, and an em dash next to option syntax reads as
-  another flag. The rule sorts a banned character by the role
-  it plays (naming it, doing a job, transcribed from outside)
-  and warns that converting a heading moves its anchor. Scope
-  covers commit titles and `src/`, which follows at 0.77.4
+- docs: re-describe rule + defer punctuation sweep: `jj
+  describe` on a published or already-stamped commit is a
+  history rewrite that silently drops the `ochid:` trailer, so
+  it is coordinate-first; the sub-cycle ladder is the named
+  exception, being local until its single Close-out push. Two
+  planned `0.77.x` rungs retired, the source sweep to `## Todo`
+  and interlude shape to the backlog [[17]]
+
+- docs: typeable punctuation: `—`, `–`, `…` and `→` no longer
+  authored in durable text, and the 553 sites in the five prose
+  files converted. None can be typed at a terminal, so none can
+  be grepped for, and an em dash next to option syntax reads as
+  another flag. The rule sorts a character by the role it plays
+  (naming it, doing a job, transcribed from outside) and warns
+  that converting a heading moves its anchor. Scope covers
+  commit titles and `src/`; that sweep is deferred to `## Todo`
   [[14]]
 
 - docs: jj-lib design notes + trapezoid recipe: the op-store
@@ -776,3 +801,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [13]: https://github.com/winksaville/vc-x1/commit/2424e14f858d "2424e14f858d010e5c07e8821149a114b3d3dda5"
 [14]: /notes/chores/chores-15.md#docs-typeable-punctuation
 [15]: /notes/chores/chores-15.md#docs-jj-lib-design-notes--trapezoid-recipe
+[16]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
+[17]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep

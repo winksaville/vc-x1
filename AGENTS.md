@@ -243,6 +243,25 @@ How many, and which direction:
 Use `vc-x1 chid -s work,bot -L` to capture the change IDs (first
 line work repo, second bot repo).
 
+### Re-describing: coordinate first, and keep the trailer
+
+**Never `jj describe` a commit that is already published or
+already carries trailers without coordinating with everyone
+involved first.** It is a history rewrite, and it silently
+drops the cross-repo link. Describing a fresh local commit
+that has never been described and carries no trailers is
+authoring a message rather than rewriting one, and is not
+covered; that is the sub-cycle ladder's
+[per-Work-commit contract](notes/cycle-protocol.md#per-work-commit-contract-within-a-ladder)
+step 4.
+
+When a re-describe is agreed, copy any `ochid:` trailers into
+the new body by hand (the "don't hand-write trailers" rule
+covers push authoring a message from scratch, not preserving
+one already stamped). Hit at the 0.77.2 amend (2026-07-29),
+where the trailer survived only that way; `vc-x1 fix-desc`
+repairs a dropped one by title match.
+
 ### Resolvability
 
 A change ID travels with its commit: a **pushed** commit resolves

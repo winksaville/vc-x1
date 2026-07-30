@@ -419,7 +419,7 @@ the trapezoid recipe as written.
 
 ## docs: typeable punctuation
 
-Commits:
+Commits: [[9]]
 
 `—`, `–`, `…` and `→` cost nothing to write and are paid on
 every read: none can be typed at a terminal, so none can be
@@ -464,8 +464,10 @@ The third role is why `README.md` still holds four em dashes:
 its `vc-x1 config` samples transcribe what the installed binary
 prints, and `src/config_schema.rs` puts em dashes in the `doc:`
 strings. Converting the samples would make the docs claim
-output that does not exist. They convert at `0.77.3`, in the
-same commit that changes the strings.
+output that does not exist. They convert whenever the strings
+do, in that same commit; the source sweep was deferred out of
+the `0.77.x` ladder on 2026-07-30 and now sits in `## Todo` as
+"typeable punctuation: source sweep + rule rewording".
 
 We think the reason this rule needs to be absolute where the
 semicolon rule is a lean is that the cost is asymmetric: an em
@@ -519,6 +521,74 @@ Three headings in AGENTS.md and one in refactor-20260716.md
 were affected; a repo-wide grep found four inbound links, all
 in the same files. The rule now carries the warning.
 
+## docs: re-describe rule + defer punctuation sweep
+
+Commits:
+
+Two unrelated threads, both found by reading the `0.77.x`
+ladder rather than by doing the work it planned: a `jj describe`
+hazard that had been recorded only inside a feature request,
+and two planned rungs whose value did not survive scrutiny.
+
+- **Re-describing is coordinate-first.** `jj describe` on a
+  published or already-stamped commit is a history rewrite and
+  silently drops the `ochid:` trailer, since it replaces the
+  whole message and nothing guards it the way `squash-push`
+  guards a squash. The hazard is not theoretical: it cost the
+  `0.77.2` amend its trailer, which survived only by
+  hand-copying. AGENTS.md carries the rule, next to the ochid
+  semantics rather than inside the Todo that will eventually
+  fix it.
+- **The sub-cycle ladder is the named exception**, and it
+  needed saying from both ends. Ladder commits never leave the
+  machine, so they carry no trailer and step 4's `describe` is
+  first-time authoring, not a rewrite. cycle-protocol says so
+  at the per-Work-commit contract and again at the Close-out
+  squash, which is the ladder's single push and where the
+  trailer is stamped.
+- **`typically` became `will`** in the sub-cycle intro, since
+  the local-only claim is flat and a hedge in the same section
+  undercut it.
+- **Two rungs left the ladder**: the `src` punctuation sweep to
+  `## Todo`, interlude shape to the backlog.
+
+### Wording strength should match the deviation it invites
+
+The session hit the same calibration error twice, pointing
+opposite ways, which is what made it visible.
+
+- `Banned:` in the punctuation rule was too strong for a rule
+  with legitimate exceptions, so the section spent four
+  paragraphs contradicting its own first word.
+- `typically` in the sub-cycle intro was too weak for a rule
+  whose exception should be deliberate, letting a reader stray
+  without noticing a choice had been made.
+
+We think the useful test is not "is this rule absolute" but
+"how much hesitation should breaking it cost". Any rule here
+can be broken; the wording decides whether breaking it is an
+act or a default.
+
+### Why the source sweep left the ladder
+
+The rule cannot be enforced at the byte level, and noticing
+that changed the sweep's shape and its checker both.
+
+- **`Banned` is not what the rule means.** Transcribed tool
+  output and published commit titles keep their characters,
+  so presence in a file is legitimate and the prohibition is
+  on *authoring*. The rewording is now the first step of the
+  `## Todo` entry, because it is what bounds the sweep.
+- **Only `src/` and `tests/` are converted.** Everything else
+  converts when touched. The chores archive is thick with
+  transcription that must not convert, so sweeping it would be
+  judgment calls, not a sweep.
+- **A `validate-repo` byte scan cannot implement this**, since
+  no scanner separates authored from transcribed. The backlog
+  entry now asks for a per-file count baseline that fails on a
+  rise, which supersedes the note two sections above asking
+  the checker to read its character set from one place.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
@@ -529,3 +599,4 @@ in the same files. The rule now carries the warning.
 [6]: https://github.com/winksaville/vc-x1/commit/66aa3f67d4b1 "66aa3f67d4b1308bb08388ccb929fc27967e8259"
 [7]: https://github.com/winksaville/vc-x1/commit/9d6f7c0b0f05 "9d6f7c0b0f05ae74dd7100d457b92b72d913404f"
 [8]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
+[9]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
