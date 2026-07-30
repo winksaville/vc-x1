@@ -386,7 +386,7 @@ ran through close-out. Verdict: keep it.
 
 ## docs: jj-lib design notes + trapezoid recipe
 
-Commits:
+Commits: [[8]]
 
 A trunk-line interlude between `0.77.0` and the punctuation
 cycle, carrying two threads from the 2026-07-29 session plus
@@ -417,6 +417,108 @@ the trapezoid recipe as written.
   `commit-bot` wants a title for a work-side publish that
   needs nothing but a moved ref.
 
+## docs: typeable punctuation
+
+Commits:
+
+`—`, `–`, `…` and `→` cost nothing to write and are paid on
+every read: none can be typed at a terminal, so none can be
+grepped for, and an em dash next to option syntax reads as
+another flag. Nobody chose the 551 sites across the five prose
+files, they accumulated. AGENTS.md gains the rule that bans
+them, and the sweep converts what is already written.
+
+One commit, no ladder: the rule and the sweep are one idea,
+and per-file rungs would buy no review value in prose files
+that have no build and no tests.
+
+It started as a question about whether a ladder rung's title
+and its detail should share a line. They should not, and the
+em dash was what let them: it joins two things without naming
+their relationship, which is the failure `### Semicolons
+inside bullets` already names for `;`. Pulling that thread
+reached the character itself, and then the whole class. The
+rule is `### Typeable punctuation only` under
+[Prose form](/AGENTS.md#prose-form), a sibling to the semicolon
+rule and cross-linked from its intro. It was designed jointly
+with the iiac-perf project, whose AGENTS.md carries the same
+section.
+
+### Three roles a banned character can play
+
+The rule took four rounds to get right, and each round was the
+same mistake in a different place: a blanket claim that the
+next paragraph then contradicted. The settled form sorts by
+what the character is *doing*, not where it sits.
+
+- **Naming it** (`` `…` ``) is a specimen and stays. This is
+  how the section names the characters it bans.
+- **Doing a job** (`` `.expect(…)` ``) is a use and converts.
+  A first draft exempted all code spans, which would have
+  forbidden the very conversions the sweep had just made.
+- **Transcribed from outside** (tool output, an error message,
+  an already-published commit title) keeps its characters,
+  code span or not. Transcription is not authoring.
+
+The third role is why `README.md` still holds four em dashes:
+its `vc-x1 config` samples transcribe what the installed binary
+prints, and `src/config_schema.rs` puts em dashes in the `doc:`
+strings. Converting the samples would make the docs claim
+output that does not exist. They convert at `0.77.3`, in the
+same commit that changes the strings.
+
+We think the reason this rule needs to be absolute where the
+semicolon rule is a lean is that the cost is asymmetric: an em
+dash is free to write and paid on every read, so a soft rule
+accumulates them. 551 sites in five files is the evidence.
+
+### Four banned characters, and an audit that checked three
+
+The rule bans four characters: `—`, `–`, `…`, `→`. Every
+verification run during the sweep counted three of them. The en
+dash was never in the audit command, so it was never in the
+report, so the sweep read as complete while two real sites
+survived: a section range written `1–8` in TODO.md and a step
+range written `1–3` in cycle-protocol.md. Both were found by
+the last check
+before the commit, which happened to include the fourth
+character.
+
+We think the en dash is the easiest of the four to miss for a
+reason that will recur: it is the only one with no distinct
+visual signature at a glance. `…` and `→` are unmistakable, and
+an em dash is long enough to notice in running prose, but `–`
+between two numbers looks exactly like the hyphen it should
+have been. It hides in precisely the construct it is used for.
+
+Two consequences worth carrying forward:
+
+- **The audit must enumerate the ban, not a memory of it.** A
+  check that tracks a subset silently reports success. This is
+  the same defect class as the `clippy ... | tail -2 && cargo
+  test` gate found at the 0.77.0 close-out, where the pipeline
+  status came from `tail` and the `&&` was decorative: a
+  mechanism that looks like a guarantee and is not.
+- **A future `validate-repo` byte scan should read its
+  character set from one place** shared with the rule's text,
+  so the two cannot drift. Enumerating the characters a second
+  time in the checker recreates exactly the gap this cycle hit.
+
+The count reported for this cycle, 551 sites, is therefore two
+low as originally tallied; the corrected total is 553.
+
+### An em dash in a heading moves its anchor
+
+Found mid-sweep, and it is the one silent failure in the whole
+change. Stripping the dash leaves the spaces on both sides, so
+`## A — B` slugs to `#a--b` while the colon form slugs to
+`#a-b`. Converting a heading therefore breaks every inbound
+link to it.
+
+Three headings in AGENTS.md and one in refactor-20260716.md
+were affected; a repo-wide grep found four inbound links, all
+in the same files. The rule now carries the warning.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
@@ -426,3 +528,4 @@ the trapezoid recipe as written.
 [5]: https://github.com/winksaville/vc-x1/commit/846b5eee5b98 "846b5eee5b988b0cd8887559a0fba3397155ee19"
 [6]: https://github.com/winksaville/vc-x1/commit/66aa3f67d4b1 "66aa3f67d4b1308bb08388ccb929fc27967e8259"
 [7]: https://github.com/winksaville/vc-x1/commit/9d6f7c0b0f05 "9d6f7c0b0f05ae74dd7100d457b92b72d913404f"
+[8]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
