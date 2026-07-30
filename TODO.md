@@ -67,10 +67,14 @@ ladder side, which already bit at 0.76.0, whose base was the
 - [[10]] 0.77.0 refactor: stateless push (done)
 - [[11]] 0.77.1 docs: jj-lib design notes + trapezoid recipe (done)
 - [[16]] 0.77.2 docs: typeable punctuation (done)
-- [[N]] 0.77.3 docs: re-describe rule + defer punctuation
-  sweep (current)
+- [[18]] 0.77.3 docs: re-describe rule + defer punctuation
+  sweep (done)
   - retires the two `0.77.x` docs rungs into a `## Todo`
     (source sweep) and the backlog (interlude shape)
+- [[N]] 0.77.4 build: bump jj-lib to 0.43 (current)
+  - not migration work; keeps the read-side compiling
+    against the installed jj 0.43.0, and correct whichever
+    way the mutation decision goes
 - [[N]] 0.78.0 refactor: jj-lib migration (Todo #1)
 - [[N]] 0.79.0 refactor: trapezoid-push + body-intro
   validation (Todo #2)
@@ -716,6 +720,15 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- build: bump jj-lib to 0.43: the local `jj` moved to 0.43.0,
+  leaving the pin two releases behind. `use_glob_by_default`
+  is gone from `RevsetParseContext` and `commit_change_ids()`
+  returns a stream rather than an iterator, so `futures` joins
+  the direct dependencies. The bump also moved the default
+  revset string-pattern kind from substring to glob, which the
+  compiler could not report and which no revset of ours uses
+  [[19]]
+
 - docs: re-describe rule + defer punctuation sweep: `jj
   describe` on a published or already-stamped commit is a
   history rewrite that silently drops the `ochid:` trailer, so
@@ -803,3 +816,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [15]: /notes/chores/chores-15.md#docs-jj-lib-design-notes--trapezoid-recipe
 [16]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
 [17]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep
+[18]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
+[19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043

@@ -1,15 +1,16 @@
 [package]
 name = "vc-x1-dev"
-version = "0.77.3"
+version = "0.77.4"
 edition = "2024"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["now"] }
 clap = { version = "4.6", features = ["derive", "wrap_help"] }
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
-jj-lib = "0.41"
+futures = "0.3"
+jj-lib = "0.43"
 log = { version = "0.4", features = ["std"] }
-pollster = "0.4"
+pollster = "1.0"
 serde_json = "1"
 
 [target.'cfg(unix)'.dependencies]

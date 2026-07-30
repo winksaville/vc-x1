@@ -6,6 +6,7 @@ use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::options_flags::common_args::CommonArgs;
 use crate::options_flags::scope::{Scope, Side};
 use crate::toml_simple;
+use futures::stream::StreamExt;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::StackedConfig;
@@ -501,7 +502,6 @@ pub fn resolve_revset(
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: None,
         fileset_aliases_map: &fileset_aliases_map,
-        use_glob_by_default: false,
         extensions: &extensions,
         workspace: Some(workspace_ctx),
     };
@@ -515,7 +515,8 @@ pub fn resolve_revset(
     let revset = resolved.evaluate(repo.as_ref())?;
 
     let mut commit_ids = Vec::new();
-    for result in revset.commit_change_ids() {
+    let mut stream = revset.commit_change_ids();
+    while let Some(result) = stream.next().block_on() {
         let (commit_id, _change_id) = result?;
         commit_ids.push(commit_id);
     }

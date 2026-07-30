@@ -523,7 +523,7 @@ in the same files. The rule now carries the warning.
 
 ## docs: re-describe rule + defer punctuation sweep
 
-Commits:
+Commits: [[10]]
 
 Two unrelated threads, both found by reading the `0.77.x`
 ladder rather than by doing the work it planned: a `jj describe`
@@ -589,6 +589,56 @@ that changed the sweep's shape and its checker both.
   rise, which supersedes the note two sections above asking
   the checker to read its character set from one place.
 
+## build: bump jj-lib to 0.43
+
+Commits:
+
+The local `jj` went to 0.43.0, leaving the pin two releases
+behind at 0.41. Not migration work: this keeps the existing
+read-side compiling against the installed jj, and it is
+correct whichever way the mutation decision goes, so it lands
+on the trunk line before the cycle rather than inside it.
+
+- `RevsetParseContext::use_glob_by_default` is gone in 0.43,
+  so the field assignment goes with it.
+- `Revset::commit_change_ids()` returns a `LocalBoxStream`
+  rather than an iterator. Consumed with `StreamExt::next`
+  driven by the `pollster` `block_on` the file already used
+  for `load_at_head()`.
+- `futures` is promoted from a transitive dependency to a
+  direct one. The `Revset` trait offers no blocking iterator
+  any more, so consuming any of its three methods needs
+  `StreamExt`; the alternative was a hand-rolled poll loop
+  with a no-op waker.
+
+### A silent semantic change under a loud API break
+
+The compiler reported the removed field. It could not report
+that the behavior the field selected had also changed, and
+that is the more interesting half.
+
+- In 0.41 the default string-pattern kind was chosen by the
+  flag: `glob` when true, `substring` when false. We passed
+  false.
+- In 0.43 `expect_string_expression` builds
+  `StringPattern::glob(value)` unconditionally. There is no
+  opt-out, so the default moved to glob.
+- A revset like `description(foo)` therefore went from
+  matching any description containing "foo" to matching the
+  literal "foo". Nothing of ours changes, since our revsets
+  are `all()`, `children(<hex>)` and bare change ids, none of
+  which take string patterns. A user-supplied
+  `-r 'description(foo)'` does change.
+
+We think this is worth recording because of what it says
+about the mutation decision this cycle is deciding. Two
+releases of a pre-1.0 library produced one break the compiler
+caught and one it structurally could not, and the green build
+that followed the fix was not evidence the bump preserved
+behavior. That asymmetry is the treadmill cost, and it is
+paid on every bump, not only the ones that touch the op
+store.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
@@ -600,3 +650,4 @@ that changed the sweep's shape and its checker both.
 [7]: https://github.com/winksaville/vc-x1/commit/9d6f7c0b0f05 "9d6f7c0b0f05ae74dd7100d457b92b72d913404f"
 [8]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
 [9]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
+[10]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
