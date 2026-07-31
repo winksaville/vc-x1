@@ -35,6 +35,7 @@ mod url;
 mod validate_bot;
 mod validate_desc;
 mod validate_todo;
+mod version;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -45,10 +46,11 @@ use log::error;
 
 use crate::subcommand::SubcommandRunner;
 
-/// Banner string emitted as the first line of normal command runs
-/// and shown at the top of subcommand `--help` output. Built from
-/// `Cargo.toml`'s name + version at compile time so it stays in
-/// sync with the bumped version.
+/// Banner string emitted as the first line of every run (stderr,
+/// or stdout when `-V` asked for it), and shown at the top of
+/// subcommand `--help` output. Built from `Cargo.toml`'s name +
+/// version at compile time so it stays in sync with the bumped
+/// version.
 const BANNER: &str = concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
 
 /// Top-level about line — name, version, and the project tagline
@@ -96,16 +98,23 @@ fn cli_with_banner() -> clap::Command {
 #[derive(Parser, Debug)]
 #[command(about = TOP_ABOUT, max_term_width = 80)]
 pub struct Cli {
-    /// Print the `vc-x1 X.Y.Z` banner as the first line, then
-    /// continue. With no subcommand, prints the banner and exits.
+    /// Version detail on stdout: -V the banner, -VV the full
+    /// report (as `vc-x1 version`). Counted like -v/-vv.
     ///
-    /// Replaces clap's auto-version (which would exit after
-    /// printing): the banner now rides along with normal
-    /// subcommand execution rather than gating it, so scripts
-    /// can capture the version *and* the command's output in
-    /// one invocation.
-    #[arg(short = 'V', long = "version", global = true, action = clap::ArgAction::SetTrue)]
-    pub version: bool,
+    /// Both ride along: they print, then the subcommand runs, so
+    /// one invocation captures the version and the command's
+    /// output together. That is why this replaces clap's
+    /// auto-version, which would exit after printing. Without
+    /// either, the banner still prints, on stderr.
+    #[arg(short = 'V', long = "version", global = true, action = clap::ArgAction::Count)]
+    pub version: u8,
+
+    /// Suppress the banner stderr normally carries on every run.
+    ///
+    /// Only the ambient banner: an explicit `-V` still prints,
+    /// since asking for it outranks suppressing it.
+    #[arg(long = "no-banner", global = true, action = clap::ArgAction::SetTrue)]
+    pub no_banner: bool,
 
     /// Verbose output: -v debug, -vv trace
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
@@ -121,6 +130,16 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
+    /// Print vc-x1, jj-lib, and jj-data versions
+    #[command(
+        long_about = "Print every version that describes this run: vc-x1's own,\n\
+        the jj-lib it links against, and what each repo's jj data\n\
+        records about itself.\n\n\
+        The jj-data lines are backend type names, not versions:\n\
+        jj records no format version we can read."
+    )]
+    Version,
+
     /// Print the changeID for a revision
     Chid(chid::ChidArgs),
 
@@ -396,28 +415,59 @@ fn main() -> ExitCode {
     let log_path = cli.log.as_ref().map(|p| p.to_string_lossy().to_string());
     logging::CliLogger::init(cli.verbose, log_path.as_deref());
 
-    // `-V` / `--version`: emit the `vc-x1 X.Y.Z` banner as the
-    // first line and continue. With no subcommand, the banner is
-    // the whole invocation. Uniform `BANNER` (not the
-    // `vc-x1-<sub>` form clap's `propagate_version` would print)
-    // — the version is the binary's regardless of which
-    // subcommand it routes to.
-    if cli.version {
-        log::info!("{BANNER}");
+    // Version output rides along with every run so any captured
+    // output says which version produced it. Stream by who asked:
+    // `-V`/`-VV` are explicit requests, so they go to stdout where
+    // a script capturing output collects them; unasked-for
+    // provenance goes to stderr, keeping stdout parseable for the
+    // commands that emit data there. The `version` subcommand
+    // prints the report itself, so it skips all of this. Uniform
+    // `BANNER` (not the `vc-x1-<sub>` form clap's
+    // `propagate_version` would print): the version is the
+    // binary's regardless of which subcommand it routes to.
+    //
+    // `eprintln!` rather than the logger because `CliLogger` puts
+    // info on stdout by level; the cost is that `--log` does not
+    // capture the ambient banner.
+    let version_cmd = matches!(cli.command, Some(Commands::Version));
+    if !version_cmd {
+        match cli.version {
+            0 => {
+                if !cli.no_banner {
+                    eprintln!("{BANNER}");
+                }
+            }
+            1 => log::info!("{BANNER}"),
+            _ => {
+                for line in version::report(BANNER) {
+                    log::info!("{line}");
+                }
+            }
+        }
     }
 
     let Some(cmd) = cli.command else {
-        // No subcommand. If `-V` was set the banner has already
-        // printed, so exit success; otherwise mirror clap's "a
-        // subcommand is required" error by printing usage and
-        // exiting non-zero.
-        if cli.version {
+        // No subcommand. If `-V` was set the banner or report has
+        // already printed, so exit success; otherwise mirror
+        // clap's "a subcommand is required" error by printing
+        // usage and exiting non-zero.
+        if cli.version > 0 {
             return ExitCode::SUCCESS;
         }
         let mut cmd = cli_with_banner();
         let _ = cmd.print_help();
         return ExitCode::FAILURE;
     };
+
+    // Answered before `Context::load`, which needs a workspace:
+    // the versions that describe a run are exactly what you want
+    // when the workspace is what's broken.
+    if let Commands::Version = cmd {
+        for line in version::report(BANNER) {
+            log::info!("{line}");
+        }
+        return ExitCode::SUCCESS;
+    }
 
     let ctx = match context::Context::load() {
         Ok(c) => c,
@@ -428,6 +478,8 @@ fn main() -> ExitCode {
     };
 
     match cmd {
+        // Handled above, before `Context::load`.
+        Commands::Version => ExitCode::SUCCESS,
         Commands::Chid(args) => args.dispatch(&ctx),
         Commands::Desc(args) => args.dispatch(&ctx),
         Commands::List(args) => args.dispatch(&ctx),

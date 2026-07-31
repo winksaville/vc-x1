@@ -88,59 +88,66 @@ git spawning; see
 [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
 Scope settled 2026-07-30: all three pieces, accepting the
 op-store version coupling that the migration introduces. The
-version gate at `-4` is what makes that coupling enforceable
+version gate at `-5` is what makes that coupling enforceable
 rather than merely accepted, which is the change from the
 2026-07-29 framing.
 
 - [[21]] 0.78.0-0 chore: open the jj-lib migration cycle
   (done) [detail](#0780-0-chore-open-the-jj-lib-migration-cycle)
-- [[N]] 0.78.0-1 docs: adopt universal AGENTS (done)
+- [[22]] 0.78.0-1 docs: adopt universal AGENTS (done)
   [detail](#0780-1-docs-adopt-universal-agents)
   - inserted 2026-07-30: the AGENTS restructure proposed in
     vc-x1-work-repo-template becomes this repo's live
     instructions, dogfooded for the rest of the cycle; lands
     first so the remaining rungs run under the new rules
-- [[N]] 0.78.0-2 docs: jj-lib version coupling policy
-  - records the decision, and revises
-    [the risk section](notes/refactor-20260716.md#design-risk-op-store-coexistence),
-    whose "a `jj --version` check does not work" conclusion is
-    superseded: it evaluated the check as a compatibility
-    oracle rather than as a guard on our own writes
-- [[N]] 0.78.0-3 refactor: jj-lib reads
+- [[N]] 0.78.0-2 feat: report jj-lib and jj-data versions
+  (done)
+  [detail](#0780-2-feat-report-jj-lib-and-jj-data-versions)
+  - split out of the former `-2` on 2026-07-31: the rung had
+    grown a `build.rs`, a module, and a CLI behavior change,
+    which no `docs:` title covers
+  - the measurement lands before the prose that cites it
+- [[N]] 0.78.0-3 docs: jj-lib version coupling policy
+  [detail](#0780-3-docs-jj-lib-version-coupling-policy)
+  - the policy proper goes to `notes/`, beside the risk
+    section it supersedes; `TODO.md` keeps the narrative that
+    moves to chores at close-out
+  - retires three recorded conclusions at once, so they move
+    together or the notes argue with themselves: the risk
+    section's `jj --version` verdict, this ladder's
+    write-path-only bullet, and the "Decisions at cycle open"
+    claim that one direction is safe
+- [[N]] 0.78.0-4 refactor: jj-lib reads
   - `jj log` templates become `Commit` accessors
   - `@`-relative reads stay behind: they need a working-copy
     snapshot, which is an op-store write, so they move with
     the mutations
-- [[N]] 0.78.0-4 feat: jj-lib version gate
-  - our side is compile-time by nature, not by compromise:
-    the linked jj-lib is what writes ops. A `build.rs` reads
-    the resolved version out of `Cargo.lock` and exports
-    `JJ_LIB_VERSION` via `cargo::rustc-env`, with
-    `rerun-if-changed` on the lock.
-  - read `$CARGO_MANIFEST_DIR/Cargo.lock` directly rather
-    than walking ancestors: we are not a workspace, and a
-    walk can bind a sibling project's lock, which is worse
-    than failing
-  - their side is `jj -V`, printing `jj 0.43.0-<hash>`, so
-    compare the triple by prefix match or regex, never whole
-    string equality
-  - a version stamp in the repo data would beat asking the
-    binary, but the one that exists is the wrong one: the
-    index carries a format version, and it is self-healing
-    derived data whose constant is `pub(super)`, while the
-    op store, the thing we would be co-writing, carries none
+- [[N]] 0.78.0-5 feat: jj-lib version gate
+  - builds only the gate; both operands ship at `-2`
+  - refuse at startup, not on the write path, and stop
+    before anything opens a repo; see
+    [why equality, and why at startup](#why-equality-and-why-at-startup)
+  - carve-out for commands that provably do not open a repo
+    (`--version`, `--help`, completion, the markdown
+    commands), since gating those costs a spawn per tab press
+    and a hard `jj` dependency for a markdown linter, and
+    buys no safety
+  - ordering is parse, init logging, gate, then everything
+    else: literally-first is not implementable, since before
+    the parse we cannot tell a completion request from a real
+    one and have no `-v` / `--log` to report through
+  - `jj` missing from `$PATH` is a distinct message from a
+    version mismatch, because the fix is different
   - rests on jj-cli and jj-lib releasing in lockstep; verify
     against the jj-cli manifest and record the assumption,
     since equality becomes the wrong test if they diverge
-  - refuse on the write path only, with an explicit override
-    flag, so a jj upgrade never blocks a read
   - the `.vc-config.toml` pin turns a `$PATH` sample into a
     declaration, but only matters once more than one jj is in
     play; it stays a Todo
-- [[N]] 0.78.0-5 refactor: jj-lib mutations
+- [[N]] 0.78.0-6 refactor: jj-lib mutations
   - commit, describe, bookmark set/track, fetch, push, plus
-    the `@`-relative reads deferred from `-3`
-- [[N]] 0.78.0-6 fix: jj-lib index-lock retry
+    the `@`-relative reads deferred from `-4`
+- [[N]] 0.78.0-7 fix: jj-lib index-lock retry
   - bugs.md #1, with the `git init --bare` to gix rider
   - the retry classifies by error variant rather than
     substring, which is the real win: `SpawnInPath` and
@@ -166,11 +173,19 @@ rather than merely accepted, which is the change from the
   exactly that. The safe direction, a newer jj reading our
   older op, is something jj must support anyway, since the
   user's own older jj wrote into that repo first.
-- **The gate lands at `-4`, before the mutations at `-5`**, so
+  - **Half superseded 2026-07-31.** The conclusion stands;
+    the "safe direction" sentence does not. See
+    [why equality, and why at startup](#why-equality-and-why-at-startup).
+    Kept as written because this section records what was
+    decided at open, not what we believe now.
+- **The gate lands at `-5`, before the mutations at `-6`**, so
   mutations arrive in a repo that already refuses on
   mismatch. The cost is one commit whose check guards nothing
-  yet, which reads oddly in isolation; folding it into `-5`
+  yet, which reads oddly in isolation; folding it into `-6`
   would avoid that but make one rung do two things.
+  - renumbered 2026-07-31 by the `-2` split; the decision is
+    unchanged, the gate still lands one rung ahead of the
+    mutations
 - **Deferring mutations was not free**, which is what settled
   it. The trapezoid reshape at 0.79.0 is a `jj rebase`, so
   "reads only" would leave that cycle either spawning or
@@ -238,6 +253,232 @@ moment of action, rationale behind them, project specifics
 in `custom.md`). We think that keeps any adherence change
 attributable to the structure, which is the hypothesis under
 test.
+
+##### 0.78.0-2 feat: report jj-lib and jj-data versions
+
+`--version` reports three versions that answer different
+questions, so the policy at `-3` can be written against
+measured output instead of inference:
+
+- ours, `CARGO_PKG_VERSION`, compile time
+- jj-lib's, `JJ_LIB_VERSION`, resolved from `Cargo.lock` by a
+  new `build.rs`
+- the data's, read through jj-lib's public accessors only, one
+  `jj-data` line per repo
+
+The report is its own `version` subcommand, answered before
+`Context::load` so it still works when the workspace is the
+thing that is broken. That matters at `-5`: the report is the
+diagnostic you run when the gate has stopped you, so it has to
+be nameable in the carve-out. "The `version` subcommand
+gathers `jj-data` lines only after the gate passes" is a
+sentence the policy can hold; "the bare invocation with no
+subcommand" was not.
+
+Version output now rides along with every run, so any captured
+output says which version produced it. Stream by who asked:
+
+- no flag: stderr. Provenance that was not asked for must not
+  land in the stream `chid`, `desc`, `list` and `show` emit
+  data on, or piping them breaks.
+- `-V` / `--version`: the banner on stdout. An explicit request
+  makes it data, capturable alongside the command's own output.
+- `-VV`: the full report on stdout, then the subcommand runs.
+  This is the one thing the subcommand cannot do, and what a
+  bug report wants stamped on top of a real command's output.
+- `--no-banner` silences the ambient one; `-V` still prints,
+  since asking outranks suppressing.
+
+Counted like the `-v` / `-vv` this CLI already teaches, so
+version detail scales the way verbosity does and needs no
+separate explanation.
+
+We rejected `-V` versus `--version` as the terse/full split.
+Those two being aliases is close to a universal CLI
+convention, and this project prefers invariants that can be
+stated in one line.
+
+The ambient banner uses `eprintln!` rather than the logger,
+because `CliLogger` routes by level and puts info on stdout.
+The cost is that `--log` does not capture it.
+
+The `build.rs` is `-5`'s mechanism arriving three rungs early,
+which was not the plan: jj-lib exports no version constant and
+no accessor for one, so printing the version at all requires
+resolving it from the lock. `-5` inherits it and adds only the
+comparison and the refusal. The lock is read from
+`$CARGO_MANIFEST_DIR` rather than by walking ancestors,
+because we are not a workspace and a walk can bind a sibling
+project's lock, which is worse than failing.
+
+`data_version` stops at `Workspace::load` and never calls
+`load_at_head`, since resolving op heads can merge divergent
+ones, which is a write. A version report must not mutate what
+it reports on.
+
+We think one wrong turn is worth recording. The `build.rs`
+parser first shipped with unit tests, which never ran: cargo
+does not compile a build script as a test target. They were
+the exact defect class the `## Todo` entry "A committed
+cycle-check runner" describes, a mechanism that looks like a
+guarantee and is not, so they were deleted. The parser is
+covered instead by a test asserting the compiled-in version
+matches `Cargo.lock`, scanned deliberately unlike `build.rs`
+scans it, so a parser that drifted onto the wrong
+`[[package]]` block cannot agree with itself.
+
+##### 0.78.0-3 docs: jj-lib version coupling policy
+
+The policy proper goes to `notes/`, beside the risk section it
+supersedes, and not into chores at close-out. Chores is
+append-mostly history organized by when work happened; this
+rule governs what the tool does from `-5` onward, and someone
+asking "why does vc-x1 refuse to run" should not have to know
+which cycle produced the answer. `TODO.md` keeps the
+narrative, chores gets it verbatim, and the two cross-link
+rather than restate, the same division `notes.md` draws
+between a commit body and its chores section.
+
+Three recorded conclusions retire together, since leaving any
+one would have the notes arguing with themselves:
+
+- the risk section's "a `jj --version` check does not work",
+  which judged the check as a compatibility oracle
+- this ladder's "refuse on the write path only" bullet
+- the "Decisions at cycle open" claim that a newer jj reading
+  our older op is the safe direction
+
+##### What the data records about itself
+
+Measured 2026-07-31 against `jj 0.43.0`, both repos identical:
+`commit=git op=simple_op_store op-heads=simple_op_heads_store
+index=default submodule=default working-copy=local`.
+
+Every value is an identity, never a version. They are the
+`.jj/repo/<backend>/type` files that
+`RepoLoader::init_from_file_system` reads, and they are all
+jj-lib exposes: 0.43 has no public version constant and no
+accessor for one. This is the risk section's "the op store has
+no version stamp", now observed rather than inferred from
+reading jj-lib's source.
+
+Nor can the stamp be recovered from the data itself. A proto3
+message serializes to (field number, wire type) keys plus
+payload bytes: no message name, no schema id, no field names.
+That absence is exactly what makes an unknown field skippable,
+so the property that lets jj evolve the format is the same
+property that makes the evolution undetectable. Three reasons
+sniffing the tags present cannot substitute:
+
+- proto3 has no presence for scalars, so a field the writer
+  left unset and a field the writer never heard of are the
+  same bytes
+- a new tag appears only once a newer jj populates it, so a
+  newer jj that has the field but has not used it is
+  byte-identical to an older one
+- prost does not surface unknown tags at all. The derived
+  `merge_field` routes an unrecognized tag to
+  `encoding::skip_field`, which advances past it and discards
+  it; there is no unknown-field set to inspect
+
+The last point is the one that matters beyond detection, and
+it is why a compile-time schema fingerprint would not help
+either: equality needs two operands, and the data supplies
+none. A stamp we wrote ourselves would record only what we
+last wrote, would go stale the moment the user's jj wrote
+without updating it, and would never be read by the old jj
+that is the endangered party. `jj -V` stays the second operand
+not because a version is the right thing to compare, but
+because it is the only thing the other side emits. It is a
+proxy for schema identity and the policy should say so.
+
+##### Why equality, and why at startup
+
+Two findings from the 2026-07-31 session, both of which
+retire text written at cycle open.
+
+**The loss is symmetric, so no direction is safe.** Because
+prost discards unknown tags and the next writer serializes
+from the decoded struct, an old jj and a new jj can each
+destroy what the other wrote:
+
+- ours newer than theirs: we write fields their jj skips, and
+  their next write drops them
+- ours older than theirs: they wrote fields we skip, and our
+  next write drops them
+
+Content addressing means the original blob survives under its
+own id, so this is loss of current state rather than
+destruction of history. The recorded rationale exempted the
+second direction on the grounds that jj must support reading
+its own older ops. That holds for jj reading. It stops holding
+once our writes are in the picture, which they are. So the
+test is `!=`, not an ordering comparison, and the reason is
+better than the one we first wrote down.
+
+Equality is also the honest response to an unanswerable
+question. We cannot compute compatibility, because the data
+publishes no schema and jj publishes no stability policy. An
+unequal pair is not "incompatible", it is "unknown", and the
+only correct response to unknown on a path that writes is
+stop.
+
+**Reads write, so the gate cannot be scoped to writes.**
+"Read" in jj-lib means "does not write anything the caller
+asked for". Three paths we already know:
+
+- `load_at_head` resolves op heads and, when several have
+  diverged, merges them and writes a new operation
+- the index self-heals: a stale or format-mismatched index
+  makes `DefaultIndexStore` reindex and write new segment
+  files. `COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION` is a
+  compile-time constant, so a mismatched pair does not merely
+  risk this, it guarantees churn in both directions
+- any `@`-relative read needs a working-copy snapshot, which
+  writes `tree_state` and can create a commit; this is
+  already why `-4` defers those reads to `-6`
+
+So the gate fires at startup and stops before anything opens a
+repo. What it guarantees is narrow and should be stated
+narrowly: not "no old jj will misread our op", only "we never
+run against a jj differing from the one we can see". The
+`$PATH` sample objection survives intact, since an editor
+integration running a different jj is outside the gate.
+
+Known holes and costs, recorded now so they are not
+rediscovered at `-5`:
+
+- `jj -V` prints `jj 0.43.0-<40-hex>`, and we compare triples.
+  A jj built from git between releases claims the release
+  triple while being arbitrarily far ahead of it, and a hash
+  cannot be mapped to a schema, so that hole stays open.
+- version equality is coarser than schema equality, so two
+  releases with an identical op-store proto still trip the
+  gate. Relaxing that safely needs a schema fingerprint:
+  hash jj-lib's shipped `.proto` files at build time and fail
+  the build when a bump changes them, turning "a green build
+  after a bump is not evidence" into a red build for the
+  op-store-shape class. It catches nothing semantic, so the
+  0.43 glob-versus-substring change would still pass, and
+  cargo hands a build script only its own
+  `CARGO_MANIFEST_DIR`, so locating a dependency's `.proto`
+  needs `cargo metadata` or the registry layout. Wants a
+  `## Todo` entry of its own; not this cycle.
+- a jj release stops vc-x1 entirely until the lock is bumped
+  and revalidated, not just its writes. The override flag is
+  what keeps the tool usable that day, so it is load-bearing
+  rather than a nicety, and it is a per-invocation flag: a
+  config key gets set once during a frustrating afternoon and
+  then silently protects nothing.
+
+The pedantry is deliberate and provisional. The measurement
+that would let it relax: hash every file under `.jj/` in both
+repos, run one command against a deliberately mismatched
+jj-lib, hash again, diff. The index case should light up
+immediately, which is itself the evidence for keeping the gate
+broad; anything genuinely inert becomes a candidate for
+narrowing later, backed by a measurement instead of an
+assumption.
 
 ## Todo
 
@@ -935,3 +1176,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
 [21]: https://github.com/winksaville/vc-x1/commit/a2dbf57d8a2e "a2dbf57d8a2e64f5ae8cdc29bd1621b157881bdc"
+[22]: https://github.com/winksaville/vc-x1/commit/84cec8c17610 "84cec8c176108dc7416570b70d62b85fc86c6049"
