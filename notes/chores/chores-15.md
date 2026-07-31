@@ -591,7 +591,7 @@ that changed the sweep's shape and its checker both.
 
 ## build: bump jj-lib to 0.43
 
-Commits:
+Commits: [[11]]
 
 The local `jj` went to 0.43.0, leaving the pin two releases
 behind at 0.41. Not migration work: this keeps the existing
@@ -651,3 +651,4 @@ store.
 [8]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
 [9]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
 [10]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
+[11]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
