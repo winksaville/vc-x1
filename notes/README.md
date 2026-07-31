@@ -23,6 +23,14 @@ jj-lib in-process): one `##` section per stage, so chores and
 todo entries can reference a stage by anchor. The plan file owns
 the forward design; chores still records each shipped cycle.
 
+A rule that governs what the tool does, rather than a record of
+what was done, gets its own topic file so it can be found without
+knowing which cycle produced it — e.g.
+[jj-version-policy.md](jj-version-policy.md). The investigation
+behind such a rule stays where it happened (a plan file or a
+chores section) and is linked from the policy, so neither
+restates the other.
+
 In the future we I expect we may want to create a "notes"
 database to better manage the information, TBD.
 

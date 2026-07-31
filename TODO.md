@@ -100,7 +100,7 @@ rather than merely accepted, which is the change from the
     vc-x1-work-repo-template becomes this repo's live
     instructions, dogfooded for the rest of the cycle; lands
     first so the remaining rungs run under the new rules
-- [[N]] 0.78.0-2 feat: report jj-lib and jj-data versions
+- [[23]] 0.78.0-2 feat: report jj-lib and jj-data versions
   (done)
   [detail](#0780-2-feat-report-jj-lib-and-jj-data-versions)
   - split out of the former `-2` on 2026-07-31: the rung had
@@ -108,6 +108,7 @@ rather than merely accepted, which is the change from the
     which no `docs:` title covers
   - the measurement lands before the prose that cites it
 - [[N]] 0.78.0-3 docs: jj-lib version coupling policy
+  (done)
   [detail](#0780-3-docs-jj-lib-version-coupling-policy)
   - the policy proper goes to `notes/`, beside the risk
     section it supersedes; `TODO.md` keeps the narrative that
@@ -123,24 +124,15 @@ rather than merely accepted, which is the change from the
     snapshot, which is an op-store write, so they move with
     the mutations
 - [[N]] 0.78.0-5 feat: jj-lib version gate
-  - builds only the gate; both operands ship at `-2`
-  - refuse at startup, not on the write path, and stop
-    before anything opens a repo; see
-    [why equality, and why at startup](#why-equality-and-why-at-startup)
-  - carve-out for commands that provably do not open a repo
-    (`--version`, `--help`, completion, the markdown
-    commands), since gating those costs a spawn per tab press
-    and a hard `jj` dependency for a markdown linter, and
-    buys no safety
-  - ordering is parse, init logging, gate, then everything
-    else: literally-first is not implementable, since before
-    the parse we cannot tell a completion request from a real
-    one and have no `-v` / `--log` to report through
-  - `jj` missing from `$PATH` is a distinct message from a
-    version mismatch, because the fix is different
-  - rests on jj-cli and jj-lib releasing in lockstep; verify
-    against the jj-cli manifest and record the assumption,
-    since equality becomes the wrong test if they diverge
+  - builds only the gate; both operands ship at `-2` and the
+    rule is written down at `-3` in
+    [the policy](notes/jj-version-policy.md), which this rung
+    implements rather than re-decides
+  - carve-out is `-V`, `--help`, completion and the markdown
+    commands. `version` and `-VV` are **not** in it: they read
+    backend types, so they open repos, and are instead
+    ordered around the gate, printing both versions and
+    withholding the `jj-data` lines on a mismatch
   - the `.vc-config.toml` pin turns a `$PATH` sample into a
     declaration, but only matters once more than one jj is in
     play; it stays a Todo
@@ -339,14 +331,33 @@ narrative, chores gets it verbatim, and the two cross-link
 rather than restate, the same division `notes.md` draws
 between a commit body and its chores section.
 
+The rule lands as [jj-version-policy.md](notes/jj-version-policy.md),
+a topic file rather than a section of the plan file: the plan
+file becomes historical when the refactor program ends, and the
+gate ships in the product. `notes/README.md` gains the general
+form of that split, since it is not specific to this rule.
+
 Three recorded conclusions retire together, since leaving any
-one would have the notes arguing with themselves:
+one would have the notes arguing with themselves. Two were
+annotated in place at `-2` as they were found; this rung
+finishes the third and links all of them to the policy:
 
 - the risk section's "a `jj --version` check does not work",
-  which judged the check as a compatibility oracle
-- this ladder's "refuse on the write path only" bullet
+  which judged the check as a compatibility oracle. Its
+  findings stand and are what the policy rests on; only the
+  closing verdict is superseded, so the section is annotated
+  rather than rewritten.
+- this ladder's "refuse on the write path only" bullet, rewritten
+  at `-2` when the startup gate was decided
 - the "Decisions at cycle open" claim that a newer jj reading
-  our older op is the safe direction
+  our older op is the safe direction, marked half-superseded at
+  `-2`
+
+A fourth surfaced while writing the policy: the `-5` carve-out
+still listed `--version` among the commands that never open a
+repo. That stopped being true at `-2`, when the report grew
+`jj-data` lines. `-V` alone still qualifies; `version` and `-VV`
+do not, and are ordered around the gate instead.
 
 ##### What the data records about itself
 
@@ -1177,3 +1188,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
 [21]: https://github.com/winksaville/vc-x1/commit/a2dbf57d8a2e "a2dbf57d8a2e64f5ae8cdc29bd1621b157881bdc"
 [22]: https://github.com/winksaville/vc-x1/commit/84cec8c17610 "84cec8c176108dc7416570b70d62b85fc86c6049"
+[23]: https://github.com/winksaville/vc-x1/commit/685ca885e1e0 "685ca885e1e09d381ac7897a94e5f2da77b17fc8"
