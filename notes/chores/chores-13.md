@@ -6,7 +6,7 @@ file covers the `0.63.0` cycle onward.
 Subsection headers that record a release use the
 trailing-version format from AGENTS.md: `## Description (X.Y.Z)`.
 Reference numbering is file-local — see
-[`AGENTS.md`](../../AGENTS.md#reference-numbering); chores-13
+[`agent-data/notes.md`](../../agent-data/notes.md#reference-numbering); chores-13
 starts at `[1]`.
 
 ## docs: adopt AGENTS.md (0.63.0)

@@ -88,24 +88,30 @@ git spawning; see
 [the stage](notes/refactor-20260716.md#stage-jj-lib-migration).
 Scope settled 2026-07-30: all three pieces, accepting the
 op-store version coupling that the migration introduces. The
-version gate at `-3` is what makes that coupling enforceable
+version gate at `-4` is what makes that coupling enforceable
 rather than merely accepted, which is the change from the
 2026-07-29 framing.
 
-- [[N]] 0.78.0-0 chore: open the jj-lib migration cycle
-  (current) [detail](#0780-0-chore-open-the-jj-lib-migration-cycle)
-- [[N]] 0.78.0-1 docs: jj-lib version coupling policy
+- [[21]] 0.78.0-0 chore: open the jj-lib migration cycle
+  (done) [detail](#0780-0-chore-open-the-jj-lib-migration-cycle)
+- [[N]] 0.78.0-1 docs: adopt universal AGENTS (done)
+  [detail](#0780-1-docs-adopt-universal-agents)
+  - inserted 2026-07-30: the AGENTS restructure proposed in
+    vc-x1-work-repo-template becomes this repo's live
+    instructions, dogfooded for the rest of the cycle; lands
+    first so the remaining rungs run under the new rules
+- [[N]] 0.78.0-2 docs: jj-lib version coupling policy
   - records the decision, and revises
     [the risk section](notes/refactor-20260716.md#design-risk-op-store-coexistence),
     whose "a `jj --version` check does not work" conclusion is
     superseded: it evaluated the check as a compatibility
     oracle rather than as a guard on our own writes
-- [[N]] 0.78.0-2 refactor: jj-lib reads
+- [[N]] 0.78.0-3 refactor: jj-lib reads
   - `jj log` templates become `Commit` accessors
   - `@`-relative reads stay behind: they need a working-copy
     snapshot, which is an op-store write, so they move with
     the mutations
-- [[N]] 0.78.0-3 feat: jj-lib version gate
+- [[N]] 0.78.0-4 feat: jj-lib version gate
   - our side is compile-time by nature, not by compromise:
     the linked jj-lib is what writes ops. A `build.rs` reads
     the resolved version out of `Cargo.lock` and exports
@@ -131,10 +137,10 @@ rather than merely accepted, which is the change from the
   - the `.vc-config.toml` pin turns a `$PATH` sample into a
     declaration, but only matters once more than one jj is in
     play; it stays a Todo
-- [[N]] 0.78.0-4 refactor: jj-lib mutations
+- [[N]] 0.78.0-5 refactor: jj-lib mutations
   - commit, describe, bookmark set/track, fetch, push, plus
-    the `@`-relative reads deferred from `-2`
-- [[N]] 0.78.0-5 fix: jj-lib index-lock retry
+    the `@`-relative reads deferred from `-3`
+- [[N]] 0.78.0-6 fix: jj-lib index-lock retry
   - bugs.md #1, with the `git init --bare` to gix rider
   - the retry classifies by error variant rather than
     substring, which is the real win: `SpawnInPath` and
@@ -160,10 +166,10 @@ rather than merely accepted, which is the change from the
   exactly that. The safe direction, a newer jj reading our
   older op, is something jj must support anyway, since the
   user's own older jj wrote into that repo first.
-- **The gate lands at `-3`, before the mutations at `-4`**, so
+- **The gate lands at `-4`, before the mutations at `-5`**, so
   mutations arrive in a repo that already refuses on
   mismatch. The cost is one commit whose check guards nothing
-  yet, which reads oddly in isolation; folding it into `-4`
+  yet, which reads oddly in isolation; folding it into `-5`
   would avoid that but make one rung do two things.
 - **Deferring mutations was not free**, which is what settled
   it. The trapezoid reshape at 0.79.0 is a `jj rebase`, so
@@ -203,11 +209,35 @@ which two interludes had since made wrong.
 
 The narrative lives here rather than in `chores-15.md` per
 the one-home convention adopted at `0.77.0-2`. This commit
-first did it the old way, because AGENTS.md
-[Chores conventions](/AGENTS.md#chores-conventions) still
-describes the superseded per-commit build-up; the `## Todo`
+first did it the old way, because
+[Chores conventions](/agent-data/notes.md#chores-conventions)
+still describes the superseded per-commit build-up (overridden
+for this repo in [custom.md](/custom.md)); the `## Todo`
 entry "One home for a cycle's narrative" is what closes that
 gap.
+
+##### 0.78.0-1 docs: adopt universal AGENTS
+
+Inserted after the cycle opened. The AGENTS restructure
+(short universal AGENTS.md + `agent-data/` satellites +
+`custom.md` as the one agent-editable instruction file) is
+proposed in vc-x1-work-repo-template as
+`AGENTS-vc-x1-f5-20260730.md` with a `-notes.md` companion,
+and this repo adopts it now to dogfood it:
+
+- the local copy is authoritative during the dogfood window;
+  the template snapshot is frozen for discussion
+- promotion back to the template happens en masse or
+  incrementally as the local copy proves out
+- findings land in `custom.md`'s dogfood log; semantic rule
+  changes wait for that evidence
+
+Semantics-preserving by design: rules keep their current
+meaning, only the organization changes (checklists at the
+moment of action, rationale behind them, project specifics
+in `custom.md`). We think that keeps any adherence change
+attributable to the structure, which is the hypothesis under
+test.
 
 ## Todo
 
@@ -219,7 +249,7 @@ gap.
  a numbered list item has no anchor to link to), not its
  number. Long-tail entries
  live in [todo-backlog.md](notes/todo-backlog.md). Use the
- [Prose Form in AGENTS.md](/AGENTS.md#prose-form); deeper
+ [Prose form](/agent-data/prose.md#prose-form); deeper
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
@@ -676,7 +706,7 @@ gap.
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
 19. **typeable punctuation: source sweep + rule rewording.**
-    The [Typeable punctuation only](/AGENTS.md#typeable-punctuation-only)
+    The [Typeable punctuation only](/agent-data/prose.md#typeable-punctuation-only)
     rule says "Banned" and then says transcribed text keeps its
     characters. Both cannot be true. The rule prohibits
     *authoring*; presence in a file is legitimate, so the
@@ -904,3 +934,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [18]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
 [19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
+[21]: https://github.com/winksaville/vc-x1/commit/a2dbf57d8a2e "a2dbf57d8a2e64f5ae8cdc29bd1621b157881bdc"

@@ -43,18 +43,19 @@ and using `jj-lib`
 ## Workflow and conventions
 
 Bot-facing workflow and conventions live in
-[`../AGENTS.md`](../AGENTS.md):
+[`../AGENTS.md`](../AGENTS.md) (hard rules + file map) and
+its `../agent-data/` satellites:
 
-- [Notes file conventions](../AGENTS.md#notes-file-conventions)
+- [Notes file conventions](../agent-data/notes.md)
   — Todo format, Reference numbering, Notes references
   (`[[N]]` citation style), Markdown anchor links, Retiring
-  Done entries.
-- [Chores conventions](../AGENTS.md#chores-conventions) —
-  section headers / Done entries exact-title rule, content
-  rules, `Commits:` line format.
-- [Code Conventions](../AGENTS.md#code-conventions) — doc
-  comments, `// OK: …` on `unwrap*` calls, ask-on-ambiguity,
-  stuck detection.
+  Done entries, Chores conventions (section headers / Done
+  entries exact-title rule, content rules, `Commits:` line
+  format).
+- [Prose and durable text](../agent-data/prose.md) — prose
+  form, typeable punctuation, conventional-commit shape.
+- [Code conventions](../agent-data/code.md) — doc
+  comments, `// OK: …` on `unwrap*` calls.
 
 Per-cycle workflow lives in
 [`cycle-protocol.md`](cycle-protocol.md):

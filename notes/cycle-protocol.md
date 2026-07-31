@@ -1,6 +1,6 @@
 # Cycle protocol
 
-This protocol uses [Prose form](../AGENTS.md#prose-form). It
+This protocol uses [Prose form](../agent-data/prose.md#prose-form). It
 contains instructions on how a commit cycle is accomplished.
 
 The artifact a cycle produces is whatever the bot generates from
@@ -74,7 +74,7 @@ later, once the commit is permanent (see
 
 Fuller chores conventions (content rules, header sync,
 design subsection pattern, `Commits:` formatting) live in
-AGENTS.md [Chores conventions](../AGENTS.md#chores-conventions).
+[Chores conventions](../agent-data/notes.md#chores-conventions).
 
 ### Commits backfill
 
@@ -98,8 +98,8 @@ Use `[[N]]` refs, several as `[[N]],[[M]]` only when one
 section records multiple commits (a push that publishes
 several), with the commit URL + 40-hex SHA in the file's
 `# References`
-(format in AGENTS.md
-[Chores commit references](../AGENTS.md#chores-commit-references)).
+(format in
+[Chores commit references](../agent-data/notes.md#chores-commit-references)).
 A section's `##` title matches its commit title, so a rare
 deliberate rewrite of a permanent-branch commit re-syncs via
 `git log --grep "<title>"`.
@@ -236,6 +236,7 @@ through:
 
 ```
 <type>: <short description>
+<type>(scope): <short description>   # optional scope
 ```
 
 Titles carry **no trailing `(<version>)` suffix**. The
@@ -249,26 +250,27 @@ the main repo, so titles don't carry one.
 
 ### Title
 
-- ≤50 chars total.
+- <=72 chars total.
 - Common types: `feat`, `fix`, `refactor`, `test`,
-  `docs`, `chore`.
+  `docs`, `chore`; optional `(scope)` in parentheses after
+  the type, per the spec.
 - Favor terse phrasings.
 - **Distinct per step.** Each of a cycle's commits gets its
   own descriptive title (no shared cycle title with a step
   marker). Share a greppable stem across the cycle's titles
   (e.g. `ring buffer`) so `git log --grep` collects them; the
   chores section header matches the close-out title. See
-  AGENTS.md
-  [Conventional-commit shape](../AGENTS.md#conventional-commit-shape-ladder--chores--commit).
+  [Conventional-commit shape](../agent-data/prose.md#conventional-commit-shape-ladder--chores--commit).
 
 ### Body
 
-[Prose form](../AGENTS.md#prose-form) (intro + bullets),
+[Prose form](../agent-data/prose.md#prose-form) (intro + bullets),
 wrap ≤72. Bullet content differs per repo:
 
 - **Work-repo body**: file-by-file. One bullet per file
-  changed (file plus a one-line gist). Sub-bullets for
-  files with multiple distinct changes:
+  changed (file plus a one-line gist), in short sentence
+  fragments (full sentences are discouraged). Sub-bullets
+  for files with multiple distinct changes:
 
   ```
   - path/to/file1
@@ -279,8 +281,11 @@ wrap ≤72. Bullet content differs per repo:
 
   The list **opens with the version bump** as its first
   bullet, for the Rust example
-  `- Cargo.toml, Cargo.lock: version X.Y.Z-N` (generally:
-  the medium's version-of-record files). Titles stay
+  `- Cargo.toml, Cargo.lock: vX.Y.Z-xxxx` (generally:
+  the medium's version-of-record files); `-xxxx` stands for
+  the whole suffix, nested or not (`v0.78.0-1`,
+  `v0.78.0-3.1`), per
+  [versioning.md](versioning.md#grammar-and-storage). Titles stay
   version-free (above), so this first bullet is the
   version's durable, visible home, and log viewers (e.g.
   gitk's message pane) show it without opening the commit's
@@ -297,8 +302,8 @@ wrap ≤72. Bullet content differs per repo:
 ### Trailer
 
 `ochid:` as the last line of the body; see
-[Cross-repo linking (ochid trailers)](../AGENTS.md#cross-repo-linking-ochid-trailers)
-in AGENTS.md for the convention.
+[Cross-repo linking (ochid trailers)](../agent-data/jj.md#cross-repo-linking-ochid-trailers)
+in agent-data/jj.md for the convention.
 
 For breaking changes, use the hyphenated `BREAKING-CHANGE:`
 trailer key. `BREAKING CHANGE:` (with a space) is the only
@@ -676,7 +681,7 @@ once, by `vc-x1 push`, on the squashed commit. Step 4 is
 therefore first-time authoring of a scratch description, not a
 rewrite of a published or stamped one, and is the named
 exception to
-[Re-describing](../AGENTS.md#re-describing-coordinate-first-and-keep-the-trailer).
+[Re-describing](../agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer).
 
 ### Navigating the ladder
 

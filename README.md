@@ -1249,21 +1249,22 @@ shape, ochid trailers, pushing) lives in
 [`notes/cycle-protocol.md`](notes/cycle-protocol.md).
 
 Bot-facing conventions are canonical in
-[AGENTS.md](AGENTS.md):
+[AGENTS.md](AGENTS.md) (hard rules + file map), its
+`agent-data/` satellites, and the project layer
+[custom.md](custom.md):
 
-- [Notes file conventions](AGENTS.md#notes-file-conventions):
+- [Notes file conventions](agent-data/notes.md):
   Todo format, Reference numbering, Notes references
   (`[[N]]` citation style), Markdown anchor links,
-  Retiring Done entries.
-- [Chores conventions](AGENTS.md#chores-conventions):
-  section headers / Done entries exact-title rule,
-  content rules, `Commits:` line format.
-- [Prose form](AGENTS.md#prose-form): intro + bullets
-  shape for long-lived prose (commit bodies, chores,
-  doc comments).
-- [Code Conventions](AGENTS.md#code-conventions): doc
+  Retiring Done entries, and Chores conventions
+  (section headers / Done entries exact-title rule,
+  content rules, `Commits:` line format).
+- [Prose form](agent-data/prose.md#prose-form): intro +
+  bullets shape for long-lived prose (commit bodies,
+  chores, doc comments).
+- [Code conventions](agent-data/code.md): doc
   comments on every file / fn / method, `// OK: ...` on
-  `unwrap*` calls, ask-on-ambiguity, stuck detection.
+  `unwrap*` calls.
 
 Task tracking and release details: near-term tasks in
 [TODO.md](TODO.md), per-release details in

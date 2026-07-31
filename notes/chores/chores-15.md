@@ -8,7 +8,7 @@ the `refactor-vc-x1` bookmark while `main` parks at the
 `0.71.0` tip.
 
 Reference numbering is file-local — see
-[`AGENTS.md`](../../AGENTS.md#reference-numbering); chores-15
+[`agent-data/notes.md`](../../agent-data/notes.md#reference-numbering); chores-15
 starts at `[1]`.
 
 ## docs: trapezoid close-out recipe
@@ -439,7 +439,7 @@ their relationship, which is the failure `### Semicolons
 inside bullets` already names for `;`. Pulling that thread
 reached the character itself, and then the whole class. The
 rule is `### Typeable punctuation only` under
-[Prose form](/AGENTS.md#prose-form), a sibling to the semicolon
+[Prose form](/agent-data/prose.md#prose-form), a sibling to the semicolon
 rule and cross-linked from its intro. It was designed jointly
 with the iiac-perf project, whose AGENTS.md carries the same
 section.
