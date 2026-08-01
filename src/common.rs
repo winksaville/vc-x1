@@ -597,7 +597,7 @@ pub enum PublishState {
 /// `bookmark == bookmark@origin` is the invariant. A mismatch means
 /// an earlier publish was lost (or origin moved out from under us).
 ///
-/// - Read-only: two `jj log` commit-id lookups, nothing else.
+/// - Read-only: two facade commit-id lookups, nothing else.
 /// - Errors when the local bookmark itself does not resolve.
 pub fn bookmark_publish_state(
     repo: &Path,

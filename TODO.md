@@ -118,7 +118,7 @@ rather than merely accepted, which is the change from the
     section's `jj --version` verdict, this ladder's
     write-path-only bullet, and the "Decisions at cycle open"
     claim that one direction is safe
-- [[N]] 0.78.0-4 feat: jj-lib version gate (done)
+- [[25]] 0.78.0-4 feat: jj-lib version gate (done)
   [detail](#0780-4-feat-jj-lib-version-gate)
   - moved ahead of the reads rung on 2026-07-31: the ladder
     put the gate before the *mutations*, but
@@ -136,14 +136,15 @@ rather than merely accepted, which is the change from the
   - the `.vc-config.toml` pin turns a `$PATH` sample into a
     declaration, but only matters once more than one jj is in
     play; it stays a Todo
-- [[N]] 0.78.0-5 refactor: jj-lib reads
+- [[N]] 0.78.0-5 refactor: jj-lib reads (done)
+  [detail](#0780-5-refactor-jj-lib-reads)
   - `jj log` templates become `Commit` accessors
   - `@`-relative reads stay behind: they need a working-copy
     snapshot, which is an op-store write, so they move with
     the mutations
 - [[N]] 0.78.0-6 refactor: jj-lib mutations
   - commit, describe, bookmark set/track, fetch, push, plus
-    the `@`-relative reads deferred from `-4`
+    the `@`-relative reads deferred from `-5`
 - [[N]] 0.78.0-7 fix: jj-lib index-lock retry
   - bugs.md #1, with the `git init --bare` to gix rider
   - the retry classifies by error variant rather than
@@ -524,7 +525,7 @@ asked for". Three paths we already know:
   risk this, it guarantees churn in both directions
 - any `@`-relative read needs a working-copy snapshot, which
   writes `tree_state` and can create a commit; this is
-  already why `-4` defers those reads to `-6`
+  already why `-5` defers those reads to `-6`
 
 So the gate fires at startup and stops before anything opens a
 repo. What it guarantees is narrow and should be stated
@@ -534,7 +535,7 @@ run against a jj differing from the one we can see". The
 integration running a different jj is outside the gate.
 
 Known holes and costs, recorded now so they are not
-rediscovered at `-5`:
+rediscovered at `-4`:
 
 - `jj -V` prints `jj 0.43.0-<40-hex>`, and we compare triples.
   A jj built from git between releases claims the release
@@ -567,6 +568,48 @@ immediately, which is itself the evidence for keeping the gate
 broad; anything genuinely inert becomes a candidate for
 narrowing later, backed by a measurement instead of an
 assumption.
+
+##### 0.78.0-5 refactor: jj-lib reads
+
+The facade's internals flip: in-process through jj-lib is now
+the default read path, and spawning is the carve-out rather
+than the mechanism. The seam the DRY-facade cycle bought is
+what made this a one-module change: every caller kept its
+signature, so push, squash-push, sync, init and the registry
+checks moved without being edited.
+
+- The routing is per revset, not per call site, because the
+  revs are runtime values: squash-push's source/target default
+  to `@`/`@-` but are user-overridable, so no static split of
+  the call sites exists. `references_working_copy` decides: a
+  `@` is working-copy syntax (`@`, `@-`, `ws@`) unless it has
+  symbol characters on both sides, the remote-bookmark form
+  (`name@remote`).
+- Working-copy revsets keep the spawn path on purpose (the
+  ladder's standing caveat): the CLI auto-snapshots, so "is
+  `@` empty right now?" answers about the filesystem, while an
+  in-process `load_at_head` would answer about the last
+  snapshot. Those reads move at `-6` with the mutation lift.
+- The raw `log(repo, rev, template)` primitive is gone from
+  the facade surface: jj-lib has no template engine (templates
+  live in jj-cli), so its one caller, sync's bookmark-heads
+  probe, became the typed `cids_short_of`.
+- `rev_exists` and sync's `try_commit_id` now classify the
+  unresolvable-revision error through one helper,
+  `is_no_such_revision`: a typed
+  `RevsetResolutionError::NoSuchRevision` downcast on the
+  in-process path, the old stderr substrings on the spawn
+  path. A first taste of the `-7` principle that
+  classification is by variant, not wording.
+- Parity is pinned by tests: the in-process accessors are
+  compared against spawned `jj log` templates on a fixture
+  repo, with revs pinned to concrete commit ids so the tests
+  stay on the in-process path.
+- `bookmark_list` / `bookmark_list_all` still spawn: their
+  consumers parse the CLI listing textually. They are not
+  `jj log` templates, so not this rung's scope; where they
+  land (a typed view query, or a rider on `-6`) is an open
+  ladder question.
 
 ## Todo
 
@@ -1340,3 +1383,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [22]: https://github.com/winksaville/vc-x1/commit/84cec8c17610 "84cec8c176108dc7416570b70d62b85fc86c6049"
 [23]: https://github.com/winksaville/vc-x1/commit/685ca885e1e0 "685ca885e1e09d381ac7897a94e5f2da77b17fc8"
 [24]: https://github.com/winksaville/vc-x1/commit/deec79d0e75d "deec79d0e75de6106f6f8919b77844eb8afe4c83"
+[25]: https://github.com/winksaville/vc-x1/commit/e4203c6d3679 "e4203c6d36799cb2dd8b6ff0eb8ddf9f64522aa2"

@@ -799,36 +799,21 @@ fn local_bookmark_heads(
     repo: &Path,
     bookmark: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let out = jj::log(
-        repo,
-        &format!("bookmarks(exact:{bookmark})"),
-        r#"commit_id.short(12) ++ "\n""#,
-    )?;
-    Ok(out
-        .lines()
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
-        .collect())
+    jj::cids_short_of(repo, &format!("bookmarks(exact:{bookmark})"))
 }
 
 /// Like `jj::cid_short_of`, but `Ok(None)` when the revset doesn't resolve.
 ///
-/// jj reports missing revisions via stderr strings like
-/// `Revision \`foo@origin\` doesn't exist` or `No such revision …`;
-/// both get mapped to `Ok(None)` so callers can distinguish "missing"
-/// from "other subprocess failure".
+/// The unresolvable-revision error (`jj::is_no_such_revision`,
+/// typed in-process or by stderr wording when spawned) maps to
+/// `Ok(None)` so callers can distinguish "missing" from "other
+/// failure".
 fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
     match jj::cid_short_of(repo, rev) {
         Ok(id) if id.is_empty() => Ok(None),
         Ok(id) => Ok(Some(id)),
-        Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("doesn't exist") || msg.contains("No such revision") {
-                Ok(None)
-            } else {
-                Err(e)
-            }
-        }
+        Err(e) if jj::is_no_such_revision(e.as_ref()) => Ok(None),
+        Err(e) => Err(e),
     }
 }
 
