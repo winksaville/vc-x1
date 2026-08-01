@@ -89,25 +89,30 @@ runs against the same repo. The check is a sample, and stating it
 as anything more would make it the kind of mechanism that looks
 like a guarantee and is not.
 
-## The carve-out
+## No carve-out
 
-Commands that provably do not open a repo are not gated, because
-gating them buys no safety and costs real things: a `jj -V` spawn
-on every shell-completion tab press, and a hard `jj`-on-`$PATH`
-dependency for what is otherwise a markdown linter. The set:
-`--help`, shell completion, `-V` (the banner alone), and the
-markdown commands (`fix-todo`, `validate-todo`).
+Every subcommand is gated. The one exception is `vc-x1 version`,
+and it is not really an exception: it reports the verdict rather
+than acting on it, and on a refusal it prints our version, their
+version and the reason, then says the `jj-data` lines are
+withheld. The diagnostic you run when the gate has stopped you
+has to answer.
 
-`vc-x1 version` and `-VV` are *not* in that set: they read each
-repo's backend types, so they open repos. They are instead
-ordered around the gate. The report is the diagnostic you run
-when the gate has stopped you, so it must still answer: on a
-mismatch it prints our version, their version and the verdict,
-and says the `jj-data` lines are withheld.
+An earlier draft exempted the commands that do not open a repo
+(the markdown ones, `config`, `bot-session`, `symlink`). That was
+dropped 2026-07-31, before it ever shipped, for a reason worth
+keeping: such a list enforces only its own completeness. A new
+subcommand can be made to force a decision, but an existing
+command that grows a repo read later stays classified as safe,
+silently, and nothing fails. "Provably does not open a repo" was
+the stated property and grep was the actual proof.
 
-The carve-out is defined as a property, "provably does not open a
-repo", rather than as a list to be maintained by hand, so it can
-be tested.
+Two commands need no exemption. `--help` exits inside clap during
+parse, and shell completion exits inside `CompleteEnv` on main's
+first line; both are before the gate however it is written. The
+cost of bluntness is therefore narrower than it looks: a markdown
+linter that needs a version-matched jj, which is what
+`--allow-jj-mismatch` is for.
 
 ## Ordering
 
@@ -175,7 +180,17 @@ So `jj -V` is a proxy for schema identity, not schema identity.
   the release triple while being arbitrarily far ahead of it, and
   a hash cannot be mapped to a schema.
 - Version equality is coarser than schema equality, so two
-  releases with an identical op-store proto still trip the gate.
+  releases that store the same bytes still trip the gate.
+  Measured instance, 2026-07-31: `0.42` and `0.43` ship
+  byte-identical `.proto` files and the same
+  `COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION`, and diffing their
+  sources shows `content_hash.rs`, `simple_op_store.rs`,
+  `op_store.rs` and `default_index/{readonly,mutable}.rs`
+  unchanged, with the two changed storage-adjacent files
+  (`backend.rs`, `local_working_copy.rs`) changing only doc
+  comments, an unused constructor, a string literal and a
+  redundant `.max(1)`. A vc-x1 linking `0.42` would refuse
+  against `jj 0.43` while being safe to run.
 - The `$PATH` sample problem, above: other jj binaries are
   outside the gate entirely.
 
@@ -189,12 +204,39 @@ which is itself evidence for keeping the gate broad; anything
 genuinely inert becomes a candidate for narrowing, backed by a
 measurement rather than an assumption.
 
-Relaxing the *coarseness* is a different lever: a schema
-fingerprint that hashes jj-lib's shipped `.proto` files at build
-time would turn "a green build after a bump is not evidence" into
-a red build for the op-store-shape class, and would make an
-override provably safe when the schema is unchanged. It catches
-nothing semantic, and cargo hands a build script only its own
+Relaxing the *coarseness* is a different lever, and a weaker one
+than it first looked. A schema fingerprint hashing jj-lib's
+shipped `.proto` files at build time would turn "a green build
+after a bump is not evidence" into a red build for one narrow
+class, a change in the shape of the stored schema. It cannot make
+an override safe. A fixed schema still permits the same fields
+being populated with different meanings, non-protobuf state like
+the index segments moving, and content hashing changing so that
+the same logical data lands under different ids. The 0.42/0.43
+comparison above ruled those out by reading a source diff across
+four files, which is not a check anyone will reliably repeat on
+every bump. (Cargo also hands a build script only its own
 `CARGO_MANIFEST_DIR`, so locating a dependency's `.proto` needs
-`cargo metadata` or the registry layout. Wants a `## Todo` entry
-of its own.
+`cargo metadata` or the registry layout.)
+
+The stronger lever watches the output rather than the source. Ids
+are where every serialization and hashing decision surfaces, so a
+change in any of the three classes above shows up as a changed
+id. Two ways to look, over one fixture:
+
+- record ids under the current jj-lib, commit them, and let the
+  next bump re-run them.
+- build a probe against N-1 and N, run both over the same
+  fixture, and diff. Answers "did this bump move the data?"
+  before we commit to the bump.
+
+Both are samples, not proofs: they compare versions on one
+fixture, so a change touching a path the fixture does not
+exercise reports "same" and is wrong. Tracked by the `## Todo`
+entry "validate-repo-data".
+
+The 0.42/0.43 finding recorded under
+[Known holes](#known-holes) is itself a one-off, established by
+reading a source diff in the 2026-07-31 session. Nothing re-runs
+it, so it is true of that pair on that date and should not be
+read as a standing property of adjacent releases.

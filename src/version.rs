@@ -30,6 +30,98 @@ pub fn jj_lib_version() -> &'static str {
     env!("JJ_LIB_VERSION")
 }
 
+/// Why the gate refused to let a run touch a repo.
+///
+/// Three outcomes rather than one, because the fix differs: install
+/// jj, report an unexpected `jj -V` format, or reconcile versions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GateError {
+    /// `jj -V` could not be run at all.
+    JjUnavailable(String),
+    /// `jj -V` ran but printed something we cannot read a triple from.
+    Unparsable(String),
+    /// Both versions known, and different.
+    Mismatch {
+        /// Our linked jj-lib.
+        ours: String,
+        /// The `jj` on `$PATH`.
+        theirs: String,
+    },
+}
+
+impl std::fmt::Display for GateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GateError::JjUnavailable(why) => write!(
+                f,
+                "cannot run `jj -V` ({why}); vc-x1 writes through jj-lib \
+                 {ours} and will not touch a repo without knowing the jj \
+                 it shares that repo with",
+                ours = jj_lib_version()
+            ),
+            GateError::Unparsable(got) => write!(
+                f,
+                "cannot read a version from `jj -V` output {got:?}; \
+                 expected `jj <x.y.z>[-<hash>]`"
+            ),
+            GateError::Mismatch { ours, theirs } => write!(
+                f,
+                "jj-lib {ours} != jj {theirs}; refusing to run, because \
+                 either version can silently drop what the other wrote. \
+                 Fix by matching them, or pass --allow-jj-mismatch to \
+                 override for this one run"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for GateError {}
+
+/// The `jj` on `$PATH`, as a version triple, resolved once.
+///
+/// Cached because the gate and the report both want it and it costs a
+/// process spawn; one per run, never one per operation.
+fn jj_cli_triple() -> &'static Result<String, GateError> {
+    static TRIPLE: std::sync::OnceLock<Result<String, GateError>> = std::sync::OnceLock::new();
+    TRIPLE.get_or_init(|| {
+        let out = common::run("jj", &["-V"], Path::new("."))
+            .map_err(|e| GateError::JjUnavailable(e.to_string()))?;
+        match parse_jj_triple(&out) {
+            Some(triple) => Ok(triple.to_string()),
+            None => Err(GateError::Unparsable(out.trim().to_string())),
+        }
+    })
+}
+
+/// Pull the `x.y.z` out of `jj -V` output like `jj 0.43.0-<hash>`.
+///
+/// Prefix match on the triple, never whole-string equality: the hash
+/// suffix identifies a build, and we have no way to map a build to a
+/// schema.
+fn parse_jj_triple(output: &str) -> Option<&str> {
+    let rest = output.trim().strip_prefix("jj ")?;
+    let triple = rest.split(['-', '+', ' ']).next()?;
+    (!triple.is_empty()).then_some(triple)
+}
+
+/// The rule: if our jj-lib and the user's jj differ, stop.
+///
+/// See [the policy](../notes/jj-version-policy.md). Equality rather
+/// than a compatibility test, because compatibility is not something
+/// we can compute; an unequal pair is *unknown*, and unknown on a
+/// path that can write must stop.
+pub fn gate() -> Result<(), GateError> {
+    let theirs = jj_cli_triple().clone()?;
+    if theirs == jj_lib_version() {
+        Ok(())
+    } else {
+        Err(GateError::Mismatch {
+            ours: jj_lib_version().to_string(),
+            theirs,
+        })
+    }
+}
+
 /// The backend type names one repo's jj data records about itself.
 ///
 /// One field per `type` file jj-lib loads a backend from. Every
@@ -100,6 +192,20 @@ fn data_line(label: &str, path: &Path) -> String {
 pub fn report(banner: &str) -> Vec<String> {
     let mut lines = vec![banner.to_string(), format!("jj-lib {}", jj_lib_version())];
 
+    match jj_cli_triple() {
+        Ok(theirs) => lines.push(format!("jj {theirs}")),
+        Err(e) => lines.push(format!("jj unavailable: {e}")),
+    }
+
+    // The report is the diagnostic you run when the gate has
+    // stopped you, so it answers rather than refusing. But reading
+    // backend types opens repos, which is the thing the gate
+    // forbids, so on a refusal it says what it withheld.
+    if let Err(e) = gate() {
+        lines.push(format!("jj-data withheld: {e}"));
+        return lines;
+    }
+
     match common::find_workspace_root() {
         None => lines.push("jj-data none: not in a vc-x1 workspace".to_string()),
         Some(root) => {
@@ -160,6 +266,28 @@ mod tests {
         let lines = report("vc-x1-dev 0.0.0");
         assert_eq!(lines[0], "vc-x1-dev 0.0.0");
         assert_eq!(lines[1], format!("jj-lib {}", jj_lib_version()));
+    }
+
+    #[test]
+    fn parses_the_triple_out_of_jj_v() {
+        assert_eq!(parse_jj_triple("jj 0.43.0-89f62ede8c1c\n"), Some("0.43.0"));
+        assert_eq!(parse_jj_triple("jj 0.43.0"), Some("0.43.0"));
+        assert_eq!(parse_jj_triple("jujutsu 0.43.0"), None);
+        assert_eq!(parse_jj_triple("jj "), None);
+    }
+
+    /// The gate must pass in this workspace: the whole cycle's
+    /// premise is that we run against a matching jj. A failure here
+    /// means the lock and the installed jj have drifted, which is
+    /// exactly what the gate exists to catch.
+    #[test]
+    fn gate_passes_against_the_installed_jj() {
+        assert_eq!(
+            gate(),
+            Ok(()),
+            "jj-lib {} vs installed jj",
+            jj_lib_version()
+        );
     }
 
     #[test]

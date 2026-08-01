@@ -7,7 +7,7 @@
 
 mod common;
 
-use common::{CliFixture, run_ok};
+use common::{CliFixture, run_err, run_ok};
 
 /// `vc-x1 --version` exits 0 and prints a line containing the
 /// crate name. Pins that the `CARGO_BIN_EXE_<bin-name>` macro
@@ -38,6 +38,78 @@ fn cli_version_subcommand_reports_all_three() {
             "expected `version` output to contain {expected:?}, got: {stdout:?}"
         );
     }
+}
+
+/// A mismatched `jj` stops every subcommand, is overridable for
+/// one run, and leaves `version` answering.
+///
+/// Driven with a fake `jj` first on `PATH`, since the real pair
+/// matches here and the refusal path is the half that matters.
+#[test]
+fn cli_version_gate_stops_every_subcommand() {
+    let fx = CliFixture::new("smoke-gate");
+    let bin = fx.path("fakebin");
+    std::fs::create_dir_all(&bin).expect("mkdir fakebin");
+    let jj = bin.join("jj");
+    std::fs::write(&jj, "#!/bin/sh\necho \"jj 0.99.0-deadbeefcafe\"\n").expect("write fake jj");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&jj, std::fs::Permissions::from_mode(0o755))
+            .expect("chmod fake jj");
+    }
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    // Opens a repo: refuses, and says how to proceed.
+    let out = run_err(fx.cmd().env("PATH", &path).arg("chid").arg("@"));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("0.99.0") && stderr.contains("--allow-jj-mismatch"),
+        "expected a mismatch refusal naming the override, got: {stderr:?}"
+    );
+
+    // Same run, overridden.
+    let ok = run_ok(
+        fx.cmd()
+            .env("PATH", &path)
+            .arg("--allow-jj-mismatch")
+            .arg("chid")
+            .arg("@"),
+    );
+    assert!(
+        !String::from_utf8_lossy(&ok.stdout).is_empty(),
+        "override should let the command run"
+    );
+
+    // No carve-out: even a markdown linter refuses, because a
+    // list of exempt commands only enforces its own completeness.
+    // The override is what keeps it usable.
+    run_err(
+        fx.cmd()
+            .env("PATH", &path)
+            .arg("validate-todo")
+            .arg("TODO.md"),
+    );
+    run_ok(
+        fx.cmd()
+            .env("PATH", &path)
+            .arg("--allow-jj-mismatch")
+            .arg("validate-todo")
+            .arg("TODO.md"),
+    );
+
+    // The diagnostic still answers, withholding only what it may
+    // not read.
+    let report = run_ok(fx.cmd().env("PATH", &path).arg("version"));
+    let stdout = String::from_utf8_lossy(&report.stdout);
+    assert!(
+        stdout.contains("jj 0.99.0") && stdout.contains("jj-data withheld"),
+        "expected a degraded report, got: {stdout:?}"
+    );
 }
 
 /// `-VV` prints the full report on stdout and then runs the

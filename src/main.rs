@@ -116,6 +116,14 @@ pub struct Cli {
     #[arg(long = "no-banner", global = true, action = clap::ArgAction::SetTrue)]
     pub no_banner: bool,
 
+    /// Run even when `jj -V` disagrees with our linked jj-lib.
+    ///
+    /// Per-invocation on purpose, never a config key: a key gets
+    /// set once during a frustrating afternoon and then silently
+    /// protects nothing.
+    #[arg(long = "allow-jj-mismatch", global = true, action = clap::ArgAction::SetTrue)]
+    pub allow_jj_mismatch: bool,
+
     /// Verbose output: -v debug, -vv trace
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
@@ -467,6 +475,26 @@ fn main() -> ExitCode {
             log::info!("{line}");
         }
         return ExitCode::SUCCESS;
+    }
+
+    // The version gate: every subcommand, no exceptions beyond
+    // `version`, which returned above. Not scoped to the write path,
+    // because "read" in jj-lib means "writes nothing the caller
+    // asked for": `load_at_head` merges divergent op heads, the
+    // index self-heals by rewriting segments, and an `@`-relative
+    // read snapshots the working copy.
+    //
+    // Nor scoped to a list of repo-touching commands. Such a list
+    // enforces only its own completeness: a command that grows a
+    // repo read later stays classified as safe, silently. `--help`
+    // and shell completion need no exempting, having exited inside
+    // clap and `CompleteEnv` before this point. See
+    // notes/jj-version-policy.md.
+    if !cli.allow_jj_mismatch
+        && let Err(e) = version::gate()
+    {
+        error!("{e}");
+        return ExitCode::FAILURE;
     }
 
     let ctx = match context::Context::load() {
