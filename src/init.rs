@@ -85,16 +85,14 @@ pub struct InitArgs {
     pub config: ConfigOption,
 }
 
-/// Run a command with retries, sleeping between attempts.
-fn run_retry(
-    cmd: &str,
-    args: &[&str],
-    cwd: &Path,
+/// Run an operation with retries, sleeping between attempts.
+fn retry_op<T>(
     retry: &PushRetryOptions,
-) -> Result<String, Box<dyn std::error::Error>> {
+    mut op: impl FnMut() -> Result<T, Box<dyn std::error::Error>>,
+) -> Result<T, Box<dyn std::error::Error>> {
     let mut last_err = String::new();
     for attempt in 1..=retry.push_retries {
-        match run(cmd, args, cwd) {
+        match op() {
             Ok(out) => {
                 if attempt > 1 {
                     debug!("succeeded after {attempt} attempts");
@@ -1477,7 +1475,7 @@ fn push_repo(
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Step 7: Setting {info_label} bookmark...");
     debug!("place {info_label}-side main bookmark at the initial commit");
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
+    jj::bookmark_set(target, "main", "@-")?;
 
     run_remote_step(
         step_label_provision,
@@ -1556,14 +1554,11 @@ fn run_remote_step(
         push_from,
     )?;
     debug!("publish {side_label}-side initial commit; retry for GhCreate's async propagation");
-    // `jj git push` establishes tracking as a side effect — no
+    // The facade's push establishes tracking as a side effect: no
     // `--allow-new`, no follow-up `jj bookmark track`.
-    run_retry(
-        "jj",
-        &["git", "push", "--bookmark", "main"],
-        push_from,
-        &params.push_retry,
-    )?;
+    retry_op(&params.push_retry, || {
+        jj::git_push_bookmark(push_from, "main")
+    })?;
     Ok(())
 }
 

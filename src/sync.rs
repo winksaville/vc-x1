@@ -25,7 +25,6 @@
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
@@ -362,11 +361,11 @@ fn run_plan(
     // whether to surface it. `jj git fetch`'s routine "Nothing
     // changed." chatter is the main thing we're suppressing here —
     // if nothing needs action, the user shouldn't see it.
-    let mut fetched: Vec<(PathBuf, String)> = Vec::new();
+    let mut fetched: Vec<(PathBuf, Vec<String>)> = Vec::new();
     let mut ctxs: Vec<RepoCtx> = Vec::new();
     for (repo, op_id) in snapshots {
-        let stderr = fetch_silent(repo, &params.remote)?;
-        fetched.push((repo.clone(), stderr));
+        let lines = fetch_silent(repo, &params.remote)?;
+        fetched.push((repo.clone(), lines));
         let state = classify(repo, repo_bookmark(repo, &params.bookmark), &params.remote)?;
         ctxs.push(RepoCtx {
             path: repo.clone(),
@@ -387,9 +386,9 @@ fn run_plan(
         let noun = if n == 1 { "repo is" } else { "repos are" };
         info!("sync: {n} {noun} {UP_TO_DATE_MSG}");
     } else {
-        for (repo, stderr) in &fetched {
+        for (repo, lines) in &fetched {
             info!("{}: fetch {}", repo.display(), params.remote);
-            for line in stderr.lines() {
+            for line in lines {
                 info!("{line}");
             }
         }
@@ -424,28 +423,15 @@ fn run_plan(
     Ok(())
 }
 
-/// Fetch `repo` from `remote` without streaming subprocess output to
-/// `info!`.
+/// Fetch `repo` from `remote` without streaming chatter to `info!`.
 ///
-/// Mirrors what `common::run` would do, but returns stderr to the
-/// caller so the caller can decide whether to surface it (verbose /
-/// action case) or drop it (clean case). Stdout is dropped — `jj git
-/// fetch` doesn't use it. Failure carries stderr in the error message.
-fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error::Error>> {
-    debug!("$ jj git fetch --remote {remote} -R {}", repo.display());
-    let output = Command::new("jj")
-        .args(["git", "fetch", "--remote", remote, "-R", &repo_str(repo)])
-        .output()
-        .map_err(|e| format!("failed to run jj git fetch: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !stdout.is_empty() {
-        debug!("  {stdout}");
-    }
-    if !output.status.success() {
-        return Err(format!("jj git fetch -R {} failed: {stderr}", repo.display()).into());
-    }
-    Ok(stderr)
+/// The facade's in-process fetch returns one line per changed
+/// remote bookmark; the caller decides whether to surface them
+/// (action case) or drop them (clean case), which is what this
+/// wrapper's stderr capture did in the spawned form.
+fn fetch_silent(repo: &Path, remote: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    debug!("fetch --remote {remote} -R {}", repo.display());
+    jj::git_fetch(repo, remote)
 }
 
 /// Reposition `@` onto the freshly-synced bookmark after a successful
@@ -637,19 +623,7 @@ fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::e
         State::Behind { .. } => {
             if !params.check {
                 info!("{}: setting '{bookmark}' to {remote_rev}", repo.display());
-                run(
-                    "jj",
-                    &[
-                        "bookmark",
-                        "set",
-                        bookmark,
-                        "-r",
-                        &remote_rev,
-                        "-R",
-                        &repo_str(repo),
-                    ],
-                    Path::new("."),
-                )?;
+                jj::bookmark_set(repo, bookmark, &remote_rev)?;
             }
             Ok(())
         }

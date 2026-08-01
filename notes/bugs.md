@@ -123,4 +123,42 @@ insert / delete / reorder.
      `validate-desc` / `fix-desc` add one. Pinned by
      `push_empty_work_at_skips_commit_work`.
 
+5. **`validate-desc` / `fix-desc` error when run against the
+   bot repo.** `vc-x1 validate-desc --repo .claude` (or run
+   with cwd inside `.claude`) fails with "workspace
+   incoherent: ... `repos.work` resolves to ..., not to the
+   workspace root itself". Found 2026-08-01 at the 0.78.0-6
+   review.
+   - **Cost:** the bot-side halves of validate-desc and
+     fix-desc are unusable without the workaround; no data
+     touched (the coherence check stops before any action).
+   - The prelude resolves the counterpart repo with
+     `common::bot_repo_path(&params.repo)`, which answers
+     "the bot side of the workspace rooted at this path" and
+     so assumes the target is the work side. Against the bot
+     dir it asks for the bot-of-bot: `.claude`'s config says
+     `repos.bot = "."`, the coherence check then runs with
+     root = bot = `.claude`, and its self-identification
+     step correctly refuses. The check is right; the caller
+     hands it the wrong root.
+   - Introduced at 0.75.0-1 (`refactor: topology por
+     equalization`, 2026-07-23): the replaced
+     `other_repo_from_config` read the target repo's own
+     config, side-aware by construction; `bot_repo_path`
+     lost the "other side relative to me" semantics, and the
+     coherence check (added the same day) makes it loud.
+   - **Workaround:** `--other-repo` bypasses the resolution:
+     `vc-x1 validate-desc --repo .claude --other-repo .`
+     from the workspace root.
+   - **Fix direction:** make the prelude side-aware again in
+     both commands: `find_workspace_root_from(params.repo)`
+     for the real root, then `is_bot_dir(params.repo)` picks
+     the counterpart (bot side -> work root, work side ->
+     `bot_repo_path(root)`, POR -> no-op as today).
+   - The fix must be pinned by tests on a dual fixture, both
+     entry angles for both commands: target the bot dir via
+     the repo flag, and default-repo `.` resolved from inside
+     the bot dir; each asserts the counterpart resolves to
+     the work root and the command succeeds.
+
 # References

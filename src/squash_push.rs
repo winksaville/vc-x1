@@ -294,20 +294,10 @@ pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::
         "squash-push: setting bookmark '{bookmark}' to {}...",
         sq.target
     );
-    run(
-        "jj",
-        &[
-            "bookmark", "set", bookmark, "-r", &sq.target, "-R", &repo_str,
-        ],
-        cwd,
-    )?;
+    jj::bookmark_set(&params.repo, bookmark, &sq.target)?;
 
     info!("squash-push: pushing '{bookmark}' to origin...");
-    run(
-        "jj",
-        &["git", "push", "--bookmark", bookmark, "-R", &repo_str],
-        &params.repo,
-    )?;
+    jj::git_push_bookmark(&params.repo, bookmark)?;
 
     info!("squash-push: done");
     Ok(())

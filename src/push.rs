@@ -575,20 +575,8 @@ fn stage_commit_work(
         );
         return Ok(());
     }
-    info!("push commit-work: jj commit -R {work_arg}");
-    run(
-        "jj",
-        &[
-            "commit",
-            "-R",
-            &work_arg,
-            "-m",
-            title,
-            "-m",
-            &body_with_trailer,
-        ],
-        root,
-    )?;
+    info!("push commit-work: commit -R {work_arg}");
+    jj::commit(root, &format!("{title}\n\n{body_with_trailer}"))?;
     Ok(())
 }
 
@@ -614,20 +602,8 @@ fn stage_commit_bot(
         );
         return Ok(());
     }
-    info!("push commit-bot: jj commit -R {bot_arg}");
-    run(
-        "jj",
-        &[
-            "commit",
-            "-R",
-            &bot_arg,
-            "-m",
-            title,
-            "-m",
-            &body_with_trailer,
-        ],
-        root,
-    )?;
+    info!("push commit-bot: commit -R {bot_arg}");
+    jj::commit(&bot, &format!("{title}\n\n{body_with_trailer}"))?;
     Ok(())
 }
 
@@ -651,18 +627,10 @@ fn stage_bookmark_set(
         return Ok(());
     }
     info!(
-        "push bookmark-set: jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
+        "push bookmark-set: bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
     );
-    run(
-        "jj",
-        &["bookmark", "set", bk, "-r", "@-", "-R", &work_arg],
-        root,
-    )?;
-    run(
-        "jj",
-        &["bookmark", "set", BOT_BOOKMARK, "-r", "@-", "-R", &bot_arg],
-        root,
-    )?;
+    jj::bookmark_set(root, bk, "@-")?;
+    jj::bookmark_set(&bot, BOT_BOOKMARK, "@-")?;
     Ok(())
 }
 
@@ -689,12 +657,8 @@ fn stage_push_work(
         return Ok(());
     }
     crate::common::verify_tracking(root, bk)?;
-    info!("push push-work: jj git push --bookmark {bk} -R {work_arg}");
-    run(
-        "jj",
-        &["git", "push", "--bookmark", bk, "-R", &work_arg],
-        root,
-    )?;
+    info!("push push-work: git push --bookmark {bk} -R {work_arg}");
+    jj::git_push_bookmark(root, bk)?;
     Ok(())
 }
 

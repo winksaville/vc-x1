@@ -136,16 +136,35 @@ rather than merely accepted, which is the change from the
   - the `.vc-config.toml` pin turns a `$PATH` sample into a
     declaration, but only matters once more than one jj is in
     play; it stays a Todo
-- [[N]] 0.78.0-5 refactor: jj-lib reads (done)
+- [[26]] 0.78.0-5 refactor: jj-lib reads (done)
   [detail](#0780-5-refactor-jj-lib-reads)
   - `jj log` templates become `Commit` accessors
   - `@`-relative reads stay behind: they need a working-copy
     snapshot, which is an op-store write, so they move with
     the mutations
-- [[N]] 0.78.0-6 refactor: jj-lib mutations
+- [[N]] 0.78.0-6 refactor: jj-lib mutations (done)
+  [detail](#0780-6-refactor-jj-lib-mutations)
   - commit, describe, bookmark set/track, fetch, push, plus
     the `@`-relative reads deferred from `-5`
-- [[N]] 0.78.0-7 fix: jj-lib index-lock retry
+- [[N]] 0.78.0-7 refactor: context-owned repo sessions
+  - inserted 2026-08-01 at the `-6` review, design settled
+    there: `Context` owns lazily-opened `RepoSession`s keyed
+    by repo path, has-a and never is-a, because an
+    invocation touches 0..N repos and repo-less commands
+    (`version`) must not open one; verbs become session
+    methods; the one-shot facade fns stay as wrappers for
+    context-less callers
+  - one op per verb stays: sharing a transaction across
+    stages would change the op-log shape that push re-run
+    and sync revert rely on
+  - per-verb opens are the lifted subprocess lifecycle made
+    visible, not a regression; this rung is the improvement
+    over the spawned form, and push / squash-push / sync are
+    its consumers today
+  - ordered before the retry so the retry lands on the final
+    frame, though it fits either shape
+- [[N]] 0.78.0-8 fix: jj-lib index-lock retry
+  - renumbered from `-7` by the session insert
   - bugs.md #1, with the `git init --bare` to gix rider
   - the retry classifies by error variant rather than
     substring, which is the real win: `SpawnInPath` and
@@ -599,7 +618,7 @@ checks moved without being edited.
   `is_no_such_revision`: a typed
   `RevsetResolutionError::NoSuchRevision` downcast on the
   in-process path, the old stderr substrings on the spawn
-  path. A first taste of the `-7` principle that
+  path. A first taste of the `-8` principle that
   classification is by variant, not wording.
 - Parity is pinned by tests: the in-process accessors are
   compared against spawned `jj log` templates on a fixture
@@ -610,6 +629,67 @@ checks moved without being edited.
   `jj log` templates, so not this rung's scope; where they
   land (a typed view query, or a rider on `-6`) is an open
   ladder question.
+
+##### 0.78.0-6 refactor: jj-lib mutations
+
+The workspace/transaction/op-store lift. A new `jj::session`
+module's `RepoSession` is the CLI's `WorkspaceCommandHelper`
+plumbing reduced to what the facade's verbs need, written
+against jj 0.43's `cli_util.rs` as the reference; the facade
+grows the five publish-path verbs on top, and the `@`-read
+carve-out from `-5` closes. Named for what it is (an open ->
+mutate -> finish working session with one repo) and
+backend-neutral on purpose; "engine", the working title, is
+machinery you start, not a thing you open per operation.
+
+- The session is three pieces: a settings loader replicating
+  the CLI's config discovery (`/etc/jj`, `$JJ_CONFIG`, user
+  files, `.jj/repo/config.toml`, `JJ_USER`/`JJ_EMAIL`), the
+  snapshot cycle (git HEAD/refs import around the
+  working-copy snapshot, under the CLI's own
+  `git_import_export.lock`), and transaction finish (git HEAD
+  reset + ref export, op commit, working-copy update).
+  Colocation drives the git halves; these repos are
+  colocated, so that fidelity is the bulk of the session
+  module.
+- Verbs: `commit`, `describe`, `bookmark_set`,
+  `git_push_bookmark`, `git_fetch`. Call sites swapped in
+  push, squash-push, sync, fix-desc, init, and repo_utils.
+  The ladder's "bookmark track" had no call site to lift:
+  jj-lib's `push_refs` marks pushed bookmarks tracked, which
+  is the side effect init's no-`--allow-new` design relied on
+  in the spawned form too.
+- The `@`-read deferral resolves as predicted at `-5`:
+  `references_working_copy` survives as the trigger, now
+  routing to snapshot-then-read (`repo_for_read`) instead of
+  to a spawn; `log_spawn` is deleted and
+  `is_no_such_revision` drops its stderr-wording fallback,
+  leaving only the typed `NoSuchRevision` downcast.
+- Fetch returns typed changed-bookmark lines; sync's
+  stderr-capture wrapper (`fetch_silent`) now just relabels
+  them, keeping the clean-case silence it existed for.
+- Documented deviations from the CLI, each at its function:
+  no immutability preflights (rewrite targets are validated
+  by callers), a small defaults layer for three keys whose
+  defaults ship in the CLI's config files rather than
+  jj-lib's, the auto-track map driven by
+  `git.auto-local-bookmark` alone, and the fetch expression
+  pinned to all-branches rather than the remote's refspec
+  config.
+- Still spawning after this rung: `jj squash` (squash-push),
+  `jj new` / `jj rebase` / `jj op log` / `jj op restore`
+  (sync, revert), `jj git clone` (clone), `jj diff --stat`
+  (push preview), init's `gh` / `git init --bare` (the `-8`
+  gix rider) / `jj git init --colocate` / `jj git remote
+  add`, the facade's two bookmark listings, and the gate's
+  `jj -V`, which is a spawn by definition. The migration
+  stage's "removes spawning entirely" now reads as this
+  cycle's five verbs plus a remainder with named homes.
+- Validation is the existing integration suites now running
+  entirely through `RepoSession` (init, push, squash-push, sync
+  fixtures), plus facade tests pinning colocated-git export:
+  after in-process commit / bookmark-set / describe, `git
+  rev-parse` sees the same commit ids jj reports.
 
 ## Todo
 
@@ -1384,3 +1464,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [23]: https://github.com/winksaville/vc-x1/commit/685ca885e1e0 "685ca885e1e09d381ac7897a94e5f2da77b17fc8"
 [24]: https://github.com/winksaville/vc-x1/commit/deec79d0e75d "deec79d0e75de6106f6f8919b77844eb8afe4c83"
 [25]: https://github.com/winksaville/vc-x1/commit/e4203c6d3679 "e4203c6d36799cb2dd8b6ff0eb8ddf9f64522aa2"
+[26]: https://github.com/winksaville/vc-x1/commit/6c67ce0f4eb0 "6c67ce0f4eb0df2e9388ab84aca0d728f0d5f976"
