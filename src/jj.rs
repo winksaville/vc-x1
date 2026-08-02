@@ -365,6 +365,30 @@ mod tests {
         assert!(!rev_exists(&fx.work, "no-such-bookmark-xyz").unwrap());
     }
 
+    /// bugs.md #1 in-process: a transiently held `.git/index.lock`
+    /// no longer fails the mutation; the session's git half retries
+    /// until the holder lets go (here, a thread releasing it well
+    /// inside the backoff budget).
+    #[test]
+    fn mutation_survives_transient_index_lock() {
+        let fx = Fixture::new("jjlockretry");
+        let lock = fx.work.join(".git").join("index.lock");
+        std::fs::write(&lock, "").expect("plant index.lock");
+        let unlock = std::thread::spawn({
+            let lock = lock.clone();
+            move || {
+                std::thread::sleep(std::time::Duration::from_millis(120));
+                std::fs::remove_file(&lock).expect("release index.lock");
+            }
+        });
+        bookmark_set(&fx.work, "lockbm", "@-").expect("bookmark_set retries past the lock");
+        unlock.join().expect("join unlock thread");
+        assert_eq!(
+            git_rev_parse(&fx.work, "refs/heads/lockbm"),
+            cid_of(&fx.work, "@-").unwrap()
+        );
+    }
+
     /// `cids_short_of` returns one id per matching commit, exactly
     /// the bookmark-heads shape `sync` consumes.
     #[test]

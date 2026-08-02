@@ -26,10 +26,16 @@
 //! open one per call. Either way each verb starts with `snapshot`,
 //! which reloads at the op-store head, so a cached session never
 //! acts on a stale view.
+//!
+//! The colocated git writes (HEAD/index reset, ref export) retry on
+//! lockfile contention (`retry_git_lock`): a git-aware watcher can
+//! hold `.git/index.lock` at the moment we reset the index, and gix
+//! gives the lock a single attempt (bugs.md #1).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use jj_lib::commit::Commit;
 use jj_lib::config::{ConfigLayer, ConfigSource, StackedConfig};
@@ -344,13 +350,16 @@ impl RepoSession {
             mut_repo.set_wc_commit(name.clone(), new_wc_commit.id().clone())?;
             mut_repo.rebase_descendants().block_on()?;
             if self.colocated {
-                git::update_intent_to_add(
-                    mut_repo.base_repo().as_ref(),
-                    &wc_commit.tree(),
-                    &new_wc_commit.tree(),
-                )
-                .block_on()?;
-                git::export_refs(mut_repo)?;
+                retry_git_lock(|| {
+                    git::update_intent_to_add(
+                        mut_repo.base_repo().as_ref(),
+                        &wc_commit.tree(),
+                        &new_wc_commit.tree(),
+                    )
+                    .block_on()?;
+                    git::export_refs(mut_repo)?;
+                    Ok(())
+                })?;
             }
             self.repo = tx.commit("snapshot working copy").block_on()?;
         }
@@ -438,8 +447,9 @@ impl RepoSession {
     }
 
     /// The CLI's `finish_transaction`: reset git HEAD and export
-    /// refs (colocated), commit the operation, update the working
-    /// copy to the possibly-rewritten wc commit.
+    /// refs (colocated, retried on lockfile contention), commit the
+    /// operation, update the working copy to the possibly-rewritten
+    /// wc commit.
     pub fn finish_tx(&mut self, mut tx: Transaction, desc: &str) -> Result<()> {
         if !tx.repo().has_changes() {
             debug!("{desc}: nothing changed");
@@ -456,11 +466,14 @@ impl RepoSession {
         let new_wc_commit_id = tx.repo().view().get_wc_commit_id(&name).cloned();
 
         if self.colocated {
-            if let Some(id) = &new_wc_commit_id {
-                let wc_commit = tx.repo().store().get_commit(id)?;
-                git::reset_head(tx.repo_mut(), &wc_commit).block_on()?;
-            }
-            git::export_refs(tx.repo_mut())?;
+            retry_git_lock(|| {
+                if let Some(id) = &new_wc_commit_id {
+                    let wc_commit = tx.repo().store().get_commit(id)?;
+                    git::reset_head(tx.repo_mut(), &wc_commit).block_on()?;
+                }
+                git::export_refs(tx.repo_mut())?;
+                Ok(())
+            })?;
         }
 
         self.repo = tx.commit(desc).block_on()?;
@@ -663,6 +676,58 @@ impl RepoSession {
     }
 }
 
+/// Attempts per lock-contended git write; the doubling backoff
+/// starting at `LOCK_RETRY_START` waits 25 + 50 + 100 + 200 ms,
+/// about 375 ms in total, before the last try.
+const LOCK_RETRY_ATTEMPTS: u32 = 5;
+
+/// First backoff delay; each subsequent retry doubles it.
+const LOCK_RETRY_START: Duration = Duration::from_millis(25);
+
+/// True when `e` is, or wraps anywhere in its source chain, a git
+/// lockfile-acquisition failure (`gix::lock::acquire::Error`): the
+/// transient "could not acquire lock for '.git/index'" class of
+/// bugs.md #1.
+///
+/// Classification is by type, never by message substring. The
+/// narrow downcast is the point: it can only be produced by a local
+/// lockfile grab, so never-retryable failures (a missing git binary
+/// via `GitSubprocessError::SpawnInPath`, an old git via
+/// `UnsupportedGitOption`, a remote rejection) classify false
+/// without being named, where a broader "retry git errors" rule
+/// would loop on them forever.
+fn is_lock_contention(e: &(dyn std::error::Error + 'static)) -> bool {
+    let mut cur = Some(e);
+    while let Some(err) = cur {
+        if err.downcast_ref::<gix::lock::acquire::Error>().is_some() {
+            return true;
+        }
+        cur = err.source();
+    }
+    false
+}
+
+/// Run `f`, retrying on git lockfile contention with a short
+/// doubling backoff: the in-process home of the bugs.md #1 fix (gix
+/// gives the lock one attempt, so the retry loop is ours to own).
+///
+/// Callers wrap only git writes that precede the transaction
+/// commit, so a retried closure never doubles an op-store write.
+fn retry_git_lock<T>(mut f: impl FnMut() -> Result<T>) -> Result<T> {
+    let mut delay = LOCK_RETRY_START;
+    for attempt in 1..LOCK_RETRY_ATTEMPTS {
+        match f() {
+            Err(e) if is_lock_contention(e.as_ref()) => {
+                debug!("git lockfile contended (attempt {attempt}): {e}; retrying in {delay:?}");
+                std::thread::sleep(delay);
+                delay *= 2;
+            }
+            other => return other,
+        }
+    }
+    f()
+}
+
 /// `desc` with the trailing newline jj normalizes descriptions to.
 fn complete_newline(desc: &str) -> String {
     if desc.is_empty() || desc.ends_with('\n') {
@@ -706,5 +771,102 @@ impl git::GitSubprocessCallback for DebugCallback {
     ) -> std::io::Result<()> {
         debug!("remote: {}", String::from_utf8_lossy(message));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A `PermanentlyLocked` gix lock error, the shape the index
+    /// write produces when another process holds `.git/index.lock`.
+    fn lock_error() -> gix::lock::acquire::Error {
+        gix::lock::acquire::Error::PermanentlyLocked {
+            resource_path: "/tmp/x/.git/index".into(),
+            mode: gix::lock::acquire::Fail::Immediately,
+            attempts: 1,
+        }
+    }
+
+    /// Test wrapper whose `source()` exposes the wrapped error, the
+    /// way jj-lib's thiserror enums do. (`io::Error` is no stand-in
+    /// here: its `source()` skips the custom payload and forwards
+    /// the payload's own source.)
+    #[derive(Debug)]
+    struct Wrap(gix::lock::acquire::Error);
+
+    impl std::fmt::Display for Wrap {
+        /// Outer-context stand-in message.
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "outer context")
+        }
+    }
+
+    impl std::error::Error for Wrap {
+        /// Expose the wrapped lock error as the source.
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            Some(&self.0)
+        }
+    }
+
+    /// The lock error classifies as contention directly and from
+    /// anywhere down a source chain (jj-lib hands it to us wrapped).
+    #[test]
+    fn lock_contention_found_through_source_chain() {
+        assert!(is_lock_contention(&lock_error()));
+        assert!(is_lock_contention(&Wrap(lock_error())));
+    }
+
+    /// Non-lock errors never classify as contention, io errors (the
+    /// missing-git-binary shape) included.
+    #[test]
+    fn other_errors_are_not_lock_contention() {
+        let plain: Box<dyn std::error::Error> = "no lock involved".into();
+        assert!(!is_lock_contention(plain.as_ref()));
+        let io = std::io::Error::new(std::io::ErrorKind::NotFound, "no git binary");
+        assert!(!is_lock_contention(&io));
+    }
+
+    /// Contention retries until the closure succeeds; the attempt
+    /// count is visible to the closure.
+    #[test]
+    fn retry_git_lock_retries_contention() {
+        let mut calls = 0;
+        let got = retry_git_lock(|| {
+            calls += 1;
+            if calls < 3 {
+                Err(Box::new(lock_error()) as Box<dyn std::error::Error>)
+            } else {
+                Ok(7)
+            }
+        });
+        assert_eq!(got.unwrap(), 7);
+        assert_eq!(calls, 3);
+    }
+
+    /// A non-contention error returns on the first attempt: the
+    /// retry loop must not spin on failures that cannot heal.
+    #[test]
+    fn retry_git_lock_passes_other_errors_through() {
+        let mut calls = 0;
+        let got: Result<()> = retry_git_lock(|| {
+            calls += 1;
+            Err("permanent failure".into())
+        });
+        assert!(got.is_err());
+        assert_eq!(calls, 1);
+    }
+
+    /// Contention that never clears is reported after the attempt
+    /// budget, not looped forever.
+    #[test]
+    fn retry_git_lock_gives_up_after_budget() {
+        let mut calls = 0;
+        let got: Result<()> = retry_git_lock(|| {
+            calls += 1;
+            Err(Box::new(lock_error()) as Box<dyn std::error::Error>)
+        });
+        assert!(got.is_err());
+        assert_eq!(calls, LOCK_RETRY_ATTEMPTS);
     }
 }

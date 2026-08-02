@@ -38,6 +38,17 @@ insert / delete / reorder.
        error types instead of stderr parsing; this is the
        refactor program's
        [jj-lib migration stage](refactor-20260716.md#stage-jj-lib-migration)
+   - **Fixed at 0.78.0-8**, both options combined as
+     predicted: the session's colocated git writes (HEAD and
+     index reset, ref export) run inside `retry_git_lock`,
+     which classifies by walking the error's source chain for
+     the typed `gix::lock::acquire::Error` (never a message
+     substring) and retries with a doubling backoff, about
+     375 ms in total, before giving up. Only git writes that
+     precede the operation commit are wrapped, so a retry
+     never doubles an op-store write. Pinned by
+     `mutation_survives_transient_index_lock` (a planted
+     `.git/index.lock` released by a thread mid-backoff).
 
 2. **stdout output panics on a closed pipe (EPIPE).**
    `vc-x1 bot-session <file> | head` panics once `head`

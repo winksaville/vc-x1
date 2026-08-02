@@ -1532,16 +1532,7 @@ fn run_remote_step(
                 bare.display()
             );
             debug!("init {side_label}-side bare repo as the local origin");
-            run(
-                "git",
-                &[
-                    "init",
-                    "--bare",
-                    "--initial-branch=main",
-                    &bare.to_string_lossy(),
-                ],
-                Path::new("."),
-            )?;
+            init_bare_main(bare)?;
         }
         Provisioner::ExternalPreExisting => {
             info!("{step_label}: Using pre-existing {side_label} remote {remote_url}");
@@ -1559,6 +1550,27 @@ fn run_remote_step(
     retry_op(&params.push_retry, || {
         jj::git_push_bookmark(push_from, "main")
     })?;
+    Ok(())
+}
+
+/// Create a bare git repo at `path` with `main` as the initial
+/// branch, in-process via gix (was a `git init --bare
+/// --initial-branch=main` spawn; the last `git` spawn in init).
+///
+/// The branch is pinned by an in-memory `init.defaultBranch`
+/// override, matching the spawned form's `--initial-branch=main`:
+/// the user's own git config must not steer which branch vc-x1
+/// publishes to.
+fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    use gix::sec::trust::DefaultForLevel;
+    let open_opts = gix::open::Options::default_for_level(gix::sec::Trust::Full)
+        .config_overrides(["init.defaultBranch=main"]);
+    gix::ThreadSafeRepository::init_opts(
+        path,
+        gix::create::Kind::Bare,
+        gix::create::Options::default(),
+        open_opts,
+    )?;
     Ok(())
 }
 

@@ -1210,6 +1210,67 @@ Two shell gotchas worth remembering:
 test in the run leaks its tempdir while it's set. Clean up with
 the `find` recipe above, or just `rm -rf` the announced paths.
 
+### Debugging: seeing debug! output from a test
+
+The crate logs through the `log` crate facade, but only the CLI
+installs a logger (`CliLogger::init` at startup, driven by `-v`),
+so under `cargo test` every `debug!` call is a silent no-op. To
+watch the debug output of one test, install the logger at the top
+of that test, temporarily:
+
+```rust
+// 1 = debug, 2 = trace; Some("path") also captures to a file
+crate::logging::CliLogger::init(1, None);
+```
+
+and run just that test with capture disabled:
+
+```bash
+cargo test --bins <test-name-substring> -- --nocapture
+```
+
+For example, the index-lock retry test
+(`mutation_survives_transient_index_lock` in `src/jj.rs`) then
+shows the backoff live on stderr:
+
+```
+git lockfile contended (attempt 1): Could not acquire lock for index file; retrying in 25ms
+git lockfile contended (attempt 2): Could not acquire lock for index file; retrying in 50ms
+git lockfile contended (attempt 3): Could not acquire lock for index file; retrying in 100ms
+test jj::tests::mutation_survives_transient_index_lock ... ok
+```
+
+**The zero-setup variant.** For a quick one-off look, skip the
+logger entirely: drop a temporary `println!` at the point of
+interest (right next to the `debug!` is natural) and run with
+`--nocapture`. `println!` needs no logger, no level, no init line
+in the test:
+
+```bash
+cargo test --bins <test-name-substring> -- --nocapture
+```
+
+Same output, one line of setup. The trade-offs: it prints for
+every caller (no level to turn it off), and unlike the test-local
+`init` line it sits in production code, where a forgotten one
+ships chatter into every real CLI run's stdout. Remove it before
+committing; `debug!` is the form that stays.
+
+Gotchas, in the order people hit them:
+
+- `CliLogger::new(...)` alone does nothing: it only builds the
+  value. `init` is what registers the global logger and raises
+  `log::max_level`; without both, `debug!` stays a no-op.
+- `--nocapture` is required, same as the fixture-preserving
+  recipe above: debug lines go to stderr and libtest swallows
+  them otherwise.
+- `RUST_LOG` has no effect: `CliLogger` never reads env vars
+  (that is env_logger's convention, not this logger's).
+- Remove the `init` line when done. The logger is
+  process-global, so left in place it makes every test in the
+  binary chatty, and a second test calling `init` would panic:
+  the global logger can be set only once per process.
+
 ## Support
 
 Helper scripts for maintaining this repo's docs and examples live

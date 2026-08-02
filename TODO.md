@@ -165,7 +165,8 @@ rather than merely accepted, which is the change from the
     its consumers today
   - ordered before the retry so the retry lands on the final
     frame, though it fits either shape
-- [[N]] 0.78.0-8 fix: jj-lib index-lock retry
+- [[N]] 0.78.0-8 fix: jj-lib index-lock retry (done)
+  [detail](#0780-8-fix-jj-lib-index-lock-retry)
   - renumbered from `-7` by the session insert
   - bugs.md #1, with the `git init --bare` to gix rider
   - the retry classifies by error variant rather than
@@ -734,6 +735,44 @@ callers.
   default-user-config `Context`; the push / sync /
   squash-push integration tests pass a fresh one per op call,
   matching the production one-context-per-invocation shape.
+
+##### 0.78.0-8 fix: jj-lib index-lock retry
+
+The bugs.md #1 fix, landing on the `-7` frame as ordered: gix
+gives `.git/index.lock` a single attempt, and a git-aware
+watcher can hold it exactly when a mutation resets the index,
+so the session retries the colocated git half itself. Plus the
+planned rider: init's `git init --bare` becomes a gix call,
+the last `git` spawn in init.
+
+- `retry_git_lock` wraps the two colocated git blocks
+  (`finish_tx`'s HEAD/index reset + ref export, the snapshot's
+  intent-to-add + ref export), both strictly before the
+  transaction commit, so a retried closure never doubles an
+  op-store write.
+- `is_lock_contention` classifies by type, never by message
+  substring: walk the source chain, downcast each link to
+  `gix::lock::acquire::Error`. Never-retryable failures (a
+  missing git binary via `SpawnInPath`, an old git via
+  `UnsupportedGitOption`) can never carry that type, so they
+  classify false without being named, where a broader "retry
+  git errors" rule would loop on them forever.
+- Backoff: 5 attempts, 25 ms doubling, about 375 ms of
+  waiting in total. The observed holds are watcher-brief;
+  anything longer surfaces as the same error as before.
+- gix becomes a direct dependency (no features of our own, so
+  it resolves to exactly jj-lib's 0.85): the downcast needs
+  type identity with the errors jj-lib returns.
+- The rider: `init_bare_main` uses
+  `ThreadSafeRepository::init_opts` with an in-memory
+  `init.defaultBranch=main` override, standing in for the
+  spawned form's `--initial-branch=main` so the user's git
+  config cannot steer which branch vc-x1 publishes to.
+- Tests: classifier and retry-loop units (including the
+  give-up-after-budget and pass-through cases), a planted
+  `.git/index.lock` released mid-backoff by a thread proving
+  a mutation survives transient contention, and a bare-init
+  test pinning HEAD to `refs/heads/main`.
 
 ## Todo
 
