@@ -63,7 +63,7 @@ impl SubcommandRunner for ListArgs {
     }
 
     /// Run the existing `list` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         list(ctx, params)
     }
 }

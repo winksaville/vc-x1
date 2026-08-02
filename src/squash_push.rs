@@ -97,10 +97,9 @@ impl SubcommandRunner for SquashPushArgs {
         SquashPushParams::try_from(self)
     }
 
-    /// Run the `squash-push` op (`ctx` unused — the op is fully
-    /// parameterized by `Params`).
-    fn run(_ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        squash_push(params)
+    /// Run the `squash-push` op.
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+        squash_push(ctx, params)
     }
 }
 
@@ -225,7 +224,10 @@ fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std:
 ///   and exits 0 — nothing to do.
 /// - With an empty source but the remote behind, skips the squash
 ///   and still pushes.
-pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>> {
+pub fn squash_push(
+    ctx: &mut Context,
+    params: &SquashPushParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     debug!("squash_push: entry params={params:?}");
     let repo_str = params.repo.to_string_lossy().to_string();
     let cwd = std::path::Path::new(".");
@@ -294,10 +296,11 @@ pub fn squash_push(params: &SquashPushParams) -> Result<(), Box<dyn std::error::
         "squash-push: setting bookmark '{bookmark}' to {}...",
         sq.target
     );
-    jj::bookmark_set(&params.repo, bookmark, &sq.target)?;
+    ctx.session(&params.repo)?
+        .bookmark_set(bookmark, &sq.target)?;
 
     info!("squash-push: pushing '{bookmark}' to origin...");
-    jj::git_push_bookmark(&params.repo, bookmark)?;
+    ctx.session(&params.repo)?.git_push_bookmark(bookmark)?;
 
     info!("squash-push: done");
     Ok(())
@@ -429,7 +432,8 @@ mod tests {
             bookmark: "main".to_string(),
             report_publish_state: true,
         };
-        squash_push(&params).expect("squash-push should publish the lost commit");
+        squash_push(&mut crate::test_helpers::test_ctx(), &params)
+            .expect("squash-push should publish the lost commit");
 
         let cid = |rev: &str| {
             jj_ok(

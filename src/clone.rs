@@ -95,7 +95,7 @@ impl SubcommandRunner for CloneArgs {
     }
 
     /// Run the existing `clone_repo` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         clone_repo(ctx, params)
     }
 }

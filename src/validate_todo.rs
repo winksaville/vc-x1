@@ -50,7 +50,7 @@ impl SubcommandRunner for ValidateTodoArgs {
     }
 
     /// Run the `validate_todo` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         validate_todo(ctx, params)
     }
 }

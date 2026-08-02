@@ -127,7 +127,7 @@ impl SubcommandRunner for FixDescArgs {
     }
 
     /// Run the existing `fix_desc` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         fix_desc(ctx, params)
     }
 }

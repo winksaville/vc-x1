@@ -77,7 +77,7 @@ impl SubcommandRunner for RevertArgs {
     }
 
     /// Run the revert op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         revert(ctx, params)
     }
 }

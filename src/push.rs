@@ -157,7 +157,7 @@ impl SubcommandRunner for PushArgs {
     }
 
     /// Run the existing `push` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         push(ctx, params)
     }
 }
@@ -185,12 +185,12 @@ fn is_stdin_tty() -> bool {
 /// recorded at the start of `commit-work`. After `push-work` the
 /// remote boundary is crossed and recovery is forward-only.
 ///
-/// `ctx` is unused today (push reads `.vc-config.toml` for its
-/// state-file layout); it's present for the uniform
-/// subcommand-layer signature.
-pub fn push(_ctx: &Context, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
+/// `ctx` supplies the repo sessions the mutation stages run their
+/// verbs on (`Context::session`, one open per repo for the whole
+/// run).
+pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
-    push_in(&cwd, params)
+    push_in(ctx, &cwd, params)
 }
 
 /// `push` parameterized on the workspace root. CLI dispatch calls
@@ -204,6 +204,7 @@ pub fn push(_ctx: &Context, params: &PushParams) -> Result<(), Box<dyn std::erro
 /// after `push-work` the remote boundary is crossed and a failure
 /// simply propagates.
 pub(crate) fn push_in(
+    ctx: &mut Context,
     workspace_root: &Path,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -233,20 +234,20 @@ pub(crate) fn push_in(
         })
     };
 
-    if let Err(e) = mutate(workspace_root, bookmark, &run, params) {
+    if let Err(e) = mutate(ctx, workspace_root, bookmark, &run, params) {
         if let Some(snapshots) = &snapshots {
             rollback_on_failure(workspace_root, snapshots, e.as_ref());
         }
         return Err(e);
     }
 
-    stage_push_work(workspace_root, bookmark, params)?;
+    stage_push_work(ctx, workspace_root, bookmark, params)?;
 
     if params.no_squash_push {
         info!("push squash-push-bot: skip (--no-squash-push)");
     } else {
         step_gate(params, "push-work", "squash-push-bot")?;
-        stage_squash_push_bot(workspace_root, params)?;
+        stage_squash_push_bot(ctx, workspace_root, params)?;
     }
 
     if params.dry_run {
@@ -272,16 +273,17 @@ pub(crate) fn push_in(
 /// The rollback-eligible window: everything that mutates a repo
 /// before anything reaches a remote.
 fn mutate(
+    ctx: &mut Context,
     root: &Path,
     bookmark: &str,
     run: &Run,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    stage_commit_work(root, run, params)?;
+    stage_commit_work(ctx, root, run, params)?;
     step_gate(params, "commit-work", "commit-bot")?;
-    stage_commit_bot(root, run, params)?;
+    stage_commit_bot(ctx, root, run, params)?;
     step_gate(params, "commit-bot", "bookmark-set")?;
-    stage_bookmark_set(root, bookmark, params)?;
+    stage_bookmark_set(ctx, root, bookmark, params)?;
     step_gate(params, "bookmark-set", "push-work")?;
     Ok(())
 }
@@ -553,6 +555,7 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 /// In both cases the existing top commit is published as-is; push
 /// does not rewrite a description it didn't author.
 fn stage_commit_work(
+    ctx: &mut Context,
     root: &Path,
     run_msg: &Run,
     params: &PushParams,
@@ -576,7 +579,8 @@ fn stage_commit_work(
         return Ok(());
     }
     info!("push commit-work: commit -R {work_arg}");
-    jj::commit(root, &format!("{title}\n\n{body_with_trailer}"))?;
+    ctx.session(root)?
+        .commit(&format!("{title}\n\n{body_with_trailer}"))?;
     Ok(())
 }
 
@@ -584,6 +588,7 @@ fn stage_commit_work(
 /// pointing at the work commit's chid, or skip if `.claude` had no
 /// pending changes.
 fn stage_commit_bot(
+    ctx: &mut Context,
     root: &Path,
     run_msg: &Run,
     params: &PushParams,
@@ -603,7 +608,8 @@ fn stage_commit_bot(
         return Ok(());
     }
     info!("push commit-bot: commit -R {bot_arg}");
-    jj::commit(&bot, &format!("{title}\n\n{body_with_trailer}"))?;
+    ctx.session(&bot)?
+        .commit(&format!("{title}\n\n{body_with_trailer}"))?;
     Ok(())
 }
 
@@ -612,6 +618,7 @@ fn stage_commit_bot(
 /// `BOT_BOOKMARK` (`main`) — a feature bookmark must never be
 /// created in the linear-journal bot repo.
 fn stage_bookmark_set(
+    ctx: &mut Context,
     root: &Path,
     bookmark: &str,
     params: &PushParams,
@@ -629,8 +636,8 @@ fn stage_bookmark_set(
     info!(
         "push bookmark-set: bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
     );
-    jj::bookmark_set(root, bk, "@-")?;
-    jj::bookmark_set(&bot, BOT_BOOKMARK, "@-")?;
+    ctx.session(root)?.bookmark_set(bk, "@-")?;
+    ctx.session(&bot)?.bookmark_set(BOT_BOOKMARK, "@-")?;
     Ok(())
 }
 
@@ -646,6 +653,7 @@ fn stage_bookmark_set(
 /// Rerunning is safe without a guard of its own: `jj git push` on
 /// an already-published bookmark reports nothing to do.
 fn stage_push_work(
+    ctx: &mut Context,
     root: &Path,
     bookmark: &str,
     params: &PushParams,
@@ -658,7 +666,7 @@ fn stage_push_work(
     }
     crate::common::verify_tracking(root, bk)?;
     info!("push push-work: git push --bookmark {bk} -R {work_arg}");
-    jj::git_push_bookmark(root, bk)?;
+    ctx.session(root)?.git_push_bookmark(bk)?;
     Ok(())
 }
 
@@ -676,6 +684,7 @@ fn stage_push_work(
 /// - `--no-squash-push` turns this stage into a no-op so the
 ///   squash+push can be run manually.
 fn stage_squash_push_bot(
+    ctx: &mut Context,
     root: &Path,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -701,7 +710,7 @@ fn stage_squash_push_bot(
         // a lost publish.
         report_publish_state: false,
     };
-    crate::squash_push::squash_push(&sp)
+    crate::squash_push::squash_push(ctx, &sp)
 }
 
 /// Verify the world matches what the stages claim to have done.

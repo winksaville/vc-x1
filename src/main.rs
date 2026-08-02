@@ -497,7 +497,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let ctx = match context::Context::load() {
+    let mut ctx = match context::Context::load() {
         Ok(c) => c,
         Err(e) => {
             error!("{e}");
@@ -508,24 +508,24 @@ fn main() -> ExitCode {
     match cmd {
         // Handled above, before `Context::load`.
         Commands::Version => ExitCode::SUCCESS,
-        Commands::Chid(args) => args.dispatch(&ctx),
-        Commands::Desc(args) => args.dispatch(&ctx),
-        Commands::List(args) => args.dispatch(&ctx),
-        Commands::Show(args) => args.dispatch(&ctx),
-        Commands::BotSession(args) => args.dispatch(&ctx),
-        Commands::ValidateBot(args) => args.dispatch(&ctx),
-        Commands::ValidateDesc(args) => args.dispatch(&ctx),
-        Commands::FixDesc(args) => args.dispatch(&ctx),
-        Commands::ValidateTodo(args) => args.dispatch(&ctx),
-        Commands::FixTodo(args) => args.dispatch(&ctx),
-        Commands::Clone(args) => args.dispatch(&ctx),
-        Commands::Init(args) => args.dispatch(&ctx),
-        Commands::Symlink(args) => args.dispatch(&ctx),
-        Commands::Sync(args) => args.dispatch(&ctx),
-        Commands::Revert(args) => args.dispatch(&ctx),
-        Commands::SquashPush(args) => args.dispatch(&ctx),
-        Commands::Config(args) => args.dispatch(&ctx),
-        Commands::Push(args) => args.dispatch(&ctx),
+        Commands::Chid(args) => args.dispatch(&mut ctx),
+        Commands::Desc(args) => args.dispatch(&mut ctx),
+        Commands::List(args) => args.dispatch(&mut ctx),
+        Commands::Show(args) => args.dispatch(&mut ctx),
+        Commands::BotSession(args) => args.dispatch(&mut ctx),
+        Commands::ValidateBot(args) => args.dispatch(&mut ctx),
+        Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
+        Commands::FixDesc(args) => args.dispatch(&mut ctx),
+        Commands::ValidateTodo(args) => args.dispatch(&mut ctx),
+        Commands::FixTodo(args) => args.dispatch(&mut ctx),
+        Commands::Clone(args) => args.dispatch(&mut ctx),
+        Commands::Init(args) => args.dispatch(&mut ctx),
+        Commands::Symlink(args) => args.dispatch(&mut ctx),
+        Commands::Sync(args) => args.dispatch(&mut ctx),
+        Commands::Revert(args) => args.dispatch(&mut ctx),
+        Commands::SquashPush(args) => args.dispatch(&mut ctx),
+        Commands::Config(args) => args.dispatch(&mut ctx),
+        Commands::Push(args) => args.dispatch(&mut ctx),
     }
 }
 

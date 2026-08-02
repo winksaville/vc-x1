@@ -147,6 +147,8 @@ rather than merely accepted, which is the change from the
   - commit, describe, bookmark set/track, fetch, push, plus
     the `@`-relative reads deferred from `-5`
 - [[N]] 0.78.0-7 refactor: context-owned repo sessions
+  (done)
+  [detail](#0780-7-refactor-context-owned-repo-sessions)
   - inserted 2026-08-01 at the `-6` review, design settled
     there: `Context` owns lazily-opened `RepoSession`s keyed
     by repo path, has-a and never is-a, because an
@@ -690,6 +692,48 @@ machinery you start, not a thing you open per operation.
   fixtures), plus facade tests pinning colocated-git export:
   after in-process commit / bookmark-set / describe, `git
   rev-parse` sees the same commit ids jj reports.
+
+##### 0.78.0-7 refactor: context-owned repo sessions
+
+`Context` grows the session map the `-6` review designed:
+lazily-opened `RepoSession`s keyed by canonicalized repo path,
+opened on first use by `Context::session` and reused for the
+rest of the invocation. Has-a, never is-a: an invocation
+touches 0..N repos, and a repo-less `version` never opens one.
+The five verbs move from facade fns onto `RepoSession` as
+methods; the facade keeps one-shot wrappers for context-less
+callers.
+
+- `SubcommandRunner::run` (and `dispatch`) take
+  `&mut Context`: the sessions are exclusive mutable state,
+  and the borrow checker enforcing one live session borrow at
+  a time is what a `RefCell` would trade for runtime panics.
+  The fifteen non-consumer subcommands change signature only.
+- Verbs as `RepoSession` methods: `commit`, `describe`,
+  `bookmark_set`, `git_push_bookmark`, `git_fetch`, plus the
+  `one_commit` resolver and `complete_newline`.
+  `DebugCallback` goes private to the session module.
+- One-shot wrappers stay for the context-less callers:
+  fix-desc (`describe`), init (`bookmark_set`,
+  `git_push_bookmark`), repo_utils (`commit`, `describe`).
+  `git_fetch`'s only caller is sync, context-ful, so its
+  wrapper is deleted rather than kept unused.
+- `RepoSession::snapshot` now reloads at the op-store head
+  for every repo, not only colocated ones: a session outlives
+  single verbs in a `Context`, and a spawned `jj` (squash,
+  new, rebase, op restore) may commit operations between
+  verbs. Reuse skips only the open (settings + workspace
+  load); freshness is per-verb, unchanged.
+- Consumers: push threads `ctx` through `mutate` and the four
+  mutating stages, and its `squash-push-bot` stage passes the
+  same `ctx` into squash-push, so one bot-repo session serves
+  the whole run; squash-push and sync take `ctx` for their
+  verb sites (`fetch_silent`, `act_on_state`). Reads stay
+  one-shot facade fns.
+- Tests: `test_helpers::test_ctx()` builds a
+  default-user-config `Context`; the push / sync /
+  squash-push integration tests pass a fresh one per op call,
+  matching the production one-context-per-invocation shape.
 
 ## Todo
 

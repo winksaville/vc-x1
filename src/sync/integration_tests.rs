@@ -11,7 +11,7 @@
 
 use super::*;
 use crate::options_flags::scope::Side;
-use crate::test_helpers::{Fixture, cid, jj_ok};
+use crate::test_helpers::{Fixture, cid, jj_ok, test_ctx};
 use std::fs;
 use std::process::Command;
 
@@ -74,7 +74,8 @@ fn resolver_chain_against_init_repo_local() {
     // sync_repos accepts the resolved list and reports up-to-date
     // — the resolver's output is shaped the way sync expects.
     let resolved = scope_to_repos(&Scope(vec![Side::Work, Side::Bot]), Some(&fx.work)).unwrap();
-    sync_repos(&resolved, &default_params()).expect("sync should succeed on resolved repos");
+    sync_repos(&mut test_ctx(), &resolved, &default_params())
+        .expect("sync should succeed on resolved repos");
 }
 
 /// Default sync params (the normal atomic sync — no flags).
@@ -178,7 +179,7 @@ fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
     let work_main = cid(&fx.work, "main");
     let bot_main = cid(&fx.bot, "main");
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), work_main);
     assert_eq!(cid(&fx.bot, "main"), bot_main);
     assert!(
@@ -205,7 +206,7 @@ fn sync_bot_noop_when_up_to_date() {
         &fx.bot,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
     );
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     // main didn't move.
     assert_eq!(cid(&fx.bot, "main"), pre_main, "main should not move");
     // @ is the same change — no jj new, no abandoned chid.
@@ -245,7 +246,7 @@ fn sync_bot_jj_new_when_main_moves() {
     );
     // Trailing writes on @
     fs::write(fx.bot.join("trailing.jsonl"), "{\"line\":2}\n").expect("write trailing file");
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.bot, "main"),
         remote_head,
@@ -279,7 +280,7 @@ fn sync_bot_errors_when_at_parent_off_main() {
     jj_ok(&fx.bot, &["describe", "@", "-m", "feat: bot ahead"]);
     jj_ok(&fx.bot, &["new"]);
 
-    let err = sync_repos(&fx.repos(), &default_params())
+    let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -319,7 +320,7 @@ fn sync_conflict_stops_and_keeps_state() {
 
     let pre_op = current_op_id(&fx.bot).expect("pre-sync op id");
 
-    let err = sync_repos(&fx.repos(), &default_params())
+    let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -352,7 +353,7 @@ fn sync_ahead_is_noop() {
     let fx = Fixture::new("ahead");
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
     let ahead_head = cid(&fx.work, "main");
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(cid(&fx.work, "main"), ahead_head);
 }
 
@@ -373,7 +374,7 @@ fn sync_diverged_rebases() {
     );
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
 
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
 
     // Remote tracking bookmark now points at the pushed remote commit.
     assert_eq!(
@@ -444,7 +445,7 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
     let pre_op_work = current_op_id(&fx.work).expect("work op id");
     let pre_op_bot = current_op_id(&fx.bot).expect("bot op id");
 
-    let err = sync_repos(&fx.repos(), &default_params())
+    let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
@@ -504,7 +505,8 @@ fn revert_restores_after_failed_sync() {
     let pre_main = cid(&fx.work, "main");
     let pre_remote = cid(&fx.work, "main@origin");
 
-    sync_repos(&fx.repos(), &default_params()).expect_err("sync should fail on conflicts");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
+        .expect_err("sync should fail on conflicts");
     assert!(has(&fx.work, "conflicts()"), "conflicted state to undo");
 
     crate::revert::revert_repos(&fx.repos()).expect("revert should succeed");
@@ -550,7 +552,7 @@ fn sync_work_jj_new_when_behind() {
         "remote\n",
         "feat: remote only",
     );
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.work, "main"),
         remote_head,
@@ -583,7 +585,7 @@ fn sync_work_skips_rebase_without_flag() {
     );
     // Uncommitted changes make @ non-empty.
     fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
-    sync_repos(&fx.repos(), &default_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.work, "main"),
         remote_head,
@@ -622,7 +624,12 @@ fn sync_clone_ffs_main_after_peer_push() {
     );
     assert_ne!(pre_main, pushed, "A's push should advance the remote");
 
-    sync_repos(std::slice::from_ref(&clone_b), &default_params()).expect("sync should succeed");
+    sync_repos(
+        &mut test_ctx(),
+        std::slice::from_ref(&clone_b),
+        &default_params(),
+    )
+    .expect("sync should succeed");
 
     assert_eq!(
         cid(&clone_b, "main"),
@@ -663,7 +670,7 @@ fn sync_feature_bookmark_pins_bot_to_main() {
         bookmark: "feature".to_string(),
         ..default_params()
     };
-    sync_repos(&fx.repos(), &params).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &params).expect("sync should succeed");
 
     // Bot repo synced main and repositioned @ onto it.
     assert_eq!(
@@ -702,7 +709,7 @@ fn sync_work_rebases_with_flag() {
         "feat: remote only",
     );
     fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
-    sync_repos(&fx.repos(), &rebase_params()).expect("sync should succeed");
+    sync_repos(&mut test_ctx(), &fx.repos(), &rebase_params()).expect("sync should succeed");
     assert_eq!(
         cid(&fx.work, "main"),
         remote_head,

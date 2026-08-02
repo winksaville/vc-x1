@@ -7,8 +7,11 @@
 //! references a working copy (`@`, `@-`, `ws@`) snapshots first
 //! (`repo_for_read`), so "right now" questions answer about the
 //! filesystem the way the spawned CLI's auto-snapshot did.
-//! Mutations run on the `session` module's `RepoSession`: its
-//! settings / snapshot / transaction-finish plumbing.
+//! Mutations are `session::RepoSession` methods; the verb fns here
+//! are one-shot wrappers (open a session, run the verb) for
+//! context-less callers. Context-ful callers (push, squash-push,
+//! sync) go through `Context::session`, which caches one open
+//! session per repo for the whole invocation.
 //!
 //! - `matches` / `rev_exists`: does a revset match / does a
 //!   revision resolve.
@@ -16,8 +19,9 @@
 //!   change / commit ids.
 //! - `desc_of` / `is_empty`: description and emptiness.
 //! - `is_no_such_revision`: the typed unresolvable-revision test.
-//! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark` /
-//!   `git_fetch`: the publish-path mutations.
+//! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark`:
+//!   one-shot wrappers over the session verbs. `git_fetch` has no
+//!   wrapper: its only caller (sync) is context-ful.
 //!
 //! Still spawning `jj` elsewhere: `bookmark_list` /
 //! `bookmark_list_all` here (their consumers parse the CLI listing
@@ -35,197 +39,33 @@ use pollster::FutureExt;
 
 use crate::common;
 
-mod session;
+pub(crate) mod session;
 
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-/// `desc` with the trailing newline jj normalizes descriptions to.
-fn complete_newline(desc: &str) -> String {
-    if desc.is_empty() || desc.ends_with('\n') {
-        desc.to_string()
-    } else {
-        format!("{desc}\n")
-    }
-}
-
-/// Snapshot the working copy, then update the wc commit's
+/// One-shot `RepoSession::commit`: update the wc commit's
 /// description and start a new empty change on top (`jj commit`).
 pub fn commit(repo: &Path, desc: &str) -> Result<()> {
-    let mut ses = session::RepoSession::open(repo)?;
-    ses.snapshot()?;
-    let wc_commit = ses.wc_commit()?;
-    let name = ses.workspace.workspace_name().to_owned();
-    let mut tx = ses.start_tx();
-    let new_commit = tx
-        .repo_mut()
-        .rewrite_commit(&wc_commit)
-        .set_description(complete_newline(desc))
-        .write()
-        .block_on()?;
-    let new_wc_commit = tx
-        .repo_mut()
-        .new_commit(vec![new_commit.id().clone()], wc_commit.tree())
-        .write()
-        .block_on()?;
-    tx.repo_mut().edit(name, &new_wc_commit).block_on()?;
-    ses.finish_tx(tx, &format!("commit {}", wc_commit.id().hex()))
+    session::RepoSession::open(repo)?.commit(desc)
 }
 
-/// Snapshot, then rewrite `rev`'s description and rebase its
-/// descendants (`jj describe -r <rev> -m <desc>`).
+/// One-shot `RepoSession::describe`: rewrite `rev`'s description
+/// and rebase its descendants (`jj describe -r <rev> -m <desc>`).
 pub fn describe(repo: &Path, rev: &str, desc: &str) -> Result<()> {
-    let mut ses = session::RepoSession::open(repo)?;
-    ses.snapshot()?;
-    let commit = one_commit(&ses, rev)?;
-    let desc = complete_newline(desc);
-    if commit.description() == desc {
-        return Ok(());
-    }
-    let mut tx = ses.start_tx();
-    tx.repo_mut()
-        .rewrite_commit(&commit)
-        .set_description(desc)
-        .write()
-        .block_on()?;
-    tx.repo_mut().rebase_descendants().block_on()?;
-    ses.finish_tx(tx, &format!("describe commit {}", commit.id().hex()))
+    session::RepoSession::open(repo)?.describe(rev, desc)
 }
 
-/// Snapshot, then point local bookmark `name` at `rev`
-/// (`jj bookmark set <name> -r <rev>`).
+/// One-shot `RepoSession::bookmark_set`: point local bookmark
+/// `name` at `rev` (`jj bookmark set <name> -r <rev>`).
 pub fn bookmark_set(repo: &Path, name: &str, rev: &str) -> Result<()> {
-    use jj_lib::op_store::RefTarget;
-    let mut ses = session::RepoSession::open(repo)?;
-    ses.snapshot()?;
-    let commit = one_commit(&ses, rev)?;
-    let mut tx = ses.start_tx();
-    tx.repo_mut()
-        .set_local_bookmark_target(name.as_ref(), RefTarget::normal(commit.id().clone()));
-    ses.finish_tx(
-        tx,
-        &format!("point bookmark {} to commit {}", name, commit.id().hex()),
-    )
+    session::RepoSession::open(repo)?.bookmark_set(name, rev)
 }
 
-/// Snapshot, then push local bookmark `name` to `origin`
-/// (`jj git push --bookmark <name>`), force-with-lease against the
-/// last-seen remote position.
-///
-/// Deviation from the CLI: no conflicted / no-description / private
-/// preflights on the pushed commits; the push callers validate the
-/// commit they publish before calling.
+/// One-shot `RepoSession::git_push_bookmark`: push local bookmark
+/// `name` to `origin` (`jj git push --bookmark <name>`).
 pub fn git_push_bookmark(repo: &Path, name: &str) -> Result<()> {
-    use jj_lib::git::{GitPushOptions, GitPushRefTargets, GitSettings};
-    use jj_lib::merge::Diff;
-    use jj_lib::ref_name::{RefNameBuf, RemoteName};
-
-    let mut ses = session::RepoSession::open(repo)?;
-    ses.snapshot()?;
-    let remote = RemoteName::new("origin");
-    let ref_name: RefNameBuf = name.into();
-    let local = ses
-        .repo
-        .view()
-        .get_local_bookmark(&ref_name)
-        .as_normal()
-        .cloned()
-        .ok_or_else(|| format!("bookmark '{name}' is absent or conflicted"))?;
-    let remote_ref = ses
-        .repo
-        .view()
-        .get_remote_bookmark(ref_name.to_remote_symbol(remote));
-    let before = remote_ref.target.as_normal().cloned();
-    if before.as_ref() == Some(&local) {
-        return Ok(()); // Already in sync; matches `jj git push` "Nothing changed".
-    }
-    let ref_updates = GitPushRefTargets {
-        bookmarks: vec![(
-            ref_name.clone(),
-            Diff {
-                before,
-                after: Some(local),
-            },
-        )],
-        tags: vec![],
-    };
-    let git_settings = GitSettings::from_settings(&ses.settings)?;
-    let mut tx = ses.start_tx();
-    let stats = jj_lib::git::push_refs(
-        tx.repo_mut(),
-        git_settings.to_subprocess_options(),
-        remote,
-        &ref_updates,
-        &mut session::DebugCallback,
-        &GitPushOptions::default(),
-    )?;
-    if !stats.all_ok() {
-        return Err(format!(
-            "git push of bookmark '{name}' failed: rejected {:?}, remote rejected {:?}",
-            stats.rejected, stats.remote_rejected
-        )
-        .into());
-    }
-    ses.finish_tx(tx, &format!("push bookmark {name} to git remote origin"))
-}
-
-/// Snapshot, then fetch all branches from `remote` and import the
-/// results (`jj git fetch --remote <remote>`). Returns one line per
-/// changed remote bookmark, empty when the fetch changed nothing.
-///
-/// Deviation from the CLI: the branch expression is always "all
-/// branches" rather than the remote's configured fetch refspecs,
-/// which is what a standard `origin` resolves to anyway.
-pub fn git_fetch(repo: &Path, remote: &str) -> Result<Vec<String>> {
-    use jj_lib::git::{GitFetch, GitFetchRefExpression, GitSettings, expand_fetch_refspecs};
-    use jj_lib::ref_name::RemoteName;
-    use jj_lib::str_util::StringExpression;
-
-    let mut ses = session::RepoSession::open(repo)?;
-    ses.snapshot()?;
-    let remote = RemoteName::new(remote);
-    let expanded = expand_fetch_refspecs(
-        remote,
-        GitFetchRefExpression {
-            bookmark: StringExpression::all(),
-            tag: StringExpression::none(),
-        },
-    )?;
-    let git_settings = GitSettings::from_settings(&ses.settings)?;
-    let import_options = ses.import_options()?;
-    let mut tx = ses.start_tx();
-    let mut fetch = GitFetch::new(
-        tx.repo_mut(),
-        git_settings.to_subprocess_options(),
-        &import_options,
-    )?;
-    fetch.fetch(remote, expanded, &mut session::DebugCallback, None, None)?;
-    let stats = fetch.import_refs().block_on()?;
-    drop(fetch);
-    let lines: Vec<String> = stats
-        .changed_remote_bookmarks
-        .iter()
-        .map(|(symbol, _)| format!("bookmark {symbol} updated"))
-        .collect();
-    if !tx.repo().has_changes() {
-        return Ok(lines);
-    }
-    tx.repo_mut().rebase_descendants().block_on()?;
-    ses.finish_tx(tx, &format!("fetch from git remote {}", remote.as_str()))?;
-    Ok(lines)
-}
-
-/// Resolve `rev` against an open engine to exactly one commit.
-fn one_commit(ses: &session::RepoSession, rev: &str) -> Result<jj_lib::commit::Commit> {
-    let ids = common::resolve_revset(&ses.workspace, &ses.repo, rev)?;
-    match ids.as_slice() {
-        [id] => Ok(ses.repo.store().get_commit(id)?),
-        other => Err(format!(
-            "expected exactly one commit for {rev:?}, got {}",
-            other.len()
-        )
-        .into()),
-    }
+    session::RepoSession::open(repo)?.git_push_bookmark(name)
 }
 
 /// True when `revset` references a working copy, so the query must
