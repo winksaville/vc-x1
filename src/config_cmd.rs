@@ -2,17 +2,17 @@
 //! target config file (or check it with `--validate`), grouped by
 //! TOML section, sshd_config style.
 //!
-//! - Read-only; consumes `crate::config_schema::schema()` — the
+//! - Read-only; consumes `crate::config_schema::schema()`: the
 //!   single source of truth for every settable key.
 //! - The positional target is `work`, `bot`, `work,bot` (default),
 //!   or an explicit config-file path. The user config
-//!   (`~/.config/vc-x1/config.toml`) has no keyword — reach it by
+//!   (`~/.config/vc-x1/config.toml`) has no keyword: reach it by
 //!   passing its path.
 //! - The side keywords filter to that side's keys; a path target
-//!   carries no side information, so it gets the whole schema —
-//!   no guessing what kind of file the path names.
+//!   carries no side information, so it gets the whole schema: no
+//!   guessing what kind of file the path names.
 //! - `--validate` checks the target file(s) instead of printing:
-//!   unknown keys, and — for keyword targets — the legacy-schema
+//!   unknown keys, and (for keyword targets) the legacy-schema
 //!   rejection plus the resolved-agreement invariant of a dual
 //!   workspace's `[repos]` registries (via the bot-side
 //!   resolution).
@@ -35,9 +35,9 @@ use crate::toml_simple::toml_load;
 /// Parsed positional target: a side keyword set or an explicit
 /// config-file path.
 ///
-/// - `Scope` — `work`, `bot`, `work,bot`, `bot,work` (the `--scope`
+/// - `Scope`: `work`, `bot`, `work,bot`, `bot,work` (the `--scope`
 ///   grammar), resolved against the surrounding workspace.
-/// - `Path` — anything else: an explicit config file. The only way
+/// - `Path`: anything else, an explicit config file. The only way
 ///   to reach the user config.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConfigTarget {
@@ -49,7 +49,7 @@ pub enum ConfigTarget {
 /// path.
 ///
 /// A file literally named `work` (etc.) in cwd is shadowed by the
-/// keyword — target it as `./work`.
+/// keyword: target it as `./work`.
 fn parse_target(s: &str) -> Result<ConfigTarget, String> {
     if let Ok(scope) = parse_scope(s) {
         return Ok(ConfigTarget::Scope(scope));
@@ -64,14 +64,14 @@ fn parse_target(s: &str) -> Result<ConfigTarget, String> {
 pub struct ConfigArgs {
     /// What to print or validate: side keyword(s) `work`, `bot`,
     /// `work,bot`, or a config-file path. The user config
-    /// (`~/.config/vc-x1/config.toml`) has no keyword — pass its
+    /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
     /// path.
     #[arg(value_parser = parse_target, default_value = "work,bot", verbatim_doc_comment)]
     pub target: ConfigTarget,
 
-    /// Check the target config file(s) — unknown/misspelled keys,
+    /// Check the target config file(s) (unknown/misspelled keys,
     /// legacy-schema rejection, [repos] resolved-agreement
-    /// invariant — instead of printing the schema
+    /// invariant) instead of printing the schema
     #[arg(long)]
     pub validate: bool,
 }
@@ -87,7 +87,7 @@ pub struct ConfigParams {
 
 impl From<&ConfigArgs> for ConfigParams {
     /// Convert clap-derived `ConfigArgs` into the flat
-    /// `ConfigParams` (total — every field copies straight over).
+    /// `ConfigParams` (total: every field copies straight over).
     fn from(a: &ConfigArgs) -> Self {
         Self {
             target: a.target.clone(),
@@ -100,7 +100,7 @@ impl SubcommandRunner for ConfigArgs {
     type Params = ConfigParams;
 
     /// Delegate to the existing `From<&ConfigArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(ConfigParams::from(self))
     }
@@ -123,7 +123,7 @@ fn in_bot_side(homes: &[Home]) -> bool {
     homes.contains(&Home::WorkspaceBot)
 }
 
-/// Every key — a path target carries no side information, so it
+/// Every key: a path target carries no side information, so it
 /// prints/validates against the whole schema, no guessing.
 fn in_any(_homes: &[Home]) -> bool {
     true
@@ -135,7 +135,7 @@ fn in_any(_homes: &[Home]) -> bool {
 /// multi-line doc-block via `render_key_block` (shared with
 /// `crate::init`'s generated `.vc-config.toml`).
 fn print_group(header: &str, keys: &[&ConfigKey]) {
-    info!("# ── {header} ──");
+    info!("# -- {header} --");
     let mut sections: Vec<&str> = Vec::new();
     for key in keys {
         let (section, _leaf) = section_and_leaf(key.path);
@@ -187,7 +187,7 @@ fn key_known(actual: &str, home_pred: fn(&[Home]) -> bool) -> bool {
 /// Validate one config file against the schema, filtered to the
 /// homes accepted at that file by `home_pred`.
 ///
-/// - A missing file is not an error — `info!`s that it's absent
+/// - A missing file is not an error: `info!`s that it's absent
 ///   and returns `Ok(0)`.
 /// - Each key not recognized by `key_known` is reported with
 ///   `warn!`, naming `label` and the key; keys are checked in
@@ -200,7 +200,7 @@ fn validate_file(
     home_pred: fn(&[Home]) -> bool,
 ) -> Result<usize, Box<dyn Error>> {
     if !path.exists() {
-        info!("{label}: {} not found — skipping", path.display());
+        info!("{label}: {} not found, skipping", path.display());
         return Ok(0);
     }
     let map = toml_load(path)?;
@@ -225,7 +225,7 @@ fn validate_file(
 ///   there is nothing to check (info + `Ok(0)`).
 /// - The bot side resolves via `bot_repo_path`, which runs the
 ///   dual-preflight coherence check (bot dir exists, both configs
-///   load, resolved `[repos]` agreement) — its failure is
+///   load, resolved `[repos]` agreement), its failure is
 ///   reported as a finding, not a hard error, so the work-side
 ///   report still lands.
 /// - A path target carries no side information, so it validates
@@ -235,12 +235,12 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
     match &params.target {
         ConfigTarget::Scope(scope) => {
             let Some(root) = root else {
-                info!("not inside a workspace — nothing to validate");
+                info!("not inside a workspace: nothing to validate");
                 return Ok(0);
             };
             if let Err(e) = reject_legacy_config(root) {
                 // One finding, reported once: a legacy schema makes
-                // the remaining checks redundant — the unknown-key
+                // the remaining checks redundant: the unknown-key
                 // scan would re-flag the legacy keys and the
                 // bot-side resolution would re-print this same
                 // rejection.
@@ -261,7 +261,7 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
                                 in_bot_side,
                             )?;
                         }
-                        Ok(None) => info!("bot config: no bot repo configured — skipping"),
+                        Ok(None) => info!("bot config: no bot repo configured, skipping"),
                         Err(e) => {
                             warn!("{e}");
                             findings += 1;
@@ -324,8 +324,8 @@ fn print_schema(params: &ConfigParams, root: Option<&Path>) {
     }
 }
 
-/// Print the settable config schema for the target (default), or —
-/// with `--validate` — check the target's config file(s) and exit
+/// Print the settable config schema for the target (default), or
+/// (with `--validate`) check the target's config file(s) and exit
 /// non-zero if any problem is found.
 pub fn config(_ctx: &Context, params: &ConfigParams) -> Result<(), Box<dyn std::error::Error>> {
     let root = find_workspace_root();
@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     fn validate_legacy_schema_is_one_finding() {
-        // A legacy schema short-circuits: one warn, one finding —
+        // A legacy schema short-circuits: one warn, one finding,
         // no unknown-key re-flagging of the legacy keys, no
         // repeated rejection via the bot-side resolution.
         let ts = std::time::SystemTime::now()

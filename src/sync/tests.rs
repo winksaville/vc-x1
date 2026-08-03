@@ -84,7 +84,7 @@ fn parse_check_flag() {
     assert!(SyncParams::from(&cli.args).check);
 }
 
-/// `--no-check` is gone — a stale script invocation must fail
+/// `--no-check` is gone: a stale script invocation must fail
 /// loudly rather than silently flip semantics.
 #[test]
 fn parse_no_check_rejected() {

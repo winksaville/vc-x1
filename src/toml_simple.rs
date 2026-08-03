@@ -8,7 +8,7 @@ use std::path::Path;
 /// string values have their quotes stripped; unquoted values are stored
 /// as-is.
 ///
-/// This is intentionally minimal — just enough for `.vc-config.toml`.
+/// This is intentionally minimal: just enough for `.vc-config.toml`.
 pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;

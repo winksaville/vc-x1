@@ -3,7 +3,7 @@
 //! renumber / re-indent plan.
 //!
 //! - `## Todo` and `## Bugs` hold manually-numbered entries
-//!   (`1.` `2.` … at column 0); every other section is skipped.
+//!   (`1.` `2.` ... at column 0); every other section is skipped.
 //! - `analyze` walks the file once: it returns one `Change` per
 //!   entry whose number or continuation indent is off, plus the
 //!   fully renumbered / re-indented file content.
@@ -36,12 +36,12 @@ impl Section {
 /// One entry whose number and/or continuation indent needs to
 /// change for the section to be sequentially numbered.
 ///
-/// - `num_old` / `num_new` — the displayed number and its
+/// - `num_old` / `num_new`: the displayed number and its
 ///   sequential (1-based) position; equal when only the indent is
 ///   off.
-/// - `new_first_line` — the entry's first line with the corrected
+/// - `new_first_line`: the entry's first line with the corrected
 ///   number.
-/// - `indent_old` / `indent_new` — the measured continuation-base
+/// - `indent_old` / `indent_new`: the measured continuation-base
 ///   indent and the expected one (the number prefix's width);
 ///   both `None` when the entry has no continuation lines.
 pub struct Change {
@@ -63,7 +63,7 @@ pub struct Analysis {
     pub fixed: String,
 }
 
-/// An entry being accumulated during the `analyze` walk — its
+/// An entry being accumulated during the `analyze` walk: its
 /// `N. ` number, that line minus its prefix, and the raw
 /// continuation lines (blank lines included).
 struct PendingEntry {
@@ -75,7 +75,7 @@ struct PendingEntry {
     cont: Vec<String>,
 }
 
-/// Number of decimal digits in `n` (entry numbers are ≥ 1).
+/// Number of decimal digits in `n` (entry numbers are >= 1).
 fn digit_count(n: usize) -> usize {
     n.to_string().len()
 }
@@ -85,13 +85,13 @@ fn leading_spaces(line: &str) -> usize {
     line.len() - line.trim_start_matches(' ').len()
 }
 
-/// Returns `entry` / `entries` — the count noun for `n`.
+/// Returns `entry` / `entries`: the count noun for `n`.
 pub fn entry_word(n: usize) -> &'static str {
     if n == 1 { "entry" } else { "entries" }
 }
 
-/// Build the `[line: …]` tag for an entry — its line number,
-/// then what changed (`was N`, `indent A → B`, or both). Used by
+/// Build the `[line: ...]` tag for an entry: its line number,
+/// then what changed (`was N`, `indent A -> B`, or both). Used by
 /// `validate-todo` and `fix-todo` for the same per-entry line.
 pub fn change_tag(c: &Change) -> String {
     let mut parts: Vec<String> = Vec::new();
@@ -101,18 +101,18 @@ pub fn change_tag(c: &Change) -> String {
     if let (Some(o), Some(n)) = (c.indent_old, c.indent_new)
         && o != n
     {
-        parts.push(format!("indent {o} → {n}"));
+        parts.push(format!("indent {o} -> {n}"));
     }
     format!("[{}: {}]", c.line_no, parts.join(", "))
 }
 
 /// Classify a line as a `## ` section header.
 ///
-/// - `None` — not a level-2 header (covers `# `, `### `, body
+/// - `None`: not a level-2 header (covers `# `, `### `, body
 ///   text).
-/// - `Some(None)` — a `## ` header that isn't `## Todo` /
+/// - `Some(None)`: a `## ` header that isn't `## Todo` /
 ///   `## Bugs` (e.g. `## In Progress`, `## Done`).
-/// - `Some(Some(section))` — the `## Todo` or `## Bugs` header.
+/// - `Some(Some(section))`: the `## Todo` or `## Bugs` header.
 fn section_header(line: &str) -> Option<Option<Section>> {
     if !line.starts_with("## ") {
         return None;
@@ -126,8 +126,8 @@ fn section_header(line: &str) -> Option<Option<Section>> {
 
 /// Parse a leading `N. ` entry prefix at column 0.
 ///
-/// Returns `(number, prefix_len)` — the entry number and the byte
-/// length of the `N. ` prefix — when `line` begins with one or
+/// Returns `(number, prefix_len)` (the entry number and the byte
+/// length of the `N. ` prefix) when `line` begins with one or
 /// more ASCII digits followed by `". "` (the renumber
 /// convention's `^\d+\. ` anchor). Returns `None` for intro lines
 /// (which carry a leading space), continuation lines, and
@@ -150,7 +150,7 @@ fn parse_entry_prefix(line: &str) -> Option<(usize, usize)> {
 /// `Change`.
 ///
 /// The continuation block is shifted as a whole by
-/// `prefix_width − measured_base`, so a deliberately nested
+/// `prefix_width - measured_base`, so a deliberately nested
 /// sub-bullet keeps its depth relative to the entry's base.
 fn finish_entry(p: PendingEntry, changes: &mut Vec<Change>, out: &mut Vec<String>) {
     let prefix_width = digit_count(p.num_new) + 2; // ". " is two chars
@@ -159,7 +159,7 @@ fn finish_entry(p: PendingEntry, changes: &mut Vec<Change>, out: &mut Vec<String
     // Measured base = minimum indent of the *indented* non-blank
     // continuation lines. A column-0 line can't be a real list
     // continuation (continuations must be indented), so it's
-    // excluded from the base and emitted verbatim below — a stray
+    // excluded from the base and emitted verbatim below: a stray
     // one doesn't drag the base down to 0.
     let base = p
         .cont
@@ -179,7 +179,7 @@ fn finish_entry(p: PendingEntry, changes: &mut Vec<Change>, out: &mut Vec<String
         let indent = leading_spaces(line);
         if line.trim().is_empty() || indent == 0 {
             // Blank line, or a column-0 line that isn't a real
-            // continuation — pass through unchanged.
+            // continuation, pass through unchanged.
             out.push(line.clone());
         } else {
             let shifted = (indent as isize + delta).max(0) as usize;
@@ -210,7 +210,7 @@ fn finish_entry(p: PendingEntry, changes: &mut Vec<Change>, out: &mut Vec<String
 ///   entry being accumulated.
 /// - An entry first-line is `N. ` at column 0; expected numbering
 ///   is `1..N` in document order.
-/// - Any heading (`#`, `###`, …) ends the current entry's
+/// - Any heading (`#`, `###`, ...) ends the current entry's
 ///   continuation block; `## Todo` / `## Bugs` headers also reset
 ///   the section.
 /// - Returns one `Change` per off entry plus `fixed`, the file
@@ -229,7 +229,7 @@ pub fn analyze(content: &str) -> Analysis {
     // the join below and `fixed` round-trips byte-for-byte.
     for (i, line) in content.split('\n').enumerate() {
         if let Some(kind) = section_header(line) {
-            // A new ## section — finish the pending entry, switch.
+            // A new ## section: finish the pending entry, switch.
             if let Some(p) = pending.take() {
                 finish_entry(p, &mut changes, &mut out);
             }
@@ -238,7 +238,7 @@ pub fn analyze(content: &str) -> Analysis {
             out.push(line.to_string());
             continue;
         }
-        // Any other heading (`#`, `###`, …) ends the current
+        // Any other heading (`#`, `###`, ...) ends the current
         // entry's continuation block without changing the section.
         if line.starts_with('#') {
             if let Some(p) = pending.take() {
@@ -253,7 +253,7 @@ pub fn analyze(content: &str) -> Analysis {
             continue;
         };
         if let Some((num, prefix_len)) = parse_entry_prefix(line) {
-            // A new entry — finish the previous one we were on.
+            // A new entry: finish the previous one we were on.
             if let Some(p) = pending.take() {
                 finish_entry(p, &mut changes, &mut out);
             }
@@ -278,7 +278,7 @@ pub fn analyze(content: &str) -> Analysis {
             out.push(line.to_string());
         }
     }
-    // End of file — finish any entry still open.
+    // End of file: finish any entry still open.
     if let Some(p) = pending.take() {
         finish_entry(p, &mut changes, &mut out);
     }
@@ -299,7 +299,8 @@ mod tests {
     /// and `fixed` round-trips it byte-for-byte.
     #[test]
     fn clean_file_has_no_changes() {
-        let doc = "# Todo\n\n## Todo\n\n intro\n\n1. First.\n   cont.\n2. Second.\n3. Third.\n   more.\n\n## Bugs\n\n bugs intro\n\n1. A bug.\n";
+        let doc = "# Todo\n\n## Todo\n\n intro\n\n1. First.\n   cont.\n2. Second.\n3. \
+              Third.\n   more.\n\n## Bugs\n\n bugs intro\n\n1. A bug.\n";
         let a = analyze(doc);
         assert_eq!(a.todo_count, 3);
         assert_eq!(a.bugs_count, 1);
@@ -320,7 +321,7 @@ mod tests {
     }
 
     /// A two-digit entry renumbered to one digit shifts its
-    /// continuation indent 4 → 3.
+    /// continuation indent 4 -> 3.
     #[test]
     fn indent_shifts_with_prefix_width() {
         let a = analyze("## Todo\n\n10. x.\n    cont.\n");
@@ -352,7 +353,7 @@ mod tests {
     }
 
     /// When the base indent is off, the whole continuation block
-    /// shifts together — nested depth is preserved, not flattened.
+    /// shifts together, nested depth is preserved, not flattened.
     #[test]
     fn nested_block_shifts_preserving_depth() {
         let a = analyze("## Todo\n\n1. x.\n  - sub.\n    deep.\n");
@@ -439,7 +440,10 @@ mod tests {
     /// A pure re-indent tags the line number and indent shift.
     #[test]
     fn tag_indent_only() {
-        assert_eq!(change_tag(&change(1, 1, Some((2, 3)))), "[1: indent 2 → 3]");
+        assert_eq!(
+            change_tag(&change(1, 1, Some((2, 3)))),
+            "[1: indent 2 -> 3]"
+        );
     }
 
     /// A renumber that also shifts indent tags both.
@@ -447,7 +451,7 @@ mod tests {
     fn tag_number_and_indent() {
         assert_eq!(
             change_tag(&change(10, 9, Some((4, 3)))),
-            "[1: was 10, indent 4 → 3]"
+            "[1: was 10, indent 4 -> 3]"
         );
     }
 }

@@ -18,11 +18,11 @@ use crate::subcommand::SubcommandRunner;
 /// What action the symlink operation needs to take.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SymlinkAction {
-    /// Nothing exists at the symlink path — create it.
+    /// Nothing exists at the symlink path, create it.
     Create,
-    /// An existing symlink points somewhere else — caller must decide whether to replace.
+    /// An existing symlink points somewhere else, caller must decide whether to replace.
     Replace { current_target: PathBuf },
-    /// The symlink already points to the correct target — nothing to do.
+    /// The symlink already points to the correct target, nothing to do.
     AlreadyCorrect,
 }
 
@@ -45,15 +45,16 @@ pub fn encode_path(path: &str) -> String {
 /// Read what exists at a path without following symlinks.
 ///
 /// Returns:
-/// - `None` — nothing exists
-/// - `Some(None)` — exists but is not a symlink
-/// - `Some(Some(target))` — symlink pointing to target
+/// - `None`: nothing exists
+/// - `Some(None)`: exists but is not a symlink
+/// - `Some(Some(target))`: symlink pointing to target
 fn probe(path: &Path) -> Option<Option<PathBuf>> {
     match path.symlink_metadata() {
         Err(_) => None,
         Ok(meta) => {
             if meta.is_symlink() {
-                Some(Some(std::fs::read_link(path).unwrap_or_default())) // OK: TOCTOU race after symlink_metadata; empty PathBuf forces recreate
+                // OK: TOCTOU race after symlink_metadata; empty PathBuf forces recreate
+                Some(Some(std::fs::read_link(path).unwrap_or_default()))
             } else {
                 Some(None)
             }
@@ -65,9 +66,9 @@ impl SymLink {
     /// Plan a symlink operation by probing the filesystem.
     ///
     /// # Arguments
-    /// * `cwd` — current working directory (used to derive the symlink name)
-    /// * `target` — the directory the symlink should point to (resolved to absolute)
-    /// * `symlink_dir` — parent directory for the symlink (e.g. `~/.claude/projects`)
+    /// * `cwd`: current working directory (used to derive the symlink name)
+    /// * `target`: the directory the symlink should point to (resolved to absolute)
+    /// * `symlink_dir`: parent directory for the symlink (e.g. `~/.claude/projects`)
     pub fn new(cwd: &Path, target: &Path, symlink_dir: &Path) -> Result<Self, String> {
         let abs_target = if target.is_absolute() {
             target.to_path_buf()
@@ -201,7 +202,7 @@ impl SymLink {
     }
 }
 
-/// `~/.claude/projects/` — the standard Claude Code symlink
+/// `~/.claude/projects/`: the standard Claude Code symlink
 /// directory. Shared default for `install` and the
 /// `vc-x1 symlink` subcommand.
 fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -212,17 +213,17 @@ fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
 /// Install the standard Claude Code workspace symlink for `project_dir`.
 ///
-/// Links `~/.claude/projects/<encoded>` → `<project_dir>/.claude`.
-/// Silent — caller is expected to announce the action (if desired)
+/// Links `~/.claude/projects/<encoded>` -> `<project_dir>/.claude`.
+/// Silent: caller is expected to announce the action (if desired)
 /// and to include the resulting `SymLink` in any final summary
 /// output.
 ///
 /// Shared by `vc-x1 clone --scope=work,bot` and `vc-x1 init
 /// --scope=work,bot`. The full `vc-x1 symlink` subcommand below
-/// can't directly call `install` — it has different
+/// can't directly call `install`: it has different
 /// responsibilities (`--target` / `--symlink-dir` overrides,
-/// replace prompts, `--list`, and `sl.create(true)` vs `false`)
-/// — but both share `default_symlink_dir` for default-path
+/// replace prompts, `--list`, and `sl.create(true)` vs `false`),
+/// but both share `default_symlink_dir` for default-path
 /// computation.
 pub fn install(project_dir: &Path) -> Result<SymLink, Box<dyn std::error::Error>> {
     let sl = SymLink::new(
@@ -234,9 +235,9 @@ pub fn install(project_dir: &Path) -> Result<SymLink, Box<dyn std::error::Error>
     Ok(sl)
 }
 
-/// Default symlink target: the workspace config's bot dir name —
+/// Default symlink target: the workspace config's bot dir name,
 /// honoring a legacy-schema declaration (the clone
-/// backward-compat path) — falling back to `.claude` when no
+/// backward-compat path), falling back to `.claude` when no
 /// config resolves (e.g. mid-init before both sides exist).
 fn default_bot_target(project_dir: &Path) -> PathBuf {
     crate::common::configured_bot_dir(project_dir)
@@ -270,12 +271,12 @@ pub struct SymlinkArgs {
 
 /// Inputs to the symlink op, flat, owned, clap-free.
 ///
-/// - `target`: the `TARGET` positional (None ⇒ `.claude`).
-/// - `symlink_dir`: `--symlink-dir` override (None ⇒
+/// - `target`: the `TARGET` positional (None => `.claude`).
+/// - `symlink_dir`: `--symlink-dir` override (None =>
 ///   `~/.claude/projects`).
-/// - `list`: `-l` / `--list` — list the linked dir's contents
+/// - `list`: `-l` / `--list`, list the linked dir's contents
 ///   afterward.
-/// - `yes`: `-y` / `--yes` — replace an existing symlink without
+/// - `yes`: `-y` / `--yes`, replace an existing symlink without
 ///   prompting.
 pub struct SymlinkParams {
     pub target: Option<String>,
@@ -286,7 +287,7 @@ pub struct SymlinkParams {
 
 impl From<&SymlinkArgs> for SymlinkParams {
     /// Convert clap-derived `SymlinkArgs` into the flat
-    /// `SymlinkParams` (total — every field copies straight over).
+    /// `SymlinkParams` (total: every field copies straight over).
     fn from(a: &SymlinkArgs) -> Self {
         Self {
             target: a.target.clone(),
@@ -301,7 +302,7 @@ impl SubcommandRunner for SymlinkArgs {
     type Params = SymlinkParams;
 
     /// Delegate to the existing `From<&SymlinkArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(SymlinkParams::from(self))
     }
@@ -312,8 +313,8 @@ impl SubcommandRunner for SymlinkArgs {
     }
 }
 
-/// Run the `symlink` subcommand: create — or replace, with a
-/// prompt unless `--yes` — the `~/.claude/projects/<encoded-cwd>`
+/// Run the `symlink` subcommand: create (or replace, with a
+/// prompt unless `--yes`) the `~/.claude/projects/<encoded-cwd>`
 /// symlink for the current directory.
 ///
 /// `ctx` is unused today (symlink reads neither user config nor

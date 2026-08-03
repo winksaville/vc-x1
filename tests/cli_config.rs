@@ -7,8 +7,8 @@ mod common;
 use common::{CliFixture, run_err, run_ok};
 
 /// `vc-x1 config` (default target `work,bot`) prints both side
-/// groups of workspace keys — bot-session keys (settable on both
-/// sides) and `[repos]` — and no longer prints the user-only
+/// groups of workspace keys: bot-session keys (settable on both
+/// sides) and `[repos]`, and no longer prints the user-only
 /// `[default]` / `[repo]` sections (the user config is reached
 /// only by path).
 #[test]
@@ -16,8 +16,8 @@ fn cli_config_default() {
     let fx = CliFixture::new("config-default");
     let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config"));
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("# ── work: "), "got: {stdout}");
-    assert!(stdout.contains("# ── bot: "), "got: {stdout}");
+    assert!(stdout.contains("# -- work: "), "got: {stdout}");
+    assert!(stdout.contains("# -- bot: "), "got: {stdout}");
     assert!(stdout.contains("col-width"), "got: {stdout}");
     assert!(
         stdout.contains("used by: bot-session --col-width"),
@@ -39,8 +39,8 @@ fn cli_config_work_target() {
     let fx = CliFixture::new("config-work-target");
     let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config").arg("work"));
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("# ── work: "), "got: {stdout}");
-    assert!(!stdout.contains("# ── bot: "), "got: {stdout}");
+    assert!(stdout.contains("# -- work: "), "got: {stdout}");
+    assert!(!stdout.contains("# -- bot: "), "got: {stdout}");
     assert!(stdout.contains("[repos]"), "got: {stdout}");
     assert!(
         stdout.contains("used by: bot-session --col-width"),
@@ -49,11 +49,11 @@ fn cli_config_work_target() {
     assert!(!stdout.contains("[default]"), "got: {stdout}");
 }
 
-/// `config <path>` prints the whole schema — a path carries no
+/// `config <path>` prints the whole schema: a path carries no
 /// side information, so every home's keys show under a divider
 /// that is just the path: the user-only `[default]` section and
 /// the workspace `[repos]` section all appear.
-/// The user config has no keyword — the path is the way in.
+/// The user config has no keyword: the path is the way in.
 #[test]
 fn cli_config_user_path() {
     let fx = CliFixture::new("config-user-path");
@@ -61,7 +61,7 @@ fn cli_config_user_path() {
     let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config").arg(&user_cfg));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains(&format!("# ── {} ──", user_cfg.display())),
+        stdout.contains(&format!("# -- {} --", user_cfg.display())),
         "got: {stdout}"
     );
     assert!(stdout.contains("[default]"), "got: {stdout}");
@@ -101,7 +101,8 @@ fn cli_config_validate_unknown() {
     let fx = CliFixture::new("config-validate-unknown");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[repos]\nwork = \".\"\n\n[bot-session]\ncol-widht = 40\n\n[bot-session]\nresult-line = 3\n",
+        "[repos]\nwork = \".\"\n\n[bot-session]\ncol-widht = \
+         40\n\n[bot-session]\nresult-line = 3\n",
     )
     .expect("write vc-config");
     let out = run_err(
@@ -116,7 +117,7 @@ fn cli_config_validate_unknown() {
 }
 
 /// `config <path> --validate` against a user config using the
-/// dynamic `repo.category.<cat>` family exits 0 — a path target
+/// dynamic `repo.category.<cat>` family exits 0: a path target
 /// validates against the whole schema, and the placeholder matches
 /// the concrete `remote` segment.
 #[test]

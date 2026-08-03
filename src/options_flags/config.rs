@@ -1,4 +1,4 @@
-//! `--config none|<path>` — `.vc-config.toml` write override.
+//! `--config none|<path>`: `.vc-config.toml` write override.
 //! See [options_flags](README.md) for shared architecture.
 
 use std::path::PathBuf;
@@ -24,7 +24,7 @@ pub fn parse_config_kind(s: &str, default: ConfigKind) -> ConfigKind {
     }
 }
 
-/// `--config none|<path>` leaf (Option — non-boolean domain) —
+/// `--config none|<path>` leaf (Option, non-boolean domain):
 /// see [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct ConfigOption {

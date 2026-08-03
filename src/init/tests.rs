@@ -75,7 +75,7 @@ fn target_required_at_parse_time() {
 
 #[test]
 fn config_content_dual() {
-    // Per-side variants — [repos] values are file-relative, so
+    // Per-side variants: [repos] values are file-relative, so
     // the sides differ; the "." entry names the side.
     let work = render_vc_config(ConfigRole::DualWork);
     assert!(work.contains("work = \".\""));
@@ -271,7 +271,7 @@ fn rewrite_readme_no_newline() {
 #[test]
 fn rewrite_readme_missing_is_noop() {
     let root = tmp_root("rewrite-readme-missing");
-    // README.md not created — call must succeed silently.
+    // README.md not created, call must succeed silently.
     rewrite_readme_first_line(&root, "new-name").unwrap();
     assert!(!root.join("README.md").exists());
     std::fs::remove_dir_all(&root).unwrap();
@@ -868,7 +868,7 @@ fn error_bare_name_target_with_name() {
 
 #[test]
 fn error_bare_name_no_config() {
-    // Empty config + no --repo, no --account → step 1 of
+    // Empty config + no --repo, no --account -> step 1 of
     // resolve_repo errors with the "no account" message.
     let args = args_for("tf1");
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
@@ -892,7 +892,7 @@ fn error_unknown_category() {
 
 #[test]
 fn error_por_with_comma_template() {
-    // --scope=por + --use-template foo,bar is ambiguous — bot
+    // --scope=por + --use-template foo,bar is ambiguous: bot
     // half has no home in a single-repo workspace.
     let mut args = args_for("git@github.com:u/p");
     args.por.value = true;
@@ -951,8 +951,8 @@ fn por_fixture_creates_single_repo_layout() {
     );
 }
 
-/// POR fixture writes the WorkOnly config + .gitignore variants
-/// — `work = "."` with no `bot` key, and `.gitignore` has no
+/// POR fixture writes the WorkOnly config + .gitignore variants:
+/// `work = "."` with no `bot` key, and `.gitignore` has no
 /// `/.claude` exclusion.
 #[test]
 fn por_fixture_writes_work_only_config_files() {
@@ -975,7 +975,7 @@ fn por_fixture_writes_work_only_config_files() {
     assert!(gi.contains("/.jj"), "expected /.jj entry");
 }
 
-/// POR fixture has a `main` bookmark tracking `origin/main` —
+/// POR fixture has a `main` bookmark tracking `origin/main`:
 /// pins step 10 (re-init jj + bookmark track) ran successfully.
 #[test]
 fn por_fixture_main_tracks_origin() {
@@ -989,7 +989,7 @@ fn por_fixture_main_tracks_origin() {
 
 /// `--config none` skips writing `.vc-config.toml` while still
 /// writing `.gitignore`. The repo gets created and pushed
-/// successfully — config-less repos remain valid POR shape from
+/// successfully: config-less repos remain valid POR shape from
 /// jj/git's perspective; downstream commands that need
 /// `.vc-config.toml` will fail loudly when they try to read it.
 #[test]
@@ -1067,7 +1067,7 @@ fn config_path_missing_rejected_at_preflight() {
 }
 
 /// `--config none` with `--por` passes preflight (it's the
-/// happy path — `none` is a literal keyword, not a path). URL
+/// happy path: `none` is a literal keyword, not a path). URL
 /// target sidesteps the account-config lookup that plan_init
 /// would trigger for path-form targets in cfg_empty.
 #[test]
@@ -1111,7 +1111,7 @@ fn dual_fixture_creates_dual_repo_layout() {
 }
 
 /// Dual fixture writes the WORK / BOT config + .gitignore
-/// variants — per-side `[repos]` registries (work side
+/// variants: per-side `[repos]` registries (work side
 /// `work = "."`, `bot = ".claude"`; bot side `work = ".."`,
 /// `bot = "."`); side detection is by self-resolution.
 /// Work-side `.gitignore` excludes `/.claude` (bot subdir is
@@ -1142,7 +1142,7 @@ fn dual_fixture_writes_work_and_bot_config_files() {
 }
 
 /// Dual fixture has `main` bookmarks tracking `origin/main` on
-/// both sides — pins per-side step 10 (re-init + track) ran
+/// both sides: pins per-side step 10 (re-init + track) ran
 /// for each `push_repo` call.
 #[test]
 fn dual_fixture_both_sides_track_origin() {

@@ -6,7 +6,7 @@
 //! argument parsing, exit codes, and the actual binary Cargo
 //! built are exercised end-to-end.
 //!
-//! Each test uses `CliFixture` for HOME isolation — the symlink
+//! Each test uses `CliFixture` for HOME isolation: the symlink
 //! `init` installs at `$HOME/.claude/projects/...` lands inside the
 //! fixture's owned home dir and gets dropped with it.
 

@@ -3,11 +3,11 @@
 //! Provides a `Fixture` that wraps `crate::init::init`
 //! plus a per-process unique-tempdir helper so parallel tests don't
 //! collide. Lifted out of the `sync` test module (originally inline at
-//! `sync.rs:521–560`) so `push`'s tests (0.37.0) and any future
+//! `sync.rs:521-560`) so `push`'s tests (0.37.0) and any future
 //! subcommand's tests can sit on the same harness without
 //! copy-paste drift.
 //!
-//! Test-only — the whole module is gated at its declaration site via
+//! Test-only: the whole module is gated at its declaration site via
 //! `#[cfg(test)] mod test_helpers;`.
 
 use std::fs;
@@ -41,7 +41,7 @@ pub fn test_ctx() -> Context {
 /// Run `jj <args> -R <repo>` in a test, asserting success; return
 /// trimmed stdout.
 ///
-/// The one copy — the per-module variants migrated here at
+/// The one copy: the per-module variants migrated here at
 /// 0.73.0-4 (the DRY-facade cycle's test-dedup step). Spawns
 /// directly rather than calling `crate::jj` so test inspection
 /// stays independent of the facade under test.
@@ -92,7 +92,7 @@ pub fn unique_base(tag: &str) -> PathBuf {
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
-        .unwrap_or(0); // OK: clock error → 0 is harmless for unique tempdir naming
+        .unwrap_or(0); // OK: clock error -> 0 is harmless for unique tempdir naming
     let n = COUNTER.fetch_add(1, Ordering::SeqCst);
     resolve_tmp_root().join(format!("vc-x1-test-{tag}-{ts}-{n}"))
 }
@@ -125,10 +125,10 @@ impl Fixture {
     /// Build a fresh fixture with optional pending changes and a
     /// template seed.
     ///
-    /// - `with_pending` — after init, write a small file into each
+    /// - `with_pending`: after init, write a small file into each
     ///   repo so `@` carries uncommitted changes (useful for
     ///   squash-push / push tests).
-    /// - `use_template` — `WORK[,BOT]` forwarded to init.
+    /// - `use_template`: `WORK[,BOT]` forwarded to init.
     pub fn new_opts(tag: &str, with_pending: bool, use_template: Option<String>) -> Self {
         let base = unique_base(tag);
         // init refuses to reuse an existing project_dir, so `base`
@@ -191,7 +191,7 @@ impl Fixture {
 impl Drop for Fixture {
     /// Remove the fixture tree on drop. Best-effort; a failure here
     /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
-    /// set — see `test_tmp_root::should_keep_tempdir`.
+    /// set: see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
         if should_keep_tempdir() {
             eprintln!("VC_X1_TEST_KEEP set; preserving {}", self.base.display());
@@ -209,8 +209,8 @@ impl Drop for Fixture {
 /// `<base>/remote.git` (vs. dual's `remote-work.git` /
 /// `remote-work.claude.git`). No `.claude/` peer, no symlink.
 ///
-/// Field shape differs from `Fixture` — there is no `bot` peer
-/// path — so it's a distinct type rather than an `Option<PathBuf>`
+/// Field shape differs from `Fixture` (there is no `bot` peer
+/// path), so it's a distinct type rather than an `Option<PathBuf>`
 /// on `Fixture` (the latter would force every dual-using caller to
 /// `.unwrap()` or pattern-match).
 pub struct FixturePor {
@@ -264,7 +264,7 @@ impl FixturePor {
 impl Drop for FixturePor {
     /// Remove the fixture tree on drop. Best-effort; a failure here
     /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
-    /// set — see `test_tmp_root::should_keep_tempdir`.
+    /// set: see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
         if should_keep_tempdir() {
             eprintln!("VC_X1_TEST_KEEP set; preserving {}", self.base.display());

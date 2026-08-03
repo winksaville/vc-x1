@@ -1,4 +1,4 @@
-//! `CommonArgs` — the shared arg set for the read-only commit-query
+//! `CommonArgs`: the shared arg set for the read-only commit-query
 //! subcommands (`chid` / `desc` / `list` / `show`): a `REVISION` /
 //! `COMMITS` positional pair, `-r`/`--revision`, `-R`/`--repo`,
 //! `-s`/`--scope`, `-n`/`--commits`, and the `-l`/`-L` inter-repo
@@ -6,7 +6,7 @@
 //!
 //! A "bundle" in the inline-fields sense (cf. `provision_bundle`'s
 //! flatten-of-leaves form): the fields aren't extracted into per-flag
-//! leaves because none of them is reused outside these four — if one
+//! leaves because none of them is reused outside these four. If one
 //! ever is (e.g. a future command wants just `--revision`), extract
 //! that field into a leaf and `#[command(flatten)]` it here. Consumers
 //! flatten this and add their own extra `#[arg]` fields (`list`'s
@@ -19,22 +19,22 @@ use clap::Args;
 
 use super::scope::{Scope, parse_scope};
 
-/// Shared CLI args for the read-only commit-query subcommands —
+/// Shared CLI args for the read-only commit-query subcommands:
 /// see [Bundle](README.md#architecture).
 ///
-/// - `pos_rev` / `pos_count` — the `REVISION` / `COMMITS` positionals
+/// - `pos_rev` / `pos_count`: the `REVISION` / `COMMITS` positionals
 ///   (`common::resolve_spec` reconciles them with `-r` / `-n`).
-/// - `revision` — `-r` / `--revision` (default `@`); `..` notation is
+/// - `revision`: `-r` / `--revision` (default `@`); `..` notation is
 ///   parsed downstream by `common::parse_dot_rev`.
-/// - `repo` / `scope` — `-R PATH` overrides the workspace root, `-s
+/// - `repo` / `scope`: `-R PATH` overrides the workspace root, `-s
 ///   work|bot|work,bot` selects sides; they compose
 ///   (`common::resolve_repos`). Defaults preserve today's behavior:
-///   no flag → `[.]`, `-R foo` alone → `[foo]`. `-s` alone resolves
+///   no flag -> `[.]`, `-R foo` alone -> `[foo]`. `-s` alone resolves
 ///   against `find_workspace_root()`; `-R + -s` resolves against the
 ///   `-R` path. `-s` is keyword-only (`work|bot|work,bot|bot,work`);
 ///   path-based single-repo operation routes through `-R`.
-/// - `limit` — `-n` / `--commits`, caps the output.
-/// - `label` / `no_label` — `-l` / `--label` (default `===`) and
+/// - `limit`: `-n` / `--commits`, caps the output.
+/// - `label` / `no_label`: `-l` / `--label` (default `===`) and
 ///   `-L` / `--no-label`; `common::resolve_header` combines them.
 #[derive(Args, Debug)]
 pub struct CommonArgs {
@@ -87,8 +87,8 @@ impl CommonArgs {
     /// (delegates to [`crate::common::resolve_repos`]).
     ///
     /// Bundles the `.as_deref()` / `.as_ref()` conversion ceremony
-    /// (`Option<PathBuf>` → `Option<&Path>`,
-    /// `Option<Scope>` → `Option<&Scope>`) into one well-named place
+    /// (`Option<PathBuf>` -> `Option<&Path>`,
+    /// `Option<Scope>` -> `Option<&Scope>`) into one well-named place
     /// so the four subcommand bodies stay clean. See
     /// [`../../notes/rust-idioms.md`](../../notes/rust-idioms.md)
     /// for why the two fields need different conversion methods

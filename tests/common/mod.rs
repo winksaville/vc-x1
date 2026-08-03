@@ -7,12 +7,12 @@
 //! Cargo compiles each `tests/*.rs` as its own crate; helpers used
 //! by some test crates but not others get dead-code warnings in the
 //! crates that don't reach them. The crate-level allow below mutes
-//! that — it's the standard idiom for shared `tests/common/`.
+//! that: it's the standard idiom for shared `tests/common/`.
 //!
 //! - `vc_x1()` returns a `Command` for the binary Cargo built for
 //!   the current test crate, resolved via the
 //!   `CARGO_BIN_EXE_<bin-name>` env var with the name derived
-//!   from `CARGO_PKG_NAME` — rename-proof, see Cargo.toml.
+//!   from `CARGO_PKG_NAME`: rename-proof, see Cargo.toml.
 //! - `run_ok` / `run_err` wrap `Command::output` with a panic on
 //!   the unexpected exit status, embedding stdout/stderr in the
 //!   message so failures are debuggable.
@@ -101,12 +101,12 @@ pub struct CliFixture {
 }
 
 impl CliFixture {
-    /// Allocate a fresh fixture; create `home/` so `HOME=…` points
+    /// Allocate a fresh fixture; create `home/` so `HOME=...` points
     /// at a real directory, and seed it with a jj user identity.
     ///
     /// The identity is required, not cosmetic: since 0.76.0-5 init
     /// publishes with `jj git push`, which refuses commits that
-    /// have no author/committer — and the isolated `HOME` has no
+    /// have no author/committer, and the isolated `HOME` has no
     /// user config to inherit one from.
     pub fn new(tag: &str) -> Self {
         let base = unique_base(tag);
@@ -138,7 +138,7 @@ impl CliFixture {
 
 impl Drop for CliFixture {
     /// Remove the fixture tree on drop. Suppressed when
-    /// `$VC_X1_TEST_KEEP` is set — see
+    /// `$VC_X1_TEST_KEEP` is set: see
     /// `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
         if should_keep_tempdir() {

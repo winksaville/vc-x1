@@ -1,4 +1,4 @@
-//! Unit tests for the bot-session renderer — synthetic
+//! Unit tests for the bot-session renderer: synthetic
 //! transcripts built via `transcript::parse_str`, asserting
 //! header collapsing, hide/reveal behavior, gists, and the
 //! summary line.
@@ -150,7 +150,7 @@ fn gists() {
     let gist = tool_use_gist("Grep", &other);
     assert!(gist.contains("pattern=foo") && gist.contains("path=src"));
     let long = serde_json::json!({"x": "y".repeat(200)});
-    assert!(tool_use_gist("T", &long).chars().count() <= GIST_CHAR_CAP + 1);
+    assert!(tool_use_gist("T", &long).chars().count() <= GIST_CHAR_CAP);
 }
 
 /// short_time slices ISO timestamps and degrades gracefully.
@@ -211,8 +211,11 @@ fn render_source_slice() {
     // 5 tool_result, 6 system, 7 bookkeeping.
     let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP, 2, 4, 7);
     let out = lines.join("\n");
-    assert!(out.starts_with("… (2 source lines skipped)"), "got:\n{out}");
-    assert!(out.ends_with("… (3 source lines skipped)"), "got:\n{out}");
+    assert!(
+        out.starts_with("... (2 source lines skipped)"),
+        "got:\n{out}"
+    );
+    assert!(out.ends_with("... (3 source lines skipped)"), "got:\n{out}");
     assert!(out.contains("on it"), "line 3 text in range");
     assert!(out.contains("[tool]"), "line 4 tool_use in range");
     assert!(!out.contains("do the thing"), "line 1 out of range");

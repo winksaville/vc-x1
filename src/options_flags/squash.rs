@@ -1,4 +1,4 @@
-//! `--squash SOURCE,TARGET` — pick the `jj squash --from/--into`
+//! `--squash SOURCE,TARGET`: pick the `jj squash --from/--into`
 //! revision pair (e.g. `@,@-`). See [options_flags](README.md) for
 //! shared architecture.
 
@@ -33,7 +33,7 @@ impl SquashSpec {
 }
 
 /// `OptionParser` impl for `--squash` (non-boolean domain).
-/// Documentation-level — consumers can use either
+/// Documentation-level: consumers can use either
 /// `SquashSpec::parse` directly or `SquashSpecParser::parse`.
 pub struct SquashSpecParser;
 
@@ -45,7 +45,7 @@ impl super::OptionParser for SquashSpecParser {
     }
 }
 
-/// `--squash` leaf (Option — non-boolean domain) — see
+/// `--squash` leaf (Option, non-boolean domain): see
 /// [Consuming an OF](README.md#consuming-an-of).
 ///
 /// - The single field is named `value` (the parsed value-side of

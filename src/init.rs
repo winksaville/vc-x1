@@ -25,13 +25,13 @@ use crate::url::{Target, derive_bot_url, derive_name, parse_target};
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Target — URL, owner/name shorthand, path, or bare NAME.
+    /// Target: URL, owner/name shorthand, path, or bare NAME.
     ///
-    /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
-    ///   — used as-is; config not consulted.
+    /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
+    ///   used as-is; config not consulted.
     /// - owner/name shorthand: resolves to
     ///   `git@github.com:owner/name.git`; config not consulted.
-    /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..` — is the
+    /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`, is the
     ///   directory path; remote resolved via `--repo` chain.
     /// - Bare NAME: becomes NAME.git; remote resolved via
     ///   `--repo` chain.
@@ -47,11 +47,11 @@ pub struct InitArgs {
     #[arg(value_name = "NAME", verbatim_doc_comment)]
     pub name: Option<String>,
 
-    /// `--account` — flatten of the shared [`AccountOption`] leaf.
+    /// `--account`: flatten of the shared [`AccountOption`] leaf.
     #[command(flatten)]
     pub account: AccountOption,
 
-    /// `--repo` — flatten of the shared [`RepoOption`] leaf.
+    /// `--repo`: flatten of the shared [`RepoOption`] leaf.
     /// Init's built-in categories: `remote` (URL prefix; init
     /// appends `/<NAME>.git`) and `local` (parent dir for
     /// fixture bare repos). Meaningful only with Path or
@@ -59,24 +59,24 @@ pub struct InitArgs {
     #[command(flatten)]
     pub repo: RepoOption,
 
-    /// `--por` — flatten of the shared [`PorFlag`] leaf. Absent
-    /// (default) → dual workspace (work + `.claude/` bot
-    /// repo); present → plain single repo.
+    /// `--por`: flatten of the shared [`PorFlag`] leaf. Absent
+    /// (default) -> dual workspace (work + `.claude/` bot
+    /// repo); present -> plain single repo.
     #[command(flatten)]
     pub por: PorFlag,
 
     /// `--dry-run` + `--private` + `--push-retries` /
-    /// `--push-retry-delay` — flatten of the shared
+    /// `--push-retry-delay`: flatten of the shared
     /// [`ProvisionOptionFlagBundle`] bundle.
     #[command(flatten)]
     pub provision: ProvisionOptionFlagBundle,
 
-    /// `--use-template` — flatten of the shared
+    /// `--use-template`: flatten of the shared
     /// [`UseTemplateOption`] leaf.
     #[command(flatten)]
     pub use_template: UseTemplateOption,
 
-    /// `--config none|<path>` — flatten of the shared
+    /// `--config none|<path>`: flatten of the shared
     /// [`ConfigOption`] leaf. Only meaningful with `--por`;
     /// rejected at preflight when paired with the default dual
     /// shape. `.gitignore` is always written regardless of
@@ -139,7 +139,8 @@ pub(crate) fn parse_use_template(
         _ => {
             let file_name = work.file_name().ok_or_else(|| {
                 format!(
-                    "--use-template: cannot derive default bot path from '{}' (no file name component)",
+                    "--use-template: cannot derive default bot path from '{}' (no file name \
+                     component)",
                     work.display()
                 )
             })?;
@@ -218,7 +219,7 @@ pub(crate) fn validate_templates(
 
 /// Recursively copy non-hidden entries from `src` to `dst`. Any entry whose
 /// file name starts with `.` is skipped. Symlinks are skipped with a debug
-/// log — templates don't need them, and following them risks escaping the
+/// log: templates don't need them, and following them risks escaping the
 /// template tree.
 pub(crate) fn copy_template_recursive(
     src: &Path,
@@ -281,7 +282,7 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
 /// Which shape of `.vc-config.toml` to generate.
 ///
 /// The `[repos]` registry's values are file-relative, so the two
-/// sides of a dual workspace carry different blocks — the side
+/// sides of a dual workspace carry different blocks: the side
 /// whose entry resolves to the config's own directory (`"."`)
 /// names that side.
 #[derive(Clone, Copy)]
@@ -303,7 +304,7 @@ fn render_workspace_header(role: ConfigRole) -> String {
 # [repos] is the workspace's repo registry: work and bot are paths
 # relative to this file's directory (absolute allowed, discouraged).
 # The entry that resolves to this config's own directory names the
-# side — work = "." makes this the work repo.
+# side: work = "." makes this the work repo.
 
 [repos]
 work = "."
@@ -315,7 +316,7 @@ bot = ".claude"
 # [repos] is the workspace's repo registry: work and bot are paths
 # relative to this file's directory (absolute allowed, discouraged).
 # The entry that resolves to this config's own directory names the
-# side — bot = "." makes this the bot repo.
+# side: bot = "." makes this the bot repo.
 
 [repos]
 work = ".."
@@ -337,15 +338,15 @@ work = "."
 
 /// Renders a commented block documenting every settable workspace
 /// config key not already covered by the active `[repos]`
-/// block above — currently the `push.*` and `bot-session.*`
+/// block above: currently the `push.*` and `bot-session.*`
 /// families, sourced from `config_schema::schema()` so this list
 /// cannot drift from the schema.
 ///
 /// Grouped by TOML section (schema/first-seen order); each key is
-/// emitted via `config_schema::render_key_block` — a multi-line
+/// emitted via `config_schema::render_key_block`: a multi-line
 /// doc-block whose assignment line is `# <leaf> = <value>` (a
 /// non-`required` key always renders commented, and every optional
-/// key here is non-`required` by construction — see the
+/// key here is non-`required` by construction, see the
 /// `workspace.*` skip below), so the whole block parses as
 /// comments only.
 fn render_optional_keys_block() -> String {
@@ -353,7 +354,7 @@ fn render_optional_keys_block() -> String {
 
     let mut out = String::new();
     out.push_str(
-        "\n# Optional keys — uncomment and edit to override the built-in\n\
+        "\n# Optional keys: uncomment and edit to override the built-in\n\
          # default. `vc-x1 config` prints this list from the binary.\n",
     );
 
@@ -413,7 +414,7 @@ const GITIGNORE_SESSION: &str = ".git
 
 /// Gitignore for a single-repo workspace.
 ///
-/// - Same as `GITIGNORE_CODE` minus the `/.claude` entry — there's
+/// - Same as `GITIGNORE_CODE` minus the `/.claude` entry: there's
 ///   no bot subdir in single-repo mode.
 pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.git
@@ -434,14 +435,14 @@ fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Write the POR (single-repo) `.gitignore` into `dir`. Always
-/// unconditional — `--config` controls only `.vc-config.toml`.
+/// unconditional: `--config` controls only `.vc-config.toml`.
 fn write_por_gitignore(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)
 }
 
 /// Copy a user-supplied `.vc-config.toml` from `src` to `dir`.
 ///
-/// Bytewise copy — no TOML parse, no schema validation. If the
+/// Bytewise copy: no TOML parse, no schema validation. If the
 /// content is malformed the project will surface the problem on
 /// first `find_workspace_root` / config-reader call. Caller is
 /// responsible for path-existence preflight.
@@ -475,7 +476,7 @@ fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Expand `~` and `$VAR` / `${VAR}` substitutions in a user string.
 ///
-/// - `~` and `~/…` resolve via `HOME`.
+/// - `~` and `~/...` resolve via `HOME`.
 /// - Unset env vars are a fatal error (silent empty substitution
 ///   would mask typos).
 /// - Bare `$` with no identifier after stays literal.
@@ -508,7 +509,7 @@ pub(crate) fn expand_vars(s: &str) -> Result<String, Box<dyn std::error::Error>>
                 name.push(c2);
             }
             if !closed {
-                return Err(format!("unterminated '${{…}}' in '{s}'").into());
+                return Err(format!("unterminated '${{...}}' in '{s}'").into());
             }
             (name, true)
         } else {
@@ -539,7 +540,7 @@ pub(crate) fn expand_vars(s: &str) -> Result<String, Box<dyn std::error::Error>>
 
 /// True when `s` looks like a git remote URL rather than a path.
 ///
-/// - Scheme-qualified (`scheme://…`).
+/// - Scheme-qualified (`scheme://...`).
 /// - scp-like SSH form (`user@host:path`).
 /// - Everything else is treated as a path.
 pub(crate) fn is_remote_url(s: &str) -> bool {
@@ -558,9 +559,9 @@ pub(crate) fn is_remote_url(s: &str) -> bool {
 
 /// True when `s` is a GitHub URL (host-based detection).
 ///
-/// - SSH scp-like (`git@github.com:…`).
-/// - `ssh://git@github.com/…`.
-/// - `https://github.com/…` and `http://github.com/…`.
+/// - SSH scp-like (`git@github.com:...`).
+/// - `ssh://git@github.com/...`.
+/// - `https://github.com/...` and `http://github.com/...`.
 /// - GitHub URLs route to the `gh repo create` provisioner.
 pub(crate) fn is_github_url(s: &str) -> bool {
     s.starts_with("git@github.com:")
@@ -570,7 +571,7 @@ pub(crate) fn is_github_url(s: &str) -> bool {
 }
 
 /// Normalize a `--repo local=<parent>` value: expand variables,
-/// make absolute. Parent doesn't need to exist yet — init creates
+/// make absolute. Parent doesn't need to exist yet, init creates
 /// it.
 pub(crate) fn normalize_local_parent(s: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let s = s.trim();
@@ -617,7 +618,7 @@ pub(crate) enum Provisioner {
 /// Fully-resolved inputs to the init execution phase.
 ///
 /// - Dispatch and ambiguity rules live in `plan_init`.
-/// - Downstream code operates on an `InitPlan` — execution stays
+/// - Downstream code operates on an `InitPlan`, execution stays
 ///   linear.
 #[derive(Debug)]
 pub(crate) struct InitPlan {
@@ -652,12 +653,12 @@ pub(crate) struct InitPlan {
 ///
 /// Dispatches on the parsed `<TARGET>` form:
 ///
-/// - `Url(u)` / `OwnerName(o, n)` → URL is explicit; config not
+/// - `Url(u)` / `OwnerName(o, n)` -> URL is explicit; config not
 ///   consulted; `--account` and `--repo` are rejected as
 ///   meaningless.
-/// - `Path(p)` → `p` is the destination; basename names the repo;
+/// - `Path(p)` -> `p` is the destination; basename names the repo;
 ///   remote URL resolved from config via the `--repo` chain.
-/// - `BareName(n)` → destination at `cwd/<n>`; remote resolved
+/// - `BareName(n)` -> destination at `cwd/<n>`; remote resolved
 ///   from config.
 ///
 /// The `cfg` parameter is the loaded user config; `init` loads it
@@ -701,7 +702,7 @@ pub(crate) fn plan_init(
     }
 
     let parsed = parse_target(&params.target)?;
-    debug!("parse_target: {:?} → {:?}", params.target, parsed);
+    debug!("parse_target: {:?} -> {:?}", params.target, parsed);
     let plan = match parsed {
         Target::Url(url) => plan_from_url(params, scope, url),
         Target::OwnerName(o, n) => {
@@ -711,7 +712,8 @@ pub(crate) fn plan_init(
         Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
     debug!(
-        "plan_init: project_dir={}, name={}, work_url={}, provisioner={:?}, gh_work_slug={:?}, work_bare_path={:?}, bot_url={:?}",
+        "plan_init: project_dir={}, name={}, work_url={}, provisioner={:?}, \
+         gh_work_slug={:?}, work_bare_path={:?}, bot_url={:?}",
         plan.project_dir.display(),
         plan.name,
         plan.work_url,
@@ -833,7 +835,7 @@ fn plan_from_resolved(
         "remote" => plan_remote(scope, name, project_dir, value),
         "local" => plan_local(scope, name, project_dir, value),
         other => Err(format!(
-            "--repo category '{other}' is not recognized — built-ins are 'remote' and 'local'"
+            "--repo category '{other}' is not recognized: built-ins are 'remote' and 'local'"
         )
         .into()),
     }
@@ -873,8 +875,8 @@ fn plan_remote(
 /// - Dual: `<parent>/remote-work.git` + `<parent>/remote-work.claude.git`.
 /// - POR: `<parent>/remote.git`.
 ///
-/// The bot bare is `derive_bot_url` of the work bare — the same
-/// rule `clone` uses to locate a bot source — so a locally
+/// The bot bare is `derive_bot_url` of the work bare (the same
+/// rule `clone` uses to locate a bot source), so a locally
 /// init'd project round-trips through `vc-x1 clone` (bugs.md #2).
 fn plan_local(
     scope: Scope,
@@ -923,7 +925,7 @@ fn plan_local(
 }
 
 /// Compose an `InitPlan` for the URL-style provisioners (`GhCreate`
-/// and `ExternalPreExisting`) — both `plan_from_url` and
+/// and `ExternalPreExisting`): both `plan_from_url` and
 /// `plan_remote` share this tail because the only difference between
 /// them is how they construct the URL.
 fn build_plan(
@@ -1042,7 +1044,7 @@ impl SubcommandRunner for InitArgs {
     type Params = InitParams;
 
     /// Delegate to the existing `From<&InitArgs>` impl in
-    /// [`crate::init::params`] (total — never fails).
+    /// [`crate::init::params`] (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(InitParams::from(self))
     }
@@ -1053,7 +1055,7 @@ impl SubcommandRunner for InitArgs {
     }
 }
 
-/// Init entry point — runs the dual or POR provisioning flow.
+/// Init entry point: runs the dual or POR provisioning flow.
 ///
 /// Takes the shared `Context` (loaded user config) and the flat
 /// `InitParams`. CLI builds both at the binary edge in main.rs;
@@ -1062,9 +1064,9 @@ impl SubcommandRunner for InitArgs {
 /// `params.create_symlink` controls the `~/.claude/projects/`
 /// symlink side effect:
 ///
-/// - `true` — CLI behavior; step 11 creates the symlink for
+/// - `true`: CLI behavior; step 11 creates the symlink for
 ///   dual-scope runs.
-/// - `false` — suppresses that side effect; used by test
+/// - `false`: suppresses that side effect; used by test
 ///   harnesses (`test_helpers::Fixture`, `test_helpers::FixturePor`)
 ///   so parallel fixtures don't collide on the user's home dir.
 pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error::Error>> {
@@ -1094,7 +1096,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     match &plan.provisioner {
         Provisioner::GhCreate => {
             #[allow(clippy::unwrap_used)]
-            let work_slug = plan.gh_work_slug.as_ref().unwrap(); // OK: GhCreate path always sets gh_work_slug
+            // OK: GhCreate path always sets gh_work_slug
+            let work_slug = plan.gh_work_slug.as_ref().unwrap();
             let (work_owner, work_name) = split_slug(work_slug)?;
             if gh_repo_exists(work_owner, work_name)? {
                 return Err(format!("GitHub repo '{work_slug}' already exists").into());
@@ -1108,7 +1111,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         }
         Provisioner::LocalBareInit => {
             #[allow(clippy::unwrap_used)]
-            let work_bare = plan.work_bare_path.as_ref().unwrap(); // OK: LocalBareInit path always sets work_bare_path
+            // OK: LocalBareInit path always sets work_bare_path
+            let work_bare = plan.work_bare_path.as_ref().unwrap();
             if work_bare.exists() {
                 return Err(format!(
                     "bare repo '{}' already exists; refusing to clobber",
@@ -1129,14 +1133,15 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         Provisioner::ExternalPreExisting => {
             // For path-shaped URLs: the path must exist (caller
             // pre-created with `git init --bare`). For scheme-URL
-            // values we can't preflight cheaply — let git push
+            // values we can't preflight cheaply, let git push
             // surface failures.
             if !is_remote_url(&plan.work_url) {
                 let p = PathBuf::from(&plan.work_url);
                 if !p.exists() {
                     return Err(format!(
-                        "--repo-remote: work path '{}' does not exist — \
-                         pre-create with `git init --bare`, or use --repo-local for fixture creation",
+                        "--repo-remote: work path '{}' does not exist, \
+                         pre-create with `git init --bare`, or use --repo-local for \
+                         fixture creation",
                         p.display()
                     )
                     .into());
@@ -1148,8 +1153,9 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                 let p = PathBuf::from(bot_url);
                 if !p.exists() {
                     return Err(format!(
-                        "--repo-remote: bot path '{}' does not exist — \
-                         pre-create with `git init --bare`, or use --repo-local for fixture creation",
+                        "--repo-remote: bot path '{}' does not exist, \
+                         pre-create with `git init --bare`, or use --repo-local for \
+                         fixture creation",
                         p.display()
                     )
                     .into());
@@ -1179,7 +1185,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     };
 
     if params.dry_run {
-        info!("Dry run — would execute:");
+        info!("Dry run, would execute:");
         info!("  1. Create directories: {}", plan.project_dir.display());
         info!(
             "  2. git init + jj git init --colocate on {}",
@@ -1205,7 +1211,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                     info!("       bot:  {}", b.display());
                 }
             }
-            None => info!("  4. (skipped — no --use-template)"),
+            None => info!("  4. (skipped, no --use-template)"),
         }
         if is_dual {
             info!("  5. jj commit both with placeholder ochids");
@@ -1213,7 +1219,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             info!("  7. Remove jj from both (git clean -xdf)");
         } else {
             info!("  5. jj commit work with 'Initial commit'");
-            info!("  6. (skipped — no cross-reference in single-repo)");
+            info!("  6. (skipped, no cross-reference in single-repo)");
             info!("  7. Remove jj (git clean -xdf)");
         }
         match &plan.provisioner {
@@ -1225,7 +1231,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.bot_url.as_deref().unwrap_or(""),     // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no bot side in single-repo)");
+                    info!("  8. (skipped, no bot side in single-repo)");
                 }
                 info!(
                     "  9. gh repo create {} {visibility}; push to {}",
@@ -1244,7 +1250,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.bot_url.as_deref().unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no bot side in single-repo)");
+                    info!("  8. (skipped, no bot side in single-repo)");
                 }
                 info!(
                     "  9. git init --bare {}; push to {}",
@@ -1262,7 +1268,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                         plan.bot_url.as_deref().unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
-                    info!("  8. (skipped — no bot side in single-repo)");
+                    info!("  8. (skipped, no bot side in single-repo)");
                 }
                 info!("  9. skip create; push to pre-existing {}", plan.work_url);
             }
@@ -1278,7 +1284,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         if is_dual {
             info!("  11. Create Claude Code symlink");
         } else {
-            info!("  11. (skipped — no .claude symlink in single-repo)");
+            info!("  11. (skipped, no .claude symlink in single-repo)");
         }
         return Ok(());
     }
@@ -1293,8 +1299,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// Create-from-empty orchestrator for `--por` (single repo).
 ///
 /// Composes (in order):
-/// - `prepare_local_repo` → conditional `.vc-config.toml` write
-///   (gated by `--config`) → `write_por_gitignore` (always) →
+/// - `prepare_local_repo` -> conditional `.vc-config.toml` write
+///   (gated by `--config`) -> `write_por_gitignore` (always) ->
 ///   `commit_initial` (`OchidStrategy::None`).
 /// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no bot repo), no bot push, no symlink.
@@ -1313,17 +1319,17 @@ fn create_por(
     prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
     match &params.config {
         None => write_por_vc_config(&plan.project_dir)?,
-        Some(ConfigKind::None) => {} // skip — user asked not to write
+        Some(ConfigKind::None) => {} // skip, user asked not to write
         Some(ConfigKind::Path(p)) => copy_user_config(p, &plan.project_dir)?,
     }
     write_por_gitignore(&plan.project_dir)?;
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::None)?;
 
-    info!("Step 6: (skipped — no cross-reference in single-repo)");
+    info!("Step 6: (skipped, no cross-reference in single-repo)");
     let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
     debug!("work repo: chid={work_chid} hash={hash}");
 
-    info!("Step 8: (skipped — no bot side in single-repo)");
+    info!("Step 8: (skipped, no bot side in single-repo)");
 
     let work_chid_final = push_repo(
         &plan.project_dir,
@@ -1337,7 +1343,7 @@ fn create_por(
         plan.work_bare_path.as_deref(),
     )?;
 
-    info!("Step 11: (skipped — no .claude symlink in single-repo)");
+    info!("Step 11: (skipped, no .claude symlink in single-repo)");
 
     info!("");
     info!("Done! Project created at {}", plan.project_dir.display());
@@ -1353,11 +1359,11 @@ fn create_por(
 /// Create-from-empty orchestrator for the default dual shape.
 ///
 /// Composes (in order):
-/// - Work side: `prepare_local_repo` → `write_work_config` →
+/// - Work side: `prepare_local_repo` -> `write_work_config` ->
 ///   `commit_initial` (`OchidStrategy::Placeholder`).
-/// - Bot side: `prepare_local_repo` → `write_bot_config`
-///   → `commit_initial` (`OchidStrategy::Placeholder`).
-/// - `cross_ref_ochids` — rewrite both initial commits' placeholder
+/// - Bot side: `prepare_local_repo` -> `write_bot_config`
+///   -> `commit_initial` (`OchidStrategy::Placeholder`).
+/// - `cross_ref_ochids`: rewrite both initial commits' placeholder
 ///   trailers once each side's chid is known.
 /// - `push_repo` for bot side (no `clean_exclude`).
 /// - `push_repo` for work side with `clean_exclude = Some(".claude")`
@@ -1371,11 +1377,11 @@ fn create_dual(
     create_symlink: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     #[allow(clippy::unwrap_used)]
-    let bot_dir = plan.bot_dir.as_ref().unwrap(); // OK: scope=work,bot ⇒ bot_dir set
+    let bot_dir = plan.bot_dir.as_ref().unwrap(); // OK: scope=work,bot => bot_dir set
     #[allow(clippy::unwrap_used)]
-    let bot_name = plan.bot_name.as_ref().unwrap(); // OK: scope=work,bot ⇒ bot_name set
+    let bot_name = plan.bot_name.as_ref().unwrap(); // OK: scope=work,bot => bot_name set
     #[allow(clippy::unwrap_used)]
-    let bot_url = plan.bot_url.as_deref().unwrap(); // OK: scope=work,bot ⇒ bot_url set
+    let bot_url = plan.bot_url.as_deref().unwrap(); // OK: scope=work,bot => bot_url set
 
     let (work_template, bot_template) = match templates.as_ref() {
         Some((c, b)) => (Some(c.as_path()), b.as_deref()),
@@ -1419,7 +1425,7 @@ fn create_dual(
         info!("Step 11: Creating Claude Code symlink...");
         Some(symlink::install(&plan.project_dir)?)
     } else {
-        info!("Step 11: (skipped — symlink disabled by caller)");
+        info!("Step 11: (skipped, symlink disabled by caller)");
         None
     };
 
@@ -1445,22 +1451,22 @@ fn create_dual(
 /// Push primitive: bookmark + provision + publish on `target`.
 /// Returns the final chid (`jj @-`).
 ///
-/// jj-only since 0.76.0-5: jj stays colocated throughout — set
+/// jj-only since 0.76.0-5: jj stays colocated throughout, set
 /// the bookmark, provision the remote, `jj git remote add`, then
 /// `jj git push`, which establishes tracking as a side effect
-/// (no `--allow-new`). The former strip-jj → git-push →
+/// (no `--allow-new`). The former strip-jj -> git-push ->
 /// re-colocate dance (`git clean -xdf`, `git checkout`,
 /// `git remote add`, `git push -u`, `jj git init --colocate`)
 /// was a leftover of the abandoned submodule design; the symlink
 /// design never needed jj evicted.
 ///
-/// - `target` — repo working dir (already populated by
+/// - `target`: repo working dir (already populated by
 ///   `prepare_local_repo` + `commit_initial`).
-/// - `info_label` — narration tag (`"work"`, `"bot"`, etc.).
-/// - `step_label_provision` — `"Step 8"` (bot) or
-///   `"Step 9"` (work) — appears in the provision/push narration.
+/// - `info_label`: narration tag (`"work"`, `"bot"`, etc.).
+/// - `step_label_provision`: `"Step 8"` (bot) or
+///   `"Step 9"` (work), appears in the provision/push narration.
 /// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /
-///   `bare_path` — forwarded to `run_remote_step`.
+///   `bare_path`: forwarded to `run_remote_step`.
 #[allow(clippy::too_many_arguments)]
 fn push_repo(
     target: &Path,

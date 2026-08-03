@@ -3,11 +3,11 @@
 //! Two-layer design so schema churn in the (undocumented,
 //! evolving) transcript format never breaks us:
 //!
-//! - serde_json is used only as a JSON-text → `Value` parser; the
+//! - serde_json is used only as a JSON-text -> `Value` parser; the
 //!   full parsed line is retained in `Entry::raw`, so unknown
 //!   fields ride along.
 //! - Hand-written extraction builds the typed layer (`EntryMeta`,
-//!   `EntryKind`, `ContentBlock`) — every field degrades to
+//!   `EntryKind`, `ContentBlock`): every field degrades to
 //!   `None`/`false`/empty when absent, and unrecognized entry or
 //!   block types land in `Other` variants instead of erroring.
 //!
@@ -17,7 +17,7 @@
 //!   several files (sidechain `agent-*.jsonl`, compaction
 //!   predecessors); assembling those is a later, separate layer.
 //! - Whole-file in memory: the largest observed file (~8 MB)
-//!   parses to tens of MB — fine interactively. If that stops
+//!   parses to tens of MB: fine interactively. If that stops
 //!   holding, streaming via `BufRead` is a drop-in change inside
 //!   `parse_file`, and `raw` retention could become optional.
 
@@ -74,11 +74,11 @@ pub struct EntryMeta {
 #[allow(dead_code)]
 pub enum EntryKind {
     /// `type=user`: a typed prompt (string content) or tool
-    /// results (array content) — both normalized to blocks.
+    /// results (array content): both normalized to blocks.
     User {
         /// Normalized content blocks.
         content: Vec<ContentBlock>,
-        /// `promptSource` — "typed" marks a real human prompt.
+        /// `promptSource`: "typed" marks a real human prompt.
         prompt_source: Option<String>,
     },
     /// `type=assistant`: in practice one JSONL line per content
@@ -86,7 +86,7 @@ pub enum EntryKind {
     Assistant {
         /// Normalized content blocks.
         content: Vec<ContentBlock>,
-        /// `message.id` — groups the blocks of one API turn.
+        /// `message.id`: groups the blocks of one API turn.
         message_id: Option<String>,
     },
     /// `type=system` bookkeeping (e.g. subtype `turn_duration`).
@@ -95,7 +95,7 @@ pub enum EntryKind {
         subtype: Option<String>,
     },
     /// Every other `type` (mode, permission-mode, progress,
-    /// file-history-*, attachment, unknown/future types, …).
+    /// file-history-*, attachment, unknown/future types, ...).
     Other {
         /// The original `type` value ("<none>" when absent).
         entry_type: String,
@@ -134,7 +134,7 @@ pub enum ContentBlock {
         /// True when the tool errored.
         is_error: bool,
     },
-    /// Unrecognized block type — counted, never rendered.
+    /// Unrecognized block type: counted, never rendered.
     Other {
         /// The original block `type` value.
         block_type: String,
@@ -215,9 +215,9 @@ fn extract_kind(v: &Value) -> EntryKind {
 
 /// Normalize `message.content` to blocks.
 ///
-/// - String content → a single `Text` block (typed prompts).
-/// - Array content → one block per element by its `type`.
-/// - Anything else → no blocks.
+/// - String content -> a single `Text` block (typed prompts).
+/// - Array content -> one block per element by its `type`.
+/// - Anything else -> no blocks.
 fn extract_content(message: &Value) -> Vec<ContentBlock> {
     match &message["content"] {
         Value::String(s) => vec![ContentBlock::Text { text: s.clone() }],
@@ -252,10 +252,10 @@ fn extract_block(b: &Value) -> ContentBlock {
 
 /// Flatten `tool_result` content to text.
 ///
-/// - String form → as-is.
-/// - Array form → the `text` of each `type=text` element,
+/// - String form -> as-is.
+/// - Array form -> the `text` of each `type=text` element,
 ///   newline-joined.
-/// - Anything else → empty.
+/// - Anything else -> empty.
 fn tool_result_text(content: &Value) -> String {
     match content {
         Value::String(s) => s.clone(),
@@ -270,7 +270,7 @@ fn tool_result_text(content: &Value) -> String {
 }
 
 /// Field paths the typed layer consumes (subtree semantics: a
-/// listed path also covers everything beneath it — e.g.
+/// listed path also covers everything beneath it: e.g.
 /// `message.content[].input` is kept as raw JSON deliberately).
 /// The `--unknown` view subtracts these from the observed
 /// inventory, so what remains is the unmodeled surface.
@@ -299,7 +299,7 @@ pub const KNOWN_PATHS: &[&str] = &[
     "message.content[].is_error",
 ];
 
-/// True when `path` is consumed by the typed layer — an exact
+/// True when `path` is consumed by the typed layer: an exact
 /// `KNOWN_PATHS` entry or anything beneath one (subtree rule).
 pub fn is_known(path: &str) -> bool {
     KNOWN_PATHS.iter().any(|k| {

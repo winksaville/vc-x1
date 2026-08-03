@@ -1,5 +1,5 @@
 //! Backward compatibility for pre-`[repos]` `.vc-config.toml`
-//! schemas — the whole legacy surface lives here so it is easy to
+//! schemas: the whole legacy surface lives here so it is easy to
 //! find and, eventually, remove.
 //!
 //! Two rejected generations, both under a `[workspace]` section:
@@ -14,7 +14,7 @@
 //!
 //! **Retirement plan:** once every workspace is migrated to the
 //! `[repos]` registry, delete this module and simplify its call
-//! sites — `grep -rn 'legacy_vc_config::' src/` lists them all.
+//! sites: `grep -rn 'legacy_vc_config::' src/` lists them all.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -43,7 +43,7 @@ pub fn is_root_marker(cfg: &HashMap<String, String>) -> bool {
 ///
 /// The legacy schemas detect side by location: `dir` is the bot
 /// side iff the parent directory's `.vc-config.toml` names `dir`
-/// as the workspace's bot — 0.75.x `workspace.bot`
+/// as the workspace's bot: 0.75.x `workspace.bot`
 /// (root-anchored) or pre-0.75.0 `workspace.other-repo` (bare
 /// name). Used by the root walk to point the fix-it at the
 /// work-side root, and as `common::is_bot_dir`'s
@@ -66,17 +66,17 @@ pub fn is_bot_dir(dir: &Path) -> bool {
     }
 }
 
-/// The bot dir a legacy config declares — the backward-compat
+/// The bot dir a legacy config declares: the backward-compat
 /// read for bootstrap paths (clone, the symlink default).
 ///
 /// The resolvers hard-reject legacy schemas with a fix-it (see
 /// [`reject`]), but clone is where an old repo first arrives
-/// locally — it must complete correctly before the user can
+/// locally: it must complete correctly before the user can
 /// apply the rewrite. Reads the rejected generations' keys and
 /// resolves against `root`:
 ///
-/// - 0.75.x `workspace.bot` — root-anchored (`"/.claude"`);
-/// - pre-0.75.0 `workspace.other-repo` — a bare dir name.
+/// - 0.75.x `workspace.bot`: root-anchored (`"/.claude"`);
+/// - pre-0.75.0 `workspace.other-repo`: a bare dir name.
 ///
 /// `None` when the config is missing, already `[repos]`-schema,
 /// or declares no bot side.
@@ -105,7 +105,7 @@ pub fn reject(dir: &Path, cfg: &HashMap<String, String>) -> Option<String> {
         .unwrap_or_else(|| ".claude".to_string()); // OK: default dir name for the rewrite example
     Some(format!(
         "{}/.vc-config.toml: legacy [workspace] schema. Replace it with a \
-         [repos] registry — paths are relative to each config file's \
+         [repos] registry: paths are relative to each config file's \
          directory, so the sides differ:\n\n\
          work side:\n\
          [repos]\n\

@@ -271,7 +271,7 @@ fn find_workspace_root_none_outside() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Starting inside the bot repo resolves to the *root* — its own
+/// Starting inside the bot repo resolves to the *root*: its own
 /// config's `repos.work` points there (self-resolution needs no
 /// nesting assumption).
 #[test]
@@ -295,7 +295,7 @@ fn find_workspace_root_from_bot_dir() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: workspace with non-empty `bot` → dual.
+/// Default scope: workspace with non-empty `bot` -> dual.
 #[test]
 fn default_scope_dual_workspace() {
     let base = ws_tempdir("default-dual");
@@ -309,7 +309,7 @@ fn default_scope_dual_workspace() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: workspace with no `bot` → work-only.
+/// Default scope: workspace with no `bot` -> work-only.
 #[test]
 fn default_scope_single_repo_workspace() {
     let base = ws_tempdir("default-single");
@@ -335,14 +335,14 @@ fn default_scope_empty_other_repo() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: POR (no workspace_root) → `Scope([Work])`.
+/// Default scope: POR (no workspace_root) -> `Scope([Work])`.
 /// `scope_to_repos` then resolves `Side::Work` to cwd's `.`.
 #[test]
 fn default_scope_por_returns_work() {
     assert_eq!(default_scope(None), Scope(vec![Side::Work]));
 }
 
-/// `bot_repo_path`: coherent dual workspace → `Some(root/<bot dir>)`.
+/// `bot_repo_path`: coherent dual workspace -> `Some(root/<bot dir>)`.
 #[test]
 fn bot_repo_path_dual() {
     let base = ws_tempdir("botpath-dual");
@@ -392,7 +392,7 @@ fn bot_repo_path_mismatched_blocks_error() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `configured_bot_dir` is the pure config read — no existence
+/// `configured_bot_dir` is the pure config read: no existence
 /// check (clone resolves the destination before it exists).
 #[test]
 fn configured_bot_dir_no_existence_check() {
@@ -407,8 +407,8 @@ fn configured_bot_dir_no_existence_check() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `bot_repo_path`: single-repo workspace (no `bot`) →
-/// `None` — the caller's no-op case, not an error.
+/// `bot_repo_path`: single-repo workspace (no `bot`) ->
+/// `None`: the caller's no-op case, not an error.
 #[test]
 fn bot_repo_path_single_repo_workspace() {
     let base = ws_tempdir("botpath-single");
@@ -446,7 +446,7 @@ fn legacy_config_found_and_rejected() {
 }
 
 /// The 0.75.x root-anchored `[workspace] work`/`bot` schema is the
-/// second rejected legacy generation — still *found* as a root
+/// second rejected legacy generation: still *found* as a root
 /// (via the legacy location rule), rejected with the rewrite.
 #[test]
 fn legacy_workspace_work_bot_rejected() {
@@ -470,7 +470,7 @@ fn legacy_workspace_work_bot_rejected() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// An empty `repos.work` errors — every reader would silently
+/// An empty `repos.work` errors: every reader would silently
 /// misresolve it.
 #[test]
 fn empty_repos_work_rejected() {
@@ -486,7 +486,7 @@ fn empty_repos_work_rejected() {
 }
 
 /// A config carrying both a `[repos]` registry and stray legacy
-/// keys passes the legacy guard — the registry drives behavior;
+/// keys passes the legacy guard: the registry drives behavior;
 /// `config --validate` flags the strays.
 #[test]
 fn legacy_guard_accepts_mixed_keys() {
@@ -548,7 +548,7 @@ fn coherence_self_identification_errors() {
     let other = root.join("other");
     std::fs::create_dir_all(&bot).unwrap();
     std::fs::create_dir_all(&other).unwrap();
-    // Both sides name (other, .claude) — perfectly agreeing, but
+    // Both sides name (other, .claude), perfectly agreeing, but
     // the root's own dir is not at `work`.
     std::fs::write(
         root.join(VC_CONFIG_FILE),
@@ -568,7 +568,7 @@ fn coherence_self_identification_errors() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Coherence: absolute values are allowed (discouraged) — a dual
+/// Coherence: absolute values are allowed (discouraged), a dual
 /// workspace mixing absolute and relative spellings still agrees
 /// on resolved reality.
 #[test]
@@ -604,8 +604,8 @@ fn is_bot_dir_by_self_resolution() {
 }
 
 /// `is_bot_dir` legacy fallback: both rejected generations'
-/// parent configs still name the bot side — 0.75.x
-/// `workspace.bot` and pre-0.75.0 `workspace.other-repo` — so
+/// parent configs still name the bot side (0.75.x
+/// `workspace.bot` and pre-0.75.0 `workspace.other-repo`) so
 /// read-only surfaces bypassing the resolvers stay correct.
 #[test]
 fn is_bot_dir_legacy_fallback() {
@@ -630,7 +630,7 @@ fn is_bot_dir_legacy_fallback() {
     }
 }
 
-/// `bot_repo_path`: no `.vc-config.toml` at all (POR) → `None`.
+/// `bot_repo_path`: no `.vc-config.toml` at all (POR) -> `None`.
 #[test]
 fn bot_repo_path_no_config() {
     let base = ws_tempdir("botpath-por");
@@ -664,7 +664,7 @@ fn scope_to_repos_work_only() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `scope_to_repos`: work-only with POR → cwd `.`.
+/// `scope_to_repos`: work-only with POR -> cwd `.`.
 #[test]
 fn scope_to_repos_work_por() {
     let repos = scope_to_repos(&Scope(vec![Side::Work]), None).unwrap();
@@ -694,14 +694,14 @@ fn scope_to_repos_bot_single_repo_errors() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `resolve_repos`: no flags → today's `["."]` default.
+/// `resolve_repos`: no flags -> today's `["."]` default.
 #[test]
 fn resolve_repos_no_flags_defaults_to_dot() {
     let repos = resolve_repos(None, None).unwrap();
     assert_eq!(repos, vec![PathBuf::from(".")]);
 }
 
-/// `resolve_repos`: `-R <path>` alone → `[path]`, workspace context not consulted.
+/// `resolve_repos`: `-R <path>` alone -> `[path]`, workspace context not consulted.
 #[test]
 fn resolve_repos_repo_only_returns_path() {
     let p = PathBuf::from("/some/repo");
@@ -709,7 +709,7 @@ fn resolve_repos_repo_only_returns_path() {
     assert_eq!(repos, vec![p]);
 }
 
-/// `resolve_repos`: `-R <ws> -s work,bot` composes — the path is the
+/// `resolve_repos`: `-R <ws> -s work,bot` composes, the path is the
 /// workspace root, the roles are resolved within it.
 #[test]
 fn resolve_repos_repo_plus_scope_uses_path_as_workspace_root() {

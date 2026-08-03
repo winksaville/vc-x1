@@ -1,4 +1,4 @@
-//! `show` subcommand — for each commit in a revision range, print
+//! `show` subcommand: for each commit in a revision range, print
 //! author / committer / ids / parents / children / branches /
 //! follows / precedes / description body / a changed-files summary.
 //!
@@ -8,7 +8,7 @@
 //! - `ShowParams`: clap-free; embeds `common::CommonParams` and the
 //!   parsed `FileLimit`. Built via `TryFrom<&ShowArgs>` at the
 //!   binary edge.
-//! - `show(&Context, &ShowParams)`: the op — `for_each_repo`, one
+//! - `show(&Context, &ShowParams)`: the op, `for_each_repo`, one
 //!   `show_one_commit` per commit.
 
 use std::sync::Arc;
@@ -43,8 +43,8 @@ pub enum FileLimit {
 }
 
 impl FileLimit {
-    /// Parse the `--files` flag string into a `FileLimit` — `"0"` →
-    /// None, `"all"` → All, otherwise a positive integer → Cap(n).
+    /// Parse the `--files` flag string into a `FileLimit`: `"0"` ->
+    /// None, `"all"` -> All, otherwise a positive integer -> Cap(n).
     /// Called at the boundary by `ShowParams::try_from`.
     pub fn parse(s: &str) -> Result<Self, String> {
         match s {
@@ -127,7 +127,7 @@ pub fn show(_ctx: &Context, params: &ShowParams) -> Result<(), Box<dyn std::erro
         let mut first = true;
         for (i, commit_id) in ids.iter().enumerate() {
             if !first {
-                info!("────────────────────────────────────────");
+                info!("----------------------------------------");
             }
             first = false;
 
@@ -209,7 +209,7 @@ fn show_one_commit(
     let precedes = find_nearest_tag(commit, workspace, repo, false)?;
     info!("Precedes:  {}", precedes.as_deref().unwrap_or("")); // OK: obvious
 
-    // Description (body only — title is on the Ids line)
+    // Description (body only: title is on the Ids line)
     print_description(commit);
 
     // Changed files
@@ -293,9 +293,10 @@ fn format_timestamp(ts: &jj_lib::backend::Timestamp) -> String {
     let tz_minutes = ts.tz_offset;
 
     let dt = chrono::DateTime::from_timestamp(secs, 0)
-        .unwrap_or_default() // OK: invalid timestamp → epoch for display
+        .unwrap_or_default() // OK: invalid timestamp -> epoch for display
         .with_timezone(
-            &chrono::FixedOffset::east_opt(tz_minutes * 60).unwrap_or(chrono::Utc.fix()), // OK: invalid tz → UTC for display
+            // OK: invalid tz -> UTC for display
+            &chrono::FixedOffset::east_opt(tz_minutes * 60).unwrap_or(chrono::Utc.fix()),
         );
 
     dt.format("%Y-%m-%d %H:%M:%S").to_string()
@@ -494,7 +495,7 @@ mod tests {
     #[test]
     fn params_from_args_defaults() {
         // ShowParams::try_from goes through the binary-edge resolution
-        // and parses --files into a FileLimit. Default "50" → Cap(50).
+        // and parses --files into a FileLimit. Default "50" -> Cap(50).
         use super::{FileLimit, ShowParams};
         let args = parse(&["vc-x1", "show"]);
         let params = ShowParams::try_from(&args).unwrap();

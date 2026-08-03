@@ -8,7 +8,7 @@
 //! resolves its bookmark via `repo_bookmark`, which pins the
 //! bot repo to `main`.
 //!
-//! Sync is a single atomic operation — verify-then-act happens
+//! Sync is a single atomic operation: verify-then-act happens
 //! inside one invocation against one fetch snapshot (a separate
 //! check-then-apply pair of runs would race the remote). The
 //! hidden deprecated `--check` flag preserves the old verify-only
@@ -43,22 +43,22 @@ use crate::subcommand::SubcommandRunner;
 ///
 /// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
-/// - `-R PATH` — workspace root, or a single repo to sync alone.
-/// - `--scope=work|bot|work,bot` — keyword role selection,
+/// - `-R PATH`: workspace root, or a single repo to sync alone.
+/// - `--scope=work|bot|work,bot`: keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
-/// - Neither — workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `bot`) → `work,bot`
-///   - single-repo workspace (`.vc-config.toml`, no `bot`) → `work`
-///   - POR (no `.vc-config.toml`) → cwd
+/// - Neither: workspace-default scope:
+///   - dual workspace (`.vc-config.toml` with `bot`) -> `work,bot`
+///   - single-repo workspace (`.vc-config.toml`, no `bot`) -> `work`
+///   - POR (no `.vc-config.toml`) -> cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
-    /// Verify only — fetch + classify; error if any repo needs
+    /// Verify only: fetch + classify; error if any repo needs
     /// action; no bookmark move, no `@` reposition.
     ///
     /// Deprecated and hidden: kept solely for `push`'s preflight
     /// shell-out until that is rewired in-process (see the
     /// `TODO.md` sync follow-up). Note the fetch still
-    /// auto-fast-forwards a tracked bookmark — this mode was never
+    /// auto-fast-forwards a tracked bookmark: this mode was never
     /// fully read-only.
     #[arg(long, hide = true)]
     pub check: bool,
@@ -88,8 +88,8 @@ pub struct SyncArgs {
 
     /// Workspace root, or a single jj repo to sync on its own.
     ///
-    /// - `-R PATH` alone — sync just the repo at PATH.
-    /// - `-R PATH -s ROLES` — use PATH as the workspace root and
+    /// - `-R PATH` alone: sync just the repo at PATH.
+    /// - `-R PATH -s ROLES`: use PATH as the workspace root and
     ///   sync the named side(s).
     #[arg(short = 'R', long = "repo", value_name = "PATH", verbatim_doc_comment)]
     pub repo: Option<PathBuf>,
@@ -98,14 +98,14 @@ pub struct SyncArgs {
     ///
     /// `SCOPE=work|bot|work,bot`:
     ///
-    /// - `work` — sync only the work repo.
-    /// - `bot` — sync only the bot repo (errors if no bot repo
+    /// - `work`: sync only the work repo.
+    /// - `bot`: sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `work,bot` — sync both repos.
+    /// - `work,bot`: sync both repos.
     ///
     /// Composes with `-R` as the workspace root. Default depends
-    /// on workspace state: dual workspace → `work,bot`;
-    /// single-repo workspace or POR → `work`.
+    /// on workspace state: dual workspace -> `work,bot`;
+    /// single-repo workspace or POR -> `work`.
     #[arg(
         short = 's',
         long,
@@ -118,20 +118,20 @@ pub struct SyncArgs {
 
 /// Inputs to the sync op, flat, owned, clap-free.
 ///
-/// - `quiet`: `-q` / `--quiet` — clamp output to `Warn` for the run.
+/// - `quiet`: `-q` / `--quiet`, clamp output to `Warn` for the run.
 /// - `bookmark`: bookmark to sync in the work repo (default
 ///   `main`); the bot repo always syncs `main`.
 /// - `remote`: remote to sync against (default `origin`).
-/// - `check`: hidden deprecated `--check` — verify-only mode
+/// - `check`: hidden deprecated `--check`, verify-only mode
 ///   (fetch + classify + report, error if action needed; no
-///   bookmark move, no `@` reposition). Absent ⇒ the normal
+///   bookmark move, no `@` reposition). Absent => the normal
 ///   atomic sync.
-/// - `rebase`: `--rebase` — rebase a non-empty `@` onto the synced
+/// - `rebase`: `--rebase`, rebase a non-empty `@` onto the synced
 ///   bookmark without prompting (work repo only; see
 ///   `reposition_work`).
-/// - `repo`: `-R/--repo` path (None ⇒ discover the workspace
+/// - `repo`: `-R/--repo` path (None => discover the workspace
 ///   root from cwd).
-/// - `scope`: `--scope` parsed (None ⇒ resolve via the
+/// - `scope`: `--scope` parsed (None => resolve via the
 ///   workspace-default scope at run time).
 pub struct SyncParams {
     pub quiet: bool,
@@ -145,7 +145,7 @@ pub struct SyncParams {
 
 impl From<&SyncArgs> for SyncParams {
     /// Convert clap-derived `SyncArgs` into the flat `SyncParams`
-    /// (total — every field copies straight over).
+    /// (total: every field copies straight over).
     fn from(a: &SyncArgs) -> Self {
         Self {
             quiet: a.quiet,
@@ -163,7 +163,7 @@ impl SubcommandRunner for SyncArgs {
     type Params = SyncParams;
 
     /// Delegate to the existing `From<&SyncArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(SyncParams::from(self))
     }
@@ -178,12 +178,12 @@ impl SubcommandRunner for SyncArgs {
 ///
 /// `-R` and `--scope` compose:
 ///
-/// - neither — workspace-default scope against the discovered root.
-/// - `-R PATH` alone — just that repo.
-/// - `-s ROLES` alone — roles against the discovered workspace root.
-/// - `-R PATH -s ROLES` — roles against `PATH` as the workspace root.
+/// - neither: workspace-default scope against the discovered root.
+/// - `-R PATH` alone: just that repo.
+/// - `-s ROLES` alone: roles against the discovered workspace root.
+/// - `-R PATH -s ROLES`: roles against `PATH` as the workspace root.
 ///
-/// `pub(crate)` — shared by `sync` and `revert`, which must resolve
+/// `pub(crate)`: shared by `sync` and `revert`, which must resolve
 /// the same invocation shape to the same repos.
 pub(crate) fn resolve_repos(
     repo: &Option<PathBuf>,
@@ -205,11 +205,11 @@ pub(crate) fn resolve_repos(
 pub enum State {
     /// Local and remote point at the same commit.
     UpToDate,
-    /// Local is a strict ancestor of remote — fast-forward possible.
+    /// Local is a strict ancestor of remote: fast-forward possible.
     Behind { local: String, remote: String },
-    /// Remote is a strict ancestor of local — nothing to pull in.
+    /// Remote is a strict ancestor of local: nothing to pull in.
     Ahead { local: String, remote: String },
-    /// Neither is an ancestor of the other — needs rebase.
+    /// Neither is an ancestor of the other: needs rebase.
     Diverged { local: String, remote: String },
     /// The bookmark has no `@<remote>` counterpart.
     NoRemote,
@@ -259,7 +259,7 @@ pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::e
 /// for fetch + classify + act, then reposition `@`.
 ///
 /// **Stop-on-error**: a failure leaves every repo exactly where the
-/// failing step stopped so the user can inspect what happened —
+/// failing step stopped so the user can inspect what happened:
 /// nothing is auto-reverted. The error report names each repo's
 /// pre-sync op id and points at `vc-x1 revert`, which consumes the
 /// persisted snapshots. On full success the snapshots are cleared
@@ -279,14 +279,14 @@ pub fn sync_repos(
     );
 
     // Preflight: verify bookmark tracking on every repo before any
-    // fetch/rebase. Implements "Non-tracking-remote bookmark detection"
-    // — design at:
+    // fetch/rebase. Implements "Non-tracking-remote bookmark detection",
+    // design at:
     //   https://github.com/winksaville/vc-x1/blob/main/notes/chores/chores-06.md#non-tracking-remote-bookmark-detection-design
     for repo in repos {
         let bookmark = repo_bookmark(repo, &params.bookmark);
         if bookmark != params.bookmark {
             info!(
-                "{}: bot repo — syncing 'main' ('{}' is a work repo bookmark)",
+                "{}: bot repo, syncing 'main' ('{}' is a work repo bookmark)",
                 repo.display(),
                 params.bookmark
             );
@@ -322,7 +322,7 @@ pub fn sync_repos(
 
     if let Err(e) = &result {
         warn!("sync failed: {e}");
-        warn!("stopping — state left as-is for inspection (no auto-revert)");
+        warn!("stopping: state left as-is for inspection (no auto-revert)");
         warn!("pre-sync op snapshot per repo:");
         for (repo, op_id) in &snapshots {
             warn!("  {}: op {op_id}", repo.display());
@@ -332,7 +332,7 @@ pub fn sync_repos(
         return result;
     }
 
-    // Full success — the snapshots are no longer revert targets.
+    // Full success: the snapshots are no longer revert targets.
     for (repo, _) in &snapshots {
         state::clear(repo)?;
     }
@@ -341,7 +341,7 @@ pub fn sync_repos(
     Ok(())
 }
 
-/// Clean-case summary tail ("<N> repo(s) …" prefixed at the emit
+/// Clean-case summary tail ("<N> repo(s) ..." prefixed at the emit
 /// site). Shared with main.rs's `long_about` so the documented
 /// output shape can't drift from the emitted one.
 pub const UP_TO_DATE_MSG: &str = "up to date, nothing to sync";
@@ -356,12 +356,12 @@ fn run_plan(
     snapshots: &[(PathBuf, String)],
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Phase 1 — fetch + classify silently.
+    // Phase 1: fetch + classify silently.
     //
     // Each repo's fetch stderr is captured (rather than streamed to
     // `info!` via `common::run`) so we can decide after classification
     // whether to surface it. `jj git fetch`'s routine "Nothing
-    // changed." chatter is the main thing we're suppressing here —
+    // changed." chatter is the main thing we're suppressing here:
     // if nothing needs action, the user shouldn't see it.
     let mut fetched: Vec<(PathBuf, Vec<String>)> = Vec::new();
     let mut ctxs: Vec<RepoCtx> = Vec::new();
@@ -380,7 +380,7 @@ fn run_plan(
         .iter()
         .any(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }));
 
-    // Phase 2 — emit status. `--quiet` is enforced globally via the
+    // Phase 2: emit status. `--quiet` is enforced globally via the
     // log-level clamp in `sync()`, so these `info!` calls are already
     // suppressed in scripts; we just shape the output here.
     if !any_action_needed {
@@ -399,7 +399,7 @@ fn run_plan(
         }
     }
 
-    // Phase 3 — act (subprocess output streams through as usual).
+    // Phase 3: act (subprocess output streams through as usual).
     // `act_on_state` short-circuits in deprecated verify-only mode,
     // making it a true no-op here. Repositioning `@` onto the synced
     // bookmark happens after `run_plan` returns (see `sync_repos`),
@@ -408,7 +408,7 @@ fn run_plan(
         act_on_state(ctx, repo_ctx, params)?;
     }
 
-    // Phase 4 — verify-only mode is fatal when action would be
+    // Phase 4: verify-only mode is fatal when action would be
     // needed. The normal sync ran the action above and is done.
     if params.check && any_action_needed {
         let n_action = ctxs
@@ -417,7 +417,7 @@ fn run_plan(
             .count();
         let noun = if n_action == 1 { "repo" } else { "repos" };
         return Err(format!(
-            "sync: {n_action} {noun} need action (see above) — \
+            "sync: {n_action} {noun} need action (see above): \
              resolve with `vc-x1 sync` and re-run"
         )
         .into());
@@ -443,12 +443,12 @@ fn fetch_silent(
 /// Reposition `@` onto the freshly-synced bookmark after a successful
 /// sync.
 ///
-/// Dispatches on repo role — the caller has already excluded the
+/// Dispatches on repo role: the caller has already excluded the
 /// deprecated verify-only mode:
 ///
-/// - **session (bot) sub-repo** → always `jj new main`
+/// - **session (bot) sub-repo** -> always `jj new main`
 ///   (see `reposition_bot`).
-/// - **any other repo** → move `@` onto the synced `bookmark` under
+/// - **any other repo** -> move `@` onto the synced `bookmark` under
 ///   the work-repo safety rules (see `reposition_work`).
 fn reposition_at(
     repo: &Path,
@@ -464,7 +464,7 @@ fn reposition_at(
 
 /// True when `repo` is the bot sub-repo.
 ///
-/// Thin wrapper over `common::is_bot_dir` — side detection is by
+/// Thin wrapper over `common::is_bot_dir`: side detection is by
 /// location (the parent's config names this dir as its `bot`), not
 /// config content. A POR / single-repo workspace is a work repo.
 fn is_bot_repo(repo: &Path) -> bool {
@@ -486,13 +486,13 @@ fn repo_bookmark<'a>(repo: &Path, bookmark: &'a str) -> &'a str {
 /// The session (`.claude`) repo is a linear journal on `main`, and its
 /// `@` normally carries live session writes:
 ///
-/// - `@-` already the `main` tip → no-op: `@` is where it belongs,
+/// - `@-` already the `main` tip -> no-op: `@` is where it belongs,
 ///   live writes stay in the working copy. (An unconditional
 ///   `jj new main` here would churn an empty `@`'s chid/op every
-///   sync, or strand a non-empty `@`'s live writes — and any ochid
-///   captured against its chid — on a sibling head.)
+///   sync, or strand a non-empty `@`'s live writes (and any ochid
+///   captured against its chid) on a sibling head.)
 /// - Errors when `@-` isn't on `main` (not an ancestor-or-equal of the
-///   bookmark) — refuse rather than guess.
+///   bookmark): refuse rather than guess.
 /// - Otherwise `main` moved: `jj new main` starts a fresh `@` on the
 ///   bookmark; the prior `@` becomes a sibling head, which is
 ///   expected for the journal. A conflict is very unlikely given
@@ -506,7 +506,7 @@ fn reposition_bot(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
     }
     if !jj::matches(repo, &format!("{parent}::main"))? {
         return Err(format!(
-            "{}: @- ({parent}) is not on main — refusing to reposition @",
+            "{}: @- ({parent}) is not on main: refusing to reposition @",
             repo.display()
         )
         .into());
@@ -524,13 +524,13 @@ fn reposition_bot(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// Let `@-` be the parent of `@`:
 ///
-/// - `bookmark == @-` → already positioned; no-op.
-/// - `bookmark` a proper descendant of `@-`, `@` empty →
+/// - `bookmark == @-` -> already positioned; no-op.
+/// - `bookmark` a proper descendant of `@-`, `@` empty ->
 ///   `jj new bookmark` (jj auto-abandons the old empty `@`).
-/// - `bookmark` a proper descendant of `@-`, `@` non-empty → rebase
+/// - `bookmark` a proper descendant of `@-`, `@` non-empty -> rebase
 ///   `@` onto `bookmark`, but only with `rebase` set (else prompt on a
 ///   TTY; skip + inform when declined or not a TTY).
-/// - `bookmark` not a descendant of `@-` (diverged / `@` ahead) →
+/// - `bookmark` not a descendant of `@-` (diverged / `@` ahead) ->
 ///   leave `@` and inform why it didn't move.
 fn reposition_work(
     repo: &Path,
@@ -550,7 +550,7 @@ fn reposition_work(
         );
         return Ok(());
     }
-    // `bookmark` is a proper descendant of `@-` — safe to move a clean `@`.
+    // `bookmark` is a proper descendant of `@-`: safe to move a clean `@`.
     if at_is_empty(repo)? {
         info!("{}: jj new {bookmark}", repo.display());
         run(
@@ -592,14 +592,14 @@ fn reposition_work(
 ///
 /// Under `cargo test` the harness inherits the invoking terminal's
 /// stdin, so an in-process test reaching this path would block on
-/// `read_line` waiting for the user — the `cfg!(test)` arm pins the
+/// `read_line` waiting for the user: the `cfg!(test)` arm pins the
 /// non-interactive answer instead.
 fn confirm_rebase(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
     if cfg!(test) || !std::io::stdin().is_terminal() {
         return Ok(false);
     }
     let ans = prompt(&format!(
-        "{}: @ has changes — rebase onto the synced bookmark? [y/N] ",
+        "{}: @ has changes: rebase onto the synced bookmark? [y/N] ",
         repo.display()
     ))?;
     Ok(matches!(ans.to_ascii_lowercase().as_str(), "y" | "yes"))
@@ -613,10 +613,10 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 /// Perform the mutation corresponding to `repo_ctx.state` (skipped
 /// in deprecated verify-only mode).
 ///
-/// - `UpToDate` / `Ahead` / `NoRemote` → no-op (and no output, the state
+/// - `UpToDate` / `Ahead` / `NoRemote` -> no-op (and no output, the state
 ///   was already logged by `log_state`).
-/// - `Behind` → `jj bookmark set <b> -r <b>@<remote>` to fast-forward.
-/// - `Diverged` → `jj rebase -b <b> -d <b>@<remote>`, then probe
+/// - `Behind` -> `jj bookmark set <b> -r <b>@<remote>` to fast-forward.
+/// - `Diverged` -> `jj rebase -b <b> -d <b>@<remote>`, then probe
 ///   `conflicts()`. A non-empty result means the rebase produced
 ///   conflicted commits; return `Err` so the outer revert restores the
 ///   pre-fetch state.
@@ -641,7 +641,7 @@ fn act_on_state(
             if !params.check {
                 // `local` is either a single commit id or a comma-joined list
                 // of heads when the bookmark is conflicted. Pick the head
-                // that isn't the remote — that's the local-only tip. The
+                // that isn't the remote: that's the local-only tip. The
                 // comma-joined path covers the jj post-fetch divergence
                 // shape (local bookmark conflicted between old local head
                 // and freshly-fetched remote head).
@@ -680,7 +680,7 @@ fn log_state(repo: &Path, state: &State) {
     let r = repo.display();
     match state {
         State::UpToDate => info!("{r}: up-to-date"),
-        State::NoRemote => info!("{r}: no remote counterpart — skipping"),
+        State::NoRemote => info!("{r}: no remote counterpart, skipping"),
         State::Ahead { local, remote } => {
             info!("{r}: ahead (local {local} > remote {remote}); nothing to sync")
         }
@@ -719,7 +719,7 @@ pub(crate) fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::E
 
 /// Restore `repo` to the operation identified by `op_id`.
 ///
-/// Thin wrapper around `jj op restore` — drops the caller's returned
+/// Thin wrapper around `jj op restore`: drops the caller's returned
 /// stdout. Exposed at `pub(crate)` for `push`'s commit-stage
 /// rollback and the `revert` subcommand; sync itself no longer
 /// auto-reverts (stop-on-error).
@@ -741,7 +741,7 @@ pub(crate) fn op_restore(repo: &Path, op_id: &str) -> Result<(), Box<dyn std::er
 /// Otherwise we compare the single local head against the single
 /// remote commit via two revset-ancestry probes.
 ///
-/// Returns `NoRemote` when `<b>@<remote>` does not resolve — the caller
+/// Returns `NoRemote` when `<b>@<remote>` does not resolve: the caller
 /// logs a skip and moves on.
 fn classify(
     repo: &Path,
@@ -757,11 +757,12 @@ fn classify(
         return Err(format!("{}: bookmark '{bookmark}' does not exist", repo.display()).into());
     }
     if local_heads.len() > 1 {
-        // Conflicted bookmark — jj's shape for post-fetch divergence.
+        // Conflicted bookmark: jj's shape for post-fetch divergence.
         let local = local_heads.join(",");
         return Ok(State::Diverged { local, remote });
     }
-    let local = local_heads.into_iter().next().unwrap(); // OK: `len() > 1` arm handled above, `is_empty()` handled above
+    // OK: `len() > 1` arm handled above, `is_empty()` handled above
+    let local = local_heads.into_iter().next().unwrap();
     if local == remote {
         return Ok(State::UpToDate);
     }

@@ -114,7 +114,7 @@ fn cli_bot_session_lines() {
     assert!(stdout.contains("please fix the bug"));
     assert!(!stdout.contains("[tool]"), "line 5 out of range");
     assert!(
-        stdout.contains("… (7 source lines skipped)"),
+        stdout.contains("... (7 source lines skipped)"),
         "got: {stdout}"
     );
     assert!(stdout.contains("1 turns shown"), "got: {stdout}");

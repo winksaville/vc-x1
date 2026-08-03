@@ -5,6 +5,38 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-03: the punctuation ban's enumeration invited a subset audit, again
+  - prose.md bans four named characters; the 0.78.2 source sweep found four more untypeable
+    species doing the same jobs: `⇒` (13 sites), box-drawing `─` in CLI output (56), `≥`,
+    and a U+2212 minus
+  - the 0.77.2 close-out had already recorded the subset-audit failure mode (an em-dash-only
+    count), and the Todo entry's per-character count repeated it at a wider subset
+  - template finding for prose.md: state the rule as "ASCII-only in durable text and source,
+    with the four common offenders named as examples", so a sweep's acceptance check is
+    `grep -P '[^\x00-\x7F]'` rather than four greps; staged for the iiac-perf review
+
+- 2026-08-03: the generic-custom.md test's first bites, at the 0.78.2 opening
+  - validation commands unnamed: this session used the 0.78.0-era cargo commands from
+    conversation memory; a fresh session would have to rediscover them (the checklist's
+    "commands are in custom.md" now points at placeholders)
+  - the one-home override is gone, so this cycle runs the pinned per-commit chores build-up
+    (chores-16 opened at Preparation, built rung by rung)
+  - the close-out shape default (trapezoid) is gone; shape falls back to
+    chosen-at-push-time per the close-out checklist
+  - the dogfood-binary rule (invoke `vc-x1-dev`, never `vc-x1`) and the mailbox parameters
+    (member name, template path) are unnamed; session memory covered both this time
+
+- 2026-08-03: a sandboxed session could not publish the bot repo; the user's shell could
+  - three bot-repo publish attempts at the 0.78.1 push died mid-transfer ("the remote end
+    hung up unexpectedly") while the small work-repo pack pushed fine; wink's direct shell
+    succeeded first try
+  - we think the session sandbox's network proxying kills long SSH transfers; the bot pack
+    carried this long session's multi-megabyte transcript
+  - recovery was the documented one: `squash-push` reruns safely, and the chid stayed
+    stable across the re-squashes, so the ochid linkage was never at risk
+  - finding: a large bot-repo publish may need the user's own shell; the work-repo push
+    succeeding while the bot-repo push fails is the signature
+
 - 2026-08-03: "treated as permanent (merge-only onto `main`, never rebased)" refined after
   wink deleted the fully merged `refactor-vc-x1@origin`
   - permanence had no value post-merge: every rung is reachable from `main`, the records cite

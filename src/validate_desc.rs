@@ -1,6 +1,6 @@
 //! The `validate-desc` subcommand: scan a revision range and check
 //! each commit's `ochid:` trailer against the cross-referenced
-//! repo — flagging missing, malformed, or dangling links.
+//! repo: flagging missing, malformed, or dangling links.
 //!
 //! Read-only diagnostic; exits non-zero if any commit has issues.
 //! The bot's "did the ochid wiring stay consistent?" check.
@@ -69,7 +69,7 @@ pub struct ValidateDescParams {
 
 impl From<&ValidateDescArgs> for ValidateDescParams {
     /// Convert clap-derived `ValidateDescArgs` into the flat
-    /// `ValidateDescParams` (total — every field copies straight over).
+    /// `ValidateDescParams` (total, every field copies straight over).
     fn from(a: &ValidateDescArgs) -> Self {
         Self {
             pos_rev: a.pos_rev.clone(),
@@ -99,7 +99,7 @@ impl SubcommandRunner for ValidateDescArgs {
     type Params = ValidateDescParams;
 
     /// Delegate to the existing `From<&ValidateDescArgs>` impl
-    /// above (total — never fails).
+    /// above (total, never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(ValidateDescParams::from(self))
     }
@@ -126,7 +126,7 @@ pub fn validate_desc(
 
     // Resolve other repo: --other-repo flag, or scope-aware
     // resolution from the workspace config. A single-repo / POR
-    // workspace has no bot side — nothing to validate against, so
+    // workspace has no bot side: nothing to validate against, so
     // the command no-ops instead of erroring (por equalization;
     // topology from `default_scope`, not a flag).
     let other_repo_path = match &params.other_repo {
@@ -134,7 +134,7 @@ pub fn validate_desc(
         None => match common::bot_repo_path(&params.repo)? {
             Some(p) => p,
             None => {
-                info!("validate-desc: single-repo workspace (no bot side) — nothing to validate");
+                info!("validate-desc: single-repo workspace (no bot side), nothing to validate");
                 return Ok(());
             }
         },
@@ -263,7 +263,8 @@ pub fn validate_desc(
     }
     info!("");
     info!(
-        "{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing (of {} total)",
+        "{valid} valid, {lost} lost, {none} none, {issues_count} issues, {missing} missing \
+         (of {} total)",
         ids.len()
     );
     if issues_count > 0 {

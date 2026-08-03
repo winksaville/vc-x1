@@ -1,16 +1,16 @@
-//! `--por` — create a plain single repo (no `.claude/` companion).
+//! `--por`: create a plain single repo (no `.claude/` companion).
 //! See [options_flags](README.md) for shared architecture.
 
 use clap::Args;
 
-/// `--por` leaf (Flag — boolean domain) — see
+/// `--por` leaf (Flag, boolean domain): see
 /// [Consuming an OF](README.md#consuming-an-of).
 ///
 /// Workspace topology selector at creation time:
 ///
-/// - Absent (`--por` not passed) — dual workspace (work +
+/// - Absent (`--por` not passed): dual workspace (work +
 ///   `.claude/` bot repo).
-/// - Present (`--por` passed) — plain single repo, no
+/// - Present (`--por` passed): plain single repo, no
 ///   `.claude/`, no `.vc-config.toml`.
 #[derive(Args, Debug, Clone, Default)]
 pub struct PorFlag {

@@ -1,4 +1,4 @@
-//! `desc` subcommand — print each commit in a revision range with
+//! `desc` subcommand: print each commit in a revision range with
 //! its full description (changeID + commitID + bookmarks + title,
 //! then the body), the anchor commit bolded.
 //!
@@ -6,7 +6,7 @@
 //!   `options_flags::common_args::CommonArgs`.
 //! - `DescParams`: clap-free; embeds `common::CommonParams`. Built
 //!   via `TryFrom<&DescArgs>` at the binary edge.
-//! - `desc(&Context, &DescParams)`: the op — `for_each_repo` +
+//! - `desc(&Context, &DescParams)`: the op, `for_each_repo` +
 //!   `format_commit_full` + `indent_body`.
 
 use clap::Args;
@@ -18,7 +18,7 @@ use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 use crate::subcommand::SubcommandRunner;
 
-/// CLI args for `desc` — just the shared read-only commit-query args.
+/// CLI args for `desc`: just the shared read-only commit-query args.
 #[derive(Args, Debug)]
 pub struct DescArgs {
     #[command(flatten)]
@@ -180,7 +180,7 @@ mod tests {
             _ => panic!("expected Desc"),
         };
         let params = DescParams::try_from(&args).unwrap();
-        // default: no flags → repos resolves to [.]
+        // default: no flags -> repos resolves to [.]
         assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
         // default revision @
         assert_eq!(params.common.spec.rev, "@");

@@ -1,11 +1,11 @@
-//! `push` subcommand — collapse the dual-repo commit+push+
+//! `push` subcommand: collapse the dual-repo commit+push+
 //! squash-push ceremony into a single command.
 //!
 //! See `notes/chores/chores-05.md > Add push subcommand (0.37.0)` for the
 //! original design.
 //!
-//! The run is a straight line: review → message → commit-work →
-//! commit-bot → bookmark-set → push-work → squash-push-bot. There
+//! The run is a straight line: review -> message -> commit-work ->
+//! commit-bot -> bookmark-set -> push-work -> squash-push-bot. There
 //! is no saved state and no resume, because a recorded position
 //! describes a world that may have changed for reasons push cannot
 //! know. What push owes instead is that **rerunning is always
@@ -15,7 +15,7 @@
 //!
 //! Failures before `push-work` are rolled back from `jj op`
 //! snapshots taken moments earlier in this same process. Failures
-//! from `push-work` on have crossed the remote boundary — push
+//! from `push-work` on have crossed the remote boundary: push
 //! stops and reports, and putting the repos right is the user's
 //! call, not something a tool can infer.
 
@@ -35,7 +35,7 @@ use crate::sync::{current_op_id, op_restore};
 
 /// Bookmark the bot (`.claude`) repo always advances and
 /// pushes. The bot repo is a linear journal on `main` by
-/// design — `<bookmark>` names a work-repo bookmark only.
+/// design: `<bookmark>` names a work-repo bookmark only.
 const BOT_BOOKMARK: &str = "main";
 
 /// CLI arguments for the `push` subcommand.
@@ -105,7 +105,7 @@ pub struct PushParams {
 
 /// What the message stage resolves and the later stages consume.
 ///
-/// Lives for one run in one process — the deliberate replacement
+/// Lives for one run in one process: the deliberate replacement
 /// for the persisted `PushState`. Both chids are captured before
 /// any commit happens, so each repo's `ochid:` trailer can name the
 /// other side's change.
@@ -118,7 +118,7 @@ struct Run {
     work_chid: String,
     /// Same rule on the bot side.
     bot_chid: String,
-    /// Whether the bot working copy had changes — decides whether
+    /// Whether the bot working copy had changes: decides whether
     /// `commit-bot` runs.
     bot_had_changes: bool,
 }
@@ -151,7 +151,7 @@ impl SubcommandRunner for PushArgs {
     type Params = PushParams;
 
     /// Delegate to the existing `From<&PushArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(PushParams::from(self))
     }
@@ -167,7 +167,7 @@ impl SubcommandRunner for PushArgs {
 /// Interactive prompts (`stage_review`, `$EDITOR` launch in
 /// `stage_message`, `--step` gates) need this to fail fast in
 /// scripted / CI contexts instead of hanging on `read_line`.
-/// `--yes` overrides the check — script callers opt in by
+/// `--yes` overrides the check: script callers opt in by
 /// asserting "all prompts auto-approved".
 fn is_stdin_tty() -> bool {
     std::io::stdin().is_terminal()
@@ -199,7 +199,7 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
 /// instead of the developer's working tree.
 ///
 /// The stages run in a straight line. The mutation window
-/// (`commit-work` → `bookmark-set`) is wrapped so a failure inside
+/// (`commit-work` -> `bookmark-set`) is wrapped so a failure inside
 /// it restores both repos from snapshots taken just before it;
 /// after `push-work` the remote boundary is crossed and a failure
 /// simply propagates.
@@ -209,11 +209,11 @@ pub(crate) fn push_in(
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if params.dry_run {
-        info!("push: DRY-RUN — no side effects (no commits, no pushes)");
+        info!("push: DRY-RUN: no side effects (no commits, no pushes)");
     }
 
     let bookmark = params.bookmark.as_deref().ok_or(
-        "push: a bookmark is required — pass it as a positional \
+        "push: a bookmark is required: pass it as a positional \
          (`vc-x1 push main`) or via `--bookmark main`",
     )?;
 
@@ -251,13 +251,13 @@ pub(crate) fn push_in(
     }
 
     if params.dry_run {
-        info!("push: DRY-RUN complete — no changes written");
+        info!("push: DRY-RUN complete: no changes written");
         return Ok(());
     }
 
     // Honest completion: confirm the world matches what the stages
     // claim to have done. Catches the 0.37.1 false-success symptom.
-    // Warning-only — work has crossed the remote boundary by now, so
+    // Warning-only: work has crossed the remote boundary by now, so
     // rollback isn't sound and the user needs to investigate.
     match verify_completion(workspace_root, bookmark, &run) {
         Ok(()) => info!("push: completed all stages (verified)"),
@@ -325,14 +325,14 @@ fn step_gate(
 /// from `.vc-config.toml`'s `repos.bot` (push requires a dual
 /// workspace). Also the dual-mode entry preflight: resolution
 /// verifies both repos' recorded topology agrees and errors loudly
-/// — with everything known, changing nothing — when it doesn't.
+/// (with everything known, changing nothing) when it doesn't.
 fn bot_path(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     crate::common::require_bot_dir(workspace_root)
 }
 
 /// Restore both repos to their `jj op` snapshots.
 ///
-/// Best-effort — if the restore itself fails we warn but don't
+/// Best-effort: if the restore itself fails we warn but don't
 /// shadow the original error the caller will propagate. Exposed at
 /// `pub(crate)` so integration tests can exercise the rollback path
 /// directly rather than forcing a stage failure.
@@ -346,7 +346,7 @@ pub(crate) fn rollback_on_failure(
         Ok(()) => info!("push: restored work repo to op {}", snapshots.work),
         Err(e) => warn!("push: work repo restore failed: {e}"),
     }
-    // Rollback is best-effort inside an error path — a failed
+    // Rollback is best-effort inside an error path: a failed
     // bot-dir resolution is reported, not propagated.
     match bot_path(root) {
         Ok(bot) => match op_restore(&bot, &snapshots.bot) {
@@ -357,12 +357,12 @@ pub(crate) fn rollback_on_failure(
     }
 }
 
-/// Review: first approval gate — "is the work done right?".
+/// Review: first approval gate, "is the work done right?".
 ///
 /// Shows a `jj diff --stat` of the pending changes in both repos
 /// and prompts the user to continue. `--yes` short-circuits the
 /// prompt (required for scripted / non-tty use). In `--dry-run`
-/// the diff is still shown (that's the point of dry-run — see
+/// the diff is still shown (that's the point of dry-run: see
 /// what *would* be reviewed) but approval is auto-granted.
 fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let bot = bot_path(root)?;
@@ -411,11 +411,11 @@ fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::err
 /// Title/body come from `--title`/`--body`, else `$EDITOR`. There
 /// is no persisted message to fall back on: a rerun supplies the
 /// flags again or opens the editor again, which is the cost of
-/// having no state file and a cheap one — the message is in the
+/// having no state file and a cheap one: the message is in the
 /// user's scrollback either way.
 ///
 /// When neither repo has pending changes, no commit will be made on
-/// either side, so an absent message is not an error — the run is
+/// either side, so an absent message is not an error: the run is
 /// publish-only (bookmark + remote), which is the trapezoid
 /// recipe's final step.
 fn stage_message(root: &Path, params: &PushParams) -> Result<Run, Box<dyn std::error::Error>> {
@@ -441,13 +441,13 @@ fn stage_message(root: &Path, params: &PushParams) -> Result<Run, Box<dyn std::e
         }
         _ => {
             if params.yes {
-                return Err("push message: --yes given but --title/--body missing \
-                            — pass both flags or run interactively."
+                return Err("push message: --yes given but --title/--body missing: \
+                            pass both flags or run interactively."
                     .into());
             }
             if params.dry_run {
-                return Err("push message: --dry-run given but --title/--body missing \
-                            — pass both flags so dry-run has a message to preview."
+                return Err("push message: --dry-run given but --title/--body missing: \
+                            pass both flags so dry-run has a message to preview."
                     .into());
             }
             if !is_stdin_tty() {
@@ -461,7 +461,8 @@ fn stage_message(root: &Path, params: &PushParams) -> Result<Run, Box<dyn std::e
     };
 
     info!(
-        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, work_had_changes={work_had_changes}, bot_had_changes={bot_had_changes}",
+        "push message: title=\"{}\", work_chid={work_chid}, bot_chid={bot_chid}, \
+         work_had_changes={work_had_changes}, bot_had_changes={bot_had_changes}",
         title.lines().next().unwrap_or("") // OK: obvious
     );
     Ok(Run {
@@ -491,7 +492,7 @@ fn compose_message_via_editor() -> Result<(String, String), Box<dyn std::error::
 # Leave as-is to abort. Enter the Title on the first line,
 # optionally followed by the Body on subsequent lines. The
 # blank line between Title and Body is inserted automatically,
-# and the ochid trailer is appended per-repo automatically —
+# and the ochid trailer is appended per-repo automatically:
 # don't add either here.
 # Lines starting with `#` are ignored.
 ";
@@ -507,13 +508,13 @@ fn compose_message_via_editor() -> Result<(String, String), Box<dyn std::error::
     let content = fs::read_to_string(&msg_path)?;
     let _ = fs::remove_file(&msg_path);
     parse_message(&content)
-        .ok_or_else(|| "push message: template was left empty or all-comments — aborting".into())
+        .ok_or_else(|| "push message: template was left empty or all-comments, aborting".into())
 }
 
 /// Parse the editor-saved message into `(title, body)`. Strips
 /// `#`-prefixed comment lines, trims surrounding blanks, and treats
 /// the first non-comment line as the title with everything after as
-/// the body (a blank line between is allowed but not required —
+/// the body (a blank line between is allowed but not required:
 /// the commit stages insert the title/body separator themselves).
 /// Returns `None` when the message has no non-comment content.
 fn parse_message(raw: &str) -> Option<(String, String)> {
@@ -531,7 +532,8 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
         return None;
     }
     let mut lines = trimmed.lines();
-    let title = lines.next().unwrap_or("").trim().to_string(); // OK: trimmed non-empty ⇒ first line exists
+    // OK: trimmed non-empty => first line exists
+    let title = lines.next().unwrap_or("").trim().to_string();
     let body = lines.collect::<Vec<_>>().join("\n").trim().to_string();
     if title.is_empty() {
         return None;
@@ -541,7 +543,7 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 
 /// Commit work repo with `title` / `body` and the `ochid:` trailer
 /// pointing at `.claude`'s chid, or skip when the working copy has
-/// nothing pending — the same rule `stage_commit_bot` follows.
+/// nothing pending: the same rule `stage_commit_bot` follows.
 ///
 /// Skipping matters in two situations:
 ///
@@ -549,7 +551,7 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 ///   the empty `@` anyway minted a stamped empty duplicate on top of
 ///   the real commit (bugs.md #4).
 /// - A publish-only run, where the commits already exist and only
-///   the bookmark and the remote still need advancing — the
+///   the bookmark and the remote still need advancing: the
 ///   trapezoid recipe's final step.
 ///
 /// In both cases the existing top commit is published as-is; push
@@ -563,7 +565,7 @@ fn stage_commit_work(
     if jj::is_empty(root, "@")? {
         warn!(
             "push commit-work: skip (work repo had no pending changes); \
-             the supplied message is not applied — the existing top \
+             the supplied message is not applied: the existing top \
              commit is published as-is"
         );
         return Ok(());
@@ -574,7 +576,8 @@ fn stage_commit_work(
     let work_arg = root.to_string_lossy();
     if params.dry_run {
         info!(
-            "push commit-work: [dry-run] would run jj commit -R {work_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-work: [dry-run] would run jj commit -R {work_arg} -m \"{title}\" \
+             -m <body+ochid>"
         );
         return Ok(());
     }
@@ -603,7 +606,8 @@ fn stage_commit_bot(
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push commit-bot: [dry-run] would run jj commit -R {bot_arg} -m \"{title}\" -m <body+ochid>"
+            "push commit-bot: [dry-run] would run jj commit -R {bot_arg} -m \"{title}\" \
+             -m <body+ochid>"
         );
         return Ok(());
     }
@@ -615,7 +619,7 @@ fn stage_commit_bot(
 
 /// Advance each repo's bookmark to its `@-`: the work repo advances
 /// `state.bookmark`, the bot repo always advances
-/// `BOT_BOOKMARK` (`main`) — a feature bookmark must never be
+/// `BOT_BOOKMARK` (`main`): a feature bookmark must never be
 /// created in the linear-journal bot repo.
 fn stage_bookmark_set(
     ctx: &mut Context,
@@ -629,12 +633,14 @@ fn stage_bookmark_set(
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
+            "push bookmark-set: [dry-run] would run jj bookmark set {bk} -r @- -R {work_arg} \
+             / {BOT_BOOKMARK} -r @- -R {bot_arg}"
         );
         return Ok(());
     }
     info!(
-        "push bookmark-set: bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- -R {bot_arg}"
+        "push bookmark-set: bookmark set {bk} -r @- -R {work_arg} / {BOT_BOOKMARK} -r @- \
+         -R {bot_arg}"
     );
     ctx.session(root)?.bookmark_set(bk, "@-")?;
     ctx.session(&bot)?.bookmark_set(BOT_BOOKMARK, "@-")?;
@@ -643,8 +649,8 @@ fn stage_bookmark_set(
 
 /// Push the work repo's bookmark to origin.
 ///
-/// Checks its own precondition — every remote ref for the bookmark
-/// is tracked — which is where preflight's tracking check moved
+/// Checks its own precondition: every remote ref for the bookmark
+/// is tracked, which is where preflight's tracking check moved
 /// when preflight was retired. A never-pushed bookmark has no
 /// remote ref and passes; the check catches a ref that exists but
 /// isn't tracked, which would otherwise push into a ref jj won't
@@ -671,15 +677,15 @@ fn stage_push_work(
 }
 
 /// Squash-push `.claude` in-process, always pushing
-/// `BOT_BOOKMARK` (`main`) — the bot repo's bookmark is
+/// `BOT_BOOKMARK` (`main`): the bot repo's bookmark is
 /// pinned, so the work-repo bookmark plays no part here.
 ///
 /// - Squashes the tail (session writes that landed since
-///   `commit-bot`) into the bot commit, then pushes — via
+///   `commit-bot`) into the bot commit, then pushes, via
 ///   `squash_push::squash_push`, so the ochid-drop guard
 ///   applies and a failure is a visible push failure.
 /// - In-process since 0.69.0-1 (the stage's detached child died
-///   silently at sandbox teardown — the loss diagnosed in
+///   silently at sandbox teardown: the loss diagnosed in
 ///   0.68.1).
 /// - `--no-squash-push` turns this stage into a no-op so the
 ///   squash+push can be run manually.
@@ -693,11 +699,12 @@ fn stage_squash_push_bot(
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
         info!(
-            "push squash-push-bot: [dry-run] would squash @ → @- and push {bk} in {bot_arg} (in-process)"
+            "push squash-push-bot: [dry-run] would squash @ -> @- and push {bk} in {bot_arg} \
+             (in-process)"
         );
         return Ok(());
     }
-    info!("push squash-push-bot: squash @ → @- + push {bk} -R {bot_arg} (in-process)");
+    info!("push squash-push-bot: squash @ -> @- + push {bk} -R {bot_arg} (in-process)");
     let sp = crate::squash_push::SquashPushParams {
         repo: bot.clone(),
         squash: SquashSpec {
@@ -706,7 +713,7 @@ fn stage_squash_push_bot(
         },
         bookmark: bk.to_string(),
         // Mid-push the mismatch is the normal state (bookmark-set
-        // just moved main; this stage publishes it) — don't report
+        // just moved main; this stage publishes it): don't report
         // a lost publish.
         report_publish_state: false,
     };
@@ -716,7 +723,7 @@ fn stage_squash_push_bot(
 /// Verify the world matches what the stages claim to have done.
 ///
 /// Runs after the last stage and confirms the post-conditions are
-/// real — directly addresses the 0.37.1 false-success symptom (push
+/// real: directly addresses the 0.37.1 false-success symptom (push
 /// declared "completed all stages" while the working copy still held
 /// uncommitted changes).
 ///
@@ -728,12 +735,12 @@ fn stage_squash_push_bot(
 ///    should have captured anything that was there).
 /// 3. `.claude`'s bookmark is at the run's `bot_chid`.
 ///    `.claude`'s working copy (`@`) may legitimately have new
-///    session writes that landed after squash-push-bot's squash —
-///    the tail rides into the next cycle's commit — so no
+///    session writes that landed after squash-push-bot's squash
+///    (the tail rides into the next cycle's commit) so no
 ///    working-copy-clean check on `.claude`.
 ///
 /// On any mismatch: returns `Err`. The caller surfaces it as a loud
-/// warning rather than blocking — push has already crossed the
+/// warning rather than blocking: push has already crossed the
 /// remote boundary, work is live on origin, and the warning prompts
 /// the user to investigate.
 fn verify_completion(
@@ -756,7 +763,7 @@ fn verify_completion(
     }
 
     // 2. work working copy (`@`) clean (no uncommitted changes). Use the `empty`
-    // template — `jj diff --stat` always emits a "0 files changed"
+    // template: `jj diff --stat` always emits a "0 files changed"
     // line even when clean, so plain output-emptiness check would
     // false-positive.
     if !jj::is_empty(root, "@")? {

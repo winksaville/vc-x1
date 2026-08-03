@@ -1,5 +1,5 @@
 //! The `squash-push` subcommand: squash the working copy into its
-//! parent, advance a bookmark, and push — capture a repo's trailing
+//! parent, advance a bookmark, and push: capture a repo's trailing
 //! writes and publish them in one step.
 //!
 //! - Built for the bot's `.claude` bot repo, whose working copy
@@ -9,10 +9,10 @@
 //! - Runs fully in-process: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
-//!   child that a sandboxed run silently killed — the loss
+//!   child that a sandboxed run silently killed: the loss
 //!   diagnosed in 0.68.1).
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
-//!   `BOOKMARK@origin` — an earlier publish was lost) and proceeds:
+//!   `BOOKMARK@origin`, an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
 //!   auto-fixing. Suppressed when run as push's `squash-push-bot`
 //!   stage, where the mismatch is the normal mid-push state.
@@ -32,9 +32,9 @@ use crate::subcommand::SubcommandRunner;
 /// Squash `@` into `@-`, advance BOOKMARK, and push.
 ///
 /// Captures a repo's trailing working-copy writes into the last
-/// commit and publishes it — rewriting an already-pushed commit is
+/// commit and publishes it: rewriting an already-pushed commit is
 /// a forced update. Zero-ceremony default: bare `vc-x1 squash-push`
-/// squashes `@ → @-` and pushes `main` in `.`.
+/// squashes `@ -> @-` and pushes `main` in `.`.
 #[derive(Args, Debug)]
 pub struct SquashPushArgs {
     /// Bookmark to advance and push
@@ -49,7 +49,7 @@ pub struct SquashPushArgs {
     pub squash: SquashOption,
 }
 
-/// Per-invocation squash-push inputs — the clap-free shape the op
+/// Per-invocation squash-push inputs: the clap-free shape the op
 /// works against. Built from `SquashPushArgs` at the binary edge
 /// via `TryFrom` (fallible only on repo-path canonicalization);
 /// `vc-x1 push`'s `squash-push-bot` stage constructs it
@@ -60,9 +60,9 @@ pub struct SquashPushParams {
     pub squash: SquashSpec,
     pub bookmark: String,
     /// Report an at-rest publish mismatch (BOOKMARK not matching
-    /// `BOOKMARK@origin` — an earlier publish was lost) before
+    /// `BOOKMARK@origin`, an earlier publish was lost) before
     /// proceeding. True for CLI invocations, which run at rest;
-    /// `vc-x1 push`'s `squash-push-bot` stage sets false — there
+    /// `vc-x1 push`'s `squash-push-bot` stage sets false: there
     /// the mismatch is the normal mid-push state (`bookmark-set`
     /// just moved the bookmark, this stage publishes it), so the
     /// report would be a false alarm.
@@ -82,7 +82,7 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
             squash: a.squash.value.clone().unwrap_or_else(|| SquashSpec {
                 source: "@".to_string(),
                 target: "@-".to_string(),
-            }), // OK: --squash absent → the command's default @,@- pair
+            }), // OK: --squash absent -> the command's default @,@- pair
             bookmark: a.bookmark.clone(),
             report_publish_state: true,
         })
@@ -105,9 +105,9 @@ impl SubcommandRunner for SquashPushArgs {
 
 /// Validate inputs before mutating anything.
 ///
-/// Catches the common failure modes up front — unresolvable
+/// Catches the common failure modes up front (unresolvable
 /// revsets, an ochid-dropping squash, conflicts, a missing /
-/// untracked / non-forward bookmark, an undescribed push target —
+/// untracked / non-forward bookmark, an undescribed push target)
 /// so the run fails before the squash rewrites history.
 fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("preflight: checking params");
@@ -128,7 +128,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
 
     // Refuse to operate on a repo with conflicts.
     if jj::matches(repo, "conflicts()")? {
-        return Err(format!("repo '{repo_str}' has conflicts — resolve before squash-push").into());
+        return Err(format!("repo '{repo_str}' has conflicts: resolve before squash-push").into());
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
@@ -140,7 +140,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
 
     if !jj::matches(repo, &format!("{bookmark}::({})", sq.target))? {
         return Err(format!(
-            "bookmark '{bookmark}' move is not forward — current position is not an \
+            "bookmark '{bookmark}' move is not forward: current position is not an \
              ancestor of '{}' (would diverge)",
             sq.target
         )
@@ -149,7 +149,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
 
     if jj::desc_of(repo, &sq.target)?.is_empty() {
         return Err(format!(
-            "push target '{}' has no description — push would fail \
+            "push target '{}' has no description: push would fail \
              (run `jj describe -r {} -R {repo_str}` first)",
             sq.target, sq.target
         )
@@ -160,7 +160,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
 }
 
 /// Return the `ochid:` trailer values present in `source_desc` but
-/// absent from `target_desc` — the trailers a squash with
+/// absent from `target_desc`: the trailers a squash with
 /// `--use-destination-message` would silently drop (the ochid-loss incident recorded in 0.65.1).
 fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
     let kept = extract_ochids(target_desc);
@@ -174,7 +174,7 @@ fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
 /// trailers.
 ///
 /// - Compares the two messages' `ochid:` trailers; errors when the
-///   source carries any the destination's message lacks —
+///   source carries any the destination's message lacks:
 ///   `--use-destination-message` would discard them, leaving the
 ///   counterpart repo's cross-links dangling (recorded 0.65.1, guarded since 0.65.2).
 fn check_squash_keeps_ochids(
@@ -194,7 +194,7 @@ fn check_squash_keeps_ochids(
         .collect::<Vec<_>>()
         .join("\n");
     Err(format!(
-        "refusing squash {} → {}: the squash would drop ochid: trailers\n\
+        "refusing squash {} -> {}: the squash would drop ochid: trailers\n\
          the destination's message lacks:\n\
          {listed}\n\
          merge the messages by hand (`jj describe {} -R {}`) or clear\n\
@@ -207,7 +207,7 @@ fn check_squash_keeps_ochids(
     .into())
 }
 
-/// True when `rev` has no file changes and no description — nothing
+/// True when `rev` has no file changes and no description: nothing
 /// worth squashing.
 fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
     if !jj::is_empty(repo, rev)? {
@@ -221,7 +221,7 @@ fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std:
 ///
 /// - With an empty source and the bookmark already matching both
 ///   the squash target and the remote, reports "already sync'd"
-///   and exits 0 — nothing to do.
+///   and exits 0: nothing to do.
 /// - With an empty source but the remote behind, skips the squash
 ///   and still pushes.
 pub fn squash_push(
@@ -239,17 +239,18 @@ pub fn squash_push(
     // Report an at-rest publish mismatch before touching anything
     // (0.69.0-3): the bookmark should match its origin counterpart
     // between runs, so a mismatch means an earlier publish was
-    // lost. Publishing is this command's job, so it proceeds — the
+    // lost. Publishing is this command's job, so it proceeds: the
     // report is the point, not a refusal. Suppressed when run as
     // push's `squash-push-bot` stage (see `report_publish_state`).
     if params.report_publish_state {
         match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
             crate::common::PublishState::InSync => {}
             crate::common::PublishState::NeverPushed => info!(
-                "squash-push: '{bookmark}' has never been pushed to origin — this run will publish it"
+                "squash-push: '{bookmark}' has never been pushed to origin: this run will \
+                 publish it"
             ),
             crate::common::PublishState::Mismatch { local, remote } => warn!(
-                "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — an \
+                "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): an \
                  earlier publish was likely lost; this run will publish it",
                 &local[..local.len().min(12)],
                 &remote[..remote.len().min(12)]
@@ -259,22 +260,23 @@ pub fn squash_push(
 
     // Empty-source handling: nothing to squash. If the bookmark
     // already matches both the target and the remote, nothing to
-    // push either — report and exit 0.
+    // push either: report and exit 0.
     if rev_is_empty_undescribed(&params.repo, &sq.source)? {
         let target_cid = jj::cid_of(&params.repo, &sq.target)?;
         let bookmark_cid = jj::cid_of(&params.repo, bookmark)?;
+        // OK: unresolvable remote bookmark (never pushed) -> treated as not sync'd
         let remote_cid =
-            jj::cid_of(&params.repo, &format!("{bookmark}@origin")).unwrap_or_default(); // OK: unresolvable remote bookmark (never pushed) → treated as not sync'd
+            jj::cid_of(&params.repo, &format!("{bookmark}@origin")).unwrap_or_default();
         if bookmark_cid == target_cid && bookmark_cid == remote_cid {
             info!("squash-push: repo '{repo_str}' is already sync'd with remote");
             return Ok(());
         }
         info!(
-            "squash-push: {} is empty — skipping squash, still pushing",
+            "squash-push: {} is empty, skipping squash, still pushing",
             sq.source
         );
     } else {
-        info!("squash-push: squashing {} → {}...", sq.source, sq.target);
+        info!("squash-push: squashing {} -> {}...", sq.source, sq.target);
         run(
             "jj",
             &[

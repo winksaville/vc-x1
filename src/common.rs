@@ -87,7 +87,7 @@ pub fn resolve_spec(
     let rev_str = if flag_rev_set {
         flag_rev
     } else {
-        pos_rev.unwrap_or(default_rev) // OK: positional absent → fall back to CLI default
+        pos_rev.unwrap_or(default_rev) // OK: positional absent -> fall back to CLI default
     };
     let mut spec = parse_dot_rev(rev_str);
 
@@ -113,7 +113,7 @@ pub fn resolve_spec(
             if spec.anc_count.is_none() {
                 spec.anc_count = Some(n);
             }
-            // bare `x 5` → treat as `x.. 5` (ancestors)
+            // bare `x 5` -> treat as `x.. 5` (ancestors)
             if spec.desc_count == Some(0) && spec.anc_count == Some(0) {
                 spec.anc_count = Some(n);
             }
@@ -126,12 +126,12 @@ pub fn resolve_spec(
 /// Run a shell command. Returns stdout on success.
 ///
 /// Logs the command at `debug!` and the process streams as follows:
-/// - **stderr at `debug!`** on success — jj's chatter (`Moved 1 bookmarks
-///   to …`, `Rebased N commits`, `Nothing changed.`) is hidden by default
+/// - **stderr at `debug!`** on success: jj's chatter (`Moved 1 bookmarks
+///   to ...`, `Rebased N commits`, `Nothing changed.`) is hidden by default
 ///   and surfaced with `-v`. The debug formatter indents each line two
 ///   spaces so subprocess output sits visually under the caller's own
 ///   `info!` line in `-v` mode.
-/// - **stdout at `debug!`** — callers usually consume stdout as data
+/// - **stdout at `debug!`**: callers usually consume stdout as data
 ///   (bookmark lists, commit IDs, etc.), and `info!` would flood the user
 ///   with machine-readable output they didn't ask for.
 /// - **Failures propagate as `Err`** carrying the stderr; the caller's
@@ -224,7 +224,7 @@ pub fn indent_body(s: &str, n: usize) -> String {
 }
 
 /// Extract the ochid trailer value from a commit description, if
-/// present — the shared string-level parser over the commit's
+/// present: the shared string-level parser over the commit's
 /// description (the last trailer on a multi-ochid commit, matching
 /// this function's previous reverse scan).
 pub fn extract_ochid(commit: &Commit) -> Option<String> {
@@ -234,7 +234,7 @@ pub fn extract_ochid(commit: &Commit) -> Option<String> {
 /// Local bookmark names pointing exactly at `commit_id`, space-separated.
 ///
 /// Returns an empty string when no local bookmark targets the commit. Remote
-/// bookmarks are not included — that's a separate display concern.
+/// bookmarks are not included: that's a separate display concern.
 pub fn format_bookmarks_at(repo: &Arc<ReadonlyRepo>, commit_id: &CommitId) -> String {
     let view = repo.view();
     let names: Vec<String> = view
@@ -253,7 +253,7 @@ pub fn format_bookmarks_at(repo: &Arc<ReadonlyRepo>, commit_id: &CommitId) -> St
 pub fn format_commit_with_ochid(commit: &Commit, width: usize, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
-    let ochid = extract_ochid(commit).unwrap_or_default(); // OK: no ochid trailer → empty string
+    let ochid = extract_ochid(commit).unwrap_or_default(); // OK: no ochid trailer -> empty string
     let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
     let title = if first_line.is_empty() {
         "(no description set)"
@@ -327,7 +327,7 @@ pub fn format_commit_full(commit: &Commit, bookmarks: &str) -> String {
 
 /// Collect commit IDs for `..x..` (both directions) or any dot notation.
 ///
-/// Returns `(commit_ids, anchor_index)` — the IDs in display order
+/// Returns `(commit_ids, anchor_index)`: the IDs in display order
 /// (descendants closest to anchor, anchor, ancestors closest to anchor)
 /// and the index of the anchor commit within the list.
 ///
@@ -365,7 +365,7 @@ pub fn collect_ids(
     let mut anc_ids: Vec<CommitId> = Vec::new();
     if anc_count != Some(0) {
         let ancestor_ids = resolve_revset(workspace, repo, &format!("::{rev}"))?;
-        let limit = anc_count.unwrap_or(usize::MAX); // OK: no --ancestors limit → unbounded
+        let limit = anc_count.unwrap_or(usize::MAX); // OK: no --ancestors limit -> unbounded
         let mut count = 0;
         for commit_id in ancestor_ids {
             if commit_id == root_commit_id || commit_id == *anchor_id {
@@ -408,7 +408,7 @@ pub fn resolve_header(label: &str, suppress: bool) -> Header {
 
 /// Run a closure once per resolved repo, with optional header decoration between repos.
 ///
-/// Takes an already-resolved `&[PathBuf]` — the caller is responsible
+/// Takes an already-resolved `&[PathBuf]`: the caller is responsible
 /// for any flag-driven expansion (see `resolve_repos`). Continues past
 /// errors, printing them to stderr, and returns an error if any
 /// repo's body failed.
@@ -544,10 +544,10 @@ pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<Str
 /// Scan `jj bookmark list -a <name>` output for a *tracked* entry
 /// for `remote`.
 ///
-/// - Tracked remotes appear indented under the local bookmark —
-///   `  @origin: …` when synced, or the decorated divergent form
-///   `  @origin (ahead by N commits): …`; both count as tracking.
-/// - A column-0 `<bookmark>@<remote>: …` line is a non-tracking
+/// - Tracked remotes appear indented under the local bookmark:
+///   `  @origin: ...` when synced, or the decorated divergent form
+///   `  @origin (ahead by N commits): ...`; both count as tracking.
+/// - A column-0 `<bookmark>@<remote>: ...` line is a non-tracking
 ///   ref (see `find_non_tracking_remote`), never a match here.
 pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
     let colon = format!("@{remote}:");
@@ -562,7 +562,7 @@ pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
 
 /// Verify all remote refs for `bookmark` in `repo` are tracked.
 ///
-/// Returns `Err` with the exact `jj bookmark track …` remediation command if
+/// Returns `Err` with the exact `jj bookmark track ...` remediation command if
 /// any non-tracking remote ref is found. Used as a preflight by repo-modifying
 /// commands (sync, push, squash-push) and as a post-condition assertion by setup
 /// commands (init, clone, test-fixture).
@@ -571,7 +571,7 @@ pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::e
     if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
         let repo_str = repo.to_string_lossy();
         return Err(format!(
-            "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}' — \
+            "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}', \
              run `jj bookmark track {bookmark} --remote={remote} -R {repo_str}` to fix"
         )
         .into());
@@ -584,7 +584,7 @@ pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::e
 pub enum PublishState {
     /// Local bookmark and `bookmark@origin` point at the same commit.
     InSync,
-    /// `bookmark@origin` does not exist — never pushed.
+    /// `bookmark@origin` does not exist: never pushed.
     NeverPushed,
     /// Local and origin point at different commits (full commit ids).
     Mismatch { local: String, remote: String },
@@ -593,7 +593,7 @@ pub enum PublishState {
 /// Resolve the at-rest publish state of `bookmark` in `repo`.
 ///
 /// The bookmark only moves inside a push / squash-push run, which
-/// publishes it in the same invocation — so between commands
+/// publishes it in the same invocation, so between commands
 /// `bookmark == bookmark@origin` is the invariant. A mismatch means
 /// an earlier publish was lost (or origin moved out from under us).
 ///
@@ -623,7 +623,7 @@ pub fn bookmark_publish_state(
 ///
 /// Error-raising wrapper over [`bookmark_publish_state`], used by
 /// `validate-bot` and push preflight. Fixes nothing (decided
-/// 2026-07-15: no automatic fixing) — the error names the
+/// 2026-07-15: no automatic fixing): the error names the
 /// `vc-x1 squash-push` resolution and the caller stops.
 pub fn verify_bot_published(
     bot_repo: &Path,
@@ -633,12 +633,12 @@ pub fn verify_bot_published(
     match bookmark_publish_state(bot_repo, bookmark)? {
         PublishState::InSync => Ok(()),
         PublishState::NeverPushed => Err(format!(
-            "bot repo '{repo_str}': bookmark '{bookmark}' has never been pushed to origin — \
+            "bot repo '{repo_str}': bookmark '{bookmark}' has never been pushed to origin, \
              publish it with `vc-x1 squash-push -R {repo_str}`"
         )
         .into()),
         PublishState::Mismatch { local, remote } => Err(format!(
-            "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}) — \
+            "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): \
              an earlier publish was likely lost; publish it with \
              `vc-x1 squash-push -R {repo_str}`, then retry",
             &local[..local.len().min(12)],
@@ -651,9 +651,9 @@ pub fn verify_bot_published(
 /// Resolve a `[repos]` registry value against the directory of the
 /// config file that states it.
 ///
-/// - relative value → joined onto `cfg_dir` (the standard
+/// - relative value -> joined onto `cfg_dir` (the standard
 ///   file-relative rule);
-/// - absolute value → taken as-is (allowed but discouraged — it
+/// - absolute value -> taken as-is (allowed but discouraged, it
 ///   commits one machine's layout).
 pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
     let p = Path::new(value);
@@ -668,7 +668,7 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 ///
 /// Side detection is by *self-resolution*: `dir` is the bot side
 /// iff its own `.vc-config.toml`'s `repos.bot` resolves
-/// (file-relative) back to `dir` itself — the entry that names the
+/// (file-relative) back to `dir` itself: the entry that names the
 /// config's own directory names the side. Falls back to the
 /// legacy location rule ([`legacy_is_bot_dir`]) so read-only
 /// surfaces that bypass the resolvers' legacy rejection (explicit
@@ -693,15 +693,15 @@ pub fn is_bot_dir(dir: &Path) -> bool {
 /// Walk up from `start` to find the workspace root (the work repo).
 ///
 /// The nearest ancestor with a `.vc-config.toml` decides: its
-/// `repos.work`, resolved file-relative, *is* the root — the walk
+/// `repos.work`, resolved file-relative, *is* the root: the walk
 /// finding the bot repo's config first still lands on the work
 /// repo (its `work` points there), so the two sides need no
 /// nesting assumption. Returns `None` if no config is found up to
-/// the filesystem root — the caller is in a "plain old repo" (POR)
+/// the filesystem root: the caller is in a "plain old repo" (POR)
 /// with no vc-x1 workspace metadata.
 ///
-/// Legacy roots — the 0.75.x root-anchored `[workspace] work`
-/// schema and the pre-0.75.0 `path = "/"` schema — are still
+/// Legacy roots (the 0.75.x root-anchored `[workspace] work`
+/// schema and the pre-0.75.0 `path = "/"` schema) are still
 /// *found* (pointed at the work side via the legacy location
 /// rule), so the resolvers can reject them with a fix-it message
 /// via `reject_legacy_config` instead of silently degrading the
@@ -732,13 +732,13 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
 /// Error fast on a legacy `.vc-config.toml` schema.
 ///
 /// The topology readers treat unknown keys as absent, which would
-/// silently degrade a dual workspace to single-repo — so every
+/// silently degrade a dual workspace to single-repo, so every
 /// resolver calls this first and fails with the
 /// [`legacy_vc_config::reject`](crate::legacy_vc_config::reject)
 /// rewrite instead. A config with both a `[repos]` registry and
 /// stray legacy keys passes (the registry drives behavior;
 /// `config --validate` flags the strays). Also rejects an empty
-/// `repos.work` — every reader would silently misresolve it.
+/// `repos.work`: every reader would silently misresolve it.
 pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE)) else {
         return Ok(());
@@ -748,7 +748,7 @@ pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>
     }
     if toml_simple::toml_get(&cfg, "repos.work").is_some_and(|w| w.is_empty()) {
         return Err(format!(
-            "{}/.vc-config.toml: repos.work is empty — it must be a path \
+            "{}/.vc-config.toml: repos.work is empty: it must be a path \
              (relative to the config file's directory, e.g. \".\" in the \
              work repo); nothing was changed",
             dir.display()
@@ -768,10 +768,10 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 ///
 /// Reads `<workspace_root>/.vc-config.toml > repos.bot`:
 ///
-/// - dual workspace (non-empty `bot`) → `Scope([Work, Bot])`
-/// - single-repo workspace (missing / empty `bot`) →
+/// - dual workspace (non-empty `bot`) -> `Scope([Work, Bot])`
+/// - single-repo workspace (missing / empty `bot`) ->
 ///   `Scope([Work])`
-/// - POR (no `workspace_root`) → `Scope([Work])` — `scope_to_repos`
+/// - POR (no `workspace_root`) -> `Scope([Work])`: `scope_to_repos`
 ///   resolves `Side::Work` to cwd's `.` when no root is given, so a
 ///   POR run still operates on the current directory.
 pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
@@ -790,9 +790,9 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
 
 /// Resolve a `Scope` to concrete repo paths.
 ///
-/// - `Side::Work` → `workspace_root` (or cwd's `.` when
+/// - `Side::Work` -> `workspace_root` (or cwd's `.` when
 ///   `workspace_root` is None).
-/// - `Side::Bot` → the root config's `repos.bot`, resolved
+/// - `Side::Bot` -> the root config's `repos.bot`, resolved
 ///   file-relative against the root.
 ///
 /// Errors when `Side::Bot` is requested but the workspace doesn't
@@ -814,13 +814,15 @@ pub fn scope_to_repos(
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with a [repos] registry) — drop --scope or use --scope=work",
+                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with a \
+                     [repos] registry), drop --scope or use --scope=work",
                 )?;
                 let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
                 let bot = toml_simple::toml_get(&cfg, "repos.bot")
                     .filter(|v| !v.is_empty())
                     .ok_or(
-                        "--scope=bot: no bot repo configured. Add `bot = \"…\"` to the [repos] registry to enable dual-repo operations",
+                        "--scope=bot: no bot repo configured. Add `bot = \"...\"` to the \
+                         [repos] registry to enable dual-repo operations",
                     )?;
                 repos.push(resolve_repo_path(root, bot));
             }
@@ -834,7 +836,7 @@ pub fn scope_to_repos(
 ///
 /// The scope-aware prelude for commands that *optionally* work
 /// against the bot repo (validate-desc / fix-desc): topology comes
-/// from `default_scope` (the workspace config), not a flag —
+/// from `default_scope` (the workspace config), not a flag:
 /// `Ok(None)` means a POR / single-repo workspace, the caller's
 /// no-op case, while a configured-but-broken bot side still errors
 /// via `scope_to_repos`.
@@ -848,7 +850,7 @@ pub fn bot_repo_path(workspace_root: &Path) -> Result<Option<PathBuf>, Box<dyn s
     }
 }
 
-/// The bot dir the workspace config *declares* — a pure config
+/// The bot dir the workspace config *declares*: a pure config
 /// read, no on-disk verification.
 ///
 /// The pre-coherence half of [`bot_repo_path`], for callers that
@@ -881,7 +883,7 @@ pub fn configured_bot_dir(
 pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     bot_repo_path(workspace_root)?.ok_or_else(|| {
         format!(
-            "{}/.vc-config.toml declares no bot repo (`repos.bot`) — \
+            "{}/.vc-config.toml declares no bot repo (`repos.bot`): \
              this operation requires a dual workspace",
             workspace_root.display()
         )
@@ -903,7 +905,7 @@ pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::er
 ///   asymmetric by design, so agreement is checked on resolved
 ///   reality, not spelling);
 /// - **self-identification**: each config's own directory sits at
-///   its side's key (root's `work`, bot's `bot`) — agreement
+///   its side's key (root's `work`, bot's `bot`): agreement
 ///   alone can't catch both sides naming the same wrong pair.
 ///
 /// Mid-flight surprises stay per-operation concerns; this gates
@@ -912,7 +914,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     if !bot.is_dir() {
         return Err(format!(
             "workspace incoherent: {}/.vc-config.toml declares bot repo '{}', \
-             but that directory does not exist — fix the `bot` value or \
+             but that directory does not exist, fix the `bot` value or \
              restore the directory; nothing was changed",
             root.display(),
             bot.display()
@@ -923,7 +925,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     let bot_cfg = toml_simple::toml_load(&bot.join(VC_CONFIG_FILE)).map_err(|e| {
         format!(
             "workspace incoherent: bot repo '{}' has no readable {VC_CONFIG_FILE} \
-             ({e}) — both sides must carry a [repos] registry naming the same \
+             ({e}): both sides must carry a [repos] registry naming the same \
              directories; nothing was changed",
             bot.display()
         )
@@ -935,7 +937,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     if root_pair != bot_pair {
         return Err(format!(
             "workspace incoherent: the two sides' [repos] registries resolve to \
-             different directories — they must name the same work/bot pair; \
+             different directories: they must name the same work/bot pair; \
              nothing was changed\n\
              {}/{VC_CONFIG_FILE}: work={}, bot={}\n\
              {}/{VC_CONFIG_FILE}: work={}, bot={}",
@@ -949,13 +951,13 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
         .into());
     }
     // Self-identification: agreement alone can't catch both sides
-    // naming the same *wrong* pair — each config's own directory
+    // naming the same *wrong* pair: each config's own directory
     // must sit at its side's key.
     let canon_root = root.canonicalize()?;
     if root_pair.0 != canon_root {
         return Err(format!(
             "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.work` resolves to \
-             '{}', not to the workspace root itself — the work side's own entry \
+             '{}', not to the workspace root itself: the work side's own entry \
              must name its own directory; nothing was changed",
             root.display(),
             root_pair.0.display()
@@ -966,7 +968,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     if bot_pair.1 != canon_bot {
         return Err(format!(
             "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.bot` resolves to \
-             '{}', not to the bot repo itself — the bot side's own entry must \
+             '{}', not to the bot repo itself: the bot side's own entry must \
              name its own directory; nothing was changed",
             bot.display(),
             bot_pair.1.display()
@@ -980,7 +982,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
 ///
 /// The per-side half of the resolved-agreement check: reads
 /// `repos.work` / `repos.bot` from `cfg` (the config at
-/// `cfg_dir`), resolves each file-relative, and canonicalizes —
+/// `cfg_dir`), resolves each file-relative, and canonicalizes:
 /// a missing key or unresolvable directory is its own coherence
 /// error.
 fn resolved_repos_pair(
@@ -993,7 +995,7 @@ fn resolved_repos_pair(
             .ok_or_else(|| {
                 format!(
                     "workspace incoherent: {}/{VC_CONFIG_FILE} has no `{key}` in its \
-                     [repos] registry — both sides must declare the work/bot pair; \
+                     [repos] registry: both sides must declare the work/bot pair; \
                      nothing was changed",
                     cfg_dir.display()
                 )
@@ -1019,13 +1021,13 @@ fn resolved_repos_pair(
 /// into the `&[PathBuf]` that `for_each_repo` iterates. Behavior matches
 /// today's defaults plus a composing rule for the new `--scope` flag:
 ///
-/// - neither flag → `[.]` (today's no-arg default).
-/// - `-R PATH` alone → `[PATH]` (today's `-R <path>` behavior;
+/// - neither flag -> `[.]` (today's no-arg default).
+/// - `-R PATH` alone -> `[PATH]` (today's `-R <path>` behavior;
 ///   workspace context not consulted).
-/// - `-s ROLES` alone → resolves against `find_workspace_root()` —
+/// - `-s ROLES` alone -> resolves against `find_workspace_root()`:
 ///   the surrounding workspace if there is one, else POR
-///   (`Side::Work` → `.`, `Side::Bot` → error).
-/// - `-R PATH -s ROLES` → resolves with `PATH` as the workspace root
+///   (`Side::Work` -> `.`, `Side::Bot` -> error).
+/// - `-R PATH -s ROLES` -> resolves with `PATH` as the workspace root
 ///   (overrides `find_workspace_root`). This is the composing case;
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
@@ -1048,10 +1050,10 @@ pub fn resolve_repos(
 /// from `CommonArgs` via `TryFrom`; each subcommand's `XxxParams`
 /// embeds this.
 ///
-/// - `spec` — resolved `DotSpec` (parsed `..` notation + per-side
+/// - `spec`: resolved `DotSpec` (parsed `..` notation + per-side
 ///   count budget).
-/// - `header` — resolved inter-repo `Header` (label vs none).
-/// - `repos` — resolved repo paths (`-R` + `-s` → `Vec<PathBuf>`).
+/// - `header`: resolved inter-repo `Header` (label vs none).
+/// - `repos`: resolved repo paths (`-R` + `-s` -> `Vec<PathBuf>`).
 #[derive(Debug)]
 pub struct CommonParams {
     pub spec: DotSpec,

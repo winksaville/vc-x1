@@ -2,7 +2,7 @@
 //! sections of a todo file to `1..N` and normalize each entry's
 //! continuation-line indent.
 //!
-//! Dry-run by default — prints each changed entry's corrected
+//! Dry-run by default: prints each changed entry's corrected
 //! line so the output *is* the result; `--no-dry-run` writes the
 //! file in place. The rewrite half of the `validate-todo` /
 //! `fix-todo` pair.
@@ -39,7 +39,7 @@ pub struct FixTodoParams {
 
 impl From<&FixTodoArgs> for FixTodoParams {
     /// Convert clap-derived `FixTodoArgs` into the flat
-    /// `FixTodoParams` (total — every field copies straight over).
+    /// `FixTodoParams` (total, every field copies straight over).
     fn from(a: &FixTodoArgs) -> Self {
         Self {
             file: a.file.clone(),
@@ -67,7 +67,7 @@ impl SubcommandRunner for FixTodoArgs {
 /// indent. Dry-run prints the corrected line of each changed
 /// entry; `--no-dry-run` writes the file.
 ///
-/// `ctx` is unused — fix-todo reads and writes a plain file and
+/// `ctx` is unused: fix-todo reads and writes a plain file and
 /// neither the user config nor the `--log` path applies; it's
 /// present for the uniform subcommand-layer signature.
 pub fn fix_todo(_ctx: &Context, params: &FixTodoParams) -> Result<(), Box<dyn std::error::Error>> {
@@ -81,7 +81,7 @@ pub fn fix_todo(_ctx: &Context, params: &FixTodoParams) -> Result<(), Box<dyn st
     let total = analysis.todo_count + analysis.bugs_count;
     if analysis.changes.is_empty() {
         info!(
-            "{total} {} checked ({} Todo, {} Bugs) — already normalized",
+            "{total} {} checked ({} Todo, {} Bugs), already normalized",
             todo_helpers::entry_word(total),
             analysis.todo_count,
             analysis.bugs_count
@@ -90,7 +90,7 @@ pub fn fix_todo(_ctx: &Context, params: &FixTodoParams) -> Result<(), Box<dyn st
         return Ok(());
     }
 
-    // Print the corrected line of every changed entry — the
+    // Print the corrected line of every changed entry: the
     // output is the result, not a description of it.
     let mut last_section: Option<Section> = None;
     for c in &analysis.changes {
@@ -108,13 +108,13 @@ pub fn fix_todo(_ctx: &Context, params: &FixTodoParams) -> Result<(), Box<dyn st
         std::fs::write(&params.file, &analysis.fixed)
             .map_err(|e| format!("cannot write {}: {e}", params.file.display()))?;
         info!(
-            "{n} {} renumbered — wrote {}",
+            "{n} {} renumbered, wrote {}",
             todo_helpers::entry_word(n),
             params.file.display()
         );
     } else {
         info!(
-            "{n} {} to renumber — re-run with --no-dry-run to apply",
+            "{n} {} to renumber, re-run with --no-dry-run to apply",
             todo_helpers::entry_word(n)
         );
     }

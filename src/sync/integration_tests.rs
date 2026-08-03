@@ -31,7 +31,7 @@ use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
 /// - `scope_to_repos` maps each `Scope` shape to the right
 ///   absolute path(s) under the fixture.
 ///
-/// Pure check on the resolver chain — does not invoke `sync()`
+/// Pure check on the resolver chain: does not invoke `sync()`
 /// itself, since that walks `std::env::current_dir()` and parallel
 /// `cargo test` makes cwd mutation unsafe.
 #[test]
@@ -71,14 +71,14 @@ fn resolver_chain_against_init_repo_local() {
         vec![fx.bot.clone()]
     );
 
-    // sync_repos accepts the resolved list and reports up-to-date
-    // — the resolver's output is shaped the way sync expects.
+    // sync_repos accepts the resolved list and reports up-to-date:
+    // the resolver's output is shaped the way sync expects.
     let resolved = scope_to_repos(&Scope(vec![Side::Work, Side::Bot]), Some(&fx.work)).unwrap();
     sync_repos(&mut test_ctx(), &resolved, &default_params())
         .expect("sync should succeed on resolved repos");
 }
 
-/// Default sync params (the normal atomic sync — no flags).
+/// Default sync params (the normal atomic sync, no flags).
 ///
 /// Integration tests pass explicit repo paths through `sync_repos`
 /// directly, so `repo` / `scope` stay `None` here and the CLI-side
@@ -124,7 +124,7 @@ fn has(repo: &Path, revset: &str) -> bool {
 /// Add a local-only commit on `main` in `repo` (not pushed), then
 /// restore `@` to an empty child so pre-flight still passes.
 ///
-/// Sequence: write file → describe `@` → advance `main` to `@` →
+/// Sequence: write file -> describe `@` -> advance `main` to `@` ->
 /// create a fresh empty `@` above it.
 fn add_local_commit(repo: &Path, file: &str, content: &str, msg: &str) {
     fs::write(repo.join(file), content).expect("write local file");
@@ -171,7 +171,7 @@ fn push_from_clone(
     cid(&workdir, "main")
 }
 
-/// Scenario 1: fresh fixture, nothing to do — `sync` leaves both
+/// Scenario 1: fresh fixture, nothing to do: `sync` leaves both
 /// repos untouched and clears the persisted snapshots on success
 /// (a stale file must not become a later revert target).
 #[test]
@@ -196,7 +196,7 @@ fn sync_up_to_date() {
 /// trailing session writes in `.claude`) when there's nothing new on
 /// the remote. `@-` is already the main tip, so reposition no-ops:
 /// `@` keeps its chid and the trailing writes stay in the working
-/// copy — no sibling head, no `jj new` churn.
+/// copy, no sibling head, no `jj new` churn.
 #[test]
 fn sync_bot_noop_when_up_to_date() {
     let fx = Fixture::new("bot-noop-uptodate");
@@ -209,7 +209,7 @@ fn sync_bot_noop_when_up_to_date() {
     sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     // main didn't move.
     assert_eq!(cid(&fx.bot, "main"), pre_main, "main should not move");
-    // @ is the same change — no jj new, no abandoned chid.
+    // @ is the same change, no jj new, no abandoned chid.
     let post_at = jj_ok(
         &fx.bot,
         &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
@@ -270,7 +270,7 @@ fn sync_bot_jj_new_when_main_moves() {
 /// Scenario 2c: the bot repo refuses to reposition when `@-` is
 /// not on main. A local bot commit ahead of main (main left
 /// behind) puts `@-` off main's line, so `jj new main` would strand
-/// it — sync errors instead.
+/// it, sync errors instead.
 #[test]
 fn sync_bot_errors_when_at_parent_off_main() {
     let fx = Fixture::new("bot-off-main");
@@ -294,7 +294,7 @@ fn sync_bot_errors_when_at_parent_off_main() {
 /// sync stops with the conflicted state left in place for
 /// inspection (no auto-revert) and the persisted snapshot still
 /// present as the manual revert target. Trailing content stays on
-/// disk — the rebase carries `@` along, it never rewrites the
+/// disk: the rebase carries `@` along, it never rewrites the
 /// working-copy file.
 #[test]
 fn sync_conflict_stops_and_keeps_state() {
@@ -357,7 +357,7 @@ fn sync_ahead_is_noop() {
     assert_eq!(cid(&fx.work, "main"), ahead_head);
 }
 
-/// Scenario 4: clean divergence — both sides advance main on
+/// Scenario 4: clean divergence: both sides advance main on
 /// different files; sync rebases local onto remote and the result
 /// is conflict-free.
 #[test]
@@ -382,7 +382,7 @@ fn sync_diverged_rebases() {
         remote_head,
         "main@origin should match pushed remote commit"
     );
-    // Local main is ahead of remote — rebased local commit sits on top.
+    // Local main is ahead of remote: rebased local commit sits on top.
     let main_after = cid(&fx.work, "main");
     assert_ne!(
         main_after, remote_head,
@@ -419,7 +419,7 @@ fn sync_diverged_rebases() {
     assert!(conflicts.trim().is_empty(), "no conflicts expected");
 }
 
-/// Scenario 5: conflicting divergence — both sides modify the
+/// Scenario 5: conflicting divergence: both sides modify the
 /// same path differently. Rebase produces conflicts; sync stops
 /// with the conflicted state in place (no auto-revert) and the
 /// persisted snapshots as manual revert targets.
@@ -458,8 +458,8 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
         has(&fx.work, "conflicts()"),
         "conflicted commits left in place for inspection"
     );
-    // Every repo's persisted snapshot survives as the revert target
-    // — including .claude, which synced cleanly before the failure.
+    // Every repo's persisted snapshot survives as the revert target:
+    // including .claude, which synced cleanly before the failure.
     let st_work = state::load(&fx.work)
         .expect("load work sync state")
         .expect("work state present after failure");
@@ -477,7 +477,7 @@ fn sync_diverged_conflict_stops_and_keeps_state() {
     );
 }
 
-/// Scenario 5b: `vc-x1 revert` after a failed sync — the full
+/// Scenario 5b: `vc-x1 revert` after a failed sync: the full
 /// inspect-then-undo loop. Same conflict fixture as scenario 5;
 /// `revert_repos` restores every repo from its persisted snapshot
 /// (including `.claude`, which synced cleanly before the failure),
@@ -528,7 +528,7 @@ fn revert_restores_after_failed_sync() {
         state::load(&fx.bot).expect("load bot state").is_none(),
         "bot state cleared by revert"
     );
-    // Nothing left to revert — explicit error, not a silent no-op.
+    // Nothing left to revert: explicit error, not a silent no-op.
     let err = crate::revert::revert_repos(&fx.repos())
         .unwrap_err()
         .to_string();
@@ -603,7 +603,7 @@ fn sync_work_skips_rebase_without_flag() {
     );
 }
 
-/// Scenario 9: two independent clones of the same remote — the
+/// Scenario 9: two independent clones of the same remote: the
 /// "two machines" shape. Clone B is made first (its `main@origin`
 /// is the pre-push head), clone A then commits and pushes; sync on
 /// clone B must fast-forward B's `main` to A's pushed head and
@@ -644,7 +644,7 @@ fn sync_clone_ffs_main_after_peer_push() {
     );
 }
 
-/// Scenario 10: `--bookmark` is work-repo-only — the bot repo
+/// Scenario 10: `--bookmark` is work-repo-only: the bot repo
 /// pins `main`. Syncing a feature bookmark while the bot remote
 /// advances `main` must still fast-forward the bot repo's `main`
 /// and reposition its `@`, and must not touch a `feature` bookmark

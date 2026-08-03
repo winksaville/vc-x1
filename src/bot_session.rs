@@ -1,8 +1,8 @@
 //! The `bot-session` subcommand: display a Claude Code session
 //! transcript (`.jsonl`) as a readable conversation.
 //!
-//! Output is a set of *items* — headers, user, assistant, tool,
-//! thinking, results, meta, summary — each toggled by `--<item>` /
+//! Output is a set of *items* (headers, user, assistant, tool,
+//! thinking, results, meta, summary) each toggled by `--<item>` /
 //! `--no-<item>` flags (last one wins), with `--all` / `--none` as
 //! bulk bases. The default set (headers, user, assistant, tool,
 //! summary) can be replaced by the user config's
@@ -28,7 +28,7 @@ pub(crate) const RESULT_LINE_CAP: usize = 10;
 /// Default first-column width in the `--fields` /
 /// `--unknown` / `--per-line` views.
 ///
-/// - 68 aligns the type column for ~99% of observed key paths —
+/// - 68 aligns the type column for ~99% of observed key paths:
 ///   every structural key except a long tail of
 ///   `snapshot.trackedFileBackups.<absolute path>.*` keys, whose
 ///   embedded absolute paths can be arbitrarily long and so are
@@ -192,12 +192,12 @@ pub struct BotSessionArgs {
     )]
     pub none: bool,
 
-    /// Limit output to a slice of the file's source JSONL lines
-    /// — the same unit in every view (Note: Index is 0-based):
-    ///   N    — first N lines (0 = summary only)
-    ///   -N   — last N lines
-    ///   I,C  — C lines starting at Index I
-    ///   I,-C — C lines ending at Index I
+    /// Limit output to a slice of the file's source JSONL lines:
+    /// the same unit in every view (Note: Index is 0-based):
+    ///   N    : first N lines (0 = summary only)
+    ///   -N   : last N lines
+    ///   I,C  : C lines starting at Index I
+    ///   I,-C : C lines ending at Index I
     /// The conversation view renders the entries in the slice,
     /// with elision markers at cut points; the summary always
     /// prints.
@@ -228,7 +228,7 @@ pub struct BotSessionArgs {
     pub fields: bool,
 
     /// Like --fields but only fields the typed layer does not
-    /// consume — the unmodeled / new surface
+    /// consume: the unmodeled / new surface
     #[arg(long, help_heading = "Alternate views", conflicts_with = "raw")]
     pub unknown: bool,
 
@@ -512,7 +512,7 @@ pub fn bot_session(
 ///   map to 0-based Index), matching what jq/editors see.
 /// - Parseable lines pretty-print; anything else (malformed,
 ///   truncated) passes through verbatim.
-/// - No summary, no elision markers — the output is the data.
+/// - No summary, no elision markers: the output is the data.
 fn raw_view(params: &BotSessionParams) -> Result<(), Box<dyn std::error::Error>> {
     let text = std::fs::read_to_string(&params.file)
         .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
@@ -586,7 +586,7 @@ fn fields_view(
             col_width,
         );
     }
-    // (entry type, path) → aggregate, sorted for stable output.
+    // (entry type, path) -> aggregate, sorted for stable output.
     let mut agg: std::collections::BTreeMap<(String, String), FieldAgg> =
         std::collections::BTreeMap::new();
     let mut type_counts: std::collections::BTreeMap<String, usize> =
@@ -709,7 +709,8 @@ fn per_line_view(
                         continue;
                     }
                     paths += 1;
-                    let value = sample_value(v).unwrap_or_else(|| kind_name(v).to_string()); // OK: obvious
+                    // OK: obvious
+                    let value = sample_value(v).unwrap_or_else(|| kind_name(v).to_string());
                     info!(
                         "  {:<width$} {:<9} {}",
                         path,
@@ -781,9 +782,9 @@ struct WorkspaceBotSession {
 /// Read `[bot-session]` from the workspace's `.vc-config.toml`,
 /// when cwd is inside a workspace.
 ///
-/// - No workspace, no file, or no key → all fields `None`.
+/// - No workspace, no file, or no key -> all fields `None`.
 /// - Unreadable/malformed file, or a present-but-unparseable
-///   scalar → error (it exists but can't be used; silence would
+///   scalar -> error (it exists but can't be used; silence would
 ///   mask a real config problem).
 fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Error>> {
     let Some(root) = crate::common::find_workspace_root() else {
@@ -820,7 +821,7 @@ fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Er
 
 /// Resolve the effective item set from toggles + config.
 ///
-/// - Base: `--all` → `ALL`; `--none` → `NONE`; else the config
+/// - Base: `--all` -> `ALL`; `--none` -> `NONE`; else the config
 ///   list when present; else `BUILTIN`.
 /// - Each per-item toggle then overrides its field.
 fn resolve_items(t: &ItemToggles, config: Option<&str>) -> Result<ItemSet, String> {
@@ -903,7 +904,7 @@ struct RenderStats {
     skipped_other: usize,
 }
 
-/// Identity of the turn a rendered line belongs to — used to
+/// Identity of the turn a rendered line belongs to: used to
 /// decide when to emit a new turn header.
 type TurnKey = (String, Option<String>);
 
@@ -925,7 +926,7 @@ fn render(
     let mut turn: Option<TurnKey> = None;
 
     if start > 0 {
-        lines.push(format!("… ({start} source lines skipped)"));
+        lines.push(format!("... ({start} source lines skipped)"));
     }
     for e in t
         .entries
@@ -1046,7 +1047,7 @@ fn render(
         }
     }
     if end < total {
-        lines.push(format!("… ({} source lines skipped)", total - end));
+        lines.push(format!("... ({} source lines skipped)", total - end));
     }
     (lines, stats)
 }
@@ -1097,7 +1098,7 @@ fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool, cap: usize) 
                 lines.push(format!("    {l}"));
             }
             if cap != 0 && body.len() > cap {
-                lines.push(format!("    … (+{} lines)", body.len() - cap));
+                lines.push(format!("    ... (+{} lines)", body.len() - cap));
             }
         }
     }
@@ -1106,9 +1107,9 @@ fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool, cap: usize) 
 /// One-line gist of a tool_use: tool name plus the most
 /// informative slice of its input.
 ///
-/// - `Bash` → first line of `command`.
-/// - `Read`/`Write`/`Edit` → `file_path`.
-/// - Fallback → compact `key=value` pairs of string inputs.
+/// - `Bash` -> first line of `command`.
+/// - `Read`/`Write`/`Edit` -> `file_path`.
+/// - Fallback -> compact `key=value` pairs of string inputs.
 /// - Always truncated to `GIST_CHAR_CAP` chars.
 fn tool_use_gist(name: &str, input: &Value) -> String {
     let detail = match name {
@@ -1133,21 +1134,21 @@ fn tool_use_gist(name: &str, input: &Value) -> String {
     truncate_chars(&format!("{name}: {detail}"), GIST_CHAR_CAP)
 }
 
-/// Truncate to `max` chars, appending `…` when cut
+/// Truncate to `max` chars total, replacing the tail with `...` when cut
 /// (char-based to stay safe on multibyte text).
 fn truncate_chars(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
     } else {
-        let cut: String = s.chars().take(max).collect();
-        format!("{cut}…")
+        let cut: String = s.chars().take(max.saturating_sub(3)).collect();
+        format!("{cut}...")
     }
 }
 
 /// "YYYY-MM-DD HH:MM:SSZ" slice of an ISO-8601 UTC timestamp;
 /// "" when absent. Observed transcript timestamps are always
 /// UTC (trailing Z, all 56k lines to date) and the Z is kept so
-/// the display names its zone — but that's observation, not a
+/// the display names its zone, but that's observation, not a
 /// documented guarantee, so a timestamp in any other shape
 /// (offset form, too short) passes through verbatim rather than
 /// being sliced and mislabeled.
@@ -1164,8 +1165,8 @@ fn short_time(ts: Option<&str>) -> String {
 
 /// Parse a `--lines` spec string (see the flag's help).
 ///
-/// - `N` / `-N` → `Single`; `I,C` → `Pair` (I >= 0).
-/// - A zero count yields an empty slice — summary only.
+/// - `N` / `-N` -> `Single`; `I,C` -> `Pair` (I >= 0).
+/// - A zero count yields an empty slice: summary only.
 /// - Anything else is an error naming the bad piece.
 fn parse_lines_spec(s: &str) -> Result<LinesSpec, String> {
     let parse = |part: &str| -> Result<i64, String> {
@@ -1208,7 +1209,7 @@ fn line_bounds(spec: &LinesSpec, len: usize) -> (usize, usize) {
 /// Compose the trailing summary line, omitting zero clauses.
 ///
 /// `sliced` is `Some((selected, total))` when `--lines` cut the
-/// input — the stats then describe only the selected source
+/// input: the stats then describe only the selected source
 /// lines, and a trailing clause names the slice.
 fn summary_line(stats: &RenderStats, malformed: usize, sliced: Option<(usize, usize)>) -> String {
     let mut parts = vec![format!("{} turns shown", stats.shown)];

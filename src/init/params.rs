@@ -19,15 +19,15 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `target`: the TARGET positional argument (URL, owner/name,
 ///   path, or bare NAME).
 /// - `name`: optional `NAME` positional override.
-/// - `account`: `--account` value (None ⇒ default account chain).
+/// - `account`: `--account` value (None => default account chain).
 /// - `repo`: `--repo` value parsed into a `RepoSelector`.
-/// - `por`: `--por` resolved — `true` for plain single repo,
+/// - `por`: `--por` resolved, `true` for plain single repo,
 ///   `false` (default) for dual workspace.
 /// - `private`: `--private`.
 /// - `dry_run`: `--dry-run`.
 /// - `push_retry`: `--push-retries` / `--push-retry-delay`.
 /// - `use_template`: `--use-template` value.
-/// - `config`: resolved `--config` value (None ⇒ canned write).
+/// - `config`: resolved `--config` value (None => canned write).
 /// - `create_symlink`: whether `init` should create the
 ///   `~/.claude/projects/` symlink for dual runs (production
 ///   path = true; test fixtures suppress with false).

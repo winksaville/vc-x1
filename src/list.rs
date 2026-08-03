@@ -1,4 +1,4 @@
-//! `list` subcommand — list commits in a jj repo, one per line:
+//! `list` subcommand: list commits in a jj repo, one per line:
 //! changeID + ochid (padded) + bookmarks + title, the anchor bolded.
 //!
 //! - `ListArgs`: clap surface; flattens
@@ -6,7 +6,7 @@
 //!   for the ochid column.
 //! - `ListParams`: clap-free; embeds `common::CommonParams` + `width`.
 //!   Built via `TryFrom<&ListArgs>` at the binary edge.
-//! - `list(&Context, &ListParams)`: the op — `for_each_repo` +
+//! - `list(&Context, &ListParams)`: the op, `for_each_repo` +
 //!   `format_commit_with_ochid`.
 
 use clap::Args;
@@ -18,7 +18,7 @@ use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 use crate::subcommand::SubcommandRunner;
 
-/// CLI args for `list` — the shared read-only commit-query args plus
+/// CLI args for `list`: the shared read-only commit-query args plus
 /// the ochid column width.
 #[derive(Args, Debug)]
 pub struct ListArgs {

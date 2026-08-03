@@ -1,12 +1,12 @@
-//! `--push-retries` + `--push-retry-delay` — retry policy for
+//! `--push-retries` + `--push-retry-delay`: retry policy for
 //! the post-create `git push` (waits out remote provisioner
 //! propagation lag, e.g. GitHub's async repo creation).
 //! See [options_flags](README.md) for shared architecture.
 
 use clap::Args;
 
-/// `--push-retries` / `--push-retry-delay` leaf (Options — both
-/// fields are non-boolean domain) — see
+/// `--push-retries` / `--push-retry-delay` leaf (Options, both
+/// fields are non-boolean domain): see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone)]
 pub struct PushRetryOptions {

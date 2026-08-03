@@ -1,11 +1,11 @@
-//! `chid` subcommand — print the short change ID of each commit in a
+//! `chid` subcommand: print the short change ID of each commit in a
 //! revision range, one per line (script-friendly output).
 //!
 //! - `ChidArgs`: clap surface; flattens
 //!   `options_flags::common_args::CommonArgs`.
 //! - `ChidParams`: clap-free; embeds `common::CommonParams`. Built
 //!   via `TryFrom<&ChidArgs>` at the binary edge.
-//! - `chid(&Context, &ChidParams)`: the op — `for_each_repo` + print
+//! - `chid(&Context, &ChidParams)`: the op, `for_each_repo` + print
 //!   `format_chid`.
 
 use clap::Args;
@@ -17,7 +17,7 @@ use crate::context::Context;
 use crate::options_flags::common_args::CommonArgs;
 use crate::subcommand::SubcommandRunner;
 
-/// CLI args for `chid` — just the shared read-only commit-query args.
+/// CLI args for `chid`: just the shared read-only commit-query args.
 #[derive(Args, Debug)]
 pub struct ChidArgs {
     #[command(flatten)]
@@ -220,7 +220,7 @@ mod tests {
             _ => panic!("expected Chid"),
         };
         let params = ChidParams::try_from(&args).unwrap();
-        // default: no flags → repos resolves to [.]
+        // default: no flags -> repos resolves to [.]
         assert_eq!(params.common.repos, vec![PathBuf::from(".")]);
         // default revision @
         assert_eq!(params.common.spec.rev, "@");

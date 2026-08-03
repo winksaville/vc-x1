@@ -1,6 +1,6 @@
 //! The `fix-desc` subcommand: scan a revision range and repair
 //! each commit's `ochid:` trailer against the cross-referenced
-//! repo — fixing wrong prefixes/lengths, adding missing trailers
+//! repo: fixing wrong prefixes/lengths, adding missing trailers
 //! (`--add-missing`), or substituting a fallback value.
 //!
 //! Dry-run by default; `--no-dry-run` actually rewrites
@@ -98,7 +98,7 @@ pub struct FixDescParams {
 
 impl From<&FixDescArgs> for FixDescParams {
     /// Convert clap-derived `FixDescArgs` into the flat
-    /// `FixDescParams` (total — every field copies straight over).
+    /// `FixDescParams` (total: every field copies straight over).
     fn from(a: &FixDescArgs) -> Self {
         Self {
             pos_rev: a.pos_rev.clone(),
@@ -121,7 +121,7 @@ impl SubcommandRunner for FixDescArgs {
     type Params = FixDescParams;
 
     /// Delegate to the existing `From<&FixDescArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(FixDescParams::from(self))
     }
@@ -145,7 +145,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
 
     // Resolve other repo: --other-repo flag, or scope-aware
     // resolution from the workspace config. A single-repo / POR
-    // workspace has no bot side — nothing to repair against, so
+    // workspace has no bot side, nothing to repair against, so
     // the command no-ops instead of erroring (por equalization;
     // topology from `default_scope`, not a flag).
     let other_repo_path = match &params.other_repo {
@@ -153,7 +153,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
         None => match common::bot_repo_path(&params.repo)? {
             Some(p) => p,
             None => {
-                info!("fix-desc: single-repo workspace (no bot side) — nothing to fix");
+                info!("fix-desc: single-repo workspace (no bot side), nothing to fix");
                 return Ok(());
             }
         },
@@ -224,7 +224,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
                 }
                 continue;
             }
-            // No ochid trailer — try to infer from the other repo
+            // No ochid trailer: try to infer from the other repo
             match find_matching_commit(&commit, &other_workspace, &other_repo)? {
                 TitleMatch::NoTitle => {
                     skipped += 1;
@@ -260,14 +260,15 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
                     skipped += 1;
                     if !params.no_dry_run {
                         info!(
-                            "skip {change_short}  {display_title}  (no matching title in other repo)"
+                            "skip {change_short}  {display_title}  (no matching title in \
+                             other repo)"
                         );
                     }
                     continue;
                 }
             }
         } else {
-            // No ochid trailer — nothing to fix
+            // No ochid trailer: nothing to fix
             skipped += 1;
             if !params.no_dry_run {
                 info!("skip {change_short}  {display_title}  (no ochid trailer)");
@@ -352,7 +353,8 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
                 errors += 1;
                 info!(
                     "err  {change_short}  {display_title}  (ID not found, ochid: {})",
-                    fixed_ochid.as_deref().unwrap_or("?") // OK: "?" placeholder when ochid unresolved
+                    // OK: "?" placeholder when ochid unresolved
+                    fixed_ochid.as_deref().unwrap_or("?")
                 );
                 continue;
             }

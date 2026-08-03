@@ -6,9 +6,9 @@
 //! - `tests/common/mod.rs` (integration-test crate) via
 //!   `#[path = "../../src/test_tmp_root.rs"] mod test_tmp_root;`.
 //!
-//! Single source of truth. Keep this file **dependency-free** —
-//! pure `std::env` + `std::path::PathBuf` — so it compiles in
-//! both contexts. No `crate::…` imports; the integration-test
+//! Single source of truth. Keep this file **dependency-free**
+//! (pure `std::env` + `std::path::PathBuf`) so it compiles in
+//! both contexts. No `crate::...` imports; the integration-test
 //! crate has a different crate root and would fail to resolve
 //! them.
 //!
@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 /// Resolve the parent directory for test tempdirs.
 ///
-/// Priority: `$VC_X1_TEST_TMPDIR` (if set and non-empty) →
+/// Priority: `$VC_X1_TEST_TMPDIR` (if set and non-empty) ->
 /// `std::env::temp_dir()` (= `$TMPDIR` on Unix, else `/tmp`).
 pub fn resolve_tmp_root() -> PathBuf {
     if let Ok(p) = std::env::var("VC_X1_TEST_TMPDIR")
@@ -52,14 +52,14 @@ pub fn should_keep_tempdir() -> bool {
 /// Pure-policy form of `should_keep_tempdir`. Takes the env-var
 /// value (`None` if unset, `Some("")` if set-but-empty) and
 /// returns whether to preserve. Factored out so the decision is
-/// unit-testable without manipulating global env state — env
+/// unit-testable without manipulating global env state: env
 /// mutation is not thread-safe and would race with other tests
 /// reading `VC_X1_TEST_KEEP` from `Drop`.
 fn keep_decision(env_value: Option<&str>) -> bool {
     match env_value {
         None => false,     // env var not set
         Some("") => false, // env var set but explicitly empty
-        Some(_) => true,   // any non-empty value → preserve
+        Some(_) => true,   // any non-empty value -> preserve
     }
 }
 
@@ -67,13 +67,13 @@ fn keep_decision(env_value: Option<&str>) -> bool {
 mod tests {
     use super::*;
 
-    /// `$VC_X1_TEST_KEEP` unset → no preserve.
+    /// `$VC_X1_TEST_KEEP` unset -> no preserve.
     #[test]
     fn keep_decision_unset_is_false() {
         assert!(!keep_decision(None));
     }
 
-    /// `$VC_X1_TEST_KEEP=""` → no preserve. Empty-string is the
+    /// `$VC_X1_TEST_KEEP=""` -> no preserve. Empty-string is the
     /// "set but explicitly disabled" form (matches how env vars
     /// are unset on some shells via `VAR=`).
     #[test]
@@ -81,8 +81,8 @@ mod tests {
         assert!(!keep_decision(Some("")));
     }
 
-    /// Any non-empty value → preserve. Aligns with the conventional
-    /// env-var-as-flag pattern (`VAR=1`, `VAR=yes`, `VAR=true` —
+    /// Any non-empty value -> preserve. Aligns with the conventional
+    /// env-var-as-flag pattern (`VAR=1`, `VAR=yes`, `VAR=true`,
     /// or even `VAR=0`, since the policy treats *any* non-empty
     /// value as "set").
     #[test]

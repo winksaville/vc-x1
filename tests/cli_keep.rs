@@ -1,7 +1,7 @@
 //! CLI subprocess test: `$VC_X1_TEST_KEEP` preserves the fixture
 //! across `Drop`.
 //!
-//! Single-test file by design — env-var writes are not thread-safe
+//! Single-test file by design: env-var writes are not thread-safe
 //! (`std::env::set_var` is `unsafe` since Rust 1.83) and would race
 //! with sibling tests reading `$VC_X1_TEST_KEEP` from their own
 //! `Drop` impls. Cargo compiles each `tests/*.rs` as its own
@@ -50,7 +50,7 @@ fn keep_env_preserves_fixture_across_drop() {
     // Clean up manually since Drop didn't.
     std::fs::remove_dir_all(&preserved_path).expect("cleanup preserved fixture");
 
-    // Restore env state. SAFETY: same as above — single-test binary.
+    // Restore env state. SAFETY: same as above, single-test binary.
     unsafe {
         std::env::remove_var("VC_X1_TEST_KEEP");
     }

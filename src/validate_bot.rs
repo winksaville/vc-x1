@@ -8,9 +8,9 @@
 //!   unnoticed for 8 cycles).
 //! - Also verifies `main`'s remote refs are tracked.
 //! - Exits non-zero on any finding and fixes nothing (decided
-//!   2026-07-15: no automatic fixing) — resolve with
+//!   2026-07-15: no automatic fixing), resolve with
 //!   `vc-x1 squash-push -R <bot-repo>`.
-//! - Cheap: two `jj` lookups, no cargo steps — cheap enough for
+//! - Cheap: two `jj` lookups, no cargo steps, cheap enough for
 //!   routine use (reacquaint, timers, scripts).
 
 use std::path::PathBuf;
@@ -21,14 +21,14 @@ use log::{debug, info};
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 
-/// The bot repo's pinned bookmark — all bot-repo work publishes to
+/// The bot repo's pinned bookmark: all bot-repo work publishes to
 /// `main` (mirrors push's `BOT_BOOKMARK`).
 const BOT_BOOKMARK: &str = "main";
 
 /// Check the bot repo's at-rest invariant: `main` published at
 /// origin (matches `main@origin`) and its remote refs tracked.
 ///
-/// Read-only; exits non-zero on a mismatch. Fixes nothing — resolve
+/// Read-only; exits non-zero on a mismatch. Fixes nothing, resolve
 /// with `vc-x1 squash-push -R <bot-repo>`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
@@ -37,7 +37,7 @@ pub struct ValidateBotArgs {
     pub repo: Option<PathBuf>,
 }
 
-/// Per-invocation validate-bot inputs — the clap-free shape the op
+/// Per-invocation validate-bot inputs: the clap-free shape the op
 /// works against.
 #[derive(Debug)]
 pub struct ValidateBotParams {
@@ -71,7 +71,7 @@ impl SubcommandRunner for ValidateBotArgs {
         ValidateBotParams::try_from(self)
     }
 
-    /// Run the `validate-bot` op (`ctx` unused — the op is fully
+    /// Run the `validate-bot` op (`ctx` unused: the op is fully
     /// parameterized by `Params`).
     fn run(_ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         validate_bot(params)

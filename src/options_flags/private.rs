@@ -1,9 +1,9 @@
-//! `--private` — create private repos on the remote provisioner.
+//! `--private`: create private repos on the remote provisioner.
 //! See [options_flags](README.md) for shared architecture.
 
 use clap::Args;
 
-/// `--private` leaf (Flag — boolean domain) — see
+/// `--private` leaf (Flag, boolean domain): see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct PrivateFlag {

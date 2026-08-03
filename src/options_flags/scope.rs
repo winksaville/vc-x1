@@ -1,10 +1,10 @@
-//! `--scope` — which side(s) of a dual workspace a command
+//! `--scope`: which side(s) of a dual workspace a command
 //! operates on. See [options_flags](README.md) for shared
 //! architecture.
 //!
-//! - `Side` is the role enum — `Work` or `Bot`; the CLI
+//! - `Side` is the role enum: `Work` or `Bot`; the CLI
 //!   keywords that name them are `work` and `bot`.
-//! - `Scope` is a newtype over `Vec<Side>` — the parsed role
+//! - `Scope` is a newtype over `Vec<Side>`: the parsed role
 //!   set (`work`, `bot`, `work,bot`, `bot,work`).
 //! - Path-based single-repo operation lives on `-R/--repo`,
 //!   not in `--scope`; `Scope` carries role information only.
@@ -13,15 +13,15 @@ use clap::ValueEnum;
 
 /// One side of a dual-repo workspace.
 ///
-/// - `Work` — the primary work repo.
-/// - `Bot` — the bot repo (typically at `.claude/`).
+/// - `Work`: the primary work repo.
+/// - `Bot`: the bot repo (typically at `.claude/`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Side {
     Work,
     Bot,
 }
 
-/// Parsed `--scope` value — the requested role set of a
+/// Parsed `--scope` value: the requested role set of a
 /// dual-repo workspace.
 ///
 /// Newtype over `Vec<Side>`; the vector preserves the order the
@@ -31,8 +31,8 @@ pub struct Scope(pub Vec<Side>);
 
 /// Parse a `--scope` value string.
 ///
-/// Accepts exactly the four role-keyword forms — `work`, `bot`,
-/// `work,bot`, `bot,work` — preserving order. Anything else (an
+/// Accepts exactly the four role-keyword forms (`work`, `bot`,
+/// `work,bot`, `bot,work`) preserving order. Anything else (an
 /// empty string, a bare name, duplicate or out-of-set
 /// combinations, a path) is an error: path-based single-repo
 /// operation uses `-R/--repo`, not `--scope`.
@@ -62,18 +62,18 @@ impl Scope {
         self.0.contains(&Side::Bot)
     }
 
-    /// Exactly the work side — a single-side dual-repo op.
+    /// Exactly the work side: a single-side dual-repo op.
     pub fn is_work_only(&self) -> bool {
         self.has_work() && !self.has_bot()
     }
 
-    /// Exactly the bot side — a single-side dual-repo op.
+    /// Exactly the bot side: a single-side dual-repo op.
     #[allow(dead_code)]
     pub fn is_bot_only(&self) -> bool {
         !self.has_work() && self.has_bot()
     }
 
-    /// Both sides — a full dual-repo op.
+    /// Both sides: a full dual-repo op.
     pub fn is_both(&self) -> bool {
         self.has_work() && self.has_bot()
     }
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn both_bot_then_work() {
-        // Order doesn't matter — contains-based checks.
+        // Order doesn't matter: contains-based checks.
         let s = Scope(vec![Side::Bot, Side::Work]);
         assert!(s.is_both());
     }
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn parse_path_form_errors() {
-        // Path forms are no longer a `--scope` value — `-R/--repo`
+        // Path forms are no longer a `--scope` value: `-R/--repo`
         // handles single-repo operation. The error points there.
         let err = parse_scope("./foo").unwrap_err();
         assert!(err.contains("-R/--repo"), "got: {err}");

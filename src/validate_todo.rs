@@ -5,7 +5,7 @@
 //!
 //! Read-only diagnostic; exits non-zero if any entry needs
 //! fixing. The check half of the `validate-todo` / `fix-todo`
-//! pair — `fix-todo` is the rewrite.
+//! pair: `fix-todo` is the rewrite.
 
 use std::path::PathBuf;
 
@@ -33,7 +33,7 @@ pub struct ValidateTodoParams {
 
 impl From<&ValidateTodoArgs> for ValidateTodoParams {
     /// Convert clap-derived `ValidateTodoArgs` into the flat
-    /// `ValidateTodoParams` (total — the single field copies over).
+    /// `ValidateTodoParams` (total, the single field copies over).
     fn from(a: &ValidateTodoArgs) -> Self {
         Self {
             file: a.file.clone(),
@@ -59,7 +59,7 @@ impl SubcommandRunner for ValidateTodoArgs {
 /// report each `## Todo` / `## Bugs` entry whose number or
 /// continuation indent is off; errors if any are found.
 ///
-/// `ctx` is unused — validate-todo reads a plain file and neither
+/// `ctx` is unused: validate-todo reads a plain file and neither
 /// the user config nor the `--log` path applies; it's present for
 /// the uniform subcommand-layer signature.
 pub fn validate_todo(
@@ -88,7 +88,7 @@ pub fn validate_todo(
     let n = analysis.changes.len();
     if n == 0 {
         info!(
-            "{total} {} checked ({} Todo, {} Bugs) — all sequential",
+            "{total} {} checked ({} Todo, {} Bugs), all sequential",
             todo_helpers::entry_word(total),
             analysis.todo_count,
             analysis.bugs_count
@@ -97,14 +97,14 @@ pub fn validate_todo(
         Ok(())
     } else {
         info!(
-            "{total} {} checked ({} Todo, {} Bugs) — {n} to fix",
+            "{total} {} checked ({} Todo, {} Bugs), {n} to fix",
             todo_helpers::entry_word(total),
             analysis.todo_count,
             analysis.bugs_count
         );
         debug!("validate-todo: exit with issues");
         Err(format!(
-            "{n} todo {} to fix — run `vc-x1 fix-todo`",
+            "{n} todo {} to fix, run `vc-x1 fix-todo`",
             todo_helpers::entry_word(n)
         )
         .into())

@@ -4,7 +4,7 @@
 //! fixtures (bare-git remotes + colocated jj repos under a
 //! unique tempdir via `crate::test_helpers::Fixture`).
 //!
-//! Most tests use `--from message` to skip `preflight` — its
+//! Most tests use `--from message` to skip `preflight`: its
 //! `sync --check` step re-invokes `current_exe()`, which under
 //! `cargo test` is the test harness, not the CLI binary. Most
 //! also use `--no-squash-push`
@@ -112,7 +112,7 @@ fn push_empty_work_at_skips_commit_work() {
     )
     .expect("push should succeed");
 
-    // The hand-made commit is what the bookmark publishes — no
+    // The hand-made commit is what the bookmark publishes: no
     // empty duplicate carrying the supplied title on top of it.
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: committed by hand");
     assert_eq!(chid(&fx.work, "main"), hand_chid);
@@ -172,7 +172,7 @@ fn push_happy_bot_dirty() {
 
 /// The real `squash-push-bot` stage: a full push (no
 /// `--no-squash-push`) squashes `.claude`'s tail and pushes `main`
-/// to the bot repo's origin in-process — synchronously, no
+/// to the bot repo's origin in-process, synchronously, no
 /// detached child (the 0.68.1-diagnosed loss).
 #[test]
 fn push_squash_push_bot_inline_pushes_bot_main() {
@@ -199,9 +199,9 @@ fn push_squash_push_bot_inline_pushes_bot_main() {
 }
 
 /// A tail (session write landing after `commit-bot`) is
-/// folded into the bot commit by the stage's squash —
-/// preserving the commit's change id so work-side `ochid:`
-/// trailers stay valid — and pushed.
+/// folded into the bot commit by the stage's squash
+/// (preserving the commit's change id so work-side `ochid:`
+/// trailers stay valid) and pushed.
 #[test]
 fn push_squash_push_bot_folds_micro_tail() {
     let fx = Fixture::new("push-sp-tail");
@@ -251,7 +251,7 @@ fn push_squash_push_bot_folds_micro_tail() {
 
 /// A feature-bookmark push pins the bot repo to `main`: the
 /// work repo grows + pushes `feature`, while `.claude` advances and
-/// keeps only `main` — no `feature` bookmark may appear there.
+/// keeps only `main`: no `feature` bookmark may appear there.
 #[test]
 fn push_feature_bookmark_pins_bot_to_main() {
     let fx = Fixture::new("push-feature-pin");
@@ -281,7 +281,7 @@ fn push_feature_bookmark_pins_bot_to_main() {
     assert_eq!(desc_first_line(&fx.bot, "main"), "feat: on feature");
     // ...and no feature bookmark exists there (bookmark-list lines
     // are `name: ...`; match on the name position, not the whole
-    // line — commit titles may legitimately contain "feature").
+    // line: commit titles may legitimately contain "feature").
     let bot_bookmarks = jj_ok(&fx.bot, &["bookmark", "list"]);
     assert!(
         !bot_bookmarks.lines().any(|l| l.starts_with("feature:")),
@@ -303,8 +303,8 @@ fn push_feature_bookmark_pins_bot_to_main() {
 ///   reading the op id snapshots the (still-dirty) working
 ///   copy, creating a fresh op. Bookmark position is the
 ///   load-bearing invariant anyway.
-/// - Each mutation sequence actually moves `main` (describe →
-///   bookmark set → new) so the pre-rollback state is
+/// - Each mutation sequence actually moves `main` (describe ->
+///   bookmark set -> new) so the pre-rollback state is
 ///   observably different from the post-rollback state.
 #[test]
 fn push_rollback_restores_both_repos() {
@@ -440,7 +440,7 @@ fn completion_sanity_fail_bot_chid_mismatch() {
 }
 
 /// The property that replaced resume: rerunning a completed push
-/// is safe and changes nothing. Every stage no-ops — commit-work
+/// is safe and changes nothing. Every stage no-ops: commit-work
 /// skips an empty `@`, `message` doesn't demand a title when
 /// neither side will commit, bookmark-set is a set, and jj's push
 /// reports nothing to do.
@@ -459,7 +459,7 @@ fn push_rerun_after_completion_is_a_noop() {
     let work_after = cid(&fx.work, "main");
     let bot_after = cid(&fx.bot, "main");
 
-    // Rerun with no message at all — nothing is pending, so none is
+    // Rerun with no message at all. Nothing is pending, so none is
     // needed. Before the message guard this errored with
     // "--yes given but --title/--body missing".
     let mut params = test_params("unused", "unused");
@@ -481,7 +481,7 @@ fn push_rerun_after_completion_is_a_noop() {
 }
 
 /// A publish-only run: the commits exist and only the bookmark and
-/// the remote need advancing — the trapezoid recipe's final step,
+/// the remote need advancing: the trapezoid recipe's final step,
 /// which used to require `--from bookmark-set`. A bare push now
 /// does it, with no message.
 #[test]

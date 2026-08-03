@@ -77,7 +77,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     against the installed jj 0.43.0, and correct whichever
     way the mutation decision goes
 - [[22]] 0.78.0 refactor: jj-lib migration (done)
-- [[N]] 0.78.1 docs: adopt the 20260803 baseline pin set (current)
+- [[23]] 0.78.1 docs: adopt the 20260803 baseline pin set (done)
   - instruction-set dedup dogfooded ahead of iiac-perf's review: cycle-protocol.md +
     versioning.md pinned into agent-data/, jj-tips.md + draft-reviews.md deleted (salvaged
     into jj.md Revsets and the protocol's no-preflight rule), cycle.md renamed
@@ -110,26 +110,20 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **typeable punctuation: source sweep + rule rewording.** Targets **0.78.2** (was 0.78.1
-   until the 2026-08-03 instruction interlude took it; versions identify, never order), the
-   first cycle under patch-level numbering for incremental work (the scope-based version
-   advancement rule, recorded in notes/dogfood.md pending its tier-2 graduation).
-   The [Typeable punctuation only](/agent-data/prose.md#typeable-punctuation-only) rule
-   prohibits *authoring*; presence in a file is legitimate. Deferred out of the `0.77.x`
-   ladder 2026-07-30, behind the refactor program; promoted to #1 at the 0.78.0 close-out.
-   - Reword: **done 2026-08-02**, ahead of the sweep it bounds, in the 0802 snapshot's
-     prose.md ("the prohibition is on authoring, not presence"), part of the tier-1
-     graduation. Only the sweep remains.
-   - Sweep `src/` + `tests/`, ~875 sites across all four characters (655 em dash, 166 arrow,
-     39 ellipsis, 1 en dash). The retired ladder entry counted em dashes only, the same
-     subset-audit defect the 0.77.2 close-out recorded one section earlier.
-   - `config_schema.rs` `doc:` strings and the error/log messages are user-visible output, so
-     the cargo cycle is mandatory and the four README `vc-x1 config` samples regenerate by
-     hand after `cargo install`. No test asserts on any of the four characters.
-   - `notes/` (~805 sites) and the chores archive (1965) stay out of scope under "converts
-     when touched". The archive is thick with transcribed tool output and published commit
-     titles that must not convert, and heading conversions move anchors the notes files link
-     into.
+1. **commit-description guardrails: exact first bullet in the checklist; hard-rule question.**
+   The 0.78.2 description opened with a bare `- v0.78.2` and put the manifest bullet last, with
+   semicolon chains where sub-bullets belong; caught at wink's review, after the checklist
+   re-read failed to prevent it. The version-first bullet was added to the protocol at 0.75.1
+   because it was being missed, and slipped again today, so the guardrail needs sharpening.
+   - cycle-checklists.md step 7 says "opening with the version-bump bullet" but not its exact
+     form; spell it: `- Cargo.toml, Cargo.lock: vX.Y.Z-xxxx` (the medium's version-of-record
+     files)
+   - weigh extending hard rule 9 (title identity) to cover body shape: a pushed body is
+     coordinate-first to fix under the re-describe rule, so a violation outlives the review
+     that missed it, which is the hard-rules criterion
+   - "commit-body bullets are sentence fragments, file-by-file" already lives in prose.md and
+     the protocol's Body section; decide whether it needs anything beyond the sharpened step 7
+   - pinned-file changes, so fold into the 20260803 baseline review with iiac-perf
 
 2. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
@@ -759,6 +753,13 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- style: typeable punctuation + line-width source sweep [[24]]: src/ +
+  tests/ are ASCII-clean and <=100 cols (JSONL fixture literals and
+  comment URLs exempt as literal rows); 863 counted sites plus four
+  uncounted species the enumeration missed, the load-bearing ellipsis
+  in truncate_chars, and the config/show output separators; README
+  config samples regenerated from the installed binary.
+
 - refactor: jj-lib migration [[21]]: facade internals and every
   mutation move in-process on jj-lib, ending jj and git spawning;
   the version gate makes the op-store coupling enforceable and the
@@ -798,47 +799,9 @@ cycle and its two docs interludes: template repo names, notes rework)._
   trapezoid recipe corrected where the 0.77.0 close-out found
   it wrong: step 4 is `jj git push`, not `vc-x1 push` [[15]]
 
-- refactor: stateless push: push keeps no state and cannot
-  resume: the state file, `--restart` / `--from` / `--status`,
-  the stale-state verifier, the `[push]` config keys and the
-  `.gitignore` coherence check are gone, and so is preflight,
-  whose `sync --check` self-spawn forced the tests'
-  stage-skipping flag. What replaces them is a property:
-  every stage no-ops when its work is already done, so a
-  failed run is re-run rather than resumed. bugs.md #3 is
-  unrepresentable and #4 is fixed; `push.rs` 1480 -> 816
-  lines, ~940 net removed; fifth stage of the jj refactor
-  program [[6]]
-
-- docs: trapezoid close-out recipe: the four steps that
-  publish a trapezoid close-out consolidated into one
-  definitive procedure in cycle-protocol.md (base rule,
-  the two-parent verification, the sideways-move backfill
-  embargo, recovery), with the refactor stage keeping only
-  implementation deltas and README waiting for the flag;
-  vocabulary collapsed to "trapezoid"; chores-15 opened
-  [[7]]
-
-- refactor: repo registry: `.vc-config.toml`'s `[workspace]`
-  block becomes a `[repos]` registry: ordinary file-relative
-  (or absolute) paths, side detection by self-resolution,
-  resolved agreement + self-identification replacing the
-  identical-block invariant, and ochid prefixes as canonical
-  side labels decoupled from the bot dir's spelling; legacy
-  reads consolidated in `src/legacy_vc_config.rs` for later
-  retirement. De-gitify init rode as the last rung, so init's
-  publish path is jj-only and bugs.md #1/#2 are fixed; fourth
-  stage of the jj refactor program [[8]]
-
-- docs: refactor program ladder + conventions: the refactor
-  program's remaining stages consolidated into four cycles
-  and laid out as a program ladder under a new heading-based
-  `## In Progress` shape; the parked 0.72.0 branch declared
-  quarry (version gap accepted); the version-first-bullet
-  body convention added to cycle-protocol.md; chores-14
-  0.75.0 rung refs backfilled [[9]]
-
-_Migrated to [done.md](notes/done.md) on 2026-07-28 (the
+_Migrated to [done.md](notes/done.md) on 2026-08-03 (the
+program-ladder, repo-registry, trapezoid-recipe, and
+stateless-push entries), and on 2026-07-28 (the
 hygiene-riders and facade-owns-topology cycles)._
 
 # References
@@ -848,10 +811,6 @@ hygiene-riders and facade-owns-topology cycles)._
 [3]: https://github.com/winksaville/vc-x1/commit/dc14a421d850 "dc14a421d8509e58fa05741fd1a868329540731e"
 [4]: https://github.com/winksaville/vc-x1/commit/71611891f67a "71611891f67a34f5e11a344ffe4e439ace93750f"
 [5]: /notes/forks-multi-user.md
-[6]: /notes/chores/chores-15.md#refactor-stateless-push
-[7]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe
-[8]: /notes/chores/chores-14.md#refactor-repo-registry
-[9]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
 [10]: https://github.com/winksaville/vc-x1/commit/9d6f7c0b0f05 "9d6f7c0b0f05ae74dd7100d457b92b72d913404f"
 [11]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
 [12]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
@@ -865,3 +824,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
 [21]: /notes/chores/chores-15.md#refactor-jj-lib-migration
 [22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"
+[23]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
+[24]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep

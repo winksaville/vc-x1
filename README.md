@@ -497,18 +497,18 @@ A short sample of the printed schema (workspace home):
 
 ```
 [bot-session]
-# bot-session.col-width — Default --col-width: first-column width in
-#   the field-inventory views
+# bot-session.col-width: Default --col-width: first-column width in the
+#   field-inventory views
 #   used by: bot-session --col-width
 #   default: 68
 # col-width = 68
 
 [repos]
-# repos.work — The work repo's path, relative to this config file's
+# repos.work: The work repo's path, relative to this config file's
 #   directory ("." in the work repo, ".." in the bot repo); the entry
 #   resolving to the config's own directory names the side
 #   used by: find_workspace_root, side detection (structural; written by init)
-#   default: (required — see init)
+#   default: (required; role-specific, see init)
 work = "."   # example
 ```
 
@@ -516,8 +516,8 @@ A key with no default (`default.account`, in the user home) instead renders a co
 value:
 
 ```
-# default.account — Account profile (an [account.<name>] section) to
-#   use when --account is absent
+# default.account: Account profile (an [account.<name>] section) to use
+#   when --account is absent
 #   used by: --account (init and account-aware commands)
 #   default: (none)
 # account = "work"   # example

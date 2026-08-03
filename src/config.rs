@@ -1,7 +1,7 @@
 //! User-level config loaded from `~/.config/vc-x1/config.toml`.
 //!
 //! Backs init's account/repo-target resolution. No magic
-//! fallbacks — a missing file or missing key produces a
+//! fallbacks: a missing file or missing key produces a
 //! predictable error pointing at the exact key to set.
 //!
 //! Schema (multi-account, `.`-joined keys for compactness):
@@ -22,14 +22,14 @@
 //! repo.category.local   = "/work/fixtures"
 //! ```
 //!
-//! Three-layer resolution — see
+//! Three-layer resolution: see
 //! `notes/chores/chores-08.md > User config (0.41.1-3, redesigned in 0.41.1-4)`:
 //!
-//! 1. account: CLI `--account` → `[default].account` → error.
-//! 2. category: CLI `--repo <cat>` → `[account.<a>.repo].default`
-//!    → error.
-//! 3. value: CLI `--repo <cat>=<val>` →
-//!    `[account.<a>.repo.category].<cat>` → error.
+//! 1. account: CLI `--account` -> `[default].account` -> error.
+//! 2. category: CLI `--repo <cat>` -> `[account.<a>.repo].default`
+//!    -> error.
+//! 3. value: CLI `--repo <cat>=<val>` ->
+//!    `[account.<a>.repo.category].<cat>` -> error.
 //!
 //! Values are **literal targets**, not section-name pointers.
 //! For built-in `category = "remote"` the value is a URL prefix
@@ -49,9 +49,9 @@ use crate::toml_simple;
 
 /// Per-account configuration.
 ///
-/// - `repo_default` — `[account.<name>.repo].default` — the
+/// - `repo_default`: `[account.<name>.repo].default`, the
 ///   category to use when `--repo` is absent.
-/// - `repo_category` — `[account.<name>.repo.category]` — map
+/// - `repo_category`: `[account.<name>.repo.category]`, map
 ///   from category name (e.g. `"remote"`, `"local"`) to its
 ///   literal value (URL prefix, fixture parent dir, etc.).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -62,30 +62,30 @@ pub struct AccountConfig {
 
 /// Resolved user config.
 ///
-/// All fields are optional or default-empty — absent file or
+/// All fields are optional or default-empty: absent file or
 /// absent keys yield empty values. Consumers apply their own
 /// errors at use time.
 ///
 /// **Two write modes** for repo defaults:
-/// - **Top-level `[repo]`** — single-account shorthand. Sits in
+/// - **Top-level `[repo]`**: single-account shorthand. Sits in
 ///   `top_level_repo`. Used when neither `--account` nor
 ///   `[default].account` resolves to a known account.
-/// - **`[account.<name>]`** — multi-account. Sits in `accounts`.
+/// - **`[account.<name>]`**: multi-account. Sits in `accounts`.
 ///   Selected by `--account` CLI or `[default].account`.
 ///
 /// Mixing both is rejected at load time (ambiguous which one
 /// init should consult).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct UserConfig {
-    /// `[default].account` — default account when `--account`
+    /// `[default].account`: default account when `--account`
     /// is absent.
     pub default_account: Option<String>,
 
-    /// `[default].debug` — default value when `--debug` is used
+    /// `[default].debug`: default value when `--debug` is used
     /// without an argument. (Reserved; not currently consumed.)
     pub default_debug: Option<String>,
 
-    /// Top-level `[repo]` — single-account shorthand. `Some`
+    /// Top-level `[repo]`: single-account shorthand. `Some`
     /// only when the file has top-level `repo.*` keys and no
     /// `[account.*]` sections.
     pub top_level_repo: Option<AccountConfig>,
@@ -93,24 +93,24 @@ pub struct UserConfig {
     /// Per-account configuration, keyed by account name.
     pub accounts: HashMap<String, AccountConfig>,
 
-    /// `[bot-session].items` — comma-separated default item list
+    /// `[bot-session].items`: comma-separated default item list
     /// for `bot-session` (e.g. `"headers,user,assistant,tool,summary"`).
     /// Parsed and validated by the bot-session op, not here.
     pub bot_session_items: Option<String>,
 
-    /// `[bot-session].result-lines` — default `--result-lines`
+    /// `[bot-session].result-lines`: default `--result-lines`
     /// value (max lines shown per tool result; 0 = unlimited).
     pub bot_session_result_lines: Option<usize>,
 
-    /// `[bot-session].col-width` — default `--col-width` value
+    /// `[bot-session].col-width`: default `--col-width` value
     /// (first-column width in the field-inventory views).
     pub bot_session_col_width: Option<usize>,
 }
 
 /// Parse a config key's string value to `usize`.
 ///
-/// - Absent key → `Ok(None)`.
-/// - Present but unparseable → `Err` naming the key and value
+/// - Absent key -> `Ok(None)`.
+/// - Present but unparseable -> `Err` naming the key and value
 ///   (malformed config is fatal, not silently ignored).
 fn parse_usize_key(
     map: &HashMap<String, String>,
@@ -127,9 +127,9 @@ fn parse_usize_key(
 
 /// CLI selector for `--repo <cat>[=<val>]`.
 ///
-/// - `--repo` absent → `None`.
-/// - `--repo <cat>` → `Some({ category: cat, value: None })`.
-/// - `--repo <cat>=<val>` → `Some({ category: cat, value: Some(val) })`.
+/// - `--repo` absent -> `None`.
+/// - `--repo <cat>` -> `Some({ category: cat, value: None })`.
+/// - `--repo <cat>=<val>` -> `Some({ category: cat, value: Some(val) })`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoSelector {
     pub category: String,
@@ -154,22 +154,22 @@ pub fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
 /// Load the user config from the default location.
 ///
-/// - Missing file → empty `UserConfig`.
-/// - Malformed file → fatal error.
+/// - Missing file -> empty `UserConfig`.
+/// - Malformed file -> fatal error.
 pub fn load() -> Result<UserConfig, Box<dyn std::error::Error>> {
     load_from(&config_path()?)
 }
 
 /// Load the user config from an explicit path.
 ///
-/// - Missing file → empty `UserConfig`.
-/// - Malformed file → fatal error (propagated from `toml_simple`).
+/// - Missing file -> empty `UserConfig`.
+/// - Malformed file -> fatal error (propagated from `toml_simple`).
 /// - Unknown sections / keys are silently ignored
 ///   (forward-compatible with future schema additions).
 pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> {
     if !path.exists() {
         debug!(
-            "config: file not found at {} — using empty UserConfig",
+            "config: file not found at {}, using empty UserConfig",
             path.display()
         );
         return Ok(UserConfig::default());
@@ -190,7 +190,7 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
     let mut top_level = AccountConfig::default();
     let mut top_level_seen = false;
 
-    // Walk all keys; route `repo.*` to top-level, `account.<n>.…`
+    // Walk all keys; route `repo.*` to top-level, `account.<n>....`
     // to per-account.
     for (full_key, value) in &map {
         if let Some(suffix) = full_key.strip_prefix("repo.") {
@@ -213,7 +213,7 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
 
     if top_level_seen && !cfg.accounts.is_empty() {
         return Err(format!(
-            "{}: mixing top-level [repo] with [account.*] is ambiguous — \
+            "{}: mixing top-level [repo] with [account.*] is ambiguous, \
              remove top-level [repo] or move it under [account.<name>]",
             path.display()
         )
@@ -252,12 +252,12 @@ fn apply_repo_subkey(account: &mut AccountConfig, suffix: &str, value: &str) {
 
 /// Resolve `(category, value)` for an init invocation.
 ///
-/// Three-step chain — each step has its own error message
+/// Three-step chain: each step has its own error message
 /// pointing at the exact config key to set or CLI arg to pass.
 ///
-/// - `account_override` — `Some(a)` from `--account a` CLI;
+/// - `account_override`: `Some(a)` from `--account a` CLI;
 ///   `None` falls back to `[default].account`.
-/// - `repo_cli` — the parsed `--repo` selector (or `None` if
+/// - `repo_cli`: the parsed `--repo` selector (or `None` if
 ///   the flag was absent).
 ///
 /// Fast path: when `repo_cli` provides both `category` and
@@ -276,7 +276,7 @@ pub fn resolve_repo(
         && let Some(val) = sel.value.as_ref()
     {
         debug!(
-            "resolve_repo: short-circuit — explicit cat={} val={} (from --repo CLI)",
+            "resolve_repo: short-circuit, explicit cat={} val={} (from --repo CLI)",
             sel.category, val
         );
         return Ok((sel.category.clone(), val.clone()));
@@ -284,12 +284,12 @@ pub fn resolve_repo(
 
     // Step 1: pick the AccountConfig to use.
     //
-    // - `--account` CLI → must hit `cfg.accounts[name]`.
-    // - `[default].account` → must hit `cfg.accounts[that]`.
+    // - `--account` CLI -> must hit `cfg.accounts[name]`.
+    // - `[default].account` -> must hit `cfg.accounts[that]`.
     // - Otherwise fall back to top-level `[repo]` (no account).
     // - Otherwise error.
     //
-    // `account_label` is for error messages — section-name "<name>"
+    // `account_label` is for error messages: section-name "<name>"
     // when an account was selected, "<top-level>" for the no-account
     // shorthand path.
     let (account, account_label, account_source) = match (account_override, &cfg.default_account) {
@@ -405,13 +405,13 @@ mod tests {
     /// yield distinct paths when tests run in parallel.
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    /// RAII tempdir for `config` tests — sibling of `Fixture` /
+    /// RAII tempdir for `config` tests, sibling of `Fixture` /
     /// `FixturePor` / `CliFixture`, scaled to the much smaller
     /// "write a config.toml and parse it" use case. Replaces the
     /// pre-0.41.1-6.4 `cfg_tempdir(tag) -> PathBuf` helper, which
     /// had no `Drop` and leaked one dir per test invocation.
     ///
-    /// Uses the shared `resolve_tmp_root` (`$VC_X1_TEST_TMPDIR` →
+    /// Uses the shared `resolve_tmp_root` (`$VC_X1_TEST_TMPDIR` ->
     /// `std::env::temp_dir()`) and honors `should_keep_tempdir()`
     /// (`$VC_X1_TEST_KEEP`) so the same env-var knobs control all
     /// fixture types uniformly.
@@ -424,7 +424,7 @@ mod tests {
             let ts = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map(|d| d.as_nanos())
-                .unwrap_or(0); // OK: clock error → 0 is harmless for unique tempdir naming
+                .unwrap_or(0); // OK: clock error -> 0 is harmless for unique tempdir naming
             let n = COUNTER.fetch_add(1, Ordering::SeqCst);
             let dir = resolve_tmp_root().join(format!("vc-x1-cfg-{tag}-{ts}-{n}"));
             fs::create_dir_all(&dir).expect("mkdir cfg tempdir");
@@ -552,7 +552,7 @@ repo.category.remote  = "git@github.com:wink"
 
     #[test]
     fn top_level_repo_shorthand() {
-        // Single-account shorthand — top-level [repo], no [account.*].
+        // Single-account shorthand: top-level [repo], no [account.*].
         let (_cfg, path) = write_cfg(
             "top-level",
             r#"[repo]
@@ -736,7 +736,7 @@ some-key = "ignored"
 
     #[test]
     fn resolve_explicit_value_short_circuits_empty_config() {
-        // `--repo cat=val` is fully self-contained — works even with
+        // `--repo cat=val` is fully self-contained, works even with
         // an empty config (no account, no top-level repo).
         let cfg = UserConfig::default();
         let sel = RepoSelector {
@@ -840,7 +840,7 @@ some-key = "ignored"
     #[test]
     fn resolve_top_level_account_override_skips_top_level() {
         // Even with top-level [repo] present, --account forces the
-        // account lookup path (no fallback). Account missing → error.
+        // account lookup path (no fallback). Account missing -> error.
         let cfg = cfg_top_level();
         let err = resolve_repo(&cfg, Some("home"), None)
             .unwrap_err()

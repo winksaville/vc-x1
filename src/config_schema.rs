@@ -3,14 +3,14 @@
 //! per-repo workspace config).
 //!
 //! - `crate::config_cmd` prints this registry as an annotated
-//!   schema, and — with `--validate` — checks a config file's keys
+//!   schema, and (with `--validate`) checks a config file's keys
 //!   against it (dynamic-segment aware).
 //! - `crate::init` derives init's commented defaults from
 //!   `schema()`, so these surfaces cannot drift from this list.
 
 /// Which config home a key belongs to.
-/// - `User` — `~/.config/vc-x1/config.toml`
-/// - `WorkspaceCode` / `WorkspaceBot` — `<root>/.vc-config.toml`
+/// - `User`: `~/.config/vc-x1/config.toml`
+/// - `WorkspaceCode` / `WorkspaceBot`: `<root>/.vc-config.toml`
 ///   in the work repo vs the `.claude` bot repo
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Home {
@@ -102,7 +102,8 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: false,
-        doc: "Default repo category when --repo is bare — a [repo.category.<cat>] name: a built-in (remote, local) or your own",
+        doc: "Default repo category when --repo is bare: a [repo.category.<cat>] name: a \
+              built-in (remote, local) or your own",
         used_by: "--repo (default category when --repo is bare)",
         example: Some("acmehousing"),
     },
@@ -113,7 +114,8 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Literal value for repo category <cat> — a remote URL prefix (init appends /<NAME>.git) or a local parent dir",
+        doc: "Literal value for repo category <cat>: a remote URL prefix (init appends \
+              /<NAME>.git) or a local parent dir",
         used_by: "--repo <cat> (init remote/local resolution)",
         example: Some("git@github.com:acmehousing"),
     },
@@ -124,7 +126,8 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Per-account default repo category — a [repo.category.<cat>] name: a built-in (remote, local) or your own",
+        doc: "Per-account default repo category: a [repo.category.<cat>] name: a built-in \
+              (remote, local) or your own",
         used_by: "--account <name> with --repo",
         example: Some("acmehousing"),
     },
@@ -135,7 +138,8 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: true,
-        doc: "Per-account literal value for repo category <cat> (remote URL prefix or local parent dir)",
+        doc: "Per-account literal value for repo category <cat> (remote URL prefix or local \
+              parent dir)",
         used_by: "--account <name> with --repo <cat>",
         example: Some("git@github.com:acmehousing"),
     },
@@ -179,7 +183,9 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: true,
         dynamic: false,
-        doc: "The work repo's path, relative to this config file's directory (\".\" in the work repo, \"..\" in the bot repo); the entry resolving to the config's own directory names the side",
+        doc: "The work repo's path, relative to this config file's directory (\".\" in the \
+              work repo, \"..\" in the bot repo); the entry resolving to the config's own \
+              directory names the side",
         used_by: "find_workspace_root, side detection (structural; written by init)",
         example: Some("."),
     },
@@ -190,7 +196,8 @@ const SCHEMA: &[ConfigKey] = &[
         default: None,
         required: false,
         dynamic: false,
-        doc: "The bot repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the bot repo); presence signals dual-repo mode",
+        doc: "The bot repo's path, relative to this config file's directory (e.g. \".claude\" \
+              in the work repo, \".\" in the bot repo); presence signals dual-repo mode",
         used_by: "default_scope, scope resolution, ochid prefixes (structural)",
         example: Some(".claude"),
     },
@@ -224,7 +231,7 @@ fn format_value(kind: ValueKind, raw: &str) -> String {
 }
 
 /// Render a key's value cell: the quoted/bare default, or an
-/// angle-bracket placeholder by kind when there is no default —
+/// angle-bracket placeholder by kind when there is no default,
 /// except a required key with no default, which renders
 /// `<required>` so it stands out.
 pub fn render_value(key: &ConfigKey) -> String {
@@ -245,7 +252,7 @@ pub fn render_value(key: &ConfigKey) -> String {
 }
 
 /// Render a key's `default:` note: the quoted/bare default, or a
-/// parenthetical explaining the absence — `(required; ...)` for a
+/// parenthetical explaining the absence: `(required; ...)` for a
 /// required key with no default (role-specific, filled by init),
 /// `(none)` otherwise.
 fn render_default_note(key: &ConfigKey) -> String {
@@ -253,7 +260,7 @@ fn render_default_note(key: &ConfigKey) -> String {
         Some(d) => format_value(key.kind, d),
         None => {
             if key.required {
-                "(required; role-specific — see init)".to_string()
+                "(required; role-specific, see init)".to_string()
             } else {
                 "(none)".to_string()
             }
@@ -298,12 +305,12 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 }
 
 /// Render one key as a thorough, self-documenting doc-block:
-/// - `# <path> — <doc>` (word-wrapped onto `#   ...`
+/// - `# <path>: <doc>` (word-wrapped onto `#   ...`
 ///   continuations past ~72 cols),
 /// - `#   used by: <used_by>`,
 /// - `#   default: <rendered default, or a "(none)"/"(required...)"
 ///   note>`,
-/// - the assignment line itself — uncommented for a `required` key
+/// - the assignment line itself: uncommented for a `required` key
 ///   (init fills in the role-specific value), commented (`# `)
 ///   otherwise, with the rendered default, a `key.example` value
 ///   marked with a trailing `# example` when there is no default,
@@ -316,7 +323,7 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 /// two surfaces cannot drift from each other's wording.
 pub fn render_key_block(key: &ConfigKey) -> String {
     let mut out = String::new();
-    let header_text = format!("{} — {}", key.path, key.doc);
+    let header_text = format!("{}: {}", key.path, key.doc);
     out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 72));
     out.push_str(&format!("#   used by: {}\n", key.used_by));
     out.push_str(&format!("#   default: {}\n", render_default_note(key)));
@@ -381,7 +388,7 @@ mod tests {
     }
 
     /// Every key must show a concrete value in the rendered
-    /// schema: a real `default`, or an `example` — never both
+    /// schema: a real `default`, or an `example`, never both
     /// `None` (which would render a bare `<str>` placeholder).
     #[test]
     fn every_key_has_default_or_example() {

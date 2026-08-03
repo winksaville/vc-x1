@@ -1,4 +1,4 @@
-//! Unit tests for transcript parsing — inline JSON fixtures
+//! Unit tests for transcript parsing: inline JSON fixtures
 //! covering the observed line shapes and the tolerant-parse
 //! guarantees (unknown types, missing fields, truncated lines).
 

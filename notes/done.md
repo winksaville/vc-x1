@@ -229,6 +229,46 @@ As TODO.md `## Done` sections fills move them to here.
   command's positional target; third stage of the jj refactor
   program [[130]]
 
+- docs: refactor program ladder + conventions: the refactor
+  program's remaining stages consolidated into four cycles
+  and laid out as a program ladder under a new heading-based
+  `## In Progress` shape; the parked 0.72.0 branch declared
+  quarry (version gap accepted); the version-first-bullet
+  body convention added to cycle-protocol.md; chores-14
+  0.75.0 rung refs backfilled [[131]]
+
+- refactor: repo registry: `.vc-config.toml`'s `[workspace]`
+  block becomes a `[repos]` registry: ordinary file-relative
+  (or absolute) paths, side detection by self-resolution,
+  resolved agreement + self-identification replacing the
+  identical-block invariant, and ochid prefixes as canonical
+  side labels decoupled from the bot dir's spelling; legacy
+  reads consolidated in `src/legacy_vc_config.rs` for later
+  retirement. De-gitify init rode as the last rung, so init's
+  publish path is jj-only and bugs.md #1/#2 are fixed; fourth
+  stage of the jj refactor program [[132]]
+
+- docs: trapezoid close-out recipe: the four steps that
+  publish a trapezoid close-out consolidated into one
+  definitive procedure in cycle-protocol.md (base rule,
+  the two-parent verification, the sideways-move backfill
+  embargo, recovery), with the refactor stage keeping only
+  implementation deltas and README waiting for the flag;
+  vocabulary collapsed to "trapezoid"; chores-15 opened
+  [[133]]
+
+- refactor: stateless push: push keeps no state and cannot
+  resume: the state file, `--restart` / `--from` / `--status`,
+  the stale-state verifier, the `[push]` config keys and the
+  `.gitignore` coherence check are gone, and so is preflight,
+  whose `sync --check` self-spawn forced the tests'
+  stage-skipping flag. What replaces them is a property:
+  every stage no-ops when its work is already done, so a
+  failed run is re-run rather than resumed. bugs.md #3 is
+  unrepresentable and #4 is fixed; `push.rs` 1480 -> 816
+  lines, ~940 net removed; fifth stage of the jj refactor
+  program [[134]]
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -344,3 +384,7 @@ As TODO.md `## Done` sections fills move them to here.
 [128]: /notes/chores/chores-14.md#docs-notes-rework--config-refresh
 [129]: /notes/chores/chores-14.md#refactor-hygiene-riders
 [130]: /notes/chores/chores-14.md#refactor-facade-owns-topology
+[131]: /notes/chores/chores-14.md#docs-refactor-program-ladder--conventions
+[132]: /notes/chores/chores-14.md#refactor-repo-registry
+[133]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe
+[134]: /notes/chores/chores-15.md#refactor-stateless-push

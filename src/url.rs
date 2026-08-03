@@ -12,13 +12,13 @@ use std::path::PathBuf;
 
 /// A parsed positional `<TARGET>` argument to `init` or `clone`.
 ///
-/// - `Url` — full git URL (`scheme://...` or SSH `user@host:path`).
-/// - `OwnerName(owner, name)` — `owner/name` shorthand;
+/// - `Url`: full git URL (`scheme://...` or SSH `user@host:path`).
+/// - `OwnerName(owner, name)`: `owner/name` shorthand;
 ///   resolves to `git@github.com:owner/name.git`.
-/// - `Path` — local path with explicit prefix
+/// - `Path`: local path with explicit prefix
 ///   (`./`, `../`, `/`, `~/`, or bare `~`). Path text is preserved
 ///   literally; tilde expansion is the consumer's responsibility.
-/// - `BareName` — a bare alphanumeric (no `/`, `:`, or path
+/// - `BareName`: a bare alphanumeric (no `/`, `:`, or path
 ///   prefix). Init resolves it via the user-config remote chain;
 ///   clone errors on it (no config-driven default).
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -91,8 +91,8 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
     }
 
     // Catch-all. If it looks like an SSH scp-like form missing the
-    // `git@` prefix (host:owner/name), suggest the canonical form
-    // — easy mistake to make and the resulting "did you mean…?"
+    // `git@` prefix (host:owner/name), suggest the canonical form,
+    // easy mistake to make and the resulting "did you mean...?"
     // is concrete enough to fix with one re-type.
     if let Some(colon) = s.find(':')
         && colon > 0
@@ -101,12 +101,14 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
         && !s.contains('@')
     {
         return Err(format!(
-            "'{s}' is not a recognized target — looks like an SSH URL missing the 'git@' prefix; did you mean 'git@{s}'?"
+            "'{s}' is not a recognized target: looks like an SSH URL missing the 'git@' \
+             prefix; did you mean 'git@{s}'?"
         ));
     }
 
     Err(format!(
-        "'{s}' is not a recognized target — expected URL, owner/name shorthand, path prefix (./X, ../X, /X, ~/X, ~), or bare NAME"
+        "'{s}' is not a recognized target: expected URL, owner/name shorthand, path prefix \
+         (./X, ../X, /X, ~/X, ~), or bare NAME"
     ))
 }
 
@@ -117,7 +119,8 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
 /// - Errors when the resulting name would be empty.
 pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let stem = url.strip_suffix(".git").unwrap_or(url); // OK: .git suffix is optional
-    let last = stem.rsplit(['/', ':']).next().unwrap_or(""); // OK: rsplit always yields at least one element
+    // OK: rsplit always yields at least one element
+    let last = stem.rsplit(['/', ':']).next().unwrap_or("");
     if last.is_empty() {
         return Err(format!("cannot derive project name from '{url}'").into());
     }
@@ -126,7 +129,7 @@ pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
 
 /// Resolve a target string to a git clone URL.
 ///
-/// - `owner/name` (single `/`, no `:` or scheme) →
+/// - `owner/name` (single `/`, no `:` or scheme) ->
 ///   `git@github.com:owner/name.git`.
 /// - Anything else is passed through as-is (already a URL).
 pub fn resolve_url(url: &str) -> String {
@@ -142,8 +145,8 @@ pub fn resolve_url(url: &str) -> String {
 /// Derive the bot-repo URL from a work-side URL.
 ///
 /// - With trailing `.git`: insert `.claude` before it
-///   (`foo.git` → `foo.claude.git`).
-/// - Without `.git`: append `.claude` (`foo` → `foo.claude`).
+///   (`foo.git` -> `foo.claude.git`).
+/// - Without `.git`: append `.claude` (`foo` -> `foo.claude`).
 pub fn derive_bot_url(work_url: &str) -> String {
     match work_url.strip_suffix(".git") {
         Some(stem) => format!("{stem}.claude.git"),

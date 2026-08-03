@@ -1,4 +1,4 @@
-//! CLI subprocess tests for `vc-x1 sync` — the "two machines" flow.
+//! CLI subprocess tests for `vc-x1 sync`: the "two machines" flow.
 //!
 //! Drives the whole scenario through the binary: `vc-x1 init` a
 //! project with local bare remotes, `vc-x1 clone` it twice (trA /
@@ -55,7 +55,7 @@ struct PeerPush {
 ///
 /// Push notes: `--no-squash-push` stops before squash-push-bot
 /// (out of scope); PATH carries the binary under test. Preflight
-/// is gone as of 0.77.0-3, so no stage-skipping flag is needed —
+/// is gone as of 0.77.0-3, so no stage-skipping flag is needed,
 /// which is what removing the `sync --check` self-spawn bought.
 fn setup_peer_push(tag: &str) -> PeerPush {
     let fx = CliFixture::new(tag);
@@ -71,7 +71,7 @@ fn setup_peer_push(tag: &str) -> PeerPush {
 
     // vc-x1 clone <work-remote> trB / trA (B first, so its
     // main@origin is the pre-push head). A relative source
-    // exercises the bugs.md #2 fix — both sides resolve it
+    // exercises the bugs.md #2 fix: both sides resolve it
     // against the invoking cwd.
     let work_remote = PathBuf::from("./remote-work.git");
     for name in ["trB", "trA"] {
@@ -128,7 +128,7 @@ fn assert_trb_synced(p: &PeerPush) {
 }
 
 /// Plain `vc-x1 sync` (the invocation a user reaches for): trB
-/// must end fully synced — main at trA's pushed head, `@`
+/// must end fully synced: main at trA's pushed head, `@`
 /// repositioned in both repos. Encodes the t1A/t1B transcript
 /// (2026-07-02) where the pre-0.67.0 check-mode default left `@-`
 /// on the pre-fetch tip; red until 0.67.0-2 made sync single-mode.
@@ -147,7 +147,7 @@ fn cli_sync_default_moves_main_and_at_after_peer_push() {
 /// The hidden deprecated `--check` alias (push preflight's
 /// verify-only shell-out) still parses and still skips the
 /// reposition step: after it runs, trB's `main` has moved (jj's
-/// fetch auto-ffs the tracked bookmark — the mode was never fully
+/// fetch auto-ffs the tracked bookmark: the mode was never fully
 /// read-only) but `@-` stays on the pre-fetch tip.
 #[test]
 fn cli_sync_check_alias_verifies_only() {
@@ -171,7 +171,7 @@ fn cli_sync_check_alias_verifies_only() {
     );
 }
 
-/// `--no-check` is gone — a stale script invocation must fail
+/// `--no-check` is gone: a stale script invocation must fail
 /// loudly rather than silently flip semantics.
 #[test]
 fn cli_sync_no_check_rejected() {

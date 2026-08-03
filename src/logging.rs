@@ -4,9 +4,9 @@ use std::sync::Mutex;
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
 /// Simple logger that routes by level:
-/// - info and above → stdout (user-facing progress)
-/// - debug/trace → stderr (only when verbose at that level)
-/// - warn/error → stderr (always)
+/// - info and above -> stdout (user-facing progress)
+/// - debug/trace -> stderr (only when verbose at that level)
+/// - warn/error -> stderr (always)
 /// - log file captures all enabled levels
 pub struct CliLogger {
     /// The verbose level for stderr output (None = no verbose)
@@ -45,7 +45,8 @@ impl CliLogger {
         // Max level: stderr_level if set, otherwise info
         // Log file captures whatever is enabled, not more
         let _ = has_log_file;
-        let max = stderr_level.unwrap_or(LevelFilter::Info); // OK: default verbosity when -v/-vv absent
+        // OK: default verbosity when -v/-vv absent
+        let max = stderr_level.unwrap_or(LevelFilter::Info);
         log::set_max_level(max);
         log::set_boxed_logger(logger).expect("failed to set logger");
     }
@@ -73,7 +74,7 @@ impl Log for CliLogger {
 
         let msg = format!("{}", record.args());
 
-        // Write to log file if configured — captures all levels
+        // Write to log file if configured: captures all levels
         if let Some(ref file) = self.log_file
             && let Ok(mut f) = file.lock()
         {
@@ -81,12 +82,12 @@ impl Log for CliLogger {
         }
 
         match record.level() {
-            // User-facing progress → stdout
+            // User-facing progress -> stdout
             Level::Info => println!("{msg}"),
-            // Errors and warnings → stderr always
+            // Errors and warnings -> stderr always
             Level::Error => eprintln!("error: {msg}"),
             Level::Warn => eprintln!("warn: {msg}"),
-            // Debug/trace → stderr only if verbose allows this level
+            // Debug/trace -> stderr only if verbose allows this level
             Level::Debug | Level::Trace => {
                 if let Some(level) = self.stderr_level
                     && record.level() <= level

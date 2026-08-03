@@ -10,10 +10,10 @@
 //!
 //! Implementors provide:
 //!
-//! - [`SubcommandRunner::to_params`] — build the clap-free
+//! - [`SubcommandRunner::to_params`]: build the clap-free
 //!   `Params` from the clap `Args` (covers both `From` /
 //!   `TryFrom` shapes uniformly via `Result<_, String>`).
-//! - [`SubcommandRunner::run`] — the subcommand body.
+//! - [`SubcommandRunner::run`]: the subcommand body.
 //!
 //! The default [`SubcommandRunner::dispatch`] builds `Params`
 //! via `to_params`, runs via `run`, and maps the result to
@@ -26,7 +26,7 @@
 //! ## See also
 //!
 //! - The wider CLI-args / subcommand-layer split this trait
-//!   formalizes: [`ARCHITECTURE.md > args → Context + Params`][arch].
+//!   formalizes: [`ARCHITECTURE.md > args -> Context + Params`][arch].
 //! - Cycle design, ladder, evaluation gate:
 //!   [`chores-10.md > 0.50.0-0`][open].
 //! - Worked example, trait-shape decisions, naming:
@@ -66,7 +66,7 @@ pub trait SubcommandRunner {
     /// `run`, and map the result to `ExitCode`. Errors at any
     /// stage log via `error!` and return `ExitCode::FAILURE`.
     /// `bm_track` itself emits at `debug!`, so default runs stay
-    /// quiet — no per-call gate is needed here.
+    /// quiet: no per-call gate is needed here.
     fn dispatch(&self, ctx: &mut Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,
@@ -79,7 +79,8 @@ pub trait SubcommandRunner {
         // Command name is the first positional after the binary;
         // clap has already validated it by the time we reach
         // dispatch (top-level parse errors exit earlier).
-        let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string()); // OK: default when somehow invoked without a subcommand
+        // OK: default when somehow invoked without a subcommand
+        let command_name = std::env::args().nth(1).unwrap_or_else(|| "?".to_string());
 
         crate::bm_track("enter", &command_name);
         let exit_code = match Self::run(ctx, &params) {

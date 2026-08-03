@@ -53,7 +53,7 @@ use crate::subcommand::SubcommandRunner;
 /// version.
 const BANNER: &str = concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
 
-/// Top-level about line — name, version, and the project tagline
+/// Top-level about line: name, version, and the project tagline
 /// on a single line. Used as the top-level `about` so `vc-x1 -h`
 /// reads as one banner-plus-tagline header instead of two stacked
 /// lines.
@@ -164,8 +164,8 @@ pub(crate) enum Commands {
     #[command(
         long_about = "Display a Claude Code bot session transcript (.jsonl) as a\n\
         readable conversation.\n\n\
-        Output is a set of items — headers, user, assistant, tool,\n\
-        thinking, results, meta, summary — each toggled by --<item> /\n\
+        Output is a set of items (headers, user, assistant, tool,\n\
+        thinking, results, meta, summary) each toggled by --<item> /\n\
         --no-<item> (last one wins), with --all / --none as bulk bases.\n\
         The default set (headers, user, assistant, tool, summary) can\n\
         be replaced by [bot-session].items in the user config\n\
@@ -173,21 +173,21 @@ pub(crate) enum Commands {
         set. Malformed lines (e.g. a live session's truncated last\n\
         line) warn to stderr and never fail the run.\n\n\
         Alternate views: --fields (field inventory per entry type),\n\
-        --unknown (only unmodeled paths — how the format moved), and\n\
+        --unknown (only unmodeled paths: how the format moved), and\n\
         --raw (pretty-printed source lines). --lines slices by source\n\
-        JSONL line — the same unit in every view."
+        JSONL line: the same unit in every view."
     )]
     BotSession(bot_session::BotSessionArgs),
 
     /// Check the bot repo is published (main matches main@origin)
     #[command(
         long_about = "Check the bot repo is published (main matches main@origin).\n\n\
-        At rest the bot repo's `main` always matches `main@origin` — the\n\
+        At rest the bot repo's `main` always matches `main@origin`: the\n\
         bookmark only moves inside a push / squash-push run, which\n\
         publishes it in the same invocation. A mismatch means an earlier\n\
         publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
         steps); also verifies main's remote refs are tracked. Exits\n\
-        non-zero on any finding and fixes nothing — resolve with\n\
+        non-zero on any finding and fixes nothing: resolve with\n\
         `vc-x1 squash-push -R <bot-repo>`."
     )]
     ValidateBot(validate_bot::ValidateBotArgs),
@@ -197,9 +197,9 @@ pub(crate) enum Commands {
         long_about = "Validate commit descriptions against the other repo.\n\n\
         Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
         Status labels:\n  \
-          ok   — ochid trailer is valid\n  \
-          err  — ochid has issues (wrong prefix, wrong length, ID not found)\n  \
-          miss — no ochid trailer; shows match from other repo if found"
+          ok   : ochid trailer is valid\n  \
+          err  : ochid has issues (wrong prefix, wrong length, ID not found)\n  \
+          miss : no ochid trailer; shows match from other repo if found"
     )]
     ValidateDesc(validate_desc::ValidateDescArgs),
 
@@ -208,13 +208,13 @@ pub(crate) enum Commands {
         Default is dry-run; use --no-dry-run to write changes.\n\n\
         Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
         Status labels:\n  \
-          ok    — ochid trailer is valid (no change)\n  \
-          fix   — ochid has issues, shows proposed fix (dry-run)\n  \
-          fixed — ochid was rewritten (--no-dry-run)\n  \
-          add   — missing ochid, match found, shows proposed addition (dry-run)\n  \
-          added — missing ochid was added (--no-dry-run)\n  \
-          skip  — skipped (no ochid, no match, or max-fixes reached)\n  \
-          err   — ID not found and no --fallback provided")]
+          ok    : ochid trailer is valid (no change)\n  \
+          fix   : ochid has issues, shows proposed fix (dry-run)\n  \
+          fixed : ochid was rewritten (--no-dry-run)\n  \
+          add   : missing ochid, match found, shows proposed addition (dry-run)\n  \
+          added : missing ochid was added (--no-dry-run)\n  \
+          skip  : skipped (no ochid, no match, or max-fixes reached)\n  \
+          err   : ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
 
     /// Check todo-file entry numbering and indent
@@ -222,7 +222,7 @@ pub(crate) enum Commands {
         long_about = "Check a todo file's `## Todo` and `## Bugs` entry numbering.\n\n\
         Verifies each section is numbered 1..N in document order and\n\
         that continuation-line indent matches the number-prefix width.\n\
-        Read-only; exits non-zero if any entry needs fixing — use\n\
+        Read-only; exits non-zero if any entry needs fixing: use\n\
         `fix-todo` to rewrite."
     )]
     ValidateTodo(validate_todo::ValidateTodoArgs),
@@ -232,7 +232,7 @@ pub(crate) enum Commands {
         long_about = "Renumber a todo file's `## Todo` and `## Bugs` sections.\n\n\
         Renumbers each section 1..N in document order and normalizes\n\
         continuation-line indent to the number-prefix width. Dry-run\n\
-        by default — prints each changed entry's corrected line; pass\n\
+        by default: prints each changed entry's corrected line; pass\n\
         --no-dry-run to write the file in place."
     )]
     FixTodo(fix_todo::FixTodoArgs),
@@ -263,7 +263,7 @@ pub(crate) enum Commands {
         dirty one with --rebase / a prompt), the `.claude` session\n\
         repo `jj new main`s when main moved (no-op when `@-` is\n\
         already the main tip).\n\n\
-        On failure sync stops where the failing step stopped — nothing\n\
+        On failure sync stops where the failing step stopped: nothing\n\
         is auto-reverted, so the state can be inspected. Each repo's\n\
         pre-sync op id is persisted to `.vc-x1/sync-state.toml`; undo\n\
         explicitly with `vc-x1 revert` (state is cleared on success).\n\n\
@@ -292,12 +292,12 @@ pub(crate) enum Commands {
         long_about = "Squash SOURCE into TARGET (defaults: SOURCE=@, TARGET=@-),\n\
         advance a bookmark, and push.\n\n\
         Captures a repo's trailing working-copy writes into the last\n\
-        commit and publishes it — rewriting an already-pushed commit,\n\
+        commit and publishes it: rewriting an already-pushed commit,\n\
         so the push is a forced update. Built for the bot repo\n\
         (`.claude`, the session tail); also useful on the work repo\n\
         as a deliberate amend-and-push.\n\n\
         Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
-        @ → @- and pushes `main` in `.`. With an empty `@` the squash\n\
+        @ -> @- and pushes `main` in `.`. With an empty `@` the squash\n\
         is skipped; if the bookmark already matches the remote the\n\
         command reports \"already sync'd\" and exits 0."
     )]
@@ -308,7 +308,7 @@ pub(crate) enum Commands {
 
     /// Commit both repos, push the work repo, squash-push the bot repo
     #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
-        squash-push the bot repo's `main` — one command.\n\n\
+        squash-push the bot repo's `main`: one command.\n\n\
         Collapses the manual commit-push-publish ceremony into a\n\
         single subcommand with two interactive approval gates.\n\n\
         Stages, in order:\n\
@@ -320,23 +320,23 @@ pub(crate) enum Commands {
         \x20                    `@` is empty\n\
         \x20 - commit-bot       commit `.claude`. Skipped when it is\n\
         \x20                    clean\n\
-        \x20 - bookmark-set     work repo → <bookmark>, bot → main\n\
+        \x20 - bookmark-set     work repo -> <bookmark>, bot -> main\n\
         \x20 - push-work        publish <bookmark> to origin\n\
         \x20 - squash-push-bot  fold `.claude`'s trailing writes\n\
         \x20                    into its commit and push main\n\n\
         Rerunning is always safe: each stage does nothing when its\n\
         work is already done, so a failed run is re-run rather than\n\
-        resumed. There is no saved state — vc-x1 cannot know why a\n\
+        resumed. There is no saved state: vc-x1 cannot know why a\n\
         run failed, so it stops and reports. Please fix and try\n\
         again.\n\n\
         Failures in commit-work / commit-bot / bookmark-set roll both\n\
         repos back via `jj op restore` to a snapshot taken moments\n\
         earlier. Once push-work succeeds the work is published: from\n\
         there a change is either a new commit appended on top by the\n\
-        next push, or an amend of what was pushed — `vc-x1\n\
+        next push, or an amend of what was pushed: `vc-x1\n\
         squash-push` folds the working copy into the last commit and\n\
         force-updates the remote.\n\n\
-        vc-x1 runs no build or test steps — run your project's checks\n\
+        vc-x1 runs no build or test steps: run your project's checks\n\
         yourself before pushing.\n\n\
         Non-interactive use: pass both --title and --body plus --yes\n\
         to skip both gates.")]
@@ -352,7 +352,7 @@ pub(crate) enum Commands {
 /// diagnostic; promoted to permanent in 0.37.4 after the user
 /// reported "happens more than once".
 ///
-/// Emits at `log::debug!` (since 0.52.0-1) — default runs stay
+/// Emits at `log::debug!` (since 0.52.0-1): default runs stay
 /// quiet, and the signal remains available under `-v` when
 /// investigating.
 ///
@@ -369,7 +369,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
             return;
         }
     };
-    // Diagnostics only — an unresolvable / single-repo workspace
+    // Diagnostics only: an unresolvable / single-repo workspace
     // just probes the work side.
     let mut repos: Vec<(std::path::PathBuf, String)> = vec![(root.clone(), "work".to_string())];
     if let Ok(Some(bot)) = common::bot_repo_path(&root) {
@@ -399,7 +399,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
 
 /// Query jj for whether `bookmark` in `repo` is tracking `remote`.
 /// Returns `Ok(true)` when the `-a` listing shows a tracked
-/// `@<remote>` entry (synced or divergent-decorated — both count),
+/// `@<remote>` entry (synced or divergent-decorated, both count),
 /// `Ok(false)` when it doesn't (not tracking, or the bookmark
 /// doesn't exist), `Err` on subprocess failure. Shares the listing
 /// (`jj::bookmark_list_all`) and parser family

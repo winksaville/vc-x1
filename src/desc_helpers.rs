@@ -14,7 +14,7 @@ pub const OCHID_WORK_LABEL: &str = "/";
 
 /// Canonical ochid label for the bot side.
 ///
-/// An opaque label resolved through the `[repos]` registry — not
+/// An opaque label resolved through the `[repos]` registry, not
 /// a filesystem path: a workspace whose bot dir is named
 /// something else still reads and writes `/.claude`. Kept as the
 /// historical spelling so every published trailer stays valid;
@@ -25,11 +25,11 @@ pub const OCHID_BOT_LABEL: &str = "/.claude";
 /// A repo's ochid prefix: its side's canonical label.
 ///
 /// The prefix comes from *which side* the repo is (by
-/// self-resolution — see `common::is_bot_dir`), never from the
+/// self-resolution: see `common::is_bot_dir`), never from the
 /// directory's spelling:
 ///
-/// - work side → `/`
-/// - bot side → `/.claude/` (the label + separator)
+/// - work side -> `/`
+/// - bot side -> `/.claude/` (the label + separator)
 pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::error::Error>> {
     if common::is_bot_dir(repo) {
         Ok(format!("{OCHID_BOT_LABEL}/"))
@@ -98,7 +98,7 @@ pub fn validate_ochid(
     // Check if the ID resolves in the other repo
     let not_found = common::resolve_revset(other_workspace, other_repo, bare_id)
         .map(|ids| ids.is_empty())
-        .unwrap_or(true); // OK: resolve failure → treat as not found
+        .unwrap_or(true); // OK: resolve failure -> treat as not found
 
     OchidIssues {
         wrong_prefix,
@@ -113,9 +113,9 @@ pub fn validate_ochid(
 pub enum TitleMatch {
     /// No title to search for (empty description).
     NoTitle,
-    /// Exactly one commit with the same title — unambiguous match.
+    /// Exactly one commit with the same title: unambiguous match.
     One(String),
-    /// Multiple commits share the same title — ambiguous.
+    /// Multiple commits share the same title: ambiguous.
     Ambiguous(usize),
     /// No commit in the other repo has the same title.
     None,
@@ -252,7 +252,7 @@ pub fn append_ochid_trailer(
 }
 
 /// Extract the values of column-0 `ochid:` trailer lines from a
-/// commit description, in order of appearance — the crate's one
+/// commit description, in order of appearance: the crate's one
 /// string-level ochid parser.
 ///
 /// - Column-0 only: an indented `ochid:` is quoted prose, not a
@@ -267,7 +267,7 @@ pub fn extract_ochids(desc: &str) -> Vec<String> {
 }
 
 /// Extract "the" ochid value from a description string (without
-/// needing a Commit) — the *last* `ochid:` trailer, since trailers
+/// needing a Commit): the *last* `ochid:` trailer, since trailers
 /// sit at the end of the body; on a multi-ochid commit the
 /// single-value view is the final trailer.
 pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
@@ -305,7 +305,7 @@ mod tests {
         (base, root)
     }
 
-    /// Work side (the workspace root) → `/`.
+    /// Work side (the workspace root) -> `/`.
     #[test]
     fn prefix_for_work_side() {
         let (base, root) = ws_fixture("prefix-work", Some(".claude"));
@@ -313,7 +313,7 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// Bot side → the canonical bot label `/.claude/`.
+    /// Bot side -> the canonical bot label `/.claude/`.
     #[test]
     fn prefix_for_bot_side() {
         let (base, root) = ws_fixture("prefix-bot", Some(".claude"));
@@ -324,7 +324,7 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// A non-`.claude` bot dir still gets the canonical label —
+    /// A non-`.claude` bot dir still gets the canonical label:
     /// the prefix is an opaque registry label, not a filesystem
     /// spelling.
     #[test]
@@ -334,7 +334,7 @@ mod tests {
         std::fs::remove_dir_all(&base).ok();
     }
 
-    /// A repo that is no workspace's bot side → work prefix `/`.
+    /// A repo that is no workspace's bot side -> work prefix `/`.
     #[test]
     fn prefix_for_por_repo() {
         let (base, root) = ws_fixture("prefix-por", None);

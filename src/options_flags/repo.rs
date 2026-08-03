@@ -1,4 +1,4 @@
-//! `--repo` — pick a repo target via the user-config
+//! `--repo`: pick a repo target via the user-config
 //! account chain. See [options_flags](README.md) for shared
 //! architecture.
 
@@ -8,8 +8,8 @@ use crate::config::RepoSelector;
 
 /// Parse the `--repo` value into a `config::RepoSelector`.
 ///
-/// - `<cat>` → `RepoSelector { category, value: None }`.
-/// - `<cat>=<val>` → `RepoSelector { category, value: Some(val) }`.
+/// - `<cat>` -> `RepoSelector { category, value: None }`.
+/// - `<cat>=<val>` -> `RepoSelector { category, value: Some(val) }`.
 /// - Empty input, empty category, or empty value (after `=`)
 ///   errors.
 pub fn parse_repo_arg(s: &str) -> Result<RepoSelector, String> {
@@ -40,7 +40,7 @@ pub fn parse_repo_arg(s: &str) -> Result<RepoSelector, String> {
 }
 
 /// `OptionParser` impl for `--repo` (non-boolean domain).
-/// Documentation-level — consumers can use either
+/// Documentation-level: consumers can use either
 /// `parse_repo_arg` directly or `RepoParser::parse`.
 pub struct RepoParser;
 
@@ -52,18 +52,18 @@ impl super::OptionParser for RepoParser {
     }
 }
 
-/// `--repo` leaf (Option — non-boolean domain) — see
+/// `--repo` leaf (Option, non-boolean domain): see
 /// [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct RepoOption {
-    /// Repo target — `<cat>` or `<cat>=<val>`.
+    /// Repo target: `<cat>` or `<cat>=<val>`.
     ///
     /// - `<cat>` looks up the value via the account chain
     ///   in the user config.
     /// - `<cat>=<val>` uses the literal value, no config
     ///   lookup needed.
     /// - Specific category meanings (`remote`, `local`,
-    ///   …) depend on the consumer subcommand.
+    ///   ...) depend on the consumer subcommand.
     #[arg(
         id = "repo",
         long = "repo",

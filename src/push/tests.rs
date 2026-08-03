@@ -1,6 +1,6 @@
 //! Unit tests for the push module.
 //!
-//! Flag parsing and message parsing only — the state-file and
+//! Flag parsing and message parsing only: the state-file and
 //! stage-ordering unit tests went with the state machine at
 //! 0.77.0-3. What replaced them is behavioral and lives in
 //! `integration_tests`: each stage no-ops when its work is already
@@ -104,7 +104,7 @@ fn parse_message_cases() {
     assert_eq!(t, "feat: x");
     assert_eq!(b, "Body here.\nSecond line.");
 
-    // Title + body with no blank line — first line is title, rest is body.
+    // Title + body with no blank line: first line is title, rest is body.
     let (t, b) = parse_message("feat: x\nBody here.\nSecond line.\n").unwrap();
     assert_eq!(t, "feat: x");
     assert_eq!(b, "Body here.\nSecond line.");
@@ -125,8 +125,8 @@ fn parse_message_cases() {
     assert_eq!(t, "feat: z");
     assert_eq!(b, "");
 
-    // All comments → None (caller aborts).
+    // All comments -> None (caller aborts).
     assert!(parse_message("# only comments\n# and more\n").is_none());
-    // All blank → None.
+    // All blank -> None.
     assert!(parse_message("   \n\n").is_none());
 }

@@ -1,16 +1,16 @@
-//! Repo lifecycle helpers — creation, finalization, cross-references.
+//! Repo lifecycle helpers: creation, finalization, cross-references.
 //!
 //! Sibling of `url` (URL/target parsing); this module hosts the
 //! local-state mechanics that don't depend on URL form. As of
 //! 0.41.1-6.5:
 //!
-//! - `prepare_local_repo` — mkdir, colocated jj init, optional
+//! - `prepare_local_repo`: mkdir, colocated jj init, optional
 //!   template copy. Leaves the working copy uncommitted.
-//! - `commit_initial` — jj commit of the prepared tree; returns
+//! - `commit_initial`: jj commit of the prepared tree; returns
 //!   its chid.
-//! - `cross_ref_ochids` — rewrite both initial commits' placeholder
+//! - `cross_ref_ochids`: rewrite both initial commits' placeholder
 //!   `ochid: /none` trailers once each side's chid is known.
-//! - `OchidStrategy` — initial-commit message policy.
+//! - `OchidStrategy`: initial-commit message policy.
 //!
 //! Splitting prepare from commit lets callers write role-specific
 //! files (`.vc-config.toml`, `.gitignore`) into the prepared tree
@@ -26,8 +26,8 @@ use crate::jj;
 
 /// Initial-commit ochid policy used by `commit_initial`.
 ///
-/// - `None` — POR: plain `Initial commit` message.
-/// - `Placeholder` — Dual: `Initial commit\n\nochid: /none`,
+/// - `None` (POR): plain `Initial commit` message.
+/// - `Placeholder` (Dual): `Initial commit\n\nochid: /none`,
 ///   rewritten via cross-ref `jj describe` once both sides have
 ///   committed and their chids are known.
 #[derive(Clone, Copy, Debug)]
@@ -49,15 +49,15 @@ pub enum OchidStrategy {
 ///   `README.md`'s first line to `# <name>`.
 ///
 /// Parameters:
-/// - `target` — destination directory for the new repo. Created
+/// - `target`: destination directory for the new repo. Created
 ///   (along with its parent if needed); must not already exist
 ///   as a populated repo.
-/// - `info_label` — narration tag (`"work"`, `"bot"`, `"scratch"`,
+/// - `info_label`: narration tag (`"work"`, `"bot"`, `"scratch"`,
 ///   etc.); appears in `info!()` lines.
-/// - `template` — optional source dir. When present, copied
+/// - `template`: optional source dir. When present, copied
 ///   recursively (non-hidden only) and any `README.md`'s first
 ///   line is rewritten to `# <name>`.
-/// - `name` — repo name used by the README rewrite.
+/// - `name`: repo name used by the README rewrite.
 pub fn prepare_local_repo(
     target: &Path,
     info_label: &str,
@@ -74,7 +74,7 @@ pub fn prepare_local_repo(
     }
     mkdir_p(target)?;
 
-    // `jj git init --colocate` creates the git repo itself — the
+    // `jj git init --colocate` creates the git repo itself: the
     // former explicit `git init` was redundant (0.76.0-5).
     info!("Initializing {info_label} repo (jj, colocated)...");
     run("jj", &["git", "init", "--colocate"], target)?;
@@ -101,9 +101,9 @@ pub fn prepare_local_repo(
 /// whole snapshot in the initial commit.
 ///
 /// Parameters:
-/// - `target` — repo working dir, already prepared.
-/// - `info_label` — narration tag, mirroring `prepare_local_repo`.
-/// - `ochid_strategy` — message policy: `None` writes a plain
+/// - `target`: repo working dir, already prepared.
+/// - `info_label`: narration tag, mirroring `prepare_local_repo`.
+/// - `ochid_strategy`: message policy: `None` writes a plain
 ///   `Initial commit`; `Placeholder` writes
 ///   `Initial commit\n\nochid: /none` for later rewrite by
 ///   `cross_ref_ochids`.
@@ -138,11 +138,11 @@ pub fn commit_initial(
 /// `/<work_chid>`.
 ///
 /// Parameters:
-/// - `work_dir` — work repo on disk; receives `/.claude/<chid>`.
-/// - `work_chid` — work-side initial-commit chid; embedded into
+/// - `work_dir`: work repo on disk; receives `/.claude/<chid>`.
+/// - `work_chid`: work-side initial-commit chid; embedded into
 ///   the bot-side trailer.
-/// - `bot_dir` — bot repo on disk; receives `/<chid>`.
-/// - `bot_chid` — bot-side initial-commit chid; embedded
+/// - `bot_dir`: bot repo on disk; receives `/<chid>`.
+/// - `bot_chid`: bot-side initial-commit chid; embedded
 ///   into the work-side trailer.
 pub fn cross_ref_ochids(
     work_dir: &Path,
@@ -208,7 +208,7 @@ mod tests {
     }
 
     /// `OchidStrategy::Placeholder` writes the `ochid: /none`
-    /// placeholder in the initial commit message — what dual mode
+    /// placeholder in the initial commit message: what dual mode
     /// lands before the cross-ref rewrite in step 6.
     #[test]
     fn strategy_placeholder_writes_ochid_none() {
@@ -231,7 +231,7 @@ mod tests {
     }
 
     /// Neither `prepare_local_repo` nor `commit_initial` writes
-    /// `.vc-config.toml` or `.gitignore` — those are role-specific
+    /// `.vc-config.toml` or `.gitignore`: those are role-specific
     /// and the caller drops them between prepare and commit.
     /// Verifies the tree contains only `.jj/` and `.git/`.
     #[test]

@@ -2,7 +2,7 @@
 //!
 //! Sync stops on error instead of auto-reverting, so the pre-sync
 //! `jj op` id must outlive the failed process for `vc-x1 revert`
-//! to consume. Each synced repo carries its own snapshot file —
+//! to consume. Each synced repo carries its own snapshot file:
 //! sync accepts arbitrary repo lists (`-R`, scope), so there is no
 //! single home for a combined file:
 //!
@@ -10,7 +10,7 @@
 //!   any fetch;
 //! - removed on full success (a stale file must not become a
 //!   revert target long after the state moved on);
-//! - left in place on failure — the error report points at it.
+//! - left in place on failure: the error report points at it.
 //!
 //! The `.vc-x1/` dir is already gitignored (init writes the
 //! `/.vc-x1` line; push keeps its `push-state.toml` there too).
@@ -42,7 +42,7 @@ pub struct SyncState {
     /// Remote the sync was fetching from.
     pub remote: String,
     /// ISO-8601 UTC timestamp when the snapshot was taken.
-    /// Informational — helps the user spot stale state.
+    /// Informational: helps the user spot stale state.
     pub started_at: String,
 }
 
@@ -53,7 +53,7 @@ pub fn state_path(repo: &Path) -> PathBuf {
 
 /// Persist a fresh snapshot for `repo`.
 ///
-/// Creates `.vc-x1/` as needed and overwrites any previous file —
+/// Creates `.vc-x1/` as needed and overwrites any previous file:
 /// a new sync supersedes an older snapshot.
 pub fn save(
     repo: &Path,
@@ -66,7 +66,7 @@ pub fn save(
         fs::create_dir_all(parent)?;
     }
     let content = format!(
-        "# vc-x1 sync state — managed file, do not edit by hand\n\
+        "# vc-x1 sync state: managed file, do not edit by hand\n\
          [sync-state]\n\
          version = {STATE_FORMAT_VERSION}\n\
          op_id = \"{op_id}\"\n\
@@ -126,7 +126,7 @@ mod tests {
     use super::*;
     use crate::test_helpers::unique_base;
 
-    /// save → load round-trips every field; clear removes the file.
+    /// save -> load round-trips every field; clear removes the file.
     #[test]
     fn save_load_clear_roundtrip() {
         let repo = unique_base("sync-state");

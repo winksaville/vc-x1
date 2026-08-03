@@ -1,6 +1,6 @@
-//! `vc-x1 clone` — clone a repo (URL or local path) into a workspace.
+//! `vc-x1 clone`: clone a repo (URL or local path) into a workspace.
 //!
-//! - Default (no `--por`): dual-repo layout — clones the work repo, derives
+//! - Default (no `--por`): dual-repo layout: clones the work repo, derives
 //!   bot source (`<source>.claude`), clones bot into
 //!   `<target>/.claude`, creates the Claude Code symlink. Both
 //!   sides must succeed.
@@ -9,11 +9,11 @@
 //!
 //! TARGET shapes (all routed through `parse_target`): URL,
 //! `owner/name` shorthand, or a local path (`./X`, `/X`, `~/X`,
-//! `.`, `..`). Path-form is symmetric with `git clone /local/bare.git`
-//! — useful for fixtures and CI scratch dirs.
+//! `.`, `..`). Path-form is symmetric with `git clone /local/bare.git`,
+//! useful for fixtures and CI scratch dirs.
 //!
 //! `clone_one` and `clone_dual` are `pub(crate)` so init's `-3`
-//! reshape can reuse them for the "URL exists → clone" preflight
+//! reshape can reuse them for the "URL exists -> clone" preflight
 //! path (per `notes/chores/chores-08.md > init + clone redesign`).
 
 use std::path::Path;
@@ -32,7 +32,7 @@ use crate::url::{Target, derive_bot_url, derive_name, parse_target, resolve_url}
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
 pub struct CloneArgs {
-    /// Source to clone — URL, owner/name shorthand, or local path.
+    /// Source to clone: URL, owner/name shorthand, or local path.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
     /// - owner/name shorthand: resolves to
@@ -46,7 +46,7 @@ pub struct CloneArgs {
     #[arg(value_name = "NAME")]
     pub name: Option<String>,
 
-    /// Flatten of the shared [`PorFlag`] leaf — `--por` switches
+    /// Flatten of the shared [`PorFlag`] leaf: `--por` switches
     /// the clone shape from dual (default) to single repo.
     #[command(flatten)]
     pub por: PorFlag,
@@ -62,7 +62,7 @@ pub struct CloneArgs {
 ///   local path).
 /// - `name`: optional `NAME` positional override for the
 ///   destination dir.
-/// - `por`: `--por` resolved — `true` for plain single repo,
+/// - `por`: `--por` resolved, `true` for plain single repo,
 ///   `false` (default) for dual.
 /// - `dry_run`: `--dry-run`.
 pub struct CloneParams {
@@ -74,7 +74,7 @@ pub struct CloneParams {
 
 impl From<&CloneArgs> for CloneParams {
     /// Convert clap-derived `CloneArgs` into the flat `CloneParams`
-    /// (total — every field copies straight over).
+    /// (total: every field copies straight over).
     fn from(a: &CloneArgs) -> Self {
         Self {
             target: a.target.clone(),
@@ -89,7 +89,7 @@ impl SubcommandRunner for CloneArgs {
     type Params = CloneParams;
 
     /// Delegate to the existing `From<&CloneArgs>` impl above
-    /// (total — never fails).
+    /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
         Ok(CloneParams::from(self))
     }
@@ -121,7 +121,7 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         Target::Path(p) => p.to_str().ok_or("path is not valid UTF-8")?.to_string(),
         Target::BareName(n) => {
             return Err(format!(
-                "'{n}' is a bare name — clone has no config-driven defaults; \
+                "'{n}' is a bare name: clone has no config-driven defaults; \
                  use 'owner/{n}', a full URL, or './{n}' for a local path"
             )
             .into());
@@ -140,7 +140,7 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
     }
 
     if params.dry_run {
-        info!("Dry run — would execute:");
+        info!("Dry run, would execute:");
         if params.por {
             info!("  1. jj git clone --colocate {source} {name}");
         } else {
@@ -186,7 +186,7 @@ pub(crate) fn clone_one(
     let target_str = target_dir
         .to_str()
         .ok_or("target path is not valid UTF-8")?;
-    info!("Cloning {source} → {target_str}...");
+    info!("Cloning {source} -> {target_str}...");
     run(
         "jj",
         &["git", "clone", "--colocate", source, target_str],
@@ -197,7 +197,7 @@ pub(crate) fn clone_one(
 }
 
 /// Orchestrate a dual-repo clone: work via `clone_one`, bot via
-/// `clone_one` (no graceful skip — both sides required by the
+/// `clone_one` (no graceful skip: both sides required by the
 /// default dual shape; users who want work-only pass `--por`),
 /// then create the Claude Code symlink.
 pub(crate) fn clone_dual(
@@ -212,7 +212,7 @@ pub(crate) fn clone_dual(
     // config (`repos.bot`), so a workspace that chose a
     // non-`.claude` dir round-trips through clone; absent/unreadable
     // falls back to the default. A legacy-schema config (which the
-    // resolvers reject) is honored here — clone is where an old
+    // resolvers reject) is honored here: clone is where an old
     // repo first arrives, so it completes with the legacy-declared
     // bot dir and a warning pointing at the [repos] rewrite.
     let bot_dir = match crate::common::configured_bot_dir(target_dir) {
@@ -223,7 +223,7 @@ pub(crate) fn clone_dual(
                 warn!(
                     "cloned work repo uses a legacy .vc-config.toml schema; \
                      continuing with its declared bot dir '{}'. Update both \
-                     sides' configs to the [repos] registry — any vc-x1 \
+                     sides' configs to the [repos] registry: any vc-x1 \
                      command in the workspace prints the exact rewrite",
                     p.display()
                 );
