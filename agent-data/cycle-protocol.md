@@ -1,7 +1,10 @@
 # Cycle protocol
 
-This protocol uses [Prose form](../agent-data/prose.md#prose-form). It
+This protocol uses [Prose form](prose.md#prose-form). It
 contains instructions on how a commit cycle is accomplished.
+
+Universal file, pinned to the template repository; do not edit
+here. Project overrides go in [custom.md](../custom.md).
 
 The artifact a cycle produces is whatever the bot generates from
 the conversation: code, prose, an image, a song, a screenplay.
@@ -70,7 +73,7 @@ permanent (see [Commits backfill](#commits-backfill) below).
 
 Fuller chores conventions (content rules, header sync, design subsection pattern, ladder and
 reference formatting, the Table of Contents) live in
-[Chores conventions](../agent-data/notes.md#chores-conventions).
+[Chores conventions](notes.md#chores-conventions).
 
 ### Commits backfill
 
@@ -90,7 +93,7 @@ rewritten); a rebase or squash rewrites it on the way. So:
 
 Each rung carries its own `[N]` ref, with the commit URL + 40-hex SHA in the file's
 `# References` (format in
-[Chores commit references](../agent-data/notes.md#chores-commit-references)). A section's `##`
+[Chores commit references](notes.md#chores-commit-references)). A section's `##`
 title matches its close-out commit title, and each rung's text its own commit title, so a rare
 deliberate rewrite of a permanent-branch commit re-syncs via `git log --grep "<title>"`.
 Sections that predate the ladder form keep their grandfathered `Commits:` lines.
@@ -250,11 +253,11 @@ the main repo, so titles don't carry one.
   marker). Share a greppable stem across the cycle's titles
   (e.g. `ring buffer`) so `git log --grep` collects them; the
   chores section header matches the close-out title. See
-  [Conventional-commit shape](../agent-data/prose.md#conventional-commit-shape-ladder--chores--commit).
+  [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--chores--commit).
 
 ### Body
 
-[Prose form](../agent-data/prose.md#prose-form) (intro + bullets),
+[Prose form](prose.md#prose-form) (intro + bullets),
 wrap ≤72. Bullet content differs per repo:
 
 - **Work-repo body**: file-by-file. One bullet per file
@@ -292,7 +295,7 @@ wrap ≤72. Bullet content differs per repo:
 ### Trailer
 
 `ochid:` as the last line of the body; see
-[Cross-repo linking (ochid trailers)](../agent-data/jj.md#cross-repo-linking-ochid-trailers)
+[Cross-repo linking (ochid trailers)](jj.md#cross-repo-linking-ochid-trailers)
 in agent-data/jj.md for the convention.
 
 For breaking changes, use the hyphenated `BREAKING-CHANGE:`
@@ -315,9 +318,14 @@ Don't `jj edit -r @-` to view a past commit, because that marks
 it mutable and shifts `@`; use `jj diff -r @-` or
 `jj show -r @-`.
 
+No preflight while a review iterates: `fmt` / `clippy` / `test`
+wait until the review settles, since `fmt` mutates files in ways
+that interact badly with the user's mid-review edits. Validation
+runs once, on the settled state, per the per-commit checklist.
+
 See [Sub-cycle ladders](#sub-cycle-ladders) for the
 close-out squash recipe and recovery; revset primitives
-are in [`jj-tips.md`](jj-tips.md#revsets).
+are in [`jj.md > Revsets`](jj.md#revsets).
 
 ## Pushing
 
@@ -671,7 +679,7 @@ once, by `vc-x1 push`, on the squashed commit. Step 4 is
 therefore first-time authoring of a scratch description, not a
 rewrite of a published or stamped one, and is the named
 exception to
-[Re-describing](../agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer).
+[Re-describing](jj.md#re-describing-coordinate-first-and-keep-the-trailer).
 
 ### Navigating the ladder
 
@@ -730,7 +738,7 @@ prior commits:
 
 # References
 
-- [`jj-tips.md`](jj-tips.md#revsets): revset primitives
+- [`jj.md > Revsets`](jj.md#revsets): revset primitives
   (chid/cid, `@`/`@-`/`@+`, `..`/`::` ranges, prefix matching).
 - The per-commit `cargo test --bins` gate exists because a
   regression introduced in an early ladder commit can go

@@ -45,9 +45,10 @@ consolidated 2026-07-24; titles are the anticipated close-out
 titles; unshipped versions are provisional, since jj-lib may
 split into two cycles). `docs:` entries are interludes that
 sit between cycles and belong to no rung. Every shipped ref
-points at a close-out commit on `refactor-vc-x1`, treated as
-permanent: the branch is long-lived and lands on main
-merge-only, never rebased.
+points at a close-out commit published via the long-lived
+`refactor-vc-x1` bookmark (merge-only while it ran; fully
+merged into main and deleted 2026-08-03 under jj.md's
+long-lived bookmark discipline).
 
 The order is load-bearing: a
 trapezoid's `<base>` is the parent of its own first rung, not
@@ -55,7 +56,7 @@ the previous close-out, so 0.78.0 bases on 0.77.4. Taking the
 close-out instead swallows the interludes into the merge's
 ladder side, which already bit at 0.76.0, whose base was the
 0.75.1 interlude. See
-[the recipe](notes/cycle-protocol.md#trapezoid-close-out-recipe).
+[the recipe](agent-data/cycle-protocol.md#trapezoid-close-out-recipe).
 
 - [[1]] 0.73.0 refactor: DRY jj facade (done)
 - [[2]] 0.74.0 refactor: hygiene riders (done)
@@ -75,7 +76,21 @@ ladder side, which already bit at 0.76.0, whose base was the
   - not migration work; keeps the read-side compiling
     against the installed jj 0.43.0, and correct whichever
     way the mutation decision goes
-- [[N]] 0.78.0 refactor: jj-lib migration (done)
+- [[22]] 0.78.0 refactor: jj-lib migration (done)
+- [[N]] 0.78.1 docs: adopt the 20260803 baseline pin set (current)
+  - instruction-set dedup dogfooded ahead of iiac-perf's review: cycle-protocol.md +
+    versioning.md pinned into agent-data/, jj-tips.md + draft-reviews.md deleted (salvaged
+    into jj.md Revsets and the protocol's no-preflight rule), cycle.md renamed
+    cycle-checklists.md (scope-collision fix at wink's review), live links re-pointed;
+    README's "jj Tips for Git Users" became a signpost (jj.md quick reference, upstream
+    tutorials, template-hosted jj-tips.md) instead of a drifting copy (it still said
+    `obslog`, renamed `evolog` upstream); dogfood log rehomed from custom.md to
+    notes/dogfood.md (a record, so records-only places it in notes/)
+  - custom.md reset to the bare template skeleton in the same commit (no history loss: the
+    log moved to notes/dogfood.md, the bookmark discipline is pinned in jj.md, and the rest
+    was committed at 0.78.0): the generic-custom.md test starts here; a project should not
+    assume the template's location, name, or contents, so the project layer is
+    skeleton-identical and what breaks becomes dogfood findings in notes/dogfood.md
 - [[N]] 0.79.0 refactor: trapezoid-push + body-intro
   validation
   - the `## Todo` entry "refactor: trapezoid-push +
@@ -95,8 +110,10 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **typeable punctuation: source sweep + rule rewording.** Targets **0.78.1**, the first
-   cycle under patch-level numbering for incremental work (custom.md "Version advancement").
+1. **typeable punctuation: source sweep + rule rewording.** Targets **0.78.2** (was 0.78.1
+   until the 2026-08-03 instruction interlude took it; versions identify, never order), the
+   first cycle under patch-level numbering for incremental work (the scope-based version
+   advancement rule, recorded in notes/dogfood.md pending its tier-2 graduation).
    The [Typeable punctuation only](/agent-data/prose.md#typeable-punctuation-only) rule
    prohibits *authoring*; presence in a file is legitimate. Deferred out of the `0.77.x`
    ladder 2026-07-30, behind the refactor program; promoted to #1 at the 0.78.0 close-out.
@@ -847,3 +864,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
 [21]: /notes/chores/chores-15.md#refactor-jj-lib-migration
+[22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"

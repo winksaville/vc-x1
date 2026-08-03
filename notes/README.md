@@ -54,12 +54,12 @@ map) and its `../agent-data/` satellites:
   conventional-commit shape.
 - [Code conventions](../agent-data/code.md): doc comments, `// OK: ...` on `unwrap*` calls.
 
-Per-cycle workflow lives in [`cycle-protocol.md`](cycle-protocol.md):
+Per-cycle workflow lives in [`cycle-protocol.md`](../agent-data/cycle-protocol.md):
 
-- [Cycles](cycle-protocol.md#cycles): three-phase shape (Preparation -> Work -> Close-out),
+- [Cycles](../agent-data/cycle-protocol.md#cycles): three-phase shape (Preparation -> Work -> Close-out),
   `X.Y.Z-N` numbering, sub-cycles.
-- [Per-commit flow](cycle-protocol.md#per-commit-flow): cargo cycle
+- [Per-commit flow](../agent-data/cycle-protocol.md#per-commit-flow): cargo cycle
   (`fmt` / `clippy` / `test` / `install`), work + commit description review gates.
-- [Commit description](cycle-protocol.md#commit-description): Conventional Commits title; body
+- [Commit description](../agent-data/cycle-protocol.md#commit-description): Conventional Commits title; body
   shape per work vs bot repo.
-- [Pushing](cycle-protocol.md#pushing): push policy, close-out shape, `.claude` cadence.
+- [Pushing](../agent-data/cycle-protocol.md#pushing): push policy, close-out shape, `.claude` cadence.

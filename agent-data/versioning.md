@@ -8,6 +8,9 @@ this file is copied **verbatim**, with
 covering each medium by conditional rather than per-project
 edits.
 
+Universal file, pinned to the template repository; do not edit
+here. Project overrides go in [custom.md](../custom.md).
+
 ## Terms
 
 Three names, used as defined here across

@@ -28,6 +28,24 @@ content.
   updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
 
+## Revsets
+
+How commits are addressed in `-r` arguments, condensed; the full language is
+`jj help -k revsets`, and the worked tutorial with terminal transcripts is `jj-tips.md`,
+hosted once in the template repository (custom.md records the template's path).
+
+- A revision is `@` (the working copy), a chid prefix, or a commit id. Unambiguous prefixes
+  are accepted; ambiguous ones are rejected, never guessed.
+- Neighbors: `@-` parent, `@--` grandparent, `@+` child. A step past the end of the chain is
+  the empty set, not an error.
+- Ranges pair a dot form with a direction, and `::` includes the implicit endpoint while `..`
+  excludes it:
+  - `X::` descendants of X including X; `X..` descendants excluding X
+  - `::X` ancestors of X including root; `..X` ancestors of X excluding root
+- Useful sets: `jj log` (default revset), `jj log -r ::@` (all ancestors of `@`),
+  `jj log -r 'all()'` (all visible commits), `jj evolog -r X` (one change's rewrite history),
+  `jj op log` (operation history).
+
 ## Cross-repo linking (ochid trailers)
 
 The cross-reference between the work repo and the bot repo is what makes the dual-repo work:
@@ -73,13 +91,30 @@ coordinating with everyone involved first.** It is a history rewrite, and it sil
 cross-repo link. Describing a fresh local commit that has never been described and carries no
 trailers is authoring a message rather than rewriting one, and is not covered; that is the
 sub-cycle ladder's
-[per-Work-commit contract](../notes/cycle-protocol.md#per-work-commit-contract-within-a-ladder)
+[per-Work-commit contract](cycle-protocol.md#per-work-commit-contract-within-a-ladder)
 step 4.
 
 When a re-describe is agreed, copy any `ochid:` trailers into the new body by hand (the "don't
 hand-write trailers" rule covers push authoring a message from scratch, not preserving one
 already stamped). Hit at the 0.77.2 amend (2026-07-29), where the trailer survived only that
 way; `vc-x1 fix-desc` repairs a dropped one by title match.
+
+## Long-lived bookmarks: merge-only by default, deletable once merged
+
+A long-lived bookmark (a program line pushed rung by rung across cycles) carries published
+history; the discipline protects that history while the bookmark is its only holder:
+
+- conflicts with `main` are resolved in merge commits, never by rewriting published rungs
+- a rebase is never required for correctness: it is a linearity preference
+- coordinated rebases stay available (the bar is on unilateral rewrites, not rewrites), at the
+  known cost of staling the git-SHA citations in the records; chids and ochid trailers survive
+  a rebase
+- once the bookmark's history is fully merged into `main` the bookmark is redundant and may be
+  deleted
+
+Refined 2026-08-03 in vc-x1 from the earlier "treated as permanent, never rebased" wording,
+after the fully merged `refactor-vc-x1` bookmark was deleted; the evidence trail is vc-x1's
+dogfood log (`notes/dogfood.md`).
 
 ## Resolvability
 

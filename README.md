@@ -1008,27 +1008,18 @@ For full details see:
 
 ## jj Tips for Git Users
 
-If you're coming from git, jj's log output can be surprising compared to tools like `gitk --all`.
+Coming from git, start with these; one home per fact, so this section points rather than
+repeats:
 
-### Why `jj log` shows fewer commits than `gitk`
-
-jj tracks *changes* (identified by change IDs), not individual git commits. When you rewrite a
-change (`jj describe`, `jj rebase`, `jj squash`, etc.), jj creates a new git commit and keeps the
-old one under `refs/jj/keep/*` as undo history. `gitk --all` sees all of these obsolete commits; `jj
-log` only shows the current version of each change.
-
-### Useful commands
-
-| Command | Description |
-|---------|-------------|
-| `jj log` | Show recent visible commits (default revset) |
-| `jj log -r ::@` | Show **all** ancestors of the working copy |
-| `jj log -r 'all()'` | Show all non-hidden commits (needed if you have multiple heads/branches) |
-| `jj obslog -r <change-id>` | Show the evolution history of a single change |
-| `jj op log` | Show operation history (each rewrite operation) |
-
-In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give the same result. Use
-`all()` when you have multiple branches or heads.
+- [agent-data/jj.md](agent-data/jj.md): the project's quick reference (command basics, the
+  working-copy `@` model, revset addressing) plus the dual-repo linking rules. Pinned and
+  human-readable; `agent-data/` holds the universal rule files, not agent-only material.
+- The [jj docs](https://docs.jj-vcs.dev/latest/) and
+  [Steve Klabnik's Jujutsu tutorial](https://steveklabnik.github.io/jujutsu-tutorial/): the
+  maintained tutorials; generic jj pedagogy lives upstream, not in this repo.
+- `jj-tips.md` in the template repository (path recorded in custom.md): the family's worked
+  tutorial with terminal transcripts, e.g. why `jj log` shows fewer commits than `gitk --all`
+  and how force-pushes look in jj.
 
 ## Testing
 

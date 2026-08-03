@@ -145,7 +145,7 @@ A commit's title is reused verbatim across its records; see
 rule. Beyond the chores `##` header, that same string is used for the matching
 `TODO.md > ## Done` entry and any `[N]` reference to that section. Titles carry **no
 `(<version>)` suffix**; see
-[Commit description](../notes/cycle-protocol.md#commit-description) for why. E.g. the chores
+[Commit description](cycle-protocol.md#commit-description) for why. E.g. the chores
 header `## refactor: extract config loader` and the Done line
 `- refactor: extract config loader [[3]]`. The `## Done` entry uses the close-out commit's
 title.
@@ -177,7 +177,7 @@ restates the other.
 The section is **built up per commit**: each work commit appends its own rung to the as-built
 ladder + any narrative as it lands, rather than the narrative waiting for close-out (which only
 *finalizes*: header title sync, design subsections). Full when-in-the-cycle timing lives in
-cycle-protocol.md [Chores sections](../notes/cycle-protocol.md#chores-sections); this note is
+cycle-protocol.md [Chores sections](cycle-protocol.md#chores-sections); this note is
 the pointer, so the two don't drift.
 
 When the intro starts wanting to explain a mechanism, hypothesis, or wrinkle, don't inflate it;
@@ -233,7 +233,7 @@ can't record its own SHA, so the fill lands one push later: every rung opens wit
 `[[N]]` placeholder, and each push backfills the rungs of the commits the previous push made
 permanent. On a topic branch a section waits until the branch lands. The commit itself is the
 record, and `git log --grep "<title>"` finds it. See cycle-protocol
-[Commits backfill](../notes/cycle-protocol.md#commits-backfill).
+[Commits backfill](cycle-protocol.md#commits-backfill).
 
 Sections that predate this convention keep their `Commits:` lines; the ladder form applies
 going forward.

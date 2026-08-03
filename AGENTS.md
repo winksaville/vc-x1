@@ -16,21 +16,23 @@ detail; the rule as stated here is binding on its own.
 1. **A cycle rung is committed by `vc-x1 push`, never pre-committed with `jj commit`.** In an
    instruction, "commit", "push", and "commit + push" all mean `vc-x1 push`; a bare `jj commit`
    is asked for by name and is only for work that never publishes.
-   [Committing vs pushing](agent-data/cycle.md#committing-vs-pushing).
+   [Committing vs pushing](agent-data/cycle-checklists.md#committing-vs-pushing).
 2. **Every push needs that push's explicit approval.** Approval of a plan that includes a push
    does not authorize the push; ask again at the moment of pushing. Only an explicit scoped
-   delegation waives the stops. [Before any push](agent-data/cycle.md#before-any-push).
+   delegation waives the stops. [Before any push](agent-data/cycle-checklists.md#before-any-push).
 3. **Hard stop after the turn's final push or squash-push.** Closing words go before the
    invoke; afterwards, nothing until the user speaks (a bare acknowledgment if the harness
-   forces a token). [After the final push](agent-data/cycle.md#after-the-final-push-hard-stop).
+   forces a token).
+   [After the final push](agent-data/cycle-checklists.md#after-the-final-push-hard-stop).
 4. **Never `jj describe` a published or trailer-carrying commit without coordinating first.**
    When a re-describe is agreed, hand-copy the `ochid:` trailers into the new body.
    [Re-describing](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer).
 5. **Never hand-write `ochid:` trailers**; `vc-x1 push` stamps them.
    [ochid trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers).
 6. **Use jj, not git**, for version-control operations. [jj basics](agent-data/jj.md#jj-basics).
-7. **Read the checklist before the action**: [agent-data/cycle.md](agent-data/cycle.md) before
-   commit work and before any push. Validation runs before the push, never after.
+7. **Read the checklist before the action**:
+   [agent-data/cycle-checklists.md](agent-data/cycle-checklists.md) before commit work and
+   before any push. Validation runs before the push, never after.
 8. **Typeable punctuation only** in durable text: no em/en dash, ellipsis, or arrow characters.
    [Typeable punctuation](agent-data/prose.md#typeable-punctuation-only).
 9. **One title per step, verbatim in three places**: the ladder rung, the chores `##` header,
@@ -106,22 +108,25 @@ Always loaded:
 Read at the moment of action, immediately before acting, not from memory (`agent-data/`,
 universal, pinned; checklists first, rationale after):
 
-- [cycle.md](agent-data/cycle.md): commit / push / close-out checklists. Read before any commit
-  work or push.
+- [cycle-checklists.md](agent-data/cycle-checklists.md): commit / push / close-out
+  checklists. Read before any commit work or push.
 - [jj.md](agent-data/jj.md): jj usage, ochid trailers, the re-describe rule, `.vc-config.toml`.
 - [prose.md](agent-data/prose.md): prose form, punctuation, commit-title identity. Read before
   writing durable text.
 - [notes.md](agent-data/notes.md): TODO / chores / done mechanics, references, anchors. Read
   before editing notes files.
 - [code.md](agent-data/code.md): doc comments and unwrap discipline. Read before writing code.
-
-Authoritative protocol and project records (`notes/`):
-
-- [cycle-protocol.md](notes/cycle-protocol.md): the full cycle protocol; it wins over any
+- [cycle-protocol.md](agent-data/cycle-protocol.md): the full cycle protocol; it wins over any
   checklist summary of it.
-- [versioning.md](notes/versioning.md): the version scheme and version-of-record.
+- [versioning.md](agent-data/versioning.md): the version scheme and version-of-record.
+
+Project records (`notes/` and the repo root): records only, never universal rules; anything
+normative that outgrows the project belongs in `agent-data/` via the template:
+
 - `TODO.md`, `notes/todo-backlog.md`, `notes/bugs.md`, `notes/chores/`, `notes/done.md`: the
   project's working records; conventions in [agent-data/notes.md](agent-data/notes.md).
+- `notes/dogfood.md`: dated entries recording where the pinned instructions chafed or failed;
+  the evidence base for proposing template changes.
 
 ## custom.md: the project layer
 
@@ -130,12 +135,12 @@ project-specific lives there:
 
 - the medium and its validation commands (what the per-commit checklist's "validate the
   artifact" runs)
-- versioning specifics beyond [versioning.md](notes/versioning.md)
+- versioning specifics beyond [versioning.md](agent-data/versioning.md)
 - project-local conventions, including overrides of the pinned files; an override names the
   section it supersedes
-- the dogfood log: dated entries recording where these instructions chafed or failed, the
-  evidence for changing them
 
 Precedence: custom.md is loaded last and wins conflicts with this file and the satellites. Keep
 it small; when an entry stops being project-specific, propose it into the template instead of
-letting it grow here.
+letting it grow here. Matching the template's skeleton is the healthy steady state: drift is a
+signal of accumulating project-specific content. The dogfood log is a record, not
+configuration; it lives in `notes/dogfood.md`.

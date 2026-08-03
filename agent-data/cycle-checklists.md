@@ -2,7 +2,7 @@
 
 Checklists for the moments where slips happen: committing, pushing, closing out. The full
 protocol, with rationale and recovery procedures, is
-[cycle-protocol.md](../notes/cycle-protocol.md); on any disagreement, that file wins. Re-read
+[cycle-protocol.md](cycle-protocol.md); on any disagreement, that file wins. Re-read
 the relevant checklist immediately before the action; don't run it from memory.
 
 Universal file, pinned to the template repository; do not edit here. Project overrides go in
@@ -13,7 +13,7 @@ Universal file, pinned to the template repository; do not edit here. Project ove
 Every change runs as a **cycle**: Preparation (`X.Y.Z-0`, optional) -> Work commits
 (`X.Y.Z-1`, `X.Y.Z-2`, ...) -> Close-out (bare `X.Y.Z`). The version suffix encodes the phase;
 the scheme, and where the version-of-record lives, are in
-[versioning.md](../notes/versioning.md). Read [cycle-protocol.md](../notes/cycle-protocol.md)
+[versioning.md](versioning.md). Read [cycle-protocol.md](cycle-protocol.md)
 before any commit work, and before any push, cycle or not.
 
 ## Committing vs pushing
@@ -26,12 +26,12 @@ an instruction, "commit", "push", and "commit + push" all mean `vc-x1 push`. A b
 is asked for by name ("local commit", "just `jj commit`") and is only for work that never
 publishes (local-only saves and loop-and-squash intermediates), with no `ochid:`. The approval
 around a push, interactive by default and waived only by an explicit scoped delegation, is the
-cycle protocol's [Pushing policy](../notes/cycle-protocol.md#policy).
+cycle protocol's [Pushing policy](cycle-protocol.md#policy).
 
 ## Per-commit checklist
 
 Every commit (Preparation, each Work commit, Close-out), per the protocol's
-[Per-commit flow](../notes/cycle-protocol.md#per-commit-flow):
+[Per-commit flow](cycle-protocol.md#per-commit-flow):
 
 1. Mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
@@ -47,7 +47,7 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
    complete.
 7. Write the description: <=72-col conventional title, prose body (work repo: file-by-file,
    opening with the version-bump bullet). See
-   [Commit description](../notes/cycle-protocol.md#commit-description).
+   [Commit description](cycle-protocol.md#commit-description).
 8. Show title + body and stop for review. This review covers the push only when the user's go
    explicitly includes it.
 9. On the user's go: `vc-x1 push <bookmark> --title "..." --body "..."`. Never pre-commit with
@@ -56,7 +56,7 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 ## Ladder (sub-cycle) checklist
 
 Within a sub-cycle ladder, per the protocol's
-[per-Work-commit contract](../notes/cycle-protocol.md#per-work-commit-contract-within-a-ladder):
+[per-Work-commit contract](cycle-protocol.md#per-work-commit-contract-within-a-ladder):
 
 1. `jj new -R .`: fresh empty `@`.
 2. Do the commit's work.
@@ -86,12 +86,12 @@ after the tool returns; if so, emit a bare acknowledgment only (e.g. "landed"), 
 or more work. Post-push verification happens next turn at the user's direction. A standing
 delegation makes intermediate pushes just steps; the hard stop lands on the turn's *final*
 push. See
-[After push or squash-push](../notes/cycle-protocol.md#after-push-or-squash-push-stop-and-wait).
+[After push or squash-push](cycle-protocol.md#after-push-or-squash-push-stop-and-wait).
 
 ## Close-out checklist
 
 The cycle's last commit (bare `X.Y.Z`), per the protocol's
-[Close-out](../notes/cycle-protocol.md#close-out):
+[Close-out](cycle-protocol.md#close-out):
 
 1. Move the picked-up item from `## In Progress` to a one-line `## Done` entry with its chores
    `[N]` ref.
@@ -101,7 +101,7 @@ The cycle's last commit (bare `X.Y.Z`), per the protocol's
 4. Update `notes/README.md` if functionality changed.
 5. At push time, surface the shape options (squash / trapezoid / keep separate) and wait for
    the user's choice. The trapezoid recipe is
-   [in the protocol](../notes/cycle-protocol.md#trapezoid-close-out-recipe); its step 4 is
+   [in the protocol](cycle-protocol.md#trapezoid-close-out-recipe); its step 4 is
    `jj git push`, not `vc-x1 push`.
 6. Backfill the chores as-built ladder refs (and any remaining legacy `Commits:` lines) for
    the commits the previous push made permanent; never record a SHA that is not on a permanent

@@ -25,7 +25,7 @@ Surfaces that use this shape:
 - Module / function / struct / field doc comments in `.rs` files; see
   [Doc comments](code.md#doc-comments-on-every-file-function-and-method).
 - Commit message bodies (both work-repo and bot-repo). The <=72-col title is the
-  commit-specific add-on; see [Per-commit flow](../notes/cycle-protocol.md#per-commit-flow).
+  commit-specific add-on; see [Per-commit flow](cycle-protocol.md#per-commit-flow).
 - Chore descriptions in `notes/chores/chores-NN.md`; see
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
 - Todo and Done entries in `TODO.md` when an entry needs more than one line of detail. Pure
@@ -131,7 +131,7 @@ The three surfaces apply it as:
   placeholders; see [Chores commit references](notes.md#chores-commit-references)).
 - **Commit description**: no version prefix, and the title is the <=72-col first line; the body
   is the prose (file-by-file for the work repo, per
-  [Per-commit flow](../notes/cycle-protocol.md#per-commit-flow)).
+  [Per-commit flow](cycle-protocol.md#per-commit-flow)).
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
 chores `##` header, and its commit title line up verbatim; pick the commit title first and
