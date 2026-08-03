@@ -5,7 +5,7 @@ protocol, with rationale and recovery procedures, is
 [cycle-protocol.md](../notes/cycle-protocol.md); on any disagreement, that file wins. Re-read
 the relevant checklist immediately before the action; don't run it from memory.
 
-Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project overrides go in
+Universal file, pinned to the template repository; do not edit here. Project overrides go in
 [custom.md](../custom.md).
 
 ## The cycle at a glance
@@ -36,16 +36,21 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 1. Mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
 3. Flip `(current)` -> `(done)`, before validation and the commit.
-4. Validate the artifact (the medium-specific commands are in [custom.md](../custom.md)).
+4. Close the records, so the later steps find them done:
+   - backfill the chores/ladder refs of the commits the previous push made permanent
+   - append this commit's chores rung + narrative (or its `TODO.md` block, under a one-home
+     override)
+   - bump the version-of-record
+5. Validate the artifact (the medium-specific commands are in [custom.md](../custom.md)).
    Skip-able for notes-only commits, mandatory at close-out.
-5. Say "ready to commit" and stop. The user reviews the working-copy diff; iterate until
+6. Say "ready to commit" and stop. The user reviews the working-copy diff; iterate until
    complete.
-6. Write the description: <=72-col conventional title, prose body (work repo: file-by-file,
+7. Write the description: <=72-col conventional title, prose body (work repo: file-by-file,
    opening with the version-bump bullet). See
    [Commit description](../notes/cycle-protocol.md#commit-description).
-7. Show title + body and stop for review. This review covers the push only when the user's go
+8. Show title + body and stop for review. This review covers the push only when the user's go
    explicitly includes it.
-8. On the user's go: `vc-x1 push <bookmark> --title "..." --body "..."`. Never pre-commit with
+9. On the user's go: `vc-x1 push <bookmark> --title "..." --body "..."`. Never pre-commit with
    `jj commit`; never hand-write `ochid:` trailers.
 
 ## Ladder (sub-cycle) checklist
@@ -98,8 +103,9 @@ The cycle's last commit (bare `X.Y.Z`), per the protocol's
    the user's choice. The trapezoid recipe is
    [in the protocol](../notes/cycle-protocol.md#trapezoid-close-out-recipe); its step 4 is
    `jj git push`, not `vc-x1 push`.
-6. Backfill `Commits:` / ladder refs for the commits the previous push made permanent; never
-   record a SHA that is not on a permanent branch.
+6. Backfill the chores as-built ladder refs (and any remaining legacy `Commits:` lines) for
+   the commits the previous push made permanent; never record a SHA that is not on a permanent
+   branch.
 
 ## vc-x1 push behaviors to keep in mind
 

@@ -4,7 +4,7 @@ How version control is driven on this project (jj, never raw git) and how the tw
 commits point at each other (the `ochid:` trailer). Read this before any jj operation beyond
 `st` / `log` / `diff`, and always before touching a commit description.
 
-Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project overrides go in
+Universal file, pinned to the template repository; do not edit here. Project overrides go in
 [custom.md](../custom.md).
 
 ## jj Basics

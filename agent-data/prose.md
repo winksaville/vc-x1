@@ -4,7 +4,7 @@ How long-lived text is written on this project: the prose shape, the punctuation
 commit-title identity. Read this before writing durable text (notes files, commit messages, doc
 comments, chores sections).
 
-Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project overrides go in
+Universal file, pinned to the template repository; do not edit here. Project overrides go in
 [custom.md](../custom.md).
 
 ## Prose form
@@ -12,8 +12,11 @@ Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project ov
 Long-lived prose on this project follows one basic shape: a short intro that explains the *why*
 or the high-level *what*, then a `-` bullet list for the details. Wrap lines at <=100 cols,
 commit titles and bodies at <=72 (bullet continuations indent two spaces); existing text
-re-wraps when touched, no mass sweeps. Avoid wall-of-prose paragraphs: they hide the structure
-that bullets make scannable. Punctuation that joins clauses without naming their relationship is
+re-wraps when touched, no mass sweeps. Write to the full width: wrap near the limit rather than
+imitating the narrow wrap of older text. A default, not an absolute: a line that reads better
+long stays long (an URL, a literal report row, indented code in a comment). One fact per bullet
+or sub-bullet beats a paragraph packing several. Avoid wall-of-prose paragraphs: they hide the
+structure that bullets make scannable. Punctuation that joins clauses without naming their relationship is
 the same failure at sentence scale; see [Semicolons inside bullets](#semicolons-inside-bullets)
 and [Typeable punctuation only](#typeable-punctuation-only).
 
@@ -62,8 +65,10 @@ pairs can stay joined inside a bullet when breaking would be more noise than sig
 
 ### Typeable punctuation only
 
-Durable text uses punctuation that can be typed at a terminal. Banned: `—`, `–`, `…`, `→`.
-None can be entered without a compose key or a paste, so none can be grepped for, and an em
+Durable text uses punctuation that can be typed at a terminal. The prohibition is on
+*authoring*, not presence: a file may legitimately hold a banned character it transcribed (see
+below), so a byte scan is not the rule and a sweep needs the authored/transcribed judgment.
+Banned from authoring: `—`, `–`, `…`, `→`. None can be entered without a compose key or a paste, so none can be grepped for, and an em
 dash next to option syntax reads as another flag. Unlike the semicolon rule above this one is
 absolute: they cost nothing to write and are paid on every read, so a soft rule accumulates
 them.
@@ -122,8 +127,8 @@ The three surfaces apply it as:
   (`X.Y.Z-N <title>`) and carries a `(current)` / `(done)` marker. The bare three-element
   `X.Y.Z` (no `-N`) is the close-out step. Detail is bulleted, never `;`-joined inline.
 - **Chores section** (`notes/chores/chores-NN.md`): no version prefix, since the `##` header
-  *is* the bare title, with a `Commits: [[ref]]` line first under it (empty until backfilled;
-  see [Chores commit references](notes.md#chores-commit-references)).
+  *is* the bare title, with the as-built ladder first under it (rungs open as `[[N]]`
+  placeholders; see [Chores commit references](notes.md#chores-commit-references)).
 - **Commit description**: no version prefix, and the title is the <=72-col first line; the body
   is the prose (file-by-file for the work repo, per
   [Per-commit flow](../notes/cycle-protocol.md#per-commit-flow)).
@@ -136,6 +141,12 @@ That identity is **per step**, not per cycle: each step in a cycle gets its own 
 descriptive title, never one shared cycle title uniquified by a step marker. The cycle's chores
 section header carries the anticipated *close-out* title. To keep a cycle's commits collectable
 with one `git log --grep`, give the step titles a common greppable stem (e.g. `config loader`).
+
+**Cycle bookend titles**: the opening commit's title is the close-out title plus " opening",
+same type (`feat: dynamic warmup opening` / `feat: dynamic warmup`), so one
+`git log --grep "<close-out title>"` returns exactly the pair that brackets the cycle. The
+type repeats the close-out's even though an opening is mostly bookkeeping: identical prefixes
+make the pair scannable. Rungs between keep their own titles on the stem.
 
 ## Speculation marker
 

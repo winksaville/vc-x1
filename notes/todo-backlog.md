@@ -298,6 +298,13 @@
       work becomes an interlude rather than a rung appended to
       the running cycle.
 
+46. **`init` template ergonomics.** Take-or-leave ideas from the template restructure (mailbox,
+    2026-07-31), triaged here 2026-08-02:
+    - `--use-template <repo-root>` auto-detecting `work/` / `work.claude/`, so the caller
+      passes the template repo rather than its payload subdirectory
+    - a no-remote init mode for local testing
+    - an empty-dir bot template only needs a `.gitkeep`, since init writes hidden files itself
+
 # References
 
 [2]: /notes/forks-multi-user.md

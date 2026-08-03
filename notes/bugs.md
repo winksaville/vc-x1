@@ -172,4 +172,21 @@ insert / delete / reorder.
      the bot dir; each asserts the counterpart resolves to
      the work root and the command succeeds.
 
+6. **`init` prints steps out of order.** Reported by iiac-perf + wink (mailbox, 2026-07-31),
+   observed on a real 0.71.0 run: output order was `Step 6 (skipped)`, `Step 8 (skipped)`,
+   `Step 7: Setting code bookmark`, while `--dry-run` lists 1-11 in order. They think the
+   skip-notices are emitted eagerly.
+   - **Cost:** cosmetic; a transcript is ambiguous about what ran when.
+
+7. **`push --body` rejects a body whose first character is `-`.** Hit twice at iiac-perf
+   (dogfood log, 2026-08-01): once at vc-x1's own clap (worked around with `--body=`), then
+   again inside push's `jj commit -m <body>` (same clap leading-hyphen rejection in jj), which
+   rolled both repos back cleanly.
+   - **Cost:** a file-by-file body opening with its first bullet cannot be pushed.
+   - **Workaround:** open the body with its intro line, never a bare bullet, which prose form
+     wants anyway.
+   - **Fix direction:** pass bodies to jj as `-m=<body>` or via stdin/file. The `-6` jj-lib
+     mutations migration may have retired the jj half already; the clap half is ours either
+     way. Verify both before closing.
+
 # References

@@ -2,46 +2,17 @@
 
 The universal core of this project's bot instructions: the dual-repo model, the hard rules, and
 a map of everything else. This file is shared across our dual repos and pinned to
-vc-x1-work-repo-template: every instruction file except `custom.md` must match the template, so
+the template repository: every instruction file except `custom.md` must match the template, so
 drift is a diff, not a mystery.
-
-How to read this set:
-
-- This file and [custom.md](custom.md) are always loaded.
-- The `agent-data/` satellites hold the working conventions, checklists first, rationale after.
-  Read the relevant one at the moment listed in the [file map](#file-map), immediately before
-  acting, not from memory.
-- [custom.md](custom.md) is the project's own layer (medium, validation commands, overrides).
-  It is loaded last and wins conflicts.
-
-## The dual-repo model
-
-This project uses **two separate jj-git repos**:
-
-1. **Work repo** (`.`, the project root): the project's generated artifact, whether code,
-   prose, image, song, or whatever it produces.
-2. **Bot repo** (`.claude`): Claude Code session data (symlink from
-   `~/.claude/projects/<path-to-project-root>/.claude`).
-
-Both are managed with `jj` (Jujutsu), which coexists with git. Every commit in one repo links
-to its counterpart in the other via an `ochid:` trailer; see
-[agent-data/jj.md](agent-data/jj.md).
-
-**Terminology.** "Work repo" and "bot repo" are the standard names; write them as two words,
-adding a hyphen only when the pair sits directly in front of another noun ("work-repo commit",
-"bot-repo side"). Notes:
-
-- `.claude` is the bot repo's *path*, not its name, so commands (`-R .claude`) and ochid paths
-  (`/.claude/<chid>`) keep the literal path.
-- The vc-x1 CLI's scope name for the work repo is `work` (`--scope=work|bot|work,bot`).
-- "Work commit" / "Work-N" (capitalized) is a cycle-stage term, not a repo name; a generic
-  commit landing in the work repo is a "work-repo commit", never a bare "work commit".
 
 ## Hard rules
 
 The rules whose violation costs the most, numbered so a review can name them. Each links to its
 detail; the rule as stated here is binding on its own.
 
+0. **Read [custom.md](custom.md) before acting on anything below**: the project's layer
+   (medium, validation commands, overrides), loaded last, wins conflicts with this file and the
+   satellites. Already satisfied if your harness auto-loaded it.
 1. **A cycle rung is committed by `vc-x1 push`, never pre-committed with `jj commit`.** In an
    instruction, "commit", "push", and "commit + push" all mean `vc-x1 push`; a bare `jj commit`
    is asked for by name and is only for work that never publishes.
@@ -73,6 +44,29 @@ detail; the rule as stated here is binding on its own.
 12. **Instruction files are read-only except [custom.md](custom.md).** Rule changes are
     proposed in the template, not edited into pinned files.
 
+## The dual-repo model
+
+This project uses **two separate jj-git repos**:
+
+1. **Work repo** (`.`, the project root): the project's generated artifact, whether code,
+   prose, image, song, or whatever it produces.
+2. **Bot repo** (`.claude`): Claude Code session data (symlink from
+   `~/.claude/projects/<path-to-project-root>/.claude`).
+
+Both are managed with `jj` (Jujutsu), which coexists with git. Every commit in one repo links
+to its counterpart in the other via an `ochid:` trailer; see
+[agent-data/jj.md](agent-data/jj.md).
+
+**Terminology.** "Work repo" and "bot repo" are the standard names; write them as two words,
+adding a hyphen only when the pair sits directly in front of another noun ("work-repo commit",
+"bot-repo side"). Notes:
+
+- `.claude` is the bot repo's *path*, not its name, so commands (`-R .claude`) and ochid paths
+  (`/.claude/<chid>`) keep the literal path.
+- The vc-x1 CLI's scope name for the work repo is `work` (`--scope=work|bot|work,bot`).
+- "Work commit" / "Work-N" (capitalized) is a cycle-stage term, not a repo name; a generic
+  commit landing in the work repo is a "work-repo commit", never a bare "work commit".
+
 ## Working practices
 
 - **Stay in the project root**; target other directories with `-R` flags or absolute paths
@@ -88,6 +82,9 @@ detail; the rule as stated here is binding on its own.
   temporaries.
 - **Read the slice you need** from long notes files; the routine acquaint read is `TODO.md`
   `offset=0, limit=60`. [Notes files](agent-data/notes.md).
+- **Check the mailbox at acquaint**: the template repository hosts per-member mailboxes
+  (`messages/<member>.md`, protocol in its `MESSAGES.md`); an absent file means no mail.
+  custom.md records the project's member name and the template repository's path.
 - **Delegate mechanical subtasks to lesser models** (Haiku / Sonnet); reserve the top model for
   design and tricky work. Top-model tokens are the scarce resource.
 - **Don't use the per-project memory directory** (`~/.claude/projects/<path>/memory/`). Durable
@@ -106,7 +103,8 @@ Always loaded:
 - `AGENTS.md`: this file.
 - [custom.md](custom.md): the project's layer; the only agent-editable instruction file.
 
-Read at the moment of action (`agent-data/`, universal, pinned):
+Read at the moment of action, immediately before acting, not from memory (`agent-data/`,
+universal, pinned; checklists first, rationale after):
 
 - [cycle.md](agent-data/cycle.md): commit / push / close-out checklists. Read before any commit
   work or push.

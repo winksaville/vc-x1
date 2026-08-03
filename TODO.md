@@ -92,8 +92,11 @@ version gate at `-5` is what makes that coupling enforceable
 rather than merely accepted, which is the change from the
 2026-07-29 framing.
 
-- [[21]] 0.78.0-0 chore: open the jj-lib migration cycle
-  (done) [detail](#0780-0-chore-open-the-jj-lib-migration-cycle)
+- [[21]] 0.78.0-0 refactor: jj-lib migration opening (done)
+  [detail](#0780-0-refactor-jj-lib-migration-opening)
+  - retitled 2026-08-02 from `chore: open the jj-lib migration cycle` by a coordinated
+    re-describe + force-push, adopting the bookend-titles convention
+  - rungs `-0..-5` re-recorded after the rewrite
 - [[22]] 0.78.0-1 docs: adopt universal AGENTS (done)
   [detail](#0780-1-docs-adopt-universal-agents)
   - inserted 2026-07-30: the AGENTS restructure proposed in
@@ -142,38 +145,31 @@ rather than merely accepted, which is the change from the
   - `@`-relative reads stay behind: they need a working-copy
     snapshot, which is an op-store write, so they move with
     the mutations
-- [[N]] 0.78.0-6 refactor: jj-lib mutations (done)
-  [detail](#0780-6-refactor-jj-lib-mutations)
-  - commit, describe, bookmark set/track, fetch, push, plus
-    the `@`-relative reads deferred from `-5`
-- [[N]] 0.78.0-7 refactor: context-owned repo sessions
-  (done)
+- [[27]] 0.78.0-6 refactor: jj-lib mutations (done) [detail](#0780-6-refactor-jj-lib-mutations)
+  - commit, describe, bookmark set/track, fetch, push, plus the `@`-relative reads deferred
+    from `-5`
+- [[28]] 0.78.0-7 refactor: context-owned repo sessions (done)
   [detail](#0780-7-refactor-context-owned-repo-sessions)
-  - inserted 2026-08-01 at the `-6` review, design settled
-    there: `Context` owns lazily-opened `RepoSession`s keyed
-    by repo path, has-a and never is-a, because an
-    invocation touches 0..N repos and repo-less commands
-    (`version`) must not open one; verbs become session
-    methods; the one-shot facade fns stay as wrappers for
-    context-less callers
-  - one op per verb stays: sharing a transaction across
-    stages would change the op-log shape that push re-run
-    and sync revert rely on
-  - per-verb opens are the lifted subprocess lifecycle made
-    visible, not a regression; this rung is the improvement
-    over the spawned form, and push / squash-push / sync are
-    its consumers today
-  - ordered before the retry so the retry lands on the final
-    frame, though it fits either shape
-- [[N]] 0.78.0-8 fix: jj-lib index-lock retry (done)
-  [detail](#0780-8-fix-jj-lib-index-lock-retry)
+  - inserted 2026-08-01 at the `-6` review, design settled there: `Context` owns lazily-opened
+    `RepoSession`s keyed by repo path, has-a and never is-a, because an invocation touches
+    0..N repos and repo-less commands (`version`) must not open one; verbs become session
+    methods; the one-shot facade fns stay as wrappers for context-less callers
+  - one op per verb stays: sharing a transaction across stages would change the op-log shape
+    that push re-run and sync revert rely on
+  - per-verb opens are the lifted subprocess lifecycle made visible, not a regression; this
+    rung is the improvement over the spawned form, and push / squash-push / sync are its
+    consumers today
+  - ordered before the retry so the retry lands on the final frame, though it fits either shape
+- [[29]] 0.78.0-8 fix: jj-lib index-lock retry (done) [detail](#0780-8-fix-jj-lib-index-lock-retry)
   - renumbered from `-7` by the session insert
   - bugs.md #1, with the `git init --bare` to gix rider
-  - the retry classifies by error variant rather than
-    substring, which is the real win: `SpawnInPath` and
-    `UnsupportedGitOption` are never retryable, and treating
-    the whole `Subprocess` arm as retryable would loop
-    forever on a missing git binary
+  - the retry classifies by error variant rather than substring, which is the real win:
+    `SpawnInPath` and `UnsupportedGitOption` are never retryable, and treating the whole
+    `Subprocess` arm as retryable would loop forever on a missing git binary
+- [[N]] 0.78.0-9 docs: sync pin set and adopt new conventions (done)
+  [detail](#0780-9-docs-sync-pin-set-and-adopt-new-conventions)
+  - inserted 2026-08-02 after the iiac-perf TC session's mailbox and conventions arrived
+  - lands last so the close-out itself runs under the amended schema
 - [[N]] 0.78.0 refactor: jj-lib migration (close-out)
 
 ##### Decisions at cycle open
@@ -228,7 +224,12 @@ That is the treadmill cost the mutation decision accepts, and
 it is paid on every bump, not only on the ones that touch the
 op store.
 
-##### 0.78.0-0 chore: open the jj-lib migration cycle
+##### 0.78.0-0 refactor: jj-lib migration opening
+
+Retitled 2026-08-02 (originally `chore: open the jj-lib migration cycle`): the bookend-titles
+convention arrived from iiac-perf mid-cycle, and with the whole ladder still on the unmerged
+`refactor-vc-x1` branch the retro-apply cost one coordinated re-describe (trailer hand-copied
+per the rule), one force-push, and re-recording rungs `-0..-5`; main was never touched.
 
 Preparation only. The `## Todo` entry moved into
 `## In Progress` as this cycle block, carrying the ladder and
@@ -774,6 +775,45 @@ the last `git` spawn in init.
   a mutation survives transient contention, and a bare-init
   test pinning HEAD to `refs/heads/main`.
 
+##### 0.78.0-9 docs: sync pin set and adopt new conventions
+
+The schema-sync rung: the amendments and conventions from the iiac-perf collaboration arrive,
+this cycle's records are brought under them before the close-out writes the chores section, and
+the dogfooded conventions graduate into the pinned set template-side. Inputs: the template
+mailbox (`../vc-x1-template/messages/vc-x1.md`, 2026-07-31) and iiac-perf's custom.md
+conventions (2026-08-02).
+
+- tier-1 graduation authored template-side as `AGENTS-vc-x1-f5-20260802-snapshot/`, a new
+  directory keeping 0730 frozen (the template repo carries no commits, so an in-place
+  amendment would have destroyed the adoption record)
+  - graduates: write-to-full-width, cycle bookend titles, the checklist's close-the-records
+    step, the mailbox check at acquaint
+  - plus two prose.md consistency fixes: the stale chores `Commits:` bullet, and the
+    "prohibition is on authoring" rewording
+  - `work/` payload, snapshots.md, and both mailboxes updated to match
+- pin set re-copied from the 0802 snapshot and verified byte-identical, which also lands the
+  0730 amendments this rung originally targeted: rule 0 + hard-rules-first, generic "the
+  template repository" pin lines, the chores as-built ladder, the chores `## Table of Contents`
+- cycle-protocol.md's "Chores sections" and "Commits backfill" amended to match
+  - the satellites defer to the protocol, so until this rung the two disagreed
+- custom.md brought to the post-graduation shape
+  - the one-home override reconciled with the now-universal rung backfill
+  - the graduated conventions replaced by their project parameters (mailbox member/path, the
+    0.78.0 bookend adoption boundary)
+  - the dogfood entry records the whole exchange
+- the bookend retro-apply: `-0` re-described to `refactor: jj-lib migration opening` and the
+  branch force-pushed (see the `-0` detail)
+  - rungs `-0..-5` re-recorded, `-6..-8` backfilled
+- chores-15 sanitized (50 word-level conversions, specimens kept), reflowed to full width, and
+  given its ToC
+- README.md reflowed (word-identical, its four em dashes are transcribed config samples
+  deferred to the source-sweep Todo); notes/README.md sanitized, reflowed, and refreshed
+- bugs.md gains the mailbox's init step-order report and iiac-perf's `push --body`
+  leading-hyphen find
+- the backlog gains the mailbox's init CLI ideas
+- tier 2 staged for iiac-perf's read: one-home, cycle-protocol.md into the byte-identical set,
+  every-commit-belongs-to-a-cycle, scope-based version advancement
+
 ## Todo
 
  Entries are in **strict priority rank**, #1 highest,
@@ -788,7 +828,26 @@ the last `git` spawn in init.
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **validate-repo-data.** Golden ids for a fixture repo, so a
+1. **typeable punctuation: source sweep + rule rewording.** Targets **0.78.1**, the first
+   cycle under patch-level numbering for incremental work (custom.md "Version advancement").
+   The [Typeable punctuation only](/agent-data/prose.md#typeable-punctuation-only) rule
+   prohibits *authoring*; presence in a file is legitimate. Deferred out of the `0.77.x`
+   ladder 2026-07-30, behind the refactor program; promoted to #1 at the 0.78.0 close-out.
+   - Reword: **done 2026-08-02**, ahead of the sweep it bounds, in the 0802 snapshot's
+     prose.md ("the prohibition is on authoring, not presence"), part of the tier-1
+     graduation. Only the sweep remains.
+   - Sweep `src/` + `tests/`, ~875 sites across all four characters (655 em dash, 166 arrow,
+     39 ellipsis, 1 en dash). The retired ladder entry counted em dashes only, the same
+     subset-audit defect the 0.77.2 close-out recorded one section earlier.
+   - `config_schema.rs` `doc:` strings and the error/log messages are user-visible output, so
+     the cargo cycle is mandatory and the four README `vc-x1 config` samples regenerate by
+     hand after `cargo install`. No test asserts on any of the four characters.
+   - `notes/` (~805 sites) and the chores archive (1965) stay out of scope under "converts
+     when touched". The archive is thick with transcribed tool output and published commit
+     titles that must not convert, and heading conversions move anchors the notes files link
+     into.
+
+2. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -861,7 +920,7 @@ the last `git` spawn in init.
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-2. **refactor: trapezoid-push + body-intro validation.**
+3. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -885,7 +944,7 @@ the last `git` spawn in init.
      ever appears. Worth converting these concepts to
      traits then, not now: we are committed to jj, and a
      one-implementation trait buys nothing but indirection.
-3. **A committed cycle-check runner.** The per-commit flow's
+4. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -918,7 +977,7 @@ the last `git` spawn in init.
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-4. **One home for a cycle's narrative: TODO during, chores
+5. **One home for a cycle's narrative: TODO during, chores
    at close-out.** Today the ladder and its detail are
    maintained in both `TODO.md > ## In Progress` and the
    chores `### As-built ladder` while a cycle runs, so every
@@ -943,7 +1002,7 @@ the last `git` spawn in init.
    - Touches AGENTS.md [Chores conventions] and
      cycle-protocol.md's Chores sections + Close-out, both
      shared with the template family, so it fans out.
-5. **Remove `revert`, and `.vc-x1/` with it.** `revert`
+6. **Remove `revert`, and `.vc-x1/` with it.** `revert`
    promises "undo the sync"; it restores the pre-sync `jj op`
    recorded in `.vc-x1/sync-state.toml`, which means "rewind
    the repo to that moment". The two coincide only while
@@ -975,7 +1034,7 @@ the last `git` spawn in init.
      state file).
    - Cheap now, expensive later: few workspaces depend on it
      today.
-6. **`squash-push --title` / `--body`.** `squash-push` amends
+7. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
    its existing message. Fixing a published commit's *message*
@@ -1014,7 +1073,7 @@ the last `git` spawn in init.
      cited nowhere and a rewrite costs nothing. Message fixes
      naturally cluster there, which is exactly where the
      two-step shape bites.
-7. **Restructure templates: single template repo + fixed bot
+8. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -1042,7 +1101,7 @@ the last `git` spawn in init.
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying, leaving no "is it
      still empty?" invariant in the template.
-8. **ochid: bot-repo location qualifier.** An ochid is
+9. **ochid: bot-repo location qualifier.** An ochid is
    workspace-relative (`/.claude/<chid>`), so nothing in a
    published commit says *where* the companion bot repo
    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -1062,46 +1121,46 @@ the last `git` spawn in init.
      (bot-repo-location config).
    - Link rot + mirroring mitigations are in the same doc
      section.
-9. **Version-number protocol is fragile: versions are
-   baked into titles/bodies/todo/done/chores before the
-   change lands.** The cycle protocol embeds an `X.Y.Z-N`
-   version in commit titles and bodies, `## Todo` /
-   `## Done` entries, and chores headers, all written
-   while the work is in progress, i.e. before it lands.
-   But version numbers are subject to change: in a public,
-   merge-based flow (e.g. Linux), the version a change
-   ships under is only fixed when it merges into `main`,
-   so the landing version can't be anticipated while the
-   work is underway. Pervasive version-in-text is
-   therefore fragile for any non-linear / multi-contributor
-   workflow. Promoted from Ideas at 0.65.2-0; slated for
-   the cycle after 0.65.2.
-   - Live in-repo example (2026-07-24): 0.72.0 was
-     pre-assigned to the trapezoid close-out cycle, which
-     paused on `support-trapezoid-commits` after `-1`; the
-     refactor program then ran 0.73.0+ directly off the
-     0.71.0 main tip, leaving 0.72.0 a permanent gap, since
-     renumbering either branch would rewrite cross-linked
-     history. Disposition recorded in the
-     [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
-   - Related numbering thought (2026-07-24): program-shaped
-     work could claim one minor and number its cycles
-     `X.Y.1..n` (the jj refactor's seven cycles would have
-     been 0.73.1..0.73.7), with program membership encoded in
-     the version. Trade-off: a per-prep "is this a program?"
-     call vs today's decision-free minor-per-cycle.
-   - Open question: what identifies a cycle's commits if
-     not a pre-assigned version?
-     - Needs to be unique within some agreed upon domain.
-       A contributors email address would do it, but also
-       a UUID (short-version) for a contribution. I could
-       imagine a UUID generated from the initial email/issue
-       that and then "version number" schema appended to that.
-   - Surfaces to update once the identifier is chosen:
-     cycle-protocol.md (title shape, Numbering), AGENTS.md
-     (commit-recording headers), and the `vc-x1` validators
-     that parse `(X.Y.Z)` strings.
-10. **sync follow-up: extract `move-bookmark` command.** The
+10. **Version-number protocol is fragile: versions are
+    baked into titles/bodies/todo/done/chores before the
+    change lands.** The cycle protocol embeds an `X.Y.Z-N`
+    version in commit titles and bodies, `## Todo` /
+    `## Done` entries, and chores headers, all written
+    while the work is in progress, i.e. before it lands.
+    But version numbers are subject to change: in a public,
+    merge-based flow (e.g. Linux), the version a change
+    ships under is only fixed when it merges into `main`,
+    so the landing version can't be anticipated while the
+    work is underway. Pervasive version-in-text is
+    therefore fragile for any non-linear / multi-contributor
+    workflow. Promoted from Ideas at 0.65.2-0; slated for
+    the cycle after 0.65.2.
+    - Live in-repo example (2026-07-24): 0.72.0 was
+      pre-assigned to the trapezoid close-out cycle, which
+      paused on `support-trapezoid-commits` after `-1`; the
+      refactor program then ran 0.73.0+ directly off the
+      0.71.0 main tip, leaving 0.72.0 a permanent gap, since
+      renumbering either branch would rewrite cross-linked
+      history. Disposition recorded in the
+      [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
+    - Related numbering thought (2026-07-24): program-shaped
+      work could claim one minor and number its cycles
+      `X.Y.1..n` (the jj refactor's seven cycles would have
+      been 0.73.1..0.73.7), with program membership encoded in
+      the version. Trade-off: a per-prep "is this a program?"
+      call vs today's decision-free minor-per-cycle.
+    - Open question: what identifies a cycle's commits if
+      not a pre-assigned version?
+      - Needs to be unique within some agreed upon domain.
+        A contributors email address would do it, but also
+        a UUID (short-version) for a contribution. I could
+        imagine a UUID generated from the initial email/issue
+        that and then "version number" schema appended to that.
+    - Surfaces to update once the identifier is chosen:
+      cycle-protocol.md (title shape, Numbering), AGENTS.md
+      (commit-recording headers), and the `vc-x1` validators
+      that parse `(X.Y.Z)` strings.
+11. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -1111,7 +1170,7 @@ the last `git` spawn in init.
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-11. **sync follow-up: retire the hidden `--check` alias;
+12. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -1127,7 +1186,7 @@ the last `git` spawn in init.
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-12. **validate-numbering: rename the pair, check all
+13. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -1163,7 +1222,7 @@ the last `git` spawn in init.
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-13. **pre-commit: single rule (no docs skip) + doc validators.**
+14. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -1189,7 +1248,7 @@ the last `git` spawn in init.
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-14. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+15. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -1213,7 +1272,7 @@ the last `git` spawn in init.
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-15. **Run validate-bot at every vc-x1 invocation
+16. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -1226,7 +1285,7 @@ the last `git` spawn in init.
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-16. **CLI reference lives in `--help`; README owns concepts.**
+17. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -1265,7 +1324,7 @@ the last `git` spawn in init.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-17. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+18. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -1285,7 +1344,7 @@ the last `git` spawn in init.
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-18. **Shared-doc sync: per-commit chores convention.**
+19. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -1298,7 +1357,7 @@ the last `git` spawn in init.
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-19. **config: extract flag-backed key descriptions from Clap.**
+20. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -1313,33 +1372,6 @@ the last `git` spawn in init.
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-20. **typeable punctuation: source sweep + rule rewording.**
-    The [Typeable punctuation only](/agent-data/prose.md#typeable-punctuation-only)
-    rule says "Banned" and then says transcribed text keeps its
-    characters. Both cannot be true. The rule prohibits
-    *authoring*; presence in a file is legitimate, so the
-    rewording comes first and bounds the sweep that follows.
-    Deferred out of the `0.77.x` ladder 2026-07-30, behind the
-    refactor program.
-    - Reword: "never authored" in place of "banned", and the
-      absolute clause scoped to text we write rather than to
-      bytes on disk.
-    - Sweep `src/` + `tests/`, ~875 sites across all four
-      characters (655 em dash, 166 arrow, 39 ellipsis, 1 en
-      dash). The retired ladder entry counted em dashes only,
-      the same subset-audit defect the 0.77.2 close-out
-      recorded one section earlier.
-    - `config_schema.rs` `doc:` strings and the error/log
-      messages are user-visible output, so the cargo cycle is
-      mandatory and the four README `vc-x1 config` samples
-      regenerate by hand after `cargo install`. No test asserts
-      on any of the four characters.
-    - `notes/` (~805 sites) and the chores archive (1965) stay
-      out of scope under "converts when touched". The archive
-      is thick with transcribed tool output and published
-      commit titles that must not convert, and heading
-      conversions move anchors the notes files link into.
-
 ## Ideas
 
  Items not yet solid enough for `## Todo` (or surfaced
@@ -1542,9 +1574,12 @@ hygiene-riders and facade-owns-topology cycles)._
 [18]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
 [19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
-[21]: https://github.com/winksaville/vc-x1/commit/a2dbf57d8a2e "a2dbf57d8a2e64f5ae8cdc29bd1621b157881bdc"
-[22]: https://github.com/winksaville/vc-x1/commit/84cec8c17610 "84cec8c176108dc7416570b70d62b85fc86c6049"
-[23]: https://github.com/winksaville/vc-x1/commit/685ca885e1e0 "685ca885e1e09d381ac7897a94e5f2da77b17fc8"
-[24]: https://github.com/winksaville/vc-x1/commit/deec79d0e75d "deec79d0e75de6106f6f8919b77844eb8afe4c83"
-[25]: https://github.com/winksaville/vc-x1/commit/e4203c6d3679 "e4203c6d36799cb2dd8b6ff0eb8ddf9f64522aa2"
-[26]: https://github.com/winksaville/vc-x1/commit/6c67ce0f4eb0 "6c67ce0f4eb0df2e9388ab84aca0d728f0d5f976"
+[21]: https://github.com/winksaville/vc-x1/commit/343eb2ed38bc "343eb2ed38bcf3046bfd0a229388ddcccbb90cb9"
+[22]: https://github.com/winksaville/vc-x1/commit/307a4f57fd1b "307a4f57fd1b8ec0532d359ec5f54f82fa29847a"
+[23]: https://github.com/winksaville/vc-x1/commit/fabcbed27c3e "fabcbed27c3ef3db3d78722a68628589cfa43dc3"
+[24]: https://github.com/winksaville/vc-x1/commit/b5ffa439b23f "b5ffa439b23f817325a1dfd67c7bde61b66f39a0"
+[25]: https://github.com/winksaville/vc-x1/commit/9b08f953ead8 "9b08f953ead84ebc178df3ce01b5a084bdd3b563"
+[26]: https://github.com/winksaville/vc-x1/commit/8254bbdb7e08 "8254bbdb7e08606393f9ccd4a83ffd93e6aa3501"
+[27]: https://github.com/winksaville/vc-x1/commit/738f5f219d42 "738f5f219d429393cba84811e426dbd0844a5062"
+[28]: https://github.com/winksaville/vc-x1/commit/bbcfd0ea6985 "bbcfd0ea698529b539f681e7243ac5fbae70ab83"
+[29]: https://github.com/winksaville/vc-x1/commit/5faf428dd7d2 "5faf428dd7d2f478c60f968d628276ddd049db73"

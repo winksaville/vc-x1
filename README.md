@@ -27,56 +27,46 @@
 - [Contributing](#contributing)
 - [License](#license)
 
-This is experiment 1 to explore creating a Vibe Coding (vc) environment.
-We will investigate ways of using the dual jj-git repo concept, explored
-in [hw-jjg-bot](https://github.com/winksaville/hw-jjg-bot.git) to
-initially make it easy to see how the code base evolved. This is
-made possible by the fact that we have two repos one with the code
-and one with the conversation with the bot.
+This is experiment 1 to explore creating a Vibe Coding (vc) environment. We will investigate ways of
+using the dual jj-git repo concept, explored in
+[hw-jjg-bot](https://github.com/winksaville/hw-jjg-bot.git) to initially make it easy to see how the
+code base evolved. This is made possible by the fact that we have two repos one with the code and
+one with the conversation with the bot.
 
-I've chosen the jj-git environment because jj provides the concept that
-each commit has an immutable changeID as well as the mutable commitID
-of git. The idea is that each commit made on repo A writes the
-changeID in the commit message to repo B. Thus there is a cross reference
-between the two repos and this will allow vc-x1 to show how the repo
-evolved and the entity (bot or human) can more clearly understand **how** and
-most importantly **why** the code evolved.
+I've chosen the jj-git environment because jj provides the concept that each commit has an immutable
+changeID as well as the mutable commitID of git. The idea is that each commit made on repo A writes
+the changeID in the commit message to repo B. Thus there is a cross reference between the two repos
+and this will allow vc-x1 to show how the repo evolved and the entity (bot or human) can more
+clearly understand **how** and most importantly **why** the code evolved.
 
-The solution space is wide open, from trivial CLI, web or app based
-(mobile/non-mobile). In addition, I could see this as an extension to
-existing programming editors like vscode and zed or even creating our
-own IDE for vc.
+The solution space is wide open, from trivial CLI, web or app based (mobile/non-mobile). In
+addition, I could see this as an extension to existing programming editors like vscode and zed or
+even creating our own IDE for vc.
 
-See [Initial commit with dual jj-git repos](./notes/chores/chores-01.md#initial-commit-with-dual-jj-git-repos)
-for how the initial commit was created with the dual jj-git repos. After
-doing so and I then created this README.md file.
+See [Initial commit with dual jj-git
+repos](./notes/chores/chores-01.md#initial-commit-with-dual-jj-git-repos) for how the initial commit
+was created with the dual jj-git repos. After doing so and I then created this README.md file.
 
 ## Terminology
 
-A vc-x1 workspace pairs two jj-git repos, and this README names
-their two sides **work** and **bot**:
+A vc-x1 workspace pairs two jj-git repos, and this README names their two sides **work** and
+**bot**:
 
-- **work repo**: the repo at the project root, holding the work
-  product itself (source code, docs, the repo you would have
-  anyway).
-- **bot repo**: the `.claude` repo nested inside it, holding the
-  bot's session data (the conversation that produced the work).
-- **work** / **bot**: the two sides as roles, used wherever a
-  command or doc needs to say which repo it means (e.g. push's
-  `commit-work` / `commit-bot` stages).
+- **work repo**: the repo at the project root, holding the work product itself (source code, docs,
+  the repo you would have anyway).
+- **bot repo**: the `.claude` repo nested inside it, holding the bot's session data (the
+  conversation that produced the work).
+- **work** / **bot**: the two sides as roles, used wherever a command or doc needs to say which repo
+  it means (e.g. push's `commit-work` / `commit-bot` stages).
 
-A few naming conventions this project keeps, to avoid ambiguous
-jargon:
+A few naming conventions this project keeps, to avoid ambiguous jargon:
 
-- **path** is reserved for a filesystem location, qualified as
-  **relative** or **absolute** when it matters (e.g. `../other`,
-  `/home/you/repo`).
-- a configuration setting is a **config key**, e.g.
-  `bot-session.col-width` (its TOML table and key joined by `.`);
-  not a "path".
-- a datum in a transcript's `--fields` inventory is a **field**,
-  e.g. `message.content[].type`, its levels joined by `.`, with
-  `[]` marking array elements.
+- **path** is reserved for a filesystem location, qualified as **relative** or **absolute** when it
+  matters (e.g. `../other`, `/home/you/repo`).
+- a configuration setting is a **config key**, e.g. `bot-session.col-width` (its TOML table and key
+  joined by `.`); not a "path".
+- a datum in a transcript's `--fields` inventory is a **field**, e.g. `message.content[].type`, its
+  levels joined by `.`, with `[]` marking array elements.
 
 ## Usage
 
@@ -103,16 +93,15 @@ vc-x1 --version                            # Print version
 vc-x1 --help                           # Print help
 ```
 
-**The `..` notation:** dots on the revision show which direction to
-list commits:
+**The `..` notation:** dots on the revision show which direction to list commits:
 
 - `x..`: x at top, ancestors below (older commits)
 - `..x`: descendants above (newer commits), x at bottom
 - `..x..`: both directions, x in the middle
 
-COMMITS is the total number of commits to show (x is always included).
-Without dots, `x` with a count defaults to `x..` (ancestors).
-For `..x..`, the budget is split: ancestors get the extra on odd counts.
+COMMITS is the total number of commits to show (x is always included). Without dots, `x` with a
+count defaults to `x..` (ancestors). For `..x..`, the budget is split: ancestors get the extra on
+odd counts.
 
 ```
 vc-x1 list -r @              # just @ (1 commit)
@@ -126,8 +115,8 @@ vc-x1 list -r ..@.. -n 4     # 1 descendant, @, 2 ancestors (4 commits)
 
 vc-x1 provides tab completion for all subcommands and flags using claps
 [unstable-dynamic](https://docs.rs/clap_complete/latest/clap_complete/env/struct.CompleteEnv.html)
-only feature. It is a "simple" implementation and does not handle completing
-revisions but still useful. To enable it, add one of the following to your shell's startup file:
+only feature. It is a "simple" implementation and does not handle completing revisions but still
+useful. To enable it, add one of the following to your shell's startup file:
 
 ```bash
 # bash (~/.bashrc)
@@ -140,13 +129,12 @@ source <(COMPLETE=zsh vc-x1)
 source (COMPLETE=fish vc-x1 | psub)
 ```
 
-Completions are generated dynamically by the binary, so they stay in
-sync with the installed version automatically.
+Completions are generated dynamically by the binary, so they stay in sync with the installed version
+automatically.
 
 ### Positional shorthand
 
-REVISION and COMMITS can be given as positional arguments, omitting
-`-r` and `-n`:
+REVISION and COMMITS can be given as positional arguments, omitting `-r` and `-n`:
 
 ```
 vc-x1 list x                # just x (1 commit)
@@ -157,17 +145,15 @@ vc-x1 list ..x.. 3          # 1 descendant, x, 1 ancestor (3 commits)
 vc-x1 list ..x.. 1          # just x (1 commit)
 ```
 
-**Defaults:** with no arguments, REVISION is `@` and COMMITS is 1
-(just the working copy).
+**Defaults:** with no arguments, REVISION is `@` and COMMITS is 1 (just the working copy).
 
-Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and
-`-s`/`--scope` take precedence over positional arguments.
+Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and `-s`/`--scope` take precedence
+over positional arguments.
 
 ### Multi-repo queries
 
-`-s`/`--scope` selects workspace sides by role keyword; `work` is the
-work repo, `bot` is the `.claude` repo, `work,bot` is both. The
-workspace root is found by walking up from cwd (the existing
+`-s`/`--scope` selects workspace sides by role keyword; `work` is the work repo, `bot` is the
+`.claude` repo, `work,bot` is both. The workspace root is found by walking up from cwd (the existing
 `find_workspace_root` rule).
 
 ```
@@ -177,9 +163,8 @@ vc-x1 chid -s bot               # just the bot repo
 vc-x1 list @.. 3 -s work,bot    # works with chid / desc / list / show
 ```
 
-`-R`/`--repo` takes a single path. Used alone it points at one jj
-repo (workspace lookup is skipped); combined with `-s` it overrides
-the workspace root for the role lookup:
+`-R`/`--repo` takes a single path. Used alone it points at one jj repo (workspace lookup is
+skipped); combined with `-s` it overrides the workspace root for the role lookup:
 
 ```
 vc-x1 chid -R .                  # single repo at .
@@ -187,11 +172,9 @@ vc-x1 chid -R .claude            # single repo at .claude
 vc-x1 chid -R ../other -s work,bot   # both sides of ../other workspace
 ```
 
-Defaults preserve prior behavior: no flag -> `[.]`, `-R foo` alone
--> `[foo]`. When multiple repos are resolved (any `-s` that names
-more than one role), output is labeled with bold `=== path ===`
-headers by default. Control the label with `-l`/`--label` and
-`-L`/`--no-label`:
+Defaults preserve prior behavior: no flag -> `[.]`, `-R foo` alone -> `[foo]`. When multiple repos
+are resolved (any `-s` that names more than one role), output is labeled with bold `=== path ===`
+headers by default. Control the label with `-l`/`--label` and `-L`/`--no-label`:
 
 ```
 vc-x1 chid -s work,bot            # default label: === path ===
@@ -248,35 +231,29 @@ kwoyvposvsmv
 zzpksklxyrnw
 ```
 
-Most decoration strings work unquoted (`---`, `===`, `>>>`, `:::`,
-`+++`). Use single quotes for strings containing shell metacharacters
-like `*`, `!`, `#`, `$`, or `~` (e.g. `-l '***'`). Double quotes
-won't protect against `!` (bash history expansion).
+Most decoration strings work unquoted (`---`, `===`, `>>>`, `:::`, `+++`). Use single quotes for
+strings containing shell metacharacters like `*`, `!`, `#`, `$`, or `~` (e.g. `-l '***'`). Double
+quotes won't protect against `!` (bash history expansion).
 
-With a single repo resolved, no label is printed, backward
-compatible with the no-flag default. Multi-repo (`-s work,bot`) is
-supported for `chid`, `desc`, `list`, and `show`. `squash-push`
+With a single repo resolved, no label is printed, backward compatible with the no-flag default.
+Multi-repo (`-s work,bot`) is supported for `chid`, `desc`, `list`, and `show`. `squash-push`
 remains single-repo.
 
-`-s` is keyword-only: `work`, `bot`, `work,bot`, `bot,work`.
-Path-based single-repo operation uses `-R` (above).
+`-s` is keyword-only: `work`, `bot`, `work,bot`, `bot,work`. Path-based single-repo operation uses
+`-R` (above).
 
 ### bot-session
 
-Display a Claude Code session transcript
-(`.claude/<uuid>.jsonl`) as a readable conversation. The
-transcript format is undocumented and evolves; parsing is
-tolerant: unknown entry types are skipped and counted,
-malformed lines (e.g. a live session's truncated last line)
-warn to stderr and never fail the run.
+Display a Claude Code session transcript (`.claude/<uuid>.jsonl`) as a readable conversation. The
+transcript format is undocumented and evolves; parsing is tolerant: unknown entry types are skipped
+and counted, malformed lines (e.g. a live session's truncated last line) warn to stderr and never
+fail the run.
 
-For what the transcript format looks like (entries, entry
-types, the `.`/`[]` field notation) and an example that walks
-a small sample through these commands, see
+For what the transcript format looks like (entries, entry types, the `.`/`[]` field notation) and an
+example that walks a small sample through these commands, see
 [notes/transcript-format.md](notes/transcript-format.md).
 
-Output is composed of eight **items**, each independently
-toggleable:
+Output is composed of eight **items**, each independently toggleable:
 
 | Item | Emits | Default |
 |------|-------|---------|
@@ -289,11 +266,9 @@ toggleable:
 | `results` | `[result]` / `[result:error]` lines (capped by `--result-lines`) | off |
 | `meta` | meta user lines, `--- system ... ---` lines, sidechain entries | off |
 
-Toggle with `--<item>` / `--no-<item>` (last one wins).
-`--all` / `--none` reset the base (every item on / off) and then
-per-item flags adjust (`--no-all` and `--no-none` are aliases
-of `--none` and `--all`). Bookkeeping line types
-(file-history snapshots, progress markers, ...) are never
+Toggle with `--<item>` / `--no-<item>` (last one wins). `--all` / `--none` reset the base (every
+item on / off) and then per-item flags adjust (`--no-all` and `--no-none` are aliases of `--none`
+and `--all`). Bookkeeping line types (file-history snapshots, progress markers, ...) are never
 rendered; they're counted in the summary as "skipped".
 
 Default items resolve git-style, most specific wins:
@@ -338,18 +313,14 @@ vc-x1 bot-session --lines 0 FILE       # stats summary only
 | `--lines SPEC` | Slice by source JSONL line, 0-based Index (`N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only); the same unit in every view |
 | `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited. Resolves CLI > workspace `.vc-config.toml` `[bot-session].result-lines` > user config > built-in, same as `[bot-session].items` |
 
-Cut points show an `... (N source lines skipped)` marker, and a
-sliced run's summary ends with `--lines selected K of M source
-lines`; its stats describe only the slice. Timestamps are shown as UTC
-(`Z`) exactly when the source timestamp carries it, observed
-always, but the format is undocumented, so anything else would
-pass through verbatim.
+Cut points show an `... (N source lines skipped)` marker, and a sliced run's summary ends with
+`--lines selected K of M source lines`; its stats describe only the slice. Timestamps are shown as
+UTC (`Z`) exactly when the source timestamp carries it, observed always, but the format is
+undocumented, so anything else would pass through verbatim.
 
-**Alternate views.** The transcript format is undocumented
-and evolves, so bot-session doubles as a schema explorer. The
-parser keeps every field Anthropic writes while the typed
-layer consumes a known subset; the difference is the
-unexplored surface:
+**Alternate views.** The transcript format is undocumented and evolves, so bot-session doubles as a
+schema explorer. The parser keeps every field Anthropic writes while the typed layer consumes a
+known subset; the difference is the unexplored surface:
 
 | Flag | View |
 |------|------|
@@ -359,15 +330,12 @@ unexplored surface:
 | `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
 | `--col-width N` | First column width in these views [default: 68]; longer field names overflow. Resolves CLI > workspace `.vc-config.toml` `[bot-session].col-width` > user config > built-in, same as `[bot-session].items` |
 
-The default 68 aligns the type column for ~99% of observed field
-names; only a tail of `snapshot.trackedFileBackups.<absolute
-path>.*` keys, whose embedded absolute paths can be arbitrarily
-long, overflow.
+The default 68 aligns the type column for ~99% of observed field names; only a tail of
+`snapshot.trackedFileBackups.<absolute path>.*` keys, whose embedded absolute paths can be
+arbitrarily long, overflow.
 
-`--lines` uses the same source-line unit here, e.g.
-`--fields --lines 0,1` inventories just the first line.
-`--fields`/`--unknown` ignore item flags; `--raw` conflicts
-with them.
+`--lines` uses the same source-line unit here, e.g. `--fields --lines 0,1` inventories just the
+first line. `--fields`/`--unknown` ignore item flags; `--raw` conflicts with them.
 
 ```
 # What does this format actually contain today?
@@ -385,11 +353,10 @@ vc-x1 bot-session --per-line --lines 40,5 FILE
 
 ### validate-desc
 
-Read-only scan of commit descriptions against the other repo. The other
-repo is read from `.vc-config.toml` (`repos.bot`) by default,
-or overridden with `--other-repo`. Reports status per commit: `ok`
-(valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err`
-(issues found), or `miss` (no ochid trailer).
+Read-only scan of commit descriptions against the other repo. The other repo is read from
+`.vc-config.toml` (`repos.bot`) by default, or overridden with `--other-repo`. Reports status per
+commit: `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or
+`miss` (no ochid trailer).
 
 ```
 # Validate all ancestors of @ (reads other repo from .vc-config.toml)
@@ -406,9 +373,8 @@ Use `--help` for the full status label legend.
 
 ### fix-desc
 
-Fix commit descriptions against the other repo. Default is dry-run;
-use `--no-dry-run` to write changes. Reads other repo from
-`.vc-config.toml` by default.
+Fix commit descriptions against the other repo. Default is dry-run; use `--no-dry-run` to write
+changes. Reads other repo from `.vc-config.toml` by default.
 
 ```
 # Dry-run: show what would be fixed
@@ -441,10 +407,9 @@ Use `--help` for the full status label legend.
 
 ### validate-todo
 
-Check that the `## Todo` and `## Bugs` sections of a todo file
-are numbered `1..N` in document order, with continuation-line
-indent matching each entry's number-prefix width. Read-only;
-exits non-zero if any entry needs fixing.
+Check that the `## Todo` and `## Bugs` sections of a todo file are numbered `1..N` in document
+order, with continuation-line indent matching each entry's number-prefix width. Read-only; exits
+non-zero if any entry needs fixing.
 
 ```
 # Check TODO.md (the default)
@@ -454,17 +419,14 @@ vc-x1 validate-todo
 vc-x1 validate-todo path/to/todo.md
 ```
 
-Each flagged entry prints its corrected first line and a
-`[line: ...]` tag: the entry's line number and what is off
-(`was N`, `indent A -> B`). Use `fix-todo` to apply the fixes.
+Each flagged entry prints its corrected first line and a `[line: ...]` tag: the entry's line number
+and what is off (`was N`, `indent A -> B`). Use `fix-todo` to apply the fixes.
 
 ### fix-todo
 
-Renumber a todo file's `## Todo` and `## Bugs` sections to
-`1..N` and normalize each entry's continuation-line indent.
-Dry-run by default, printing each changed entry's corrected
-line so the output is the result; `--no-dry-run` writes the
-file in place.
+Renumber a todo file's `## Todo` and `## Bugs` sections to `1..N` and normalize each entry's
+continuation-line indent. Dry-run by default, printing each changed entry's corrected line so the
+output is the result; `--no-dry-run` writes the file in place.
 
 ```
 # Dry-run: print the corrected lines
@@ -483,13 +445,11 @@ vc-x1 fix-todo path/to/todo.md
 
 ### validate-bot
 
-Check the bot repo is in its expected at-rest state: `main`
-matching `main@origin`, with its remote refs tracked. At rest the
-two always match, because the bookmark only moves inside a `push` /
-`squash-push` run, which publishes it in the same invocation, so
-a mismatch means an earlier publish was lost. Read-only and cheap
-(two `jj` lookups, no build steps); exits non-zero on any finding
-and fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
+Check the bot repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
+refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
+`squash-push` run, which publishes it in the same invocation, so a mismatch means an earlier publish
+was lost. Read-only and cheap (two `jj` lookups, no build steps); exits non-zero on any finding and
+fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
 
 ```
 # Check ./.claude (run from the project root)
@@ -503,36 +463,26 @@ vc-x1 validate-bot -R path/to/.claude
 |------|-------------|
 | `-R, --repo <PATH>` | Path to the bot repo [default: .claude] |
 
-`vc-x1 squash-push` reports the condition and proceeds, since
-publishing is its job. `vc-x1 push` no longer checks it: a bot
-repo that hasn't been squash-pushed yet isn't a broken state, and
-the next push publishes it anyway.
+`vc-x1 squash-push` reports the condition and proceeds, since publishing is its job. `vc-x1 push` no
+longer checks it: a bot repo that hasn't been squash-pushed yet isn't a broken state, and the next
+push publishes it anyway.
 
 ### config
 
-Print the settable config keys for a target config file as an
-annotated, commented schema: for each key its description, the
-command/context it's `used by`, its default (or a value marked
-`# example` when there is no default), and a commented
-assignment line ready to paste in. The schema is generated from
-one in-code registry, so it can't drift from what the code
-actually reads.
+Print the settable config keys for a target config file as an annotated, commented schema: for each
+key its description, the command/context it's `used by`, its default (or a value marked `# example`
+when there is no default), and a commented assignment line ready to paste in. The schema is
+generated from one in-code registry, so it can't drift from what the code actually reads.
 
-- `[TARGET]`: `work`, `bot`, `work,bot` (default), or an
-  explicit config-file path. The keywords resolve against the
-  surrounding workspace's `.vc-config.toml` files and filter to
-  that side's keys; a path carries no side information, so it
-  gets the whole schema. The user config
-  (`~/.config/vc-x1/config.toml`) has no keyword and is reached
-  only by passing its path.
-- `--validate`: instead of printing, load the target's actual
-  config file(s) and flag any key the schema doesn't recognize
-  (a typo, a key in the wrong section, or an unknown key), plus,
-  for keyword targets, the legacy-schema rejection and the
-  resolved-agreement invariant of a dual workspace's `[repos]`
-  registries. Exits non-zero if any problem is found. This is an
-  opt-in strict check; a normal config load silently ignores
-  unknown keys, for forward-compatibility.
+- `[TARGET]`: `work`, `bot`, `work,bot` (default), or an explicit config-file path. The keywords
+  resolve against the surrounding workspace's `.vc-config.toml` files and filter to that side's
+  keys; a path carries no side information, so it gets the whole schema. The user config
+  (`~/.config/vc-x1/config.toml`) has no keyword and is reached only by passing its path.
+- `--validate`: instead of printing, load the target's actual config file(s) and flag any key the
+  schema doesn't recognize (a typo, a key in the wrong section, or an unknown key), plus, for
+  keyword targets, the legacy-schema rejection and the resolved-agreement invariant of a dual
+  workspace's `[repos]` registries. Exits non-zero if any problem is found. This is an opt-in strict
+  check; a normal config load silently ignores unknown keys, for forward-compatibility.
 
 A short sample of the printed schema (workspace home):
 
@@ -553,8 +503,8 @@ A short sample of the printed schema (workspace home):
 work = "."   # example
 ```
 
-A key with no default (`default.account`, in the user home)
-instead renders a commented example value:
+A key with no default (`default.account`, in the user home) instead renders a commented example
+value:
 
 ```
 # default.account — Account profile (an [account.<name>] section) to
@@ -590,9 +540,8 @@ vc-x1 config ../other/.vc-config.toml --validate
 
 ### clone
 
-Clone an existing dual-repo project. Runs `git clone --recursive` to
-get both repos, initializes `jj` in each, and creates the Claude Code
-symlink.
+Clone an existing dual-repo project. Runs `git clone --recursive` to get both repos, initializes
+`jj` in each, and creates the Claude Code symlink.
 
 ```
 # Clone using GitHub shorthand
@@ -617,16 +566,14 @@ vc-x1 clone owner/my-project --dry-run
 | `--dry-run` | Show what would be done without executing |
 | `-v, --verbose` | Verbose output |
 
-Requires `jj` to be installed. The `.claude` bot repo is cloned
-automatically via `git submodule` if the source project was created
-with `vc-x1 init`.
+Requires `jj` to be installed. The `.claude` bot repo is cloned automatically via `git submodule` if
+the source project was created with `vc-x1 init`.
 
 ### init
 
-Create a new dual-repo project: a work repo with a `.claude` bot
-repo as a git submodule. Both repos are initialized with `git` and `jj`,
-configured with `.vc-config.toml`, and pushed to GitHub. The bot
-repo is added as a submodule so `git clone --recursive` clones both.
+Create a new dual-repo project: a work repo with a `.claude` bot repo as a git submodule. Both repos
+are initialized with `git` and `jj`, configured with `.vc-config.toml`, and pushed to GitHub. The
+bot repo is added as a submodule so `git clone --recursive` clones both.
 
 ```
 # Create public project in current directory (GitHub via gh)
@@ -669,25 +616,21 @@ vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
 | `--use-template <CODE[,BOT]>` | Seed both repos from template dirs (see below) |
 | `--config <none\|PATH>` | Override the canned `.vc-config.toml` write |
 
-**`--use-template`**. Value is `CODE[,BOT]`. If `BOT` is omitted, defaults
-to the sibling directory `<CODE>.claude` (file-name concat, not path
-join, since the two templates are not nested). Non-hidden contents are
-copied recursively into each target; hidden entries (names starting
-with `.`) are skipped since init creates the repo's own hidden files
-(`.vc-config.toml`, `.gitignore`, `.git/`, `.jj/`). If either template
-has a `README.md` at its root, its first line is rewritten to
-`# <repo-name>`: `<name>` for the work repo and `<name>.claude` for
-the bot repo. For local verification without hitting GitHub,
-combine `--use-template` with `--repo local=<PARENT>`.
+**`--use-template`**. Value is `CODE[,BOT]`. If `BOT` is omitted, defaults to the sibling directory
+`<CODE>.claude` (file-name concat, not path join, since the two templates are not nested).
+Non-hidden contents are copied recursively into each target; hidden entries (names starting with
+`.`) are skipped since init creates the repo's own hidden files (`.vc-config.toml`, `.gitignore`,
+`.git/`, `.jj/`). If either template has a `README.md` at its root, its first line is rewritten to
+`# <repo-name>`: `<name>` for the work repo and `<name>.claude` for the bot repo. For local
+verification without hitting GitHub, combine `--use-template` with `--repo local=<PARENT>`.
 
-Requires `gh` (authenticated) and `jj` to be installed (`gh` is
-skipped under `--repo local=...`).
+Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 
 ### symlink
 
-Create or verify the Claude Code project symlink. Claude Code stores
-session data in `~/.claude/projects/<encoded-path>/`. This command
-creates a symlink from that location to the local `.claude` directory.
+Create or verify the Claude Code project symlink. Claude Code stores session data in
+`~/.claude/projects/<encoded-path>/`. This command creates a symlink from that location to the local
+`.claude` directory.
 
 ```
 # Create symlink for current project (default target: .claude)
@@ -711,14 +654,11 @@ vc-x1 symlink -l
 
 ### sync
 
-Fetch and sync a set of repos to their remotes in one atomic
-operation: fetch, converge the bookmark, reposition `@`. Repo set
-defaults to the dual-repo workspace pair (`.` and `.claude`);
-narrow it with `-s` / `--scope`, or point at a different workspace
-root or single repo with `-R` / `--repo`. There are no modes:
-verify-then-act happens inside a single invocation against one
-fetch snapshot (a separate check-then-apply pair of runs would
-race the remote).
+Fetch and sync a set of repos to their remotes in one atomic operation: fetch, converge the
+bookmark, reposition `@`. Repo set defaults to the dual-repo workspace pair (`.` and `.claude`);
+narrow it with `-s` / `--scope`, or point at a different workspace root or single repo with `-R` /
+`--repo`. There are no modes: verify-then-act happens inside a single invocation against one fetch
+snapshot (a separate check-then-apply pair of runs would race the remote).
 
 Per repo, `sync` classifies the local bookmark against its remote:
 
@@ -730,43 +670,34 @@ Per repo, `sync` classifies the local bookmark against its remote:
 | diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
 | no remote | bookmark has no `@<remote>` counterpart | none, skip |
 
-`--bookmark` names a **work-repo** bookmark only: the bot repo
-is a linear journal on `main` by design, so its side of every step
-(tracking preflight, classify, act, reposition) always uses `main`
+`--bookmark` names a **work-repo** bookmark only: the bot repo is a linear journal on `main` by
+design, so its side of every step (tracking preflight, classify, act, reposition) always uses `main`
 regardless of the flag.
 
-After the bookmark action above, `sync` repositions `@` onto the
-freshly-synced bookmark as a final pass, run after every repo syncs
-cleanly. The rule differs by repo (`@-` is the parent of `@`; `<b>`
+After the bookmark action above, `sync` repositions `@` onto the freshly-synced bookmark as a final
+pass, run after every repo syncs cleanly. The rule differs by repo (`@-` is the parent of `@`; `<b>`
 is the synced `--bookmark`):
 
 - **Work repo** (the workspace root):
-  - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same
-    line -> `jj new <b>` starts a fresh `@` on the new tip (the old
-    empty `@` is auto-abandoned).
-  - `@` has changes -> `sync` asks before moving it; pass `--rebase`
-    to answer yes up front (`jj rebase -b @ -d <b>`). Declining, or
-    not being a TTY with no `--rebase`, leaves `@` in place and says
-    so.
-  - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line
-    (diverged / `@` ahead) -> `@` is left untouched, with a note why.
-- **Bot repo** (`.claude`): no-op when `@-` is already the
-  `main` tip, so `@` keeps its change id and any live session writes
-  stay in the working copy. When `main` moved, `jj new main` starts
-  a fresh empty `@` on the new tip; the prior `@` (e.g. `/exit`'s
-  trailing session writes) is preserved as a sibling head. If `@-`
-  isn't on `main`, `sync` errors rather than strand it.
+  - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same line -> `jj new <b>` starts a
+    fresh `@` on the new tip (the old empty `@` is auto-abandoned).
+  - `@` has changes -> `sync` asks before moving it; pass `--rebase` to answer yes up front (`jj
+    rebase -b @ -d <b>`). Declining, or not being a TTY with no `--rebase`, leaves `@` in place and
+    says so.
+  - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line (diverged / `@` ahead) -> `@` is left
+    untouched, with a note why.
+- **Bot repo** (`.claude`): no-op when `@-` is already the `main` tip, so `@` keeps its change id
+  and any live session writes stay in the working copy. When `main` moved, `jj new main` starts a
+  fresh empty `@` on the new tip; the prior `@` (e.g. `/exit`'s trailing session writes) is
+  preserved as a sibling head. If `@-` isn't on `main`, `sync` errors rather than strand it.
 
-On any failure during fetch/classify/act/reposition (conflicted
-rebase, subprocess error, anything) `sync` **stops where the
-failing step stopped**. Nothing is auto-reverted, so the state can
-be inspected as-is (jj's operation log holds everything; nothing is
-lost by stopping). Before acting, sync persists each repo's
-pre-sync `jj op` id to `<repo>/.vc-x1/sync-state.toml`; the failure
-report lists every repo's op id and the undo is explicit:
-`vc-x1 revert` (see [revert](#revert)), or per repo
-`jj op restore <op> -R <repo>`. On full success the snapshots are
-cleared, since a stale file must not become a revert target later.
+On any failure during fetch/classify/act/reposition (conflicted rebase, subprocess error, anything)
+`sync` **stops where the failing step stopped**. Nothing is auto-reverted, so the state can be
+inspected as-is (jj's operation log holds everything; nothing is lost by stopping). Before acting,
+sync persists each repo's pre-sync `jj op` id to `<repo>/.vc-x1/sync-state.toml`; the failure report
+lists every repo's op id and the undo is explicit: `vc-x1 revert` (see [revert](#revert)), or per
+repo `jj op restore <op> -R <repo>`. On full success the snapshots are cleared, since a stale file
+must not become a revert target later.
 
 ```
 vc-x1 sync                            # workspace-default scope
@@ -780,18 +711,15 @@ vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
 
 **Repo set resolution.** `-R` and `--scope` compose:
 
-1. Neither: workspace-default scope, `work,bot` if
-   `repos.bot` is non-empty, else `work`. POR (no
+1. Neither: workspace-default scope, `work,bot` if `repos.bot` is non-empty, else `work`. POR (no
    `.vc-config.toml`) -> `work` resolved to cwd.
 2. `-R PATH` alone: sync just the repo at `PATH`.
-3. `--scope=work|bot|work,bot` alone: workspace roles, resolved
-   via the discovered workspace root's `.vc-config.toml`
-   (`work` -> root, `bot` -> the root-joined `bot` path).
-4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the
-   workspace root.
+3. `--scope=work|bot|work,bot` alone: workspace roles, resolved via the discovered workspace root's
+   `.vc-config.toml` (`work` -> root, `bot` -> the root-joined `bot` path).
+4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the workspace root.
 
-Scope is cwd-portable: from `.claude/`, `vc-x1 sync` walks up to
-the workspace root and resolves repos by absolute path.
+Scope is cwd-portable: from `.claude/`, `vc-x1 sync` walks up to the workspace root and resolves
+repos by absolute path.
 
 | Flag | Description |
 |------|-------------|
@@ -804,41 +732,31 @@ the workspace root and resolves repos by absolute path.
 
 **Output shape.** Sync collapses output based on what it finds:
 
-- **All up-to-date**: one-line summary,
-  `sync: N repos are up to date, nothing to sync`. Nothing else
-  (no-op reposition lines are debug-level).
-  Makes "sprinkle sync everywhere" genuinely cheap. Scope is
-  bookmark-vs-remote tracking; `@` may have uncommitted
-  working-copy changes, and sync intentionally doesn't speak to
-  that (use `jj st` for working-copy state).
-- **Action needed** (`behind` / `diverged`): per-repo fetch +
-  state lines, then the actions run.
-- **`--quiet`**: no output at any level; exit code is the only
-  signal. Intended for scripts that just need success/failure.
+- **All up-to-date**: one-line summary, `sync: N repos are up to date, nothing to sync`. Nothing
+  else (no-op reposition lines are debug-level). Makes "sprinkle sync everywhere" genuinely cheap.
+  Scope is bookmark-vs-remote tracking; `@` may have uncommitted working-copy changes, and sync
+  intentionally doesn't speak to that (use `jj st` for working-copy state).
+- **Action needed** (`behind` / `diverged`): per-repo fetch + state lines, then the actions run.
+- **`--quiet`**: no output at any level; exit code is the only signal. Intended for scripts that
+  just need success/failure.
 
-**Note on the `behind` case.** jj's `git fetch` already fast-forwards a
-tracked local bookmark when it's a strict ancestor of the incoming
-remote, so in the common case `sync` reports `up-to-date` rather than
-`behind`. The `behind` branch covers untracked bookmarks and edge
-configs where auto-advance is disabled.
+**Note on the `behind` case.** jj's `git fetch` already fast-forwards a tracked local bookmark when
+it's a strict ancestor of the incoming remote, so in the common case `sync` reports `up-to-date`
+rather than `behind`. The `behind` branch covers untracked bookmarks and edge configs where
+auto-advance is disabled.
 
 ### revert
 
-Restore repos to their persisted pre-sync snapshots, the explicit
-undo completing sync's stop-on-error contract. A failed
-`vc-x1 sync` leaves each repo's pre-sync `jj op` id in
-`<repo>/.vc-x1/sync-state.toml`; after inspecting what happened,
-`vc-x1 revert` runs `jj op restore <op>` in every repo holding a
-snapshot and clears the consumed state files. Working-copy files
-are preserved across the restore: jj rewinds the operation log but
-leaves disk content untouched.
+Restore repos to their persisted pre-sync snapshots, the explicit undo completing sync's
+stop-on-error contract. A failed `vc-x1 sync` leaves each repo's pre-sync `jj op` id in
+`<repo>/.vc-x1/sync-state.toml`; after inspecting what happened, `vc-x1 revert` runs `jj op restore
+<op>` in every repo holding a snapshot and clears the consumed state files. Working-copy files are
+preserved across the restore: jj rewinds the operation log but leaves disk content untouched.
 
-Repo set resolution is identical to sync's (`-R` / `--scope` /
-workspace default), so a failed sync and the following revert name
-the same repos when invoked the same way. Repos without a snapshot
-are skipped with a note; sync clears state on success, so that's
-the normal condition, not an error; finding no snapshot anywhere
-errors (`nothing to revert`).
+Repo set resolution is identical to sync's (`-R` / `--scope` / workspace default), so a failed sync
+and the following revert name the same repos when invoked the same way. Repos without a snapshot are
+skipped with a note; sync clears state on success, so that's the normal condition, not an error;
+finding no snapshot anywhere errors (`nothing to revert`).
 
 ```
 vc-x1 sync            # fails: stops, names each repo's pre-sync op id
@@ -853,15 +771,13 @@ vc-x1 revert          # restore every repo to its pre-sync snapshot
 
 ### squash-push
 
-Squash `@` into `@-`, advance a bookmark, and push, capturing a
-repo's trailing working-copy writes and publish them in one step.
-Rewriting an already-pushed commit this way is a deliberate
+Squash `@` into `@-`, advance a bookmark, and push, capturing a repo's trailing working-copy writes
+and publish them in one step. Rewriting an already-pushed commit this way is a deliberate
 published-history rewrite, so the push is a forced update.
 
-The primary use case is folding the bot repo's session tail: session
-data keeps landing in `@` after the last commit (including the record
-of the push itself), and only the user, acting after the bot goes
-quiet, can capture all of it. Zero ceremony by design:
+The primary use case is folding the bot repo's session tail: session data keeps landing in `@` after
+the last commit (including the record of the push itself), and only the user, acting after the bot
+goes quiet, can capture all of it. Zero ceremony by design:
 
 ```
 # In .claude: squash @ -> @-, advance main, push
@@ -882,31 +798,25 @@ vc-x1 squash-push feature -R . --squash @,@--
 
 Behavior notes:
 
-- Runs fully in-process, so a failure is a visible non-zero exit.
-  (Replaces the `finalize` subcommand, whose detached background
-  child could be killed silently at command exit.)
-- With an empty `@` and the bookmark already at the remote it
-  reports "already sync'd" and exits 0; with an empty `@` but the
-  remote behind, it skips the squash and still pushes.
-- If the bookmark doesn't match `BOOKMARK@origin` at start (an
-  earlier publish was lost; see [validate-bot](#validate-bot)),
-  it says so and proceeds: publishing is its job.
-- Preflight refuses bad states before rewriting anything:
-  unresolvable squash revsets, an ochid-dropping squash (see
-  [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
-  conflicts, a missing / untracked / non-forward bookmark, an
-  undescribed push target.
+- Runs fully in-process, so a failure is a visible non-zero exit. (Replaces the `finalize`
+  subcommand, whose detached background child could be killed silently at command exit.)
+- With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0;
+  with an empty `@` but the remote behind, it skips the squash and still pushes.
+- If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost; see
+  [validate-bot](#validate-bot)), it says so and proceeds: publishing is its job.
+- Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
+  ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
+  conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.
 
-See [inline session push + squash-push (0.69.0)](./notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690)
-for design details.
+See [inline session push + squash-push
+(0.69.0)](./notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690) for design
+details.
 
 ### push
 
-Commit both repos, push the work repo's BOOKMARK, and squash-push
-the bot repo's `main`: one command with two interactive approval
-gates. Replaces the old multi-step manual choreography
-(`jj commit` × 2 -> `jj bookmark set` × 2 -> `jj git push` ->
-squash-push) with a single invocation.
+Commit both repos, push the work repo's BOOKMARK, and squash-push the bot repo's `main`: one command
+with two interactive approval gates. Replaces the old multi-step manual choreography (`jj commit` ×
+2 -> `jj bookmark set` × 2 -> `jj git push` -> squash-push) with a single invocation.
 
 ```bash
 vc-x1 push main                                     # interactive
@@ -927,21 +837,16 @@ Stages, top to bottom:
 | `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
 | `squash-push-bot` | In-process squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
 
-**Rerunning is always safe.** There is no saved state and no
-resume: every stage checks its own precondition and does nothing
-when its work is already done, so re-running after a failure is
-simply running. A recorded position would describe a world that
-may have changed for reasons push cannot know. If a run fails,
-push stops and reports. Please fix and try again.
+**Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
+precondition and does nothing when its work is already done, so re-running after a failure is simply
+running. A recorded position would describe a world that may have changed for reasons push cannot
+know. If a run fails, push stops and reports. Please fix and try again.
 
-Failures in `commit-work` / `commit-bot` / `bookmark-set` roll
-both repos back via `jj op restore` to a snapshot taken moments
-earlier in the same process. Once `push-work` succeeds the work
-is published: from there a change is either a new commit
-appended on top by the next push, or an amend of what was
-pushed, where [`squash-push`](#squash-push) folds the working copy
-into the last commit and force-updates the remote. See
-[Recovery](./notes/cycle-protocol.md#recovery).
+Failures in `commit-work` / `commit-bot` / `bookmark-set` roll both repos back via `jj op restore`
+to a snapshot taken moments earlier in the same process. Once `push-work` succeeds the work is
+published: from there a change is either a new commit appended on top by the next push, or an amend
+of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last commit
+and force-updates the remote. See [Recovery](./notes/cycle-protocol.md#recovery).
 
 | Flag | Description |
 |------|-------------|
@@ -953,17 +858,16 @@ into the last commit and force-updates the remote. See
 | `--step` | Pause after every stage for an extra continue-prompt |
 | `--no-squash-push` | Stop before `squash-push-bot` (run it manually) |
 
-See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370)
-for the full design and [per-step record](./notes/chores/chores-05.md#per-step-record)
-for what each `0.37.0-N` dev step shipped.
+See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370) for the
+full design and [per-step record](./notes/chores/chores-05.md#per-step-record) for what each
+`0.37.0-N` dev step shipped.
 
 ### Testing push + squash-push
 
-Always test against a throwaway fixture, never the live workspace.
-Scaffold one with `vc-x1 init <TARGET> --repo local=<PARENT>` (no
-GitHub, no network), then run the complete flow end-to-end. The
-work repo uses plain `jj git push`; the bot repo uses
-`vc-x1 squash-push` to squash trailing writes and push in one shot.
+Always test against a throwaway fixture, never the live workspace. Scaffold one with `vc-x1 init
+<TARGET> --repo local=<PARENT>` (no GitHub, no network), then run the complete flow end-to-end. The
+work repo uses plain `jj git push`; the bot repo uses `vc-x1 squash-push` to squash trailing writes
+and push in one shot.
 
 `--repo local=<PARENT>` lays out:
 ```
@@ -999,15 +903,12 @@ vc-x1 squash-push -R "$bot"
 rm -rf "$parent"
 ```
 
-**Why `jj git push` for the work repo but `squash-push` for
-`.claude`?** The work repo's workflow is a plain dev commit on `@-`
-that we push directly. The bot repo mirrors the bot's runtime
-pattern: session writes land in `@` (above the last committed
-commit), and squash-push folds those trailing writes into that
-commit just before pushing, so one atomic state goes upstream.
+**Why `jj git push` for the work repo but `squash-push` for `.claude`?** The work repo's workflow is
+a plain dev commit on `@-` that we push directly. The bot repo mirrors the bot's runtime pattern:
+session writes land in `@` (above the last committed commit), and squash-push folds those trailing
+writes into that commit just before pushing, so one atomic state goes upstream.
 
-The run is fully in-process and synchronous, so what you see is the
-whole flow:
+The run is fully in-process and synchronous, so what you see is the whole flow:
 ```
 $ vc-x1 squash-push -R "$bot"
 squash-push: squashing @ -> @-...
@@ -1016,26 +917,20 @@ squash-push: pushing 'main' to origin...
 squash-push: done
 ```
 
-Preflight failures (bookmark missing, non-tracking remote, squash
-revset unresolved, conflicts, push target lacks a description) exit
-with a non-zero status and a pointed error on stderr before
+Preflight failures (bookmark missing, non-tracking remote, squash revset unresolved, conflicts, push
+target lacks a description) exit with a non-zero status and a pointed error on stderr before
 anything is rewritten.
 
 ### Testing the ochid-trailer guard
 
-`squash-push` refuses to drop `ochid:` trailers: when the squash
-source's message carries trailers the destination's message lacks,
-`--use-destination-message` would silently discard them and leave
-the counterpart repo's cross-links dangling (the incident is
-recorded in
-[record finalize ochid-loss bug (0.65.1)](./notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651)).
-The guard
-runs in preflight, before anything is rewritten.
+`squash-push` refuses to drop `ochid:` trailers: when the squash source's message carries trailers
+the destination's message lacks, `--use-destination-message` would silently discard them and leave
+the counterpart repo's cross-links dangling (the incident is recorded in [record finalize ochid-loss
+bug (0.65.1)](./notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651)). The guard runs
+in preflight, before anything is rewritten.
 
-`squash-push` always pushes, so the examples run against a
-throwaway init fixture (same shape as
-[Testing push + squash-push](#testing-push--squash-push)) using
-its bot repo:
+`squash-push` always pushes, so the examples run against a throwaway init fixture (same shape as
+[Testing push + squash-push](#testing-push--squash-push)) using its bot repo:
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
@@ -1060,8 +955,8 @@ rm -rf "$parent"
 ```
 
 Output captured from a real run; regenerate these transcripts with
-[`support/gen-exmpl-1-3.sh`](support/README.md#gen-example-1---3-output).
-Example 1 is refused with exit 1:
+[`support/gen-exmpl-1-3.sh`](support/README.md#gen-example-1---3-output). Example 1 is refused with
+exit 1:
 
 ```
 $ vc-x1 squash-push -R "$bot"
@@ -1084,19 +979,17 @@ squash-push: done
 
 ## Cross-repo Linking with Git Trailers
 
-Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers)
-to cross-reference their counterpart in the other repo. The `ochid`
-(Other Change ID) trailer contains a workspace-root-relative path
-and jj changeID:
+Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers) to
+cross-reference their counterpart in the other repo. The `ochid` (Other Change ID) trailer contains
+a workspace-root-relative path and jj changeID:
 
 ```
 ochid: /.claude/xvzvruqo   # points to a .claude repo change
 ochid: /wtpmottv            # points to an work repo change
 ```
 
-Paths always start with `/` (the workspace root, i.e. vc-x1).
-Each repo has a `.vc-config.toml` that identifies its location
-within the workspace, so tools can resolve these paths locally.
+Paths always start with `/` (the workspace root, i.e. vc-x1). Each repo has a `.vc-config.toml` that
+identifies its location within the workspace, so tools can resolve these paths locally.
 
 For full details see:
 - [Git trailer convention](./notes/chores/chores-01.md#git-trailer-convention)
@@ -1106,16 +999,14 @@ For full details see:
 
 ## jj Tips for Git Users
 
-If you're coming from git, jj's log output can be surprising compared to
-tools like `gitk --all`.
+If you're coming from git, jj's log output can be surprising compared to tools like `gitk --all`.
 
 ### Why `jj log` shows fewer commits than `gitk`
 
-jj tracks *changes* (identified by change IDs), not individual git commits.
-When you rewrite a change (`jj describe`, `jj rebase`, `jj squash`, etc.),
-jj creates a new git commit and keeps the old one under `refs/jj/keep/*` as
-undo history. `gitk --all` sees all of these obsolete commits; `jj log` only
-shows the current version of each change.
+jj tracks *changes* (identified by change IDs), not individual git commits. When you rewrite a
+change (`jj describe`, `jj rebase`, `jj squash`, etc.), jj creates a new git commit and keeps the
+old one under `refs/jj/keep/*` as undo history. `gitk --all` sees all of these obsolete commits; `jj
+log` only shows the current version of each change.
 
 ### Useful commands
 
@@ -1127,26 +1018,22 @@ shows the current version of each change.
 | `jj obslog -r <change-id>` | Show the evolution history of a single change |
 | `jj op log` | Show operation history (each rewrite operation) |
 
-In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give
-the same result. Use `all()` when you have multiple branches or heads.
+In a single-branch workflow, `jj log -r ::@` and `jj log -r 'all()'` give the same result. Use
+`all()` when you have multiple branches or heads.
 
 ## Testing
 
 The repo ships two flavors of tests:
 
-- **In-process tests**: `#[cfg(test)] mod tests { ... }` blocks inside
-  `src/*.rs`. These call library code directly (no subprocess spawn)
-  and run fastest. The dual / POR fixture tests under
-  `src/init.rs::tests` build throwaway workspaces by invoking
-  `init::init` as a function.
-- **CLI subprocess integration tests**: files under `tests/`. These
-  spawn the `vc-x1` binary that Cargo built; its absolute path lives
-  in the `CARGO_BIN_EXE_vc-x1` env var that Cargo sets at compile
-  time, which `env!("CARGO_BIN_EXE_vc-x1")` reads and bakes into the
-  test binary as a string literal. Argument parsing, exit codes, and
-  stdout/stderr are all exercised end-to-end. Each subprocess gets a
-  `HOME` override so the user's real `~/.config/vc-x1/` can't leak in
-  or get clobbered.
+- **In-process tests**: `#[cfg(test)] mod tests { ... }` blocks inside `src/*.rs`. These call
+  library code directly (no subprocess spawn) and run fastest. The dual / POR fixture tests under
+  `src/init.rs::tests` build throwaway workspaces by invoking `init::init` as a function.
+- **CLI subprocess integration tests**: files under `tests/`. These spawn the `vc-x1` binary that
+  Cargo built; its absolute path lives in the `CARGO_BIN_EXE_vc-x1` env var that Cargo sets at
+  compile time, which `env!("CARGO_BIN_EXE_vc-x1")` reads and bakes into the test binary as a string
+  literal. Argument parsing, exit codes, and stdout/stderr are all exercised end-to-end. Each
+  subprocess gets a `HOME` override so the user's real `~/.config/vc-x1/` can't leak in or get
+  clobbered.
 
 Run everything with:
 
@@ -1158,40 +1045,36 @@ cargo test --test cli_init # one integration test crate
 
 ### Test tempdir location
 
-Both test layers create throwaway fixtures under a tempdir. The
-parent directory resolves in priority order:
+Both test layers create throwaway fixtures under a tempdir. The parent directory resolves in
+priority order:
 
 1. `$VC_X1_TEST_TMPDIR`: explicit env override.
-2. `std::env::temp_dir()`: standard fallback (`$TMPDIR` on Unix,
-   else `/tmp`).
+2. `std::env::temp_dir()`: standard fallback (`$TMPDIR` on Unix, else `/tmp`).
 
-Useful when you want tests on a tmpfs / SSD / project-local path
-without exporting `TMPDIR` globally:
+Useful when you want tests on a tmpfs / SSD / project-local path without exporting `TMPDIR`
+globally:
 
 ```bash
 VC_X1_TEST_TMPDIR=/dev/shm/vc-x1 cargo test
 ```
 
-Fixture directories are named `vc-x1-test-<tag>-<ts>-<n>` (in-process)
-and `vc-x1-cli-test-<tag>-<ts>-<n>` (CLI). RAII drop removes them on
-test exit; SIGKILLs / panics in `Drop` can leak, so search and clean
-manually:
+Fixture directories are named `vc-x1-test-<tag>-<ts>-<n>` (in-process) and
+`vc-x1-cli-test-<tag>-<ts>-<n>` (CLI). RAII drop removes them on test exit; SIGKILLs / panics in
+`Drop` can leak, so search and clean manually:
 
 ```bash
 find "${VC_X1_TEST_TMPDIR:-${TMPDIR:-/tmp}}" -maxdepth 1 \
      -name 'vc-x1-*test*' -mtime +1 -exec rm -rf {} +
 ```
 
-A future enhancement (tracked in `TODO.md` at the repo root)
-extends the priority chain through `~/.config/vc-x1/config.toml`
-and project-local `.vc-config.toml`.
+A future enhancement (tracked in `TODO.md` at the repo root) extends the priority chain through
+`~/.config/vc-x1/config.toml` and project-local `.vc-config.toml`.
 
 ### Preserving fixtures for debugging
 
-When a test fails and you want to inspect the workspace it built,
-set `$VC_X1_TEST_KEEP`. The RAII `Drop` impls (`Fixture`,
-`FixturePor`, `CliFixture`) skip `remove_dir_all` and print the
-preserved path on stderr:
+When a test fails and you want to inspect the workspace it built, set `$VC_X1_TEST_KEEP`. The RAII
+`Drop` impls (`Fixture`, `FixturePor`, `CliFixture`) skip `remove_dir_all` and print the preserved
+path on stderr:
 
 ```bash
 VC_X1_TEST_KEEP=1 cargo test -- --nocapture 2>&1 | grep TEST_KEEP
@@ -1199,24 +1082,19 @@ VC_X1_TEST_KEEP=1 cargo test -- --nocapture 2>&1 | grep TEST_KEEP
 
 Two shell gotchas worth remembering:
 
-- The preservation message goes to **stderr**, so a plain
-  `cargo test | grep ...` won't see it; use `2>&1 |` or write
-  the full output to a file.
-- `--nocapture` is needed to bypass libtest's stdout/stderr
-  capture; without it, the messages get swallowed by the test
-  runner's pretty-printer.
+- The preservation message goes to **stderr**, so a plain `cargo test | grep ...` won't see it; use
+  `2>&1 |` or write the full output to a file.
+- `--nocapture` is needed to bypass libtest's stdout/stderr capture; without it, the messages get
+  swallowed by the test runner's pretty-printer.
 
-`VC_X1_TEST_KEEP` is a debugging knob: every fixture-creating
-test in the run leaks its tempdir while it's set. Clean up with
-the `find` recipe above, or just `rm -rf` the announced paths.
+`VC_X1_TEST_KEEP` is a debugging knob: every fixture-creating test in the run leaks its tempdir
+while it's set. Clean up with the `find` recipe above, or just `rm -rf` the announced paths.
 
 ### Debugging: seeing debug! output from a test
 
-The crate logs through the `log` crate facade, but only the CLI
-installs a logger (`CliLogger::init` at startup, driven by `-v`),
-so under `cargo test` every `debug!` call is a silent no-op. To
-watch the debug output of one test, install the logger at the top
-of that test, temporarily:
+The crate logs through the `log` crate facade, but only the CLI installs a logger (`CliLogger::init`
+at startup, driven by `-v`), so under `cargo test` every `debug!` call is a silent no-op. To watch
+the debug output of one test, install the logger at the top of that test, temporarily:
 
 ```rust
 // 1 = debug, 2 = trace; Some("path") also captures to a file
@@ -1229,9 +1107,8 @@ and run just that test with capture disabled:
 cargo test --bins <test-name-substring> -- --nocapture
 ```
 
-For example, the index-lock retry test
-(`mutation_survives_transient_index_lock` in `src/jj.rs`) then
-shows the backoff live on stderr:
+For example, the index-lock retry test (`mutation_survives_transient_index_lock` in `src/jj.rs`)
+then shows the backoff live on stderr:
 
 ```
 git lockfile contended (attempt 1): Could not acquire lock for index file; retrying in 25ms
@@ -1240,107 +1117,85 @@ git lockfile contended (attempt 3): Could not acquire lock for index file; retry
 test jj::tests::mutation_survives_transient_index_lock ... ok
 ```
 
-**The zero-setup variant.** For a quick one-off look, skip the
-logger entirely: drop a temporary `println!` at the point of
-interest (right next to the `debug!` is natural) and run with
-`--nocapture`. `println!` needs no logger, no level, no init line
-in the test:
+**The zero-setup variant.** For a quick one-off look, skip the logger entirely: drop a temporary
+`println!` at the point of interest (right next to the `debug!` is natural) and run with
+`--nocapture`. `println!` needs no logger, no level, no init line in the test:
 
 ```bash
 cargo test --bins <test-name-substring> -- --nocapture
 ```
 
-Same output, one line of setup. The trade-offs: it prints for
-every caller (no level to turn it off), and unlike the test-local
-`init` line it sits in production code, where a forgotten one
-ships chatter into every real CLI run's stdout. Remove it before
-committing; `debug!` is the form that stays.
+Same output, one line of setup. The trade-offs: it prints for every caller (no level to turn it
+off), and unlike the test-local `init` line it sits in production code, where a forgotten one ships
+chatter into every real CLI run's stdout. Remove it before committing; `debug!` is the form that
+stays.
 
 Gotchas, in the order people hit them:
 
-- `CliLogger::new(...)` alone does nothing: it only builds the
-  value. `init` is what registers the global logger and raises
-  `log::max_level`; without both, `debug!` stays a no-op.
-- `--nocapture` is required, same as the fixture-preserving
-  recipe above: debug lines go to stderr and libtest swallows
-  them otherwise.
-- `RUST_LOG` has no effect: `CliLogger` never reads env vars
-  (that is env_logger's convention, not this logger's).
-- Remove the `init` line when done. The logger is
-  process-global, so left in place it makes every test in the
-  binary chatty, and a second test calling `init` would panic:
-  the global logger can be set only once per process.
+- `CliLogger::new(...)` alone does nothing: it only builds the value. `init` is what registers the
+  global logger and raises `log::max_level`; without both, `debug!` stays a no-op.
+- `--nocapture` is required, same as the fixture-preserving recipe above: debug lines go to stderr
+  and libtest swallows them otherwise.
+- `RUST_LOG` has no effect: `CliLogger` never reads env vars (that is env_logger's convention, not
+  this logger's).
+- Remove the `init` line when done. The logger is process-global, so left in place it makes every
+  test in the binary chatty, and a second test calling `init` would panic: the global logger can be
+  set only once per process.
 
 ## Support
 
-Helper scripts for maintaining this repo's docs and examples live
-in [`support/`](support/); see
+Helper scripts for maintaining this repo's docs and examples live in [`support/`](support/); see
 [support/README.md](support/README.md).
 
 ### gen-exmpl-1-3.sh
 
-Regenerates the captured transcripts for
-[Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)
-by running the two examples against a throwaway init fixture and
-printing the `$ command` + output blocks ready to paste. Details:
-[Gen Example 1 - 3 output](support/README.md#gen-example-1---3-output).
+Regenerates the captured transcripts for [Testing the ochid-trailer
+guard](#testing-the-ochid-trailer-guard) by running the two examples against a throwaway init
+fixture and printing the `$ command` + output blocks ready to paste. Details: [Gen Example 1 - 3
+output](support/README.md#gen-example-1---3-output).
 
 ## Thoughts for the future
 
-Forward-looking design discussion lives in
-[`notes/forks-multi-user.md`](notes/forks-multi-user.md):
-forking the dual-repo workspace, multi-user collaboration,
-multi-line `ochid:` trailers, bot-repo size and scaling
-thresholds, URL-shaped per-user repos for distributed
-projects. Treat as a design reference, not a status doc;
-most of what's there is forward-looking, not yet
-implemented.
+Forward-looking design discussion lives in [`notes/forks-multi-user.md`](notes/forks-multi-user.md):
+forking the dual-repo workspace, multi-user collaboration, multi-line `ochid:` trailers, bot-repo
+size and scaling thresholds, URL-shaped per-user repos for distributed projects. Treat as a design
+reference, not a status doc; most of what's there is forward-looking, not yet implemented.
 
 ## Contributing
 
-The tool's internal structure (module map, the CLI-args /
-ops-`Context`+`Params` split, the subcommand model, and the
-two in-flight migrations) is described in
+The tool's internal structure (module map, the CLI-args / ops-`Context`+`Params` split, the
+subcommand model, and the two in-flight migrations) is described in
 [ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.
 
-The bot-facing cycle workflow (cycles for Preparation /
-Work / Close-out, per-commit flow with the cargo cycle
-`fmt` / `clippy` / `test` / `install`, commit description
-shape, ochid trailers, pushing) lives in
-[`notes/cycle-protocol.md`](notes/cycle-protocol.md).
+The bot-facing cycle workflow (cycles for Preparation / Work / Close-out, per-commit flow with the
+cargo cycle `fmt` / `clippy` / `test` / `install`, commit description shape, ochid trailers,
+pushing) lives in [`notes/cycle-protocol.md`](notes/cycle-protocol.md).
 
-Bot-facing conventions are canonical in
-[AGENTS.md](AGENTS.md) (hard rules + file map), its
-`agent-data/` satellites, and the project layer
-[custom.md](custom.md):
+Bot-facing conventions are canonical in [AGENTS.md](AGENTS.md) (hard rules + file map), its
+`agent-data/` satellites, and the project layer [custom.md](custom.md):
 
-- [Notes file conventions](agent-data/notes.md):
-  Todo format, Reference numbering, Notes references
-  (`[[N]]` citation style), Markdown anchor links,
-  Retiring Done entries, and Chores conventions
-  (section headers / Done entries exact-title rule,
-  content rules, `Commits:` line format).
-- [Prose form](agent-data/prose.md#prose-form): intro +
-  bullets shape for long-lived prose (commit bodies,
-  chores, doc comments).
-- [Code conventions](agent-data/code.md): doc
-  comments on every file / fn / method, `// OK: ...` on
+- [Notes file conventions](agent-data/notes.md): Todo format, Reference numbering, Notes references
+  (`[[N]]` citation style), Markdown anchor links, Retiring Done entries, and Chores conventions
+  (section headers / Done entries exact-title rule, content rules, `Commits:` line format).
+- [Prose form](agent-data/prose.md#prose-form): intro + bullets shape for long-lived prose (commit
+  bodies, chores, doc comments).
+- [Code conventions](agent-data/code.md): doc comments on every file / fn / method, `// OK: ...` on
   `unwrap*` calls.
 
-Task tracking and release details: near-term tasks in
-[TODO.md](TODO.md), per-release details in
-`notes/chores/chores-*.md`, and notes-specific formatting
-rules in [notes/README.md](notes/README.md).
+Task tracking and release details: near-term tasks in [TODO.md](TODO.md), per-release details in
+`notes/chores/chores-*.md`, and notes-specific formatting rules in
+[notes/README.md](notes/README.md).
 
 ## License
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://apache.org/licenses/LICENSE-2.0)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  http://apache.org/licenses/LICENSE-2.0)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
+work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.

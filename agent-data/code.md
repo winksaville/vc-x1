@@ -3,7 +3,7 @@
 Conventions for source code. Read this before writing code. The Rust-specific sections apply
 wherever the medium is a Rust crate (see [custom.md](../custom.md) for the project's medium).
 
-Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project overrides go in
+Universal file, pinned to the template repository; do not edit here. Project overrides go in
 [custom.md](../custom.md).
 
 ## Line width
@@ -63,7 +63,7 @@ When one is used, three obligations attach:
 
   Every panicking site is then opt-in and visible in the diff; clippy (in the per-commit flow)
   catches any that slip through. The `_or*` siblings have no clippy lint; they are covered by
-  the comment convention and the conversational alert. (The vc-x1-work-repo-template's
+  the comment convention and the conversational alert. (The template repository's
   `CargoRust.toml` seeds a base `Cargo.toml` with this section already in place.)
 
 ```rust

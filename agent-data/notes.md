@@ -5,7 +5,7 @@ Conventions the bot follows when reading and writing notes files (`TODO.md`,
 source of truth lives here; [`notes/README.md`](../notes/README.md) points back. Read this
 before editing a notes file.
 
-Universal file, pinned to vc-x1-work-repo-template; do not edit here. Project overrides go in
+Universal file, pinned to the template repository; do not edit here. Project overrides go in
 [custom.md](../custom.md).
 
 ## File reads: read the slice you need
@@ -54,8 +54,9 @@ point at a section of another file from prose, use an inline link with an anchor
 
 A `chores-NN.md` `# References` entry is usually a `/notes/<file>.md#anchor` (or
 `/ARCHITECTURE.md`) path, but may also be a **commit reference**,
-`[N]: <commit-url-with-12-hex-SHA> "<full-40-hex-SHA>"`, cited by a section's `Commits:` line.
-See [Chores commit references](#chores-commit-references) for the why and the exact shape.
+`[N]: <commit-url-with-12-hex-SHA> "<full-40-hex-SHA>"`, cited by a rung of a section's
+as-built ladder. See [Chores commit references](#chores-commit-references) for the why and the
+exact shape.
 
 A file's `# References` can be **re-packed** to a contiguous `[1]..[N]` in
 first-citation-appearance order: walk the file's prose in document order (`TODO.md`: `## Todo`
@@ -165,7 +166,7 @@ free-form text; the convention applies going forward.
 
 ### Chores section content: no edit list; git is the record
 
-A chores section is: a `Commits:` line (first line under the header; see below), then
+A chores section is: the as-built ladder (first content under the header; see below), then
 [Prose form](prose.md#prose-form) (intro + bullets) for what landed and why, and any `###`
 design subsections. Bullets here are **conceptual** (design points, structural notes), never a
 per-file edit list. That lives in the commit message body, which is the source of truth for
@@ -173,8 +174,8 @@ per-file edit list. That lives in the commit message body, which is the source o
 chores section is the source of truth for the design thinking; the two cross-link, neither
 restates the other.
 
-The section is **built up per commit**: each work commit appends its own `### As-built ladder`
-rung + any narrative as it lands, rather than the narrative waiting for close-out (which only
+The section is **built up per commit**: each work commit appends its own rung to the as-built
+ladder + any narrative as it lands, rather than the narrative waiting for close-out (which only
 *finalizes*: header title sync, design subsections). Full when-in-the-cycle timing lives in
 cycle-protocol.md [Chores sections](../notes/cycle-protocol.md#chores-sections); this note is
 the pointer, so the two don't drift.
@@ -187,27 +188,34 @@ direction).
 
 **Why:** a chores edit list and the commit body were specified to be the same content in two
 places, and detail written twice drifts. Git owns the mechanical record; chores owns the
-narrative; `Commits:` links them.
+narrative; the ladder's commit refs link them.
 
 ### Chores commit references
 
-The first line under a chores section header is a `Commits:` line citing the git commit(s)
-that section records:
+The first content under a chores section header is the **as-built ladder**: one rung per
+commit the section records, in landing order, each rung carrying its own `[N]` citation slot.
+The same form is used for every cycle, single- or multi-commit; a single-commit cycle is a
+one-rung ladder whose rung is the bare `X.Y.Z` close-out:
 
 ```
 ## refactor: extract config loader
 
-Commits: [[3]]
+- [[2]] 0.42.0-1 refactor: split loader from parser
+- [[N]] 0.42.0 refactor: extract config loader
 
 <intro paragraph...>
 ```
 
-`Commits:` uses the file-local `[N]` reference machinery (see
-[Reference numbering](#reference-numbering)), **double-bracketed** so the brackets render:
-`Commits: [[3]]`, or `Commits: [[3]],[[5]]` for several. (`[[3]]` shows as a literal `[`, the
-`[3]` link, then a literal `]`; the inner `[3]` resolves against its `[3]:` definition, and
-CommonMark / GitHub / VS Code all do this.) The `# References` definition puts the **commit
-URL** as the destination, with the **full 40-hex SHA** in the title slot:
+- The rung form is `- [[N]] X.Y.Z[-n] <title>`, with no `(current)` / `(done)` markers:
+  as-built implies done (the in-flight markers live in `TODO.md > ## In Progress`).
+- A rung is written with the literal `[[N]]` placeholder and backfilled in place with a real
+  file-local slot once its commit's SHA is permanent (see Timing below).
+- Rung citations use the file-local `[N]` reference machinery (see
+  [Reference numbering](#reference-numbering)), **double-bracketed** so the brackets render.
+  (`[[3]]` shows as a literal `[`, the `[3]` link, then a literal `]`; the inner `[3]`
+  resolves against its `[3]:` definition, and CommonMark / GitHub / VS Code all do this.) The
+  `# References` definition puts the **commit URL** as the destination, with the **full
+  40-hex SHA** in the title slot:
 
 ```
 [3]: https://github.com/<owner>/<repo>/commit/<12-hex> "<40-hex>"
@@ -221,8 +229,24 @@ URL** as the destination, with the **full 40-hex SHA** in the title slot:
 
 **Timing.** A commit's SHA isn't stable until it lands on a **permanent branch** (`main`, or a
 long-lived release/patch branch), because a rebase or squash rewrites it on the way. A commit
-can't record its own SHA, so the fill lands one push later: every section opens with an
-**empty `Commits:`**, and each push backfills the `Commits:` of the commits the previous push
-made permanent. On a topic branch a section waits until the branch lands. The commit itself is
-the record, and `git log --grep "<title>"` finds it. See cycle-protocol
+can't record its own SHA, so the fill lands one push later: every rung opens with the literal
+`[[N]]` placeholder, and each push backfills the rungs of the commits the previous push made
+permanent. On a topic branch a section waits until the branch lands. The commit itself is the
+record, and `git log --grep "<title>"` finds it. See cycle-protocol
 [Commits backfill](../notes/cycle-protocol.md#commits-backfill).
+
+Sections that predate this convention keep their `Commits:` lines; the ladder form applies
+going forward.
+
+### Chores file Table of Contents
+
+Each `chores-NN.md` carries a `## Table of Contents` section between the file intro and the
+first commit-recording section: one `- [<title>](#<anchor>)` entry per commit-recording `##`
+section, in file order.
+
+- Entries are title-only, with no version and no `[N]` refs, so the TOC never needs backfill:
+  the TOC navigates, the section's as-built ladder records.
+- Append the entry when the section opens; the entry text participates in the same last-edit
+  title sync as the section header and the `## Done` entry.
+- Design `###` subsections stay out of the TOC.
+- Files predating the convention gain a TOC opportunistically, not on a schedule.

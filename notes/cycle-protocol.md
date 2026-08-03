@@ -54,60 +54,50 @@ for the local-ladder mechanics.
 
 ## Chores sections
 
-A **chores section** is a `##` section in
-`notes/chores/chores-NN.md` recording landed work. In
-general, every commit that lands on the permanent branch
-should have a reference to it on a `Commits:` list in a
-chores file.
+A **chores section** is a `##` section in `notes/chores/chores-NN.md` recording landed work.
+In general, every commit that lands on the permanent branch should have a rung in some
+section's as-built ladder in a chores file.
 
-The phrase **"Open" the chores section** means append a
-`##` header to the current `notes/chores/chores-NN.md`
-with the title it records (e.g. `## refactor: foo bar`),
-followed by an **empty `Commits:`** line. **Each work commit
-then appends its own As-built rung + narrative note as it
-lands**, so the chores record is built up per commit, not held
-back and written all at once at close-out; close-out only
-*finalizes* (title sync, design subsections, retiring the
-`## In Progress` block). The `Commits:` line is backfilled
-later, once the commit is permanent (see
-[Commits backfill](#commits-backfill) below).
+The phrase **"Open" the chores section** means append a `##` header to the current
+`notes/chores/chores-NN.md` with the title it records (e.g. `## refactor: foo bar`), add the
+file's `## Table of Contents` entry, and start the **as-built ladder**: one
+`- [[N]] X.Y.Z[-n] <title>` rung per commit the section records, each opening with the literal
+`[[N]]` placeholder. **Each work commit then appends its own rung + narrative note as it
+lands**, so the chores record is built up per commit, not held back and written all at once at
+close-out; close-out only *finalizes* (title sync, design subsections, retiring the
+`## In Progress` block). Rung placeholders are backfilled later, once their commits are
+permanent (see [Commits backfill](#commits-backfill) below).
 
-Fuller chores conventions (content rules, header sync,
-design subsection pattern, `Commits:` formatting) live in
+Fuller chores conventions (content rules, header sync, design subsection pattern, ladder and
+reference formatting, the Table of Contents) live in
 [Chores conventions](../agent-data/notes.md#chores-conventions).
 
 ### Commits backfill
 
-A chores section's `Commits:` line cites the commit(s) it
-records, by SHA, but a SHA isn't stable until the commit
-lands on a **permanent branch** (`main`, or a long-lived
-release/patch branch that won't be rewritten); a rebase or
-squash rewrites it on the way. So:
+An as-built ladder rung cites its commit by SHA, but a SHA isn't stable until the commit lands
+on a **permanent branch** (`main`, or a long-lived release/patch branch that won't be
+rewritten); a rebase or squash rewrites it on the way. So:
 
-- A chores section is **opened with an empty `Commits:`** line.
-- **Backfill once the commit is on a permanent branch**,
-  where its SHA is final. A commit can't record its own SHA
-  (that would change the hash), so the fill always lands one
-  push later: **each push backfills the `Commits:` of the
-  commits the previous push made permanent.** On a topic
-  branch the sections instead wait until the branch lands,
-  so no SHA is ever written that a later rebase could
-  invalidate.
+- A rung is **written with the literal `[[N]]` placeholder**.
+- **Backfill once the commit is on a permanent branch**, where its SHA is final. A commit
+  can't record its own SHA (that would change the hash), so the fill always lands one push
+  later: **each push backfills the rungs of the commits the previous push made permanent.** On
+  a topic branch the sections instead wait until the branch lands, so no SHA is ever written
+  that a later rebase could invalidate.
+- A deliberate rewrite of already-recorded commits (a coordinated re-describe, a retroactive
+  reshape) invalidates their recorded SHAs. Re-record them once the rewrite is published, on
+  the same one-push-later timing.
 
-Use `[[N]]` refs, several as `[[N]],[[M]]` only when one
-section records multiple commits (a push that publishes
-several), with the commit URL + 40-hex SHA in the file's
-`# References`
-(format in
-[Chores commit references](../agent-data/notes.md#chores-commit-references)).
-A section's `##` title matches its commit title, so a rare
-deliberate rewrite of a permanent-branch commit re-syncs via
-`git log --grep "<title>"`.
+Each rung carries its own `[N]` ref, with the commit URL + 40-hex SHA in the file's
+`# References` (format in
+[Chores commit references](../agent-data/notes.md#chores-commit-references)). A section's `##`
+title matches its close-out commit title, and each rung's text its own commit title, so a rare
+deliberate rewrite of a permanent-branch commit re-syncs via `git log --grep "<title>"`.
+Sections that predate the ladder form keep their grandfathered `Commits:` lines.
 
-The per-push cadence is a project choice, not dogma. A
-**per-close-out** model (recording a cycle's SHAs at its
-close-out) is equally valid. The one invariant: a recorded
-SHA must be permanent.
+The per-push cadence is a project choice, not dogma. A **per-close-out** model (recording a
+cycle's SHAs at its close-out) is equally valid. The one invariant: a recorded SHA must be
+permanent.
 
 ## Preparation
 
@@ -399,7 +389,7 @@ needs approval), so choose deliberately.
 - **Keep separate**: one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
-  `Commits:` ref; no consolidation churn.
+  ladder refs; no consolidation churn.
 
 A squash is set up before invoking `vc-x1 push`; a trapezoid
 is reshaped between two pushes (the recipe below). For any
@@ -484,7 +474,7 @@ the latter is push's job.
 - **Step 4 moves the bookmark sideways.** Step 1's SHA
   becomes unreachable; anyone who fetched between the two
   pushes holds a dangling commit. Consequently a
-  [`Commits:` backfill](#commits-backfill) must never read a
+  [Commits backfill](#commits-backfill) must never read a
   SHA from that window; wait until step 4 lands.
 - **Immutability.** No flag is needed on a long-lived topic
   bookmark. Only when `<closeout>` is already on `trunk()`
