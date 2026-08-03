@@ -3,7 +3,7 @@
 //! The purpose is to simplify invoking a subcommand so `main`
 //! can invoke any subcommand with one line:
 //!
-//! `Commands::Chid(args) => args.dispatch(&ctx),`
+//! `Commands::Chid(args) => args.dispatch(&mut ctx),`
 //!
 //! Instead of the ~11 lines that the default `dispatch` below
 //! now encapsulates.
@@ -19,8 +19,9 @@
 //! via `to_params`, runs via `run`, and maps the result to
 //! `ExitCode`. Errors at any stage log via `error!` and return
 //! `ExitCode::FAILURE`. `Context` is loaded once in `main` and
-//! passed in by reference so a single `Context` is shared across
-//! the (one) match arm that actually runs.
+//! passed in by mutable reference (it owns the invocation's
+//! lazily-opened repo sessions) so a single `Context` is shared
+//! across the (one) match arm that actually runs.
 //!
 //! ## See also
 //!
@@ -43,7 +44,7 @@ use log::error;
 use crate::context::Context;
 
 /// Trait implemented by every subcommand's clap `Args` type so
-/// `main.rs` can dispatch via a single `args.dispatch(&ctx)`
+/// `main.rs` can dispatch via a single `args.dispatch(&mut ctx)`
 /// call.
 pub trait SubcommandRunner {
     /// The clap-free `Params` struct the subcommand body
@@ -55,8 +56,10 @@ pub trait SubcommandRunner {
     /// the error) shapes uniformly.
     fn to_params(&self) -> Result<Self::Params, String>;
 
-    /// Run the subcommand body.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>>;
+    /// Run the subcommand body. `ctx` is mutable because it owns
+    /// the invocation's lazily-opened repo sessions
+    /// (`Context::session`).
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>>;
 
     /// Default dispatch: build `Params` via `to_params`, bracket
     /// the run with `crate::bm_track` enter/exit, execute via
@@ -64,7 +67,7 @@ pub trait SubcommandRunner {
     /// stage log via `error!` and return `ExitCode::FAILURE`.
     /// `bm_track` itself emits at `debug!`, so default runs stay
     /// quiet — no per-call gate is needed here.
-    fn dispatch(&self, ctx: &Context) -> ExitCode {
+    fn dispatch(&self, ctx: &mut Context) -> ExitCode {
         let params = match self.to_params() {
             Ok(p) => p,
             Err(e) => {

@@ -145,6 +145,20 @@ fn gitignore_bot_excludes_git() {
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// `init_bare_main` creates a bare repo whose HEAD names `main`
+/// regardless of the machine's `init.defaultBranch` (the in-memory
+/// override, standing in for the spawned `--initial-branch=main`).
+#[test]
+fn init_bare_main_pins_head_to_main() {
+    let base = tmp_root("bare-main");
+    let bare = base.join("origin.git");
+    init_bare_main(&bare).expect("init bare repo via gix");
+    let head = std::fs::read_to_string(bare.join("HEAD")).expect("read HEAD");
+    assert_eq!(head.trim(), "ref: refs/heads/main");
+    assert!(bare.join("objects").is_dir(), "bare repo layout");
+    let _ = std::fs::remove_dir_all(&base);
+}
+
 /// Create a unique temp dir for a test, sibling-style via file-name
 /// concat so both the work and bot template paths can live under it.
 fn tmp_root(tag: &str) -> PathBuf {

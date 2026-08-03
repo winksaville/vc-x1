@@ -21,7 +21,7 @@
 //! Requires `jj` and the compiled `vc-x1` binary in `PATH`.
 
 use super::*;
-use crate::test_helpers::{Fixture, chid, cid, description, jj_ok};
+use crate::test_helpers::{Fixture, chid, cid, description, jj_ok, test_ctx};
 use std::fs;
 
 /// First line of a revision's description.
@@ -65,7 +65,12 @@ fn push_happy_bot_clean() {
 
     let bot_main_before = cid(&fx.bot, "main");
 
-    push_in(&fx.work, &test_params("feat: clean case", "work body")).expect("push should succeed");
+    push_in(
+        &mut test_ctx(),
+        &fx.work,
+        &test_params("feat: clean case", "work body"),
+    )
+    .expect("push should succeed");
 
     // Work repo: main advanced to our new commit.
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: clean case");
@@ -101,6 +106,7 @@ fn push_empty_work_at_skips_commit_work() {
     let hand_chid = chid(&fx.work, "@-");
 
     push_in(
+        &mut test_ctx(),
         &fx.work,
         &test_params("feat: would duplicate", "ignored body"),
     )
@@ -129,8 +135,12 @@ fn push_happy_bot_dirty() {
 
     let bot_main_before = cid(&fx.bot, "main");
 
-    push_in(&fx.work, &test_params("feat: paired change", "paired body"))
-        .expect("push should succeed");
+    push_in(
+        &mut test_ctx(),
+        &fx.work,
+        &test_params("feat: paired change", "paired body"),
+    )
+    .expect("push should succeed");
 
     // Both repos have new commits with matching titles.
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: paired change");
@@ -172,7 +182,7 @@ fn push_squash_push_bot_inline_pushes_bot_main() {
 
     let mut params = test_params("feat: inline squash-push", "body");
     params.no_squash_push = false;
-    push_in(&fx.work, &params).expect("push should succeed");
+    push_in(&mut test_ctx(), &fx.work, &params).expect("push should succeed");
 
     // Bot commit reached the bare origin before push returned.
     assert_eq!(
@@ -200,7 +210,12 @@ fn push_squash_push_bot_folds_micro_tail() {
 
     // Earlier stages only: commit both repos, push work, skip the
     // session squash+push.
-    push_in(&fx.work, &test_params("feat: tail case", "body")).expect("push should succeed");
+    push_in(
+        &mut test_ctx(),
+        &fx.work,
+        &test_params("feat: tail case", "body"),
+    )
+    .expect("push should succeed");
     let main_chid_before = chid(&fx.bot, "main");
 
     // The tail lands after commit-bot.
@@ -208,7 +223,8 @@ fn push_squash_push_bot_folds_micro_tail() {
 
     let mut params = test_params("feat: tail case", "body");
     params.no_squash_push = false;
-    stage_squash_push_bot(&fx.work, &params).expect("squash-push-bot should succeed");
+    stage_squash_push_bot(&mut test_ctx(), &fx.work, &params)
+        .expect("squash-push-bot should succeed");
 
     // Tail folded in; chid stable; bot commit pushed; @ clean.
     let files = jj_ok(&fx.bot, &["file", "list", "-r", "main"]);
@@ -246,7 +262,7 @@ fn push_feature_bookmark_pins_bot_to_main() {
 
     let mut params = test_params("feat: on feature", "feature body");
     params.bookmark = Some("feature".to_string());
-    push_in(&fx.work, &params).expect("push should succeed");
+    push_in(&mut test_ctx(), &fx.work, &params).expect("push should succeed");
 
     // Work repo: feature created, pushed, and at the new commit.
     assert_eq!(desc_first_line(&fx.work, "feature"), "feat: on feature");
@@ -355,7 +371,12 @@ fn completion_sanity_pass() {
     let fx = Fixture::new("completion-pass");
     // Run a real push so the world is in the post-completion shape.
     fs::write(fx.work.join("work.txt"), "x").expect("write work file");
-    push_in(&fx.work, &test_params("feat: pass", "body")).expect("push");
+    push_in(
+        &mut test_ctx(),
+        &fx.work,
+        &test_params("feat: pass", "body"),
+    )
+    .expect("push");
 
     let work_chid = chid(&fx.work, "main");
     let bot_chid = chid(&fx.bot, "main");
@@ -369,7 +390,7 @@ fn completion_sanity_pass() {
 fn completion_sanity_fail_work_chid_mismatch() {
     let fx = Fixture::new("completion-fail-work");
     fs::write(fx.work.join("work.txt"), "x").expect("write work file");
-    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
+    push_in(&mut test_ctx(), &fx.work, &test_params("feat: x", "body")).expect("push");
 
     // A bogus work_chid (12-char prefix that won't match the real one).
     let bot_chid = chid(&fx.bot, "main");
@@ -387,7 +408,7 @@ fn completion_sanity_fail_work_chid_mismatch() {
 fn completion_sanity_fail_dirty_wc() {
     let fx = Fixture::new("completion-fail-dirty");
     fs::write(fx.work.join("work.txt"), "x").expect("write work file");
-    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
+    push_in(&mut test_ctx(), &fx.work, &test_params("feat: x", "body")).expect("push");
     // Now dirty the working copy after push completed.
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
 
@@ -406,7 +427,7 @@ fn completion_sanity_fail_dirty_wc() {
 fn completion_sanity_fail_bot_chid_mismatch() {
     let fx = Fixture::new("completion-fail-claude");
     fs::write(fx.work.join("work.txt"), "x").expect("write work file");
-    push_in(&fx.work, &test_params("feat: x", "body")).expect("push");
+    push_in(&mut test_ctx(), &fx.work, &test_params("feat: x", "body")).expect("push");
 
     let work_chid = chid(&fx.work, "main");
     let run = completion_run(work_chid, "zzzzzzzzzzzz".to_string());
@@ -429,7 +450,12 @@ fn push_rerun_after_completion_is_a_noop() {
     fs::write(fx.work.join("work.txt"), "work").expect("write work file");
     fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
 
-    push_in(&fx.work, &test_params("feat: once", "body")).expect("first push");
+    push_in(
+        &mut test_ctx(),
+        &fx.work,
+        &test_params("feat: once", "body"),
+    )
+    .expect("first push");
     let work_after = cid(&fx.work, "main");
     let bot_after = cid(&fx.bot, "main");
 
@@ -439,7 +465,7 @@ fn push_rerun_after_completion_is_a_noop() {
     let mut params = test_params("unused", "unused");
     params.title = None;
     params.body = None;
-    push_in(&fx.work, &params).expect("rerunning a completed push should succeed");
+    push_in(&mut test_ctx(), &fx.work, &params).expect("rerunning a completed push should succeed");
 
     assert_eq!(
         cid(&fx.work, "main"),
@@ -469,7 +495,7 @@ fn push_publish_only_run_advances_bookmark() {
     let mut params = test_params("unused", "unused");
     params.title = None;
     params.body = None;
-    push_in(&fx.work, &params).expect("publish-only push should succeed");
+    push_in(&mut test_ctx(), &fx.work, &params).expect("publish-only push should succeed");
 
     assert_eq!(chid(&fx.work, "main"), sealed);
     assert_eq!(desc_first_line(&fx.work, "main"), "feat: sealed by hand");

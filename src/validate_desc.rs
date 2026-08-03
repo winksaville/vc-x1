@@ -105,7 +105,7 @@ impl SubcommandRunner for ValidateDescArgs {
     }
 
     /// Run the existing `validate_desc` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         validate_desc(ctx, params)
     }
 }

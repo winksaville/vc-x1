@@ -24,6 +24,67 @@ Three names, used as defined here across
   a built or running artifact derives from it.
 - **versioning** — the topic: this scheme as a whole.
 
+## Grammar and storage
+
+One prose spelling everywhere (ladders, chores, commit
+bullets, conversation):
+
+```
+<public>[-<suffix>]
+```
+
+- `<public>`: `X.Y.Z`, integers.
+- `<suffix>`: dot-separated identifiers, each ASCII letters
+  or digits; usually integers (`3`, `3.1`, `3.1.0`), an
+  alphanumeric id (`3.hotfix`) allowed, sparingly.
+- **Exactly one `-` in the whole version**, the one that
+  opens the suffix: never a dash inside the suffix, never a
+  `+` in the prose form. This is the portability invariant
+  that makes the version storable in every medium below.
+- **`v` is a display prefix, not part of the version**:
+  commit bullets and prose may write `v0.78.0-3.1` for
+  scannability; manifests store the bare form. (PEP 440
+  ignores a leading `v`; Cargo rejects one.)
+
+Storage is a per-medium remap of that one spelling:
+
+- **SemVer mediums** (Rust/Cargo): store verbatim; the
+  suffix rides in the prerelease slot, valid at any dot
+  depth.
+- **PEP 440 mediums** (Python): remap the single `-` to `+`:
+  `0.78.0-3.1` -> `0.78.0+3.1`. Mechanical and bijective
+  because there is exactly one dash to find.
+- **Other mediums**: verbatim if the format allows the one
+  `-`; else the `+` remap; a new medium adds its case to
+  [Recording the version-of-record](#recording-the-version-of-record).
+
+Two reservations keep the remap sound:
+
+- **The stored version identifies; it does not order.**
+  SemVer sorts a suffixed version *before* its bare release
+  (matching cycle semantics: rungs precede close-out);
+  PEP 440 sorts the remapped form *after* it, and
+  reinterprets a lone `-N` as a post-release. Opposite
+  directions, so no cross-medium logic may compare stored
+  versions; ordering truth lives in the ladder and git
+  history. Comparing the public triple alone (e.g. a
+  version gate) is unaffected.
+- **`+` is reserved** for the PEP 440 remap: no SemVer
+  build-metadata use in Rust repos even though Cargo allows
+  it, since spending `+` there breaks the bijection with
+  the Python spelling. A repo that truly needs it declares
+  the deviation in its `custom.md`.
+
+**Why one dash, dots only:** a Python linter/formatter in a
+sibling repo rejected every multi-dash version outright, and
+the PEP 440 reference parser (`packaging` 26.2, tested
+2026-07-30) confirms the boundary: `1.2.3-3.1`,
+`1.2.3-x+ab+cd`, `1.2.3-34-abc`, and any second `+` are all
+invalid; `1.2.3+3.1` / `1.2.3+3.1.hotfix` parse at any
+depth; `1.2.3-1` parses but silently becomes the
+post-release `1.2.3.post1`. The one-dash dotted grammar is
+the largest form every medium accepts.
+
 ## Recording the version-of-record
 
 Where the version-of-record lives, how it's stored and
@@ -37,12 +98,13 @@ your medium:
   - otherwise wherever the medium records it (a generic
     `version.toml`, a book's frontmatter, …) — add the case as
     needed
-- **Notation** — how the `-` form is stored:
-  - if the format allows `-` (TOML `version.toml`, `Cargo.toml`),
-    store it verbatim
-  - if it bars `-` (PEP 440's local segment, e.g. a Python
-    project), remap to `+` — `0.3.0-5.3.0` → `0.3.0+5.3.0`: same
-    version, just the stored spelling
+- **Notation**: how the `-` form is stored; see
+  [Grammar and storage](#grammar-and-storage):
+  - verbatim where the format allows the one `-` (TOML
+    `version.toml`, `Cargo.toml`)
+  - the `+` remap where it bars it (PEP 440, e.g. a Python
+    project): `0.3.0-5.3.0` -> `0.3.0+5.3.0`, same version,
+    just the stored spelling
 - **Reporter** — how a built artifact surfaces the
   version-of-record:
   - if a CLI app, `<cli-app> -V`

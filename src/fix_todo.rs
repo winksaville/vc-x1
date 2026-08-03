@@ -57,7 +57,7 @@ impl SubcommandRunner for FixTodoArgs {
     }
 
     /// Run the `fix_todo` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         fix_todo(ctx, params)
     }
 }

@@ -106,7 +106,7 @@ impl SubcommandRunner for ConfigArgs {
     }
 
     /// Run the `config` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         config(ctx, params)
     }
 }

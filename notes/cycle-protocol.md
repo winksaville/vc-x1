@@ -1,6 +1,6 @@
 # Cycle protocol
 
-This protocol uses [Prose form](../AGENTS.md#prose-form). It
+This protocol uses [Prose form](../agent-data/prose.md#prose-form). It
 contains instructions on how a commit cycle is accomplished.
 
 The artifact a cycle produces is whatever the bot generates from
@@ -54,60 +54,50 @@ for the local-ladder mechanics.
 
 ## Chores sections
 
-A **chores section** is a `##` section in
-`notes/chores/chores-NN.md` recording landed work. In
-general, every commit that lands on the permanent branch
-should have a reference to it on a `Commits:` list in a
-chores file.
+A **chores section** is a `##` section in `notes/chores/chores-NN.md` recording landed work.
+In general, every commit that lands on the permanent branch should have a rung in some
+section's as-built ladder in a chores file.
 
-The phrase **"Open" the chores section** means append a
-`##` header to the current `notes/chores/chores-NN.md`
-with the title it records (e.g. `## refactor: foo bar`),
-followed by an **empty `Commits:`** line. **Each work commit
-then appends its own As-built rung + narrative note as it
-lands**, so the chores record is built up per commit, not held
-back and written all at once at close-out; close-out only
-*finalizes* (title sync, design subsections, retiring the
-`## In Progress` block). The `Commits:` line is backfilled
-later, once the commit is permanent (see
-[Commits backfill](#commits-backfill) below).
+The phrase **"Open" the chores section** means append a `##` header to the current
+`notes/chores/chores-NN.md` with the title it records (e.g. `## refactor: foo bar`), add the
+file's `## Table of Contents` entry, and start the **as-built ladder**: one
+`- [[N]] X.Y.Z[-n] <title>` rung per commit the section records, each opening with the literal
+`[[N]]` placeholder. **Each work commit then appends its own rung + narrative note as it
+lands**, so the chores record is built up per commit, not held back and written all at once at
+close-out; close-out only *finalizes* (title sync, design subsections, retiring the
+`## In Progress` block). Rung placeholders are backfilled later, once their commits are
+permanent (see [Commits backfill](#commits-backfill) below).
 
-Fuller chores conventions (content rules, header sync,
-design subsection pattern, `Commits:` formatting) live in
-AGENTS.md [Chores conventions](../AGENTS.md#chores-conventions).
+Fuller chores conventions (content rules, header sync, design subsection pattern, ladder and
+reference formatting, the Table of Contents) live in
+[Chores conventions](../agent-data/notes.md#chores-conventions).
 
 ### Commits backfill
 
-A chores section's `Commits:` line cites the commit(s) it
-records, by SHA, but a SHA isn't stable until the commit
-lands on a **permanent branch** (`main`, or a long-lived
-release/patch branch that won't be rewritten); a rebase or
-squash rewrites it on the way. So:
+An as-built ladder rung cites its commit by SHA, but a SHA isn't stable until the commit lands
+on a **permanent branch** (`main`, or a long-lived release/patch branch that won't be
+rewritten); a rebase or squash rewrites it on the way. So:
 
-- A chores section is **opened with an empty `Commits:`** line.
-- **Backfill once the commit is on a permanent branch**,
-  where its SHA is final. A commit can't record its own SHA
-  (that would change the hash), so the fill always lands one
-  push later: **each push backfills the `Commits:` of the
-  commits the previous push made permanent.** On a topic
-  branch the sections instead wait until the branch lands,
-  so no SHA is ever written that a later rebase could
-  invalidate.
+- A rung is **written with the literal `[[N]]` placeholder**.
+- **Backfill once the commit is on a permanent branch**, where its SHA is final. A commit
+  can't record its own SHA (that would change the hash), so the fill always lands one push
+  later: **each push backfills the rungs of the commits the previous push made permanent.** On
+  a topic branch the sections instead wait until the branch lands, so no SHA is ever written
+  that a later rebase could invalidate.
+- A deliberate rewrite of already-recorded commits (a coordinated re-describe, a retroactive
+  reshape) invalidates their recorded SHAs. Re-record them once the rewrite is published, on
+  the same one-push-later timing.
 
-Use `[[N]]` refs, several as `[[N]],[[M]]` only when one
-section records multiple commits (a push that publishes
-several), with the commit URL + 40-hex SHA in the file's
-`# References`
-(format in AGENTS.md
-[Chores commit references](../AGENTS.md#chores-commit-references)).
-A section's `##` title matches its commit title, so a rare
-deliberate rewrite of a permanent-branch commit re-syncs via
-`git log --grep "<title>"`.
+Each rung carries its own `[N]` ref, with the commit URL + 40-hex SHA in the file's
+`# References` (format in
+[Chores commit references](../agent-data/notes.md#chores-commit-references)). A section's `##`
+title matches its close-out commit title, and each rung's text its own commit title, so a rare
+deliberate rewrite of a permanent-branch commit re-syncs via `git log --grep "<title>"`.
+Sections that predate the ladder form keep their grandfathered `Commits:` lines.
 
-The per-push cadence is a project choice, not dogma. A
-**per-close-out** model (recording a cycle's SHAs at its
-close-out) is equally valid. The one invariant: a recorded
-SHA must be permanent.
+The per-push cadence is a project choice, not dogma. A **per-close-out** model (recording a
+cycle's SHAs at its close-out) is equally valid. The one invariant: a recorded SHA must be
+permanent.
 
 ## Preparation
 
@@ -236,6 +226,7 @@ through:
 
 ```
 <type>: <short description>
+<type>(scope): <short description>   # optional scope
 ```
 
 Titles carry **no trailing `(<version>)` suffix**. The
@@ -249,26 +240,27 @@ the main repo, so titles don't carry one.
 
 ### Title
 
-- ≤50 chars total.
+- <=72 chars total.
 - Common types: `feat`, `fix`, `refactor`, `test`,
-  `docs`, `chore`.
+  `docs`, `chore`; optional `(scope)` in parentheses after
+  the type, per the spec.
 - Favor terse phrasings.
 - **Distinct per step.** Each of a cycle's commits gets its
   own descriptive title (no shared cycle title with a step
   marker). Share a greppable stem across the cycle's titles
   (e.g. `ring buffer`) so `git log --grep` collects them; the
   chores section header matches the close-out title. See
-  AGENTS.md
-  [Conventional-commit shape](../AGENTS.md#conventional-commit-shape-ladder--chores--commit).
+  [Conventional-commit shape](../agent-data/prose.md#conventional-commit-shape-ladder--chores--commit).
 
 ### Body
 
-[Prose form](../AGENTS.md#prose-form) (intro + bullets),
+[Prose form](../agent-data/prose.md#prose-form) (intro + bullets),
 wrap ≤72. Bullet content differs per repo:
 
 - **Work-repo body**: file-by-file. One bullet per file
-  changed (file plus a one-line gist). Sub-bullets for
-  files with multiple distinct changes:
+  changed (file plus a one-line gist), in short sentence
+  fragments (full sentences are discouraged). Sub-bullets
+  for files with multiple distinct changes:
 
   ```
   - path/to/file1
@@ -279,8 +271,11 @@ wrap ≤72. Bullet content differs per repo:
 
   The list **opens with the version bump** as its first
   bullet, for the Rust example
-  `- Cargo.toml, Cargo.lock: version X.Y.Z-N` (generally:
-  the medium's version-of-record files). Titles stay
+  `- Cargo.toml, Cargo.lock: vX.Y.Z-xxxx` (generally:
+  the medium's version-of-record files); `-xxxx` stands for
+  the whole suffix, nested or not (`v0.78.0-1`,
+  `v0.78.0-3.1`), per
+  [versioning.md](versioning.md#grammar-and-storage). Titles stay
   version-free (above), so this first bullet is the
   version's durable, visible home, and log viewers (e.g.
   gitk's message pane) show it without opening the commit's
@@ -297,8 +292,8 @@ wrap ≤72. Bullet content differs per repo:
 ### Trailer
 
 `ochid:` as the last line of the body; see
-[Cross-repo linking (ochid trailers)](../AGENTS.md#cross-repo-linking-ochid-trailers)
-in AGENTS.md for the convention.
+[Cross-repo linking (ochid trailers)](../agent-data/jj.md#cross-repo-linking-ochid-trailers)
+in agent-data/jj.md for the convention.
 
 For breaking changes, use the hyphenated `BREAKING-CHANGE:`
 trailer key. `BREAKING CHANGE:` (with a space) is the only
@@ -394,7 +389,7 @@ needs approval), so choose deliberately.
 - **Keep separate**: one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
-  `Commits:` ref; no consolidation churn.
+  ladder refs; no consolidation churn.
 
 A squash is set up before invoking `vc-x1 push`; a trapezoid
 is reshaped between two pushes (the recipe below). For any
@@ -479,7 +474,7 @@ the latter is push's job.
 - **Step 4 moves the bookmark sideways.** Step 1's SHA
   becomes unreachable; anyone who fetched between the two
   pushes holds a dangling commit. Consequently a
-  [`Commits:` backfill](#commits-backfill) must never read a
+  [Commits backfill](#commits-backfill) must never read a
   SHA from that window; wait until step 4 lands.
 - **Immutability.** No flag is needed on a long-lived topic
   bookmark. Only when `<closeout>` is already on `trunk()`
@@ -676,7 +671,7 @@ once, by `vc-x1 push`, on the squashed commit. Step 4 is
 therefore first-time authoring of a scratch description, not a
 rewrite of a published or stamped one, and is the named
 exception to
-[Re-describing](../AGENTS.md#re-describing-coordinate-first-and-keep-the-trailer).
+[Re-describing](../agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer).
 
 ### Navigating the ladder
 

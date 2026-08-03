@@ -11,7 +11,7 @@ Closed at `0.76.0` (the repo-registry close-out); continued in
 [`chores-15.md`](chores-15.md).
 
 Reference numbering is file-local — see
-[`AGENTS.md`](../../AGENTS.md#reference-numbering); chores-14
+[`agent-data/notes.md`](../../agent-data/notes.md#reference-numbering); chores-14
 starts at `[1]`.
 
 ## refactor: DRY jj facade

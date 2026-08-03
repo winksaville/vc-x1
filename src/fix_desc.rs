@@ -127,7 +127,7 @@ impl SubcommandRunner for FixDescArgs {
     }
 
     /// Run the existing `fix_desc` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         fix_desc(ctx, params)
     }
 }
@@ -388,28 +388,16 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
     }
 }
 
-/// Run `jj describe` to rewrite a commit's description.
+/// Rewrite a commit's description through the facade (in-process
+/// `jj describe`; the facade applies no immutability check, which
+/// is what the spawned form's `--ignore-immutable` asked for).
 fn jj_describe(
     commit_id: &jj_lib::backend::CommitId,
     new_desc: &str,
     repo_path: &std::path::Path,
     _change_short: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    crate::common::run(
-        "jj",
-        &[
-            "describe",
-            "-m",
-            new_desc,
-            "-r",
-            &commit_id.hex(),
-            "-R",
-            &repo_path.to_string_lossy(),
-            "--ignore-immutable",
-        ],
-        repo_path,
-    )?;
-    Ok(())
+    crate::jj::describe(repo_path, &commit_id.hex(), new_desc)
 }
 
 #[cfg(test)]

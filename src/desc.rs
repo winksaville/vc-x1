@@ -53,7 +53,7 @@ impl SubcommandRunner for DescArgs {
     }
 
     /// Run the existing `desc` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         desc(ctx, params)
     }
 }

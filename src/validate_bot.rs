@@ -73,7 +73,7 @@ impl SubcommandRunner for ValidateBotArgs {
 
     /// Run the `validate-bot` op (`ctx` unused — the op is fully
     /// parameterized by `Params`).
-    fn run(_ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(_ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         validate_bot(params)
     }
 }

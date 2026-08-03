@@ -38,6 +38,17 @@ insert / delete / reorder.
        error types instead of stderr parsing; this is the
        refactor program's
        [jj-lib migration stage](refactor-20260716.md#stage-jj-lib-migration)
+   - **Fixed at 0.78.0-8**, both options combined as
+     predicted: the session's colocated git writes (HEAD and
+     index reset, ref export) run inside `retry_git_lock`,
+     which classifies by walking the error's source chain for
+     the typed `gix::lock::acquire::Error` (never a message
+     substring) and retries with a doubling backoff, about
+     375 ms in total, before giving up. Only git writes that
+     precede the operation commit are wrapped, so a retry
+     never doubles an op-store write. Pinned by
+     `mutation_survives_transient_index_lock` (a planted
+     `.git/index.lock` released by a thread mid-backoff).
 
 2. **stdout output panics on a closed pipe (EPIPE).**
    `vc-x1 bot-session <file> | head` panics once `head`
@@ -122,5 +133,60 @@ insert / delete / reorder.
      and simply carries no work-side trailer —
      `validate-desc` / `fix-desc` add one. Pinned by
      `push_empty_work_at_skips_commit_work`.
+
+5. **`validate-desc` / `fix-desc` error when run against the
+   bot repo.** `vc-x1 validate-desc --repo .claude` (or run
+   with cwd inside `.claude`) fails with "workspace
+   incoherent: ... `repos.work` resolves to ..., not to the
+   workspace root itself". Found 2026-08-01 at the 0.78.0-6
+   review.
+   - **Cost:** the bot-side halves of validate-desc and
+     fix-desc are unusable without the workaround; no data
+     touched (the coherence check stops before any action).
+   - The prelude resolves the counterpart repo with
+     `common::bot_repo_path(&params.repo)`, which answers
+     "the bot side of the workspace rooted at this path" and
+     so assumes the target is the work side. Against the bot
+     dir it asks for the bot-of-bot: `.claude`'s config says
+     `repos.bot = "."`, the coherence check then runs with
+     root = bot = `.claude`, and its self-identification
+     step correctly refuses. The check is right; the caller
+     hands it the wrong root.
+   - Introduced at 0.75.0-1 (`refactor: topology por
+     equalization`, 2026-07-23): the replaced
+     `other_repo_from_config` read the target repo's own
+     config, side-aware by construction; `bot_repo_path`
+     lost the "other side relative to me" semantics, and the
+     coherence check (added the same day) makes it loud.
+   - **Workaround:** `--other-repo` bypasses the resolution:
+     `vc-x1 validate-desc --repo .claude --other-repo .`
+     from the workspace root.
+   - **Fix direction:** make the prelude side-aware again in
+     both commands: `find_workspace_root_from(params.repo)`
+     for the real root, then `is_bot_dir(params.repo)` picks
+     the counterpart (bot side -> work root, work side ->
+     `bot_repo_path(root)`, POR -> no-op as today).
+   - The fix must be pinned by tests on a dual fixture, both
+     entry angles for both commands: target the bot dir via
+     the repo flag, and default-repo `.` resolved from inside
+     the bot dir; each asserts the counterpart resolves to
+     the work root and the command succeeds.
+
+6. **`init` prints steps out of order.** Reported by iiac-perf + wink (mailbox, 2026-07-31),
+   observed on a real 0.71.0 run: output order was `Step 6 (skipped)`, `Step 8 (skipped)`,
+   `Step 7: Setting code bookmark`, while `--dry-run` lists 1-11 in order. They think the
+   skip-notices are emitted eagerly.
+   - **Cost:** cosmetic; a transcript is ambiguous about what ran when.
+
+7. **`push --body` rejects a body whose first character is `-`.** Hit twice at iiac-perf
+   (dogfood log, 2026-08-01): once at vc-x1's own clap (worked around with `--body=`), then
+   again inside push's `jj commit -m <body>` (same clap leading-hyphen rejection in jj), which
+   rolled both repos back cleanly.
+   - **Cost:** a file-by-file body opening with its first bullet cannot be pushed.
+   - **Workaround:** open the body with its intro line, never a bare bullet, which prose form
+     wants anyway.
+   - **Fix direction:** pass bodies to jj as `-m=<body>` or via stdin/file. The `-6` jj-lib
+     mutations migration may have retired the jj half already; the clap half is ours either
+     way. Verify both before closing.
 
 # References

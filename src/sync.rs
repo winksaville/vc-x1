@@ -25,7 +25,6 @@
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
@@ -170,7 +169,7 @@ impl SubcommandRunner for SyncArgs {
     }
 
     /// Run the existing `sync` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         sync(ctx, params)
     }
 }
@@ -230,8 +229,8 @@ struct RepoCtx {
 /// Thin wrapper over `sync_repos` that resolves `--scope` into a
 /// concrete repo list (falling back to the workspace-default
 /// scope) and forwards the rest. Tests call `sync_repos` directly
-/// with absolute fixture paths. `ctx` is unused today — present
-/// for the uniform subcommand-layer signature.
+/// with absolute fixture paths. `ctx` supplies the repo sessions
+/// the fetch and fast-forward verbs run on (`Context::session`).
 ///
 /// When `--quiet` is set, the global log filter is temporarily
 /// clamped to `Warn` for the duration of the call and restored on
@@ -239,16 +238,16 @@ struct RepoCtx {
 /// subprocess-stderr routed through `common::run`) go dark. Errors
 /// still surface at `Warn` / `Error` so script callers don't lose
 /// diagnostics.
-pub fn sync(_ctx: &Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
+pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
     let repos = resolve_repos(&params.repo, &params.scope)?;
     if params.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);
-        let result = sync_repos(&repos, params);
+        let result = sync_repos(ctx, &repos, params);
         log::set_max_level(prev);
         result
     } else {
-        sync_repos(&repos, params)
+        sync_repos(ctx, &repos, params)
     }
 }
 
@@ -270,6 +269,7 @@ pub fn sync(_ctx: &Context, params: &SyncParams) -> Result<(), Box<dyn std::erro
 /// absolute. Tests use absolute tempdir paths to avoid cwd dependence
 /// under parallel `cargo test`.
 pub fn sync_repos(
+    ctx: &mut Context,
     repos: &[PathBuf],
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -311,7 +311,7 @@ pub fn sync_repos(
     // bookmark (skipped in deprecated verify-only mode). Both live
     // inside the same stop-on-error region: any failure falls
     // through to the report below with state left in place.
-    let result = run_plan(&snapshots, params).and_then(|()| {
+    let result = run_plan(ctx, &snapshots, params).and_then(|()| {
         if !params.check {
             for (repo, _) in &snapshots {
                 reposition_at(repo, repo_bookmark(repo, &params.bookmark), params)?;
@@ -352,6 +352,7 @@ pub const UP_TO_DATE_MSG: &str = "up to date, nothing to sync";
 /// report; partial progress across repos is left in place for
 /// inspection (see `sync_repos`).
 fn run_plan(
+    ctx: &mut Context,
     snapshots: &[(PathBuf, String)],
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -362,11 +363,11 @@ fn run_plan(
     // whether to surface it. `jj git fetch`'s routine "Nothing
     // changed." chatter is the main thing we're suppressing here —
     // if nothing needs action, the user shouldn't see it.
-    let mut fetched: Vec<(PathBuf, String)> = Vec::new();
+    let mut fetched: Vec<(PathBuf, Vec<String>)> = Vec::new();
     let mut ctxs: Vec<RepoCtx> = Vec::new();
     for (repo, op_id) in snapshots {
-        let stderr = fetch_silent(repo, &params.remote)?;
-        fetched.push((repo.clone(), stderr));
+        let lines = fetch_silent(ctx, repo, &params.remote)?;
+        fetched.push((repo.clone(), lines));
         let state = classify(repo, repo_bookmark(repo, &params.bookmark), &params.remote)?;
         ctxs.push(RepoCtx {
             path: repo.clone(),
@@ -387,9 +388,9 @@ fn run_plan(
         let noun = if n == 1 { "repo is" } else { "repos are" };
         info!("sync: {n} {noun} {UP_TO_DATE_MSG}");
     } else {
-        for (repo, stderr) in &fetched {
+        for (repo, lines) in &fetched {
             info!("{}: fetch {}", repo.display(), params.remote);
-            for line in stderr.lines() {
+            for line in lines {
                 info!("{line}");
             }
         }
@@ -403,8 +404,8 @@ fn run_plan(
     // making it a true no-op here. Repositioning `@` onto the synced
     // bookmark happens after `run_plan` returns (see `sync_repos`),
     // outside the revert region.
-    for ctx in &ctxs {
-        act_on_state(ctx, params)?;
+    for repo_ctx in &ctxs {
+        act_on_state(ctx, repo_ctx, params)?;
     }
 
     // Phase 4 — verify-only mode is fatal when action would be
@@ -424,28 +425,19 @@ fn run_plan(
     Ok(())
 }
 
-/// Fetch `repo` from `remote` without streaming subprocess output to
-/// `info!`.
+/// Fetch `repo` from `remote` without streaming chatter to `info!`.
 ///
-/// Mirrors what `common::run` would do, but returns stderr to the
-/// caller so the caller can decide whether to surface it (verbose /
-/// action case) or drop it (clean case). Stdout is dropped — `jj git
-/// fetch` doesn't use it. Failure carries stderr in the error message.
-fn fetch_silent(repo: &Path, remote: &str) -> Result<String, Box<dyn std::error::Error>> {
-    debug!("$ jj git fetch --remote {remote} -R {}", repo.display());
-    let output = Command::new("jj")
-        .args(["git", "fetch", "--remote", remote, "-R", &repo_str(repo)])
-        .output()
-        .map_err(|e| format!("failed to run jj git fetch: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !stdout.is_empty() {
-        debug!("  {stdout}");
-    }
-    if !output.status.success() {
-        return Err(format!("jj git fetch -R {} failed: {stderr}", repo.display()).into());
-    }
-    Ok(stderr)
+/// The facade's in-process fetch returns one line per changed
+/// remote bookmark; the caller decides whether to surface them
+/// (action case) or drop them (clean case), which is what this
+/// wrapper's stderr capture did in the spawned form.
+fn fetch_silent(
+    ctx: &mut Context,
+    repo: &Path,
+    remote: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    debug!("fetch --remote {remote} -R {}", repo.display());
+    ctx.session(repo)?.git_fetch(remote)
 }
 
 /// Reposition `@` onto the freshly-synced bookmark after a successful
@@ -618,8 +610,8 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
     jj::matches(repo, "@ & empty()")
 }
 
-/// Perform the mutation corresponding to `ctx.state` (skipped in
-/// deprecated verify-only mode).
+/// Perform the mutation corresponding to `repo_ctx.state` (skipped
+/// in deprecated verify-only mode).
 ///
 /// - `UpToDate` / `Ahead` / `NoRemote` → no-op (and no output, the state
 ///   was already logged by `log_state`).
@@ -628,28 +620,20 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 ///   `conflicts()`. A non-empty result means the rebase produced
 ///   conflicted commits; return `Err` so the outer revert restores the
 ///   pre-fetch state.
-fn act_on_state(ctx: &RepoCtx, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
-    let repo = &ctx.path;
+fn act_on_state(
+    ctx: &mut Context,
+    repo_ctx: &RepoCtx,
+    params: &SyncParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo = &repo_ctx.path;
     let bookmark = repo_bookmark(repo, &params.bookmark);
     let remote_rev = format!("{}@{}", bookmark, params.remote);
-    match &ctx.state {
+    match &repo_ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
             if !params.check {
                 info!("{}: setting '{bookmark}' to {remote_rev}", repo.display());
-                run(
-                    "jj",
-                    &[
-                        "bookmark",
-                        "set",
-                        bookmark,
-                        "-r",
-                        &remote_rev,
-                        "-R",
-                        &repo_str(repo),
-                    ],
-                    Path::new("."),
-                )?;
+                ctx.session(repo)?.bookmark_set(bookmark, &remote_rev)?;
             }
             Ok(())
         }
@@ -799,36 +783,21 @@ fn local_bookmark_heads(
     repo: &Path,
     bookmark: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let out = jj::log(
-        repo,
-        &format!("bookmarks(exact:{bookmark})"),
-        r#"commit_id.short(12) ++ "\n""#,
-    )?;
-    Ok(out
-        .lines()
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
-        .collect())
+    jj::cids_short_of(repo, &format!("bookmarks(exact:{bookmark})"))
 }
 
 /// Like `jj::cid_short_of`, but `Ok(None)` when the revset doesn't resolve.
 ///
-/// jj reports missing revisions via stderr strings like
-/// `Revision \`foo@origin\` doesn't exist` or `No such revision …`;
-/// both get mapped to `Ok(None)` so callers can distinguish "missing"
-/// from "other subprocess failure".
+/// The unresolvable-revision error (`jj::is_no_such_revision`,
+/// typed in-process or by stderr wording when spawned) maps to
+/// `Ok(None)` so callers can distinguish "missing" from "other
+/// failure".
 fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
     match jj::cid_short_of(repo, rev) {
         Ok(id) if id.is_empty() => Ok(None),
         Ok(id) => Ok(Some(id)),
-        Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("doesn't exist") || msg.contains("No such revision") {
-                Ok(None)
-            } else {
-                Err(e)
-            }
-        }
+        Err(e) if jj::is_no_such_revision(e.as_ref()) => Ok(None),
+        Err(e) => Err(e),
     }
 }
 

@@ -31,6 +31,13 @@ use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 /// distinct paths when tests run in parallel.
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Fresh `Context` for op-level tests: default user config, no
+/// sessions open. Matches the production shape of one `Context`
+/// per invocation without reading the developer's real config.
+pub fn test_ctx() -> Context {
+    Context::new(crate::config::UserConfig::default())
+}
+
 /// Run `jj <args> -R <repo>` in a test, asserting success; return
 /// trimmed stdout.
 ///

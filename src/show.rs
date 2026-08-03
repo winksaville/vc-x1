@@ -101,7 +101,7 @@ impl SubcommandRunner for ShowArgs {
     }
 
     /// Run the existing `show` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         show(ctx, params)
     }
 }

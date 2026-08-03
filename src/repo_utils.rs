@@ -117,7 +117,7 @@ pub fn commit_initial(
         OchidStrategy::Placeholder => "Initial commit\n\nochid: /none",
     };
     info!("Committing {info_label}...");
-    run("jj", &["commit", "-m", msg], target)?;
+    jj::commit(target, msg)?;
 
     let chid = jj::chid_of(target, "@-")?;
     info!(
@@ -166,9 +166,9 @@ pub fn cross_ref_ochids(
     let bot_desc = format!("Initial commit\n\nochid: /{work_chid}");
 
     debug!("work side: rewrite initial commit's ochid to point at bot chid");
-    run("jj", &["describe", "@-", "-m", &work_desc], work_dir)?;
+    jj::describe(work_dir, "@-", &work_desc)?;
     debug!("bot side: rewrite initial commit's ochid to point at work chid");
-    run("jj", &["describe", "@-", "-m", &bot_desc], bot_dir)?;
+    jj::describe(bot_dir, "@-", &bot_desc)?;
 
     debug!("surface post-describe git hashes for the debug log");
     let hash = run("git", &["rev-parse", "HEAD"], work_dir)?;

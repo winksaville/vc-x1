@@ -85,16 +85,14 @@ pub struct InitArgs {
     pub config: ConfigOption,
 }
 
-/// Run a command with retries, sleeping between attempts.
-fn run_retry(
-    cmd: &str,
-    args: &[&str],
-    cwd: &Path,
+/// Run an operation with retries, sleeping between attempts.
+fn retry_op<T>(
     retry: &PushRetryOptions,
-) -> Result<String, Box<dyn std::error::Error>> {
+    mut op: impl FnMut() -> Result<T, Box<dyn std::error::Error>>,
+) -> Result<T, Box<dyn std::error::Error>> {
     let mut last_err = String::new();
     for attempt in 1..=retry.push_retries {
-        match run(cmd, args, cwd) {
+        match op() {
             Ok(out) => {
                 if attempt > 1 {
                     debug!("succeeded after {attempt} attempts");
@@ -1050,7 +1048,7 @@ impl SubcommandRunner for InitArgs {
     }
 
     /// Run the existing `init` op.
-    fn run(ctx: &Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         init(ctx, params)
     }
 }
@@ -1477,7 +1475,7 @@ fn push_repo(
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Step 7: Setting {info_label} bookmark...");
     debug!("place {info_label}-side main bookmark at the initial commit");
-    run("jj", &["bookmark", "set", "main", "-r", "@-"], target)?;
+    jj::bookmark_set(target, "main", "@-")?;
 
     run_remote_step(
         step_label_provision,
@@ -1534,16 +1532,7 @@ fn run_remote_step(
                 bare.display()
             );
             debug!("init {side_label}-side bare repo as the local origin");
-            run(
-                "git",
-                &[
-                    "init",
-                    "--bare",
-                    "--initial-branch=main",
-                    &bare.to_string_lossy(),
-                ],
-                Path::new("."),
-            )?;
+            init_bare_main(bare)?;
         }
         Provisioner::ExternalPreExisting => {
             info!("{step_label}: Using pre-existing {side_label} remote {remote_url}");
@@ -1556,13 +1545,31 @@ fn run_remote_step(
         push_from,
     )?;
     debug!("publish {side_label}-side initial commit; retry for GhCreate's async propagation");
-    // `jj git push` establishes tracking as a side effect — no
+    // The facade's push establishes tracking as a side effect: no
     // `--allow-new`, no follow-up `jj bookmark track`.
-    run_retry(
-        "jj",
-        &["git", "push", "--bookmark", "main"],
-        push_from,
-        &params.push_retry,
+    retry_op(&params.push_retry, || {
+        jj::git_push_bookmark(push_from, "main")
+    })?;
+    Ok(())
+}
+
+/// Create a bare git repo at `path` with `main` as the initial
+/// branch, in-process via gix (was a `git init --bare
+/// --initial-branch=main` spawn; the last `git` spawn in init).
+///
+/// The branch is pinned by an in-memory `init.defaultBranch`
+/// override, matching the spawned form's `--initial-branch=main`:
+/// the user's own git config must not steer which branch vc-x1
+/// publishes to.
+fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    use gix::sec::trust::DefaultForLevel;
+    let open_opts = gix::open::Options::default_for_level(gix::sec::Trust::Full)
+        .config_overrides(["init.defaultBranch=main"]);
+    gix::ThreadSafeRepository::init_opts(
+        path,
+        gix::create::Kind::Bare,
+        gix::create::Options::default(),
+        open_opts,
     )?;
     Ok(())
 }

@@ -1,30 +1,31 @@
 # Notes
 
-This directory contains various notes and documentation related to the project.
-Each file is organized by topic for easy reference.
+This directory contains various notes and documentation related to the project. Each file is
+organized by topic for easy reference.
 
-By default there are the chores-NN.md files in
-[chores/](chores). Chores are general notes about tasks;
-short term tasks and their status live at the repo root in
-[../TODO.md](../TODO.md). The chores-NN files are numbered
-in sequence; the highest-numbered file is the active one,
-older ones are closed.
+By default there are the chores-NN.md files in [chores/](chores). Chores are general notes about
+tasks; short term tasks and their status live at the repo root in [../TODO.md](../TODO.md). The
+chores-NN files are numbered in sequence; the highest-numbered file is the active one, older ones
+are closed.
 
-Tool architecture — the CLI-args / `Context`+`Params` split, a
-generic module map, the subcommand model, and what the
-Context+Params port and the options_flags extraction *are* (the
-*live status* is in the chores files) — lives at the repo root in
-[`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+Tool architecture lives at the repo root in [`../ARCHITECTURE.md`](../ARCHITECTURE.md): the
+CLI-args / `Context`+`Params` split, a generic module map, the subcommand model, and what the
+Context+Params port and the options_flags extraction *are* (the *live status* is in the chores
+files).
 
-Multi-cycle programs too big for a TODO.md entry get their own
-dated plan file — e.g.
-[refactor-20260716.md](refactor-20260716.md) (typed jj facade →
-jj-lib in-process): one `##` section per stage, so chores and
-todo entries can reference a stage by anchor. The plan file owns
+Multi-cycle programs too big for a TODO.md entry get their own dated plan file, e.g.
+[refactor-20260716.md](refactor-20260716.md) (typed jj facade -> jj-lib in-process): one `##`
+section per stage, so chores and todo entries can reference a stage by anchor. The plan file owns
 the forward design; chores still records each shipped cycle.
 
-In the future we I expect we may want to create a "notes"
-database to better manage the information, TBD.
+A rule that governs what the tool does, rather than a record of what was done, gets its own topic
+file so it can be found without knowing which cycle produced it, e.g.
+[jj-version-policy.md](jj-version-policy.md). The investigation behind such a rule stays where it
+happened (a plan file or a chores section) and is linked from the policy, so neither restates the
+other.
+
+In the future I expect we may want to create a "notes" database to better manage the information,
+TBD.
 
 Examples chore file:
 ```
@@ -42,31 +43,23 @@ and using `jj-lib`
 
 ## Workflow and conventions
 
-Bot-facing workflow and conventions live in
-[`../AGENTS.md`](../AGENTS.md):
+Bot-facing workflow and conventions live in [`../AGENTS.md`](../AGENTS.md) (hard rules + file
+map) and its `../agent-data/` satellites:
 
-- [Notes file conventions](../AGENTS.md#notes-file-conventions)
-  — Todo format, Reference numbering, Notes references
-  (`[[N]]` citation style), Markdown anchor links, Retiring
-  Done entries.
-- [Chores conventions](../AGENTS.md#chores-conventions) —
-  section headers / Done entries exact-title rule, content
-  rules, `Commits:` line format.
-- [Code Conventions](../AGENTS.md#code-conventions) — doc
-  comments, `// OK: …` on `unwrap*` calls, ask-on-ambiguity,
-  stuck detection.
+- [Notes file conventions](../agent-data/notes.md): Todo format, Reference numbering, Notes
+  references (`[[N]]` citation style), Markdown anchor links, Retiring Done entries, Chores
+  conventions (section headers / Done entries exact-title rule, content rules, the as-built
+  ladder and its commit reference format, the chores Table of Contents).
+- [Prose and durable text](../agent-data/prose.md): prose form, typeable punctuation,
+  conventional-commit shape.
+- [Code conventions](../agent-data/code.md): doc comments, `// OK: ...` on `unwrap*` calls.
 
-Per-cycle workflow lives in
-[`cycle-protocol.md`](cycle-protocol.md):
+Per-cycle workflow lives in [`cycle-protocol.md`](cycle-protocol.md):
 
-- [Cycles](cycle-protocol.md#cycles) — three-phase shape
-  (Preparation → Work → Close-out), `X.Y.Z-N` numbering,
-  sub-cycles.
-- [Per-commit flow](cycle-protocol.md#per-commit-flow) —
-  cargo cycle (`fmt` / `clippy` / `test` / `install`),
-  work + commit description review gates.
-- [Commit description](cycle-protocol.md#commit-description)
-  — Conventional Commits + `(version)` suffix; body shape
-  per work vs bot repo.
-- [Pushing](cycle-protocol.md#pushing) — push policy,
-  close-out shape, `.claude` cadence.
+- [Cycles](cycle-protocol.md#cycles): three-phase shape (Preparation -> Work -> Close-out),
+  `X.Y.Z-N` numbering, sub-cycles.
+- [Per-commit flow](cycle-protocol.md#per-commit-flow): cargo cycle
+  (`fmt` / `clippy` / `test` / `install`), work + commit description review gates.
+- [Commit description](cycle-protocol.md#commit-description): Conventional Commits title; body
+  shape per work vs bot repo.
+- [Pushing](cycle-protocol.md#pushing): push policy, close-out shape, `.claude` cadence.
