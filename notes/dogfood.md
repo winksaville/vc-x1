@@ -5,6 +5,34 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-03: three records of one commit, three forms, and the version only in one
+  - looking for 0.78.2 in `TODO.md > ## Done` read as absent: the entry is there, but
+    title-only, so nothing in it says which version shipped
+  - notes.md specifies the three deliberately and differently: as-built rung carries version +
+    title, chores `## Table of Contents` is title-only (stated reason: no backfill), `## Done`
+    is title + ref. Only the TOC's omission has a reason attached
+  - template finding for notes.md: `## Done` entries take the rung's form,
+    `- 0.78.2 style: ... [[24]]`. The no-version rule bans a `(<version>)` suffix *on the
+    title*, which a prefix outside the title does not touch
+  - tracked in Todo #1 (commit-description guardrails), staged for the iiac-perf review
+
+- 2026-08-03: a close-out's own as-built rung went unbackfilled, twice
+  - found at the next session's acquaint: chores-16's `0.78.2` rung and chores-15's `0.78.0`
+    rung were both still `[[N]]`, while TODO.md's program-ladder rung for the *same* `0.78.0`
+    commit had been backfilled correctly at the 0.78.1 push
+  - the pinned rule is right and specific (cycle-protocol.md Commits backfill: "each push
+    backfills the rungs of the commits the previous push made permanent"; cycle-checklists.md
+    step 6 names the chores as-built ladder). What failed is that one commit is recorded in
+    two ladders, and the sweep covered the one open in front of us
+  - the close-out rung is the exposed case: it is the last commit of its cycle, so nothing in
+    that cycle can fill it and the job falls to the next cycle's first push, across a session
+    boundary. A single-commit cycle (0.78.2) has no close-out step at all to carry it
+  - template finding for cycle-checklists.md step 6: give the step a greppable acceptance
+    check, `grep -rn '\[\[N\]\]' TODO.md notes/chores/`, so it is one command over every
+    ladder rather than a per-file recall. Same shape as the ASCII-only finding below: a check
+    you can run beats a list you have to remember
+  - staged for the iiac-perf review with the other 20260803 items
+
 - 2026-08-03: the punctuation ban's enumeration invited a subset audit, again
   - prose.md bans four named characters; the 0.78.2 source sweep found four more untypeable
     species doing the same jobs: `⇒` (13 sites), box-drawing `─` in CLI output (56), `≥`,

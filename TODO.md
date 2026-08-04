@@ -37,18 +37,19 @@ staged plan, design detail, and the eight absorbed former
 Todos live in
 [refactor-20260716.md](notes/refactor-20260716.md).
 
-Program ladder in **straight trunk order**, one bullet per
-commit that lands on the branch, so reading it top to bottom
-is reading `git log --first-parent`. `refactor:` entries are
-the program's rungs, one per cycle (adjacent stages
-consolidated 2026-07-24; titles are the anticipated close-out
-titles; unshipped versions are provisional, since jj-lib may
-split into two cycles). `docs:` entries are interludes that
-sit between cycles and belong to no rung. Every shipped ref
-points at a close-out commit published via the long-lived
-`refactor-vc-x1` bookmark (merge-only while it ran; fully
-merged into main and deleted 2026-08-03 under jj.md's
-long-lived bookmark discipline).
+Program ladder in **straight trunk order**, one bullet per commit that lands on the branch, so
+reading it top to bottom is reading `git log --first-parent`. `refactor:` entries are the
+program's rungs, one per cycle (adjacent stages consolidated 2026-07-24; titles are the
+anticipated close-out titles; unshipped versions are provisional, since jj-lib may split into
+two cycles). Every other prefix is a cycle that landed between rungs and belongs to none of
+them: the `docs:` interludes, and the `style:` sweep at 0.78.2, which was a `## Todo` cycle
+rather than program work. Every shipped `refactor:` ref points at a close-out commit published
+via the long-lived `refactor-vc-x1` bookmark (merge-only while it ran; fully merged into main
+and deleted 2026-08-03 under jj.md's long-lived bookmark discipline). Cycles after that
+deletion land directly on `main` unless they have a reason not to: 0.78.2 did, and 0.79.0 does
+not, running on the topic bookmark `trapezoid-push-vc-x1` so its close-out has a branch to
+merge from. That is a per-cycle topic bookmark, deleted once merged, not a second long-lived
+program line.
 
 The order is load-bearing: a
 trapezoid's `<base>` is the parent of its own first rung, not
@@ -91,10 +92,80 @@ ladder side, which already bit at 0.76.0, whose base was the
     was committed at 0.78.0): the generic-custom.md test starts here; a project should not
     assume the template's location, name, or contents, so the project layer is
     skeleton-identical and what breaks becomes dogfood findings in notes/dogfood.md
-- [[N]] 0.79.0 refactor: trapezoid-push + body-intro
-  validation
-  - the `## Todo` entry "refactor: trapezoid-push +
-    body-intro validation"
+- [[25]] 0.78.2 style: typeable punctuation + line-width source sweep (done)
+  - a `## Todo` cycle rather than a program rung, on the ladder for the same reason the `docs:`
+    interludes are: it landed on trunk
+  - the first cycle to land directly on `main`, the `refactor-vc-x1` bookmark having been
+    deleted
+  - added 2026-08-03, a cycle late: the ladder's trunk-order invariant is stated but nothing
+    enforces it, so a non-`refactor:` cycle can ship without anyone noticing the gap
+- [[N]] 0.79.0 refactor: trapezoid-push + body-intro validation (current)
+  - the program's last rung: at this close-out the `###` block above retires into chores-16,
+    and the one unshipped stage, `por -> dual conversion`, leaves the program for its own
+    `## Todo` entry
+
+#### refactor: trapezoid-push + body-intro validation
+
+The trapezoid close-out is a four-step manual recipe today, and every wart in it is an
+artifact of the shape having no command: an interim published shape, a sideways bookmark move,
+a backfill embargo window. `vc-x1 trapezoid-push` makes it first-party, as a **subcommand**
+rather than a flag on `push` (decided 2026-07-28), so `push` keeps a stateable invariant: it
+never produces a merge. Body-intro validation rides as the first rung, turning jj's opaque
+`-m "-..."` arg-parse failure ([bugs.md](notes/bugs.md) #7) into a clear error naming the
+offending line. Design in
+[trapezoid close-out](notes/refactor-20260716.md#stage-trapezoid-close-out) and
+[push body-intro validation](notes/refactor-20260716.md#stage-push-body-intro-validation).
+
+Duplication is answered by extraction, not by copying: `push` and `trapezoid-push` share
+preflight, both approval gates, message composition, commit-work, commit-bot, bookmark-set,
+push-work and the bot squash, and differ by one inserted step. The stateless-push cycle already
+shrank that pipeline, which is what makes the extraction cheap.
+
+- [[N]] 0.79.0-0 refactor: trapezoid-push + body-intro validation opening (done)
+  - rides the pending records work: the `0.78.0` / `0.78.2` as-built backfills, the two
+    2026-08-03 dogfood entries, and the `## Done` retirement sweep
+  - the parked `support-trapezoid-commits` bookmark is deleted here rather than mined: its
+    one commit extracts `push/state.rs`, the module `0.77.0` deleted, so the quarry has no
+    ore. The `0.72.0-0` chore commit is abandoned with it
+- [[N]] 0.79.0-1 feat: push body-intro validation
+  - self-contained and first on purpose: it retires [bugs.md](notes/bugs.md) #7 and is then
+    dogfooded by every remaining rung's own push
+- [[N]] 0.79.0-2 refactor: extract the shared push pipeline
+  - no behavior change; `push` becomes a thin front-end over the extracted module and the
+    existing push tests are the gate
+- [[N]] 0.79.0-3 feat: verifiers accept the trapezoid shape
+  - `validate-desc` and the push sanity verifiers learn two parents and N ochids, before the
+    command that produces that shape exists, so the next rung's output validates on arrival
+- [[N]] 0.79.0-4 feat: vc-x1 trapezoid-push
+  - the merge in-flight, after commit-bot and before bookmark-set; both base styles (branch
+    infers, main requires explicit `--base`); preconditions checked; parent count asserted
+    **after** the rebase rather than trusting jj not to simplify the edge
+  - `README.md` and `ARCHITECTURE.md` ride this commit, the one that makes the subcommand
+    real: the user-facing section leading with `trapezoid-push`, and the access rule restated
+    now that mutations are in-process (`src/jj.rs` is still described as a subprocess facade,
+    and the scope selector as `-s code|bot`)
+- [[N]] 0.79.0 refactor: trapezoid-push + body-intro validation
+  - bookkeeping, plus the program retirement. A trapezoid, which is why the cycle runs on a
+    bookmark: `<base>` is `0.78.2`, the parent of the `-0` rung, and `<tip>` is the `-4` rung.
+    Using `trapezoid-push` on its own close-out is the honest dogfood, with the manual
+    four-step recipe as the documented fallback; the bookmark is deleted once merged
+  - **harvest and delete `notes/refactor-20260716.md`** (decided 2026-08-04). A plan file is
+    scaffolding for work in flight; every cycle it covered has written its own chores section
+    as it landed, so keeping it past the program would be a second copy of a record that
+    already exists. The deletion commit is the citation, and the ladder's `[N]` refs carry
+    40-hex SHAs, so nothing becomes unreachable.
+    - **the `0.72.0` version gap needs a home first**, and it is the only homeless content in
+      the file: `0.72.0` was pre-assigned to the parked trapezoid cycle, never landed, and
+      main went `0.71.0` -> `0.73.0` when the program forked off the `0.71.0` tip. The gap was
+      accepted rather than renumbered away, since renumbering `0.73.0+` would rewrite
+      cross-linked history. It lives in the plan file precisely because versioning.md is
+      shared byte-identical across the template family and cannot hold a project-local record;
+      move it to a chores-16 design subsection under this section
+    - the trapezoid and body-intro design detail re-homes itself: rungs `-1` through `-4` each
+      append to chores-16 as they land, which the per-commit chores rule already requires
+    - the op-store investigation's conclusion already lives in
+      [jj-version-policy.md](notes/jj-version-policy.md), so the superseded analysis goes as a
+      SHA citation from there rather than being copied forward
 
 ## Todo
 
@@ -110,7 +181,49 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **commit-description guardrails: exact first bullet in the checklist; hard-rule question.**
+1. **Adopt jj's revset notation; add `-A` / `-D` / `-C` for the windowing.** Decided
+   2026-08-04, from the mailbox (iiac-perf + wink, 2026-08-03). The house `..` notation and
+   jj's share syntax and invert each other: `vc-x1 list @..` lists `@` and its ancestors where
+   jj's `@..` is `~::@`, and `..@` inverts the same way. The positional and `-r` become plain
+   revsets passed to jj verbatim, and the windowing the notation provided moves to flags.
+   - `-A N` ancestors, `-D N` descendants, `-C N` short for `-A N -D N`. Named for the
+     relation, not for the screen, so they stay correct whatever the display order: `-D m -A n`
+     on anchor `x` is `descendants(x, m+1) | ancestors(x, n+1)`.
+   - Counts are **per side and per anchor**, replacing the old total-budget split. That makes
+     a multi-commit anchor (`@----` on a merge is two commits) one window each, unioned, which
+     is what the jj equivalent already does.
+   - `-n` stays a plain limit applied after the window, as in jj. An explicit `-A` / `-D`
+     beats `-C` regardless of order.
+   - **Retire, don't alias**: no `-B`, and the old `..` forms simply stop being house syntax.
+     No deprecation error, since `..` is valid jj and refusing it would refuse legitimate
+     input; the protection is the sweep, not a guard.
+   - Sweep durable text (instruction files included, since the bot reads them as instructions)
+     for `..`-form revsets in the same cycle. The flip is silent: anything already written
+     keeps parsing and quietly changes meaning.
+   - Deletes `common::parse_dot_rev` / `DotSpec` / `resolve_spec`'s dot handling in
+     `src/common.rs`, and the README's "The `..` notation" section. Note there is no
+     revset-string rewriter to switch off: `common::resolve_revset` already passes verbatim to
+     `jj_lib::revset::parse`.
+   - The jj.md primer's gloss of `X..` as "descendants of X excluding X" is wrong and is a
+     template proposal, not a local edit.
+   - Its own cycle after `0.79.0` closes out, so a breaking user-visible change is legible
+     from the outside. versioning.md is silent on what a bump promises a user, worth settling
+     before a release tag.
+2. **Notes-side ASCII sweep, after the quoting exemption is settled.** `0.78.2` swept `src/`
+   and `tests/` and deliberately left `notes/` and the root docs; `TODO.md` alone has 7
+   non-ASCII lines, and `bugs.md`, `transcript-format.md` and `refactor-20260716.md` have
+   many more.
+   - Blocked on a rule question, which is why it is a Todo and not a rung: one `## Done` line
+     legitimately *quotes* the banned characters while recording the cycle that banned them.
+     A blanket ASCII rule needs a quoting exemption, or that line becomes unwritable.
+   - Most sites are not the four named characters: `↔` used as a relation glyph (`code↔bot`,
+     `rung↔commit`, `por ↔ dual`) and one `␠`. Each wants a judgment, not a mechanical
+     replace, so it is the same shape as the em-dash pass.
+   - **The check itself misreports.** `grep -nP '[^\x00-\x7F]'` over several file arguments
+     at once silently omitted `TODO.md`'s hits; run against `TODO.md` alone it finds all 7.
+     Whatever the dogfood finding proposes as the greppable acceptance check must be
+     per-file or `-r`, or it will read clean while text is dirty.
+3. **commit-description guardrails: exact first bullet in the checklist; hard-rule question.**
    The 0.78.2 description opened with a bare `- v0.78.2` and put the manifest bullet last, with
    semicolon chains where sub-bullets belong; caught at wink's review, after the checklist
    re-read failed to prevent it. The version-first bullet was added to the protocol at 0.75.1
@@ -123,9 +236,19 @@ ladder side, which already bit at 0.76.0, whose base was the
      that missed it, which is the hard-rules criterion
    - "commit-body bullets are sentence fragments, file-by-file" already lives in prose.md and
      the protocol's Body section; decide whether it needs anything beyond the sharpened step 7
+   - **`## Done` entries should carry the version** (wink, 2026-08-03): looking for 0.78.2 in
+     `## Done` found nothing, because notes.md's "Headings and entries that record a commit"
+     specifies the entry as title plus ref, no version, while the chores as-built rung two
+     sections later is `- [[1]] 0.78.2 style: ...`. Three records of one commit, three forms
+     - propose the rung's form for Done too: `- 0.78.2 style: ... [[24]]: <prose>`
+     - it does not collide with the no-version rule, which bans a trailing `(<version>)`
+       *suffix on the title* (cycle-protocol.md Commit description); the chores rung already
+       proves a version prefix outside the title is fine
+     - the chores `## Table of Contents` stays title-only, its stated reason being that a
+       version would need backfill
    - pinned-file changes, so fold into the 20260803 baseline review with iiac-perf
 
-2. **validate-repo-data.** Golden ids for a fixture repo, so a
+4. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -198,31 +321,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-3. **refactor: trapezoid-push + body-intro validation.**
-   `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
-   on `push` (decided 2026-07-28), publishes a close-out as a
-   non-fast-forward merge; body-intro validation rides as
-   the first rung. See
-   [trapezoid close-out](notes/refactor-20260716.md#stage-trapezoid-close-out)
-   and
-   [push body-intro validation](notes/refactor-20260716.md#stage-push-body-intro-validation).
-   After jj-lib, so the reshape is built in-process.
-   - `push` keeps a stateable invariant: it never produces
-     a merge. A mode flag that rewires the stage sequence
-     would cost that.
-   - Shared implementation, not a second copy: the common
-     pipeline (preflight, both gates, message, commit-work,
-     commit-bot, bookmark-set, push-work, bot squash) moves
-     into its own module that both subcommands call, with
-     the reshape as the one inserted step. The
-     stateless-push cycle shrinks that pipeline first,
-     which is what makes the extraction cheap.
-   - A backend `trait` (jj today, git or another VCS later)
-     is the natural next abstraction if a second backend
-     ever appears. Worth converting these concepts to
-     traits then, not now: we are committed to jj, and a
-     one-implementation trait buys nothing but indirection.
-4. **A committed cycle-check runner.** The per-commit flow's
+5. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -255,7 +354,18 @@ ladder side, which already bit at 0.76.0, whose base was the
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-5. **One home for a cycle's narrative: TODO during, chores
+6. **por -> dual conversion.** Attach a bot companion repo and a `.vc-config.toml` to an
+   existing por workspace, emitting cross-links from then on. Manual setup on an external por
+   workspace (2026-05-14) proved arduous, and it should be a routine subcommand. Design stub in
+   [the stage](notes/refactor-20260716.md#stage-por---dual-conversion).
+   - Left the jj-lib refactor program at the `0.79.0` close-out, as its one unshipped stage.
+     It is init/setup work rather than push-pipeline work, it was "last on purpose" because it
+     leans on facade topology and the in-process init pieces (both shipped), and nothing else
+     in the program depended on it. Holding the program open for one independent feature buys
+     nothing.
+   - Rank is provisional: it sits below the process items above it because none of them are
+     large, not because a por owner would agree with the ordering.
+7. **One home for a cycle's narrative: TODO during, chores
    at close-out.** Today the ladder and its detail are
    maintained in both `TODO.md > ## In Progress` and the
    chores `### As-built ladder` while a cycle runs, so every
@@ -280,7 +390,7 @@ ladder side, which already bit at 0.76.0, whose base was the
    - Touches AGENTS.md [Chores conventions] and
      cycle-protocol.md's Chores sections + Close-out, both
      shared with the template family, so it fans out.
-6. **Remove `revert`, and `.vc-x1/` with it.** `revert`
+8. **Remove `revert`, and `.vc-x1/` with it.** `revert`
    promises "undo the sync"; it restores the pre-sync `jj op`
    recorded in `.vc-x1/sync-state.toml`, which means "rewind
    the repo to that moment". The two coincide only while
@@ -312,7 +422,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      state file).
    - Cheap now, expensive later: few workspaces depend on it
      today.
-7. **`squash-push --title` / `--body`.** `squash-push` amends
+9. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
    its existing message. Fixing a published commit's *message*
@@ -351,55 +461,55 @@ ladder side, which already bit at 0.76.0, whose base was the
      cited nowhere and a rewrite costs nothing. Message fixes
      naturally cluster there, which is exactly where the
      two-step shape bites.
-8. **Restructure templates: single template repo + fixed bot
-   seed manifest.** Replace the separate
-   `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
-   repos with the one work-repo template, whose live
-   `.claude/` doubles as the bot-side seed source; retire
-   `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
-   for the new layout. First up after the refactor program.
-   - `--use-template` rule: explicit `CODE,BOT` copies all
-     non-hidden files from BOT (unchanged, the escape
-     hatch for rich bot seeds); `CODE` alone seeds the bot
-     side from a fixed manifest (`LICENSE-*`, `README.md`)
-     taken from `<CODE>/.claude/`. The `<CODE>.claude`
-     sibling default is dropped.
-   - The manifest is the safety property: a live `.claude`
-     has non-hidden session artifacts at top level, and
-     the known subset is what lets it double as the seed
-     source without leaking session history into new
-     projects.
-   - Manifest members missing in the source are skipped, so
-     a code template with no `.claude/` content yields a
-     bare-but-valid bot repo (the bot template is
-     optional; init already generates the true minimum
-     itself).
-   - `memory/MEMORY.md` moves from copied to generated:
-     it is intentionally empty (seeded only because Claude
-     tends to create it otherwise), so init emits it like
-     `.vc-config.toml` instead of copying, leaving no "is it
-     still empty?" invariant in the template.
-9. **ochid: bot-repo location qualifier.** An ochid is
-   workspace-relative (`/.claude/<chid>`), so nothing in a
-   published commit says *where* the companion bot repo
-   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
-   discoverable only by convention). Anyone cloning just the
-   work repo can't resolve bot-side ochids. Design already
-   sketched in forks-multi-user.md
-   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
-   URL-shaped trailers, plus the complementary
-   `.vc-config.toml` repo-index form; resolver dispatch is
-   one rule (URL -> fetch, else workspace-relative), existing
-   path-form trailers stay the backward-compatible case.
-   - Cheap first rung: declare the companion's URL once in
-     the committed `.vc-config.toml` (no trailer-format
-     change; any work-repo clone then knows where the bot
-     repo lives). Rides naturally with the refactor
-     program's facade-owns-topology stage
-     (bot-repo-location config).
-   - Link rot + mirroring mitigations are in the same doc
-     section.
-10. **Version-number protocol is fragile: versions are
+10. **Restructure templates: single template repo + fixed bot
+    seed manifest.** Replace the separate
+    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
+    repos with the one work-repo template, whose live
+    `.claude/` doubles as the bot-side seed source; retire
+    `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
+    for the new layout. First up after the refactor program.
+    - `--use-template` rule: explicit `CODE,BOT` copies all
+      non-hidden files from BOT (unchanged, the escape
+      hatch for rich bot seeds); `CODE` alone seeds the bot
+      side from a fixed manifest (`LICENSE-*`, `README.md`)
+      taken from `<CODE>/.claude/`. The `<CODE>.claude`
+      sibling default is dropped.
+    - The manifest is the safety property: a live `.claude`
+      has non-hidden session artifacts at top level, and
+      the known subset is what lets it double as the seed
+      source without leaking session history into new
+      projects.
+    - Manifest members missing in the source are skipped, so
+      a code template with no `.claude/` content yields a
+      bare-but-valid bot repo (the bot template is
+      optional; init already generates the true minimum
+      itself).
+    - `memory/MEMORY.md` moves from copied to generated:
+      it is intentionally empty (seeded only because Claude
+      tends to create it otherwise), so init emits it like
+      `.vc-config.toml` instead of copying, leaving no "is it
+      still empty?" invariant in the template.
+11. **ochid: bot-repo location qualifier.** An ochid is
+    workspace-relative (`/.claude/<chid>`), so nothing in a
+    published commit says *where* the companion bot repo
+    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+    discoverable only by convention). Anyone cloning just the
+    work repo can't resolve bot-side ochids. Design already
+    sketched in forks-multi-user.md
+    [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+    URL-shaped trailers, plus the complementary
+    `.vc-config.toml` repo-index form; resolver dispatch is
+    one rule (URL -> fetch, else workspace-relative), existing
+    path-form trailers stay the backward-compatible case.
+    - Cheap first rung: declare the companion's URL once in
+      the committed `.vc-config.toml` (no trailer-format
+      change; any work-repo clone then knows where the bot
+      repo lives). Rides naturally with the refactor
+      program's facade-owns-topology stage
+      (bot-repo-location config).
+    - Link rot + mirroring mitigations are in the same doc
+      section.
+12. **Version-number protocol is fragile: versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -438,7 +548,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-11. **sync follow-up: extract `move-bookmark` command.** The
+13. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -448,7 +558,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-12. **sync follow-up: retire the hidden `--check` alias;
+14. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -464,7 +574,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-13. **validate-numbering: rename the pair, check all
+15. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -500,7 +610,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-14. **pre-commit: single rule (no docs skip) + doc validators.**
+16. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -526,7 +636,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-15. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+17. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -550,7 +660,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-16. **Run validate-bot at every vc-x1 invocation
+18. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -563,7 +673,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-17. **CLI reference lives in `--help`; README owns concepts.**
+19. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -602,7 +712,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-18. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+20. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -622,7 +732,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-19. **Shared-doc sync: per-commit chores convention.**
+21. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -635,7 +745,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-20. **config: extract flag-backed key descriptions from Clap.**
+22. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -765,41 +875,8 @@ cycle and its two docs interludes: template repo names, notes rework)._
   the version gate makes the op-store coupling enforceable and the
   index-lock retry (bugs.md #1) is the headline prize.
 
-- build: bump jj-lib to 0.43: the local `jj` moved to 0.43.0,
-  leaving the pin two releases behind. `use_glob_by_default`
-  is gone from `RevsetParseContext` and `commit_change_ids()`
-  returns a stream rather than an iterator, so `futures` joins
-  the direct dependencies. The bump also moved the default
-  revset string-pattern kind from substring to glob, which the
-  compiler could not report and which no revset of ours uses
-  [[19]]
-
-- docs: re-describe rule + defer punctuation sweep: `jj
-  describe` on a published or already-stamped commit is a
-  history rewrite that silently drops the `ochid:` trailer, so
-  it is coordinate-first; the sub-cycle ladder is the named
-  exception, being local until its single Close-out push. Two
-  planned `0.77.x` rungs retired, the source sweep to `## Todo`
-  and interlude shape to the backlog [[17]]
-
-- docs: typeable punctuation: `—`, `–`, `…` and `→` no longer
-  authored in durable text, and the 553 sites in the five prose
-  files converted. None can be typed at a terminal, so none can
-  be grepped for, and an em dash next to option syntax reads as
-  another flag. The rule sorts a character by the role it plays
-  (naming it, doing a job, transcribed from outside) and warns
-  that converting a heading moves its anchor. Scope covers
-  commit titles and `src/`; that sweep is deferred to `## Todo`
-  [[14]]
-
-- docs: jj-lib design notes + trapezoid recipe: the op-store
-  coexistence risk answered from jj-lib 0.41 source against an
-  installed jj 0.40.0 (unenforceable, low blast radius, so a
-  decision rather than a step 0.78.0 assumes), and the
-  trapezoid recipe corrected where the 0.77.0 close-out found
-  it wrong: step 4 is `jj git push`, not `vc-x1 push` [[15]]
-
-_Migrated to [done.md](notes/done.md) on 2026-08-03 (the
+_Migrated to [done.md](notes/done.md) on 2026-08-04 (the four
+`0.77.x` docs and build entries), on 2026-08-03 (the
 program-ladder, repo-registry, trapezoid-recipe, and
 stateless-push entries), and on 2026-07-28 (the
 hygiene-riders and facade-owns-topology cycles)._
@@ -815,14 +892,11 @@ hygiene-riders and facade-owns-topology cycles)._
 [11]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
 [12]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
 [13]: https://github.com/winksaville/vc-x1/commit/2424e14f858d "2424e14f858d010e5c07e8821149a114b3d3dda5"
-[14]: /notes/chores/chores-15.md#docs-typeable-punctuation
-[15]: /notes/chores/chores-15.md#docs-jj-lib-design-notes--trapezoid-recipe
 [16]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
-[17]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep
 [18]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
-[19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
 [21]: /notes/chores/chores-15.md#refactor-jj-lib-migration
 [22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"
 [23]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
 [24]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
+[25]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"

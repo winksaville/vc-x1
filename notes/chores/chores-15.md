@@ -548,7 +548,7 @@ rather than merely accepted, which is the change from the
   [detail](#0780-9-docs-sync-pin-set-and-adopt-new-conventions)
   - inserted 2026-08-02 after the iiac-perf TC session's mailbox and conventions arrived
   - lands last so the close-out itself runs under the amended schema
-- [[N]] 0.78.0 refactor: jj-lib migration
+- [[22]] 0.78.0 refactor: jj-lib migration
 
 ### Decisions at cycle open
 
@@ -1213,3 +1213,4 @@ conventions (2026-08-02).
 [19]: https://github.com/winksaville/vc-x1/commit/bbcfd0ea6985 "bbcfd0ea698529b539f681e7243ac5fbae70ab83"
 [20]: https://github.com/winksaville/vc-x1/commit/5faf428dd7d2 "5faf428dd7d2f478c60f968d628276ddd049db73"
 [21]: https://github.com/winksaville/vc-x1/commit/54897e0919dc "54897e0919dc6f51d1eb64954a838e0623729e9b"
+[22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"
