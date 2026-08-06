@@ -16,12 +16,14 @@
 //!
 //! **Stop-on-error**: a failure leaves state where the failing step
 //! stopped so the user can inspect it. Each repo's pre-sync op id
-//! is persisted to `.vc-x1/sync-state.toml` (see `state`); the
-//! error report points at `vc-x1 revert` to undo explicitly.
+//! is captured in memory and the error report prints it with the
+//! explicit `jj op restore <op> -R <repo>` undo. Nothing persists
+//! across invocations: a stale snapshot adopted later is how the
+//! push state file corrupted published history (bugs.md #8), so
+//! sync keeps none.
 //!
-//! `current_op_id` / `op_restore` are `pub(crate)` so `push` (and
-//! the `revert` subcommand) reuse the same snapshot-and-restore
-//! primitives.
+//! `current_op_id` / `op_restore` are `pub(crate)` so `push`
+//! reuses the same snapshot-and-restore primitives.
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -254,16 +256,14 @@ pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::e
 /// Sync the given repos against their remotes.
 ///
 /// Orchestrates the full flow: pre-flight clean-check on every repo,
-/// snapshot each repo's current op id (persisted to
-/// `.vc-x1/sync-state.toml` per repo), then hand off to `run_plan`
-/// for fetch + classify + act, then reposition `@`.
+/// snapshot each repo's current op id in memory, then hand off to
+/// `run_plan` for fetch + classify + act, then reposition `@`.
 ///
 /// **Stop-on-error**: a failure leaves every repo exactly where the
 /// failing step stopped so the user can inspect what happened:
 /// nothing is auto-reverted. The error report names each repo's
-/// pre-sync op id and points at `vc-x1 revert`, which consumes the
-/// persisted snapshots. On full success the snapshots are cleared
-/// (a stale file must not become a revert target later).
+/// pre-sync op id with the explicit `jj op restore` undo; the
+/// snapshots die with the invocation.
 ///
 /// Paths may be relative (resolved against the process cwd) or
 /// absolute. Tests use absolute tempdir paths to avoid cwd dependence
@@ -294,16 +294,12 @@ pub fn sync_repos(
         crate::common::verify_tracking(repo, bookmark)?;
     }
 
+    // In-memory only: the snapshot exists to be printed by this
+    // invocation's failure report, never persisted for a later one.
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
     for repo in repos {
         let op_id = current_op_id(repo)?;
         debug!("{}: op snapshot = {op_id}", repo.display());
-        state::save(
-            repo,
-            &op_id,
-            repo_bookmark(repo, &params.bookmark),
-            &params.remote,
-        )?;
         snapshots.push((repo.clone(), op_id));
     }
 
@@ -327,14 +323,9 @@ pub fn sync_repos(
         for (repo, op_id) in &snapshots {
             warn!("  {}: op {op_id}", repo.display());
         }
-        warn!("undo with `vc-x1 revert`, or per repo: jj op restore <op> -R <repo>");
+        warn!("undo per repo: jj op restore <op> -R <repo>");
         debug!("sync: exit");
         return result;
-    }
-
-    // Full success: the snapshots are no longer revert targets.
-    for (repo, _) in &snapshots {
-        state::clear(repo)?;
     }
 
     debug!("sync: exit");
@@ -811,8 +802,6 @@ fn has_conflicts(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 fn repo_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
-
-pub(crate) mod state;
 
 #[cfg(test)]
 mod tests;

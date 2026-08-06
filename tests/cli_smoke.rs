@@ -155,15 +155,18 @@ fn cli_ambient_banner_is_stderr_only() {
         stderr.lines().next().is_some_and(|l| l.contains("vc-x1")),
         "expected banner on stderr, got: {stderr:?}"
     );
+    // The banner is `<invoked name> <version>`; the version string
+    // is its unique marker, robust to which bin name ran the test.
+    let version = env!("CARGO_PKG_VERSION");
     assert!(
-        !stdout.contains("vc-x1-dev "),
+        !stdout.contains(version),
         "banner leaked onto stdout: {stdout:?}"
     );
 
     let quiet = run_ok(fx.cmd().arg("--no-banner").arg("chid").arg("@"));
     let quiet_err = String::from_utf8_lossy(&quiet.stderr);
     assert!(
-        !quiet_err.contains("vc-x1-dev "),
+        !quiet_err.contains(version),
         "--no-banner did not suppress the banner: {quiet_err:?}"
     );
 }

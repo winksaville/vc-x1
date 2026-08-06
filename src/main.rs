@@ -18,7 +18,6 @@ mod logging;
 mod options_flags;
 mod push;
 mod repo_utils;
-mod revert;
 mod show;
 mod squash_push;
 mod subcommand;
@@ -46,23 +45,36 @@ use log::error;
 
 use crate::subcommand::SubcommandRunner;
 
+/// Name this invocation was launched under: `argv[0]`'s basename,
+/// falling back to the compiled bin name when argv is empty or
+/// unreadable. Runtime on purpose: the binary's on-disk name is
+/// the manifest's per-line package name, and a copy or rename
+/// afterwards still self-reports the name it actually runs as,
+/// which no compile-time constant can know.
+fn invoked_name() -> String {
+    std::env::args_os()
+        .next()
+        .as_deref()
+        .and_then(|p| Path::new(p).file_name())
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| env!("CARGO_BIN_NAME").to_string())
+}
+
 /// Banner string emitted as the first line of every run (stderr,
 /// or stdout when `-V` asked for it), and shown at the top of
-/// subcommand `--help` output. Built from `Cargo.toml`'s name +
-/// version at compile time so it stays in sync with the bumped
-/// version.
-const BANNER: &str = concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
+/// subcommand `--help` output: `<invoked name> <version>`.
+fn banner() -> &'static str {
+    static BANNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    BANNER.get_or_init(|| format!("{} {}", invoked_name(), env!("CARGO_PKG_VERSION")))
+}
 
 /// Top-level about line: name, version, and the project tagline
 /// on a single line. Used as the top-level `about` so `vc-x1 -h`
 /// reads as one banner-plus-tagline header instead of two stacked
 /// lines.
-const TOP_ABOUT: &str = concat!(
-    env!("CARGO_PKG_NAME"),
-    " ",
-    env!("CARGO_PKG_VERSION"),
-    " - jj workspace tooling"
-);
+fn top_about() -> String {
+    format!("{} - jj workspace tooling", banner())
+}
 
 /// Build the clap command tree with `BANNER` set as `before_help`
 /// on every subcommand (transitively). Top-level skips `before_help`
@@ -82,7 +94,7 @@ fn cli_with_banner() -> clap::Command {
         cmd
     }
     fn add_with_banner(mut cmd: clap::Command) -> clap::Command {
-        cmd = cmd.before_help(BANNER);
+        cmd = cmd.before_help(banner());
         let names: Vec<String> = cmd
             .get_subcommands()
             .map(|c| c.get_name().to_string())
@@ -92,11 +104,15 @@ fn cli_with_banner() -> clap::Command {
         }
         cmd
     }
-    add_to_subs(Cli::command())
+    // `bin_name` from the invoked name: `get_matches` would set it
+    // from argv itself, but the manual `print_help` on the
+    // no-subcommand path never sees argv and would fall back to
+    // the package name, printing `Usage: vc-x1` under vc-x1-dev.
+    add_to_subs(Cli::command().bin_name(invoked_name()))
 }
 
 #[derive(Parser, Debug)]
-#[command(about = TOP_ABOUT, max_term_width = 80)]
+#[command(about = top_about(), max_term_width = 80)]
 pub struct Cli {
     /// Version detail on stdout: -V the banner, -VV the full
     /// report (as `vc-x1 version`). Counted like -v/-vv.
@@ -264,28 +280,15 @@ pub(crate) enum Commands {
         repo `jj new main`s when main moved (no-op when `@-` is\n\
         already the main tip).\n\n\
         On failure sync stops where the failing step stopped: nothing\n\
-        is auto-reverted, so the state can be inspected. Each repo's\n\
-        pre-sync op id is persisted to `.vc-x1/sync-state.toml`; undo\n\
-        explicitly with `vc-x1 revert` (state is cleared on success).\n\n\
+        is auto-reverted, so the state can be inspected. The failure\n\
+        report prints each repo's pre-sync op id; undo explicitly with\n\
+        `jj op restore <op> -R <repo>`. Nothing persists across\n\
+        invocations.\n\n\
         Output shape:\n  \
           - all-up-to-date: one-line summary (`sync: N repos are {}`)\n  \
           - action needed:  per-repo fetch + state + actions\n  \
           - --quiet:        no output; exit code signals success", sync::UP_TO_DATE_MSG))]
     Sync(sync::SyncArgs),
-
-    /// Restore repos to their persisted pre-sync snapshots
-    #[command(
-        long_about = "Restore repos to their persisted pre-sync snapshots.\n\n\
-        A failed `vc-x1 sync` stops where it failed and leaves each\n\
-        repo's pre-sync `jj op` id in `.vc-x1/sync-state.toml` for\n\
-        inspection-then-undo. `revert` resolves repos the same way\n\
-        sync does (`-R` / `--scope` / workspace default), runs\n\
-        `jj op restore <op>` in every repo holding a snapshot, and\n\
-        clears the consumed state files.\n\n\
-        Repos without a snapshot are skipped (sync clears state on\n\
-        success); finding no snapshot anywhere is an error."
-    )]
-    Revert(revert::RevertArgs),
 
     /// Squash SOURCE into TARGET, advance a bookmark, and push
     #[command(
@@ -441,13 +444,18 @@ fn main() -> ExitCode {
     if !version_cmd {
         match cli.version {
             0 => {
-                if !cli.no_banner {
-                    eprintln!("{BANNER}");
+                // Skip the ambient banner when no subcommand was
+                // given: that path prints help, whose about line
+                // opens with the same banner text, and the pair
+                // read as a stuttered header (seen dogfooding the
+                // argv0 banner, 2026-08-06).
+                if !cli.no_banner && cli.command.is_some() {
+                    eprintln!("{}", banner());
                 }
             }
-            1 => log::info!("{BANNER}"),
+            1 => log::info!("{}", banner()),
             _ => {
-                for line in version::report(BANNER) {
+                for line in version::report(banner()) {
                     log::info!("{line}");
                 }
             }
@@ -471,7 +479,7 @@ fn main() -> ExitCode {
     // the versions that describe a run are exactly what you want
     // when the workspace is what's broken.
     if let Commands::Version = cmd {
-        for line in version::report(BANNER) {
+        for line in version::report(banner()) {
             log::info!("{line}");
         }
         return ExitCode::SUCCESS;
@@ -522,7 +530,6 @@ fn main() -> ExitCode {
         Commands::Init(args) => args.dispatch(&mut ctx),
         Commands::Symlink(args) => args.dispatch(&mut ctx),
         Commands::Sync(args) => args.dispatch(&mut ctx),
-        Commands::Revert(args) => args.dispatch(&mut ctx),
         Commands::SquashPush(args) => args.dispatch(&mut ctx),
         Commands::Config(args) => args.dispatch(&mut ctx),
         Commands::Push(args) => args.dispatch(&mut ctx),

@@ -19,7 +19,7 @@
 //! - The publish-path verbs (`commit`, `describe`, `bookmark_set`,
 //!   `git_push_bookmark`, `git_fetch`): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
-//!   keeps the shape push re-run and sync revert rely on).
+//!   keeps the shape push re-run and manual op restore rely on).
 //!
 //! A session lives as long as its owner wants: `Context` caches one
 //! per repo for a whole invocation, the facade's one-shot wrappers

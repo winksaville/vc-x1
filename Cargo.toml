@@ -1,7 +1,14 @@
 [package]
-name = "vc-x1-dev"
-version = "0.78.2"
+name = "vc-x1"
+version = "0.78.3"
 edition = "2024"
+
+# Single-name convention (chores-16, 0.78.3): the package name IS
+# the installed binary's name, `vc-x1` on main and a per-line dev
+# name on a branch (renamed at cycle open, back at close-out, next
+# to the version bump). The guard against a forgotten open-rename
+# is build.rs, which refuses to build a suffixed version under the
+# stable name on every cargo verb, `cargo install` included.
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["now"] }

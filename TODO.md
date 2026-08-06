@@ -78,23 +78,28 @@ ladder side, which already bit at 0.76.0, whose base was the
     way the mutation decision goes
 - [[22]] 0.78.0 refactor: jj-lib migration (done)
 - [[23]] 0.78.1 docs: adopt the 20260803 baseline pin set (done)
-  - instruction-set dedup dogfooded ahead of iiac-perf's review: cycle-protocol.md +
-    versioning.md pinned into agent-data/, jj-tips.md + draft-reviews.md deleted (salvaged
-    into jj.md Revsets and the protocol's no-preflight rule), cycle.md renamed
-    cycle-checklists.md (scope-collision fix at wink's review), live links re-pointed;
-    README's "jj Tips for Git Users" became a signpost (jj.md quick reference, upstream
-    tutorials, template-hosted jj-tips.md) instead of a drifting copy (it still said
-    `obslog`, renamed `evolog` upstream); dogfood log rehomed from custom.md to
-    notes/dogfood.md (a record, so records-only places it in notes/)
-  - custom.md reset to the bare template skeleton in the same commit (no history loss: the
-    log moved to notes/dogfood.md, the bookmark discipline is pinned in jj.md, and the rest
-    was committed at 0.78.0): the generic-custom.md test starts here; a project should not
-    assume the template's location, name, or contents, so the project layer is
-    skeleton-identical and what breaks becomes dogfood findings in notes/dogfood.md
+  - narrative moved to its chores-16 section 2026-08-06; it had lived here as a seam
+    exception between chores files
+- [[26]] 0.78.2 style: typeable punctuation + line-width source sweep (done)
+  - a `## Todo` cycle rather than a program rung, on the ladder for the same reason the
+    `docs:` interludes are: it landed on trunk, the first cycle to land directly on `main`
+    after the `refactor-vc-x1` bookmark's deletion
+- [[N]] 0.78.3 refactor: drop sync state and remove revert (done)
+  - not a program rung despite the prefix: a `## Todo` cycle from the bugs.md #8 triage,
+    branched off `0.78.2` on its own bookmark `drop-sync-state-vc-x1` while `0.79.0` runs
+    on `trapezoid-push-vc-x1`; trunk order holds, since it lands on `main` ahead of the
+    `0.79.0` merge
 - [[N]] 0.79.0 refactor: trapezoid-push + body-intro
   validation
   - the `## Todo` entry "refactor: trapezoid-push +
     body-intro validation"
+  - at its merge: reconcile with the 0.78.3 single-name convention (chores-16). The branch
+    manifest still says package `vc-x1-dev`, which under the convention is a legitimate dev
+    name for its rungs; the merge commit's manifest says `vc-x1`. custom.md's resolution
+    keeps the branch's filled copy, with the version-bump line's `cargo update -p` phrased
+    against the manifest's current name, and gains the open/close rename step beside the
+    version bump (custom.md on `main` is the bare skeleton, so neither has a home until that
+    merge)
 
 ## Todo
 
@@ -110,22 +115,46 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **commit-description guardrails: exact first bullet in the checklist; hard-rule question.**
-   The 0.78.2 description opened with a bare `- v0.78.2` and put the manifest bullet last, with
-   semicolon chains where sub-bullets belong; caught at wink's review, after the checklist
-   re-read failed to prevent it. The version-first bullet was added to the protocol at 0.75.1
-   because it was being missed, and slipped again today, so the guardrail needs sharpening.
-   - cycle-checklists.md step 7 says "opening with the version-bump bullet" but not its exact
-     form; spell it: `- Cargo.toml, Cargo.lock: vX.Y.Z-xxxx` (the medium's version-of-record
-     files)
+1. **commit-description follow-through: template the problem/solution adoption; hard-rule
+   question.** This entry once queued sharpening for the version-first file-by-file body (the
+   0.78.2 slips); the 2026-08-06 adoption of iiac-perf's description convention (custom.md
+   override at 0.78.3: problem + solution, no version, no file list) dissolves those bullets
+   outright, since the slippable bullet and the file list no longer exist. Remains open:
+   - land the convention in the template's pinned files at the 20260803 baseline review
+     (jointly with iiac-perf, whose text it already is): cycle-protocol.md Commit
+     description, cycle-checklists.md step 7, prose.md, and notes.md's "the commit body is
+     the mechanical record" doctrine, which becomes "the diff is"
    - weigh extending hard rule 9 (title identity) to cover body shape: a pushed body is
      coordinate-first to fix under the re-describe rule, so a violation outlives the review
      that missed it, which is the hard-rules criterion
-   - "commit-body bullets are sentence fragments, file-by-file" already lives in prose.md and
-     the protocol's Body section; decide whether it needs anything beyond the sharpened step 7
-   - pinned-file changes, so fold into the 20260803 baseline review with iiac-perf
+   - **`## Done` entries should carry the version** (wink, 2026-08-03): looking for 0.78.2 in
+     `## Done` found nothing, because notes.md's "Headings and entries that record a commit"
+     specifies the entry as title plus ref, no version, while the chores as-built rung two
+     sections later is `- [[1]] 0.78.2 style: ...`. Three records of one commit, three forms
+     - propose the rung's form for Done too: `- 0.78.2 style: ... [[24]]: <prose>`
+     - it does not collide with the no-version rule, which bans a trailing `(<version>)`
 
-2. **validate-repo-data.** Golden ids for a fixture repo, so a
+2. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
+   banner goal ("end subprocess spawning") outlived its ladder: 0.78.0 migrated the facade
+   and every mutation routed through it, and its commit body claimed "ending jj and git
+   subprocess spawning", but spawns the facade never carried remain. Found 2026-08-06 at the
+   0.78.3 review; how the gap survived seven disciplined cycles is in
+   [chores-16](notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert).
+   - the inventory, non-test code: sync's reposition and rebase steps (`jj new` twice,
+     `jj rebase` twice) and `current_op_id` / `op_restore` (`jj op log` / `jj op restore`);
+     push's three `jj diff --stat` reads; init/clone's `jj git init --colocate`
+     (`repo_utils.rs`)
+   - deliberately excluded, subprocess by design: the version gate's `jj --version` / `jj -V`
+     (clone, init, version), which exist to ask the *installed* binary; push's `$EDITOR`
+   - the teeth, so the goal cannot silently regress once met: remove `run()` from non-test
+     code, or ban `std::process::Command` via clippy.toml `disallowed-methods` with the
+     version-gate module explicitly allowlisted as the documented exception
+   - a prerequisite for the safer revert's "identifiable sync operations" (see "Stale
+     `/.vc-x1` gitignore line: report it, and a safer revert, if ever")
+   - the process lesson (a program's header states its acceptance check at open; close-out
+     runs it) is a template-proposal candidate for cycle-protocol.md's Close-out
+
+3. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -198,7 +227,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-3. **refactor: trapezoid-push + body-intro validation.**
+4. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -222,7 +251,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ever appears. Worth converting these concepts to
      traits then, not now: we are committed to jj, and a
      one-implementation trait buys nothing but indirection.
-4. **A committed cycle-check runner.** The per-commit flow's
+5. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -255,7 +284,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-5. **One home for a cycle's narrative: TODO during, chores
+6. **One home for a cycle's narrative: TODO during, chores
    at close-out.** Today the ladder and its detail are
    maintained in both `TODO.md > ## In Progress` and the
    chores `### As-built ladder` while a cycle runs, so every
@@ -280,38 +309,6 @@ ladder side, which already bit at 0.76.0, whose base was the
    - Touches AGENTS.md [Chores conventions] and
      cycle-protocol.md's Chores sections + Close-out, both
      shared with the template family, so it fans out.
-6. **Remove `revert`, and `.vc-x1/` with it.** `revert`
-   promises "undo the sync"; it restores the pre-sync `jj op`
-   recorded in `.vc-x1/sync-state.toml`, which means "rewind
-   the repo to that moment". The two coincide only while
-   nothing has happened since: one commit later, revert
-   would silently rewind that too, and nothing readable at
-   revert time distinguishes the cases. We are not in control
-   enough to do this reliably; jj's own `jj op log` /
-   `jj op undo` is both safer and more informative, since it
-   shows what is being undone before committing to it.
-   - Confirm what revert actually restores (both repos?
-     bookmarks only? full op state?) before deleting:
-     `src/revert.rs`, `src/sync/state.rs`.
-   - Delete the subcommand, sync's `sync-state.toml` write,
-     and the docs/help text that describe them
-     (`README.md`, `src/main.rs` help strings).
-   - `.vc-x1/` then empties, since push's `push-state.toml` is
-     retired by the stateless-push cycle, so the directory,
-     `init`'s `/.vc-x1` `.gitignore` line, and any leftover
-     `[push]` state config keys go too.
-   - Existing workspaces: **never edit their `.gitignore`
-     automatically.** Inspect it, and when the `/.vc-x1` line
-     is found, report that it is no longer needed and leave
-     the removal to the user: a report, not a rewrite. It is
-     the user's file, and a stale ignore line is harmless.
-     *When* the check runs (which surface, and how often)
-     is TBD; `config --validate` and the proposed
-     `validate-repo` are the candidates, and push's
-     `check_gitignore_coherence` is not (it retires with the
-     state file).
-   - Cheap now, expensive later: few workspaces depend on it
-     today.
 7. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
@@ -650,6 +647,15 @@ ladder side, which already bit at 0.76.0, whose base was the
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
+21. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+    residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
+    user's file automatically; report that the line is no longer needed and leave the
+    removal to them (which surface runs the check is TBD; `config --validate` and the
+    proposed `validate-repo` are the candidates). Separately, any `revert` reintroduction first
+    needs the op-log-derived design: identifiable sync operations, target the parent of the
+    run's earliest op, preview and confirm, refuse on intervening non-sync operations.
+    Background in
+    [chores-16](notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert).
 ## Ideas
 
  Items not yet solid enough for `## Todo` (or surfaced
@@ -753,6 +759,19 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- refactor: drop sync state and remove revert [[25]]: sync keeps its
+  pre-sync op snapshots in memory only, retiring `sync-state.toml`,
+  vc-x1's last cross-invocation state file; `revert` is removed, its
+  role taken by sync's failure report printing the manual
+  `jj op log` / `jj op restore` recovery, until an op-log-derived
+  design earns a reintroduction; init stops writing `/.vc-x1` to new
+  workspaces' `.gitignore`. Triggered by bugs.md #8, the push
+  stale-state incident at iiac-perf. Riders: the single-name
+  convention (the package name is the binary's name, `vc-x1` on main
+  and per-line dev names on branches, guarded by build.rs on every
+  cargo verb), the argv0 runtime banner, and the first `vc-x1`
+  promotion under it.
+
 - style: typeable punctuation + line-width source sweep [[24]]: src/ +
   tests/ are ASCII-clean and <=100 cols (JSONL fixture literals and
   comment URLs exempt as literal rows); 863 counted sites plus four
@@ -826,3 +845,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"
 [23]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
 [24]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
+[25]: /notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert
+[26]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"

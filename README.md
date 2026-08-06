@@ -3,6 +3,7 @@
 - [Overview](#vc-x1)
 - [Architecture](ARCHITECTURE.md)
 - [Terminology](#terminology)
+- [Build and install](#build-and-install)
 - [Usage](#usage)
   - [Revision shortcuts](#revision-shortcuts)
   - [Shell completion](#shell-completion)
@@ -16,7 +17,6 @@
   - [init](#init)
   - [symlink](#symlink)
   - [sync](#sync)
-  - [revert](#revert)
   - [squash-push](#squash-push)
   - [push](#push)
   - [Testing push + squash-push](#testing-push--squash-push)
@@ -68,6 +68,55 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 - a datum in a transcript's `--fields` inventory is a **field**, e.g. `message.content[].type`, its
   levels joined by `.`, with `[]` marking array elements.
 
+## Build and install
+
+A plain Rust crate: `cargo build`, `cargo test`, and
+
+```
+cargo install --path . --locked
+```
+
+installs one binary named by the manifest's `[package].name`. That name is deliberate, the
+**single-name convention** (adopted 0.78.3; design record in
+`notes/chores/chores-16.md`):
+
+- On `main` the name is `vc-x1`: installing from a main-positioned tree gives you the stable
+  binary, and that is the whole promotion ceremony.
+- A development line renames `[package].name` to its own name (e.g. `vc-x1-dev`,
+  `vc-x1-<topic>`) at cycle open and back to `vc-x1` at close-out, next to the version bump
+  those steps already make. Each line's install then produces its own binary, and concurrent
+  lines coexist on `PATH` under their own names.
+- The guard is mechanical, not memory: `build.rs` refuses to build a tree whose version
+  carries a dev suffix (`0.79.1-2`) while the manifest still says `vc-x1`. A build script
+  runs on **every** cargo verb, `cargo install` included (a test would not: `cargo install`
+  never runs tests), so a forgotten rename fails before any binary exists to clobber your
+  stable one. The full matrix (verified 2026-08-06):
+
+  | `[package].name` | `version` | any cargo build/test/install |
+  |---|---|---|
+  | `vc-x1` | `0.78.3-1` | **fails**: a dev rung wearing the stable name |
+  | `vc-x1-exper1` | `0.78.3-1` | passes: a normal dev rung |
+  | `vc-x1-exper1` | `0.78.3` | passes: installs `vc-x1-exper1`, stable untouched (a merge-landing close-out renames in its merge commit) |
+  | `vc-x1` | `0.78.3` | passes: a close-out or stable tree |
+
+  The failing quadrant reads (via `cargo::error` directives: terse fact-then-refusal lines,
+  fenced by empty directives, rather than a build-script panic dump; the remedy is the rename
+  at cycle open):
+
+  ```
+  error: vc-x1@0.78.3-1: 
+  error: vc-x1@0.78.3-1: A suffixed version is used with the stable package name, `vc-x1`
+  error: vc-x1@0.78.3-1: so refusing to build `vc-x1` as it is the stable binary name.
+  error: vc-x1@0.78.3-1: 
+  error: build script logged errors
+  ```
+- The binary banners the name it was invoked as (`argv[0]`), so a renamed manifest, a copy,
+  or a symlink all self-report truthfully; the version in the banner identifies the exact
+  commit either way.
+
+vc-x1 links jj-lib and refuses to run when the installed `jj`'s version disagrees with it
+(override per invocation with `--allow-jj-mismatch`; see `vc-x1 version`).
+
 ## Usage
 
 ```
@@ -86,7 +135,6 @@ vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
-vc-x1 revert [OPTS]                        # Restore repos to a prior operation
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 version                              # Report vc-x1, jj-lib, jj, and jj-data versions
@@ -703,10 +751,13 @@ is the synced `--bookmark`):
 On any failure during fetch/classify/act/reposition (conflicted rebase, subprocess error, anything)
 `sync` **stops where the failing step stopped**. Nothing is auto-reverted, so the state can be
 inspected as-is (jj's operation log holds everything; nothing is lost by stopping). Before acting,
-sync persists each repo's pre-sync `jj op` id to `<repo>/.vc-x1/sync-state.toml`; the failure report
-lists every repo's op id and the undo is explicit: `vc-x1 revert` (see [revert](#revert)), or per
-repo `jj op restore <op> -R <repo>`. On full success the snapshots are cleared, since a stale file
-must not become a revert target later.
+sync captures each repo's pre-sync `jj op` id in memory; the failure report lists every repo's op
+id and the undo is explicit, per repo: `jj op restore <op> -R <repo>`. Nothing persists across
+invocations: a snapshot that outlives its run is a stale target waiting to rewind unrelated work.
+That is also why the former `revert` subcommand was removed at 0.78.3: it restored the persisted
+snapshot with no guard against discarding operations recorded after the failed sync. A safer
+revert would derive its target from the op log and refuse when unrelated operations sit in
+between; until such a design exists, `jj op log` + `jj op restore` is the recovery.
 
 ```
 vc-x1 sync                            # workspace-default scope
@@ -753,30 +804,6 @@ repos by absolute path.
 it's a strict ancestor of the incoming remote, so in the common case `sync` reports `up-to-date`
 rather than `behind`. The `behind` branch covers untracked bookmarks and edge configs where
 auto-advance is disabled.
-
-### revert
-
-Restore repos to their persisted pre-sync snapshots, the explicit undo completing sync's
-stop-on-error contract. A failed `vc-x1 sync` leaves each repo's pre-sync `jj op` id in
-`<repo>/.vc-x1/sync-state.toml`; after inspecting what happened, `vc-x1 revert` runs `jj op restore
-<op>` in every repo holding a snapshot and clears the consumed state files. Working-copy files are
-preserved across the restore: jj rewinds the operation log but leaves disk content untouched.
-
-Repo set resolution is identical to sync's (`-R` / `--scope` / workspace default), so a failed sync
-and the following revert name the same repos when invoked the same way. Repos without a snapshot are
-skipped with a note; sync clears state on success, so that's the normal condition, not an error;
-finding no snapshot anywhere errors (`nothing to revert`).
-
-```
-vc-x1 sync            # fails: stops, names each repo's pre-sync op id
-# ...inspect with jj st / jj log / jj op log...
-vc-x1 revert          # restore every repo to its pre-sync snapshot
-```
-
-| Flag | Description |
-|------|-------------|
-| `-R, --repo <PATH>` | Workspace root, or a single repo to revert alone. Composes with `--scope` |
-| `--scope <SCOPE>` | `work|bot|work,bot`: workspace roles to revert. Composes with `-R` |
 
 ### squash-push
 
@@ -885,7 +912,7 @@ and push in one shot.
   remote-bot.git/   bare git remote for the .claude bot repo
   <NAME>/              work repo (jj colocated, main tracks origin)
     .vc-config.toml    work="/", bot="/.claude"
-    .gitignore         /.claude /.git /.jj /target /.vc-x1
+    .gitignore         /.claude /.git /.jj /target
     .claude/           bot repo (jj colocated, main tracks origin)
       .vc-config.toml  work="/", bot="/.claude" (identical)
       .gitignore       .git .jj

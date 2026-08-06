@@ -405,7 +405,6 @@ pub(crate) const GITIGNORE_CODE: &str = "/target
 /.claude
 /.git
 /.jj
-/.vc-x1
 ";
 
 const GITIGNORE_SESSION: &str = ".git
@@ -419,7 +418,6 @@ const GITIGNORE_SESSION: &str = ".git
 pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.git
 /.jj
-/.vc-x1
 ";
 
 /// Write the POR (single-repo) canned `.vc-config.toml` into `dir`.

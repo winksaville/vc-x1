@@ -189,4 +189,54 @@ insert / delete / reorder.
      mutations migration may have retired the jj half already; the clap half is ours either
      way. Verify both before closing.
 
+8. **`push` adopts a stale state file from an earlier invocation and resumes at its final
+   stage.** Reported by iiac-perf + wink (mailbox, 2026-08-06), observed on `vc-x1` 0.71.0:
+   three consecutive runs of a fresh `vc-x1 push <bookmark> --title ... --body ...` each began
+   directly at `squash-push-bot`, skipping every earlier stage. The work repo was never
+   committed (surfaced only as a completion warn), and each run squashed the new session's
+   transcript into the previous cycle's already-published bot commit; run 3 force-pushed it
+   sideways (roughly 3.4 MB under the old cycle's title and ochid). Run 4, state cleared,
+   landed the pair correctly.
+   - **Cost:** a silently skipped work-repo commit, and a published bot commit rewritten
+     sideways with the wrong session's content. Permanent residue in iiac-perf's bot repo;
+     decoder below.
+   - Mechanism, confirmed in the 0.71.0 source: the state file (`.vc-x1/push-state.toml`) is
+     cleared only when a `vc-x1 push` run completes all stages; a run that dies mid-flow
+     leaves it behind, by design, for resume. The next invocation adopts any existing state
+     unconditionally: the positional bookmark and `--title`/`--body` are ignored (state
+     carries its own copies), and the run resumes at `state.stage`. `verify_state_sanity`
+     passes because stale-but-self-consistent state describes exactly the world the completed
+     previous cycle left behind, so nothing distinguishes "resume" from "new cycle".
+   - We think the state survived the previous cycle because that cycle's final transfer was
+     completed out-of-band: their sandboxed shell drops multi-MB pushes mid-transfer, so a
+     rerun from wink's shell or a manual jj push finished it. No `vc-x1 push` run ever reached
+     the state-clearing epilogue, and the out-of-band completion made the world match the
+     stale state exactly, defeating the sanity check. Wink confirms this fits the cycle's
+     events.
+   - Same family as #3 (state file and reality disagreeing), different trigger: #3 is
+     rollback rewinding the repos but not the state within one failed run; this is state
+     legitimately outliving a run and a later, unrelated invocation adopting it.
+   - **Fixed by design at 0.77.0-3** (`refactor: drop push state and preflight`): the state
+     file, resume, and preflight are deleted; every stage checks its own precondition and
+     no-ops when its work is already done; the per-run `Run` struct lives one process; and
+     `verify_completion` compares the remote against the chids this run actually committed,
+     closing the vacuous "landed on remote" pass. The report's first two suggestions (key
+     state to the invocation; refuse to squash into a remote-existing commit this run did not
+     create) are satisfied structurally: there is no state to key, and `squash-push-bot`
+     targets the bot commit this run just made. The side note about the review gate
+     auto-passing on non-tty stdin is also 0.71.0-only: current `stage_review` errors on a
+     non-tty unless `--yes` is passed.
+   - Still open, tracked here: `verify_completion` remains warning-only (their third
+     suggestion; defensible now that it checks this run's own chids, but worth a look). The
+     incident also triggered eliminating vc-x1's one remaining cross-invocation state file,
+     `sync-state.toml`, and removing `revert` (0.78.3).
+   - **Ochid-chain decoder (iiac-perf residue):** their bot commit e89957e6
+     (`docs: experiment in the local agent-files`) carries most of the session that reasoned
+     out `docs: steps are titles, versions are stamps`; the correctly paired bot commit
+     bb97240e holds only the session's tail. Anyone walking that ochid chain should look one
+     bot commit earlier.
+   - **Remedy for iiac-perf:** the fix ships in 0.77.0 and later; decided at triage: iiac-perf
+     switches to `vc-x1-dev` for now. Until the switch lands, clear the state file (or run
+     with `--restart`) before any push that is not an intentional resume.
+
 # References

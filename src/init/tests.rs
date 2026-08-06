@@ -134,7 +134,8 @@ fn gitignore_work_excludes_bot() {
     assert!(GITIGNORE_CODE.contains("/.claude"));
     assert!(GITIGNORE_CODE.contains("/.git"));
     assert!(GITIGNORE_CODE.contains("/.jj"));
-    assert!(GITIGNORE_CODE.contains("/.vc-x1"));
+    // No state dir: nothing of vc-x1's persists in a workspace.
+    assert!(!GITIGNORE_CODE.contains("/.vc-x1"));
 }
 
 #[test]
@@ -918,7 +919,7 @@ fn gitignore_work_only_omits_bot() {
     assert!(!GITIGNORE_APP_ONLY.contains("/.claude"));
     assert!(GITIGNORE_APP_ONLY.contains("/.git"));
     assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
-    assert!(GITIGNORE_APP_ONLY.contains("/.vc-x1"));
+    assert!(!GITIGNORE_APP_ONLY.contains("/.vc-x1"));
 }
 
 // ---------- POR end-to-end fixture (drives init with --scope=por) ----------

@@ -268,6 +268,11 @@ mod tests {
         assert_eq!(lines[1], format!("jj-lib {}", jj_lib_version()));
     }
 
+    // The single-name convention's guard lives in build.rs (not a
+    // test here): `cargo install` never runs tests, so only a
+    // build script fails every cargo verb on the forbidden
+    // name/version combination.
+
     #[test]
     fn parses_the_triple_out_of_jj_v() {
         assert_eq!(parse_jj_triple("jj 0.43.0-89f62ede8c1c\n"), Some("0.43.0"));
