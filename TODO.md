@@ -84,11 +84,15 @@ ladder side, which already bit at 0.76.0, whose base was the
   - a `## Todo` cycle rather than a program rung, on the ladder for the same reason the
     `docs:` interludes are: it landed on trunk, the first cycle to land directly on `main`
     after the `refactor-vc-x1` bookmark's deletion
-- [[N]] 0.78.3 refactor: drop sync state and remove revert (done)
+- [[27]] 0.78.3 refactor: drop sync state and remove revert (done)
   - not a program rung despite the prefix: a `## Todo` cycle from the bugs.md #8 triage,
     branched off `0.78.2` on its own bookmark `drop-sync-state-vc-x1` while `0.79.0` runs
     on `trapezoid-push-vc-x1`; trunk order holds, since it lands on `main` ahead of the
     `0.79.0` merge
+- [[N]] 0.78.4 test: Claude Code can complete a cycle (done)
+  - not a program rung either: a one-commit cycle that opened as a throwaway experiment on
+    `cc-bm-and-push-test` and was promoted mid-run, branched off `0.78.3`; lands on `main`
+    ahead of the `0.79.0` merge, so trunk order holds
 - [[N]] 0.79.0 refactor: trapezoid-push + body-intro
   validation
   - the `## Todo` entry "refactor: trapezoid-push +
@@ -759,6 +763,15 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- test: Claude Code can complete a cycle [[28]]: a controlled
+  experiment settling why `vc-x1 push` failed from sandboxed
+  sessions, the cycle itself being the demonstration. Both repos were
+  cloned over ssh, and the sandbox denies both the key material and
+  a port-22 route, so the `git` child that jj-lib spawns had
+  neither; wink repointed both remotes at https and the push went
+  through. The competing hypotheses (bot-repo writability, the
+  sandbox-masked config paths inside `.claude`, the interactive
+  editor) were each killed by test rather than by argument.
 - refactor: drop sync state and remove revert [[25]]: sync keeps its
   pre-sync op snapshots in memory only, retiring `sync-state.toml`,
   vc-x1's last cross-invocation state file; `revert` is removed, its
@@ -847,3 +860,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [24]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
 [25]: /notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert
 [26]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
+[27]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"
+[28]: /notes/chores/chores-16.md#test-claude-code-can-complete-a-cycle

@@ -15,6 +15,7 @@ Reference numbering is file-local; see
 - [docs: adopt the 20260803 baseline pin set](#docs-adopt-the-20260803-baseline-pin-set)
 - [style: typeable punctuation + line-width source sweep](#style-typeable-punctuation--line-width-source-sweep)
 - [refactor: drop sync state and remove revert](#refactor-drop-sync-state-and-remove-revert)
+- [test: Claude Code can complete a cycle](#test-claude-code-can-complete-a-cycle)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -90,7 +91,7 @@ incidents worth remembering when delegating sweeps:
 
 ## refactor: drop sync state and remove revert
 
-- [[N]] 0.78.3 refactor: drop sync state and remove revert
+- [[3]] 0.78.3 refactor: drop sync state and remove revert
 
 `sync-state.toml` was vc-x1's last cross-invocation state file, and this cycle removes the
 species, not just the instance. The trigger was bugs.md #8 (2026-08-06): iiac-perf's `vc-x1`
@@ -198,7 +199,49 @@ remaining jj spawns; make the build enforce it"). That derived-not-persisted des
 bar any `revert` reintroduction must clear; until someone wants it, `jj op log` +
 `jj op restore` is the documented recovery, shown by sync's failure report and README.
 
+## test: Claude Code can complete a cycle
+
+- [[N]] 0.78.4 test: Claude Code can complete a cycle
+
+`vc-x1 push` had been failing from sandboxed sessions, and the cause was never pinned down: the
+failure always arrived at the end of a session, where the cheapest response was to hand the push
+to wink and move on. The 2026-08-03 dogfood entry recorded the symptom and guessed at long-SSH
+transfers. This cycle is the controlled experiment that settles it, run one step at a time so
+each layer could be cleared separately, and the cycle is its own test: completing one end to end
+from inside the sandbox is the result being demonstrated. It began as a throwaway on the
+`cc-bm-and-push-test` bookmark and was promoted to a numbered cycle mid-run (wink, 2026-08-07)
+once the finding proved worth keeping.
+
+The cause, confirmed: both repos were originally cloned over ssh, and the sandbox denies ssh
+twice over. Reads of `~/.ssh` are blocked except the commit-signing key and `known_hosts`, so no
+auth key is available, and we think a host allowlist cannot admit a port-22 connection at all,
+since ssh carries no SNI or Host header for a filter to match on. wink repointed both remotes at
+https before the experiment, which is what made the push work.
+
+- the network leg is a spawned `git`: `git_push_bookmark` hands
+  `git_settings.to_subprocess_options()` to `jj_lib::git::push_refs`, so jj-lib runs the real
+  `git` binary instead of doing the transfer in-process. That child inherits the sandbox, which
+  is why a sandboxed run and wink's own terminal diverge on identical config
+- credentials follow from that: git's own `store --file ~/.gitcreds` helper serves both repos,
+  the sandbox permits reading it, and vc-x1 needs no credential callback of its own
+- three competing hypotheses were killed by test rather than by argument. The bot repo is a real
+  directory inside the project root, so it sits inside the write allowlist. The config paths the
+  sandbox masks inside `.claude` are untracked, so no snapshot can record them as deleted. And
+  jj's snapshot skips the character devices those masked paths become, without erroring
+- the interactive-editor hypothesis died separately: `vc-x1 push` opens `$EDITOR` unless
+  `--title`, `--body`, and `--yes` are all supplied, which would hang a non-interactive session,
+  but wink confirmed the three-flag form works
+- bugs.md #8's "sandboxed shell drops multi-MB pushes mid-transfer" is refined here rather than
+  left standing: the size correlation was coincidence. Whether ssh fully explains that incident
+  depends on iiac-perf's remotes having been ssh at the time, which this cycle did not check
+
+One finding for the dogfood log: AGENTS.md places the bot repo at a symlink from
+`~/.claude/projects/<path-to-project-root>/.claude`, which has one path component too many and
+the direction reversed. `<project>/.claude` is the real directory, and the `projects` entry is
+the symlink pointing in.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
 [2]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
+[3]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"

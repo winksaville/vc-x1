@@ -5,6 +5,27 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-07: the 2026-08-03 sandbox publish failure was ssh itself, not transfer size
+  - that entry guessed the sandbox's proxying killed long SSH transfers, since the large bot
+    pack died mid-transfer where the small work pack succeeded; the size correlation was
+    coincidence, and ssh does not work from a sandboxed session at all
+  - the sandbox denies reading `~/.ssh` except the commit-signing key and `known_hosts`, so no
+    auth key can be offered, and we think a host allowlist cannot admit port 22 either, since
+    ssh carries no SNI or Host header for a filter to match on
+  - `vc-x1 push` inherits all of it because jj-lib performs transfers by spawning the real
+    `git` binary (`GitSettings::to_subprocess_options`), and that child runs under the same
+    sandbox as the session
+  - fixed by repointing both remotes at https (wink, 2026-08-07); git's
+    `store --file ~/.gitcreds` helper then serves both repos from a file the sandbox permits
+    reading, and no vc-x1-side credential handling is involved at any point
+  - finding for AGENTS.md: the dual-repo section places the bot repo at a symlink from
+    `~/.claude/projects/<path-to-project-root>/.claude`, which has one path component too many
+    and the direction reversed; `<project>/.claude` is the real directory and the `projects`
+    entry is the symlink pointing into it
+  - finding for the template: an instruction set expecting a sandboxed agent should say to
+    clone over https, since ssh is unusable from inside one and the failure surfaces late, at
+    the close-out push, where it is most expensive
+
 - 2026-08-03: the punctuation ban's enumeration invited a subset audit, again
   - prose.md bans four named characters; the 0.78.2 source sweep found four more untypeable
     species doing the same jobs: `⇒` (13 sites), box-drawing `─` in CLI output (56), `≥`,

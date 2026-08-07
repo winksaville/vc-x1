@@ -213,6 +213,12 @@ insert / delete / reorder.
      the state-clearing epilogue, and the out-of-band completion made the world match the
      stale state exactly, defeating the sanity check. Wink confirms this fits the cycle's
      events.
+   - Refined at 0.78.4 (`test: Claude Code can complete a cycle`): the size correlation was
+     coincidence. A sandboxed session cannot use ssh at all, having no readable auth key and
+     no route out on port 22, so a large transfer dying where a small one survived was ssh
+     failing at two different points, not a size ceiling. Whether that is the whole story
+     for this incident depends on iiac-perf's remotes having been ssh at the time, which is
+     unchecked here; if they were, repointing them at https is the fix.
    - Same family as #3 (state file and reality disagreeing), different trigger: #3 is
      rollback rewinding the repos but not the state within one failed run; this is state
      legitimately outliving a run and a later, unrelated invocation adopting it.
