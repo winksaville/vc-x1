@@ -5,6 +5,23 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-07: the merged agent-file set adopted; two rules born in its review
+  - the set is iiac-perf's `agent-files-model` proposal merged onto this repo's file layout
+    with the review's corrections (two behavioral regressions fixed, the unsynced baseline
+    content preserved). The verdicts and the acceptance-check results live in the cycle's
+    chores section
+  - two rules were written during the review and applied set-wide: a semicolon joins equals
+    (prose.md `Semicolons`, sharpened from wink's "item; detail" objection), and a pinned
+    file names no project (prose.md), which retroactively cleaned six member-history
+    references out of the pinned set
+  - watch: `CLAUDE.md` is now one line, so `custom.md` stops being auto-loaded and hard
+    rule 0 is load-bearing. The first sessions after landing are the sample for whether a
+    session reads it unprompted
+  - friction found: notes.md says the as-built ladder is the first content under a chores
+    header, while the six-item shape lists the ladder fourth of six. This cycle put the
+    ladder first and the other five items after it. If that keeps being the answer, the
+    pinned text should say it
+
 - 2026-08-07: the 2026-08-03 sandbox publish failure was ssh itself, not transfer size
   - that entry guessed the sandbox's proxying killed long SSH transfers, since the large bot
     pack died mid-transfer where the small work pack succeeded; the size correlation was

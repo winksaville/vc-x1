@@ -305,6 +305,32 @@
     - a no-remote init mode for local testing
     - an empty-dir bot template only needs a `.gitkeep`, since init writes hidden files itself
 
+47. **`[private]` config table: validator-opaque bot facts.** `vc-x1 config --validate`
+    rejects unknown keys, so member facts (mailbox member name, template-repository path)
+    cannot move from the project layer into `.vc-config.toml`. Add a `[private]` table the
+    validator passes over by contract: opaque to the CLI, never parsed, never warned about.
+    Keeps typo-checking everywhere else. wink's proposal, accepted at the 2026-08-07
+    agent-files convergence review. Unblocks custom-family.md's `## Membership` moving to
+    config, at which point a layout-free mailbox practice could return to the pinned set.
+
+48. **Warn on the legacy `[workspace]` config schema from any command.** A repo on the old
+    schema reads, logs, and diffs fine for weeks and discovers the problem only when `push`
+    hard-errors, the least convenient moment. Cheap fix: any command warns once on a legacy
+    config rather than only `config --validate` and `push`. iiac-perf finding (mailbox,
+    2026-08-07).
+
+49. **Revset pass-through: stop translating the house dialect.** The CLI still converts
+    house-convention revsets before issuing jj commands. It should pass revsets to jj
+    verbatim, so one dialect exists and `jj help -k revsets` is the single authority
+    (decided 2026-08-03). The docs side landed with the agent-files adoption; this is the
+    CLI side.
+
+50. **Promote body shape into hard rule 9?** Extending title identity to cover the
+    problem/solution body shape was deferred at the 2026-08-07 convergence review: the
+    convention was two days old, and "a pushed body is coordinate-first to fix" would
+    promote every prose rule that touches a body. Concrete trigger: revisit after
+    iiac-perf's measure-reproducibility cycle closes under the convention.
+
 # References
 
 [2]: /notes/forks-multi-user.md

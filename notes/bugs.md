@@ -216,9 +216,9 @@ insert / delete / reorder.
    - Refined at 0.78.4 (`test: Claude Code can complete a cycle`): the size correlation was
      coincidence. A sandboxed session cannot use ssh at all, having no readable auth key and
      no route out on port 22, so a large transfer dying where a small one survived was ssh
-     failing at two different points, not a size ceiling. Whether that is the whole story
-     for this incident depends on iiac-perf's remotes having been ssh at the time, which is
-     unchecked here; if they were, repointing them at https is the fix.
+     failing at two different points, not a size ceiling. Closed 2026-08-07: iiac-perf
+     confirms (mailbox) their remotes were also cloned over ssh, and wink repointed both at
+     https before their next push, so ssh explains their incident too.
    - Same family as #3 (state file and reality disagreeing), different trigger: #3 is
      rollback rewinding the repos but not the state within one failed run; this is state
      legitimately outliving a run and a later, unrelated invocation adopting it.
@@ -233,16 +233,19 @@ insert / delete / reorder.
      auto-passing on non-tty stdin is also 0.71.0-only: current `stage_review` errors on a
      non-tty unless `--yes` is passed.
    - Still open, tracked here: `verify_completion` remains warning-only (their third
-     suggestion; defensible now that it checks this run's own chids, but worth a look). The
-     incident also triggered eliminating vc-x1's one remaining cross-invocation state file,
-     `sync-state.toml`, and removing `revert` (0.78.3).
+     suggestion; defensible now that it checks this run's own chids, but worth a look).
+     iiac-perf's 2026-08-07 view concurs: with no state to be stale, the check is on this
+     run's own work, and warning-only is defensible. The incident also triggered eliminating
+     vc-x1's one remaining cross-invocation state file, `sync-state.toml`, and removing
+     `revert` (0.78.3).
    - **Ochid-chain decoder (iiac-perf residue):** their bot commit e89957e6
      (`docs: experiment in the local agent-files`) carries most of the session that reasoned
      out `docs: steps are titles, versions are stamps`; the correctly paired bot commit
      bb97240e holds only the session's tail. Anyone walking that ochid chain should look one
      bot commit earlier.
-   - **Remedy for iiac-perf:** the fix ships in 0.77.0 and later; decided at triage: iiac-perf
-     switches to `vc-x1-dev` for now. Until the switch lands, clear the state file (or run
-     with `--restart`) before any push that is not an intentional resume.
+   - **Remedy for iiac-perf:** the fix ships in 0.77.0 and later. The triage decision
+     (switch to `vc-x1-dev`) was superseded 2026-08-07: they upgraded to `vc-x1` 0.78.4
+     instead, on wink's design argument that resuming after an error is precisely what is
+     not wanted, so stateless push with per-stage idempotence is the right shape.
 
 # References

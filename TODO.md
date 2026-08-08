@@ -9,21 +9,42 @@ pattern that locates numbered entries; 2 or 3 spaces also work.
 
 ## In Progress
 
-When a `## Todo` item is picked up, its text **moves** here
-(never copied; one home per text). The picked-up task is a
-`###` heading; a multi-cycle program adds one level, where the
-program is the `###` and its current stage a `####` (headings
-give the current work durable anchors, which numbered Todo
-entries can't). The problem overview is followed by the
-"plan", a bulleted list of the development "ladder". Each
-rung is prepended with its commit reference, a literal
-`[[N]]` placeholder until the commit is pushed, then
-backfilled to a real file-local `[[n]]` ref (same pattern as
-the chores As-built rungs):
-   - [[N]] 0.xx.y-0 blah (done)
-   - [[N]] 0.xx.y-1 blah blah (current)
-   - [[N]] 0.xx.y-2 blah blah blah
-   - [[N]] 0.xx.y close-out and validation
+A cycle's record has one home at a time, and while the cycle runs this is it. At Preparation
+the picked-up `## Todo` item **moves** here (never copied, one home per text) and becomes six
+provisional items, all required, all revised as steps land. At close-out the whole block moves
+into `notes/chores/chores-NN.md` and becomes that cycle's `##` section. It is never written in
+two places. Shape:
+
+```
+### <type>: <title>
+
+#### Problem
+<what is wrong, a sentence or two>
+
+#### Solution
+<what will be done about it, broad; provisional until the close-out>
+
+#### Acceptance check
+<the measure of "are you finished?">
+
+#### Ladder
+- <title> opening (done)
+- <title> (current)
+- <title>
+- <close-out title>
+
+#### Deliberation
+<how the five above were decided; `_None._` if there was nothing to deliberate>
+```
+
+A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
+and the six items sit one level below that (headings give the current work durable anchors,
+which numbered Todo entries can't). Full rules in
+[cycle-protocol.md](agent-data/cycle-protocol.md#preparation); the move's four transforms are
+in [Chores sections](agent-data/cycle-protocol.md#chores-sections).
+
+_The program block below predates the six-item convention and is grandfathered. Its versioned
+rungs convert when touched._
 
 ### Refactor: typed jj facade -> jj-lib in-process; end subprocess spawning
 
@@ -119,26 +140,7 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **commit-description follow-through: template the problem/solution adoption; hard-rule
-   question.** This entry once queued sharpening for the version-first file-by-file body (the
-   0.78.2 slips); the 2026-08-06 adoption of iiac-perf's description convention (custom.md
-   override at 0.78.3: problem + solution, no version, no file list) dissolves those bullets
-   outright, since the slippable bullet and the file list no longer exist. Remains open:
-   - land the convention in the template's pinned files at the 20260803 baseline review
-     (jointly with iiac-perf, whose text it already is): cycle-protocol.md Commit
-     description, cycle-checklists.md step 7, prose.md, and notes.md's "the commit body is
-     the mechanical record" doctrine, which becomes "the diff is"
-   - weigh extending hard rule 9 (title identity) to cover body shape: a pushed body is
-     coordinate-first to fix under the re-describe rule, so a violation outlives the review
-     that missed it, which is the hard-rules criterion
-   - **`## Done` entries should carry the version** (wink, 2026-08-03): looking for 0.78.2 in
-     `## Done` found nothing, because notes.md's "Headings and entries that record a commit"
-     specifies the entry as title plus ref, no version, while the chores as-built rung two
-     sections later is `- [[1]] 0.78.2 style: ...`. Three records of one commit, three forms
-     - propose the rung's form for Done too: `- 0.78.2 style: ... [[24]]: <prose>`
-     - it does not collide with the no-version rule, which bans a trailing `(<version>)`
-
-2. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
+1. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
    banner goal ("end subprocess spawning") outlived its ladder: 0.78.0 migrated the facade
    and every mutation routed through it, and its commit body claimed "ending jj and git
    subprocess spawning", but spawns the facade never carried remain. Found 2026-08-06 at the
@@ -158,7 +160,7 @@ ladder side, which already bit at 0.76.0, whose base was the
    - the process lesson (a program's header states its acceptance check at open; close-out
      runs it) is a template-proposal candidate for cycle-protocol.md's Close-out
 
-3. **validate-repo-data.** Golden ids for a fixture repo, so a
+2. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -231,7 +233,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-4. **refactor: trapezoid-push + body-intro validation.**
+3. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -255,7 +257,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ever appears. Worth converting these concepts to
      traits then, not now: we are committed to jj, and a
      one-implementation trait buys nothing but indirection.
-5. **A committed cycle-check runner.** The per-commit flow's
+4. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -288,32 +290,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-6. **One home for a cycle's narrative: TODO during, chores
-   at close-out.** Today the ladder and its detail are
-   maintained in both `TODO.md > ## In Progress` and the
-   chores `### As-built ladder` while a cycle runs, so every
-   rung is written twice and every `Commits:` backfill lands
-   in two files. Instead keep it all in `TODO.md` as a
-   succinct working ladder with the detail in sections
-   beneath it, linked locally, and at close-out move the
-   whole block into `notes/chores/chores-NN.md` as the
-   durable record.
-   - Preserves what the per-commit convention was protecting:
-     the narrative is still written while the work is fresh,
-     just in one place.
-   - Removes the dual backfill: commit refs are filled once,
-     in the working ladder, and travel with it. The
-     `Commits:` line then goes too: the ladder carries the
-     same refs per rung *with* titles. Sections with no
-     ladder (a single-commit interlude) keep it.
-   - Watch first, decide after: the remaining rungs of the
-     0.77.0 cycle are the sample. If close-out migration
-     turns out to lose detail that per-commit capture kept,
-     that is the argument against.
-   - Touches AGENTS.md [Chores conventions] and
-     cycle-protocol.md's Chores sections + Close-out, both
-     shared with the template family, so it fans out.
-7. **`squash-push --title` / `--body`.** `squash-push` amends
+5. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
    its existing message. Fixing a published commit's *message*
@@ -352,7 +329,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      cited nowhere and a rewrite costs nothing. Message fixes
      naturally cluster there, which is exactly where the
      two-step shape bites.
-8. **Restructure templates: single template repo + fixed bot
+6. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -380,7 +357,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying, leaving no "is it
      still empty?" invariant in the template.
-9. **ochid: bot-repo location qualifier.** An ochid is
+7. **ochid: bot-repo location qualifier.** An ochid is
    workspace-relative (`/.claude/<chid>`), so nothing in a
    published commit says *where* the companion bot repo
    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -400,56 +377,56 @@ ladder side, which already bit at 0.76.0, whose base was the
      (bot-repo-location config).
    - Link rot + mirroring mitigations are in the same doc
      section.
-10. **Version-number protocol is fragile: versions are
-    baked into titles/bodies/todo/done/chores before the
-    change lands.** The cycle protocol embeds an `X.Y.Z-N`
-    version in commit titles and bodies, `## Todo` /
-    `## Done` entries, and chores headers, all written
-    while the work is in progress, i.e. before it lands.
-    But version numbers are subject to change: in a public,
-    merge-based flow (e.g. Linux), the version a change
-    ships under is only fixed when it merges into `main`,
-    so the landing version can't be anticipated while the
-    work is underway. Pervasive version-in-text is
-    therefore fragile for any non-linear / multi-contributor
-    workflow. Promoted from Ideas at 0.65.2-0; slated for
-    the cycle after 0.65.2.
-    - Live in-repo example (2026-07-24): 0.72.0 was
-      pre-assigned to the trapezoid close-out cycle, which
-      paused on `support-trapezoid-commits` after `-1`; the
-      refactor program then ran 0.73.0+ directly off the
-      0.71.0 main tip, leaving 0.72.0 a permanent gap, since
-      renumbering either branch would rewrite cross-linked
-      history. Disposition recorded in the
-      [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
-    - Related numbering thought (2026-07-24): program-shaped
-      work could claim one minor and number its cycles
-      `X.Y.1..n` (the jj refactor's seven cycles would have
-      been 0.73.1..0.73.7), with program membership encoded in
-      the version. Trade-off: a per-prep "is this a program?"
-      call vs today's decision-free minor-per-cycle.
-    - Open question: what identifies a cycle's commits if
-      not a pre-assigned version?
-      - Needs to be unique within some agreed upon domain.
-        A contributors email address would do it, but also
-        a UUID (short-version) for a contribution. I could
-        imagine a UUID generated from the initial email/issue
-        that and then "version number" schema appended to that.
-    - Surfaces to update once the identifier is chosen:
-      cycle-protocol.md (title shape, Numbering), AGENTS.md
-      (commit-recording headers), and the `vc-x1` validators
-      that parse `(X.Y.Z)` strings.
-11. **sync follow-up: extract `move-bookmark` command.** The
-    "put the bookmark / `@` where it belongs" step at the end
-    of sync (reposition logic) is useful standalone (e.g. the
-    t1B scenario where `main` is right but `@` isn't on it)
-    and deserves an honestly-named command instead of a mode.
-    - `vc-x1 move-bookmark` (name open): no fetch; move `@`
-      (and optionally the bookmark) onto a target under the
-      same safety rules as sync's reposition step.
-    - Sync's final step becomes a call to the same logic.
-    - Follow-up to the 0.67.0 single-mode sync cycle.
-12. **sync follow-up: retire the hidden `--check` alias;
+8. **Version-number protocol is fragile: versions are
+   baked into titles/bodies/todo/done/chores before the
+   change lands.** The cycle protocol embeds an `X.Y.Z-N`
+   version in commit titles and bodies, `## Todo` /
+   `## Done` entries, and chores headers, all written
+   while the work is in progress, i.e. before it lands.
+   But version numbers are subject to change: in a public,
+   merge-based flow (e.g. Linux), the version a change
+   ships under is only fixed when it merges into `main`,
+   so the landing version can't be anticipated while the
+   work is underway. Pervasive version-in-text is
+   therefore fragile for any non-linear / multi-contributor
+   workflow. Promoted from Ideas at 0.65.2-0; slated for
+   the cycle after 0.65.2.
+   - Live in-repo example (2026-07-24): 0.72.0 was
+     pre-assigned to the trapezoid close-out cycle, which
+     paused on `support-trapezoid-commits` after `-1`; the
+     refactor program then ran 0.73.0+ directly off the
+     0.71.0 main tip, leaving 0.72.0 a permanent gap, since
+     renumbering either branch would rewrite cross-linked
+     history. Disposition recorded in the
+     [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
+   - Related numbering thought (2026-07-24): program-shaped
+     work could claim one minor and number its cycles
+     `X.Y.1..n` (the jj refactor's seven cycles would have
+     been 0.73.1..0.73.7), with program membership encoded in
+     the version. Trade-off: a per-prep "is this a program?"
+     call vs today's decision-free minor-per-cycle.
+   - Open question: what identifies a cycle's commits if
+     not a pre-assigned version?
+     - Needs to be unique within some agreed upon domain.
+       A contributors email address would do it, but also
+       a UUID (short-version) for a contribution. I could
+       imagine a UUID generated from the initial email/issue
+       that and then "version number" schema appended to that.
+   - Surfaces to update once the identifier is chosen:
+     cycle-protocol.md (title shape, Numbering), AGENTS.md
+     (commit-recording headers), and the `vc-x1` validators
+     that parse `(X.Y.Z)` strings.
+9. **sync follow-up: extract `move-bookmark` command.** The
+   "put the bookmark / `@` where it belongs" step at the end
+   of sync (reposition logic) is useful standalone (e.g. the
+   t1B scenario where `main` is right but `@` isn't on it)
+   and deserves an honestly-named command instead of a mode.
+   - `vc-x1 move-bookmark` (name open): no fetch; move `@`
+     (and optionally the bookmark) onto a target under the
+     same safety rules as sync's reposition step.
+   - Sync's final step becomes a call to the same logic.
+   - Follow-up to the 0.67.0 single-mode sync cycle.
+10. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -465,7 +442,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-13. **validate-numbering: rename the pair, check all
+11. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -501,7 +478,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-14. **pre-commit: single rule (no docs skip) + doc validators.**
+12. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -527,7 +504,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-15. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+13. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -551,7 +528,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-16. **Run validate-bot at every vc-x1 invocation
+14. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -564,7 +541,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-17. **CLI reference lives in `--help`; README owns concepts.**
+15. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -603,7 +580,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-18. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+16. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -623,7 +600,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-19. **Shared-doc sync: per-commit chores convention.**
+17. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -636,7 +613,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-20. **config: extract flag-backed key descriptions from Clap.**
+18. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -651,7 +628,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-21. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+19. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -763,6 +740,19 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.78.5 **docs: adopt the merged agent-file set** [[29]]
+  - iiac-perf's `agent-files-model` proposal merged onto this repo's file layout with the
+    review's corrections: cycles on their own bookmark, the six-item cycle record with one
+    home, problem-then-solution bodies at <=50-col titles, steps named not numbered, and
+    versions living only in the version-of-record
+  - two rules written during the review and applied set-wide: a semicolon joins equals, and
+    a pinned file names no project
+  - `custom.md` shrinks to the generic stub reaching the new `custom-family.md`; `CLAUDE.md`
+    collapses to `@AGENTS.md`
+  - dissolves the Todos "commit-description follow-through" (its convention is now pinned;
+    the hard-rule question moved to the backlog) and "One home for a cycle's narrative"
+    (implemented)
+
 - test: Claude Code can complete a cycle [[28]]: a controlled
   experiment settling why `vc-x1 push` failed from sandboxed
   sessions, the cycle itself being the demonstration. Both repos were
@@ -862,3 +852,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [26]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
 [27]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"
 [28]: /notes/chores/chores-16.md#test-claude-code-can-complete-a-cycle
+[29]: /notes/chores/chores-16.md#docs-adopt-the-merged-agent-file-set
