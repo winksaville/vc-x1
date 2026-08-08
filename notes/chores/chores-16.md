@@ -16,6 +16,7 @@ Reference numbering is file-local; see
 - [style: typeable punctuation + line-width source sweep](#style-typeable-punctuation--line-width-source-sweep)
 - [refactor: drop sync state and remove revert](#refactor-drop-sync-state-and-remove-revert)
 - [test: Claude Code can complete a cycle](#test-claude-code-can-complete-a-cycle)
+- [docs: adopt the merged agent-file set](#docs-adopt-the-merged-agent-file-set)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -239,6 +240,72 @@ One finding for the dogfood log: AGENTS.md places the bot repo at a symlink from
 `~/.claude/projects/<path-to-project-root>/.claude`, which has one path component too many and
 the direction reversed. `<project>/.claude` is the real directory, and the `projects` entry is
 the symlink pointing in.
+
+## docs: adopt the merged agent-file set
+
+- [[N]] docs: adopt the merged agent-file set
+
+A single-commit cycle, the first run under the rules it adopts, so its six items were written
+here directly at close-out (no `## In Progress` block existed to move).
+
+### Problem
+
+The family's two members carried diverging agent-files. iiac-perf's `agent-files-model`
+bookmark proposed one owner per rule and one home per record; this repo held the 20260803
+baseline, with corrections and content the proposal lacked; and the proposal itself carried
+two behavioral regressions (its protocol still taught `jj commit` with a hand-written `ochid:`
+trailer while declaring that file authoritative, and the per-commit version bump had fallen
+out of every checklist). Neither set could be adopted byte-identical as it stood.
+
+### Solution
+
+The sets merge here as this repo's counter-proposal, per hard rule 12: the proposal's
+substance (cycles on their own bookmark, the six-item record with one home, problem-then-
+solution bodies, <=50-col titles, steps named not numbered, versions only in the
+version-of-record, the custom.md stub + custom-family.md split, one-line CLAUDE.md) on this
+repo's file layout (cycle-checklists.md keeps its name; cycle-protocol.md and versioning.md
+stay pinned in `agent-data/`), with both regressions fixed, the baseline-only content
+preserved (revset primer rewritten to jj semantics, Grammar-and-storage, Dev-artifact-name,
+the authored/transcribed punctuation nuance), and two rules the review produced written into
+prose.md and applied set-wide: a semicolon joins equals, and a pinned file names no project.
+
+### Acceptance check
+
+A mechanical audit of the final set, runnable by anyone:
+
+1. every internal link and anchor resolves (slugger-validated walk of all ten files)
+2. no authored banned punctuation (`grep '—\|–\|…\|→\|≤'`, specimens exempt)
+3. every line <=100 cols, unwrappable links exempt
+4. no member project, member history, or member version in pinned text
+5. checklist and protocol agree step-for-step on the per-commit flow
+6. `custom.md` matches the proposed stub with the single pointer line as its one entry
+
+Ran at close-out, all pass: 1 clean (two hits are notes.md's literal `[text](url)` examples);
+2 clean (prose.md's own specimens); 3 leaves three 101-103-col lines, each the unwrappable
+version-of-record link; 4 clean after six references were degeneralized during the review;
+5 verified, nine steps each, bump at 4, validate at 5, push at 9; 6 verified against
+iiac-perf's stub modulo this review's semicolon sweep. The stronger check, a fresh session
+reading only the new files and performing a cycle correctly, needs a next session and is the
+dogfood log's watch item, not this cycle's claim.
+
+### Deliberation
+
+The review verdicts, argued in-session (the ochid-linked session holds the full exchange):
+
+- **file set and names**: protocol and versioning are family-universal, so they stay pinned;
+  `cycle-checklists.md` keeps its name, a reversal of an earlier lean, because beside
+  `cycle-protocol.md` the short name `cycle.md` would read as the boss file while the
+  protocol is what wins on disagreement
+- **one-line CLAUDE.md**: initial pushback (custom.md, the conflict-winning layer, loses
+  auto-load) withdrawn on wink's single-source argument: AGENTS.md-aware tools never read
+  CLAUDE.md, so AGENTS.md must carry the truth anyway, and a duplicate import masks breakage
+  for exactly one tool
+- **50 vs 72**: titles <=50, settled by practice; both repos already wrote 50-col titles
+- **semicolons**: wink's "item; detail" objection generalized into prose.md's `Semicolons`
+  section; ~140 joins converted set-wide, ~50 survivors in three sanctioned classes
+- **ladder placement**: notes.md wants the as-built ladder first under a chores header; the
+  six-item shape lists it fourth. This section put the ladder first; logged as dogfood
+  friction rather than resolved here
 
 # References
 

@@ -3,13 +3,15 @@
 This protocol uses [Prose form](prose.md#prose-form). It
 contains instructions on how a commit cycle is accomplished.
 
-Universal file, pinned to the template repository; do not edit
-here. Project overrides go in [custom.md](../custom.md).
+Universal file, shared with the template repository. A proposed
+change is edited here and converges at the template
+([Changing the agent-files](../AGENTS.md#changing-the-agent-files)).
+Project-local content goes in [custom.md](../custom.md).
 
 The artifact a cycle produces is whatever the bot generates from
 the conversation: code, prose, an image, a song, a screenplay.
 The steps below use a Rust crate as the running example (the
-cargo cycle, `Cargo.toml` versioning); substitute your medium's
+cargo cycle, `Cargo.toml` versioning). Substitute your medium's
 equivalents. This project's manifest is recorded in
 [versioning.md](versioning.md).
 
@@ -17,43 +19,47 @@ equivalents. This project's manifest is recorded in
 
 A cycle has three phases:
 
-- **[Preparation](#preparation)** (`X.Y.Z-0`): the cycle's
-  first commit, when it needs setup (a lightweight cycle omits
-  it and starts at `-1`; see
-  [versioning.md](versioning.md#step-numbering)). Sets up the
-  cycle:
-  - Bump the version-of-record to `X.Y.Z-0` (where it lives
-    and the suffix scheme are project-specific; see
+- **[Preparation](#preparation)**: the cycle's first commit,
+  when it needs setup (a lightweight cycle omits it and
+  starts at its first Work step). Sets up the cycle:
+  - Bump the version-of-record (where it lives and the
+    suffix scheme are project-specific, per
     [versioning.md](versioning.md)).
-  - Pick up a `## Todo` item (typically the top-ranked,
-    #1) into `## In Progress` (bold title + succinct problem
-    statement + plan ladder).
-  - Open the [chores section](#chores-sections).
-- **[Work-N](#work-n)** (`X.Y.Z-1`, `X.Y.Z-2`, ...): the
-  commits that implement the change. As many as the change
-  needs; each runs through the
+  - Pick up a `## Todo` item (typically the top-ranked, #1)
+    into `## In Progress` as the cycle's
+    [six provisional items](#preparation): title, problem
+    statement, solution statement, acceptance check, ladder,
+    deliberation.
+  - Create the cycle's topic bookmark.
+  - Nothing is opened in the chores file. The block is the
+    cycle's only home until close-out moves it.
+- **[Work-N](#work-n)**: the commits that implement the
+  change. As many as the change needs. Each runs through the
   [per-commit flow](#per-commit-flow).
-- **[Close-out](#close-out)** (bare `X.Y.Z`): the cycle's
-  last commit. Bookkeeping only:
-  - Move the picked-up item to a one-line entry in
-    `## Done`.
-  - Move the `## In Progress` block into the
+- **[Close-out](#close-out)**: the cycle's last commit.
+  Bookkeeping only:
+  - Run the acceptance check and record what it showed.
+  - Finalize the six items, then move the block into
+    `notes/chores/`, which creates the
     [chores section](#chores-sections).
+  - Write the `## Done` entry and clear `## In Progress`.
+  - Land the cycle's bookmark.
   - Optionally update `notes/README.md` if functionality
     changed.
 
 A cycle's commits are published to the project remote
-either incrementally or as one batch at close-out; the
+either incrementally or as one batch at close-out. The
 result must always be published at close-out. See
 [Pushing](#pushing).
 
 **Sub-cycles.** When a Work commit's scope grows enough to
-warrant its own ladder, it subdivides: `X.Y.Z-3.0`
-Preparation, `X.Y.Z-3.1` / `X.Y.Z-3.2` Work, `X.Y.Z-3`
-Close-out. The same three-phase shape applies recursively
-at every depth. See [Numbering](#numbering) for the
-suffix rule and [Sub-cycle ladders](#sub-cycle-ladders)
-for the local-ladder mechanics.
+warrant its own ladder, it subdivides into its own
+Preparation / Work / Close-out. The same three-phase shape
+applies recursively at every depth, and a sub-ladder's rungs
+are titles like any other. See
+[Step naming](#step-naming) for how a step is identified and
+[Sub-cycle ladders](#sub-cycle-ladders) for the local-ladder
+mechanics.
 
 ## Chores sections
 
@@ -61,15 +67,36 @@ A **chores section** is a `##` section in `notes/chores/chores-NN.md` recording 
 In general, every commit that lands on the permanent branch should have a rung in some
 section's as-built ladder in a chores file.
 
-The phrase **"Open" the chores section** means append a `##` header to the current
-`notes/chores/chores-NN.md` with the title it records (e.g. `## refactor: foo bar`), add the
-file's `## Table of Contents` entry, and start the **as-built ladder**: one
-`- [[N]] X.Y.Z[-n] <title>` rung per commit the section records, each opening with the literal
-`[[N]]` placeholder. **Each work commit then appends its own rung + narrative note as it
-lands**, so the chores record is built up per commit, not held back and written all at once at
-close-out; close-out only *finalizes* (title sync, design subsections, retiring the
-`## In Progress` block). Rung placeholders are backfilled later, once their commits are
-permanent (see [Commits backfill](#commits-backfill) below).
+**A cycle's record has one home at a time.** While the cycle runs it lives entirely in
+`TODO.md > ## In Progress`, as the [six provisional items](#preparation) written at Preparation
+and revised as steps land. At close-out the whole block **moves** into the chores file, becoming
+that cycle's `##` section. It is never written in two places, so there is nothing to keep in
+sync and nothing to write twice.
+
+The move is mechanical, four transforms and no rewriting:
+
+- **Heading levels shift so the title becomes the section's `##`** and the items shift with it,
+  staying one level under the title. Anchors survive untouched, because GitHub slugs derive from
+  the heading's *text*, not its level. The depth shift is one level for a plain cycle, and
+  whatever the title's depth demands under a program heading.
+- **Rung refs renumber** into the destination file's `[N]` namespace (see
+  [Reference numbering](notes.md#reference-numbering)).
+- **Repo-root-relative links gain `../`**, since the block moves from the root into
+  `notes/chores/`.
+- **The block's own forward-looking notes are rewritten**, since they described a future that
+  has now happened.
+
+Two of those fail *silently*: a mis-renumbered ref and an un-rebased link render as plain text
+or a 404 rather than erroring. Check both by hand until a `validate-repo` exists.
+
+A single-commit cycle's ladder is one rung, its close-out. Rung placeholders are backfilled once
+the commit is permanent (see [Commits backfill](#commits-backfill) below).
+
+The move also appends the section's title-only `- [<title>](#<anchor>)` entry to the file's
+`## Table of Contents`.
+
+Adopted after a full-cycle trial: the dual maintenance disappeared, and the narrative did not
+thin out from being written in `TODO.md`, which was the watched-for risk.
 
 Fuller chores conventions (content rules, header sync, design subsection pattern, ladder and
 reference formatting, the Table of Contents) live in
@@ -77,50 +104,84 @@ reference formatting, the Table of Contents) live in
 
 ### Commits backfill
 
-An as-built ladder rung cites its commit by SHA, but a SHA isn't stable until the commit lands
-on a **permanent branch** (`main`, or a long-lived release/patch branch that won't be
-rewritten); a rebase or squash rewrites it on the way. So:
+An as-built ladder rung cites its commit by SHA and records the version that commit carried,
+and neither is stable until the commit lands on a **permanent branch** (`main`, or a long-lived
+release/patch branch that won't be rewritten). A rebase or squash rewrites the SHA and may
+renumber the version on the way. So:
 
-- A rung is **written with the literal `[[N]]` placeholder**.
-- **Backfill once the commit is on a permanent branch**, where its SHA is final. A commit
+- A rung is **written with the literal `[[N]]` placeholder and no version**.
+- **Backfill once the commit is on a permanent branch**, where both are final. A commit
   can't record its own SHA (that would change the hash), so the fill always lands one push
   later: **each push backfills the rungs of the commits the previous push made permanent.** On
-  a topic branch the sections instead wait until the branch lands, so no SHA is ever written
+  a topic branch the sections instead wait until the branch lands, so nothing is ever written
   that a later rebase could invalidate.
 - A deliberate rewrite of already-recorded commits (a coordinated re-describe, a retroactive
   reshape) invalidates their recorded SHAs. Re-record them once the rewrite is published, on
   the same one-push-later timing.
 
-Each rung carries its own `[N]` ref, with the commit URL + 40-hex SHA in the file's
-`# References` (format in
-[Chores commit references](notes.md#chores-commit-references)). A section's `##`
-title matches its close-out commit title, and each rung's text its own commit title, so a rare
-deliberate rewrite of a permanent-branch commit re-syncs via `git log --grep "<title>"`.
-Sections that predate the ladder form keep their grandfathered `Commits:` lines.
+Backfill replaces the placeholder with a real file-local `[N]` slot, defined as the commit URL +
+40-hex SHA in the file's `# References` (format in
+[Chores commit references](notes.md#chores-commit-references)), and writes the version ahead of
+the title. A section's `##` title matches its close-out commit title, and each rung's text its
+own commit title, so a rare deliberate rewrite of a permanent-branch commit re-syncs via
+`git log --grep "<title>"`. Sections that predate the ladder form keep their grandfathered
+`Commits:` lines. Backfill those where they exist.
 
 The per-push cadence is a project choice, not dogma. A **per-close-out** model (recording a
-cycle's SHAs at its close-out) is equally valid. The one invariant: a recorded SHA must be
+cycle's SHAs at its close-out) is equally valid. The one invariant: what a rung records must be
 permanent.
 
 ## Preparation
 
-The cycle's first commit (`X.Y.Z-0`), when the cycle needs
-setup (a lightweight cycle omits it; see
-[versioning.md](versioning.md#step-numbering)):
+The cycle's first commit, when the cycle needs setup (a
+lightweight cycle omits it, per
+[versioning.md](versioning.md#suffix-scheme)):
 
-- **Bump the version-of-record** to `X.Y.Z-0`. Where it
-  lives, the suffix scheme, and any derived files (a
-  lockfile, a sourced manifest version) are
-  project-specific; see [versioning.md](versioning.md).
+- **Create the cycle's topic bookmark** (commands in
+  [Cycle bookmarks](jj.md#cycle-bookmarks-create-and-land)).
+- **Bump the version-of-record.** Where it lives, the suffix
+  scheme, and any derived files (a lockfile, a sourced
+  manifest version) are project-specific. See
+  [versioning.md](versioning.md).
 - **Move a `## Todo` item** (if the cycle has one) into
-  `## In Progress` and the todo item should have:
-  - A **bold title line**, which will be the chores
-    section header, minus the `## ` prefix.
-  - A **succinct problem statement**; add if one is needed
-  - A **plan ladder**.
-- **Open the [chores section](#chores-sections)**: append a
-  `##` header with the title it records, the cycle's
-  anticipated close-out title.
+  `## In Progress`, and write the cycle's **six provisional
+  items** there. All six are required, all six are revised
+  as steps land, and all six move to chores at close-out.
+  The title is a heading one level below `## In Progress`'s
+  own, and the other five are headings one level below the
+  title (a plain cycle: `###` title, `####` items; under a
+  program heading, each one deeper):
+  - the **title**, which becomes the chores section header.
+  - the **problem statement**: what is wrong, in a sentence
+    or two.
+  - the **solution statement**: what will be done about it,
+    broad. Provisional here, since it is written before the
+    work. The close-out's commit body carries the final one.
+  - the **acceptance check**: the measure of "are you
+    finished?". Not the per-commit validation, which asks
+    whether the artifact still works. This asks whether the
+    thing the cycle promised actually happened, specifically
+    enough that a reader can run it.
+  - the **ladder**: one rung per step, a bare title plus a
+    `(current)` / `(done)` marker.
+  - the **deliberation**: how the five above were decided,
+    alternatives weighed, costs accepted. `_None._` when
+    there was nothing to deliberate, which is a real answer
+    and different from having forgotten to write it.
+
+Nothing is opened in the chores file at Preparation. The
+section is created at close-out by moving this block. See
+[Chores sections](#chores-sections).
+
+**Why an acceptance check, and why it is provisional.** A
+cycle's own per-commit checklists can all pass while its
+banner claim is false: a seven-cycle program opened against
+"end subprocess spawning" and its close-out claimed the goal
+met, with about twenty spawn sites surviving, two inside the
+facade the program built. Being provisional, the check can
+also be revised *toward* what was achieved, which is the
+same failure by a slower route. So a changed check is one of
+the things the deliberation exists to justify.
 
 ## Work-N
 
@@ -139,45 +200,108 @@ implement the change. As many as needed:
 
 ## Close-out
 
-The cycle's last commit (bare `X.Y.Z`) does bookkeeping
-only, and the commit body describes that bookkeeping, not
-what happens post-squash:
+The cycle's last commit does bookkeeping only, and the
+commit body describes that bookkeeping, not what happens
+post-squash:
 
-- **Move the picked-up item** from `## In Progress` to a
-  one-line entry (with a chores `[N]` ref) in `## Done`.
-- **Finalize the chores section** (opened during Preparation
-  and grown per commit; see [Chores sections](#chores-sections)):
-  - The problem statement is already the chores intro (written
-    when the section was opened) and the plan ladder is already
-    the `### As-built ladder` (a rung appended per commit), so
-    close-out only *finalizes*, it does not cut-and-paste.
-  - Sync the chores header to the **final** commit title if the
-    cycle's scope shifted; update every anchor back-reference.
-  - Add any `### design subsections`; optional `### Outcome`
-    notes.
-  - Replace the `## In Progress` cycle block with
-    `_No cycle currently in progress._`. Under a multi-cycle
-    program (program `###`, current stage `####`) this retires
-    the stage `####` only; the program heading and its ladder
-    stay, the shipped rung flipped `(done)`, so the marker
-    sits inside the program block until the next stage is
-    picked up.
+- **Run the acceptance check** the Preparation stated, and
+  record what it showed in the block, whether or not it
+  passed. A check that was never run is a failed close-out,
+  and a check that failed is a finding, not a reason to
+  quietly restate the banner.
+- **Finalize the six items in place**, before the move: sync
+  the title if the cycle's scope shifted (and every anchor
+  back-reference), replace the provisional solution
+  statement with what was actually done, drop the ladder's
+  `(current)` / `(done)` markers since as-built implies
+  done, and add any design subsections the deliberation
+  grew.
+- **Move the block** into `notes/chores/chores-NN.md`,
+  applying the four transforms in
+  [Chores sections](#chores-sections). This *creates* the
+  section. Nothing was opened earlier.
+- **Write the `## Done` entry**: the version, then a bold
+  title line with its chores `[N]` ref and detail as
+  sub-bullets (see
+  [Done entry form](notes.md#done-entry-form)).
+- **Replace the `## In Progress` cycle block** with
+  `_No cycle currently in progress._`. Under a multi-cycle
+  program (the program heading above the cycle title) this
+  retires the cycle's block only. The program heading and
+  its ladder stay, the shipped rung flipped `(done)`, so the
+  marker sits inside the program block until the next stage
+  is picked up.
+- **Land the cycle's bookmark** on the user's go (commands
+  in [Cycle bookmarks](jj.md#cycle-bookmarks-create-and-land)).
+  Until this, nothing the cycle pushed is permanent. Landing
+  triggers the backfill that waits on permanence.
 - **Update `notes/README.md`** if functionality changed
   (new flags, new subcommands, changed behavior).
 
 Whether to **squash** the cycle into one commit before the
-publishing push, or push as-is, is decided at push time; see
+publishing push, or push as-is, is decided at push time. See
 [Pushing](#pushing).
 
-## Numbering
+## Step naming
 
-Each commit's phase is encoded in the version suffix: `-0`
-Preparation, `-1`/`-2`/... Work, bare `X.Y.Z` Close-out,
-recursively for sub-cycles. The full scheme (disambiguation,
-nesting, optional Preparation, the project's version-of-record
-format, and the per-phase bump) lives in
-[versioning.md](versioning.md#step-numbering), which is the
+A step has a title and no number. The ladder lists its rungs
+in order, so position is already recorded by the list, and a
+step is referred to by its title, verbatim-identical in the
+ladder rung, the chores `##` header and the commit (see
+[Steps are named, not numbered](prose.md#steps-are-named-not-numbered)).
+A title has to be unambiguous within its cycle and within
+its chores file, where it is also an anchor. It may repeat
+across the repo's history.
+
+The version-of-record still bumps for every step, and its
+suffix still encodes the phase, but that encoding belongs to
+the manifest and appears nowhere in prose. It is the one
+number left in the system, it names nothing, and nothing
+dereferences it. The full scheme (disambiguation, nesting,
+optional Preparation, the project's version-of-record
+format, and the per-step bump) lives in
+[versioning.md](versioning.md#suffix-scheme), which is the
 single source of truth for this repo's versioning.
+
+## Topic bookmarks are drafts
+
+A topic bookmark is a draft until it lands on a permanent
+branch. Pushing to the bookmark makes the work durable and
+visible; it does not publish it. Landing on the permanent
+branch is publication, and that is the line the rules divide
+at:
+
+- **Before landing**, the series should be self-consistent
+  when practical. Inserting or reordering a step changes the
+  ladder, and the rungs that already committed an older
+  version of it are brought along, so the branch reads as
+  one coherent ladder rather than a record of how it was
+  assembled.
+- **After landing**, the commits are history and are not
+  touched. A recorded SHA is only ever written for a commit
+  on a permanent branch (see
+  [Commits backfill](#commits-backfill)), which is what
+  makes rewriting a draft safe.
+
+Mechanics, and why they cost so little here:
+
+- **Amend content; never re-describe.** Editing `TODO.md`
+  inside a rung and amending it is not a `jj describe`, so
+  the never-re-describe rule stays intact. `ochid:` trailers
+  survive, since they carry change ids rather than commit
+  ids and a change id is stable across a rewrite.
+- **Force-push the bookmark** afterwards, under the same
+  approval any push needs.
+- **Exceptions**, since "when practical" is not "always":
+  the bookmark has already landed; another branch is stacked
+  on it, so the rewrite becomes someone else's rebase; or
+  the ladder is long and only a trailing snapshot disagrees.
+  Name the reason and move on.
+
+A squash-form [sub-cycle ladder](#sub-cycle-ladders) never
+meets this, because nothing on it is pushed and the
+close-out squash collapses it. The rule is for the
+multi-commit shape, whose rungs publish one at a time.
 
 ## Per-commit flow
 
@@ -191,7 +315,12 @@ through:
    for the loop-and-squash technique).
 3. **Flip this commit `(current)` -> `(done)`** in `## In
    Progress`, before the cargo cycle and the commit.
-4. **Validate the artifact**, a medium-specific step, skip-able
+4. **Bump the version-of-record** to this commit's version
+   (the suffix scheme is in
+   [versioning.md](versioning.md#suffix-scheme)). The
+   Preparation's own bump already covers a Preparation
+   commit.
+5. **Validate the artifact**, a medium-specific step, skip-able
    for notes-only commits, mandatory at close-out. For the Rust
    example the cargo cycle is:
    1. `cargo fmt`
@@ -199,19 +328,19 @@ through:
    3. `cargo test`
    4. `cargo install --path . --locked`
    5. (re-test if anything substantive changed)
-5. **Work review.** Stop *before* writing any description;
-   tell the user "ready to commit." The user reviews the
+6. **Work review.** Stop *before* writing any description,
+   and tell the user "ready to commit." The user reviews the
    changes and we iterate until complete.
-6. **Write the commit description**; see
+7. **Write the commit description**. See
    [Commit description](#commit-description).
-7. **Commit Description review.** Show the title + body
+8. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
-8. **Commit + push.** Hand the approved title/body to
+9. **Commit + push.** Hand the approved title/body to
    `vc-x1 push <bookmark> --title "..." --body "..."`, whose
    commit stages commit both repos and stamp the `ochid:`
    trailers. Never pre-commit the rung with `jj commit`: an
-   empty `@` at push mints a stamped empty duplicate
-   (bugs.md #6). Push approval is per-push, so step 7's
+   empty `@` at push mints a stamped empty duplicate.
+   Push approval is per-push, so step 8's
    review covers it only when the user's go explicitly
    includes the push.
 
@@ -219,7 +348,7 @@ through:
 
 - **Deviation or question.** Any time the work deviates
   from the agreed plan, or a question arises, stop and
-  surface it; don't push through.
+  surface it. Don't push through.
 - **ESC-ESC.** The user can interrupt at any point to pull
   a review or question forward.
 
@@ -232,75 +361,64 @@ through:
 <type>(scope): <short description>   # optional scope
 ```
 
-Titles carry **no trailing `(<version>)` suffix**. The
+**A commit names no version**, in its title or its body. The
 version-of-record (where it lives and its bump cadence, see
-[versioning.md](versioning.md)) is useful for confirming
-you're running the version you're testing, not a per-commit
-title marker. We think per-commit version-in-title is
-unstable on large projects: many changes are in flight
-simultaneously, and a version is only stable once merged into
-the main repo, so titles don't carry one.
+[versioning.md](versioning.md)) is useful for confirming you
+are running the version you are testing. It is not an
+identifier, and a commit already records it in the manifest.
+Writing it into the description copies it into text that
+cannot be edited: a version is only stable once it lands on
+the permanent branch, and even then a history rewrite may
+renumber it, at which point every description naming it is
+wrong forever. See
+[Versions live in the version-of-record only](prose.md#versions-live-in-the-version-of-record-only).
 
 ### Title
 
-- <=72 chars total.
+- <=50 chars total.
 - Common types: `feat`, `fix`, `refactor`, `test`,
-  `docs`, `chore`; optional `(scope)` in parentheses after
+  `docs`, `chore`. Optional `(scope)` in parentheses after
   the type, per the spec.
 - Favor terse phrasings.
 - **Distinct per step.** Each of a cycle's commits gets its
   own descriptive title (no shared cycle title with a step
   marker). Share a greppable stem across the cycle's titles
-  (e.g. `ring buffer`) so `git log --grep` collects them; the
+  (e.g. `ring buffer`) so `git log --grep` collects them. The
   chores section header matches the close-out title. See
   [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--chores--commit).
+- **Unambiguous where it is resolved**: the title is the
+  only identifier a record has, so it must be distinct
+  within its cycle and within its chores file (a `##` header
+  is also an anchor). It may repeat across the repo's
+  history. See
+  [Steps are named, not numbered](prose.md#steps-are-named-not-numbered).
 
 ### Body
 
-[Prose form](prose.md#prose-form) (intro + bullets),
-wrap ≤72. Bullet content differs per repo:
+A **problem statement** then a **solution statement**, in
+[Prose form](prose.md#prose-form) (intro + bullets), wrapped
+<=72. The problem statement says what was wrong and defines
+any word the title assumes. The solution statement says what
+was done about it. Content rules, including why the body
+carries no file list, are in
+[prose.md](prose.md#prose-form) and are not repeated here.
 
-- **Work-repo body**: file-by-file. One bullet per file
-  changed (file plus a one-line gist), in short sentence
-  fragments (full sentences are discouraged). Sub-bullets
-  for files with multiple distinct changes:
+Two repo-specific points:
 
-  ```
-  - path/to/file1
-    - first distinct change
-    - second distinct change, wrapping to next line
-       with continuation indented 5
-  ```
-
-  The list **opens with the version bump** as its first
-  bullet, for the Rust example
-  `- Cargo.toml, Cargo.lock: vX.Y.Z-xxxx` (generally:
-  the medium's version-of-record files); `-xxxx` stands for
-  the whole suffix, nested or not (`v0.78.0-1`,
-  `v0.78.0-3.1`), per
-  [versioning.md](versioning.md#grammar-and-storage). Titles stay
-  version-free (above), so this first bullet is the
-  version's durable, visible home, and log viewers (e.g.
-  gitk's message pane) show it without opening the commit's
-  file list. Adopted 2026-07-24.
-
-  The file-by-file list is the source of truth for the
-  cycle's mechanical change record. Chores carries the
-  narrative + design, not a copy of it. Promote any
-  "why" beyond one sentence to a chores `###` subsection.
-
-- **Bot-repo (`.claude`) body**: bullets describe
+- **Work-repo body**: the problem is the artifact's or the
+  records' problem.
+- **Bot-repo (`.claude`) body**: the statements describe
   in-session activity rather than work-repo changes.
 
 ### Trailer
 
-`ochid:` as the last line of the body; see
+`ochid:` as the last line of the body. See
 [Cross-repo linking (ochid trailers)](jj.md#cross-repo-linking-ochid-trailers)
 in agent-data/jj.md for the convention.
 
 For breaking changes, use the hyphenated `BREAKING-CHANGE:`
 trailer key. `BREAKING CHANGE:` (with a space) is the only
-space-separated key the Conventional Commits spec allows; the
+space-separated key the Conventional Commits spec allows. The
 hyphenated form is also valid and avoids the space ambiguity.
 
 ## Reviewing changes
@@ -315,7 +433,7 @@ editor (Zed, VSCode); jj commands are for terminal:
 - `jj show -r <X>`: description + diff for one rev
 
 Don't `jj edit -r @-` to view a past commit, because that marks
-it mutable and shifts `@`; use `jj diff -r @-` or
+it mutable and shifts `@`. Use `jj diff -r @-` or
 `jj show -r @-`.
 
 No preflight while a review iterates: `fmt` / `clippy` / `test`
@@ -324,7 +442,7 @@ that interact badly with the user's mid-review edits. Validation
 runs once, on the settled state, per the per-commit checklist.
 
 See [Sub-cycle ladders](#sub-cycle-ladders) for the
-close-out squash recipe and recovery; revset primitives
+close-out squash recipe and recovery. Revset primitives
 are in [`jj.md > Revsets`](jj.md#revsets).
 
 ## Pushing
@@ -340,7 +458,7 @@ cycle push, interim backup, recovery/surgery force-push)
 happens only after the user has reviewed the changes to be
 published and explicitly approved that specific push.
 Approval of a plan that *includes* a push does not authorize
-the push itself; stop and ask again at the moment of pushing.
+the push itself. Stop and ask again at the moment of pushing.
 
 **Default is interactive; an explicit scoped delegation waives
 the gates.** The gates above (per-push approval, the
@@ -354,17 +472,17 @@ through that task's commits and pushes without stopping, and
 continues past each push to the next step. Conditions:
 
 - **Explicit grant.** Never inferred from a task merely being
-  well-scoped; the user's words must authorize unattended
+  well-scoped. The user's words must authorize unattended
   completion. "Commit and push" (or "then push") names the
   destination, not a waiver: it authorizes the push *after*
   the normal work review and description review, not skipping
   them. Only wording that explicitly waives the stops ("don't
   check in", "no need to review", "carry it through
   unattended") waives them.
-- **Bounded goal.** Covers the named task only; does not carry
-  to the next task or a vaguer follow-on.
+- **Bounded goal.** Covers the named task only. It does not
+  carry to the next task or a vaguer follow-on.
 - **Destructive ops still pause.** Delegation covers the task's
-  ordinary commits and pushes; it does *not* pre-authorize a
+  ordinary commits and pushes. It does *not* pre-authorize a
   genuinely irreversible action (force-push over published
   history, history rewrite, deleting a remote branch). Those can
   permanently destroy work and aren't a normal cycle step, so the
@@ -397,7 +515,7 @@ needs approval), so choose deliberately.
 - **Keep separate**: one commit per cycle entry on
   `main`. Use when the decomposition itself is
   informative. Each chores section keeps its own header /
-  ladder refs; no consolidation churn.
+  ladder refs, no consolidation churn.
 
 A squash is set up before invoking `vc-x1 push`; a trapezoid
 is reshaped between two pushes (the recipe below). For any
@@ -441,8 +559,8 @@ remains is reshaping and publishing them:
    repo is untouched, and its session tail goes out with a
    separate `vc-x1 squash-push` afterwards.
 
-**Step 4 is not a `vc-x1 push`** (corrected at the `0.77.0`
-close-out, which tried it). Push runs its whole pipeline or
+**Step 4 is not a `vc-x1 push`**, learned at a close-out
+that tried it. Push runs its whole pipeline or
 none of it, and the bot repo is never quiet for long: by the
 time the reshape is done, `.claude` holds the session writes
 from steps 1-3, so `commit-bot` wants to run and the message
@@ -457,13 +575,13 @@ the latter is push's job.
 - **Verify two parents before step 4.** `jj log -r <closeout>
   -T 'parents.map(|p| p.change_id().short(8))'` must list
   both. jj preserves the second parent even though `<base>`
-  is an ancestor of `<tip>` (observed at `0.74.0`, `0.75.0`,
-  `0.76.0`), but a collapsed merge is indistinguishable from
+  is an ancestor of `<tip>` (observed at three consecutive
+  close-outs), but a collapsed merge is indistinguishable from
   a correct one in `jj log --no-graph` and is only visible
   once published.
 - **`<base>` is not always the previous close-out.** A docs
   or planning interlude between cycles sits on the trunk line
-  and must stay there; take the parent of the ladder's first
+  and must stay there. Take the parent of the ladder's first
   rung, not the last close-out.
 - **Step 3 is about `@`, not the bookmark.** The bookmark
   follows the rewrite in step 2 on its own. What step 2
@@ -480,10 +598,10 @@ the latter is push's job.
   in step 1 stay valid in both directions. This is why the
   reshape is safe after the trailers are written.
 - **Step 4 moves the bookmark sideways.** Step 1's SHA
-  becomes unreachable; anyone who fetched between the two
+  becomes unreachable, and anyone who fetched between the two
   pushes holds a dangling commit. Consequently a
   [Commits backfill](#commits-backfill) must never read a
-  SHA from that window; wait until step 4 lands.
+  SHA from that window. Wait until step 4 lands.
 - **Immutability.** No flag is needed on a long-lived topic
   bookmark. Only when `<closeout>` is already on `trunk()`
   does the rebase need `--ignore-immutable`, and then the
@@ -500,7 +618,7 @@ the latter is push's job.
   reshape is undoable with `jj undo` / `jj op restore`.
 - **A collapsed or mis-parented merge** (step 2 verification
   fails): undo and redo step 2 with the corrected revisions.
-  Do not push a shape you did not intend; after step 4 the
+  Do not push a shape you did not intend. After step 4 the
   remote boundary is crossed and recovery is forward-only.
 - **Working copy left beside the merge** (step 3 skipped):
   `jj new <closeout>` after the fact. Nothing published is
@@ -516,14 +634,14 @@ the latter is push's job.
 
 `vc-x1 push <bookmark>` wraps per-push mechanics. See
 `vc-x1 push --help` for current flags. `<bookmark>` names a
-work-repo bookmark only; the bot repo is always pinned to
+work-repo bookmark only. The bot repo is always pinned to
 `main` (see [.claude cadence](#claude-cadence)).
 
 **Current limitation**: only fully supports the
-[Keep separate](#shape-at-close-out-push) shape; other
+[Keep separate](#shape-at-close-out-push) shape. Other
 shapes need manual jj steps. Planned improvements are
-project state, tracked in the project's `TODO.md`;
-this protocol describes only the stable mechanism.
+project state, tracked in the project's `TODO.md`.
+This protocol describes only the stable mechanism.
 
 ### .claude cadence
 
@@ -531,7 +649,7 @@ this protocol describes only the stable mechanism.
 with every work-repo commit in that push.
 
 The `.claude` working copy accumulates session data
-across the cycle; its change ID stays stable across
+across the cycle. Its change ID stays stable across
 snapshots, `jj describe`, and the squash-push fold, so
 work-repo `ochid:` trailers resolve.
 
@@ -554,12 +672,12 @@ Use plain prose, no insider jargon ("Gate N signal",
 - **At Work review**, summarize what changed and stop.
   "Work complete. Please review."
 - **At Commit Description review**, present `$TITLE`
-  and `$BODY` explicitly; ask permission to commit/push.
+  and `$BODY` explicitly, and ask permission to commit/push.
   Don't spell out the full `vc-x1 push ... --title ...
   --body ...` invocation by default.
 - **At Post close-out review**, surface the shape
-  options (squash / merge / keep) and the push target;
-  wait for the user's choice before any `jj squash` /
+  options (squash / merge / keep) and the push target,
+  then wait for the user's choice before any `jj squash` /
   `jj rebase` / `jj git push` invocation.
 
 ### After push or squash-push: stop and wait
@@ -586,10 +704,10 @@ the next step seems obvious, wait.**
   (`vc-x1 squash-push -R .claude`).
 - **Silence**: put all closing words *before* the final
   push. The harness rejects an empty turn, so it may force a
-  visible token after the tool returns; if so, emit a bare
+  visible token after the tool returns. If so, emit a bare
   acknowledgment only (e.g. "landed"), never a summary,
   verification, or next-step offer. There is no "harmless"
-  closing line after the push; that is a known slip.
+  closing line after the push. That is a known slip.
 - **Flush**: when the user wants `@` empty (no tail), they
   run `vc-x1 squash-push -R .claude` after the bot goes
   quiet, which flushes all bot session information into the
@@ -616,9 +734,9 @@ the next step seems obvious, wait.**
     closing response land after the squash.
   - Safe to repeat: bot session data is append-only, so a
     re-run never conflicts or overwrites. (This could
-    change; it is not under the user's control.)
+    change. It is not under the user's control.)
   - No guarantees: events outside the bot's control can leave
-    `@` non-empty; e.g. the bot's back end may decide to
+    `@` non-empty. The bot's back end may decide to
     squash/consolidate session data, which can take minutes
     and land after the pass. The remedy is the same: just
     run squash-push again. This is why a single pass is never
@@ -628,7 +746,7 @@ the next step seems obvious, wait.**
   hand is simply the state the next run sees.
 - **Late work-repo tweak after the work-repo push succeeded**
   (e.g. updating AGENTS.md or memory) requires `jj
-  squash --ignore-immutable` and a re-push; that is a
+  squash --ignore-immutable` and a re-push. That is a
   remote rewrite and needs explicit approval like any
   push.
 
@@ -652,7 +770,9 @@ single-commit scope, so the version doesn't change.
 ## Sub-cycle ladders
 
 When a Work commit subdivides into a sub-cycle (see
-[Numbering](#numbering) for suffix nesting), its Work
+[Step naming](#step-naming), and
+[versioning.md](versioning.md#suffix-scheme) for how the
+manifest's suffix nests), its Work
 commits will live as a local jj `@` chain and
 **collapse into the sub-cycle's Close-out** before the
 parent cycle continues. Ladder commits are scratch, for
@@ -669,7 +789,7 @@ For each Work commit in the ladder:
    clippy alone miss regressions until a later commit runs the
    full suite, raising bisection cost.
 4. `jj describe -m "..." -m "..." -R .`: working title
-   only; the sub-cycle Close-out collects everything
+   only. The sub-cycle Close-out collects everything
    into one final commit.
 
 **Nothing here is pushed.** The ladder is local until the
@@ -688,12 +808,12 @@ Common moves:
 - `jj log -r '<base>::' -R .`: see the whole ladder
   from its base.
 - `jj edit -r <prefix> -R .`: jump `@` to any ladder
-  commit by chid prefix; useful for bisection.
+  commit by chid prefix, useful for bisection.
 - `jj edit @-- -R .`: quick-jump back two commits.
 - `jj diff -r <chid> -R .`: review one commit in
   isolation.
 
-Modifications to any ladder commit rewrite it in place;
+Modifications to any ladder commit rewrite it in place, and
 descendants auto-rebase.
 
 ### Close-out: squash the ladder
@@ -704,9 +824,9 @@ When all ladder Work commits are done and tests pass:
 jj squash --from "<base>..@-" --into @ -u -R .
 ```
 
-`<base>` is the parent of the first ladder commit; `-u`
+`<base>` is the parent of the first ladder commit, and `-u`
 keeps `@`'s description and discards the sources'.
-After squash, history is linear: `<base> -> @`;
+After squash, history is linear (`<base> -> @`), and
 intermediate commits are auto-abandoned.
 
 Then `vc-x1 push <bookmark>` as for any other commit. This is
@@ -718,7 +838,7 @@ never left the machine and never carried one, which is why
 describing them freely is safe.
 
 For N = 1 the squash is a no-op (`<base>..@-` is empty
-when `@-` is `<base>`); push the single commit directly.
+when `@-` is `<base>`). Push the single commit directly.
 
 ### Recovery
 
@@ -726,13 +846,13 @@ If a ladder commit goes wrong, back out without losing
 prior commits:
 
 - **Discard the current commit.** `jj abandon @ -R .`
-  drops it; you get a fresh empty `@` on the same
+  drops it, and you get a fresh empty `@` on the same
   parent.
 - **Edit an earlier commit.** `jj edit -r <chid> -R .`,
   make corrections, then `jj edit -r <last-ladder-chid>`
   to return. Descendants auto-rebase.
 - **Discard the entire ladder.** `jj op log -R .` shows
-  the op history; `jj op restore <op-id> -R .` reverts
+  the op history, and `jj op restore <op-id> -R .` reverts
   to that point. Full undo: removes *all* ladder work
   after the chosen op. Use only to start over.
 
