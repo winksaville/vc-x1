@@ -337,10 +337,10 @@ work = "."
 }
 
 /// Renders a commented block documenting every settable workspace
-/// config key not already covered by the active `[repos]`
-/// block above: currently the `push.*` and `bot-session.*`
-/// families, sourced from `config_schema::schema()` so this list
-/// cannot drift from the schema.
+/// config key not already covered by the active `[repos]` block
+/// above, sourced from `config_schema::schema()` (itself generated
+/// from the `vc-config.toml` prototype) so this list cannot drift
+/// from the schema.
 ///
 /// Grouped by TOML section (schema/first-seen order); each key is
 /// emitted via `config_schema::render_key_block`: a multi-line

@@ -55,36 +55,51 @@ the bot dir's `.claude` name is agent-specific where this workspace wants the ne
 
 #### Solution
 
-Regenerate both config files from the current binary's schema, retire the state-dir leftovers,
-add a `config --refresh` that rewrites a file's commented schema block while preserving active
-keys and `[repos]`, and repoint `repos.bot` at `.agent-session`. The directory rename itself is
-wink's move between sessions (a live session writes through the symlink), with the following
-session committing the record.
+Make a repo-root `vc-config.toml` prototype the schema's single source, then rebuild the
+config surface from it:
+
+- the prototype holds real TOML tables, one per settable key: doc, used-by, default,
+  reference url
+- build.rs parses it and generates the schema table and default constants
+  - `src/config_schema.rs` shrinks to the include plus hand-written helpers
+  - behavioral defaults (col-width, result-lines) consume the generated constants, so the
+    code cannot disagree with the file
+- regenerate both config files from that pipeline, retiring the fossil comment blocks
+- retire the state-dir leftovers
+- add a `config --refresh` that rewrites a file's commented schema block while preserving
+  active keys and `[repos]`
+  - a `--check` mode renders and compares without writing, exiting nonzero on any
+    difference, so a prototype edit that skipped the refresh fails loudly
+- repoint `repos.bot` at `.agent-session`
+  - the directory rename itself is wink's move between sessions (a live session writes
+    through the symlink), with the following session committing the record
 
 #### Acceptance check
 
-1. `vc-x1 config --validate` is clean on both sides, and neither file mentions `[push]`,
+1. build.rs generates the schema table and default constants from `vc-config.toml`
+   (rerun-if-changed wired), the hand-kept `COL_WIDTH` / `RESULT_LINE_CAP` constants are gone
+   from `src/`, and generated configs carry each key's `reference:` line.
+2. `vc-x1 config --validate` is clean on both sides, and neither file mentions `[push]`,
    `state-dir`, or `state-file`.
-2. `config --refresh` on a fixture with stale comment blocks and active keys preserves the
+3. `config --refresh` on a fixture with stale comment blocks and active keys preserves the
    active keys and `[repos]` while replacing the stale blocks (a test demonstrates it).
-3. After the rename: `repos.bot = ".agent-session"`, a cycle rung pushes from a session end to
+4. `config --refresh --check` exits clean on both sides, proving the committed config files
+   match what the prototype renders.
+5. After the rename: `repos.bot = ".agent-session"`, a cycle rung pushes from a session end to
    end, and new commits still stamp `/.claude/`-labeled ochid trailers.
-4. No `.vc-x1` dir in either repo and no `/.vc-x1` line in `.gitignore`, which ignores the bot
+6. No `.vc-x1` dir in either repo and no `/.vc-x1` line in `.gitignore`, which ignores the bot
    dir under its new name.
 
 #### Ladder
 
 - docs: freshen vc-config and config subcmd opening (done)
 - docs: separate work review stop (done)
+- feat: vc-config.toml prototype + build.rs codegen (done)
+- docs: ladder ToC + per-rung sections
 - chore: regenerate stale config files
 - feat: add config --refresh
+- docs: vc-config.md per-key examples
 - chore: point config at .agent-session
-  - wink's between-session move sits just before this rung: after the previous rung lands
-    and the bot tail is flushed, /exit, then `mv .claude .agent-session`, edit the work-side
-    config's `repos.bot` and the work `.gitignore` entry to `.agent-session`, run
-    `vc-x1 symlink`, and start the session that commits this rung
-  - the `.gitignore` edit belongs in the move, not the commit: un-ignored, the renamed bot
-    dir would be swept into the work repo's next snapshot
 - docs: freshen vc-config and config subcmd
 
 #### Deliberation
@@ -111,6 +126,94 @@ session committing the record.
   already stands in the checklist and protocol; the rung sharpens both so no description
   appears before the work review settles. An agent-file change is its own commit, which is why
   it is a rung rather than a rider on the opening
+- the "chore: regenerate stale config files" rung reached its work review with the files
+  regenerated, then was reverted uncommitted: the review judged regenerating before fixing the
+  generator backwards, and the discussion that followed re-scoped the cycle around wink's
+  prototype idea (the fossil `[push]` block rotted because the schema is hand-kept in code
+  with no file-level source, so the fix moves the source into a file)
+- `vc-config.toml` (unhidden, repo root) becomes the schema's single source: its structure
+  mirrors the config one level richer (each settable key a table of metadata: doc, used-by,
+  default, reference url), build.rs parses it and generates the schema table and default
+  constants, and the behavioral defaults consume the generated constants so the code cannot
+  disagree with the file
+  - codegen lands in OUT_DIR rather than a tracked src file, avoiding dirty-tree-on-build
+  - the per-key reference url answers the same review's finding that a schema entry
+    (col-width 68) could not be traced to its docs
+- the two pushed rungs' TODO snapshots carry the pre-pivot ladder. The reorder is recorded
+  here rather than amended into them: the drafts rule's self-consistency yields because the
+  pivot itself is a record worth keeping, and the snapshots show the plan the review changed
+- `--refresh --check` came from wink's "run the generation and verify nothing changes"
+  framing of the acceptance check: the prototype-to-binary leg cannot drift (every build
+  re-derives), so the check guards the one leg that can, prototype to committed configs
+- per-rung sections (below) adopted mid-cycle: the ladder stays a bare ToC and a rung with
+  conceptual content gets a section headed by its exact title, greppable and
+  anchor-addressable, written at the rung's completion. No placeholder sections. The "docs:
+  ladder ToC + per-rung sections" rung pins the convention into the agent-files, its own
+  commit like the review-stop one
+
+#### Ladder details
+
+##### docs: freshen vc-config and config subcmd opening
+
+- Devise a mechanism for managing vc-config
+-  
+##### docs: separate work review stop
+
+- the work-review stop ("please review", replacing "ready to commit") now carries no
+  description, drafted or final: the description is written only once the work review
+  completes, and the user's go is provisional since the review may restart
+- sharpened in the per-commit checklist, the protocol's per-commit flow, and the
+  bot-communication guidance, so the two reviews cannot collapse into one message
+
+##### feat: vc-config.toml prototype + build.rs codegen
+
+- the prototype is one TOML table per settable key (homes, kind, doc, used-by, default or
+  example, required, optional reference override), key order being rendering order; a loud
+  header separates it from `.vc-config.toml`
+- long-form per-key docs live in `vc-config.md`, one `##` section per key path; references
+  are derived (the `[vc-config] reference-base` repo url + `/blob/HEAD/` + the key's heading
+  anchor, so links follow the default branch and no branch is baked in) rather than written
+  per key, and a fork customizes base + file together
+- build.rs parses it line-based (house style: build scripts stay dependency-free) and
+  generates the schema table plus typed `<PATH>_DEFAULT` constants into OUT_DIR; a malformed
+  prototype fails the build, and rerun-if-changed makes edits take effect on the next build
+- `config_schema.rs` keeps the types and renderers, includes the generated table, and renders
+  a new `reference:` line in every key block, so generated configs link to their docs
+- bot-session's hand-kept `COL_WIDTH` / `RESULT_LINE_CAP` retired for the generated
+  constants; the 68 rationale moved onto the prototype's col-width entry, whose doc now names
+  the consuming views (--fields / --unknown / --per-line)
+- drift guards: the clap help "[default: N; ...]" notes are tested against the generated
+  defaults, parse_item_list(items default) must equal `ItemSet::BUILTIN`, every key needs an
+  https reference, and every derived reference must anchor at a real vc-config.md heading (a
+  key added to the prototype without docs fails the suite)
+- deferred: the renderer still wraps comment blocks at 72; adopting the 100-col width belongs
+  to the regenerate rung, where the rendered text is reviewed anyway
+
+##### docs: vc-config.md per-key examples
+
+The seeded vc-config.md sections mostly restate each key's one-liner, and a reference link
+must reward the click. Per section:
+
+- a worked TOML example as it would appear in the actual config file (for
+  `repo.category.<cat>`, the category definition plus the `init --repo` invocation consuming
+  it; for the `account.*` family, a full profile showing the shadowing; for
+  `bot-session.items`, a couple of named recipes)
+- the resolution story where it is non-trivial: the user-config account/repo chain needs an
+  overview, not one fragment per section
+- effects, not just meaning: what visibly changes when the key is set
+- decide here: extend the anchor drift test to require a toml code fence per key section,
+  making "has an example" suite-enforced (quality itself stays a review judgment)
+
+##### chore: point config at .agent-session
+
+- wink's between-session move sits just before this rung: after the previous rung lands
+  and the bot tail is flushed, /exit, then `mv .claude .agent-session`, edit the work-side
+  config's `repos.bot` and the work `.gitignore` entry to `.agent-session`, run
+  `vc-x1 symlink`, and start the session that commits this rung
+- the `.gitignore` edit belongs in the move, not the commit: un-ignored, the renamed bot
+  dir would be swept into the work repo's next snapshot
+
+##### docs: freshen vc-config and config subcmd
 
 _The program block below predates the six-item convention and is grandfathered. Its versioned
 rungs convert when touched._

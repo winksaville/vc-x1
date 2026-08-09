@@ -528,8 +528,11 @@ push publishes it anyway.
 
 Print the settable config keys for a target config file as an annotated, commented schema: for each
 key its description, the command/context it's `used by`, its default (or a value marked `# example`
-when there is no default), and a commented assignment line ready to paste in. The schema is
-generated from one in-code registry, so it can't drift from what the code actually reads.
+when there is no default), a `reference` url pointing at that key's documentation, and a commented
+assignment line ready to paste in. The schema is generated at build time from the `vc-config.toml`
+prototype at the repo root (see
+[vc-config.toml (the schema prototype)](#vc-configtoml-the-schema-prototype)), so it can't drift
+from what the code actually reads.
 
 - `[TARGET]`: `work`, `bot`, `work,bot` (default), or an explicit config-file path. The keywords
   resolve against the surrounding workspace's `.vc-config.toml` files and filter to that side's
@@ -546,9 +549,10 @@ A short sample of the printed schema (workspace home):
 ```
 [bot-session]
 # bot-session.col-width: Default --col-width: first-column width in the
-#   field-inventory views
+#   --fields / --unknown / --per-line views
 #   used by: bot-session --col-width
 #   default: 68
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
 # col-width = 68
 
 [repos]
@@ -557,6 +561,7 @@ A short sample of the printed schema (workspace home):
 #   resolving to the config's own directory names the side
 #   used by: find_workspace_root, side detection (structural; written by init)
 #   default: (required; role-specific, see init)
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#reposwork
 work = "."   # example
 ```
 
@@ -568,6 +573,7 @@ value:
 #   when --account is absent
 #   used by: --account (init and account-aware commands)
 #   default: (none)
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#defaultaccount
 # account = "work"   # example
 ```
 
@@ -594,6 +600,41 @@ vc-x1 config ../other/.vc-config.toml --validate
 |------|-------------|
 | `[TARGET]` | `work`, `bot`, `work,bot`, or a config-file path [default: work,bot] |
 | `--validate` | Check the target config file(s) instead of printing the schema |
+
+### vc-config.toml (the schema prototype)
+
+`vc-config.toml` at the repo root (no leading dot) is the single source of truth for the
+settable-key schema above. It is not a config file: each settable key is a TOML table of that
+key's metadata, and build.rs parses the file and generates the schema table plus the built-in
+default constants the binary compiles against. One file drives every surface:
+
+- the `config` subcommand's printed schema (above)
+- the commented blocks `init` writes into a new workspace's `.vc-config.toml`
+- the built-in defaults themselves (e.g. `bot-session --col-width`'s 68), consumed from the
+  generated constants, so behavior cannot disagree with documentation
+- each key's `reference:` url, so a reader of any generated config can find that key's docs
+
+The long-form per-key documentation lives in [vc-config.md](vc-config.md), one section per key.
+References are derived, not written: build.rs joins the prototype's single
+`[vc-config] reference-base` (the bare repo url) with `/blob/HEAD/` and each key's vc-config.md
+heading anchor, so links follow the repo's default branch and no branch name is baked in; the test
+suite fails if a key has no matching heading there. A per-key `reference` entry overrides the derivation
+for the odd key documented elsewhere. A fork customizes both in one place: point `reference-base`
+at your repo and edit your `vc-config.md`.
+
+Editing the prototype is a source change like any other: edit, `cargo build`, and the change is live
+(build.rs re-runs whenever the file changes). A malformed prototype, an unknown metadata entry, a
+missing `doc`, a non-integer `usize` default, or a duplicate key path fails the build with a message
+naming the offending table. A key's table looks like:
+
+```toml
+[bot-session.col-width]
+homes = ["user", "workspace-code", "workspace-bot"]
+kind = "usize"
+doc = "Default --col-width: first-column width in the --fields / --unknown / --per-line views"
+used-by = "bot-session --col-width"
+default = 68
+```
 
 ### clone
 

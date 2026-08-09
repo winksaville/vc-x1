@@ -331,6 +331,15 @@
     promote every prose rule that touches a body. Concrete trigger: revisit after
     iiac-perf's measure-reproducibility cycle closes under the convention.
 
+51. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
+    `vc-x1 config` renders each key's name as an OSC 8 hyperlink to its reference url, so the
+    printed schema is clickable in supporting terminals; suppressed when piped, with an
+    `ls`-style `--hyperlink=auto|always|never` override.
+    - the stored files keep plain urls: TOML forbids control characters in comments, and
+      editors plus most modern terminals linkify plain urls already
+    - builds on the vc-config.toml prototype's per-key reference field (the "docs: freshen
+      vc-config and config subcmd" cycle), so it waits for that cycle to land
+
 # References
 
 [2]: /notes/forks-multi-user.md

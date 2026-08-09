@@ -34,7 +34,7 @@ fn default_view() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::BUILTIN,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -64,7 +64,7 @@ fn reveal_flags() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::ALL,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -90,7 +90,7 @@ fn meta_and_sidechain_hidden() {
     let (lines, stats) = render(
         &t,
         &ItemSet::BUILTIN,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -103,7 +103,7 @@ fn meta_and_sidechain_hidden() {
             meta: true,
             ..ItemSet::BUILTIN
         },
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -119,12 +119,22 @@ fn meta_and_sidechain_hidden() {
 fn result_cap() {
     let body = (1..=15).map(|i| format!("l{i}")).collect::<Vec<_>>();
     let mut lines = Vec::new();
-    push_result(&mut lines, &body.join("\n"), false, RESULT_LINE_CAP);
-    assert_eq!(lines.len(), RESULT_LINE_CAP + 1);
+    push_result(
+        &mut lines,
+        &body.join("\n"),
+        false,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+    );
+    assert_eq!(lines.len(), BOT_SESSION_RESULT_LINES_DEFAULT + 1);
     assert_eq!(lines[0], "  [result] l1");
-    assert!(lines[RESULT_LINE_CAP].contains("(+5 lines)"));
+    assert!(lines[BOT_SESSION_RESULT_LINES_DEFAULT].contains("(+5 lines)"));
     let mut err_lines = Vec::new();
-    push_result(&mut err_lines, "boom", true, RESULT_LINE_CAP);
+    push_result(
+        &mut err_lines,
+        "boom",
+        true,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+    );
     assert_eq!(err_lines[0], "  [result:error] boom");
 
     let mut two = Vec::new();
@@ -209,7 +219,14 @@ fn line_bounds_cases() {
 fn render_source_slice() {
     // sample() lines: 1 prompt, 2 thinking, 3 text, 4 tool_use,
     // 5 tool_result, 6 system, 7 bookkeeping.
-    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP, 2, 4, 7);
+    let (lines, stats) = render(
+        &sample(),
+        &ItemSet::BUILTIN,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+        2,
+        4,
+        7,
+    );
     let out = lines.join("\n");
     assert!(
         out.starts_with("... (2 source lines skipped)"),
@@ -234,7 +251,7 @@ fn item_gating() {
     let (lines, stats) = render(
         &sample(),
         &no_headers,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -251,7 +268,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &user_only,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -265,7 +282,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &no_tool,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -360,5 +377,51 @@ fn summary_lines() {
         summary_line(&stats, 1, None),
         "bot-session: 2 turns shown; hidden: 4 thinking, 1 tool results, \
          2 meta/system; skipped: 7 bookkeeping entries; 1 malformed lines"
+    );
+}
+
+/// The schema's `bot-session.items` default string and the code's
+/// `ItemSet::BUILTIN` are two spellings of the same set; parsing
+/// one must yield the other, or the generated config documents a
+/// default the renderer does not use.
+#[test]
+fn items_default_matches_builtin() {
+    assert_eq!(
+        parse_item_list(crate::config_schema::BOT_SESSION_ITEMS_DEFAULT).unwrap(),
+        ItemSet::BUILTIN
+    );
+}
+
+/// The clap doc comments hand-write the built-in defaults in
+/// their `[default: N; ...]` notes while the values come from the
+/// generated schema. Fail when the prose and the schema drift.
+#[test]
+fn help_defaults_match_generated() {
+    use clap::CommandFactory;
+    let cmd = crate::Cli::command();
+    let bs = cmd
+        .get_subcommands()
+        .find(|c| c.get_name() == "bot-session")
+        .unwrap_or_else(|| panic!("bot-session subcommand not found"));
+    let help_of = |id: &str| -> String {
+        let arg = bs
+            .get_arguments()
+            .find(|a| a.get_id() == id)
+            .unwrap_or_else(|| panic!("arg {id} not found"));
+        format!(
+            "{}\n{}",
+            arg.get_help().map(ToString::to_string).unwrap_or_default(),
+            arg.get_long_help()
+                .map(ToString::to_string)
+                .unwrap_or_default()
+        )
+    };
+    assert!(
+        help_of("col_width").contains(&format!("default: {BOT_SESSION_COL_WIDTH_DEFAULT};")),
+        "--col-width help drifted from the generated default"
+    );
+    assert!(
+        help_of("result_lines").contains(&format!("default: {BOT_SESSION_RESULT_LINES_DEFAULT};")),
+        "--result-lines help drifted from the generated default"
     );
 }

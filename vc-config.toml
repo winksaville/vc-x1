@@ -1,0 +1,113 @@
+# vc-config.toml: the schema PROTOTYPE, not a config file.
+#
+# This file is the single source of truth for vc-x1's settable
+# config keys. build.rs parses it and generates the schema table
+# and default constants the binary is compiled from, so the code
+# cannot disagree with this file. Your workspace config is
+# `.vc-config.toml` (note the leading dot); editing THIS file
+# changes what the binary knows, takes effect on the next build,
+# and is reviewed like any source change.
+#
+# Shape: one TOML table per settable key, named by the key's path
+# (dynamic segments quoted: [repo.category."<cat>"]). Entries:
+#
+#   homes      which config file(s) accept the key: "user"
+#              (~/.config/vc-x1/config.toml), "workspace-code",
+#              "workspace-bot" (the two .vc-config.toml sides)
+#   kind       value shape: "str", "usize", or "item-list"
+#   doc        one-line description (rendered, keep it tight)
+#   used-by    the command/flag or structural context consuming it
+#   default    the built-in value; omit when there is none
+#   example    representative value for keys with no default
+#   required   active (not commented) in generated configs; the
+#              value is role-specific, filled by init
+#   reference  optional override url for the key's docs; when
+#              absent (the norm) build.rs derives
+#              <reference-base>/blob/HEAD/vc-config.md#<anchor of
+#              the path>, the key's section in vc-config.md on the
+#              repo's default branch
+#
+# Key order here is rendering order everywhere downstream.
+
+# The [vc-config] table is the prototype's own metadata, not a
+# settable key.
+[vc-config]
+reference-base = "https://github.com/winksaville/vc-x1"
+
+[default.account]
+homes = ["user"]
+kind = "str"
+doc = "Account profile (an [account.<name>] section) to use when --account is absent"
+used-by = "--account (init and account-aware commands)"
+example = "work"
+
+[default.debug]
+homes = ["user"]
+kind = "str"
+doc = "Default --debug value when used without an argument (reserved; not yet consumed)"
+used-by = "--debug (reserved; not yet consumed)"
+example = "true"
+
+[repo.default]
+homes = ["user"]
+kind = "str"
+doc = "Default repo category when --repo is bare: a [repo.category.<cat>] name: a built-in (remote, local) or your own"
+used-by = "--repo (default category when --repo is bare)"
+example = "acmehousing"
+
+[repo.category."<cat>"]
+homes = ["user"]
+kind = "str"
+doc = "Literal value for repo category <cat>: a remote URL prefix (init appends /<NAME>.git) or a local parent dir"
+used-by = "--repo <cat> (init remote/local resolution)"
+example = "git@github.com:acmehousing"
+
+[account."<name>".repo.default]
+homes = ["user"]
+kind = "str"
+doc = "Per-account default repo category: a [repo.category.<cat>] name: a built-in (remote, local) or your own"
+used-by = "--account <name> with --repo"
+example = "acmehousing"
+
+[account."<name>".repo.category."<cat>"]
+homes = ["user"]
+kind = "str"
+doc = "Per-account literal value for repo category <cat> (remote URL prefix or local parent dir)"
+used-by = "--account <name> with --repo <cat>"
+example = "git@github.com:acmehousing"
+
+[bot-session.items]
+homes = ["user", "workspace-code", "workspace-bot"]
+kind = "item-list"
+doc = "Default bot-session item set (comma-separated)"
+used-by = "bot-session --<item> / --no-<item> / --all / --none"
+default = "headers,user,assistant,tool,summary"
+
+[bot-session.result-lines]
+homes = ["user", "workspace-code", "workspace-bot"]
+kind = "usize"
+doc = "Default --result-lines: max lines shown per tool result (0 = unlimited)"
+used-by = "bot-session --result-lines"
+default = 10
+
+[bot-session.col-width]
+homes = ["user", "workspace-code", "workspace-bot"]
+kind = "usize"
+doc = "Default --col-width: first-column width in the --fields / --unknown / --per-line views"
+used-by = "bot-session --col-width"
+default = 68
+
+[repos.work]
+homes = ["workspace-code", "workspace-bot"]
+kind = "str"
+doc = "The work repo's path, relative to this config file's directory (\".\" in the work repo, \"..\" in the bot repo); the entry resolving to the config's own directory names the side"
+used-by = "find_workspace_root, side detection (structural; written by init)"
+required = true
+example = "."
+
+[repos.bot]
+homes = ["workspace-code", "workspace-bot"]
+kind = "str"
+doc = "The bot repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the bot repo); presence signals dual-repo mode"
+used-by = "default_scope, scope resolution, ochid prefixes (structural)"
+example = ".claude"

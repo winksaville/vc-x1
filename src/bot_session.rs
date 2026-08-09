@@ -22,19 +22,14 @@ use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 
-/// Default max lines of one tool result shown under `--results`.
-pub(crate) const RESULT_LINE_CAP: usize = 10;
-
-/// Default first-column width in the `--fields` /
-/// `--unknown` / `--per-line` views.
-///
-/// - 68 aligns the type column for ~99% of observed key paths:
-///   every structural key except a long tail of
-///   `snapshot.trackedFileBackups.<absolute path>.*` keys, whose
-///   embedded absolute paths can be arbitrarily long and so are
-///   left to overflow.
-/// - Override with `--col-width`.
-pub(crate) const COL_WIDTH: usize = 68;
+/// The built-in defaults for `--result-lines` and `--col-width`
+/// come from the generated schema (the `vc-config.toml`
+/// prototype), so the flags, the config keys, and the printed
+/// schema share one source. The 68 rationale lives as a comment
+/// on the prototype's `[bot-session.col-width]` entry.
+pub(crate) use crate::config_schema::{
+    BOT_SESSION_COL_WIDTH_DEFAULT, BOT_SESSION_RESULT_LINES_DEFAULT,
+};
 
 /// Max chars of a tool-use one-liner gist.
 const GIST_CHAR_CAP: usize = 100;
@@ -456,12 +451,12 @@ pub fn bot_session(
         .col_width
         .or(ws.col_width)
         .or(ctx.user_config.bot_session_col_width)
-        .unwrap_or(COL_WIDTH);
+        .unwrap_or(BOT_SESSION_COL_WIDTH_DEFAULT);
     let result_lines = params
         .result_lines
         .or(ws.result_lines)
         .or(ctx.user_config.bot_session_result_lines)
-        .unwrap_or(RESULT_LINE_CAP);
+        .unwrap_or(BOT_SESSION_RESULT_LINES_DEFAULT);
     match params.view {
         View::Raw => return raw_view(params),
         View::Fields {
