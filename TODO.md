@@ -43,6 +43,75 @@ which numbered Todo entries can't). Full rules in
 [cycle-protocol.md](agent-data/cycle-protocol.md#preparation); the move's four transforms are
 in [Chores sections](agent-data/cycle-protocol.md#chores-sections).
 
+### docs: freshen vc-config and config subcmd
+
+#### Problem
+
+Both repos' `.vc-config.toml` carry a fossil `[push]` comment block from an older binary's
+schema, the retired `.vc-x1` state dirs linger (empty dirs on disk, a `/.vc-x1` line in the
+work `.gitignore`), generated config comments have no refresh tooling so they rot silently, and
+the bot dir's `.claude` name is agent-specific where this workspace wants the neutral
+`.agent-session`.
+
+#### Solution
+
+Regenerate both config files from the current binary's schema, retire the state-dir leftovers,
+add a `config --refresh` that rewrites a file's commented schema block while preserving active
+keys and `[repos]`, and repoint `repos.bot` at `.agent-session`. The directory rename itself is
+wink's move between sessions (a live session writes through the symlink), with the following
+session committing the record.
+
+#### Acceptance check
+
+1. `vc-x1 config --validate` is clean on both sides, and neither file mentions `[push]`,
+   `state-dir`, or `state-file`.
+2. `config --refresh` on a fixture with stale comment blocks and active keys preserves the
+   active keys and `[repos]` while replacing the stale blocks (a test demonstrates it).
+3. After the rename: `repos.bot = ".agent-session"`, a cycle rung pushes from a session end to
+   end, and new commits still stamp `/.claude/`-labeled ochid trailers.
+4. No `.vc-x1` dir in either repo and no `/.vc-x1` line in `.gitignore`, which ignores the bot
+   dir under its new name.
+
+#### Ladder
+
+- docs: freshen vc-config and config subcmd opening (current)
+- docs: separate work review stop
+- chore: regenerate stale config files
+- feat: add config --refresh
+- chore: point config at .agent-session
+  - wink's between-session move sits just before this rung: after the previous rung lands
+    and the bot tail is flushed, /exit, then `mv .claude .agent-session`, edit the work-side
+    config's `repos.bot` and the work `.gitignore` entry to `.agent-session`, run
+    `vc-x1 symlink`, and start the session that commits this rung
+  - the `.gitignore` edit belongs in the move, not the commit: un-ignored, the renamed bot
+    dir would be swept into the work repo's next snapshot
+- docs: freshen vc-config and config subcmd
+
+#### Deliberation
+
+- the `.agent-session` rename was leaning toward its own cycle; it folds in here because it
+  needs an inter-session quiesce, which a multi-step cycle's `/exit` between rungs naturally
+  provides
+- the ochid prefix is a canonical side label decoupled from the bot dir's path (test-pinned: a
+  custom bot dir still stamps `/.claude/`), so history and future trailers stay coherent across
+  the rename
+- pinned files name `.claude` as the bot repo's path; the rename step updates that text to
+  path-neutral wording as a family proposal, this member's diff carrying it until convergence
+- 0.79.0 is spoken for by the trapezoid branch's anticipated close-out, so this cycle is a
+  patch at 0.78.8
+- the close-out title dropped ".toml" from wink's phrasing so the opening bookend stays inside
+  the title cap
+- the single-name guard refuses a suffixed version under the stable name, so the opening
+  renames the package to `vc-x1-dev` (versioning.md's Dev artifact name) and the close-out's
+  bump to the bare version renames it back
+- Done sweep at this opening: nothing migrated, the 0.78.2+ entries staying as nearby context
+  after the 0.78.6 sweep
+- the "docs: separate work review stop" rung was inserted at this opening's own review, where
+  the bot collapsed the work review and the description review into one message. The rule
+  already stands in the checklist and protocol; the rung sharpens both so no description
+  appears before the work review settles. An agent-file change is its own commit, which is why
+  it is a rung rather than a rider on the opening
+
 _The program block below predates the six-item convention and is grandfathered. Its versioned
 rungs convert when touched._
 
