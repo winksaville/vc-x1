@@ -42,8 +42,8 @@ detail. The rule as stated here is binding on its own.
    number and no version, and it must be unambiguous within its cycle and its chores file. See
    [the shape](agent-data/prose.md#conventional-commit-shape-ladder--chores--commit).
 10. **Stop and ask** on ambiguous input, on any deviation from the agreed plan, and when 5+
-    minutes on a simple task has produced no progress. A clarifying question costs seconds;
-    redoing misaligned work costs much more.
+    minutes on a simple task has produced no progress. A clarifying question costs seconds,
+    while redoing misaligned work costs much more.
 11. **Alert the user when introducing an `unwrap` / `expect` / `unwrap_or*` site**, with its
     `// OK: ...` comment. [code.md](agent-data/code.md).
 12. **Intent decides where a rule change is written.** Meant for the family: edit the local copy
@@ -196,12 +196,12 @@ template repository's payload, and every member repo carries its own copy of the
   maintenance and cannot go stale.
 - **An agent-file change is its own commit**, so `git log -- AGENTS.md agent-data/` reads as a
   list of rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer
-  links the bot-repo session that reasoned it out. The diff says what differs now; the history
+  links the bot-repo session that reasoned it out. The diff says what differs now. The history
   says when, by whom, and why.
 - **A local agent-file may hold an unagreed experiment**, so unlike the payload it does not read
   as family-agreed. Diff against the payload when that distinction matters.
 - **At convergence** the family reviews the members' diffs, folds what it accepts into the
-  payload, and every member re-syncs. The diff empties; the history keeps the record.
+  payload, and every member re-syncs. The diff empties, and the history keeps the record.
 - **A resolved experiment retires** like a finished Todo, at the beat where it resolves: see
   [Retiring Done entries](agent-data/notes.md#retiring-done-entries). Adopted and rejected retire
   the same way.

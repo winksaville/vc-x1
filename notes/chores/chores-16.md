@@ -17,6 +17,7 @@ Reference numbering is file-local; see
 - [refactor: drop sync state and remove revert](#refactor-drop-sync-state-and-remove-revert)
 - [test: Claude Code can complete a cycle](#test-claude-code-can-complete-a-cycle)
 - [docs: adopt the merged agent-file set](#docs-adopt-the-merged-agent-file-set)
+- [docs: fix three semicolons](#docs-fix-three-semicolons)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -202,7 +203,7 @@ bar any `revert` reintroduction must clear; until someone wants it, `jj op log` 
 
 ## test: Claude Code can complete a cycle
 
-- [[N]] 0.78.4 test: Claude Code can complete a cycle
+- [[5]] 0.78.4 test: Claude Code can complete a cycle
 
 `vc-x1 push` had been failing from sandboxed sessions, and the cause was never pinned down: the
 failure always arrived at the end of a session, where the cheapest response was to hand the push
@@ -307,9 +308,60 @@ The review verdicts, argued in-session (the ochid-linked session holds the full 
   six-item shape lists it fourth. This section put the ladder first; logged as dogfood
   friction rather than resolved here
 
+## docs: fix three semicolons
+
+- [[N]] docs: fix three semicolons
+
+A single-commit cycle. Like
+[docs: adopt the merged agent-file set](#docs-adopt-the-merged-agent-file-set) above, its six
+items were written here directly at close-out, the opening and close-out collapsing into the
+one commit.
+
+### Problem
+
+wink proposed forbidding semicolons in all prose, agent-files and code documentation included,
+to shrink and simplify the rules. Review found the footprint already small (one prose.md
+section plus three passing mentions) and every prose semicolon in AGENTS.md to be the
+antithesis-between-equals form the rule protects. What stood after the argument was a narrower
+preference: the family's top-level file should read without any.
+
+### Solution
+
+The three joins reword with no information change, and nothing else moves:
+
+- the hard-rule contrast ("costs seconds / costs much more") takes ", while"
+- the diff/history pair splits into two sentences, since its second half carries internal
+  commas that a ", and" join would blur into
+- the convergence pair ("the diff empties / the history keeps the record") takes ", and"
+- code-span semicolons are shell syntax and stay
+- prose.md's Semicolons rule is untouched, so the member's diff against the payload proposes
+  only AGENTS.md wording
+
+### Acceptance check
+
+`grep -n ';' AGENTS.md` returns only lines whose semicolons sit inside backtick code spans,
+and the reworded sentences carry the same claims as before. Ran at close-out: pass, the three
+remaining hits being the shell specimens under "One command per shell invocation" and "Never
+mask a command's exit status".
+
+### Deliberation
+
+- the outright ban was argued down on four points: the current rule already names and bans the
+  lazy joins, the enforcement rationale that makes the typeable-punctuation rule absolute
+  (untypeable, ungreppable) does not transfer to an ASCII character, a ban still needs the
+  syntax-versus-prose and authored-versus-transcribed judgments so it cannot become a byte
+  scan, and the whole footprint at stake is about fifteen lines of one file
+- each rewording was checked for information change before adoption, which is how the
+  diff/history pair became two sentences instead of taking the ", and" the other pair took
+- prose.md's Semicolons section keeps quoting the old convergence pair as its specimen, now a
+  quotation of this file's older wording rather than a live sentence, acceptable for a
+  specimen and left to converge at the template
+- the session the ochid links holds the full exchange
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
 [2]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
 [3]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"
-[4]: https://github.com/winksaville/vc-x1/commit/66f8e31ca74d "66f8e31ca74da36eda676adad1cb9f2fd05a1c43"
+[4]: https://github.com/winksaville/vc-x1/commit/198cc4b3150e "198cc4b3150ea4c7e2ae2ac9911ad5398ae40cce"
+[5]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"

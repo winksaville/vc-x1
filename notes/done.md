@@ -269,6 +269,45 @@ As TODO.md `## Done` sections fills move them to here.
   lines, ~940 net removed; fifth stage of the jj refactor
   program [[134]]
 
+- docs: jj-lib design notes + trapezoid recipe: the op-store
+  coexistence risk answered from jj-lib 0.41 source against an
+  installed jj 0.40.0 (unenforceable, low blast radius, so a
+  decision rather than a step 0.78.0 assumes), and the
+  trapezoid recipe corrected where the 0.77.0 close-out found
+  it wrong: step 4 is `jj git push`, not `vc-x1 push` [[135]]
+
+- docs: typeable punctuation: `—`, `–`, `…` and `→` no longer
+  authored in durable text, and the 553 sites in the five prose
+  files converted. None can be typed at a terminal, so none can
+  be grepped for, and an em dash next to option syntax reads as
+  another flag. The rule sorts a character by the role it plays
+  (naming it, doing a job, transcribed from outside) and warns
+  that converting a heading moves its anchor. Scope covers
+  commit titles and `src/`; that sweep is deferred to `## Todo`
+  [[136]]
+
+- docs: re-describe rule + defer punctuation sweep: `jj
+  describe` on a published or already-stamped commit is a
+  history rewrite that silently drops the `ochid:` trailer, so
+  it is coordinate-first; the sub-cycle ladder is the named
+  exception, being local until its single Close-out push. Two
+  planned `0.77.x` rungs retired, the source sweep to `## Todo`
+  and interlude shape to the backlog [[137]]
+
+- build: bump jj-lib to 0.43: the local `jj` moved to 0.43.0,
+  leaving the pin two releases behind. `use_glob_by_default`
+  is gone from `RevsetParseContext` and `commit_change_ids()`
+  returns a stream rather than an iterator, so `futures` joins
+  the direct dependencies. The bump also moved the default
+  revset string-pattern kind from substring to glob, which the
+  compiler could not report and which no revset of ours uses
+  [[138]]
+
+- refactor: jj-lib migration [[139]]: facade internals and every
+  mutation move in-process on jj-lib, ending jj and git spawning;
+  the version gate makes the op-store coupling enforceable and the
+  index-lock retry (bugs.md #1) is the headline prize.
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -388,3 +427,8 @@ As TODO.md `## Done` sections fills move them to here.
 [132]: /notes/chores/chores-14.md#refactor-repo-registry
 [133]: /notes/chores/chores-15.md#docs-trapezoid-close-out-recipe
 [134]: /notes/chores/chores-15.md#refactor-stateless-push
+[135]: /notes/chores/chores-15.md#docs-jj-lib-design-notes--trapezoid-recipe
+[136]: /notes/chores/chores-15.md#docs-typeable-punctuation
+[137]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep
+[138]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
+[139]: /notes/chores/chores-15.md#refactor-jj-lib-migration

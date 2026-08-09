@@ -110,7 +110,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     branched off `0.78.2` on its own bookmark `drop-sync-state-vc-x1` while `0.79.0` runs
     on `trapezoid-push-vc-x1`; trunk order holds, since it lands on `main` ahead of the
     `0.79.0` merge
-- [[N]] 0.78.4 test: Claude Code can complete a cycle (done)
+- [[30]] 0.78.4 test: Claude Code can complete a cycle (done)
   - not a program rung either: a one-commit cycle that opened as a throwaway experiment on
     `cc-bm-and-push-test` and was promoted mid-run, branched off `0.78.3`; lands on `main`
     ahead of the `0.79.0` merge, so trunk order holds
@@ -740,6 +740,12 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.78.6 **docs: fix three semicolons** [[31]]
+  - the three prose semicolons in AGENTS.md reword to comma and period joins with no
+    information change, leaving only the shell-syntax ones in code spans
+  - prose.md's Semicolons rule is unchanged: the proposed prose-wide ban was examined and
+    dropped, with the argument in the chores section
+
 - 0.78.5 **docs: adopt the merged agent-file set** [[29]]
   - iiac-perf's `agent-files-model` proposal merged onto this repo's file layout with the
     review's corrections: cycles on their own bookmark, the six-item cycle record with one
@@ -782,44 +788,10 @@ cycle and its two docs interludes: template repo names, notes rework)._
   in truncate_chars, and the config/show output separators; README
   config samples regenerated from the installed binary.
 
-- refactor: jj-lib migration [[21]]: facade internals and every
-  mutation move in-process on jj-lib, ending jj and git spawning;
-  the version gate makes the op-store coupling enforceable and the
-  index-lock retry (bugs.md #1) is the headline prize.
-
-- build: bump jj-lib to 0.43: the local `jj` moved to 0.43.0,
-  leaving the pin two releases behind. `use_glob_by_default`
-  is gone from `RevsetParseContext` and `commit_change_ids()`
-  returns a stream rather than an iterator, so `futures` joins
-  the direct dependencies. The bump also moved the default
-  revset string-pattern kind from substring to glob, which the
-  compiler could not report and which no revset of ours uses
-  [[19]]
-
-- docs: re-describe rule + defer punctuation sweep: `jj
-  describe` on a published or already-stamped commit is a
-  history rewrite that silently drops the `ochid:` trailer, so
-  it is coordinate-first; the sub-cycle ladder is the named
-  exception, being local until its single Close-out push. Two
-  planned `0.77.x` rungs retired, the source sweep to `## Todo`
-  and interlude shape to the backlog [[17]]
-
-- docs: typeable punctuation: `—`, `–`, `…` and `→` no longer
-  authored in durable text, and the 553 sites in the five prose
-  files converted. None can be typed at a terminal, so none can
-  be grepped for, and an em dash next to option syntax reads as
-  another flag. The rule sorts a character by the role it plays
-  (naming it, doing a job, transcribed from outside) and warns
-  that converting a heading moves its anchor. Scope covers
-  commit titles and `src/`; that sweep is deferred to `## Todo`
-  [[14]]
-
-- docs: jj-lib design notes + trapezoid recipe: the op-store
-  coexistence risk answered from jj-lib 0.41 source against an
-  installed jj 0.40.0 (unenforceable, low blast radius, so a
-  decision rather than a step 0.78.0 assumes), and the
-  trapezoid recipe corrected where the 0.77.0 close-out found
-  it wrong: step 4 is `jj git push`, not `vc-x1 push` [[15]]
+_Migrated to [done.md](notes/done.md) on 2026-08-09 (the
+jj-lib migration and 0.43-bump cycles, and the three docs
+interludes: jj-lib design notes, typeable punctuation,
+re-describe rule)._
 
 _Migrated to [done.md](notes/done.md) on 2026-08-03 (the
 program-ladder, repo-registry, trapezoid-recipe, and
@@ -837,14 +809,9 @@ hygiene-riders and facade-owns-topology cycles)._
 [11]: https://github.com/winksaville/vc-x1/commit/3be698fcde83 "3be698fcde831b09949077e1ce934839ee01f4ea"
 [12]: https://github.com/winksaville/vc-x1/commit/eb4a12eb3b56 "eb4a12eb3b561234d176953d3773960fb9f4cdaa"
 [13]: https://github.com/winksaville/vc-x1/commit/2424e14f858d "2424e14f858d010e5c07e8821149a114b3d3dda5"
-[14]: /notes/chores/chores-15.md#docs-typeable-punctuation
-[15]: /notes/chores/chores-15.md#docs-jj-lib-design-notes--trapezoid-recipe
 [16]: https://github.com/winksaville/vc-x1/commit/62d71818d78b "62d71818d78bc06ae8f5cc17ca060d30a08b6ea1"
-[17]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep
 [18]: https://github.com/winksaville/vc-x1/commit/03df811a72fe "03df811a72fe61bdd013e34961e72aecd671c126"
-[19]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [20]: https://github.com/winksaville/vc-x1/commit/0cf200b9b3eb "0cf200b9b3eb2ad652b99e518edcdfe69b657075"
-[21]: /notes/chores/chores-15.md#refactor-jj-lib-migration
 [22]: https://github.com/winksaville/vc-x1/commit/99f45fcb87d9 "99f45fcb87d901c00b0c650e520cb98b30e74208"
 [23]: https://github.com/winksaville/vc-x1/commit/b2a5171292c5 "b2a5171292c553d000d6ead88fc5f5e537bebb7c"
 [24]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
@@ -853,3 +820,5 @@ hygiene-riders and facade-owns-topology cycles)._
 [27]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"
 [28]: /notes/chores/chores-16.md#test-claude-code-can-complete-a-cycle
 [29]: /notes/chores/chores-16.md#docs-adopt-the-merged-agent-file-set
+[30]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"
+[31]: /notes/chores/chores-16.md#docs-fix-three-semicolons
