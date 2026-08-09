@@ -18,6 +18,7 @@ Reference numbering is file-local; see
 - [test: Claude Code can complete a cycle](#test-claude-code-can-complete-a-cycle)
 - [docs: adopt the merged agent-file set](#docs-adopt-the-merged-agent-file-set)
 - [docs: fix three semicolons](#docs-fix-three-semicolons)
+- [docs: consolidate line widths](#docs-consolidate-line-widths)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -310,7 +311,7 @@ The review verdicts, argued in-session (the ochid-linked session holds the full 
 
 ## docs: fix three semicolons
 
-- [[N]] docs: fix three semicolons
+- [[6]] 0.78.6 docs: fix three semicolons
 
 A single-commit cycle. Like
 [docs: adopt the merged agent-file set](#docs-adopt-the-merged-agent-file-set) above, its six
@@ -358,6 +359,51 @@ mask a command's exit status".
   specimen and left to converge at the template
 - the session the ochid links holds the full exchange
 
+## docs: consolidate line widths
+
+- [[N]] docs: consolidate line widths
+
+A single-commit cycle, its six items written here directly at close-out like the two sections
+above.
+
+### Problem
+
+The line-width numbers were restated at eight sites across four pinned files, so changing one
+meant hunting the rest. And the commit-body width (72, git's older log-indent convention) was
+not the Linux kernel patch standard (75) wink understood the project to have adopted.
+
+### Solution
+
+The numbers move to one home, a new Line widths subsection in prose.md, and every other site
+becomes a pointer to it:
+
+- the subsection holds all four numbers (prose <=100, source <=100, titles <=50, bodies <=75)
+  plus the wrap discipline (re-wrap when touched, write to the full width, long-line
+  exceptions), which travels with the numbers
+- commit bodies move from 72 to 75, dated in the subsection, with published bodies keeping the
+  wrap they shipped with
+- prose.md's own intro, its surfaces list, and its Conventional-commit-shape bullet defer to
+  the subsection, as do cycle-checklists step 7, cycle-protocol's Title and Body sections, and
+  code.md's Line width section, which keeps only its enforcement notes (`cargo fmt`, comment
+  reflow)
+
+### Acceptance check
+
+`grep -rn '<=50\|<=72\|<=75\|<=100\|50-col\|72-col\|75-col' AGENTS.md custom.md
+custom-family.md agent-data/` hits only prose.md's Line widths subsection, and each pointer's
+anchor resolves. Ran at close-out: pass, four hits, all inside the subsection.
+
+### Deliberation
+
+- 72 vs 75: both are real standards, git's convention against the kernel's
+  submitting-patches number. wink chose the kernel standard, and the switch is cheap because a
+  published body is never re-wrapped anyway
+- consolidation was weighed against checklist self-containedness: the checklists keep their
+  instructions and lose only the number, a pointer being the price of copies that cannot
+  drift. This cycle exists because the copies were already one drift into disagreement with
+  what wink believed the standard was
+- the session the ochid links holds the full exchange
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
@@ -365,3 +411,4 @@ mask a command's exit status".
 [3]: https://github.com/winksaville/vc-x1/commit/b90f948defc6 "b90f948defc6be6dc7231ca1fde2eb293dc558ac"
 [4]: https://github.com/winksaville/vc-x1/commit/198cc4b3150e "198cc4b3150ea4c7e2ae2ac9911ad5398ae40cce"
 [5]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"
+[6]: https://github.com/winksaville/vc-x1/commit/d22c787658a1 "d22c787658a1e87a8da5e43edb23913a1215f5df"

@@ -12,11 +12,8 @@ Project-local content goes in [custom.md](../custom.md).
 
 Long-lived prose on this project follows one basic shape: a short intro that explains the *why*
 or the high-level *what*, sharpened to a *problem statement* where a surface calls for one (see
-[Problem-first shape](#problem-first-shape)), then a `-` bullet list for the details. Wrap lines
-at <=100 cols, commit titles at <=50 and commit bodies at <=72 (bullet continuations indent two
-spaces). Existing text re-wraps when touched, no mass sweeps. Write to the full width: wrap near
-the limit rather than imitating the narrow wrap of older text. A default, not an absolute: a line
-that reads better long stays long (an URL, a literal report row, indented code in a comment). One
+[Problem-first shape](#problem-first-shape)), then a `-` bullet list for the details. The width
+numbers and the wrap discipline live in [Line widths](#line-widths) below, their one home. One
 fact per bullet or sub-bullet beats a paragraph packing several. Avoid wall-of-prose paragraphs:
 they hide the structure that bullets make scannable. Punctuation that joins clauses without
 naming their relationship is the same failure at sentence scale. See
@@ -27,8 +24,8 @@ Surfaces that use this shape:
 
 - Module / function / struct / field doc comments in `.rs` files. See
   [Doc comments](code.md#doc-comments-on-every-file-function-and-method).
-- Commit message bodies (both work-repo and bot-repo). The <=50-col title is the
-  commit-specific add-on. See [Per-commit flow](cycle-protocol.md#per-commit-flow).
+- Commit message bodies (both work-repo and bot-repo). The title is the commit-specific
+  add-on. See [Per-commit flow](cycle-protocol.md#per-commit-flow).
 - Chore descriptions in `notes/chores/chores-NN.md`. See
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
 - Todo entries in `TODO.md` when an entry needs more than one line of detail. Pure one-liners
@@ -55,6 +52,24 @@ Bullet *content* differs by surface:
   list. See
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
 - **Doc comments**: bullets are whatever structure fits (fields, cases, invariants).
+
+### Line widths
+
+Every width number lives here and nowhere else: the other files and sections link here rather
+than restating one, so a change is a single edit and the copies cannot drift. Consolidated
+2026-08-09, when the body width moved and the restatements had to be hunted.
+
+- **Prose**, all durable text: wrap at <=100 cols, bullet continuations indented two spaces.
+- **Source**, doc comments and inline comments included: <=100 cols, which is rustfmt's default
+  `max_width` (enforcement notes in [code.md](code.md#line-width)).
+- **Commit titles**: <=50 chars.
+- **Commit bodies**: <=75 cols, the Linux kernel patch standard. It replaced git's older 72
+  convention here 2026-08-09; published bodies keep the wrap they shipped with.
+
+The widths are wrap defaults, not absolutes (the title cap excepted). Existing text re-wraps
+when touched, no mass sweeps. Write to the full width: wrap near the limit rather than
+imitating the narrow wrap of older text, and a line that reads better long stays long (an URL,
+a literal report row, indented code in a comment).
 
 ### Problem-first shape
 
@@ -164,8 +179,8 @@ The three surfaces apply it as:
 - **Chores section** (`notes/chores/chores-NN.md`): no prefix, since the `##` header *is* the
   bare title. The as-built ladder is the first content under it (see
   [Chores commit references](notes.md#chores-commit-references)).
-- **Commit description**: no prefix. The title is the <=50-col first line, and the body is the
-  prose (see [Commit description](cycle-protocol.md#commit-description)).
+- **Commit description**: no prefix. The title is the first line, and the body is the prose
+  (see [Commit description](cycle-protocol.md#commit-description)).
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
 chores `##` header, and its commit title line up verbatim. Pick the commit title first and

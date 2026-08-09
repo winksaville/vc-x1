@@ -9,9 +9,10 @@ Project-local content goes in [custom.md](../custom.md).
 
 ## Line width
 
-Source lines, including doc comments and inline comments, wrap at <=100 cols, rustfmt's
-default `max_width`. The per-commit flow's `cargo fmt` enforces it for code, and the same limit
-applies to the comment text it doesn't reflow.
+Source lines, including doc comments and inline comments, wrap at the source width in
+prose.md's [Line widths](prose.md#line-widths), which matches rustfmt's default `max_width`.
+The per-commit flow's `cargo fmt` enforces it for code, and the same limit applies to the
+comment text it doesn't reflow.
 
 ## Doc comments on every file, function, and method
 

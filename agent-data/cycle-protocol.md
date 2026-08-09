@@ -375,7 +375,7 @@ wrong forever. See
 
 ### Title
 
-- <=50 chars total.
+- Length per [Line widths](prose.md#line-widths).
 - Common types: `feat`, `fix`, `refactor`, `test`,
   `docs`, `chore`. Optional `(scope)` in parentheses after
   the type, per the spec.
@@ -397,7 +397,8 @@ wrong forever. See
 
 A **problem statement** then a **solution statement**, in
 [Prose form](prose.md#prose-form) (intro + bullets), wrapped
-<=72. The problem statement says what was wrong and defines
+per [Line widths](prose.md#line-widths).
+The problem statement says what was wrong and defines
 any word the title assumes. The solution statement says what
 was done about it. Content rules, including why the body
 carries no file list, are in

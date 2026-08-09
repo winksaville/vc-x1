@@ -117,8 +117,9 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
    Skip-able for notes-only commits, mandatory at close-out.
 6. Say "ready to commit" and stop. The user reviews the working-copy diff. Iterate until
    complete.
-7. Write the description: a <=50-col conventional title, then a problem statement and a solution
-   statement, both broad, wrapped at <=72. No version in either, no file list (the diff is the
+7. Write the description: a conventional title, then a problem statement and a solution
+   statement, both broad, sized per prose.md's
+   [Line widths](prose.md#line-widths). No version in either, no file list (the diff is the
    mechanical record), and no deliberation (chores, todo, and the session hold that). See
    [Commit description](cycle-protocol.md#commit-description).
 8. Show title + body and stop for review. This review covers the push only when the user's go

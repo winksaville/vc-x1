@@ -740,6 +740,11 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.78.7 **docs: consolidate line widths** [[32]]
+  - the width numbers live only in prose.md's new Line widths subsection, every former
+    restatement now a pointer
+  - commit bodies wrap at <=75 (the Linux kernel patch standard) instead of git's older 72
+
 - 0.78.6 **docs: fix three semicolons** [[31]]
   - the three prose semicolons in AGENTS.md reword to comma and period joins with no
     information change, leaving only the shell-syntax ones in code spans
@@ -822,3 +827,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [29]: /notes/chores/chores-16.md#docs-adopt-the-merged-agent-file-set
 [30]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"
 [31]: /notes/chores/chores-16.md#docs-fix-three-semicolons
+[32]: /notes/chores/chores-16.md#docs-consolidate-line-widths
