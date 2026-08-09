@@ -329,9 +329,14 @@ through:
    4. `cargo install --path . --locked`
    5. (re-test if anything substantive changed)
 6. **Work review.** Stop *before* writing any description,
-   and tell the user "ready to commit." The user reviews the
-   changes and we iterate until complete.
-7. **Write the commit description**. See
+   and tell the user "please review". The stop is its own
+   message and carries no title or body, drafted or final: a
+   description beside the work review collapses two stops
+   into one, and describes work the review may still change.
+   The user reviews the changes and we iterate until
+   complete.
+7. **Write the commit description**, only once the work
+   review completes. See
    [Commit description](#commit-description).
 8. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.
@@ -671,7 +676,9 @@ Use plain prose, no insider jargon ("Gate N signal",
 "Checkpoint N", etc.):
 
 - **At Work review**, summarize what changed and stop.
-  "Work complete. Please review."
+  "Work complete. Please review." No title or body in this
+  message: the description is not yet written, and belongs
+  to the next review.
 - **At Commit Description review**, present `$TITLE`
   and `$BODY` explicitly, and ask permission to commit/push.
   Don't spell out the full `vc-x1 push ... --title ...

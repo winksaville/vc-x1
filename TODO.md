@@ -74,8 +74,8 @@ session committing the record.
 
 #### Ladder
 
-- docs: freshen vc-config and config subcmd opening (current)
-- docs: separate work review stop
+- docs: freshen vc-config and config subcmd opening (done)
+- docs: separate work review stop (done)
 - chore: regenerate stale config files
 - feat: add config --refresh
 - chore: point config at .agent-session
