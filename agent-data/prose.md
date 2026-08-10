@@ -173,10 +173,14 @@ above). The shared template:
 
 The three surfaces apply it as:
 
-- **Ladder step** (`TODO.md` `## In Progress`): the rung is the bare title plus a `(current)` /
-  `(done)` marker, and its position in the list is its position in the ladder. The last rung is
-  the close-out and its text says so. Detail lives not on the rung but in the block's
-  `Ladder details` subsection headed by the rung's exact title (see the protocol's
+- **Ladder step** (`TODO.md` `## In Progress`): the rung is
+  `- [[N]] [<title>][M] (marker)`: the as-built `[[N]]` placeholder carried from birth, the
+  title reference-linked to the rung's subsection via `[M]: #<slug>` in the file's
+  `# References` (the closing rung unlinked until its gotchas subsection exists), and the
+  `(current)` / `(done)` marker. Its
+  position in the list is its position in the ladder. The last rung is the close-out and its
+  text says so. Detail lives not on the rung but in the block's `Ladder details` subsection
+  headed by the rung's exact title (see the protocol's
   [Preparation](cycle-protocol.md#preparation)), bulleted, never `;`-joined inline.
 - **Chores section** (`notes/chores/chores-NN.md`): no prefix, since the `##` header *is* the
   bare title. The as-built ladder is the first content under it (see
@@ -186,19 +190,25 @@ The three surfaces apply it as:
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
 chores `##` header, and its commit title line up verbatim. A `Ladder details` subsection
-heading, when the rung has one, carries the same title, a conditional fourth surface. Pick the
-commit title first and reuse it.
+heading carries the same title, a fourth surface on every rung (the closing rung's exists only
+when close-out gotchas occurred: see the protocol's
+[Preparation](cycle-protocol.md#preparation)). Pick the commit title first and reuse it.
 
 That identity is **per step**, not per cycle: each step in a cycle gets its own distinct
 descriptive title, never one shared cycle title uniquified by a step marker. The cycle's chores
-section header carries the anticipated *close-out* title. To keep a cycle's commits collectable
-with one `git log --grep`, give the step titles a common greppable stem (e.g. `config loader`).
+section header carries the *cycle title*, the bare name no multi-step commit carries (see the
+bookends below). To keep a cycle's commits collectable with one `git log --grep`, give the
+step titles a common greppable stem (e.g. `config loader`).
 
-**Cycle bookend titles**: the opening commit's title is the close-out title plus " opening",
-same type (`feat: dynamic warmup opening` / `feat: dynamic warmup`), so one
-`git log --grep "<close-out title>"` returns exactly the pair that brackets the cycle. The
-type repeats the close-out's even though an opening is mostly bookkeeping: identical prefixes
-make the pair scannable. Rungs between keep their own titles on the stem.
+**Cycle bookend titles**: a multi-step cycle's bookend commits are the cycle title plus a
+suffix, " opening" and " closing", same type (`feat: dynamic warmup opening` /
+`feat: dynamic warmup closing`), so one `git log --grep "<cycle title>"` returns the pair that
+brackets the ladder. The bare cycle title is the cycle's *name*: the chores `##` header and
+the `## Done` entry carry it, and no multi-step commit does, which is also what keeps the
+closing rung's subsection anchor clear of the section header's. A single-step cycle's one
+commit is the cycle and keeps the bare title. The type repeats across the pair even though the
+bookends are mostly bookkeeping: identical prefixes make them scannable. Rungs between keep
+their own titles on the stem.
 
 ### Steps are named, not numbered
 

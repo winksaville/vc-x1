@@ -340,6 +340,68 @@
     - builds on the vc-config.toml prototype's per-key reference field (the "docs: freshen
       vc-config and config subcmd" cycle), so it waits for that cycle to land
 
+52. **init distributes vc-config.md; reference-base points at the member** (wink + bot,
+    2026-08-10). `vc-x1 init` seeds a new member with a copy of `vc-config.md` from the
+    template payload and stamps `[vc-config] reference-base` with the member's own repo url,
+    so every generated doc-reference web link in the member's `.vc-config.toml` lands on a
+    copy the member owns. The copy is a pinned family file: a member's edits diff against the
+    payload and are its doc proposals, folded back at convergence.
+    - the instance `.vc-config.toml` stays the only behavior-changing file: pinning and
+      value-carrying are mutually exclusive, since workspace values in a pinned copy would
+      pollute the diff-as-proposal property
+    - the prototype `vc-config.toml` stays vc-x1-only build source (schema proposals travel by
+      family channel or fork), and workspace-local keys wait on the `[private]` table
+    - `validate-anchors` gains member-side work: the carried copy must still have the headings
+      the instance's `reference:` links anchor at
+    - settled at the "chore: regenerate stale config files" rung of the "docs: freshen
+      vc-config and config subcmd" cycle; the fuller ownership model is recorded there
+    - the `localfile://./vc-config.md#<anchor>` entry in each key's `doc references:` list
+      lands here, not in the doc-references rung it was drafted in (cut at review, wink
+      2026-08-10): the entry is useless until the file it names exists locally, which is
+      this entry's seeding. Editors and terminals need a taught handler for the scheme
+      (claude-web: straightforward in neovim / vscode, harder in zed); the rendered list
+      form already leaves room, so adding the entry is append-only
+    - a possible example of the localfile link (the doc one-liner will wrap at <=100 rather
+      than this example's width):
+      ```
+      # bot-session.col-width: Default --col-width: first-column width in the
+      #   --fields / --unknown / --per-line views
+      #   used by: bot-session --col-width
+      #   default: 68
+      #   doc references:
+      #    - https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
+      #    - localfile://./vc-config.md#bot-sessioncol-width
+      # col-width = 68
+      ```
+
+53. **Reference defs: go file-relative, with anchors** (wink + bot, 2026-08-10). The house
+    `[N]:` form `/notes/<file>.md` resolves by *convention*, not by any markdown standard:
+    no spec says what a leading `/` means, so each viewer picks. Wink's measurements
+    (2026-08-10, todo-backlog's `[2]` / `[3]`): GitHub resolves it against the repo root
+    (works), VS Code's preview against the workspace root (works, though preview "back"
+    navigation is weak, a VS Code limitation no path form fixes), and Zed treats it as a
+    filesystem-absolute path (dead). The bot's initial claim that GitHub 404s was wrong,
+    eliminated by the same measurements.
+    - only file-relative paths (`<file>.md` from a sibling, `../notes/<file>.md` from
+      elsewhere) resolve identically everywhere, since relative-to-the-containing-file is
+      the one interpretation needing no convention
+    - so the direction is relative paths plus `#anchor` fragments where a def targets a
+      section; costs: a notes.md convention change, a sweep of existing defs, and defs
+      becoming location-dependent (the close-out move's transform list already rewrites
+      relative links, and validate-anchors' cross-file check keeps the sweep honest)
+    - sweep inventory (2026-08-10): ~167 root-absolute defs across 9 files (done.md 122,
+      TODO.md 7, refactor-20260716.md 5, design-cli/por-dual-parity-audit.md 3, chores-07 2,
+      chores-06 / chores-09 / design-cli/copying.md 1 each, todo-backlog.md 25), plus ~5
+      inline `](/...)` links
+    - wink trial-converted todo-backlog.md's 25 defs to the `./` form (2026-08-10): all
+      target files verified present, links confirmed working on GitHub and in VS Code (we
+      think Zed resolves the relative form too, untested). Reverted the same day so the
+      records stay uniform with the pinned convention until this entry's sweep flips both
+      together
+    - a conventions change, so its own small cycle per AGENTS.md's Changing the agent-files,
+      sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
+      sweep is machine-verified rather than hand-checked
+
 # References
 
 [2]: /notes/forks-multi-user.md

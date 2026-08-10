@@ -56,7 +56,8 @@ point at a section of another file from prose, use an inline link with an anchor
 A `chores-NN.md` `# References` entry is usually a `/notes/<file>.md#anchor` (or
 `/ARCHITECTURE.md`) path, but may also be a **commit reference**,
 `[N]: <commit-url-with-12-hex-SHA> "<full-40-hex-SHA>"`, cited by a rung of a section's
-as-built ladder. See [Chores commit references](#chores-commit-references) for the why and the
+as-built ladder, or a **same-file fragment**, `[N]: #<slug>`, a ladder rung's link to its own
+subsection. See [Chores commit references](#chores-commit-references) for the why and the
 exact shape.
 
 A file's `# References` can be **re-packed** to a contiguous `[1]..[N]` in
@@ -184,8 +185,10 @@ version.** The two records that carry one carry it beside the title, never insid
 are records of a commit (the backfilled as-built rung and the `## Done` entry). See
 [Versions live in the version-of-record only](prose.md#versions-live-in-the-version-of-record-only).
 E.g. the chores header `## refactor: extract config loader` and the Done line
-`- 0.42.0 **refactor: extract config loader** [[3]]`. The `## Done` entry uses the close-out
-commit's title, and its shape is in [Done entry form](#done-entry-form).
+`- 0.42.0 **refactor: extract config loader** [[3]]`. The `## Done` entry uses the cycle title
+(the chores header's bare form, not the suffixed closing commit's: see
+[Cycle bookend titles](prose.md#cycle-bookend-titles)), and its shape is in
+[Done entry form](#done-entry-form).
 
 This does **not** apply to organizational headings (`## Todo`, `## In Progress`,
 `# References`) or to design `###` subsections inside a chores section. Those are named for
@@ -246,16 +249,21 @@ one-rung ladder whose one step is the close-out:
 ```
 ## refactor: extract config loader
 
-- [[2]] 0.42.0-1 refactor: split loader from parser
+- [[2]] 0.42.0-1 [refactor: split loader from parser][4]
 - [[N]] refactor: extract config loader
 
 <intro paragraph...>
 ```
 
-- The rung form is `- [[N]] <title>` while the commit is unlanded, becoming
-  `- [[2]] X.Y.Z[-n] <title>` at backfill, as the first rung above shows. No step number and no
-  `(current)` / `(done)` marker, since as-built implies done (the in-flight markers live in
-  `TODO.md > ## In Progress`). Landing order is the list order. See
+- The rung form is `- [[N]] [<title>][M]` while the commit is unlanded, becoming
+  `- [[2]] X.Y.Z[-n] [<title>][M]` at backfill, as the first rung above shows. `[M]` is the
+  rung's subsection link, a file-local slot defined as a same-file fragment
+  (`[M]: #<slug>`): it rides in from the working ladder and stays valid, since the
+  subsections move into the same file, renumbered like any other slot (the closing rung is
+  unlinked unless close-out gotchas gave it a subsection). No step number and no
+  `(current)` / `(done)` marker,
+  since as-built implies done (the in-flight markers live in `TODO.md > ## In Progress`).
+  Landing order is the list order. See
   [Steps are named, not numbered](prose.md#steps-are-named-not-numbered).
 - **The version arrives with the SHA, not before it.** It is the one version written into prose
   (see

@@ -162,27 +162,46 @@ lightweight cycle omits it, per
     whether the artifact still works. This asks whether the
     thing the cycle promised actually happened, specifically
     enough that a reader can run it.
-  - the **ladder**: one rung per step, a bare title plus a
-    `(current)` / `(done)` marker.
+  - the **ladder**: one rung per step, in the form
+    `- [[N]] [<title>][M] (marker)` described below.
   - the **deliberation**: how the five above were decided,
     alternatives weighed, costs accepted. `_None._` when
     there was nothing to deliberate, which is a real answer
     and different from having forgotten to write it.
 
-The ladder is a bare table of contents: a rung carries no
-detail beyond its title and marker. A rung whose completion
-leaves conceptual content worth recording gets a subsection
-under a **`Ladder details`** heading following the
-deliberation, headed by the rung's exact title, so it is
-greppable and an anchor other records can link. It is written
-at the rung's completion and holds the conceptual delta
-(design points, consequences, deferrals), not the commit
-body's problem/solution restated. No placeholder subsections:
-a rung with nothing to say has none. The area moves to chores
-with the block, rung-titled headings intact. Depth note: under
-a program heading the subsections sit at markdown's heading
-floor while the block is in `TODO.md`; the close-out move
-shifts the block shallower, so the chores copy has room.
+The ladder is a linked table of contents. A rung is `- [[N]] [<title>][M] (marker)` and
+carries no detail beyond that:
+
+- The literal `[[N]]` is the as-built ladder's placeholder, carried from birth. It fills only
+  at backfill after landing (see [Commits backfill](#commits-backfill)), so the close-out move
+  just drops the `(current)` / `(done)` markers.
+- The title links to the rung's subsection below, reference-style: `[M]` is a file-local slot
+  whose definition is a same-file fragment, `[M]: #<slug>` in the file's `# References` (slug
+  algorithm in [Markdown anchor links](notes.md#markdown-anchor-links)). Routing through the
+  table keeps rung lines short, and the close-out move renumbers the slots like any other rung
+  ref.
+
+The verbiage lives in the rung's subsection under a **`Ladder details`** heading following the
+deliberation, headed by the rung's exact title, so it is greppable and an anchor other records
+can link. Every rung but the close-out has one, written in two beats:
+
+- **Opened at laddering** with an abstract-sized intent statement: the rung's problem and
+  solution in a sentence or two, provisional like the rest of the block, so a rung nobody has
+  started is described by more than its title.
+- **Completed at the rung's landing** with the conceptual delta (design points, consequences,
+  deferrals). It never restates the landed commit body's problem/solution: the body is the
+  record, and the subsection keeps only what the body does not say.
+
+The closing rung is the two-beat convention's one exception. Its title is the cycle title plus
+" closing" (the bookend form: [Cycle bookend titles](prose.md#cycle-bookend-titles)), it opens
+no intent stub, since its problem and solution are the block's own Problem and Solution items,
+and its subsection is created at close-out only when gotchas occurred: what closing taught
+(acceptance surprises, validation trip-ups, close-out-move wrinkles), written in
+problem/solution form. Its ladder link arrives with the subsection. The cycle narrative still
+becomes the chores section intro; no gotchas, no subsection. The area moves to chores with the
+block, rung-titled headings intact. Depth note: under a program heading the subsections sit at
+markdown's heading floor while the block is in `TODO.md`; the close-out move shifts the block
+shallower, so the chores copy has room.
 
 Nothing is opened in the chores file at Preparation. The
 section is created at close-out by moving this block. See
@@ -516,6 +535,21 @@ continues past each push to the next step. Conditions:
   (title + outcome) so the user can catch up.
 - **When in doubt, ask.** Ambiguous authorization falls back to
   per-push approval.
+
+**Delegation waives stops, never flow.** The stops (work review, description review, per-push
+approval, the hard stop after the final push) are the synchronous half of review. The flow
+(the records, the validation, the bookmark discipline) is what deferred review reads, so no
+delegation waives it: a delegated cycle writes every record and validates every commit exactly
+as an interactive one, and the user reviews after the fact what they would otherwise have
+reviewed in real time. The tiers:
+
+- **Interactive** (the default): every stop, as above.
+- **Delegated cycle**: rungs push to the topic bookmark without per-push asks; `main` is
+  untouched by construction, so review happens at landing: read the line, then land it.
+- **Delegated project**: landing is delegated too; review happens after, and corrections
+  become new cycles.
+
+Destructive ops pause in every tier, and landing is its own tier, delegated separately.
 
 ### Shape at close-out push
 

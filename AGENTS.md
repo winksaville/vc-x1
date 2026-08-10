@@ -8,7 +8,10 @@ payload is what that member has proposed, so drift is a diff, not a mystery.
 ## Hard rules
 
 The rules whose violation costs the most, numbered so a review can name them. Each links to its
-detail. The rule as stated here is binding on its own.
+detail. The rule as stated here is binding on its own. The rules bind the bot, and none is
+absolute: any rule bends when wink says so explicitly at the moment, or in advance as an
+explicit scoped delegation (rule 10's stop-and-ask is the path), and a taken exception is
+recorded in the cycle's records. No rule bends silently, and no exception is self-granted.
 
 0. **Read [custom.md](custom.md) before acting on anything below**: the project's layer
    (medium, validation commands, conventions), loaded last, wins conflicts with this file and the
@@ -51,8 +54,10 @@ detail. The rule as stated here is binding on its own.
     proposal set. Not meant for the family: it belongs in `custom.md` instead, and has to say why
     it cannot be family-wide. The payload is never edited to experiment.
     [Changing the agent-files](#changing-the-agent-files).
-13. **A cycle runs on its own topic bookmark**, created at the opening, and `main` advances only
-    by landing one, never by a push straight to it.
+13. **A cycle runs on one topic bookmark in the work repo**, named by the cycle title's slug,
+    created at the opening, carrying every step. `main` advances only when the finished cycle
+    lands on it, never by pushing commits straight to `main`. Once the bookmark lands on `main`
+    the bookmark is deleted, locally and remotely.
     [Cycles run on a bookmark](agent-data/cycle-checklists.md#cycles-run-on-a-bookmark).
 
 ## Terminology
@@ -86,6 +91,13 @@ every member repo carries its own. How they change is
 **Project layer.** The project's own agent-files, as against the pinned ones: `custom.md` and
 anything it points at. Called a *layer* because it loads last and wins conflicts, so it sits over
 the pinned set rather than beside it.
+
+**Cycle.** The unit of change: three stages, an opening, one or more work-repo changes, and a
+closing (the protocol's Preparation / Work / Close-out, whose bookend commits are the opening
+and the close-out). A single-step cycle folds all three stages into one commit; a multi-step
+cycle commits them individually, minimum two (a Work commit plus the close-out, the opening
+commit being optional), typically three or more. The full protocol is
+[cycle-protocol.md](agent-data/cycle-protocol.md).
 
 ## The dual-repo model
 
@@ -198,6 +210,9 @@ template repository's payload, and every member repo carries its own copy of the
   list of rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer
   links the bot-repo session that reasoned it out. The diff says what differs now. The history
   says when, by whom, and why.
+- **Convention work runs as its own cycle.** A convention itch mid-feature becomes a backlog
+  entry or a small dedicated cycle, never an inserted rung in the feature's ladder: rung by
+  rung, rule changes bury a feature cycle's records under work its title never promised.
 - **A local agent-file may hold an unagreed experiment**, so unlike the payload it does not read
   as family-agreed. Diff against the payload when that distinction matters.
 - **At convergence** the family reviews the members' diffs, folds what it accepts into the

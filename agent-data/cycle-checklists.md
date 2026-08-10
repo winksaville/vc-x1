@@ -15,7 +15,10 @@ Every change runs as a **cycle** with three phases: Preparation -> Work -> Close
 phases always happen, but there are two styles. A **multi-step** cycle commits them
 individually, as a ladder of steps (the Preparation commit is optional); a
 **single-step** cycle folds all three into one commit when the change is straightforward, so
-that one commit is the close-out and carries its duties, mandatory validation included. The
+that one commit is the close-out and carries its duties, mandatory validation included. So a
+single-step cycle is one commit, and a multi-step is minimum two (a Work commit plus the
+close-out), typically three or more (the definition is
+[AGENTS.md's Terminology](../AGENTS.md#terminology)). The
 ladder lists a cycle's steps in order and identifies each by its title, with no number and no
 version. Where the version-of-record lives and how often it is bumped are in
 [versioning.md](versioning.md). Read [cycle-protocol.md](cycle-protocol.md) before any commit
@@ -23,8 +26,11 @@ work, and before any push, cycle or not.
 
 ## Cycles run on a bookmark
 
-A cycle runs on its own topic bookmark, created at the opening and named for the cycle. `main`
-advances only by landing one. Nothing pushes straight to `main`.
+A cycle runs on one topic bookmark in the work repo, created at the opening and named by the
+cycle title's slug (the anchor algorithm in
+[Markdown anchor links](notes.md#markdown-anchor-links)). `main` advances only when the
+finished cycle lands on it; nothing pushes straight to `main`. The bot repo needs no bookmark:
+its `main` rides the tip of its linear narrative.
 
 - **The bookmark is the unit of review.** Everything the cycle does is visible as one line
   against `main`, and until it lands the whole line is a draft that can be reshaped
@@ -55,11 +61,14 @@ At the cycle's opening, before the first Work commit:
    - **problem statement**: what is wrong, a sentence or two
    - **solution statement**: what will be done about it, broad
    - **acceptance check**: the measure of "are you finished?"
-   - **ladder**: one rung per step, bare title plus `(current)` / `(done)`
+   - **ladder**: one rung per step, `- [[N]] [<title>][M]` plus `(current)` / `(done)`, with
+     `[M]: #<slug>` in the file's `# References` (the closing rung, `<cycle title> closing`,
+     unlinked until its gotchas subsection exists)
    - **deliberation**: how the five above were decided (`_None._` when there was nothing to
      deliberate)
-   A `Ladder details` area may follow the six as rungs complete, one subsection per rung with
-   conceptual content, headed by the rung's exact title (see the protocol's
+   A `Ladder details` area follows the six: one subsection per rung, headed by the rung's
+   exact title, opened at laddering with the rung's intent and completed as rungs land; the
+   closing rung's is created at close-out only if gotchas occurred (see the protocol's
    [Preparation](cycle-protocol.md#preparation)).
 3. Sweep `## Done` per [Retiring Done entries](notes.md#retiring-done-entries), then bump the
    version-of-record.
@@ -112,9 +121,9 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 
 1. Mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
-3. Flip `(current)` -> `(done)`, before validation and the commit, and write the rung's
-   `Ladder details` subsection when it has conceptual content (exact title as its heading; the
-   ladder itself stays a bare ToC). See the protocol's
+3. Flip `(current)` -> `(done)`, before validation and the commit, and complete the rung's
+   `Ladder details` subsection with the conceptual delta (its intent stub was opened when the
+   rung was laddered; the ladder itself stays a bare ToC). See the protocol's
    [Preparation](cycle-protocol.md#preparation).
 4. Bump the version-of-record to this commit's version (the suffix scheme is in
    [versioning.md](versioning.md)). The opening checklist's bump already covers a Preparation
@@ -154,7 +163,9 @@ publishes the single commit.
 - This specific push has the user's explicit approval. Approval of a plan that includes a push
   is not push approval. "Commit and push" names the destination, not a waiver of the reviews.
   Only an explicit scoped delegation ("do all of X, don't check in") waives the stops, for that
-  bounded task only. Destructive ops still pause.
+  bounded task only. Delegation waives stops, never flow (records, validation, the bookmark
+  discipline; see the protocol's [Policy](cycle-protocol.md#policy)), and destructive ops
+  still pause.
 - Validation ran, and passed, after the last edit.
 - Closing words are already written. Nothing follows the turn's final push (next checklist).
 
@@ -179,7 +190,8 @@ The cycle's last step, per the protocol's
    close-out, and a check that failed is a finding, not a reason to quietly restate the banner.
 2. **Finalize the six items in place**: sync the title if the scope shifted, replace the
    provisional solution statement with what was done, drop the ladder's `(current)` / `(done)`
-   markers, add any design subsections.
+   markers, add any design subsections, and write the closing rung's gotchas subsection
+   (problem/solution form) if closing surfaced any.
 3. **Move the block** into `notes/chores/chores-NN.md`, which is what creates the section.
    Four transforms, two of which fail silently: headings one level deeper, rung refs renumbered
    into the destination's namespace, repo-root-relative links gain `../`, forward-looking notes
@@ -194,7 +206,8 @@ The cycle's last step, per the protocol's
    the user's choice. The trapezoid recipe is
    [in the protocol](cycle-protocol.md#trapezoid-close-out-recipe). Its step 4 is
    `jj git push`, not `vc-x1 push`.
-8. **Land the bookmark** on the user's go. Until this, nothing the cycle pushed is permanent. See
+8. **Land the bookmark** on the user's go. Until this, nothing the cycle pushed is permanent.
+   Once `main` contains the bookmark, delete it, locally and remotely. See
    [Cycle bookmarks](jj.md#cycle-bookmarks-create-and-land).
 9. Backfill the chores as-built ladder refs (and any remaining legacy `Commits:` lines) for the
    commits landing just made permanent, which is the whole cycle rather than the previous push's

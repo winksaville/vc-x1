@@ -28,16 +28,18 @@ two places. Shape:
 <the measure of "are you finished?">
 
 #### Ladder
-- <title> opening (done)
-- <title> (current)
-- <title>
-- <close-out title>
+- [[N]] [<cycle title> opening][M] (done)
+- [[N]] [<title>][M] (current)
+- [[N]] [<title>][M]
+- [[N]] <cycle title> closing
 
 #### Deliberation
 <how the five above were decided; `_None._` if there was nothing to deliberate>
 
 #### Ladder details
-<optional: one `#####` subsection per rung with conceptual content, headed by its exact title>
+<one `#####` subsection per rung, headed by its exact title, opened at laddering with the
+rung's intent and completed at landing with the conceptual delta; the closing rung's only at
+close-out, gotchas in problem/solution form>
 ```
 
 A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
@@ -67,6 +69,8 @@ config surface from it:
   - `src/config_schema.rs` shrinks to the include plus hand-written helpers
   - behavioral defaults (col-width, result-lines) consume the generated constants, so the
     code cannot disagree with the file
+- each key's rendered block carries a `doc references:` list: the derived web url (a
+  localfile entry joins at backlog #52, once init seeds the file it would point at)
 - regenerate both config files from that pipeline, retiring the fossil comment blocks
 - retire the state-dir leftovers
 - add a `config --refresh` that rewrites a file's commented schema block while preserving
@@ -84,7 +88,8 @@ config surface from it:
 
 1. build.rs generates the schema table and default constants from `vc-config.toml`
    (rerun-if-changed wired), the hand-kept `COL_WIDTH` / `RESULT_LINE_CAP` constants are gone
-   from `src/`, and generated configs carry each key's `reference:` line.
+   from `src/`, and generated configs carry each key's `doc references:` list (the derived web
+   url per key).
 2. `vc-x1 config --validate` is clean on both sides, and neither file mentions `[push]`,
    `state-dir`, or `state-file`.
 3. `config --refresh` on a fixture with stale comment blocks and active keys preserves the
@@ -100,16 +105,18 @@ config surface from it:
 
 #### Ladder
 
-- docs: freshen vc-config and config subcmd opening (done)
-- docs: separate work review stop (done)
-- feat: vc-config.toml prototype + build.rs codegen (done)
-- docs: ladder ToC + per-rung sections (done)
-- chore: regenerate stale config files (next)
-- feat: add config --refresh
-- feat: add validate-anchors
-- docs: vc-config.md per-key examples
-- chore: point config at .agent-session
-- docs: freshen vc-config and config subcmd
+- [[N]] [docs: freshen vc-config and config subcmd opening][33] (done)
+- [[N]] [docs: separate work review stop][34] (done)
+- [[N]] [feat: vc-config.toml prototype + build.rs codegen][35] (done)
+- [[N]] [docs: ladder ToC + per-rung sections][36] (done)
+- [[N]] [docs: amend cycle conventions][37] (done)
+- [[N]] [feat: per-key doc references][38]
+- [[N]] [chore: regenerate stale config files][39]
+- [[N]] [feat: add config --refresh][40]
+- [[N]] [feat: add validate-anchors][41]
+- [[N]] [docs: vc-config.md per-key examples][42]
+- [[N]] [chore: point config at .agent-session][43]
+- [[N]] docs: freshen vc-config and config subcmd closing
 
 #### Deliberation
 
@@ -130,11 +137,8 @@ config surface from it:
   bump to the bare version renames it back
 - Done sweep at this opening: nothing migrated, the 0.78.2+ entries staying as nearby context
   after the 0.78.6 sweep
-- the "docs: separate work review stop" rung was inserted at this opening's own review, where
-  the bot collapsed the work review and the description review into one message. The rule
-  already stands in the checklist and protocol; the rung sharpens both so no description
-  appears before the work review settles. An agent-file change is its own commit, which is why
-  it is a rung rather than a rider on the opening
+- the "docs: separate work review stop" rung was inserted at this opening's own review: the
+  story is in [its subsection][34]
 - the "chore: regenerate stale config files" rung reached its work review with the files
   regenerated, then was reverted uncommitted: the review judged regenerating before fixing the
   generator backwards, and the discussion that followed re-scoped the cycle around wink's
@@ -154,15 +158,21 @@ config surface from it:
 - `--refresh --check` came from wink's "run the generation and verify nothing changes"
   framing of the acceptance check: the prototype-to-binary leg cannot drift (every build
   re-derives), so the check guards the one leg that can, prototype to committed configs
-- per-rung sections (the `Ladder details` area below) adopted mid-cycle: the ladder stays a
-  bare ToC and a rung with conceptual content gets a subsection headed by its exact title,
-  greppable and anchor-addressable, written at the rung's completion. No placeholder
-  subsections. The "docs: ladder ToC + per-rung sections" rung pins the convention into the
-  agent-files, its own commit like the review-stop one
-- ladder-to-section links were considered and declined while anchors are hand-computed and
-  silently breakable; that raised "when can they be checked?", and wink pulled the checker
-  into this cycle as the "feat: add validate-anchors" rung (a scope stretch the new
-  `Ladder details` convention itself motivates)
+- per-rung sections were adopted mid-cycle by the "docs: ladder ToC + per-rung sections"
+  rung: [its subsection][36] holds the design
+- ladder-to-section links were first declined over hand-computed anchors, which pulled
+  validate-anchors into the cycle as a scope stretch ([its subsection][41]); the links were
+  later adopted ahead of the checker, table-routed ([37])
+- the "feat: per-key doc references" rung was inserted ahead of the regenerate: the why and
+  the ordering are in [its subsection][38]
+- the first three rungs advanced `main` as they pushed, against rule 13: work `main` moved
+  back to 0.78.7 (73319b8c) so the cycle drafts on its bookmark until the trapezoid
+  close-out, the bot `main` stayed at its tip, and the premature backfill reverted to
+  `[[N]]` (2026-08-10). The rationale is in [the conventions rung's subsection][37]
+- the "docs: amend cycle conventions" rung absorbs the cycle's convention work: intent
+  subsections and the linked ladder, the cycle definition and bookmark discipline (after
+  the main move-back), and the delegation doctrine (after the exceptions discussion),
+  rolled into one commit at wink's call: [its subsection][37]
 
 #### Ladder details
 
@@ -177,6 +187,9 @@ config surface from it:
   completes, and the user's go is provisional since the review may restart
 - sharpened in the per-commit checklist, the protocol's per-commit flow, and the
   bot-communication guidance, so the two reviews cannot collapse into one message
+- inserted at the opening's own review, where the bot collapsed the two reviews into one
+  message; an agent-file change is its own commit, which is why it is a rung rather than a
+  rider on the opening
 
 ##### feat: vc-config.toml prototype + build.rs codegen
 
@@ -215,22 +228,140 @@ config surface from it:
   subsections), so prose.md names it a conditional fourth surface rather than raising the
   rule's count
 
+##### docs: amend cycle conventions
+
+- one commit for the cycle-convention amendments this cycle accumulated: wink rolled three
+  docs rungs into this one, and the conventions-own-cycle rule below makes it the last of
+  its kind
+- rung subsections gain a second beat
+  - opened at laddering with an abstract-sized intent statement (the rung's problem and
+    solution, provisional like the rest of the block)
+  - completed at landing with the conceptual delta, as today
+  - the closing rung opens no intent stub (its problem and solution are the block's own
+    Problem and Solution items); its subsection is created at close-out only when gotchas
+    occurred, written in problem/solution form
+- the working ladder adopts the as-built rung shape with links: `[[N]]` placeholder, linked
+  title, marker
+  - the `[[N]]` fills with slot and version once its commit lands on a permanent branch, so
+    the close-out move only drops markers
+  - each rung's title links to its subsection reference-style, `[<title>][M]` with
+    `[M]: #<slug>` in the file's `# References`, the title string verbatim inside the
+    brackets; the closing rung's link arrives with its gotchas subsection
+  - table-routed rather than inline: the slug lives in the references table, keeping rung
+    lines quiet, and a numbered tag survives title edits where a shortcut label would break
+    silently
+  - anchors are hand-computed until validate-anchors lands and guards them
+- **cycle** gets an AGENTS.md Terminology entry: three stages, an opening, one or more
+  work-repo changes, and a closing. A single-step cycle folds all three into one commit; a
+  multi-step commits them individually, minimum two (a Work commit plus the close-out, the
+  opening commit being optional), typically three or more
+- multi-step bookend commits are the cycle title plus " opening" / " closing" (wink, at this
+  rung's review), so the bare cycle title is the cycle's name: the chores header and Done
+  entry carry it, no multi-step commit does, and the closing subsection's anchor no longer
+  collides with the section header's. A single-step cycle's one commit keeps the bare title
+- agreed text for rule 13 (wink's final simplification: the bot-repo exemption is carried by
+  "in the work repo" and detailed in the linked checklist section): "A cycle runs on one
+  topic bookmark in the work repo, named by the cycle title's slug, created at the opening,
+  carrying every step. `main` advances only when the finished cycle lands on it, never by
+  pushing commits straight to `main`. Once the bookmark lands on `main` the bookmark is
+  deleted, locally and remotely."
+- the hard-rules preamble gains the exceptions sentence: "The rules bind the bot, and none
+  is absolute: any rule bends when wink says so explicitly at the moment, or in advance as
+  an explicit scoped delegation (rule 10's stop-and-ask is the path), and a taken exception
+  is recorded in the cycle's records. No rule bends silently, and no exception is
+  self-granted."
+- delegation doctrine, for cycle-protocol's Pushing policy: delegation waives stops (the
+  synchronous review gates), never flow (records, validation, the bookmark discipline),
+  since the records are what deferred review reads. Destructive ops pause in every tier,
+  and landing is its own tier, delegated separately
+  - the tiers: interactive (every stop), delegated cycle (rungs push without per-push asks,
+    `main` untouched by construction, review at landing), delegated project (landing too,
+    review after, corrections as new cycles)
+- convention work runs as its own cycle: a mid-feature convention itch becomes a backlog
+  entry or a small dedicated cycle, never another inserted rung. This cycle, five
+  convention rungs deep with a deliberation that outgrew reading, is the grandfathered
+  exhibit
+- origin and folds: the intent-and-links half was inserted at the doc-references laddering
+  from wink's empty placeholder sections, first as two rungs, folded; the cycle/bookmark
+  and delegation halves were laddered after the main move-back and the exceptions
+  discussion; wink then rolled all three into this one commit
+  - the inline `(#<slug>)` link form lasted one review before wink's noise call routed the
+    links through the `# References` table
+- riders: rename this cycle's bookmark `config-refresh` to
+  `docs-freshen-vc-config-and-config-subcmd`, and sweep the bookmarks `main` contains
+- targets: AGENTS.md (rule 13, Terminology, the hard-rules preamble, Changing the
+  agent-files), cycle-checklists.md (at-a-glance, bookmark section, shape wording,
+  close-out), cycle-protocol.md (Preparation, Pushing policy), prose.md (ladder-step
+  surface, fourth-surface note, cycle bookend titles), notes.md (as-built rung form,
+  fragment defs, the Done-entry title), jj.md (cycle bookmarks)
+
+##### feat: per-key doc references
+
+- intent: replace each key's single `reference:` line with a `doc references:` list
+  - the derived web url, clickable everywhere; the list form (not a singular line) leaves
+    room for the localfile entry backlog #52 adds once init seeds the file it points at
+  - the localfile entry was cut at review (wink, 2026-08-10): before #52, the file it names
+    does not exist in fresh members, so even a taught handler resolves to nothing. Cutting it
+    also keeps the renderer role-blind, since the web url is the same from both sides
+  - the wrap move to <=100 rides here, so the regenerate that follows writes final text
+  - drift tests sync to the list form
+  - inserted ahead of the regenerate (2026-08-10): the change alters rendered text (settle
+    the generator first), and acceptance item 1 synced to the list form
+  - wink's target rendering (the doc one-liner will wrap at <=100 rather than this example's
+    width):
+
+    ```
+    # bot-session.col-width: Default --col-width: first-column width in the
+    #   --fields / --unknown / --per-line views
+    #   used by: bot-session --col-width
+    #   default: 68
+    #   doc references:
+    #    - https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
+    # col-width = 68
+    ```
+
 ##### chore: regenerate stale config files
 
-Resume notes for the next session, written at the previous rung's close (the `(next)` marker
-on the ladder is this handoff's pointer and retires when the rung goes `(current)`):
+The rung's mechanical work is what the title says (regenerate both `.vc-config.toml` files,
+verify acceptance items 1-2 via the proven tmp-dump-and-copy path). What outgrew the title is
+the ownership model settled in the pre-rung discussion (2026-08-10), which the regenerate rests
+on and later rungs implement:
 
-- first decide the deferred wrap question: the renderer still wraps comment blocks at 72
-  (`wrap_hash_comment` call in `render_key_block`); adopting <=100 changes the rendered text
-  this rung regenerates, so decide before regenerating, not after
-- the extraction path is proven from the aborted first attempt: a throwaway test dumping
-  `render_vc_config(ConfigRole::DualWork / DualBot)` into `tmp/`, copy over both
-  `.vc-config.toml` files, remove the test (or hand `config --refresh` the job if that rung
-  is reordered first; as laddered, regenerate comes before refresh and does it by hand)
-- verify per acceptance items 1-2: `config --validate` clean both sides, no
-  `push`/`state-dir`/`state-file` mentions, `reference:` lines present
-- session state to remember: the mailbox holds two open entries (revset adoption + old
-  template repos' fate), both awaiting discussion with wink
+- wrap width: generated comment blocks adopt <=100 (prose.md's Line widths), replacing the
+  renderer's 72
+  - decided before regenerating, so both files are written once at the final width
+- ownership model: `.vc-config.toml` is a workspace's only behavior-changing file
+  - active lines (`[repos]`, uncommented keys) are the workspace's own, preserved by every
+    regenerate
+  - comment blocks are machine-owned rendering of the binary's baked schema: disposable by
+    construction, never a durable edit surface
+- hand edits to rendered comments are permitted but ephemeral
+  - refresh runs only when invoked, and `--refresh --check` reports divergence rather than
+    rewriting, so the file's owner always decides
+  - the durable link edit is `reference-base`, an active key that moves every doc-reference
+    web entry together and survives refresh
+- this rung's by-hand regenerate degenerates into a full overwrite
+  - safe only because this workspace has no active keys beyond `[repos]` values matching the
+    role defaults
+  - the general preserve-actives operation is the `config --refresh` rung
+- the doc-proposal surface is `vc-config.md`, which each key's `doc references:` entries link
+  to
+  - agreed direction: distribute it as a pinned family file, init stamping `reference-base`
+    to the member's own repo, so the link lands on a copy the member owns and may edit as a
+    proposal
+  - beyond this cycle: backlog #52 (init distributes vc-config.md)
+- schema changes stay vc-x1 changes
+  - the prototype `vc-config.toml` remains vc-x1-only build source, proposals traveling by
+    family channel or fork
+  - workspace-local keys wait on the `[private]` table proposal
+
+##### feat: add config --refresh
+
+- intent: the commented schema block rots silently when the binary's schema moves, and the
+  only fix today is a hand regenerate
+  - `--refresh` rewrites a file's commented block while preserving active keys and `[repos]`
+  - `--check` renders and compares without writing, exiting nonzero on drift, so a prototype
+    edit that skips the refresh fails loudly
 
 ##### feat: add validate-anchors
 
@@ -243,8 +374,11 @@ on the ladder is this handoff's pointer and retires when the rung goes `(current
 - backlog #24 (the full validate-repo) stays open and absorbs this as its first
   implemented check when it is picked up; the heading-anchor check was missing from that
   design and is recorded here
-- once this lands, the declined ladder-to-section links question reopens: with anchors
-  machine-checked, linking the ladder becomes nearly free
+- the ladder-to-section links this was to enable were adopted ahead of it (the rung intent +
+  ladder refs and links rung), so landing this closes their unchecked window
+- stretch, from backlog #53: cross-file `[N]:` path definitions, whatever the path form
+  (#53 leans file-relative after wink's viewer measurements; the check verifies the target
+  file holds the heading)
 
 ##### docs: vc-config.md per-key examples
 
@@ -269,8 +403,6 @@ must reward the click. Per section:
   `vc-x1 symlink`, and start the session that commits this rung
 - the `.gitignore` edit belongs in the move, not the commit: un-ignored, the renamed bot
   dir would be swept into the work repo's next snapshot
-
-##### docs: freshen vc-config and config subcmd
 
 _The program block below predates the six-item convention and is grandfathered. Its versioned
 rungs convert when touched._
@@ -1057,3 +1189,14 @@ hygiene-riders and facade-owns-topology cycles)._
 [30]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"
 [31]: /notes/chores/chores-16.md#docs-fix-three-semicolons
 [32]: /notes/chores/chores-16.md#docs-consolidate-line-widths
+[33]: #docs-freshen-vc-config-and-config-subcmd-opening
+[34]: #docs-separate-work-review-stop
+[35]: #feat-vc-configtoml-prototype--buildrs-codegen
+[36]: #docs-ladder-toc--per-rung-sections
+[37]: #docs-amend-cycle-conventions
+[38]: #feat-per-key-doc-references
+[39]: #chore-regenerate-stale-config-files
+[40]: #feat-add-config---refresh
+[41]: #feat-add-validate-anchors
+[42]: #docs-vc-configmd-per-key-examples
+[43]: #chore-point-config-at-agent-session
