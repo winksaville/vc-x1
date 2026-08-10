@@ -189,8 +189,10 @@ commit's title, and its shape is in [Done entry form](#done-entry-form).
 
 This does **not** apply to organizational headings (`## Todo`, `## In Progress`,
 `# References`) or to design `###` subsections inside a chores section. Those are named for
-whatever fits. Among the commit-recording ones, exact match is the strong default (nothing
-absolute): a near-miss just makes it harder to line a record up with its commit.
+whatever fits. A `Ladder details` rung subsection is the exception among subsections: it is
+commit-recording, its heading the rung's exact title. Among the commit-recording ones, exact
+match is the strong default (nothing absolute): a near-miss just makes it harder to line a
+record up with its commit.
 
 A commit-recording header is provisional while the work is in progress. The *last* edit before
 `vc-x1 push` syncs it, and the `## Done` entry / `[N]` anchor for that commit, to the final
@@ -205,8 +207,9 @@ free-form text. The convention applies going forward.
 
 A chores section is: the as-built ladder (first content under the header, below), then
 [Prose form](prose.md#prose-form) (intro + bullets) for what landed and why, and any `###`
-design subsections. Bullets here are **conceptual** (design points, structural notes), never a
-per-file edit list. Nothing in prose keeps one: the **diff** is the source of truth for what
+design subsections, the moved block's `Ladder details` area among them (its subsections are
+rung-titled and commit-recording, unlike the free-named design ones). Bullets here are
+**conceptual** (design points, structural notes), never a per-file edit list. Nothing in prose keeps one: the **diff** is the source of truth for what
 changed mechanically (`git show --stat`, immutable, naturally scoped to the commit), the **commit
 body** states the problem and the solution in broad terms, and the **chores section** is the
 source of truth for the design thinking. Each of the three cross-links to the others; none

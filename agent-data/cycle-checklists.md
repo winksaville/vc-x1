@@ -58,6 +58,9 @@ At the cycle's opening, before the first Work commit:
    - **ladder**: one rung per step, bare title plus `(current)` / `(done)`
    - **deliberation**: how the five above were decided (`_None._` when there was nothing to
      deliberate)
+   A `Ladder details` area may follow the six as rungs complete, one subsection per rung with
+   conceptual content, headed by the rung's exact title (see the protocol's
+   [Preparation](cycle-protocol.md#preparation)).
 3. Sweep `## Done` per [Retiring Done entries](notes.md#retiring-done-entries), then bump the
    version-of-record.
 
@@ -109,7 +112,10 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 
 1. Mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
-3. Flip `(current)` -> `(done)`, before validation and the commit.
+3. Flip `(current)` -> `(done)`, before validation and the commit, and write the rung's
+   `Ladder details` subsection when it has conceptual content (exact title as its heading; the
+   ladder itself stays a bare ToC). See the protocol's
+   [Preparation](cycle-protocol.md#preparation).
 4. Bump the version-of-record to this commit's version (the suffix scheme is in
    [versioning.md](versioning.md)). The opening checklist's bump already covers a Preparation
    commit.

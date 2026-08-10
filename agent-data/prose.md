@@ -175,7 +175,9 @@ The three surfaces apply it as:
 
 - **Ladder step** (`TODO.md` `## In Progress`): the rung is the bare title plus a `(current)` /
   `(done)` marker, and its position in the list is its position in the ladder. The last rung is
-  the close-out and its text says so. Detail is bulleted, never `;`-joined inline.
+  the close-out and its text says so. Detail lives not on the rung but in the block's
+  `Ladder details` subsection headed by the rung's exact title (see the protocol's
+  [Preparation](cycle-protocol.md#preparation)), bulleted, never `;`-joined inline.
 - **Chores section** (`notes/chores/chores-NN.md`): no prefix, since the `##` header *is* the
   bare title. The as-built ladder is the first content under it (see
   [Chores commit references](notes.md#chores-commit-references)).
@@ -183,8 +185,9 @@ The three surfaces apply it as:
   (see [Commit description](cycle-protocol.md#commit-description)).
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
-chores `##` header, and its commit title line up verbatim. Pick the commit title first and
-reuse it.
+chores `##` header, and its commit title line up verbatim. A `Ladder details` subsection
+heading, when the rung has one, carries the same title, a conditional fourth surface. Pick the
+commit title first and reuse it.
 
 That identity is **per step**, not per cycle: each step in a cycle gets its own distinct
 descriptive title, never one shared cycle title uniquified by a step marker. The cycle's chores

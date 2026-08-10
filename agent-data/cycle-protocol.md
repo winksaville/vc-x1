@@ -169,6 +169,21 @@ lightweight cycle omits it, per
     there was nothing to deliberate, which is a real answer
     and different from having forgotten to write it.
 
+The ladder is a bare table of contents: a rung carries no
+detail beyond its title and marker. A rung whose completion
+leaves conceptual content worth recording gets a subsection
+under a **`Ladder details`** heading following the
+deliberation, headed by the rung's exact title, so it is
+greppable and an anchor other records can link. It is written
+at the rung's completion and holds the conceptual delta
+(design points, consequences, deferrals), not the commit
+body's problem/solution restated. No placeholder subsections:
+a rung with nothing to say has none. The area moves to chores
+with the block, rung-titled headings intact. Depth note: under
+a program heading the subsections sit at markdown's heading
+floor while the block is in `TODO.md`; the close-out move
+shifts the block shallower, so the chores copy has room.
+
 Nothing is opened in the chores file at Preparation. The
 section is created at close-out by moving this block. See
 [Chores sections](#chores-sections).
@@ -215,7 +230,8 @@ post-squash:
   statement with what was actually done, drop the ladder's
   `(current)` / `(done)` markers since as-built implies
   done, and add any design subsections the deliberation
-  grew.
+  grew. The `Ladder details` subsections ride the move
+  unchanged.
 - **Move the block** into `notes/chores/chores-NN.md`,
   applying the four transforms in
   [Chores sections](#chores-sections). This *creates* the
@@ -314,7 +330,9 @@ through:
 2. **Do the work** (see [Iterative work](#iterative-work)
    for the loop-and-squash technique).
 3. **Flip this commit `(current)` -> `(done)`** in `## In
-   Progress`, before the cargo cycle and the commit.
+   Progress`, before the cargo cycle and the commit. Write
+   the rung's `Ladder details` subsection now, when it has
+   conceptual content (see [Preparation](#preparation)).
 4. **Bump the version-of-record** to this commit's version
    (the suffix scheme is in
    [versioning.md](versioning.md#suffix-scheme)). The

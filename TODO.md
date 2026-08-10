@@ -35,6 +35,9 @@ two places. Shape:
 
 #### Deliberation
 <how the five above were decided; `_None._` if there was nothing to deliberate>
+
+#### Ladder details
+<optional: one `#####` subsection per rung with conceptual content, headed by its exact title>
 ```
 
 A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
@@ -70,6 +73,9 @@ config surface from it:
   active keys and `[repos]`
   - a `--check` mode renders and compares without writing, exiting nonzero on any
     difference, so a prototype edit that skipped the refresh fails loudly
+- add a `validate-anchors` subcommand, the validate-repo design's first standalone slice:
+  same-file heading anchors checked via the documented slug algorithm, plus `[N]` reference
+  resolution, across the repo's markdown records
 - repoint `repos.bot` at `.agent-session`
   - the directory rename itself is wink's move between sessions (a live session writes
     through the symlink), with the following session committing the record
@@ -89,15 +95,18 @@ config surface from it:
    end, and new commits still stamp `/.claude/`-labeled ochid trailers.
 6. No `.vc-x1` dir in either repo and no `/.vc-x1` line in `.gitignore`, which ignores the bot
    dir under its new name.
+7. `validate-anchors` runs clean over `TODO.md`, `notes/`, `README.md`, and `vc-config.md`
+   (same-file heading anchors and `[N]` refs), and a test shows it catching a broken anchor.
 
 #### Ladder
 
 - docs: freshen vc-config and config subcmd opening (done)
 - docs: separate work review stop (done)
 - feat: vc-config.toml prototype + build.rs codegen (done)
-- docs: ladder ToC + per-rung sections
-- chore: regenerate stale config files
+- docs: ladder ToC + per-rung sections (done)
+- chore: regenerate stale config files (next)
 - feat: add config --refresh
+- feat: add validate-anchors
 - docs: vc-config.md per-key examples
 - chore: point config at .agent-session
 - docs: freshen vc-config and config subcmd
@@ -145,11 +154,15 @@ config surface from it:
 - `--refresh --check` came from wink's "run the generation and verify nothing changes"
   framing of the acceptance check: the prototype-to-binary leg cannot drift (every build
   re-derives), so the check guards the one leg that can, prototype to committed configs
-- per-rung sections (below) adopted mid-cycle: the ladder stays a bare ToC and a rung with
-  conceptual content gets a section headed by its exact title, greppable and
-  anchor-addressable, written at the rung's completion. No placeholder sections. The "docs:
-  ladder ToC + per-rung sections" rung pins the convention into the agent-files, its own
-  commit like the review-stop one
+- per-rung sections (the `Ladder details` area below) adopted mid-cycle: the ladder stays a
+  bare ToC and a rung with conceptual content gets a subsection headed by its exact title,
+  greppable and anchor-addressable, written at the rung's completion. No placeholder
+  subsections. The "docs: ladder ToC + per-rung sections" rung pins the convention into the
+  agent-files, its own commit like the review-stop one
+- ladder-to-section links were considered and declined while anchors are hand-computed and
+  silently breakable; that raised "when can they be checked?", and wink pulled the checker
+  into this cycle as the "feat: add validate-anchors" rung (a scope stretch the new
+  `Ladder details` convention itself motivates)
 
 #### Ladder details
 
@@ -188,6 +201,50 @@ config surface from it:
   key added to the prototype without docs fails the suite)
 - deferred: the renderer still wraps comment blocks at 72; adopting the 100-col width belongs
   to the regenerate rung, where the rendered text is reviewed anyway
+
+##### docs: ladder ToC + per-rung sections
+
+- the ladder-as-ToC + `Ladder details` convention pinned across the pinned set: the
+  protocol's Preparation (definition, timing, the program-depth note), per-commit flow step 3
+  and the checklist's step 3 (the subsection is written at the flip), the close-out finalize
+  bullet, prose.md's ladder-step surface and title identity, and notes.md's chores
+  conventions (rung subsections are commit-recording, unlike free-named design subsections)
+- wink's restructure named the area: a `Ladder details` container with rung subsections one
+  level deeper, replacing the first draft's flat sections
+- hard rule 9's "three places" stands: the subsection heading is conditional (no placeholder
+  subsections), so prose.md names it a conditional fourth surface rather than raising the
+  rule's count
+
+##### chore: regenerate stale config files
+
+Resume notes for the next session, written at the previous rung's close (the `(next)` marker
+on the ladder is this handoff's pointer and retires when the rung goes `(current)`):
+
+- first decide the deferred wrap question: the renderer still wraps comment blocks at 72
+  (`wrap_hash_comment` call in `render_key_block`); adopting <=100 changes the rendered text
+  this rung regenerates, so decide before regenerating, not after
+- the extraction path is proven from the aborted first attempt: a throwaway test dumping
+  `render_vc_config(ConfigRole::DualWork / DualBot)` into `tmp/`, copy over both
+  `.vc-config.toml` files, remove the test (or hand `config --refresh` the job if that rung
+  is reordered first; as laddered, regenerate comes before refresh and does it by hand)
+- verify per acceptance items 1-2: `config --validate` clean both sides, no
+  `push`/`state-dir`/`state-file` mentions, `reference:` lines present
+- session state to remember: the mailbox holds two open entries (revset adoption + old
+  template repos' fate), both awaiting discussion with wink
+
+##### feat: add validate-anchors
+
+- the validate-repo design's first slice, standalone: no jj machinery, a markdown scanner
+  plus the slug algorithm notes.md documents. Joins the `validate-desc` / `validate-todo` /
+  `validate-bot` family rather than starting the full `validate-repo` shell
+- checks: every same-file `#anchor` in the covered files resolves to a real heading's slug,
+  and every `[N]` use has a matching `[N]:` definition (and vice versa, unused definitions
+  reported)
+- backlog #24 (the full validate-repo) stays open and absorbs this as its first
+  implemented check when it is picked up; the heading-anchor check was missing from that
+  design and is recorded here
+- once this lands, the declined ladder-to-section links question reopens: with anchors
+  machine-checked, linking the ladder becomes nearly free
 
 ##### docs: vc-config.md per-key examples
 
