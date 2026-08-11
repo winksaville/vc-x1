@@ -146,6 +146,10 @@ compose `options_flags/` leaves: `notes/chores/chores-*.md` +
 - `src/repo_utils.rs`, `src/url.rs`, `src/toml_simple.rs`,
   `src/logging.rs` — jj/repo helpers, URL parsing, a minimal
   TOML reader, the CLI logger.
+- `src/config_md.rs`, `src/md_fence.rs` — the instance-config
+  resolver/loader and the md -> toml filter it runs a markdown
+  carrier through. build.rs shares the filter to parse the
+  `vc-config.md` schema prototype, which is the same format.
 - `src/test_helpers.rs`, `src/test_tmp_root.rs` —
   `#[cfg(test)]` fixtures and tempdir resolution. Subcommand
   modules also carry their own `#[cfg(test)] mod tests` (and

@@ -398,6 +398,19 @@
       think Zed resolves the relative form too, untested). Reverted the same day so the
       records stay uniform with the pinned convention until this entry's sweep flips both
       together
+
+54. **vc-config.md per-key worked examples** (2026-08-11). The per-key sections mostly restate
+    each key's one-liner, and a reference link has to reward the click. Cut from the
+    "docs: freshen vc-config and config subcmd" ladder at its freeze: no acceptance item
+    needs it, since item 3 asks only that each generated link land on a real section, which
+    it does.
+    - a worked TOML example per section, as it would appear in an actual config file (for
+      `bot-session.items`, a couple of named recipes)
+    - effects, not just meaning: what visibly changes when the key is set
+    - decide there: extend the anchor drift test to require a toml fence per key section,
+      making "has an example" suite-enforced (quality itself stays a review judgment)
+    - the entry shrank when it moved: its `repo.category.<cat>` and `account.*` bullets
+      described keys that `## Todo` #1 deletes
     - a conventions change, so its own small cycle per AGENTS.md's Changing the agent-files,
       sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
       sweep is machine-verified rather than hand-checked

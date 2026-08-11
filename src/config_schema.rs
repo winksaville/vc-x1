@@ -1,5 +1,5 @@
 //! The settable-config-key registry, generated from the
-//! `vc-config.toml` prototype at the repo root: build.rs parses
+//! `vc-config.md` prototype at the repo root: build.rs parses
 //! the prototype and renders the `SCHEMA_GEN` table plus the
 //! `<PATH>_DEFAULT` constants included below, so the registry,
 //! the behavioral defaults, and the prototype cannot disagree.
@@ -168,7 +168,7 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 
 /// Render one key as a thorough, self-documenting doc-block:
 /// - `# <path>: <doc>` (word-wrapped onto `#   ...`
-///   continuations past ~72 cols),
+///   continuations past ~100 cols, the project's prose width),
 /// - `#   used by: <used_by>`,
 /// - `#   default: <rendered default, or a "(none)"/"(required...)"
 ///   note>`,
@@ -187,7 +187,7 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 pub fn render_key_block(key: &ConfigKey) -> String {
     let mut out = String::new();
     let header_text = format!("{}: {}", key.path, key.doc);
-    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 72));
+    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 100));
     out.push_str(&format!("#   used by: {}\n", key.used_by));
     out.push_str(&format!("#   default: {}\n", render_default_note(key)));
     out.push_str(&format!("#   reference: {}\n", key.reference));
@@ -263,19 +263,15 @@ mod tests {
     /// (lowercase, keep `[a-z0-9-]`, spaces to hyphens, markdown
     /// escapes dropped) and demands a match, so a key added to
     /// the prototype without docs fails here. Override references
-    /// pointing elsewhere are skipped. The doc lives at
-    /// notes/vc-config-design.md until the "feat: vc-config.md
-    /// absorbs prototype and doc" rung merges it into
-    /// vc-config.md; the urls keep the vc-config.md name they
-    /// will land on.
+    /// pointing elsewhere are skipped. Doc and schema share one
+    /// file, so this reads the prototype itself: it is checking
+    /// that each key's fence sits under a heading the derived url
+    /// names, not that two files agree.
     #[test]
     #[allow(clippy::unwrap_used)]
     fn references_anchor_into_vc_config_md() {
-        let md = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/notes/vc-config-design.md"
-        ))
-        .unwrap();
+        let md =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/vc-config.md")).unwrap();
         let slugs: std::collections::HashSet<String> = md
             .lines()
             .filter_map(|l| l.strip_prefix("## "))

@@ -1,5 +1,5 @@
-//! Markdown-carried instance config: the md -> toml filter and the
-//! resolver/loader every `.vc-config.*` reader goes through.
+//! Markdown-carried instance config: the resolver/loader every
+//! `.vc-config.*` reader goes through.
 //!
 //! The format: a config file is a markdown document whose `toml`
 //! fences, concatenated in document order, form the TOML the loader
@@ -9,6 +9,9 @@
 //! until the next header, so a table's keys must stay in its
 //! stretch of the document.
 //!
+//! The filter itself is [`crate::md_fence`], which build.rs shares
+//! to parse the `vc-config.md` schema prototype in the same format.
+//!
 //! `.vc-config.toml` remains a valid carrier through the family's
 //! migration window; a side holding both carriers is an error.
 
@@ -16,78 +19,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::md_fence::md_to_toml;
 use crate::toml_simple;
 
 /// The markdown instance-config filename (the toml carrier's name
 /// is [`VC_CONFIG_FILE`]).
 pub const VC_CONFIG_MD: &str = ".vc-config.md";
-
-/// What the filter is inside of, line by line.
-enum Fence {
-    /// Outside any fence: prose, blanked.
-    None,
-    /// Inside a ```toml fence: lines pass through.
-    Toml,
-    /// Inside any other fence (illustration idiom): blanked.
-    Other,
-}
-
-/// Extract the TOML a config markdown document carries.
-///
-/// - `toml`-tagged fence interiors pass through verbatim.
-/// - Every other line (prose, fence markers, other fences'
-///   interiors) is blanked rather than removed, so the result has
-///   the source's line count and any parse diagnostic points at
-///   the real line.
-/// - The tag must be exactly `toml` (` ```toml `); a fence tagged
-///   otherwise or untagged is illustration and is ignored.
-/// - An unclosed fence is an error naming its opening line.
-pub fn md_to_toml(content: &str) -> Result<String, String> {
-    let mut state = Fence::None;
-    let mut opened_at = 0usize;
-    let mut out = String::with_capacity(content.len());
-    for (idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim_start();
-        match state {
-            Fence::None => {
-                if let Some(info) = trimmed.strip_prefix("```") {
-                    state = if info.trim() == "toml" {
-                        Fence::Toml
-                    } else {
-                        Fence::Other
-                    };
-                    opened_at = idx + 1;
-                }
-            }
-            Fence::Toml => {
-                if is_fence_close(trimmed) {
-                    state = Fence::None;
-                } else {
-                    out.push_str(line);
-                }
-            }
-            Fence::Other => {
-                if is_fence_close(trimmed) {
-                    state = Fence::None;
-                }
-            }
-        }
-        out.push('\n');
-    }
-    if matches!(state, Fence::None) {
-        Ok(out)
-    } else {
-        Err(format!("unclosed fence opened at line {opened_at}"))
-    }
-}
-
-/// True when a (trim_start'ed) line closes a fence: backticks with
-/// nothing but whitespace after them.
-fn is_fence_close(trimmed: &str) -> bool {
-    trimmed
-        .strip_prefix("```")
-        .is_some_and(|rest| rest.trim().is_empty())
-}
 
 /// Resolve which instance-config file `dir` holds.
 ///

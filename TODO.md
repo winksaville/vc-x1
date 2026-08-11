@@ -126,12 +126,12 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [docs: amend cycle conventions][37] (done)
 - [[N]] [feat: markdown config handler][38] (done)
 - [[N]] [fix: prompt double echo][46] (done)
-- [[N]] [feat: vc-config.md absorbs prototype and doc][39]
+- [[N]] [feat: vc-config.md absorbs prototype and doc][39] (done)
+- [[N]] [fix: bot-session reads the md carrier][47]
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
 - [[N]] [feat: add validate-anchors][43]
-- [[N]] [docs: vc-config.md per-key examples][44]
 - [[N]] [chore: point config at .agent-session][45]
 - [[N]] docs: freshen vc-config and config subcmd closing
 
@@ -204,6 +204,25 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
   later adopted ahead of the checker, table-routed ([37])
 - the "feat: per-key doc references" rung was inserted ahead of the regenerate: the why and
   the ordering are in [its subsection][38]
+- the [carrier fix][47] was inserted at the absorb rung's review, found by pulling on wink's
+  observation that `[repos]` belongs first because both sides use it while `bot-session` does
+  not. The same pull exposed the `homes` correction, which rides the [regenerate rung][41]
+- **ladder freeze** (wink, 2026-08-11): 6 of the first 8 rungs were insertions rather than
+  laddered work, so the cycle was expanding faster than it was landing. The remedy, at wink's
+  call: the model rung folds into the regenerate rung and per-key examples leaves for the
+  backlog, taking the remainder to six commits plus the closing, and every finding from here
+  goes to the backlog or bugs.md by default
+  - a rung is now added only when the acceptance check needs it or the cycle caused the
+    defect. The carrier fix is the second case; validate-anchors stays because item 7 names
+    it, though wink kept it on its merits rather than on the rule
+  - the convention rule this rehearses ("convention work runs as its own cycle") covers
+    convention itches and says nothing about *findings*, which is where four of the six
+    insertions came from. Generalizing it is itself convention work, so it waits for its own
+    cycle rather than being written here
+- the global config and `--account` leave vc-x1 entirely, as `## Todo` #1 rather than a rung:
+  wink passes full urls in practice, so the user config's last job is a shorthand that the
+  `owner/name` and path target forms already cover. Sequenced after this cycle on purpose,
+  since `--refresh --check` makes the schema shrink mechanical
 - the first three rungs advanced `main` as they pushed, against rule 13: work `main` moved
   back to 0.78.7 (73319b8c) so the cycle drafts on its bookmark until the trapezoid
   close-out, the bot `main` stayed at its tip, and the premature backfill reverted to
@@ -401,6 +420,39 @@ it:
   - build.rs parses the prototype via the shared filter, rerun-if-changed re-pointed
   - `vc-config-design.md` retires at the merge; the <=100 wrap move rides here so the
     regenerate that follows writes final text
+- landed as designed: `vc-config.md` is one file per key, prose then that key's `toml` fence,
+  and `vc-config.toml` + `notes/vc-config-design.md` are both gone
+  - the filter moved to `src/md_fence.rs`, std-only and naming no crate item, so build.rs
+    declares it `#[path = "src/md_fence.rs"] mod md_fence` and the prototype and a
+    `.vc-config.md` are read by one implementation rather than two that can drift
+    - `include!` was the first attempt and fails: the file's `//!` header is not at a crate
+      root when spliced mid-build.rs, so `#[path]` is what carries a module doc across
+- the schema drift test now reads the prototype itself, which changes what it proves: no
+  longer that two files agree, but that each key's fence sits under the heading its derived
+  url names
+- the file's three non-key `##` sections (how it is read, its own `[vc-config]` metadata, how
+  the keys resolve) absorb what the prototype's header comment block and the design doc's
+  intro each said separately
+- the deferred 72 -> 100 comment wrap rode along, so the regenerate rung writes final text;
+  no test pinned the old width, and the README's two schema samples were re-rendered from the
+  binary rather than hand-rewrapped
+- riders: the interim hand-written `.vc-config.md` files on both sides and `vc-config-test.md`
+  had doc links into the retired design doc, repointed here so the deletion leaves nothing
+  dangling; ARCHITECTURE.md's support list gains `config_md` (omitted when it landed) beside
+  the new `md_fence`
+
+##### fix: bot-session reads the md carrier
+
+- intent: `bot_session::workspace_bot_session` reads `root.join(".vc-config.toml")` through
+  `toml_simple::toml_load`, so with both sides on the md carrier the file does not exist, the
+  function returns all-`None`, and the workspace layer of `[bot-session]` settings is silently
+  gone. A live regression from the handler rung's carrier switch
+  - that rung's claim that every reader goes through `config_md::load` was scoped to the
+    topology readers; this scalar reader was never converted and no test covered it
+  - fix: route it through `config_md::load`, so a both-carriers or bad-fence config errors
+    here as it does everywhere else rather than degrading to the user config in silence
+  - a test setting a `[bot-session]` key in a `.vc-config.md` fixture and reading it back,
+    since the silence is what made this invisible
 
 ##### feat: agent naming in config and CLI
 
@@ -413,6 +465,10 @@ it:
     side label stays `/.claude/` (test-pinned, decoupled from the path)
   - the pinned-prose sweep ("bot repo" -> "agent repo" and kin) is deliberately excluded:
     convention work runs as its own cycle
+  - `homes` -> `files` and the `workspace-code` fossil are deliberately *not* here (wink,
+    2026-08-11): both collapse when `## Todo` #1 deletes the user config, and respelling a
+    value one cycle before deleting it is work done twice. This rung respells
+    `workspace-bot` alone, as its own job
 
 ##### chore: regenerate configs in md format
 
@@ -421,6 +477,26 @@ model rendering (the carriers switched by hand at the handler rung, so this repl
 hand-written files with generated ones) and retire the `.vc-x1` state-dir leftovers.
 The ownership model settled in the pre-rung discussion (2026-08-10) carries over to the md
 form, prose taking the role comment blocks had:
+
+The model file folds in here rather than leading as its own rung (wink, 2026-08-11, at the
+ladder freeze): the straw man is drafted at `tmp/vc-config-model.md`, so the spec-first
+benefit is already banked and a separate commit would only buy a boundary `--refresh --check`
+gives anyway.
+
+- `vc-config-test.md` renames to `vc-config-model.md`, the word the records already use, and
+  grows from a format sketch into the full instance
+- `.vc-config.md` (work side) is byte-identical to it, and a test renders the work role and
+  compares, since an unenforced byte-identity is an intention rather than a property
+- the model carries the derived `reference-base` https urls, not relative links: relative ones
+  resolve only because this workspace is vc-x1's own repo, and no other workspace has a local
+  `vc-config.md` to point at
+- only the work side can match it: the agent side's `[repos]` values invert, its doc links
+  need `../`, and its opening sentence names the other role
+- the `homes` correction rides here: the three `bot-session` keys drop the agent side, which
+  `config bot` advertises and `init` writes into but nothing ever reads
+  (`workspace_bot_session` consults the work root alone). Two workspace homes for a behavioral
+  key would need a precedence rule between them, and none exists; `[repos]` lives on both
+  sides only because its resolved-agreement invariant forces them to match
 
 - ownership model: the instance config is a workspace's only behavior-changing file
   - fence interiors (`[repos]`, active keys) are the workspace's own, preserved by every
@@ -472,21 +548,6 @@ form, prose taking the role comment blocks had:
 - stretch, from backlog #53: cross-file `[N]:` path definitions, whatever the path form
   (#53 leans file-relative after wink's viewer measurements; the check verifies the target
   file holds the heading)
-
-##### docs: vc-config.md per-key examples
-
-The seeded vc-config.md sections mostly restate each key's one-liner, and a reference link
-must reward the click. Per section:
-
-- a worked TOML example as it would appear in the actual config file (for
-  `repo.category.<cat>`, the category definition plus the `init --repo` invocation consuming
-  it; for the `account.*` family, a full profile showing the shadowing; for
-  `bot-session.items`, a couple of named recipes)
-- the resolution story where it is non-trivial: the user-config account/repo chain needs an
-  overview, not one fragment per section
-- effects, not just meaning: what visibly changes when the key is set
-- decide here: extend the anchor drift test to require a toml code fence per key section,
-  making "has an example" suite-enforced (quality itself stays a review judgment)
 
 ##### chore: point config at .agent-session
 
@@ -594,7 +655,31 @@ ladder side, which already bit at 0.76.0, whose base was the
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
+1. **Drop the global config and the account notion.** vc-x1 loads a user-level
+   `~/.config/vc-x1/config.toml` whose whole remaining job, once the unread keys go, is
+   expanding an `init` shorthand that the `owner/name` and path target forms already cover
+   without it (wink, 2026-08-11: he passes the full url in practice and a local name only when
+   testing). A config tier nothing needs is the same rot as the fossil `[push]` block, so it
+   goes, and the schema drops from eleven keys to five.
+   - out: `src/config.rs` entire (loader, `UserConfig`, the account map, the
+     `--account` -> `[default].account` resolution chain), the `--account` flag,
+     `Context.user_config` and its disk read at every subcommand entry, `Home::User`
+   - out of the schema: `default.account`, `default.debug` (parsed, logged, never consumed),
+     `repo.default`, `repo.category.<cat>`, and both `account.<name>.*` families
+   - what remains is five keys in two files: `[repos]` on both sides, `[bot-session]` on the
+     work side
+   - `homes` becomes `files` with values naming the two sides only, so "user" leaves the
+     vocabulary and stops colliding with `account` (wink: a human reading "user" and "account"
+     connects them, and here they were unrelated axes)
+   - removing `--account` breaks an invocation, so it errors by name and points at this
+     entry's record rather than reporting an unknown flag
+   - the account model is worth resurrecting if a second repo host ever matters: a backlog
+     entry names the cycle that removed it and lets the diff carry the design, rather than
+     restating it in prose that can rot
+   - runs after the vc-config cycle on purpose: `--refresh --check` makes a schema shrink
+     mechanical, so this is the first real customer of the machinery that cycle builds
+
+2. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
    banner goal ("end subprocess spawning") outlived its ladder: 0.78.0 migrated the facade
    and every mutation routed through it, and its commit body claimed "ending jj and git
    subprocess spawning", but spawns the facade never carried remain. Found 2026-08-06 at the
@@ -614,7 +699,7 @@ ladder side, which already bit at 0.76.0, whose base was the
    - the process lesson (a program's header states its acceptance check at open; close-out
      runs it) is a template-proposal candidate for cycle-protocol.md's Close-out
 
-2. **validate-repo-data.** Golden ids for a fixture repo, so a
+3. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -687,7 +772,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-3. **refactor: trapezoid-push + body-intro validation.**
+4. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -711,7 +796,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      ever appears. Worth converting these concepts to
      traits then, not now: we are committed to jj, and a
      one-implementation trait buys nothing but indirection.
-4. **A committed cycle-check runner.** The per-commit flow's
+5. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -744,7 +829,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-5. **`squash-push --title` / `--body`.** `squash-push` amends
+6. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
    its existing message. Fixing a published commit's *message*
@@ -783,7 +868,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      cited nowhere and a rewrite costs nothing. Message fixes
      naturally cluster there, which is exactly where the
      two-step shape bites.
-6. **Restructure templates: single template repo + fixed bot
+7. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -811,7 +896,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying, leaving no "is it
      still empty?" invariant in the template.
-7. **ochid: bot-repo location qualifier.** An ochid is
+8. **ochid: bot-repo location qualifier.** An ochid is
    workspace-relative (`/.claude/<chid>`), so nothing in a
    published commit says *where* the companion bot repo
    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -831,7 +916,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      (bot-repo-location config).
    - Link rot + mirroring mitigations are in the same doc
      section.
-8. **Version-number protocol is fragile: versions are
+9. **Version-number protocol is fragile: versions are
    baked into titles/bodies/todo/done/chores before the
    change lands.** The cycle protocol embeds an `X.Y.Z-N`
    version in commit titles and bodies, `## Todo` /
@@ -870,17 +955,17 @@ ladder side, which already bit at 0.76.0, whose base was the
      cycle-protocol.md (title shape, Numbering), AGENTS.md
      (commit-recording headers), and the `vc-x1` validators
      that parse `(X.Y.Z)` strings.
-9. **sync follow-up: extract `move-bookmark` command.** The
-   "put the bookmark / `@` where it belongs" step at the end
-   of sync (reposition logic) is useful standalone (e.g. the
-   t1B scenario where `main` is right but `@` isn't on it)
-   and deserves an honestly-named command instead of a mode.
-   - `vc-x1 move-bookmark` (name open): no fetch; move `@`
-     (and optionally the bookmark) onto a target under the
-     same safety rules as sync's reposition step.
-   - Sync's final step becomes a call to the same logic.
-   - Follow-up to the 0.67.0 single-mode sync cycle.
-10. **sync follow-up: retire the hidden `--check` alias;
+10. **sync follow-up: extract `move-bookmark` command.** The
+    "put the bookmark / `@` where it belongs" step at the end
+    of sync (reposition logic) is useful standalone (e.g. the
+    t1B scenario where `main` is right but `@` isn't on it)
+    and deserves an honestly-named command instead of a mode.
+    - `vc-x1 move-bookmark` (name open): no fetch; move `@`
+      (and optionally the bookmark) onto a target under the
+      same safety rules as sync's reposition step.
+    - Sync's final step becomes a call to the same logic.
+    - Follow-up to the 0.67.0 single-mode sync cycle.
+11. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -896,7 +981,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-11. **validate-numbering: rename the pair, check all
+12. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -932,7 +1017,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-12. **pre-commit: single rule (no docs skip) + doc validators.**
+13. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -958,7 +1043,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-13. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+14. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -982,7 +1067,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-14. **Run validate-bot at every vc-x1 invocation
+15. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -995,7 +1080,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-15. **CLI reference lives in `--help`; README owns concepts.**
+16. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -1034,7 +1119,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-16. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+17. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -1054,7 +1139,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-17. **Shared-doc sync: per-commit chores convention.**
+18. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -1067,7 +1152,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-18. **config: extract flag-backed key descriptions from Clap.**
+19. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -1082,7 +1167,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-19. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+20. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -1293,6 +1378,6 @@ hygiene-riders and facade-owns-topology cycles)._
 [41]: #chore-regenerate-configs-in-md-format
 [42]: #feat-add-config---refresh
 [43]: #feat-add-validate-anchors
-[44]: #docs-vc-configmd-per-key-examples
 [45]: #chore-point-config-at-agent-session
 [46]: #fix-prompt-double-echo
+[47]: #fix-bot-session-reads-the-md-carrier

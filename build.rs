@@ -1,6 +1,6 @@
 //! Export the resolved `jj-lib` version as `JJ_LIB_VERSION`,
 //! guard the single-name convention, and generate the config
-//! schema from the `vc-config.toml` prototype.
+//! schema from the `vc-config.md` prototype.
 //!
 //! jj-lib exports no version constant of its own, so the only
 //! statement of what this binary links against is the resolved
@@ -21,6 +21,16 @@
 //! all, install included.
 
 use std::path::Path;
+
+// The md -> toml filter, the same file the binary compiles as
+// `crate::md_fence`: the prototype and a `.vc-config.md` are one
+// format, so they are read by one implementation. A build script
+// is its own crate, so it reaches the file by `#[path]` rather
+// than by a crate-relative module path.
+#[path = "src/md_fence.rs"]
+mod md_fence;
+
+use md_fence::md_to_toml;
 
 /// Extract `jj-lib`'s resolved version from `Cargo.lock` text.
 ///
@@ -65,7 +75,7 @@ fn guard_single_name() {
     }
 }
 
-/// One key parsed from the `vc-config.toml` prototype, metadata
+/// One key parsed from the `vc-config.md` prototype, metadata
 /// as raw strings (typing happens at render time in
 /// `render_config_schema`).
 struct ProtoKey {
@@ -94,7 +104,7 @@ fn unescape_basic_string(body: &str) -> String {
             match chars.next() {
                 Some('"') => out.push('"'),
                 Some('\\') => out.push('\\'),
-                other => panic!("vc-config.toml: unsupported escape \\{other:?}"),
+                other => panic!("vc-config.md: unsupported escape \\{other:?}"),
             }
         } else {
             out.push(c);
@@ -110,7 +120,7 @@ fn parse_value(raw: &str) -> String {
     let raw = raw.trim();
     if let Some(body) = raw.strip_prefix('"') {
         let Some(body) = body.strip_suffix('"') else {
-            panic!("vc-config.toml: unterminated string: {raw}");
+            panic!("vc-config.md: unterminated string: {raw}");
         };
         unescape_basic_string(body)
     } else {
@@ -118,8 +128,9 @@ fn parse_value(raw: &str) -> String {
     }
 }
 
-/// Line-based parse of the `vc-config.toml` prototype into
-/// `ProtoKey`s, file order preserved.
+/// Line-based parse of the prototype's TOML into `ProtoKey`s,
+/// file order preserved. `text` is what `md_to_toml` extracted
+/// from `vc-config.md`, so its line numbers are the file's.
 ///
 /// Line-based for the same reason `jj_lib_version` is: build
 /// scripts see no dev-dependencies, and the prototype's dialect
@@ -142,7 +153,7 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
             for (name, value) in fields {
                 match name.as_str() {
                     "reference-base" => *base = Some(value),
-                    other => panic!("vc-config.toml: [vc-config]: unknown entry {other:?}"),
+                    other => panic!("vc-config.md: [vc-config]: unknown entry {other:?}"),
                 }
             }
             return;
@@ -169,21 +180,21 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
                 "required" => match value.as_str() {
                     "true" => required = true,
                     "false" => required = false,
-                    other => panic!("vc-config.toml: [{path}] required = {other}: not a bool"),
+                    other => panic!("vc-config.md: [{path}] required = {other}: not a bool"),
                 },
-                other => panic!("vc-config.toml: [{path}]: unknown entry {other:?}"),
+                other => panic!("vc-config.md: [{path}]: unknown entry {other:?}"),
             }
         }
-        let missing = |what: &str| -> ! { panic!("vc-config.toml: [{path}] is missing {what}") };
+        let missing = |what: &str| -> ! { panic!("vc-config.md: [{path}] is missing {what}") };
         let kind = kind.unwrap_or_else(|| missing("kind"));
         if !matches!(kind.as_str(), "str" | "usize" | "item-list") {
-            panic!("vc-config.toml: [{path}] kind = {kind:?}: not str/usize/item-list");
+            panic!("vc-config.md: [{path}] kind = {kind:?}: not str/usize/item-list");
         }
         if kind == "usize"
             && let Some(d) = &default
             && d.parse::<usize>().is_err()
         {
-            panic!("vc-config.toml: [{path}] default {d:?} is not a usize");
+            panic!("vc-config.md: [{path}] default {d:?} is not a usize");
         }
         if homes.is_empty() {
             missing("homes");
@@ -217,16 +228,16 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
             continue;
         }
         let Some((name, value)) = trimmed.split_once('=') else {
-            panic!("vc-config.toml: unparseable line: {trimmed}");
+            panic!("vc-config.md: unparseable line: {trimmed}");
         };
         let Some((_, fields)) = current.as_mut() else {
-            panic!("vc-config.toml: entry before first table header: {trimmed}");
+            panic!("vc-config.md: entry before first table header: {trimmed}");
         };
         let name = name.trim().to_string();
         let raw = value.trim();
         let value = if name == "homes" {
             let Some(body) = raw.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
-                panic!("vc-config.toml: homes must be an array: {raw}");
+                panic!("vc-config.md: homes must be an array: {raw}");
             };
             body.split(',')
                 .map(|s| parse_value(s.trim()))
@@ -243,10 +254,10 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
     paths.sort_unstable();
     paths.dedup();
     if paths.len() != keys.len() {
-        panic!("vc-config.toml: duplicate key path(s)");
+        panic!("vc-config.md: duplicate key path(s)");
     }
     let Some(base) = base else {
-        panic!("vc-config.toml: no [vc-config] reference-base");
+        panic!("vc-config.md: no [vc-config] reference-base");
     };
     (base, keys)
 }
@@ -273,7 +284,7 @@ fn anchor_slug(path: &str) -> String {
 /// vc-config.md anchor.
 fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
     let mut out = String::from(
-        "// Generated from vc-config.toml by build.rs. Do not edit.\n\
+        "// Generated from vc-config.md by build.rs. Do not edit.\n\
          static SCHEMA_GEN: &[ConfigKey] = &[\n",
     );
     for key in keys {
@@ -284,7 +295,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
                 "user" => "Home::User",
                 "workspace-code" => "Home::WorkspaceCode",
                 "workspace-bot" => "Home::WorkspaceBot",
-                other => panic!("vc-config.toml: [{}] unknown home {other:?}", key.path),
+                other => panic!("vc-config.md: [{}] unknown home {other:?}", key.path),
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -292,7 +303,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
             "str" => "ValueKind::Str",
             "usize" => "ValueKind::Usize",
             "item-list" => "ValueKind::ItemList",
-            other => panic!("vc-config.toml: [{}] unknown kind {other:?}", key.path),
+            other => panic!("vc-config.md: [{}] unknown kind {other:?}", key.path),
         };
         let opt = |v: &Option<String>| match v {
             Some(s) => format!("Some({s:?})"),
@@ -362,11 +373,19 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
 /// Parse the prototype and write the generated schema module
 /// into `$OUT_DIR/config_schema_gen.rs`.
 fn generate_config_schema(manifest_dir: &str) {
-    let proto_path = Path::new(manifest_dir).join("vc-config.toml");
+    let proto_path = Path::new(manifest_dir).join("vc-config.md");
     println!("cargo::rerun-if-changed={}", proto_path.display());
-    let text = match std::fs::read_to_string(&proto_path) {
+    println!(
+        "cargo::rerun-if-changed={}",
+        Path::new(manifest_dir).join("src/md_fence.rs").display()
+    );
+    let md = match std::fs::read_to_string(&proto_path) {
         Ok(text) => text,
         Err(e) => panic!("cannot read {}: {e}", proto_path.display()),
+    };
+    let text = match md_to_toml(&md) {
+        Ok(text) => text,
+        Err(e) => panic!("{}: {e}", proto_path.display()),
     };
     let (base, keys) = parse_prototype(&text);
     let out_dir = match std::env::var("OUT_DIR") {

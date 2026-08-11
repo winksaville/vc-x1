@@ -16,6 +16,7 @@ mod jj;
 mod legacy_vc_config;
 mod list;
 mod logging;
+mod md_fence;
 mod options_flags;
 mod push;
 mod repo_utils;

@@ -22,9 +22,9 @@ result-lines = 10
 col-width = 68
 ```
 
-[0]: ./notes/vc-config-design.md#vc-config-settable-configuration-keys
-[1]: ./notes/vc-config-design.md#agent-sessionitems
-[2]: ./notes/vc-config-design.md#agent-sessionresult-lines
-[3]: ./notes/vc-config-design.md#agent-sessioncol-width
-[4]: ./notes/vc-config-design.md#reposwork
-[5]: ./notes/vc-config-design.md#reposbot
+[0]: ./vc-config.md#vc-config-settable-configuration-keys
+[1]: ./vc-config.md#agent-sessionitems
+[2]: ./vc-config.md#agent-sessionresult-lines
+[3]: ./vc-config.md#agent-sessioncol-width
+[4]: ./vc-config.md#reposwork
+[5]: ./vc-config.md#reposbot

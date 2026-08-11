@@ -339,7 +339,7 @@ work = "."
 /// Renders a commented block documenting every settable workspace
 /// config key not already covered by the active `[repos]` block
 /// above, sourced from `config_schema::schema()` (itself generated
-/// from the `vc-config.toml` prototype) so this list cannot drift
+/// from the `vc-config.md` prototype) so this list cannot drift
 /// from the schema.
 ///
 /// Grouped by TOML section (schema/first-seen order); each key is
