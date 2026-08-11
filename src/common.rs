@@ -667,7 +667,7 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 /// True when `dir` is a workspace's bot repo.
 ///
 /// Side detection is by *self-resolution*: `dir` is the bot side
-/// iff its own `.vc-config.toml`'s `repos.bot` resolves
+/// iff its own instance config's `repos.bot` resolves
 /// (file-relative) back to `dir` itself: the entry that names the
 /// config's own directory names the side. Falls back to the
 /// legacy location rule ([`legacy_is_bot_dir`]) so read-only
@@ -680,8 +680,8 @@ pub fn is_bot_dir(dir: &Path) -> bool {
     let Ok(dir) = dir.canonicalize() else {
         return false;
     };
-    if let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE))
-        && let Some(bot) = toml_simple::toml_get(&cfg, "repos.bot").filter(|v| !v.is_empty())
+    if let Ok(Some(cfg)) = crate::config_md::load(&dir)
+        && let Some(bot) = toml_simple::toml_get(&cfg.map, "repos.bot").filter(|v| !v.is_empty())
     {
         return resolve_repo_path(&dir, bot)
             .canonicalize()
@@ -692,13 +692,14 @@ pub fn is_bot_dir(dir: &Path) -> bool {
 
 /// Walk up from `start` to find the workspace root (the work repo).
 ///
-/// The nearest ancestor with a `.vc-config.toml` decides: its
-/// `repos.work`, resolved file-relative, *is* the root: the walk
-/// finding the bot repo's config first still lands on the work
-/// repo (its `work` points there), so the two sides need no
-/// nesting assumption. Returns `None` if no config is found up to
-/// the filesystem root: the caller is in a "plain old repo" (POR)
-/// with no vc-x1 workspace metadata.
+/// The nearest ancestor with an instance config (either carrier,
+/// see [`crate::config_md`]) decides: its `repos.work`, resolved
+/// file-relative, *is* the root: the walk finding the bot repo's
+/// config first still lands on the work repo (its `work` points
+/// there), so the two sides need no nesting assumption. Returns
+/// `None` if no config is found up to the filesystem root: the
+/// caller is in a "plain old repo" (POR) with no vc-x1 workspace
+/// metadata.
 ///
 /// Legacy roots (the 0.75.x root-anchored `[workspace] work`
 /// schema and the pre-0.75.0 `path = "/"` schema) are still
@@ -709,27 +710,35 @@ pub fn is_bot_dir(dir: &Path) -> bool {
 pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
     let mut cur = start.to_path_buf();
     loop {
-        let cfg = cur.join(VC_CONFIG_FILE);
-        if let Ok(map) = toml_simple::toml_load(&cfg) {
-            if let Some(work) = toml_simple::toml_get(&map, "repos.work") {
-                let resolved = resolve_repo_path(&cur, work);
-                // OK: a declared-but-missing work dir surfaces at
-                // the resolvers' coherence checks, not here.
-                return Some(resolved.canonicalize().unwrap_or(resolved));
+        match crate::config_md::load(&cur) {
+            Ok(Some(cfg)) => {
+                if let Some(work) = toml_simple::toml_get(&cfg.map, "repos.work") {
+                    let resolved = resolve_repo_path(&cur, work);
+                    // OK: a declared-but-missing work dir surfaces at
+                    // the resolvers' coherence checks, not here.
+                    return Some(resolved.canonicalize().unwrap_or(resolved));
+                }
+                if crate::legacy_vc_config::is_root_marker(&cfg.map) {
+                    return if crate::legacy_vc_config::is_bot_dir(&cur) {
+                        cur.parent().map(Path::to_path_buf)
+                    } else {
+                        Some(cur)
+                    };
+                }
             }
-            if crate::legacy_vc_config::is_root_marker(&map) {
-                return if crate::legacy_vc_config::is_bot_dir(&cur) {
-                    cur.parent().map(Path::to_path_buf)
-                } else {
-                    Some(cur)
-                };
-            }
+            // A present-but-unloadable config (both carriers on one
+            // side, a bad fence) still marks the workspace: returning
+            // `cur` lets the resolvers surface the load error instead
+            // of silently degrading to POR.
+            Err(_) => return Some(cur),
+            Ok(None) => {}
         }
         cur = cur.parent()?.to_path_buf();
     }
 }
 
-/// Error fast on a legacy `.vc-config.toml` schema.
+/// Error fast on a legacy instance-config schema, or on a config
+/// that fails to load at all (both carriers present, a bad fence).
 ///
 /// The topology readers treat unknown keys as absent, which would
 /// silently degrade a dual workspace to single-repo, so every
@@ -740,18 +749,20 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
 /// `config --validate` flags the strays). Also rejects an empty
 /// `repos.work`: every reader would silently misresolve it.
 pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let Ok(cfg) = toml_simple::toml_load(&dir.join(VC_CONFIG_FILE)) else {
-        return Ok(());
+    let cfg = match crate::config_md::load(dir) {
+        Ok(Some(cfg)) => cfg,
+        Ok(None) => return Ok(()),
+        Err(e) => return Err(e),
     };
-    if let Some(msg) = crate::legacy_vc_config::reject(dir, &cfg) {
+    if let Some(msg) = crate::legacy_vc_config::reject(dir, &cfg.map) {
         return Err(msg.into());
     }
-    if toml_simple::toml_get(&cfg, "repos.work").is_some_and(|w| w.is_empty()) {
+    if toml_simple::toml_get(&cfg.map, "repos.work").is_some_and(|w| w.is_empty()) {
         return Err(format!(
-            "{}/.vc-config.toml: repos.work is empty: it must be a path \
+            "{}: repos.work is empty: it must be a path \
              (relative to the config file's directory, e.g. \".\" in the \
              work repo); nothing was changed",
-            dir.display()
+            cfg.path.display()
         )
         .into());
     }
@@ -766,7 +777,7 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 
 /// Resolve the workspace's default `--scope`.
 ///
-/// Reads `<workspace_root>/.vc-config.toml > repos.bot`:
+/// Reads the workspace root's instance config's `repos.bot`:
 ///
 /// - dual workspace (non-empty `bot`) -> `Scope([Work, Bot])`
 /// - single-repo workspace (missing / empty `bot`) ->
@@ -778,11 +789,11 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
     let Some(root) = workspace_root else {
         return Scope(vec![Side::Work]);
     };
-    let cfg = match toml_simple::toml_load(&root.join(VC_CONFIG_FILE)) {
-        Ok(c) => c,
-        Err(_) => return Scope(vec![Side::Work]),
+    let cfg = match crate::config_md::load(root) {
+        Ok(Some(c)) => c,
+        _ => return Scope(vec![Side::Work]),
     };
-    match toml_simple::toml_get(&cfg, "repos.bot") {
+    match toml_simple::toml_get(&cfg.map, "repos.bot") {
         Some(v) if !v.is_empty() => Scope(vec![Side::Work, Side::Bot]),
         _ => Scope(vec![Side::Work]),
     }
@@ -814,11 +825,19 @@ pub fn scope_to_repos(
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no .vc-config.toml with a \
+                    "--scope=bot: not in a vc-x1 workspace (no instance config with a \
                      [repos] registry), drop --scope or use --scope=work",
                 )?;
-                let cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
-                let bot = toml_simple::toml_get(&cfg, "repos.bot")
+                let cfg = crate::config_md::load(root)?.ok_or_else(|| {
+                    format!(
+                        "--scope=bot: no vc-x1 config in '{}' \
+                         ({} or {})",
+                        root.display(),
+                        crate::config_md::VC_CONFIG_MD,
+                        VC_CONFIG_FILE
+                    )
+                })?;
+                let bot = toml_simple::toml_get(&cfg.map, "repos.bot")
                     .filter(|v| !v.is_empty())
                     .ok_or(
                         "--scope=bot: no bot repo configured. Add `bot = \"...\"` to the \
@@ -883,7 +902,7 @@ pub fn configured_bot_dir(
 pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     bot_repo_path(workspace_root)?.ok_or_else(|| {
         format!(
-            "{}/.vc-config.toml declares no bot repo (`repos.bot`): \
+            "{}'s config declares no bot repo (`repos.bot`): \
              this operation requires a dual workspace",
             workspace_root.display()
         )
@@ -921,15 +940,35 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
         )
         .into());
     }
-    let root_cfg = toml_simple::toml_load(&root.join(VC_CONFIG_FILE))?;
-    let bot_cfg = toml_simple::toml_load(&bot.join(VC_CONFIG_FILE)).map_err(|e| {
+    let root_cfg = crate::config_md::load(root)?.ok_or_else(|| {
         format!(
-            "workspace incoherent: bot repo '{}' has no readable {VC_CONFIG_FILE} \
-             ({e}): both sides must carry a [repos] registry naming the same \
-             directories; nothing was changed",
-            bot.display()
+            "workspace incoherent: no vc-x1 config found in '{}'; \
+             nothing was changed",
+            root.display()
         )
     })?;
+    let bot_cfg = match crate::config_md::load(bot) {
+        Ok(Some(cfg)) => cfg,
+        Ok(None) => {
+            return Err(format!(
+                "workspace incoherent: bot repo '{}' has no vc-x1 config \
+                 ({} or {VC_CONFIG_FILE}): both sides must carry a [repos] \
+                 registry naming the same directories; nothing was changed",
+                bot.display(),
+                crate::config_md::VC_CONFIG_MD
+            )
+            .into());
+        }
+        Err(e) => {
+            return Err(format!(
+                "workspace incoherent: bot repo '{}' has no readable config \
+                 ({e}): both sides must carry a [repos] registry naming the \
+                 same directories; nothing was changed",
+                bot.display()
+            )
+            .into());
+        }
+    };
     let (root_pair, bot_pair) = (
         resolved_repos_pair(root, &root_cfg)?,
         resolved_repos_pair(bot, &bot_cfg)?,
@@ -939,12 +978,12 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
             "workspace incoherent: the two sides' [repos] registries resolve to \
              different directories: they must name the same work/bot pair; \
              nothing was changed\n\
-             {}/{VC_CONFIG_FILE}: work={}, bot={}\n\
-             {}/{VC_CONFIG_FILE}: work={}, bot={}",
-            root.display(),
+             {}: work={}, bot={}\n\
+             {}: work={}, bot={}",
+            root_cfg.path.display(),
             root_pair.0.display(),
             root_pair.1.display(),
-            bot.display(),
+            bot_cfg.path.display(),
             bot_pair.0.display(),
             bot_pair.1.display()
         )
@@ -956,10 +995,10 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     let canon_root = root.canonicalize()?;
     if root_pair.0 != canon_root {
         return Err(format!(
-            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.work` resolves to \
+            "workspace incoherent: {}'s `repos.work` resolves to \
              '{}', not to the workspace root itself: the work side's own entry \
              must name its own directory; nothing was changed",
-            root.display(),
+            root_cfg.path.display(),
             root_pair.0.display()
         )
         .into());
@@ -967,10 +1006,10 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     let canon_bot = bot.canonicalize()?;
     if bot_pair.1 != canon_bot {
         return Err(format!(
-            "workspace incoherent: {}/{VC_CONFIG_FILE}'s `repos.bot` resolves to \
+            "workspace incoherent: {}'s `repos.bot` resolves to \
              '{}', not to the bot repo itself: the bot side's own entry must \
              name its own directory; nothing was changed",
-            bot.display(),
+            bot_cfg.path.display(),
             bot_pair.1.display()
         )
         .into());
@@ -981,32 +1020,32 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
 /// Resolve and canonicalize one side's declared `[repos]` pair.
 ///
 /// The per-side half of the resolved-agreement check: reads
-/// `repos.work` / `repos.bot` from `cfg` (the config at
+/// `repos.work` / `repos.bot` from `cfg` (the config loaded at
 /// `cfg_dir`), resolves each file-relative, and canonicalizes:
 /// a missing key or unresolvable directory is its own coherence
 /// error.
 fn resolved_repos_pair(
     cfg_dir: &Path,
-    cfg: &HashMap<String, String>,
+    cfg: &crate::config_md::VcConfig,
 ) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
     let resolve = |key: &str| -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let value = toml_simple::toml_get(cfg, key)
+        let value = toml_simple::toml_get(&cfg.map, key)
             .filter(|v| !v.is_empty())
             .ok_or_else(|| {
                 format!(
-                    "workspace incoherent: {}/{VC_CONFIG_FILE} has no `{key}` in its \
+                    "workspace incoherent: {} has no `{key}` in its \
                      [repos] registry: both sides must declare the work/bot pair; \
                      nothing was changed",
-                    cfg_dir.display()
+                    cfg.path.display()
                 )
             })?;
         resolve_repo_path(cfg_dir, value)
             .canonicalize()
             .map_err(|e| {
                 format!(
-                    "workspace incoherent: {}/{VC_CONFIG_FILE}'s `{key}` (\"{value}\") does \
+                    "workspace incoherent: {}'s `{key}` (\"{value}\") does \
                  not resolve to an existing directory ({e}); nothing was changed",
-                    cfg_dir.display()
+                    cfg.path.display()
                 )
                 .into()
             })

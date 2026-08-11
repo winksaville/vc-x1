@@ -30,7 +30,6 @@ use crate::context::Context;
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::options_flags::scope::{Scope, Side, parse_scope};
 use crate::subcommand::SubcommandRunner;
-use crate::toml_simple::toml_load;
 
 /// Parsed positional target: a side keyword set or an explicit
 /// config-file path.
@@ -203,7 +202,7 @@ fn validate_file(
         info!("{label}: {} not found, skipping", path.display());
         return Ok(0);
     }
-    let map = toml_load(path)?;
+    let map = crate::config_md::load_file(path)?;
     let mut keys: Vec<&String> = map.keys().collect();
     keys.sort();
 
@@ -249,18 +248,39 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
             }
             for side in &scope.0 {
                 match side {
-                    Side::Work => {
-                        findings +=
-                            validate_file(&root.join(VC_CONFIG_FILE), "work config", in_work_side)?;
-                    }
-                    Side::Bot => match bot_repo_path(root) {
-                        Ok(Some(bot)) => {
+                    Side::Work => match crate::config_md::vc_config_path(root) {
+                        Ok(Some(path)) => {
+                            findings += validate_file(&path, "work config", in_work_side)?;
+                        }
+                        Ok(None) => {
                             findings += validate_file(
-                                &bot.join(VC_CONFIG_FILE),
-                                "bot config",
-                                in_bot_side,
+                                &root.join(VC_CONFIG_FILE),
+                                "work config",
+                                in_work_side,
                             )?;
                         }
+                        Err(e) => {
+                            warn!("{e}");
+                            findings += 1;
+                        }
+                    },
+                    Side::Bot => match bot_repo_path(root) {
+                        Ok(Some(bot)) => match crate::config_md::vc_config_path(&bot) {
+                            Ok(Some(path)) => {
+                                findings += validate_file(&path, "bot config", in_bot_side)?;
+                            }
+                            Ok(None) => {
+                                findings += validate_file(
+                                    &bot.join(VC_CONFIG_FILE),
+                                    "bot config",
+                                    in_bot_side,
+                                )?;
+                            }
+                            Err(e) => {
+                                warn!("{e}");
+                                findings += 1;
+                            }
+                        },
                         Ok(None) => info!("bot config: no bot repo configured, skipping"),
                         Err(e) => {
                             warn!("{e}");
@@ -275,6 +295,16 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
         }
     }
     Ok(findings)
+}
+
+/// The group-hint path for a side's directory: the carrier that
+/// actually exists there, falling back to the toml name when the
+/// side has none (or holds both).
+fn resolved_hint(dir: &Path) -> String {
+    match crate::config_md::vc_config_path(dir) {
+        Ok(Some(p)) => p.display().to_string(),
+        _ => dir.join(VC_CONFIG_FILE).display().to_string(),
+    }
 }
 
 /// Print the settable config schema for the target: one group per
@@ -302,7 +332,7 @@ fn print_schema(params: &ConfigParams, root: Option<&Path>) {
                 match side {
                     Side::Work => {
                         let hint = match root {
-                            Some(r) => r.join(VC_CONFIG_FILE).display().to_string(),
+                            Some(r) => resolved_hint(r),
                             None => format!("<root>/{VC_CONFIG_FILE}"),
                         };
                         print_group(&format!("work: {hint}"), &group(in_work_side));
@@ -310,7 +340,7 @@ fn print_schema(params: &ConfigParams, root: Option<&Path>) {
                     Side::Bot => {
                         let bot = root.and_then(|r| configured_bot_dir(r).ok().flatten());
                         let hint = match bot {
-                            Some(b) => b.join(VC_CONFIG_FILE).display().to_string(),
+                            Some(b) => resolved_hint(&b),
                             None => format!("<root>/<bot-dir>/{VC_CONFIG_FILE}"),
                         };
                         print_group(&format!("bot: {hint}"), &group(in_bot_side));

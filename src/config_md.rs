@@ -1,0 +1,318 @@
+//! Markdown-carried instance config: the md -> toml filter and the
+//! resolver/loader every `.vc-config.*` reader goes through.
+//!
+//! The format: a config file is a markdown document whose `toml`
+//! fences, concatenated in document order, form the TOML the loader
+//! parses. Prose between fences is documentation (doc one-liners,
+//! reference links) and never reaches the parser. One rule falls
+//! out for authors: a `[table]` header captures every key after it
+//! until the next header, so a table's keys must stay in its
+//! stretch of the document.
+//!
+//! `.vc-config.toml` remains a valid carrier through the family's
+//! migration window; a side holding both carriers is an error.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::toml_simple;
+
+/// The markdown instance-config filename (the toml carrier's name
+/// is [`VC_CONFIG_FILE`]).
+pub const VC_CONFIG_MD: &str = ".vc-config.md";
+
+/// What the filter is inside of, line by line.
+enum Fence {
+    /// Outside any fence: prose, blanked.
+    None,
+    /// Inside a ```toml fence: lines pass through.
+    Toml,
+    /// Inside any other fence (illustration idiom): blanked.
+    Other,
+}
+
+/// Extract the TOML a config markdown document carries.
+///
+/// - `toml`-tagged fence interiors pass through verbatim.
+/// - Every other line (prose, fence markers, other fences'
+///   interiors) is blanked rather than removed, so the result has
+///   the source's line count and any parse diagnostic points at
+///   the real line.
+/// - The tag must be exactly `toml` (` ```toml `); a fence tagged
+///   otherwise or untagged is illustration and is ignored.
+/// - An unclosed fence is an error naming its opening line.
+pub fn md_to_toml(content: &str) -> Result<String, String> {
+    let mut state = Fence::None;
+    let mut opened_at = 0usize;
+    let mut out = String::with_capacity(content.len());
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        match state {
+            Fence::None => {
+                if let Some(info) = trimmed.strip_prefix("```") {
+                    state = if info.trim() == "toml" {
+                        Fence::Toml
+                    } else {
+                        Fence::Other
+                    };
+                    opened_at = idx + 1;
+                }
+            }
+            Fence::Toml => {
+                if is_fence_close(trimmed) {
+                    state = Fence::None;
+                } else {
+                    out.push_str(line);
+                }
+            }
+            Fence::Other => {
+                if is_fence_close(trimmed) {
+                    state = Fence::None;
+                }
+            }
+        }
+        out.push('\n');
+    }
+    if matches!(state, Fence::None) {
+        Ok(out)
+    } else {
+        Err(format!("unclosed fence opened at line {opened_at}"))
+    }
+}
+
+/// True when a (trim_start'ed) line closes a fence: backticks with
+/// nothing but whitespace after them.
+fn is_fence_close(trimmed: &str) -> bool {
+    trimmed
+        .strip_prefix("```")
+        .is_some_and(|rest| rest.trim().is_empty())
+}
+
+/// Resolve which instance-config file `dir` holds.
+///
+/// `Ok(None)` when neither carrier exists. Holding both is an
+/// error: two files that can disagree are no longer a config.
+pub fn vc_config_path(dir: &Path) -> Result<Option<PathBuf>, String> {
+    let md = dir.join(VC_CONFIG_MD);
+    let toml = dir.join(VC_CONFIG_FILE);
+    match (md.exists(), toml.exists()) {
+        (true, true) => Err(format!(
+            "{}: both {VC_CONFIG_MD} and {VC_CONFIG_FILE} exist: keep one \
+             ({VC_CONFIG_MD} is the current carrier); nothing was changed",
+            dir.display()
+        )),
+        (true, false) => Ok(Some(md)),
+        (false, true) => Ok(Some(toml)),
+        (false, false) => Ok(None),
+    }
+}
+
+/// Load one config file, whatever its carrier: a `.md` path runs
+/// through [`md_to_toml`] first, anything else parses as plain
+/// TOML.
+pub fn load_file(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    if path.extension().is_some_and(|e| e == "md") {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
+        let toml = md_to_toml(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(toml_simple::toml_parse(&toml))
+    } else {
+        toml_simple::toml_load(path)
+    }
+}
+
+/// A loaded instance config: the file it came from (for messages)
+/// and its flat key map.
+pub struct VcConfig {
+    pub path: PathBuf,
+    pub map: HashMap<String, String>,
+}
+
+/// Resolve and load `dir`'s instance config.
+///
+/// `Ok(None)` when the directory has no config file; an error is a
+/// real problem (both carriers present, unreadable file, a bad
+/// fence), never a plain miss.
+pub fn load(dir: &Path) -> Result<Option<VcConfig>, Box<dyn std::error::Error>> {
+    let Some(path) = vc_config_path(dir)? else {
+        return Ok(None);
+    };
+    let map = load_file(&path)?;
+    Ok(Some(VcConfig { path, map }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The model rendering (vc-config-test.md's shape): compact,
+    /// one fence per table, doc-link bullets above it.
+    const COMPACT: &str = "\
+# vc-x1 config file
+
+vc-x1 config file document [0]
+
+The two repos
+- work doc[[4]]
+- agent docs[[5]]
+```toml
+[repos]
+work = \".\"
+bot = \".claude\"
+```
+
+The bot-session table
+- items [[1]]
+```toml
+[bot-session]
+items = \"headers,user\"
+col-width = 68
+```
+
+[0]: ./vc-config.md#vc-config-settable-configuration-keys
+[1]: ./vc-config.md#bot-sessionitems
+";
+
+    /// The separated per-key shape: a lone header fence, then bare
+    /// key fences relying on its scope.
+    const SEPARATED: &str = "\
+The bot-session table
+```toml
+[bot-session]
+```
+
+items
+```toml
+items = \"headers,user\"
+```
+
+col-width
+```toml
+col-width = 68
+```
+";
+
+    #[test]
+    fn compact_shape_parses() {
+        let toml = md_to_toml(COMPACT).unwrap();
+        let map = toml_simple::toml_parse(&toml);
+        assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
+        assert_eq!(map.get("repos.bot").map(String::as_str), Some(".claude"));
+        assert_eq!(
+            map.get("bot-session.items").map(String::as_str),
+            Some("headers,user")
+        );
+        assert_eq!(
+            map.get("bot-session.col-width").map(String::as_str),
+            Some("68")
+        );
+    }
+
+    #[test]
+    fn separated_shape_parses_like_compact() {
+        let toml = md_to_toml(SEPARATED).unwrap();
+        let map = toml_simple::toml_parse(&toml);
+        assert_eq!(
+            map.get("bot-session.items").map(String::as_str),
+            Some("headers,user")
+        );
+        assert_eq!(
+            map.get("bot-session.col-width").map(String::as_str),
+            Some("68")
+        );
+    }
+
+    #[test]
+    fn line_count_is_preserved() {
+        let toml = md_to_toml(COMPACT).unwrap();
+        assert_eq!(toml.lines().count(), COMPACT.lines().count());
+    }
+
+    #[test]
+    fn prose_never_reaches_the_parser() {
+        // A prose line containing `=` or `[..]` outside a fence
+        // must not become a key or a section.
+        let doc = "prose with spurious = sign\n[not-a-section] in prose\n```toml\nk = \"v\"\n```\n";
+        let map = toml_simple::toml_parse(&md_to_toml(doc).unwrap());
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("k").map(String::as_str), Some("v"));
+    }
+
+    #[test]
+    fn non_toml_fences_are_illustration() {
+        let doc = "```\nignored = \"yes\"\n```\n```sh\nexport X=1\n```\n```toml\nk = \"v\"\n```\n";
+        let map = toml_simple::toml_parse(&md_to_toml(doc).unwrap());
+        assert_eq!(map.len(), 1);
+        assert!(map.contains_key("k"));
+    }
+
+    #[test]
+    fn unclosed_fence_errors() {
+        let doc = "prose\n```toml\nk = \"v\"\n";
+        let err = md_to_toml(doc).unwrap_err();
+        assert!(err.contains("line 2"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn resolve_prefers_lone_carrier_and_rejects_both() {
+        let dir = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_config_md_resolve");
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+
+        assert!(vc_config_path(&dir).unwrap().is_none());
+
+        std::fs::write(dir.join(VC_CONFIG_FILE), "[repos]\nwork = \".\"\n").unwrap();
+        assert_eq!(
+            vc_config_path(&dir).unwrap(),
+            Some(dir.join(VC_CONFIG_FILE))
+        );
+
+        std::fs::write(
+            dir.join(VC_CONFIG_MD),
+            "```toml\n[repos]\nwork = \".\"\n```\n",
+        )
+        .unwrap();
+        let err = vc_config_path(&dir).unwrap_err();
+        assert!(err.contains("both"), "unexpected error: {err}");
+
+        std::fs::remove_file(dir.join(VC_CONFIG_FILE)).unwrap();
+        assert_eq!(vc_config_path(&dir).unwrap(), Some(dir.join(VC_CONFIG_MD)));
+
+        let cfg = load(&dir).unwrap().unwrap();
+        assert_eq!(cfg.path, dir.join(VC_CONFIG_MD));
+        assert_eq!(cfg.map.get("repos.work").map(String::as_str), Some("."));
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn md_carrier_drives_workspace_topology() {
+        let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_config_md_workspace");
+        std::fs::remove_dir_all(&root).ok();
+        let bot = root.join(".claude");
+        std::fs::create_dir_all(&bot).unwrap();
+
+        std::fs::write(
+            root.join(VC_CONFIG_MD),
+            "The two repos\n```toml\n[repos]\nwork = \".\"\nbot = \".claude\"\n```\n",
+        )
+        .unwrap();
+        std::fs::write(
+            bot.join(VC_CONFIG_MD),
+            "The two repos\n```toml\n[repos]\nwork = \"..\"\nbot = \".\"\n```\n",
+        )
+        .unwrap();
+
+        let canon_root = root.canonicalize().unwrap();
+        assert_eq!(
+            crate::common::find_workspace_root_from(&bot),
+            Some(canon_root)
+        );
+        assert!(crate::common::is_bot_dir(&bot));
+        assert!(!crate::common::is_bot_dir(&root));
+        assert!(crate::common::default_scope(Some(&root)).has_bot());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+}

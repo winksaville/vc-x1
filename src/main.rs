@@ -4,6 +4,7 @@ mod clone;
 mod common;
 mod config;
 mod config_cmd;
+mod config_md;
 mod config_schema;
 mod context;
 mod desc;

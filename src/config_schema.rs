@@ -258,17 +258,24 @@ mod tests {
     }
 
     /// Every derived reference must anchor at a real `##` heading
-    /// in vc-config.md: build.rs derives the fragment from the
+    /// in the per-key doc: build.rs derives the fragment from the
     /// key's path, and this re-derives the headings' GitHub slugs
     /// (lowercase, keep `[a-z0-9-]`, spaces to hyphens, markdown
     /// escapes dropped) and demands a match, so a key added to
     /// the prototype without docs fails here. Override references
-    /// pointing elsewhere are skipped.
+    /// pointing elsewhere are skipped. The doc lives at
+    /// notes/vc-config-design.md until the "feat: vc-config.md
+    /// absorbs prototype and doc" rung merges it into
+    /// vc-config.md; the urls keep the vc-config.md name they
+    /// will land on.
     #[test]
     #[allow(clippy::unwrap_used)]
     fn references_anchor_into_vc_config_md() {
-        let md =
-            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/vc-config.md")).unwrap();
+        let md = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/notes/vc-config-design.md"
+        ))
+        .unwrap();
         let slugs: std::collections::HashSet<String> = md
             .lines()
             .filter_map(|l| l.strip_prefix("## "))

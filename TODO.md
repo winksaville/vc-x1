@@ -56,52 +56,66 @@ Both repos' `.vc-config.toml` carry a fossil `[push]` comment block from an olde
 schema, the retired `.vc-x1` state dirs linger (empty dirs on disk, a `/.vc-x1` line in the
 work `.gitignore`), generated config comments have no refresh tooling so they rot silently, and
 the bot dir's `.claude` name is agent-specific where this workspace wants the neutral
-`.agent-session`.
+`.agent-session`. Underneath those, the toml format itself caps the doc story: a `#` comment
+block linkifies nothing, so a reader cannot click from a key to its documentation.
 
 #### Solution
 
-Make a repo-root `vc-config.toml` prototype the schema's single source, then rebuild the
-config surface from it:
+Adopt a markdown carrier for the config surface (wink, 2026-08-11), then rebuild the pipeline
+on it. The format: a config file is a markdown document whose `toml` fences, concatenated in
+document order, form the TOML the loader parses, so prose, per-key doc, and real reference
+links live beside the keys they document. `vc-config-test.md` is the model rendering
+(compact: one fence per table, doc-link bullets above it).
 
-- the prototype holds real TOML tables, one per settable key: doc, used-by, default,
-  reference url
-- build.rs parses it and generates the schema table and default constants
-  - `src/config_schema.rs` shrinks to the include plus hand-written helpers
-  - behavioral defaults (col-width, result-lines) consume the generated constants, so the
-    code cannot disagree with the file
-- each key's rendered block carries a `doc references:` list: the derived web url (a
-  localfile entry joins at backlog #52, once init seeds the file it would point at)
-- regenerate both config files from that pipeline, retiring the fossil comment blocks
-- retire the state-dir leftovers
-- add a `config --refresh` that rewrites a file's commented schema block while preserving
-  active keys and `[repos]`
+- a md -> toml filter (non-fence lines blanked, so any diagnostics keep the source's line
+  numbers) feeds the existing parser
+  - the loader resolves `.vc-config.md`, still accepts `.vc-config.toml` for the family's
+    migration window, and errors when a side has both
+- the prototype `vc-config.toml` becomes `vc-config.md` in the same format: per-key `##`
+  sections (the anchors the generated web urls land on) absorb `vc-config-design.md`, which
+  retires, so the schema source and the browsable doc are one file
+- the config surface adopts the agent vocabulary: `repos.agent`, `[agent-session]`, an
+  `agent-session` subcommand and `--scope=agent`, old names accepted as aliases; the pinned
+  prose sweep is a later convention cycle
+- regenerate both sides' instance configs as `.vc-config.md`, retiring the fossil `[push]`
+  comment blocks and the `.vc-x1` state-dir leftovers
+- `config --refresh` regenerates the prose between fences while preserving fence interiors
+  and `[repos]` byte-for-byte
   - a `--check` mode renders and compares without writing, exiting nonzero on any
     difference, so a prototype edit that skipped the refresh fails loudly
 - add a `validate-anchors` subcommand, the validate-repo design's first standalone slice:
   same-file heading anchors checked via the documented slug algorithm, plus `[N]` reference
   resolution, across the repo's markdown records
-- repoint `repos.bot` at `.agent-session`
+- per-key worked examples in `vc-config.md`, so a reference link rewards the click
+- repoint `repos.agent` at `.agent-session`
   - the directory rename itself is wink's move between sessions (a live session writes
     through the symlink), with the following session committing the record
 
 #### Acceptance check
 
-1. build.rs generates the schema table and default constants from `vc-config.toml`
+1. `md_to_toml` turns a config markdown file into the TOML the loader parses by
+   concatenating its `toml` fences (line count preserved), with tests covering the model
+   file's compact shape, the separated per-key shape, and an unclosed fence erroring.
+2. The loader reads `.vc-config.md` on both sides, still loads a `.vc-config.toml`, and
+   errors when a side holds both; workspace detection finds a root by either name.
+3. build.rs generates the schema table and default constants from `vc-config.md`
    (rerun-if-changed wired), the hand-kept `COL_WIDTH` / `RESULT_LINE_CAP` constants are gone
-   from `src/`, and generated configs carry each key's `doc references:` list (the derived web
-   url per key).
-2. `vc-x1 config --validate` is clean on both sides, and neither file mentions `[push]`,
-   `state-dir`, or `state-file`.
-3. `config --refresh` on a fixture with stale comment blocks and active keys preserves the
-   active keys and `[repos]` while replacing the stale blocks (a test demonstrates it).
-4. `config --refresh --check` exits clean on both sides, proving the committed config files
-   match what the prototype renders.
-5. After the rename: `repos.bot = ".agent-session"`, a cycle rung pushes from a session end to
-   end, and new commits still stamp `/.claude/`-labeled ochid trailers.
-6. No `.vc-x1` dir in either repo and no `/.vc-x1` line in `.gitignore`, which ignores the bot
-   dir under its new name.
+   from `src/`, `vc-config-design.md` is gone, and each key's generated reference link lands
+   on that key's `##` section in `vc-config.md`.
+4. `vc-x1 config --validate` is clean on both sides, both instance files are `.vc-config.md`,
+   and neither mentions `[push]`, `state-dir`, or `state-file`.
+5. New surface names work with old ones as aliases: `repos.agent` / `[agent-session]` in new
+   files while `repos.bot` / `[bot-session]` still load, and the `agent-session` subcommand
+   answers with `bot-session` aliased to it.
+6. `config --refresh` on a fixture with stale prose and user-edited fences preserves the
+   fence interiors and `[repos]` while regenerating the prose (a test demonstrates it), and
+   `--refresh --check` exits clean on both sides.
 7. `validate-anchors` runs clean over `TODO.md`, `notes/`, `README.md`, and `vc-config.md`
    (same-file heading anchors and `[N]` refs), and a test shows it catching a broken anchor.
+8. After the rename: `repos.agent = ".agent-session"`, a cycle rung pushes from a session end
+   to end, new commits still stamp `/.claude/`-labeled ochid trailers, no `.vc-x1` dir in
+   either repo, and no `/.vc-x1` line in `.gitignore`, which ignores the bot dir under its
+   new name.
 
 #### Ladder
 
@@ -110,16 +124,42 @@ config surface from it:
 - [[N]] [feat: vc-config.toml prototype + build.rs codegen][35] (done)
 - [[N]] [docs: ladder ToC + per-rung sections][36] (done)
 - [[N]] [docs: amend cycle conventions][37] (done)
-- [[N]] [feat: per-key doc references][38]
-- [[N]] [chore: regenerate stale config files][39]
-- [[N]] [feat: add config --refresh][40]
-- [[N]] [feat: add validate-anchors][41]
-- [[N]] [docs: vc-config.md per-key examples][42]
-- [[N]] [chore: point config at .agent-session][43]
+- [[N]] [feat: markdown config handler][38] (done)
+- [[N]] [feat: vc-config.md absorbs prototype and doc][39]
+- [[N]] [feat: agent naming in config and CLI][40]
+- [[N]] [chore: regenerate configs in md format][41]
+- [[N]] [feat: add config --refresh][42]
+- [[N]] [feat: add validate-anchors][43]
+- [[N]] [docs: vc-config.md per-key examples][44]
+- [[N]] [chore: point config at .agent-session][45]
 - [[N]] docs: freshen vc-config and config subcmd closing
 
 #### Deliberation
 
+- the md pivot (wink, 2026-08-11): a toml instance's `#` comment blocks cannot carry a
+  clickable link, and every patch on that (a `localfile://` scheme, taught handlers) treated
+  the symptom
+  - a markdown carrier dissolves it: fences hold the TOML, prose holds the doc, reference
+    links are real markdown, and the whole spec is one sentence: the `toml` fences,
+    concatenated in document order, must form a valid config
+  - pivoted mid-cycle at the cheapest point: the landed prototype + codegen rungs survive
+    unchanged, and every not-yet-landed rung was about to render the format this replaces
+    (the `--refresh` comment-block heuristic disappears outright: prose is the generator's,
+    fence interiors are the user's)
+  - one format is the end state; `.toml` stays loadable through the family's migration
+    because the internal pipeline is md -> toml, making dual support nearly free
+  - session experiments pinned the format rules: a `[table]` header captures every key after
+    it (TOML has no terminator), so the model is compact fences per table
+    (vc-config-test.md), the separated per-key form falls out of the spec unadvertised, and
+    markdown tables stay presentation-only, since parsing them re-invents what TOML does free
+- name allocation: `vc-config.md` is the prototype-and-doc (vc-config-design.md merges in and
+  retires), `.vc-config.md` the instance, so the derived web url's filename never changes and
+  backlog #52 distributes the file that is both doc and schema source
+- agent vocabulary (wink, 2026-08-11): the machine surface flips this cycle, riding the one
+  config migration; the pinned-prose sweep ("bot repo" and kin) is its own later cycle, per
+  "convention work runs as its own cycle"
+- versioning (wink, 2026-08-11): no version is spoken for until it lands on main, correcting
+  the earlier note here that reserved 0.79.0; this cycle stays a patch, 0.78.8 at close-out
 - the `.agent-session` rename was leaning toward its own cycle; it folds in here because it
   needs an inter-session quiesce, which a multi-step cycle's `/exit` between rungs naturally
   provides
@@ -128,8 +168,6 @@ config surface from it:
   the rename
 - pinned files name `.claude` as the bot repo's path; the rename step updates that text to
   path-neutral wording as a family proposal, this member's diff carrying it until convergence
-- 0.79.0 is spoken for by the trapezoid branch's anticipated close-out, so this cycle is a
-  patch at 0.78.8
 - the close-out title dropped ".toml" from wink's phrasing so the opening bookend stays inside
   the title cap
 - the single-name guard refuses a suffixed version under the stable name, so the opening
@@ -295,71 +333,111 @@ config surface from it:
   surface, fourth-surface note, cycle bookend titles), notes.md (as-built rung form,
   fragment defs, the Done-entry title), jj.md (cycle bookmarks)
 
-##### feat: per-key doc references
+##### feat: markdown config handler
 
-- intent: replace each key's single `reference:` line with a `doc references:` list
-  - the derived web url, clickable everywhere; the list form (not a singular line) leaves
-    room for the localfile entry backlog #52 adds once init seeds the file it points at
-  - the localfile entry was cut at review (wink, 2026-08-10): before #52, the file it names
-    does not exist in fresh members, so even a taught handler resolves to nothing. Cutting it
-    also keeps the renderer role-blind, since the web url is the same from both sides
-  - the wrap move to <=100 rides here, so the regenerate that follows writes final text
-  - drift tests sync to the list form
-  - inserted ahead of the regenerate (2026-08-10): the change alters rendered text (settle
-    the generator first), and acceptance item 1 synced to the list form
-  - wink's target rendering (the doc one-liner will wrap at <=100 rather than this example's
-    width):
+Problem: a `.vc-config.toml` is edited by the user, and thus the user needs to be able to
+thoroughly understand every aspect of it. But a .toml file is limited in its expressivity
+as its documentation lives in `#` comment blocks and typical toml renderers do not
+allow you to link to local sources of documentation.
 
-    ```
-    # bot-session.col-width: Default --col-width: first-column width in the
-    #   --fields / --unknown / --per-line views
-    #   used by: bot-session --col-width
-    #   default: 68
-    #   doc references:
-    #    - https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
-    # col-width = 68
-    ```
+Solution: change the config from a .toml file to a markdown file, which is much more
+expressive. The prose and reference links live beside the keys, and the tables and key/value
+pairs are defined in `toml` code blocks (see [vc-config-test.md](vc-config-test.md), the
+model). This rung adds the markdown config handler and routes every config reader through
+it:
 
-##### chore: regenerate stale config files
+- `md_to_toml` keeps `toml`-tagged fence interiors, blanks every other line (line count
+  preserved, so diagnostics keep the source's line numbers), errors on an unclosed fence,
+  and ignores untagged and other-tagged fences as the illustration idiom
+- the loader resolves a side's config as `.vc-config.md` else `.vc-config.toml` for the
+  family's migration window, erroring when both exist; workspace detection probes both names
+- fixtures follow the model file's compact shape and the separated per-key shape, plus the
+  mixing hazards the session experiments pinned (header-then-dotted nests silently,
+  dotted-then-header errors loudly)
+- landed: `config_md::load` is the one resolver/loader every topology reader goes through
+  (the seven `common.rs` sites, `config --validate`, the schema-print hints)
+  - `toml_simple` split into read and parse halves; the md dispatch keys on the `.md`
+    extension in `config_md::load_file`, so a path-target `config --validate` accepts a
+    markdown config too
+  - a present-but-unloadable config (both carriers, a bad fence) now marks the workspace
+    root instead of being walked past, so it surfaces as the resolvers' error rather than a
+    silent degrade to POR
+  - the schema drift test anchors into `vc-config-design.md` until the absorb rung restores
+    the `vc-config.md` name its urls already carry
+  - the both-present guard fired immediately: a draft `.vc-config.md` sat beside the live
+    root config, parked in `tmp/draft-dot-vc-config.md`
+  - `legacy_vc_config` untouched: its schemas are toml-only by definition
+  - this workspace switched carriers at this rung (wink, 2026-08-11): both sides now hold a
+    hand-written minimal `.vc-config.md` ([repos] plus doc links), the `.toml` instances are
+    deleted, and the rest of the cycle dogfoods the handler
+    - consequence: the stable `vc-x1` (no md support until promotion) can no longer resolve
+      this workspace, so cycle operations run as `vc-x1-dev` from here to close-out
+    - the regenerate rung's job narrows to rewriting these hand-written files from the
+      generator
 
-The rung's mechanical work is what the title says (regenerate both `.vc-config.toml` files,
-verify acceptance items 1-2 via the proven tmp-dump-and-copy path). What outgrew the title is
-the ownership model settled in the pre-rung discussion (2026-08-10), which the regenerate rests
-on and later rungs implement:
+##### feat: vc-config.md absorbs prototype and doc
 
-- wrap width: generated comment blocks adopt <=100 (prose.md's Line widths), replacing the
-  renderer's 72
-  - decided before regenerating, so both files are written once at the final width
-- ownership model: `.vc-config.toml` is a workspace's only behavior-changing file
-  - active lines (`[repos]`, uncommented keys) are the workspace's own, preserved by every
+- intent: three files describe the same keys today (the prototype, vc-config-design.md, the
+  instance rendering); after this rung the prototype is `vc-config.md`, one file that is
+  both the schema source and the doc every generated link lands on
+  - per-key `##` sections carry the design doc's prose above each key's schema fence, and
+    the section slugs are the anchors the derived web url already names, so the url template
+    never changes
+  - build.rs parses the prototype via the shared filter, rerun-if-changed re-pointed
+  - `vc-config-design.md` retires at the merge; the <=100 wrap move rides here so the
+    regenerate that follows writes final text
+
+##### feat: agent naming in config and CLI
+
+- intent: the family is retiring "bot" for "agent" on the machine surface, and this cycle's
+  config migration is the one moment the flip costs a single transition
+  - keys: `repos.agent` and `[agent-session]`, the loader accepting the old names alongside
+  - CLI: `agent-session` subcommand with `bot-session` as alias, `--scope=agent` with `bot`
+    accepted
+  - values are untouched: `repos.agent = ".claude"` until the dir-rename rung, and the ochid
+    side label stays `/.claude/` (test-pinned, decoupled from the path)
+  - the pinned-prose sweep ("bot repo" -> "agent repo" and kin) is deliberately excluded:
+    convention work runs as its own cycle
+
+##### chore: regenerate configs in md format
+
+The rung's mechanical work: regenerate both sides' instance configs as `.vc-config.md` in the
+model rendering (the carriers switched by hand at the handler rung, so this replaces interim
+hand-written files with generated ones) and retire the `.vc-x1` state-dir leftovers.
+The ownership model settled in the pre-rung discussion (2026-08-10) carries over to the md
+form, prose taking the role comment blocks had:
+
+- ownership model: the instance config is a workspace's only behavior-changing file
+  - fence interiors (`[repos]`, active keys) are the workspace's own, preserved by every
     regenerate
-  - comment blocks are machine-owned rendering of the binary's baked schema: disposable by
-    construction, never a durable edit surface
-- hand edits to rendered comments are permitted but ephemeral
+  - the prose between fences is machine-owned rendering of the binary's baked schema:
+    disposable by construction, never a durable edit surface
+- hand edits to generated prose are permitted but ephemeral
   - refresh runs only when invoked, and `--refresh --check` reports divergence rather than
     rewriting, so the file's owner always decides
   - the durable link edit is `reference-base`, an active key that moves every doc-reference
-    web entry together and survives refresh
+    web url together and survives refresh
 - this rung's by-hand regenerate degenerates into a full overwrite
   - safe only because this workspace has no active keys beyond `[repos]` values matching the
     role defaults
   - the general preserve-actives operation is the `config --refresh` rung
-- the doc-proposal surface is `vc-config.md`, which each key's `doc references:` entries link
-  to
+- the doc-proposal surface is `vc-config.md`, the prototype-and-doc every generated link
+  lands on
   - agreed direction: distribute it as a pinned family file, init stamping `reference-base`
     to the member's own repo, so the link lands on a copy the member owns and may edit as a
     proposal
   - beyond this cycle: backlog #52 (init distributes vc-config.md)
 - schema changes stay vc-x1 changes
-  - the prototype `vc-config.toml` remains vc-x1-only build source, proposals traveling by
+  - the prototype `vc-config.md` remains vc-x1-only build source, proposals traveling by
     family channel or fork
   - workspace-local keys wait on the `[private]` table proposal
 
 ##### feat: add config --refresh
 
-- intent: the commented schema block rots silently when the binary's schema moves, and the
-  only fix today is a hand regenerate
-  - `--refresh` rewrites a file's commented block while preserving active keys and `[repos]`
+- intent: the generated prose rots silently when the binary's schema moves, and the only fix
+  today is a hand regenerate
+  - `--refresh` regenerates a file's prose while preserving fence interiors and `[repos]`
+    byte-for-byte, a mechanical boundary the md format gives for free
   - `--check` renders and compares without writing, exiting nonzero on drift, so a prototype
     edit that skips the refresh fails loudly
 
@@ -399,7 +477,7 @@ must reward the click. Per section:
 
 - wink's between-session move sits just before this rung: after the previous rung lands
   and the bot tail is flushed, /exit, then `mv .claude .agent-session`, edit the work-side
-  config's `repos.bot` and the work `.gitignore` entry to `.agent-session`, run
+  config's `repos.agent` and the work `.gitignore` entry to `.agent-session`, run
   `vc-x1 symlink`, and start the session that commits this rung
 - the `.gitignore` edit belongs in the move, not the commit: un-ignored, the renamed bot
   dir would be swept into the work repo's next snapshot
@@ -1194,9 +1272,11 @@ hygiene-riders and facade-owns-topology cycles)._
 [35]: #feat-vc-configtoml-prototype--buildrs-codegen
 [36]: #docs-ladder-toc--per-rung-sections
 [37]: #docs-amend-cycle-conventions
-[38]: #feat-per-key-doc-references
-[39]: #chore-regenerate-stale-config-files
-[40]: #feat-add-config---refresh
-[41]: #feat-add-validate-anchors
-[42]: #docs-vc-configmd-per-key-examples
-[43]: #chore-point-config-at-agent-session
+[38]: #feat-markdown-config-handler
+[39]: #feat-vc-configmd-absorbs-prototype-and-doc
+[40]: #feat-agent-naming-in-config-and-cli
+[41]: #chore-regenerate-configs-in-md-format
+[42]: #feat-add-config---refresh
+[43]: #feat-add-validate-anchors
+[44]: #docs-vc-configmd-per-key-examples
+[45]: #chore-point-config-at-agent-session
