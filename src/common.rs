@@ -175,14 +175,27 @@ pub fn write_file(path: &Path, content: &str) -> Result<(), Box<dyn std::error::
 
 /// Display a prompt, read a line from stdin, and log both together.
 /// Returns the trimmed response.
+///
+/// The replay of prompt+answer is routed by where stdout goes:
+///
+/// - stdout captured (piped): replay at info, since the replay is
+///   the captured transcript's only record of the exchange.
+/// - stdout a terminal: replay at debug, because the terminal
+///   already shows the live line (the stderr prompt plus the
+///   user's keystroke echo) and an info replay prints the
+///   question twice. The log file still captures debug.
 pub fn prompt(msg: &str) -> Result<String, Box<dyn std::error::Error>> {
-    use std::io::Write;
+    use std::io::{IsTerminal, Write};
     eprint!("{msg}");
     std::io::stderr().flush()?;
     let mut response = String::new();
     std::io::stdin().read_line(&mut response)?;
     let trimmed = response.trim().to_string();
-    info!("{msg}{trimmed}");
+    if std::io::stdout().is_terminal() {
+        debug!("{msg}{trimmed}");
+    } else {
+        info!("{msg}{trimmed}");
+    }
     Ok(trimmed)
 }
 

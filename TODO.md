@@ -125,6 +125,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [docs: ladder ToC + per-rung sections][36] (done)
 - [[N]] [docs: amend cycle conventions][37] (done)
 - [[N]] [feat: markdown config handler][38] (done)
+- [[N]] [fix: prompt double echo][46] (done)
 - [[N]] [feat: vc-config.md absorbs prototype and doc][39]
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
@@ -374,6 +375,20 @@ it:
       this workspace, so cycle operations run as `vc-x1-dev` from here to close-out
     - the regenerate rung's job narrows to rewriting these hand-written files from the
       generator
+
+##### fix: prompt double echo
+
+- intent: every interactive `[y/N]` line prints twice (wink's push transcript, 2026-08-11),
+  because `common::prompt` writes the live prompt to stderr and then replays prompt+answer
+  at info level, which also reaches the terminal via stdout
+  - the replay exists for captured stdout (a transcript's only record of the answer) and
+    the log file, so it cannot simply be dropped
+  - fix: route by `stdout.is_terminal()`: a terminal gets the replay at debug (the log file
+    still captures all levels), a captured stdout keeps the info replay
+  - one helper, four call sites (push review x2, symlink replace, sync), so the fix lands
+    everywhere at once
+- landed as designed; the suite runs with stdout captured, so the terminal branch has no
+  in-suite test and the check is wink's next interactive push showing the line once
 
 ##### feat: vc-config.md absorbs prototype and doc
 
@@ -1280,3 +1295,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [43]: #feat-add-validate-anchors
 [44]: #docs-vc-configmd-per-key-examples
 [45]: #chore-point-config-at-agent-session
+[46]: #fix-prompt-double-echo
