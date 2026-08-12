@@ -127,6 +127,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [feat: markdown config handler][38] (done)
 - [[N]] [fix: prompt double echo][46] (done)
 - [[N]] [feat: vc-config.md absorbs prototype and doc][39] (done)
+- [[N]] [docs: pin the commit-body form][51] (done)
 - [[N]] [fix: bot-session reads the md carrier][47]
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
@@ -219,6 +220,17 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
     convention itches and says nothing about *findings*, which is where four of the six
     insertions came from. Generalizing it is itself convention work, so it waits for its own
     cycle rather than being written here
+- **commit-body form adopted and pinned** (wink, 2026-08-12), from iiac-perf's mailbox
+  proposal ([their chores-06 section][48]). The form is [prose.md's][50] now, not restated
+  here. The [pin rung][51] goes first so the rungs after it are written under a rule in force,
+  which is the dogfood the family's review wants
+  - **freeze lifted for this one rung** (wink, 2026-08-12), recorded per the hard rules'
+    preamble. Backlog was tried first and failed its own test: a rule binding every remaining
+    body cannot live in the file of things we might do
+  - **prose.md holds the form, not cycle-protocol.md**: that file's [Body][49] already defers
+    body content to prose.md, and the marker typing is prose mechanics
+  - the mandatory intro retires bugs.md #7 as a body-shape concern; the bug stays, since a
+    caller can still hand `--body` a hyphen-first string
 - the global config and `--account` leave vc-x1 entirely, as `## Todo` #1 rather than a rung:
   wink passes full urls in practice, so the user config's last job is a shorthand that the
   `owner/name` and path target forms already cover. Sequenced after this cycle on purpose,
@@ -440,6 +452,18 @@ it:
   had doc links into the retired design doc, repointed here so the deletion leaves nothing
   dangling; ARCHITECTURE.md's support list gains `config_md` (omitted when it landed) beside
   the new `md_fence`
+
+##### docs: pin the commit-body form
+
+- intent: the pinned files said a body was a problem statement then a solution statement and
+  nothing about how a body with several sub-problems arranges them, so both repos improvised
+  the same shape and neither could point at it
+- landed: [Commit-body form][50] is the one home, with [Body][49] and cycle-checklists.md's
+  step 7 linking it. A body's *structure* is now a rule where before only its ingredients were
+  - **left unpinned**: whether a rung's `## In Progress` edits are a facet. Taken as cycle
+    mechanics, on the logic that keeps the file list out; one instance is too few to pin
+  - the family's copies stay unedited pending this repo's verdict, so the payload diff this
+    rung creates is the reply
 
 ##### fix: bot-session reads the md carrier
 
@@ -1381,3 +1405,7 @@ hygiene-riders and facade-owns-topology cycles)._
 [45]: #chore-point-config-at-agent-session
 [46]: #fix-prompt-double-echo
 [47]: #fix-bot-session-reads-the-md-carrier
+[48]: https://github.com/winksaville/iiac-perf/blob/agent-files-model/notes/chores/chores-06.md#commit-body-form-proposal-2026-08-12
+[49]: /agent-data/cycle-protocol.md#body
+[50]: /agent-data/prose.md#commit-body-form
+[51]: #docs-pin-the-commit-body-form

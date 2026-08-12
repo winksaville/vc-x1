@@ -330,6 +330,9 @@
     convention was two days old, and "a pushed body is coordinate-first to fix" would
     promote every prose rule that touches a body. Concrete trigger: revisit after
     iiac-perf's measure-reproducibility cycle closes under the convention.
+    - the shape itself stopped being vague at the "docs: pin the commit-body form" rung
+      (2026-08-12), which pinned the intro / `*` facets / `-` solutions form in prose.md. What
+      is left here is only the promotion question, on a rule that now has text to promote
 
 51. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
     `vc-x1 config` renders each key's name as an OSC 8 hyperlink to its reference url, so the
@@ -414,6 +417,7 @@
     - a conventions change, so its own small cycle per AGENTS.md's Changing the agent-files,
       sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
       sweep is machine-verified rather than hand-checked
+
 
 # References
 
