@@ -129,6 +129,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [feat: vc-config.md absorbs prototype and doc][39] (done)
 - [[N]] [docs: pin the commit-body form][51] (done)
 - [[N]] [fix: bot-session reads the md carrier][47] (done)
+- [[N]] [docs: config-surface records, bold backlog titles][52] (done)
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
@@ -231,6 +232,11 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
     body content to prose.md, and the marker typing is prose mechanics
   - the mandatory intro retires bugs.md #7 as a body-shape concern; the bug stays, since a
     caller can still hand `--body` a hyphen-first string
+- **the config-surface records rung was inserted at this ladder's second freeze lift** (wink,
+  2026-08-12): iiac-perf's capability review needed verdicts, and a verdict with no durable
+  home is a claim the mailbox deletes when the message is handled. Backlog was the default and
+  failed the same test the commit-body rung's did, so the records land as their own commit and
+  the reply cites them. The story is in [its subsection][52]
 - the global config and `--account` leave vc-x1 entirely, as `## Todo` #1 rather than a rung:
   wink passes full urls in practice, so the user config's last job is a shorthand that the
   `owner/name` and path target forms already cover. Sequenced after this cycle on purpose,
@@ -488,6 +494,33 @@ it:
   - so the ordering held for a better reason than the one given: [the regenerate rung][41]
     re-emits these blocks, and a reader who uncommented one after that would have hit silence
 
+##### docs: config-surface records, bold backlog titles
+
+- intent: triaging iiac-perf's `.vc-config.md` review produced verdicts with nowhere to live.
+  A mailbox reply's "Done when" cannot itself be the record, since handling the message deletes
+  it, so every verdict needed a home before the reply could honestly claim one
+- landed: the config-surface half is one bug and three entries. bugs.md gains
+  **`config --validate` reports "I gave up" as a finding** (#9), where reading the code found
+  `validate` breaking its own documented contract. `## Todo` gains
+  **Tiered exit status for `config --validate`** (#5) and
+  **`config --toml`: print the TOML a markdown carrier yields** (#6), both ranked on wink's
+  call; todo-backlog keeps **Config provenance names the schema, not just the binary** (#55).
+  The `toml`-tag escape is documented at [the regenerate rung][41] rather than spot-fixed
+  - the notes-file half was not planned and came from the work itself: ranking two entries
+    renumbered 17 and invalidated citations written minutes earlier, one already drafted into
+    another member's mailbox. That produced
+    **Cite a Todo or backlog entry by its bold title, not its number** (#56), its precondition
+    swept here (32 backlog entries gained bold titles, none duplicated), and
+    **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?** (#57)
+    for the structural question underneath, wink's, where the crux is that issues and a
+    database both move records out of the repo and so change doctrine rather than format
+  - **freeze lifted for this one rung** (wink, 2026-08-12), the same exception and the same
+    reasoning as [the commit-body rung][51]: records for a reply that goes out now cannot wait
+    on a cycle that has four rungs left
+  - the bolding wrapped existing lead phrases rather than rewriting them, so four titles carry
+    pre-existing em dashes and arrows that hard rule 8 forbids. Left in place: a punctuation
+    sweep hiding inside a bolding pass is how an unrelated change gets missed at review
+
 ##### feat: agent naming in config and CLI
 
 - intent: the family is retiring "bot" for "agent" on the machine surface, and this cycle's
@@ -526,6 +559,12 @@ gives anyway.
   `vc-config.md` to point at
 - only the work side can match it: the agent side's `[repos]` values invert, its doc links
   need `../`, and its opening sentence names the other role
+- `vc-config.md`'s "How this file is read" gains the negative half of the format rule: the
+  info string must be exactly `toml`, so a fence tagged anything else (` ```toml-example `,
+  ` ```text `, untagged) is illustration and never reaches the parser. The filter has always
+  worked this way; only the positive half was written down, which left the format reading as
+  though every toml block in a config file is live (iiac-perf, 2026-08-12). Rides this rung
+  because the model file is where the format's presentation is settled
 - the `homes` correction rides here: the three `bot-session` keys drop the agent side, which
   `config bot` advertises and `init` writes into but nothing ever reads
   (`workspace_bot_session` consults the work root alone). Two workspace homes for a behavioral
@@ -830,7 +869,43 @@ ladder side, which already bit at 0.76.0, whose base was the
      ever appears. Worth converting these concepts to
      traits then, not now: we are committed to jj, and a
      one-implementation trait buys nothing but indirection.
-5. **A committed cycle-check runner.** The per-commit flow's
+5. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
+   `ExitCode::FAILURE`: a misspelled key and a config the tool could not read exit alike, so a
+   caller can branch on "clean or not" and nothing finer. Proposed: **0** all tables and keys
+   known and their values reasonable, **1** unknown or otherwise non-fatal findings, **2** a
+   fatal situation. The convention is grep's and diff's, so it needs no teaching.
+   - the fatal cases already exist and are the subject of bugs.md's **`config --validate`
+     reports "I gave up" as a finding** (#9): malformed TOML, an unclosed fence, a side holding
+     both carriers, a legacy `[workspace]` schema. Every one of them means the check could not
+     be performed rather than that it failed
+   - **sequenced after that bug**, which draws the "found something" / "could not check"
+     distinction as a local fix. Once drawn, the exit status is a rendering of it, and doing
+     the tiering first would mean inventing the classification twice
+   - the cost is not in `config`: `main` maps every subcommand error to `ExitCode::FAILURE`
+     (`main.rs:477`, `:507`, `:514`), so a distinct code needs the error path every subcommand
+     shares. Cheapest to take while that path is open for another reason
+   - tier 0's "values reasonable" describes a capability that does not exist: `key_known`
+     compares key paths only and no value is ever inspected. Read tier 0 as "keys known" at
+     the start; value checks land later as ordinary tier-1 findings
+   - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
+     difference is a finding, not a fatal) or keeps its own
+6. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
+   2026-08-12). The md carrier costs a config file the toml-aware editors and formatters a
+   `.toml` gets, and nothing answers "what do these fences actually concatenate to?", which is
+   also the question a parse diagnostic raises. Outside the "docs: freshen vc-config and
+   config subcmd" ladder, whose acceptance items do not need it, but ranked here because a
+   format's debugger is worth most while the format is new.
+   - run the `md_fence` filter over the target file and print the result verbatim, blanks
+     included, so the printed line numbers are the source's and a diagnostic's line lands
+   - **not `--resolved`**, iiac-perf's word: this subcommand already spends "resolved" on
+     effective-after-layering (the `[repos]` resolved-agreement invariant, `resolved_hint`'s
+     which-carrier-exists answer), and this is the far end of that, one file's raw extraction
+     before any parse or layering
+   - it has no existing surface to join: `config` with no flag prints the *schema*, not a
+     workspace's values, so nothing today shows a config file's own contents at all
+   - decide there: the name (`--toml`, `--as-toml`, `--fences`), and whether it composes with
+     `--validate` or excludes it
+7. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -863,7 +938,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-6. **`squash-push --title` / `--body`.** `squash-push` amends
+8. **`squash-push --title` / `--body`.** `squash-push` amends
    content only: it folds the working copy into the last
    commit and force-updates the remote, but the commit keeps
    its existing message. Fixing a published commit's *message*
@@ -902,7 +977,7 @@ ladder side, which already bit at 0.76.0, whose base was the
      cited nowhere and a rewrite costs nothing. Message fixes
      naturally cluster there, which is exactly where the
      two-step shape bites.
-7. **Restructure templates: single template repo + fixed bot
+9. **Restructure templates: single template repo + fixed bot
    seed manifest.** Replace the separate
    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
    repos with the one work-repo template, whose live
@@ -930,66 +1005,66 @@ ladder side, which already bit at 0.76.0, whose base was the
      tends to create it otherwise), so init emits it like
      `.vc-config.toml` instead of copying, leaving no "is it
      still empty?" invariant in the template.
-8. **ochid: bot-repo location qualifier.** An ochid is
-   workspace-relative (`/.claude/<chid>`), so nothing in a
-   published commit says *where* the companion bot repo
-   lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
-   discoverable only by convention). Anyone cloning just the
-   work repo can't resolve bot-side ochids. Design already
-   sketched in forks-multi-user.md
-   [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
-   URL-shaped trailers, plus the complementary
-   `.vc-config.toml` repo-index form; resolver dispatch is
-   one rule (URL -> fetch, else workspace-relative), existing
-   path-form trailers stay the backward-compatible case.
-   - Cheap first rung: declare the companion's URL once in
-     the committed `.vc-config.toml` (no trailer-format
-     change; any work-repo clone then knows where the bot
-     repo lives). Rides naturally with the refactor
-     program's facade-owns-topology stage
-     (bot-repo-location config).
-   - Link rot + mirroring mitigations are in the same doc
-     section.
-9. **Version-number protocol is fragile: versions are
-   baked into titles/bodies/todo/done/chores before the
-   change lands.** The cycle protocol embeds an `X.Y.Z-N`
-   version in commit titles and bodies, `## Todo` /
-   `## Done` entries, and chores headers, all written
-   while the work is in progress, i.e. before it lands.
-   But version numbers are subject to change: in a public,
-   merge-based flow (e.g. Linux), the version a change
-   ships under is only fixed when it merges into `main`,
-   so the landing version can't be anticipated while the
-   work is underway. Pervasive version-in-text is
-   therefore fragile for any non-linear / multi-contributor
-   workflow. Promoted from Ideas at 0.65.2-0; slated for
-   the cycle after 0.65.2.
-   - Live in-repo example (2026-07-24): 0.72.0 was
-     pre-assigned to the trapezoid close-out cycle, which
-     paused on `support-trapezoid-commits` after `-1`; the
-     refactor program then ran 0.73.0+ directly off the
-     0.71.0 main tip, leaving 0.72.0 a permanent gap, since
-     renumbering either branch would rewrite cross-linked
-     history. Disposition recorded in the
-     [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
-   - Related numbering thought (2026-07-24): program-shaped
-     work could claim one minor and number its cycles
-     `X.Y.1..n` (the jj refactor's seven cycles would have
-     been 0.73.1..0.73.7), with program membership encoded in
-     the version. Trade-off: a per-prep "is this a program?"
-     call vs today's decision-free minor-per-cycle.
-   - Open question: what identifies a cycle's commits if
-     not a pre-assigned version?
-     - Needs to be unique within some agreed upon domain.
-       A contributors email address would do it, but also
-       a UUID (short-version) for a contribution. I could
-       imagine a UUID generated from the initial email/issue
-       that and then "version number" schema appended to that.
-   - Surfaces to update once the identifier is chosen:
-     cycle-protocol.md (title shape, Numbering), AGENTS.md
-     (commit-recording headers), and the `vc-x1` validators
-     that parse `(X.Y.Z)` strings.
-10. **sync follow-up: extract `move-bookmark` command.** The
+10. **ochid: bot-repo location qualifier.** An ochid is
+    workspace-relative (`/.claude/<chid>`), so nothing in a
+    published commit says *where* the companion bot repo
+    lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
+    discoverable only by convention). Anyone cloning just the
+    work repo can't resolve bot-side ochids. Design already
+    sketched in forks-multi-user.md
+    [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
+    URL-shaped trailers, plus the complementary
+    `.vc-config.toml` repo-index form; resolver dispatch is
+    one rule (URL -> fetch, else workspace-relative), existing
+    path-form trailers stay the backward-compatible case.
+    - Cheap first rung: declare the companion's URL once in
+      the committed `.vc-config.toml` (no trailer-format
+      change; any work-repo clone then knows where the bot
+      repo lives). Rides naturally with the refactor
+      program's facade-owns-topology stage
+      (bot-repo-location config).
+    - Link rot + mirroring mitigations are in the same doc
+      section.
+11. **Version-number protocol is fragile: versions are
+    baked into titles/bodies/todo/done/chores before the
+    change lands.** The cycle protocol embeds an `X.Y.Z-N`
+    version in commit titles and bodies, `## Todo` /
+    `## Done` entries, and chores headers, all written
+    while the work is in progress, i.e. before it lands.
+    But version numbers are subject to change: in a public,
+    merge-based flow (e.g. Linux), the version a change
+    ships under is only fixed when it merges into `main`,
+    so the landing version can't be anticipated while the
+    work is underway. Pervasive version-in-text is
+    therefore fragile for any non-linear / multi-contributor
+    workflow. Promoted from Ideas at 0.65.2-0; slated for
+    the cycle after 0.65.2.
+    - Live in-repo example (2026-07-24): 0.72.0 was
+      pre-assigned to the trapezoid close-out cycle, which
+      paused on `support-trapezoid-commits` after `-1`; the
+      refactor program then ran 0.73.0+ directly off the
+      0.71.0 main tip, leaving 0.72.0 a permanent gap, since
+      renumbering either branch would rewrite cross-linked
+      history. Disposition recorded in the
+      [split push.rs stage](notes/refactor-20260716.md#stage-split-pushrs).
+    - Related numbering thought (2026-07-24): program-shaped
+      work could claim one minor and number its cycles
+      `X.Y.1..n` (the jj refactor's seven cycles would have
+      been 0.73.1..0.73.7), with program membership encoded in
+      the version. Trade-off: a per-prep "is this a program?"
+      call vs today's decision-free minor-per-cycle.
+    - Open question: what identifies a cycle's commits if
+      not a pre-assigned version?
+      - Needs to be unique within some agreed upon domain.
+        A contributors email address would do it, but also
+        a UUID (short-version) for a contribution. I could
+        imagine a UUID generated from the initial email/issue
+        that and then "version number" schema appended to that.
+    - Surfaces to update once the identifier is chosen:
+      cycle-protocol.md (title shape, Numbering), AGENTS.md
+      (commit-recording headers), and the `vc-x1` validators
+      that parse `(X.Y.Z)` strings.
+12. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -999,7 +1074,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-11. **sync follow-up: retire the hidden `--check` alias;
+13. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -1015,7 +1090,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-12. **validate-numbering: rename the pair, check all
+14. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -1051,7 +1126,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-13. **pre-commit: single rule (no docs skip) + doc validators.**
+15. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -1077,7 +1152,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-14. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -1101,7 +1176,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-15. **Run validate-bot at every vc-x1 invocation
+17. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -1114,7 +1189,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-16. **CLI reference lives in `--help`; README owns concepts.**
+18. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -1153,7 +1228,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-17. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -1173,7 +1248,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-18. **Shared-doc sync: per-commit chores convention.**
+20. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -1186,7 +1261,7 @@ ladder side, which already bit at 0.76.0, whose base was the
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-19. **config: extract flag-backed key descriptions from Clap.**
+21. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -1201,7 +1276,7 @@ ladder side, which already bit at 0.76.0, whose base was the
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-20. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+22. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -1419,3 +1494,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [49]: /agent-data/cycle-protocol.md#body
 [50]: /agent-data/prose.md#commit-body-form
 [51]: #docs-pin-the-commit-body-form
+[52]: #docs-config-surface-records-bold-backlog-titles

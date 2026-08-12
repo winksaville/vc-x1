@@ -61,65 +61,65 @@
    close-out). The paired `Single(_)` dogfood item
    (0.42.0-7) is moot after `0.53.0` — `Single(_)`
    deleted. Design lives in chores-07. [[6]]
-7. Cross-file `chores-NN.md` ordering sanity pass.
+7. **Cross-file `chores-NN.md` ordering sanity pass.**
    `chores-08.md` (the 0.41.1 cycle) landed on `main` via
    the `0.42.0-4.7` rebase; check that section ordering
    across `chores-06`/`-07`/`-08`/`-09` is chronologically
    coherent and normalize if not. Low priority.
-8. Add a vc-x1 validate-repo?
-9. vc-x1 push: rework the two bookmark parameters.
+8. **Add a vc-x1 validate-repo?**
+9. **vc-x1 push: rework the two bookmark parameters.**
    `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
    `bookmark` (`--bookmark` flag) for one logical value,
    forcing an `or_else` in `From<&PushArgs>`. Collapse to a
    single positional with `--bookmark` as a true clap alias,
    or drop one spelling. [[7]]
-10. vc-x1 push: `--recheck` — implement or remove. Parsed by
+10. **vc-x1 push: `--recheck` — implement or remove.** Parsed by
     `PushArgs`, never read; mirrored into `PushParams` with
     `#[allow(dead_code)]`. Either wire the
     skip-preflight-on-resume behavior or drop the flag. [[8]]
-11. vc-x1 push: `--scope=work|bot|work,bot` flag.
+11. **vc-x1 push: `--scope=work|bot|work,bot` flag.**
     Was 0.42.0-4 (deferred when cycle pivoted to icr
     rebase work; cycle closed at -4.7). State machine
     becomes scope-aware — single-side scope skips
     `commit-claude`/bookmark-claude/`finalize-claude`.
     [[9]],[[10]],[[11]],[[12]]
-12. vc-x1 clone: `--scope=work|bot|work,bot` flag.
+12. **vc-x1 clone: `--scope=work|bot|work,bot` flag.**
     Parallel to `init --scope` for role selection;
     topology (`--por` vs dual) is the separate `--por`
     boolean. Was 0.42.0-6 (deferred at -4.7
     close-out). [[10]],[[11]],[[12]]
-13. vc-x1 validate-desc / fix-desc:
-    `--scope=work|bot|work,bot` flag. Same role vocabulary
+13. **vc-x1 validate-desc / fix-desc:
+    `--scope=work|bot|work,bot` flag.** Same role vocabulary
     as elsewhere — `work` validates the work repo's commits against
     bot, `bot` reverses, `work,bot` does both (new
     default). [[10]],[[11]],[[12]]
-14. Unify `.vc-config.toml` accessors onto Pattern B
+14. **Unify `.vc-config.toml` accessors onto Pattern B**
     (typed struct + `load_from(path)`, like new
     `config::UserConfig` and `push::resolve_state_layout`).
     Replaces the map-typed helpers in `desc_helpers.rs` /
     `fix_desc.rs` / `validate_desc.rs` with a typed
     `WorkspaceConfig` struct. ~50 LOC, mechanical.
     Candidate for 0.41.2. [[13]]
-15. Layered config precedence (user → workspace → CLI)
+15. **Layered config precedence (user → workspace → CLI)**
     once `WorkspaceConfig` is typed. Workspace can
     override `[github].owner` etc. for a specific project;
     init can't use the layer (chicken-and-egg) but
     post-init commands can. Depends on the
     `WorkspaceConfig` typed-struct refactor above.
     Candidate for 0.41.2. [[13]]
-16. Help layout: force over-under everywhere. Apply
+16. **Help layout: force over-under everywhere.** Apply
     `next_line_help(true)` at the root (or via the existing
     `cli_with_banner` walker) so every subcommand's `-h` /
     `--help` uses the same layout. Today clap auto-picks
     per-command based on the widest flag spec, so
     `sync -h` is two-column but `init -h` is over-under —
     visual inconsistency.
-17. Replace "Step N" log prefixes with single-word
-    `label: body` convention (`bookmark`, `provision`,
+17. **Replace "Step N" log prefixes with single-word
+    `label: body` convention** (`bookmark`, `provision`,
     `colocate`, `cross-ref`, `symlink`, …); indent labels
     under per-side `code:` / `bot:` headers in dual.
     Originally planned as 0.41.1-6.7; deferred.
-18. "Stop saying workspace in user-facing surfaces" sweep.
+18. **"Stop saying workspace in user-facing surfaces" sweep.**
     The `[workspace]` → `[repos]` rename itself shipped in
     the 0.76.0 repo-registry cycle (legacy schemas hard-
     reject with a fix-it; `src/legacy_vc_config.rs` holds
@@ -127,25 +127,25 @@
     what remains of the original entry is the broader
     wording sweep — prose, help text, and identifiers
     still say "workspace" for the dual-repo project root.
-19. Add `status` (alias `st`) subcommand: `jj st` across both
-    repos in one shot. Uses `--scope` from day one. This is
+19. **Add `status` (alias `st`) subcommand: `jj st` across both
+    repos in one shot.** Uses `--scope` from day one. This is
     natural home for the working-copy signal called out and
     it needs to include remotes, like remotes/origin/main. [[14]].
-20. `vc-x1 init --dry-run` should bypass the
-    `--repo-remote` path-existence preflight (currently fires
+20. **`vc-x1 init --dry-run` should bypass the
+    `--repo-remote` path-existence preflight** (currently fires
     before the dry-run early-return; observed dogfooding
     2026-04-24).
-21. vc-x1 push: `--squash` flag. Squashes WC into `@-` via
+21. **vc-x1 push: `--squash` flag.** Squashes WC into `@-` via
     `--ignore-immutable` and force-pushes; needs
     `--force-with-lease`-equivalent + state-sanity preflight in
     place first. [[9]]
-22. vc-x1 push: `--message-file PATH` flag. Git-style commit
+22. **vc-x1 push: `--message-file PATH` flag.** Git-style commit
     message file (first line = title, blank, rest = body).
     Alternative to `--title` + `--body`. [[15]]
-23. Mirror `--check` / `--no-check` onto `vc-x1 push` (forwards
+23. **Mirror `--check` / `--no-check` onto `vc-x1 push`** (forwards
     through to the preflight `vc-x1 sync` invocation).
     0.37.1 hard-codes `--check`; default stays `--check`.
-24. Add `validate-repo` subcommand: diagnostic that runs all
+24. **Add `validate-repo` subcommand:** diagnostic that runs all
     `verify_*` checks (tracking, push state freshness, ochid
     integrity, conflicts, config sanity, working-copy state)
     plus chores↔commit consistency — every `[N]:` anchor
@@ -163,30 +163,33 @@
       This supersedes the chores-15 note asking the checker to
       read its character set from one place, which assumed a
       checkable zero.
-25. sync: surface working-copy state in the up-to-date summary
+25. **sync: surface working-copy state in the up-to-date summary**
     (per-repo pending-files count or compact stat). Wording-only
     fix shipped in 0.37.1; this is the design+impl. [[14]]
-26. bm-track silent-when-clean refinement. Print on entry/exit
+26. **bm-track silent-when-clean refinement.** Print on entry/exit
     only when state isn't fully tracked or when exit state
     differs from entry. [[17]]
-27. "Oh shit" revert — post-success undo via `.vc-x1-ops/`
-    anchor dir. Idea-stage; every repo-mutating command drops a
+27. **"Oh shit" revert — post-success undo via `.vc-x1-ops/`
+    anchor dir.** Idea-stage; every repo-mutating command drops a
     pre-op snapshot, `vc-x1 undo` restores both repos. [[9]]
-28. Source-code design ref sweep + AGENTS.md codification:
+28. **Source-code design ref sweep + AGENTS.md codification:**
     adopt section-name + `blob/main/...` URL pattern for source
     code refs to designs; codify in AGENTS.md alongside the
     existing markdown ref conventions. Sweep targets:
     src/push.rs lines 4, 121, 645, 1219. [[18]]
-29. Richer bookmark enumeration: per-bookmark remote presence + tracking status [[19]]
-30. Per-line/per-thread runtime log points (future, maybe) [[20]]
-31. Add Windows symlink support via `std::os::windows::fs::symlink_dir` [[21]]
-32. Add "::" revision syntax for jj compatibility
-33. Add -p, --parents, -c, --children so parent and child counts can be asymmetric
-34. Add integration tests in tests/ for subcommands using temp jj repos (tempfile crate)
-35. Fix .claude repo history: dev0 through dev2 sessions squashed into wrong commit [[22]],[[23]]
-36. Add `vc-x1 setup` subcommand: completions install, .claude repo init, symlink setup [[24]]
-37. Add dynamic revision completion via `ArgValueCompleter` (jj doesn't complete revsets either) [[25]],[[26]]
-38. Test-tempdir override resolution chain. Both
+29. **Richer bookmark enumeration:** per-bookmark remote presence + tracking status [[19]]
+30. **Per-line/per-thread runtime log points** (future, maybe) [[20]]
+31. **Add Windows symlink support** via `std::os::windows::fs::symlink_dir` [[21]]
+32. **Add "::" revision syntax for jj compatibility**
+33. **Add -p, --parents, -c, --children** so parent and child counts can be asymmetric
+34. **Add integration tests in tests/ for subcommands** using temp jj repos (tempfile crate)
+35. **Fix .claude repo history:** dev0 through dev2 sessions squashed into wrong commit
+    [[22]],[[23]]
+36. **Add `vc-x1 setup` subcommand:** completions install, .claude repo init, symlink setup
+    [[24]]
+37. **Add dynamic revision completion via `ArgValueCompleter`** (jj doesn't complete revsets
+    either) [[25]],[[26]]
+38. **Test-tempdir override resolution chain.** Both
     `src/test_helpers::unique_base` and
     `tests/common/unique_base` currently use
     `std::env::temp_dir()` (= `$TMPDIR`). Generalize to
@@ -417,6 +420,91 @@
     - a conventions change, so its own small cycle per AGENTS.md's Changing the agent-files,
       sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
       sweep is machine-verified rather than hand-checked
+
+55. **Config provenance names the schema, not just the binary** (iiac-perf + bot, 2026-08-12).
+    The schema is generated at build time from `vc-config.md`, so an installed binary validates
+    against its build's prototype rather than the workspace's, and a key added after that build
+    is reported unknown with the config blamed. Member repos run a binary built from this one,
+    so the exposure is the family's.
+    - provenance already prints, keyed to the binary: `--validate` opens with the banner
+      (`vc-x1-dev 0.78.8-8`) and `print_schema` with
+      `# vc-x1 settable config keys (from vc-x1 0.78.8-8)`. So this is one field on two lines
+      that exist, not a new flag
+    - the gap is that a version identifies the *build* while the question at an unknown-key
+      complaint is whether that build's `vc-config.md` equals the workspace's. A content hash
+      of the prototype, baked by build.rs beside the schema and printed next to the version,
+      answers it exactly
+    - **not covered by `## Todo`'s Tiered exit status for `config --validate`** (#5), which was
+      asked and is worth recording: an unknown key is tier 1 whether it is a typo or a stale
+      binary, so the exit status is the same either way. That entry carries severity (could the
+      check run at all), this one attribution (whose fault the unknown key is), and only the
+      second tells a reader to fix a spelling or to rebuild. It does shrink what is left here:
+      once tier 1 reads as "non-fatal findings"
+      rather than a bare failure, an unknown key looks like a note instead of a fault, and
+      being unsure why it appeared costs less
+    - decide there: hash or a schema version. A hash is free, exact, and unreadable; a version
+      is readable and someone has to remember to bump it
+
+56. **Cite a Todo or backlog entry by its bold title, not its number** (wink, 2026-08-12).
+    Numbers are addresses that change on every insert. Ranking two entries in one session
+    renumbered 15 in `TODO.md` and slid a backlog entry from 56 to 55, invalidating references
+    written minutes earlier, one of them already drafted into another member's mailbox. Titles
+    do not move.
+    - the doctrine already exists one level up: hard rule 9 makes a cycle step's title its only
+      identifier, carrying no number and unambiguous within its cycle. This is the same rule
+      applied to the notes files, which is the argument for it being pinned rather than local
+    - a number may still ride along as a convenience ("**title** (#5)"), but the title is what
+      the reference *is*, so a stale number beside a live title is a hint gone slightly out of
+      date rather than a pointer at the wrong entry
+    - long titles make a citation unwieldy, which is an argument for keeping them short and a
+      reason to allow citing an unambiguous prefix. Commit titles have a 50-char cap and these
+      have none, which is where the friction comes from. Decide there whether to cap them
+    - the rule has a precondition the files do not meet: every entry needs a bold title and
+      titles must be locally unique. Several backlog entries open in bare prose with no bold
+      title at all, so the sweep is real work rather than a wording change
+    - **the cost is clickability.** A bold title inside a numbered list item is not a heading,
+      so it has no anchor and a citation by title cannot be a link. Numbers were never linkable
+      either, so nothing regresses, but the fix (entries become `###` headings, which anchors
+      and lets `validate-anchors` reach them) is a much larger change and should be decided
+      here rather than assumed by whoever does the sweep
+    - mechanical check once validate-anchors lands: every entry carries a bold title, and
+      titles are unique within their file
+    - the rule belongs in pinned `agent-data/notes.md` beside Notes references and Reference
+      numbering, so it is a family proposal; a conventions change gets its own small cycle per
+      AGENTS.md's Changing the agent-files. Sequenced after validate-anchors, like
+      **vc-config.md per-key worked examples**, so the uniqueness sweep is machine-verified
+    - the bold-title precondition is done (2026-08-12): all 56 entries here carry one, none
+      duplicated. What remains is the rule, the citation sweep, and the check
+
+57. **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?**
+    (wink, 2026-08-12). The numbered-list form is what makes numbers unstable and titles
+    unlinkable, so **Cite a Todo or backlog entry by its bold title, not its number** (#56)
+    treats a symptom of it. Three routes, and they are not the same size of decision.
+    - **`###` headings per entry.** Every entry gains an anchor, so a citation becomes a link,
+      `validate-anchors` reaches it, and the bold-title rule enforces itself structurally
+      because a heading *is* the title. The cost is the numbering machinery: `fix-todo` and
+      validate-numbering key on `^\d+\. `, and `TODO.md`'s own header tells intro paragraphs to
+      lead with a space so they miss that pattern. Strict rank becomes document order, which
+      loses nothing. The move between files stays a cut-paste
+    - **GitHub issues.** A real tracker: state, search, assignment, comments, and cross-repo
+      references between members. It would also subsume the mailbox, which exists only because
+      a member cannot write into another member's repo
+    - **A database.** Everything the issues route costs, plus building and maintaining the tool,
+      minus a free tracker. It wins only under a query load that 78 entries do not present
+    - **the crux is doctrine, not format.** AGENTS.md keeps durable context in committed files
+      because "easy for everyone to find beats convenient for the bot alone". Issues and a db
+      both leave the repo: not in the diff, not in jj history, not in a clone, not offline, not
+      carried by the template payload, and the one-home-per-record move (a `## In Progress`
+      block becoming a chores section at close-out) turns into a sync problem across two
+      systems. So headings are a change inside the doctrine and the other two are a change *to*
+      it, which is a decision to take deliberately rather than as a file-format tweak
+    - a narrower version of the issues route may survive that objection: issues for
+      *cross-member coordination*, where the mailbox is already a workaround for repo
+      boundaries, and files for in-repo records. Worth separating before the whole idea is
+      accepted or rejected
+    - **decide this before the citation sweep**, since headings would change what the sweep
+      does: with anchors, citations become links and the bold-title rule is restated rather
+      than applied as written
 
 
 # References
