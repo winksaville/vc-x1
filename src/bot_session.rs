@@ -12,7 +12,7 @@
 //! skipped. Malformed lines (e.g. a live session's truncated
 //! last line) warn to stderr and never fail the run.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Args;
 use log::{debug, info, warn};
@@ -762,9 +762,10 @@ fn sample_value(v: &Value) -> Option<String> {
     }
 }
 
-/// The `[bot-session]` scalars read from the workspace's
-/// `.vc-config.toml`, unresolved (CLI/user-config layering
-/// happens in `bot_session`).
+/// The `[bot-session]` scalars read from the workspace's instance
+/// config, unresolved (CLI/user-config layering happens in
+/// `bot_session`).
+#[derive(Debug, Default)]
 struct WorkspaceBotSession {
     /// `[bot-session].items`.
     items: Option<String>,
@@ -774,32 +775,31 @@ struct WorkspaceBotSession {
     col_width: Option<usize>,
 }
 
-/// Read `[bot-session]` from the workspace's `.vc-config.toml`,
-/// when cwd is inside a workspace.
-///
-/// - No workspace, no file, or no key -> all fields `None`.
-/// - Unreadable/malformed file, or a present-but-unparseable
-///   scalar -> error (it exists but can't be used; silence would
-///   mask a real config problem).
+/// Cwd-anchored wrapper over [`bot_session_at`]. No workspace ->
+/// all fields `None`.
 fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Error>> {
-    let Some(root) = crate::common::find_workspace_root() else {
-        return Ok(WorkspaceBotSession {
-            items: None,
-            result_lines: None,
-            col_width: None,
-        });
-    };
-    let path = root.join(".vc-config.toml");
-    if !path.exists() {
-        return Ok(WorkspaceBotSession {
-            items: None,
-            result_lines: None,
-            col_width: None,
-        });
+    match crate::common::find_workspace_root() {
+        Some(root) => bot_session_at(&root),
+        None => Ok(WorkspaceBotSession::default()),
     }
-    let map = crate::toml_simple::toml_load(&path)?;
+}
+
+/// Read `[bot-session]` from `root`'s instance config, whichever
+/// carrier holds it.
+///
+/// - No config file, or no key -> all fields `None`.
+/// - Unreadable/malformed config (both carriers present, a bad
+///   fence, bad TOML), or a present-but-unparseable scalar ->
+///   error. It exists but can't be used, and silence would mask a
+///   real config problem: reading the file directly is what let the
+///   whole workspace layer vanish when the carrier changed.
+fn bot_session_at(root: &Path) -> Result<WorkspaceBotSession, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(root)? else {
+        return Ok(WorkspaceBotSession::default());
+    };
+    let get = |key: &str| crate::toml_simple::toml_get(&cfg.map, key);
     let parse_usize = |key: &str| -> Result<Option<usize>, Box<dyn std::error::Error>> {
-        match map.get(key) {
+        match get(key) {
             None => Ok(None),
             Some(s) => s
                 .parse::<usize>()
@@ -808,7 +808,7 @@ fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Er
         }
     };
     Ok(WorkspaceBotSession {
-        items: map.get("bot-session.items").cloned(),
+        items: get("bot-session.items").cloned(),
         result_lines: parse_usize("bot-session.result-lines")?,
         col_width: parse_usize("bot-session.col-width")?,
     })

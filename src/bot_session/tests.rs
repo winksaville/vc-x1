@@ -425,3 +425,78 @@ fn help_defaults_match_generated() {
         "--result-lines help drifted from the generated default"
     );
 }
+
+/// The workspace layer reads through the carrier resolver, so a
+/// `[bot-session]` block in a `.vc-config.md` arrives.
+///
+/// Regression: this read went straight to `.vc-config.toml`, so
+/// after the md switch the block was simply absent and every field
+/// came back `None` without a word. The assertions are on values,
+/// not on absence of error, because the silence is the bug.
+#[test]
+fn md_carrier_carries_bot_session() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_md");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        "# config\n\
+         The two repos.\n\
+         ```toml\n[repos]\nwork = \".\"\nbot = \".claude\"\n```\n\
+         What a session renders.\n\
+         ```toml\n[bot-session]\nitems = \"user,assistant\"\n\
+         result-lines = 7\ncol-width = 55\n```\n",
+    )
+    .unwrap();
+
+    let ws = bot_session_at(&root).unwrap();
+    assert_eq!(ws.items.as_deref(), Some("user,assistant"));
+    assert_eq!(ws.result_lines, Some(7));
+    assert_eq!(ws.col_width, Some(55));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A config with no `[bot-session]` block is a plain miss: all
+/// fields `None`, no error. Pinned so the fix above cannot drift
+/// into treating a keyless config as a problem.
+#[test]
+fn md_carrier_without_bot_session_is_none() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_md_absent");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        "```toml\n[repos]\nwork = \".\"\n```\n",
+    )
+    .unwrap();
+
+    let ws = bot_session_at(&root).unwrap();
+    assert!(ws.items.is_none());
+    assert!(ws.result_lines.is_none());
+    assert!(ws.col_width.is_none());
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Both carriers on one side is an error here, as it is everywhere
+/// else. The old direct read would have taken the toml and ignored
+/// the md.
+#[test]
+fn both_carriers_error() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_both");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    let block = "[bot-session]\ncol-width = 55\n";
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        format!("```toml\n{block}```\n"),
+    )
+    .unwrap();
+    std::fs::write(root.join(crate::desc_helpers::VC_CONFIG_FILE), block).unwrap();
+
+    let err = bot_session_at(&root).unwrap_err().to_string();
+    assert!(err.contains("both"), "unexpected error: {err}");
+
+    std::fs::remove_dir_all(&root).ok();
+}

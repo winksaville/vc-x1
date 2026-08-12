@@ -128,7 +128,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [fix: prompt double echo][46] (done)
 - [[N]] [feat: vc-config.md absorbs prototype and doc][39] (done)
 - [[N]] [docs: pin the commit-body form][51] (done)
-- [[N]] [fix: bot-session reads the md carrier][47]
+- [[N]] [fix: bot-session reads the md carrier][47] (done)
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
@@ -477,6 +477,16 @@ it:
     here as it does everywhere else rather than degrading to the user config in silence
   - a test setting a `[bot-session]` key in a `.vc-config.md` fixture and reading it back,
     since the silence is what made this invisible
+- landed: the read splits into `bot_session_at(root)` and a cwd-anchored wrapper, matching
+  `find_workspace_root_from`'s shape, and the core goes through `config_md::load`. Three
+  tests: a `[bot-session]` block in a `.vc-config.md` arrives, a config without one is a plain
+  miss, and both carriers on one side errors
+  - **correction to the intent above**: the regression was latent, not live. `main`'s
+    `.vc-config.toml` shipped the `[bot-session]` block with every key commented out, so no
+    workspace value was actually being dropped. The dropping capability was real and a set key
+    would have vanished, which is what the fix removes
+  - so the ordering held for a better reason than the one given: [the regenerate rung][41]
+    re-emits these blocks, and a reader who uncommented one after that would have hit silence
 
 ##### feat: agent naming in config and CLI
 
