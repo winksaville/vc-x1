@@ -361,7 +361,7 @@ mask a command's exit status".
 
 ## docs: consolidate line widths
 
-- [[N]] docs: consolidate line widths
+- [[7]] 0.78.7 docs: consolidate line widths
 
 A single-commit cycle, its six items written here directly at close-out like the two sections
 above.
@@ -412,3 +412,4 @@ anchor resolves. Ran at close-out: pass, four hits, all inside the subsection.
 [4]: https://github.com/winksaville/vc-x1/commit/198cc4b3150e "198cc4b3150ea4c7e2ae2ac9911ad5398ae40cce"
 [5]: https://github.com/winksaville/vc-x1/commit/a478e124791c "a478e124791c3eda688c37747d103151acc5c70f"
 [6]: https://github.com/winksaville/vc-x1/commit/d22c787658a1 "d22c787658a1e87a8da5e43edb23913a1215f5df"
+[7]: https://github.com/winksaville/vc-x1/commit/73319b8c887c "73319b8c887c05f2ed6e4440d0817e217971dfda"

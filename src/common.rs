@@ -863,11 +863,46 @@ pub fn scope_to_repos(
     Ok(repos)
 }
 
+/// Resolve the repo on the *other* side of `repo`'s dual
+/// workspace, or `None` when the workspace has no bot side.
+///
+/// The side-aware prelude for commands that scan whichever repo
+/// they are pointed at (validate-desc / fix-desc): the workspace
+/// root is found *from* `repo` rather than assumed to be it, the
+/// coherence preflight runs against that root, and the answer is
+/// the far side: the bot repo when `repo` sits on the work side,
+/// the work repo when `repo` sits in the bot repo. The bot check
+/// runs first because the bot dir nests inside the work repo, so
+/// "under the root" alone cannot separate the sides. `Ok(None)`
+/// means a POR / single-repo workspace, the caller's no-op case,
+/// while a configured-but-broken bot side still errors via the
+/// coherence preflight.
+pub fn other_repo_path(repo: &Path) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+    let start = repo
+        .canonicalize()
+        .map_err(|e| format!("other_repo_path: cannot resolve '{}' ({e})", repo.display()))?;
+    let Some(root) = find_workspace_root_from(&start) else {
+        return Ok(None);
+    };
+    match bot_repo_path(&root)? {
+        Some(bot) => {
+            let canon_bot = bot.canonicalize()?;
+            Ok(Some(if start.starts_with(&canon_bot) {
+                root
+            } else {
+                bot
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
 /// Resolve the workspace's bot-repo path, or `None` when it has no
 /// bot side.
 ///
-/// The scope-aware prelude for commands that *optionally* work
-/// against the bot repo (validate-desc / fix-desc): topology comes
+/// The scope-aware resolver for callers that already hold the
+/// workspace root ([`other_repo_path`] is the side-aware wrapper
+/// for callers that hold an arbitrary repo path): topology comes
 /// from `default_scope` (the workspace config), not a flag:
 /// `Ok(None)` means a POR / single-repo workspace, the caller's
 /// no-op case, while a configured-but-broken bot side still errors

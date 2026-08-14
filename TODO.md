@@ -130,6 +130,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [docs: pin the commit-body form][51] (done)
 - [[N]] [fix: bot-session reads the md carrier][47] (done)
 - [[N]] [docs: config-surface records, bold backlog titles][52] (done)
+- [[N]] [fix: validate-desc from the bot side][53] (done)
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
@@ -520,6 +521,32 @@ it:
   - the bolding wrapped existing lead phrases rather than rewriting them, so four titles carry
     pre-existing em dashes and arrows that hard rule 8 forbids. Left in place: a punctuation
     sweep hiding inside a bolding pass is how an unrelated change gets missed at review
+
+##### fix: validate-desc from the bot side
+
+- intent: `validate-desc` from inside `.claude` dies "workspace incoherent: repos.work resolves
+  to <work repo>, not to the workspace root itself" (wink, 2026-08-14, fix ASAP). Diagnosis:
+  `validate-desc` and `fix-desc` hand their `-R` path (default `.`) to `bot_repo_path`, whose
+  argument is by contract the workspace root, so from the bot repo the coherence preflight is
+  fed the bot dir posing as the root and correctly refuses. Neither command was ever taught
+  sides; the bug predates this cycle (reproduced on `main` 0.78.7 with a toml fixture)
+- landed: `other_repo_path(repo)`, used by both commands, finds the workspace root *from* the
+  given repo path, runs the same preflight against that true root, and returns the far side
+  (bot repo from the work side, work repo from the bot side; the bot test runs first, via
+  `starts_with`, because the bot dir nests inside the work repo). POR no-op and legacy
+  rejection unchanged. Three unit tests, the from-bot-side case being the regression
+  - the rung took a detour: it was first built as its own single-step cycle off `main`
+    (bookmark `fix-validate-desc`, version 0.78.8, the branch to renumber forward), but the
+    push died on a carrier skew this workspace cannot escape: a main-derived checkout restores
+    the work side's `.vc-config.toml` while `.claude` already carries only `.vc-config.md`, a
+    state no binary pushes (stable reads toml only, dev refuses mixed sides). So the workspace
+    is push-locked for off-main cycles until this cycle lands, and the fix came home as a rung;
+    the renumber cancels and the cycle keeps 0.78.8
+  - the off-main commit stays as a local, never-published anchor for the interim stable
+    `vc-x1 0.78.8` built from it (installed 2026-08-14, verified by wink on iiac-perf); the
+    close-out build replaces it and the anchor is then deleted
+  - the `0.78.7` backfill of the "docs: consolidate line widths" chores rung rides this rung's
+    chores-16 edit, this being the workspace's first push since that close-out landed
 
 ##### feat: agent naming in config and CLI
 
@@ -1495,3 +1522,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [50]: /agent-data/prose.md#commit-body-form
 [51]: #docs-pin-the-commit-body-form
 [52]: #docs-config-surface-records-bold-backlog-titles
+[53]: #fix-validate-desc-from-the-bot-side
