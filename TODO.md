@@ -131,6 +131,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [fix: bot-session reads the md carrier][47] (done)
 - [[N]] [docs: config-surface records, bold backlog titles][52] (done)
 - [[N]] [fix: validate-desc from the bot side][53] (done)
+- [[N]] [docs: trial the iiac-perf convergence proposals][55] (done)
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
@@ -547,6 +548,37 @@ it:
     close-out build replaces it and the anchor is then deleted
   - the `0.78.7` backfill of the "docs: consolidate line widths" chores rung rides this rung's
     chores-16 edit, this being the workspace's first push since that close-out landed
+
+##### docs: trial the iiac-perf convergence proposals
+
+- intent: iiac-perf's convergence reply (2026-08-15 via `../vc-x1-messages`, Todo #1) verdicts
+  our set as the base with their whole diff being three proposals: validate every commit, the
+  flat semicolon rule with its agent-file sweep, and the always-linked closing rung. Rather
+  than judge them on paper, adopt them for trial (wink, 2026-08-14): take their eight differing
+  files verbatim, live under the rules for this cycle's remaining rungs, and let the review
+  cycle's verdicts cite the experience. Rule 12 sanctions the edit (a local pinned copy may
+  hold an unagreed experiment, the diff against the payload carrying it), and the trial rides
+  the draft branch, unlanded meaning unadopted for the family even though this member runs it
+- landed: the eight files taken verbatim after a hunk-by-hunk read attributing every change to
+  one of the three proposals, with one exception kept ours: their closing-rung rewrite dropped
+  two sentences no proposal claims (the area-moves-with-the-block sentence and the
+  program-heading depth note), reinstated here semicolon-free and flagged as the review's
+  first finding
+  - an inserted convention rung in a feature cycle, which the pinned rules forbid, taken as an
+    explicit exception on wink's instruction: the trial must precede the review cycle to
+    inform it, and the remaining rungs are the test bed (validate-every-commit bites each
+    rung, the semicolon rule all new prose, the always-linked closing rung the close-out)
+  - the repo-wide semicolon state is untouched by design: the rule itself sweeps agent-files
+    only and makes other files ask-on-alter, so no broader sweep rides the trial
+  - the subsection link uses slot 55 because the parked pending edits already claim 54 for
+    the Todo #1 entry, and the restore merge should not collide
+  - the convergence goal, stated by wink at this rung's review (2026-08-14): the entire
+    family carries identical agent-files including `custom*.md`, ideally with
+    `custom-family.md` absent and `custom.md` the payload default. Member facts (name,
+    template path, messaging parameters) move to `.vc-config.md` once the schema can carry
+    them, medium and validation follow versioning.md's per-medium-conditional pattern, and
+    the messaging practice pins against `vc-x1-messages`'s protocol. Goes to iiac-perf with
+    the reply as the review cycle's frame
 
 ##### feat: agent naming in config and CLI
 
@@ -1523,3 +1555,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [51]: #docs-pin-the-commit-body-form
 [52]: #docs-config-surface-records-bold-backlog-titles
 [53]: #fix-validate-desc-from-the-bot-side
+[55]: #docs-trial-the-iiac-perf-convergence-proposals
