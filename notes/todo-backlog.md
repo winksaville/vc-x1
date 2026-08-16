@@ -505,6 +505,32 @@
     - **decide this before the citation sweep**, since headings would change what the sweep
       does: with anchors, citations become links and the bold-title rule is restated rather
       than applied as written
+    - **a second motivation, from the mailbox rather than the notes files** (wink,
+      2026-08-12): handling a message deletes it, which is heavy-handed for anything a commit
+      might later want to cite, and the copy-into-records-first rule exists precisely because
+      deletion loses the original. A durable, referenceable issue would serve both surfaces at
+      once, which strengthens the tracker option relative to headings, since headings fix
+      citation inside a repo and do nothing for cross-member traffic
+
+58. **Update the template payload, and empty the three-way diff** (2026-08-12, replanned
+    2026-08-16, the baseline landed by the "chore: update vc-x1-template" rung). The payload
+    tip is now the family's agreed state, and what remains is keeping it that way:
+    - the payload takes the 0816-proposal result when that program completes (TODO.md "Empty
+      the custom* files into the pinned set and config"), both members re-sync, and the
+      three-way comparison going empty is the acceptance check
+    - `jj-tips.md` needs its own fix: it still glosses `@..` as "descendants of @, excluding
+      @", the wrong reading that triggered the revset decision, and it sits at the template
+      root rather than under `work/`, so no payload sync will carry it. Its tutorial
+      transcripts (around lines 259-290) are the real rewrite
+    - the template's own `.vc-config.toml` is a fossil (wink, 2026-08-17): the pre-0.75.0
+      `[workspace]` schema plus the retired `[push]` comment block, working today only
+      because read-only surfaces (an explicit-path `bot-session`) never consult the
+      resolvers' legacy rejection. We think the agent-naming rung's `[bot-session]` rejection
+      widens the breakage, so regenerate it (as `.vc-config.md`, per the per-repo carrier
+      rule)
+    - template governance (wink, 2026-08-16): the template stays agent-less, wink as
+      operator, writes and pushes only at convergence moments at wink's direction, recorded
+      in the acting member's records
 
 
 # References
