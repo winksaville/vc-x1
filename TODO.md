@@ -132,6 +132,7 @@ links live beside the keys they document. `vc-config-test.md` is the model rende
 - [[N]] [docs: config-surface records, bold backlog titles][52] (done)
 - [[N]] [fix: validate-desc from the bot side][53] (done)
 - [[N]] [docs: trial the iiac-perf convergence proposals][55] (done)
+- [[N]] [fix: bump jj-lib to 0.44][57] (done)
 - [[N]] [feat: agent naming in config and CLI][40]
 - [[N]] [chore: regenerate configs in md format][41]
 - [[N]] [feat: add config --refresh][42]
@@ -579,6 +580,20 @@ it:
     them, medium and validation follow versioning.md's per-medium-conditional pattern, and
     the messaging practice pins against `vc-x1-messages`'s protocol. Goes to iiac-perf with
     the reply as the review cycle's frame
+
+##### fix: bump jj-lib to 0.44
+
+- intent: the installed jj moved to 0.44.0 (wink, 2026-08-17) and the version gate refuses to
+  run against a mismatched jj-lib, so every rung's validation fails until the crate tracks it.
+  Inserted ahead of "chore: update vc-x1-template" so that rung's pre-push validation can pass
+- landed: jj-lib 0.43 -> 0.44 in Cargo.toml (gix stays 0.85, still the version jj-lib
+  resolves, so the lock-contention downcast keeps type identity), plus the API renames the
+  compiler surfaced: `default_working_copy_factories` and the populated `StoreFactories` moved
+  to the new `jj_lib::default_backend_factories` module (`StoreFactories::default()` is now
+  `default_backend_factories()`), `GitFetch::fetch` dropped its fifth argument, and
+  `changed_remote_bookmarks` yields `GitImportRefUpdate` structs instead of tuples. All 549
+  tests pass, the gate test against the installed jj 0.44.0 included
+  - the subsection link uses slot 57 because the parked pending edits claim 54 and 56
 
 ##### feat: agent naming in config and CLI
 
@@ -1556,3 +1571,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [52]: #docs-config-surface-records-bold-backlog-titles
 [53]: #fix-validate-desc-from-the-bot-side
 [55]: #docs-trial-the-iiac-perf-convergence-proposals
+[57]: #fix-bump-jj-lib-to-044

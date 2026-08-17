@@ -10,17 +10,20 @@ use futures::stream::StreamExt;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::StackedConfig;
+use jj_lib::default_backend_factories::{
+    default_backend_factories, default_working_copy_factories,
+};
 use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::hex_util::encode_reverse_hex;
 use jj_lib::object_id::ObjectId;
-use jj_lib::repo::{ReadonlyRepo, Repo, StoreFactories};
+use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::{
     RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions, RevsetParseContext,
     RevsetWorkspaceContext, SymbolResolver,
 };
 use jj_lib::settings::UserSettings;
-use jj_lib::workspace::{Workspace, default_working_copy_factories};
+use jj_lib::workspace::Workspace;
 use log::{debug, error, info, trace};
 use pollster::FutureExt;
 
@@ -480,7 +483,7 @@ pub fn load_repo(
 ) -> Result<(Workspace, Arc<ReadonlyRepo>), Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
     let settings = UserSettings::from_config(config)?;
-    let store_factories = StoreFactories::default();
+    let store_factories = default_backend_factories();
     let working_copy_factories = default_working_copy_factories();
 
     let workspace = Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
