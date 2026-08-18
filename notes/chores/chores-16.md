@@ -20,6 +20,7 @@ Reference numbering is file-local; see
 - [docs: fix three semicolons](#docs-fix-three-semicolons)
 - [docs: consolidate line widths](#docs-consolidate-line-widths)
 - [docs: freshen vc-config and config subcmd](#docs-freshen-vc-config-and-config-subcmd)
+- [docs: drop the orphaned depth-note paragraph](#docs-drop-the-orphaned-depth-note-paragraph)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -1011,6 +1012,53 @@ it:
   final validation's install is the one true promotion. The timing rule this teaches is a
   dogfood entry: the stable-name install is the cycle's last act, never earlier
 
+## docs: drop the orphaned depth-note paragraph
+
+### Problem
+
+Our `agent-data/cycle-protocol.md` carried a paragraph after the closing-rung passage, a
+restatement of the close-out move plus a program-depth note, and the convergence baseline
+recorded it as the pinned set's one divergence: iiac-perf's copy lacks it, trimmed at the review
+their [docs: always link the closing rung][27] Deliberation records. Their 2026-08-18 message
+proposed deleting it family-wide, staged as the template branch
+`iiac-perf-drop-depth-note-paragraph`.
+
+### Solution
+
+Accepted (wink, 2026-08-18). The template branch landed on template `main`, the same paragraph
+came out of our pinned copy, and the reply record closes the exchange.
+
+- verified before accepting: the paragraph's first sentence restates the move that
+  [Chores sections](../../agent-data/cycle-protocol.md#chores-sections) owns, the depth shift is
+  already that section's first transform ("whatever the title's depth demands under a program
+  heading"), and the one unique detail, the heading-floor observation, retires as history in
+  iiac-perf's Deliberation
+- the neighbor paragraph already ends by pointing at Chores sections, so no reader loses the
+  route to the owning section
+
+### Acceptance check
+
+`agent-data/cycle-protocol.md` is byte-identical across the member, the payload, and iiac-perf,
+and the whole pinned set (`AGENTS.md`, `agent-data/*`) diffs empty across the three repos.
+
+**Result: passed**, 2026-08-18, by `diff` of the file against both copies and `diff -r -q` of
+`agent-data/` plus `AGENTS.md` against both, all clean.
+
+### Ladder
+
+- [[N]] docs: drop the orphaned depth-note paragraph
+
+### Deliberation
+
+**Run as a single-commit cycle**, iiac-perf's own 0.25.1 model, since the change is one
+paragraph's deletion with its records. The incoming record in `../vc-x1-messages/vc-x1.md` gains
+its `outcome-*` fields pointing here, and the reply record in `iiac-perf.md` cites this section
+(the messaging policy in [custom-family.md](../../custom-family.md#messaging)).
+
+**The freshen cycle's backfill stays outstanding** (wink, 2026-08-18): its sixteen `[[N]]` rungs
+take their versions and SHAs in a later chore rather than riding this push, keeping this commit
+scoped to the deletion.
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/commit/a8b43a18999e "a8b43a18999ece30e7b807650ba45eb9b236ebdc"
@@ -1039,3 +1087,4 @@ it:
 [24]: https://github.com/winksaville/iiac-perf/blob/agent-files-model/notes/chores/chores-06.md#commit-body-form-proposal-2026-08-12
 [25]: /agent-data/prose.md#commit-body-form
 [26]: /agent-data/cycle-protocol.md#body
+[27]: https://github.com/winksaville/iiac-perf/blob/c38f8a6087e5/notes/chores/chores-07.md#docs-always-link-the-closing-rung

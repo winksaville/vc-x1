@@ -874,6 +874,12 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.78.9 **docs: drop the orphaned depth-note paragraph** [[34]]
+  - iiac-perf's 2026-08-18 proposal accepted: the depth-note paragraph after
+    cycle-protocol.md's closing-rung passage restated what Chores sections owns and is deleted
+    family-wide, the template branch landed, and the pinned set now diffs empty across the
+    three repos modulo custom*
+
 - 0.78.8 **docs: freshen vc-config and config subcmd** [[33]]
   - the markdown config carrier landed: `toml` fences are the config, prose the doc, and
     `.vc-config.md` runs on both sides, a lingering `.toml` still loading and both-present
@@ -974,5 +980,6 @@ hygiene-riders and facade-owns-topology cycles)._
 [31]: /notes/chores/chores-16.md#docs-fix-three-semicolons
 [32]: /notes/chores/chores-16.md#docs-consolidate-line-widths
 [33]: /notes/chores/chores-16.md#docs-freshen-vc-config-and-config-subcmd
+[34]: /notes/chores/chores-16.md#docs-drop-the-orphaned-depth-note-paragraph
 [54]: https://github.com/winksaville/iiac-perf/blob/0520c17ca352/notes/chores/chores-07.md#docs-converge-the-agent-files-with-vc-x1
 [55]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals

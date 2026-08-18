@@ -200,10 +200,6 @@ Solution items. At close-out the subsection completes with what closing taught (
 surprises, validation trip-ups, close-out-move wrinkles), written in problem/solution form, or
 `_None._` when closing taught nothing.
 
-The area moves to chores with the block, rung-titled headings intact. Depth note: under a
-program heading the subsections sit at markdown's heading floor while the block is in
-`TODO.md`, and the close-out move shifts the block shallower, so the chores copy has room.
-
 Nothing is opened in the chores file at Preparation. The
 section is created at close-out by moving this block. See
 [Chores sections](#chores-sections).
