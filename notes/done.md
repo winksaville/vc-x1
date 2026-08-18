@@ -308,6 +308,36 @@ As TODO.md `## Done` sections fills move them to here.
   the version gate makes the op-store coupling enforceable and the
   index-lock retry (bugs.md #1) is the headline prize.
 
+- style: typeable punctuation + line-width source sweep [[140]]: src/ +
+  tests/ are ASCII-clean and <=100 cols (JSONL fixture literals and
+  comment URLs exempt as literal rows); 863 counted sites plus four
+  uncounted species the enumeration missed, the load-bearing ellipsis
+  in truncate_chars, and the config/show output separators; README
+  config samples regenerated from the installed binary.
+
+- refactor: drop sync state and remove revert [[141]]: sync keeps its
+  pre-sync op snapshots in memory only, retiring `sync-state.toml`,
+  vc-x1's last cross-invocation state file; `revert` is removed, its
+  role taken by sync's failure report printing the manual
+  `jj op log` / `jj op restore` recovery, until an op-log-derived
+  design earns a reintroduction; init stops writing `/.vc-x1` to new
+  workspaces' `.gitignore`. Triggered by bugs.md #8, the push
+  stale-state incident at iiac-perf. Riders: the single-name
+  convention (the package name is the binary's name, `vc-x1` on main
+  and per-line dev names on branches, guarded by build.rs on every
+  cargo verb), the argv0 runtime banner, and the first `vc-x1`
+  promotion under it.
+
+- test: Claude Code can complete a cycle [[142]]: a controlled
+  experiment settling why `vc-x1 push` failed from sandboxed
+  sessions, the cycle itself being the demonstration. Both repos were
+  cloned over ssh, and the sandbox denies both the key material and
+  a port-22 route, so the `git` child that jj-lib spawns had
+  neither; wink repointed both remotes at https and the push went
+  through. The competing hypotheses (bot-repo writability, the
+  sandbox-masked config paths inside `.claude`, the interactive
+  editor) were each killed by test rather than by argument.
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -432,3 +462,6 @@ As TODO.md `## Done` sections fills move them to here.
 [137]: /notes/chores/chores-15.md#docs-re-describe-rule--defer-punctuation-sweep
 [138]: /notes/chores/chores-15.md#build-bump-jj-lib-to-043
 [139]: /notes/chores/chores-15.md#refactor-jj-lib-migration
+[140]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
+[141]: /notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert
+[142]: /notes/chores/chores-16.md#test-claude-code-can-complete-a-cycle

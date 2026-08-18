@@ -21,6 +21,7 @@ Reference numbering is file-local; see
 - [docs: consolidate line widths](#docs-consolidate-line-widths)
 - [docs: freshen vc-config and config subcmd](#docs-freshen-vc-config-and-config-subcmd)
 - [docs: drop the orphaned depth-note paragraph](#docs-drop-the-orphaned-depth-note-paragraph)
+- [docs: retire the refactor program block](#docs-retire-the-refactor-program-block)
 
 ## docs: adopt the 20260803 baseline pin set
 
@@ -481,22 +482,22 @@ with them to the follow-up Todo entry, item 8's leftovers (`.claude/.vc-x1`, the
 
 ### Ladder
 
-- [[N]] [docs: freshen vc-config and config subcmd opening][8]
-- [[N]] [docs: separate work review stop][9]
-- [[N]] [feat: vc-config.toml prototype + build.rs codegen][10]
-- [[N]] [docs: ladder ToC + per-rung sections][11]
-- [[N]] [docs: amend cycle conventions][12]
-- [[N]] [feat: markdown config handler][13]
-- [[N]] [fix: prompt double echo][14]
-- [[N]] [feat: vc-config.md absorbs prototype and doc][15]
-- [[N]] [docs: pin the commit-body form][16]
-- [[N]] [fix: bot-session reads the md carrier][17]
-- [[N]] [docs: config-surface records, bold backlog titles][18]
-- [[N]] [fix: validate-desc from the bot side][19]
-- [[N]] [docs: trial the iiac-perf convergence proposals][20]
-- [[N]] [fix: bump jj-lib to 0.44][21]
-- [[N]] [chore: update vc-x1-template][22]
-- [[N]] [docs: freshen vc-config and config subcmd closing][23]
+- [[28]] 0.78.8-0 [docs: freshen vc-config and config subcmd opening][8]
+- [[29]] 0.78.8-1 [docs: separate work review stop][9]
+- [[30]] 0.78.8-2 [feat: vc-config.toml prototype + build.rs codegen][10]
+- [[31]] 0.78.8-3 [docs: ladder ToC + per-rung sections][11]
+- [[32]] 0.78.8-4 [docs: amend cycle conventions][12]
+- [[33]] 0.78.8-5 [feat: markdown config handler][13]
+- [[34]] 0.78.8-6 [fix: prompt double echo][14]
+- [[35]] 0.78.8-7 [feat: vc-config.md absorbs prototype and doc][15]
+- [[36]] 0.78.8-8 [docs: pin the commit-body form][16]
+- [[37]] 0.78.8-9 [fix: bot-session reads the md carrier][17]
+- [[38]] 0.78.8-10 [docs: config-surface records, bold backlog titles][18]
+- [[39]] 0.78.8-11 [fix: validate-desc from the bot side][19]
+- [[40]] 0.78.8-12 [docs: trial the iiac-perf convergence proposals][20]
+- [[41]] 0.78.8-13 [fix: bump jj-lib to 0.44][21]
+- [[42]] 0.78.8-14 [chore: update vc-x1-template][22]
+- [[43]] 0.78.8 [docs: freshen vc-config and config subcmd closing][23]
 
 ### Deliberation
 
@@ -1046,7 +1047,7 @@ and the whole pinned set (`AGENTS.md`, `agent-data/*`) diffs empty across the th
 
 ### Ladder
 
-- [[N]] docs: drop the orphaned depth-note paragraph
+- [[44]] 0.78.9 docs: drop the orphaned depth-note paragraph
 
 ### Deliberation
 
@@ -1058,6 +1059,78 @@ its `outcome-*` fields pointing here, and the reply record in `iiac-perf.md` cit
 **The freshen cycle's backfill stays outstanding** (wink, 2026-08-18): its sixteen `[[N]]` rungs
 take their versions and SHAs in a later chore rather than riding this push, keeping this commit
 scoped to the deletion.
+
+## docs: retire the refactor program block
+
+### Problem
+
+`TODO.md > ## In Progress` still held the jj facade refactor program block while no cycle of
+it was running: the no-cycle marker sat above the block, reading as "section empty", the
+ladder claimed to mirror `git log --first-parent` but stopped at `0.78.4` with five trunk
+landings since unrecorded, and every rung but one was `(done)`. A finished program's record
+kept in the working file drifts exactly the way the one-home rule ends, and two backfills
+(the freshen cycle's sixteen rungs, the depth-note cycle's one) were still open.
+
+### Solution
+
+The program block retired into its own document, an as-built trunk ladder section in
+[refactor-20260716.md](../refactor-20260716.md#as-built-trunk-ladder-program-retired-2026-08-18),
+bounded at `0.78.4` rather than extended, and `## In Progress` now holds only the no-cycle
+marker.
+
+- the freshen and depth-note rungs backfilled with their versions and SHAs, retiring the
+  open backfill chore
+- the trapezoid-push `## Todo` entry absorbs the retired rung's merge-reconciliation note
+  and the parked-branch state
+- the Done sweep migrates the three pre-convention entries (the `0.78.2`..`0.78.4` cycles)
+  to done.md
+
+### Acceptance check
+
+`## In Progress` holds nothing but the no-cycle marker, chores-16 has no unbackfilled
+`[[N]]` except this cycle's own rung, every ref the moved as-built ladder cites resolves,
+and the program ladder matches `git log --first-parent` rung for rung from 0.74.0 through
+0.78.4 (the check as written at laddering said 0.73.0, revised below).
+
+**Result: passed**, 2026-08-18. The marker check by reading `## In Progress`, the backfill
+check by `grep '\[\[N\]\]'` (only prose mentions and this rung remain), the ref check by a
+definition/citation scan over the touched files, and the ladder check by
+`git log --first-parent` from 0.78.4: fifteen trunk commits match the fifteen rungs from
+0.74.0 up. Below 0.74.0 the check found the seam the as-built section now records, two
+pre-convention docs interludes on the trunk that were never rungs.
+
+### Ladder
+
+- [[N]] docs: retire the refactor program block
+
+### Deliberation
+
+**Retire rather than extend** (wink, 2026-08-18): the ladder's trunk-mirror claim was
+quietly false from `0.78.5` on, and extending it forever restores the dual maintenance the
+one-home rule abolished. The completed work moves to where finished narratives live, and the
+remaining stage stays a ranked `## Todo` entry that grows a fresh ladder at pickup.
+
+**The record's home is the program's own document** (wink, 2026-08-18, at review): the
+ladder spans `0.73.0` onward while chores-16 covers `0.78.1` on, so a chores-16 section put
+the file's oldest work after its newest and read as a chronology break. refactor-20260716.md
+already owns the program's plan and design, its intro promises each shipped stage a status
+link, and the as-built ladder completes the document.
+
+**The moved text's semicolons converted at the move** (prose.md's Semicolons rule makes the
+alteration the moment to decide): the four in rung bullets became colon or period joins, no
+information change. The quoted Todo title "Retire the remaining jj spawns; make the build
+enforce it" keeps its semicolon, since a title is an identifier and the record only cites
+it.
+
+**Done sweep scope**: only the three unversioned pre-convention entries migrated, keeping
+the `0.78.5`..`0.78.9` run in `TODO.md > ## Done` as nearby context for the convergence and
+config work still ranked at the top of `## Todo`.
+
+**The acceptance check's lower bound moved from 0.73.0 to 0.74.0** when running it found the
+two pre-convention interludes on the trunk below `0.74.0`. The original bound restated the
+retired block's own trunk-mirror claim, which was already approximate at that seam, so the
+revision records what the trunk actually holds rather than relaxing what this cycle
+promised. The finding is kept in both the check's result and the section's seam note.
 
 # References
 
@@ -1088,3 +1161,20 @@ scoped to the deletion.
 [25]: /agent-data/prose.md#commit-body-form
 [26]: /agent-data/cycle-protocol.md#body
 [27]: https://github.com/winksaville/iiac-perf/blob/c38f8a6087e5/notes/chores/chores-07.md#docs-always-link-the-closing-rung
+[28]: https://github.com/winksaville/vc-x1/commit/22c3fb55675a "22c3fb55675a19f6258baf72103df1737ed8d90d"
+[29]: https://github.com/winksaville/vc-x1/commit/2adbbcf8e775 "2adbbcf8e775e86b6d2c9bf3883e2627265cf239"
+[30]: https://github.com/winksaville/vc-x1/commit/0fd9f5eba01d "0fd9f5eba01dfcfc703f429d078579d854a8a90b"
+[31]: https://github.com/winksaville/vc-x1/commit/a2849bc1da6c "a2849bc1da6ce622eaa7d90329239c0437958233"
+[32]: https://github.com/winksaville/vc-x1/commit/ebc8f1fedc39 "ebc8f1fedc39d62016c7dedc0c9b760123968658"
+[33]: https://github.com/winksaville/vc-x1/commit/7d643aec3bb0 "7d643aec3bb062cadfa7dfb49f9ccc883f374cb3"
+[34]: https://github.com/winksaville/vc-x1/commit/906dcf161bb9 "906dcf161bb9fcad42965be0d55a1a8aa09d9ec1"
+[35]: https://github.com/winksaville/vc-x1/commit/6b955a7bdeee "6b955a7bdeee43adfc36006708b4d9b59cebd7d7"
+[36]: https://github.com/winksaville/vc-x1/commit/f668e07dabda "f668e07dabdaf7b1c6734cbb8328a2fa49acedbd"
+[37]: https://github.com/winksaville/vc-x1/commit/5d15c71b6a60 "5d15c71b6a600084b02f3eea75874dd3a65a6010"
+[38]: https://github.com/winksaville/vc-x1/commit/14e729e60e97 "14e729e60e970107992e6c17046152c4a3f6824a"
+[39]: https://github.com/winksaville/vc-x1/commit/9e8d85f7218f "9e8d85f7218f678190a80490635d1e34be25245d"
+[40]: https://github.com/winksaville/vc-x1/commit/181e760d4e3d "181e760d4e3d996e3feeb00ff6e4e752c9c53229"
+[41]: https://github.com/winksaville/vc-x1/commit/de7afef14b5c "de7afef14b5c8e2c5d5d1bb311df254e661a9706"
+[42]: https://github.com/winksaville/vc-x1/commit/a84a34eefd21 "a84a34eefd2128ca4eaabca48fcb057ee3b4b3a7"
+[43]: https://github.com/winksaville/vc-x1/commit/dc0b64e6b253 "dc0b64e6b253c472cef2b68ea46b7e1675dbb256"
+[44]: https://github.com/winksaville/vc-x1/commit/1aba2133a240 "1aba2133a2404f287e68873f11d79762c5d666cb"
