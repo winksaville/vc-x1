@@ -5,6 +5,19 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-18: a premature stable-name install let one version string mean two behaviors
+  - the 0.78.8 close-out's validation ran `cargo install` (producing plain `vc-x1 0.78.8`)
+    while the cycle could still change, and a test rung was then inserted, so the installed
+    binary and the eventual landed 0.78.8 would have differed under one version string. Wink
+    caught it from `vc-x1 -V`; resolved by folding the test into the closing commit, so
+    exactly one commit carries bare 0.78.8 and the final validation's install is the real
+    promotion
+  - the rule this teaches, a candidate for versioning.md's Dev artifact name and
+    custom.md's validation notes: the stable-name install is the cycle's *last* act, run
+    when nothing can enter the cycle anymore (final close-out validation or post-landing).
+    Every earlier install in the flow produces the dev name only, which is what versioning.md's
+    "never by the per-commit flow's install" already meant and the close-out flow contradicted
+
 - 2026-08-07: the merged agent-file set adopted; two rules born in its review
   - the set is iiac-perf's `agent-files-model` proposal merged onto this repo's file layout
     with the review's corrections (two behavioral regressions fixed, the unsynced baseline

@@ -40,11 +40,11 @@ The full language is `jj help -k revsets`, the single authority, and the worked 
 terminal transcripts is `jj-tips.md`, hosted once in the template repository.
 
 - A revision is `@` (the working copy), a chid prefix, or a commit id. Unambiguous prefixes
-  are accepted; ambiguous ones are rejected, never guessed.
+  are accepted, and ambiguous ones are rejected, never guessed.
 - Neighbors: `@-` parent, `@--` grandparent, `@+` child. A step past the end of the chain is
   the empty set, not an error.
 - `::` is the primary range operator, symmetric and endpoint-inclusive:
-  - `::x` ancestors of x, including x; `x::` descendants of x, including x
+  - `::x` ancestors of x, including x. `x::` descendants of x, including x
   - `x::y` the DAG path: descendants of x that are also ancestors of y
 - `..` is git-compatible set subtraction, not a tighter `::`:
   - `x..y` is `::y ~ ::x`: ancestors of y that are not ancestors of x
@@ -116,9 +116,11 @@ way. `vc-x1 fix-desc` repairs a dropped one by title match.
 
 The mechanics behind
 [Cycles run on a bookmark](cycle-checklists.md#cycles-run-on-a-bookmark). That section holds
-the rule and when it applies; this one holds the commands.
+the rule and when it applies, and this one holds the commands.
 
-**Create**, at the cycle's opening, with the bookmark named for the cycle rather than the step:
+**Create**, at the cycle's opening, with the bookmark named by the cycle title's slug (the
+anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links), so the chores
+header, the Done entry, and the bookmark all derive from one bare title):
 
 - `jj git push --named <bookmark>=@- -R .` is the common case: it creates the bookmark at the
   last committed change and publishes it in one invocation.
@@ -136,8 +138,9 @@ the rule and when it applies; this one holds the commands.
 - Landing is the moment the cycle's commits become permanent, so it triggers the records that
   wait on permanence: the chores as-built rungs take their SHAs and versions
   ([Chores commit references](notes.md#chores-commit-references)).
-- The bookmark is redundant once landed and may be deleted (`jj bookmark delete <bookmark>`),
-  the same disposal the long-lived case gets below.
+- The bookmark is redundant once landed and is deleted, locally and remotely: `jj bookmark
+  delete <bookmark>`, then `jj git push --bookmark <bookmark>` to delete the remote ref. Same
+  disposal for the long-lived case below.
 
 We think a `vc-x1 start-change <bookmark>` will eventually own the create half. It would replace
 the create bullets and nothing else, which is why the rule and the commands are separated.
@@ -153,8 +156,8 @@ only holder.
 - coordinated rebases stay available (the bar is on unilateral rewrites, not rewrites), at the
   known cost of staling the git-SHA citations in the records. Chids and ochid trailers survive
   a rebase
-- once the bookmark's history is fully merged into `main` the bookmark is redundant and may be
-  deleted
+- once the bookmark's history is fully merged into `main` the bookmark is redundant and is
+  deleted, locally and remotely
 
 The contrast with a cycle bookmark is the whole point: that one is a draft and may be rewritten
 freely until it lands (see

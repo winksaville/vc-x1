@@ -143,14 +143,15 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
     debug!("fix-desc: enter");
     let (workspace, repo) = common::load_repo(&params.repo)?;
 
-    // Resolve other repo: --other-repo flag, or scope-aware
-    // resolution from the workspace config. A single-repo / POR
+    // Resolve other repo: --other-repo flag, or side-aware
+    // resolution from the workspace config (the work repo pairs
+    // with the bot repo and vice versa). A single-repo / POR
     // workspace has no bot side, nothing to repair against, so
     // the command no-ops instead of erroring (por equalization;
-    // topology from `default_scope`, not a flag).
+    // topology from the workspace config, not a flag).
     let other_repo_path = match &params.other_repo {
         Some(p) => p.clone(),
-        None => match common::bot_repo_path(&params.repo)? {
+        None => match common::other_repo_path(&params.repo)? {
             Some(p) => p,
             None => {
                 info!("fix-desc: single-repo workspace (no bot side), nothing to fix");

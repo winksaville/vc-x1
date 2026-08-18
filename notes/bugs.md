@@ -248,4 +248,29 @@ insert / delete / reorder.
      instead, on wink's design argument that resuming after an error is precisely what is
      not wanted, so stateless push with per-stage idempotence is the right shape.
 
+9. **`config --validate` reports "I gave up" as a finding, and one abort path contradicts
+   the function's own contract.** Found by reading, not by a run (wink + bot, 2026-08-12),
+   while triaging iiac-perf's binary/schema-skew note. `validate`'s doc comment states the
+   intent plainly: a side's coherence failure "is reported as a finding, not a hard error, so
+   the work-side report still lands". Two paths break or blur it.
+   - **Cost:** `config: 1 problem(s) found` means either "a key is misspelled" or "I cannot
+     tell which of your two config files is real", and nothing in the output or the exit
+     status separates them. A reader re-reads the warning and recovers; a script cannot.
+   - **The abort:** `validate_file` loads via `load_file(path)?`, so malformed TOML or an
+     unclosed fence propagates out of `validate` and kills the run, which is exactly the hard
+     error the contract disclaims. The summary line never prints. With the default `work,bot`
+     target the work-side warnings have already printed, so only the tally is lost; with a
+     `bot,work` target the run dies before the work side is examined at all.
+   - **The blur:** a both-carriers side (`vc_config_path` erroring) is counted as
+     `findings += 1`, one problem alongside the misspelled keys, though it means the
+     validation that follows it is meaningless.
+   - The legacy-`[workspace]` path is the same species handled correctly: it returns early
+     with a single finding *and* a comment explaining that the remaining checks would be
+     redundant. It reached the right behavior without the vocabulary to name it.
+   - **Fix direction:** sort every outcome into "checked, found something" versus "could not
+     check", report the two differently, and never let the second kill a side that could
+     still be reported. That classification is also the whole input to the tiered exit code
+     at `## Todo`'s **Tiered exit status for `config --validate`** (#5), which becomes a
+     rendering of it rather than new work.
+
 # References

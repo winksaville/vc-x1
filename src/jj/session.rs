@@ -39,18 +39,21 @@ use std::time::Duration;
 
 use jj_lib::commit::Commit;
 use jj_lib::config::{ConfigLayer, ConfigSource, StackedConfig};
+use jj_lib::default_backend_factories::{
+    default_backend_factories, default_working_copy_factories,
+};
 use jj_lib::fileset::{self, FilesetDiagnostics, FilesetParseContext};
 use jj_lib::git::{self, GitImportOptions, GitSettings};
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::lock::FileLock;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId;
-use jj_lib::repo::{ReadonlyRepo, Repo, StoreFactories};
+use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::{RepoPath, RepoPathUiConverter};
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy::{SnapshotOptions, WorkingCopyFreshness};
-use jj_lib::workspace::{Workspace, default_working_copy_factories};
+use jj_lib::workspace::Workspace;
 use log::debug;
 use pollster::FutureExt;
 
@@ -198,7 +201,7 @@ impl RepoSession {
         // Two-phase settings: the repo config layer lives under
         // `.jj/repo`, whose location the loaded workspace knows.
         let settings = UserSettings::from_config(stacked_config(None)?)?;
-        let store_factories = StoreFactories::default();
+        let store_factories = default_backend_factories();
         let working_copy_factories = default_working_copy_factories();
         let workspace =
             Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
@@ -659,13 +662,13 @@ impl RepoSession {
             git_settings.to_subprocess_options(),
             &import_options,
         )?;
-        fetch.fetch(remote, expanded, &mut DebugCallback, None, None)?;
+        fetch.fetch(remote, expanded, &mut DebugCallback, None)?;
         let stats = fetch.import_refs().block_on()?;
         drop(fetch);
         let lines: Vec<String> = stats
             .changed_remote_bookmarks
             .iter()
-            .map(|(symbol, _)| format!("bookmark {symbol} updated"))
+            .map(|update| format!("bookmark {} updated", update.symbol))
             .collect();
         if !tx.repo().has_changes() {
             return Ok(lines);

@@ -35,8 +35,8 @@ Surfaces that use this shape:
 
 Bullet *content* differs by surface:
 
-- **Commit bodies**: the [Problem-first shape](#problem-first-shape) for finished work, a problem
-  statement then a solution statement, both broad. What is specific to a commit:
+- **Commit bodies**: the [Problem-first shape](#problem-first-shape) for finished work, arranged
+  by [Commit-body form](#commit-body-form) below. What is specific to a commit:
   - the problem statement defines any word the title assumes, since the title is what a reader
     meets first and it answers the problem
   - **no file list.** The diff and `git show --stat` are the mechanical record, so restating them
@@ -64,7 +64,7 @@ than restating one, so a change is a single edit and the copies cannot drift. Co
   `max_width` (enforcement notes in [code.md](code.md#line-width)).
 - **Commit titles**: <=50 chars.
 - **Commit bodies**: <=75 cols, the Linux kernel patch standard. It replaced git's older 72
-  convention here 2026-08-09; published bodies keep the wrap they shipped with.
+  convention here 2026-08-09, and published bodies keep the wrap they shipped with.
 
 The widths are wrap defaults, not absolutes (the title cap excepted). Existing text re-wraps
 when touched, no mass sweeps. Write to the full width: wrap near the limit rather than
@@ -95,23 +95,58 @@ commit body's is settled, because a commit is finished by the time it has one. T
 here said a plan was for work not yet done and a solution for work that is, which left a cycle
 unable to say at its opening what it intended to do.
 
+### Commit-body form
+
+A commit body is the [Problem-first shape](#problem-first-shape) with one addition: a body whose
+problem has several sub-problems arranges them by a fixed recursion, so a reader knows what any
+bullet is from its marker and its depth. The earlier statement, "a problem statement then a
+solution statement, both broad", left that arrangement to taste, and taste converged slowly and
+separately.
+
+- **An intro paragraph states the general problem**, and defines any word the title assumes. It
+  is mandatory. [Prose form](#prose-form) wants it regardless, and a body opening on a bullet is
+  a body a `--body` flag can mistake for an option.
+- **`*` bullets are the problem's facets**: sub-problems that decompose the intro's general
+  problem, not a grab-bag of unrelated fixes. A body reaching for unrelated problem bullets is
+  usually asking to be more than one commit.
+- **`-` bullets are solutions**, and a `-` solves the nearest enclosing problem: nested under a
+  `*` facet it solves that facet, at top level it solves the intro's general problem, which is
+  how one solution says it retires every facet at once. Position expresses scope.
+- **Zero facets is the trivial commit**: a problem paragraph and one or more top-level `-`
+  solutions. Not a second form, the general form with an empty middle.
+
+**The markers are typed on purpose**: `*` always means problem, `-` always means solution.
+Indentation alone cannot separate them in the trivial case, where a lone top-level `-` reads as a
+solution only because `-` always is one. The typing also keeps history greppable (`^\* ` finds
+every facet, `^- ` and `^  - ` every solution). Bodies are read as plain text, in `jj log` and in
+terminals, where the markers survive, and if a renderer ever flattens them the indentation still
+carries the structure. So the mixed markers are deliberate, and a linter's consistent-marker rule
+is wrong to normalize them.
+
+Unchanged by this: no version in title or body, no file list, no deliberation, titles per
+[Conventional-commit shape](#conventional-commit-shape-ladder--chores--commit).
+
 ### Semicolons
 
-A semicolon earns its place only between equals: two parallel claims of the same weight, where
-the contrast is the point ("The diff empties; the history keeps the record"). Everything else
-that reaches for one is a structure decision not yet made. Make the decision:
+Prose carries no semicolons. A semicolon appears only in code (code spans, fenced code, source
+files), where it is syntax rather than prose. The structure a semicolon would have joined is
+written explicitly instead:
 
-- **Item plus detail** (`claim; elaboration`): a detail worth keeping gets its own sentence, or
-  its own sub-bullet where a reader skimming the list will actually notice it. A mere
-  continuation of the thought takes a comma with a conjunction.
-- **A list hiding in prose** (`A; B; C` inside a bullet): break the clauses into sub-bullets so
-  the structure shows.
-- **Legitimate besides the antithesis**: a semicolon separating list items that themselves
-  contain commas; and semicolons inside code spans, which are syntax, not prose.
+- **Two claims** take a period, each half standing as its own sentence ("The diff empties. The
+  history keeps the record.").
+- **A continuation** takes a comma with a conjunction, when one half carries the other's thought
+  onward rather than making its own claim.
+- **A list hiding in prose** (`A; B; C` inside a sentence or bullet) breaks into sub-bullets so
+  the structure shows. List items that themselves contain commas restructure the same way rather
+  than separating with semicolons.
 
-Running prose is held to the same test, just less strictly: a sentence-join in an intro
-paragraph is fine when both halves would stand as sentences and neither is a detail of the
-other.
+The code allowance is why a bare byte scan cannot enforce the rule: a checker blanks the code
+first, then expects zero.
+
+The agent-files (`AGENTS.md`, `custom*`, `agent-data/*`) carry no historical exemption and are
+swept to zero. Any other historical file keeps its existing semicolons only until it is altered:
+altering one is the moment to ask the user whether its semicolons should be removed, always,
+never a license to convert or keep them silently.
 
 ### Typeable punctuation only
 
@@ -120,8 +155,9 @@ Durable text uses punctuation that can be typed at a terminal. The prohibition i
 below), so a byte scan is not the rule and a sweep needs the authored/transcribed judgment.
 Banned from authoring: `—`, `–`, `…`, `→`. None can be entered without a compose key or a
 paste, so none can be grepped for, and an em dash next to option syntax reads as another flag.
-Unlike the semicolon rule above this one is absolute: they cost nothing to write and are paid on
-every read, so a soft rule accumulates them.
+Like the semicolon rule above this one is absolute, and stricter with history: no ask-on-alter,
+no exemption at all, because a banned character costs nothing to write and is paid on every
+read, so a soft rule accumulates them.
 
 `…` becomes `...` and `→` becomes `->`. The dashes have no single replacement, because an em
 dash usually stands in for a structural decision that was not made. Make the decision:
@@ -141,7 +177,7 @@ commit.
 Scope is the same as [Speculation marker](#speculation-marker), plus commit titles and
 everything under `src/`: doc comments, inline comments, and any user-visible string. Source is
 the surface a human edits and greps most, so an untypeable character costs more there than in
-prose. It applies going forward; existing text converts when touched. A code span is not exempt
+prose. It applies going forward, and existing text converts when touched. A code span is not exempt
 by itself. Naming the character is a specimen and stays, which is how this section names them.
 A banned character doing a job is a use and converts: `` `.expect(…)` `` becomes
 `` `.expect(...)` ``.
@@ -158,9 +194,9 @@ a commit title, its chores header, and its `## Done` entry.
 A ladder step, its chores section, and its commit description share a *title* shape, a
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) title (`<type>: <desc>`,
 an optional `(scope)` after the type: `feat(push): ...`) over [Prose form](#prose-form) detail.
-They differ in the title's marker (below) and in bullet *content*: commit bodies are
-problem-then-solution, ladder / chores conceptual (see "Bullet *content* differs by surface"
-above). The shared template:
+They differ in the title's marker (below) and in bullet *content*: commit bodies take the
+[Commit-body form](#commit-body-form), ladder / chores are conceptual (see "Bullet *content*
+differs by surface" above). The shared template:
 
 ```
 <title>                          # <title> is the commit's `<type>: <desc>`
@@ -173,9 +209,14 @@ above). The shared template:
 
 The three surfaces apply it as:
 
-- **Ladder step** (`TODO.md` `## In Progress`): the rung is the bare title plus a `(current)` /
-  `(done)` marker, and its position in the list is its position in the ladder. The last rung is
-  the close-out and its text says so. Detail is bulleted, never `;`-joined inline.
+- **Ladder step** (`TODO.md` `## In Progress`): the rung is
+  `- [[N]] [<title>][M] (marker)`: the as-built `[[N]]` placeholder carried from birth, the
+  title reference-linked to the rung's subsection via `[M]: #<slug>` in the file's
+  `# References` (the closing rung linked like the rest), and the `(current)` / `(done)` marker.
+  Its position in the list is its position in the ladder. The last rung is the close-out and its
+  text says so. Detail lives not on the rung but in the block's `Ladder details` subsection
+  headed by the rung's exact title (see the protocol's
+  [Preparation](cycle-protocol.md#preparation)), bulleted, never `;`-joined inline.
 - **Chores section** (`notes/chores/chores-NN.md`): no prefix, since the `##` header *is* the
   bare title. The as-built ladder is the first content under it (see
   [Chores commit references](notes.md#chores-commit-references)).
@@ -183,19 +224,26 @@ The three surfaces apply it as:
   (see [Commit description](cycle-protocol.md#commit-description)).
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
-chores `##` header, and its commit title line up verbatim. Pick the commit title first and
-reuse it.
+chores `##` header, and its commit title line up verbatim. A `Ladder details` subsection
+heading carries the same title, a fourth surface on every rung (the closing rung's exists only
+when close-out gotchas occurred: see the protocol's
+[Preparation](cycle-protocol.md#preparation)). Pick the commit title first and reuse it.
 
 That identity is **per step**, not per cycle: each step in a cycle gets its own distinct
 descriptive title, never one shared cycle title uniquified by a step marker. The cycle's chores
-section header carries the anticipated *close-out* title. To keep a cycle's commits collectable
-with one `git log --grep`, give the step titles a common greppable stem (e.g. `config loader`).
+section header carries the *cycle title*, the bare name no multi-step commit carries (see the
+bookends below). To keep a cycle's commits collectable with one `git log --grep`, give the
+step titles a common greppable stem (e.g. `config loader`).
 
-**Cycle bookend titles**: the opening commit's title is the close-out title plus " opening",
-same type (`feat: dynamic warmup opening` / `feat: dynamic warmup`), so one
-`git log --grep "<close-out title>"` returns exactly the pair that brackets the cycle. The
-type repeats the close-out's even though an opening is mostly bookkeeping: identical prefixes
-make the pair scannable. Rungs between keep their own titles on the stem.
+**Cycle bookend titles**: a multi-step cycle's bookend commits are the cycle title plus a
+suffix, " opening" and " closing", same type (`feat: dynamic warmup opening` /
+`feat: dynamic warmup closing`), so one `git log --grep "<cycle title>"` returns the pair that
+brackets the ladder. The bare cycle title is the cycle's *name*: the chores `##` header and
+the `## Done` entry carry it, and no multi-step commit does, which is also what keeps the
+closing rung's subsection anchor clear of the section header's. A single-step cycle's one
+commit is the cycle and keeps the bare title. The type repeats across the pair even though the
+bookends are mostly bookkeeping: identical prefixes make them scannable. Rungs between keep
+their own titles on the stem.
 
 ### Steps are named, not numbered
 
@@ -242,7 +290,7 @@ which is what keeps them outside the rule rather than exceptions to it:
   written anywhere in the Done list that question has no answer.
 
 The two differ in timing, and the reason is the SHA rather than the version. The rung waits
-because a commit cannot record its own SHA; a Done entry has no SHA to wait for and its version
+because a commit cannot record its own SHA. A Done entry has no SHA to wait for and its version
 is already in the manifest of the commit it is written in, so it is written at close-out. On an
 unlanded bookmark it is a draft like the rest of the line
 ([Topic bookmarks are drafts](cycle-protocol.md#topic-bookmarks-are-drafts)), and a renumber of
@@ -266,7 +314,7 @@ history ("This project adopted the convention on <date>" arrives in repos that a
 different date or never). And the citation goes stale the moment the named project retires its
 records, while the rule outlives it.
 
-**How to apply:** state the rule and its mechanism in the pinned file; leave the evidence trail
+**How to apply:** state the rule and its mechanism in the pinned file, and leave the evidence trail
 in the records of the project that earned it (chores, dogfood log), reachable from the commit
 that changed the pinned file. Dates are fine, since a date names a moment, not a member. A
 specimen in
@@ -298,7 +346,7 @@ When a conversational reply centers on a technical explanation (measurement theo
 hardware behavior), end it with a short plain-language synopsis, no jargon and no symbols, so
 the reader can check their understanding against the technical version.
 
-**Why:** the technical form is precise but easy to misread; the plain form catches
+**Why:** the technical form is precise but easy to misread, and the plain form catches
 misunderstandings early, when they are cheap.
 
 **How to apply:** conversation only, not notes files (a notes entry should already lead with

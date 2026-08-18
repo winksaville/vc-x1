@@ -419,6 +419,52 @@ fn bot_repo_path_single_repo_workspace() {
     std::fs::remove_dir_all(&base).ok();
 }
 
+/// `other_repo_path` from the work side: the far side is the bot
+/// repo.
+#[test]
+fn other_repo_path_from_work_side() {
+    let base = ws_tempdir("otherpath-work");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    let canon_root = root.canonicalize().unwrap();
+    assert_eq!(
+        other_repo_path(&root).unwrap(),
+        Some(canon_root.join(".claude"))
+    );
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `other_repo_path` from the bot side: the far side is the work
+/// repo (the 2026-08-14 validate-desc regression: `bot_repo_path`
+/// treated the bot dir as the workspace root and the coherence
+/// preflight rejected it).
+#[test]
+fn other_repo_path_from_bot_side() {
+    let base = ws_tempdir("otherpath-bot");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
+    let canon_root = root.canonicalize().unwrap();
+    assert_eq!(other_repo_path(&bot).unwrap(), Some(canon_root));
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// `other_repo_path`: no workspace config anywhere up the walk
+/// (POR) -> `None`, the caller's no-op case.
+#[test]
+fn other_repo_path_por() {
+    let base = ws_tempdir("otherpath-por");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    assert_eq!(other_repo_path(&root).unwrap(), None);
+    std::fs::remove_dir_all(&base).ok();
+}
+
 /// A pre-0.75.0 legacy config (`path`/`other-repo`, no `work`) is
 /// still *found* as a root, and the resolvers reject it with the
 /// rewrite instead of silently degrading to POR.

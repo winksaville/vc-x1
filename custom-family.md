@@ -52,19 +52,17 @@ rejects keys it does not know, so a config carrying them would fail its own vali
 
 ## Messaging
 
-Members leave word for each other in per-member mailboxes at the template repository. The protocol
-is `../vc-x1-template/MESSAGES.md` and it governs. These are the parts that decide how a session
-behaves.
+Member notifications run through `../vc-x1-messages`, a sibling repo. Its `README.md` is the
+protocol and governs, and our record file there is `vc-x1.md`, whose own header declares its
+persistence policy. This file adds only the session behavior the protocol cannot know:
 
-- **At acquaint, check `../vc-x1-template/messages/vc-x1.md`.** An absent file means no mail.
-- **Handle, then delete** the entry, and delete the file once it empties. Mailboxes hold open
-  items only.
-- **So a message can never be a record.** Anything in one worth keeping is copied into
-  `notes/chores/chores-NN.md` *before* the entry is deleted.
-- **Messages are thin pointers, not state.** Durable coordination state lives in topical files. A
-  message says "action needed, see <file>" rather than restating the details.
-- **Write to a member's mailbox, never into their repo.** A repo with a live session is written
-  only by its own agent.
+- **At acquaint, check `../vc-x1-messages/vc-x1.md`**: records without `read:` are unread, and
+  records without an `outcome-*` field are open traffic.
+- **An incoming request becomes a Todo or backlog entry, and the reply cites it** (wink,
+  2026-08-12), so a commit has an entry to reference and the entry outlives the exchange.
+
+Both bullets are family policy parked here until the 0816-proposal pins them into `agent-data`
+and moves the member facts (the repo path, the file name) to config.
 
 ## Dogfood log
 

@@ -34,7 +34,7 @@ fn default_view() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::BUILTIN,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -64,7 +64,7 @@ fn reveal_flags() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::ALL,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -90,7 +90,7 @@ fn meta_and_sidechain_hidden() {
     let (lines, stats) = render(
         &t,
         &ItemSet::BUILTIN,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -103,7 +103,7 @@ fn meta_and_sidechain_hidden() {
             meta: true,
             ..ItemSet::BUILTIN
         },
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -119,12 +119,22 @@ fn meta_and_sidechain_hidden() {
 fn result_cap() {
     let body = (1..=15).map(|i| format!("l{i}")).collect::<Vec<_>>();
     let mut lines = Vec::new();
-    push_result(&mut lines, &body.join("\n"), false, RESULT_LINE_CAP);
-    assert_eq!(lines.len(), RESULT_LINE_CAP + 1);
+    push_result(
+        &mut lines,
+        &body.join("\n"),
+        false,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+    );
+    assert_eq!(lines.len(), BOT_SESSION_RESULT_LINES_DEFAULT + 1);
     assert_eq!(lines[0], "  [result] l1");
-    assert!(lines[RESULT_LINE_CAP].contains("(+5 lines)"));
+    assert!(lines[BOT_SESSION_RESULT_LINES_DEFAULT].contains("(+5 lines)"));
     let mut err_lines = Vec::new();
-    push_result(&mut err_lines, "boom", true, RESULT_LINE_CAP);
+    push_result(
+        &mut err_lines,
+        "boom",
+        true,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+    );
     assert_eq!(err_lines[0], "  [result:error] boom");
 
     let mut two = Vec::new();
@@ -209,7 +219,14 @@ fn line_bounds_cases() {
 fn render_source_slice() {
     // sample() lines: 1 prompt, 2 thinking, 3 text, 4 tool_use,
     // 5 tool_result, 6 system, 7 bookkeeping.
-    let (lines, stats) = render(&sample(), &ItemSet::BUILTIN, RESULT_LINE_CAP, 2, 4, 7);
+    let (lines, stats) = render(
+        &sample(),
+        &ItemSet::BUILTIN,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
+        2,
+        4,
+        7,
+    );
     let out = lines.join("\n");
     assert!(
         out.starts_with("... (2 source lines skipped)"),
@@ -234,7 +251,7 @@ fn item_gating() {
     let (lines, stats) = render(
         &sample(),
         &no_headers,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -251,7 +268,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &user_only,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -265,7 +282,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &no_tool,
-        RESULT_LINE_CAP,
+        BOT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -361,4 +378,125 @@ fn summary_lines() {
         "bot-session: 2 turns shown; hidden: 4 thinking, 1 tool results, \
          2 meta/system; skipped: 7 bookkeeping entries; 1 malformed lines"
     );
+}
+
+/// The schema's `bot-session.items` default string and the code's
+/// `ItemSet::BUILTIN` are two spellings of the same set; parsing
+/// one must yield the other, or the generated config documents a
+/// default the renderer does not use.
+#[test]
+fn items_default_matches_builtin() {
+    assert_eq!(
+        parse_item_list(crate::config_schema::BOT_SESSION_ITEMS_DEFAULT).unwrap(),
+        ItemSet::BUILTIN
+    );
+}
+
+/// The clap doc comments hand-write the built-in defaults in
+/// their `[default: N; ...]` notes while the values come from the
+/// generated schema. Fail when the prose and the schema drift.
+#[test]
+fn help_defaults_match_generated() {
+    use clap::CommandFactory;
+    let cmd = crate::Cli::command();
+    let bs = cmd
+        .get_subcommands()
+        .find(|c| c.get_name() == "bot-session")
+        .unwrap_or_else(|| panic!("bot-session subcommand not found"));
+    let help_of = |id: &str| -> String {
+        let arg = bs
+            .get_arguments()
+            .find(|a| a.get_id() == id)
+            .unwrap_or_else(|| panic!("arg {id} not found"));
+        format!(
+            "{}\n{}",
+            arg.get_help().map(ToString::to_string).unwrap_or_default(),
+            arg.get_long_help()
+                .map(ToString::to_string)
+                .unwrap_or_default()
+        )
+    };
+    assert!(
+        help_of("col_width").contains(&format!("default: {BOT_SESSION_COL_WIDTH_DEFAULT};")),
+        "--col-width help drifted from the generated default"
+    );
+    assert!(
+        help_of("result_lines").contains(&format!("default: {BOT_SESSION_RESULT_LINES_DEFAULT};")),
+        "--result-lines help drifted from the generated default"
+    );
+}
+
+/// The workspace layer reads through the carrier resolver, so a
+/// `[bot-session]` block in a `.vc-config.md` arrives.
+///
+/// Regression: this read went straight to `.vc-config.toml`, so
+/// after the md switch the block was simply absent and every field
+/// came back `None` without a word. The assertions are on values,
+/// not on absence of error, because the silence is the bug.
+#[test]
+fn md_carrier_carries_bot_session() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_md");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        "# config\n\
+         The two repos.\n\
+         ```toml\n[repos]\nwork = \".\"\nbot = \".claude\"\n```\n\
+         What a session renders.\n\
+         ```toml\n[bot-session]\nitems = \"user,assistant\"\n\
+         result-lines = 7\ncol-width = 55\n```\n",
+    )
+    .unwrap();
+
+    let ws = bot_session_at(&root).unwrap();
+    assert_eq!(ws.items.as_deref(), Some("user,assistant"));
+    assert_eq!(ws.result_lines, Some(7));
+    assert_eq!(ws.col_width, Some(55));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A config with no `[bot-session]` block is a plain miss: all
+/// fields `None`, no error. Pinned so the fix above cannot drift
+/// into treating a keyless config as a problem.
+#[test]
+fn md_carrier_without_bot_session_is_none() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_md_absent");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        "```toml\n[repos]\nwork = \".\"\n```\n",
+    )
+    .unwrap();
+
+    let ws = bot_session_at(&root).unwrap();
+    assert!(ws.items.is_none());
+    assert!(ws.result_lines.is_none());
+    assert!(ws.col_width.is_none());
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Both carriers on one side is an error here, as it is everywhere
+/// else. The old direct read would have taken the toml and ignored
+/// the md.
+#[test]
+fn both_carriers_error() {
+    let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_both");
+    std::fs::remove_dir_all(&root).ok();
+    std::fs::create_dir_all(&root).unwrap();
+    let block = "[bot-session]\ncol-width = 55\n";
+    std::fs::write(
+        root.join(crate::config_md::VC_CONFIG_MD),
+        format!("```toml\n{block}```\n"),
+    )
+    .unwrap();
+    std::fs::write(root.join(crate::desc_helpers::VC_CONFIG_FILE), block).unwrap();
+
+    let err = bot_session_at(&root).unwrap_err().to_string();
+    assert!(err.contains("both"), "unexpected error: {err}");
+
+    std::fs::remove_dir_all(&root).ok();
 }

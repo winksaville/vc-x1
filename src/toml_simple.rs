@@ -3,16 +3,22 @@ use std::path::Path;
 
 /// Load a TOML file into a flat key-value map.
 ///
+/// The file-reading front of [`toml_parse`]; see it for the
+/// dialect. This is intentionally minimal: just enough for the
+/// instance config.
+pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
+    Ok(toml_parse(&content))
+}
+
+/// Parse TOML text into a flat key-value map.
+///
 /// Handles `[section]` headers, bare `key = "value"` pairs, comments, and
 /// blank lines. Keys under a section are stored as `section.key`. Quoted
 /// string values have their quotes stripped; unquoted values are stored
 /// as-is.
-///
-/// This is intentionally minimal: just enough for `.vc-config.toml`.
-pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
-
+pub fn toml_parse(content: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     let mut section = String::new();
 
@@ -54,7 +60,7 @@ pub fn toml_load(path: &Path) -> Result<HashMap<String, String>, Box<dyn std::er
         }
     }
 
-    Ok(map)
+    map
 }
 
 /// Look up a `.`-joined config key (e.g. `"repos.work"`) in a loaded config map.

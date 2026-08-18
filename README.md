@@ -528,8 +528,11 @@ push publishes it anyway.
 
 Print the settable config keys for a target config file as an annotated, commented schema: for each
 key its description, the command/context it's `used by`, its default (or a value marked `# example`
-when there is no default), and a commented assignment line ready to paste in. The schema is
-generated from one in-code registry, so it can't drift from what the code actually reads.
+when there is no default), a `reference` url pointing at that key's documentation, and a commented
+assignment line ready to paste in. The schema is generated at build time from the `vc-config.md`
+prototype at the repo root (see
+[vc-config.md (the schema prototype)](#vc-configmd-the-schema-prototype)), so it can't drift
+from what the code actually reads.
 
 - `[TARGET]`: `work`, `bot`, `work,bot` (default), or an explicit config-file path. The keywords
   resolve against the surrounding workspace's `.vc-config.toml` files and filter to that side's
@@ -545,18 +548,19 @@ A short sample of the printed schema (workspace home):
 
 ```
 [bot-session]
-# bot-session.col-width: Default --col-width: first-column width in the
-#   field-inventory views
+# bot-session.col-width: Default --col-width: first-column width in the --fields / --unknown /
+#   --per-line views
 #   used by: bot-session --col-width
 #   default: 68
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
 # col-width = 68
 
 [repos]
-# repos.work: The work repo's path, relative to this config file's
-#   directory ("." in the work repo, ".." in the bot repo); the entry
-#   resolving to the config's own directory names the side
+# repos.work: The work repo's path, relative to this config file's directory ("." in the work repo,
+#   ".." in the bot repo); the entry resolving to the config's own directory names the side
 #   used by: find_workspace_root, side detection (structural; written by init)
 #   default: (required; role-specific, see init)
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#reposwork
 work = "."   # example
 ```
 
@@ -564,10 +568,10 @@ A key with no default (`default.account`, in the user home) instead renders a co
 value:
 
 ```
-# default.account: Account profile (an [account.<name>] section) to use
-#   when --account is absent
+# default.account: Account profile (an [account.<name>] section) to use when --account is absent
 #   used by: --account (init and account-aware commands)
 #   default: (none)
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#defaultaccount
 # account = "work"   # example
 ```
 
@@ -594,6 +598,53 @@ vc-x1 config ../other/.vc-config.toml --validate
 |------|-------------|
 | `[TARGET]` | `work`, `bot`, `work,bot`, or a config-file path [default: work,bot] |
 | `--validate` | Check the target config file(s) instead of printing the schema |
+
+### vc-config.md (the schema prototype)
+
+[vc-config.md](vc-config.md) at the repo root (no leading dot) is the single source of truth for
+the settable-key schema above, and at the same time its long-form documentation. It is not a
+config file: one `##` section per settable key holds that key's prose and, in a `toml` fence,
+that key's metadata, and build.rs parses the file and generates the schema table plus the
+built-in default constants the binary compiles against. One file drives every surface:
+
+- the `config` subcommand's printed schema (above)
+- the commented blocks `init` writes into a new workspace's instance config
+- the built-in defaults themselves (e.g. `bot-session --col-width`'s 68), consumed from the
+  generated constants, so behavior cannot disagree with documentation
+- each key's `reference:` url, so a reader of any generated config can click through to that
+  key's own section
+
+The file is read in the same format as an instance config: the `toml` fences, concatenated in
+document order, form the TOML, and build.rs shares the filter (`src/md_fence.rs`) with the
+loader. Prose between fences is documentation and never reaches a parser.
+
+References are derived, not written: build.rs joins the single `[vc-config] reference-base` (the
+bare repo url) with `/blob/HEAD/vc-config.md#` and each key's heading anchor, so links follow the
+repo's default branch and no branch name is baked in; the test suite fails if a key has no
+matching heading. A per-key `reference` entry overrides the derivation for the odd key documented
+elsewhere. A fork customizes both in one place: point `reference-base` at your repo and edit your
+own copy of the file.
+
+Editing the prototype is a source change like any other: edit, `cargo build`, and the change is live
+(build.rs re-runs whenever the file changes). A malformed prototype, an unknown metadata entry, a
+missing `doc`, a non-integer `usize` default, or a duplicate key path fails the build with a message
+naming the offending table. A key's section looks like:
+
+````markdown
+## bot-session.col-width
+
+First-column width in `bot-session`'s field-inventory views: `--fields`, `--unknown`, and
+`--per-line`. The conversation view never consults it.
+
+```toml
+[bot-session.col-width]
+homes = ["user", "workspace-code", "workspace-bot"]
+kind = "usize"
+doc = "Default --col-width: first-column width in the --fields / --unknown / --per-line views"
+used-by = "bot-session --col-width"
+default = 68
+```
+````
 
 ### clone
 

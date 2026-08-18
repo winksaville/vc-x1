@@ -11,7 +11,7 @@
 //! - the data's: read through jj-lib's public accessors only. What
 //!   comes back is backend *type* names (the `.jj/repo/<backend>/type`
 //!   files `RepoLoader::init_from_file_system` reads), because that
-//!   is all jj-lib exposes: as of 0.43 it has no public version
+//!   is all jj-lib exposes: as of 0.44 it has no public version
 //!   constant and no public accessor for one. The commit index does
 //!   carry a format version, but the constant is `pub(super)` and a
 //!   mismatch self-heals by reindexing; the op store, the thing we
@@ -20,8 +20,11 @@
 use std::path::Path;
 
 use jj_lib::config::StackedConfig;
+use jj_lib::default_backend_factories::{
+    default_backend_factories, default_working_copy_factories,
+};
 use jj_lib::settings::UserSettings;
-use jj_lib::workspace::{Workspace, default_working_copy_factories};
+use jj_lib::workspace::Workspace;
 
 use crate::common;
 
@@ -160,7 +163,7 @@ impl DataVersion {
 pub fn data_version(path: &Path) -> Result<DataVersion, Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
     let settings = UserSettings::from_config(config)?;
-    let store_factories = jj_lib::repo::StoreFactories::default();
+    let store_factories = default_backend_factories();
     let working_copy_factories = default_working_copy_factories();
 
     let workspace = Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;

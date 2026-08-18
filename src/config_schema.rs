@@ -1,12 +1,16 @@
-//! Single source of truth for every settable config key across
-//! vc-x1's two config homes (the user config file and the
-//! per-repo workspace config).
+//! The settable-config-key registry, generated from the
+//! `vc-config.md` prototype at the repo root: build.rs parses
+//! the prototype and renders the `SCHEMA_GEN` table plus the
+//! `<PATH>_DEFAULT` constants included below, so the registry,
+//! the behavioral defaults, and the prototype cannot disagree.
 //!
 //! - `crate::config_cmd` prints this registry as an annotated
 //!   schema, and (with `--validate`) checks a config file's keys
 //!   against it (dynamic-segment aware).
 //! - `crate::init` derives init's commented defaults from
 //!   `schema()`, so these surfaces cannot drift from this list.
+//! - Behavioral defaults (e.g. `bot-session --col-width`) consume
+//!   the generated constants rather than hand-kept copies.
 
 /// Which config home a key belongs to.
 /// - `User`: `~/.config/vc-x1/config.toml`
@@ -54,158 +58,16 @@ pub struct ConfigKey {
     /// instead of a bare placeholder. `None` when the key has a
     /// real default (the default serves as the example).
     pub example: Option<&'static str>,
+    /// Docs url for the key, rendered as a `reference:` line so a
+    /// reader can click through from a generated config.
+    pub reference: &'static str,
 }
 
-/// Homes accepted by every `bot-session.*` key: all three homes,
-/// since the user config and both workspace configs may each
-/// carry a default.
-const BOT_SESSION_HOMES: &[Home] = &[Home::User, Home::WorkspaceCode, Home::WorkspaceBot];
-
-/// Homes accepted by workspace-only keys (`repos.*`,
-/// `push.*`): the two `.vc-config.toml` homes, never the user
-/// config.
-const WORKSPACE_HOMES: &[Home] = &[Home::WorkspaceCode, Home::WorkspaceBot];
-
-/// The complete registry of settable keys.
-///
-/// - User home: `default.*`, `repo.*`, and the per-account
-///   `account.<name>.repo.*` family.
-/// - `bot-session.*`: accepted in all three homes.
-/// - Workspace-only: `repos.*`, `push.*`.
-const SCHEMA: &[ConfigKey] = &[
-    ConfigKey {
-        path: "default.account",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: false,
-        doc: "Account profile (an [account.<name>] section) to use when --account is absent",
-        used_by: "--account (init and account-aware commands)",
-        example: Some("work"),
-    },
-    ConfigKey {
-        path: "default.debug",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: false,
-        doc: "Default --debug value when used without an argument (reserved; not yet consumed)",
-        used_by: "--debug (reserved; not yet consumed)",
-        example: Some("true"),
-    },
-    ConfigKey {
-        path: "repo.default",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: false,
-        doc: "Default repo category when --repo is bare: a [repo.category.<cat>] name: a \
-              built-in (remote, local) or your own",
-        used_by: "--repo (default category when --repo is bare)",
-        example: Some("acmehousing"),
-    },
-    ConfigKey {
-        path: "repo.category.<cat>",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: true,
-        doc: "Literal value for repo category <cat>: a remote URL prefix (init appends \
-              /<NAME>.git) or a local parent dir",
-        used_by: "--repo <cat> (init remote/local resolution)",
-        example: Some("git@github.com:acmehousing"),
-    },
-    ConfigKey {
-        path: "account.<name>.repo.default",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: true,
-        doc: "Per-account default repo category: a [repo.category.<cat>] name: a built-in \
-              (remote, local) or your own",
-        used_by: "--account <name> with --repo",
-        example: Some("acmehousing"),
-    },
-    ConfigKey {
-        path: "account.<name>.repo.category.<cat>",
-        homes: &[Home::User],
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: true,
-        doc: "Per-account literal value for repo category <cat> (remote URL prefix or local \
-              parent dir)",
-        used_by: "--account <name> with --repo <cat>",
-        example: Some("git@github.com:acmehousing"),
-    },
-    ConfigKey {
-        path: "bot-session.items",
-        homes: BOT_SESSION_HOMES,
-        kind: ValueKind::ItemList,
-        default: Some("headers,user,assistant,tool,summary"),
-        required: false,
-        dynamic: false,
-        doc: "Default bot-session item set (comma-separated)",
-        used_by: "bot-session --<item> / --no-<item> / --all / --none",
-        example: None,
-    },
-    ConfigKey {
-        path: "bot-session.result-lines",
-        homes: BOT_SESSION_HOMES,
-        kind: ValueKind::Usize,
-        default: Some("10"),
-        required: false,
-        dynamic: false,
-        doc: "Default --result-lines: max lines shown per tool result (0 = unlimited)",
-        used_by: "bot-session --result-lines",
-        example: None,
-    },
-    ConfigKey {
-        path: "bot-session.col-width",
-        homes: BOT_SESSION_HOMES,
-        kind: ValueKind::Usize,
-        default: Some("68"),
-        required: false,
-        dynamic: false,
-        doc: "Default --col-width: first-column width in the field-inventory views",
-        used_by: "bot-session --col-width",
-        example: None,
-    },
-    ConfigKey {
-        path: "repos.work",
-        homes: WORKSPACE_HOMES,
-        kind: ValueKind::Str,
-        default: None,
-        required: true,
-        dynamic: false,
-        doc: "The work repo's path, relative to this config file's directory (\".\" in the \
-              work repo, \"..\" in the bot repo); the entry resolving to the config's own \
-              directory names the side",
-        used_by: "find_workspace_root, side detection (structural; written by init)",
-        example: Some("."),
-    },
-    ConfigKey {
-        path: "repos.bot",
-        homes: WORKSPACE_HOMES,
-        kind: ValueKind::Str,
-        default: None,
-        required: false,
-        dynamic: false,
-        doc: "The bot repo's path, relative to this config file's directory (e.g. \".claude\" \
-              in the work repo, \".\" in the bot repo); presence signals dual-repo mode",
-        used_by: "default_scope, scope resolution, ochid prefixes (structural)",
-        example: Some(".claude"),
-    },
-];
+include!(concat!(env!("OUT_DIR"), "/config_schema_gen.rs"));
 
 /// Returns the complete registry of settable config keys.
 pub fn schema() -> &'static [ConfigKey] {
-    SCHEMA
+    SCHEMA_GEN
 }
 
 /// Split a config key on its last `.` into `(section, leaf)`.
@@ -306,10 +168,11 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 
 /// Render one key as a thorough, self-documenting doc-block:
 /// - `# <path>: <doc>` (word-wrapped onto `#   ...`
-///   continuations past ~72 cols),
+///   continuations past ~100 cols, the project's prose width),
 /// - `#   used by: <used_by>`,
 /// - `#   default: <rendered default, or a "(none)"/"(required...)"
 ///   note>`,
+/// - `#   reference: <docs url>`,
 /// - the assignment line itself: uncommented for a `required` key
 ///   (init fills in the role-specific value), commented (`# `)
 ///   otherwise, with the rendered default, a `key.example` value
@@ -324,9 +187,10 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 pub fn render_key_block(key: &ConfigKey) -> String {
     let mut out = String::new();
     let header_text = format!("{}: {}", key.path, key.doc);
-    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 72));
+    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 100));
     out.push_str(&format!("#   used by: {}\n", key.used_by));
     out.push_str(&format!("#   default: {}\n", render_default_note(key)));
+    out.push_str(&format!("#   reference: {}\n", key.reference));
     let (_section, leaf) = section_and_leaf(key.path);
     let prefix = if key.required { "" } else { "# " };
     match key.example {
@@ -359,16 +223,79 @@ mod tests {
             .unwrap_or_else(|| panic!("schema key {path:?} not found"))
     }
 
+    /// The generated constants and the generated table both come
+    /// from the prototype, so equality here is a codegen
+    /// self-check, not a drift check: it fails only if the two
+    /// render paths in build.rs diverge.
     #[test]
-    fn defaults_match_source_consts() {
+    fn generated_consts_match_table() {
         assert_eq!(
             find("bot-session.col-width").default,
-            Some(crate::bot_session::COL_WIDTH.to_string()).as_deref()
+            Some(BOT_SESSION_COL_WIDTH_DEFAULT.to_string()).as_deref()
         );
         assert_eq!(
             find("bot-session.result-lines").default,
-            Some(crate::bot_session::RESULT_LINE_CAP.to_string()).as_deref()
+            Some(BOT_SESSION_RESULT_LINES_DEFAULT.to_string()).as_deref()
         );
+        assert_eq!(
+            find("bot-session.items").default,
+            Some(BOT_SESSION_ITEMS_DEFAULT)
+        );
+    }
+
+    /// Every key must point a reader somewhere: a non-empty
+    /// `reference` url starting with https.
+    #[test]
+    fn every_key_has_reference() {
+        for key in schema() {
+            assert!(
+                key.reference.starts_with("https://"),
+                "{}: reference {:?} is not an https url",
+                key.path,
+                key.reference
+            );
+        }
+    }
+
+    /// Every derived reference must anchor at a real `##` heading
+    /// in the per-key doc: build.rs derives the fragment from the
+    /// key's path, and this re-derives the headings' GitHub slugs
+    /// (lowercase, keep `[a-z0-9-]`, spaces to hyphens, markdown
+    /// escapes dropped) and demands a match, so a key added to
+    /// the prototype without docs fails here. Override references
+    /// pointing elsewhere are skipped. Doc and schema share one
+    /// file, so this reads the prototype itself: it is checking
+    /// that each key's fence sits under a heading the derived url
+    /// names, not that two files agree.
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn references_anchor_into_vc_config_md() {
+        let md =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/vc-config.md")).unwrap();
+        let slugs: std::collections::HashSet<String> = md
+            .lines()
+            .filter_map(|l| l.strip_prefix("## "))
+            .map(|h| {
+                h.chars()
+                    .filter_map(|c| match c {
+                        'a'..='z' | '0'..='9' | '-' => Some(c),
+                        'A'..='Z' => Some(c.to_ascii_lowercase()),
+                        ' ' => Some('-'),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .collect();
+        for key in schema() {
+            let Some((_, fragment)) = key.reference.rsplit_once("/vc-config.md#") else {
+                continue;
+            };
+            assert!(
+                slugs.contains(fragment),
+                "{}: no vc-config.md `##` heading slugs to #{fragment}",
+                key.path
+            );
+        }
     }
 
     #[test]
