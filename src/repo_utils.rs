@@ -1,12 +1,12 @@
 //! Repo lifecycle helpers: creation, finalization, cross-references.
 //!
-//! Sibling of `url` (URL/target parsing); this module hosts the
+//! Sibling of `url` (URL/target parsing): this module hosts the
 //! local-state mechanics that don't depend on URL form. As of
 //! 0.41.1-6.5:
 //!
 //! - `prepare_local_repo`: mkdir, colocated jj init, optional
 //!   template copy. Leaves the working copy uncommitted.
-//! - `commit_initial`: jj commit of the prepared tree; returns
+//! - `commit_initial`: jj commit of the prepared tree, returning
 //!   its chid.
 //! - `cross_ref_ochids`: rewrite both initial commits' placeholder
 //!   `ochid: /none` trailers once each side's chid is known.
@@ -20,7 +20,7 @@ use std::path::Path;
 
 use log::{debug, info};
 
-use crate::common::{mkdir_p, run};
+use crate::common::mkdir_p;
 use crate::init::{copy_template_recursive, rewrite_readme_first_line};
 use crate::jj;
 
@@ -50,10 +50,10 @@ pub enum OchidStrategy {
 ///
 /// Parameters:
 /// - `target`: destination directory for the new repo. Created
-///   (along with its parent if needed); must not already exist
+///   (along with its parent if needed), and must not already exist
 ///   as a populated repo.
 /// - `info_label`: narration tag (`"work"`, `"bot"`, `"scratch"`,
-///   etc.); appears in `info!()` lines.
+///   etc.), appearing in `info!()` lines.
 /// - `template`: optional source dir. When present, copied
 ///   recursively (non-hidden only) and any `README.md`'s first
 ///   line is rewritten to `# <name>`.
@@ -74,10 +74,10 @@ pub fn prepare_local_repo(
     }
     mkdir_p(target)?;
 
-    // `jj git init --colocate` creates the git repo itself: the
-    // former explicit `git init` was redundant (0.76.0-5).
+    // The colocated init creates the git repo itself: the former
+    // explicit `git init` was redundant (0.76.0-5).
     info!("Initializing {info_label} repo (jj, colocated)...");
-    run("jj", &["git", "init", "--colocate"], target)?;
+    jj::git_init_colocated(target)?;
 
     if let Some(t) = template {
         info!(
@@ -104,7 +104,7 @@ pub fn prepare_local_repo(
 /// - `target`: repo working dir, already prepared.
 /// - `info_label`: narration tag, mirroring `prepare_local_repo`.
 /// - `ochid_strategy`: message policy: `None` writes a plain
-///   `Initial commit`; `Placeholder` writes
+///   `Initial commit`, while `Placeholder` writes
 ///   `Initial commit\n\nochid: /none` for later rewrite by
 ///   `cross_ref_ochids`.
 pub fn commit_initial(
@@ -134,15 +134,15 @@ pub fn commit_initial(
 /// Both sides must already have an initial commit shaped by
 /// `OchidStrategy::Placeholder`. After the rewrite, each commit's
 /// ochid trailer is a workspace-root-relative path: the work side
-/// points at `/.claude/<bot_chid>`; the bot side points at
+/// points at `/.claude/<bot_chid>` and the bot side points at
 /// `/<work_chid>`.
 ///
 /// Parameters:
-/// - `work_dir`: work repo on disk; receives `/.claude/<chid>`.
-/// - `work_chid`: work-side initial-commit chid; embedded into
+/// - `work_dir`: work repo on disk, receiving `/.claude/<chid>`.
+/// - `work_chid`: work-side initial-commit chid, embedded into
 ///   the bot-side trailer.
-/// - `bot_dir`: bot repo on disk; receives `/<chid>`.
-/// - `bot_chid`: bot-side initial-commit chid; embedded
+/// - `bot_dir`: bot repo on disk, receiving `/<chid>`.
+/// - `bot_chid`: bot-side initial-commit chid, embedded
 ///   into the work-side trailer.
 pub fn cross_ref_ochids(
     work_dir: &Path,
@@ -170,10 +170,11 @@ pub fn cross_ref_ochids(
     debug!("bot side: rewrite initial commit's ochid to point at work chid");
     jj::describe(bot_dir, "@-", &bot_desc)?;
 
-    debug!("surface post-describe git hashes for the debug log");
-    let hash = run("git", &["rev-parse", "HEAD"], work_dir)?;
+    debug!("surface post-describe commit ids for the debug log");
+    // Colocated, so the jj commit id is the git hash.
+    let hash = jj::cid_of(work_dir, "@-")?;
     debug!("work repo: chid={work_chid} hash={hash}");
-    let hash = run("git", &["rev-parse", "HEAD"], bot_dir)?;
+    let hash = jj::cid_of(bot_dir, "@-")?;
     debug!(".claude:   chid={bot_chid} hash={hash}");
     Ok(())
 }
@@ -181,6 +182,7 @@ pub fn cross_ref_ochids(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::git_ok;
 
     /// `OchidStrategy::None` produces a plain `Initial commit`
     /// message (POR-shape).
@@ -197,7 +199,7 @@ mod tests {
         assert!(target.join(".jj").exists(), "jj initialized");
         assert!(target.join(".git").exists(), "git initialized");
 
-        let log = run("git", &["log", "-1", "--format=%B"], &target).expect("git log");
+        let log = git_ok(&target, &["log", "-1", "--format=%B"]);
         assert_eq!(
             log.trim(),
             "Initial commit",
@@ -220,7 +222,7 @@ mod tests {
         let _chid =
             commit_initial(&target, "work", OchidStrategy::Placeholder).expect("commit_initial");
 
-        let log = run("git", &["log", "-1", "--format=%B"], &target).expect("git log");
+        let log = git_ok(&target, &["log", "-1", "--format=%B"]);
         assert!(log.contains("Initial commit"));
         assert!(
             log.contains("ochid: /none"),

@@ -4,7 +4,7 @@
 //! (`WorkspaceCommandHelper` in jj-cli), reduced to what the facade's
 //! verbs need: user-config-backed settings, the working-copy snapshot
 //! cycle, and transaction finish. The reference implementation is jj
-//! 0.43's `cli_util.rs`; deviations are documented on each function.
+//! 0.43's `cli_util.rs`, with deviations documented on each function.
 //! The name is backend-neutral on purpose: what a session holds and
 //! its open -> mutate -> finish lifecycle would survive a non-jj
 //! backend.
@@ -17,7 +17,11 @@
 //! - `RepoSession::finish_tx`: the CLI's `finish_transaction`: git HEAD
 //!   reset + ref export, op-store commit, working-copy update.
 //! - The publish-path verbs (`commit`, `describe`, `bookmark_set`,
-//!   `git_push_bookmark`, `git_fetch`): each snapshots, mutates in
+//!   `git_push_bookmark`, `git_fetch`), the repositioning verbs
+//!   (`new_on`, `rebase_branch`), the recovery/collapse verbs
+//!   (`restore_op`, `squash_into`), and the provisioning verbs
+//!   (`add_git_remote`, `clone_fetch`, with `init_colocated` the
+//!   repo-creating constructor): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
 //!   keeps the shape push re-run and manual op restore rely on).
 //!
@@ -95,6 +99,7 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
         max-new-file-size = "1MiB"
         [git]
         auto-local-bookmark = false
+        track-default-bookmark-on-clone = true
         "#,
     )?);
     let jj_config = std::env::var("JJ_CONFIG").ok();
@@ -174,6 +179,16 @@ fn load_dir_if_exists(
     Ok(())
 }
 
+/// The git object-hash kind `git.object-hash` selects: "sha256"
+/// opts in, anything else (including the key absent) is the "sha1"
+/// default the jj CLI ships.
+fn object_hash_from(settings: &UserSettings) -> gix::hash::Kind {
+    match settings.get_string("git.object-hash") {
+        Ok(s) if s == "sha256" => gix::hash::Kind::Sha256,
+        _ => gix::hash::Kind::Sha1,
+    }
+}
+
 /// True when the workspace shares its working copy with a colocated
 /// git repo (jj-cli's `is_colocated_git_workspace`, minus the
 /// canonicalized `.git`-symlink fallback: vc-x1 lays repos out with
@@ -195,6 +210,26 @@ fn is_colocated(workspace: &Workspace, repo: &Arc<ReadonlyRepo>) -> bool {
 }
 
 impl RepoSession {
+    /// Create a colocated jj+git repo at `path` and open it as a
+    /// session (`jj git init --colocate` on a fresh directory,
+    /// which is the only shape vc-x1 provisions).
+    ///
+    /// Writes the CLI's `.jj/.gitignore` (`/*`) so the colocated
+    /// git side never tracks the jj store, then reopens through
+    /// `open` for the standard two-phase settings load.
+    pub fn init_colocated(path: &Path) -> Result<Self> {
+        let settings = UserSettings::from_config(stacked_config(None)?)?;
+        let (workspace, _repo) =
+            Workspace::init_colocated_git(&settings, path, object_hash_from(&settings))
+                .block_on()?;
+        std::fs::write(
+            workspace.workspace_root().join(".jj").join(".gitignore"),
+            "/*\n",
+        )?;
+        drop(workspace);
+        Self::open(path)
+    }
+
     /// Open `path` for mutation: user settings, workspace, repo at
     /// the op-store head, colocation flag.
     pub fn open(path: &Path) -> Result<Self> {
@@ -219,7 +254,7 @@ impl RepoSession {
     }
 
     /// Take the git import/export lock the CLI takes around its
-    /// import/snapshot/export cycle; `None` when not colocated.
+    /// import/snapshot/export cycle. `None` when not colocated.
     fn lock_git(&self) -> Result<Option<FileLock>> {
         if !self.colocated {
             return Ok(None);
@@ -557,6 +592,123 @@ impl RepoSession {
         self.finish_tx(tx, &format!("describe commit {}", commit.id().hex()))
     }
 
+    /// Snapshot, then start a fresh empty working-copy commit on
+    /// top of `rev` (`jj new <rev>`). The old `@` is auto-abandoned
+    /// when discardable (empty, undescribed, unreferenced, a head),
+    /// matching the CLI, via `MutableRepo::check_out`'s edit path.
+    pub fn new_on(&mut self, rev: &str) -> Result<()> {
+        self.snapshot()?;
+        let target = self.one_commit(rev)?;
+        let name = self.workspace.workspace_name().to_owned();
+        let mut tx = self.start_tx();
+        tx.repo_mut().check_out(name, &target).block_on()?;
+        self.finish_tx(tx, &format!("new empty commit on {}", target.id().hex()))
+    }
+
+    /// Snapshot, then rebase the branch of `source` onto `dest`
+    /// (`jj rebase -b <source> -d <dest>`): the roots of
+    /// `dest..source` are rebased onto `dest`, and `finish_tx`'s
+    /// `rebase_descendants` carries their descendants along, the
+    /// working-copy pointer included. Conflicts are written, not
+    /// refused: callers keep their post-rebase conflict checks.
+    pub fn rebase_branch(&mut self, source: &str, dest: &str) -> Result<()> {
+        self.snapshot()?;
+        let dest_commit = self.one_commit(dest)?;
+        let root_ids = crate::common::resolve_revset(
+            &self.workspace,
+            &self.repo,
+            &format!("roots({dest}..{source})"),
+        )?;
+        if root_ids.is_empty() {
+            debug!("rebase_branch: '{source}' is already on '{dest}', nothing to do");
+            return Ok(());
+        }
+        let mut tx = self.start_tx();
+        for id in &root_ids {
+            let commit = tx.repo().store().get_commit(id)?;
+            jj_lib::rewrite::rebase_commit(tx.repo_mut(), commit, vec![dest_commit.id().clone()])
+                .block_on()?;
+        }
+        self.finish_tx(
+            tx,
+            &format!(
+                "rebase {} commits onto {}",
+                root_ids.len(),
+                dest_commit.id().hex()
+            ),
+        )
+    }
+
+    /// Snapshot, then restore the repo to the operation named by
+    /// `op_str`, id prefixes included (`jj op restore <op>`): a new
+    /// operation whose view is the target's, the working copy
+    /// updated to the restored wc commit.
+    ///
+    /// Deviation from the CLI: no `--what` portioning. The full
+    /// target view is restored, which is the CLI's default. Like
+    /// the CLI, `git_refs` / `git_head` stay at their *current*
+    /// values: they track what the colocated git side actually
+    /// holds, and restoring the old records would make the next
+    /// git import resurrect exactly the commits being undone.
+    pub fn restore_op(&mut self, op_str: &str) -> Result<()> {
+        self.snapshot()?;
+        let target_op = jj_lib::op_walk::resolve_op_for_load(self.workspace.repo_loader(), op_str)
+            .block_on()?;
+        let mut new_view = target_op.view().block_on()?.store_view().clone();
+        let current_view = self.repo.view().store_view();
+        new_view.git_refs = current_view.git_refs.clone();
+        new_view.git_head = current_view.git_head.clone();
+        let mut tx = self.start_tx();
+        tx.repo_mut().set_view(new_view);
+        self.finish_tx(
+            tx,
+            &format!("restore to operation {}", target_op.id().hex()),
+        )
+    }
+
+    /// Snapshot, then squash all of `source`'s changes into
+    /// `target`, keeping the target's description (`jj squash
+    /// --from <source> --into <target> --use-destination-message`).
+    /// The emptied source is abandoned, and when it was `@`,
+    /// `finish_tx`'s `rebase_descendants` recreates a fresh empty
+    /// working-copy commit, matching the CLI.
+    pub fn squash_into(&mut self, source: &str, target: &str) -> Result<()> {
+        use jj_lib::rewrite::CommitWithSelection;
+        self.snapshot()?;
+        let source_commit = self.one_commit(source)?;
+        let target_commit = self.one_commit(target)?;
+        let selection = CommitWithSelection {
+            commit: source_commit.clone(),
+            selected_tree: source_commit.tree(),
+            parent_tree: source_commit.parent_tree(self.repo.as_ref()).block_on()?,
+        };
+        let mut tx = self.start_tx();
+        let Some(squashed) = jj_lib::rewrite::squash_commits(
+            tx.repo_mut(),
+            std::slice::from_ref(&selection),
+            &target_commit,
+            false,
+        )
+        .block_on()?
+        else {
+            debug!("squash_into: '{source}' has nothing to squash");
+            return Ok(());
+        };
+        squashed
+            .commit_builder
+            .set_description(target_commit.description().to_owned())
+            .write()
+            .block_on()?;
+        self.finish_tx(
+            tx,
+            &format!(
+                "squash commit {} into {}",
+                source_commit.id().hex(),
+                target_commit.id().hex()
+            ),
+        )
+    }
+
     /// Snapshot, then point local bookmark `name` at `rev`
     /// (`jj bookmark set <name> -r <rev>`).
     pub fn bookmark_set(&mut self, name: &str, rev: &str) -> Result<()> {
@@ -577,7 +729,7 @@ impl RepoSession {
     /// the last-seen remote position.
     ///
     /// Deviation from the CLI: no conflicted / no-description /
-    /// private preflights on the pushed commits; the push callers
+    /// private preflights on the pushed commits. The push callers
     /// validate the commit they publish before calling.
     pub fn git_push_bookmark(&mut self, name: &str) -> Result<()> {
         use jj_lib::git::{GitPushOptions, GitPushRefTargets, GitSettings};
@@ -600,7 +752,7 @@ impl RepoSession {
             .get_remote_bookmark(ref_name.to_remote_symbol(remote));
         let before = remote_ref.target.as_normal().cloned();
         if before.as_ref() == Some(&local) {
-            return Ok(()); // Already in sync; matches `jj git push` "Nothing changed".
+            return Ok(()); // Already in sync, matching `jj git push` "Nothing changed".
         }
         let ref_updates = GitPushRefTargets {
             bookmarks: vec![(
@@ -677,14 +829,88 @@ impl RepoSession {
         self.finish_tx(tx, &format!("fetch from git remote {}", remote.as_str()))?;
         Ok(lines)
     }
+
+    /// Snapshot, then register git remote `name` at `url`
+    /// (`jj git remote add <name> <url>`).
+    ///
+    /// The remote lands in `.git/config` immediately and in the
+    /// view via jj-lib's `ensure_remote`. gix caches the config it
+    /// opened with, so a later network verb on this repo must run
+    /// on a *reopened* session, the same reason the CLI reloads
+    /// its workspace after configuring a remote.
+    pub fn add_git_remote(&mut self, name: &str, url: &str) -> Result<()> {
+        use jj_lib::ref_name::RemoteName;
+        self.snapshot()?;
+        let mut tx = self.start_tx();
+        git::add_remote(tx.repo_mut(), RemoteName::new(name), url, None)?;
+        self.finish_tx(tx, &format!("add git remote {name}"))
+    }
+
+    /// Fetch everything from `remote` into a freshly initialized
+    /// repo, import, and track its default bookmark (the fetch
+    /// half of `jj git clone`, run by `jj::git_clone_colocated`).
+    /// Returns the remote's default branch name when it reports
+    /// one. The network legs (fetch, default-branch query) are
+    /// jj-lib's own `git` children.
+    ///
+    /// Deviation from the CLI: no `--branch` / `--depth`
+    /// narrowing, so every bookmark and tag is fetched and the
+    /// CLI's unmatched-pattern warnings have nothing to warn
+    /// about.
+    pub fn clone_fetch(&mut self, remote: &str) -> Result<Option<String>> {
+        use jj_lib::git::{GitFetch, GitFetchRefExpression, GitSettings, expand_fetch_refspecs};
+        use jj_lib::ref_name::RemoteName;
+        use jj_lib::str_util::StringExpression;
+
+        self.snapshot()?;
+        let remote = RemoteName::new(remote);
+        let expanded = expand_fetch_refspecs(
+            remote,
+            GitFetchRefExpression {
+                bookmark: StringExpression::all(),
+                tag: StringExpression::all(),
+            },
+        )?;
+        let git_settings = GitSettings::from_settings(&self.settings)?;
+        let import_options = GitImportOptions {
+            // A clone imports the remote's whole history, so
+            // synthetic predecessors would be pure overhead (the
+            // CLI skips them on clone too).
+            record_synthetic_predecessors: false,
+            ..self.import_options()?
+        };
+        let track_default = self
+            .settings
+            .get_bool("git.track-default-bookmark-on-clone")?;
+        let mut tx = self.start_tx();
+        let default_branch = {
+            let mut fetch = GitFetch::new(
+                tx.repo_mut(),
+                git_settings.to_subprocess_options(),
+                &import_options,
+            )?;
+            fetch.fetch(remote, expanded, &mut DebugCallback, None)?;
+            fetch.import_refs().block_on()?;
+            fetch.get_default_branch(remote)?
+        };
+        if let Some(name) = &default_branch {
+            let symbol = name.to_remote_symbol(remote);
+            if track_default && tx.repo().view().get_remote_bookmark(symbol).is_present() {
+                tx.repo_mut().track_remote_bookmark(symbol).block_on()?;
+            }
+        }
+        tx.repo_mut().rebase_descendants().block_on()?;
+        self.finish_tx(tx, "fetch from git remote into empty repo")?;
+        Ok(default_branch.map(|n| n.as_str().to_string()))
+    }
 }
 
-/// Attempts per lock-contended git write; the doubling backoff
+/// Attempts per lock-contended git write. The doubling backoff
 /// starting at `LOCK_RETRY_START` waits 25 + 50 + 100 + 200 ms,
 /// about 375 ms in total, before the last try.
 const LOCK_RETRY_ATTEMPTS: u32 = 5;
 
-/// First backoff delay; each subsequent retry doubles it.
+/// First backoff delay. Each subsequent retry doubles it.
 const LOCK_RETRY_START: Duration = Duration::from_millis(25);
 
 /// True when `e` is, or wraps anywhere in its source chain, a git
@@ -830,7 +1056,7 @@ mod tests {
         assert!(!is_lock_contention(&io));
     }
 
-    /// Contention retries until the closure succeeds; the attempt
+    /// Contention retries until the closure succeeds. The attempt
     /// count is visible to the closure.
     #[test]
     fn retry_git_lock_retries_contention() {

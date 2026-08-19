@@ -5,6 +5,31 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-19: comment semicolons had no conversion trigger, and adopted-ahead rules had no
+  home a session reads
+  - wink's grep found semicolons in session.rs comments. Comments are prose, so prose.md's
+    Semicolons rule already covers them, but its "ask at alteration" gate would mean a
+    file-by-file question forever. Adopted: a commit editing a source file converts that
+    file's comment semicolons in the same commit (whole file, code spans exempt), applied
+    from the jj-spawns cycle's sync-repositioning rung onward (29 sites in the three files
+    that rung touched)
+  - the second finding: rules adopted mid-cycle (this one, the marker-timing tweak below)
+    lived only in this log, which no session reads at acquaint, so session amnesia would
+    quietly undo them. custom-family.md gained `## Experimental agent-file rules` (wink's
+    name) as the binding home between adoption and the convention cycle that pins each rule.
+    The section pattern itself is one of the proposals it carries
+
+- 2026-08-18: the `(done)` flip ran ahead of the review it claims (wink, at the jj-spawns
+  port rung)
+  - the per-commit checklist's step 3 flips `(current)` to `(done)` before validation and the
+    work review, so the record says "done" while the user may still reject or reshape the
+    work. Wink's tweak, adopted this session: the rung stays `(current)` through validation
+    and the work-review stop, and flips to `(done)` when the user accepts the work and asks
+    for the description, the moment "done" becomes true
+  - a candidate for cycle-checklists.md's per-commit steps 3/6 (and the protocol's per-commit
+    flow) at a convention cycle: the flip moves from "before validation" to "on work-review
+    acceptance, before the description"
+
 - 2026-08-18: a premature stable-name install let one version string mean two behaviors
   - the 0.78.8 close-out's validation ran `cargo install` (producing plain `vc-x1 0.78.8`)
     while the cycle could still change, and a test rung was then inserted, so the installed

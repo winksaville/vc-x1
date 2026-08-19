@@ -111,14 +111,19 @@ per-subcommand refactor status):
   `default_scope` / `scope_to_repos` / `resolve_repos`
   (the top-level entry combining the `-R PATH` override and
   the `-s code|bot|code,bot` role selection).
-- `src/jj.rs` — the typed facade over `jj` subprocess
-  queries (`log` templates and bookmark listings):
-  `matches` / `rev_exists`, `chid_of` / `cid_of` /
-  `cid_short_of`, `desc_of` / `is_empty`,
-  `bookmark_list[_all]`. Mutations still spawn `jj` at
-  their call sites until the refactor program's jj-lib
-  migration stage moves both in-process
-  ([refactor-20260716.md](notes/refactor-20260716.md)).
+- `src/jj.rs` — the typed facade over jj, fully
+  in-process through jj-lib (0.79.0): reads
+  (`matches` / `rev_exists`, the id/description
+  accessors, the typed bookmark and remote-ref view
+  queries, `diff_stat`, `current_op_id`) plus one-shot
+  wrappers over the `src/jj/session.rs` mutation verbs
+  (commit/describe, bookmarks, push/fetch,
+  repositioning, op restore, squash, and the
+  init/clone provisioning). The only process spawns
+  left are clippy.toml's documented allowlist (the
+  version gate's `jj -V`, push's `$EDITOR`, init's gh
+  provisioning, test helpers), enforced by its
+  `disallowed-methods` ban on `Command::new`.
 
 **Subcommand-layer scaffolding:**
 

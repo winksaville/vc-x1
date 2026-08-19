@@ -120,6 +120,9 @@ _No cycle currently in progress._
        which nothing reads
      - the model carries derived `reference-base` https urls, and the info-string rule's
        negative half (only fences tagged exactly `toml` are live) lands in `vc-config.md`
+     - init emits `.vc-config.md` from the generated model for new workspaces (found
+       2026-08-19: init still writes `.vc-config.toml`, starting every new member on the
+       legacy carrier)
    - **feat: add config --refresh**: regenerate a file's prose while preserving fence
      interiors and `[repos]` byte-for-byte, `--check` exiting nonzero on drift
    - **feat: add validate-anchors**: same-file heading anchors via the documented slug
@@ -155,27 +158,7 @@ _No cycle currently in progress._
    - runs after the vc-config cycle on purpose: `--refresh --check` makes a schema shrink
      mechanical, so this is the first real customer of the machinery that cycle builds
 
-5. **Retire the remaining jj spawns; make the build enforce it.** The refactor program's
-   banner goal ("end subprocess spawning") outlived its ladder: 0.78.0 migrated the facade
-   and every mutation routed through it, and its commit body claimed "ending jj and git
-   subprocess spawning", but spawns the facade never carried remain. Found 2026-08-06 at the
-   0.78.3 review; how the gap survived seven disciplined cycles is in
-   [chores-16](notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert).
-   - the inventory, non-test code: sync's reposition and rebase steps (`jj new` twice,
-     `jj rebase` twice) and `current_op_id` / `op_restore` (`jj op log` / `jj op restore`);
-     push's three `jj diff --stat` reads; init/clone's `jj git init --colocate`
-     (`repo_utils.rs`)
-   - deliberately excluded, subprocess by design: the version gate's `jj --version` / `jj -V`
-     (clone, init, version), which exist to ask the *installed* binary; push's `$EDITOR`
-   - the teeth, so the goal cannot silently regress once met: remove `run()` from non-test
-     code, or ban `std::process::Command` via clippy.toml `disallowed-methods` with the
-     version-gate module explicitly allowlisted as the documented exception
-   - a prerequisite for the safer revert's "identifiable sync operations" (see "Stale
-     `/.vc-x1` gitignore line: report it, and a safer revert, if ever")
-   - the process lesson (a program's header states its acceptance check at open; close-out
-     runs it) is a template-proposal candidate for cycle-protocol.md's Close-out
-
-6. **validate-repo-data.** Golden ids for a fixture repo, so a
+5. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -248,7 +231,7 @@ _No cycle currently in progress._
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-7. **refactor: trapezoid-push + body-intro validation.**
+6. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -286,7 +269,7 @@ _No cycle currently in progress._
      against the manifest's current name, and gains the open/close rename step beside the
      version bump (custom.md on `main` is the bare skeleton, so neither has a home until that
      merge).
-8. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
+7. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
    `ExitCode::FAILURE`: a misspelled key and a config the tool could not read exit alike, so a
    caller can branch on "clean or not" and nothing finer. Proposed: **0** all tables and keys
    known and their values reasonable, **1** unknown or otherwise non-fatal findings, **2** a
@@ -306,7 +289,7 @@ _No cycle currently in progress._
      the start; value checks land later as ordinary tier-1 findings
    - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
      difference is a finding, not a fatal) or keeps its own
-9. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
+8. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
    2026-08-12). The md carrier costs a config file the toml-aware editors and formatters a
    `.toml` gets, and nothing answers "what do these fences actually concatenate to?", which is
    also the question a parse diagnostic raises. Outside the "docs: freshen vc-config and
@@ -322,40 +305,40 @@ _No cycle currently in progress._
      workspace's values, so nothing today shows a config file's own contents at all
    - decide there: the name (`--toml`, `--as-toml`, `--fences`), and whether it composes with
      `--validate` or excludes it
-10. **A committed cycle-check runner.** The per-commit flow's
-    validation (fmt -> clippy -> test -> install) exists only as
-    prose in cycle-protocol.md, so it is recomposed by hand
-    every commit, and a hand-composed shell one-liner can
-    silently stop checking. Found at the 0.77.0 close-out: in
-    `clippy ... 2>&1 | tail -2 && cargo test ...`, the pipeline's
-    status is *tail's*, which is always 0, so the `&&` gate
-    was decorative and `cargo test` ran even on a run where
-    clippy had failed. The failures were caught by reading the
-    output, not by any check.
-    - The defect class is the one this cycle spent its time
-      deleting: a mechanism that looks like a guarantee and
-      isn't.
-    - Write the sequence down once. Options, cheapest first:
-      `support/cycle-check.sh` with `set -euo pipefail` (there
-      is precedent in `support/gen-exmpl-1-3.sh`); a `justfile`
-      target; or `cargo xtask`, where the steps are `Command`
-      calls whose statuses are handled like any other
-      `Result`, most aligned with the no-unwrap discipline and
-      heaviest for four commands.
-    - **Not a vc-x1 subcommand.** That line was drawn at
-      0.69.0-3 when the hardcoded cargo preflight was removed:
-      vc-x1 assumes nothing about a repo's contents beyond
-      `.jj` and `.vc-config.toml`.
-    - Until it exists: run validating commands as separate
-      invocations, never piping one into `tail`/`grep`, and
-      never `&&` after a piped stage. `${PIPESTATUS[0]}` is
-      the escape hatch when a pipe is genuinely wanted.
-    - Split by ownership: the *runner* is project-local (the
-      cargo cycle is Rust-specific), but the *rule* (a
-      validation step's exit status is checked, not read)
-      belongs in cycle-protocol.md's per-commit flow, which
-      fans out to the template family.
-11. **`squash-push --title` / `--body`.** `squash-push` amends
+9. **A committed cycle-check runner.** The per-commit flow's
+   validation (fmt -> clippy -> test -> install) exists only as
+   prose in cycle-protocol.md, so it is recomposed by hand
+   every commit, and a hand-composed shell one-liner can
+   silently stop checking. Found at the 0.77.0 close-out: in
+   `clippy ... 2>&1 | tail -2 && cargo test ...`, the pipeline's
+   status is *tail's*, which is always 0, so the `&&` gate
+   was decorative and `cargo test` ran even on a run where
+   clippy had failed. The failures were caught by reading the
+   output, not by any check.
+   - The defect class is the one this cycle spent its time
+     deleting: a mechanism that looks like a guarantee and
+     isn't.
+   - Write the sequence down once. Options, cheapest first:
+     `support/cycle-check.sh` with `set -euo pipefail` (there
+     is precedent in `support/gen-exmpl-1-3.sh`); a `justfile`
+     target; or `cargo xtask`, where the steps are `Command`
+     calls whose statuses are handled like any other
+     `Result`, most aligned with the no-unwrap discipline and
+     heaviest for four commands.
+   - **Not a vc-x1 subcommand.** That line was drawn at
+     0.69.0-3 when the hardcoded cargo preflight was removed:
+     vc-x1 assumes nothing about a repo's contents beyond
+     `.jj` and `.vc-config.toml`.
+   - Until it exists: run validating commands as separate
+     invocations, never piping one into `tail`/`grep`, and
+     never `&&` after a piped stage. `${PIPESTATUS[0]}` is
+     the escape hatch when a pipe is genuinely wanted.
+   - Split by ownership: the *runner* is project-local (the
+     cargo cycle is Rust-specific), but the *rule* (a
+     validation step's exit status is checked, not read)
+     belongs in cycle-protocol.md's per-commit flow, which
+     fans out to the template family.
+10. **`squash-push --title` / `--body`.** `squash-push` amends
     content only: it folds the working copy into the last
     commit and force-updates the remote, but the commit keeps
     its existing message. Fixing a published commit's *message*
@@ -394,7 +377,7 @@ _No cycle currently in progress._
       cited nowhere and a rewrite costs nothing. Message fixes
       naturally cluster there, which is exactly where the
       two-step shape bites.
-12. **Restructure templates: single template repo + fixed bot
+11. **Restructure templates: single template repo + fixed bot
     seed manifest.** Replace the separate
     `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
     repos with the one work-repo template, whose live
@@ -422,7 +405,7 @@ _No cycle currently in progress._
       tends to create it otherwise), so init emits it like
       `.vc-config.toml` instead of copying, leaving no "is it
       still empty?" invariant in the template.
-13. **ochid: bot-repo location qualifier.** An ochid is
+12. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`), so nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -442,7 +425,7 @@ _No cycle currently in progress._
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-14. **Version-number protocol is fragile: versions are
+13. **Version-number protocol is fragile: versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -481,7 +464,7 @@ _No cycle currently in progress._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-15. **sync follow-up: extract `move-bookmark` command.** The
+14. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -491,7 +474,7 @@ _No cycle currently in progress._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-16. **sync follow-up: retire the hidden `--check` alias;
+15. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -507,7 +490,7 @@ _No cycle currently in progress._
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-17. **validate-numbering: rename the pair, check all
+16. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -543,7 +526,7 @@ _No cycle currently in progress._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-18. **pre-commit: single rule (no docs skip) + doc validators.**
+17. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -569,7 +552,7 @@ _No cycle currently in progress._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-19. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+18. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -593,7 +576,7 @@ _No cycle currently in progress._
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-20. **Run validate-bot at every vc-x1 invocation
+19. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -606,7 +589,7 @@ _No cycle currently in progress._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-21. **CLI reference lives in `--help`; README owns concepts.**
+20. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -645,7 +628,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-22. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+21. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -665,7 +648,7 @@ _No cycle currently in progress._
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-23. **Shared-doc sync: per-commit chores convention.**
+22. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -678,7 +661,7 @@ _No cycle currently in progress._
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-24. **config: extract flag-backed key descriptions from Clap.**
+23. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -693,7 +676,7 @@ _No cycle currently in progress._
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-25. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+24. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -805,6 +788,17 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.79.0 **refactor: retire the remaining jj spawns** [[56]]
+  - the jj-CLI spawn path is gone: push and facade reads, sync repositioning, op
+    recovery, squash, and init/clone provisioning all run in-process through jj-lib,
+    the network legs staying jj-lib's own git children
+  - clippy.toml bans `Command::new` outside a documented, closed allowlist (the version
+    gate's `jj -V`, push's `$EDITOR`, init's gh provisioning, test helpers), deny-level,
+    demonstrated once failing a scratch site, the enforced sites enumerable by a
+    recorded rg one-liner
+  - the acceptance check ran at close, all four items pass, the test-spawn audit finding
+    every spawn integration-type
+
 - 0.78.10 **docs: retire the refactor program block** [[35]]
   - the jj facade refactor program's block moved from `## In Progress` to an as-built
     ladder in refactor-20260716.md, bounded at 0.78.4, the remaining trapezoid-push stage
@@ -877,3 +871,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [35]: /notes/chores/chores-16.md#docs-retire-the-refactor-program-block
 [54]: https://github.com/winksaville/iiac-perf/blob/0520c17ca352/notes/chores/chores-07.md#docs-converge-the-agent-files-with-vc-x1
 [55]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
+[56]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns

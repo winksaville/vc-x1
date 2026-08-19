@@ -1101,7 +1101,7 @@ pre-convention docs interludes on the trunk that were never rungs.
 
 ### Ladder
 
-- [[N]] docs: retire the refactor program block
+- [[45]] 0.78.10 docs: retire the refactor program block
 
 ### Deliberation
 
@@ -1178,3 +1178,4 @@ promised. The finding is kept in both the check's result and the section's seam 
 [42]: https://github.com/winksaville/vc-x1/commit/a84a34eefd21 "a84a34eefd2128ca4eaabca48fcb057ee3b4b3a7"
 [43]: https://github.com/winksaville/vc-x1/commit/dc0b64e6b253 "dc0b64e6b253c472cef2b68ea46b7e1675dbb256"
 [44]: https://github.com/winksaville/vc-x1/commit/1aba2133a240 "1aba2133a2404f287e68873f11d79762c5d666cb"
+[45]: https://github.com/winksaville/vc-x1/commit/4f07f8af55e3 "4f07f8af55e30696a92a694a36962c10ed152d1e"

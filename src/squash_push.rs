@@ -3,7 +3,7 @@
 //! writes and publish them in one step.
 //!
 //! - Built for the bot's `.claude` bot repo, whose working copy
-//!   accumulates session data continuously (the session tail); also
+//!   accumulates session data continuously (the session tail). Also
 //!   useful on the work repo as a deliberate amend-and-push (a
 //!   published-history rewrite, so the push is a forced update).
 //! - Runs fully in-process: preflight validations, then squash +
@@ -22,7 +22,6 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
-use crate::common::run;
 use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
@@ -51,8 +50,8 @@ pub struct SquashPushArgs {
 
 /// Per-invocation squash-push inputs: the clap-free shape the op
 /// works against. Built from `SquashPushArgs` at the binary edge
-/// via `TryFrom` (fallible only on repo-path canonicalization);
-/// `vc-x1 push`'s `squash-push-bot` stage constructs it
+/// via `TryFrom` (fallible only on repo-path canonicalization),
+/// while `vc-x1 push`'s `squash-push-bot` stage constructs it
 /// directly.
 #[derive(Debug)]
 pub struct SquashPushParams {
@@ -61,7 +60,7 @@ pub struct SquashPushParams {
     pub bookmark: String,
     /// Report an at-rest publish mismatch (BOOKMARK not matching
     /// `BOOKMARK@origin`, an earlier publish was lost) before
-    /// proceeding. True for CLI invocations, which run at rest;
+    /// proceeding. True for CLI invocations, which run at rest.
     /// `vc-x1 push`'s `squash-push-bot` stage sets false: there
     /// the mismatch is the normal mid-push state (`bookmark-set`
     /// just moved the bookmark, this stage publishes it), so the
@@ -73,7 +72,7 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
     type Error = String;
 
     /// Canonicalize `--repo` (early, visible failure on a bad path)
-    /// and fill the `--squash` default; BOOKMARK maps straight over.
+    /// and fill the `--squash` default. BOOKMARK maps straight over.
     fn try_from(a: &SquashPushArgs) -> Result<Self, String> {
         let repo = std::fs::canonicalize(&a.repo)
             .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
@@ -132,7 +131,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
-    if jj::bookmark_list(repo, bookmark)?.is_empty() {
+    if !jj::local_bookmark_exists(repo, bookmark)? {
         return Err(format!("bookmark '{bookmark}' does not exist").into());
     }
 
@@ -173,7 +172,7 @@ fn ochids_at_risk(source_desc: &str, target_desc: &str) -> Vec<String> {
 /// Refuse a squash that would drop the source message's `ochid:`
 /// trailers.
 ///
-/// - Compares the two messages' `ochid:` trailers; errors when the
+/// - Compares the two messages' `ochid:` trailers, and errors when the
 ///   source carries any the destination's message lacks:
 ///   `--use-destination-message` would discard them, leaving the
 ///   counterpart repo's cross-links dangling (recorded 0.65.1, guarded since 0.65.2).
@@ -230,7 +229,6 @@ pub fn squash_push(
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("squash_push: entry params={params:?}");
     let repo_str = params.repo.to_string_lossy().to_string();
-    let cwd = std::path::Path::new(".");
     let sq = &params.squash;
     let bookmark = &params.bookmark;
 
@@ -277,21 +275,8 @@ pub fn squash_push(
         );
     } else {
         info!("squash-push: squashing {} -> {}...", sq.source, sq.target);
-        run(
-            "jj",
-            &[
-                "squash",
-                "--ignore-immutable",
-                "--use-destination-message",
-                "--from",
-                &sq.source,
-                "--into",
-                &sq.target,
-                "-R",
-                &repo_str,
-            ],
-            cwd,
-        )?;
+        ctx.session(&params.repo)?
+            .squash_into(&sq.source, &sq.target)?;
     }
 
     info!(

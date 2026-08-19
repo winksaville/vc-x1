@@ -28,12 +28,12 @@ pub struct InitArgs {
     /// Target: URL, owner/name shorthand, path, or bare NAME.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
-    ///   used as-is; config not consulted.
+    ///   used as-is, config not consulted.
     /// - owner/name shorthand: resolves to
-    ///   `git@github.com:owner/name.git`; config not consulted.
+    ///   `git@github.com:owner/name.git`, config not consulted.
     /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`, is the
-    ///   directory path; remote resolved via `--repo` chain.
-    /// - Bare NAME: becomes NAME.git; remote resolved via
+    ///   directory path, remote resolved via `--repo` chain.
+    /// - Bare NAME: becomes NAME.git, remote resolved via
     ///   `--repo` chain.
     #[arg(value_name = "TARGET", verbatim_doc_comment)]
     pub target: String,
@@ -52,8 +52,8 @@ pub struct InitArgs {
     pub account: AccountOption,
 
     /// `--repo`: flatten of the shared [`RepoOption`] leaf.
-    /// Init's built-in categories: `remote` (URL prefix; init
-    /// appends `/<NAME>.git`) and `local` (parent dir for
+    /// Init's built-in categories: `remote` (a URL prefix init
+    /// appends `/<NAME>.git` to) and `local` (parent dir for
     /// fixture bare repos). Meaningful only with Path or
     /// bare-NAME targets.
     #[command(flatten)]
@@ -61,7 +61,7 @@ pub struct InitArgs {
 
     /// `--por`: flatten of the shared [`PorFlag`] leaf. Absent
     /// (default) -> dual workspace (work + `.claude/` bot
-    /// repo); present -> plain single repo.
+    /// repo), present -> plain single repo.
     #[command(flatten)]
     pub por: PorFlag,
 
@@ -77,7 +77,7 @@ pub struct InitArgs {
     pub use_template: UseTemplateOption,
 
     /// `--config none|<path>`: flatten of the shared
-    /// [`ConfigOption`] leaf. Only meaningful with `--por`;
+    /// [`ConfigOption`] leaf. Only meaningful with `--por`,
     /// rejected at preflight when paired with the default dual
     /// shape. `.gitignore` is always written regardless of
     /// `--config`.
@@ -115,7 +115,7 @@ fn retry_op<T>(
     Err(format!("failed after {} attempts: {last_err}", retry.push_retries).into())
 }
 
-use crate::common::{mkdir_p, run, write_file};
+use crate::common::{mkdir_p, write_file};
 
 /// Parse the `--use-template` value into `(work, bot)` template paths.
 ///
@@ -153,7 +153,7 @@ pub(crate) fn parse_use_template(
 
 /// Default bot-repo directory name a fresh init records and
 /// creates. After the 0.75.0-3 sweep every *reader* resolves the
-/// dir from `repos.bot`; this constant (plus the literals in the
+/// dir from `repos.bot`, so this constant (plus the literals in the
 /// `ConfigRole::DualWork` render and `GITIGNORE_CODE`, which must
 /// change with it) is where a new workspace's default is chosen.
 pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
@@ -252,7 +252,7 @@ pub(crate) fn copy_template_recursive(
 
 /// Replace the first line of `<dir>/README.md` with `# <name>`. If
 /// `README.md` is absent, this is a no-op. Trailing content after the
-/// first newline is preserved verbatim; a file with no newline becomes
+/// first newline is preserved verbatim, and a file with no newline becomes
 /// just `# <name>`.
 pub(crate) fn rewrite_readme_first_line(
     dir: &Path,
@@ -273,10 +273,43 @@ pub(crate) fn rewrite_readme_first_line(
     Ok(())
 }
 
+/// Run `gh <args>`, returning trimmed stdout on success and the
+/// stderr-carrying error on failure. The GhCreate path's one spawn
+/// helper: `gh auth status`, `gh repo view`, `gh repo create`.
+///
+/// Logs the command and its streams at `debug!`, the shape the
+/// retired `common::run` gave these callers.
+fn gh(args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let args_str = args.join(" ");
+    debug!("$ gh {args_str}");
+    // Allowlist entry 3 (clippy.toml): init's gh provisioning.
+    // Creating a repo on GitHub is the forge's REST API, not a
+    // version-control operation, and gh is its authenticated
+    // client.
+    #[allow(clippy::disallowed_methods)]
+    let output = std::process::Command::new("gh")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("failed to run gh: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stdout.is_empty() {
+        debug!("{stdout}");
+    }
+    if !output.status.success() {
+        return Err(format!("gh {args_str} failed: {stderr}").into());
+    }
+    if !stderr.is_empty() {
+        debug!("{stderr}");
+    }
+    Ok(stdout)
+}
+
 /// Check if a GitHub repo exists.
 fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::Error>> {
     let full = format!("{owner}/{name}");
-    Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
+    Ok(gh(&["repo", "view", &full], Path::new(".")).is_ok())
 }
 
 /// Which shape of `.vc-config.toml` to generate.
@@ -342,7 +375,7 @@ work = "."
 /// from the `vc-config.md` prototype) so this list cannot drift
 /// from the schema.
 ///
-/// Grouped by TOML section (schema/first-seen order); each key is
+/// Grouped by TOML section (schema/first-seen order), each key
 /// emitted via `config_schema::render_key_block`: a multi-line
 /// doc-block whose assignment line is `# <leaf> = <value>` (a
 /// non-`required` key always renders commented, and every optional
@@ -373,7 +406,7 @@ fn render_optional_keys_block() -> String {
         let (section, _leaf) = section_and_leaf(key.path);
         if current_section.as_deref() != Some(section) {
             // The first section needs a blank line separating it from
-            // the intro comment above; later sections already inherit
+            // the intro comment above, while later sections inherit
             // one from the previous key block's trailing blank line
             // (`render_key_block` always ends with one).
             if current_section.is_none() {
@@ -608,7 +641,7 @@ pub(crate) enum Provisioner {
     /// `gh repo create` for GitHub URLs (default mode or
     /// `--repo-remote <github-url>`).
     GhCreate,
-    /// Skip any create step; the caller pre-created the remote
+    /// Skip any create step: the caller pre-created the remote
     /// (non-GitHub URLs under `--repo-remote`).
     ExternalPreExisting,
 }
@@ -621,7 +654,7 @@ pub(crate) enum Provisioner {
 #[derive(Debug)]
 pub(crate) struct InitPlan {
     /// Which side(s) this plan creates. `scope.is_work_only()` means
-    /// single-repo; `scope.is_both()` means dual.
+    /// single-repo, `scope.is_both()` means dual.
     pub scope: Scope,
     pub project_dir: PathBuf,
     pub name: String,
@@ -629,7 +662,7 @@ pub(crate) struct InitPlan {
     pub provisioner: Provisioner,
     /// Set only when `provisioner == LocalBareInit`.
     pub work_bare_path: Option<PathBuf>,
-    /// GitHub `owner/name` for the work side; only populated for
+    /// GitHub `owner/name` for the work side, only populated for
     /// the `GhCreate` path (`gh repo create` needs it).
     pub gh_work_slug: Option<String>,
     /// Bot-side dir. None when `scope.is_work_only()`.
@@ -651,15 +684,15 @@ pub(crate) struct InitPlan {
 ///
 /// Dispatches on the parsed `<TARGET>` form:
 ///
-/// - `Url(u)` / `OwnerName(o, n)` -> URL is explicit; config not
-///   consulted; `--account` and `--repo` are rejected as
+/// - `Url(u)` / `OwnerName(o, n)` -> URL is explicit, config not
+///   consulted, and `--account` and `--repo` are rejected as
 ///   meaningless.
-/// - `Path(p)` -> `p` is the destination; basename names the repo;
+/// - `Path(p)` -> `p` is the destination, basename names the repo,
 ///   remote URL resolved from config via the `--repo` chain.
-/// - `BareName(n)` -> destination at `cwd/<n>`; remote resolved
+/// - `BareName(n)` -> destination at `cwd/<n>`, remote resolved
 ///   from config.
 ///
-/// The `cfg` parameter is the loaded user config; `init` loads it
+/// The `cfg` parameter is the loaded user config: `init` loads it
 /// once at entry and passes it through so tests can supply a
 /// synthetic config without touching disk.
 pub(crate) fn plan_init(
@@ -725,7 +758,7 @@ pub(crate) fn plan_init(
 
 /// Plan when TARGET is a URL or `owner/name` shorthand.
 ///
-/// - URL is explicit; config not consulted.
+/// - URL is explicit, config not consulted.
 /// - `--account` / `--repo` are rejected (would have no effect).
 /// - `[NAME]` overrides the URL-derived directory name.
 fn plan_from_url(
@@ -771,8 +804,8 @@ fn plan_from_url(
     )
 }
 
-/// Plan when TARGET is a path. Path IS the destination; basename
-/// names the repo. Remote resolved via the `--repo` chain.
+/// Plan when TARGET is a path. Path IS the destination and
+/// basename names the repo. Remote resolved via the `--repo` chain.
 fn plan_from_path(
     params: &InitParams,
     scope: Scope,
@@ -801,7 +834,7 @@ fn plan_from_path(
 }
 
 /// Plan when TARGET is a bare alphanumeric NAME. Destination at
-/// `cwd/<NAME>`; remote resolved via the `--repo` chain.
+/// `cwd/<NAME>`, remote resolved via the `--repo` chain.
 fn plan_from_bare_name(
     params: &InitParams,
     scope: Scope,
@@ -975,8 +1008,8 @@ fn build_plan(
 }
 
 /// Resolve a Path target to an absolute `PathBuf`. Handles `~`,
-/// `~/X`, `$VAR`, `${VAR}` expansion; makes relative paths
-/// absolute against cwd; lexically normalizes `.` / `..`. The
+/// `~/X`, `$VAR`, `${VAR}` expansion, makes relative paths
+/// absolute against cwd, and lexically normalizes `.` / `..`. The
 /// resulting path is **not** required to exist (init creates it).
 fn resolve_path_target(p: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let s = p.to_str().ok_or("path TARGET is not valid UTF-8")?;
@@ -1056,15 +1089,15 @@ impl SubcommandRunner for InitArgs {
 /// Init entry point: runs the dual or POR provisioning flow.
 ///
 /// Takes the shared `Context` (loaded user config) and the flat
-/// `InitParams`. CLI builds both at the binary edge in main.rs;
-/// tests construct `InitParams` directly.
+/// `InitParams`. CLI builds both at the binary edge in main.rs,
+/// and tests construct `InitParams` directly.
 ///
 /// `params.create_symlink` controls the `~/.claude/projects/`
 /// symlink side effect:
 ///
-/// - `true`: CLI behavior; step 11 creates the symlink for
+/// - `true`: CLI behavior, where step 11 creates the symlink for
 ///   dual-scope runs.
-/// - `false`: suppresses that side effect; used by test
+/// - `false`: suppresses that side effect, used by test
 ///   harnesses (`test_helpers::Fixture`, `test_helpers::FixturePor`)
 ///   so parallel fixtures don't collide on the user's home dir.
 pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error::Error>> {
@@ -1078,12 +1111,12 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     // --- Preflight ---
     info!("Preflight checks...");
 
-    debug!("verify jj is installed");
-    run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
-
+    // No "is jj installed" probe: init runs in-process through
+    // jj-lib, and main's version gate already errored out on a
+    // missing or mismatched jj CLI before dispatch.
     if plan.provisioner == Provisioner::GhCreate {
         debug!("verify gh CLI is installed + authenticated");
-        run("gh", &["auth", "status"], Path::new("."))
+        gh(&["auth", "status"], Path::new("."))
             .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
     }
 
@@ -1303,7 +1336,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no bot repo), no bot push, no symlink.
 ///
-/// `_create_symlink` is unused (no symlink in single-repo); kept in
+/// `_create_symlink` is unused (no symlink in single-repo), kept in
 /// the signature for shape-symmetry with `create_dual`.
 fn create_por(
     params: &InitParams,
@@ -1324,7 +1357,8 @@ fn create_por(
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::None)?;
 
     info!("Step 6: (skipped, no cross-reference in single-repo)");
-    let hash = run("git", &["rev-parse", "HEAD"], &plan.project_dir)?;
+    // Colocated, so the jj commit id is the git hash.
+    let hash = jj::cid_of(&plan.project_dir, "@-")?;
     debug!("work repo: chid={work_chid} hash={hash}");
 
     info!("Step 8: (skipped, no bot side in single-repo)");
@@ -1455,7 +1489,7 @@ fn create_dual(
 /// (no `--allow-new`). The former strip-jj -> git-push ->
 /// re-colocate dance (`git clean -xdf`, `git checkout`,
 /// `git remote add`, `git push -u`, `jj git init --colocate`)
-/// was a leftover of the abandoned submodule design; the symlink
+/// was a leftover of the abandoned submodule design, and the symlink
 /// design never needed jj evicted.
 ///
 /// - `target`: repo working dir (already populated by
@@ -1521,11 +1555,7 @@ fn run_remote_step(
             let slug = gh_slug.unwrap(); // OK: GhCreate path always sets gh_slug
             info!("{step_label}: Creating GitHub repo {slug} ({side_label})...");
             debug!("create {side_label}-side remote on GitHub");
-            run(
-                "gh",
-                &["repo", "create", slug, visibility],
-                &plan.project_dir,
-            )?;
+            gh(&["repo", "create", slug, visibility], &plan.project_dir)?;
         }
         Provisioner::LocalBareInit => {
             // Safe: LocalBareInit always supplies bare_path.
@@ -1543,11 +1573,7 @@ fn run_remote_step(
         }
     }
     debug!("point {side_label}-side jj at its remote");
-    run(
-        "jj",
-        &["git", "remote", "add", "origin", remote_url],
-        push_from,
-    )?;
+    jj::git_remote_add(push_from, "origin", remote_url)?;
     debug!("publish {side_label}-side initial commit; retry for GhCreate's async propagation");
     // The facade's push establishes tracking as a side effect: no
     // `--allow-new`, no follow-up `jj bookmark track`.
@@ -1559,7 +1585,7 @@ fn run_remote_step(
 
 /// Create a bare git repo at `path` with `main` as the initial
 /// branch, in-process via gix (was a `git init --bare
-/// --initial-branch=main` spawn; the last `git` spawn in init).
+/// --initial-branch=main` spawn, the last `git` spawn in init).
 ///
 /// The branch is pinned by an in-memory `init.defaultBranch`
 /// override, matching the spawned form's `--initial-branch=main`:

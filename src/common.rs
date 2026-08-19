@@ -24,7 +24,7 @@ use jj_lib::revset::{
 };
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
-use log::{debug, error, info, trace};
+use log::{debug, error, info};
 use pollster::FutureExt;
 
 /// Result of parsing positional `..` notation.
@@ -44,7 +44,7 @@ pub struct DotSpec {
 /// Parse a positional REV string for `..` notation.
 ///
 /// Returns the bare revision with open/closed counts per side.
-/// `None` means the side had dots (open for expansion);
+/// `None` means the side had dots (open for expansion), and
 /// `Some(0)` means no dots on that side (closed).
 /// Actual counts are applied later from positional args.
 pub fn parse_dot_rev(rev: &str) -> DotSpec {
@@ -124,42 +124,6 @@ pub fn resolve_spec(
     }
 
     spec
-}
-
-/// Run a shell command. Returns stdout on success.
-///
-/// Logs the command at `debug!` and the process streams as follows:
-/// - **stderr at `debug!`** on success: jj's chatter (`Moved 1 bookmarks
-///   to ...`, `Rebased N commits`, `Nothing changed.`) is hidden by default
-///   and surfaced with `-v`. The debug formatter indents each line two
-///   spaces so subprocess output sits visually under the caller's own
-///   `info!` line in `-v` mode.
-/// - **stdout at `debug!`**: callers usually consume stdout as data
-///   (bookmark lists, commit IDs, etc.), and `info!` would flood the user
-///   with machine-readable output they didn't ask for.
-/// - **Failures propagate as `Err`** carrying the stderr; the caller's
-///   error handler (`main::run_command`) surfaces it at `error!`.
-pub fn run(cmd: &str, args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let args_str = args.join(" ");
-    debug!("$ {cmd} {args_str}");
-    trace!("cwd: {}", cwd.display());
-    let output = std::process::Command::new(cmd)
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("failed to run {cmd}: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !stdout.is_empty() {
-        debug!("{stdout}");
-    }
-    if !output.status.success() {
-        return Err(format!("{cmd} {args_str} failed: {stderr}").into());
-    }
-    if !stderr.is_empty() {
-        debug!("{stderr}");
-    }
-    Ok(stdout)
 }
 
 /// Create a directory (and parents). Logs at debug level.
@@ -313,7 +277,7 @@ pub fn format_commit_short(commit: &Commit, bookmarks: &str) -> String {
 
 /// Format: changeID commitID [bookmarks |] first-line, then remaining description lines.
 ///
-/// Same header rules as `format_commit_short`; body lines follow unchanged.
+/// Same header rules as `format_commit_short`, body lines follow unchanged.
 pub fn format_commit_full(commit: &Commit, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
@@ -539,43 +503,6 @@ pub fn resolve_revset(
     Ok(commit_ids)
 }
 
-/// Scan `jj bookmark list -a <name>` output for non-tracking remote refs.
-///
-/// Tracked remotes appear indented (`  @origin: ...`); non-tracking remotes
-/// appear at column 0 as `<bookmark>@<remote>: ...`. Returns the
-/// non-tracking remote name if any is found.
-pub fn find_non_tracking_remote(list_output: &str, bookmark: &str) -> Option<String> {
-    let prefix = format!("{bookmark}@");
-    for line in list_output.lines() {
-        if line.starts_with(&prefix)
-            && let Some(rest) = line.strip_prefix(&prefix)
-            && let Some((remote, _)) = rest.split_once(':')
-        {
-            return Some(remote.to_string());
-        }
-    }
-    None
-}
-
-/// Scan `jj bookmark list -a <name>` output for a *tracked* entry
-/// for `remote`.
-///
-/// - Tracked remotes appear indented under the local bookmark:
-///   `  @origin: ...` when synced, or the decorated divergent form
-///   `  @origin (ahead by N commits): ...`; both count as tracking.
-/// - A column-0 `<bookmark>@<remote>: ...` line is a non-tracking
-///   ref (see `find_non_tracking_remote`), never a match here.
-pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
-    let colon = format!("@{remote}:");
-    let space = format!("@{remote} ");
-    list_output.lines().any(|line| {
-        line.starts_with(char::is_whitespace) && {
-            let t = line.trim_start();
-            t.starts_with(&colon) || t.starts_with(&space)
-        }
-    })
-}
-
 /// Verify all remote refs for `bookmark` in `repo` are tracked.
 ///
 /// Returns `Err` with the exact `jj bookmark track ...` remediation command if
@@ -583,8 +510,7 @@ pub fn find_tracked_remote(list_output: &str, remote: &str) -> bool {
 /// commands (sync, push, squash-push) and as a post-condition assertion by setup
 /// commands (init, clone, test-fixture).
 pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let all = crate::jj::bookmark_list_all(repo, bookmark)?;
-    if let Some(remote) = find_non_tracking_remote(&all, bookmark) {
+    if let Some(remote) = crate::jj::non_tracking_remote_of(repo, bookmark)? {
         let repo_str = repo.to_string_lossy();
         return Err(format!(
             "bookmark '{bookmark}' has non-tracking remote '{bookmark}@{remote}', \
@@ -668,7 +594,7 @@ pub fn verify_bot_published(
 /// config file that states it.
 ///
 /// - relative value -> joined onto `cfg_dir` (the standard
-///   file-relative rule);
+///   file-relative rule).
 /// - absolute value -> taken as-is (allowed but discouraged, it
 ///   commits one machine's layout).
 pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
@@ -690,7 +616,7 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 /// surfaces that bypass the resolvers' legacy rejection (explicit
 /// `--other-repo` paths in validate-desc / fix-desc) still see a
 /// legacy bot dir as the bot side. Paths are canonicalized so
-/// relative forms and symlinked tempdirs compare correctly;
+/// relative forms and symlinked tempdirs compare correctly, and
 /// anything unreadable is "not the bot side".
 pub fn is_bot_dir(dir: &Path) -> bool {
     let Ok(dir) = dir.canonicalize() else {
@@ -761,7 +687,7 @@ pub fn find_workspace_root_from(start: &Path) -> Option<PathBuf> {
 /// resolver calls this first and fails with the
 /// [`legacy_vc_config::reject`](crate::legacy_vc_config::reject)
 /// rewrite instead. A config with both a `[repos]` registry and
-/// stray legacy keys passes (the registry drives behavior;
+/// stray legacy keys passes (the registry drives behavior, and
 /// `config --validate` flags the strays). Also rejects an empty
 /// `repos.work`: every reader would silently misresolve it.
 pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -967,19 +893,19 @@ pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::er
 /// Checks, in order, erroring with everything known and changing
 /// nothing (the dual-preflight principle, 2026-07-23):
 ///
-/// - the bot dir exists (and is a directory);
-/// - its `.vc-config.toml` loads;
+/// - the bot dir exists (and is a directory).
+/// - its `.vc-config.toml` loads.
 /// - **resolved agreement**: each side's declared `[repos]` pair,
 ///   resolved file-relative and canonicalized, names the same two
 ///   directories (the file-relative schema makes the raw blocks
 ///   asymmetric by design, so agreement is checked on resolved
-///   reality, not spelling);
+///   reality, not spelling).
 /// - **self-identification**: each config's own directory sits at
 ///   its side's key (root's `work`, bot's `bot`): agreement
 ///   alone can't catch both sides naming the same wrong pair.
 ///
-/// Mid-flight surprises stay per-operation concerns; this gates
-/// *entry* at the one topology resolver.
+/// Mid-flight surprises stay per-operation concerns, while this
+/// gates *entry* at the one topology resolver.
 fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if !bot.is_dir() {
         return Err(format!(
@@ -1112,16 +1038,16 @@ fn resolved_repos_pair(
 /// today's defaults plus a composing rule for the new `--scope` flag:
 ///
 /// - neither flag -> `[.]` (today's no-arg default).
-/// - `-R PATH` alone -> `[PATH]` (today's `-R <path>` behavior;
+/// - `-R PATH` alone -> `[PATH]` (today's `-R <path>` behavior,
 ///   workspace context not consulted).
 /// - `-s ROLES` alone -> resolves against `find_workspace_root()`:
 ///   the surrounding workspace if there is one, else POR
 ///   (`Side::Work` -> `.`, `Side::Bot` -> error).
 /// - `-R PATH -s ROLES` -> resolves with `PATH` as the workspace root
-///   (overrides `find_workspace_root`). This is the composing case;
+///   (overrides `find_workspace_root`). This is the composing case:
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
-/// `--scope` is keyword-only (`work|bot|work,bot|bot,work`);
+/// `--scope` is keyword-only (`work|bot|work,bot|bot,work`), and
 /// path-based single-repo operation routes through `-R/--repo`.
 pub fn resolve_repos(
     repo: Option<&Path>,
@@ -1137,7 +1063,7 @@ pub fn resolve_repos(
 
 /// Resolved shared params for the read-only commit-query subcommands
 /// (`chid` / `desc` / `list` / `show`). Built once at the binary edge
-/// from `CommonArgs` via `TryFrom`; each subcommand's `XxxParams`
+/// from `CommonArgs` via `TryFrom`, and each subcommand's `XxxParams`
 /// embeds this.
 ///
 /// - `spec`: resolved `DotSpec` (parsed `..` notation + per-side
