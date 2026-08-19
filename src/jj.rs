@@ -28,13 +28,17 @@
 //! - `current_op_id`: the head operation's short id (the revert
 //!   target push and sync snapshot before mutating).
 //! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark` /
-//!   `new_on` / `rebase_branch` / `op_restore`: one-shot wrappers
-//!   over the session verbs. `git_fetch` and `squash_into` have no
-//!   wrapper: their only callers (sync, squash-push) are
-//!   context-ful.
+//!   `new_on` / `rebase_branch` / `op_restore` / `git_init_colocated` /
+//!   `git_remote_add`: one-shot wrappers over the session verbs.
+//!   `git_fetch` and `squash_into` have no wrapper: their only
+//!   callers (sync, squash-push) are context-ful.
+//! - `git_clone_colocated`: the whole `jj git clone --colocate`
+//!   flow (init + remote + fetch/track + checkout), composed from
+//!   session verbs.
 //!
-//! Still spawning `jj` elsewhere: the repo-provisioning plumbing
-//! (`jj git clone`, `jj git init`, `jj git remote add`).
+//! Nothing else spawns `jj`: the remaining spawns in the tree are
+//! the version gate's `jj -V` probe and push's `$EDITOR` (plus
+//! `gh` for GitHub provisioning, which is not a jj concern).
 
 use std::path::Path;
 
@@ -99,6 +103,63 @@ pub fn rebase_branch(repo: &Path, source: &str, dest: &str) -> Result<()> {
 /// operation `op_id` (`jj op restore <op>`).
 pub fn op_restore(repo: &Path, op_id: &str) -> Result<()> {
     session::RepoSession::open(repo)?.restore_op(op_id)
+}
+
+/// One-shot `RepoSession::init_colocated`: create a colocated
+/// jj+git repo at `target` (`jj git init --colocate` on a fresh
+/// directory).
+pub fn git_init_colocated(target: &Path) -> Result<()> {
+    session::RepoSession::init_colocated(target)?;
+    Ok(())
+}
+
+/// One-shot `RepoSession::add_git_remote`: register git remote
+/// `name` at `url` (`jj git remote add <name> <url>`).
+pub fn git_remote_add(repo: &Path, name: &str, url: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.add_git_remote(name, url)
+}
+
+/// Clone `source` into `target` as a colocated repo (`jj git
+/// clone --colocate <source> <target>`): init, add `origin`,
+/// fetch + track the default bookmark, and check out its head.
+/// The network legs stay jj-lib's own `git` children.
+///
+/// Failure cleanup matches the CLI: a target directory this call
+/// created is removed, best-effort, so a rerun isn't blocked by
+/// the partial clone.
+pub fn git_clone_colocated(source: &str, target: &Path) -> Result<()> {
+    // Absolutize a local-path source against the caller's cwd
+    // before it lands in `.git/config` (the CLI's
+    // `absolute_git_url`): later fetches resolve the stored URL
+    // against the repo dir, not the cwd the user typed it in
+    // (bugs.md #2's class). URL forms pass through.
+    let mut url = gix::url::parse(source.into())?;
+    url.canonicalize(&std::env::current_dir()?)?;
+    let source = match String::from_utf8(url.to_bstring().into()) {
+        Ok(s) => s,
+        Err(_) => source.to_string(), // non-utf8 path: keep the given form
+    };
+    let existed_before = target.exists();
+    std::fs::create_dir_all(target)?;
+    let result = clone_in(&source, target);
+    if result.is_err() && !existed_before {
+        let _ = std::fs::remove_dir_all(target);
+    }
+    result
+}
+
+/// The fallible body of `git_clone_colocated`, split out so the
+/// caller owns the created-directory cleanup on any error.
+fn clone_in(source: &str, target: &Path) -> Result<()> {
+    session::RepoSession::init_colocated(target)?.add_git_remote("origin", source)?;
+    // Reopen: gix caches the remote config the session opened
+    // without (see `add_git_remote`).
+    let mut ses = session::RepoSession::open(target)?;
+    let default_branch = ses.clone_fetch("origin")?;
+    if let Some(name) = default_branch {
+        ses.new_on(&format!("{name}@origin"))?;
+    }
+    Ok(())
 }
 
 /// The head operation's id in the 12-hex-char short form (`jj op
@@ -702,6 +763,70 @@ mod tests {
             git_rev_parse(&fx.work, "HEAD"),
             cid_of(&fx.work, "@-").unwrap()
         );
+    }
+
+    /// `git_init_colocated` lays down the colocated markers the
+    /// CLI does: `.jj`, `.git`, and the `.jj/.gitignore` that
+    /// keeps git out of the jj store, and the result opens for
+    /// reads.
+    #[test]
+    fn git_init_colocated_creates_markers() {
+        let base = test_helpers::unique_base("jjinitco");
+        let target = base.join("repo");
+        std::fs::create_dir_all(&target).unwrap();
+        git_init_colocated(&target).unwrap();
+        assert!(target.join(".jj").is_dir());
+        assert!(target.join(".git").is_dir());
+        assert_eq!(
+            std::fs::read_to_string(target.join(".jj/.gitignore")).unwrap(),
+            "/*\n"
+        );
+        assert!(is_empty(&target, "@").unwrap());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// `git_clone_colocated` matches `jj git clone --colocate`:
+    /// the remote's default bookmark is fetched, tracked, and
+    /// checked out, with the colocated git side in place. The
+    /// source is a fixture's real bare origin.
+    #[test]
+    fn git_clone_colocated_tracks_and_checks_out() {
+        let fx = Fixture::new("jjclone");
+        let remote = fx.base.join("remote-work.git");
+        let target = fx.base.join("cloned");
+        git_clone_colocated(remote.to_str().unwrap(), &target).unwrap();
+        assert!(target.join(".git").is_dir());
+        assert_eq!(
+            std::fs::read_to_string(target.join(".jj/.gitignore")).unwrap(),
+            "/*\n"
+        );
+        assert!(local_bookmark_exists(&target, "main").unwrap());
+        assert!(has_tracked_remote(&target, "main", "origin").unwrap());
+        assert!(is_empty(&target, "@").unwrap());
+        assert_eq!(
+            cid_of(&target, "@-").unwrap(),
+            cid_of(&target, "main").unwrap()
+        );
+        assert!(
+            desc_of(&target, "@-")
+                .unwrap()
+                .starts_with("Initial commit"),
+            "checked-out head should be the pushed initial commit"
+        );
+    }
+
+    /// A failed clone removes the target directory it created, so
+    /// a rerun isn't blocked by partial state.
+    #[test]
+    fn git_clone_colocated_cleans_up_on_failure() {
+        let base = test_helpers::unique_base("jjclonefail");
+        std::fs::create_dir_all(&base).unwrap();
+        let target = base.join("cloned");
+        let missing = base.join("no-such-remote.git");
+        let got = git_clone_colocated(missing.to_str().unwrap(), &target);
+        assert!(got.is_err(), "clone from a missing source should fail");
+        assert!(!target.exists(), "failed clone left a partial target");
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     /// A working-copy read sees the filesystem as it is right now:

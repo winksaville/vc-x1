@@ -21,8 +21,8 @@ use std::path::Path;
 use clap::Args;
 use log::{info, warn};
 
-use crate::common::run;
 use crate::context::Context;
+use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
@@ -109,7 +109,7 @@ impl SubcommandRunner for CloneArgs {
 /// - Dispatches to `clone_one` (POR) or `clone_dual` (work,bot).
 ///
 /// `ctx` is unused today (clone reads neither user config nor the
-/// `--log` path); it's present for the uniform subcommand-layer
+/// `--log` path), and is present for the uniform subcommand-layer
 /// signature.
 pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("clone: enter");
@@ -142,79 +142,66 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
     if params.dry_run {
         info!("Dry run, would execute:");
         if params.por {
-            info!("  1. jj git clone --colocate {source} {name}");
+            info!("  1. clone --colocate {source} {name} (in-process)");
         } else {
             let bot_source = derive_bot_url(&source);
-            info!("  1. jj git clone --colocate {source} {name}");
-            info!("  2. jj git clone --colocate {bot_source} {name}/.claude");
+            info!("  1. clone --colocate {source} {name} (in-process)");
+            info!("  2. clone --colocate {bot_source} {name}/.claude (in-process)");
             info!("  3. Create Claude Code symlink");
         }
         return Ok(());
     }
 
-    run("jj", &["--version"], Path::new(".")).map_err(|_| "jj is not installed")?;
-
     if params.por {
-        clone_one(&source, &project_dir, &parent_dir)?;
+        clone_one(&source, &project_dir)?;
         info!("");
         info!("Done! Project cloned to {}", project_dir.display());
         info!("  Work repo: {}", project_dir.display());
     } else {
-        clone_dual(&source, &project_dir, &parent_dir)?;
+        clone_dual(&source, &project_dir)?;
     }
 
     log::debug!("clone: exit");
     Ok(())
 }
 
-/// Clone a single repo via `jj git clone --colocate` and verify
-/// bookmark tracking.
+/// Clone a single repo in-process (`jj git clone --colocate`
+/// semantics) and verify bookmark tracking.
 ///
-/// - `source` is the clone source (URL or local path).
+/// - `source` is the clone source (URL or local path, a relative
+///   path resolving against the process cwd).
 /// - `target_dir` is the destination working repo location.
-/// - `parent_dir` is the cwd for the `jj git clone` subprocess.
 ///
-/// `jj git clone --colocate` does git clone + jj init + automatic
+/// The facade's clone does git clone + jj init + automatic
 /// bookmark tracking in one step (unlike colocate-after-bare-git-clone,
 /// which needs explicit `jj bookmark track`). The `verify_tracking`
 /// call asserts the post-clone state matches expectations.
-pub(crate) fn clone_one(
-    source: &str,
-    target_dir: &Path,
-    parent_dir: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let target_str = target_dir
-        .to_str()
-        .ok_or("target path is not valid UTF-8")?;
-    info!("Cloning {source} -> {target_str}...");
-    run(
-        "jj",
-        &["git", "clone", "--colocate", source, target_str],
-        parent_dir,
-    )?;
+pub(crate) fn clone_one(source: &str, target_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    info!("Cloning {source} -> {}...", target_dir.display());
+    jj::git_clone_colocated(source, target_dir)?;
     crate::common::verify_tracking(target_dir, "main")?;
     Ok(())
 }
 
 /// Orchestrate a dual-repo clone: work via `clone_one`, bot via
 /// `clone_one` (no graceful skip: both sides required by the
-/// default dual shape; users who want work-only pass `--por`),
+/// default dual shape, and users who want work-only pass `--por`),
 /// then create the Claude Code symlink.
 pub(crate) fn clone_dual(
     work_source: &str,
     target_dir: &Path,
-    parent_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let bot_source = derive_bot_url(work_source);
 
-    clone_one(work_source, target_dir, parent_dir)?;
+    clone_one(work_source, target_dir)?;
     // The local bot dir name comes from the *cloned* work repo's
     // config (`repos.bot`), so a workspace that chose a
-    // non-`.claude` dir round-trips through clone; absent/unreadable
-    // falls back to the default. A legacy-schema config (which the
-    // resolvers reject) is honored here: clone is where an old
-    // repo first arrives, so it completes with the legacy-declared
-    // bot dir and a warning pointing at the [repos] rewrite.
+    // non-`.claude` dir round-trips through clone, and
+    // absent/unreadable falls back to the default. A legacy-schema
+    // config (which the resolvers reject) is honored here: clone
+    // is where an old repo first arrives, so it completes with the
+    // legacy-declared bot dir and a warning pointing at the
+    // [repos] rewrite.
     let bot_dir = match crate::common::configured_bot_dir(target_dir) {
         Ok(Some(p)) => p,
         Ok(None) => target_dir.join(".claude"),
@@ -238,10 +225,11 @@ pub(crate) fn clone_dual(
             }
         },
     };
-    // Run the bot clone from `parent_dir`, not the just-cloned
-    // work repo: a relative local-path TARGET must resolve
-    // against the same cwd the work clone used (bugs.md #2).
-    clone_one(&bot_source, &bot_dir, parent_dir)?;
+    // A relative local-path TARGET resolves against the process
+    // cwd for both sides (the facade absolutizes it before it is
+    // stored), which is what the old spawn's explicit `parent_dir`
+    // cwd guaranteed (bugs.md #2).
+    clone_one(&bot_source, &bot_dir)?;
     info!("Creating Claude Code symlink...");
     let sl = symlink::install(target_dir)?;
 

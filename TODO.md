@@ -89,7 +89,7 @@ template-proposal candidate for cycle-protocol.md's Close-out.
 - [[N]] [refactor: port push and facade reads to jj-lib][2] (done)
 - [[N]] [refactor: port sync repositioning to jj-lib][3] (done)
 - [[N]] [refactor: port op recovery and squash to jj-lib][4] (done)
-- [[N]] [refactor: port init and clone plumbing to jj-lib][6]
+- [[N]] [refactor: port init and clone plumbing to jj-lib][6] (done)
 - [[N]] [chore: ban process spawning outside the version gate][7]
 - [[N]] [refactor: retire the remaining jj spawns closing][8]
 
@@ -188,7 +188,24 @@ in-process. As landed:
 
 repo_utils's `jj git init --colocate`, init's `jj git remote add`, clone's
 `jj git clone --colocate`, and the two debug `git rev-parse` reads move to jj-lib, the
-network leg staying jj-lib's own git child.
+network leg staying jj-lib's own git child. As landed:
+
+- three provisioning members join the session: `init_colocated` (the repo-creating
+  constructor: `Workspace::init_colocated_git` plus the CLI's `.jj/.gitignore`, honoring
+  `git.object-hash`), `add_git_remote`, and `clone_fetch` (fetch-all + import + track
+  the default bookmark per `git.track-default-bookmark-on-clone`)
+- `jj::git_clone_colocated` composes the whole CLI clone flow: absolutize a local-path
+  source against the cwd before it is stored (the CLI's `absolute_git_url`, preserving
+  bugs.md #2's fix in-process), init, add origin, reopen the session (gix caches the
+  remote config it opened without, the same reason the CLI reloads), fetch/track,
+  check out the default branch head, and remove a created target on failure
+- the debug `git rev-parse HEAD` reads become `jj::cid_of(_, "@-")` (colocated, so the
+  commit id is the git hash), and the two "is jj installed" preflight probes retire:
+  init and clone no longer spawn jj, and main's version gate already errors before
+  dispatch on a missing jj CLI
+- every fixture-driven test already exercises the in-process init/remote-add (the
+  Fixture drives `init::init`), and three new facade tests pin the colocated markers,
+  a real clone's track-and-checkout shape, and failed-clone cleanup
 
 ##### chore: ban process spawning outside the version gate
 

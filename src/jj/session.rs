@@ -18,8 +18,10 @@
 //!   reset + ref export, op-store commit, working-copy update.
 //! - The publish-path verbs (`commit`, `describe`, `bookmark_set`,
 //!   `git_push_bookmark`, `git_fetch`), the repositioning verbs
-//!   (`new_on`, `rebase_branch`), and the recovery/collapse verbs
-//!   (`restore_op`, `squash_into`): each snapshots, mutates in
+//!   (`new_on`, `rebase_branch`), the recovery/collapse verbs
+//!   (`restore_op`, `squash_into`), and the provisioning verbs
+//!   (`add_git_remote`, `clone_fetch`, with `init_colocated` the
+//!   repo-creating constructor): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
 //!   keeps the shape push re-run and manual op restore rely on).
 //!
@@ -97,6 +99,7 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
         max-new-file-size = "1MiB"
         [git]
         auto-local-bookmark = false
+        track-default-bookmark-on-clone = true
         "#,
     )?);
     let jj_config = std::env::var("JJ_CONFIG").ok();
@@ -176,6 +179,16 @@ fn load_dir_if_exists(
     Ok(())
 }
 
+/// The git object-hash kind `git.object-hash` selects: "sha256"
+/// opts in, anything else (including the key absent) is the "sha1"
+/// default the jj CLI ships.
+fn object_hash_from(settings: &UserSettings) -> gix::hash::Kind {
+    match settings.get_string("git.object-hash") {
+        Ok(s) if s == "sha256" => gix::hash::Kind::Sha256,
+        _ => gix::hash::Kind::Sha1,
+    }
+}
+
 /// True when the workspace shares its working copy with a colocated
 /// git repo (jj-cli's `is_colocated_git_workspace`, minus the
 /// canonicalized `.git`-symlink fallback: vc-x1 lays repos out with
@@ -197,6 +210,26 @@ fn is_colocated(workspace: &Workspace, repo: &Arc<ReadonlyRepo>) -> bool {
 }
 
 impl RepoSession {
+    /// Create a colocated jj+git repo at `path` and open it as a
+    /// session (`jj git init --colocate` on a fresh directory,
+    /// which is the only shape vc-x1 provisions).
+    ///
+    /// Writes the CLI's `.jj/.gitignore` (`/*`) so the colocated
+    /// git side never tracks the jj store, then reopens through
+    /// `open` for the standard two-phase settings load.
+    pub fn init_colocated(path: &Path) -> Result<Self> {
+        let settings = UserSettings::from_config(stacked_config(None)?)?;
+        let (workspace, _repo) =
+            Workspace::init_colocated_git(&settings, path, object_hash_from(&settings))
+                .block_on()?;
+        std::fs::write(
+            workspace.workspace_root().join(".jj").join(".gitignore"),
+            "/*\n",
+        )?;
+        drop(workspace);
+        Self::open(path)
+    }
+
     /// Open `path` for mutation: user settings, workspace, repo at
     /// the op-store head, colocation flag.
     pub fn open(path: &Path) -> Result<Self> {
@@ -795,6 +828,80 @@ impl RepoSession {
         tx.repo_mut().rebase_descendants().block_on()?;
         self.finish_tx(tx, &format!("fetch from git remote {}", remote.as_str()))?;
         Ok(lines)
+    }
+
+    /// Snapshot, then register git remote `name` at `url`
+    /// (`jj git remote add <name> <url>`).
+    ///
+    /// The remote lands in `.git/config` immediately and in the
+    /// view via jj-lib's `ensure_remote`. gix caches the config it
+    /// opened with, so a later network verb on this repo must run
+    /// on a *reopened* session, the same reason the CLI reloads
+    /// its workspace after configuring a remote.
+    pub fn add_git_remote(&mut self, name: &str, url: &str) -> Result<()> {
+        use jj_lib::ref_name::RemoteName;
+        self.snapshot()?;
+        let mut tx = self.start_tx();
+        git::add_remote(tx.repo_mut(), RemoteName::new(name), url, None)?;
+        self.finish_tx(tx, &format!("add git remote {name}"))
+    }
+
+    /// Fetch everything from `remote` into a freshly initialized
+    /// repo, import, and track its default bookmark (the fetch
+    /// half of `jj git clone`, run by `jj::git_clone_colocated`).
+    /// Returns the remote's default branch name when it reports
+    /// one. The network legs (fetch, default-branch query) are
+    /// jj-lib's own `git` children.
+    ///
+    /// Deviation from the CLI: no `--branch` / `--depth`
+    /// narrowing, so every bookmark and tag is fetched and the
+    /// CLI's unmatched-pattern warnings have nothing to warn
+    /// about.
+    pub fn clone_fetch(&mut self, remote: &str) -> Result<Option<String>> {
+        use jj_lib::git::{GitFetch, GitFetchRefExpression, GitSettings, expand_fetch_refspecs};
+        use jj_lib::ref_name::RemoteName;
+        use jj_lib::str_util::StringExpression;
+
+        self.snapshot()?;
+        let remote = RemoteName::new(remote);
+        let expanded = expand_fetch_refspecs(
+            remote,
+            GitFetchRefExpression {
+                bookmark: StringExpression::all(),
+                tag: StringExpression::all(),
+            },
+        )?;
+        let git_settings = GitSettings::from_settings(&self.settings)?;
+        let import_options = GitImportOptions {
+            // A clone imports the remote's whole history, so
+            // synthetic predecessors would be pure overhead (the
+            // CLI skips them on clone too).
+            record_synthetic_predecessors: false,
+            ..self.import_options()?
+        };
+        let track_default = self
+            .settings
+            .get_bool("git.track-default-bookmark-on-clone")?;
+        let mut tx = self.start_tx();
+        let default_branch = {
+            let mut fetch = GitFetch::new(
+                tx.repo_mut(),
+                git_settings.to_subprocess_options(),
+                &import_options,
+            )?;
+            fetch.fetch(remote, expanded, &mut DebugCallback, None)?;
+            fetch.import_refs().block_on()?;
+            fetch.get_default_branch(remote)?
+        };
+        if let Some(name) = &default_branch {
+            let symbol = name.to_remote_symbol(remote);
+            if track_default && tx.repo().view().get_remote_bookmark(symbol).is_present() {
+                tx.repo_mut().track_remote_bookmark(symbol).block_on()?;
+            }
+        }
+        tx.repo_mut().rebase_descendants().block_on()?;
+        self.finish_tx(tx, "fetch from git remote into empty repo")?;
+        Ok(default_branch.map(|n| n.as_str().to_string()))
     }
 }
 
