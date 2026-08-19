@@ -132,7 +132,7 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     // Bookmark: existence, tracking, forward-only move, push-target description.
-    if jj::bookmark_list(repo, bookmark)?.is_empty() {
+    if !jj::local_bookmark_exists(repo, bookmark)? {
         return Err(format!("bookmark '{bookmark}' does not exist").into());
     }
 

@@ -402,17 +402,14 @@ pub fn bm_track(phase: &str, command_name: &str) {
     log::debug!("{header}: {}", parts.join(", "));
 }
 
-/// Query jj for whether `bookmark` in `repo` is tracking `remote`.
-/// Returns `Ok(true)` when the `-a` listing shows a tracked
-/// `@<remote>` entry (synced or divergent-decorated, both count),
-/// `Ok(false)` when it doesn't (not tracking, or the bookmark
-/// doesn't exist), `Err` on subprocess failure. Shares the listing
-/// (`jj::bookmark_list_all`) and parser family
-/// (`common::find_tracked_remote` alongside verify_tracking's
-/// `find_non_tracking_remote`) so the two can't drift.
+/// Query whether `bookmark` in `repo` is tracking `remote`.
+/// Returns `Ok(true)` when a present, tracked remote ref exists
+/// (synced or divergent, both count), `Ok(false)` when it doesn't
+/// (not tracking, or the bookmark doesn't exist). The typed view
+/// query (`jj::has_tracked_remote`) replaced the CLI-listing
+/// parser family here.
 fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, String> {
-    let all = jj::bookmark_list_all(repo, bookmark).map_err(|e| e.to_string())?;
-    Ok(common::find_tracked_remote(&all, remote))
+    jj::has_tracked_remote(repo, bookmark, remote).map_err(|e| e.to_string())
 }
 
 fn main() -> ExitCode {

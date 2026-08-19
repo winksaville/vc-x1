@@ -85,8 +85,8 @@ template-proposal candidate for cycle-protocol.md's Close-out.
 
 #### Ladder
 
-- [[N]] [refactor: retire the remaining jj spawns opening][1] (current)
-- [[N]] [refactor: port push and facade reads to jj-lib][2]
+- [[N]] [refactor: retire the remaining jj spawns opening][1] (done)
+- [[N]] [refactor: port push and facade reads to jj-lib][2] (done)
 - [[N]] [refactor: port sync repositioning to jj-lib][3]
 - [[N]] [refactor: port op recovery and squash to jj-lib][4]
 - [[N]] [refactor: port init and clone plumbing to jj-lib][6]
@@ -126,7 +126,19 @@ the open-side `vc-x1-dev` rename beside the version bump.
 
 push.rs's three `jj diff --stat` reads and the facade's `bookmark_list` /
 `bookmark_list_all` become in-process jj-lib reads. Reads first: no mutation, so the risk
-surface is output compatibility only.
+surface is output compatibility only. As landed:
+
+- `jj::diff_stat` renders the CLI's stat shape in-process (`TreeDiffIterator` +
+  `ContentDiff::by_line`, scaled graph, pluralized summary), keeping the constant
+  `0 files changed` summary line push's completion sanity depends on. Accepted output
+  delta: paths print repo-relative, so the bot side loses its cosmetic `.claude/` prefix
+- the `bookmark list` spawns and their text-parser family (`find_tracked_remote`,
+  `find_non_tracking_remote`) collapse into three typed view queries
+  (`local_bookmark_exists`, `non_tracking_remote_of`, `has_tracked_remote`), so tracking
+  state comes from `RemoteRef::is_tracked` rather than listing indentation
+- the parsers' nine text-fixture unit tests retire with them, replaced by three
+  fixture-driven integration-type tests per this cycle's test-spawn policy (real repos,
+  real origin, the untrack transition exercised)
 
 ##### refactor: port sync repositioning to jj-lib
 

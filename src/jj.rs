@@ -18,21 +18,33 @@
 //! - `chid_of` / `cid_of` / `cid_short_of` / `cids_short_of`:
 //!   change / commit ids.
 //! - `desc_of` / `is_empty`: description and emptiness.
+//! - `local_bookmark_exists` / `non_tracking_remote_of` /
+//!   `has_tracked_remote`: typed bookmark and remote-ref queries
+//!   over the view (they replaced parsing `jj bookmark list`
+//!   output).
+//! - `diff_stat`: a `diff --stat`-shaped summary of `@` against
+//!   its parents.
 //! - `is_no_such_revision`: the typed unresolvable-revision test.
 //! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark`:
 //!   one-shot wrappers over the session verbs. `git_fetch` has no
 //!   wrapper: its only caller (sync) is context-ful.
 //!
-//! Still spawning `jj` elsewhere: `bookmark_list` /
-//! `bookmark_list_all` here (their consumers parse the CLI listing
-//! textually), and the call sites outside the five verbs
-//! (`jj squash`, `jj new`, `jj rebase`, `jj op log` / `op restore`,
-//! `jj git clone`, `jj diff --stat`, repo-init plumbing).
+//! Still spawning `jj` elsewhere: the call sites outside the five
+//! verbs (`jj squash`, `jj new`, `jj rebase`, `jj op log` /
+//! `op restore`, `jj git clone`, repo-init plumbing).
 
 use std::path::Path;
 
+use futures::AsyncReadExt as _;
+use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::diff::ContentDiff;
+use jj_lib::diff::DiffHunkKind;
+use jj_lib::matchers::EverythingMatcher;
+use jj_lib::merged_tree::TreeDiffIterator;
 use jj_lib::object_id::ObjectId;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetResolutionError;
 use pollster::FutureExt;
@@ -212,34 +224,203 @@ pub fn is_empty(repo: &Path, rev: &str) -> Result<bool> {
     }
 }
 
-/// Run `jj bookmark list <bookmark> -R <repo>` and return its
-/// stdout, which is empty when the local bookmark doesn't exist.
-pub fn bookmark_list(repo: &Path, bookmark: &str) -> Result<String> {
-    common::run(
-        "jj",
-        &["bookmark", "list", bookmark, "-R", &repo.to_string_lossy()],
-        Path::new("."),
-    )
+/// True when the local bookmark `name` exists (what
+/// `jj bookmark list <name>` printing anything used to mean).
+pub fn local_bookmark_exists(repo: &Path, name: &str) -> Result<bool> {
+    let (_workspace, repo_at_head) = common::load_repo(repo)?;
+    let name = RefName::new(name);
+    Ok(repo_at_head.view().get_local_bookmark(name).is_present())
 }
 
-/// Like `bookmark_list` but with `-a`: includes remote refs,
-/// tracked ones indented (`  @origin: ...`), non-tracking at
-/// column 0 (`<bookmark>@<remote>: ...`). The input for
-/// `common::find_tracked_remote` /
-/// `common::find_non_tracking_remote`.
-pub fn bookmark_list_all(repo: &Path, bookmark: &str) -> Result<String> {
-    common::run(
-        "jj",
-        &[
-            "bookmark",
-            "list",
-            "-a",
-            bookmark,
-            "-R",
-            &repo.to_string_lossy(),
-        ],
-        Path::new("."),
-    )
+/// The first non-tracking remote ref of `bookmark`, if any: a
+/// remote ref that exists but is not tracked (the refs the
+/// `jj bookmark list -a` listing showed at column 0 as
+/// `<bookmark>@<remote>: ...`). Returns the remote's name.
+pub fn non_tracking_remote_of(repo: &Path, bookmark: &str) -> Result<Option<String>> {
+    let (_workspace, repo_at_head) = common::load_repo(repo)?;
+    let name = RefName::new(bookmark);
+    for (symbol, remote_ref) in repo_at_head.view().all_remote_bookmarks() {
+        if symbol.name == name && remote_ref.target.is_present() && !remote_ref.is_tracked() {
+            return Ok(Some(symbol.remote.as_str().to_string()));
+        }
+    }
+    Ok(None)
+}
+
+/// True when `bookmark` has a present, tracked remote ref at
+/// `remote` (what an indented `@<remote>` entry in the `-a`
+/// listing used to mean, synced or divergent-decorated alike).
+pub fn has_tracked_remote(repo: &Path, bookmark: &str, remote: &str) -> Result<bool> {
+    let (_workspace, repo_at_head) = common::load_repo(repo)?;
+    let name = RefName::new(bookmark);
+    let remote_ref = repo_at_head
+        .view()
+        .get_remote_bookmark(name.to_remote_symbol(RemoteName::new(remote)));
+    Ok(remote_ref.target.is_present() && remote_ref.is_tracked())
+}
+
+/// Per-file numbers behind one `diff_stat` line.
+struct FileStat {
+    path: String,
+    insertions: usize,
+    deletions: usize,
+    /// Files without countable lines render this tag instead of a
+    /// `+`/`-` graph: `(binary)`, `(conflict)`, `(symlink)`, ...
+    special: Option<&'static str>,
+}
+
+/// Line count of `bytes` the way `diff --stat` counts: every
+/// newline-terminated line plus a trailing unterminated one.
+fn stat_line_count(bytes: &[u8]) -> usize {
+    bytes.split_inclusive(|b| *b == b'\n').count()
+}
+
+/// One side's plain-file content for the stat's line counts.
+/// `None` when the side has no countable content (absent is
+/// `Some(vec![])`, so added and removed files count all lines).
+fn stat_side_content(
+    store: &std::sync::Arc<jj_lib::store::Store>,
+    path: &jj_lib::repo_path::RepoPath,
+    value: &Option<jj_lib::backend::TreeValue>,
+) -> Result<Option<Vec<u8>>> {
+    match value {
+        None => Ok(Some(Vec::new())),
+        Some(jj_lib::backend::TreeValue::File { id, .. }) => {
+            let mut reader = store.read_file(path, id).block_on()?;
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf).block_on()?;
+            Ok(Some(buf))
+        }
+        Some(_) => Ok(None),
+    }
+}
+
+/// Render a `jj diff --stat`-shaped summary of the working-copy
+/// commit (`@`) against its parents, in-process: one
+/// `<path> | <total> <graph>` line per changed file and the
+/// `N files changed, X insertions(+), Y deletions(-)` summary
+/// line, which is emitted even when nothing changed (callers
+/// depend on the constant summary line, see push's completion
+/// sanity check).
+pub fn diff_stat(repo: &Path) -> Result<String> {
+    const GRAPH_WIDTH: usize = 40;
+    let (workspace, repo_at_head) = repo_for_read(repo, "@")?;
+    let ids = common::resolve_revset(&workspace, &repo_at_head, "@")?;
+    let [id] = ids.as_slice() else {
+        return Err(
+            format!("jj::diff_stat: expected exactly one commit for @, got {ids:?}").into(),
+        );
+    };
+    let commit = repo_at_head.store().get_commit(id)?;
+    let parent_tree = commit.parent_tree(repo_at_head.as_ref()).block_on()?;
+    let commit_tree = commit.tree();
+
+    let mut stats: Vec<FileStat> = Vec::new();
+    for entry in TreeDiffIterator::new(&parent_tree, &commit_tree, &EverythingMatcher) {
+        let diff = entry.values?;
+        let before = diff.before.as_resolved().cloned().flatten();
+        let after = diff.after.as_resolved().cloned().flatten();
+        if matches!(&before, Some(TreeValue::Tree(_))) || matches!(&after, Some(TreeValue::Tree(_)))
+        {
+            continue;
+        }
+        if before.is_none() && after.is_none() && diff.before.is_resolved() {
+            continue;
+        }
+        let path = entry.path.as_internal_file_string().to_string();
+        let store = repo_at_head.store();
+        let mut stat = FileStat {
+            path,
+            insertions: 0,
+            deletions: 0,
+            special: None,
+        };
+        let sides = if diff.before.is_resolved() && diff.after.is_resolved() {
+            (
+                stat_side_content(store, &entry.path, &before)?,
+                stat_side_content(store, &entry.path, &after)?,
+            )
+        } else {
+            (None, None)
+        };
+        match sides {
+            (Some(b), Some(a)) => {
+                if b.contains(&0u8) || a.contains(&0u8) {
+                    stat.special = Some("(binary)");
+                } else {
+                    for hunk in ContentDiff::by_line([b.as_slice(), a.as_slice()]).hunks() {
+                        if hunk.kind == DiffHunkKind::Different {
+                            stat.deletions += stat_line_count(hunk.contents[0]);
+                            stat.insertions += stat_line_count(hunk.contents[1]);
+                        }
+                    }
+                }
+            }
+            _ => {
+                stat.special = if !diff.before.is_resolved() || !diff.after.is_resolved() {
+                    Some("(conflict)")
+                } else {
+                    Some("(special)")
+                };
+            }
+        }
+        stats.push(stat);
+    }
+
+    let path_width = stats
+        .iter()
+        .map(|s| s.path.chars().count())
+        .max()
+        .unwrap_or(0);
+    let total_width = stats
+        .iter()
+        .map(|s| (s.insertions + s.deletions).to_string().len())
+        .max()
+        .unwrap_or(1);
+    let mut out = String::new();
+    let mut insertions = 0;
+    let mut deletions = 0;
+    for s in &stats {
+        insertions += s.insertions;
+        deletions += s.deletions;
+        let total = s.insertions + s.deletions;
+        let graph = match s.special {
+            Some(tag) => tag.to_string(),
+            None => {
+                let scale = |n: usize| {
+                    if total <= GRAPH_WIDTH {
+                        n
+                    } else {
+                        // Round-to-nearest keeps a one-line change visible.
+                        (n * GRAPH_WIDTH + total / 2) / total
+                    }
+                };
+                format!(
+                    "{}{}",
+                    "+".repeat(scale(s.insertions)),
+                    "-".repeat(scale(s.deletions))
+                )
+            }
+        };
+        out.push_str(&format!(
+            "{:<path_width$} | {:>total_width$} {}\n",
+            s.path, total, graph
+        ));
+    }
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("{n} {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    out.push_str(&format!(
+        "{} changed, {}(+), {}(-)\n",
+        plural(stats.len(), "file", "files"),
+        plural(insertions, "insertion", "insertions"),
+        plural(deletions, "deletion", "deletions"),
+    ));
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -295,6 +476,66 @@ mod tests {
         assert_eq!(
             git_rev_parse(&fx.work, "refs/heads/bmtest"),
             cid_of(&fx.work, "@-").unwrap()
+        );
+    }
+
+    /// The typed bookmark queries read the view: existence is the
+    /// local bookmark's presence, and a fixture with no remotes has
+    /// neither tracked nor non-tracking remote refs.
+    #[test]
+    fn bookmark_queries_read_the_view() {
+        let fx = Fixture::new("jjbmq");
+        bookmark_set(&fx.work, "bmq", "@-").unwrap();
+        assert!(local_bookmark_exists(&fx.work, "bmq").unwrap());
+        assert!(!local_bookmark_exists(&fx.work, "absent").unwrap());
+        assert!(!has_tracked_remote(&fx.work, "bmq", "origin").unwrap());
+        assert_eq!(non_tracking_remote_of(&fx.work, "bmq").unwrap(), None);
+    }
+
+    /// Tracked and non-tracking remote refs are told apart the way
+    /// the retired `-a` listing parsers did: a pushed bookmark is
+    /// tracked, an untracked one reports its remote. Fixture setup
+    /// drives the real jj against a bare origin (integration-type).
+    #[test]
+    fn remote_ref_queries_follow_track_state() {
+        let fx = Fixture::new("jjbmrq");
+        jj_ok(&fx.work, &["bookmark", "create", "bmr", "-r", "@-"]);
+        jj_ok(&fx.work, &["git", "push", "--bookmark", "bmr"]);
+        assert!(has_tracked_remote(&fx.work, "bmr", "origin").unwrap());
+        assert_eq!(non_tracking_remote_of(&fx.work, "bmr").unwrap(), None);
+        jj_ok(&fx.work, &["bookmark", "untrack", "bmr@origin"]);
+        assert!(!has_tracked_remote(&fx.work, "bmr", "origin").unwrap());
+        assert_eq!(
+            non_tracking_remote_of(&fx.work, "bmr").unwrap(),
+            Some("origin".to_string())
+        );
+    }
+
+    /// diff_stat counts the working copy's lines the way
+    /// `jj diff --stat` did: a clean repo still prints the constant
+    /// summary line, adds and edits count per file, and the total
+    /// line pluralizes.
+    #[test]
+    fn diff_stat_counts_wc_changes() {
+        let fx = Fixture::new("jjstat");
+        let clean = diff_stat(&fx.work).unwrap();
+        assert!(
+            clean.contains("0 files changed, 0 insertions(+), 0 deletions(-)"),
+            "clean stat: {clean}"
+        );
+        std::fs::write(fx.work.join("a.txt"), "one\ntwo\n").unwrap();
+        let s = diff_stat(&fx.work).unwrap();
+        assert!(s.contains("a.txt"), "stat: {s}");
+        assert!(
+            s.contains("1 file changed, 2 insertions(+), 0 deletions(-)"),
+            "stat: {s}"
+        );
+        commit(&fx.work, "test: seed a.txt").unwrap();
+        std::fs::write(fx.work.join("a.txt"), "one\nTWO\nthree\n").unwrap();
+        let s = diff_stat(&fx.work).unwrap();
+        assert!(
+            s.contains("1 file changed, 2 insertions(+), 1 deletion(-)"),
+            "stat: {s}"
         );
     }
 

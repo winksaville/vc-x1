@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
-use crate::common::{prompt, run};
+use crate::common::prompt;
 use crate::context::Context;
 use crate::jj;
 use crate::options_flags::squash::SquashSpec;
@@ -370,12 +370,12 @@ fn stage_review(root: &Path, params: &PushParams) -> Result<(), Box<dyn std::err
     let bot_arg = bot.to_string_lossy();
     info!("push review: pending changes:");
     info!("  work ({work_arg}):");
-    let work_stat = run("jj", &["diff", "--stat", "-R", &work_arg], root)?;
+    let work_stat = jj::diff_stat(root)?;
     for line in work_stat.lines() {
         info!("    {line}");
     }
     info!("  .claude ({bot_arg}):");
-    let bot_stat = run("jj", &["diff", "--stat", "-R", &bot_arg], root)?;
+    let bot_stat = jj::diff_stat(&bot)?;
     for line in bot_stat.lines() {
         info!("    {line}");
     }
@@ -748,9 +748,6 @@ fn verify_completion(
     bookmark: &str,
     run_msg: &Run,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let root_str = root.to_string_lossy();
-    let cwd = Path::new(".");
-
     // 1. work bookmark at the run's work_chid.
     let actual = jj::chid_of(root, bookmark)?;
     if actual != run_msg.work_chid {
@@ -767,7 +764,7 @@ fn verify_completion(
     // line even when clean, so plain output-emptiness check would
     // false-positive.
     if !jj::is_empty(root, "@")? {
-        let wc_diff = run("jj", &["diff", "--stat", "-r", "@", "-R", &root_str], cwd)?;
+        let wc_diff = jj::diff_stat(root)?;
         return Err(format!(
             "completion sanity: work working copy has uncommitted changes (push completed \
              but working copy dirty?). Diff stat:\n{wc_diff}"
