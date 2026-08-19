@@ -498,6 +498,9 @@ fn compose_message_via_editor() -> Result<(String, String), Box<dyn std::error::
 ";
     fs::write(&msg_path, template)?;
     info!("push message: launching {editor} on {}", msg_path.display());
+    // Allowlist entry 2 (clippy.toml): push's `$EDITOR` launch.
+    // Interactive message editing is a spawn by definition.
+    #[allow(clippy::disallowed_methods)]
     let status = std::process::Command::new(&editor)
         .arg(&msg_path)
         .status()

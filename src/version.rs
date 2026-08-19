@@ -14,8 +14,8 @@
 //!   is all jj-lib exposes: as of 0.44 it has no public version
 //!   constant and no public accessor for one. The commit index does
 //!   carry a format version, but the constant is `pub(super)` and a
-//!   mismatch self-heals by reindexing; the op store, the thing we
-//!   would be co-writing, carries no stamp at all.
+//!   mismatch self-heals by reindexing, while the op store, the
+//!   thing we would be co-writing, carries no stamp at all.
 
 use std::path::Path;
 
@@ -80,15 +80,33 @@ impl std::fmt::Display for GateError {
 
 impl std::error::Error for GateError {}
 
+/// Run `jj -V` and return its trimmed stdout: the gate's one
+/// spawn, owned here so the allowlist entry and its subject live
+/// in the same module.
+fn probe_jj_version() -> Result<String, GateError> {
+    // Allowlist entry 1 (clippy.toml): the version gate's probe.
+    // The gate compares the user's jj CLI against our jj-lib, so
+    // the CLI spawn is its subject matter.
+    #[allow(clippy::disallowed_methods)]
+    let output = std::process::Command::new("jj")
+        .arg("-V")
+        .output()
+        .map_err(|e| GateError::JjUnavailable(format!("failed to run jj: {e}")))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(GateError::JjUnavailable(format!("jj -V failed: {stderr}")));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 /// The `jj` on `$PATH`, as a version triple, resolved once.
 ///
 /// Cached because the gate and the report both want it and it costs a
-/// process spawn; one per run, never one per operation.
+/// process spawn: one per run, never one per operation.
 fn jj_cli_triple() -> &'static Result<String, GateError> {
     static TRIPLE: std::sync::OnceLock<Result<String, GateError>> = std::sync::OnceLock::new();
     TRIPLE.get_or_init(|| {
-        let out = common::run("jj", &["-V"], Path::new("."))
-            .map_err(|e| GateError::JjUnavailable(e.to_string()))?;
+        let out = probe_jj_version()?;
         match parse_jj_triple(&out) {
             Some(triple) => Ok(triple.to_string()),
             None => Err(GateError::Unparsable(out.trim().to_string())),
@@ -111,7 +129,7 @@ fn parse_jj_triple(output: &str) -> Option<&str> {
 ///
 /// See [the policy](../notes/jj-version-policy.md). Equality rather
 /// than a compatibility test, because compatibility is not something
-/// we can compute; an unequal pair is *unknown*, and unknown on a
+/// we can compute: an unequal pair is *unknown*, and unknown on a
 /// path that can write must stop.
 pub fn gate() -> Result<(), GateError> {
     let theirs = jj_cli_triple().clone()?;

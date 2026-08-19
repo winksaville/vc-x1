@@ -182,7 +182,7 @@ pub fn cross_ref_ochids(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::run;
+    use crate::test_helpers::git_ok;
 
     /// `OchidStrategy::None` produces a plain `Initial commit`
     /// message (POR-shape).
@@ -199,7 +199,7 @@ mod tests {
         assert!(target.join(".jj").exists(), "jj initialized");
         assert!(target.join(".git").exists(), "git initialized");
 
-        let log = run("git", &["log", "-1", "--format=%B"], &target).expect("git log");
+        let log = git_ok(&target, &["log", "-1", "--format=%B"]);
         assert_eq!(
             log.trim(),
             "Initial commit",
@@ -222,7 +222,7 @@ mod tests {
         let _chid =
             commit_initial(&target, "work", OchidStrategy::Placeholder).expect("commit_initial");
 
-        let log = run("git", &["log", "-1", "--format=%B"], &target).expect("git log");
+        let log = git_ok(&target, &["log", "-1", "--format=%B"]);
         assert!(log.contains("Initial commit"));
         assert!(
             log.contains("ochid: /none"),

@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1-dev"
-version = "0.79.0-4"
+version = "0.79.0-5"
 edition = "2024"
 
 # Single-name convention (chores-16, 0.78.3): the package name IS
@@ -9,6 +9,13 @@ edition = "2024"
 # to the version bump). The guard against a forgotten open-rename
 # is build.rs, which refuses to build a suffixed version under the
 # stable name on every cargo verb, `cargo install` included.
+
+[lints.clippy]
+# The process-spawn ban: `Command::new` is disallowed via
+# clippy.toml's `disallowed-methods`, and deny (not warn) so a bare
+# new spawn site fails `cargo clippy` even without `-D warnings`.
+# The documented allowlist lives in clippy.toml.
+disallowed_methods = "deny"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["now"] }

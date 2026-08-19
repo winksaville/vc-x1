@@ -115,7 +115,7 @@ fn retry_op<T>(
     Err(format!("failed after {} attempts: {last_err}", retry.push_retries).into())
 }
 
-use crate::common::{mkdir_p, run, write_file};
+use crate::common::{mkdir_p, write_file};
 
 /// Parse the `--use-template` value into `(work, bot)` template paths.
 ///
@@ -273,10 +273,43 @@ pub(crate) fn rewrite_readme_first_line(
     Ok(())
 }
 
+/// Run `gh <args>`, returning trimmed stdout on success and the
+/// stderr-carrying error on failure. The GhCreate path's one spawn
+/// helper: `gh auth status`, `gh repo view`, `gh repo create`.
+///
+/// Logs the command and its streams at `debug!`, the shape the
+/// retired `common::run` gave these callers.
+fn gh(args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let args_str = args.join(" ");
+    debug!("$ gh {args_str}");
+    // Allowlist entry 3 (clippy.toml): init's gh provisioning.
+    // Creating a repo on GitHub is the forge's REST API, not a
+    // version-control operation, and gh is its authenticated
+    // client.
+    #[allow(clippy::disallowed_methods)]
+    let output = std::process::Command::new("gh")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("failed to run gh: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stdout.is_empty() {
+        debug!("{stdout}");
+    }
+    if !output.status.success() {
+        return Err(format!("gh {args_str} failed: {stderr}").into());
+    }
+    if !stderr.is_empty() {
+        debug!("{stderr}");
+    }
+    Ok(stdout)
+}
+
 /// Check if a GitHub repo exists.
 fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::Error>> {
     let full = format!("{owner}/{name}");
-    Ok(run("gh", &["repo", "view", &full], Path::new(".")).is_ok())
+    Ok(gh(&["repo", "view", &full], Path::new(".")).is_ok())
 }
 
 /// Which shape of `.vc-config.toml` to generate.
@@ -1083,7 +1116,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     // missing or mismatched jj CLI before dispatch.
     if plan.provisioner == Provisioner::GhCreate {
         debug!("verify gh CLI is installed + authenticated");
-        run("gh", &["auth", "status"], Path::new("."))
+        gh(&["auth", "status"], Path::new("."))
             .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
     }
 
@@ -1522,11 +1555,7 @@ fn run_remote_step(
             let slug = gh_slug.unwrap(); // OK: GhCreate path always sets gh_slug
             info!("{step_label}: Creating GitHub repo {slug} ({side_label})...");
             debug!("create {side_label}-side remote on GitHub");
-            run(
-                "gh",
-                &["repo", "create", slug, visibility],
-                &plan.project_dir,
-            )?;
+            gh(&["repo", "create", slug, visibility], &plan.project_dir)?;
         }
         Provisioner::LocalBareInit => {
             // Safe: LocalBareInit always supplies bare_path.

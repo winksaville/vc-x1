@@ -38,14 +38,18 @@ pub fn test_ctx() -> Context {
     Context::new(crate::config::UserConfig::default())
 }
 
-/// Run `jj <args> -R <repo>` in a test, asserting success; return
-/// trimmed stdout.
+/// Run `jj <args> -R <repo>` in a test, asserting success and
+/// returning trimmed stdout.
 ///
 /// The one copy: the per-module variants migrated here at
 /// 0.73.0-4 (the DRY-facade cycle's test-dedup step). Spawns
 /// directly rather than calling `crate::jj` so test inspection
 /// stays independent of the facade under test.
 pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
+    // Allowlist entry 4 (clippy.toml): test helpers spawn the real
+    // installed jj for fixture setup and interop verification,
+    // deliberately independent of the facade under test.
+    #[allow(clippy::disallowed_methods)]
     let out = std::process::Command::new("jj")
         .args(args)
         .arg("-R")
@@ -56,6 +60,47 @@ pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
         out.status.success(),
         "jj {args:?} failed in {}: {}",
         repo.display(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// Run `jj <args>` with `cwd` as the working directory (no `-R`),
+/// asserting success and returning trimmed stdout. For fixture setup
+/// whose repo does not exist yet (e.g. `jj git clone` making a
+/// "second machine" copy).
+pub fn jj_ok_at(cwd: &Path, args: &[&str]) -> String {
+    // Allowlist entry 4 (clippy.toml): test helpers, see `jj_ok`.
+    #[allow(clippy::disallowed_methods)]
+    let out = std::process::Command::new("jj")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .expect("spawn jj");
+    assert!(
+        out.status.success(),
+        "jj {args:?} failed in {}: {}",
+        cwd.display(),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// Run `git <args>` in `cwd`, asserting success and returning
+/// trimmed stdout. Interop verification: reading with the real git what
+/// our in-process writes produced on the colocated side.
+pub fn git_ok(cwd: &Path, args: &[&str]) -> String {
+    // Allowlist entry 4 (clippy.toml): test helpers, see `jj_ok`.
+    #[allow(clippy::disallowed_methods)]
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .expect("spawn git");
+    assert!(
+        out.status.success(),
+        "git {args:?} failed in {}: {}",
+        cwd.display(),
         String::from_utf8_lossy(&out.stderr)
     );
     String::from_utf8_lossy(&out.stdout).trim().to_string()
@@ -134,8 +179,8 @@ impl Fixture {
         // init refuses to reuse an existing project_dir, so `base`
         // must not exist yet. `unique_base` already guarantees that.
         //
-        // Path TARGET = `<base>/work` (workspace destination); the
-        // basename ("work") becomes the repo name. `--repo local=<base>`
+        // Path TARGET = `<base>/work` (workspace destination), and
+        // the basename ("work") becomes the repo name. `--repo local=<base>`
         // sets the bare-repo parent so the layout mirrors the old
         // `--repo-local <base>` + NAME=`work` shape:
         //   <base>/work/                  (work repo)
@@ -189,7 +234,7 @@ impl Fixture {
 }
 
 impl Drop for Fixture {
-    /// Remove the fixture tree on drop. Best-effort; a failure here
+    /// Remove the fixture tree on drop. Best-effort: a failure here
     /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
     /// set: see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {
@@ -204,7 +249,7 @@ impl Drop for Fixture {
 /// Owned single-repo (POR) fixture with RAII cleanup.
 ///
 /// Sibling of `Fixture` for `--por` flows. Drives
-/// `init::init` with `por: true` and a path TARGET;
+/// `init::init` with `por: true` and a path TARGET, where
 /// `--repo local=<base>` steers the bare origin to
 /// `<base>/remote.git` (vs. dual's `remote-work.git` /
 /// `remote-work.claude.git`). No `.claude/` peer, no symlink.
@@ -230,8 +275,8 @@ impl FixturePor {
     /// `InitArgs` for `--config` variant testing.
     pub fn new_with_config(tag: &str, config: Option<String>) -> Self {
         let base = unique_base(tag);
-        // Path TARGET = `<base>/work`; basename ("work") becomes
-        // the repo name. `--repo local=<base>` sets the bare-repo
+        // Path TARGET = `<base>/work`, whose basename ("work")
+        // becomes the repo name. `--repo local=<base>` sets the bare-repo
         // parent, producing the layout:
         //   <base>/work/        (POR repo)
         //   <base>/remote.git   (bare origin)
@@ -262,7 +307,7 @@ impl FixturePor {
 }
 
 impl Drop for FixturePor {
-    /// Remove the fixture tree on drop. Best-effort; a failure here
+    /// Remove the fixture tree on drop. Best-effort: a failure here
     /// doesn't fail the test. Suppressed when `$VC_X1_TEST_KEEP` is
     /// set: see `test_tmp_root::should_keep_tempdir`.
     fn drop(&mut self) {

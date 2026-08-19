@@ -1,0 +1,36 @@
+# Process-spawn ban: the "retire the remaining jj spawns" cycle's
+# enforcement (0.79.0). vc-x1 runs jj and git in-process through
+# jj-lib/gix, so a new `Command::new` site is a regression unless it
+# joins the documented allowlist below. An allowed site carries
+# `#[allow(clippy::disallowed_methods)]` plus a comment naming its
+# allowlist entry, so every exception is visible in the diff that
+# adds it. `[lints.clippy] disallowed_methods = "deny"` in
+# Cargo.toml makes a bare site fail `cargo clippy` outright.
+#
+# Enumerate the granted exceptions (the enforced half of this list):
+#   rg '^\s*#.allow.*disallowed_methods' -A 1
+#
+# The allowlist, complete and closed (wink, 2026-08-19):
+#
+# 1. Version gate: the `jj -V` probe (src/version.rs). The gate
+#    exists to compare the user's jj CLI against our jj-lib, so the
+#    CLI spawn is its subject matter.
+# 2. Push's `$EDITOR` launch (src/push.rs): interactive message
+#    editing is a spawn by definition.
+# 3. Init's gh provisioning (src/init.rs): `gh auth status`,
+#    `gh repo view`, `gh repo create`. Creating a repo on GitHub is
+#    the forge's REST API, not a version-control operation; no jj or
+#    git library can do it, and gh is GitHub's authenticated client.
+# 4. Test helpers (src/test_helpers.rs and tests/common/mod.rs):
+#    real-jj/git fixture setup and interop verification, kept
+#    deliberately independent of the facade under test, and never a
+#    substitute for asserting our jj-lib paths in-process. The CLI
+#    tests' launcher spawning the built vc-x1 binary is this entry
+#    too: spawning the binary is what a CLI test is.
+#
+# jj-lib's own git children (fetch/push/clone network legs, the
+# default-branch query) are jj-lib's implementation detail, not
+# vc-x1 spawn sites, and no lint here sees them.
+disallowed-methods = [
+    { path = "std::process::Command::new", reason = "vc-x1 is in-process by design (jj-lib/gix): a new spawn site needs an entry in clippy.toml's documented allowlist and a visible #[allow] at the site" },
+]

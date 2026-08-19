@@ -524,13 +524,7 @@ mod tests {
     /// `git rev-parse <rev>` in a fixture repo (test inspection of
     /// the colocated git side).
     fn git_rev_parse(repo: &std::path::Path, rev: &str) -> String {
-        let out = std::process::Command::new("git")
-            .args(["rev-parse", rev])
-            .current_dir(repo)
-            .output()
-            .expect("spawn git");
-        assert!(out.status.success(), "git rev-parse {rev} failed");
-        String::from_utf8_lossy(&out.stdout).trim().to_string()
+        test_helpers::git_ok(repo, &["rev-parse", rev])
     }
 
     /// In-process commit: description lands on `@-`, a fresh empty

@@ -76,7 +76,9 @@ template-proposal candidate for cycle-protocol.md's Close-out.
    `grep '"jj"\|"git"' src/` inventory by hand.
 2. clippy.toml `disallowed-methods` bans `std::process::Command::new`, the ban fails the
    build on a new spawn site (demonstrated once with a scratch violation), and the version
-   gate, `$EDITOR`, and test helpers are the documented allowlist.
+   gate, `$EDITOR`, and test helpers are the documented allowlist. The enforced half is
+   enumerated by `rg '^\s*#.allow.*disallowed_methods' -A 1` (also recorded in
+   clippy.toml), whose hits must map one-to-one onto the documented entries.
 3. Test spawns of jj are integration-type only, real-jj fixture setup and interop
    verification, with none substituting for an in-process jj-lib assertion of our own code
    paths (audited at the enforcement rung, the finding recorded).
@@ -90,7 +92,7 @@ template-proposal candidate for cycle-protocol.md's Close-out.
 - [[N]] [refactor: port sync repositioning to jj-lib][3] (done)
 - [[N]] [refactor: port op recovery and squash to jj-lib][4] (done)
 - [[N]] [refactor: port init and clone plumbing to jj-lib][6] (done)
-- [[N]] [chore: ban process spawning outside the version gate][7]
+- [[N]] [chore: ban process spawning outside the version gate][7] (done)
 - [[N]] [refactor: retire the remaining jj spawns closing][8]
 
 #### Deliberation
@@ -214,7 +216,31 @@ version gate, `$EDITOR`, and test helpers. `common::run` shrinks to the allowlis
 or moves into the gate module. The test-helper allowlist carries its policy (wink,
 2026-08-18): a test may spawn jj for integration-type work, fixture setup with the real
 installed jj and interop verification, and never as a substitute for asserting our jj-lib
-paths in-process. The rung audits the existing test spawns against that line.
+paths in-process. The rung audits the existing test spawns against that line. As landed:
+
+- the ban is two-layered: clippy.toml's `disallowed-methods` carries the reason string
+  and the enumerated allowlist as comments, and Cargo.toml's
+  `[lints.clippy] disallowed_methods = "deny"` makes a bare site fail plain
+  `cargo clippy`. Every allowed site carries `#[allow(clippy::disallowed_methods)]`
+  plus a comment naming its allowlist entry
+- the allowlist grew two members beyond the opening's three, both surfaced and agreed
+  during the rung: init's gh provisioning (entry 3, wink 2026-08-19: GitHub-side repo
+  creation is the forge's REST API, no jj or git library can do it), and the demo run
+  discovered the external CLI-test crates (`tests/common/mod.rs`), folded into the
+  test-helpers entry (spawning the built binary is what a CLI test is)
+- `common::run` dissolves rather than shrinks: the version gate owns its `jj -V` probe,
+  init owns a `gh` helper, and the test spawns centralize in `src/test_helpers.rs`
+  (`jj_ok`, new `jj_ok_at`, new `git_ok`), so no generic pass-through helper survives
+  for a new caller to slip through
+- the scratch-violation demo ran: a bare `Command::new("true")` in common.rs failed
+  `cargo clippy --all-targets` with the reason string while every allowlisted site
+  passed, and the demo also flushed out the tests/ sites the src/ grep had missed
+- test-spawn audit finding: after centralization the audit surface is five helpers in
+  two files, all integration-type (fixture setup, "second machine" clones kept
+  deliberately independent of the clone facade under test, and interop verification
+  reading real-jj/git views of our in-process writes). No spawn substitutes for an
+  in-process assertion. The one violating class this cycle found, the nine text-fixture
+  parser unit tests, was retired at the push/facade rung before this audit ran
 
 ##### refactor: retire the remaining jj spawns closing
 
@@ -290,6 +316,9 @@ Closing out the cycle.
        which nothing reads
      - the model carries derived `reference-base` https urls, and the info-string rule's
        negative half (only fences tagged exactly `toml` are live) lands in `vc-config.md`
+     - init emits `.vc-config.md` from the generated model for new workspaces (found
+       2026-08-19: init still writes `.vc-config.toml`, starting every new member on the
+       legacy carrier)
    - **feat: add config --refresh**: regenerate a file's prose while preserving fence
      interiors and `[repos]` byte-for-byte, `--check` exiting nonzero on drift
    - **feat: add validate-anchors**: same-file heading anchors via the documented slug

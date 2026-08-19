@@ -13,7 +13,6 @@ use super::*;
 use crate::options_flags::scope::Side;
 use crate::test_helpers::{Fixture, cid, jj_ok, test_ctx};
 use std::fs;
-use std::process::Command;
 
 use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
 use crate::jj::{current_op_id, op_restore};
@@ -135,19 +134,20 @@ fn add_local_commit(repo: &Path, file: &str, content: &str, msg: &str) {
 }
 
 /// Clone `remote_url` into `<base>/<work_name>` (colocated) and
-/// return the new workdir.
+/// return the new workdir. Spawns the real jj on purpose: the
+/// "second machine" fixture must not depend on the clone facade
+/// under test.
 fn clone(base: &Path, remote_url: &Path, work_name: &str) -> PathBuf {
     let workdir = base.join(work_name);
-    let out = Command::new("jj")
-        .args(["git", "clone", "--colocate"])
-        .arg(remote_url)
-        .arg(&workdir)
-        .output()
-        .expect("spawn jj clone");
-    assert!(
-        out.status.success(),
-        "jj git clone failed: {}",
-        String::from_utf8_lossy(&out.stderr)
+    crate::test_helpers::jj_ok_at(
+        base,
+        &[
+            "git",
+            "clone",
+            "--colocate",
+            remote_url.to_str().expect("utf-8 remote url"),
+            workdir.to_str().expect("utf-8 workdir"),
+        ],
     );
     workdir
 }

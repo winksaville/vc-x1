@@ -4,7 +4,7 @@
 //! (a top-level `tests/common.rs` would be compiled as its own test
 //! crate). Each `tests/<name>.rs` declares `mod common;` to opt in.
 //!
-//! Cargo compiles each `tests/*.rs` as its own crate; helpers used
+//! Cargo compiles each `tests/*.rs` as its own crate, so helpers used
 //! by some test crates but not others get dead-code warnings in the
 //! crates that don't reach them. The crate-level allow below mutes
 //! that: it's the standard idiom for shared `tests/common/`.
@@ -54,10 +54,13 @@ pub fn unique_base(tag: &str) -> PathBuf {
 
 /// Build a `Command` invoking the binary that Cargo built for
 /// this test crate. Cargo sets `CARGO_BIN_EXE_<bin-name>` to the
-/// full path of the freshly-built binary; the var name is built
+/// full path of the freshly-built binary, and the var name is built
 /// from `CARGO_PKG_NAME` (the default bin name is the package
 /// name) so a Cargo.toml rename needs no edit here.
 pub fn vc_x1() -> Command {
+    // Allowlist entry 4 (clippy.toml): the CLI tests' launcher.
+    // Spawning the built binary is what a CLI test is.
+    #[allow(clippy::disallowed_methods)]
     Command::new(env!(concat!("CARGO_BIN_EXE_", env!("CARGO_PKG_NAME"))))
 }
 
@@ -90,7 +93,7 @@ pub fn run_err(cmd: &mut Command) -> Output {
 
 /// RAII tempdir owner for CLI tests.
 ///
-/// - `base` is a freshly-allocated unique tempdir; it does *not*
+/// - `base` is a freshly-allocated unique tempdir, which does *not*
 ///   exist on disk until the caller (or the subprocess) creates it.
 /// - `home` is a sibling under `base` reserved for `HOME` override
 ///   on subprocesses, so config reads don't escape the fixture.
@@ -101,7 +104,7 @@ pub struct CliFixture {
 }
 
 impl CliFixture {
-    /// Allocate a fresh fixture; create `home/` so `HOME=...` points
+    /// Allocate a fresh fixture, creating `home/` so `HOME=...` points
     /// at a real directory, and seed it with a jj user identity.
     ///
     /// The identity is required, not cosmetic: since 0.76.0-5 init
@@ -150,7 +153,7 @@ impl Drop for CliFixture {
 }
 
 /// Run `jj <args>` in `dir` (inspection only) with `HOME` pointed
-/// at the fixture's isolated home; assert success and return
+/// at the fixture's isolated home, asserting success and returning
 /// trimmed stdout.
 ///
 /// The `HOME` + `current_dir` shape (vs the in-crate
@@ -158,6 +161,9 @@ impl Drop for CliFixture {
 /// isolate the jj user config under the fixture home, and this
 /// crate can't reach the binary's `test_helpers` module.
 pub fn jj(home: &Path, dir: &Path, args: &[&str]) -> String {
+    // Allowlist entry 4 (clippy.toml): test-helper jj inspection
+    // under the fixture's isolated home.
+    #[allow(clippy::disallowed_methods)]
     let out = Command::new("jj")
         .args(args)
         .env("HOME", home)
