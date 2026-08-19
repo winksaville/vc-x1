@@ -16,6 +16,7 @@ use std::fs;
 use std::process::Command;
 
 use crate::common::{default_scope, find_workspace_root_from, scope_to_repos};
+use crate::jj::{current_op_id, op_restore};
 
 /// Resolver helpers must consume what `init --repo-local` produces.
 ///
@@ -172,8 +173,8 @@ fn push_from_clone(
 }
 
 /// Scenario 1: fresh fixture, nothing to do: `sync` leaves both
-/// repos untouched and persists nothing (no `.vc-x1/` state; the
-/// pre-sync snapshots live and die with the invocation).
+/// repos untouched and persists nothing (no `.vc-x1/` state, and
+/// the pre-sync snapshots live and die with the invocation).
 #[test]
 fn sync_up_to_date() {
     let fx = Fixture::new("up-to-date");
@@ -226,7 +227,7 @@ fn sync_bot_noop_when_up_to_date() {
 }
 
 /// Scenario 2b: `@` has trailing writes and the remote advanced while
-/// the session was offline. jj's fetch auto-ff's main; the bot
+/// the session was offline. jj's fetch auto-ff's main, and the bot
 /// repo then `jj new main`s onto the new tip, leaving the trailing
 /// commit as a sibling head off the old tip.
 #[test]
@@ -287,8 +288,8 @@ fn sync_bot_errors_when_at_parent_off_main() {
 }
 
 /// Scenario 2c: `@` has trailing writes and local+remote both
-/// modify the same file differently. Rebase produces conflicts;
-/// sync stops with the conflicted state left in place for
+/// modify the same file differently. Rebase produces conflicts,
+/// so sync stops with the conflicted state left in place for
 /// inspection (no auto-revert), persists nothing, and the pre-sync
 /// op captured before the run remains a valid manual
 /// `jj op restore` target. Trailing content stays on disk: the
@@ -343,8 +344,8 @@ fn sync_conflict_stops_and_keeps_state() {
     );
 }
 
-/// Scenario 3: local has commits not yet pushed; sync classifies
-/// `ahead` and leaves the local bookmark alone.
+/// Scenario 3: local has commits not yet pushed, so sync
+/// classifies `ahead` and leaves the local bookmark alone.
 #[test]
 fn sync_ahead_is_noop() {
     let fx = Fixture::new("ahead");
@@ -355,8 +356,8 @@ fn sync_ahead_is_noop() {
 }
 
 /// Scenario 4: clean divergence: both sides advance main on
-/// different files; sync rebases local onto remote and the result
-/// is conflict-free.
+/// different files, so sync rebases local onto remote and the
+/// result is conflict-free.
 #[test]
 fn sync_diverged_rebases() {
     let fx = Fixture::new("diverged");
@@ -417,8 +418,8 @@ fn sync_diverged_rebases() {
 }
 
 /// Scenario 5: conflicting divergence: both sides modify the
-/// same path differently. Rebase produces conflicts; sync stops
-/// with the conflicted state in place (no auto-revert), persists
+/// same path differently. Rebase produces conflicts, so sync
+/// stops with the conflicted state in place (no auto-revert), persists
 /// nothing, and the pre-sync op ids it printed remain valid manual
 /// `jj op restore` targets.
 #[test]
@@ -521,7 +522,7 @@ fn manual_op_restore_recovers_after_failed_sync() {
 }
 
 /// Scenario 6: work repo behind with a clean `@`. Fetch fast-forwards
-/// main; reposition then `jj new`s the empty `@` onto the new tip.
+/// main, and reposition then `jj new`s the empty `@` onto the new tip.
 #[test]
 fn sync_work_jj_new_when_behind() {
     let fx = Fixture::new("work-jjnew-behind");
@@ -573,7 +574,7 @@ fn sync_work_skips_rebase_without_flag() {
         remote_head,
         "main should ff to remote"
     );
-    // @ left off the new main; changes preserved in place.
+    // @ left off the new main, changes preserved in place.
     assert!(
         !has(&fx.work, "main::@"),
         "@ should be left off the new main"
@@ -587,7 +588,7 @@ fn sync_work_skips_rebase_without_flag() {
 
 /// Scenario 9: two independent clones of the same remote: the
 /// "two machines" shape. Clone B is made first (its `main@origin`
-/// is the pre-push head), clone A then commits and pushes; sync on
+/// is the pre-push head), then clone A commits and pushes. Sync on
 /// clone B must fast-forward B's `main` to A's pushed head and
 /// reposition `@` onto it.
 #[test]
@@ -697,7 +698,7 @@ fn sync_work_rebases_with_flag() {
         remote_head,
         "main should ff to remote"
     );
-    // @ rebased onto the new main; changes preserved.
+    // @ rebased onto the new main, changes preserved.
     assert!(has(&fx.work, "main::@"), "@ should be rebased onto main");
     assert_eq!(
         fs::read_to_string(fx.work.join("wip.txt")).unwrap(),

@@ -88,7 +88,7 @@ template-proposal candidate for cycle-protocol.md's Close-out.
 - [[N]] [refactor: retire the remaining jj spawns opening][1] (done)
 - [[N]] [refactor: port push and facade reads to jj-lib][2] (done)
 - [[N]] [refactor: port sync repositioning to jj-lib][3] (done)
-- [[N]] [refactor: port op recovery and squash to jj-lib][4]
+- [[N]] [refactor: port op recovery and squash to jj-lib][4] (done)
 - [[N]] [refactor: port init and clone plumbing to jj-lib][6]
 - [[N]] [chore: ban process spawning outside the version gate][7]
 - [[N]] [refactor: retire the remaining jj spawns closing][8]
@@ -164,7 +164,25 @@ index-lock retry can finally wrap them (the bug that motivated the program). As 
 ##### refactor: port op recovery and squash to jj-lib
 
 sync's `jj op log` read and `jj op restore`, and squash-push's `jj squash`, move
-in-process.
+in-process. As landed:
+
+- `jj::current_op_id` reads the head operation in-process (12-char short id, still
+  printable for a user-typed `jj op restore`), and the restore becomes the session verb
+  `restore_op` (op-string resolution, prefixes included, then a set-view transaction),
+  with `jj::op_restore` the one-shot wrapper. The sync free functions and their `run`
+  plumbing retire, push and the tests importing from the facade
+- squash-push's spawn becomes the session verb `squash_into`: full-selection
+  `squash_commits`, the destination's message kept (`--use-destination-message`
+  semantics), the emptied source abandoned, and `finish_tx`'s `rebase_descendants`
+  recreating the fresh empty `@`, matching the CLI
+- the gotcha: a restored view must keep `git_refs` / `git_head` at their *current*
+  values (as the CLI does), because they track what the colocated git side actually
+  holds. Restoring the old records makes the next git import resurrect exactly the
+  commits being undone, which is how the first draft failed
+- three new fixture tests pin the snapshot/restore round trip (prefix resolution
+  included), the whole-state file revert push's rollback relies on, and
+  destination-message squash. The existing rollback and squash-push integration tests
+  pass unchanged over the ported paths
 
 ##### refactor: port init and clone plumbing to jj-lib
 

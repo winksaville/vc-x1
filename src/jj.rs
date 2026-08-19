@@ -25,14 +25,16 @@
 //! - `diff_stat`: a `diff --stat`-shaped summary of `@` against
 //!   its parents.
 //! - `is_no_such_revision`: the typed unresolvable-revision test.
+//! - `current_op_id`: the head operation's short id (the revert
+//!   target push and sync snapshot before mutating).
 //! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark` /
-//!   `new_on` / `rebase_branch`: one-shot wrappers over the session
-//!   verbs. `git_fetch` has no wrapper: its only caller (sync) is
+//!   `new_on` / `rebase_branch` / `op_restore`: one-shot wrappers
+//!   over the session verbs. `git_fetch` and `squash_into` have no
+//!   wrapper: their only callers (sync, squash-push) are
 //!   context-ful.
 //!
-//! Still spawning `jj` elsewhere: the call sites outside the
-//! session verbs (`jj squash`, `jj op log` / `op restore`,
-//! `jj git clone`, repo-init plumbing).
+//! Still spawning `jj` elsewhere: the repo-provisioning plumbing
+//! (`jj git clone`, `jj git init`, `jj git remote add`).
 
 use std::path::Path;
 
@@ -91,6 +93,23 @@ pub fn new_on(repo: &Path, rev: &str) -> Result<()> {
 /// `source` onto `dest` (`jj rebase -b <source> -d <dest>`).
 pub fn rebase_branch(repo: &Path, source: &str, dest: &str) -> Result<()> {
     session::RepoSession::open(repo)?.rebase_branch(source, dest)
+}
+
+/// One-shot `RepoSession::restore_op`: restore the repo to the
+/// operation `op_id` (`jj op restore <op>`).
+pub fn op_restore(repo: &Path, op_id: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.restore_op(op_id)
+}
+
+/// The head operation's id in the 12-hex-char short form (`jj op
+/// log --no-graph -n 1 -T 'id.short(12)'`): the revert target push
+/// and sync record before mutating, printable for a user-typed
+/// `jj op restore`.
+pub fn current_op_id(repo: &Path) -> Result<String> {
+    let (_workspace, repo_at_head) = common::load_repo(repo)?;
+    let mut hex = repo_at_head.op_id().hex();
+    hex.truncate(12);
+    Ok(hex)
 }
 
 /// True when `revset` references a working copy, so the query must
@@ -599,6 +618,90 @@ mod tests {
         );
         assert!(!matches(&fx.work, "conflicts()").unwrap());
         assert_eq!(desc_of(&fx.work, &one).unwrap(), "test: branch one");
+    }
+
+    /// `current_op_id` returns the head operation's 12-char short
+    /// id, and `op_restore` resolves that prefix and returns the
+    /// repo to it: a bookmark created after the snapshot is gone
+    /// once restored, and the restore is itself a new operation.
+    #[test]
+    fn op_snapshot_and_restore_round_trip() {
+        let fx = Fixture::new("jjoprestore");
+        let op = current_op_id(&fx.work).unwrap();
+        assert_eq!(op.len(), 12, "short op id: {op}");
+        assert!(op.chars().all(|c| c.is_ascii_hexdigit()), "op id: {op}");
+        bookmark_set(&fx.work, "undome", "@-").unwrap();
+        assert!(local_bookmark_exists(&fx.work, "undome").unwrap());
+        op_restore(&fx.work, &op).unwrap();
+        assert!(
+            !local_bookmark_exists(&fx.work, "undome").unwrap(),
+            "restore did not remove the post-snapshot bookmark"
+        );
+        assert_ne!(
+            current_op_id(&fx.work).unwrap(),
+            op,
+            "restore should be a new operation, not a head reset"
+        );
+    }
+
+    /// `op_restore` returns the working copy to the snapshot too:
+    /// a file committed after the op snapshot is off the disk once
+    /// restored, matching `jj op restore` (push's rollback relies
+    /// on this whole-state restore).
+    #[test]
+    fn op_restore_reverts_committed_files() {
+        let fx = Fixture::new("jjoprevert");
+        let op = current_op_id(&fx.work).unwrap();
+        let parent_desc_before = desc_of(&fx.work, "@-").unwrap();
+        std::fs::write(fx.work.join("later.txt"), "x").unwrap();
+        commit(&fx.work, "test: post-snapshot commit").unwrap();
+        op_restore(&fx.work, &op).unwrap();
+        assert!(
+            !fx.work.join("later.txt").exists(),
+            "restore left post-snapshot file on disk"
+        );
+        assert!(is_empty(&fx.work, "@").unwrap());
+        assert_eq!(desc_of(&fx.work, "@-").unwrap(), parent_desc_before);
+    }
+
+    /// `squash_into` matches `jj squash --from <s> --into <t>
+    /// --use-destination-message`: the source's changes land in the
+    /// target, the target keeps its own description, the emptied
+    /// source is abandoned, and a fresh empty `@` opens with the
+    /// colocated git HEAD following the rewritten target.
+    #[test]
+    fn squash_into_keeps_destination_message() {
+        let fx = Fixture::new("jjsquash");
+        std::fs::write(fx.work.join("sq.txt"), "one\n").unwrap();
+        commit(&fx.work, "test: destination").unwrap();
+        let target_cid_before = cid_of(&fx.work, "@-").unwrap();
+        std::fs::write(fx.work.join("sq.txt"), "one\ntwo\n").unwrap();
+        describe(&fx.work, "@", "test: source scratch").unwrap();
+        let source_chid = chid_of(&fx.work, "@").unwrap();
+        session::RepoSession::open(&fx.work)
+            .unwrap()
+            .squash_into("@", "@-")
+            .unwrap();
+        assert_eq!(desc_of(&fx.work, "@-").unwrap(), "test: destination");
+        assert_ne!(
+            cid_of(&fx.work, "@-").unwrap(),
+            target_cid_before,
+            "target not rewritten"
+        );
+        assert!(is_empty(&fx.work, "@").unwrap());
+        assert!(desc_of(&fx.work, "@").unwrap().is_empty());
+        assert!(
+            !rev_exists(&fx.work, &source_chid).unwrap(),
+            "emptied source not abandoned"
+        );
+        assert_eq!(
+            std::fs::read_to_string(fx.work.join("sq.txt")).unwrap(),
+            "one\ntwo\n"
+        );
+        assert_eq!(
+            git_rev_parse(&fx.work, "HEAD"),
+            cid_of(&fx.work, "@-").unwrap()
+        );
     }
 
     /// A working-copy read sees the filesystem as it is right now:

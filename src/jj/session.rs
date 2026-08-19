@@ -17,8 +17,9 @@
 //! - `RepoSession::finish_tx`: the CLI's `finish_transaction`: git HEAD
 //!   reset + ref export, op-store commit, working-copy update.
 //! - The publish-path verbs (`commit`, `describe`, `bookmark_set`,
-//!   `git_push_bookmark`, `git_fetch`) and the repositioning verbs
-//!   (`new_on`, `rebase_branch`): each snapshots, mutates in
+//!   `git_push_bookmark`, `git_fetch`), the repositioning verbs
+//!   (`new_on`, `rebase_branch`), and the recovery/collapse verbs
+//!   (`restore_op`, `squash_into`): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
 //!   keeps the shape push re-run and manual op restore rely on).
 //!
@@ -605,6 +606,76 @@ impl RepoSession {
         )
     }
 
+    /// Snapshot, then restore the repo to the operation named by
+    /// `op_str`, id prefixes included (`jj op restore <op>`): a new
+    /// operation whose view is the target's, the working copy
+    /// updated to the restored wc commit.
+    ///
+    /// Deviation from the CLI: no `--what` portioning. The full
+    /// target view is restored, which is the CLI's default. Like
+    /// the CLI, `git_refs` / `git_head` stay at their *current*
+    /// values: they track what the colocated git side actually
+    /// holds, and restoring the old records would make the next
+    /// git import resurrect exactly the commits being undone.
+    pub fn restore_op(&mut self, op_str: &str) -> Result<()> {
+        self.snapshot()?;
+        let target_op = jj_lib::op_walk::resolve_op_for_load(self.workspace.repo_loader(), op_str)
+            .block_on()?;
+        let mut new_view = target_op.view().block_on()?.store_view().clone();
+        let current_view = self.repo.view().store_view();
+        new_view.git_refs = current_view.git_refs.clone();
+        new_view.git_head = current_view.git_head.clone();
+        let mut tx = self.start_tx();
+        tx.repo_mut().set_view(new_view);
+        self.finish_tx(
+            tx,
+            &format!("restore to operation {}", target_op.id().hex()),
+        )
+    }
+
+    /// Snapshot, then squash all of `source`'s changes into
+    /// `target`, keeping the target's description (`jj squash
+    /// --from <source> --into <target> --use-destination-message`).
+    /// The emptied source is abandoned, and when it was `@`,
+    /// `finish_tx`'s `rebase_descendants` recreates a fresh empty
+    /// working-copy commit, matching the CLI.
+    pub fn squash_into(&mut self, source: &str, target: &str) -> Result<()> {
+        use jj_lib::rewrite::CommitWithSelection;
+        self.snapshot()?;
+        let source_commit = self.one_commit(source)?;
+        let target_commit = self.one_commit(target)?;
+        let selection = CommitWithSelection {
+            commit: source_commit.clone(),
+            selected_tree: source_commit.tree(),
+            parent_tree: source_commit.parent_tree(self.repo.as_ref()).block_on()?,
+        };
+        let mut tx = self.start_tx();
+        let Some(squashed) = jj_lib::rewrite::squash_commits(
+            tx.repo_mut(),
+            std::slice::from_ref(&selection),
+            &target_commit,
+            false,
+        )
+        .block_on()?
+        else {
+            debug!("squash_into: '{source}' has nothing to squash");
+            return Ok(());
+        };
+        squashed
+            .commit_builder
+            .set_description(target_commit.description().to_owned())
+            .write()
+            .block_on()?;
+        self.finish_tx(
+            tx,
+            &format!(
+                "squash commit {} into {}",
+                source_commit.id().hex(),
+                target_commit.id().hex()
+            ),
+        )
+    }
+
     /// Snapshot, then point local bookmark `name` at `rev`
     /// (`jj bookmark set <name> -r <rev>`).
     pub fn bookmark_set(&mut self, name: &str, rev: &str) -> Result<()> {
@@ -648,7 +719,7 @@ impl RepoSession {
             .get_remote_bookmark(ref_name.to_remote_symbol(remote));
         let before = remote_ref.target.as_normal().cloned();
         if before.as_ref() == Some(&local) {
-            return Ok(()); // Already in sync; matches `jj git push` "Nothing changed".
+            return Ok(()); // Already in sync, matching `jj git push` "Nothing changed".
         }
         let ref_updates = GitPushRefTargets {
             bookmarks: vec![(

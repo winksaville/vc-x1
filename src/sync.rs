@@ -16,14 +16,11 @@
 //!
 //! **Stop-on-error**: a failure leaves state where the failing step
 //! stopped so the user can inspect it. Each repo's pre-sync op id
-//! is captured in memory and the error report prints it with the
-//! explicit `jj op restore <op> -R <repo>` undo. Nothing persists
-//! across invocations: a stale snapshot adopted later is how the
-//! push state file corrupted published history (bugs.md #8), so
-//! sync keeps none.
-//!
-//! `current_op_id` / `op_restore` are `pub(crate)` so `push`
-//! reuses the same snapshot-and-restore primitives.
+//! is captured in memory (`jj::current_op_id`) and the error report
+//! prints it with the explicit `jj op restore <op> -R <repo>` undo.
+//! Nothing persists across invocations: a stale snapshot adopted
+//! later is how the push state file corrupted published history
+//! (bugs.md #8), so sync keeps none.
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -31,7 +28,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
-use crate::common::{default_scope, find_workspace_root, prompt, run, scope_to_repos};
+use crate::common::{default_scope, find_workspace_root, prompt, scope_to_repos};
 use crate::context::Context;
 use crate::jj;
 use crate::options_flags::scope::{Scope, parse_scope};
@@ -298,7 +295,7 @@ pub fn sync_repos(
     // invocation's failure report, never persisted for a later one.
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
     for repo in repos {
-        let op_id = current_op_id(repo)?;
+        let op_id = jj::current_op_id(repo)?;
         debug!("{}: op snapshot = {op_id}", repo.display());
         snapshots.push((repo.clone(), op_id));
     }
@@ -660,45 +657,6 @@ fn log_state(repo: &Path, state: &State) {
     }
 }
 
-/// Return the id of the most recent operation on `repo`.
-///
-/// Used as the revert target on failure. Exposed at `pub(crate)` so
-/// `push` (0.37.0-2+) can reuse the same snapshot pattern for its
-/// commit-stage rollback without duplicating the jj invocation.
-pub(crate) fn current_op_id(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let out = run(
-        "jj",
-        &[
-            "op",
-            "log",
-            "--no-graph",
-            "-n",
-            "1",
-            "-T",
-            "id.short(12)",
-            "-R",
-            &repo_str(repo),
-        ],
-        Path::new("."),
-    )?;
-    Ok(out.trim().to_string())
-}
-
-/// Restore `repo` to the operation identified by `op_id`.
-///
-/// Thin wrapper around `jj op restore`: drops the caller's returned
-/// stdout. Exposed at `pub(crate)` for `push`'s commit-stage
-/// rollback and the `revert` subcommand. Sync itself no longer
-/// auto-reverts (stop-on-error).
-pub(crate) fn op_restore(repo: &Path, op_id: &str) -> Result<(), Box<dyn std::error::Error>> {
-    run(
-        "jj",
-        &["op", "restore", op_id, "-R", &repo_str(repo)],
-        Path::new("."),
-    )?;
-    Ok(())
-}
-
 /// Classify the relationship between `bookmark` and `bookmark@remote`.
 ///
 /// Uses `bookmarks(<b>)` rather than the bare name so a conflicted
@@ -772,11 +730,6 @@ fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::
 /// Return `true` when `repo` has any conflicted commits.
 fn has_conflicts(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
     jj::matches(repo, "conflicts()")
-}
-
-/// Convert a path to a `String` suitable for passing as a subprocess arg.
-fn repo_str(p: &Path) -> String {
-    p.to_string_lossy().into_owned()
 }
 
 #[cfg(test)]

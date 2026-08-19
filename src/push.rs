@@ -29,9 +29,9 @@ use log::{debug, info, warn};
 use crate::common::prompt;
 use crate::context::Context;
 use crate::jj;
+use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::squash::SquashSpec;
 use crate::subcommand::SubcommandRunner;
-use crate::sync::{current_op_id, op_restore};
 
 /// Bookmark the bot (`.claude`) repo always advances and
 /// pushes. The bot repo is a linear journal on `main` by
@@ -41,7 +41,7 @@ const BOT_BOOKMARK: &str = "main";
 /// CLI arguments for the `push` subcommand.
 ///
 /// Flag set mirrors the design in `notes/chores/chores-05.md`. Flags are
-/// parsed in 0.37.0-0; their real effects land across the remaining
+/// parsed in 0.37.0-0, and their real effects land across the remaining
 /// 0.37.0-N steps. See the module docstring for which flags activate
 /// when.
 #[derive(Args, Debug)]
@@ -56,7 +56,7 @@ pub struct PushArgs {
     #[arg(value_name = "BOOKMARK", conflicts_with = "bookmark")]
     pub bookmark_pos: Option<String>,
 
-    /// Bookmark to advance in the work repo (flag form; see positional).
+    /// Bookmark to advance in the work repo (flag form, see positional).
     #[arg(long, conflicts_with = "bookmark_pos")]
     pub bookmark: Option<String>,
 
@@ -194,14 +194,14 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
 }
 
 /// `push` parameterized on the workspace root. CLI dispatch calls
-/// this with `std::env::current_dir()`; integration tests call it
+/// this with `std::env::current_dir()`, and integration tests call it
 /// with a fixture tempdir so the stages mutate the fixture's repos
 /// instead of the developer's working tree.
 ///
 /// The stages run in a straight line. The mutation window
 /// (`commit-work` -> `bookmark-set`) is wrapped so a failure inside
-/// it restores both repos from snapshots taken just before it;
-/// after `push-work` the remote boundary is crossed and a failure
+/// it restores both repos from snapshots taken just before it.
+/// After `push-work` the remote boundary is crossed and a failure
 /// simply propagates.
 pub(crate) fn push_in(
     ctx: &mut Context,
@@ -554,7 +554,7 @@ fn parse_message(raw: &str) -> Option<(String, String)> {
 ///   the bookmark and the remote still need advancing: the
 ///   trapezoid recipe's final step.
 ///
-/// In both cases the existing top commit is published as-is; push
+/// In both cases the existing top commit is published as-is: push
 /// does not rewrite a description it didn't author.
 fn stage_commit_work(
     ctx: &mut Context,
@@ -652,7 +652,7 @@ fn stage_bookmark_set(
 /// Checks its own precondition: every remote ref for the bookmark
 /// is tracked, which is where preflight's tracking check moved
 /// when preflight was retired. A never-pushed bookmark has no
-/// remote ref and passes; the check catches a ref that exists but
+/// remote ref and passes. The check catches a ref that exists but
 /// isn't tracked, which would otherwise push into a ref jj won't
 /// follow afterwards.
 ///
@@ -713,7 +713,7 @@ fn stage_squash_push_bot(
         },
         bookmark: bk.to_string(),
         // Mid-push the mismatch is the normal state (bookmark-set
-        // just moved main; this stage publishes it): don't report
+        // just moved main and this stage publishes it): don't report
         // a lost publish.
         report_publish_state: false,
     };
