@@ -3,11 +3,11 @@
 //! `notes/refactor-20260716.md`).
 //!
 //! Reads resolve through `common::load_repo` +
-//! `common::resolve_revset` and `Commit` accessors; a revset that
+//! `common::resolve_revset` and `Commit` accessors. A revset that
 //! references a working copy (`@`, `@-`, `ws@`) snapshots first
 //! (`repo_for_read`), so "right now" questions answer about the
 //! filesystem the way the spawned CLI's auto-snapshot did.
-//! Mutations are `session::RepoSession` methods; the verb fns here
+//! Mutations are `session::RepoSession` methods. The verb fns here
 //! are one-shot wrappers (open a session, run the verb) for
 //! context-less callers. Context-ful callers (push, squash-push,
 //! sync) go through `Context::session`, which caches one open
@@ -25,13 +25,14 @@
 //! - `diff_stat`: a `diff --stat`-shaped summary of `@` against
 //!   its parents.
 //! - `is_no_such_revision`: the typed unresolvable-revision test.
-//! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark`:
-//!   one-shot wrappers over the session verbs. `git_fetch` has no
-//!   wrapper: its only caller (sync) is context-ful.
+//! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark` /
+//!   `new_on` / `rebase_branch`: one-shot wrappers over the session
+//!   verbs. `git_fetch` has no wrapper: its only caller (sync) is
+//!   context-ful.
 //!
-//! Still spawning `jj` elsewhere: the call sites outside the five
-//! verbs (`jj squash`, `jj new`, `jj rebase`, `jj op log` /
-//! `op restore`, `jj git clone`, repo-init plumbing).
+//! Still spawning `jj` elsewhere: the call sites outside the
+//! session verbs (`jj squash`, `jj op log` / `op restore`,
+//! `jj git clone`, repo-init plumbing).
 
 use std::path::Path;
 
@@ -80,6 +81,18 @@ pub fn git_push_bookmark(repo: &Path, name: &str) -> Result<()> {
     session::RepoSession::open(repo)?.git_push_bookmark(name)
 }
 
+/// One-shot `RepoSession::new_on`: fresh empty `@` on top of `rev`
+/// (`jj new <rev>`).
+pub fn new_on(repo: &Path, rev: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.new_on(rev)
+}
+
+/// One-shot `RepoSession::rebase_branch`: rebase the branch of
+/// `source` onto `dest` (`jj rebase -b <source> -d <dest>`).
+pub fn rebase_branch(repo: &Path, source: &str, dest: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.rebase_branch(source, dest)
+}
+
 /// True when `revset` references a working copy, so the query must
 /// snapshot before resolving (an op-store write) to see the
 /// filesystem as it is right now, like the CLI's auto-snapshot.
@@ -101,7 +114,7 @@ fn references_working_copy(revset: &str) -> bool {
 
 /// Load `repo` for a read of `revset`: a working-copy-relative
 /// revset snapshots first so "right now" questions answer about the
-/// filesystem; anything else is a plain read-only load.
+/// filesystem, and anything else is a plain read-only load.
 fn repo_for_read(
     repo: &Path,
     revset: &str,
@@ -131,7 +144,7 @@ fn commits_of(repo: &Path, revset: &str) -> Result<Vec<Commit>> {
 /// True when `revset` matches at least one commit in `repo`.
 ///
 /// A valid-but-empty revset (e.g. `conflicts()` on a clean repo)
-/// is `Ok(false)`; an unresolvable revision is an `Err`, which
+/// is `Ok(false)`, and an unresolvable revision is an `Err`, which
 /// `rev_exists` folds to `false`.
 pub fn matches(repo: &Path, revset: &str) -> Result<bool> {
     let (workspace, repo_at_head) = repo_for_read(repo, revset)?;
@@ -141,7 +154,7 @@ pub fn matches(repo: &Path, revset: &str) -> Result<bool> {
 /// True when `rev` resolves in `repo`.
 ///
 /// Folds jj's unresolvable-revision error (`is_no_such_revision`,
-/// either path) to `Ok(false)`; other failures (bad repo path,
+/// either path) to `Ok(false)`. Other failures (bad repo path,
 /// spawn error) stay `Err`.
 pub fn rev_exists(repo: &Path, rev: &str) -> Result<bool> {
     match matches(repo, rev) {
@@ -539,6 +552,55 @@ mod tests {
         );
     }
 
+    /// `new_on` matches `jj new <rev>`: an empty old `@` is
+    /// auto-abandoned, a non-empty one survives as a sibling head.
+    #[test]
+    fn new_on_abandons_empty_keeps_nonempty() {
+        let fx = Fixture::new("jjnewon");
+        let base = cid_of(&fx.work, "@-").unwrap();
+        // Empty @: new_on replaces it and the old chid vanishes.
+        let old_chid = chid_of(&fx.work, "@").unwrap();
+        new_on(&fx.work, &base).unwrap();
+        assert!(
+            !rev_exists(&fx.work, &old_chid).unwrap(),
+            "empty old @ not abandoned"
+        );
+        assert_eq!(cid_of(&fx.work, "@-").unwrap(), base);
+        // Non-empty @: new_on leaves it behind as a sibling head.
+        std::fs::write(fx.work.join("keepme.txt"), "x").unwrap();
+        let full_chid = chid_of(&fx.work, "@").unwrap();
+        new_on(&fx.work, &base).unwrap();
+        assert!(
+            rev_exists(&fx.work, &full_chid).unwrap(),
+            "non-empty old @ was lost"
+        );
+        assert!(is_empty(&fx.work, "@").unwrap());
+        assert_eq!(cid_of(&fx.work, "@-").unwrap(), base);
+    }
+
+    /// `rebase_branch` matches `jj rebase -b <source> -d <dest>`:
+    /// a branch diverged from the destination moves onto it, chids
+    /// preserved.
+    #[test]
+    fn rebase_branch_moves_diverged_branch() {
+        let fx = Fixture::new("jjrebase");
+        let base = cid_of(&fx.work, "@-").unwrap();
+        std::fs::write(fx.work.join("one.txt"), "one").unwrap();
+        commit(&fx.work, "test: branch one").unwrap();
+        let one = chid_of(&fx.work, "@-").unwrap();
+        new_on(&fx.work, &base).unwrap();
+        std::fs::write(fx.work.join("two.txt"), "two").unwrap();
+        commit(&fx.work, "test: branch two").unwrap();
+        let two = chid_of(&fx.work, "@-").unwrap();
+        rebase_branch(&fx.work, &one, &two).unwrap();
+        assert!(
+            matches(&fx.work, &format!("{one} & {two}::")).unwrap(),
+            "'{one}' did not land on top of '{two}'"
+        );
+        assert!(!matches(&fx.work, "conflicts()").unwrap());
+        assert_eq!(desc_of(&fx.work, &one).unwrap(), "test: branch one");
+    }
+
     /// A working-copy read sees the filesystem as it is right now:
     /// the snapshot-first path is live, not the stale op-store view.
     #[test]
@@ -607,7 +669,7 @@ mod tests {
     }
 
     /// bugs.md #1 in-process: a transiently held `.git/index.lock`
-    /// no longer fails the mutation; the session's git half retries
+    /// no longer fails the mutation: the session's git half retries
     /// until the holder lets go (here, a thread releasing it well
     /// inside the backoff budget).
     #[test]

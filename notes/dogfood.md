@@ -5,6 +5,20 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
+- 2026-08-19: comment semicolons had no conversion trigger, and adopted-ahead rules had no
+  home a session reads
+  - wink's grep found semicolons in session.rs comments. Comments are prose, so prose.md's
+    Semicolons rule already covers them, but its "ask at alteration" gate would mean a
+    file-by-file question forever. Adopted: a commit editing a source file converts that
+    file's comment semicolons in the same commit (whole file, code spans exempt), applied
+    from the jj-spawns cycle's sync-repositioning rung onward (29 sites in the three files
+    that rung touched)
+  - the second finding: rules adopted mid-cycle (this one, the marker-timing tweak below)
+    lived only in this log, which no session reads at acquaint, so session amnesia would
+    quietly undo them. custom-family.md gained `## Experimental agent-file rules` (wink's
+    name) as the binding home between adoption and the convention cycle that pins each rule.
+    The section pattern itself is one of the proposals it carries
+
 - 2026-08-18: the `(done)` flip ran ahead of the review it claims (wink, at the jj-spawns
   port rung)
   - the per-commit checklist's step 3 flips `(current)` to `(done)` before validation and the

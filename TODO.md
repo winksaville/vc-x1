@@ -87,7 +87,7 @@ template-proposal candidate for cycle-protocol.md's Close-out.
 
 - [[N]] [refactor: retire the remaining jj spawns opening][1] (done)
 - [[N]] [refactor: port push and facade reads to jj-lib][2] (done)
-- [[N]] [refactor: port sync repositioning to jj-lib][3]
+- [[N]] [refactor: port sync repositioning to jj-lib][3] (done)
 - [[N]] [refactor: port op recovery and squash to jj-lib][4]
 - [[N]] [refactor: port init and clone plumbing to jj-lib][6]
 - [[N]] [chore: ban process spawning outside the version gate][7]
@@ -143,7 +143,23 @@ surface is output compatibility only. As landed:
 ##### refactor: port sync repositioning to jj-lib
 
 sync.rs's two `jj new` and two `jj rebase` spawns move in-process, where the facade's
-index-lock retry can finally wrap them (the bug that motivated the program).
+index-lock retry can finally wrap them (the bug that motivated the program). As landed:
+
+- two session verbs: `new_on` (via `MutableRepo::check_out`, whose edit path auto-abandons
+  a discardable old `@` exactly as the CLI does) and `rebase_branch` (`-b` semantics: the
+  roots of `dest..source` rebase onto dest, `finish_tx`'s `rebase_descendants` carrying
+  descendants and the working-copy pointer along, conflicts written rather than refused so
+  the call sites' post-rebase conflict checks keep their job)
+- the reposition free functions take the one-shot wrappers, the diverged-rebase site inside
+  `act_on_state` reuses the Context-cached session, and every verb's snapshot-first reload
+  keeps cached sessions fresh across the mutation
+- fixture tests pin the two behaviors the call sites lean on: empty-`@` auto-abandon vs
+  non-empty sibling survival, and a diverged branch landing on its destination with chids
+  preserved. The existing sync integration tests pass unchanged over the ported paths
+- riding the rung at wink's direction: custom-family.md's new
+  `## Experimental agent-file rules` section (the adopted-ahead home for family proposals),
+  its two dogfood entries, and the first application of the comment-semicolon rule, 29
+  conversions across the three code files this rung touches
 
 ##### refactor: port op recovery and squash to jj-lib
 

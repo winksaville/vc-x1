@@ -4,7 +4,7 @@
 //! (`WorkspaceCommandHelper` in jj-cli), reduced to what the facade's
 //! verbs need: user-config-backed settings, the working-copy snapshot
 //! cycle, and transaction finish. The reference implementation is jj
-//! 0.43's `cli_util.rs`; deviations are documented on each function.
+//! 0.43's `cli_util.rs`, with deviations documented on each function.
 //! The name is backend-neutral on purpose: what a session holds and
 //! its open -> mutate -> finish lifecycle would survive a non-jj
 //! backend.
@@ -17,7 +17,8 @@
 //! - `RepoSession::finish_tx`: the CLI's `finish_transaction`: git HEAD
 //!   reset + ref export, op-store commit, working-copy update.
 //! - The publish-path verbs (`commit`, `describe`, `bookmark_set`,
-//!   `git_push_bookmark`, `git_fetch`): each snapshots, mutates in
+//!   `git_push_bookmark`, `git_fetch`) and the repositioning verbs
+//!   (`new_on`, `rebase_branch`): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
 //!   keeps the shape push re-run and manual op restore rely on).
 //!
@@ -219,7 +220,7 @@ impl RepoSession {
     }
 
     /// Take the git import/export lock the CLI takes around its
-    /// import/snapshot/export cycle; `None` when not colocated.
+    /// import/snapshot/export cycle. `None` when not colocated.
     fn lock_git(&self) -> Result<Option<FileLock>> {
         if !self.colocated {
             return Ok(None);
@@ -557,6 +558,53 @@ impl RepoSession {
         self.finish_tx(tx, &format!("describe commit {}", commit.id().hex()))
     }
 
+    /// Snapshot, then start a fresh empty working-copy commit on
+    /// top of `rev` (`jj new <rev>`). The old `@` is auto-abandoned
+    /// when discardable (empty, undescribed, unreferenced, a head),
+    /// matching the CLI, via `MutableRepo::check_out`'s edit path.
+    pub fn new_on(&mut self, rev: &str) -> Result<()> {
+        self.snapshot()?;
+        let target = self.one_commit(rev)?;
+        let name = self.workspace.workspace_name().to_owned();
+        let mut tx = self.start_tx();
+        tx.repo_mut().check_out(name, &target).block_on()?;
+        self.finish_tx(tx, &format!("new empty commit on {}", target.id().hex()))
+    }
+
+    /// Snapshot, then rebase the branch of `source` onto `dest`
+    /// (`jj rebase -b <source> -d <dest>`): the roots of
+    /// `dest..source` are rebased onto `dest`, and `finish_tx`'s
+    /// `rebase_descendants` carries their descendants along, the
+    /// working-copy pointer included. Conflicts are written, not
+    /// refused: callers keep their post-rebase conflict checks.
+    pub fn rebase_branch(&mut self, source: &str, dest: &str) -> Result<()> {
+        self.snapshot()?;
+        let dest_commit = self.one_commit(dest)?;
+        let root_ids = crate::common::resolve_revset(
+            &self.workspace,
+            &self.repo,
+            &format!("roots({dest}..{source})"),
+        )?;
+        if root_ids.is_empty() {
+            debug!("rebase_branch: '{source}' is already on '{dest}', nothing to do");
+            return Ok(());
+        }
+        let mut tx = self.start_tx();
+        for id in &root_ids {
+            let commit = tx.repo().store().get_commit(id)?;
+            jj_lib::rewrite::rebase_commit(tx.repo_mut(), commit, vec![dest_commit.id().clone()])
+                .block_on()?;
+        }
+        self.finish_tx(
+            tx,
+            &format!(
+                "rebase {} commits onto {}",
+                root_ids.len(),
+                dest_commit.id().hex()
+            ),
+        )
+    }
+
     /// Snapshot, then point local bookmark `name` at `rev`
     /// (`jj bookmark set <name> -r <rev>`).
     pub fn bookmark_set(&mut self, name: &str, rev: &str) -> Result<()> {
@@ -577,7 +625,7 @@ impl RepoSession {
     /// the last-seen remote position.
     ///
     /// Deviation from the CLI: no conflicted / no-description /
-    /// private preflights on the pushed commits; the push callers
+    /// private preflights on the pushed commits. The push callers
     /// validate the commit they publish before calling.
     pub fn git_push_bookmark(&mut self, name: &str) -> Result<()> {
         use jj_lib::git::{GitPushOptions, GitPushRefTargets, GitSettings};
@@ -679,12 +727,12 @@ impl RepoSession {
     }
 }
 
-/// Attempts per lock-contended git write; the doubling backoff
+/// Attempts per lock-contended git write. The doubling backoff
 /// starting at `LOCK_RETRY_START` waits 25 + 50 + 100 + 200 ms,
 /// about 375 ms in total, before the last try.
 const LOCK_RETRY_ATTEMPTS: u32 = 5;
 
-/// First backoff delay; each subsequent retry doubles it.
+/// First backoff delay. Each subsequent retry doubles it.
 const LOCK_RETRY_START: Duration = Duration::from_millis(25);
 
 /// True when `e` is, or wraps anywhere in its source chain, a git
@@ -830,7 +878,7 @@ mod tests {
         assert!(!is_lock_contention(&io));
     }
 
-    /// Contention retries until the closure succeeds; the attempt
+    /// Contention retries until the closure succeeds. The attempt
     /// count is visible to the closure.
     #[test]
     fn retry_git_lock_retries_contention() {
