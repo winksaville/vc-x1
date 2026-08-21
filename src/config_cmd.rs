@@ -2,13 +2,13 @@
 //! target config file (or check it with `--validate`), grouped by
 //! TOML section, sshd_config style.
 //!
-//! - Read-only; consumes `crate::config_schema::schema()`: the
+//! - Read-only. Consumes `crate::config_schema::schema()`: the
 //!   single source of truth for every settable key.
-//! - The positional target is `work`, `bot`, `work,bot` (default),
+//! - The positional target is `work`, `agent`, `work,agent` (default),
 //!   or an explicit config-file path. The user config
 //!   (`~/.config/vc-x1/config.toml`) has no keyword: reach it by
 //!   passing its path.
-//! - The side keywords filter to that side's keys; a path target
+//! - The side keywords filter to that side's keys. A path target
 //!   carries no side information, so it gets the whole schema: no
 //!   guessing what kind of file the path names.
 //! - `--validate` checks the target file(s) instead of printing:
@@ -34,7 +34,7 @@ use crate::subcommand::SubcommandRunner;
 /// Parsed positional target: a side keyword set or an explicit
 /// config-file path.
 ///
-/// - `Scope`: `work`, `bot`, `work,bot`, `bot,work` (the `--scope`
+/// - `Scope`: `work`, `agent`, `work,agent`, `agent,work` (the `--scope`
 ///   grammar), resolved against the surrounding workspace.
 /// - `Path`: anything else, an explicit config file. The only way
 ///   to reach the user config.
@@ -50,8 +50,11 @@ pub enum ConfigTarget {
 /// A file literally named `work` (etc.) in cwd is shadowed by the
 /// keyword: target it as `./work`.
 fn parse_target(s: &str) -> Result<ConfigTarget, String> {
-    if let Ok(scope) = parse_scope(s) {
-        return Ok(ConfigTarget::Scope(scope));
+    match parse_scope(s) {
+        Ok(scope) => return Ok(ConfigTarget::Scope(scope)),
+        // The old `bot` keywords are a rejection, not a path.
+        Err(e) if matches!(s, "bot" | "work,bot" | "bot,work") => return Err(e),
+        Err(_) => {}
     }
     if s.is_empty() {
         return Err("config: target is empty".into());
@@ -61,11 +64,11 @@ fn parse_target(s: &str) -> Result<ConfigTarget, String> {
 
 #[derive(Args, Debug)]
 pub struct ConfigArgs {
-    /// What to print or validate: side keyword(s) `work`, `bot`,
-    /// `work,bot`, or a config-file path. The user config
+    /// What to print or validate: side keyword(s) `work`, `agent`,
+    /// `work,agent`, or a config-file path. The user config
     /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
     /// path.
-    #[arg(value_parser = parse_target, default_value = "work,bot", verbatim_doc_comment)]
+    #[arg(value_parser = parse_target, default_value = "work,agent", verbatim_doc_comment)]
     pub target: ConfigTarget,
 
     /// Check the target config file(s) (unknown/misspelled keys,
@@ -189,9 +192,11 @@ fn key_known(actual: &str, home_pred: fn(&[Home]) -> bool) -> bool {
 /// - A missing file is not an error: `info!`s that it's absent
 ///   and returns `Ok(0)`.
 /// - Each key not recognized by `key_known` is reported with
-///   `warn!`, naming `label` and the key; keys are checked in
+///   `warn!`, naming `label` and the key. Keys are checked in
 ///   sorted order for stable output.
-/// - Returns the count of unknown keys found. A load error
+/// - A known `str-list` key whose value is not an array of quoted
+///   strings is reported the same way, with the parse message.
+/// - Returns the count of problems found. A load error
 ///   (malformed TOML) propagates as `Err`.
 fn validate_file(
     path: &Path,
@@ -211,16 +216,31 @@ fn validate_file(
         if !key_known(key, home_pred) {
             warn!("{label} ({}): unknown key {key:?}", path.display());
             unknown += 1;
+            continue;
+        }
+        if is_str_list(key)
+            && let Err(e) = crate::toml_simple::toml_get_list(&map, key)
+        {
+            warn!("{label} ({}): {e}", path.display());
+            unknown += 1;
         }
     }
     Ok(unknown)
+}
+
+/// True when the schema types `path` as a `str-list`, whose value
+/// `--validate` also checks for shape (an array of quoted strings).
+fn is_str_list(path: &str) -> bool {
+    schema()
+        .iter()
+        .any(|k| k.path == path && k.kind == crate::config_schema::ValueKind::StrList)
 }
 
 /// Validate the target's config file(s), returning the total count
 /// of problems found (unknown keys, legacy/grammar rejections,
 /// workspace-coherence failures).
 ///
-/// - Keyword targets resolve against `root`; outside a workspace
+/// - Keyword targets resolve against `root`. Outside a workspace
 ///   there is nothing to check (info + `Ok(0)`).
 /// - The bot side resolves via `bot_repo_path`, which runs the
 ///   dual-preflight coherence check (bot dir exists, both configs
@@ -341,9 +361,9 @@ fn print_schema(params: &ConfigParams, root: Option<&Path>) {
                         let bot = root.and_then(|r| configured_bot_dir(r).ok().flatten());
                         let hint = match bot {
                             Some(b) => resolved_hint(&b),
-                            None => format!("<root>/<bot-dir>/{VC_CONFIG_FILE}"),
+                            None => format!("<root>/<agent-dir>/{VC_CONFIG_FILE}"),
                         };
-                        print_group(&format!("bot: {hint}"), &group(in_bot_side));
+                        print_group(&format!("agent: {hint}"), &group(in_bot_side));
                     }
                 }
             }
@@ -394,6 +414,14 @@ mod tests {
         std::fs::write(path, text).expect("write config");
     }
 
+    /// The old `bot` keywords are a rejection, not a path target.
+    #[test]
+    fn parse_target_rejects_old_bot_keywords() {
+        let err = parse_target("bot").unwrap_err();
+        assert!(err.contains("`agent`"), "got: {err}");
+        assert!(parse_target("work,bot").is_err());
+    }
+
     #[test]
     fn parse_target_keywords() {
         assert_eq!(
@@ -401,11 +429,11 @@ mod tests {
             ConfigTarget::Scope(Scope(vec![Side::Work]))
         );
         assert_eq!(
-            parse_target("bot").unwrap(),
+            parse_target("agent").unwrap(),
             ConfigTarget::Scope(Scope(vec![Side::Bot]))
         );
         assert_eq!(
-            parse_target("work,bot").unwrap(),
+            parse_target("work,agent").unwrap(),
             ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot]))
         );
     }
@@ -480,6 +508,25 @@ mod tests {
         assert_eq!(findings, 1);
     }
 
+    /// A `[family]` key on the agent side is unknown there (work-side
+    /// only), and a `str-list` key holding a scalar is a finding by
+    /// shape, not just by name.
+    #[test]
+    fn validate_flags_family_on_agent_side_and_bad_list() {
+        let fx = Fixture::new("config-validate-family");
+        append(
+            &fx.work.join(VC_CONFIG_FILE),
+            "\n[family]\nmember = \"x\"\n\n[validate]\nfast = \"cargo test\"\n",
+        );
+        append(&fx.bot.join(VC_CONFIG_FILE), "\n[family]\nmember = \"x\"\n");
+        let params = ConfigParams {
+            target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
+            validate: true,
+        };
+        let findings = validate(&params, Some(&fx.work)).expect("validate");
+        assert_eq!(findings, 2, "the bad list on work, the family key on agent");
+    }
+
     #[test]
     fn validate_flags_incoherent_workspace_blocks() {
         // Diverge the bot side's [repos] registry (its bot entry
@@ -491,7 +538,7 @@ mod tests {
         std::fs::create_dir_all(fx.work.join("other")).expect("mkdir other");
         std::fs::write(
             fx.bot.join(VC_CONFIG_FILE),
-            "[repos]\nwork = \"..\"\nbot = \"../other\"\n",
+            "[repos]\nwork = \"..\"\nagent = \"../other\"\n",
         )
         .expect("rewrite bot config");
         let params = ConfigParams {

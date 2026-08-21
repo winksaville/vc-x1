@@ -232,7 +232,7 @@ pub fn report(banner: &str) -> Vec<String> {
         Some(root) => {
             lines.push(data_line("work", &root));
             match common::bot_repo_path(&root) {
-                Ok(Some(bot)) => lines.push(data_line("bot", &bot)),
+                Ok(Some(bot)) => lines.push(data_line("agent", &bot)),
                 Ok(None) => lines.push("jj-data bot unavailable: no bot repo".to_string()),
                 Err(e) => lines.push(format!("jj-data bot unavailable: {e}")),
             }

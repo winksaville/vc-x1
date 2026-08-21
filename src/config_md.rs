@@ -13,7 +13,7 @@
 //! to parse the `vc-config.md` schema prototype in the same format.
 //!
 //! `.vc-config.toml` remains a valid carrier through the family's
-//! migration window; a side holding both carriers is an error.
+//! migration window, and a side holding both carriers is an error.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -68,7 +68,7 @@ pub struct VcConfig {
 
 /// Resolve and load `dir`'s instance config.
 ///
-/// `Ok(None)` when the directory has no config file; an error is a
+/// `Ok(None)` when the directory has no config file. An error is a
 /// real problem (both carriers present, unreadable file, a bad
 /// fence), never a plain miss.
 pub fn load(dir: &Path) -> Result<Option<VcConfig>, Box<dyn std::error::Error>> {
@@ -96,27 +96,27 @@ The two repos
 ```toml
 [repos]
 work = \".\"
-bot = \".claude\"
+agent = \".claude\"
 ```
 
-The bot-session table
+The agent-session table
 - items [[1]]
 ```toml
-[bot-session]
+[agent-session]
 items = \"headers,user\"
 col-width = 68
 ```
 
 [0]: ./vc-config.md#vc-config-settable-configuration-keys
-[1]: ./vc-config.md#bot-sessionitems
+[1]: ./vc-config.md#agent-sessionitems
 ";
 
     /// The separated per-key shape: a lone header fence, then bare
     /// key fences relying on its scope.
     const SEPARATED: &str = "\
-The bot-session table
+The agent-session table
 ```toml
-[bot-session]
+[agent-session]
 ```
 
 items
@@ -135,13 +135,13 @@ col-width = 68
         let toml = md_to_toml(COMPACT).unwrap();
         let map = toml_simple::toml_parse(&toml);
         assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
-        assert_eq!(map.get("repos.bot").map(String::as_str), Some(".claude"));
+        assert_eq!(map.get("repos.agent").map(String::as_str), Some(".claude"));
         assert_eq!(
-            map.get("bot-session.items").map(String::as_str),
+            map.get("agent-session.items").map(String::as_str),
             Some("headers,user")
         );
         assert_eq!(
-            map.get("bot-session.col-width").map(String::as_str),
+            map.get("agent-session.col-width").map(String::as_str),
             Some("68")
         );
     }
@@ -151,11 +151,11 @@ col-width = 68
         let toml = md_to_toml(SEPARATED).unwrap();
         let map = toml_simple::toml_parse(&toml);
         assert_eq!(
-            map.get("bot-session.items").map(String::as_str),
+            map.get("agent-session.items").map(String::as_str),
             Some("headers,user")
         );
         assert_eq!(
-            map.get("bot-session.col-width").map(String::as_str),
+            map.get("agent-session.col-width").map(String::as_str),
             Some("68")
         );
     }
@@ -232,12 +232,12 @@ col-width = 68
 
         std::fs::write(
             root.join(VC_CONFIG_MD),
-            "The two repos\n```toml\n[repos]\nwork = \".\"\nbot = \".claude\"\n```\n",
+            "The two repos\n```toml\n[repos]\nwork = \".\"\nagent = \".claude\"\n```\n",
         )
         .unwrap();
         std::fs::write(
             bot.join(VC_CONFIG_MD),
-            "The two repos\n```toml\n[repos]\nwork = \"..\"\nbot = \".\"\n```\n",
+            "The two repos\n```toml\n[repos]\nwork = \"..\"\nagent = \".\"\n```\n",
         )
         .unwrap();
 
@@ -262,12 +262,12 @@ col-width = 68
 
         std::fs::write(
             root.join(VC_CONFIG_FILE),
-            "[repos]\nwork = \".\"\nbot = \".claude\"\n",
+            "[repos]\nwork = \".\"\nagent = \".claude\"\n",
         )
         .unwrap();
         std::fs::write(
             bot.join(VC_CONFIG_MD),
-            "The two repos\n```toml\n[repos]\nwork = \"..\"\nbot = \".\"\n```\n",
+            "The two repos\n```toml\n[repos]\nwork = \"..\"\nagent = \".\"\n```\n",
         )
         .unwrap();
 
@@ -282,7 +282,7 @@ col-width = 68
         let work_cfg = load(&root).unwrap().unwrap();
         assert_eq!(work_cfg.path, root.join(VC_CONFIG_FILE));
         assert_eq!(
-            work_cfg.map.get("repos.bot").map(String::as_str),
+            work_cfg.map.get("repos.agent").map(String::as_str),
             Some(".claude")
         );
         let bot_cfg = load(&bot).unwrap().unwrap();

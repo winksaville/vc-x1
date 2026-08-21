@@ -1,4 +1,4 @@
-//! The `validate-bot` subcommand: read-only check that the bot
+//! The `validate-agent` subcommand: read-only check that the agent
 //! repo is in its expected at-rest state.
 //!
 //! - `main` must match `main@origin`: the bookmark only moves
@@ -28,16 +28,16 @@ const BOT_BOOKMARK: &str = "main";
 /// Check the bot repo's at-rest invariant: `main` published at
 /// origin (matches `main@origin`) and its remote refs tracked.
 ///
-/// Read-only; exits non-zero on a mismatch. Fixes nothing, resolve
+/// Read-only. Exits non-zero on a mismatch. Fixes nothing, resolve
 /// with `vc-x1 squash-push -R <bot-repo>`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
-    /// Path to the bot repo [default: from repos.bot, else .claude]
+    /// Path to the bot repo [default: from repos.agent, else .claude]
     #[arg(short = 'R', long)]
     pub repo: Option<PathBuf>,
 }
 
-/// Per-invocation validate-bot inputs: the clap-free shape the op
+/// Per-invocation validate-agent inputs: the clap-free shape the op
 /// works against.
 #[derive(Debug)]
 pub struct ValidateBotParams {
@@ -71,21 +71,21 @@ impl SubcommandRunner for ValidateBotArgs {
         ValidateBotParams::try_from(self)
     }
 
-    /// Run the `validate-bot` op (`ctx` unused: the op is fully
+    /// Run the `validate-agent` op (`ctx` unused: the op is fully
     /// parameterized by `Params`).
     fn run(_ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         validate_bot(params)
     }
 }
 
-/// Run the `validate-bot` op: tracking check, then the published
-/// invariant; report the in-sync state on success.
+/// Run the `validate-agent` op: tracking check, then the published
+/// invariant. Report the in-sync state on success.
 pub fn validate_bot(params: &ValidateBotParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-bot: entry params={params:?}");
+    debug!("validate-agent: entry params={params:?}");
     let repo_str = params.repo.to_string_lossy();
     crate::common::verify_tracking(&params.repo, BOT_BOOKMARK)?;
     crate::common::verify_bot_published(&params.repo, BOT_BOOKMARK)?;
-    info!("validate-bot: '{repo_str}' {BOT_BOOKMARK} is published at origin");
+    info!("validate-agent: '{repo_str}' {BOT_BOOKMARK} is published at origin");
     Ok(())
 }
 
@@ -117,21 +117,21 @@ mod tests {
 
     #[test]
     fn no_args_defaults() {
-        // `-R` absent parses to None; the default resolves at
+        // `-R` absent parses to None. The default resolves at
         // params time (workspace config's bot dir, else .claude).
-        let args = parse(&["vc-x1", "validate-bot"]);
+        let args = parse(&["vc-x1", "validate-agent"]);
         assert_eq!(args.repo, None);
     }
 
     #[test]
     fn long_repo_flag() {
-        let args = parse(&["vc-x1", "validate-bot", "--repo", "some/dir"]);
+        let args = parse(&["vc-x1", "validate-agent", "--repo", "some/dir"]);
         assert_eq!(args.repo, Some(PathBuf::from("some/dir")));
     }
 
     #[test]
     fn unknown_opt() {
-        let err = Cli::try_parse_from(["vc-x1", "validate-bot", "--bogus"])
+        let err = Cli::try_parse_from(["vc-x1", "validate-agent", "--bogus"])
             .unwrap_err()
             .to_string();
         assert!(err.contains("--bogus"));
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn try_from_bad_path_errors() {
         let args = ValidateBotArgs {
-            repo: Some(PathBuf::from("/nonexistent/vc-x1-validate-bot")),
+            repo: Some(PathBuf::from("/nonexistent/vc-x1-validate-agent")),
         };
         let err = ValidateBotParams::try_from(&args).unwrap_err();
         assert!(err.contains("cannot resolve repo path"), "got: {err}");

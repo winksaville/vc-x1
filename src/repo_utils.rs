@@ -52,7 +52,7 @@ pub enum OchidStrategy {
 /// - `target`: destination directory for the new repo. Created
 ///   (along with its parent if needed), and must not already exist
 ///   as a populated repo.
-/// - `info_label`: narration tag (`"work"`, `"bot"`, `"scratch"`,
+/// - `info_label`: narration tag (`"work"`, `"agent"`, `"scratch"`,
 ///   etc.), appearing in `info!()` lines.
 /// - `template`: optional source dir. When present, copied
 ///   recursively (non-hidden only) and any `README.md`'s first

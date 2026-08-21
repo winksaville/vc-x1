@@ -1,4 +1,4 @@
-//! Unit tests for the bot-session renderer: synthetic
+//! Unit tests for the agent-session renderer: synthetic
 //! transcripts built via `transcript::parse_str`, asserting
 //! header collapsing, hide/reveal behavior, gists, and the
 //! summary line.
@@ -27,14 +27,14 @@ fn sample() -> FileTranscript {
 }
 
 /// Default view: one user + one assistant turn (blocks collapse
-/// under one message id); thinking/result/system/bookkeeping
+/// under one message id). Thinking/result/system/bookkeeping
 /// hidden and counted.
 #[test]
 fn default_view() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::BUILTIN,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -64,7 +64,7 @@ fn reveal_flags() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::ALL,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -79,7 +79,7 @@ fn reveal_flags() {
     assert_eq!(stats.hidden_meta, 0);
 }
 
-/// Meta user lines hide by default; sidechain entries too.
+/// Meta user lines hide by default. Sidechain entries too.
 #[test]
 fn meta_and_sidechain_hidden() {
     let t = parse_str(concat!(
@@ -90,7 +90,7 @@ fn meta_and_sidechain_hidden() {
     let (lines, stats) = render(
         &t,
         &ItemSet::BUILTIN,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -103,7 +103,7 @@ fn meta_and_sidechain_hidden() {
             meta: true,
             ..ItemSet::BUILTIN
         },
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -113,7 +113,7 @@ fn meta_and_sidechain_hidden() {
     assert!(out.contains("sub work"));
 }
 
-/// A long tool result is capped with a "+N lines" tail; the cap
+/// A long tool result is capped with a "+N lines" tail. The cap
 /// is adjustable and 0 means unlimited.
 #[test]
 fn result_cap() {
@@ -123,17 +123,17 @@ fn result_cap() {
         &mut lines,
         &body.join("\n"),
         false,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
     );
-    assert_eq!(lines.len(), BOT_SESSION_RESULT_LINES_DEFAULT + 1);
+    assert_eq!(lines.len(), AGENT_SESSION_RESULT_LINES_DEFAULT + 1);
     assert_eq!(lines[0], "  [result] l1");
-    assert!(lines[BOT_SESSION_RESULT_LINES_DEFAULT].contains("(+5 lines)"));
+    assert!(lines[AGENT_SESSION_RESULT_LINES_DEFAULT].contains("(+5 lines)"));
     let mut err_lines = Vec::new();
     push_result(
         &mut err_lines,
         "boom",
         true,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
     );
     assert_eq!(err_lines[0], "  [result:error] boom");
 
@@ -222,7 +222,7 @@ fn render_source_slice() {
     let (lines, stats) = render(
         &sample(),
         &ItemSet::BUILTIN,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         2,
         4,
         7,
@@ -239,9 +239,10 @@ fn render_source_slice() {
     assert_eq!(stats.shown, 1, "one assistant turn in slice");
 }
 
-/// Item gating: headers off drops === lines but keeps blank
-/// separators; user-only shows just the prompt; tool off drops
-/// [tool] lines.
+/// Item gating:
+/// - headers off drops === lines but keeps blank separators
+/// - user-only shows just the prompt
+/// - tool off drops [tool] lines
 #[test]
 fn item_gating() {
     let no_headers = ItemSet {
@@ -251,7 +252,7 @@ fn item_gating() {
     let (lines, stats) = render(
         &sample(),
         &no_headers,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -268,7 +269,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &user_only,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -282,7 +283,7 @@ fn item_gating() {
     let (lines, _) = render(
         &sample(),
         &no_tool,
-        BOT_SESSION_RESULT_LINES_DEFAULT,
+        AGENT_SESSION_RESULT_LINES_DEFAULT,
         0,
         usize::MAX,
         usize::MAX,
@@ -360,10 +361,13 @@ fn summary_lines() {
         shown: 3,
         ..Default::default()
     };
-    assert_eq!(summary_line(&stats, 0, None), "bot-session: 3 turns shown");
+    assert_eq!(
+        summary_line(&stats, 0, None),
+        "agent-session: 3 turns shown"
+    );
     assert_eq!(
         summary_line(&stats, 0, Some((15, 1093))),
-        "bot-session: 3 turns shown; \
+        "agent-session: 3 turns shown; \
          --lines selected 15 of 1093 source lines"
     );
     let stats = RenderStats {
@@ -375,19 +379,19 @@ fn summary_lines() {
     };
     assert_eq!(
         summary_line(&stats, 1, None),
-        "bot-session: 2 turns shown; hidden: 4 thinking, 1 tool results, \
+        "agent-session: 2 turns shown; hidden: 4 thinking, 1 tool results, \
          2 meta/system; skipped: 7 bookkeeping entries; 1 malformed lines"
     );
 }
 
-/// The schema's `bot-session.items` default string and the code's
-/// `ItemSet::BUILTIN` are two spellings of the same set; parsing
+/// The schema's `agent-session.items` default string and the code's
+/// `ItemSet::BUILTIN` are two spellings of the same set. Parsing
 /// one must yield the other, or the generated config documents a
 /// default the renderer does not use.
 #[test]
 fn items_default_matches_builtin() {
     assert_eq!(
-        parse_item_list(crate::config_schema::BOT_SESSION_ITEMS_DEFAULT).unwrap(),
+        parse_item_list(crate::config_schema::AGENT_SESSION_ITEMS_DEFAULT).unwrap(),
         ItemSet::BUILTIN
     );
 }
@@ -401,8 +405,8 @@ fn help_defaults_match_generated() {
     let cmd = crate::Cli::command();
     let bs = cmd
         .get_subcommands()
-        .find(|c| c.get_name() == "bot-session")
-        .unwrap_or_else(|| panic!("bot-session subcommand not found"));
+        .find(|c| c.get_name() == "agent-session")
+        .unwrap_or_else(|| panic!("agent-session subcommand not found"));
     let help_of = |id: &str| -> String {
         let arg = bs
             .get_arguments()
@@ -417,17 +421,18 @@ fn help_defaults_match_generated() {
         )
     };
     assert!(
-        help_of("col_width").contains(&format!("default: {BOT_SESSION_COL_WIDTH_DEFAULT};")),
+        help_of("col_width").contains(&format!("default: {AGENT_SESSION_COL_WIDTH_DEFAULT},")),
         "--col-width help drifted from the generated default"
     );
     assert!(
-        help_of("result_lines").contains(&format!("default: {BOT_SESSION_RESULT_LINES_DEFAULT};")),
+        help_of("result_lines")
+            .contains(&format!("default: {AGENT_SESSION_RESULT_LINES_DEFAULT},")),
         "--result-lines help drifted from the generated default"
     );
 }
 
 /// The workspace layer reads through the carrier resolver, so a
-/// `[bot-session]` block in a `.vc-config.md` arrives.
+/// `[agent-session]` block in a `.vc-config.md` arrives.
 ///
 /// Regression: this read went straight to `.vc-config.toml`, so
 /// after the md switch the block was simply absent and every field
@@ -442,9 +447,9 @@ fn md_carrier_carries_bot_session() {
         root.join(crate::config_md::VC_CONFIG_MD),
         "# config\n\
          The two repos.\n\
-         ```toml\n[repos]\nwork = \".\"\nbot = \".claude\"\n```\n\
+         ```toml\n[repos]\nwork = \".\"\nagent = \".claude\"\n```\n\
          What a session renders.\n\
-         ```toml\n[bot-session]\nitems = \"user,assistant\"\n\
+         ```toml\n[agent-session]\nitems = \"user,assistant\"\n\
          result-lines = 7\ncol-width = 55\n```\n",
     )
     .unwrap();
@@ -457,7 +462,7 @@ fn md_carrier_carries_bot_session() {
     std::fs::remove_dir_all(&root).ok();
 }
 
-/// A config with no `[bot-session]` block is a plain miss: all
+/// A config with no `[agent-session]` block is a plain miss: all
 /// fields `None`, no error. Pinned so the fix above cannot drift
 /// into treating a keyless config as a problem.
 #[test]
@@ -487,7 +492,7 @@ fn both_carriers_error() {
     let root = crate::test_tmp_root::resolve_tmp_root().join("vc_x1_bot_session_both");
     std::fs::remove_dir_all(&root).ok();
     std::fs::create_dir_all(&root).unwrap();
-    let block = "[bot-session]\ncol-width = 55\n";
+    let block = "[agent-session]\ncol-width = 55\n";
     std::fs::write(
         root.join(crate::config_md::VC_CONFIG_MD),
         format!("```toml\n{block}```\n"),

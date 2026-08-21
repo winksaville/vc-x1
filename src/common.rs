@@ -564,7 +564,7 @@ pub fn bookmark_publish_state(
 /// Verify the bot repo's `bookmark` is published at origin.
 ///
 /// Error-raising wrapper over [`bookmark_publish_state`], used by
-/// `validate-bot` and push preflight. Fixes nothing (decided
+/// `validate-agent` and push preflight. Fixes nothing (decided
 /// 2026-07-15: no automatic fixing): the error names the
 /// `vc-x1 squash-push` resolution and the caller stops.
 pub fn verify_bot_published(
@@ -609,7 +609,7 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 /// True when `dir` is a workspace's bot repo.
 ///
 /// Side detection is by *self-resolution*: `dir` is the bot side
-/// iff its own instance config's `repos.bot` resolves
+/// iff its own instance config's `repos.agent` resolves
 /// (file-relative) back to `dir` itself: the entry that names the
 /// config's own directory names the side. Falls back to the
 /// legacy location rule ([`legacy_is_bot_dir`]) so read-only
@@ -623,7 +623,7 @@ pub fn is_bot_dir(dir: &Path) -> bool {
         return false;
     };
     if let Ok(Some(cfg)) = crate::config_md::load(&dir)
-        && let Some(bot) = toml_simple::toml_get(&cfg.map, "repos.bot").filter(|v| !v.is_empty())
+        && let Some(bot) = toml_simple::toml_get(&cfg.map, "repos.agent").filter(|v| !v.is_empty())
     {
         return resolve_repo_path(&dir, bot)
             .canonicalize()
@@ -699,6 +699,9 @@ pub fn reject_legacy_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>
     if let Some(msg) = crate::legacy_vc_config::reject(dir, &cfg.map) {
         return Err(msg.into());
     }
+    if let Some(msg) = crate::legacy_vc_config::reject_old_agent_keys(&cfg.path, &cfg.map) {
+        return Err(msg.into());
+    }
     if toml_simple::toml_get(&cfg.map, "repos.work").is_some_and(|w| w.is_empty()) {
         return Err(format!(
             "{}: repos.work is empty: it must be a path \
@@ -719,10 +722,10 @@ pub fn find_workspace_root() -> Option<PathBuf> {
 
 /// Resolve the workspace's default `--scope`.
 ///
-/// Reads the workspace root's instance config's `repos.bot`:
+/// Reads the workspace root's instance config's `repos.agent`:
 ///
-/// - dual workspace (non-empty `bot`) -> `Scope([Work, Bot])`
-/// - single-repo workspace (missing / empty `bot`) ->
+/// - dual workspace (non-empty `agent`) -> `Scope([Work, Bot])`
+/// - single-repo workspace (missing / empty `agent`) ->
 ///   `Scope([Work])`
 /// - POR (no `workspace_root`) -> `Scope([Work])`: `scope_to_repos`
 ///   resolves `Side::Work` to cwd's `.` when no root is given, so a
@@ -735,7 +738,7 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
         Ok(Some(c)) => c,
         _ => return Scope(vec![Side::Work]),
     };
-    match toml_simple::toml_get(&cfg.map, "repos.bot") {
+    match toml_simple::toml_get(&cfg.map, "repos.agent") {
         Some(v) if !v.is_empty() => Scope(vec![Side::Work, Side::Bot]),
         _ => Scope(vec![Side::Work]),
     }
@@ -745,7 +748,7 @@ pub fn default_scope(workspace_root: Option<&Path>) -> Scope {
 ///
 /// - `Side::Work` -> `workspace_root` (or cwd's `.` when
 ///   `workspace_root` is None).
-/// - `Side::Bot` -> the root config's `repos.bot`, resolved
+/// - `Side::Bot` -> the root config's `repos.agent`, resolved
 ///   file-relative against the root.
 ///
 /// Errors when `Side::Bot` is requested but the workspace doesn't
@@ -767,22 +770,22 @@ pub fn scope_to_repos(
             ),
             Side::Bot => {
                 let root = workspace_root.ok_or(
-                    "--scope=bot: not in a vc-x1 workspace (no instance config with a \
+                    "--scope=agent: not in a vc-x1 workspace (no instance config with a \
                      [repos] registry), drop --scope or use --scope=work",
                 )?;
                 let cfg = crate::config_md::load(root)?.ok_or_else(|| {
                     format!(
-                        "--scope=bot: no vc-x1 config in '{}' \
+                        "--scope=agent: no vc-x1 config in '{}' \
                          ({} or {})",
                         root.display(),
                         crate::config_md::VC_CONFIG_MD,
                         VC_CONFIG_FILE
                     )
                 })?;
-                let bot = toml_simple::toml_get(&cfg.map, "repos.bot")
+                let bot = toml_simple::toml_get(&cfg.map, "repos.agent")
                     .filter(|v| !v.is_empty())
                     .ok_or(
-                        "--scope=bot: no bot repo configured. Add `bot = \"...\"` to the \
+                        "--scope=agent: no bot repo configured. Add `bot = \"...\"` to the \
                          [repos] registry to enable dual-repo operations",
                     )?;
                 repos.push(resolve_repo_path(root, bot));
@@ -879,7 +882,7 @@ pub fn configured_bot_dir(
 pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     bot_repo_path(workspace_root)?.ok_or_else(|| {
         format!(
-            "{}'s config declares no bot repo (`repos.bot`): \
+            "{}'s config declares no bot repo (`repos.agent`): \
              this operation requires a dual workspace",
             workspace_root.display()
         )
@@ -901,7 +904,7 @@ pub fn require_bot_dir(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::er
 ///   asymmetric by design, so agreement is checked on resolved
 ///   reality, not spelling).
 /// - **self-identification**: each config's own directory sits at
-///   its side's key (root's `work`, bot's `bot`): agreement
+///   its side's key (root's `work`, bot's `agent`): agreement
 ///   alone can't catch both sides naming the same wrong pair.
 ///
 /// Mid-flight surprises stay per-operation concerns, while this
@@ -910,7 +913,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     if !bot.is_dir() {
         return Err(format!(
             "workspace incoherent: {}/.vc-config.toml declares bot repo '{}', \
-             but that directory does not exist, fix the `bot` value or \
+             but that directory does not exist, fix the `agent` value or \
              restore the directory; nothing was changed",
             root.display(),
             bot.display()
@@ -983,7 +986,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
     let canon_bot = bot.canonicalize()?;
     if bot_pair.1 != canon_bot {
         return Err(format!(
-            "workspace incoherent: {}'s `repos.bot` resolves to \
+            "workspace incoherent: {}'s `repos.agent` resolves to \
              '{}', not to the bot repo itself: the bot side's own entry must \
              name its own directory; nothing was changed",
             bot_cfg.path.display(),
@@ -997,7 +1000,7 @@ fn verify_workspace_coherence(root: &Path, bot: &Path) -> Result<(), Box<dyn std
 /// Resolve and canonicalize one side's declared `[repos]` pair.
 ///
 /// The per-side half of the resolved-agreement check: reads
-/// `repos.work` / `repos.bot` from `cfg` (the config loaded at
+/// `repos.work` / `repos.agent` from `cfg` (the config loaded at
 /// `cfg_dir`), resolves each file-relative, and canonicalizes:
 /// a missing key or unresolvable directory is its own coherence
 /// error.
@@ -1027,7 +1030,7 @@ fn resolved_repos_pair(
                 .into()
             })
     };
-    Ok((resolve("repos.work")?, resolve("repos.bot")?))
+    Ok((resolve("repos.work")?, resolve("repos.agent")?))
 }
 
 /// Resolve `CommonArgs.repo` + `CommonArgs.scope` into concrete repo paths.
@@ -1047,7 +1050,7 @@ fn resolved_repos_pair(
 ///   (overrides `find_workspace_root`). This is the composing case:
 ///   e.g. `chid -R ../foo -s bot` queries `../foo/.claude`.
 ///
-/// `--scope` is keyword-only (`work|bot|work,bot|bot,work`), and
+/// `--scope` is keyword-only (`work|agent|work,agent|agent,work`), and
 /// path-based single-repo operation routes through `-R/--repo`.
 pub fn resolve_repos(
     repo: Option<&Path>,

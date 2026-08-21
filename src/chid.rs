@@ -1,9 +1,9 @@
 //! `chid` subcommand: print the short change ID of each commit in a
 //! revision range, one per line (script-friendly output).
 //!
-//! - `ChidArgs`: clap surface; flattens
+//! - `ChidArgs`: clap surface, and flattens
 //!   `options_flags::common_args::CommonArgs`.
-//! - `ChidParams`: clap-free; embeds `common::CommonParams`. Built
+//! - `ChidParams`: clap-free, and embeds `common::CommonParams`. Built
 //!   via `TryFrom<&ChidArgs>` at the binary edge.
 //! - `chid(&Context, &ChidParams)`: the op, `for_each_repo` + print
 //!   `format_chid`.
@@ -24,7 +24,7 @@ pub struct ChidArgs {
     pub common: CommonArgs,
 }
 
-/// Clap-free params for `chid`; embeds resolved `CommonParams`.
+/// Clap-free params for `chid`, and embeds resolved `CommonParams`.
 #[derive(Debug)]
 pub struct ChidParams {
     pub common: CommonParams,
@@ -34,7 +34,7 @@ impl TryFrom<&ChidArgs> for ChidParams {
     type Error = String;
 
     /// Resolve clap `ChidArgs` into `ChidParams` by delegating to
-    /// `CommonParams::try_from`; `chid` has no fields beyond
+    /// `CommonParams::try_from`. `chid` has no fields beyond
     /// `CommonArgs`.
     fn try_from(a: &ChidArgs) -> Result<Self, String> {
         Ok(ChidParams {
@@ -45,8 +45,8 @@ impl TryFrom<&ChidArgs> for ChidParams {
 
 /// Print the short change ID of each commit in the resolved range.
 ///
-/// `_ctx` is unused (chid has no user-config or `--log` consumer);
-/// it's present for the uniform subcommand-layer signature.
+/// `_ctx` is unused (chid has no user-config or `--log` consumer).
+/// It's present for the uniform subcommand-layer signature.
 pub fn chid(_ctx: &Context, params: &ChidParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("chid: enter");
     let c = &params.common;
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn with_scope_work_bot() {
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "chid", "-s", "work,bot"]);
+        let c = parse(&["vc-x1", "chid", "-s", "work,agent"]);
         assert_eq!(c.scope, Some(Scope(vec![Side::Work, Side::Bot])));
     }
 
@@ -139,14 +139,14 @@ mod tests {
         // `-R` and `-s` compose: the path is the workspace root, the
         // roles are resolved within it. Both fields parse cleanly.
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "chid", "-R", "../foo", "-s", "bot"]);
+        let c = parse(&["vc-x1", "chid", "-R", "../foo", "-s", "agent"]);
         assert_eq!(c.repo, Some(PathBuf::from("../foo")));
         assert_eq!(c.scope, Some(Scope(vec![Side::Bot])));
     }
 
     #[test]
     fn scope_path_rejected_with_hint() {
-        // Path-via-`-s` is a planned feature; today rejected with a
+        // Path-via-`-s` is a planned feature, but today rejected with a
         // hint pointing at `-R`/`--repo`.
         let err = crate::Cli::try_parse_from(["vc-x1", "chid", "-s", "./foo"])
             .unwrap_err()

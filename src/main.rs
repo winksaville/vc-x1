@@ -33,6 +33,7 @@ mod todo_helpers;
 mod toml_simple;
 mod transcript;
 mod url;
+mod validate;
 mod validate_bot;
 mod validate_desc;
 mod validate_todo;
@@ -178,15 +179,16 @@ pub(crate) enum Commands {
     /// Show commit details and diff summary
     Show(show::ShowArgs),
 
-    /// Display a bot session transcript as a conversation
+    /// Display an agent session transcript as a conversation
     #[command(
-        long_about = "Display a Claude Code bot session transcript (.jsonl) as a\n\
+        name = "agent-session",
+        long_about = "Display a Claude Code agent session transcript (.jsonl) as a\n\
         readable conversation.\n\n\
         Output is a set of items (headers, user, assistant, tool,\n\
         thinking, results, meta, summary) each toggled by --<item> /\n\
         --no-<item> (last one wins), with --all / --none as bulk bases.\n\
         The default set (headers, user, assistant, tool, summary) can\n\
-        be replaced by [bot-session].items in the user config\n\
+        be replaced by [agent-session].items in the user config\n\
         (comma-separated list); CLI flags then adjust the resolved\n\
         set. Malformed lines (e.g. a live session's truncated last\n\
         line) warn to stderr and never fail the run.\n\n\
@@ -197,10 +199,31 @@ pub(crate) enum Commands {
     )]
     BotSession(bot_session::BotSessionArgs),
 
-    /// Check the bot repo is published (main matches main@origin)
+    /// Rejected pre-0.80.0 name of `agent-session`: prints the fix-it
+    /// and exits non-zero, for any flags.
+    #[command(name = "bot-session", hide = true, disable_help_flag = true)]
+    BotSessionOld {
+        /// Swallowed so the fix-it shows for any invocation.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        rest: Vec<String>,
+    },
+
+    /// Run the workspace's configured validation commands
+    #[command(long_about = "Run the workspace's configured validation commands.\n\n\
+        Reads `[validate] full` (or `fast` with --fast) from the work\n\
+        side's config and runs each element as one command, in order,\n\
+        from the work repo root, printing each before it runs. The\n\
+        first failure stops the run, naming the command and its exit\n\
+        status, and the subcommand exits non-zero. An empty or missing\n\
+        table is an error, not a pass. See `vc-x1 config work` for the\n\
+        table's shape.")]
+    Validate(validate::ValidateArgs),
+
+    /// Check the agent repo is published (main matches main@origin)
     #[command(
-        long_about = "Check the bot repo is published (main matches main@origin).\n\n\
-        At rest the bot repo's `main` always matches `main@origin`: the\n\
+        name = "validate-agent",
+        long_about = "Check the agent repo is published (main matches main@origin).\n\n\
+        At rest the agent repo's `main` always matches `main@origin`: the\n\
         bookmark only moves inside a push / squash-push run, which\n\
         publishes it in the same invocation. A mismatch means an earlier\n\
         publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
@@ -209,6 +232,15 @@ pub(crate) enum Commands {
         `vc-x1 squash-push -R <bot-repo>`."
     )]
     ValidateBot(validate_bot::ValidateBotArgs),
+
+    /// Rejected pre-0.80.0 name of `validate-agent`: prints the fix-it
+    /// and exits non-zero, for any flags.
+    #[command(name = "validate-bot", hide = true, disable_help_flag = true)]
+    ValidateBotOld {
+        /// Swallowed so the fix-it shows for any invocation.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        rest: Vec<String>,
+    },
 
     /// Validate commit descriptions against the other repo
     #[command(
@@ -268,8 +300,8 @@ pub(crate) enum Commands {
     #[command(long_about = format!("Fetch and sync a set of repos to their remotes.\n\n\
         Repo set is resolved (in order):\n  \
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
-          - `--scope=work|bot|work,bot` dual-repo roles via `.vc-config.toml`\n  \
-          - neither             default: `work,bot` when dual, else `work`\n\n\
+          - `--scope=work|agent|work,agent` dual-repo roles via `.vc-config.toml`\n  \
+          - neither             default: `work,agent` when dual, else `work`\n\n\
         One atomic operation: fetch, then per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
@@ -351,10 +383,10 @@ pub(crate) enum Commands {
 /// Permanent sanity check for the `main`-bookmark tracking state
 /// in both repos of the dual-repo workspace. Emits one line on
 /// entry and one on exit of every command. If entry and exit
-/// differ, the executing command is the culprit; if entry differs
+/// differ, the executing command is the culprit. If entry differs
 /// from the previous command's exit, something *between*
 /// invocations broke it. Originally added in 0.37.2 as a temporary
-/// diagnostic; promoted to permanent in 0.37.4 after the user
+/// diagnostic. Promoted to permanent in 0.37.4 after the user
 /// reported "happens more than once".
 ///
 /// Emits at `log::debug!` (since 0.52.0-1): default runs stay
@@ -381,7 +413,7 @@ pub fn bm_track(phase: &str, command_name: &str) {
         let label = bot
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "bot".to_string());
+            .unwrap_or_else(|| "agent".to_string());
         repos.push((bot, label));
     }
     let mut parts: Vec<String> = Vec::new();
@@ -428,7 +460,7 @@ fn main() -> ExitCode {
     // Version output rides along with every run so any captured
     // output says which version produced it. Stream by who asked:
     // `-V`/`-VV` are explicit requests, so they go to stdout where
-    // a script capturing output collects them; unasked-for
+    // a script capturing output collects them. Unasked-for
     // provenance goes to stderr, keeping stdout parseable for the
     // commands that emit data there. The `version` subcommand
     // prints the report itself, so it skips all of this. Uniform
@@ -437,7 +469,7 @@ fn main() -> ExitCode {
     // binary's regardless of which subcommand it routes to.
     //
     // `eprintln!` rather than the logger because `CliLogger` puts
-    // info on stdout by level; the cost is that `--log` does not
+    // info on stdout by level. The cost is that `--log` does not
     // capture the ambient banner.
     let version_cmd = matches!(cli.command, Some(Commands::Version));
     if !version_cmd {
@@ -463,7 +495,7 @@ fn main() -> ExitCode {
 
     let Some(cmd) = cli.command else {
         // No subcommand. If `-V` was set the banner or report has
-        // already printed, so exit success; otherwise mirror
+        // already printed, so exit success. Otherwise mirror
         // clap's "a subcommand is required" error by printing
         // usage and exiting non-zero.
         if cli.version > 0 {
@@ -520,7 +552,22 @@ fn main() -> ExitCode {
         Commands::List(args) => args.dispatch(&mut ctx),
         Commands::Show(args) => args.dispatch(&mut ctx),
         Commands::BotSession(args) => args.dispatch(&mut ctx),
+        Commands::BotSessionOld { .. } => {
+            error!(
+                "bot-session: pre-0.80.0 name. The agent side is `agent`, so the \
+                 subcommand is `agent-session` (same flags)."
+            );
+            ExitCode::FAILURE
+        }
+        Commands::Validate(args) => args.dispatch(&mut ctx),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
+        Commands::ValidateBotOld { .. } => {
+            error!(
+                "validate-bot: pre-0.80.0 name. The agent side is `agent`, so the \
+                 subcommand is `validate-agent` (same flags)."
+            );
+            ExitCode::FAILURE
+        }
         Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
         Commands::ValidateTodo(args) => args.dispatch(&mut ctx),

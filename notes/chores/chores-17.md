@@ -12,16 +12,17 @@ at `[1]`.
 
 - [refactor: retire the remaining jj spawns](#refactor-retire-the-remaining-jj-spawns)
 - [docs: pin two rules and close the convergence record](#docs-pin-two-rules-and-close-the-convergence-record)
+- [docs: empty custom-family into the pinned set and config](#docs-empty-custom-family-into-the-pinned-set-and-config)
 
 ## refactor: retire the remaining jj spawns
 
-- [[N]] [refactor: retire the remaining jj spawns opening][1]
-- [[N]] [refactor: port push and facade reads to jj-lib][2]
-- [[N]] [refactor: port sync repositioning to jj-lib][3]
-- [[N]] [refactor: port op recovery and squash to jj-lib][4]
-- [[N]] [refactor: port init and clone plumbing to jj-lib][5]
-- [[N]] [chore: ban process spawning outside the version gate][6]
-- [[N]] [refactor: retire the remaining jj spawns closing][7]
+- [[9]] 0.79.0-0 [refactor: retire the remaining jj spawns opening][1]
+- [[10]] 0.79.0-1 [refactor: port push and facade reads to jj-lib][2]
+- [[11]] 0.79.0-2 [refactor: port sync repositioning to jj-lib][3]
+- [[12]] 0.79.0-3 [refactor: port op recovery and squash to jj-lib][4]
+- [[13]] 0.79.0-4 [refactor: port init and clone plumbing to jj-lib][5]
+- [[14]] 0.79.0-5 [chore: ban process spawning outside the version gate][6]
+- [[15]] 0.79.0 [refactor: retire the remaining jj spawns closing][7]
 
 ### Problem
 
@@ -253,7 +254,7 @@ Gotchas, problem/solution form:
 
 ## docs: pin two rules and close the convergence record
 
-- [[N]] [docs: pin two rules and close the convergence record][8]
+- [[16]] 0.79.1 [docs: pin two rules and close the convergence record][8]
 
 A single-step cycle, so the one commit is the close-out. The cycle's own work is an
 agent-file change, which is why it runs alone rather than as a rung of a feature cycle.
@@ -332,6 +333,242 @@ The whole cycle in one commit. Gotchas:
 
 # References
 
+## docs: empty custom-family into the pinned set and config
+
+- [[N]] [docs: empty custom-family into the pinned set and config opening][17]
+- [[N]] [feat: agent naming in config and CLI][18]
+- [[N]] [feat: add the family and validate tables to the schema][19]
+- [[N]] [feat: add the validate subcommand][20]
+- [[N]] [docs: pin messaging into agent-data][21]
+- [[N]] [docs: retire custom-family.md][22]
+- [[N]] [feat: rename validate-bot to validate-agent][24]
+- [[N]] [docs: empty custom-family into the pinned set and config closing][23]
+
+### Problem
+Both members' custom* files hold family infrastructure (the messaging behavior, the member
+identity and sibling-repo paths, the validation commands) that lives there only because the
+pinned set and the config schema had no home for it. While it sits there the agent-files
+cannot converge byte-for-byte, every pinned checklist has to say "the commands are in
+custom.md" instead of naming one command, and a session that skips the project layer misses
+binding family behavior. The entry was raised 2026-08-16 (wink + bot) as the 0816-proposal,
+to be implemented here first and proposed to iiac-perf as a working result.
+
+### Solution
+Each kind of content went to its proper home and `custom-family.md` is gone:
+
+- the agent naming landed first (`repos.agent`, `[agent-session]`, `--scope=agent`, the
+  `agent-session` subcommand), pulled forward from the "Finish the vc-config surface" Todo so
+  the two new tables were born under the new vocabulary. Old spellings are rejected with
+  fix-its, never aliased
+- the family facts are a work-side `[family]` table (member, template, messages), and the
+  validation commands a work-side `[validate]` table of `str-list` keys, a new kind the TOML
+  reader learned arrays for
+- `vc-x1 validate [--fast]` runs the chosen table, one invocation per element, stopping at
+  the first failure, so the pinned checklists name one command for every medium. Its spawn is
+  clippy.toml's allowlist entry 5, the list's one reopening
+- `agent-data/messaging.md` pins the acquaint check and request-becomes-entry thinly, the
+  messages repo's README staying the protocol authority and the paths read from `[family]`
+- `custom.md` holds the medium prose (the version-bump promise, the single-name convention)
+  in a `## Medium` section and nothing in its conventions section, and AGENTS.md states what
+  the experimental-rules section resolved to: adopted-ahead rules live in the pinned file as
+  the diff, never in a holding section
+
+Outside this cycle, as planned: the payload update (backlog "Update the template payload, and
+empty the three-way diff") and the reply to iiac-perf, which needs the landed SHA. The
+install-then-respell order matters for both, since a 0.79.x binary reads a respelled config as
+single-repo with six unknown keys, silently, while a 0.80.0 binary rejects the old spelling
+loudly.
+
+### Acceptance check
+1. `diff` of every pinned file (`AGENTS.md`, `agent-data/*`) against the template payload is
+   empty except for this cycle's own proposals, each of which the chores section names.
+2. `custom.md` differs from the payload only inside its medium section, and
+   `custom-family.md` does not exist.
+3. `vc-x1 validate` runs the full table and `vc-x1 validate --fast` the fast one, each
+   command a separate invocation whose exit status is checked, demonstrated once with a
+   failing command in the table.
+4. `vc-x1 config --validate` is clean on both sides with the new tables present.
+5. The old spellings (`repos.bot`, `[bot-session]`, `--scope=bot`) are rejected, each
+   rejection printing its fix-it, shown by a test, with values and the `/.claude/` ochid label
+   unchanged.
+
+Run at close-out (2026-08-21):
+
+1. Passes, read against the payload's actual state. The diff holds this cycle's proposals
+   (AGENTS.md: rule 0 and the project-layer section no longer list validation commands, the
+   `messaging.md` file-map entry, the adopted-ahead rule, the new `agent-data/messaging.md`,
+   and the checklists' and protocol's validation steps naming `vc-x1 validate`) and, beside
+   them, the previous cycle's still-open proposals (the `(done)` flip timing, comments-are-prose,
+   convert-on-touch), since the payload has not been updated since 0.79.1. Nothing else.
+2. Fails as literally worded, for a reason the check did not anticipate: the payload's
+   `custom.md` is an older shape (a medium section with the commands inline and a
+   mailbox-parameters line), so `custom.md` differs from it in its header text and its
+   sections, not only inside the medium section. `custom-family.md` does not exist. The
+   payload update owns the fix, and the check's intent (custom.md carries only the medium
+   prose and an empty conventions section) holds.
+3. Passes. The full table ran at every rung from rung 4 on, the fast table at the close-out,
+   and `["true", "false", "touch never"]` stops at 2/3 with `false` at exit 1, `never` not
+   created, exit status 1.
+4. Passes: `config: all checks passed` on both sides with `[family]` and `[validate]`
+   present on the work side.
+5. Passes: `old_agent_spellings_rejected_with_fixit`, `parse_scope_rejects_old_bot_keywords`,
+   `parse_target_rejects_old_bot_keywords`, and `cli_bot_session_old_name_rejected`, with
+   `repos.agent = ".claude"` and the `/.claude/` label unchanged.
+
+### Deliberation
+Multi-step: two feature rungs and two docs rungs, each reviewable alone, with the acceptance
+check meaningful only once all four land. The one design fork was where the machine facts go.
+The entry proposed a user-level `~/.config/vc-x1/settings.{md|toml}`, and the backlog's
+"Drop the global config" entry wants the user tier gone. Decided (wink, 2026-08-21): no user
+tier. The facts are sibling paths relative to the workspace, the same species as
+`repos.bot = ".claude"`, and identity and credentials already live in jj's and git's own
+config, so vc-x1 holding a third copy of either is the wrong shape. The same conversation
+settled that `init` takes a URL or a path only: a bare name has no host-neutral meaning, and
+delegating it to `gh` would make the convenience GitHub-only. That decision is recorded on
+the "Drop the global config" entry, where it is acted on.
+
+Inserted 2026-08-21 (wink): the agent-naming rung, ahead of the schema-tables rung. The
+naming change was laddered as the first rung of "Finish the vc-config surface", but adding
+`[family]` and `[validate]` under the old vocabulary would have had the later rename respell
+them, so the rung moves here and that Todo shrinks to four rungs. Sized at one ordinary
+feature rung: the schema is generated from `vc-config.md` at build time, so a missed site
+fails the build or a test rather than passing silently. It is a breaking schema change for
+the family's repos, called out in the commit and in the reply to iiac-perf.
+
+Version: minor (0.80.0), since a subcommand is added, the config schema gains two tables, and
+the agent-naming rung respells three keys.
+
+### Ladder details
+
+#### docs: empty custom-family into the pinned set and config opening
+The block above, the chores-17 as-built backfill for the jj-spawns cycle (missed at the
+previous close-out) and the pinning cycle, bugs.md #10 (init rejects a pre-created GitHub
+repo) and #11 (init cannot publish to gitlab.com), and the "Drop the global
+config" entry's decision notes, including the measured gitlab.com push-to-create refusal.
+
+#### feat: agent naming in config and CLI
+The agent side is `agent` everywhere a user types or reads it: the keys `repos.agent` and
+`[agent-session].*`, the home `workspace-agent`, `--scope=agent` (and `work,agent` /
+`agent,work`, the `config` target keywords included), and the `agent-session` subcommand. The
+old spellings are rejected, never aliased: `legacy_vc_config::reject_old_agent_keys` runs
+beside the legacy-schema rejection in every resolver and lists each old key found with its
+replacement (one edit clears them all), `parse_scope` names the respelled keyword, and a hidden
+`bot-session` subcommand prints the fix-it for any flags. Rust identifiers (`Side::Bot`,
+`bot_session`, `Home::WorkspaceBot`) keep their names: the rung is vocabulary, and an identifier
+sweep is a refactor of its own. Values untouched: `repos.agent = ".claude"` and the `/.claude/`
+ochid label (test-pinned). Both sides' `.vc-config.md`, `vc-config.md`'s key docs, and README's
+CLI examples are respelled (README's stale init-layout block updated to the md carrier in
+passing). README's "bot repo" prose and the pinned files stay as written: the concept's name is
+the pinned vocabulary's, a convention cycle's to change. Gotcha: the schema's generated
+constants are named from the key path, so `BOT_SESSION_*_DEFAULT` became
+`AGENT_SESSION_*_DEFAULT` on the rename, and the build pointed at every consumer.
+Also in this rung: `config`'s per-side header reads `agent:` (wink spotted the old label
+while reviewing, and that review raised the print-once Todo), and the touched source files'
+comment semicolons were converted per code.md, a delegated mechanical pass.
+
+#### feat: add the family and validate tables to the schema
+The config schema had no place for the family facts (member name, template and messages paths)
+or the validation commands, so they lived in `custom-family.md` prose, and the schema could
+not hold a list of commands at all: its only list kind is a comma-separated string, and a
+command line has commas and spaces of its own.
+
+- five keys in `vc-config.md`: `family.member`, `family.template`, `family.messages` (strings)
+  and `validate.full`, `validate.fast` (command lists), work side only
+- a new `str-list` kind: a TOML array of strings, one element per command
+- the TOML reader learns arrays, on one line or spread over several, and `toml_get_list`
+  splits one into its elements, naming the key when the value is not a proper array
+- `config --validate` accepts the keys on the work side, reports them unknown on the agent
+  side, and checks that a command list is really a list
+- the work side's `.vc-config.md` carries both tables with this repo's real values
+- gotcha: `build.rs` expected quoted-string examples, so an array example is kept as its raw
+  text and rendered as written
+
+#### feat: add the validate subcommand
+The checklists could only say "the commands are in custom.md", and a session had to read prose
+and type each one, so the validation step depended on the reader and the commands had no
+runner that checked every exit status the same way.
+
+- `vc-x1 validate [--fast] [-R DIR]` reads `validate.full` (or `fast`) from the work side's
+  config and runs each element as one command, in order, from the work repo root, printing
+  each before it runs
+- the first failure stops the run, naming the command, its exit status, and where in the
+  table it stopped, and the subcommand exits non-zero (demonstrated: `["true", "false",
+  "touch never"]` stops at 2/3 with `false` at exit 1, and `never` is not created)
+- an empty or missing table is an error naming the key, since nothing to run is not a pass
+- elements split on whitespace into a program and its arguments, no shell in between, so the
+  status the run sees is the command's own
+- the spawn needed an allowlist entry: clippy.toml's list was closed (wink, 2026-08-19), and
+  this cycle's agreed plan opens it once, as entry 5, for the subcommand whose whole job is
+  running the configured commands. Flagged at the rung, for the review of the delegation
+- from this rung on, the per-commit validation is `vc-x1-dev validate` (the release `vc-x1`
+  cannot read this workspace's 0.80.0 config), and the checklists are respelled at the next
+  rung
+
+#### docs: pin messaging into agent-data
+The acquaint check and the request-becomes-entry rule were family policy parked in
+`custom-family.md`, which a session that skipped the project layer never read, and the pinned
+checklists could only point at custom.md for the validation commands.
+
+- `agent-data/messaging.md`, thin: the repo and record come from `[family]`, the acquaint
+  check reads the record file by its fields, a request becomes an entry and the reply cites
+  it, and the messages repo's README stays the protocol authority on everything it covers
+- AGENTS.md's file map gains it, read at acquaint when the work side's config has a
+  `[family]` table, and rule 0 and the project-layer section stop listing "validation
+  commands" among what custom.md holds
+- the per-commit and ladder checklists, and the protocol's per-commit flow, name
+  `vc-x1 validate` and `vc-x1 validate --fast` in place of "the commands are in custom.md",
+  the protocol keeping the cargo cycle as its Rust example in one parenthesis
+- all four pinned files swept to zero semicolons, as the agent-files are
+
+#### docs: retire custom-family.md
+With the facts in `[family]`, the commands in `[validate]`, and the messaging behavior pinned,
+the file held only the medium prose and a section pattern, and its existence kept `custom.md`
+one pointer line away from the payload's shape.
+
+- `custom.md` gains a `## Medium` section with the artifact, the version-bump promise, and the
+  single-name convention, and says where the validation commands went. Its conventions section
+  is `_None._`, and the dogfood-log pointer moves in as its own section
+- the experimental-rules section pattern lands in AGENTS.md's Changing the agent-files as the
+  rule it resolved to: an adopted-ahead rule lives in the pinned file it belongs to, as the
+  diff, never in a holding section, since the holding section hid rules from review and from
+  sessions that skipped the layer (the measured failure, kept project-neutral in the pinned
+  text)
+- `custom-family.md` deleted, its pointer line gone. Backlog entry "`[private]` config
+  table" deleted as superseded: the facts moved into a typed, validated `[family]` table,
+  which is better than an opaque one. The backlog renumbered (`fix-todo`), and TODO.md's one
+  numeric citation past it (`backlog #53` -> `#52`) followed
+- the payload's `custom.md` still predates this shape (it carries a medium section with the
+  commands inline and a mailbox-parameters line), which the backlog's "Update the template
+  payload" entry takes, with the acceptance check's diff read against that
+
+#### feat: rename validate-bot to validate-agent
+Inserted at the close-out review (wink, 2026-08-21): the agent-naming rung had left
+`validate-bot` as the one subcommand still naming the side by the old word, and the close-out's
+README pass put it in front of the reviewer. `validate-agent` is the name, same flags, and
+`validate-bot` is a hidden name printing the fix-it for any flags, as `bot-session` does. A
+code change, so it is its own rung ahead of the close-out rather than a line in it, and the
+rebase of the prepared close-out over it conflicted on the version, the lock, and the README,
+resolved by hand.
+
+#### docs: empty custom-family into the pinned set and config closing
+Problem: rungs 4 to 6 and the close-out ran under a scoped delegation (wink, 2026-08-21:
+describe and push each rung without approval, prepare the close-out but do not describe or
+push it), so the per-rung review stops were waived. Solution: every other part of the flow ran
+as usual (records, validation, the bookmark), the one judgment the delegation did not
+anticipate (reopening clippy.toml's closed allowlist for the validate spawn) is flagged in its
+rung and here, and the close-out's own review is the user's.
+
+Problem: the rung-2 description was written before the user had accepted the work, because
+the bot followed the squash-form "Ladder (sub-cycle)" checklist in a multi-commit cycle, the
+word "ladder" naming both. Solution: caught at review, pushed under the multi-commit flow, and
+Todo "Simplify and combine the cycle-* agent-files into AGENTS.md" records the cause and the
+fix.
+
+Problem: the release `vc-x1` (0.79.1) cannot drive this workspace once its config is
+respelled, so every push in the cycle was `vc-x1-dev push`. Solution: the single-name
+convention working as intended on a long-lived branch, over once this lands and `main`
+installs as `vc-x1`.
+
 [1]: #refactor-retire-the-remaining-jj-spawns-opening
 [2]: #refactor-port-push-and-facade-reads-to-jj-lib
 [3]: #refactor-port-sync-repositioning-to-jj-lib
@@ -340,3 +577,19 @@ The whole cycle in one commit. Gotchas:
 [6]: #chore-ban-process-spawning-outside-the-version-gate
 [7]: #refactor-retire-the-remaining-jj-spawns-closing
 [8]: #docs-pin-two-rules-and-close-the-convergence-record
+[17]: #docs-empty-custom-family-into-the-pinned-set-and-config-opening
+[18]: #feat-agent-naming-in-config-and-cli
+[19]: #feat-add-the-family-and-validate-tables-to-the-schema
+[20]: #feat-add-the-validate-subcommand
+[21]: #docs-pin-messaging-into-agent-data
+[22]: #docs-retire-custom-familymd
+[23]: #docs-empty-custom-family-into-the-pinned-set-and-config-closing
+[24]: #feat-rename-validate-bot-to-validate-agent
+[9]: https://github.com/winksaville/vc-x1/commit/966214308f42 "966214308f42ed19aadc4c6c10a52e774379e71c"
+[10]: https://github.com/winksaville/vc-x1/commit/4ec329664e1a "4ec329664e1aa348bdf65e955c4b5d0feba71c11"
+[11]: https://github.com/winksaville/vc-x1/commit/3fc19a038602 "3fc19a0386027b016350b58962910acb5e88589c"
+[12]: https://github.com/winksaville/vc-x1/commit/a3c0012c8f23 "a3c0012c8f23f28f4cb53639de655bf589127fc3"
+[13]: https://github.com/winksaville/vc-x1/commit/47590a565aab "47590a565aab877028cd24aa28b301a75f1eb7ee"
+[14]: https://github.com/winksaville/vc-x1/commit/fdbffa928c4e "fdbffa928c4eee0144c648f38e4bb1f891b7a33e"
+[15]: https://github.com/winksaville/vc-x1/commit/e28cbd6b4983 "e28cbd6b498385104240ee423996f739618824b5"
+[16]: https://github.com/winksaville/vc-x1/commit/92c398a91f8b "92c398a91f8b70e8962161f848926a8c7c6573f7"

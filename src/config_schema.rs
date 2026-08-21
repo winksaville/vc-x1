@@ -9,7 +9,7 @@
 //!   against it (dynamic-segment aware).
 //! - `crate::init` derives init's commented defaults from
 //!   `schema()`, so these surfaces cannot drift from this list.
-//! - Behavioral defaults (e.g. `bot-session --col-width`) consume
+//! - Behavioral defaults (e.g. `agent-session --col-width`) consume
 //!   the generated constants rather than hand-kept copies.
 
 /// Which config home a key belongs to.
@@ -29,13 +29,17 @@ pub enum Home {
 pub enum ValueKind {
     Str,
     Usize,
+    /// A comma-separated list inside one string.
     ItemList,
+    /// A TOML array of strings, one element per item (the
+    /// `[validate]` command lists, each element one invocation).
+    StrList,
 }
 
 /// One settable configuration key.
 pub struct ConfigKey {
     /// The config key (TOML table and key joined by `.`), e.g.
-    /// `"bot-session.col-width"`.
+    /// `"agent-session.col-width"`.
     pub path: &'static str,
     /// Which home(s) accept this key.
     pub homes: &'static [Home],
@@ -43,7 +47,7 @@ pub struct ConfigKey {
     pub kind: ValueKind,
     /// Rendered default, `None` if there is no default.
     pub default: Option<&'static str>,
-    /// Active (not commented) in init; the value is role-specific.
+    /// Active (not commented) in init. The value is role-specific.
     pub required: bool,
     /// The path has a `<placeholder>` segment matching a family
     /// of keys (e.g. `repo.category.<cat>`).
@@ -51,10 +55,10 @@ pub struct ConfigKey {
     /// One-line description.
     pub doc: &'static str,
     /// The command/flag or structural context this key is
-    /// associated with (e.g. `"bot-session --col-width"`).
+    /// associated with (e.g. `"agent-session --col-width"`).
     pub used_by: &'static str,
-    /// A representative example value for keys with no default;
-    /// rendered on the assignment line, marked `# example`,
+    /// A representative example value for keys with no default,
+    /// and rendered on the assignment line, marked `# example`,
     /// instead of a bare placeholder. `None` when the key has a
     /// real default (the default serves as the example).
     pub example: Option<&'static str>,
@@ -89,6 +93,7 @@ fn format_value(kind: ValueKind, raw: &str) -> String {
     match kind {
         ValueKind::Usize => raw.to_string(),
         ValueKind::Str | ValueKind::ItemList => format!("{raw:?}"),
+        ValueKind::StrList => raw.to_string(),
     }
 }
 
@@ -107,6 +112,7 @@ pub fn render_value(key: &ConfigKey) -> String {
                     ValueKind::Str => "<str>".to_string(),
                     ValueKind::Usize => "<usize>".to_string(),
                     ValueKind::ItemList => "<items>".to_string(),
+                    ValueKind::StrList => "<list>".to_string(),
                 }
             }
         }
@@ -122,7 +128,7 @@ fn render_default_note(key: &ConfigKey) -> String {
         Some(d) => format_value(key.kind, d),
         None => {
             if key.required {
-                "(required; role-specific, see init)".to_string()
+                "(required, role-specific, see init)".to_string()
             } else {
                 "(none)".to_string()
             }
@@ -230,16 +236,16 @@ mod tests {
     #[test]
     fn generated_consts_match_table() {
         assert_eq!(
-            find("bot-session.col-width").default,
-            Some(BOT_SESSION_COL_WIDTH_DEFAULT.to_string()).as_deref()
+            find("agent-session.col-width").default,
+            Some(AGENT_SESSION_COL_WIDTH_DEFAULT.to_string()).as_deref()
         );
         assert_eq!(
-            find("bot-session.result-lines").default,
-            Some(BOT_SESSION_RESULT_LINES_DEFAULT.to_string()).as_deref()
+            find("agent-session.result-lines").default,
+            Some(AGENT_SESSION_RESULT_LINES_DEFAULT.to_string()).as_deref()
         );
         assert_eq!(
-            find("bot-session.items").default,
-            Some(BOT_SESSION_ITEMS_DEFAULT)
+            find("agent-session.items").default,
+            Some(AGENT_SESSION_ITEMS_DEFAULT)
         );
     }
 
@@ -324,6 +330,33 @@ mod tests {
                 key.default.is_some() || key.example.is_some(),
                 "{}: has neither a default nor an example",
                 key.path
+            );
+        }
+    }
+
+    /// The family and validate tables are work-side only, the
+    /// command lists typed `str-list` with array examples.
+    #[test]
+    fn family_and_validate_tables() {
+        let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
+        for p in ["family.member", "family.template", "family.messages"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+        }
+        for p in ["validate.full", "validate.fast"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
+            let ex = k.example.expect("example");
+            assert!(
+                ex.starts_with('[') && ex.ends_with(']'),
+                "{p} example: {ex}"
+            );
+            assert_eq!(
+                format_value(k.kind, ex),
+                ex,
+                "{p} renders its array verbatim"
             );
         }
     }

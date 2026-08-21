@@ -273,4 +273,30 @@ insert / delete / reorder.
      at `## Todo`'s **Tiered exit status for `config --validate`** (#5), which becomes a
      rendering of it rather than new work.
 
+10. **`init` rejects a pre-created GitHub repo that every other host requires.** Preflight
+    on a `github.com` URL errors with "GitHub repo '<slug>' already exists" (wink,
+    2026-08-21, `vc-x1 init https://github.com/winksaville/t4-vc-x1` against an empty repo
+    created moments before), while a non-GitHub URL takes the `ExternalPreExisting` path
+    and can only work if both remotes were pre-created. So the rule a user learns is
+    "pre-create, unless GitHub, where you must not".
+    - **Cost:** a user who pre-creates on GitHub, the habit every other host trains, is
+      stopped at preflight with no hint that deleting the empty repo is the way through.
+    - **Fix direction:** test emptiness rather than existence. Missing: provision as today.
+      Existing and empty (`gh repo view <slug> --json isEmpty`): skip the create step and
+      push into it, the same as the non-GitHub path. Existing with commits: keep the error,
+      saying "has commits" so it reads as protection. Check both slugs, since `<name>` and
+      `<name>.claude` can differ. Rides the "Drop the global config and the account notion"
+      Todo entry, which reshapes init's remote surface.
+
+
 # References
+
+11. **`init` cannot publish to gitlab.com: both repos are created locally, then nothing is
+    pushed.** With a gitlab.com URL (wink, 2026-08-21, `t1-vc-x1`) init built and committed
+    both sides, then the push failed: GitLab does not create a project on push, so the
+    remote was "not found" and the local tree was left behind for the user to delete.
+    - **Cost:** no GitLab support in practice, and the leftover directory makes a rerun stop
+      at preflight with "already exists".
+    - **Fix direction:** provision the two projects before pushing, through the GitLab API or
+      its CLI (`glab repo create`), as a gitlab.com arm beside the `gh` one. Rides the "Drop
+      the global config and the account notion" Todo entry with #10.

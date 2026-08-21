@@ -1,4 +1,4 @@
-//! The `bot-session` subcommand: display a Claude Code session
+//! The `agent-session` subcommand: display a Claude Code session
 //! transcript (`.jsonl`) as a readable conversation.
 //!
 //! Output is a set of *items* (headers, user, assistant, tool,
@@ -6,7 +6,7 @@
 //! `--no-<item>` flags (last one wins), with `--all` / `--none` as
 //! bulk bases. The default set (headers, user, assistant, tool,
 //! summary) can be replaced by the user config's
-//! `[bot-session].items` list; CLI flags then adjust the resolved
+//! `[agent-session].items` list. CLI flags then adjust the resolved
 //! set. Bookkeeping entry types are never rendered.
 //! A trailing summary line always reports what was hidden or
 //! skipped. Malformed lines (e.g. a live session's truncated
@@ -26,15 +26,15 @@ use crate::transcript::{self, ContentBlock, EntryKind, FileTranscript};
 /// come from the generated schema (the `vc-config.toml`
 /// prototype), so the flags, the config keys, and the printed
 /// schema share one source. The 68 rationale lives as a comment
-/// on the prototype's `[bot-session.col-width]` entry.
+/// on the prototype's `[agent-session.col-width]` entry.
 pub(crate) use crate::config_schema::{
-    BOT_SESSION_COL_WIDTH_DEFAULT, BOT_SESSION_RESULT_LINES_DEFAULT,
+    AGENT_SESSION_COL_WIDTH_DEFAULT, AGENT_SESSION_RESULT_LINES_DEFAULT,
 };
 
 /// Max chars of a tool-use one-liner gist.
 const GIST_CHAR_CAP: usize = 100;
 
-/// Clap-derived args for `bot-session`.
+/// Clap-derived args for `agent-session`.
 #[derive(Args, Debug)]
 pub struct BotSessionArgs {
     /// Session transcript .jsonl file to display
@@ -194,7 +194,7 @@ pub struct BotSessionArgs {
     ///   I,C  : C lines starting at Index I
     ///   I,-C : C lines ending at Index I
     /// The conversation view renders the entries in the slice,
-    /// with elision markers at cut points; the summary always
+    /// with elision markers at cut points. The summary always
     /// prints.
     #[arg(
         long,
@@ -206,13 +206,13 @@ pub struct BotSessionArgs {
     pub lines: Option<String>,
 
     /// Max lines shown per tool result (0 = unlimited)
-    /// [default: 10; or [bot-session].result-lines]
+    /// [default: 10, or [agent-session].result-lines]
     #[arg(long, value_name = "N", help_heading = "Output range")]
     pub result_lines: Option<usize>,
 
     /// First column width in the --fields / --unknown /
-    /// --per-line views; longer field names overflow
-    /// [default: 68; or [bot-session].col-width]
+    /// --per-line views. Longer field names overflow
+    /// [default: 68, or [agent-session].col-width]
     #[arg(long, value_name = "N", help_heading = "Alternate views")]
     pub col_width: Option<usize>,
 
@@ -243,7 +243,7 @@ pub struct BotSessionArgs {
 pub enum View {
     /// The default conversation rendering.
     Conversation,
-    /// Field inventory; `unknown_only` filters to unmodeled paths,
+    /// Field inventory. `unknown_only` filters to unmodeled paths,
     /// `per_line` lists each source line separately.
     Fields {
         /// Show only paths not consumed by the typed layer.
@@ -350,7 +350,7 @@ pub struct ItemToggles {
     pub summary: Option<bool>,
 }
 
-/// Inputs to the bot-session op, flat, owned, clap-free.
+/// Inputs to the agent-session op, flat, owned, clap-free.
 pub struct BotSessionParams {
     /// Transcript file to display.
     pub file: PathBuf,
@@ -358,11 +358,11 @@ pub struct BotSessionParams {
     pub toggles: ItemToggles,
     /// Optional `--lines` slice of the rendered output.
     pub lines: Option<LinesSpec>,
-    /// Max lines per tool result (0 = unlimited); `None` when
+    /// Max lines per tool result (0 = unlimited). `None` when
     /// `--result-lines` was not given (resolved against config in
     /// the op).
     pub result_lines: Option<usize>,
-    /// First-column width in the field-inventory views; `None`
+    /// First-column width in the field-inventory views. `None`
     /// when `--col-width` was not given (resolved against config
     /// in the op).
     pub col_width: Option<usize>,
@@ -383,7 +383,7 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
     type Error = String;
 
     /// Convert clap-derived `BotSessionArgs` into the flat
-    /// `BotSessionParams`; fails on a malformed `--lines` spec.
+    /// `BotSessionParams`, and fails on a malformed `--lines` spec.
     fn try_from(a: &BotSessionArgs) -> Result<Self, String> {
         let lines = match &a.lines {
             Some(s) => Some(parse_lines_spec(s)?),
@@ -434,7 +434,7 @@ impl SubcommandRunner for BotSessionArgs {
     }
 }
 
-/// Run the `bot-session` subcommand: parse the transcript and
+/// Run the `agent-session` subcommand: parse the transcript and
 /// print the conversation view plus the trailing summary line.
 ///
 /// The item set, `--result-lines`, and `--col-width` all resolve
@@ -445,18 +445,18 @@ pub fn bot_session(
     ctx: &Context,
     params: &BotSessionParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("bot-session: enter");
+    debug!("agent-session: enter");
     let ws = workspace_bot_session()?;
     let col_width = params
         .col_width
         .or(ws.col_width)
         .or(ctx.user_config.bot_session_col_width)
-        .unwrap_or(BOT_SESSION_COL_WIDTH_DEFAULT);
+        .unwrap_or(AGENT_SESSION_COL_WIDTH_DEFAULT);
     let result_lines = params
         .result_lines
         .or(ws.result_lines)
         .or(ctx.user_config.bot_session_result_lines)
-        .unwrap_or(BOT_SESSION_RESULT_LINES_DEFAULT);
+        .unwrap_or(AGENT_SESSION_RESULT_LINES_DEFAULT);
     match params.view {
         View::Raw => return raw_view(params),
         View::Fields {
@@ -478,7 +478,7 @@ pub fn bot_session(
     let t = transcript::parse_str(&text);
     for (line_no, err) in &t.malformed {
         if *line_no > start && *line_no <= end {
-            warn!("bot-session: line {line_no}: {err}");
+            warn!("agent-session: line {line_no}: {err}");
         }
     }
     let (lines, stats) = render(&t, &items, result_lines, start, end, total);
@@ -497,7 +497,7 @@ pub fn bot_session(
             summary_line(&stats, malformed, range.map(|(s, e)| (e - s, total)))
         );
     }
-    debug!("bot-session: exit");
+    debug!("agent-session: exit");
     Ok(())
 }
 
@@ -505,7 +505,7 @@ pub fn bot_session(
 ///
 /// - `--lines` selects *source JSONL lines* (1-based file lines
 ///   map to 0-based Index), matching what jq/editors see.
-/// - Parseable lines pretty-print; anything else (malformed,
+/// - Parseable lines pretty-print, and anything else (malformed,
 ///   truncated) passes through verbatim.
 /// - No summary, no elision markers: the output is the data.
 fn raw_view(params: &BotSessionParams) -> Result<(), Box<dyn std::error::Error>> {
@@ -547,7 +547,7 @@ const SAMPLE_CAP: usize = 3;
 const SAMPLE_CHAR_CAP: usize = 36;
 
 /// Render the `--fields` inventory: every field per entry type
-/// with count, value kinds, and samples; `unknown_only` filters
+/// with count, value kinds, and samples. `unknown_only` filters
 /// to fields the typed layer does not consume.
 fn fields_view(
     params: &BotSessionParams,
@@ -567,7 +567,7 @@ fn fields_view(
     let t = transcript::parse_str(&text);
     for (line_no, err) in &t.malformed {
         if in_range(*line_no) {
-            warn!("bot-session: line {line_no}: {err}");
+            warn!("agent-session: line {line_no}: {err}");
         }
     }
     if per_line {
@@ -648,14 +648,14 @@ fn fields_view(
             end - start
         ));
     }
-    info!("bot-session: {paths} {label} across {selected} entries; {tail}");
+    info!("agent-session: {paths} {label} across {selected} entries; {tail}");
     Ok(())
 }
 
 /// List each selected source line's fields as its own section
 /// (`--per-line`): `=== Index N: <type> [time] ===` then one row
 /// per leaf path. Malformed lines appear in place with their
-/// error; the trailing summary matches the aggregated view.
+/// error. The trailing summary matches the aggregated view.
 fn per_line_view(
     t: &FileTranscript,
     unknown_only: bool,
@@ -734,7 +734,7 @@ fn per_line_view(
             end - start
         ));
     }
-    info!("bot-session: {paths} {label} across {entries} entries; {tail}");
+    info!("agent-session: {paths} {label} across {entries} entries; {tail}");
     Ok(())
 }
 
@@ -750,7 +750,7 @@ fn kind_name(v: &Value) -> &'static str {
     }
 }
 
-/// A short display sample of a leaf value; None for empty
+/// A short display sample of a leaf value. None for empty
 /// containers (nothing informative to show).
 fn sample_value(v: &Value) -> Option<String> {
     match v {
@@ -762,16 +762,16 @@ fn sample_value(v: &Value) -> Option<String> {
     }
 }
 
-/// The `[bot-session]` scalars read from the workspace's instance
+/// The `[agent-session]` scalars read from the workspace's instance
 /// config, unresolved (CLI/user-config layering happens in
 /// `bot_session`).
 #[derive(Debug, Default)]
 struct WorkspaceBotSession {
-    /// `[bot-session].items`.
+    /// `[agent-session].items`.
     items: Option<String>,
-    /// `[bot-session].result-lines`.
+    /// `[agent-session].result-lines`.
     result_lines: Option<usize>,
-    /// `[bot-session].col-width`.
+    /// `[agent-session].col-width`.
     col_width: Option<usize>,
 }
 
@@ -784,7 +784,7 @@ fn workspace_bot_session() -> Result<WorkspaceBotSession, Box<dyn std::error::Er
     }
 }
 
-/// Read `[bot-session]` from `root`'s instance config, whichever
+/// Read `[agent-session]` from `root`'s instance config, whichever
 /// carrier holds it.
 ///
 /// - No config file, or no key -> all fields `None`.
@@ -808,16 +808,19 @@ fn bot_session_at(root: &Path) -> Result<WorkspaceBotSession, Box<dyn std::error
         }
     };
     Ok(WorkspaceBotSession {
-        items: get("bot-session.items").cloned(),
-        result_lines: parse_usize("bot-session.result-lines")?,
-        col_width: parse_usize("bot-session.col-width")?,
+        items: get("agent-session.items").cloned(),
+        result_lines: parse_usize("agent-session.result-lines")?,
+        col_width: parse_usize("agent-session.col-width")?,
     })
 }
 
 /// Resolve the effective item set from toggles + config.
 ///
-/// - Base: `--all` -> `ALL`; `--none` -> `NONE`; else the config
-///   list when present; else `BUILTIN`.
+/// - Base:
+///   - `--all` -> `ALL`
+///   - `--none` -> `NONE`
+///   - else the config list when present
+///   - else `BUILTIN`
 /// - Each per-item toggle then overrides its field.
 fn resolve_items(t: &ItemToggles, config: Option<&str>) -> Result<ItemSet, String> {
     let mut s = if t.all {
@@ -857,7 +860,7 @@ fn resolve_items(t: &ItemToggles, config: Option<&str>) -> Result<ItemSet, Strin
     Ok(s)
 }
 
-/// Parse a comma-separated item list (`[bot-session].items`).
+/// Parse a comma-separated item list (`[agent-session].items`).
 ///
 /// - Unknown names error, naming the valid set.
 /// - An empty list is allowed (start from nothing).
@@ -875,7 +878,7 @@ fn parse_item_list(s: &str) -> Result<ItemSet, String> {
             "summary" => set.summary = true,
             _ => {
                 return Err(format!(
-                    "[bot-session].items: unknown item {name:?} (valid: headers, \
+                    "[agent-session].items: unknown item {name:?} (valid: headers, \
                      user, assistant, tool, thinking, results, meta, summary)"
                 ));
             }
@@ -1140,7 +1143,7 @@ fn truncate_chars(s: &str, max: usize) -> String {
     }
 }
 
-/// "YYYY-MM-DD HH:MM:SSZ" slice of an ISO-8601 UTC timestamp;
+/// "YYYY-MM-DD HH:MM:SSZ" slice of an ISO-8601 UTC timestamp.
 /// "" when absent. Observed transcript timestamps are always
 /// UTC (trailing Z, all 56k lines to date) and the Z is kept so
 /// the display names its zone, but that's observation, not a
@@ -1160,7 +1163,7 @@ fn short_time(ts: Option<&str>) -> String {
 
 /// Parse a `--lines` spec string (see the flag's help).
 ///
-/// - `N` / `-N` -> `Single`; `I,C` -> `Pair` (I >= 0).
+/// - `N` / `-N` -> `Single`. `I,C` -> `Pair` (I >= 0).
 /// - A zero count yields an empty slice: summary only.
 /// - Anything else is an error naming the bad piece.
 fn parse_lines_spec(s: &str) -> Result<LinesSpec, String> {
@@ -1235,7 +1238,7 @@ fn summary_line(stats: &RenderStats, malformed: usize, sliced: Option<(usize, us
             "--lines selected {selected} of {total} source lines"
         ));
     }
-    format!("bot-session: {}", parts.join("; "))
+    format!("agent-session: {}", parts.join("; "))
 }
 
 #[cfg(test)]

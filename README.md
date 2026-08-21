@@ -11,7 +11,7 @@
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
   - [fix-todo](#fix-todo)
-  - [validate-bot](#validate-bot)
+  - [validate-agent](#validate-agent)
   - [config](#config)
   - [clone](#clone)
   - [init](#init)
@@ -63,7 +63,7 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 
 - **path** is reserved for a filesystem location, qualified as **relative** or **absolute** when it
   matters (e.g. `../other`, `/home/you/repo`).
-- a configuration setting is a **config key**, e.g. `bot-session.col-width` (its TOML table and key
+- a configuration setting is a **config key**, e.g. `agent-session.col-width` (its TOML table and key
   joined by `.`); not a "path".
 - a datum in a transcript's `--fields` inventory is a **field**, e.g. `message.content[].type`, its
   levels joined by `.`, with `[]` marking array elements.
@@ -124,12 +124,13 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
-vc-x1 bot-session <FILE> [OPTS]        # Display a session transcript as a conversation
+vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
 vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
 vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
-vc-x1 validate-bot [OPTS]                 # Check the bot repo is published
+vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
+vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
@@ -209,14 +210,14 @@ over positional arguments.
 
 ### Multi-repo queries
 
-`-s`/`--scope` selects workspace sides by role keyword; `work` is the work repo, `bot` is the
-`.claude` repo, `work,bot` is both. The workspace root is found by walking up from cwd (the existing
+`-s`/`--scope` selects workspace sides by role keyword; `work` is the work repo, `agent` is the
+`.claude` repo, `work,agent` is both. The workspace root is found by walking up from cwd (the existing
 `find_workspace_root` rule).
 
 ```
 vc-x1 chid -s work,bot          # both sides of the workspace
 vc-x1 chid -s work              # just the work repo
-vc-x1 chid -s bot               # just the bot repo
+vc-x1 chid -s agent             # just the bot repo
 vc-x1 list @.. 3 -s work,bot    # works with chid / desc / list / show
 ```
 
@@ -234,7 +235,7 @@ are resolved (any `-s` that names more than one role), output is labeled with bo
 headers by default. Control the label with `-l`/`--label` and `-L`/`--no-label`:
 
 ```
-vc-x1 chid -s work,bot            # default label: === path ===
+vc-x1 chid -s work,agent          # default label: === path ===
 vc-x1 chid -s work,bot -l "---"   # custom label:  --- path ---
 vc-x1 chid -s work,bot -L         # no label (raw output)
 ```
@@ -296,10 +297,10 @@ With a single repo resolved, no label is printed, backward compatible with the n
 Multi-repo (`-s work,bot`) is supported for `chid`, `desc`, `list`, and `show`. `squash-push`
 remains single-repo.
 
-`-s` is keyword-only: `work`, `bot`, `work,bot`, `bot,work`. Path-based single-repo operation uses
+`-s` is keyword-only: `work`, `agent`, `work,agent`, `agent,work`. Path-based single-repo operation uses
 `-R` (above).
 
-### bot-session
+### agent-session
 
 Display a Claude Code session transcript (`.claude/<uuid>.jsonl`) as a readable conversation. The
 transcript format is undocumented and evolves; parsing is tolerant: unknown entry types are skipped
@@ -331,36 +332,36 @@ rendered; they're counted in the summary as "skipped".
 Default items resolve git-style, most specific wins:
 
 1. CLI `--<item>` / `--no-<item>` flags
-2. workspace `.vc-config.toml`: `[bot-session].items`
-3. user `~/.config/vc-x1/config.toml`: `[bot-session].items`
+2. workspace `.vc-config.toml`: `[agent-session].items`
+3. user `~/.config/vc-x1/config.toml`: `[agent-session].items`
 4. built-in: `headers,user,assistant,tool,summary`
 
 ```toml
 # In ~/.config/vc-x1/config.toml (all your workspaces) or
 # <workspace>/.vc-config.toml (this workspace, committed):
-[bot-session]
+[agent-session]
 items = "headers,user,assistant,tool,summary"
 ```
 
 ```
 # Default conversation view
-vc-x1 bot-session .claude/<uuid>.jsonl
+vc-x1 agent-session .claude/<uuid>.jsonl
 
 # Everything: thinking, tool results, meta/system too
-vc-x1 bot-session --all FILE
+vc-x1 agent-session --all FILE
 
 # Prompts only: what was asked, nothing else
-vc-x1 bot-session --none --user FILE
+vc-x1 agent-session --none --user FILE
 
 # Default view minus tool calls and headers
-vc-x1 bot-session --no-tool --no-headers FILE
+vc-x1 agent-session --no-tool --no-headers FILE
 
 # Slices by source JSONL line (same unit in every view)
-vc-x1 bot-session --lines 40 FILE      # first 40 source lines
-vc-x1 bot-session --lines -15 FILE     # last 15 source lines
-vc-x1 bot-session --lines 100,20 FILE  # 20 lines from Index 100
-vc-x1 bot-session --lines 100,-20 FILE # 20 lines ending at Index 100
-vc-x1 bot-session --lines 0 FILE       # stats summary only
+vc-x1 agent-session --lines 40 FILE      # first 40 source lines
+vc-x1 agent-session --lines -15 FILE     # last 15 source lines
+vc-x1 agent-session --lines 100,20 FILE  # 20 lines from Index 100
+vc-x1 agent-session --lines 100,-20 FILE # 20 lines ending at Index 100
+vc-x1 agent-session --lines 0 FILE       # stats summary only
 ```
 
 | Flag | Description |
@@ -368,14 +369,14 @@ vc-x1 bot-session --lines 0 FILE       # stats summary only
 | `--<item>` / `--no-<item>` | Add / remove one of the eight items (last one wins) |
 | `--all` / `--none` | Base: every item on / off (aliases `--no-none` / `--no-all`) |
 | `--lines SPEC` | Slice by source JSONL line, 0-based Index (`N` first, `-N` last, `I,C` from I, `I,-C` ending at I; `0` = summary only); the same unit in every view |
-| `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited. Resolves CLI > workspace `.vc-config.toml` `[bot-session].result-lines` > user config > built-in, same as `[bot-session].items` |
+| `--result-lines N` | Max lines shown per tool result [default: 10]; `0` = unlimited. Resolves CLI > workspace `.vc-config.toml` `[agent-session].result-lines` > user config > built-in, same as `[agent-session].items` |
 
 Cut points show an `... (N source lines skipped)` marker, and a sliced run's summary ends with
 `--lines selected K of M source lines`; its stats describe only the slice. Timestamps are shown as
 UTC (`Z`) exactly when the source timestamp carries it, observed always, but the format is
 undocumented, so anything else would pass through verbatim.
 
-**Alternate views.** The transcript format is undocumented and evolves, so bot-session doubles as a
+**Alternate views.** The transcript format is undocumented and evolves, so agent-session doubles as a
 schema explorer. The parser keeps every field Anthropic writes while the typed layer consumes a
 known subset; the difference is the unexplored surface:
 
@@ -385,7 +386,7 @@ known subset; the difference is the unexplored surface:
 | `--unknown` | Like `--fields`, but only fields the typed layer does not consume: the unmodeled / new surface |
 | `--raw` | Pretty-printed source lines (unparseable lines pass through verbatim); no summary or markers |
 | `--per-line` | With `--fields`/`--unknown` (implies `--fields`): one fields section per source line instead of aggregating |
-| `--col-width N` | First column width in these views [default: 68]; longer field names overflow. Resolves CLI > workspace `.vc-config.toml` `[bot-session].col-width` > user config > built-in, same as `[bot-session].items` |
+| `--col-width N` | First column width in these views [default: 68]; longer field names overflow. Resolves CLI > workspace `.vc-config.toml` `[agent-session].col-width` > user config > built-in, same as `[agent-session].items` |
 
 The default 68 aligns the type column for ~99% of observed field names; only a tail of
 `snapshot.trackedFileBackups.<absolute path>.*` keys, whose embedded absolute paths can be
@@ -396,22 +397,22 @@ first line. `--fields`/`--unknown` ignore item flags; `--raw` conflicts with the
 
 ```
 # What does this format actually contain today?
-vc-x1 bot-session --fields FILE
+vc-x1 agent-session --fields FILE
 
 # What don't we model yet / what did Anthropic add?
-vc-x1 bot-session --unknown FILE
+vc-x1 agent-session --unknown FILE
 
 # Inspect one entry in full (source line 42)
-vc-x1 bot-session --raw --lines 42,1 FILE
+vc-x1 agent-session --raw --lines 42,1 FILE
 
 # Walk a region line by line, fields-table style
-vc-x1 bot-session --per-line --lines 40,5 FILE
+vc-x1 agent-session --per-line --lines 40,5 FILE
 ```
 
 ### validate-desc
 
 Read-only scan of commit descriptions against the other repo. The other repo is read from
-`.vc-config.toml` (`repos.bot`) by default, or overridden with `--other-repo`. Reports status per
+`.vc-config.toml` (`repos.agent`) by default, or overridden with `--other-repo`. Reports status per
 commit: `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or
 `miss` (no ochid trailer).
 
@@ -500,9 +501,43 @@ vc-x1 fix-todo path/to/todo.md
 |------|-------------|
 | `--no-dry-run` | Write the renumbered file in place [default: dry-run] |
 
-### validate-bot
+### validate
 
-Check the bot repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
+Run the workspace's configured validation commands: the work side's `[validate] full` table, or
+`fast` with `--fast` (see [Workspace config tables](#workspace-config-tables)). Each element is
+one command, split on whitespace with no shell in between, run in order from the work repo root
+and printed before it runs. The first non-zero exit stops the run, naming the command, its
+status, and where in the table it stopped, and `validate` exits non-zero. An empty or missing
+table is an error, not a pass: nothing to run is not a validation. `-R DIR` names a workspace
+other than the one containing the current directory.
+
+```
+# The per-commit validation, from anywhere in the workspace
+vc-x1 validate
+
+# The quick check between pushes
+vc-x1 validate --fast
+
+# Another workspace
+vc-x1 validate -R ../other-project
+```
+
+Sample output, with a failing table (`["true", "false", "touch never"]`):
+
+```
+validate: [1/3] true
+validate: [2/3] false
+error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
+```
+
+| Option | Description |
+|--------|-------------|
+| `--fast` | Run the `validate.fast` table instead of `validate.full` |
+| `-R, --repo <DIR>` | Workspace to validate [default: the one containing the current directory] |
+
+### validate-agent
+
+Check the agent repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
 refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
 `squash-push` run, which publishes it in the same invocation, so a mismatch means an earlier publish
 was lost. Read-only and cheap (two `jj` lookups, no build steps); exits non-zero on any finding and
@@ -510,10 +545,10 @@ fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
 
 ```
 # Check ./.claude (run from the project root)
-vc-x1 validate-bot
+vc-x1 validate-agent
 
 # Explicit bot-repo path
-vc-x1 validate-bot -R path/to/.claude
+vc-x1 validate-agent -R path/to/.claude
 ```
 
 | Flag | Description |
@@ -534,25 +569,34 @@ prototype at the repo root (see
 [vc-config.md (the schema prototype)](#vc-configmd-the-schema-prototype)), so it can't drift
 from what the code actually reads.
 
-- `[TARGET]`: `work`, `bot`, `work,bot` (default), or an explicit config-file path. The keywords
-  resolve against the surrounding workspace's `.vc-config.toml` files and filter to that side's
-  keys; a path carries no side information, so it gets the whole schema. The user config
-  (`~/.config/vc-x1/config.toml`) has no keyword and is reached only by passing its path.
+- `[TARGET]`: `work`, `agent`, `work,agent` (default), or an explicit config-file path.
+  - a keyword resolves against the surrounding workspace's config files and filters to that
+    side's keys: `agent` prints the `[agent-session]` and `[repos]` keys the agent repo's config
+    may hold, `work` adds `[family]` and `[validate]`, and `work,agent` prints both sides, one
+    block each, under a header naming the file it resolved to
+  - anything else is taken as a path to a config file. A path carries no side information, so
+    in print mode it gets the whole schema for every home (the user-tier keys included) with the
+    path as a label, and the file is not opened. The user config (`~/.config/vc-x1/config.toml`)
+    has no keyword and is reached only this way
+  - the old `bot` keywords are rejected with the `agent` spelling as the fix-it (0.80.0)
 - `--validate`: instead of printing, load the target's actual config file(s) and flag any key the
   schema doesn't recognize (a typo, a key in the wrong section, or an unknown key), plus, for
   keyword targets, the legacy-schema rejection and the resolved-agreement invariant of a dual
-  workspace's `[repos]` registries. Exits non-zero if any problem is found. This is an opt-in strict
-  check; a normal config load silently ignores unknown keys, for forward-compatibility.
+  workspace's `[repos]` registries, and the shape of any command list (a `str-list` key holding a
+  plain string is a finding). Exits non-zero if any problem is found. This is an opt-in strict
+  check, since a normal config load silently ignores unknown keys, for forward-compatibility.
+  A missing file is reported and skipped, not failed, for a keyword side the workspace lacks
+  and, today, for a path as well, so a mistyped path validates clean (a Todo tightens this).
 
 A short sample of the printed schema (workspace home):
 
 ```
-[bot-session]
-# bot-session.col-width: Default --col-width: first-column width in the --fields / --unknown /
+[agent-session]
+# agent-session.col-width: Default --col-width: first-column width in the --fields / --unknown /
 #   --per-line views
-#   used by: bot-session --col-width
+#   used by: agent-session --col-width
 #   default: 68
-#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
+#   reference: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-sessioncol-width
 # col-width = 68
 
 [repos]
@@ -596,7 +640,7 @@ vc-x1 config ../other/.vc-config.toml --validate
 
 | Flag | Description |
 |------|-------------|
-| `[TARGET]` | `work`, `bot`, `work,bot`, or a config-file path [default: work,bot] |
+| `[TARGET]` | `work`, `agent`, `work,agent`, or a config-file path [default: work,bot] |
 | `--validate` | Check the target config file(s) instead of printing the schema |
 
 ### vc-config.md (the schema prototype)
@@ -609,7 +653,7 @@ built-in default constants the binary compiles against. One file drives every su
 
 - the `config` subcommand's printed schema (above)
 - the commented blocks `init` writes into a new workspace's instance config
-- the built-in defaults themselves (e.g. `bot-session --col-width`'s 68), consumed from the
+- the built-in defaults themselves (e.g. `agent-session --col-width`'s 68), consumed from the
   generated constants, so behavior cannot disagree with documentation
 - each key's `reference:` url, so a reader of any generated config can click through to that
   key's own section
@@ -631,20 +675,69 @@ missing `doc`, a non-integer `usize` default, or a duplicate key path fails the 
 naming the offending table. A key's section looks like:
 
 ````markdown
-## bot-session.col-width
+## agent-session.col-width
 
-First-column width in `bot-session`'s field-inventory views: `--fields`, `--unknown`, and
+First-column width in `agent-session`'s field-inventory views: `--fields`, `--unknown`, and
 `--per-line`. The conversation view never consults it.
 
 ```toml
-[bot-session.col-width]
-homes = ["user", "workspace-code", "workspace-bot"]
+[agent-session.col-width]
+homes = ["user", "workspace-code", "workspace-agent"]
 kind = "usize"
 doc = "Default --col-width: first-column width in the --fields / --unknown / --per-line views"
-used-by = "bot-session --col-width"
+used-by = "agent-session --col-width"
 default = 68
 ```
 ````
+
+### Workspace config tables
+
+A work-side `.vc-config.md` holds up to three tables. `[repos]` is structural and written by
+`init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
+layer: the agent-file family this repo belongs to, and the commands that validate it. Both are
+work side only: `config --validate` reports them unknown in the agent repo's config.
+
+````markdown
+```toml
+[repos]
+work = "."
+agent = ".claude"
+```
+
+```toml
+[family]
+member = "vc-x1"                  # this repo's name in the family, and its messages record
+template = "../vc-x1-template"    # the payload holding the pinned agent-files
+messages = "../vc-x1-messages"    # the family's notification repo
+```
+
+```toml
+[validate]
+full = [                          # the per-commit validation, in order, one command per element
+  "cargo fmt",
+  "cargo clippy --all-targets -- -D warnings",
+  "cargo test",
+  "cargo install --path . --locked",
+]
+fast = ["cargo test --bins"]      # the subset a ladder rung runs
+```
+````
+
+The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
+on one line or spread to the closing `]`. Each element is one command whose exit status is
+checked, so a command with its own spaces and dashes is one quoted string.
+[`vc-x1 validate`](#validate) (and `--fast`) runs them, `config --validate` checks the tables'
+keys and shapes, and `config work` prints the schema with every key's example:
+
+```
+vc-x1 config --validate                       # both sides: keys known per side, lists well formed
+vc-x1 config work --validate                  # the work side only
+vc-x1 config agent --validate                 # the agent side only
+vc-x1 config .claude/.vc-config.md --validate # a specific file, checked against every home
+vc-x1 config work                             # the work side's schema, [family] and [validate] too
+vc-x1 config agent                            # the agent side's schema
+vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
+```
 
 ### clone
 
@@ -814,7 +907,7 @@ between; until such a design exists, `jj op log` + `jj op restore` is the recove
 vc-x1 sync                            # workspace-default scope
 vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
 vc-x1 sync --scope=work               # only the work repo
-vc-x1 sync --scope=bot                # only the bot repo
+vc-x1 sync --scope=agent                # only the bot repo
 vc-x1 sync --scope=work,bot           # both (explicit form of the dual default)
 vc-x1 sync -R ../other                # sync ../other as a single repo
 vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
@@ -822,11 +915,11 @@ vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
 
 **Repo set resolution.** `-R` and `--scope` compose:
 
-1. Neither: workspace-default scope, `work,bot` if `repos.bot` is non-empty, else `work`. POR (no
+1. Neither: workspace-default scope, `work,agent` if `repos.agent` is non-empty, else `work`. POR (no
    `.vc-config.toml`) -> `work` resolved to cwd.
 2. `-R PATH` alone: sync just the repo at `PATH`.
 3. `--scope=work|bot|work,bot` alone: workspace roles, resolved via the discovered workspace root's
-   `.vc-config.toml` (`work` -> root, `bot` -> the root-joined `bot` path).
+   `.vc-config.toml` (`work` -> root, `agent` -> the root-joined `agent` path).
 4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the workspace root.
 
 Scope is cwd-portable: from `.claude/`, `vc-x1 sync` walks up to the workspace root and resolves
@@ -890,7 +983,7 @@ Behavior notes:
 - With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0;
   with an empty `@` but the remote behind, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost; see
-  [validate-bot](#validate-bot)), it says so and proceeds: publishing is its job.
+  [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.
@@ -962,10 +1055,10 @@ and push in one shot.
   remote-work.git/     bare git remote for the work repo
   remote-bot.git/   bare git remote for the .claude bot repo
   <NAME>/              work repo (jj colocated, main tracks origin)
-    .vc-config.toml    work="/", bot="/.claude"
+    .vc-config.md      work=".", agent=".claude"
     .gitignore         /.claude /.git /.jj /target
     .claude/           bot repo (jj colocated, main tracks origin)
-      .vc-config.toml  work="/", bot="/.claude" (identical)
+      .vc-config.md    work="..", agent="."
       .gitignore       .git .jj
 ```
 

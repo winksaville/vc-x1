@@ -119,7 +119,7 @@ fn parse_scope_work_bot() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--scope", "work,bot"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "--scope", "work,agent"]).unwrap();
     assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work, Side::Bot])));
 }
 

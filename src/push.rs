@@ -322,7 +322,7 @@ fn step_gate(
 }
 
 /// Full path of the bot repo for a given workspace root, resolved
-/// from `.vc-config.toml`'s `repos.bot` (push requires a dual
+/// from `.vc-config.toml`'s `repos.agent` (push requires a dual
 /// workspace). Also the dual-mode entry preflight: resolution
 /// verifies both repos' recorded topology agrees and errors loudly
 /// (with everything known, changing nothing) when it doesn't.

@@ -5,15 +5,16 @@ base for promoting local findings back to the template repository (vc-x1-templat
 first. Lived in custom.md's `## Dogfood log` until 2026-08-03, when the log moved here:
 it is a record, and custom.md converges toward the template's skeleton.
 
-- 2026-08-19: adopted-ahead rules had no home a session reads
-  - rules adopted mid-cycle (the comment-semicolon conversion, the `(done)` flip on
-    acceptance, both pinned by "docs: pin two rules and close the convergence record") lived
-    only in this log, which no session reads at acquaint, so session amnesia would quietly
-    undo them.
-    custom-family.md gained `## Experimental agent-file rules` (wink's name) as the binding
-    home between adoption and the convention cycle that pins each rule. The section pattern
-    itself is one of the proposals the 0816-proposal carries
-
+- 2026-08-21: the whole-file semicolon rule is not what the living records get
+  - prose.md's Semicolons says a commit that edits a file converts that whole file's prose
+    semicolons. In practice the project applies that to source comments (code.md's
+    restatement) and leaves `TODO.md` (57 at this writing), `README.md` (64), and the chores
+    files alone, though every cycle touches the first two. Surfaced at the agent-naming rung
+    when a review caught two fresh semicolons in a Todo entry and the follow-up count showed
+    the backlog
+  - proposal for the convention cycle: either name the exemption (files that every cycle
+    touches are swept, not converted on touch) or schedule the sweep. Until then the working
+    rule here is: a line you write or edit carries none, the rest of the file waits
 - 2026-08-18: a premature stable-name install let one version string mean two behaviors
   - the 0.78.8 close-out's validation ran `cargo install` (producing plain `vc-x1 0.78.8`)
     while the cycle could still change, and a test rung was then inserted, so the installed
