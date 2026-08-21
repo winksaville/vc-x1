@@ -86,7 +86,7 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 
 - [[N]] [docs: halve AGENTS.md into rationale.md opening][59] (done)
 - [[N]] [docs: make backfill the opening's first step][64] (done)
-- [[N]] [docs: seed rationale.md and the Rationale term][60]
+- [[N]] [docs: seed rationale.md and the Rationale term][60] (done)
 - [[N]] [docs: move the cycle protocol's why into rationale.md][61]
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62]
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
@@ -145,6 +145,16 @@ span is owed work), and close-out step 8 names the next opening as the owner of 
 Problem: nothing links a rule to its why, and a why has no home outside the rule's own
 paragraph. Solution: `agent-data/rationale.md` with the heading skeleton mirroring AGENTS.md
 1:1, the **Rationale** term in Terminology stating the link pattern once, and the File map line.
+
+- every AGENTS.md heading is mirrored, each holding `_None recorded._` until a move fills it,
+  so an unfilled heading after the moves is a visible finding (a rule with no written why)
+  rather than an absent anchor. Whether the empties stay or go is the closing's call
+- the file's "How to read this file" states the three rules of the move once: headings
+  mirror, an entry is why then evidence, a boundary sentence is not rationale. The move rungs
+  apply them and do not restate them
+- the term in AGENTS.md carries the boundary-sentence test, since that is what tells an
+  editor which side of the line a sentence is on, and nothing else: the argument for having
+  the file is the file's own first entry, once the Terminology why moves
 
 ##### docs: move the cycle protocol's why into rationale.md
 

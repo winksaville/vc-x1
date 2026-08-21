@@ -106,6 +106,12 @@ commit made by `vc-x1 push`. The protocol is [Cycle protocol](#cycle-protocol). 
 - The bookend commits are the cycle title plus " opening" and " closing". The bare title
   names the cycle: the chores `##` header and the `## Done` entry carry it.
 
+**Rationale.** The why behind a rule: why it exists, what it cost to learn, what the
+alternatives were. It lives in [rationale.md](agent-data/rationale.md), under a heading that
+mirrors the rule's heading here, so a rule reaches its why by one fixed pattern,
+`[why](agent-data/rationale.md#<same-slug>)`. This file holds the rule and its boundaries (a
+sentence saying what a rule does not cover is the rule), and no rationale.
+
 ## The dual-repo model
 
 This project uses **two separate jj-git repos**:
@@ -530,6 +536,8 @@ pinned:
 - [messaging.md](agent-data/messaging.md): the family's notification repo, the acquaint check,
   and what a request becomes. Read at acquaint, when the work side's config has a `[family]`
   table.
+- [rationale.md](agent-data/rationale.md): the why behind this file's rules, headings
+  mirroring this file's. Read when changing a rule, never needed to apply one.
 
 Project records (`notes/` and the repo root): records only, never universal rules. Anything
 normative that outgrows the project belongs in `agent-data/` via
