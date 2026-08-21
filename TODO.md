@@ -73,7 +73,8 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 
 #### Acceptance check
 
-- `wc -l AGENTS.md` at or under 297, half of the 593 it opened at
+- `wc -l AGENTS.md` as close to 297 (half of the 593 it opened at) as the two moves and the
+  pointer rung reach, the closing reporting the count and what remains argument-free but long
 - every `##` / `###` heading in `agent-data/rationale.md` has a same-slug heading in AGENTS.md
 - `vc-x1 validate` clean, anchors included
 - the two move rungs read as words moved: each one's AGENTS.md diff is deletions plus links,
@@ -87,8 +88,9 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: halve AGENTS.md into rationale.md opening][59] (done)
 - [[N]] [docs: make backfill the opening's first step][64] (done)
 - [[N]] [docs: seed rationale.md and the Rationale term][60] (done)
-- [[N]] [docs: move the cycle protocol's why into rationale.md][61]
+- [[N]] [docs: move the cycle protocol's why into rationale.md][61] (done)
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62]
+- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66]
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
@@ -118,6 +120,17 @@ label, stated in prose.md and applied across AGENTS.md's step lists and hard rul
 gaining short names as their labels. Its own rung, after the two move rungs, so the sweep
 runs over the halved file and the family sees the final shape in one diff. The acceptance
 check's "one rule change" becomes two, this one named.
+
+The line target revised at the first move rung's review (wink, 2026-08-21): the faithful
+why-lift took the protocol tree from 348 to 319 lines and AGENTS.md from 593 to 585, so the
+"about half is argument" premise does not hold for the tree, which is mostly rule and
+mechanics. This is the revised-toward-what-was-achieved case the Opening warns about, argued
+here rather than slipped: the cycle's real deliverable is zero words of why in AGENTS.md, the
+line count was a guess, and the number stays in the check as a reported measure rather than
+a pass/fail gate. Alongside, a further rung widens the move: mechanics that restate a
+satellite (the jj diff commands, the rungs-are-named paragraph, the push behaviors, the
+close-out shape definitions) become pointers, which is no longer words moved to rationale.md
+and touches the satellites this cycle deferred, so it is its own rung with its own diff.
 
 #### Ladder details
 
@@ -163,12 +176,29 @@ delegation tiers' justification, the at-rest explanation, and the one-home argum
 of AGENTS.md's argument. Solution: each moves under its mirrored heading, the rule keeping a
 `[why]` link.
 
+- thirteen of the tree's headings took an entry, ten stay `_None recorded._` (the intro-less
+  ones: Pushing, Before any push, and the ones outside the tree)
+- the lift was faithful to the boundary test and removed about 30 net lines from the
+  protocol's 348: the tree is mostly rule and mechanics, and the Todo's "about half is
+  argument" premise does not hold for it. Surfaced at this rung's review as a finding
+  against the acceptance check's 297-line target, with the call on what to do left to
+  the user
+- the `[why]` link sits on the sentence it explains, or on the section intro when the entry
+  covers several
+
 ##### docs: move the rest of AGENTS.md's why into rationale.md
 
 Problem: the why outside the protocol is scattered: the Hard rules intro, the Terminology
 "because" clauses, the Working practices stories (https remotes, the 2026-08-05 quoting note),
 the measured line in Changing the agent-files, the custom.md section's argument. Solution: the
 same move, and the size check against the target.
+
+##### docs: point AGENTS.md's restated mechanics at the satellites
+
+Problem: with the why gone, AGENTS.md is still twice the target because it restates
+mechanics the satellites own: jj commands, the named-not-numbered rule, push behaviors, the
+close-out shapes. Solution: each restatement becomes a one-line pointer to the satellite
+section that holds it, the satellite gaining any sentence AGENTS.md alone had.
 
 ##### docs: label-colon form for AGENTS.md's lists and rules
 
@@ -949,3 +979,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [63]: #docs-halve-agentsmd-into-rationalemd-closing
 [64]: #docs-make-backfill-the-openings-first-step
 [65]: #docs-label-colon-form-for-agentsmds-lists-and-rules
+[66]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
