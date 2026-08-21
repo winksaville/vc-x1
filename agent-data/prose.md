@@ -24,7 +24,7 @@ Surfaces that use this shape:
 
 - Module / function / struct / field doc comments in `.rs` files. See
   [Doc comments](code.md#doc-comments-on-every-file-function-and-method).
-- Commit message bodies (both work-repo and bot-repo). The title is the commit-specific
+- Commit message bodies (both work-repo and agent-repo). The title is the commit-specific
   add-on. See [The per-rung flow](../AGENTS.md#the-per-rung-flow).
 - Chore descriptions in `notes/chores/chores-NN.md`. See
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
@@ -327,12 +327,12 @@ draws.
 
 ## Speculation marker
 
-Durable text the bot writes (agent-files, `notes/`, commit bodies, chores sections)
+Durable text the agent writes (agent-files, `notes/`, commit bodies, chores sections)
 should stick to observations and direct descriptions of the code or data. If a mechanism,
 hypothesis, or causal claim enters the text, prefix it with "We think ..." (a royal "we") so a
 reader can tell the measured from the inferred.
 
-**Why:** unmarked speculation reads like evidence, and a future reader (or the bot on a later
+**Why:** unmarked speculation reads like evidence, and a future reader (or the agent on a later
 session) can pick it up as a known fact when it's not. Measured / inferred is a distinction
 worth keeping visible in the written record.
 

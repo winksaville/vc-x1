@@ -88,7 +88,7 @@ payload.
 - [[N]] [docs: fold the cycle agent-files into AGENTS.md opening][29] (done)
 - [[N]] [docs: write the cycle account into AGENTS.md][31] (done)
 - [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][32] (done)
-- [[N]] [docs: rename bot repo to agent repo in the agent-files][33]
+- [[N]] [docs: rename bot repo to agent repo in the agent-files][33] (done)
 - [[N]] [docs: fold the cycle agent-files into AGENTS.md closing][34]
 
 #### Deliberation
@@ -177,6 +177,21 @@ README.md, notes/README.md, the In Progress intro here, and one backlog entry. P
 ##### docs: rename bot repo to agent repo in the agent-files
 Terminology defines "agent repo" as the standard name with `.claude` as its path and "bot
 repo" as retired, and every pinned file follows.
+
+Landed: 33 sites across AGENTS.md, jj.md, prose.md, and notes.md (custom.md and messaging.md
+had none). Points:
+
+- the actor renamed with the repo: "the rules bind the agent", "the agent runs `vc-x1 push`".
+  One word for the thing the file instructs, matching its title
+- what stays `bot` is what the code spells that way, quoted in code spans: the `commit-bot`
+  and `squash-push-bot` push stages, and the pre-0.80.0 config spelling the validator names
+  in its fix-it. The Terminology note says so, so a reader meeting `commit-bot` in push
+  output does not take it for drift
+- the Terminology note's CLI facts were stale and corrected on the way: `--scope` takes
+  `agent`, the config is `.vc-config.md`, `[repos]` spells the side `agent`, and jj.md's
+  two-sided config example now matches
+- left alone: jj.md's `## .vc-config.toml` heading, a stale file name that other links may
+  depend on, for a correction of its own
 
 ##### docs: fold the cycle agent-files into AGENTS.md closing
 Closing out the cycle.

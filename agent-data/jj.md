@@ -29,7 +29,7 @@ content.
   usual way a cycle's bookmark is born (see [Cycle bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it
   and creates a new empty working copy on top.
-- The bot repo always has uncommitted changes during an active session because session data
+- The agent repo always has uncommitted changes during an active session because session data
   updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
 
@@ -61,7 +61,7 @@ Durable text written since teaches only jj's semantics.
 
 ## Cross-repo linking (ochid trailers)
 
-The cross-reference between the work repo and the bot repo is what makes the dual-repo work:
+The cross-reference between the work repo and the agent repo is what makes the dual-repo work:
 every commit points at its counterpart in the other repo, so the "what" (code) and the
 "why / how" (session) stay linked across time. That pointer is the **ochid** (Other Change ID)
 git trailer.
@@ -71,27 +71,27 @@ A **chid** is jj's change ID, a permanent identifier that survives rebases and `
 counterpart commit's chid as a workspace-root-relative path:
 
 - Paths start with `/`, the workspace root, i.e. the work repo (the project root). `/.claude`
-  is the bot sub-repo.
+  is the agent sub-repo.
 - `ochid: /<chid>` references a change in the **work repo**.
-- `ochid: /.claude/<chid>` references a change in the **bot repo**.
+- `ochid: /.claude/<chid>` references a change in the **agent repo**.
 
 Trailers are blank-line-separated `key: value` lines at the end of the commit body, using the
 chid's **12-character** prefix:
 
 ```
-ochid: /.claude/xvzvruqowktp   # points to a bot-repo change
+ochid: /.claude/xvzvruqowktp   # points to an agent-repo change
 ochid: /wtpmottvxqzl           # points to a work-repo change
 ```
 
 How many, and which direction:
 
-- **Work-repo commits** each carry one `ochid: /.claude/<bot-chid>`, the bot repo's change ID.
-- **The bot-repo commit** carries one `ochid: /<work-chid>` per work-repo commit in that push.
+- **Work-repo commits** each carry one `ochid: /.claude/<agent-chid>`, the agent repo's change ID.
+- **The agent-repo commit** carries one `ochid: /<work-chid>` per work-repo commit in that push.
   The count is per *push*, not per cycle. A trapezoid close-out whose rungs were pushed 1:1 as
   they landed still carries exactly one. More than one occurs when a single push publishes
   several work-repo commits.
 
-Use `vc-x1 chid -s work,bot -L` to capture the change IDs (first line work repo, second bot
+Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work repo, second agent
 repo).
 
 `ochid:` trailers are **stamped by `vc-x1 push`**. Never hand-write them into a commit body or
@@ -262,12 +262,12 @@ Recovery:
 ## Resolvability
 
 A change ID travels with its commit: a **pushed** commit resolves to the same chid in every
-clone. Cloning the bot repo gave the published `main` tip the same chid as an existing clone.
+clone. Cloning the agent repo gave the published `main` tip the same chid as an existing clone.
 We think jj carries the change ID in the git commit object, so it survives `jj git clone` /
 fetch.
 
 The local-only case is the **working-copy `@`**: jj mints a fresh random chid for `@` in each
-clone, so an unpushed `@` is never a stable ochid target. This is why a bot-repo ochid names
+clone, so an unpushed `@` is never a stable ochid target. This is why an agent-repo ochid names
 `@-` (the last committed change), not `@`.
 
 ## .vc-config.toml
@@ -275,14 +275,14 @@ clone, so an unpushed `@` is never a stable ochid target. This is why a bot-repo
 Each repo contains a `.vc-config.toml` whose `[repos]` registry records the workspace layout.
 Values are ordinary paths relative to the config file's directory (absolute allowed,
 discouraged), so the two sides' blocks **differ**: the entry that resolves to the config's own
-directory names its side, and the two sides must agree on the same resolved work/bot pair:
+directory names its side, and the two sides must agree on the same resolved work/agent pair:
 
 ```toml
-# work side          # bot side
+# work side          # agent side
 [repos]              [repos]
 work = "."           work = ".."
-bot = ".claude"      bot = "."
+agent = ".claude"    agent = "."
 ```
 
-Ochid trailer prefixes are fixed per-side labels (`/` work, `/.claude` bot) resolved by side
+Ochid trailer prefixes are fixed per-side labels (`/` work, `/.claude` agent) resolved by side
 detection, not filesystem paths.

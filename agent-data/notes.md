@@ -1,6 +1,6 @@
 # Notes file conventions
 
-Conventions the bot follows when reading and writing notes files (`TODO.md`,
+Conventions the agent follows when reading and writing notes files (`TODO.md`,
 `notes/todo-backlog.md`, `notes/bugs.md`, `notes/chores/chores-NN.md`, `notes/done.md`). One
 source of truth lives here, and [`notes/README.md`](../notes/README.md) points back. Read this
 before editing a notes file.

@@ -1,6 +1,6 @@
 # AGENTS.md - Agent Instructions
 
-The universal core of this project's bot instructions: the dual-repo model, the hard rules, and
+The universal core of this project's agent instructions: the dual-repo model, the hard rules, and
 a map of everything else. This file is one of the [agent-files](#terminology), shared across our
 dual repos and carried by every family member: a member's diff against the template repository's
 payload is what that member has proposed, so drift is a diff, not a mystery.
@@ -8,7 +8,7 @@ payload is what that member has proposed, so drift is a diff, not a mystery.
 ## Hard rules
 
 The rules whose violation costs the most, numbered so a review can name them. Each links to its
-detail. The rule as stated here is binding on its own. The rules bind the bot, and none is
+detail. The rule as stated here is binding on its own. The rules bind the agent, and none is
 absolute: any rule bends when wink says so explicitly at the moment, or in advance as an
 explicit scoped delegation (rule 10's stop-and-ask is the path), and a taken exception is
 recorded in the cycle's records. No rule bends silently, and no exception is self-granted.
@@ -63,15 +63,18 @@ recorded in the cycle's records. No rule bends silently, and no exception is sel
 ## Terminology
 
 **Repos.** The two repos of [the dual-repo model](#the-dual-repo-model) below. "Work repo" and
-"bot repo" are the standard names. Write them as two words, adding a hyphen only when the pair
-sits directly in front of another noun ("work-repo commit", "bot-repo side"). Notes:
+"agent repo" are the standard names. Write them as two words, adding a hyphen only when the pair
+sits directly in front of another noun ("work-repo commit", "agent-repo side"). Notes:
 
-- `.claude` is the bot repo's *path*, not its name, so commands (`-R .claude`) and ochid paths
+- `.claude` is the agent repo's *path*, not its name, so commands (`-R .claude`) and ochid paths
   (`/.claude/<chid>`) keep the literal path.
-- The vc-x1 CLI's scope name for the work repo is `work` (`--scope=work|bot|work,bot`, and the
-  same keywords as `vc-x1 config`'s target). `.vc-config.toml` names the same two sides under
-  `[repos]` as `work` / `bot`. A config still on the older `[workspace]` schema is what
-  `vc-x1 config --validate` reports.
+- The vc-x1 CLI's scope names are `work` and `agent` (`--scope=work|agent|work,agent`, and the
+  same keywords as `vc-x1 config`'s target). `.vc-config.md` names the same two sides under
+  `[repos]` as `work` / `agent`. A config still on the older `bot` spelling or the `[workspace]`
+  schema is what `vc-x1 config --validate` reports, with the fix-it.
+- Retired: "bot repo" (2026-08-21), when the code respelled the side `agent`. Stage names and
+  paths the code still spells with `bot` (`commit-bot`, `squash-push-bot`) are quoted as the
+  code has them.
 - A commit landing in the work repo is a "work-repo commit", never a bare "work commit".
 
 **Agent-files.** The instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
@@ -109,7 +112,7 @@ This project uses **two separate jj-git repos**:
 
 1. **Work repo** (`.`, the project root): the project's generated artifact, whether code,
    prose, image, song, or whatever it produces.
-2. **Agent repo** (`.claude`): Claude Code session data. The real directory is `<project>/.claude`.
+2. **Agent repo** (`.claude`): the agent's session data. The real directory is `<project>/.claude`.
    Claude Code reaches it through a symlink at `~/.claude/projects/<mangled-project-path>`
    pointing *at* that directory, with no further path component. `vc-x1 symlink` creates it.
 
@@ -320,21 +323,21 @@ The agent repo (`.claude`) is a live journal, so everything after a `vc-x1 push`
 its own record and any closing words, lands in the agent repo's `@` as a trailing tail. The
 contract that keeps both repos clean has three parts, and hard rule 3 is the middle one:
 
-1. **The bot runs `vc-x1 push`**, which commits and publishes both repos: the work rung on its
+1. **The agent runs `vc-x1 push`**, which commits and publishes both repos: the work rung on its
    bookmark, and the agent repo's session data as one commit on its `main`, one push = one
    agent-repo commit paired with every work-repo commit in that push.
-2. **The bot stops for the turn.** Once the turn's final push or squash-push is invoked, no
+2. **The agent stops for the turn.** Once the turn's final push or squash-push is invoked, no
    further work: no verification, no summary, no next-step offer, no edit, until the user
    speaks. Closing words go *before* the invoke. The harness rejects an empty turn, so it may
    force a visible token after the tool returns, and then a bare acknowledgment ("landed") is
    all that is allowed, never a summary. Post-push verification happens next turn at the user's
    direction. Under a standing delegation, an intermediate push is just a step and the tail
    rides into the next rung's agent-repo commit. The hard stop lands on the turn's *final* push.
-3. **The user runs `vc-x1 squash-push -R .claude`** after the bot goes quiet. It folds the
+3. **The user runs `vc-x1 squash-push -R .claude`** after the agent goes quiet. It folds the
    tail into the published agent-repo commit (the change id survives, so the work-side `ochid:`
-   keeps resolving) and pushes `main`. Only the user can do this: the bot's own squash-push is
+   keeps resolving) and pushes `main`. Only the user can do this: the agent's own squash-push is
    itself session data, so `@` refills the moment it runs. The user repeats it if new writes
-   land, since the bot's back end may consolidate session data minutes later.
+   land, since the agent's back end may consolidate session data minutes later.
 
 "Clean" means both repos' `@` empty. A late work-repo tweak after the push (a forgotten edit)
 needs `jj squash --ignore-immutable` and a re-push, which is a remote rewrite and takes approval
@@ -492,7 +495,7 @@ A sub-cycle that deserves its own record nests the version suffix
   design and tricky work. Top-model tokens are the scarce resource.
 - **Don't use the per-project memory directory** (`~/.claude/projects/<path>/memory/`). Durable
   context lives in these committed files: easy for everyone to find beats convenient for the
-  bot alone.
+  agent alone.
 - **Mark speculation** in durable text with "We think ..." so a reader can tell the measured
   from the inferred. [Speculation marker](agent-data/prose.md#speculation-marker).
 - **End technical explanations in conversation with a plain synopsis**, marked clearly (e.g.
@@ -547,7 +550,7 @@ template repository's payload, and every member repo carries its own copy of the
   maintenance and cannot go stale.
 - **An agent-file change is its own commit**, so `git log -- AGENTS.md agent-data/` reads as a
   list of rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer
-  links the bot-repo session that reasoned it out. The diff says what differs now. The history
+  links the agent-repo session that reasoned it out. The diff says what differs now. The history
   says when, by whom, and why.
 - **Convention work runs as its own cycle.** A convention itch mid-feature becomes a backlog
   entry or a small dedicated cycle, never an inserted rung in the feature's ladder: rung by
