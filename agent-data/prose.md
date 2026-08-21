@@ -247,6 +247,15 @@ commit is the cycle and keeps the bare title. The type repeats across the pair e
 bookends are mostly bookkeeping: identical prefixes make them scannable. Rungs between keep
 their own titles on the stem.
 
+**Commit description details**, beyond the shape: the title is a
+[Conventional Commit](https://www.conventionalcommits.org/), `<type>: <short description>`
+with an optional `(scope)`, at the width in [Line widths](#line-widths), common types `feat`,
+`fix`, `refactor`, `test`, `docs`, `chore`. The body is the [Commit-body form](#commit-body-form)
+above, wrapped per Line widths, with no version in title or body, no file list, and no
+deliberation. A work-repo body describes the artifact's or the records' problem, and an
+agent-repo body describes in-session activity. `ochid:` is the body's last line, stamped by
+push, and a breaking change uses the hyphenated `BREAKING-CHANGE:` trailer key.
+
 ### Steps are named, not numbered
 
 A step has a title and no number. Nothing in a ladder rung, a chores as-built rung, a `## Done`

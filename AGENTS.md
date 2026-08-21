@@ -70,9 +70,8 @@ sits directly in front of another noun ("work-repo commit", "agent-repo side"). 
   same keywords as `vc-x1 config`'s target). `.vc-config.md` names the same two sides under
   `[repos]` as `work` / `agent`. A config still on the older `bot` spelling or the `[workspace]`
   schema is what `vc-x1 config --validate` reports, with the fix-it.
-- Retired: "bot repo" (2026-08-21), when the code respelled the side `agent`. Stage names and
-  paths the code still spells with `bot` (`commit-bot`, `squash-push-bot`) are quoted as the
-  code has them.
+- Stage names and paths the code still spells with `bot` (`commit-bot`, `squash-push-bot`)
+  are quoted as the code has them.
 - A commit landing in the work repo is a "work-repo commit", never a bare "work commit".
 
 **Agent-files.** The instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
@@ -84,8 +83,6 @@ every member repo carries its own. How they change is
 - **Pinned** describes an agent-file whose content is meant to match the payload (`AGENTS.md`,
   `agent-data/*`). `custom.md` is an agent-file but is never pinned, and the same goes for any
   layer below it.
-- Retired: "instruction files", which named the same set back when `custom.md` was the only
-  editable one.
 
 **Project layer.** The project's own agent-files, as against the pinned ones: `custom.md` and
 anything it points at. It loads last and wins conflicts.
@@ -128,29 +125,21 @@ How a [cycle](#terminology) runs, from opening to closing. Its record lives in
 `TODO.md > ## In Progress` while it runs and moves to `notes/chores/` when it closes, one home
 at a time ([why](agent-data/rationale.md#cycle-protocol)). This section is the whole protocol.
 The files it points at hold mechanics (jj commands, prose form, notes conventions, the version
-scheme), never a second statement of the flow.
-
-The artifact a cycle produces is whatever the project generates: code, prose, an image, a song.
-The validation commands are the project's, in the work side's `[validate]` table, and nothing
-below names a build tool.
+scheme), never a second statement of the flow. The artifact a cycle produces is whatever the
+project generates, and the validation commands are the project's, in the work side's
+`[validate]` table.
 
 ### Cycles run on a bookmark
 
 A cycle runs on one topic bookmark in the work repo, created at the opening and named by the
 cycle title's slug ([Markdown anchor links](agent-data/notes.md#markdown-anchor-links)). `main`
 advances only when the finished cycle lands on it, and nothing pushes straight to `main`
-([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). The agent repo needs no bookmark:
-its `main` rides the tip of its linear journal, and no agent-repo bookmark ever mirrors a
-work-repo branch.
-
-- **The bookmark is the unit of review.** Everything the cycle does is one line against `main`,
-  and until it lands the line is a draft that can be reshaped
-  ([Topic bookmarks are drafts](#topic-bookmarks-are-drafts)). Landing is the single approval
-  that makes the cycle permanent.
-- **A single-step cycle still gets one.**
-- **Commands** are in [Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land). A
-  long-lived program bookmark is a different animal, governed by jj.md's
-  [Long-lived bookmarks][llb].
+([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). The agent repo needs no bookmark.
+The bookmark is the unit of review: until it lands the line is a draft that can be reshaped
+([Topic bookmarks are drafts](#topic-bookmarks-are-drafts)), and landing is the single approval
+that makes the cycle permanent. A single-step cycle still gets one. Commands are in
+[Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), and a long-lived program
+bookmark is governed by jj.md's [Long-lived bookmarks][llb].
 
 ### Opening
 
@@ -161,47 +150,19 @@ first commit, which then carries step 1 below). Before that commit
 1. **Backfill** every as-built ladder whose commits have landed since the last opening
    ([Commits backfill](#commits-backfill)), before anything else. The check is
    `rg '\[\[N\]\]' notes/chores/`: a hit outside a code span is owed work. This is the owner
-   of close-out step 8's debt.
+   of close-out step 7's debt.
 2. **Create the cycle's bookmark** and publish it: the create is itself a push and takes push
    approval.
-3. **Move the picked-up `## Todo` item into `## In Progress`** (moved, never copied) and write
-   the **six provisional items**, all required, all revised as rungs land, all moved to chores
-   at close-out. The title is a heading one level below `## In Progress` and the other five
-   are headings one level below the title (a plain cycle: `###` title, `####` items, and under
-   a program heading, each one deeper):
-   - **title**, which becomes the chores section header at close-out
-   - **problem statement**: what is wrong, a sentence or two
-   - **solution statement**: what will be done about it, broad. Provisional, and the
-     close-out's commit body carries the final one
-   - **acceptance check**: the measure of "are you finished?", specific enough that a reader
-     can run it. Not the per-commit validation, which asks whether the artifact still works.
-     A changed check is one of the things the deliberation exists to justify
-   - **ladder**: one rung per step, `- [[N]] [<title>][M]` plus `(current)` / `(done)`, with
-     `[M]: #<slug>` in the file's `# References`. The closing rung, `<cycle title> closing`,
-     is linked like the rest
-   - **deliberation**: how the five above were decided, alternatives weighed, costs accepted.
-     `_None._` when there was nothing to deliberate, which is a real answer
-   A **`Ladder details`** area follows the six: one subsection per rung, the closing included,
-   headed by the rung's exact title. Each opens at laddering with an abstract-sized intent
-   statement (the rung's problem and solution in a sentence or two) and completes at the rung's
-   landing with the conceptual delta: design points, consequences, deferrals, never a restatement
-   of the landed commit body. The closing rung's opens with the stub "Closing out the cycle."
-   and completes at close-out with what closing taught, in problem/solution form, or `_None._`.
+3. **Write the `## In Progress` block**: move the picked-up `## Todo` item in and write the six
+   provisional items and the `Ladder details` area, per
+   [The In Progress block](agent-data/notes.md#the-in-progress-block).
 4. **Sweep `## Done`** per [Retiring Done entries](agent-data/notes.md#retiring-done-entries),
    then **bump the version-of-record** to the opening's version
    ([versioning.md](agent-data/versioning.md#suffix-scheme)).
 
-Nothing is opened in the chores file here. The block is the cycle's only home until close-out
-moves it ([Chores sections](#chores-sections)).
-
-**Rungs are named, not numbered.** A rung is `- [[N]] [<title>][M] (marker)` and carries no
-detail beyond that: the literal `[[N]]` is the as-built ladder's placeholder, filled only at
-backfill after landing, and the title links to the rung's subsection below. A step is
-identified by its title, verbatim in the rung, the chores `##` header, and the commit (hard
-rule 9), so a title carries no number and no version. The version-of-record still bumps for
-every rung and its suffix still encodes the stage, but that encoding belongs to the manifest
-and appears nowhere in prose. A multi-step cycle's bookend commits are the cycle title plus
-" opening" and " closing" (prose.md's [Cycle bookend titles][cbt]).
+Rungs are named, not numbered (prose.md's [Steps are named, not numbered][snn]), and a
+multi-step cycle's bookend commits are the cycle title plus " opening" and " closing"
+(prose.md's [Cycle bookend titles][cbt]).
 
 ### The per-rung flow
 
@@ -217,13 +178,13 @@ immediately before acting and never from memory
 4. **Bump the version-of-record** to this commit's version
    ([versioning.md](agent-data/versioning.md#suffix-scheme)). The opening's bump already covers
    an opening commit.
-5. **Validate the artifact** with `vc-x1 validate`, at every commit, doc-only ones included. It
-   runs the work side's `[validate] full` table in order, one command per element, stopping at
-   the first failure. No validation while a review iterates: it runs once, on the settled
-   state, after the last edit.
+5. **Validate the artifact** with `vc-x1 validate`, at every commit, doc-only ones included.
+   No validation while a review iterates: it runs once, on the settled state, after the last
+   edit.
 6. **Work review.** Stop *before* writing any description and say "please review". The stop is
    its own message and carries no title or body, drafted or final. Iterate until the user says
-   "continue" / "go" or equivalent.
+   "continue" / "go" or equivalent. The review looks at the uncommitted working-copy diff
+   (viewing commands in [jj basics](agent-data/jj.md#jj-basics)).
 7. **Flip `(current)` to `(done)`**, the moment "done" becomes true, then **write the
    description** ([Commit description](#commit-description)).
 8. **Description review.** Show the title + body and stop. Ask permission to commit and push
@@ -233,50 +194,24 @@ immediately before acting and never from memory
    ([Committing vs pushing](#committing-vs-pushing)). Then the
    [at-rest contract](#at-rest-push-stop-squash-push) applies.
 
-The work review looks at the uncommitted working-copy diff. The user opens diffs in their
-editor, and for the terminal `jj diff` is the working copy, `jj diff -r @-` the previous commit,
-`jj show -r <X>` one revision's description and diff. Never `jj edit -r @-` to view a past
-commit.
-
 ### Committing vs pushing
 
 A cycle rung is committed *by* `vc-x1 push`, never pre-committed with `jj commit` (hard rule 1,
-[why](agent-data/rationale.md#committing-vs-pushing)). Push's commit stages commit both repos
-with the approved title and body and stamp each new commit's `ochid:` trailer
-([ochid trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers)). In an instruction,
-"commit", "push", and "commit + push" all mean `vc-x1 push`. A bare `jj commit` is asked for by
-name ("local commit", "just `jj commit`") and is only for work that never publishes: local-only
-saves and [local ladder](#local-ladders) intermediates, with no `ochid:`.
-
-Three push behaviors to keep in mind:
-
-- **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
-  flow's job, run *before* the push. The one check that remains is `push-work` verifying the
-  bookmark's remote refs are tracked.
-- **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its
-  work is already done, so a failed run is re-run, not resumed. If push exits after `push-work`
-  but before the agent-repo publish, `vc-x1 squash-push -R .claude` by hand is the rest of it.
-- **`ochid:` trailers are stamped by push** (hard rule 5), never hand-written into `--title` or
-  `--body`.
+[why](agent-data/rationale.md#committing-vs-pushing)). In an instruction, "commit", "push", and
+"commit + push" all mean `vc-x1 push`. A bare `jj commit` is asked for by name ("local commit",
+"just `jj commit`") and is only for work that never publishes: local-only saves and
+[local ladder](#local-ladders) intermediates, with no `ochid:`. What push does and does not do
+is in jj.md's [vc-x1 push](agent-data/jj.md#vc-x1-push-what-it-does-and-does-not-do).
 
 ### Commit description
 
-The title is a [Conventional Commit](https://www.conventionalcommits.org/),
-`<type>: <short description>` with an optional `(scope)`, at the width in
-[Line widths](agent-data/prose.md#line-widths). Common types: `feat`, `fix`, `refactor`, `test`,
-`docs`, `chore`. Each rung gets its own descriptive title, sharing a greppable stem across the
-cycle so `git log --grep` collects them, and distinct within its cycle and its chores file, where
-it is also an anchor (hard rule 9).
-
-The body is a **problem statement** then a **solution statement** in
-[Commit-body form](agent-data/prose.md#commit-body-form): an intro paragraph stating the general
-problem and defining any word the title assumes, `*` bullets for its facets, `-` bullets for
-solutions, a `-` solving the nearest enclosing problem, wrapped per Line widths. No version in
-title or body, no file list, and no deliberation
-([why](agent-data/rationale.md#commit-description)). A work-repo body describes the artifact's
-or the records' problem. An agent-repo body describes in-session activity. `ochid:` is the
-body's last line, stamped by push, and a breaking change uses the hyphenated
-`BREAKING-CHANGE:` trailer key.
+The title is a Conventional Commit, each rung's own, sharing a greppable stem across the cycle
+and distinct within its cycle and its chores file (hard rule 9). The body is a **problem
+statement** then a **solution statement** in
+[Commit-body form](agent-data/prose.md#commit-body-form). No version in title or body, no file
+list, and no deliberation ([why](agent-data/rationale.md#commit-description)). Details (types,
+widths, work-repo versus agent-repo bodies, trailers) are in prose.md's
+[Commit description details][cdd].
 
 ### Pushing
 
@@ -317,22 +252,18 @@ The contract that keeps both repos clean has three parts, and hard rule 3 is the
 ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 
 1. **The agent runs `vc-x1 push`**, which commits and publishes both repos: the work rung on its
-   bookmark, and the agent repo's session data as one commit on its `main`, one push = one
-   agent-repo commit paired with every work-repo commit in that push.
+   bookmark, and the agent repo's session data as one commit on its `main`.
 2. **The agent stops for the turn.** Once the turn's final push or squash-push is invoked, no
    further work: no verification, no summary, no next-step offer, no edit, until the user
-   speaks. Closing words go *before* the invoke. The harness rejects an empty turn, so it may
-   force a visible token after the tool returns, and then a bare acknowledgment ("landed") is
-   all that is allowed, never a summary. Post-push verification happens next turn at the user's
-   direction. Under a standing delegation, an intermediate push is just a step and the tail
-   rides into the next rung's agent-repo commit. The hard stop lands on the turn's *final* push.
-3. **The user runs `vc-x1 squash-push -R .claude`** after the agent goes quiet. It folds the
-   tail into the published agent-repo commit and pushes `main`. Only the user can do this. The
-   user repeats it if new writes land.
+   speaks. Closing words go *before* the invoke. If the harness forces a visible token after
+   the tool returns, a bare acknowledgment ("landed") is all that is allowed. Under a standing
+   delegation, an intermediate push is just a step, and the hard stop lands on the turn's
+   *final* push.
+3. **The user runs `vc-x1 squash-push -R .claude`** after the agent goes quiet, and repeats it
+   if new writes land. Only the user can do this.
 
-"Clean" means both repos' `@` empty. A late work-repo tweak after the push (a forgotten edit)
-needs `jj squash --ignore-immutable` and a re-push, which is a remote rewrite and takes approval
-like any push.
+"Clean" means both repos' `@` empty. A late work-repo tweak after the push is a remote rewrite
+and takes approval like any push (jj.md's [vc-x1 push][vpush]).
 
 ### Topic bookmarks are drafts
 
@@ -340,15 +271,10 @@ Landing on `main` is publication, and that is the line the rules divide at
 ([why](agent-data/rationale.md#topic-bookmarks-are-drafts)). Before landing, the series should
 be self-consistent when practical: inserting or reordering a rung edits the ladder in the rungs
 that already committed an older version of it, not only at the tip. After landing, the commits
-are history and are not touched.
-
-- **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
-  `jj describe`, so hard rule 4 stays intact.
-- **Then force-push the bookmark**, under the same approval as any other push.
-- **Exceptions**, named and moved past: the bookmark has already landed, another branch is
-  stacked on it, or the ladder is long and only a trailing snapshot disagrees.
-
-A [local ladder](#local-ladders) never meets this, since nothing on it is pushed.
+are history and are not touched. The reshape moves (amend content, never re-describe, then
+force-push under approval, and the named exceptions) are in jj.md's
+[Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land). A
+[local ladder](#local-ladders) never meets this, since nothing on it is pushed.
 
 ### Close-out
 
@@ -362,26 +288,17 @@ The cycle's last commit is bookkeeping only, and its body describes that bookkee
    ladder's `(current)` / `(done)` markers since as-built implies done, add any design
    subsections the deliberation grew, and complete the closing rung's subsection.
 3. **Move the block** into `notes/chores/chores-NN.md`, which is what creates the section
-   ([Chores sections](#chores-sections)), and add the title-only `## Table of Contents` entry.
-4. **Write the `## Done` entry**: the version, then a bold title line with its chores `[N]` ref,
-   detail as sub-bullets ([Done entry form](agent-data/notes.md#done-entry-form)). Replace the
-   `## In Progress` block with `_No cycle currently in progress._`. Under a program heading this
-   retires the cycle's block only: the program heading and its ladder stay, the shipped rung
-   flipped `(done)`.
-5. **Full validation**, mandatory, and `notes/README.md` updated if functionality changed.
-6. **Surface the shape** at push time and wait for the user's choice: **squash** to one commit
-   (right for a focused change), **trapezoid** (a merge commit whose first parent is the trunk
-   and whose second is the ladder, so `git log --first-parent` reads one commit per cycle while
-   every rung stays reachable, the current default), or **keep separate** (one commit per rung
-   on `main`, when the decomposition itself is informative). A squash is set up before the
-   push. A trapezoid is reshaped between two pushes, by the
-   [trapezoid recipe](agent-data/jj.md#trapezoid-close-out-recipe), whose last step is
-   `jj git push`, not `vc-x1 push`.
-7. **Land the bookmark** on the user's go
+   ([Chores sections](#chores-sections)), add the title-only `## Table of Contents` entry, and
+   **write the `## Done` entry** (notes.md's [The close-out move][tcm]).
+4. **Full validation**, mandatory, and `notes/README.md` updated if functionality changed.
+5. **Surface the shape** at push time and wait for the user's choice: squash, trapezoid (the
+   current default), or keep separate (jj.md's
+   [Close-out shapes](agent-data/jj.md#close-out-shapes)).
+6. **Land the bookmark** on the user's go
    ([Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land)). Until this, nothing
    the cycle pushed is permanent. Once `main` contains the bookmark, delete it, locally and
    remotely (hard rule 13).
-8. **Backfill** the chores as-built ladder for the commits landing just made permanent
+7. **Backfill** the chores as-built ladder for the commits landing just made permanent
    ([Commits backfill](#commits-backfill)). A commit cannot record its own SHA, so the edits
    are the next opening's first step ([Opening](#opening)), never this turn's.
 
@@ -390,18 +307,8 @@ The cycle's last commit is bookkeeping only, and its body describes that bookkee
 A **chores section** is a `##` section in `notes/chores/chores-NN.md` recording landed work, and
 every commit that lands on the permanent branch should have a rung in some section's as-built
 ladder. The section is created at close-out by moving the `## In Progress` block, four
-transforms and no rewriting ([why](agent-data/rationale.md#chores-sections)):
-
-- **Heading levels shift so the title becomes the section's `##`**, the items shifting with it.
-  Anchors survive.
-- **Rung refs renumber** into the destination file's `[N]` namespace
-  ([Reference numbering](agent-data/notes.md#reference-numbering)).
-- **Repo-root-relative links gain `../`**, since the block moves into `notes/chores/`.
-- **The block's forward-looking notes are rewritten**, since they described a future that has
-  now happened.
-
-Check the renumbered refs and the rebased links by hand. Fuller conventions (content rules,
-header sync, the Table of Contents) are in
+transforms and no rewriting, checked by hand (notes.md's [The close-out move][tcm],
+[why](agent-data/rationale.md#chores-sections)). Fuller conventions are in
 [Chores conventions](agent-data/notes.md#chores-conventions).
 
 #### Commits backfill
@@ -409,37 +316,25 @@ header sync, the Table of Contents) are in
 A rung is written with the literal `[[N]]` placeholder and no version, and is backfilled once
 the commit is permanent, which is always one push later
 ([why](agent-data/rationale.md#commits-backfill)). On a topic bookmark the whole cycle waits
-for landing. Backfill replaces the placeholder with a file-local `[N]` slot defined as the
-commit URL plus 40-hex SHA in the file's `# References`
-([Chores commit references](agent-data/notes.md#chores-commit-references)) and writes the
-version ahead of the title. A deliberate rewrite of recorded commits invalidates their SHAs:
-re-record them once the rewrite is published, on the same timing. Never record a SHA from the
-window between a trapezoid's two pushes, or from any commit not on a permanent branch.
+for landing. The shape of the fill, and the rewrite and trapezoid-window cautions, are in
+[Chores commit references](agent-data/notes.md#chores-commit-references).
 
 ### Local ladders
 
 When one rung's work benefits from incremental review, or grows enough to want its own
 sub-cycle, it runs as a **local ladder**: a chain of jj commits that never leaves the machine and
 collapses into the rung before the cycle continues
-([why](agent-data/rationale.md#local-ladders)). Ladder commits are scratch, for review and
-bisection only. Per ladder commit:
-
-1. `jj new -R .`: a fresh empty `@`.
-2. Do the commit's work.
-3. `vc-x1 validate --fast` (the `[validate] fast` table). Non-negotiable.
-4. `jj describe -m "..." -R .`: a scratch working title. This first-time authoring is the one
-   permitted describe.
-
-At the end, squash the chain into the rung (`jj squash --from "<base>..@-" --into @ -u -R .`,
-`<base>` the parent of the first ladder commit) and continue the per-rung flow from step 5.
-`vc-x1 push` then publishes the single commit and stamps its one `ochid:`. For a one-commit
-loop the squash is a no-op. Navigation and recovery moves (editing an earlier ladder commit,
-abandoning one, restoring an op) are in jj.md's [Local ladders](agent-data/jj.md#local-ladders).
-A sub-cycle that deserves its own record nests the version suffix
-([versioning.md](agent-data/versioning.md#suffix-scheme)) and names its rungs like any other.
+([why](agent-data/rationale.md#local-ladders)). Each ladder commit is validated with
+`vc-x1 validate --fast` and described once, as scratch. The per-commit contract, the squash,
+and the navigation and recovery moves are in jj.md's
+[Local ladders](agent-data/jj.md#local-ladders).
 
 [cbt]: agent-data/prose.md#conventional-commit-shape-ladder--chores--commit
+[cdd]: agent-data/prose.md#conventional-commit-shape-ladder--chores--commit
 [llb]: agent-data/jj.md#long-lived-bookmarks-merge-only-by-default-deletable-once-merged
+[snn]: agent-data/prose.md#steps-are-named-not-numbered
+[tcm]: agent-data/notes.md#the-close-out-move
+[vpush]: agent-data/jj.md#vc-x1-push-what-it-does-and-does-not-do
 
 ## Working practices
 

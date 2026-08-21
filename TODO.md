@@ -90,7 +90,7 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: seed rationale.md and the Rationale term][60] (done)
 - [[N]] [docs: move the cycle protocol's why into rationale.md][61] (done)
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62] (done)
-- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66]
+- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66] (done)
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
@@ -209,6 +209,21 @@ Problem: with the why gone, AGENTS.md is still twice the target because it resta
 mechanics the satellites own: jj commands, the named-not-numbered rule, push behaviors, the
 close-out shapes. Solution: each restatement becomes a one-line pointer to the satellite
 section that holds it, the satellite gaining any sentence AGENTS.md alone had.
+
+- AGENTS.md 561 to 456. The protocol tree is now rules plus step lists, each step pointing
+  at the satellite that owns its mechanics, and nothing in it is stated a second time
+- new satellite homes, each named for what it holds: jj.md's "vc-x1 push: what it does and
+  does not do", "Close-out shapes", and the per-commit contract in "Local ladders" and the
+  reshape moves in "Cycle bookmarks"; notes.md's "The In Progress block" (the six items, the
+  Ladder details area, the rung form) and "The close-out move" (the four transforms, the Done
+  entry, the In Progress reset); prose.md's "Commit description details"
+- close-out steps 3 and 4 merged (the move and the Done entry are one act in notes.md), so
+  backfill is step 7 and the Opening's pointer follows
+- the Terminology "Retired" notes went to rationale.md as history, not rule
+- no separate details file: every block had a satellite owner, so rationale.md stays why-only
+- what is left is rule text: the hard rules, Pushing's three policy paragraphs, the at-rest
+  contract, Working practices, the agent-file rules. Reaching 297 from here means shortening
+  rules, which is a different cycle's decision
 
 ##### docs: label-colon form for AGENTS.md's lists and rules
 

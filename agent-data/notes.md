@@ -119,6 +119,45 @@ Example shape:
 [3]: fixes.md#fix-z
 ```
 
+## The In Progress block
+
+A running cycle's record, `TODO.md > ## In Progress`, written at the opening
+([Opening](../AGENTS.md#opening)) and moved to chores at close-out. The picked-up `## Todo`
+item is moved here (never copied) and becomes **six provisional items**, all required, all
+revised as rungs land. The title is a heading one level below `## In Progress` and the other
+five are headings one level below the title (a plain cycle: `###` title, `####` items, and
+under a program heading, each one deeper):
+
+- **title**, which becomes the chores section header at close-out
+- **problem statement**: what is wrong, a sentence or two
+- **solution statement**: what will be done about it, broad. Provisional, and the close-out's
+  commit body carries the final one
+- **acceptance check**: the measure of "are you finished?", specific enough that a reader can
+  run it. Not the per-commit validation, which asks whether the artifact still works. A changed
+  check is one of the things the deliberation exists to justify
+- **ladder**: one rung per step, `- [[N]] [<title>][M]` plus `(current)` / `(done)`, with
+  `[M]: #<slug>` in the file's `# References`. The closing rung, `<cycle title> closing`, is
+  linked like the rest
+- **deliberation**: how the five above were decided, alternatives weighed, costs accepted.
+  `_None._` when there was nothing to deliberate, which is a real answer
+
+A **`Ladder details`** area follows the six: one subsection per rung, the closing included,
+headed by the rung's exact title. Each opens at laddering with an abstract-sized intent
+statement (the rung's problem and solution in a sentence or two) and completes at the rung's
+landing with the conceptual delta: design points, consequences, deferrals, never a restatement
+of the landed commit body. The closing rung's opens with the stub "Closing out the cycle." and
+completes at close-out with what closing taught, in problem/solution form, or `_None._`.
+
+A rung is `- [[N]] [<title>][M] (marker)` and carries no detail beyond that: the literal
+`[[N]]` is the as-built ladder's placeholder, filled only at backfill after landing, and the
+title links to the rung's subsection. A step is identified by its title (hard rule 9, prose.md's
+[Steps are named, not numbered](prose.md#steps-are-named-not-numbered)), so a title carries no
+number and no version. The version-of-record still bumps for every rung and its suffix still
+encodes the stage, but that encoding belongs to the manifest and appears nowhere in prose.
+
+Nothing is opened in the chores file while the cycle runs. The block is the cycle's only home
+until close-out moves it ([The close-out move](#the-close-out-move)).
+
 ## Done entry form
 
 A `## Done` entry (in `TODO.md` and in `done.md`) is the close-out's **version**, then a **bold
@@ -243,6 +282,25 @@ places, and detail written twice drifts. The division:
 - chores owns the narrative
 - the ladder's commit refs link them
 
+### The close-out move
+
+The chores section is created at close-out by moving the `## In Progress` block
+([Chores sections](../AGENTS.md#chores-sections)), four transforms and no rewriting:
+
+- **Heading levels shift so the title becomes the section's `##`**, the items shifting with it.
+  Anchors survive.
+- **Rung refs renumber** into the destination file's `[N]` namespace
+  ([Reference numbering](#reference-numbering)).
+- **Repo-root-relative links gain `../`**, since the block moves into `notes/chores/`.
+- **The block's forward-looking notes are rewritten**, since they described a future that has
+  now happened.
+
+Check the renumbered refs and the rebased links by hand. The `## Done` entry written at the
+same time is the version, then a bold title line with its chores `[N]` ref, detail as
+sub-bullets ([Done entry form](#done-entry-form)), and the `## In Progress` block is replaced
+with `_No cycle currently in progress._`. Under a program heading this retires the cycle's
+block only: the program heading and its ladder stay, the shipped rung flipped `(done)`.
+
 ### Chores commit references
 
 The first content under a chores section header is the **as-built ladder**: one rung per
@@ -302,7 +360,10 @@ long-lived release/patch branch), because a rebase or squash rewrites it on the 
 is its version. A commit can't record its own SHA, so the fill lands one push later: every rung
 opens with the literal `[[N]]` placeholder and no version, and each push backfills the rungs of
 the commits the previous push made permanent. On a topic branch a section waits until the branch
-lands. The commit itself is the record, and `git log --grep "<title>"` finds it. See the protocol's
+lands. The commit itself is the record, and `git log --grep "<title>"` finds it. A deliberate
+rewrite of recorded commits invalidates their SHAs: re-record them once the rewrite is
+published, on the same timing. Never record a SHA from the window between a trapezoid's two
+pushes, or from any commit not on a permanent branch. See the protocol's
 [Commits backfill](../AGENTS.md#commits-backfill).
 
 Sections that predate this convention keep their `Commits:` lines. The ladder form applies

@@ -39,6 +39,10 @@ would change the rule needs the argument, and a rule whose cost is not written d
 an editor simplifies away. Filed as the Todo "Halve AGENTS.md: move its rationale into
 `agent-data/rationale.md`" (wink, 2026-08-21).
 
+**Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`.
+"Instruction files", which named the agent-files back when `custom.md` was the only editable
+one. "Ladder (sub-cycle)" for a local ladder, under [Local ladders](#local-ladders).
+
 **Agent-files** is always hyphenated because it names one set rather than a two-word noun
 phrase, and it matches its sibling directory `agent-data/`. **`custom.md` is never pinned**
 because holding what the pinned files structurally cannot is its job. **Project layer** is

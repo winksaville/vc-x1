@@ -33,6 +33,10 @@ content.
   updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
 
+Viewing, for a review: `jj diff -R .` is the working copy, `jj diff -r @- -R .` the previous
+commit, `jj show -r <X> -R .` one revision's description and diff. Never `jj edit -r @-` to view
+a past commit: it marks it mutable and shifts `@`.
+
 ## Revsets
 
 How commits are addressed in `-r` arguments, condensed. jj's own semantics are the one dialect.
@@ -97,6 +101,25 @@ repo).
 `ochid:` trailers are **stamped by `vc-x1 push`**. Never hand-write them into a commit body or
 `--title`/`--body`.
 
+## vc-x1 push: what it does and does not do
+
+`vc-x1 push <bookmark> --title "..." --body "..."` commits both repos with the approved title
+and body, stamps each new commit's `ochid:` trailer ([above](#cross-repo-linking-ochid-trailers)),
+pushes the work bookmark, and squash-pushes the agent repo's `main`. Three behaviors to keep in
+mind:
+
+- **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
+  flow's job, run *before* the push. The one check that remains is `push-work` verifying the
+  bookmark's remote refs are tracked.
+- **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its
+  work is already done, so a failed run is re-run, not resumed. If push exits after `push-work`
+  but before the agent-repo publish, `vc-x1 squash-push -R .claude` by hand is the rest of it.
+- **`ochid:` trailers are stamped by push** (hard rule 5), never hand-written into `--title` or
+  `--body`.
+
+A late work-repo tweak after the push (a forgotten edit) needs `jj squash --ignore-immutable`
+and a re-push, which is a remote rewrite and takes approval like any push.
+
 ## Re-describing: coordinate first, and keep the trailer
 
 **Never `jj describe` a commit that is already published or already carries trailers without
@@ -140,6 +163,15 @@ header, the Done entry, and the bookmark all derive from one bare title):
   delete <bookmark>`, then `jj git push --bookmark <bookmark>` to delete the remote ref. Same
   disposal for the long-lived case below.
 
+**Reshape**, while the bookmark is a draft
+([Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)):
+
+- **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
+  `jj describe`, so hard rule 4 stays intact.
+- **Then force-push the bookmark**, under the same approval as any other push.
+- **Exceptions**, named and moved past: the bookmark has already landed, another branch is
+  stacked on it, or the ladder is long and only a trailing snapshot disagrees.
+
 We think a `vc-x1 start-change <bookmark>` will eventually own the create half. It would replace
 the create bullets and nothing else, which is why the rule and the commands are separated.
 
@@ -162,6 +194,19 @@ freely until it lands (see
 [Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)), this one is
 published and may not. Refined 2026-08-03 from the earlier "treated as permanent, never rebased"
 wording, after a fully merged long-lived bookmark was deleted without loss.
+
+## Close-out shapes
+
+The three shapes a cycle can land in, chosen by the user at close-out
+([Close-out](../AGENTS.md#close-out)):
+
+- **squash** to one commit, right for a focused change. Set up before the close-out push.
+- **trapezoid**, the current default: a merge commit whose first parent is the trunk and whose
+  second is the ladder, so `git log --first-parent` reads one commit per cycle while every rung
+  stays reachable. Reshaped between two pushes by the [recipe below](#trapezoid-close-out-recipe),
+  whose last step is `jj git push`, not `vc-x1 push`.
+- **keep separate**, one commit per rung on `main`, when the decomposition itself is
+  informative.
 
 ## Trapezoid close-out recipe
 
@@ -233,8 +278,19 @@ Recovery:
 ## Local ladders
 
 The jj moves behind [Local ladders](../AGENTS.md#local-ladders), a rung's scratch chain of
-commits that never leaves the machine. The contract per commit (`jj new`, work,
-`vc-x1 validate --fast`, a scratch `jj describe`) and the squash that ends it are stated there.
+commits that never leaves the machine. Ladder commits are scratch, for review and bisection
+only. Per ladder commit:
+
+1. `jj new -R .`: a fresh empty `@`.
+2. Do the commit's work.
+3. `vc-x1 validate --fast` (the `[validate] fast` table). Non-negotiable.
+4. `jj describe -m "..." -R .`: a scratch working title. This first-time authoring is the one
+   permitted describe.
+
+At the end, squash the chain into the rung (below) and continue the per-rung flow from its
+validation step. `vc-x1 push` then publishes the single commit and stamps its one `ochid:`. A
+sub-cycle that deserves its own record nests the version suffix
+([versioning.md](versioning.md#suffix-scheme)) and names its rungs like any other.
 
 Navigating:
 
