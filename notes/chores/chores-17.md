@@ -334,14 +334,14 @@ The whole cycle in one commit. Gotchas:
 
 ## docs: empty custom-family into the pinned set and config
 
-- [[N]] [docs: empty custom-family into the pinned set and config opening][17]
-- [[N]] [feat: agent naming in config and CLI][18]
-- [[N]] [feat: add the family and validate tables to the schema][19]
-- [[N]] [feat: add the validate subcommand][20]
-- [[N]] [docs: pin messaging into agent-data][21]
-- [[N]] [docs: retire custom-family.md][22]
-- [[N]] [feat: rename validate-bot to validate-agent][24]
-- [[N]] [docs: empty custom-family into the pinned set and config closing][23]
+- [[30]] 0.80.0-0 [docs: empty custom-family into the pinned set and config opening][17]
+- [[31]] 0.80.0-1 [feat: agent naming in config and CLI][18]
+- [[32]] 0.80.0-2 [feat: add the family and validate tables to the schema][19]
+- [[33]] 0.80.0-3 [feat: add the validate subcommand][20]
+- [[34]] 0.80.0-4 [docs: pin messaging into agent-data][21]
+- [[35]] 0.80.0-5 [docs: retire custom-family.md][22]
+- [[36]] 0.80.0-6 [feat: rename validate-bot to validate-agent][24]
+- [[37]] 0.80.0 [docs: empty custom-family into the pinned set and config closing][23]
 
 ### Problem
 Both members' custom* files hold family infrastructure (the messaging behavior, the member
@@ -628,11 +628,11 @@ Run at close-out (2026-08-21):
    at this close-out.
 
 ### Ladder
-- [[N]] [docs: fold the cycle agent-files into AGENTS.md opening][25]
-- [[N]] [docs: write the cycle account into AGENTS.md][26]
-- [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][27]
-- [[N]] [docs: rename bot repo to agent repo in the agent-files][28]
-- [[N]] [docs: fold the cycle agent-files into AGENTS.md closing][29]
+- [[38]] 0.80.1-0 [docs: fold the cycle agent-files into AGENTS.md opening][25]
+- [[39]] 0.80.1-1 [docs: write the cycle account into AGENTS.md][26]
+- [[40]] 0.80.1-2 [docs: retire cycle-protocol.md and cycle-checklists.md][27]
+- [[41]] 0.80.1-3 [docs: rename bot repo to agent repo in the agent-files][28]
+- [[42]] 0.80.1 [docs: fold the cycle agent-files into AGENTS.md closing][29]
 
 ### Deliberation
 Multi-step, three Work rungs: writing the merged account is the design work and reviewable on
@@ -787,3 +787,16 @@ Closing out the cycle.
 [27]: #docs-retire-cycle-protocolmd-and-cycle-checklistsmd
 [28]: #docs-rename-bot-repo-to-agent-repo-in-the-agent-files
 [29]: #docs-fold-the-cycle-agent-files-into-agentsmd-closing
+[30]: https://github.com/winksaville/vc-x1/commit/63fe9e7cc85f "63fe9e7cc85f84cab3a54e32664883d98d8b327d"
+[31]: https://github.com/winksaville/vc-x1/commit/704d246a6342 "704d246a6342335a09bef7244e5da94ff317b9fb"
+[32]: https://github.com/winksaville/vc-x1/commit/5ce67fce6e7a "5ce67fce6e7a4998c4954ce69ddb9585d1defa8f"
+[33]: https://github.com/winksaville/vc-x1/commit/e909117ac336 "e909117ac3366dc5aba4156dd4b3732ca6289db0"
+[34]: https://github.com/winksaville/vc-x1/commit/bf177d42c81f "bf177d42c81f128887bbfb6c5e052fa7eda9786a"
+[35]: https://github.com/winksaville/vc-x1/commit/72b2077f682d "72b2077f682d6d9fcac5eaf66d173813363b8f4e"
+[36]: https://github.com/winksaville/vc-x1/commit/ee1fbfd28eca "ee1fbfd28ecad344b1fb4c6b2ece12d23c2caa99"
+[37]: https://github.com/winksaville/vc-x1/commit/ef9aed26b238 "ef9aed26b238a87cba37ca93249e46a3321ad3af"
+[38]: https://github.com/winksaville/vc-x1/commit/389c070c38b9 "389c070c38b9d7e3e8c9e173fd46960755f8fb75"
+[39]: https://github.com/winksaville/vc-x1/commit/9be6c66aebd6 "9be6c66aebd6c91a31984246099125ef8e9ad6f8"
+[40]: https://github.com/winksaville/vc-x1/commit/c441a2e37e84 "c441a2e37e84e5889c46de7ee1a34254788e5cc3"
+[41]: https://github.com/winksaville/vc-x1/commit/7aaf783d57e6 "7aaf783d57e6ab9c43f9baaf97c8f61036ed3a97"
+[42]: https://github.com/winksaville/vc-x1/commit/14540f84300e "14540f84300ecbd68ab28fdf24a18116a85bcdba"

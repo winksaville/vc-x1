@@ -375,6 +375,28 @@ As TODO.md `## Done` sections fills move them to here.
   depth-note cycles' seventeen rungs backfilled with versions and
   SHAs.
 
+- 0.79.0 **refactor: retire the remaining jj spawns** [[152]]
+  - the jj-CLI spawn path is gone: push and facade reads, sync repositioning, op
+    recovery, squash, and init/clone provisioning all run in-process through jj-lib,
+    the network legs staying jj-lib's own git children
+  - clippy.toml bans `Command::new` outside a documented, closed allowlist (the version
+    gate's `jj -V`, push's `$EDITOR`, init's gh provisioning, test helpers), deny-level,
+    demonstrated once failing a scratch site, the enforced sites enumerable by a
+    recorded rg one-liner
+  - the acceptance check ran at close, all four items pass, the test-spawn audit finding
+    every spawn integration-type
+
+- 0.79.1 **docs: pin two rules and close the convergence record** [[149]]
+  - iiac-perf's 2026-08-15 convergence record closed: all three proposals accepted without
+    modification, `outcome-*` pointing at the [trial rung][150] that landed them, and a reply
+    record sent
+  - the `(done)` flip moved from before validation to work-review acceptance in
+    cycle-checklists.md and cycle-protocol.md, and the semicolon rule's history clause moved
+    from ask-on-alter to convert-on-touch in prose.md with code.md stating it for source-file
+    comments
+  - both entries retired from `custom-family.md`'s experimental section and the dogfood log,
+    the diff against the payload now carrying them to the family
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -508,3 +530,6 @@ As TODO.md `## Done` sections fills move them to here.
 [146]: /notes/chores/chores-16.md#docs-freshen-vc-config-and-config-subcmd
 [147]: /notes/chores/chores-16.md#docs-drop-the-orphaned-depth-note-paragraph
 [148]: /notes/chores/chores-16.md#docs-retire-the-refactor-program-block
+[149]: /notes/chores/chores-17.md#docs-pin-two-rules-and-close-the-convergence-record
+[150]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
+[152]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns
