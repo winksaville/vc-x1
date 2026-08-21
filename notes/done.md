@@ -338,6 +338,43 @@ As TODO.md `## Done` sections fills move them to here.
   sandbox-masked config paths inside `.claude`, the interactive
   editor) were each killed by test rather than by argument.
 
+- docs: adopt the merged agent-file set [[143]]: iiac-perf's
+  `agent-files-model` proposal merged onto this repo's file layout
+  with the review's corrections (cycles on their own bookmark, the
+  six-item cycle record with one home, problem-then-solution bodies
+  at <=50-col titles, steps named not numbered, versions living only
+  in the version-of-record); two rules written during the review and
+  applied set-wide, a semicolon joins equals and a pinned file names
+  no project; `custom.md` shrinks to a stub reaching the new
+  `custom-family.md` and `CLAUDE.md` collapses to `@AGENTS.md`.
+
+- docs: fix three semicolons [[144]]: the three prose semicolons in
+  AGENTS.md reworded to comma and period joins; the proposed
+  prose-wide ban examined and dropped, argument in the chores
+  section.
+
+- docs: consolidate line widths [[145]]: the width numbers live only
+  in prose.md's Line widths subsection, every former restatement a
+  pointer; commit bodies wrap at <=75.
+
+- docs: freshen vc-config and config subcmd [[146]]: the markdown
+  config carrier landed (`toml` fences are the config, prose the doc,
+  `.vc-config.md` on both sides); the iiac-perf convergence trio
+  trialed, accepted, and landed with the template baseline and the
+  jj-lib 0.44 bump; closed early (wink, 2026-08-17), the five config
+  rungs deferred to the "Finish the vc-config surface" Todo.
+
+- docs: drop the orphaned depth-note paragraph [[147]]: iiac-perf's
+  2026-08-18 proposal accepted, the paragraph deleted family-wide,
+  the pinned set diffing empty across the three repos modulo
+  custom*.
+
+- docs: retire the refactor program block [[148]]: the jj facade
+  refactor program's block moved from `## In Progress` to an as-built
+  ladder in refactor-20260716.md, bounded at 0.78.4; the freshen and
+  depth-note cycles' seventeen rungs backfilled with versions and
+  SHAs.
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -465,3 +502,9 @@ As TODO.md `## Done` sections fills move them to here.
 [140]: /notes/chores/chores-16.md#style-typeable-punctuation--line-width-source-sweep
 [141]: /notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert
 [142]: /notes/chores/chores-16.md#test-claude-code-can-complete-a-cycle
+[143]: /notes/chores/chores-16.md#docs-adopt-the-merged-agent-file-set
+[144]: /notes/chores/chores-16.md#docs-fix-three-semicolons
+[145]: /notes/chores/chores-16.md#docs-consolidate-line-widths
+[146]: /notes/chores/chores-16.md#docs-freshen-vc-config-and-config-subcmd
+[147]: /notes/chores/chores-16.md#docs-drop-the-orphaned-depth-note-paragraph
+[148]: /notes/chores/chores-16.md#docs-retire-the-refactor-program-block

@@ -45,8 +45,8 @@ close-out, gotchas in problem/solution form>
 A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
 and the six items sit one level below that (headings give the current work durable anchors,
 which numbered Todo entries can't). Full rules in
-[cycle-protocol.md](agent-data/cycle-protocol.md#preparation); the move's four transforms are
-in [Chores sections](agent-data/cycle-protocol.md#chores-sections).
+[Opening](AGENTS.md#opening), and the move's four transforms are in
+[Chores sections](AGENTS.md#chores-sections).
 
 _No cycle currently in progress._
 
@@ -64,30 +64,27 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Simplify and combine the cycle-* agent-files into AGENTS.md.** (wink, 2026-08-21) The
-   protocol lives in `cycle-protocol.md`, its summaries in `cycle-checklists.md`, and the two
-   disagree just enough to mislead a reader who opens one and not the other. Measured at the
-   agent-naming rung: the bot read the checklists file, took the "Ladder (sub-cycle)
-   checklist" because the working record calls its rung list `#### Ladder`, skipped the
-   protocol file that tells the multi-commit and squash-form shapes apart, and so described
-   the rung and proposed "start the next rung" where the next step was `vc-x1 push`. The
-   answer is not another rule: hard rule 7 and the checklists' own preamble already say to
-   read both. It is fewer files, with the one reading that matters in the file the harness
-   auto-loads.
-   - fold `cycle-protocol.md` and `cycle-checklists.md` into one account in `AGENTS.md`,
-     simplified as they merge, so the protocol and its checklist cannot drift and the
-     per-rung `vc-x1 push` is read by every session without a second hop
-   - retire the "Ladder (sub-cycle)" name, which collides with the working record's `Ladder`
-   - state the at-rest contract in one passage: after a rung the bot runs `vc-x1 push` (both
-     repos), stops, and the user runs `vc-x1 squash-push` on the agent repo to sweep the
-     session tail the push itself wrote, so "clean" means both repos empty. The mechanism is
-     in `jj.md` and the `squash-push` help, the workflow is nowhere, and the bot mapped "I'll
-     squash-push the agent repo" onto the wrong verb for want of the why
-   - move the terminology with it: the code now spells the side `agent` and wink says "agent
-     repo", while the Terminology section still defines "bot repo" as the standard name with
-     `.claude` as its path, so a bot reading AGENTS.md keeps saying "bot"
-   - convention work, so it runs as its own cycle, and the result is a family proposal
-     ([Changing the agent-files](AGENTS.md#changing-the-agent-files))
+1. **Halve AGENTS.md: move its rationale into `agent-data/rationale.md`.** (wink, 2026-08-21)
+   AGENTS.md is the one file every session loads, and about half of it is argument rather
+   than rule: the "Why" paragraphs, the incident stories behind the acceptance check and the
+   https-remote rule, the delegation tiers' justification, the Terminology notes' "because"
+   clauses. A session needs the rule. The argument is for whoever would change the rule, and
+   for the family at convergence, and it keeps the rule from being simplified away by an
+   editor who does not know its cost, so it moves rather than dies.
+   - add **Rationale** to AGENTS.md's Terminology, defining the term and linking
+     `agent-data/rationale.md`, and list the file in the File map
+   - new pinned file `agent-data/rationale.md`, its headings mirroring AGENTS.md's so the
+     anchors line up 1:1 and a rule reaches its why by one fixed pattern
+     (`[why](agent-data/rationale.md#<same-slug>)`), a missing entry a grep away
+   - an entry is the why, then the evidence: back references to the chores section where the
+     rule was paid for, the dogfood entry, the messages-repo record, the commit. Mostly
+     pointers, not a re-telling, and the "measured YYYY-MM-DD" lines move there with the story
+   - AGENTS.md keeps the rule and its boundary sentences (a sentence that says what the rule
+     does not cover is the rule, not rationale), with zero words of why
+   - target: AGENTS.md at half its size, no rule changed, reviewable as "only words moved"
+   - the satellites (jj.md, prose.md) get the same treatment later, AGENTS.md first since it
+     is the auto-loaded one
+   - convention work, its own cycle, after the fold-cycle-info cycle lands
 
 2. **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21)
    Bare `vc-x1 config` prints the schema once per side of the default `work,agent` target, and
@@ -487,8 +484,8 @@ _No cycle currently in progress._
         imagine a UUID generated from the initial email/issue
         that and then "version number" schema appended to that.
     - Surfaces to update once the identifier is chosen:
-      cycle-protocol.md (title shape, Numbering), AGENTS.md
-      (commit-recording headers), and the `vc-x1` validators
+      AGENTS.md's Cycle protocol (title shape) and Terminology,
+      prose.md (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
 14. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
@@ -535,7 +532,7 @@ _No cycle currently in progress._
       files (`TODO.md`, `todo-backlog.md`, `bugs.md`) so the
       no-arg pre-commit run covers them all. Fixed rather than
       a `notes/**.md` walk because prose docs
-      (`cycle-protocol.md`, design notes) carry ordinary
+      (`AGENTS.md`, design notes) carry ordinary
       numbered lists that aren't managed sequences, and a walk
       would false-positive (markdown renders `1. 1. 1.` as
       1-2-3, a legitimate prose pattern).
@@ -561,8 +558,8 @@ _No cycle currently in progress._
     vc-x1 assumes nothing about repo contents, the pre-commit is
     the *only* gate, strengthening the no-skip case.)
     - Adopt one rule, no exception: the pre-commit runs before
-      Work review on every commit. (docs: AGENTS.md Cycle
-      Protocol summary + cycle-protocol.md per-commit-flow.)
+      Work review on every commit. (docs: AGENTS.md's Cycle
+      protocol, The per-rung flow.)
     - Enrich the pre-commit so it's meaningful on docs commits:
       add the doc validators, `validate-numbering` (its own
       Todo, a prereq) plus `validate-repo` when it exists.
@@ -654,40 +651,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-21. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
-    commit refs.** Adopted in chores-13 (0.69.2 ladder,
-    backfilled during 0.70.0-0): each rung is prepended
-    with its commit reference so the rung↔commit
-    correlation is direct; `Commits:` stays as the
-    section-level list. The convention's home,
-    cycle-protocol.md Close-out ("Add an `### As-built
-    ladder`..."), is in the shared doc set
-    (family: vc-x1, vc-x1-work-repo-template, iiac-perf, zc-msg-x1,
-    tprobe), so landing it everywhere needs a coordinated
-    family-wide sync. Not included in the 2026-07-20
-    vc-x1-work-repo-template sync (straight copy); still pending for the
-    whole family, vc-x1 included.
-    - **Byte-identical is the goal, not the current state.**
-      The set is diverged today and will stay that way while
-      vc-x1 and iiac-perf churn; convergence is reachable only
-      by a deliberate coordinated pass once both are stable.
-      So a local edit to a shared doc is not a violation and
-      does not need family sign-off, it just adds to what that
-      pass will have to reconcile.
-22. **Shared-doc sync: per-commit chores convention.**
-    0.71.0 changed how chores are recorded: each work commit
-    appends its As-built rung + narrative as it lands, rather
-    than the narrative waiting for close-out. That wording edit
-    was made locally in vc-x1's `cycle-protocol.md` / `AGENTS.md` (the
-    shared doc set; see the byte-identical note on the
-    As-built-rungs Todo above). vc-x1-work-repo-template synced
-    2026-07-20 (AGENTS.md + cycle-protocol.md matching again, plus
-    the TODO.md move); iiac-perf, zc-msg-x1, and tprobe still
-    diverge, so the plan is to fan out from
-    vc-x1-work-repo-template (same family as
-    the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
-    commit refs").
-23. **config: extract flag-backed key descriptions from Clap.**
+21. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -702,7 +666,7 @@ _No cycle currently in progress._
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-24. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+22. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -814,6 +778,21 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.80.1 **docs: fold the cycle agent-files into AGENTS.md** [[29]]
+  - `AGENTS.md` holds the cycle protocol as `## Cycle protocol`, one account in the order a
+    cycle meets it, with the at-rest contract (agent pushes, agent stops, user squash-pushes
+    the agent repo) stated once, and `cycle-protocol.md` and `cycle-checklists.md` are gone,
+    their jj mechanics (trapezoid recipe, local-ladder moves) in jj.md
+  - "Ladder (sub-cycle)" retired for "local ladder", "bot repo" for "agent repo" with the
+    actor now "the agent", the "Work" stage name retired, and the Cycle term simplified to
+    one change run from opening to closing as one commit or a ladder of them
+  - filed the next convention cycle: halve AGENTS.md by moving its rationale into
+    `agent-data/rationale.md`
+  - dissolves the Todos "Shared-doc sync: As-built ladder rungs carry `[[N]]` commit refs"
+    and "Shared-doc sync: per-commit chores convention": both conventions are pinned in
+    AGENTS.md and the sync they asked for is the convergence model, and files the backlog
+    entry "Sweep the Todo files for pre-0.80 names and retired conventions"
+
 - 0.80.0 **docs: empty custom-family into the pinned set and config** [[58]]
   - the agent side is `agent` in config (`repos.agent`, `[agent-session]`), on the CLI
     (`--scope=agent`, `agent-session`, `validate-agent`), and in the schema's homes, the old
@@ -850,53 +829,9 @@ cycle and its two docs interludes: template repo names, notes rework)._
   - the acceptance check ran at close, all four items pass, the test-spawn audit finding
     every spawn integration-type
 
-- 0.78.10 **docs: retire the refactor program block** [[35]]
-  - the jj facade refactor program's block moved from `## In Progress` to an as-built
-    ladder in refactor-20260716.md, bounded at 0.78.4, the remaining trapezoid-push stage
-    staying a ranked Todo that absorbs the merge-reconciliation note and the parked-branch
-    state
-  - the freshen and depth-note cycles' seventeen rungs backfilled with versions and SHAs
-
-- 0.78.9 **docs: drop the orphaned depth-note paragraph** [[34]]
-  - iiac-perf's 2026-08-18 proposal accepted: the depth-note paragraph after
-    cycle-protocol.md's closing-rung passage restated what Chores sections owns and is deleted
-    family-wide, the template branch landed, and the pinned set now diffs empty across the
-    three repos modulo custom*
-
-- 0.78.8 **docs: freshen vc-config and config subcmd** [[33]]
-  - the markdown config carrier landed: `toml` fences are the config, prose the doc, and
-    `.vc-config.md` runs on both sides, a lingering `.toml` still loading and both-present
-    erroring
-  - the iiac-perf convergence trio (validate every commit, the flat semicolon rule, the
-    always-linked closing rung) trialed, accepted, and landed, with the template baseline
-    and the jj-lib 0.44 bump riding the cycle
-  - closed early (wink, 2026-08-17) so the 0816-proposal agent-files work starts from a
-    landed base, the five config rungs deferred to the "Finish the vc-config surface" Todo
-    entry. Nothing migrated to done.md at this close
-
-- 0.78.7 **docs: consolidate line widths** [[32]]
-  - the width numbers live only in prose.md's new Line widths subsection, every former
-    restatement now a pointer
-  - commit bodies wrap at <=75 (the Linux kernel patch standard) instead of git's older 72
-
-- 0.78.6 **docs: fix three semicolons** [[31]]
-  - the three prose semicolons in AGENTS.md reword to comma and period joins with no
-    information change, leaving only the shell-syntax ones in code spans
-  - prose.md's Semicolons rule is unchanged: the proposed prose-wide ban was examined and
-    dropped, with the argument in the chores section
-
-- 0.78.5 **docs: adopt the merged agent-file set** [[29]]
-  - iiac-perf's `agent-files-model` proposal merged onto this repo's file layout with the
-    review's corrections: cycles on their own bookmark, the six-item cycle record with one
-    home, problem-then-solution bodies at <=50-col titles, steps named not numbered, and
-    versions living only in the version-of-record
-  - two rules written during the review and applied set-wide: a semicolon joins equals, and
-    a pinned file names no project
-  - `custom.md` shrinks to the generic stub reaching the new `custom-family.md`; `CLAUDE.md`
-    collapses to `@AGENTS.md`
-  - dissolves the Todos "commit-description follow-through" (its convention is now pinned;
-    the hard-rule question moved to the backlog) and "One home for a cycle's narrative"
-    (implemented)
+_Migrated to [done.md](notes/done.md) on 2026-08-21 (the six 0.78.x entries: the merged
+agent-file set, three semicolons, line widths, freshen vc-config, the depth-note paragraph,
+and the refactor program block)._
 
 _Migrated to [done.md](notes/done.md) on 2026-08-18 (the three pre-convention entries: the
 typeable-punctuation source sweep, drop sync state, and the Claude Code cycle test)._
@@ -914,12 +849,7 @@ hygiene-riders and facade-owns-topology cycles)._
 # References
 
 [5]: /notes/forks-multi-user.md
-[29]: /notes/chores/chores-16.md#docs-adopt-the-merged-agent-file-set
-[31]: /notes/chores/chores-16.md#docs-fix-three-semicolons
-[32]: /notes/chores/chores-16.md#docs-consolidate-line-widths
-[33]: /notes/chores/chores-16.md#docs-freshen-vc-config-and-config-subcmd
-[34]: /notes/chores/chores-16.md#docs-drop-the-orphaned-depth-note-paragraph
-[35]: /notes/chores/chores-16.md#docs-retire-the-refactor-program-block
+[29]: /notes/chores/chores-17.md#docs-fold-the-cycle-agent-files-into-agentsmd
 [54]: https://github.com/winksaville/iiac-perf/blob/0520c17ca352/notes/chores/chores-07.md#docs-converge-the-agent-files-with-vc-x1
 [55]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
 [56]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns

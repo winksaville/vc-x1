@@ -13,6 +13,7 @@ at `[1]`.
 - [refactor: retire the remaining jj spawns](#refactor-retire-the-remaining-jj-spawns)
 - [docs: pin two rules and close the convergence record](#docs-pin-two-rules-and-close-the-convergence-record)
 - [docs: empty custom-family into the pinned set and config](#docs-empty-custom-family-into-the-pinned-set-and-config)
+- [docs: fold the cycle agent-files into AGENTS.md](#docs-fold-the-cycle-agent-files-into-agentsmd)
 
 ## refactor: retire the remaining jj spawns
 
@@ -331,8 +332,6 @@ The whole cycle in one commit. Gotchas:
   away. Solution: anchor such splices on the heading line (`^## Todo$`), and read the stat
   before calling the move done.
 
-# References
-
 ## docs: empty custom-family into the pinned set and config
 
 - [[N]] [docs: empty custom-family into the pinned set and config opening][17]
@@ -569,6 +568,196 @@ respelled, so every push in the cycle was `vc-x1-dev push`. Solution: the single
 convention working as intended on a long-lived branch, over once this lands and `main`
 installs as `vc-x1`.
 
+## docs: fold the cycle agent-files into AGENTS.md
+
+### Problem
+The cycle protocol lives in `cycle-protocol.md` and its summaries in `cycle-checklists.md`,
+and the two disagree just enough to mislead a reader who opens one and not the other.
+Measured at the agent-naming rung: the bot read the checklists file, took the "Ladder
+(sub-cycle) checklist" because the working record calls its rung list `#### Ladder`, skipped
+the protocol file that tells the multi-commit and squash-form shapes apart, and so described
+the rung and proposed "start the next rung" where the next step was `vc-x1 push`. Hard rule 7
+and the checklists' own preamble already say to read both, so another rule is not the answer.
+Beside it, the code and wink now say `agent` for the second repo while the Terminology section
+still defines "bot repo" as the standard name, so a bot reading AGENTS.md keeps saying "bot".
+
+### Solution
+`AGENTS.md` gained `## Cycle protocol`, one account of the cycle in the order a cycle meets
+it (bookmark, opening, per-rung flow, committing vs pushing, description, pushing with its
+policy and the at-rest contract, drafts, close-out, chores sections with backfill, local
+ladders), 330 lines against the two files' 1170, and the two files are deleted with every
+live link repointed. The at-rest contract is one passage: the agent runs `vc-x1 push`, stops,
+and the user runs `vc-x1 squash-push -R .claude`, so "clean" means both repos' `@` empty.
+"Ladder (sub-cycle)" is retired for "local ladder", and the jj mechanics the account does not
+carry (the trapezoid recipe, the ladder moves) moved to jj.md. The terminology moved with it:
+"agent repo" is the standard name, `.claude` its path, "bot repo" retired, and the actor is
+"the agent". The Cycle term was simplified (one change, opening to closing, as one commit or
+a ladder of them) and the "Work" stage name retired. Convention work, so every change is a
+family proposal as the diff against the payload.
+
+### Acceptance check
+1. `agent-data/cycle-protocol.md` and `agent-data/cycle-checklists.md` do not exist, and
+   `grep -rn 'cycle-protocol\|cycle-checklists' AGENTS.md custom.md agent-data notes TODO.md
+   README.md` finds nothing but historical records (chores and done.md), no live link.
+2. `AGENTS.md` holds one account of the cycle: opening, per-rung flow, push, close-out, and
+   the at-rest contract naming `vc-x1 push` and `vc-x1 squash-push` in one passage. The
+   string "Ladder (sub-cycle)" appears in no agent-file.
+3. `grep -rn 'bot repo\|bot-repo' AGENTS.md custom.md agent-data` finds only the retired-term
+   note in Terminology, and "agent repo" is the defined name.
+4. A fresh session's acquaint (read `AGENTS.md`, `custom.md`, and what they point at) reaches
+   the per-rung `vc-x1 push` and the at-rest contract without opening a second cycle file.
+5. `vc-x1 validate` passes at every rung.
+
+Run at close-out (2026-08-21):
+
+1. Passes, with one finding. The files are gone, and the grep over the named paths finds
+   only historical mentions. Widening it to all of `notes/` found four live links in
+   `notes/refactor-20260716.md` (a program record, three of them already broken by an
+   earlier move of the file out of `notes/`), repointed at jj.md's recipe in this commit.
+2. Passes in substance, fails as literally worded: the account is twelve subsections under
+   `## Cycle protocol`, and `#### At rest: push, stop, squash-push` names both commands in
+   one passage. "Ladder (sub-cycle)" appears once, as the retired-name note inside Local
+   ladders, which the check did not anticipate and which is deliberate, so a reader meeting
+   the old name in a chores file can find its successor.
+3. Passes: the one hit is the dated retired-term note in Terminology, and "agent repo" is the
+   defined name.
+4. Passes, by reading: `AGENTS.md` reaches `vc-x1 push <bookmark>` at the per-rung flow's
+   step 9 and the at-rest contract two sections later, and `custom.md` points at nothing
+   cycle-related. Not measured with a fresh session, which the next cycle's acquaint is.
+5. Passes: the full table ran and passed at the opening and each of the three rungs, and
+   at this close-out.
+
+### Ladder
+- [[N]] [docs: fold the cycle agent-files into AGENTS.md opening][25]
+- [[N]] [docs: write the cycle account into AGENTS.md][26]
+- [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][27]
+- [[N]] [docs: rename bot repo to agent repo in the agent-files][28]
+- [[N]] [docs: fold the cycle agent-files into AGENTS.md closing][29]
+
+### Deliberation
+Multi-step, three Work rungs: writing the merged account is the design work and reviewable on
+its own, retiring the two files and repointing every cross-reference (jj.md, prose.md,
+notes.md, versioning.md, messaging.md, custom.md, TODO.md, README.md) is mechanical and
+separate so the diff of the account is not buried in link churn, and the terminology rename
+touches every agent-file and is its own proposal to the family. The order puts the account
+first so the retire rung can be a pure delete-and-repoint. Version: patch (0.80.1), docs only,
+no CLI or schema change.
+
+The cycle's bookmark is `fold-cycle-info`, not the title's slug (wink, 2026-08-21, at the
+opening): a taken exception to hard rule 13's naming clause, the bookmark-per-cycle discipline
+itself unchanged.
+
+### Ladder details
+
+#### docs: fold the cycle agent-files into AGENTS.md opening
+The block above, the Done sweep of the 0.78.x entries into done.md, and the version bump.
+
+#### docs: write the cycle account into AGENTS.md
+Write one account of the cycle into `AGENTS.md`: the three stages, the bookmark, the six
+provisional items, the per-rung flow ending in `vc-x1 push`, the review stops, the close-out
+move and landing, and the at-rest contract (push both repos, stop, the user squash-pushes the
+agent repo). The two source files stay in place for this rung so the review can diff the
+account against them.
+
+Landed as `## Cycle protocol`, 330 lines against the sources' 1170, twelve subsections in the
+order a cycle meets them: bookmark, opening, per-rung flow, committing vs pushing, commit
+description, pushing (policy, before any push, at rest), drafts, close-out, chores sections
+with backfill, local ladders. Design points:
+
+- the at-rest contract is the new `#### At rest: push, stop, squash-push`, three numbered
+  parts with hard rule 3 as the middle one, absorbing the protocol's "After push or
+  squash-push", ".claude cadence", and the squash-push half of its push Recovery. It is the
+  first statement of the user's `squash-push` as a step of the workflow rather than a command
+- "Ladder (sub-cycle)" is retired for **local ladder**, defined against the working record's
+  `#### Ladder` in the section itself, and Iterative work folds into it as the one-commit case
+- the hard rules' wording is quoted by number rather than restated (rules 1, 2, 3, 4, 5, 9,
+  10, 13), so each rule has one text
+- the section already says "agent repo", ahead of the rename rung, since writing "bot repo"
+  into new text the next rung would respell was churn for nothing, and wink's review respelled
+  two more (the file's title, "Agent Instructions", and the dual-repo model's "Agent repo"
+  item). The Terminology section still defines the old name until that rung
+- what did not merge: the trapezoid recipe with its details and recovery (a hundred lines of
+  jj mechanics), the local-ladder navigation and recovery moves, and push's interim-push and
+  out-of-band recovery notes. The retire rung moves the first two into jj.md and drops the
+  third as covered by "rerunning is safe". Until then the account links the protocol for
+  them, the only two links into the files this cycle retires
+- a pre-existing dead anchor surfaced: `prose.md#cycle-bookend-titles` is a bold paragraph,
+  not a heading, and notes.md and the protocol link it too. The account links the enclosing
+  heading. The other two sites are the retire rung's
+
+#### docs: retire cycle-protocol.md and cycle-checklists.md
+Delete the two files and repoint every live link, including hard rules 1, 2, 3, 7, and 13 and
+the File map, at the AGENTS.md sections. Recovery procedures the account does not carry move
+to jj.md or are dropped with a note.
+
+Landed. The two files are deleted and every live link repoints at the account: AGENTS.md's
+hard rules 1, 2, 3, 7, and 13 and its File map, jj.md, prose.md, notes.md, versioning.md,
+README.md, notes/README.md, the In Progress intro here, and one backlog entry. Points:
+
+- hard rule 7 reworded from "read the checklist" to "read the protocol step", naming the
+  per-rung flow and Before any push, since the checklists file it named is gone and the
+  account is what is read at the moment of action
+- jj.md gains `## Trapezoid close-out recipe` (the recipe, its details, its recovery) and
+  `## Local ladders` (the navigation moves, the squash, the recovery), each opening with a
+  pointer to the AGENTS.md section that states the rule. The recipe's diagram was redrawn
+  with typeable characters, the original having box-drawing glyphs the punctuation rule
+  forbids
+- dropped, not moved: the protocol's interim-push and out-of-band recovery notes (covered by
+  "rerunning is safe" in Committing vs pushing), the ESC-ESC override (the user can interrupt
+  is stated in the per-rung flow), the `/exit` note in ".claude cadence", and the version
+  numbers in Work-N's heading, which the manifest owns
+- the File map's "checklists first, rationale after" ordering note went with the files, and
+  the cycle protocol is named as in this file
+- notes.md's link to the dead `prose.md#cycle-bookend-titles` anchor repointed at the
+  enclosing heading, the same fix the account took
+- historical mentions of the file names in chores, done.md, dogfood.md, and older Todo entries
+  stay as written: records, not links
+- at review (wink): the stage name "Work" and its terms "Work rung" / "Work commit" /
+  "Work-N" retired. A rung between the bookends is a commit, and the version scheme's middle
+  is "the commits between". "Work-repo commit" already carried the repo sense unambiguously,
+  so the Terminology note shrinks to that one line
+
+#### docs: rename bot repo to agent repo in the agent-files
+Terminology defines "agent repo" as the standard name with `.claude` as its path and "bot
+repo" as retired, and every pinned file follows.
+
+Landed: 33 sites across AGENTS.md, jj.md, prose.md, and notes.md (custom.md and messaging.md
+had none). Points:
+
+- the actor renamed with the repo: "the rules bind the agent", "the agent runs `vc-x1 push`".
+  One word for the thing the file instructs, matching its title
+- what stays `bot` is what the code spells that way, quoted in code spans: the `commit-bot`
+  and `squash-push-bot` push stages, and the pre-0.80.0 config spelling the validator names
+  in its fix-it. The Terminology note says so, so a reader meeting `commit-bot` in push
+  output does not take it for drift
+- the Terminology note's CLI facts were stale and corrected on the way: `--scope` takes
+  `agent`, the config is `.vc-config.md`, `[repos]` spells the side `agent`, and jj.md's
+  two-sided config example now matches
+- left alone: jj.md's `## .vc-config.toml` heading, a stale file name that other links may
+  depend on, for a correction of its own
+
+#### docs: fold the cycle agent-files into AGENTS.md closing
+Closing out the cycle.
+
+- Problem: the acceptance check's grep named its paths (`AGENTS.md custom.md agent-data notes
+  TODO.md README.md`) but excused "chores and done.md" by name, so a records file outside
+  that excuse with live links, `notes/refactor-20260716.md`, was found only because the
+  closing widened the grep. Solution: an acceptance grep excuses record files by a pattern it
+  runs, not by a list it remembers, and the four links were repointed here.
+- Problem: a check worded as "appears in no agent-file" cannot pass when the rung that
+  retires a name also has to say what the name was. Solution: recorded as a substantive
+  pass, and a future check of a rename says "appears only as the retired-name note".
+- Problem: the acceptance grep also treated `TODO.md`'s mentions as records, and four of
+  them were live instructions naming the retired file as the place a future cycle would
+  edit, beside two "Shared-doc sync" Todos whose whole ask (as-built `[[N]]` rungs, the
+  per-commit narrative, a coordinated family sync) is now pinned in AGENTS.md and the
+  convergence model. Solution: the four repointed at AGENTS.md's sections, the two Todos
+  dissolved (the Done entry says so), and the wider sweep for pre-0.80 vocabulary in the
+  Todo files filed as a backlog entry with its species listed, since changing what an entry
+  asks for is a cycle of its own, not close-out bookkeeping. History lines keep their names.
+
+# References
+
 [1]: #refactor-retire-the-remaining-jj-spawns-opening
 [2]: #refactor-port-push-and-facade-reads-to-jj-lib
 [3]: #refactor-port-sync-repositioning-to-jj-lib
@@ -593,3 +782,8 @@ installs as `vc-x1`.
 [14]: https://github.com/winksaville/vc-x1/commit/fdbffa928c4e "fdbffa928c4eee0144c648f38e4bb1f891b7a33e"
 [15]: https://github.com/winksaville/vc-x1/commit/e28cbd6b4983 "e28cbd6b498385104240ee423996f739618824b5"
 [16]: https://github.com/winksaville/vc-x1/commit/92c398a91f8b "92c398a91f8b70e8962161f848926a8c7c6573f7"
+[25]: #docs-fold-the-cycle-agent-files-into-agentsmd-opening
+[26]: #docs-write-the-cycle-account-into-agentsmd
+[27]: #docs-retire-cycle-protocolmd-and-cycle-checklistsmd
+[28]: #docs-rename-bot-repo-to-agent-repo-in-the-agent-files
+[29]: #docs-fold-the-cycle-agent-files-into-agentsmd-closing

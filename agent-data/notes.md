@@ -1,6 +1,6 @@
 # Notes file conventions
 
-Conventions the bot follows when reading and writing notes files (`TODO.md`,
+Conventions the agent follows when reading and writing notes files (`TODO.md`,
 `notes/todo-backlog.md`, `notes/bugs.md`, `notes/chores/chores-NN.md`, `notes/done.md`). One
 source of truth lives here, and [`notes/README.md`](../notes/README.md) points back. Read this
 before editing a notes file.
@@ -186,9 +186,9 @@ are records of a commit (the backfilled as-built rung and the `## Done` entry). 
 [Versions live in the version-of-record only](prose.md#versions-live-in-the-version-of-record-only).
 E.g. the chores header `## refactor: extract config loader` and the Done line
 `- 0.42.0 **refactor: extract config loader** [[3]]`. The `## Done` entry uses the cycle title
-(the chores header's bare form, not the suffixed closing commit's: see
-[Cycle bookend titles](prose.md#cycle-bookend-titles)), and its shape is in
-[Done entry form](#done-entry-form).
+(the chores header's bare form, not the suffixed closing commit's: see prose.md's
+[Cycle bookend titles](prose.md#conventional-commit-shape-ladder--chores--commit)), and its
+shape is in [Done entry form](#done-entry-form).
 
 This does **not** apply to organizational headings (`## Todo`, `## In Progress`,
 `# References`) or to design `###` subsections inside a chores section. Those are named for
@@ -221,8 +221,8 @@ restates another.
 The section is **not built up here**: it is created at close-out by moving the cycle's
 `## In Progress` block, which was its single home while the cycle ran. So a rung is appended, and
 narrative written, in `TODO.md` as each step lands, and close-out moves the finished block rather
-than assembling a second copy of it. Full when-in-the-cycle timing lives in cycle-protocol.md
-[Chores sections](cycle-protocol.md#chores-sections). This note is the pointer, so the
+than assembling a second copy of it. Full when-in-the-cycle timing lives in the protocol's
+[Chores sections](../AGENTS.md#chores-sections). This note is the pointer, so the
 two don't drift.
 
 **Why one home:** the alternative keeps a working ladder in `TODO.md` and an as-built ladder in
@@ -302,8 +302,8 @@ long-lived release/patch branch), because a rebase or squash rewrites it on the 
 is its version. A commit can't record its own SHA, so the fill lands one push later: every rung
 opens with the literal `[[N]]` placeholder and no version, and each push backfills the rungs of
 the commits the previous push made permanent. On a topic branch a section waits until the branch
-lands. The commit itself is the record, and `git log --grep "<title>"` finds it. See
-cycle-protocol [Commits backfill](cycle-protocol.md#commits-backfill).
+lands. The commit itself is the record, and `git log --grep "<title>"` finds it. See the protocol's
+[Commits backfill](../AGENTS.md#commits-backfill).
 
 Sections that predate this convention keep their `Commits:` lines. The ladder form applies
 going forward.
