@@ -78,16 +78,18 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - `vc-x1 validate` clean, anchors included
 - the two move rungs read as words moved: each one's AGENTS.md diff is deletions plus links,
   no rule's sentence changed
-- the backfill rung is the one rule change, its own commit, and after it the Opening's first
-  step names backfill and its check
+- the backfill rung and the label-colon rung are the two rule changes, each its own commit:
+  after them the Opening's first step names backfill and its check, and every bold lead in
+  AGENTS.md's lists and hard rules is a label ending in a colon
 
 #### Ladder
 
 - [[N]] [docs: halve AGENTS.md into rationale.md opening][59] (done)
-- [[N]] [docs: make backfill the opening's first step][64]
+- [[N]] [docs: make backfill the opening's first step][64] (done)
 - [[N]] [docs: seed rationale.md and the Rationale term][60]
 - [[N]] [docs: move the cycle protocol's why into rationale.md][61]
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62]
+- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
 #### Deliberation
@@ -109,6 +111,14 @@ clause narrows to the two move rungs rather than the branch: the check changed, 
 why. The durable fix is tooling, a validate element failing on a `[[N]]` rung whose commit is
 on `main`, filed at the closing.
 
+A second rule change, found at the backfill rung's review (wink, 2026-08-21): the new Opening
+step 1 read as "every as-built ladder ...", its bold verb skipped as a label, so the sentence
+lost its imperative. The fix is a form rule, label-colon with a sentence complete without the
+label, stated in prose.md and applied across AGENTS.md's step lists and hard rules, the rules
+gaining short names as their labels. Its own rung, after the two move rungs, so the sweep
+runs over the halved file and the family sees the final shape in one diff. The acceptance
+check's "one rule change" becomes two, this one named.
+
 #### Ladder details
 
 ##### docs: halve AGENTS.md into rationale.md opening
@@ -117,10 +127,18 @@ The cycle's bookmark, this block, the Done sweep, and the version bump.
 
 ##### docs: make backfill the opening's first step
 
-Problem: backfill is specified only at close-out, as "the edits ride the next push", with no
-owner and no place in the Opening's steps. Solution: Opening step 1, ahead of the bookmark,
-backfills any as-built ladder whose commits have landed, with the check spelled out, and
-close-out step 8 points at the next opening instead of the next push.
+Problem: backfill was specified only at close-out, as "the edits ride the next push", with no
+owner and no place in the Opening's steps, so it was missed at two consecutive openings.
+Solution: Opening step 1, ahead of the bookmark, backfills every as-built ladder whose commits
+have landed, with the check spelled out (`rg '\[\[N\]\]' notes/chores/`, a hit outside a code
+span is owed work), and close-out step 8 names the next opening as the owner of its debt.
+
+- first, not folded into the Done sweep: the sweep is already a compound step, and a step with
+  two halves is where the second half hides
+- a lightweight cycle with no opening commit carries the step in its first commit, said in the
+  Opening's own parenthesis rather than as a fourth place the rule lives
+- the check is a grep, not a tool: a `validate` element that fails on an unfilled rung whose
+  commit is on `main` is the durable fix, filed at the closing
 
 ##### docs: seed rationale.md and the Rationale term
 
@@ -141,6 +159,13 @@ Problem: the why outside the protocol is scattered: the Hard rules intro, the Te
 "because" clauses, the Working practices stories (https remotes, the 2026-08-05 quoting note),
 the measured line in Changing the agent-files, the custom.md section's argument. Solution: the
 same move, and the size check against the target.
+
+##### docs: label-colon form for AGENTS.md's lists and rules
+
+Problem: a bold lead that is the sentence's own verb reads as a skippable label, and the
+hard rules' bold sentences are the rule itself, skipped the same way. Solution: a prose.md
+rule, a bold lead in a list is a short label ending in a colon and the sentence after it is
+complete without it, applied across AGENTS.md, the hard rules taking short names as labels.
 
 ##### docs: halve AGENTS.md into rationale.md closing
 
@@ -913,3 +938,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [62]: #docs-move-the-rest-of-agentsmds-why-into-rationalemd
 [63]: #docs-halve-agentsmd-into-rationalemd-closing
 [64]: #docs-make-backfill-the-openings-first-step
+[65]: #docs-label-colon-form-for-agentsmds-lists-and-rules

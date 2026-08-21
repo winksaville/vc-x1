@@ -156,11 +156,15 @@ published history. Landing costs one command and buys free rewrites for the whol
 ### Opening
 
 The cycle's first commit, when it needs setup (a lightweight cycle omits it and starts at its
-first commit). Before that commit:
+first commit, which then carries step 1 below). Before that commit:
 
-1. **Create the cycle's bookmark** and publish it: `vc-x1 push` requires the bookmark's remote
+1. **Backfill** every as-built ladder whose commits have landed since the last opening
+   ([Commits backfill](#commits-backfill)), before anything else. The check is
+   `rg '\[\[N\]\]' notes/chores/`: a hit outside a code span is owed work, and the
+   previous cycle's rungs are the usual hits. This is the owner of close-out step 8's debt.
+2. **Create the cycle's bookmark** and publish it: `vc-x1 push` requires the bookmark's remote
    refs to be tracked, so the create is itself a push and takes push approval.
-2. **Move the picked-up `## Todo` item into `## In Progress`** (moved, never copied) and write
+3. **Move the picked-up `## Todo` item into `## In Progress`** (moved, never copied) and write
    the **six provisional items**, all required, all revised as rungs land, all moved to chores
    at close-out. The title is a heading one level below `## In Progress` and the other five
    are headings one level below the title (a plain cycle: `###` title, `####` items, and under
@@ -182,7 +186,7 @@ first commit). Before that commit:
    landing with the conceptual delta: design points, consequences, deferrals, never a restatement
    of the landed commit body. The closing rung's opens with the stub "Closing out the cycle."
    and completes at close-out with what closing taught, in problem/solution form, or `_None._`.
-3. **Sweep `## Done`** per [Retiring Done entries](agent-data/notes.md#retiring-done-entries),
+4. **Sweep `## Done`** per [Retiring Done entries](agent-data/notes.md#retiring-done-entries),
    then **bump the version-of-record** to the opening's version
    ([versioning.md](agent-data/versioning.md#suffix-scheme)).
 
@@ -392,8 +396,9 @@ The cycle's last commit is bookkeeping only, and its body describes that bookkee
    the cycle pushed is permanent. Once `main` contains the bookmark, delete it, locally and
    remotely (hard rule 13).
 8. **Backfill** the chores as-built ladder for the commits landing just made permanent
-   ([Commits backfill](#commits-backfill)). The edits ride the next push, since a commit cannot
-   record its own SHA.
+   ([Commits backfill](#commits-backfill)). A commit cannot record its own SHA, so the edits
+   are the next opening's first step ([Opening](#opening)), never this turn's: hard rule 3
+   has already stopped it.
 
 ### Chores sections
 
