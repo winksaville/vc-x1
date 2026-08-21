@@ -296,7 +296,7 @@
       rung, not the last close-out, because an interlude sits
       on the trunk line and must stay there. It bit at 0.76.0
       and again at 0.77.0, and now lives in
-      [the trapezoid details](../agent-data/cycle-protocol.md#details).
+      [the trapezoid recipe](../agent-data/jj.md#trapezoid-close-out-recipe).
     - What is missing is the decision rule: when unplanned
       work becomes an interlude rather than a rung appended to
       the running cycle.

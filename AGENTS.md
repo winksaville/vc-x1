@@ -20,24 +20,24 @@ recorded in the cycle's records. No rule bends silently, and no exception is sel
 1. **A cycle rung is committed by `vc-x1 push`, never pre-committed with `jj commit`.** In an
    instruction, "commit", "push", and "commit + push" all mean `vc-x1 push`. A bare `jj commit`
    is asked for by name and is only for work that never publishes.
-   [Committing vs pushing](agent-data/cycle-checklists.md#committing-vs-pushing).
+   [Committing vs pushing](#committing-vs-pushing).
 2. **Every push needs that push's explicit approval.** Approval of a plan that includes a push
    does not authorize the push. Ask again at the moment of pushing. Only an explicit scoped
    delegation waives the stops.
-   [Before any push](agent-data/cycle-checklists.md#before-any-push).
+   [Before any push](#before-any-push).
 3. **Hard stop after the turn's final push or squash-push.** Closing words go before the
    invoke. Afterwards, nothing until the user speaks (a bare acknowledgment if the harness
    forces a token).
-   [After the final push](agent-data/cycle-checklists.md#after-the-final-push-hard-stop).
+   [At rest](#at-rest-push-stop-squash-push).
 4. **Never `jj describe` a published or trailer-carrying commit without coordinating first.**
    When a re-describe is agreed, hand-copy the `ochid:` trailers into the new body.
    [Re-describing](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer).
 5. **Never hand-write `ochid:` trailers.** `vc-x1 push` stamps them.
    [ochid trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers).
 6. **Use jj, not git**, for version-control operations. [jj basics](agent-data/jj.md#jj-basics).
-7. **Read the checklist before the action**:
-   [agent-data/cycle-checklists.md](agent-data/cycle-checklists.md) before commit work and
-   before any push. Validation runs before the push, never after.
+7. **Read the protocol step before the action**: [The per-rung flow](#the-per-rung-flow)
+   before commit work and [Before any push](#before-any-push) before any push, from the file,
+   not from memory. Validation runs before the push, never after.
 8. **Typeable punctuation only** in durable text: no em/en dash, ellipsis, or arrow characters.
    [Typeable punctuation](agent-data/prose.md#typeable-punctuation-only).
 9. **One title per step, verbatim in three places**: the ladder rung, the chores `##` header,
@@ -58,7 +58,7 @@ recorded in the cycle's records. No rule bends silently, and no exception is sel
     created at the opening, carrying every step. `main` advances only when the finished cycle
     lands on it, never by pushing commits straight to `main`. Once the bookmark lands on `main`
     the bookmark is deleted, locally and remotely.
-    [Cycles run on a bookmark](agent-data/cycle-checklists.md#cycles-run-on-a-bookmark).
+    [Cycles run on a bookmark](#cycles-run-on-a-bookmark).
 
 ## Terminology
 
@@ -72,8 +72,7 @@ sits directly in front of another noun ("work-repo commit", "bot-repo side"). No
   same keywords as `vc-x1 config`'s target). `.vc-config.toml` names the same two sides under
   `[repos]` as `work` / `bot`. A config still on the older `[workspace]` schema is what
   `vc-x1 config --validate` reports.
-- "Work commit" / "Work-N" (capitalized) is a cycle-stage term, not a repo name. A generic
-  commit landing in the work repo is a "work-repo commit", never a bare "work commit".
+- A commit landing in the work repo is a "work-repo commit", never a bare "work commit".
 
 **Agent-files.** The instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
 anything `custom.md` points at. The template repository's payload holds the official copies and
@@ -99,7 +98,7 @@ commit made by `vc-x1 push`. The protocol is [Cycle protocol](#cycle-protocol). 
   and recorded.
 - A **single-step** cycle is one commit, which is then also the close-out and carries its
   duties.
-- A **multi-step** cycle is a ladder of rungs, minimum two (a Work rung plus the closing, the
+- A **multi-step** cycle is a ladder of rungs, minimum two (a commit plus the closing, the
   opening being optional), typically three or more.
 - The bookend commits are the cycle title plus " opening" and " closing". The bare title
   names the cycle: the chores `##` header and the `## Done` entry carry it.
@@ -154,7 +153,7 @@ published history. Landing costs one command and buys free rewrites for the whol
 ### Opening
 
 The cycle's first commit, when it needs setup (a lightweight cycle omits it and starts at its
-first Work rung). Before the first Work commit:
+first commit). Before that commit:
 
 1. **Create the cycle's bookmark** and publish it: `vc-x1 push` requires the bookmark's remote
    refs to be tracked, so the create is itself a push and takes push approval.
@@ -205,7 +204,7 @@ the things the deliberation exists to justify.
 
 ### The per-rung flow
 
-Every commit (opening, each Work rung, closing) goes through these steps, read from here
+Every commit (opening, each rung between, closing) goes through these steps, read from here
 immediately before acting and never from memory:
 
 1. **Mark the rung `(current)`** in `TODO.md > ## In Progress`, as the first edit.
@@ -383,7 +382,7 @@ The cycle's last commit is bookkeeping only, and its body describes that bookkee
    every rung stays reachable, the current default), or **keep separate** (one commit per rung
    on `main`, when the decomposition itself is informative). A squash is set up before the
    push. A trapezoid is reshaped between two pushes, by the
-   [trapezoid recipe](agent-data/cycle-protocol.md#trapezoid-close-out-recipe), whose last step is
+   [trapezoid recipe](agent-data/jj.md#trapezoid-close-out-recipe), whose last step is
    `jj git push`, not `vc-x1 push`.
 7. **Land the bookmark** on the user's go
    ([Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land)). Until this, nothing
@@ -446,10 +445,9 @@ At the end, squash the chain into the rung (`jj squash --from "<base>..@-" --int
 `<base>` the parent of the first ladder commit) and continue the per-rung flow from step 5.
 `vc-x1 push` then publishes the single commit and stamps its one `ochid:`. For a one-commit
 loop the squash is a no-op. Navigation and recovery moves (editing an earlier ladder commit,
-abandoning one, restoring an op) are in
-[Sub-cycle ladders](agent-data/cycle-protocol.md#sub-cycle-ladders). A sub-cycle that deserves
-its own record nests the version suffix ([versioning.md](agent-data/versioning.md#suffix-scheme))
-and names its rungs like any other.
+abandoning one, restoring an op) are in jj.md's [Local ladders](agent-data/jj.md#local-ladders).
+A sub-cycle that deserves its own record nests the version suffix
+([versioning.md](agent-data/versioning.md#suffix-scheme)) and names its rungs like any other.
 
 [cbt]: agent-data/prose.md#conventional-commit-shape-ladder--chores--commit
 [llb]: agent-data/jj.md#long-lived-bookmarks-merge-only-by-default-deletable-once-merged
@@ -509,15 +507,12 @@ the rest of the chain):
 - `AGENTS.md`: this file.
 - [custom.md](custom.md): the project's layer, and any further file it points at.
 
-Read at the moment of action, immediately before acting, not from memory. The `agent-data/`
-files are universal and pinned, listed checklists first, rationale after:
+Read at the moment of action, immediately before acting, not from memory. The
+[Cycle protocol](#cycle-protocol) is in this file. The `agent-data/` files are universal and
+pinned:
 
-- [cycle-checklists.md](agent-data/cycle-checklists.md): commit / push / opening / close-out
-  checklists. Read before any commit work or push.
-- [cycle-protocol.md](agent-data/cycle-protocol.md): the full cycle protocol. It wins over any
-  checklist summary of it.
 - [jj.md](agent-data/jj.md): jj usage, revsets, ochid trailers, the re-describe rule, cycle and
-  long-lived bookmarks.
+  long-lived bookmarks, the trapezoid recipe, local-ladder moves.
 - [prose.md](agent-data/prose.md): prose form, punctuation, commit-title identity. Read before
   writing durable text.
 - [notes.md](agent-data/notes.md): TODO / chores / done mechanics, references, anchors. Read

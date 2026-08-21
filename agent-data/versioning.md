@@ -13,8 +13,7 @@ Project-local content goes in [custom.md](../custom.md).
 ## Terms
 
 Three names, used as defined here across
-[AGENTS.md](../AGENTS.md),
-[cycle-protocol.md](cycle-protocol.md), and the notes files:
+[AGENTS.md](../AGENTS.md) and the notes files:
 
 - **version**: the per-commit version (e.g. `0.3.0-5.3.0`). It lives in the manifest. No
   ladder, todo entry, commit title, or commit body writes one, the one exception being the
@@ -148,12 +147,13 @@ running artifact identifies the exact commit it came from.
   [Recording the version-of-record](#recording-the-version-of-record) if it differs.
 - It is achievable because the cycle's versions (below) are **pre-assignable**, unlike the git
   SHA, which a commit cannot contain (see the cycle protocol's
-  [Commits backfill](cycle-protocol.md#commits-backfill)).
+  [Commits backfill](../AGENTS.md#commits-backfill)).
 
 ## Suffix scheme
 
-The cycle (Preparation -> Work -> Close-out, per [cycle-protocol.md](cycle-protocol.md)) encodes
-each commit's phase in the version suffix, the **final identifier `0` marking a Preparation**.
+The cycle (opening -> commits -> closing, per the
+[Cycle protocol](../AGENTS.md#cycle-protocol)) encodes each commit's phase in the version
+suffix, the **final identifier `0` marking a Preparation**.
 
 This is the manifest's own spelling, read by whoever inspects `Cargo.toml` or `-V` output. It is
 not a name for a step: a step is identified by its title, and an in-flight ladder rung carries
@@ -164,23 +164,23 @@ commit sitting beside that commit's SHA. The identifiers below count commits wit
 nothing dereferences one.
 
 - `X.Y.Z-0`: Preparation
-- `X.Y.Z-1`, `X.Y.Z-2`, ...: Work commits
+- `X.Y.Z-1`, `X.Y.Z-2`, ...: the commits between
 - `X.Y.Z`: Close-out (bare version, no suffix)
 
 **Preparation is optional.** A lightweight cycle, with no ladder and no setup commit, skips `-0`
-and starts at `-1` (its first Work commit). The same holds at every level: a sub-cycle needing no
+and starts at `-1` (its first commit). The same holds at every level: a sub-cycle needing no
 Preparation omits its `.0` (see Nesting). One that grows a Preparation later adds the `0` step
 without renumbering siblings.
 
 Disambiguation:
 
-- `-10`: Work commit #10 (final identifier `10`), not a Preparation.
+- `-10`: commit #10 (final identifier `10`), not a Preparation.
 - `-1.0`: Preparation of the `-1` sub-cycle (final identifier `0`).
 
 **Nesting.** Sub-cycles append another level, recursively:
 
 - `X.Y.Z-3.0`: Preparation of the `-3` sub-cycle
-- `X.Y.Z-3.1`, `X.Y.Z-3.2`: its Work
+- `X.Y.Z-3.1`, `X.Y.Z-3.2`: its commits between
 - `X.Y.Z-3`: its Close-out
 - `X.Y.Z-3.1.0`: Preparation of the `-3.1` sub-sub-cycle
 

@@ -25,7 +25,7 @@ Surfaces that use this shape:
 - Module / function / struct / field doc comments in `.rs` files. See
   [Doc comments](code.md#doc-comments-on-every-file-function-and-method).
 - Commit message bodies (both work-repo and bot-repo). The title is the commit-specific
-  add-on. See [Per-commit flow](cycle-protocol.md#per-commit-flow).
+  add-on. See [The per-rung flow](../AGENTS.md#the-per-rung-flow).
 - Chore descriptions in `notes/chores/chores-NN.md`. See
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
 - Todo entries in `TODO.md` when an entry needs more than one line of detail. Pure one-liners
@@ -218,18 +218,18 @@ The three surfaces apply it as:
   Its position in the list is its position in the ladder. The last rung is the close-out and its
   text says so. Detail lives not on the rung but in the block's `Ladder details` subsection
   headed by the rung's exact title (see the protocol's
-  [Preparation](cycle-protocol.md#preparation)), bulleted, never `;`-joined inline.
+  [Opening](../AGENTS.md#opening)), bulleted, never `;`-joined inline.
 - **Chores section** (`notes/chores/chores-NN.md`): no prefix, since the `##` header *is* the
   bare title. The as-built ladder is the first content under it (see
   [Chores commit references](notes.md#chores-commit-references)).
 - **Commit description**: no prefix. The title is the first line, and the body is the prose
-  (see [Commit description](cycle-protocol.md#commit-description)).
+  (see [Commit description](../AGENTS.md#commit-description)).
 
 The title is **identical** across all three for a given step, so a step's ladder entry, its
 chores `##` header, and its commit title line up verbatim. A `Ladder details` subsection
 heading carries the same title, a fourth surface on every rung (the closing rung's exists only
 when close-out gotchas occurred: see the protocol's
-[Preparation](cycle-protocol.md#preparation)). Pick the commit title first and reuse it.
+[Opening](../AGENTS.md#opening)). Pick the commit title first and reuse it.
 
 That identity is **per step**, not per cycle: each step in a cycle gets its own distinct
 descriptive title, never one shared cycle title uniquified by a step marker. The cycle's chores
@@ -262,7 +262,7 @@ the ladder, so a number beside it would restate the position and then have to be
 - **Nothing renumbers.** Inserting, reordering or dropping a step edits the ladder list and
   nothing else. On an unlanded topic bookmark the rungs that already committed an older ladder
   come along. See
-  [Topic bookmarks are drafts](cycle-protocol.md#topic-bookmarks-are-drafts).
+  [Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts).
 - **`## Todo` ranks are the exception that stays numbered**, because a priority list has an order
   worth reading off (see [Todo format](notes.md#todo-format)). Those numbers are positional too,
   and are equally never used as references.
@@ -295,7 +295,7 @@ The two differ in timing, and the reason is the SHA rather than the version. The
 because a commit cannot record its own SHA. A Done entry has no SHA to wait for and its version
 is already in the manifest of the commit it is written in, so it is written at close-out. On an
 unlanded bookmark it is a draft like the rest of the line
-([Topic bookmarks are drafts](cycle-protocol.md#topic-bookmarks-are-drafts)), and a renumber of
+([Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)), and a renumber of
 published versions rewrites it in the same sweep as the rungs.
 
 **How to apply:** name the step by its title and the phase in words ("the close-out", "the

@@ -1026,7 +1026,8 @@ Failures in `commit-work` / `commit-bot` / `bookmark-set` roll both repos back v
 to a snapshot taken moments earlier in the same process. Once `push-work` succeeds the work is
 published: from there a change is either a new commit appended on top by the next push, or an amend
 of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last commit
-and force-updates the remote. See [Recovery](./notes/cycle-protocol.md#recovery).
+and force-updates the remote. See the protocol's
+[at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
 |------|-------------|
@@ -1338,9 +1339,9 @@ The tool's internal structure (module map, the CLI-args / ops-`Context`+`Params`
 subcommand model, and the two in-flight migrations) is described in
 [ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.
 
-The bot-facing cycle workflow (cycles for Preparation / Work / Close-out, per-commit flow with the
-cargo cycle `fmt` / `clippy` / `test` / `install`, commit description shape, ochid trailers,
-pushing) lives in [`notes/cycle-protocol.md`](notes/cycle-protocol.md).
+The agent-facing cycle workflow (opening / commits / closing, the per-rung flow with `vc-x1
+validate`, commit description shape, ochid trailers, pushing) is AGENTS.md's
+[Cycle protocol](AGENTS.md#cycle-protocol).
 
 Bot-facing conventions are canonical in [AGENTS.md](AGENTS.md) (hard rules + file map), its
 `agent-data/` satellites, and the project layer [custom.md](custom.md):

@@ -102,10 +102,8 @@ repo).
 **Never `jj describe` a commit that is already published or already carries trailers without
 coordinating with everyone involved first.** It is a history rewrite, and it silently drops the
 cross-repo link. Describing a fresh local commit that has never been described and carries no
-trailers is authoring a message rather than rewriting one, and is not covered. That is the
-sub-cycle ladder's
-[per-Work-commit contract](cycle-protocol.md#per-work-commit-contract-within-a-ladder)
-step 4.
+trailers is authoring a message rather than rewriting one, and is not covered. That is a
+[local ladder](../AGENTS.md#local-ladders)'s scratch describe.
 
 When a re-describe is agreed, copy any `ochid:` trailers into the new body by hand (the "don't
 hand-write trailers" rule covers push authoring a message from scratch, not preserving one
@@ -115,7 +113,7 @@ way. `vc-x1 fix-desc` repairs a dropped one by title match.
 ## Cycle bookmarks: create and land
 
 The mechanics behind
-[Cycles run on a bookmark](cycle-checklists.md#cycles-run-on-a-bookmark). That section holds
+[Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark). That section holds
 the rule and when it applies, and this one holds the commands.
 
 **Create**, at the cycle's opening, with the bookmark named by the cycle title's slug (the
@@ -161,9 +159,105 @@ only holder.
 
 The contrast with a cycle bookmark is the whole point: that one is a draft and may be rewritten
 freely until it lands (see
-[Topic bookmarks are drafts](cycle-protocol.md#topic-bookmarks-are-drafts)), this one is
+[Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)), this one is
 published and may not. Refined 2026-08-03 from the earlier "treated as permanent, never rebased"
 wording, after a fully merged long-lived bookmark was deleted without loss.
+
+## Trapezoid close-out recipe
+
+The commands behind the trapezoid shape in
+[Close-out](../AGENTS.md#close-out): a merge commit whose first parent is the trunk line and
+whose second parent is the cycle's ladder, published in four steps, an ordinary close-out push,
+a two-command reshape, and a second push that re-points the bookmark at the reshaped commit.
+
+```
+  main line   ...--<base>------------------<closeout>--
+                      \                    /
+  ladder             <rung-1>--...--<tip>-+
+```
+
+- `<base>`: the **parent of the ladder's first rung**, the trunk position when the cycle
+  opened. It becomes the first parent. Not always the previous close-out: a docs interlude
+  between cycles sits on the trunk line and must stay there.
+- `<tip>`: the cycle's last commit before the close-out. It becomes the second parent.
+- `<closeout>`: the close-out commit, created by step 1.
+
+Only step 1 is a `vc-x1 push`. The rest is jj, because after step 1 the commits exist and all
+that remains is reshaping and publishing them:
+
+1. `vc-x1 push <bookmark> --title "..." --body "..."`: the ordinary close-out push. It
+   commits both repos, stamps the `ochid:` trailers, and publishes `<closeout>` linearly.
+2. `jj rebase -r <closeout> --onto <base> --onto <tip>`: `<closeout>` becomes the merge.
+   Parent order is the argument order.
+3. `jj new <closeout>`: an empty `@` above the merge. The bookmark followed the rewrite on its
+   own. What step 2 leaves misplaced is the working copy: `jj rebase -r` re-parents descendants
+   onto the rebased commit's old parent, so the empty `@` from step 1 lands beside the merge on
+   `<tip>` and the tree reverts to pre-close-out content, which looks alarming and is not.
+4. `jj git push --bookmark <bookmark> -R .`: publishes the reshaped commit. The agent repo is
+   untouched and its session tail goes out with a separate `vc-x1 squash-push` afterwards.
+
+**Step 4 is not a `vc-x1 push`**, learned at a close-out that tried it. Push runs its whole
+pipeline or none of it, and by the time the reshape is done `.claude` holds the session writes
+from steps 1-3, so `commit-bot` wants to run and the message stage demands a title for it.
+Publishing an already-made commit is a different operation from committing and publishing, and
+only the latter is push's job.
+
+Details:
+
+- **Verify two parents before step 4.** `jj log -r <closeout> -T 'parents.map(|p|
+  p.change_id().short(8))'` must list both. jj preserves the second parent even though `<base>`
+  is an ancestor of `<tip>` (observed at three consecutive close-outs), but a collapsed merge is
+  indistinguishable from a correct one in `jj log --no-graph` and is only visible once published.
+- **Trailers survive.** The reshape changes `<closeout>`'s SHA but not its change id, so the
+  `ochid:` trailers stamped in step 1 stay valid in both directions.
+- **Step 4 moves the bookmark sideways.** Step 1's SHA becomes unreachable, so a
+  [backfill](../AGENTS.md#commits-backfill) must never read a SHA from the window between the
+  two pushes.
+- **Immutability.** No flag is needed on a topic bookmark. Only when `<closeout>` is already on
+  `trunk()` does the rebase need `--ignore-immutable`, and then the push force-updates the
+  target.
+
+Recovery:
+
+- **Nothing is published between steps 2 and 3**, so the local reshape is undoable with
+  `jj undo` / `jj op restore`.
+- **A collapsed or mis-parented merge**: undo and redo step 2 with the corrected revisions. Do
+  not push a shape you did not intend. After step 4 the remote boundary is crossed and recovery
+  is forward-only.
+- **Working copy left beside the merge** (step 3 skipped): `jj new <closeout>` after the fact.
+  Nothing published is affected, but any commit made in the meantime branches off `<tip>` and
+  needs a rebase onto the merge.
+- **A wrong bookmark position**: `jj bookmark set <bookmark> -r <closeout>` before pushing. If
+  step 4 already published it, the fix is a second sideways move, not a rewrite.
+
+## Local ladders
+
+The jj moves behind [Local ladders](../AGENTS.md#local-ladders), a rung's scratch chain of
+commits that never leaves the machine. The contract per commit (`jj new`, work,
+`vc-x1 validate --fast`, a scratch `jj describe`) and the squash that ends it are stated there.
+
+Navigating:
+
+- `jj log -r '<base>::' -R .`: the whole ladder from its base.
+- `jj edit -r <prefix> -R .`: jump `@` to any ladder commit by chid prefix, for bisection.
+- `jj edit @-- -R .`: quick-jump back two commits.
+- `jj diff -r <chid> -R .`: review one commit in isolation.
+
+Modifying any ladder commit rewrites it in place, and descendants auto-rebase.
+
+The squash, `jj squash --from "<base>..@-" --into @ -u -R .`, takes `<base>` as the parent of
+the first ladder commit, and `-u` keeps `@`'s description and discards the sources'. After it,
+history is linear (`<base> -> @`) and the intermediate commits are auto-abandoned. For N = 1 the
+range is empty and the squash is a no-op.
+
+Recovery:
+
+- **Discard the current commit.** `jj abandon @ -R .` drops it, and you get a fresh empty `@`
+  on the same parent.
+- **Edit an earlier commit.** `jj edit -r <chid> -R .`, make corrections, then
+  `jj edit -r <last-ladder-chid>` to return. Descendants auto-rebase.
+- **Discard the entire ladder.** `jj op log -R .` shows the op history, and
+  `jj op restore <op-id> -R .` reverts to that point. Full undo, so only to start over.
 
 ## Resolvability
 

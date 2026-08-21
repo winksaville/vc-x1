@@ -45,8 +45,8 @@ close-out, gotchas in problem/solution form>
 A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
 and the six items sit one level below that (headings give the current work durable anchors,
 which numbered Todo entries can't). Full rules in
-[cycle-protocol.md](agent-data/cycle-protocol.md#preparation); the move's four transforms are
-in [Chores sections](agent-data/cycle-protocol.md#chores-sections).
+[Opening](AGENTS.md#opening), and the move's four transforms are in
+[Chores sections](AGENTS.md#chores-sections).
 
 ### docs: fold the cycle agent-files into AGENTS.md
 
@@ -87,7 +87,7 @@ payload.
 #### Ladder
 - [[N]] [docs: fold the cycle agent-files into AGENTS.md opening][29] (done)
 - [[N]] [docs: write the cycle account into AGENTS.md][31] (done)
-- [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][32]
+- [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][32] (done)
 - [[N]] [docs: rename bot repo to agent repo in the agent-files][33]
 - [[N]] [docs: fold the cycle agent-files into AGENTS.md closing][34]
 
@@ -146,6 +146,33 @@ with backfill, local ladders. Design points:
 Delete the two files and repoint every live link, including hard rules 1, 2, 3, 7, and 13 and
 the File map, at the AGENTS.md sections. Recovery procedures the account does not carry move
 to jj.md or are dropped with a note.
+
+Landed. The two files are deleted and every live link repoints at the account: AGENTS.md's
+hard rules 1, 2, 3, 7, and 13 and its File map, jj.md, prose.md, notes.md, versioning.md,
+README.md, notes/README.md, the In Progress intro here, and one backlog entry. Points:
+
+- hard rule 7 reworded from "read the checklist" to "read the protocol step", naming the
+  per-rung flow and Before any push, since the checklists file it named is gone and the
+  account is what is read at the moment of action
+- jj.md gains `## Trapezoid close-out recipe` (the recipe, its details, its recovery) and
+  `## Local ladders` (the navigation moves, the squash, the recovery), each opening with a
+  pointer to the AGENTS.md section that states the rule. The recipe's diagram was redrawn
+  with typeable characters, the original having box-drawing glyphs the punctuation rule
+  forbids
+- dropped, not moved: the protocol's interim-push and out-of-band recovery notes (covered by
+  "rerunning is safe" in Committing vs pushing), the ESC-ESC override (the user can interrupt
+  is stated in the per-rung flow), the `/exit` note in ".claude cadence", and the version
+  numbers in Work-N's heading, which the manifest owns
+- the File map's "checklists first, rationale after" ordering note went with the files, and
+  the cycle protocol is named as in this file
+- notes.md's link to the dead `prose.md#cycle-bookend-titles` anchor repointed at the
+  enclosing heading, the same fix the account took
+- historical mentions of the file names in chores, done.md, dogfood.md, and older Todo entries
+  stay as written: records, not links
+- at review (wink): the stage name "Work" and its terms "Work rung" / "Work commit" /
+  "Work-N" retired. A rung between the bookends is a commit, and the version scheme's middle
+  is "the commits between". "Work-repo commit" already carried the repo sense unambiguously,
+  so the Terminology note shrinks to that one line
 
 ##### docs: rename bot repo to agent repo in the agent-files
 Terminology defines "agent repo" as the standard name with `.claude` as its path and "bot
