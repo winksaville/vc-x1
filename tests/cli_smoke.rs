@@ -155,7 +155,7 @@ fn cli_ambient_banner_is_stderr_only() {
         stderr.lines().next().is_some_and(|l| l.contains("vc-x1")),
         "expected banner on stderr, got: {stderr:?}"
     );
-    // The banner is `<invoked name> <version>`; the version string
+    // The banner is `<invoked name> <version>`, and the version string
     // is its unique marker, robust to which bin name ran the test.
     let version = env!("CARGO_PKG_VERSION");
     assert!(
@@ -183,4 +183,15 @@ fn cli_help_lists_init() {
         stdout.contains("init"),
         "expected --help to list 'init' subcommand, got: {stdout:?}"
     );
+}
+
+/// The pre-0.80.0 `validate-bot` name is rejected with the fix-it,
+/// for any flags, rather than aliased.
+#[test]
+fn cli_validate_bot_old_name_rejected() {
+    let fx = CliFixture::new("validate-bot-old-name");
+    let out = run_err(fx.cmd().arg("validate-bot").arg("-R").arg("x"));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("pre-0.80.0"), "got: {stderr}");
+    assert!(stderr.contains("`validate-agent`"), "got: {stderr}");
 }

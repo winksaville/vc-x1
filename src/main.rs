@@ -219,10 +219,11 @@ pub(crate) enum Commands {
         table's shape.")]
     Validate(validate::ValidateArgs),
 
-    /// Check the bot repo is published (main matches main@origin)
+    /// Check the agent repo is published (main matches main@origin)
     #[command(
-        long_about = "Check the bot repo is published (main matches main@origin).\n\n\
-        At rest the bot repo's `main` always matches `main@origin`: the\n\
+        name = "validate-agent",
+        long_about = "Check the agent repo is published (main matches main@origin).\n\n\
+        At rest the agent repo's `main` always matches `main@origin`: the\n\
         bookmark only moves inside a push / squash-push run, which\n\
         publishes it in the same invocation. A mismatch means an earlier\n\
         publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
@@ -231,6 +232,15 @@ pub(crate) enum Commands {
         `vc-x1 squash-push -R <bot-repo>`."
     )]
     ValidateBot(validate_bot::ValidateBotArgs),
+
+    /// Rejected pre-0.80.0 name of `validate-agent`: prints the fix-it
+    /// and exits non-zero, for any flags.
+    #[command(name = "validate-bot", hide = true, disable_help_flag = true)]
+    ValidateBotOld {
+        /// Swallowed so the fix-it shows for any invocation.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        rest: Vec<String>,
+    },
 
     /// Validate commit descriptions against the other repo
     #[command(
@@ -551,6 +561,13 @@ fn main() -> ExitCode {
         }
         Commands::Validate(args) => args.dispatch(&mut ctx),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
+        Commands::ValidateBotOld { .. } => {
+            error!(
+                "validate-bot: pre-0.80.0 name. The agent side is `agent`, so the \
+                 subcommand is `validate-agent` (same flags)."
+            );
+            ExitCode::FAILURE
+        }
         Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
         Commands::ValidateTodo(args) => args.dispatch(&mut ctx),

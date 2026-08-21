@@ -11,7 +11,7 @@
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
   - [fix-todo](#fix-todo)
-  - [validate-bot](#validate-bot)
+  - [validate-agent](#validate-agent)
   - [config](#config)
   - [clone](#clone)
   - [init](#init)
@@ -129,7 +129,7 @@ vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
 vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
 vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
-vc-x1 validate-bot [OPTS]                 # Check the bot repo is published
+vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
@@ -500,9 +500,9 @@ vc-x1 fix-todo path/to/todo.md
 |------|-------------|
 | `--no-dry-run` | Write the renumbered file in place [default: dry-run] |
 
-### validate-bot
+### validate-agent
 
-Check the bot repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
+Check the agent repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
 refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
 `squash-push` run, which publishes it in the same invocation, so a mismatch means an earlier publish
 was lost. Read-only and cheap (two `jj` lookups, no build steps); exits non-zero on any finding and
@@ -510,10 +510,10 @@ fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
 
 ```
 # Check ./.claude (run from the project root)
-vc-x1 validate-bot
+vc-x1 validate-agent
 
 # Explicit bot-repo path
-vc-x1 validate-bot -R path/to/.claude
+vc-x1 validate-agent -R path/to/.claude
 ```
 
 | Flag | Description |
@@ -948,7 +948,7 @@ Behavior notes:
 - With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0;
   with an empty `@` but the remote behind, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost; see
-  [validate-bot](#validate-bot)), it says so and proceeds: publishing is its job.
+  [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.

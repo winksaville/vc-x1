@@ -564,7 +564,7 @@ pub fn bookmark_publish_state(
 /// Verify the bot repo's `bookmark` is published at origin.
 ///
 /// Error-raising wrapper over [`bookmark_publish_state`], used by
-/// `validate-bot` and push preflight. Fixes nothing (decided
+/// `validate-agent` and push preflight. Fixes nothing (decided
 /// 2026-07-15: no automatic fixing): the error names the
 /// `vc-x1 squash-push` resolution and the caller stops.
 pub fn verify_bot_published(
