@@ -144,9 +144,11 @@ The code allowance is why a bare byte scan cannot enforce the rule: a checker bl
 first, then expects zero.
 
 The agent-files (`AGENTS.md`, `custom*`, `agent-data/*`) carry no historical exemption and are
-swept to zero. Any other historical file keeps its existing semicolons only until it is altered:
-altering one is the moment to ask the user whether its semicolons should be removed, always,
-never a license to convert or keep them silently.
+swept to zero. Any other historical file keeps its existing semicolons only until it is touched:
+a commit that edits a file converts that whole file's prose semicolons in the same commit, code
+spans exempt, using the joins above. Files outside the commit's diff are never converted, since
+that is a sweep and sweeps are their own cycle. Source-file comments are prose under this rule
+(see [code.md](code.md#comments-are-prose)).
 
 ### Typeable punctuation only
 
@@ -155,7 +157,7 @@ Durable text uses punctuation that can be typed at a terminal. The prohibition i
 below), so a byte scan is not the rule and a sweep needs the authored/transcribed judgment.
 Banned from authoring: `—`, `–`, `…`, `→`. None can be entered without a compose key or a
 paste, so none can be grepped for, and an em dash next to option syntax reads as another flag.
-Like the semicolon rule above this one is absolute, and stricter with history: no ask-on-alter,
+Like the semicolon rule above this one is absolute, and stricter with history: no convert-on-touch,
 no exemption at all, because a banned character costs nothing to write and is paid on every
 read, so a soft rule accumulates them.
 

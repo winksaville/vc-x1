@@ -64,18 +64,7 @@ _No cycle currently in progress._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Review iiac-perf's three convergence proposals.** Their formal review (2026-08-15 via
-   `../vc-x1-messages`, [their chores-07 section][54]): our set is the base, their whole diff
-   three proposals: validate every commit, the flat semicolon rule with its sweep, and the
-   always-linked closing rung. **All three accepted** (wink, 2026-08-16), their text already in
-   our set via the [trial rung][55]. The heads-up record went out 2026-08-18. Remains: the
-   reply closing their record with `outcome-*`, riding the 0816-proposal.
-   - also riding the reply: their pinned-set gap claim (messaging rule vs chores timing),
-     their notes-entry answer, four tooling findings (twin-title desync, orphan bot commits
-     on empty-`@` push, no publish-an-amendment verb, rebase order-skew), and the old
-     template mailbox's open threads
-
-2. **Empty the custom* files into the pinned set and config (the 0816-proposal)** (wink + bot,
+1. **Empty the custom* files into the pinned set and config (the 0816-proposal)** (wink + bot,
    2026-08-16). Both members' custom files hold family infrastructure that only lives there
    because the pinned set and the config schema had no home for it. Goal: nearly 100%
    byte-identical agent-files, implemented here first, then proposed to iiac-perf as a
@@ -90,8 +79,14 @@ _No cycle currently in progress._
    - `custom-family.md` retires, `custom.md` converges to the payload's `_None._` shape
    - the payload takes the result (backlog "Update the template payload, and empty the
      three-way diff"), and the closing reply cites it
+   - also riding that reply, carried over from the closed convergence review (their 2026-08-15
+     record, [their chores-07 section][54]): their pinned-set gap claim (messaging rule vs
+     chores timing), their notes-entry answer, four tooling findings (twin-title desync,
+     orphan bot commits on empty-`@` push, no publish-an-amendment verb, rebase order-skew),
+     and the old template mailbox's open threads. Plus our own record offering the two
+     pinned rules ([the pinning cycle][57]) once it lands
 
-3. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
+2. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
    markdown carrier landed and the cycle closed early for the 0816-proposal agent-files work,
    leaving the surface's completion as its own cycle. The deferred acceptance items ride with
    it: agent vocabulary with old spellings rejected (a test shows the fix-it),
@@ -134,7 +129,7 @@ _No cycle currently in progress._
      record
    - per-key worked examples in `vc-config.md` remain from the original plan, unscheduled
 
-4. **Drop the global config and the account notion.** vc-x1 loads a user-level
+3. **Drop the global config and the account notion.** vc-x1 loads a user-level
    `~/.config/vc-x1/config.toml` whose whole remaining job, once the unread keys go, is
    expanding an `init` shorthand that the `owner/name` and path target forms already cover
    without it (wink, 2026-08-11: he passes the full url in practice and a local name only when
@@ -158,7 +153,7 @@ _No cycle currently in progress._
    - runs after the vc-config cycle on purpose: `--refresh --check` makes a schema shrink
      mechanical, so this is the first real customer of the machinery that cycle builds
 
-5. **validate-repo-data.** Golden ids for a fixture repo, so a
+4. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -231,7 +226,7 @@ _No cycle currently in progress._
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-6. **refactor: trapezoid-push + body-intro validation.**
+5. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -269,7 +264,7 @@ _No cycle currently in progress._
      against the manifest's current name, and gains the open/close rename step beside the
      version bump (custom.md on `main` is the bare skeleton, so neither has a home until that
      merge).
-7. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
+6. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
    `ExitCode::FAILURE`: a misspelled key and a config the tool could not read exit alike, so a
    caller can branch on "clean or not" and nothing finer. Proposed: **0** all tables and keys
    known and their values reasonable, **1** unknown or otherwise non-fatal findings, **2** a
@@ -289,7 +284,7 @@ _No cycle currently in progress._
      the start; value checks land later as ordinary tier-1 findings
    - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
      difference is a finding, not a fatal) or keeps its own
-8. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
+7. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
    2026-08-12). The md carrier costs a config file the toml-aware editors and formatters a
    `.toml` gets, and nothing answers "what do these fences actually concatenate to?", which is
    also the question a parse diagnostic raises. Outside the "docs: freshen vc-config and
@@ -305,7 +300,7 @@ _No cycle currently in progress._
      workspace's values, so nothing today shows a config file's own contents at all
    - decide there: the name (`--toml`, `--as-toml`, `--fences`), and whether it composes with
      `--validate` or excludes it
-9. **A committed cycle-check runner.** The per-commit flow's
+8. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -338,46 +333,46 @@ _No cycle currently in progress._
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-10. **`squash-push --title` / `--body`.** `squash-push` amends
-    content only: it folds the working copy into the last
-    commit and force-updates the remote, but the commit keeps
-    its existing message. Fixing a published commit's *message*
-    is therefore two steps (`jj describe -r @-`, then
-    `squash-push`). Accepting `--title` / `--body` makes it
-    one.
-    - No new risk: squash-push already rewrites a published
-      commit and force-updates the remote. This only changes
-      which part of the commit it edits.
-    - **ochid handling: tell, don't force.** A user-supplied
-      body drops the `ochid:` trailer unless it repeats it,
-      which silently breaks the cross-repo link. vc-x1 should
-      *not* inject the trailer (unlike `push`, which authors
-      the message and stamps it; here the user authors it and
-      the tool shouldn't rewrite their text). It should error
-      when the new message loses a trailer the commit had,
-      naming what would be lost, with an explicit override
-      flag for the case where dropping it is intended.
-    - The content-side guard is the precedent: squash-push
-      already refuses a squash that would drop source-only
-      trailers (the 0.65.1 ochid-loss incident). Same check,
-      new input.
-    - **The guard has a hole the flags would close.** Today the
-      two-step workaround routes around the very check that
-      protects the trailer: `squash-push` guards the squash
-      path, `jj describe` guards nothing, so the workaround is
-      strictly less safe than the feature. Hit at the 0.77.2
-      amend (2026-07-29), where fixing that commit's own
-      close-out bookkeeping meant editing content *and*
-      message, and the trailer survived only by hand-copying
-      it. `vc-x1 fix-desc` can repair a dropped ochid by title
-      match, so the failure is recoverable, not silent-forever.
-    - Amending a just-pushed commit is a real workflow, not a
-      rare one: backfill lands one push later by design, so
-      every commit has a one-push window where its SHA is
-      cited nowhere and a rewrite costs nothing. Message fixes
-      naturally cluster there, which is exactly where the
-      two-step shape bites.
-11. **Restructure templates: single template repo + fixed bot
+9. **`squash-push --title` / `--body`.** `squash-push` amends
+   content only: it folds the working copy into the last
+   commit and force-updates the remote, but the commit keeps
+   its existing message. Fixing a published commit's *message*
+   is therefore two steps (`jj describe -r @-`, then
+   `squash-push`). Accepting `--title` / `--body` makes it
+   one.
+   - No new risk: squash-push already rewrites a published
+     commit and force-updates the remote. This only changes
+     which part of the commit it edits.
+   - **ochid handling: tell, don't force.** A user-supplied
+     body drops the `ochid:` trailer unless it repeats it,
+     which silently breaks the cross-repo link. vc-x1 should
+     *not* inject the trailer (unlike `push`, which authors
+     the message and stamps it; here the user authors it and
+     the tool shouldn't rewrite their text). It should error
+     when the new message loses a trailer the commit had,
+     naming what would be lost, with an explicit override
+     flag for the case where dropping it is intended.
+   - The content-side guard is the precedent: squash-push
+     already refuses a squash that would drop source-only
+     trailers (the 0.65.1 ochid-loss incident). Same check,
+     new input.
+   - **The guard has a hole the flags would close.** Today the
+     two-step workaround routes around the very check that
+     protects the trailer: `squash-push` guards the squash
+     path, `jj describe` guards nothing, so the workaround is
+     strictly less safe than the feature. Hit at the 0.77.2
+     amend (2026-07-29), where fixing that commit's own
+     close-out bookkeeping meant editing content *and*
+     message, and the trailer survived only by hand-copying
+     it. `vc-x1 fix-desc` can repair a dropped ochid by title
+     match, so the failure is recoverable, not silent-forever.
+   - Amending a just-pushed commit is a real workflow, not a
+     rare one: backfill lands one push later by design, so
+     every commit has a one-push window where its SHA is
+     cited nowhere and a rewrite costs nothing. Message fixes
+     naturally cluster there, which is exactly where the
+     two-step shape bites.
+10. **Restructure templates: single template repo + fixed bot
     seed manifest.** Replace the separate
     `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
     repos with the one work-repo template, whose live
@@ -405,7 +400,7 @@ _No cycle currently in progress._
       tends to create it otherwise), so init emits it like
       `.vc-config.toml` instead of copying, leaving no "is it
       still empty?" invariant in the template.
-12. **ochid: bot-repo location qualifier.** An ochid is
+11. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`), so nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -425,7 +420,7 @@ _No cycle currently in progress._
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-13. **Version-number protocol is fragile: versions are
+12. **Version-number protocol is fragile: versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -464,7 +459,7 @@ _No cycle currently in progress._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-14. **sync follow-up: extract `move-bookmark` command.** The
+13. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -474,7 +469,7 @@ _No cycle currently in progress._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-15. **sync follow-up: retire the hidden `--check` alias;
+14. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -490,7 +485,7 @@ _No cycle currently in progress._
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-16. **validate-numbering: rename the pair, check all
+15. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -526,7 +521,7 @@ _No cycle currently in progress._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-17. **pre-commit: single rule (no docs skip) + doc validators.**
+16. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -552,7 +547,7 @@ _No cycle currently in progress._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-18. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+17. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -576,7 +571,7 @@ _No cycle currently in progress._
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-19. **Run validate-bot at every vc-x1 invocation
+18. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -589,7 +584,7 @@ _No cycle currently in progress._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-20. **CLI reference lives in `--help`; README owns concepts.**
+19. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -628,7 +623,7 @@ _No cycle currently in progress._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-21. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+20. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -648,7 +643,7 @@ _No cycle currently in progress._
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-22. **Shared-doc sync: per-commit chores convention.**
+21. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -661,7 +656,7 @@ _No cycle currently in progress._
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-23. **config: extract flag-backed key descriptions from Clap.**
+22. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -676,7 +671,7 @@ _No cycle currently in progress._
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-24. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+23. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the
@@ -788,6 +783,17 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.79.1 **docs: pin two rules and close the convergence record** [[57]]
+  - iiac-perf's 2026-08-15 convergence record closed: all three proposals accepted without
+    modification, `outcome-*` pointing at the [trial rung][55] that landed them, and a reply
+    record sent
+  - the `(done)` flip moved from before validation to work-review acceptance in
+    cycle-checklists.md and cycle-protocol.md, and the semicolon rule's history clause moved
+    from ask-on-alter to convert-on-touch in prose.md with code.md stating it for source-file
+    comments
+  - both entries retired from `custom-family.md`'s experimental section and the dogfood log,
+    the diff against the payload now carrying them to the family
+
 - 0.79.0 **refactor: retire the remaining jj spawns** [[56]]
   - the jj-CLI spawn path is gone: push and facade reads, sync repositioning, op
     recovery, squash, and init/clone provisioning all run in-process through jj-lib,
@@ -872,3 +878,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [54]: https://github.com/winksaville/iiac-perf/blob/0520c17ca352/notes/chores/chores-07.md#docs-converge-the-agent-files-with-vc-x1
 [55]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
 [56]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns
+[57]: /notes/chores/chores-17.md#docs-pin-two-rules-and-close-the-convergence-record

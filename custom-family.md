@@ -73,17 +73,7 @@ moment it lands in its pinned file or is rejected, so a long-lived entry here is
 failure. This section is itself an experiment: the pattern (a layer holding adopted-ahead
 rules between convention cycles) gets proposed to the family alongside its contents.
 
-- **Ladder markers flip on acceptance** (wink, 2026-08-18): a rung stays `(current)` through
-  validation and the work-review stop, and flips to `(done)` when the user accepts the work
-  and asks for the description, the moment "done" becomes true. Destination:
-  cycle-checklists.md's per-commit steps 3 and 6, and the protocol's per-commit flow.
-  Evidence: the dogfood entry of the same date.
-- **Comment semicolons convert on touch** (wink, 2026-08-19): a commit that edits a source
-  file converts that file's comment semicolons in the same commit, whole file, code spans
-  exempt, using the prose rule's joins (period, comma with conjunction, restructure). Files
-  not in the commit's diff are never converted, since that is a sweep and sweeps are their
-  own cycle. Destination: prose.md's Semicolons section and code.md. Evidence: the dogfood
-  entry of the same date.
+_None._
 
 ## Dogfood log
 

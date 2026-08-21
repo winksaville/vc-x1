@@ -122,10 +122,10 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 
 1. Mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
 2. Do the work. On any deviation from the agreed plan, or any question, stop and surface it.
-3. Flip `(current)` -> `(done)`, before validation and the commit, and complete the rung's
-   `Ladder details` subsection with the conceptual delta (its intent stub was opened when the
-   rung was laddered, and the ladder itself stays a bare ToC). See the protocol's
-   [Preparation](cycle-protocol.md#preparation).
+3. Complete the rung's `Ladder details` subsection with the conceptual delta (its intent stub
+   was opened when the rung was laddered, and the ladder itself stays a bare ToC). See the
+   protocol's [Preparation](cycle-protocol.md#preparation). The rung stays `(current)`: the flip
+   is step 7's.
 4. Bump the version-of-record to this commit's version (the suffix scheme is in
    [versioning.md](versioning.md)). The opening checklist's bump already covers a Preparation
    commit.
@@ -134,7 +134,9 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 6. Stop and ask the user, "please review", as this is the bottom of the review loop. Do not present
    a description as we iterate until the user reviews and says "continue|go|.." indicating the work
    review is likely complete.
-7. Once the work review is complete, write the description: a conventional title, then a body in
+7. Once the work review is complete, flip `(current)` -> `(done)`, the moment "done" becomes
+   true (before it, the user may still reject or reshape the work the marker would claim). Then
+   write the description: a conventional title, then a body in
    prose.md's [Commit-body form](prose.md#commit-body-form) (an intro paragraph stating the
    general problem, `*` bullets for its facets, `-` bullets for solutions, a `-` solving the
    nearest enclosing problem), sized per [Line widths](prose.md#line-widths). No version in

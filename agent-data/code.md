@@ -14,6 +14,15 @@ prose.md's [Line widths](prose.md#line-widths), which matches rustfmt's default 
 The per-commit flow's `cargo fmt` enforces it for code, and the same limit applies to the
 comment text it doesn't reflow.
 
+## Comments are prose
+
+Doc comments and inline comments are prose and follow prose.md, its
+[Semicolons](prose.md#semicolons) rule included: a commit that edits a source file converts that
+file's comment semicolons in the same commit, whole file, code spans and the code itself exempt,
+using the prose rule's joins (a period, a comma with a conjunction, or a restructure). Files not in
+the commit's diff are left alone, since converting them is a sweep and sweeps are their own
+cycle.
+
 ## Doc comments on every file, function, and method
 
 Every `.rs` file must begin with a `//!` module docstring. Every function and method must have

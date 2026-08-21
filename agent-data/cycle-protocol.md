@@ -347,10 +347,12 @@ through:
    root).
 2. **Do the work** (see [Iterative work](#iterative-work)
    for the loop-and-squash technique).
-3. **Flip this commit `(current)` -> `(done)`** in `## In
-   Progress`, before the cargo cycle and the commit. Write
-   the rung's `Ladder details` subsection now, when it has
-   conceptual content (see [Preparation](#preparation)).
+3. **Write the rung's `Ladder details` subsection** now,
+   when it has conceptual content (see
+   [Preparation](#preparation)). The rung stays
+   `(current)`: it flips to `(done)` at step 7, when the
+   user accepts the work, since before that the marker
+   would claim a "done" the review may still reverse.
 4. **Bump the version-of-record** to this commit's version
    (the suffix scheme is in
    [versioning.md](versioning.md#suffix-scheme)). The
@@ -373,8 +375,9 @@ through:
    into one, and describes work the review may still change.
    The user reviews the changes and we iterate until
    complete.
-7. **Write the commit description**, only once the work
-   review completes. See
+7. **Flip this commit `(current)` -> `(done)`** in `## In
+   Progress`, then **write the commit description**, both
+   only once the work review completes. See
    [Commit description](#commit-description).
 8. **Commit Description review.** Show the title + body
    and stop. The user reviews the description. Iterate.

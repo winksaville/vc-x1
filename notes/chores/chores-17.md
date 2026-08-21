@@ -11,6 +11,7 @@ at `[1]`.
 ## Table of Contents
 
 - [refactor: retire the remaining jj spawns](#refactor-retire-the-remaining-jj-spawns)
+- [docs: pin two rules and close the convergence record](#docs-pin-two-rules-and-close-the-convergence-record)
 
 ## refactor: retire the remaining jj spawns
 
@@ -250,6 +251,85 @@ Gotchas, problem/solution form:
   superseded. Not this cycle's scope: recorded as a new line on the "Finish the vc-config
   surface" Todo entry's regenerate rung.
 
+## docs: pin two rules and close the convergence record
+
+- [[N]] [docs: pin two rules and close the convergence record][8]
+
+A single-step cycle, so the one commit is the close-out. The cycle's own work is an
+agent-file change, which is why it runs alone rather than as a rung of a feature cycle.
+
+### Problem
+
+Two records were owed at once. iiac-perf's 2026-08-15 convergence review, whose three proposals
+were accepted without modification at the 0.78.8 trial rung, still had no `outcome-*` and so sat
+as open traffic. And two rules adopted mid-cycle (the `(done)` flip on acceptance, 2026-08-18,
+and comment semicolons converting on touch, 2026-08-19) were binding only from
+`custom-family.md`'s `## Experimental agent-file rules`, a parking place whose own text calls a
+long-lived entry a process failure. The pinned files still said the opposite: the checklist
+flipped `(done)` before validation, and the semicolon rule asked at every alteration.
+
+### Solution
+
+Their record is closed in `../vc-x1-messages/vc-x1.md` with `outcome-*` pointing at the
+landed trial rung (chores-16, permalinked at `main` e28cbd6b4983), and a reply record in
+`iiac-perf.md` says so, naming the two rules below as proposals to follow in their own
+record once this cycle lands. The review's remaining items moved to the 0816-proposal Todo
+entry, which is where their reply rides.
+
+Each rule now lives in the pinned file it named, and the diff against the payload carries
+both to the family as proposals:
+
+- the flip: cycle-checklists.md's per-commit step 3 keeps the rung `(current)` and step 7
+  flips it once the work review completes, and cycle-protocol.md's per-commit flow says the
+  same at its steps 3 and 7
+- the conversion: prose.md's Semicolons history clause changed from ask-on-alter to
+  convert-on-touch (whole file, code spans exempt, files outside the diff never touched),
+  and code.md gained a `Comments are prose` section stating it for source files. The
+  Typeable-punctuation cross-reference that contrasted itself with "ask-on-alter" now
+  contrasts with "convert-on-touch"
+- the two entries left `custom-family.md` (the section stays, `_None._`, since the pattern
+  itself is still a proposal), and their dogfood entries retired, the 2026-08-19 entry
+  trimmed to its in-flight second finding
+
+### Acceptance check
+
+Passed at the close-out: `grep -n 'before validation' agent-data/cycle-checklists.md` is
+empty, prose.md no longer contains "ask the user whether", the experimental section holds no
+entries, dogfood.md's only 2026-08-19 entry is the section-pattern finding, and
+`grep -c '^- outcome-' ../vc-x1-messages/vc-x1.md` counts both records closed (four field lines).
+
+### Deliberation
+
+Single-step: the edits are four short passages plus retirements, so a ladder would only
+spread one change over three commits. The rules landed as written in the experimental
+section, with one scope note: the semicolon rule covered prose, and source-file comments are
+prose that the history clause treated as ask-on-alter, so the change to that clause is the
+rule change and code.md's section is its application. The section pattern (adopted-ahead
+rules parked in the project layer) is not resolved here and rides the 0816-proposal.
+
+The cycle opened as the pinning alone, with the reply to iiac-perf waiting on this cycle's
+SHA. wink's correction at review: the acceptance without modification is the 0.78.8 trial
+rung, already on `main`, so the record's outcome can point there today and the pinning is a
+separate, later proposal. The close moved into this cycle and the title widened.
+
+The Done sweep migrated nothing: the four 0.78.x entries are the convergence context the top
+two Todo entries still cite.
+
+### Ladder details
+
+#### docs: pin two rules and close the convergence record
+
+The whole cycle in one commit. Gotchas:
+
+- Problem: the dogfood rewrite first named the pinning cycle by its version, which prose.md
+  bans outside the version-of-record. Solution: it names the cycle title instead, the one
+  identifier a step has.
+- Problem: the block move's `## In Progress` reset spliced at the first `## Todo` match,
+  which is a code-span mention in the file's intro rather than the heading, so the intro and
+  the block came back duplicated and only the diff stat (+95 for a one-entry change) gave it
+  away. Solution: anchor such splices on the heading line (`^## Todo$`), and read the stat
+  before calling the move done.
+
 # References
 
 [1]: #refactor-retire-the-remaining-jj-spawns-opening
@@ -259,3 +339,4 @@ Gotchas, problem/solution form:
 [5]: #refactor-port-init-and-clone-plumbing-to-jj-lib
 [6]: #chore-ban-process-spawning-outside-the-version-gate
 [7]: #refactor-retire-the-remaining-jj-spawns-closing
+[8]: #docs-pin-two-rules-and-close-the-convergence-record
