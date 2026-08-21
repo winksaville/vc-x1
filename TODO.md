@@ -102,7 +102,7 @@ needs a landed SHA to cite, so it follows the landing.
 - [[N]] [feat: add the family and validate tables to the schema][60] (done)
 - [[N]] [feat: add the validate subcommand][61] (done)
 - [[N]] [docs: pin messaging into agent-data][62] (done)
-- [[N]] [docs: retire custom-family.md][63]
+- [[N]] [docs: retire custom-family.md][63] (done)
 - [[N]] [docs: empty custom-family into the pinned set and config closing][64]
 
 #### Deliberation
@@ -211,8 +211,25 @@ checklists could only point at custom.md for the validation commands.
 - all four pinned files swept to zero semicolons, as the agent-files are
 
 ##### docs: retire custom-family.md
-The medium prose into `custom.md`, the facts already in config, the section pattern into
-AGENTS.md, the file deleted, `custom.md`'s pointer line removed.
+With the facts in `[family]`, the commands in `[validate]`, and the messaging behavior pinned,
+the file held only the medium prose and a section pattern, and its existence kept `custom.md`
+one pointer line away from the payload's shape.
+
+- `custom.md` gains a `## Medium` section with the artifact, the version-bump promise, and the
+  single-name convention, and says where the validation commands went. Its conventions section
+  is `_None._`, and the dogfood-log pointer moves in as its own section
+- the experimental-rules section pattern lands in AGENTS.md's Changing the agent-files as the
+  rule it resolved to: an adopted-ahead rule lives in the pinned file it belongs to, as the
+  diff, never in a holding section, since the holding section hid rules from review and from
+  sessions that skipped the layer (the measured failure, kept project-neutral in the pinned
+  text)
+- `custom-family.md` deleted, its pointer line gone. Backlog entry "`[private]` config
+  table" deleted as superseded: the facts moved into a typed, validated `[family]` table,
+  which is better than an opaque one. The backlog renumbered (`fix-todo`), and TODO.md's one
+  numeric citation past it (`backlog #53` -> `#52`) followed
+- the payload's `custom.md` still predates this shape (it carries a medium section with the
+  commands inline and a mailbox-parameters line), which the backlog's "Update the template
+  payload" entry takes, with the acceptance check's diff read against that
 
 ##### docs: empty custom-family into the pinned set and config closing
 _At close-out._
@@ -321,7 +338,7 @@ _At close-out._
    - **feat: add validate-anchors**: same-file heading anchors via the documented slug
      algorithm plus `[N]` definition/use matching, the validate-repo design's first
      standalone slice (backlog #24 absorbs it at pickup). Stretch: cross-file `[N]:` targets
-     (backlog #53)
+     (backlog #52)
    - **chore: point config at .agent-session**: wink's between-session move (mv, config
      edit, `.gitignore` edit, `vc-x1 symlink`), with the following session committing the
      record

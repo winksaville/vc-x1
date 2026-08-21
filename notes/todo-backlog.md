@@ -308,27 +308,19 @@
     - a no-remote init mode for local testing
     - an empty-dir bot template only needs a `.gitkeep`, since init writes hidden files itself
 
-47. **`[private]` config table: validator-opaque bot facts.** `vc-x1 config --validate`
-    rejects unknown keys, so member facts (mailbox member name, template-repository path)
-    cannot move from the project layer into `.vc-config.toml`. Add a `[private]` table the
-    validator passes over by contract: opaque to the CLI, never parsed, never warned about.
-    Keeps typo-checking everywhere else. wink's proposal, accepted at the 2026-08-07
-    agent-files convergence review. Unblocks custom-family.md's `## Membership` moving to
-    config, at which point a layout-free mailbox practice could return to the pinned set.
-
-48. **Warn on the legacy `[workspace]` config schema from any command.** A repo on the old
+47. **Warn on the legacy `[workspace]` config schema from any command.** A repo on the old
     schema reads, logs, and diffs fine for weeks and discovers the problem only when `push`
     hard-errors, the least convenient moment. Cheap fix: any command warns once on a legacy
     config rather than only `config --validate` and `push`. iiac-perf finding (mailbox,
     2026-08-07).
 
-49. **Revset pass-through: stop translating the house dialect.** The CLI still converts
+48. **Revset pass-through: stop translating the house dialect.** The CLI still converts
     house-convention revsets before issuing jj commands. It should pass revsets to jj
     verbatim, so one dialect exists and `jj help -k revsets` is the single authority
     (decided 2026-08-03). The docs side landed with the agent-files adoption; this is the
     CLI side.
 
-50. **Promote body shape into hard rule 9?** Extending title identity to cover the
+49. **Promote body shape into hard rule 9?** Extending title identity to cover the
     problem/solution body shape was deferred at the 2026-08-07 convergence review: the
     convention was two days old, and "a pushed body is coordinate-first to fix" would
     promote every prose rule that touches a body. Concrete trigger: revisit after
@@ -337,7 +329,7 @@
       (2026-08-12), which pinned the intro / `*` facets / `-` solutions form in prose.md. What
       is left here is only the promotion question, on a rule that now has text to promote
 
-51. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
+50. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
     `vc-x1 config` renders each key's name as an OSC 8 hyperlink to its reference url, so the
     printed schema is clickable in supporting terminals; suppressed when piped, with an
     `ls`-style `--hyperlink=auto|always|never` override.
@@ -346,7 +338,7 @@
     - builds on the vc-config.toml prototype's per-key reference field (the "docs: freshen
       vc-config and config subcmd" cycle), so it waits for that cycle to land
 
-52. **init distributes vc-config.md; reference-base points at the member** (wink + bot,
+51. **init distributes vc-config.md; reference-base points at the member** (wink + bot,
     2026-08-10). `vc-x1 init` seeds a new member with a copy of `vc-config.md` from the
     template payload and stamps `[vc-config] reference-base` with the member's own repo url,
     so every generated doc-reference web link in the member's `.vc-config.toml` lands on a
@@ -380,7 +372,7 @@
       # col-width = 68
       ```
 
-53. **Reference defs: go file-relative, with anchors** (wink + bot, 2026-08-10). The house
+52. **Reference defs: go file-relative, with anchors** (wink + bot, 2026-08-10). The house
     `[N]:` form `/notes/<file>.md` resolves by *convention*, not by any markdown standard:
     no spec says what a leading `/` means, so each viewer picks. Wink's measurements
     (2026-08-10, todo-backlog's `[2]` / `[3]`): GitHub resolves it against the repo root
@@ -405,7 +397,7 @@
       records stay uniform with the pinned convention until this entry's sweep flips both
       together
 
-54. **vc-config.md per-key worked examples** (2026-08-11). The per-key sections mostly restate
+53. **vc-config.md per-key worked examples** (2026-08-11). The per-key sections mostly restate
     each key's one-liner, and a reference link has to reward the click. Cut from the
     "docs: freshen vc-config and config subcmd" ladder at its freeze: no acceptance item
     needs it, since item 3 asks only that each generated link land on a real section, which
@@ -421,7 +413,7 @@
       sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
       sweep is machine-verified rather than hand-checked
 
-55. **Config provenance names the schema, not just the binary** (iiac-perf + bot, 2026-08-12).
+54. **Config provenance names the schema, not just the binary** (iiac-perf + bot, 2026-08-12).
     The schema is generated at build time from `vc-config.md`, so an installed binary validates
     against its build's prototype rather than the workspace's, and a key added after that build
     is reported unknown with the config blamed. Member repos run a binary built from this one,
@@ -445,7 +437,7 @@
     - decide there: hash or a schema version. A hash is free, exact, and unreadable; a version
       is readable and someone has to remember to bump it
 
-56. **Cite a Todo or backlog entry by its bold title, not its number** (wink, 2026-08-12).
+55. **Cite a Todo or backlog entry by its bold title, not its number** (wink, 2026-08-12).
     Numbers are addresses that change on every insert. Ranking two entries in one session
     renumbered 15 in `TODO.md` and slid a backlog entry from 56 to 55, invalidating references
     written minutes earlier, one of them already drafted into another member's mailbox. Titles
@@ -476,7 +468,7 @@
     - the bold-title precondition is done (2026-08-12): all 56 entries here carry one, none
       duplicated. What remains is the rule, the citation sweep, and the check
 
-57. **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?**
+56. **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?**
     (wink, 2026-08-12). The numbered-list form is what makes numbers unstable and titles
     unlinkable, so **Cite a Todo or backlog entry by its bold title, not its number** (#56)
     treats a symptom of it. Three routes, and they are not the same size of decision.
@@ -512,7 +504,7 @@
       once, which strengthens the tracker option relative to headings, since headings fix
       citation inside a repo and do nothing for cross-member traffic
 
-58. **Update the template payload, and empty the three-way diff** (2026-08-12, replanned
+57. **Update the template payload, and empty the three-way diff** (2026-08-12, replanned
     2026-08-16, the baseline landed by the "chore: update vc-x1-template" rung). The payload
     tip is now the family's agreed state, and what remains is keeping it that way:
     - the payload takes the 0816-proposal result when that program completes (TODO.md "Empty

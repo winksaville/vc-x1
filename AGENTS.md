@@ -223,6 +223,12 @@ template repository's payload, and every member repo carries its own copy of the
 - **A resolved experiment retires** like a finished Todo, at the beat where it resolves: see
   [Retiring Done entries](agent-data/notes.md#retiring-done-entries). Adopted and rejected retire
   the same way.
+- **A rule adopted ahead of its convention cycle lives in the pinned file it belongs to**, as
+  the diff against the payload, never in a holding section of the project layer. A member that
+  collects adopted-ahead rules in `custom.md` hides them from the one review that decides them,
+  and a session that skips the project layer misses binding behavior (both measured, 2026-08-19
+  to 2026-08-21, when one member's project layer held the family's messaging rules and the
+  validation commands). The diff is the holding area, and it needs no section.
 
 ## custom.md: the project layer
 
