@@ -53,7 +53,7 @@ fn probe(path: &Path) -> Option<Option<PathBuf>> {
         Err(_) => None,
         Ok(meta) => {
             if meta.is_symlink() {
-                // OK: TOCTOU race after symlink_metadata; empty PathBuf forces recreate
+                // OK: TOCTOU race after symlink_metadata, so an empty PathBuf forces recreate
                 Some(Some(std::fs::read_link(path).unwrap_or_default()))
             } else {
                 Some(None)
@@ -252,7 +252,7 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
 
 #[derive(Args, Debug)]
 pub struct SymlinkArgs {
-    /// Directory to link to [default: from repos.bot, else .claude]
+    /// Directory to link to [default: from repos.agent, else .claude]
     #[arg(value_name = "TARGET")]
     pub target: Option<String>,
 
@@ -318,7 +318,7 @@ impl SubcommandRunner for SymlinkArgs {
 /// symlink for the current directory.
 ///
 /// `ctx` is unused today (symlink reads neither user config nor
-/// the `--log` path); it's present for the uniform subcommand-layer
+/// the `--log` path). It's present for the uniform subcommand-layer
 /// signature.
 pub fn symlink(_ctx: &Context, params: &SymlinkParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("symlink: enter");

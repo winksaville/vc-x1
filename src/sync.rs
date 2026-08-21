@@ -43,11 +43,11 @@ use crate::subcommand::SubcommandRunner;
 /// Repo set is resolved from `-R/--repo` + `--scope`:
 ///
 /// - `-R PATH`: workspace root, or a single repo to sync alone.
-/// - `--scope=work|bot|work,bot`: keyword role selection,
+/// - `--scope=work|agent|work,agent`: keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
 /// - Neither: workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `bot`) -> `work,bot`
-///   - single-repo workspace (`.vc-config.toml`, no `bot`) -> `work`
+///   - dual workspace (`.vc-config.toml` with `agent`) -> `work,agent`
+///   - single-repo workspace (`.vc-config.toml`, no `agent`) -> `work`
 ///   - POR (no `.vc-config.toml`) -> cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
@@ -95,15 +95,15 @@ pub struct SyncArgs {
 
     /// Which repo(s) of the workspace to sync.
     ///
-    /// `SCOPE=work|bot|work,bot`:
+    /// `SCOPE=work|agent|work,agent`:
     ///
     /// - `work`: sync only the work repo.
-    /// - `bot`: sync only the bot repo (errors if no bot repo
+    /// - `agent`: sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `work,bot`: sync both repos.
+    /// - `work,agent`: sync both repos.
     ///
     /// Composes with `-R` as the workspace root. Default depends
-    /// on workspace state: dual workspace -> `work,bot`, and a
+    /// on workspace state: dual workspace -> `work,agent`, and a
     /// single-repo workspace or POR -> `work`.
     #[arg(
         short = 's',
@@ -453,7 +453,7 @@ fn reposition_at(
 /// True when `repo` is the bot sub-repo.
 ///
 /// Thin wrapper over `common::is_bot_dir`: side detection is by
-/// location (the parent's config names this dir as its `bot`), not
+/// location (the parent's config names this dir as its `agent`), not
 /// config content. A POR / single-repo workspace is a work repo.
 fn is_bot_repo(repo: &Path) -> bool {
     crate::common::is_bot_dir(repo)

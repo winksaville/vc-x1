@@ -1,10 +1,10 @@
 //! `list` subcommand: list commits in a jj repo, one per line:
 //! changeID + ochid (padded) + bookmarks + title, the anchor bolded.
 //!
-//! - `ListArgs`: clap surface; flattens
+//! - `ListArgs`: clap surface, and flattens
 //!   `options_flags::common_args::CommonArgs` plus a `-w`/`--width`
 //!   for the ochid column.
-//! - `ListParams`: clap-free; embeds `common::CommonParams` + `width`.
+//! - `ListParams`: clap-free, and embeds `common::CommonParams` + `width`.
 //!   Built via `TryFrom<&ListArgs>` at the binary edge.
 //! - `list(&Context, &ListParams)`: the op, `for_each_repo` +
 //!   `format_commit_with_ochid`.
@@ -32,7 +32,7 @@ pub struct ListArgs {
 
 const DEFAULT_OCHID_WIDTH: usize = 21;
 
-/// Clap-free params for `list`; embeds `CommonParams` and the ochid
+/// Clap-free params for `list`, and embeds `CommonParams` and the ochid
 /// column width.
 #[derive(Debug)]
 pub struct ListParams {
@@ -44,7 +44,7 @@ impl TryFrom<&ListArgs> for ListParams {
     type Error = String;
 
     /// Resolve clap `ListArgs` into `ListParams`: delegate to
-    /// `CommonParams::try_from` for the shared fields; copy `width`
+    /// `CommonParams::try_from` for the shared fields. Copy `width`
     /// straight over (clap-applied default already resolved).
     fn try_from(a: &ListArgs) -> Result<Self, String> {
         Ok(ListParams {
@@ -70,8 +70,8 @@ impl SubcommandRunner for ListArgs {
 
 /// List commits in the resolved range with the ochid column.
 ///
-/// `_ctx` is unused (list has no user-config or `--log` consumer);
-/// it's present for the uniform subcommand-layer signature.
+/// `_ctx` is unused (list has no user-config or `--log` consumer).
+/// It's present for the uniform subcommand-layer signature.
 pub fn list(_ctx: &Context, params: &ListParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("list: enter");
     let c = &params.common;
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn with_scope_bot() {
         use crate::options_flags::scope::{Scope, Side};
-        let args = parse(&["vc-x1", "list", "-s", "bot"]);
+        let args = parse(&["vc-x1", "list", "-s", "agent"]);
         assert_eq!(args.common.scope, Some(Scope(vec![Side::Bot])));
     }
 

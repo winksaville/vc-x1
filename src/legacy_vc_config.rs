@@ -4,11 +4,11 @@
 //!
 //! Two rejected generations, both under a `[workspace]` section:
 //!
-//! - pre-0.75.0: `path` (root-anchored) + `other-repo` (bare name);
+//! - pre-0.75.0: `path` (root-anchored) + `other-repo` (bare name).
 //! - 0.75.x: root-anchored `work`/`bot` (leading-`/`-means-root).
 //!
-//! The resolvers hard-reject both via [`reject`]'s fix-it message;
-//! the other functions keep read-only bootstrap surfaces (clone,
+//! The resolvers hard-reject both via [`reject`]'s fix-it message.
+//! The other functions keep read-only bootstrap surfaces (clone,
 //! symlink, validate-desc / fix-desc explicit paths) working on
 //! unmigrated repos.
 //!
@@ -75,7 +75,7 @@ pub fn is_bot_dir(dir: &Path) -> bool {
 /// apply the rewrite. Reads the rejected generations' keys and
 /// resolves against `root`:
 ///
-/// - 0.75.x `workspace.bot`: root-anchored (`"/.claude"`);
+/// - 0.75.x `workspace.bot`: root-anchored (`"/.claude"`).
 /// - pre-0.75.0 `workspace.other-repo`: a bare dir name.
 ///
 /// `None` when the config is missing, already `[repos]`-schema,
@@ -89,6 +89,45 @@ pub fn configured_bot_dir(root: &Path) -> Option<PathBuf> {
         .or_else(|| toml_simple::toml_get(&cfg, "workspace.other-repo"))
         .filter(|v| !v.is_empty())?;
     Some(root.join(bot.trim_start_matches('/')))
+}
+
+/// The old spellings of the agent-side keys, each paired with the
+/// key that replaced it (the 0.80.0 agent naming: `repos.agent`,
+/// `[agent-session]`).
+const OLD_AGENT_KEYS: &[(&str, &str)] = &[
+    ("repos.bot", "repos.agent"),
+    ("bot-session.items", "agent-session.items"),
+    ("bot-session.result-lines", "agent-session.result-lines"),
+    ("bot-session.col-width", "agent-session.col-width"),
+];
+
+/// The fix-it rejection for a `[repos]`-schema config still
+/// carrying the pre-0.80.0 `bot` spellings, or `None` when it
+/// carries none.
+///
+/// A rejection rather than an alias (wink, 2026-08-12): an alias is
+/// a live dual-name path that stays temporary only if someone later
+/// deletes it, while a rejection is permanent and harmless, and the
+/// fix-it makes the flag day a five-second edit. Lists every old key
+/// found so one edit clears them all.
+pub fn reject_old_agent_keys(path: &Path, cfg: &HashMap<String, String>) -> Option<String> {
+    let found: Vec<String> = OLD_AGENT_KEYS
+        .iter()
+        .filter(|(old, _)| toml_simple::toml_get(cfg, old).is_some())
+        .map(|(old, new)| format!("  {old} -> {new}"))
+        .collect();
+    if found.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "{}: pre-0.80.0 key spelling(s). The agent side is `agent`, \
+         not `bot`, in the config and on the CLI. Rename, same value, \
+         on both sides' config files:\n\n{}\n\n\
+         (`--scope=bot` is `--scope=agent`, and the `bot-session` \
+         subcommand is `agent-session`)",
+        path.display(),
+        found.join("\n")
+    ))
 }
 
 /// The fix-it rejection for a legacy config, or `None` when `cfg`
@@ -110,12 +149,12 @@ pub fn reject(dir: &Path, cfg: &HashMap<String, String>) -> Option<String> {
          work side:\n\
          [repos]\n\
          work = \".\"\n\
-         bot = \"{bot_name}\"\n\n\
+         agent = \"{bot_name}\"\n\n\
          bot side:\n\
          [repos]\n\
          work = \"..\"\n\
-         bot = \".\"\n\n\
-         (drop `bot` for a single-repo workspace)",
+         agent = \".\"\n\n\
+         (drop `agent` for a single-repo workspace)",
         dir.display()
     ))
 }
@@ -135,7 +174,7 @@ mod tests {
         dir
     }
 
-    /// Both generations' parent configs name the bot side; the
+    /// Both generations' parent configs name the bot side. The
     /// work side is never the bot side.
     #[test]
     fn is_bot_dir_both_generations() {
@@ -179,7 +218,7 @@ mod tests {
         assert_eq!(configured_bot_dir(&root), Some(root.join(".bot")));
         std::fs::write(
             root.join(VC_CONFIG_FILE),
-            "[repos]\nwork = \".\"\nbot = \".claude\"\n",
+            "[repos]\nwork = \".\"\nagent = \".claude\"\n",
         )
         .unwrap();
         assert_eq!(configured_bot_dir(&root), None);

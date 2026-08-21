@@ -66,7 +66,7 @@ fn all_opts() {
 
 #[test]
 fn target_required_at_parse_time() {
-    // TARGET is a required positional; missing it errors.
+    // TARGET is a required positional. Missing it errors.
     let err = Cli::try_parse_from(["vc-x1", "init"])
         .unwrap_err()
         .to_string();
@@ -76,13 +76,13 @@ fn target_required_at_parse_time() {
 #[test]
 fn config_content_dual() {
     // Per-side variants: [repos] values are file-relative, so
-    // the sides differ; the "." entry names the side.
+    // the sides differ. The "." entry names the side.
     let work = render_vc_config(ConfigRole::DualWork);
     assert!(work.contains("work = \".\""));
-    assert!(work.contains("bot = \".claude\""));
+    assert!(work.contains("agent = \".claude\""));
     let bot = render_vc_config(ConfigRole::DualBot);
     assert!(bot.contains("work = \"..\""));
-    assert!(bot.contains("bot = \".\""));
+    assert!(bot.contains("agent = \".\""));
 }
 
 #[test]
@@ -90,8 +90,8 @@ fn config_optional_keys_are_commented_only() {
     let work = render_vc_config(ConfigRole::DualWork);
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
-    assert!(work.contains("used by: bot-session --col-width"));
-    assert!(work.contains("used by: bot-session --result-lines"));
+    assert!(work.contains("used by: agent-session --col-width"));
+    assert!(work.contains("used by: agent-session --result-lines"));
     assert!(work.contains("# col-width = 68"));
     assert!(work.contains("# result-lines = 10"));
     assert!(
@@ -114,7 +114,7 @@ fn config_generated_toml_parses_to_active_keys_only() {
         std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .map(|d| d.as_nanos())
-            .unwrap_or(0) // OK: test-only uniqueness suffix; 0 fallback is harmless
+            .unwrap_or(0) // OK: test-only uniqueness suffix, and 0 fallback is harmless
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let path = dir.join(".vc-config.toml");
@@ -122,8 +122,8 @@ fn config_generated_toml_parses_to_active_keys_only() {
 
     let map = crate::toml_simple::toml_load(&path).expect("parse generated config");
     assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
-    assert_eq!(map.get("repos.bot").map(String::as_str), Some(".claude"));
-    assert!(!map.contains_key("bot-session.col-width"));
+    assert_eq!(map.get("repos.agent").map(String::as_str), Some(".claude"));
+    assert!(!map.contains_key("agent-session.col-width"));
     assert!(!map.contains_key("push.state-file"));
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -282,7 +282,7 @@ fn rewrite_readme_missing_is_noop() {
 fn validate_templates_missing_work() {
     let root = tmp_root("validate-missing-work");
     let work = root.join("nope");
-    let bot = root.join("bot");
+    let bot = root.join("agent");
     std::fs::create_dir_all(&bot).unwrap();
     let err = validate_templates(&work, &bot).unwrap_err().to_string();
     assert!(err.contains("work template"));
@@ -294,7 +294,7 @@ fn validate_templates_missing_work() {
 fn validate_templates_not_a_dir() {
     let root = tmp_root("validate-not-dir");
     let work = root.join("work-file");
-    let bot = root.join("bot");
+    let bot = root.join("agent");
     std::fs::write(&work, "i am a file").unwrap();
     std::fs::create_dir_all(&bot).unwrap();
     let err = validate_templates(&work, &bot).unwrap_err().to_string();
@@ -463,7 +463,7 @@ fn expand_vars_tilde() {
     let prev = std::env::var("HOME").ok();
     // SAFETY: env-var manipulation is genuinely racy with parallel
     // test runners. Tests touching $VAR and $HOME live in this
-    // module; if flakiness emerges, run with --test-threads=1.
+    // module. If flakiness emerges, run with --test-threads=1.
     unsafe {
         std::env::set_var("HOME", "/h");
     }
@@ -505,7 +505,7 @@ fn expand_vars_unterminated_brace_errors() {
 use crate::config::AccountConfig;
 use std::collections::HashMap;
 
-/// Build an `InitArgs` with sane defaults; the caller overrides
+/// Build an `InitArgs` with sane defaults. The caller overrides
 /// only the fields it cares about.
 fn args_for(target: &str) -> InitArgs {
     InitArgs {
@@ -627,7 +627,7 @@ fn plan_url_non_github_uses_external_provisioner() {
 
 #[test]
 fn plan_url_with_name_override() {
-    // [NAME] overrides the URL-derived dir name; remote URL
+    // [NAME] overrides the URL-derived dir name. Remote URL
     // itself is unchanged.
     let mut args = args_for("git@github.com:winksaville/tf1");
     args.name = Some("custom-dir".into());
@@ -753,7 +753,7 @@ fn plan_bare_name_account_override_picks_work() {
 
 #[test]
 fn plan_bare_name_explicit_repo_value_skips_config() {
-    // --repo cat=val short-circuits resolve_repo; works even
+    // --repo cat=val short-circuits resolve_repo. Works even
     // with an empty config.
     let mut args = args_for("tf1");
     args.repo.value = Some(RepoSelector {
@@ -953,7 +953,7 @@ fn por_fixture_creates_single_repo_layout() {
 }
 
 /// POR fixture writes the WorkOnly config + .gitignore variants:
-/// `work = "."` with no `bot` key, and `.gitignore` has no
+/// `work = "."` with no `agent` key, and `.gitignore` has no
 /// `/.claude` exclusion.
 #[test]
 fn por_fixture_writes_work_only_config_files() {
@@ -991,7 +991,7 @@ fn por_fixture_main_tracks_origin() {
 /// `--config none` skips writing `.vc-config.toml` while still
 /// writing `.gitignore`. The repo gets created and pushed
 /// successfully: config-less repos remain valid POR shape from
-/// jj/git's perspective; downstream commands that need
+/// jj/git's perspective. Downstream commands that need
 /// `.vc-config.toml` will fail loudly when they try to read it.
 #[test]
 fn por_config_none_skips_vc_config_writes_gitignore() {
@@ -1054,7 +1054,7 @@ fn config_rejected_without_por() {
 /// `--config <missing-path>` errors at preflight, not at write
 /// time, so the user gets a clear diagnostic before any
 /// repo-mutating side effects start. The arg is meaningful only
-/// under `--por`; setting `args.por.value = true` keeps the
+/// under `--por`. Setting `args.por.value = true` keeps the
 /// preflight on the path-validation branch.
 #[test]
 fn config_path_missing_rejected_at_preflight() {
@@ -1082,7 +1082,7 @@ fn config_none_passes_preflight() {
 
 // ---------- Dual end-to-end fixture (drives init with --scope=work,bot) ----------
 //
-// Counterparts to the POR fixture tests above; pin the dual-shape
+// Counterparts to the POR fixture tests above, and pin the dual-shape
 // invariants `push_repo` must preserve (-6.3 extraction).
 
 /// Dual fixture lays down both repos and both bare origins:
@@ -1112,9 +1112,11 @@ fn dual_fixture_creates_dual_repo_layout() {
 }
 
 /// Dual fixture writes the WORK / BOT config + .gitignore
-/// variants: per-side `[repos]` registries (work side
-/// `work = "."`, `bot = ".claude"`; bot side `work = ".."`,
-/// `bot = "."`); side detection is by self-resolution.
+/// variants: per-side `[repos]` registries:
+/// - work side `work = "."`, `bot = ".claude"`
+/// - bot side `work = ".."`, `bot = "."`
+///
+/// Side detection is by self-resolution.
 /// Work-side `.gitignore` excludes `/.claude` (bot subdir is
 /// git-ignored from the work-side view).
 #[test]
@@ -1125,14 +1127,14 @@ fn dual_fixture_writes_work_and_bot_config_files() {
         .expect("read work .vc-config.toml");
     assert!(work_cfg.contains("work = \".\""), "work work = \".\"");
     assert!(
-        work_cfg.contains("bot = \".claude\""),
-        "work bot = \".claude\""
+        work_cfg.contains("agent = \".claude\""),
+        "work agent = \".claude\""
     );
 
     let bot_cfg =
         std::fs::read_to_string(fx.bot.join(".vc-config.toml")).expect("read bot .vc-config.toml");
     assert!(bot_cfg.contains("work = \"..\""), "bot work = \"..\"");
-    assert!(bot_cfg.contains("bot = \".\""), "bot bot = \".\"");
+    assert!(bot_cfg.contains("agent = \".\""), "bot agent = \".\"");
 
     let work_gi =
         std::fs::read_to_string(fx.work.join(".gitignore")).expect("read work .gitignore");

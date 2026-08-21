@@ -153,7 +153,7 @@ pub(crate) fn parse_use_template(
 
 /// Default bot-repo directory name a fresh init records and
 /// creates. After the 0.75.0-3 sweep every *reader* resolves the
-/// dir from `repos.bot`, so this constant (plus the literals in the
+/// dir from `repos.agent`, so this constant (plus the literals in the
 /// `ConfigRole::DualWork` render and `GITIGNORE_CODE`, which must
 /// change with it) is where a new workspace's default is chosen.
 pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
@@ -168,7 +168,7 @@ const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
 /// Validate one template directory: exists, is a directory, and has no
 /// top-level non-hidden entry that would collide with init's own writes.
 ///
-/// - `label` prefixes every error message (`work` / `bot`).
+/// - `label` prefixes every error message (`work` / `agent`).
 pub(crate) fn validate_template_one(
     label: &str,
     p: &Path,
@@ -213,7 +213,7 @@ pub(crate) fn validate_templates(
     bot: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     validate_template_one("work", work)?;
-    validate_template_one("bot", bot)?;
+    validate_template_one("agent", bot)?;
     Ok(())
 }
 
@@ -341,7 +341,7 @@ fn render_workspace_header(role: ConfigRole) -> String {
 
 [repos]
 work = "."
-bot = ".claude"
+agent = ".claude"
 "#
         .to_string(),
         ConfigRole::DualBot => r#"# vc-config: Vibe Coding workspace configuration
@@ -349,11 +349,11 @@ bot = ".claude"
 # [repos] is the workspace's repo registry: work and bot are paths
 # relative to this file's directory (absolute allowed, discouraged).
 # The entry that resolves to this config's own directory names the
-# side: bot = "." makes this the bot repo.
+# side: agent = "." makes this the agent repo.
 
 [repos]
 work = ".."
-bot = "."
+agent = "."
 "#
         .to_string(),
         ConfigRole::WorkOnly => r#"# vc-config: Vibe Coding workspace configuration
@@ -1424,15 +1424,15 @@ fn create_dual(
     write_work_config(&plan.project_dir)?;
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::Placeholder)?;
 
-    prepare_local_repo(bot_dir, "bot", bot_template, bot_name)?;
+    prepare_local_repo(bot_dir, "agent", bot_template, bot_name)?;
     write_bot_config(bot_dir)?;
-    let bot_chid = commit_initial(bot_dir, "bot", OchidStrategy::Placeholder)?;
+    let bot_chid = commit_initial(bot_dir, "agent", OchidStrategy::Placeholder)?;
 
     cross_ref_ochids(&plan.project_dir, &work_chid, bot_dir, &bot_chid)?;
 
     let bot_chid_final = push_repo(
         bot_dir,
-        "bot",
+        "agent",
         "Step 8",
         plan,
         params,
@@ -1494,7 +1494,7 @@ fn create_dual(
 ///
 /// - `target`: repo working dir (already populated by
 ///   `prepare_local_repo` + `commit_initial`).
-/// - `info_label`: narration tag (`"work"`, `"bot"`, etc.).
+/// - `info_label`: narration tag (`"work"`, `"agent"`, etc.).
 /// - `step_label_provision`: `"Step 8"` (bot) or
 ///   `"Step 9"` (work), appears in the provision/push narration.
 /// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /

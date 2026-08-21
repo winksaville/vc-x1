@@ -84,7 +84,7 @@ struct ProtoKey {
     kind: String,
     doc: String,
     used_by: String,
-    /// Override url; the norm is `None`, deriving
+    /// Override url. The norm is `None`, deriving
     /// `<reference-base>vc-config.md#<anchor_slug(path)>`.
     reference: Option<String>,
     default: Option<String>,
@@ -264,7 +264,7 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
 
 /// A key path's GitHub-style heading anchor: lowercased, keeping
 /// only `[a-z0-9-]` (dots and `<`/`>` drop out), spaces to
-/// hyphens. `bot-session.col-width` -> `bot-sessioncol-width`,
+/// hyphens. `agent-session.col-width` -> `agent-sessioncol-width`,
 /// matching the slug of that key's `##` heading in vc-config.md.
 fn anchor_slug(path: &str) -> String {
     path.chars()
@@ -294,7 +294,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
             .map(|h| match h.as_str() {
                 "user" => "Home::User",
                 "workspace-code" => "Home::WorkspaceCode",
-                "workspace-bot" => "Home::WorkspaceBot",
+                "workspace-agent" => "Home::WorkspaceBot",
                 other => panic!("vc-config.md: [{}] unknown home {other:?}", key.path),
             })
             .collect::<Vec<_>>()
@@ -313,7 +313,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
         // click time, so the base names only the repo and no
         // branch is baked in (a build-time branch would point
         // shipped references at whatever the builder had checked
-        // out). The join is GitHub-shaped; a host needing another
+        // out). The join is GitHub-shaped, and a host needing another
         // shape uses the per-key `reference` override.
         let reference = key.reference.clone().unwrap_or_else(|| {
             format!(
@@ -398,8 +398,8 @@ fn generate_config_schema(manifest_dir: &str) {
     }
 }
 
-/// Read the lock beside `Cargo.toml` and emit the version env var;
-/// enforce the single-name guard first, then generate the config
+/// Read the lock beside `Cargo.toml` and emit the version env var.
+/// Enforce the single-name guard first, then generate the config
 /// schema from the prototype.
 fn main() {
     guard_single_name();

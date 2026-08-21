@@ -33,11 +33,11 @@
 //!
 //! Values are **literal targets**, not section-name pointers.
 //! For built-in `category = "remote"` the value is a URL prefix
-//! (init appends `/<NAME>.git`); for `category = "local"` it's
+//! (init appends `/<NAME>.git`). For `category = "local"` it's
 //! the parent dir for fixture bare repos.
 //!
 //! `-3` shipped a flat first-cut (`[default] repo-remote-provider`,
-//! `[github] owner`); `-4` is the redesign before any consumer
+//! `[github] owner`). `-4` is the redesign before any consumer
 //! is wired in. `-5` (init reshape) is the first consumer.
 
 use std::collections::HashMap;
@@ -82,7 +82,7 @@ pub struct UserConfig {
     pub default_account: Option<String>,
 
     /// `[default].debug`: default value when `--debug` is used
-    /// without an argument. (Reserved; not currently consumed.)
+    /// without an argument. (Reserved, but not currently consumed.)
     pub default_debug: Option<String>,
 
     /// Top-level `[repo]`: single-account shorthand. `Some`
@@ -93,16 +93,16 @@ pub struct UserConfig {
     /// Per-account configuration, keyed by account name.
     pub accounts: HashMap<String, AccountConfig>,
 
-    /// `[bot-session].items`: comma-separated default item list
-    /// for `bot-session` (e.g. `"headers,user,assistant,tool,summary"`).
-    /// Parsed and validated by the bot-session op, not here.
+    /// `[agent-session].items`: comma-separated default item list
+    /// for `agent-session` (e.g. `"headers,user,assistant,tool,summary"`).
+    /// Parsed and validated by the agent-session op, not here.
     pub bot_session_items: Option<String>,
 
-    /// `[bot-session].result-lines`: default `--result-lines`
-    /// value (max lines shown per tool result; 0 = unlimited).
+    /// `[agent-session].result-lines`: default `--result-lines`
+    /// value (max lines shown per tool result, or 0 for unlimited).
     pub bot_session_result_lines: Option<usize>,
 
-    /// `[bot-session].col-width`: default `--col-width` value
+    /// `[agent-session].col-width`: default `--col-width` value
     /// (first-column width in the field-inventory views).
     pub bot_session_col_width: Option<usize>,
 }
@@ -182,15 +182,15 @@ pub fn load_from(path: &Path) -> Result<UserConfig, Box<dyn std::error::Error>> 
         default_debug: map.get("default.debug").cloned(),
         top_level_repo: None,
         accounts: HashMap::new(),
-        bot_session_items: map.get("bot-session.items").cloned(),
-        bot_session_result_lines: parse_usize_key(&map, "bot-session.result-lines")?,
-        bot_session_col_width: parse_usize_key(&map, "bot-session.col-width")?,
+        bot_session_items: map.get("agent-session.items").cloned(),
+        bot_session_result_lines: parse_usize_key(&map, "agent-session.result-lines")?,
+        bot_session_col_width: parse_usize_key(&map, "agent-session.col-width")?,
     };
 
     let mut top_level = AccountConfig::default();
     let mut top_level_seen = false;
 
-    // Walk all keys; route `repo.*` to top-level, `account.<n>....`
+    // Walk all keys, and route `repo.*` to top-level, `account.<n>....`
     // to per-account.
     for (full_key, value) in &map {
         if let Some(suffix) = full_key.strip_prefix("repo.") {
@@ -246,7 +246,7 @@ fn apply_repo_subkey(account: &mut AccountConfig, suffix: &str, value: &str) {
                 .repo_category
                 .insert(cat.to_string(), value.to_string());
         }
-        _ => {} // unknown sub-key; ignore (forward-compat)
+        _ => {} // unknown sub-key, so ignore (forward-compat)
     }
 }
 
@@ -255,14 +255,14 @@ fn apply_repo_subkey(account: &mut AccountConfig, suffix: &str, value: &str) {
 /// Three-step chain: each step has its own error message
 /// pointing at the exact config key to set or CLI arg to pass.
 ///
-/// - `account_override`: `Some(a)` from `--account a` CLI;
+/// - `account_override`: `Some(a)` from `--account a` CLI.
 ///   `None` falls back to `[default].account`.
 /// - `repo_cli`: the parsed `--repo` selector (or `None` if
 ///   the flag was absent).
 ///
 /// Fast path: when `repo_cli` provides both `category` and
 /// `value` (`--repo <cat>=<val>`), the result is fully
-/// determined by the CLI; no account or category lookup is
+/// determined by the CLI. No account or category lookup is
 /// needed and account-related errors are skipped. This makes
 /// config-less invocations (and test fixtures) work without a
 /// `~/.config/vc-x1/config.toml`.
@@ -535,7 +535,7 @@ repo.category.local   = "/work/fixtures"
 
     #[test]
     fn account_only_no_default_section() {
-        // No [default]; one account. accounts populated, top-level None.
+        // No [default]. One account. accounts populated, top-level None.
         let (_cfg, path) = write_cfg(
             "no-default",
             r#"[account.solo]
@@ -594,8 +594,8 @@ repo.default = "remote"
     #[test]
     fn bot_session_items_parses() {
         let (_cfg, path) = write_cfg(
-            "bot-session",
-            r#"[bot-session]
+            "agent-session",
+            r#"[agent-session]
 items = "user,summary"
 "#,
         );
@@ -606,8 +606,8 @@ items = "user,summary"
     #[test]
     fn bot_session_scalars_parse() {
         let (_cfg, path) = write_cfg(
-            "bot-session-scalars",
-            r#"[bot-session]
+            "agent-session-scalars",
+            r#"[agent-session]
 result-lines = 3
 col-width = 40
 "#,
@@ -620,8 +620,8 @@ col-width = 40
     #[test]
     fn bot_session_scalar_bad_value_errors() {
         let (_cfg, path) = write_cfg(
-            "bot-session-scalar-bad",
-            r#"[bot-session]
+            "agent-session-scalar-bad",
+            r#"[agent-session]
 col-width = "abc"
 "#,
         );

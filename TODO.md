@@ -98,7 +98,7 @@ needs a landed SHA to cite, so it follows the landing.
 
 #### Ladder
 - [[N]] [docs: empty custom-family into the pinned set and config opening][58] (done)
-- [[N]] [feat: agent naming in config and CLI][59]
+- [[N]] [feat: agent naming in config and CLI][59] (done)
 - [[N]] [feat: add the family and validate tables to the schema][60]
 - [[N]] [feat: add the validate subcommand][61]
 - [[N]] [docs: pin messaging into agent-data][62]
@@ -137,12 +137,24 @@ repo) and #11 (init cannot publish to gitlab.com), and the "Drop the global
 config" entry's decision notes, including the measured gitlab.com push-to-create refusal.
 
 ##### feat: agent naming in config and CLI
-`repos.agent` / `[agent-session]` / `.agent-session` / `--scope=agent`, home `workspace-agent`,
-old spellings rejected rather than aliased with `legacy_vc_config::reject` as the model, the
-fix-it printed for both sides. Values untouched: `repos.agent = ".claude"` and the `/.claude/`
-ochid label (test-pinned). README respelled; pinned prose is a convention cycle's; `homes` ->
-`files` waits for "Drop the global config". Both sides' `.vc-config.md` respelled and
-`config --validate` clean.
+The agent side is `agent` everywhere a user types or reads it: the keys `repos.agent` and
+`[agent-session].*`, the home `workspace-agent`, `--scope=agent` (and `work,agent` /
+`agent,work`, the `config` target keywords included), and the `agent-session` subcommand. The
+old spellings are rejected, never aliased: `legacy_vc_config::reject_old_agent_keys` runs
+beside the legacy-schema rejection in every resolver and lists each old key found with its
+replacement (one edit clears them all), `parse_scope` names the respelled keyword, and a hidden
+`bot-session` subcommand prints the fix-it for any flags. Rust identifiers (`Side::Bot`,
+`bot_session`, `Home::WorkspaceBot`) keep their names: the rung is vocabulary, and an identifier
+sweep is a refactor of its own. Values untouched: `repos.agent = ".claude"` and the `/.claude/`
+ochid label (test-pinned). Both sides' `.vc-config.md`, `vc-config.md`'s key docs, and README's
+CLI examples are respelled (README's stale init-layout block updated to the md carrier in
+passing). README's "bot repo" prose and the pinned files stay as written: the concept's name is
+the pinned vocabulary's, a convention cycle's to change. Gotcha: the schema's generated
+constants are named from the key path, so `BOT_SESSION_*_DEFAULT` became
+`AGENT_SESSION_*_DEFAULT` on the rename, and the build pointed at every consumer.
+Also in this rung: `config`'s per-side header reads `agent:` (wink spotted the old label
+while reviewing, and that review raised the print-once Todo), and the touched source files'
+comment semicolons were converted per code.md, a delegated mechanical pass.
 
 ##### feat: add the family and validate tables to the schema
 `family.member`, `family.template`, `family.messages` and `validate.full`, `validate.fast`
@@ -180,7 +192,48 @@ _At close-out._
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
+1. **Simplify and combine the cycle-* agent-files into AGENTS.md.** (wink, 2026-08-21) The
+   protocol lives in `cycle-protocol.md`, its summaries in `cycle-checklists.md`, and the two
+   disagree just enough to mislead a reader who opens one and not the other. Measured at the
+   agent-naming rung: the bot read the checklists file, took the "Ladder (sub-cycle)
+   checklist" because the working record calls its rung list `#### Ladder`, skipped the
+   protocol file that tells the multi-commit and squash-form shapes apart, and so described
+   the rung and proposed "start the next rung" where the next step was `vc-x1 push`. The
+   answer is not another rule: hard rule 7 and the checklists' own preamble already say to
+   read both. It is fewer files, with the one reading that matters in the file the harness
+   auto-loads.
+   - fold `cycle-protocol.md` and `cycle-checklists.md` into one account in `AGENTS.md`,
+     simplified as they merge, so the protocol and its checklist cannot drift and the
+     per-rung `vc-x1 push` is read by every session without a second hop
+   - retire the "Ladder (sub-cycle)" name, which collides with the working record's `Ladder`
+   - state the at-rest contract in one passage: after a rung the bot runs `vc-x1 push` (both
+     repos), stops, and the user runs `vc-x1 squash-push` on the agent repo to sweep the
+     session tail the push itself wrote, so "clean" means both repos empty. The mechanism is
+     in `jj.md` and the `squash-push` help, the workflow is nowhere, and the bot mapped "I'll
+     squash-push the agent repo" onto the wrong verb for want of the why
+   - move the terminology with it: the code now spells the side `agent` and wink says "agent
+     repo", while the Terminology section still defines "bot repo" as the standard name with
+     `.claude` as its path, so a bot reading AGENTS.md keeps saying "bot"
+   - convention work, so it runs as its own cycle, and the result is a family proposal
+     ([Changing the agent-files](AGENTS.md#changing-the-agent-files))
+
+2. **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21)
+   Bare `vc-x1 config` prints the schema once per side of the default `work,agent` target, and
+   since every remaining key has both workspace homes the two blocks are identical apart from
+   the header, so the reader sees the same ~40 lines twice. In a workspace with no agent side
+   the second block is still printed, under the `<root>/<agent-dir>/...` fallback hint, for a
+   side that does not exist.
+   - print the schema once by default, grouped per side only when the sides' key sets differ
+     (they will again once `[family]` and `[validate]` land as `workspace-code`-only)
+   - add `--output <scope>:<path>[,<scope>:<path>]` or some such, writing each side's rendering
+     to a file instead of stdout, so a side's config can be (re)generated in place. This
+     overlaps `config --refresh` in "Finish the vc-config surface" and should be designed with
+     it, one verb or two
+   - skip a side the workspace does not have, rather than rendering its fallback hint
+   - the rendered hints still say `.vc-config.toml` (the `VC_CONFIG_FILE` constant), and the
+     md carrier rename is the "regenerate configs in md format" rung's
+
+3. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
    markdown carrier landed and the cycle closed early for the 0816-proposal agent-files work,
    leaving the surface's completion as its own cycle. The deferred acceptance items ride with
    it: agent vocabulary with old spellings rejected (a test shows the fix-it),
@@ -226,7 +279,7 @@ _At close-out._
      record
    - per-key worked examples in `vc-config.md` remain from the original plan, unscheduled
 
-2. **Drop the global config and the account notion.** vc-x1 loads a user-level
+4. **Drop the global config and the account notion.** vc-x1 loads a user-level
    `~/.config/vc-x1/config.toml` whose whole remaining job, once the unread keys go, is
    expanding an `init` shorthand that the `owner/name` and path target forms already cover
    without it (wink, 2026-08-11: he passes the full url in practice and a local name only when
@@ -262,7 +315,7 @@ _At close-out._
    - runs after the vc-config cycle on purpose: `--refresh --check` makes a schema shrink
      mechanical, so this is the first real customer of the machinery that cycle builds
 
-3. **validate-repo-data.** Golden ids for a fixture repo, so a
+5. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -335,7 +388,7 @@ _At close-out._
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-4. **refactor: trapezoid-push + body-intro validation.**
+6. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge; body-intro validation rides as
@@ -373,7 +426,7 @@ _At close-out._
      against the manifest's current name, and gains the open/close rename step beside the
      version bump (custom.md on `main` is the bare skeleton, so neither has a home until that
      merge).
-5. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
+7. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
    `ExitCode::FAILURE`: a misspelled key and a config the tool could not read exit alike, so a
    caller can branch on "clean or not" and nothing finer. Proposed: **0** all tables and keys
    known and their values reasonable, **1** unknown or otherwise non-fatal findings, **2** a
@@ -393,7 +446,7 @@ _At close-out._
      the start; value checks land later as ordinary tier-1 findings
    - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
      difference is a finding, not a fatal) or keeps its own
-6. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
+8. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
    2026-08-12). The md carrier costs a config file the toml-aware editors and formatters a
    `.toml` gets, and nothing answers "what do these fences actually concatenate to?", which is
    also the question a parse diagnostic raises. Outside the "docs: freshen vc-config and
@@ -409,7 +462,7 @@ _At close-out._
      workspace's values, so nothing today shows a config file's own contents at all
    - decide there: the name (`--toml`, `--as-toml`, `--fences`), and whether it composes with
      `--validate` or excludes it
-7. **A committed cycle-check runner.** The per-commit flow's
+9. **A committed cycle-check runner.** The per-commit flow's
    validation (fmt -> clippy -> test -> install) exists only as
    prose in cycle-protocol.md, so it is recomposed by hand
    every commit, and a hand-composed shell one-liner can
@@ -442,74 +495,74 @@ _At close-out._
      validation step's exit status is checked, not read)
      belongs in cycle-protocol.md's per-commit flow, which
      fans out to the template family.
-8. **`squash-push --title` / `--body`.** `squash-push` amends
-   content only: it folds the working copy into the last
-   commit and force-updates the remote, but the commit keeps
-   its existing message. Fixing a published commit's *message*
-   is therefore two steps (`jj describe -r @-`, then
-   `squash-push`). Accepting `--title` / `--body` makes it
-   one.
-   - No new risk: squash-push already rewrites a published
-     commit and force-updates the remote. This only changes
-     which part of the commit it edits.
-   - **ochid handling: tell, don't force.** A user-supplied
-     body drops the `ochid:` trailer unless it repeats it,
-     which silently breaks the cross-repo link. vc-x1 should
-     *not* inject the trailer (unlike `push`, which authors
-     the message and stamps it; here the user authors it and
-     the tool shouldn't rewrite their text). It should error
-     when the new message loses a trailer the commit had,
-     naming what would be lost, with an explicit override
-     flag for the case where dropping it is intended.
-   - The content-side guard is the precedent: squash-push
-     already refuses a squash that would drop source-only
-     trailers (the 0.65.1 ochid-loss incident). Same check,
-     new input.
-   - **The guard has a hole the flags would close.** Today the
-     two-step workaround routes around the very check that
-     protects the trailer: `squash-push` guards the squash
-     path, `jj describe` guards nothing, so the workaround is
-     strictly less safe than the feature. Hit at the 0.77.2
-     amend (2026-07-29), where fixing that commit's own
-     close-out bookkeeping meant editing content *and*
-     message, and the trailer survived only by hand-copying
-     it. `vc-x1 fix-desc` can repair a dropped ochid by title
-     match, so the failure is recoverable, not silent-forever.
-   - Amending a just-pushed commit is a real workflow, not a
-     rare one: backfill lands one push later by design, so
-     every commit has a one-push window where its SHA is
-     cited nowhere and a rewrite costs nothing. Message fixes
-     naturally cluster there, which is exactly where the
-     two-step shape bites.
-9. **Restructure templates: single template repo + fixed bot
-   seed manifest.** Replace the separate
-   `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
-   repos with the one work-repo template, whose live
-   `.claude/` doubles as the bot-side seed source; retire
-   `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
-   for the new layout. First up after the refactor program.
-   - `--use-template` rule: explicit `CODE,BOT` copies all
-     non-hidden files from BOT (unchanged, the escape
-     hatch for rich bot seeds); `CODE` alone seeds the bot
-     side from a fixed manifest (`LICENSE-*`, `README.md`)
-     taken from `<CODE>/.claude/`. The `<CODE>.claude`
-     sibling default is dropped.
-   - The manifest is the safety property: a live `.claude`
-     has non-hidden session artifacts at top level, and
-     the known subset is what lets it double as the seed
-     source without leaking session history into new
-     projects.
-   - Manifest members missing in the source are skipped, so
-     a code template with no `.claude/` content yields a
-     bare-but-valid bot repo (the bot template is
-     optional; init already generates the true minimum
-     itself).
-   - `memory/MEMORY.md` moves from copied to generated:
-     it is intentionally empty (seeded only because Claude
-     tends to create it otherwise), so init emits it like
-     `.vc-config.toml` instead of copying, leaving no "is it
-     still empty?" invariant in the template.
-10. **ochid: bot-repo location qualifier.** An ochid is
+10. **`squash-push --title` / `--body`.** `squash-push` amends
+    content only: it folds the working copy into the last
+    commit and force-updates the remote, but the commit keeps
+    its existing message. Fixing a published commit's *message*
+    is therefore two steps (`jj describe -r @-`, then
+    `squash-push`). Accepting `--title` / `--body` makes it
+    one.
+    - No new risk: squash-push already rewrites a published
+      commit and force-updates the remote. This only changes
+      which part of the commit it edits.
+    - **ochid handling: tell, don't force.** A user-supplied
+      body drops the `ochid:` trailer unless it repeats it,
+      which silently breaks the cross-repo link. vc-x1 should
+      *not* inject the trailer (unlike `push`, which authors
+      the message and stamps it; here the user authors it and
+      the tool shouldn't rewrite their text). It should error
+      when the new message loses a trailer the commit had,
+      naming what would be lost, with an explicit override
+      flag for the case where dropping it is intended.
+    - The content-side guard is the precedent: squash-push
+      already refuses a squash that would drop source-only
+      trailers (the 0.65.1 ochid-loss incident). Same check,
+      new input.
+    - **The guard has a hole the flags would close.** Today the
+      two-step workaround routes around the very check that
+      protects the trailer: `squash-push` guards the squash
+      path, `jj describe` guards nothing, so the workaround is
+      strictly less safe than the feature. Hit at the 0.77.2
+      amend (2026-07-29), where fixing that commit's own
+      close-out bookkeeping meant editing content *and*
+      message, and the trailer survived only by hand-copying
+      it. `vc-x1 fix-desc` can repair a dropped ochid by title
+      match, so the failure is recoverable, not silent-forever.
+    - Amending a just-pushed commit is a real workflow, not a
+      rare one: backfill lands one push later by design, so
+      every commit has a one-push window where its SHA is
+      cited nowhere and a rewrite costs nothing. Message fixes
+      naturally cluster there, which is exactly where the
+      two-step shape bites.
+11. **Restructure templates: single template repo + fixed bot
+    seed manifest.** Replace the separate
+    `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
+    repos with the one work-repo template, whose live
+    `.claude/` doubles as the bot-side seed source; retire
+    `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
+    for the new layout. First up after the refactor program.
+    - `--use-template` rule: explicit `CODE,BOT` copies all
+      non-hidden files from BOT (unchanged, the escape
+      hatch for rich bot seeds); `CODE` alone seeds the bot
+      side from a fixed manifest (`LICENSE-*`, `README.md`)
+      taken from `<CODE>/.claude/`. The `<CODE>.claude`
+      sibling default is dropped.
+    - The manifest is the safety property: a live `.claude`
+      has non-hidden session artifacts at top level, and
+      the known subset is what lets it double as the seed
+      source without leaking session history into new
+      projects.
+    - Manifest members missing in the source are skipped, so
+      a code template with no `.claude/` content yields a
+      bare-but-valid bot repo (the bot template is
+      optional; init already generates the true minimum
+      itself).
+    - `memory/MEMORY.md` moves from copied to generated:
+      it is intentionally empty (seeded only because Claude
+      tends to create it otherwise), so init emits it like
+      `.vc-config.toml` instead of copying, leaving no "is it
+      still empty?" invariant in the template.
+12. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`), so nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -529,7 +582,7 @@ _At close-out._
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-11. **Version-number protocol is fragile: versions are
+13. **Version-number protocol is fragile: versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -568,7 +621,7 @@ _At close-out._
       cycle-protocol.md (title shape, Numbering), AGENTS.md
       (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-12. **sync follow-up: extract `move-bookmark` command.** The
+14. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -578,7 +631,7 @@ _At close-out._
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-13. **sync follow-up: retire the hidden `--check` alias;
+15. **sync follow-up: retire the hidden `--check` alias;
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -594,7 +647,7 @@ _At close-out._
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-14. **validate-numbering: rename the pair, check all
+16. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -630,7 +683,7 @@ _At close-out._
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-15. **pre-commit: single rule (no docs skip) + doc validators.**
+17. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -656,7 +709,7 @@ _At close-out._
       avoid rewriting published 0.62.0-x history); no version
       pre-assigned; see the Todo "Version-number protocol is
       fragile" on fragile version targets.
-16. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+18. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -680,7 +733,7 @@ _At close-out._
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-17. **Run validate-bot at every vc-x1 invocation
+19. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -693,7 +746,7 @@ _At close-out._
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most; push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-18. **CLI reference lives in `--help`; README owns concepts.**
+20. **CLI reference lives in `--help`; README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -732,7 +785,7 @@ _At close-out._
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-19. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
+21. **Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs.** Adopted in chores-13 (0.69.2 ladder,
     backfilled during 0.70.0-0): each rung is prepended
     with its commit reference so the rung↔commit
@@ -752,7 +805,7 @@ _At close-out._
       So a local edit to a shared doc is not a violation and
       does not need family sign-off, it just adds to what that
       pass will have to reconcile.
-20. **Shared-doc sync: per-commit chores convention.**
+22. **Shared-doc sync: per-commit chores convention.**
     0.71.0 changed how chores are recorded: each work commit
     appends its As-built rung + narrative as it lands, rather
     than the narrative waiting for close-out. That wording edit
@@ -765,7 +818,7 @@ _At close-out._
     vc-x1-work-repo-template (same family as
     the Todo "Shared-doc sync: As-built ladder rungs carry `[[N]]`
     commit refs").
-21. **config: extract flag-backed key descriptions from Clap.**
+23. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -780,7 +833,7 @@ _At close-out._
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-22. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+24. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically; report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD; `config --validate` and the

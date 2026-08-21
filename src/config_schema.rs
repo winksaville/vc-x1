@@ -9,7 +9,7 @@
 //!   against it (dynamic-segment aware).
 //! - `crate::init` derives init's commented defaults from
 //!   `schema()`, so these surfaces cannot drift from this list.
-//! - Behavioral defaults (e.g. `bot-session --col-width`) consume
+//! - Behavioral defaults (e.g. `agent-session --col-width`) consume
 //!   the generated constants rather than hand-kept copies.
 
 /// Which config home a key belongs to.
@@ -35,7 +35,7 @@ pub enum ValueKind {
 /// One settable configuration key.
 pub struct ConfigKey {
     /// The config key (TOML table and key joined by `.`), e.g.
-    /// `"bot-session.col-width"`.
+    /// `"agent-session.col-width"`.
     pub path: &'static str,
     /// Which home(s) accept this key.
     pub homes: &'static [Home],
@@ -43,7 +43,7 @@ pub struct ConfigKey {
     pub kind: ValueKind,
     /// Rendered default, `None` if there is no default.
     pub default: Option<&'static str>,
-    /// Active (not commented) in init; the value is role-specific.
+    /// Active (not commented) in init. The value is role-specific.
     pub required: bool,
     /// The path has a `<placeholder>` segment matching a family
     /// of keys (e.g. `repo.category.<cat>`).
@@ -51,10 +51,10 @@ pub struct ConfigKey {
     /// One-line description.
     pub doc: &'static str,
     /// The command/flag or structural context this key is
-    /// associated with (e.g. `"bot-session --col-width"`).
+    /// associated with (e.g. `"agent-session --col-width"`).
     pub used_by: &'static str,
-    /// A representative example value for keys with no default;
-    /// rendered on the assignment line, marked `# example`,
+    /// A representative example value for keys with no default,
+    /// and rendered on the assignment line, marked `# example`,
     /// instead of a bare placeholder. `None` when the key has a
     /// real default (the default serves as the example).
     pub example: Option<&'static str>,
@@ -230,16 +230,16 @@ mod tests {
     #[test]
     fn generated_consts_match_table() {
         assert_eq!(
-            find("bot-session.col-width").default,
-            Some(BOT_SESSION_COL_WIDTH_DEFAULT.to_string()).as_deref()
+            find("agent-session.col-width").default,
+            Some(AGENT_SESSION_COL_WIDTH_DEFAULT.to_string()).as_deref()
         );
         assert_eq!(
-            find("bot-session.result-lines").default,
-            Some(BOT_SESSION_RESULT_LINES_DEFAULT.to_string()).as_deref()
+            find("agent-session.result-lines").default,
+            Some(AGENT_SESSION_RESULT_LINES_DEFAULT.to_string()).as_deref()
         );
         assert_eq!(
-            find("bot-session.items").default,
-            Some(BOT_SESSION_ITEMS_DEFAULT)
+            find("agent-session.items").default,
+            Some(AGENT_SESSION_ITEMS_DEFAULT)
         );
     }
 

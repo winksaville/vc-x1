@@ -1,4 +1,4 @@
-//! CLI subprocess tests for `bot-session`: render a small fixture
+//! CLI subprocess tests for `agent-session`: render a small fixture
 //! transcript, exercise the reveal flags, and pin the tolerant
 //! handling of a truncated final line.
 
@@ -36,14 +36,16 @@ fn fixture_file(fx: &CliFixture) -> std::path::PathBuf {
     path
 }
 
-/// Default view: dialogue + tool one-liner shown; thinking, tool
-/// result, and meta/system hidden; truncated last line warns on
-/// stderr but exits 0; summary line reports the counts.
+/// Default view:
+/// - dialogue + tool one-liner shown
+/// - thinking, tool result, and meta/system hidden
+/// - truncated last line warns on stderr but exits 0
+/// - summary line reports the counts
 #[test]
 fn cli_bot_session_default() {
-    let fx = CliFixture::new("bot-session-default");
+    let fx = CliFixture::new("agent-session-default");
     let file = fixture_file(&fx);
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file));
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stdout.contains("please fix the bug"), "got: {stdout}");
@@ -55,7 +57,7 @@ fn cli_bot_session_default() {
     assert!(stdout.contains("2 turns shown"), "got: {stdout}");
     assert!(stdout.contains("1 malformed lines"));
     assert!(
-        stderr.contains("warn: bot-session: line 9:"),
+        stderr.contains("warn: agent-session: line 9:"),
         "got: {stderr}"
     );
 }
@@ -63,15 +65,13 @@ fn cli_bot_session_default() {
 /// Reveal flags surface the hidden content.
 #[test]
 fn cli_bot_session_reveal() {
-    let fx = CliFixture::new("bot-session-reveal");
+    let fx = CliFixture::new("agent-session-reveal");
     let file = fixture_file(&fx);
-    let out =
-        run_ok(
-            fx.cmd()
-                .arg("bot-session")
-                .arg(&file)
-                .args(["--thinking", "--results", "--meta"]),
-        );
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
+        "--thinking",
+        "--results",
+        "--meta",
+    ]));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("secret reasoning"), "got: {stdout}");
     assert!(stdout.contains("[result] all green"));
@@ -82,9 +82,9 @@ fn cli_bot_session_reveal() {
 /// --all is shorthand for every reveal flag.
 #[test]
 fn cli_bot_session_all() {
-    let fx = CliFixture::new("bot-session-all");
+    let fx = CliFixture::new("agent-session-all");
     let file = fixture_file(&fx);
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--all"));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).arg("--all"));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("secret reasoning"), "got: {stdout}");
     assert!(stdout.contains("[result] all green"));
@@ -96,12 +96,12 @@ fn cli_bot_session_all() {
 /// alternate views), with elision markers and a sliced summary.
 #[test]
 fn cli_bot_session_lines() {
-    let fx = CliFixture::new("bot-session-lines");
+    let fx = CliFixture::new("agent-session-lines");
     let file = fixture_file(&fx);
     // Source lines 1-2: bookkeeping mode line + the user prompt.
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--lines", "2"]),
     );
@@ -126,10 +126,10 @@ fn cli_bot_session_lines() {
         !stderr.contains("warn:"),
         "truncated line 9 out of range, got: {stderr}"
     );
-    // 0 = nothing selected; summary only.
+    // 0 = nothing selected. Summary only.
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--lines", "0"]),
     );
@@ -142,7 +142,7 @@ fn cli_bot_session_lines() {
     assert!(!stdout.contains("==="), "no turns, got: {stdout}");
     let out = run_err(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--lines", "x"]),
     );
@@ -150,15 +150,15 @@ fn cli_bot_session_lines() {
     assert!(stderr.contains("--lines"), "got: {stderr}");
 }
 
-/// --none + --<item> composes a minimal view; --no-<item>
+/// --none + --<item> composes a minimal view. --no-<item>
 /// subtracts from the default.
 #[test]
 fn cli_bot_session_item_toggles() {
-    let fx = CliFixture::new("bot-session-toggles");
+    let fx = CliFixture::new("agent-session-toggles");
     let file = fixture_file(&fx);
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--none", "--user"]),
     );
@@ -169,7 +169,7 @@ fn cli_bot_session_item_toggles() {
     assert!(!stdout.contains("turns shown"), "no summary");
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--no-tool", "--no-headers"]),
     );
@@ -180,23 +180,23 @@ fn cli_bot_session_item_toggles() {
     assert!(stdout.contains("turns shown"), "summary still on");
 }
 
-/// [bot-session].items in the user config replaces the built-in
-/// default set; CLI flags still adjust it.
+/// [agent-session].items in the user config replaces the built-in
+/// default set. CLI flags still adjust it.
 #[test]
 fn cli_bot_session_config_items() {
-    let fx = CliFixture::new("bot-session-config");
+    let fx = CliFixture::new("agent-session-config");
     let file = fixture_file(&fx);
     let cfg_dir = fx.home.join(".config").join("vc-x1");
     std::fs::create_dir_all(&cfg_dir).expect("mkdir config dir");
     std::fs::write(
         cfg_dir.join("config.toml"),
-        "[bot-session]\nitems = \"user,summary\"\n",
+        "[agent-session]\nitems = \"user,summary\"\n",
     )
     .expect("write config");
     let out = run_ok(
         fx.cmd()
             .env("XDG_CONFIG_HOME", fx.home.join(".config"))
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -207,7 +207,7 @@ fn cli_bot_session_config_items() {
     let out = run_ok(
         fx.cmd()
             .env("XDG_CONFIG_HOME", fx.home.join(".config"))
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .arg("--tool"),
     );
@@ -216,14 +216,14 @@ fn cli_bot_session_config_items() {
 }
 
 /// Every --no-<item> flag parses and subtracts (--all minus all
-/// eight = empty output); a --<item>/--no-<item> pair resolves
-/// last-one-wins; the --no-all/--no-none aliases behave as
+/// eight = empty output). A --<item>/--no-<item> pair resolves
+/// last-one-wins. The --no-all/--no-none aliases behave as
 /// --none/--all.
 #[test]
 fn cli_bot_session_no_item_flags() {
-    let fx = CliFixture::new("bot-session-no-flags");
+    let fx = CliFixture::new("agent-session-no-flags");
     let file = fixture_file(&fx);
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
         "--all",
         "--no-headers",
         "--no-user",
@@ -237,7 +237,7 @@ fn cli_bot_session_no_item_flags() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.trim().is_empty(), "got: {stdout}");
 
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
         "--none",
         "--headers",
         "--user",
@@ -255,7 +255,7 @@ fn cli_bot_session_no_item_flags() {
     assert!(stdout.contains("injected context"));
     assert!(stdout.contains("turns shown"));
 
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
         "--no-summary",
         "--summary",
         "--none",
@@ -267,17 +267,17 @@ fn cli_bot_session_no_item_flags() {
     );
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--summary", "--no-summary"]),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.contains("turns shown"), "got: {stdout}");
 
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--no-all"));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).arg("--no-all"));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.trim().is_empty(), "--no-all = --none, got: {stdout}");
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--no-none"));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).arg("--no-none"));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains("secret reasoning"),
@@ -285,29 +285,29 @@ fn cli_bot_session_no_item_flags() {
     );
 }
 
-/// The workspace .vc-config.toml [bot-session].items layer wins
-/// over the user config; CLI still wins over both.
+/// The workspace .vc-config.toml [agent-session].items layer wins
+/// over the user config. CLI still wins over both.
 #[test]
 fn cli_bot_session_workspace_items() {
-    let fx = CliFixture::new("bot-session-vc-config");
+    let fx = CliFixture::new("agent-session-vc-config");
     let file = fixture_file(&fx);
     let cfg_dir = fx.home.join(".config").join("vc-x1");
     std::fs::create_dir_all(&cfg_dir).expect("mkdir config dir");
     std::fs::write(
         cfg_dir.join("config.toml"),
-        "[bot-session]\nitems = \"assistant\"\n",
+        "[agent-session]\nitems = \"assistant\"\n",
     )
     .expect("write user config");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[repos]\nwork = \".\"\n\n[bot-session]\nitems = \"user,summary\"\n",
+        "[repos]\nwork = \".\"\n\n[agent-session]\nitems = \"user,summary\"\n",
     )
     .expect("write vc-config");
     let out = run_ok(
         fx.cmd()
             .env("XDG_CONFIG_HOME", fx.home.join(".config"))
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -321,7 +321,7 @@ fn cli_bot_session_workspace_items() {
         fx.cmd()
             .env("XDG_CONFIG_HOME", fx.home.join(".config"))
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .arg("--assistant"),
     );
@@ -329,10 +329,10 @@ fn cli_bot_session_workspace_items() {
     assert!(stdout.contains("looking at it"), "CLI beats workspace");
 }
 
-/// --result-lines adjusts the [result] body cap; 0 = unlimited.
+/// --result-lines adjusts the [result] body cap. 0 = unlimited.
 #[test]
 fn cli_bot_session_result_lines() {
-    let fx = CliFixture::new("bot-session-result-lines");
+    let fx = CliFixture::new("agent-session-result-lines");
     let file = fx.path("multiline.jsonl");
     let result = (1..=6)
         .map(|i| format!("r{i}"))
@@ -346,7 +346,7 @@ fn cli_bot_session_result_lines() {
     let out =
         run_ok(
             fx.cmd()
-                .arg("bot-session")
+                .arg("agent-session")
                 .arg(&file)
                 .args(["--results", "--result-lines", "2"]),
         );
@@ -358,7 +358,7 @@ fn cli_bot_session_result_lines() {
     let out =
         run_ok(
             fx.cmd()
-                .arg("bot-session")
+                .arg("agent-session")
                 .arg(&file)
                 .args(["--results", "--result-lines", "0"]),
         );
@@ -368,13 +368,13 @@ fn cli_bot_session_result_lines() {
 }
 
 /// --col-width sets the first-column (dotted-path) pad in the
-/// field views; the default is 68.
+/// field views. The default is 68.
 #[test]
 fn cli_bot_session_col_width() {
-    let fx = CliFixture::new("bot-session-col-width");
+    let fx = CliFixture::new("agent-session-col-width");
     let file = fixture_file(&fx);
     // Narrow override: `type` pads to exactly 12 before the kind.
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
         "--per-line",
         "--col-width",
         "12",
@@ -387,12 +387,13 @@ fn cli_bot_session_col_width() {
         "12-wide pad, got: {stdout}"
     );
     // Default (68) pads the same row wider.
-    let out = run_ok(
-        fx.cmd()
-            .arg("bot-session")
-            .arg(&file)
-            .args(["--per-line", "--lines", "0,1"]),
-    );
+    let out =
+        run_ok(
+            fx.cmd()
+                .arg("agent-session")
+                .arg(&file)
+                .args(["--per-line", "--lines", "0,1"]),
+        );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains(&format!("  {:<68} {:<9}", "type", "str")),
@@ -400,21 +401,21 @@ fn cli_bot_session_col_width() {
     );
 }
 
-/// The workspace .vc-config.toml [bot-session].col-width layer
-/// sets the default pad; CLI --col-width still overrides it.
+/// The workspace .vc-config.toml [agent-session].col-width layer
+/// sets the default pad. CLI --col-width still overrides it.
 #[test]
 fn cli_bot_session_workspace_col_width() {
-    let fx = CliFixture::new("bot-session-vc-config-col-width");
+    let fx = CliFixture::new("agent-session-vc-config-col-width");
     let file = fixture_file(&fx);
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[repos]\nwork = \".\"\n\n[bot-session]\ncol-width = 20\n",
+        "[repos]\nwork = \".\"\n\n[agent-session]\ncol-width = 20\n",
     )
     .expect("write vc-config");
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--per-line", "--lines", "0,1"]),
     );
@@ -426,7 +427,7 @@ fn cli_bot_session_workspace_col_width() {
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--per-line", "--col-width", "12", "--lines", "0,1"]),
     );
@@ -437,12 +438,12 @@ fn cli_bot_session_workspace_col_width() {
     );
 }
 
-/// The workspace .vc-config.toml [bot-session].result-lines layer
-/// caps tool results by default; CLI --result-lines still
+/// The workspace .vc-config.toml [agent-session].result-lines layer
+/// caps tool results by default. CLI --result-lines still
 /// overrides it.
 #[test]
 fn cli_bot_session_workspace_result_lines() {
-    let fx = CliFixture::new("bot-session-vc-config-result-lines");
+    let fx = CliFixture::new("agent-session-vc-config-result-lines");
     let file = fx.path("multiline.jsonl");
     let result = (1..=6)
         .map(|i| format!("r{i}"))
@@ -455,13 +456,13 @@ fn cli_bot_session_workspace_result_lines() {
     std::fs::write(&file, format!("{tool_use}\n{tool_result}\n")).expect("write fixture");
     std::fs::write(
         fx.base.join(".vc-config.toml"),
-        "[repos]\nwork = \".\"\n\n[bot-session]\nresult-lines = 2\n",
+        "[repos]\nwork = \".\"\n\n[agent-session]\nresult-lines = 2\n",
     )
     .expect("write vc-config");
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .arg("--results"),
     );
@@ -473,7 +474,7 @@ fn cli_bot_session_workspace_result_lines() {
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--results", "--result-lines", "0"]),
     );
@@ -485,14 +486,15 @@ fn cli_bot_session_workspace_result_lines() {
     assert!(!stdout.contains("lines)"), "no marker, got: {stdout}");
 }
 
-/// --fields inventories paths; --unknown filters to unmodeled
-/// ones; --raw pretty-prints source lines; --raw conflicts with
-/// --fields.
+/// - --fields inventories paths
+/// - --unknown filters to unmodeled ones
+/// - --raw pretty-prints source lines
+/// - --raw conflicts with --fields
 #[test]
 fn cli_bot_session_alternate_views() {
-    let fx = CliFixture::new("bot-session-views");
+    let fx = CliFixture::new("agent-session-views");
     let file = fixture_file(&fx);
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--fields"));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).arg("--fields"));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("=== user ("), "got: {stdout}");
     assert!(stdout.contains("promptSource"), "known path listed");
@@ -501,7 +503,7 @@ fn cli_bot_session_alternate_views() {
 
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--fields", "--lines", "1,1"]),
     );
@@ -517,7 +519,7 @@ fn cli_bot_session_alternate_views() {
     );
     assert!(stdout.contains("selected 1 of 9 source lines"));
 
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).arg("--unknown"));
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).arg("--unknown"));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.contains("promptSource"), "known filtered out");
     assert!(stdout.contains("durationMs"), "unknown kept");
@@ -525,7 +527,7 @@ fn cli_bot_session_alternate_views() {
 
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--raw", "--lines", "1,1"]),
     );
@@ -538,7 +540,7 @@ fn cli_bot_session_alternate_views() {
 
     let out = run_ok(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--raw", "--lines", "-1"]),
     );
@@ -550,7 +552,7 @@ fn cli_bot_session_alternate_views() {
 
     let out = run_err(
         fx.cmd()
-            .arg("bot-session")
+            .arg("agent-session")
             .arg(&file)
             .args(["--raw", "--fields"]),
     );
@@ -558,12 +560,13 @@ fn cli_bot_session_alternate_views() {
     assert!(stderr.contains("cannot be used with"), "got: {stderr}");
 
     // --per-line: one section per source line, malformed in place.
-    let out = run_ok(
-        fx.cmd()
-            .arg("bot-session")
-            .arg(&file)
-            .args(["--per-line", "--lines", "0,2"]),
-    );
+    let out =
+        run_ok(
+            fx.cmd()
+                .arg("agent-session")
+                .arg(&file)
+                .args(["--per-line", "--lines", "0,2"]),
+        );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("=== Index 0: mode ==="), "got: {stdout}");
     assert!(
@@ -572,7 +575,7 @@ fn cli_bot_session_alternate_views() {
     );
     assert!(stdout.contains("promptSource"));
     assert!(stdout.contains("across 2 entries"));
-    let out = run_ok(fx.cmd().arg("bot-session").arg(&file).args([
+    let out = run_ok(fx.cmd().arg("agent-session").arg(&file).args([
         "--unknown",
         "--per-line",
         "--lines",
@@ -588,8 +591,19 @@ fn cli_bot_session_alternate_views() {
 /// A missing file is the one hard error.
 #[test]
 fn cli_bot_session_missing_file() {
-    let fx = CliFixture::new("bot-session-missing");
-    let out = run_err(fx.cmd().arg("bot-session").arg("no-such.jsonl"));
+    let fx = CliFixture::new("agent-session-missing");
+    let out = run_err(fx.cmd().arg("agent-session").arg("no-such.jsonl"));
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("cannot read"), "got: {stderr}");
+}
+
+/// The pre-0.80.0 `bot-session` name is rejected with the fix-it,
+/// for any flags, rather than aliased.
+#[test]
+fn cli_bot_session_old_name_rejected() {
+    let fx = CliFixture::new("bot-session-old-name");
+    let out = run_err(fx.cmd().arg("bot-session").arg("--fields").arg("x.jsonl"));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("pre-0.80.0"), "got: {stderr}");
+    assert!(stderr.contains("`agent-session`"), "got: {stderr}");
 }

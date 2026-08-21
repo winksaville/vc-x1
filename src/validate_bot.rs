@@ -28,11 +28,11 @@ const BOT_BOOKMARK: &str = "main";
 /// Check the bot repo's at-rest invariant: `main` published at
 /// origin (matches `main@origin`) and its remote refs tracked.
 ///
-/// Read-only; exits non-zero on a mismatch. Fixes nothing, resolve
+/// Read-only. Exits non-zero on a mismatch. Fixes nothing, resolve
 /// with `vc-x1 squash-push -R <bot-repo>`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
-    /// Path to the bot repo [default: from repos.bot, else .claude]
+    /// Path to the bot repo [default: from repos.agent, else .claude]
     #[arg(short = 'R', long)]
     pub repo: Option<PathBuf>,
 }
@@ -79,7 +79,7 @@ impl SubcommandRunner for ValidateBotArgs {
 }
 
 /// Run the `validate-bot` op: tracking check, then the published
-/// invariant; report the in-sync state on success.
+/// invariant. Report the in-sync state on success.
 pub fn validate_bot(params: &ValidateBotParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("validate-bot: entry params={params:?}");
     let repo_str = params.repo.to_string_lossy();
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn no_args_defaults() {
-        // `-R` absent parses to None; the default resolves at
+        // `-R` absent parses to None. The default resolves at
         // params time (workspace config's bot dir, else .claude).
         let args = parse(&["vc-x1", "validate-bot"]);
         assert_eq!(args.repo, None);

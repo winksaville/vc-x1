@@ -17,8 +17,8 @@ pub const OCHID_WORK_LABEL: &str = "/";
 /// An opaque label resolved through the `[repos]` registry, not
 /// a filesystem path: a workspace whose bot dir is named
 /// something else still reads and writes `/.claude`. Kept as the
-/// historical spelling so every published trailer stays valid;
-/// intended to grow into URL labels (see
+/// historical spelling so every published trailer stays valid,
+/// and intended to grow into URL labels (see
 /// forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
 pub const OCHID_BOT_LABEL: &str = "/.claude";
 
@@ -257,7 +257,7 @@ pub fn append_ochid_trailer(
 ///
 /// - Column-0 only: an indented `ochid:` is quoted prose, not a
 ///   trailer (git trailers sit at column 0).
-/// - Values are whitespace-trimmed; blank values are skipped.
+/// - Values are whitespace-trimmed. Blank values are skipped.
 pub fn extract_ochids(desc: &str) -> Vec<String> {
     desc.lines()
         .filter_map(|line| line.strip_prefix("ochid:"))
@@ -268,7 +268,7 @@ pub fn extract_ochids(desc: &str) -> Vec<String> {
 
 /// Extract "the" ochid value from a description string (without
 /// needing a Commit): the *last* `ochid:` trailer, since trailers
-/// sit at the end of the body; on a multi-ochid commit the
+/// sit at the end of the body. On a multi-ochid commit the
 /// single-value view is the final trailer.
 pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
     extract_ochids(desc).pop()
@@ -289,7 +289,7 @@ mod tests {
         let root = base.join("ws");
         std::fs::create_dir_all(&root).unwrap();
         let work_block = match bot_dir {
-            Some(b) => format!("[repos]\nwork = \".\"\nbot = \"{b}\"\n"),
+            Some(b) => format!("[repos]\nwork = \".\"\nagent = \"{b}\"\n"),
             None => "[repos]\nwork = \".\"\n".to_string(),
         };
         std::fs::write(root.join(VC_CONFIG_FILE), &work_block).unwrap();
@@ -298,7 +298,7 @@ mod tests {
             std::fs::create_dir_all(&bot).unwrap();
             std::fs::write(
                 bot.join(VC_CONFIG_FILE),
-                "[repos]\nwork = \"..\"\nbot = \".\"\n",
+                "[repos]\nwork = \"..\"\nagent = \".\"\n",
             )
             .unwrap();
         }
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn extract_ochids_column_zero_only() {
-        // Indented mentions aren't trailers; bare "ochid:" has no value.
+        // Indented mentions aren't trailers. Bare "ochid:" has no value.
         let desc = "title\n\n  ochid: /indented\nochid:\nochid:   /trimmed  \n";
         assert_eq!(extract_ochids(desc), vec!["/trimmed"]);
     }

@@ -162,9 +162,9 @@ fn ws_tempdir(tag: &str) -> PathBuf {
 }
 
 /// Work-side dual `[repos]` registry with a `.claude` bot dir.
-const WORK_DUAL: &str = "[repos]\nwork = \".\"\nbot = \".claude\"\n";
+const WORK_DUAL: &str = "[repos]\nwork = \".\"\nagent = \".claude\"\n";
 /// Bot-side dual `[repos]` registry (nested directly under root).
-const BOT_DUAL: &str = "[repos]\nwork = \"..\"\nbot = \".\"\n";
+const BOT_DUAL: &str = "[repos]\nwork = \"..\"\nagent = \".\"\n";
 /// Single-repo (POR-workspace) `[repos]` registry.
 const WORK_ONLY: &str = "[repos]\nwork = \".\"\n";
 
@@ -205,11 +205,11 @@ fn find_workspace_root_from_bot_dir() {
     std::fs::create_dir_all(&bot).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \".\"\nbot = \".bot\"\n",
+        "[repos]\nwork = \".\"\nagent = \".bot\"\n",
     )
     .unwrap();
     std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
-    // From inside .bot, the walk finds .bot's config first; its
+    // From inside .bot, the walk finds .bot's config first, and its
     // work = ".." resolves to the work root.
     assert_eq!(
         find_workspace_root_from(&bot),
@@ -218,7 +218,7 @@ fn find_workspace_root_from_bot_dir() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: workspace with non-empty `bot` -> dual.
+/// Default scope: workspace with non-empty `agent` -> dual.
 #[test]
 fn default_scope_dual_workspace() {
     let base = ws_tempdir("default-dual");
@@ -232,7 +232,7 @@ fn default_scope_dual_workspace() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: workspace with no `bot` -> work-only.
+/// Default scope: workspace with no `agent` -> work-only.
 #[test]
 fn default_scope_single_repo_workspace() {
     let base = ws_tempdir("default-single");
@@ -243,7 +243,7 @@ fn default_scope_single_repo_workspace() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Default scope: empty `bot` value treated like missing.
+/// Default scope: empty `agent` value treated like missing.
 #[test]
 fn default_scope_empty_other_repo() {
     let base = ws_tempdir("default-empty");
@@ -251,7 +251,7 @@ fn default_scope_empty_other_repo() {
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \".\"\nbot = \"\"\n",
+        "[repos]\nwork = \".\"\nagent = \"\"\n",
     )
     .unwrap();
     assert_eq!(default_scope(Some(&root)), Scope(vec![Side::Work]));
@@ -306,7 +306,7 @@ fn bot_repo_path_mismatched_blocks_error() {
     // The bot side claims a different bot dir than the root side.
     std::fs::write(
         bot.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \"..\"\nbot = \"../other\"\n",
+        "[repos]\nwork = \"..\"\nagent = \"../other\"\n",
     )
     .unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
@@ -330,7 +330,7 @@ fn configured_bot_dir_no_existence_check() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// `bot_repo_path`: single-repo workspace (no `bot`) ->
+/// `bot_repo_path`: single-repo workspace (no `agent`) ->
 /// `None`: the caller's no-op case, not an error.
 #[test]
 fn bot_repo_path_single_repo_workspace() {
@@ -414,7 +414,7 @@ fn legacy_config_found_and_rejected() {
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// The 0.75.x root-anchored `[workspace] work`/`bot` schema is the
+/// The 0.75.x root-anchored `[workspace] work`/`agent` schema is the
 /// second rejected legacy generation: still *found* as a root
 /// (via the legacy location rule), rejected with the rewrite.
 #[test]
@@ -455,8 +455,8 @@ fn empty_repos_work_rejected() {
 }
 
 /// A config carrying both a `[repos]` registry and stray legacy
-/// keys passes the legacy guard: the registry drives behavior;
-/// `config --validate` flags the strays.
+/// keys passes the legacy guard: the registry drives behavior,
+/// and `config --validate` flags the strays.
 #[test]
 fn legacy_guard_accepts_mixed_keys() {
     let base = ws_tempdir("legacy-mixed");
@@ -464,14 +464,38 @@ fn legacy_guard_accepts_mixed_keys() {
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \".\"\nbot = \".claude\"\n\n[workspace]\npath = \"/\"\n",
+        "[repos]\nwork = \".\"\nagent = \".claude\"\n\n[workspace]\npath = \"/\"\n",
     )
     .unwrap();
     assert!(reject_legacy_config(&root).is_ok());
     std::fs::remove_dir_all(&base).ok();
 }
 
-/// Coherence: a bot-side registry missing `repos.bot` errors with
+/// The pre-0.80.0 `bot` spellings on a `[repos]`-schema config are
+/// rejected with a fix-it naming every old key and its replacement,
+/// rather than aliased.
+#[test]
+fn old_agent_spellings_rejected_with_fixit() {
+    let base = ws_tempdir("old-agent-keys");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \".\"\nbot = \".claude\"\n\n[bot-session]\ncol-width = 40\n",
+    )
+    .unwrap();
+    let msg = reject_legacy_config(&root).unwrap_err().to_string();
+    assert!(msg.contains("pre-0.80.0"), "got: {msg}");
+    assert!(msg.contains("repos.bot -> repos.agent"), "got: {msg}");
+    assert!(
+        msg.contains("bot-session.col-width -> agent-session.col-width"),
+        "got: {msg}"
+    );
+    assert!(msg.contains("--scope=agent"), "got: {msg}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// Coherence: a bot-side registry missing `repos.agent` errors with
 /// the missing-key detail, not a bare mismatch.
 #[test]
 fn coherence_missing_bot_key_errors() {
@@ -482,7 +506,7 @@ fn coherence_missing_bot_key_errors() {
     std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     std::fs::write(bot.join(VC_CONFIG_FILE), "[repos]\nwork = \"..\"\n").unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
-    assert!(err.contains("no `repos.bot`"), "got: {err}");
+    assert!(err.contains("no `repos.agent`"), "got: {err}");
     std::fs::remove_dir_all(&base).ok();
 }
 
@@ -497,7 +521,7 @@ fn coherence_unresolvable_dir_errors() {
     std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     std::fs::write(
         bot.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \"../missing\"\nbot = \".\"\n",
+        "[repos]\nwork = \"../missing\"\nagent = \".\"\n",
     )
     .unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
@@ -521,12 +545,12 @@ fn coherence_self_identification_errors() {
     // the root's own dir is not at `work`.
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \"other\"\nbot = \".claude\"\n",
+        "[repos]\nwork = \"other\"\nagent = \".claude\"\n",
     )
     .unwrap();
     std::fs::write(
         bot.join(VC_CONFIG_FILE),
-        "[repos]\nwork = \"../other\"\nbot = \".\"\n",
+        "[repos]\nwork = \"../other\"\nagent = \".\"\n",
     )
     .unwrap();
     let err = bot_repo_path(&root).unwrap_err().to_string();
@@ -549,7 +573,10 @@ fn coherence_absolute_values_agree() {
     let canon_bot = bot.canonicalize().unwrap();
     std::fs::write(
         root.join(VC_CONFIG_FILE),
-        format!("[repos]\nwork = \".\"\nbot = \"{}\"\n", canon_bot.display()),
+        format!(
+            "[repos]\nwork = \".\"\nagent = \"{}\"\n",
+            canon_bot.display()
+        ),
     )
     .unwrap();
     std::fs::write(bot.join(VC_CONFIG_FILE), BOT_DUAL).unwrap();
@@ -558,7 +585,7 @@ fn coherence_absolute_values_agree() {
 }
 
 /// Side detection by self-resolution: the bot side's own config
-/// (`bot = "."`) names it; the work side is not the bot side.
+/// (`bot = "."`) names it, and the work side is not the bot side.
 #[test]
 fn is_bot_dir_by_self_resolution() {
     let base = ws_tempdir("selfres");

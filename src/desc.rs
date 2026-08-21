@@ -2,9 +2,9 @@
 //! its full description (changeID + commitID + bookmarks + title,
 //! then the body), the anchor commit bolded.
 //!
-//! - `DescArgs`: clap surface; flattens
+//! - `DescArgs`: clap surface, and flattens
 //!   `options_flags::common_args::CommonArgs`.
-//! - `DescParams`: clap-free; embeds `common::CommonParams`. Built
+//! - `DescParams`: clap-free, and embeds `common::CommonParams`. Built
 //!   via `TryFrom<&DescArgs>` at the binary edge.
 //! - `desc(&Context, &DescParams)`: the op, `for_each_repo` +
 //!   `format_commit_full` + `indent_body`.
@@ -25,7 +25,7 @@ pub struct DescArgs {
     pub common: CommonArgs,
 }
 
-/// Clap-free params for `desc`; embeds resolved `CommonParams`.
+/// Clap-free params for `desc`, and embeds resolved `CommonParams`.
 #[derive(Debug)]
 pub struct DescParams {
     pub common: CommonParams,
@@ -35,7 +35,7 @@ impl TryFrom<&DescArgs> for DescParams {
     type Error = String;
 
     /// Resolve clap `DescArgs` into `DescParams` by delegating to
-    /// `CommonParams::try_from`; `desc` has no fields beyond
+    /// `CommonParams::try_from`. `desc` has no fields beyond
     /// `CommonArgs`.
     fn try_from(a: &DescArgs) -> Result<Self, String> {
         Ok(DescParams {
@@ -60,8 +60,8 @@ impl SubcommandRunner for DescArgs {
 
 /// Print each commit in the resolved range with its full description.
 ///
-/// `_ctx` is unused (desc has no user-config or `--log` consumer);
-/// it's present for the uniform subcommand-layer signature.
+/// `_ctx` is unused (desc has no user-config or `--log` consumer).
+/// It's present for the uniform subcommand-layer signature.
 pub fn desc(_ctx: &Context, params: &DescParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("desc: enter");
     let c = &params.common;
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn with_scope_work_bot() {
         use crate::options_flags::scope::{Scope, Side};
-        let c = parse(&["vc-x1", "desc", "-s", "work,bot"]);
+        let c = parse(&["vc-x1", "desc", "-s", "work,agent"]);
         assert_eq!(c.scope, Some(Scope(vec![Side::Work, Side::Bot])));
     }
 

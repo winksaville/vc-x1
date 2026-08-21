@@ -24,18 +24,18 @@ use super::scope::{Scope, parse_scope};
 ///
 /// - `pos_rev` / `pos_count`: the `REVISION` / `COMMITS` positionals
 ///   (`common::resolve_spec` reconciles them with `-r` / `-n`).
-/// - `revision`: `-r` / `--revision` (default `@`); `..` notation is
+/// - `revision`: `-r` / `--revision` (default `@`). `..` notation is
 ///   parsed downstream by `common::parse_dot_rev`.
 /// - `repo` / `scope`: `-R PATH` overrides the workspace root, `-s
-///   work|bot|work,bot` selects sides; they compose
+///   work|agent|work,agent` selects sides. They compose
 ///   (`common::resolve_repos`). Defaults preserve today's behavior:
 ///   no flag -> `[.]`, `-R foo` alone -> `[foo]`. `-s` alone resolves
-///   against `find_workspace_root()`; `-R + -s` resolves against the
-///   `-R` path. `-s` is keyword-only (`work|bot|work,bot|bot,work`);
-///   path-based single-repo operation routes through `-R`.
+///   against `find_workspace_root()`. `-R + -s` resolves against the
+///   `-R` path. `-s` is keyword-only (`work|agent|work,agent|agent,work`).
+///   Path-based single-repo operation routes through `-R`.
 /// - `limit`: `-n` / `--commits`, caps the output.
 /// - `label` / `no_label`: `-l` / `--label` (default `===`) and
-///   `-L` / `--no-label`; `common::resolve_header` combines them.
+///   `-L` / `--no-label`. `common::resolve_header` combines them.
 #[derive(Args, Debug)]
 pub struct CommonArgs {
     /// Revision (with optional .. notation)
@@ -54,11 +54,11 @@ pub struct CommonArgs {
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repo: Option<PathBuf>,
 
-    /// Side(s) to query; composes with --repo as workspace root
+    /// Side(s) to query, and composes with --repo as workspace root
     #[arg(
         short = 's',
         long = "scope",
-        value_name = "work|bot|work,bot",
+        value_name = "work|agent|work,agent",
         value_parser = parse_scope
     )]
     pub scope: Option<Scope>,
@@ -92,7 +92,7 @@ impl CommonArgs {
     /// so the four subcommand bodies stay clean. See
     /// [`../../notes/rust-idioms.md`](../../notes/rust-idioms.md)
     /// for why the two fields need different conversion methods
-    /// (`PathBuf: Deref<Target = Path>`; `Scope` is a plain enum).
+    /// (`PathBuf: Deref<Target = Path>`, while `Scope` is a plain enum).
     pub fn resolve_repos(&self) -> Result<Vec<std::path::PathBuf>, Box<dyn std::error::Error>> {
         crate::common::resolve_repos(self.repo.as_deref(), self.scope.as_ref())
     }

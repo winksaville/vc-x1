@@ -195,7 +195,7 @@ pub(crate) fn clone_dual(
 
     clone_one(work_source, target_dir)?;
     // The local bot dir name comes from the *cloned* work repo's
-    // config (`repos.bot`), so a workspace that chose a
+    // config (`repos.agent`), so a workspace that chose a
     // non-`.claude` dir round-trips through clone, and
     // absent/unreadable falls back to the default. A legacy-schema
     // config (which the resolvers reject) is honored here: clone
