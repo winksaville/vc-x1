@@ -92,7 +92,8 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62] (done)
 - [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66] (done)
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65] (done)
-- [[N]] [docs: tighten AGENTS.md's prose][67]
+- [[N]] [docs: tighten AGENTS.md's prose][67] (done)
+- [[N]] [docs: Winks AGENTS.md's tightening][68]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
 #### Deliberation
@@ -255,6 +256,23 @@ complete without it, applied across AGENTS.md, the hard rules taking short names
 Problem: with the why and the mechanics gone, AGENTS.md is rule text at 447 lines, and the
 rules are worded at the length they were argued, not the length they need. Solution: reword
 each rule shorter without dropping a boundary, the diff reviewed sentence by sentence.
+
+- AGENTS.md 447 to 400, every heading kept so the rationale mirror holds, every anchor and ref
+  checked
+- the cuts: restated subjects after a label ("Backfill: fill every ..." not "Backfill: backfill
+  every ..."), parentheticals that named the obvious ("(medium, conventions)"), doubled
+  qualifiers ("explicit", "specific", "mandatory" where the sentence already was), the
+  Terminology and Cycle notes folded from bullet lists into paragraphs, and the File map's
+  records list into one sentence
+- boundaries kept, by check: every "never", "only", "not", and "exception" clause of the old
+  text has a counterpart in the new
+- `[rde]` added as a reference-style link, since Retiring Done entries is cited twice
+
+##### docs: Winks AGENTS.md's tightening
+
+Problem: the agent's tightening is one reader's cut, and the reader the rules are for is the
+other one. Solution: wink's own pass over AGENTS.md, landed as its own rung so the two cuts
+are separately reviewable.
 
 ##### docs: halve AGENTS.md into rationale.md closing
 
@@ -1030,3 +1048,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [65]: #docs-label-colon-form-for-agentsmds-lists-and-rules
 [66]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
 [67]: #docs-tighten-agentsmds-prose
+[68]: #docs-winks-agentsmds-tightening
