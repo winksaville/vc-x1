@@ -89,7 +89,7 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: make backfill the opening's first step][64] (done)
 - [[N]] [docs: seed rationale.md and the Rationale term][60] (done)
 - [[N]] [docs: move the cycle protocol's why into rationale.md][61] (done)
-- [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62]
+- [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62] (done)
 - [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66]
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
@@ -192,6 +192,16 @@ Problem: the why outside the protocol is scattered: the Hard rules intro, the Te
 "because" clauses, the Working practices stories (https remotes, the 2026-08-05 quoting note),
 the measured line in Changing the agent-files, the custom.md section's argument. Solution: the
 same move, and the size check against the target.
+
+- five more headings filled (Hard rules, Terminology, Working practices, Changing the
+  agent-files, custom.md), five stay `_None recorded._`: The dual-repo model, Pushing, Before
+  any push, Close-out, File map, all of them pure rule or pure map
+- the https-remote story is the longest single move, and its rule shrank to two sentences:
+  the unconditional, and the first-thing-to-check boundary
+- the exit-status sub-bullets kept their commands and lost their explanations, which read
+  as one paragraph in the entry
+- AGENTS.md 585 to 561: the outside-the-tree text was argument-heavier than the tree, as
+  the Todo said, but the tree is most of the file
 
 ##### docs: point AGENTS.md's restated mechanics at the satellites
 

@@ -27,7 +27,8 @@ Project-local content goes in [custom.md](../custom.md).
 
 ## Hard rules
 
-_None recorded._
+The rules are numbered so a review can name them. Rule 10's cost argument: a clarifying
+question costs seconds, while redoing misaligned work costs much more.
 
 ## Terminology
 
@@ -37,6 +38,12 @@ exists so the argument can leave AGENTS.md without dying: a session needs the ru
 would change the rule needs the argument, and a rule whose cost is not written down is the one
 an editor simplifies away. Filed as the Todo "Halve AGENTS.md: move its rationale into
 `agent-data/rationale.md`" (wink, 2026-08-21).
+
+**Agent-files** is always hyphenated because it names one set rather than a two-word noun
+phrase, and it matches its sibling directory `agent-data/`. **`custom.md` is never pinned**
+because holding what the pinned files structurally cannot is its job. **Project layer** is
+called a *layer* because it loads last and wins conflicts, so it sits over the pinned set
+rather than beside it.
 
 ## The dual-repo model
 
@@ -174,7 +181,29 @@ published and never carries a trailer.
 
 ## Working practices
 
-_None recorded._
+**One command per shell invocation** because bundling hides which step produced which output.
+
+**Never mask a command's exit status**: a pipeline's status is the last command's, so a
+validating command piped into `tail` / `grep` reports the filter's success, not its own. A
+trailing `; echo "exit=$?"` prints the status while the invocation itself still exits 0, so
+the failure is visible only to whoever reads the text. `failed=$rc` stays unquoted because it
+has no spaces to protect, and the quotes can stop a harness permission rule from matching a
+command it would otherwise allow (wink, 2026-08-05).
+
+**Use https remotes, not ssh.** Unconditional rather than "when the agent is sandboxed"
+because the remote is chosen at clone time and whether a sandboxed agent will ever touch the
+repo is not knowable then. A sandbox denies ssh twice over: reads of `~/.ssh` are blocked
+except the signing key and `known_hosts`, so no auth key is available, and we think a host
+allowlist cannot admit port 22 at all, since ssh carries no SNI or Host header to match on.
+The network leg is a spawned `git` child that inherits the sandbox, which is why the same
+config succeeds from a human's terminal and fails from a session. Both wrong theories (size,
+timeouts) were held, and eliminated by test, before the rule was written. Changing a remote's
+URL needs the user's go because it moves where the repo publishes.
+
+**Delegate mechanical subtasks to lesser models** because top-model tokens are the scarce
+resource. **Don't use the per-project memory directory** because easy for everyone to find
+beats convenient for the agent alone. **Mark speculation** so a reader can tell the measured
+from the inferred.
 
 ## File map
 
@@ -182,8 +211,31 @@ _None recorded._
 
 ## Changing the agent-files
 
-_None recorded._
+A member's diff against the template repository's payload is what that member has proposed,
+so drift is a diff, not a mystery: the proposal set needs no maintenance and cannot go stale.
+
+**A correction goes straight into the payload** because a wrong fact has no second opinion to
+gather, and leaving it in place misleads every member on first read.
+
+**An agent-file change is its own commit** so `git log -- AGENTS.md agent-data/` reads as a
+list of rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer
+links the agent-repo session that reasoned it out. The diff says what differs now. The history
+says when, by whom, and why.
+
+**Convention work runs as its own cycle** because rung by rung, rule changes bury a feature
+cycle's records under work its title never promised.
+
+**A rule adopted ahead lives in the pinned file, never a holding section**, because a member
+that collects adopted-ahead rules in `custom.md` hides them from the one review that decides
+them, and a session that skips the project layer misses binding behavior. Both measured,
+2026-08-19 to 2026-08-21, when one member's project layer (`custom-family.md`) held the
+family's messaging rules and the validation commands; retired by the 0.80.0 cycle, chores-17's
+[docs: empty custom-family into the pinned set and config](../notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config).
 
 ## custom.md: the project layer
 
-_None recorded._
+It ships holding nothing but its own shape so a project that changes nothing still has a valid
+one. A project-kept rule goes to the pinned file rather than here because writing it here hides
+it from exactly the review that should decide it. A pointer entry owes no justification because
+it supersedes nothing, and holding a wider context behind one pointer keeps the rest of the
+file identical to the payload's.
