@@ -129,8 +129,9 @@ Every commit (Preparation, each Work commit, Close-out), per the protocol's
 4. Bump the version-of-record to this commit's version (the suffix scheme is in
    [versioning.md](versioning.md)). The opening checklist's bump already covers a Preparation
    commit.
-5. Validate the artifact at every commit, doc-only ones included. The medium's commands are in
-   [custom.md](../custom.md).
+5. Validate the artifact at every commit, doc-only ones included: `vc-x1 validate`, which runs
+   the work side's `[validate] full` table, one command per element, stopping at the first
+   failure.
 6. Stop and ask the user, "please review", as this is the bottom of the review loop. Do not present
    a description as we iterate until the user reviews and says "continue|go|.." indicating the work
    review is likely complete.
@@ -154,7 +155,8 @@ Within a sub-cycle ladder, per the protocol's
 
 1. `jj new -R .`: fresh empty `@`.
 2. Do the commit's work.
-3. Run the fast validation (named in [custom.md](../custom.md)). Non-negotiable.
+3. Run the fast validation, `vc-x1 validate --fast` (the `[validate] fast` table).
+   Non-negotiable.
 4. `jj describe -m "..." -m "..." -R .`: scratch working title. This first-time authoring is
    the one permitted describe. The commit is never published and never carries a trailer.
 

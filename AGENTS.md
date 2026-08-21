@@ -14,7 +14,7 @@ explicit scoped delegation (rule 10's stop-and-ask is the path), and a taken exc
 recorded in the cycle's records. No rule bends silently, and no exception is self-granted.
 
 0. **Read [custom.md](custom.md) before acting on anything below**: the project's layer
-   (medium, validation commands, conventions), loaded last, wins conflicts with this file and the
+   (medium, conventions), loaded last, wins conflicts with this file and the
    satellites. Read it every session: only `AGENTS.md` is auto-loaded, and what to read past
    `custom.md` is `custom.md`'s to say.
 1. **A cycle rung is committed by `vc-x1 push`, never pre-committed with `jj commit`.** In an
@@ -183,6 +183,9 @@ files are universal and pinned, listed checklists first, rationale after:
   before editing notes files.
 - [code.md](agent-data/code.md): doc comments and unwrap discipline. Read before writing code.
 - [versioning.md](agent-data/versioning.md): the version scheme and version-of-record.
+- [messaging.md](agent-data/messaging.md): the family's notification repo, the acquaint check,
+  and what a request becomes. Read at acquaint, when the work side's config has a `[family]`
+  table.
 
 Project records (`notes/` and the repo root): records only, never universal rules. Anything
 normative that outgrows the project belongs in `agent-data/` via
@@ -226,7 +229,7 @@ template repository's payload, and every member repo carries its own copy of the
 [custom.md](custom.md) is the project's own layer and, unlike the pinned files, is never pinned:
 every project's content differs by construction. It ships from the payload holding nothing but its
 own shape, so a project that changes nothing still has a valid one, and a project adds whatever it
-needs: the medium and its validation commands, what a version bump promises this artifact's users,
+needs: the medium, what a version bump promises this artifact's users,
 and its conventions.
 
 **`## Project conventions and overrides` is empty at birth and should usually stay that way.** A

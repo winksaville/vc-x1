@@ -101,7 +101,7 @@ needs a landed SHA to cite, so it follows the landing.
 - [[N]] [feat: agent naming in config and CLI][59] (done)
 - [[N]] [feat: add the family and validate tables to the schema][60] (done)
 - [[N]] [feat: add the validate subcommand][61] (done)
-- [[N]] [docs: pin messaging into agent-data][62]
+- [[N]] [docs: pin messaging into agent-data][62] (done)
 - [[N]] [docs: retire custom-family.md][63]
 - [[N]] [docs: empty custom-family into the pinned set and config closing][64]
 
@@ -195,9 +195,20 @@ runner that checked every exit status the same way.
   rung
 
 ##### docs: pin messaging into agent-data
-A thin `agent-data/messaging.md`: the acquaint check, request-becomes-entry, the README as
-protocol authority, paths from `[family]`. AGENTS.md's file map gains it, and the checklists'
-validation steps say `vc-x1 validate` / `vc-x1 validate --fast`.
+The acquaint check and the request-becomes-entry rule were family policy parked in
+`custom-family.md`, which a session that skipped the project layer never read, and the pinned
+checklists could only point at custom.md for the validation commands.
+
+- `agent-data/messaging.md`, thin: the repo and record come from `[family]`, the acquaint
+  check reads the record file by its fields, a request becomes an entry and the reply cites
+  it, and the messages repo's README stays the protocol authority on everything it covers
+- AGENTS.md's file map gains it, read at acquaint when the work side's config has a
+  `[family]` table, and rule 0 and the project-layer section stop listing "validation
+  commands" among what custom.md holds
+- the per-commit and ladder checklists, and the protocol's per-commit flow, name
+  `vc-x1 validate` and `vc-x1 validate --fast` in place of "the commands are in custom.md",
+  the protocol keeping the cargo cycle as its Rust example in one parenthesis
+- all four pinned files swept to zero semicolons, as the agent-files are
 
 ##### docs: retire custom-family.md
 The medium prose into `custom.md`, the facts already in config, the section pattern into

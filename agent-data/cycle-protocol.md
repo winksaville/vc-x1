@@ -358,16 +358,14 @@ through:
    [versioning.md](versioning.md#suffix-scheme)). The
    Preparation's own bump already covers a Preparation
    commit.
-5. **Validate the artifact**, a medium-specific step. If the
-   medium has a runnable artifact, run it at every commit,
-   doc-only ones included: step 4 changed the version, and
-   running it is how that is verified. For the Rust example
-   the cargo cycle is:
-   1. `cargo fmt`
-   2. `cargo clippy --all-targets -- -D warnings`
-   3. `cargo test`
-   4. `cargo install --path . --locked`
-   5. (re-test if anything substantive changed)
+5. **Validate the artifact** with `vc-x1 validate`, at every
+   commit, doc-only ones included: step 4 changed the version,
+   and running it is how that is verified. The command runs
+   the work side's `[validate] full` table in order, one
+   command per element, and stops at the first failure, so
+   the medium's commands live in config rather than here (a
+   Rust crate's are the cargo fmt / clippy / test / install
+   cycle). Re-test if anything substantive changed.
 6. **Work review.** Stop *before* writing any description,
    and tell the user "please review". The stop is its own
    message and carries no title or body, drafted or final: a
@@ -852,7 +850,8 @@ For each Work commit in the ladder:
 
 1. `jj new -R .`: create a fresh empty `@`.
 2. Do the commit's work.
-3. Run the fast validation (Rust example: `cargo test
+3. Run the fast validation, `vc-x1 validate --fast` (the
+   `[validate] fast` table, a Rust crate's being `cargo test
    --bins`). **Non-negotiable**, because for code, build and
    clippy alone miss regressions until a later commit runs the
    full suite, raising bisection cost.
