@@ -100,7 +100,7 @@ needs a landed SHA to cite, so it follows the landing.
 - [[N]] [docs: empty custom-family into the pinned set and config opening][58] (done)
 - [[N]] [feat: agent naming in config and CLI][59] (done)
 - [[N]] [feat: add the family and validate tables to the schema][60] (done)
-- [[N]] [feat: add the validate subcommand][61]
+- [[N]] [feat: add the validate subcommand][61] (done)
 - [[N]] [docs: pin messaging into agent-data][62]
 - [[N]] [docs: retire custom-family.md][63]
 - [[N]] [docs: empty custom-family into the pinned set and config closing][64]
@@ -174,9 +174,25 @@ command line has commas and spaces of its own.
   text and rendered as written
 
 ##### feat: add the validate subcommand
-`vc-x1 validate [--fast]` runs the chosen table in order from the work repo root, prints
-each command before running it, stops at the first failure naming the command and its exit
-status, and exits non-zero. An empty or missing table is an error, not a silent pass.
+The checklists could only say "the commands are in custom.md", and a session had to read prose
+and type each one, so the validation step depended on the reader and the commands had no
+runner that checked every exit status the same way.
+
+- `vc-x1 validate [--fast] [-R DIR]` reads `validate.full` (or `fast`) from the work side's
+  config and runs each element as one command, in order, from the work repo root, printing
+  each before it runs
+- the first failure stops the run, naming the command, its exit status, and where in the
+  table it stopped, and the subcommand exits non-zero (demonstrated: `["true", "false",
+  "touch never"]` stops at 2/3 with `false` at exit 1, and `never` is not created)
+- an empty or missing table is an error naming the key, since nothing to run is not a pass
+- elements split on whitespace into a program and its arguments, no shell in between, so the
+  status the run sees is the command's own
+- the spawn needed an allowlist entry: clippy.toml's list was closed (wink, 2026-08-19), and
+  this cycle's agreed plan opens it once, as entry 5, for the subcommand whose whole job is
+  running the configured commands. Flagged at the rung, for the review of the delegation
+- from this rung on, the per-commit validation is `vc-x1-dev validate` (the release `vc-x1`
+  cannot read this workspace's 0.80.0 config), and the checklists are respelled at the next
+  rung
 
 ##### docs: pin messaging into agent-data
 A thin `agent-data/messaging.md`: the acquaint check, request-becomes-entry, the README as

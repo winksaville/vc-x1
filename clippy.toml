@@ -10,7 +10,7 @@
 # Enumerate the granted exceptions (the enforced half of this list):
 #   rg '^\s*#.allow.*disallowed_methods' -A 1
 #
-# The allowlist, complete and closed (wink, 2026-08-19):
+# The allowlist, closed (wink, 2026-08-19), reopened once for entry 5:
 #
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
@@ -19,7 +19,7 @@
 #    editing is a spawn by definition.
 # 3. Init's gh provisioning (src/init.rs): `gh auth status`,
 #    `gh repo view`, `gh repo create`. Creating a repo on GitHub is
-#    the forge's REST API, not a version-control operation; no jj or
+#    the forge's REST API, not a version-control operation, and no jj or
 #    git library can do it, and gh is GitHub's authenticated client.
 # 4. Test helpers (src/test_helpers.rs and tests/common/mod.rs):
 #    real-jj/git fixture setup and interop verification, kept
@@ -27,6 +27,11 @@
 #    substitute for asserting our jj-lib paths in-process. The CLI
 #    tests' launcher spawning the built vc-x1 binary is this entry
 #    too: spawning the binary is what a CLI test is.
+# 5. The validate subcommand (src/validate.rs): runs the
+#    workspace's configured `[validate]` commands, which is its
+#    whole job. Opened 2026-08-21 by the "empty custom-family into
+#    the pinned set and config" cycle, whose plan put the checklist
+#    commands in config for one subcommand to run.
 #
 # jj-lib's own git children (fetch/push/clone network legs, the
 # default-branch query) are jj-lib's implementation detail, not

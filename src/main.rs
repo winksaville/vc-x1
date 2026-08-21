@@ -33,6 +33,7 @@ mod todo_helpers;
 mod toml_simple;
 mod transcript;
 mod url;
+mod validate;
 mod validate_bot;
 mod validate_desc;
 mod validate_todo;
@@ -206,6 +207,17 @@ pub(crate) enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
         rest: Vec<String>,
     },
+
+    /// Run the workspace's configured validation commands
+    #[command(long_about = "Run the workspace's configured validation commands.\n\n\
+        Reads `[validate] full` (or `fast` with --fast) from the work\n\
+        side's config and runs each element as one command, in order,\n\
+        from the work repo root, printing each before it runs. The\n\
+        first failure stops the run, naming the command and its exit\n\
+        status, and the subcommand exits non-zero. An empty or missing\n\
+        table is an error, not a pass. See `vc-x1 config work` for the\n\
+        table's shape.")]
+    Validate(validate::ValidateArgs),
 
     /// Check the bot repo is published (main matches main@origin)
     #[command(
@@ -537,6 +549,7 @@ fn main() -> ExitCode {
             );
             ExitCode::FAILURE
         }
+        Commands::Validate(args) => args.dispatch(&mut ctx),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
         Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
