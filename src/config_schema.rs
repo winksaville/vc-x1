@@ -29,7 +29,11 @@ pub enum Home {
 pub enum ValueKind {
     Str,
     Usize,
+    /// A comma-separated list inside one string.
     ItemList,
+    /// A TOML array of strings, one element per item (the
+    /// `[validate]` command lists, each element one invocation).
+    StrList,
 }
 
 /// One settable configuration key.
@@ -89,6 +93,7 @@ fn format_value(kind: ValueKind, raw: &str) -> String {
     match kind {
         ValueKind::Usize => raw.to_string(),
         ValueKind::Str | ValueKind::ItemList => format!("{raw:?}"),
+        ValueKind::StrList => raw.to_string(),
     }
 }
 
@@ -107,6 +112,7 @@ pub fn render_value(key: &ConfigKey) -> String {
                     ValueKind::Str => "<str>".to_string(),
                     ValueKind::Usize => "<usize>".to_string(),
                     ValueKind::ItemList => "<items>".to_string(),
+                    ValueKind::StrList => "<list>".to_string(),
                 }
             }
         }
@@ -122,7 +128,7 @@ fn render_default_note(key: &ConfigKey) -> String {
         Some(d) => format_value(key.kind, d),
         None => {
             if key.required {
-                "(required; role-specific, see init)".to_string()
+                "(required, role-specific, see init)".to_string()
             } else {
                 "(none)".to_string()
             }
@@ -324,6 +330,33 @@ mod tests {
                 key.default.is_some() || key.example.is_some(),
                 "{}: has neither a default nor an example",
                 key.path
+            );
+        }
+    }
+
+    /// The family and validate tables are work-side only, the
+    /// command lists typed `str-list` with array examples.
+    #[test]
+    fn family_and_validate_tables() {
+        let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
+        for p in ["family.member", "family.template", "family.messages"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+        }
+        for p in ["validate.full", "validate.fast"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
+            let ex = k.example.expect("example");
+            assert!(
+                ex.starts_with('[') && ex.ends_with(']'),
+                "{p} example: {ex}"
+            );
+            assert_eq!(
+                format_value(k.kind, ex),
+                ex,
+                "{p} renders its array verbatim"
             );
         }
     }

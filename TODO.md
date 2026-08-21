@@ -99,7 +99,7 @@ needs a landed SHA to cite, so it follows the landing.
 #### Ladder
 - [[N]] [docs: empty custom-family into the pinned set and config opening][58] (done)
 - [[N]] [feat: agent naming in config and CLI][59] (done)
-- [[N]] [feat: add the family and validate tables to the schema][60]
+- [[N]] [feat: add the family and validate tables to the schema][60] (done)
 - [[N]] [feat: add the validate subcommand][61]
 - [[N]] [docs: pin messaging into agent-data][62]
 - [[N]] [docs: retire custom-family.md][63]
@@ -157,9 +157,21 @@ while reviewing, and that review raised the print-once Todo), and the touched so
 comment semicolons were converted per code.md, a delegated mechanical pass.
 
 ##### feat: add the family and validate tables to the schema
-`family.member`, `family.template`, `family.messages` and `validate.full`, `validate.fast`
-in `vc-config.md`, home `workspace-code`, accepted by `config --validate` and written by
-`config --refresh`. Commands are a list, each element one invocation.
+The config schema had no place for the family facts (member name, template and messages paths)
+or the validation commands, so they lived in `custom-family.md` prose, and the schema could
+not hold a list of commands at all: its only list kind is a comma-separated string, and a
+command line has commas and spaces of its own.
+
+- five keys in `vc-config.md`: `family.member`, `family.template`, `family.messages` (strings)
+  and `validate.full`, `validate.fast` (command lists), work side only
+- a new `str-list` kind: a TOML array of strings, one element per command
+- the TOML reader learns arrays, on one line or spread over several, and `toml_get_list`
+  splits one into its elements, naming the key when the value is not a proper array
+- `config --validate` accepts the keys on the work side, reports them unknown on the agent
+  side, and checks that a command list is really a list
+- the work side's `.vc-config.md` carries both tables with this repo's real values
+- gotcha: `build.rs` expected quoted-string examples, so an array example is kept as its raw
+  text and rendered as written
 
 ##### feat: add the validate subcommand
 `vc-x1 validate [--fast]` runs the chosen table in order from the work repo root, prints
@@ -230,6 +242,15 @@ _At close-out._
      overlaps `config --refresh` in "Finish the vc-config surface" and should be designed with
      it, one verb or two
    - skip a side the workspace does not have, rather than rendering its fallback hint
+   - accept a directory as a path target (wink, 2026-08-21): `config --validate .claude` or
+     `../iiac-perf` resolves through the carrier lookup (`config_md::vc_config_path`) to that
+     side's config file, the both-carriers error included, and the report labels the side by
+     the directory. Today a path target must name the file itself
+   - an explicit path must exist (wink, 2026-08-21). Today `config xyz` prints the whole schema
+     for "any home" with the path as a label and never opens it, and `config --validate xyz`
+     reports the file "not found, skipping" and passes with zero problems, so a typo'd path
+     validates clean. The skip is right for a keyword side the workspace lacks, wrong for a
+     path the user typed: error by name, and say which file was read
    - the rendered hints still say `.vc-config.toml` (the `VC_CONFIG_FILE` constant), and the
      md carrier rename is the "regenerate configs in md format" rung's
 

@@ -534,15 +534,24 @@ prototype at the repo root (see
 [vc-config.md (the schema prototype)](#vc-configmd-the-schema-prototype)), so it can't drift
 from what the code actually reads.
 
-- `[TARGET]`: `work`, `agent`, `work,agent` (default), or an explicit config-file path. The keywords
-  resolve against the surrounding workspace's `.vc-config.toml` files and filter to that side's
-  keys; a path carries no side information, so it gets the whole schema. The user config
-  (`~/.config/vc-x1/config.toml`) has no keyword and is reached only by passing its path.
+- `[TARGET]`: `work`, `agent`, `work,agent` (default), or an explicit config-file path.
+  - a keyword resolves against the surrounding workspace's config files and filters to that
+    side's keys: `agent` prints the `[agent-session]` and `[repos]` keys the agent repo's config
+    may hold, `work` adds `[family]` and `[validate]`, and `work,agent` prints both sides, one
+    block each, under a header naming the file it resolved to
+  - anything else is taken as a path to a config file. A path carries no side information, so
+    in print mode it gets the whole schema for every home (the user-tier keys included) with the
+    path as a label, and the file is not opened. The user config (`~/.config/vc-x1/config.toml`)
+    has no keyword and is reached only this way
+  - the old `bot` keywords are rejected with the `agent` spelling as the fix-it (0.80.0)
 - `--validate`: instead of printing, load the target's actual config file(s) and flag any key the
   schema doesn't recognize (a typo, a key in the wrong section, or an unknown key), plus, for
   keyword targets, the legacy-schema rejection and the resolved-agreement invariant of a dual
-  workspace's `[repos]` registries. Exits non-zero if any problem is found. This is an opt-in strict
-  check; a normal config load silently ignores unknown keys, for forward-compatibility.
+  workspace's `[repos]` registries, and the shape of any command list (a `str-list` key holding a
+  plain string is a finding). Exits non-zero if any problem is found. This is an opt-in strict
+  check, since a normal config load silently ignores unknown keys, for forward-compatibility.
+  A missing file is reported and skipped, not failed, for a keyword side the workspace lacks
+  and, today, for a path as well, so a mistyped path validates clean (a Todo tightens this).
 
 A short sample of the printed schema (workspace home):
 
@@ -645,6 +654,55 @@ used-by = "agent-session --col-width"
 default = 68
 ```
 ````
+
+### Workspace config tables
+
+A work-side `.vc-config.md` holds up to three tables. `[repos]` is structural and written by
+`init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
+layer: the agent-file family this repo belongs to, and the commands that validate it. Both are
+work side only: `config --validate` reports them unknown in the agent repo's config.
+
+````markdown
+```toml
+[repos]
+work = "."
+agent = ".claude"
+```
+
+```toml
+[family]
+member = "vc-x1"                  # this repo's name in the family, and its messages record
+template = "../vc-x1-template"    # the payload holding the pinned agent-files
+messages = "../vc-x1-messages"    # the family's notification repo
+```
+
+```toml
+[validate]
+full = [                          # the per-commit validation, in order, one command per element
+  "cargo fmt",
+  "cargo clippy --all-targets -- -D warnings",
+  "cargo test",
+  "cargo install --path . --locked",
+]
+fast = ["cargo test --bins"]      # the subset a ladder rung runs
+```
+````
+
+The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
+on one line or spread to the closing `]`. Each element is one command whose exit status is
+checked, so a command with its own spaces and dashes is one quoted string. `vc-x1 validate`
+(and `--fast`) will run them. Until that subcommand lands, `config --validate` checks the
+tables' keys and shapes, and `config work` prints the schema with every key's example:
+
+```
+vc-x1 config --validate                       # both sides: keys known per side, lists well formed
+vc-x1 config work --validate                  # the work side only
+vc-x1 config agent --validate                 # the agent side only
+vc-x1 config .claude/.vc-config.md --validate # a specific file, checked against every home
+vc-x1 config work                             # the work side's schema, [family] and [validate] too
+vc-x1 config agent                            # the agent side's schema
+vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
+```
 
 ### clone
 

@@ -187,8 +187,17 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
         }
         let missing = |what: &str| -> ! { panic!("vc-config.md: [{path}] is missing {what}") };
         let kind = kind.unwrap_or_else(|| missing("kind"));
-        if !matches!(kind.as_str(), "str" | "usize" | "item-list") {
-            panic!("vc-config.md: [{path}] kind = {kind:?}: not str/usize/item-list");
+        if !matches!(kind.as_str(), "str" | "usize" | "item-list" | "str-list") {
+            panic!("vc-config.md: [{path}] kind = {kind:?}: not str/usize/item-list/str-list");
+        }
+        if kind == "str-list" {
+            for (what, v) in [("default", &default), ("example", &example)] {
+                if let Some(v) = v
+                    && !(v.starts_with('[') && v.ends_with(']'))
+                {
+                    panic!("vc-config.md: [{path}] {what} {v:?} is not an array");
+                }
+            }
         }
         if kind == "usize"
             && let Some(d) = &default
@@ -243,6 +252,10 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
                 .map(|s| parse_value(s.trim()))
                 .collect::<Vec<_>>()
                 .join("\u{0}")
+        } else if raw.starts_with('[') {
+            // An array value (a `str-list` default or example) is
+            // kept as its TOML text: it renders verbatim.
+            raw.to_string()
         } else {
             parse_value(raw)
         };
@@ -303,6 +316,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
             "str" => "ValueKind::Str",
             "usize" => "ValueKind::Usize",
             "item-list" => "ValueKind::ItemList",
+            "str-list" => "ValueKind::StrList",
             other => panic!("vc-config.md: [{}] unknown kind {other:?}", key.path),
         };
         let opt = |v: &Option<String>| match v {

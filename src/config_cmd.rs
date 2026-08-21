@@ -194,7 +194,9 @@ fn key_known(actual: &str, home_pred: fn(&[Home]) -> bool) -> bool {
 /// - Each key not recognized by `key_known` is reported with
 ///   `warn!`, naming `label` and the key. Keys are checked in
 ///   sorted order for stable output.
-/// - Returns the count of unknown keys found. A load error
+/// - A known `str-list` key whose value is not an array of quoted
+///   strings is reported the same way, with the parse message.
+/// - Returns the count of problems found. A load error
 ///   (malformed TOML) propagates as `Err`.
 fn validate_file(
     path: &Path,
@@ -214,9 +216,24 @@ fn validate_file(
         if !key_known(key, home_pred) {
             warn!("{label} ({}): unknown key {key:?}", path.display());
             unknown += 1;
+            continue;
+        }
+        if is_str_list(key)
+            && let Err(e) = crate::toml_simple::toml_get_list(&map, key)
+        {
+            warn!("{label} ({}): {e}", path.display());
+            unknown += 1;
         }
     }
     Ok(unknown)
+}
+
+/// True when the schema types `path` as a `str-list`, whose value
+/// `--validate` also checks for shape (an array of quoted strings).
+fn is_str_list(path: &str) -> bool {
+    schema()
+        .iter()
+        .any(|k| k.path == path && k.kind == crate::config_schema::ValueKind::StrList)
 }
 
 /// Validate the target's config file(s), returning the total count
@@ -489,6 +506,25 @@ mod tests {
         };
         let findings = validate(&params, Some(&fx.work)).expect("validate");
         assert_eq!(findings, 1);
+    }
+
+    /// A `[family]` key on the agent side is unknown there (work-side
+    /// only), and a `str-list` key holding a scalar is a finding by
+    /// shape, not just by name.
+    #[test]
+    fn validate_flags_family_on_agent_side_and_bad_list() {
+        let fx = Fixture::new("config-validate-family");
+        append(
+            &fx.work.join(VC_CONFIG_FILE),
+            "\n[family]\nmember = \"x\"\n\n[validate]\nfast = \"cargo test\"\n",
+        );
+        append(&fx.bot.join(VC_CONFIG_FILE), "\n[family]\nmember = \"x\"\n");
+        let params = ConfigParams {
+            target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
+            validate: true,
+        };
+        let findings = validate(&params, Some(&fx.work)).expect("validate");
+        assert_eq!(findings, 2, "the bad list on work, the family key on agent");
     }
 
     #[test]

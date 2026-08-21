@@ -25,15 +25,16 @@ entries a key's table may carry:
   - `"user"`: the user-wide config, `~/.config/vc-x1/config.toml` (or
     `$XDG_CONFIG_HOME/vc-x1/config.toml`). One per user, still TOML rather than markdown
   - `"workspace-code"`, `"workspace-agent"`: the work side's and the agent side's instance config
-- `kind`: value shape, one of `"str"`, `"usize"`, `"item-list"`
+- `kind`: value shape, one of `"str"`, `"usize"`, `"item-list"` (a comma-separated list in
+  one string), `"str-list"` (a TOML array of strings, one element per item)
 - `doc`: one-line description (rendered into generated configs, so keep it tight)
 - `used-by`: what reads the value once it is set, which is a different question from `homes`:
   the command or flag it feeds, or the structural role it plays
-- `default`: the built-in value; omit when there is none
+- `default`: the built-in value, omitted when there is none
 - `example`: representative value for keys with no default
-- `required`: active (not commented) in generated configs; the value is role-specific, filled by
+- `required`: active (not commented) in generated configs. The value is role-specific, filled by
   `init`
-- `reference`: optional override url for the key's docs; when absent (the norm) build.rs derives
+- `reference`: optional override url for the key's docs. When absent (the norm) build.rs derives
   `<reference-base>/blob/HEAD/vc-config.md#<anchor of the path>`, which is the key's own section
   below
 
@@ -54,7 +55,8 @@ reference-base = "https://github.com/winksaville/vc-x1"
 The `agent-session.*` keys resolve git-style, most specific wins: CLI flag, then the workspace
 instance config, then the user config (`~/.config/vc-x1/config.toml`), then the built-in default.
 The other keys live in a single home each: `default.*`, `repo.*`, and `account.*` in the user
-config, `repos.*` in the workspace configs.
+config, `repos.*` in the workspace configs, and `family.*` and `validate.*` in the work side's
+config alone.
 
 ## default.account
 
@@ -73,14 +75,14 @@ example = "work"
 ## default.debug
 
 Reserved: the value `--debug` would assume when used without an argument. No command consumes it
-yet; setting it is harmless and does nothing.
+yet, so setting it is harmless and does nothing.
 
 ```toml
 [default.debug]
 homes = ["user"]
 kind = "str"
-doc = "Default --debug value when used without an argument (reserved; not yet consumed)"
-used-by = "--debug (reserved; not yet consumed)"
+doc = "Default --debug value when used without an argument (reserved, not yet consumed)"
+used-by = "--debug (reserved, not yet consumed)"
 example = "true"
 ```
 
@@ -159,7 +161,7 @@ default = "headers,user,assistant,tool,summary"
 
 ## agent-session.result-lines
 
-Maximum lines shown per tool result in the conversation view when results are rendered; `0`
+Maximum lines shown per tool result in the conversation view when results are rendered, and `0`
 means unlimited. The `--result-lines` flag overrides it.
 
 ```toml
@@ -199,8 +201,8 @@ carry it.
 [repos.work]
 homes = ["workspace-code", "workspace-agent"]
 kind = "str"
-doc = "The work repo's path, relative to this config file's directory (\".\" in the work repo, \"..\" in the agent repo); the entry resolving to the config's own directory names the side"
-used-by = "find_workspace_root, side detection (structural; written by init)"
+doc = "The work repo's path, relative to this config file's directory (\".\" in the work repo, \"..\" in the agent repo). The entry resolving to the config's own directory names the side"
+used-by = "find_workspace_root, side detection (structural, written by init)"
 required = true
 example = "."
 ```
@@ -215,7 +217,80 @@ workspace simply omits it.
 [repos.agent]
 homes = ["workspace-code", "workspace-agent"]
 kind = "str"
-doc = "The agent repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the agent repo); presence signals dual-repo mode"
+doc = "The agent repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the agent repo). Presence signals dual-repo mode"
 used-by = "default_scope, scope resolution, ochid prefixes (structural)"
 example = ".claude"
+```
+
+## family.member
+
+This repo's name as a member of an agent-file family: the name its sibling repos know it by,
+which is also its record file in the family's messages repo (`<member>.md`). Environment rather
+than instruction, which is why it lives here and not in the project layer. Work side only: the
+family is a property of the project, and the agent side carries no copy.
+
+```toml
+[family.member]
+homes = ["workspace-code"]
+kind = "str"
+doc = "This repo's member name in its agent-file family (also its record file in the messages repo)"
+used-by = "the acquaint check and replies (agent-data/messaging.md)"
+example = "vc-x1"
+```
+
+## family.template
+
+Path to the family's template repository, the payload holding the pinned agent-files, relative
+to the config file's directory. A member's diff against it is that member's proposal set.
+
+```toml
+[family.template]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Path to the family's template repository, relative to this config file's directory"
+used-by = "agent-file diffs against the payload (AGENTS.md, Changing the agent-files)"
+example = "../vc-x1-template"
+```
+
+## family.messages
+
+Path to the family's messages repo, relative to the config file's directory. Its `README.md` is
+the notification protocol, and `<member>.md` there is this repo's inbound record.
+
+```toml
+[family.messages]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Path to the family's messages repo, relative to this config file's directory"
+used-by = "the acquaint check and replies (agent-data/messaging.md)"
+example = "../vc-x1-messages"
+```
+
+## validate.full
+
+The full validation: the commands the per-commit checklist runs before a push, in order, each
+element one invocation whose exit status is checked, stopping at the first failure. Owned by the
+work side because it validates the artifact. `vc-x1 validate` runs it.
+
+```toml
+[validate.full]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "Full validation, in order, one invocation per element, run by `vc-x1 validate`"
+used-by = "vc-x1 validate"
+example = ["cargo fmt", "cargo clippy --all-targets -- -D warnings", "cargo test", "cargo install --path . --locked"]
+```
+
+## validate.fast
+
+The fast validation: the subset a ladder rung runs between pushes, same shape as
+[validate.full](#validatefull). `vc-x1 validate --fast` runs it.
+
+```toml
+[validate.fast]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast`"
+used-by = "vc-x1 validate --fast"
+example = ["cargo test --bins"]
 ```
