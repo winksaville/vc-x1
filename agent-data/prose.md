@@ -53,6 +53,34 @@ Bullet *content* differs by surface:
   [Chores section content](notes.md#chores-section-content-no-edit-list-git-is-the-record).
 - **Doc comments**: bullets are whatever structure fits (fields, cases, invariants).
 
+### Leads are labels, unmarked
+
+In a list item or a numbered step, a lead is a short label ending in a colon, with no markup,
+and the sentence after it is complete without it:
+
+```
+1. Backfill: fill every as-built ladder whose commits have landed, before anything else.
+```
+
+- Label names, sentence instructs: a reader's eye takes bold at the head of an item
+  as the item's name and resumes at the plain text expecting a full sentence, so a bold lead
+  that is the sentence's own verb or subject (`**Backfill** every as-built ladder ...`) loses
+  its imperative to the reader who skips it. Measured 2026-08-21, at the review of the rule
+  that example is from: the reviewer read "every as-built ladder" and stopped, with nothing
+  telling them what to do.
+- The inverted case: a rule stated in bold is the same failure inverted. When the bold is a
+  whole sentence and the plain text is commentary, the reader who skips bold reads the
+  commentary as the rule. The fix is the same: a short name as the label, the rule as the
+  plain sentence. The hard rules in AGENTS.md are the instance, and the names they gained are
+  greppable and survive a renumbering.
+- Definitions: the same shape, `Term: what it means.` A period after a bold term
+  (`**Term.** ...`) reads as a heading, which is the label reading again.
+- No markup on the label: bold is what makes the eye treat the lead as a heading and skip it,
+  and the agent-files are read by an agent, which needs no emphasis. The colon alone marks the
+  label (wink, 2026-08-21).
+- The price: one word of redundancy, paid on purpose: the label is skippable,
+  the sentence is not.
+
 ### Line widths
 
 Every width number lives here and nowhere else: the other files and sections link here rather

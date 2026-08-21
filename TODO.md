@@ -91,7 +91,8 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: move the cycle protocol's why into rationale.md][61] (done)
 - [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][62] (done)
 - [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66] (done)
-- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65]
+- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65] (done)
+- [[N]] [docs: tighten AGENTS.md's prose][67]
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
 #### Deliberation
@@ -231,6 +232,29 @@ Problem: a bold lead that is the sentence's own verb reads as a skippable label,
 hard rules' bold sentences are the rule itself, skipped the same way. Solution: a prose.md
 rule, a bold lead in a list is a short label ending in a colon and the sentence after it is
 complete without it, applied across AGENTS.md, the hard rules taking short names as labels.
+
+- prose.md's "Leads are labels, unmarked" holds the rule, its example, the inverted case (a rule
+  stated in bold with commentary after it), definitions (`**Term:**`, not `**Term.**`), and
+  the one-word redundancy as the accepted price; the measured miss stays inline there, since
+  prose.md's why has not moved yet
+- the label carries no markup (wink, 2026-08-21, at review): bold is what makes the eye
+  skip, and an agent needs no emphasis, so the colon alone marks it
+- every bold lead in AGENTS.md converted: the 14 hard rules (now named: Read custom.md first,
+  Push commits, Approval per push, Hard stop after the final push, No re-describe without
+  coordinating, No hand-written trailers, jj not git, Read the step before the action,
+  Typeable punctuation, One title per step, Stop and ask, Alert on unwrap, Intent picks the
+  file, One bookmark per cycle), the Terminology definitions, the four step lists, the Policy
+  paragraphs, Working practices, Changing the agent-files, and the custom.md section
+- the labels cost 15 lines (456 to 471), and a refill to the full 100 columns, links and code
+  spans unbreakable, gave 24 back (447)
+- a tightening rung added after this one (wink, 2026-08-21): what is left is rule text, and
+  the next cut is wording
+
+##### docs: tighten AGENTS.md's prose
+
+Problem: with the why and the mechanics gone, AGENTS.md is rule text at 447 lines, and the
+rules are worded at the length they were argued, not the length they need. Solution: reword
+each rule shorter without dropping a boundary, the diff reviewed sentence by sentence.
 
 ##### docs: halve AGENTS.md into rationale.md closing
 
@@ -1005,3 +1029,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [64]: #docs-make-backfill-the-openings-first-step
 [65]: #docs-label-colon-form-for-agentsmds-lists-and-rules
 [66]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
+[67]: #docs-tighten-agentsmds-prose
