@@ -15,13 +15,13 @@ at `[1]`.
 
 ## refactor: retire the remaining jj spawns
 
-- [[N]] [refactor: retire the remaining jj spawns opening][1]
-- [[N]] [refactor: port push and facade reads to jj-lib][2]
-- [[N]] [refactor: port sync repositioning to jj-lib][3]
-- [[N]] [refactor: port op recovery and squash to jj-lib][4]
-- [[N]] [refactor: port init and clone plumbing to jj-lib][5]
-- [[N]] [chore: ban process spawning outside the version gate][6]
-- [[N]] [refactor: retire the remaining jj spawns closing][7]
+- [[9]] 0.79.0-0 [refactor: retire the remaining jj spawns opening][1]
+- [[10]] 0.79.0-1 [refactor: port push and facade reads to jj-lib][2]
+- [[11]] 0.79.0-2 [refactor: port sync repositioning to jj-lib][3]
+- [[12]] 0.79.0-3 [refactor: port op recovery and squash to jj-lib][4]
+- [[13]] 0.79.0-4 [refactor: port init and clone plumbing to jj-lib][5]
+- [[14]] 0.79.0-5 [chore: ban process spawning outside the version gate][6]
+- [[15]] 0.79.0 [refactor: retire the remaining jj spawns closing][7]
 
 ### Problem
 
@@ -253,7 +253,7 @@ Gotchas, problem/solution form:
 
 ## docs: pin two rules and close the convergence record
 
-- [[N]] [docs: pin two rules and close the convergence record][8]
+- [[16]] 0.79.1 [docs: pin two rules and close the convergence record][8]
 
 A single-step cycle, so the one commit is the close-out. The cycle's own work is an
 agent-file change, which is why it runs alone rather than as a rung of a feature cycle.
@@ -340,3 +340,11 @@ The whole cycle in one commit. Gotchas:
 [6]: #chore-ban-process-spawning-outside-the-version-gate
 [7]: #refactor-retire-the-remaining-jj-spawns-closing
 [8]: #docs-pin-two-rules-and-close-the-convergence-record
+[9]: https://github.com/winksaville/vc-x1/commit/966214308f42 "966214308f42ed19aadc4c6c10a52e774379e71c"
+[10]: https://github.com/winksaville/vc-x1/commit/4ec329664e1a "4ec329664e1aa348bdf65e955c4b5d0feba71c11"
+[11]: https://github.com/winksaville/vc-x1/commit/3fc19a038602 "3fc19a0386027b016350b58962910acb5e88589c"
+[12]: https://github.com/winksaville/vc-x1/commit/a3c0012c8f23 "a3c0012c8f23f28f4cb53639de655bf589127fc3"
+[13]: https://github.com/winksaville/vc-x1/commit/47590a565aab "47590a565aab877028cd24aa28b301a75f1eb7ee"
+[14]: https://github.com/winksaville/vc-x1/commit/fdbffa928c4e "fdbffa928c4eee0144c648f38e4bb1f891b7a33e"
+[15]: https://github.com/winksaville/vc-x1/commit/e28cbd6b4983 "e28cbd6b498385104240ee423996f739618824b5"
+[16]: https://github.com/winksaville/vc-x1/commit/92c398a91f8b "92c398a91f8b70e8962161f848926a8c7c6573f7"
