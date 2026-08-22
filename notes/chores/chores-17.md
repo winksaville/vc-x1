@@ -14,6 +14,7 @@ at `[1]`.
 - [docs: pin two rules and close the convergence record](#docs-pin-two-rules-and-close-the-convergence-record)
 - [docs: empty custom-family into the pinned set and config](#docs-empty-custom-family-into-the-pinned-set-and-config)
 - [docs: fold the cycle agent-files into AGENTS.md](#docs-fold-the-cycle-agent-files-into-agentsmd)
+- [docs: halve AGENTS.md into rationale.md](#docs-halve-agentsmd-into-rationalemd)
 
 ## refactor: retire the remaining jj spawns
 
@@ -334,14 +335,14 @@ The whole cycle in one commit. Gotchas:
 
 ## docs: empty custom-family into the pinned set and config
 
-- [[N]] [docs: empty custom-family into the pinned set and config opening][17]
-- [[N]] [feat: agent naming in config and CLI][18]
-- [[N]] [feat: add the family and validate tables to the schema][19]
-- [[N]] [feat: add the validate subcommand][20]
-- [[N]] [docs: pin messaging into agent-data][21]
-- [[N]] [docs: retire custom-family.md][22]
-- [[N]] [feat: rename validate-bot to validate-agent][24]
-- [[N]] [docs: empty custom-family into the pinned set and config closing][23]
+- [[30]] 0.80.0-0 [docs: empty custom-family into the pinned set and config opening][17]
+- [[31]] 0.80.0-1 [feat: agent naming in config and CLI][18]
+- [[32]] 0.80.0-2 [feat: add the family and validate tables to the schema][19]
+- [[33]] 0.80.0-3 [feat: add the validate subcommand][20]
+- [[34]] 0.80.0-4 [docs: pin messaging into agent-data][21]
+- [[35]] 0.80.0-5 [docs: retire custom-family.md][22]
+- [[36]] 0.80.0-6 [feat: rename validate-bot to validate-agent][24]
+- [[37]] 0.80.0 [docs: empty custom-family into the pinned set and config closing][23]
 
 ### Problem
 Both members' custom* files hold family infrastructure (the messaging behavior, the member
@@ -628,11 +629,11 @@ Run at close-out (2026-08-21):
    at this close-out.
 
 ### Ladder
-- [[N]] [docs: fold the cycle agent-files into AGENTS.md opening][25]
-- [[N]] [docs: write the cycle account into AGENTS.md][26]
-- [[N]] [docs: retire cycle-protocol.md and cycle-checklists.md][27]
-- [[N]] [docs: rename bot repo to agent repo in the agent-files][28]
-- [[N]] [docs: fold the cycle agent-files into AGENTS.md closing][29]
+- [[38]] 0.80.1-0 [docs: fold the cycle agent-files into AGENTS.md opening][25]
+- [[39]] 0.80.1-1 [docs: write the cycle account into AGENTS.md][26]
+- [[40]] 0.80.1-2 [docs: retire cycle-protocol.md and cycle-checklists.md][27]
+- [[41]] 0.80.1-3 [docs: rename bot repo to agent repo in the agent-files][28]
+- [[42]] 0.80.1 [docs: fold the cycle agent-files into AGENTS.md closing][29]
 
 ### Deliberation
 Multi-step, three Work rungs: writing the merged account is the design work and reviewable on
@@ -756,6 +757,276 @@ Closing out the cycle.
   Todo files filed as a backlog entry with its species listed, since changing what an entry
   asks for is a cycle of its own, not close-out bookkeeping. History lines keep their names.
 
+## docs: halve AGENTS.md into rationale.md
+
+### Problem
+
+AGENTS.md is the one file every session loads, and about half of it is argument rather than
+rule: the "Why" paragraphs, the incident stories behind the acceptance check and the
+https-remote rule, the delegation tiers' justification, the Terminology notes' "because"
+clauses. A session needs the rule. The argument is for whoever would change the rule, and for
+the family at convergence, and it keeps the rule from being simplified away by an editor who
+does not know its cost, so it moves rather than dies.
+
+### Solution
+
+AGENTS.md went from 593 lines to 340 in nine rungs. The why moved to the new pinned
+`agent-data/rationale.md`, whose headings mirror AGENTS.md's so `[why](...#<same-slug>)` reaches
+an entry or an explicit blank, with the evidence (chores sections, dates, the spawn story) riding
+along. The mechanics AGENTS.md restated moved to the satellites that own them (jj.md: vc-x1 push
+behaviors, close-out shapes, the local-ladder contract, bookmark reshaping; notes.md: the In
+Progress block, the close-out move; prose.md: commit description details). Two rules were added
+along the way, backfill as the Opening's first step and prose.md's unmarked label-colon lead,
+and two tightening passes, the agent's and wink's, cut the rule text itself, the second settling
+eight points item by item and changing several rules (repos always hyphenated, Bump before Work,
+push expected every rung, shared title and body across the repos). The satellites' own why is
+still inline and is the next convention cycle.
+
+### Acceptance check
+
+Run at close-out, 2026-08-22:
+
+- `wc -l AGENTS.md`: 340, from 593, 57%. The original 297 was not reached and the check was
+  revised at the first move rung to report the count (Deliberation). What remains is rule text
+  at the length wink's pass left it
+- every `##` / `###` / `####` heading in rationale.md has a same-slug heading in AGENTS.md:
+  pass (diff of the heading lists is empty), six entries `_None recorded._`
+- `vc-x1 validate` clean, and a scratch anchor check over the agent-files and TODO.md found
+  only example placeholders: pass
+- the two move rungs read as words moved: pass, each reviewed as deletions plus links
+- the backfill and label-colon rungs: pass, the Opening's step 1 is Backfill with its `rg`
+  check, and every lead in AGENTS.md is an unmarked label ending in a colon
+- zero why-words in AGENTS.md outside its 17 `[why]` links ("because", "measured", "Why:"):
+  pass
+
+### Ladder
+
+- [[N]] [docs: halve AGENTS.md into rationale.md opening][43]
+- [[N]] [docs: make backfill the opening's first step][48]
+- [[N]] [docs: seed rationale.md and the Rationale term][44]
+- [[N]] [docs: move the cycle protocol's why into rationale.md][45]
+- [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][46]
+- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][50]
+- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][49]
+- [[N]] [docs: tighten AGENTS.md's prose][51]
+- [[N]] [docs: Winks AGENTS.md's tightening][52]
+- [[N]] [docs: halve AGENTS.md into rationale.md closing][47]
+
+### Deliberation
+
+Two move rungs rather than one, split at the `## Cycle protocol` tree, so each diff is
+reviewable in a sitting. The judgment line is "boundary sentences stay": a sentence saying what
+a rule does not cover is the rule. The borderline calls turned out to be few: the why was about
+a tenth of the file. A patch bump rather than minor, as the fold cycle was: the agent-files set
+gains a file but the shape of the system is unchanged, words moved. Satellites deferred per the
+Todo that filed this.
+
+A rule change added at the opening (wink, 2026-08-21): the 0.80.0 and 0.80.1 as-built rungs
+were both found unfilled at this opening, the backfill missed at two consecutive openings.
+Close-out step 8 says the edits "ride the next push", which names no owner, and the Opening's
+steps never mention it, so the only place backfill is named is the one moment rule 3 forbids
+doing it. Convention work does not ride a feature ladder, but this is an AGENTS.md cycle, so
+the rule rides as its own rung and its own commit, and the acceptance check's "words moved"
+clause narrows to the two move rungs rather than the branch: the check changed, and this is
+why. The durable fix is tooling, a validate element failing on a `[[N]]` rung whose commit is
+on `main`, filed at the closing as a backlog entry.
+
+A second rule change, found at the backfill rung's review (wink, 2026-08-21): the new Opening
+step 1 read as "every as-built ladder ...", its bold verb skipped as a label, so the sentence
+lost its imperative. The fix is a form rule, label-colon with a sentence complete without the
+label, stated in prose.md and applied across AGENTS.md's step lists and hard rules, the rules
+gaining short names as their labels. Its own rung, after the two move rungs, so the sweep
+runs over the halved file and the family sees the final shape in one diff. The acceptance
+check's "one rule change" becomes two, this one named.
+
+The line target revised at the first move rung's review (wink, 2026-08-21): the faithful
+why-lift took the protocol tree from 348 to 319 lines and AGENTS.md from 593 to 585, so the
+"about half is argument" premise does not hold for the tree, which is mostly rule and
+mechanics. This is the revised-toward-what-was-achieved case the Opening warns about, argued
+here rather than slipped: the cycle's real deliverable is zero words of why in AGENTS.md, the
+line count was a guess, and the number stays in the check as a reported measure rather than
+a pass/fail gate. Alongside, a further rung widens the move: mechanics that restate a
+satellite (the jj diff commands, the rungs-are-named paragraph, the push behaviors, the
+close-out shape definitions) become pointers, which is no longer words moved to rationale.md
+and touches the satellites this cycle deferred, so it is its own rung with its own diff.
+
+### Ladder details
+
+#### docs: halve AGENTS.md into rationale.md opening
+
+The cycle's bookmark, this block, the Done sweep, and the version bump.
+
+#### docs: make backfill the opening's first step
+
+Problem: backfill was specified only at close-out, as "the edits ride the next push", with no
+owner and no place in the Opening's steps, so it was missed at two consecutive openings.
+Solution: Opening step 1, ahead of the bookmark, backfills every as-built ladder whose commits
+have landed, with the check spelled out (`rg '\[\[N\]\]' notes/chores/`, a hit outside a code
+span is owed work), and close-out step 8 names the next opening as the owner of its debt.
+
+- first, not folded into the Done sweep: the sweep is already a compound step, and a step with
+  two halves is where the second half hides
+- a lightweight cycle with no opening commit carries the step in its first commit, said in the
+  Opening's own parenthesis rather than as a fourth place the rule lives
+- the check is a grep, not a tool: a `validate` element that fails on an unfilled rung whose
+  commit is on `main` is the durable fix, filed at the closing as a backlog entry
+
+#### docs: seed rationale.md and the Rationale term
+
+Problem: nothing links a rule to its why, and a why has no home outside the rule's own
+paragraph. Solution: `agent-data/rationale.md` with the heading skeleton mirroring AGENTS.md
+1:1, the **Rationale** term in Terminology stating the link pattern once, and the File map line.
+
+- every AGENTS.md heading is mirrored, each holding `_None recorded._` until a move fills it,
+  so an unfilled heading after the moves is a visible finding (a rule with no written why)
+  rather than an absent anchor. Six empties remain at the closing, kept as findings
+- the file's "How to read this file" states the three rules of the move once: headings
+  mirror, an entry is why then evidence, a boundary sentence is not rationale. The move rungs
+  apply them and do not restate them
+- the term in AGENTS.md carries the boundary-sentence test, since that is what tells an
+  editor which side of the line a sentence is on, and nothing else: the argument for having
+  the file is the file's own first entry, once the Terminology why moves
+
+#### docs: move the cycle protocol's why into rationale.md
+
+Problem: the `## Cycle protocol` tree carries the bookmark why, the acceptance-check story, the
+delegation tiers' justification, the at-rest explanation, and the one-home argument, the bulk
+of AGENTS.md's argument. Solution: each moves under its mirrored heading, the rule keeping a
+`[why]` link.
+
+- thirteen of the tree's headings took an entry, ten stay `_None recorded._` (the intro-less
+  ones: Pushing, Before any push, and the ones outside the tree)
+- the lift was faithful to the boundary test and removed about 30 net lines from the
+  protocol's 348: the tree is mostly rule and mechanics, and the Todo's "about half is
+  argument" premise does not hold for it. Surfaced at this rung's review as a finding
+  against the acceptance check's 297-line target, with the call on what to do left to
+  the user
+- the `[why]` link sits on the sentence it explains, or on the section intro when the entry
+  covers several
+
+#### docs: move the rest of AGENTS.md's why into rationale.md
+
+Problem: the why outside the protocol is scattered: the Hard rules intro, the Terminology
+"because" clauses, the Working practices stories (https remotes, the 2026-08-05 quoting note),
+the measured line in Changing the agent-files, the custom.md section's argument. Solution: the
+same move, and the size check against the target.
+
+- five more headings filled (Hard rules, Terminology, Working practices, Changing the
+  agent-files, custom.md), five stay `_None recorded._`: The dual-repo model, Pushing, Before
+  any push, Close-out, File map, all of them pure rule or pure map
+- the https-remote story is the longest single move, and its rule shrank to two sentences:
+  the unconditional, and the first-thing-to-check boundary
+- the exit-status sub-bullets kept their commands and lost their explanations, which read
+  as one paragraph in the entry
+- AGENTS.md 585 to 561: the outside-the-tree text was argument-heavier than the tree, as
+  the Todo said, but the tree is most of the file
+
+#### docs: point AGENTS.md's restated mechanics at the satellites
+
+Problem: with the why gone, AGENTS.md is still twice the target because it restates
+mechanics the satellites own: jj commands, the named-not-numbered rule, push behaviors, the
+close-out shapes. Solution: each restatement becomes a one-line pointer to the satellite
+section that holds it, the satellite gaining any sentence AGENTS.md alone had.
+
+- AGENTS.md 561 to 456. The protocol tree is now rules plus step lists, each step pointing
+  at the satellite that owns its mechanics, and nothing in it is stated a second time
+- new satellite homes, each named for what it holds:
+  - jj.md's "vc-x1 push: what it does and does not do", "Close-out shapes", and the
+    per-commit contract in "Local ladders" and the reshape moves in "Cycle bookmarks"
+  - notes.md's "The In Progress block" (the six items, the Ladder details area, the rung
+    form) and "The close-out move" (the four transforms, the Done entry, the In Progress
+    reset)
+  - prose.md's "Commit description details"
+- close-out steps 3 and 4 merged (the move and the Done entry are one act in notes.md), so
+  backfill is step 7 and the Opening's pointer follows
+- the Terminology "Retired" notes went to rationale.md as history, not rule
+- no separate details file: every block had a satellite owner, so rationale.md stays why-only
+- what is left is rule text: the hard rules, Pushing's three policy paragraphs, the at-rest
+  contract, Working practices, the agent-file rules. Reaching 297 from here means shortening
+  rules, which is a different cycle's decision
+
+#### docs: label-colon form for AGENTS.md's lists and rules
+
+Problem: a bold lead that is the sentence's own verb reads as a skippable label, and the
+hard rules' bold sentences are the rule itself, skipped the same way. Solution: a prose.md
+rule, a bold lead in a list is a short label ending in a colon and the sentence after it is
+complete without it, applied across AGENTS.md, the hard rules taking short names as labels.
+
+- prose.md's "Leads are labels, unmarked" holds the rule, its example, the inverted case (a rule
+  stated in bold with commentary after it), definitions (`**Term:**`, not `**Term.**`), and
+  the one-word redundancy as the accepted price. The measured miss stays inline there, since
+  prose.md's why has not moved yet
+- the label carries no markup (wink, 2026-08-21, at review): bold is what makes the eye
+  skip, and an agent needs no emphasis, so the colon alone marks it
+- every bold lead in AGENTS.md converted: the 14 hard rules (now named: Read custom.md first,
+  Push commits, Approval per push, Hard stop after the final push, No re-describe without
+  coordinating, No hand-written trailers, jj not git, Read the step before the action,
+  Typeable punctuation, One title per step, Stop and ask, Alert on unwrap, Intent picks the
+  file, One bookmark per cycle), the Terminology definitions, the four step lists, the Policy
+  paragraphs, Working practices, Changing the agent-files, and the custom.md section
+- the labels cost 15 lines (456 to 471), and a refill to the full 100 columns, links and code
+  spans unbreakable, gave 24 back (447)
+- a tightening rung added after this one (wink, 2026-08-21), since what is left is rule text, and
+  the next cut is wording
+
+#### docs: tighten AGENTS.md's prose
+
+Problem: with the why and the mechanics gone, AGENTS.md is rule text at 447 lines, and the
+rules are worded at the length they were argued, not the length they need. Solution: reword
+each rule shorter without dropping a boundary, the diff reviewed sentence by sentence.
+
+- AGENTS.md 447 to 400, every heading kept so the rationale mirror holds, every anchor and ref
+  checked
+- the cuts: restated subjects after a label ("Backfill: fill every ..." not "Backfill: backfill
+  every ..."), parentheticals that named the obvious ("(medium, conventions)"), doubled
+  qualifiers ("explicit", "specific", "mandatory" where the sentence already was), the
+  Terminology and Cycle notes folded from bullet lists into paragraphs, and the File map's
+  records list into one sentence
+- boundaries kept, by check: every "never", "only", "not", and "exception" clause of the old
+  text has a counterpart in the new
+- `[rde]` added as a reference-style link, since Retiring Done entries is cited twice
+
+#### docs: Winks AGENTS.md's tightening
+
+Problem: the agent's tightening is one reader's cut, and the reader the rules are for is the
+other one. Solution: wink's own pass over AGENTS.md, landed as its own rung so the two cuts
+are separately reviewable.
+
+- AGENTS.md 389 to 340. wink's cut, reviewed item by item with `--N--` markers in the file:
+  fourteen points raised, six dropped as detail the linked section carries, eight settled
+- rules changed by the pass:
+  - repos are always hyphenated ("work-repo")
+  - the per-rung Bump precedes Work
+  - push is expected at every rung
+  - both repos' commits carry the same title and body (prose.md's "agent-repo body" line
+    retired)
+  - "Project root" and "Short paths" retired from Working practices
+  - `### Topic bookmarks are drafts` folded into Cycles run on a bookmark, its five links
+    repointed and its rationale entry merged
+- wording principle recorded (wink, 2026-08-21): shorter and direct, since redundancy and
+  restated detail hinder the agent rather than protect it, and the linked section carries
+  the detail. A mistake can be resolved, so a rule is stated once
+- the validate rule binds the agent, not the user ("not the boss of me"): the full run is not
+  advised mid-review because `cargo fmt` rewrites files, but `--fast` is safe at any time
+- "work product" replaces "artifact" for what the work-repo holds
+- filed Todo "`vc-x1 validate --full`: accept the default by name"
+
+#### docs: halve AGENTS.md into rationale.md closing
+
+Problem: the cycle's premise, "about half of AGENTS.md is argument", measured at about a
+tenth, and the ladder grew from five rungs to ten finding where the rest of the length was.
+Solution: recorded as found. The why was 8 lines net of 593, the restated mechanics 105, the
+wording 108, and the rest is rule. The three cuts are three different moves with three
+different reviews, and a future "halve X" cycle should open with that split measured, not
+assumed. Also filed: the validate element that fails on an unfilled `[[N]]` rung whose commit
+is on `main`, and the satellites' own why-move, both as backlog entries.
+
+Exception taken after landing (wink, 2026-08-22): the closing had left the package name at
+`vc-x1-dev`, the dev name the opening sets, so the name flip back to `vc-x1` was squashed into
+the landed closing and `main` force-pushed, at wink's direction, for a clean history. The
+0.80.1 closing had missed the same flip. The rule that the closing's bump restores the stable
+name now lives in custom.md's single-name convention.
+
 # References
 
 [1]: #refactor-retire-the-remaining-jj-spawns-opening
@@ -787,3 +1058,26 @@ Closing out the cycle.
 [27]: #docs-retire-cycle-protocolmd-and-cycle-checklistsmd
 [28]: #docs-rename-bot-repo-to-agent-repo-in-the-agent-files
 [29]: #docs-fold-the-cycle-agent-files-into-agentsmd-closing
+[30]: https://github.com/winksaville/vc-x1/commit/63fe9e7cc85f "63fe9e7cc85f84cab3a54e32664883d98d8b327d"
+[31]: https://github.com/winksaville/vc-x1/commit/704d246a6342 "704d246a6342335a09bef7244e5da94ff317b9fb"
+[32]: https://github.com/winksaville/vc-x1/commit/5ce67fce6e7a "5ce67fce6e7a4998c4954ce69ddb9585d1defa8f"
+[33]: https://github.com/winksaville/vc-x1/commit/e909117ac336 "e909117ac3366dc5aba4156dd4b3732ca6289db0"
+[34]: https://github.com/winksaville/vc-x1/commit/bf177d42c81f "bf177d42c81f128887bbfb6c5e052fa7eda9786a"
+[35]: https://github.com/winksaville/vc-x1/commit/72b2077f682d "72b2077f682d6d9fcac5eaf66d173813363b8f4e"
+[36]: https://github.com/winksaville/vc-x1/commit/ee1fbfd28eca "ee1fbfd28ecad344b1fb4c6b2ece12d23c2caa99"
+[37]: https://github.com/winksaville/vc-x1/commit/ef9aed26b238 "ef9aed26b238a87cba37ca93249e46a3321ad3af"
+[38]: https://github.com/winksaville/vc-x1/commit/389c070c38b9 "389c070c38b9d7e3e8c9e173fd46960755f8fb75"
+[39]: https://github.com/winksaville/vc-x1/commit/9be6c66aebd6 "9be6c66aebd6c91a31984246099125ef8e9ad6f8"
+[40]: https://github.com/winksaville/vc-x1/commit/c441a2e37e84 "c441a2e37e84e5889c46de7ee1a34254788e5cc3"
+[41]: https://github.com/winksaville/vc-x1/commit/7aaf783d57e6 "7aaf783d57e6ab9c43f9baaf97c8f61036ed3a97"
+[42]: https://github.com/winksaville/vc-x1/commit/14540f84300e "14540f84300ecbd68ab28fdf24a18116a85bcdba"
+[43]: #docs-halve-agentsmd-into-rationalemd-opening
+[44]: #docs-seed-rationalemd-and-the-rationale-term
+[45]: #docs-move-the-cycle-protocols-why-into-rationalemd
+[46]: #docs-move-the-rest-of-agentsmds-why-into-rationalemd
+[47]: #docs-halve-agentsmd-into-rationalemd-closing
+[48]: #docs-make-backfill-the-openings-first-step
+[49]: #docs-label-colon-form-for-agentsmds-lists-and-rules
+[50]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
+[51]: #docs-tighten-agentsmds-prose
+[52]: #docs-winks-agentsmds-tightening

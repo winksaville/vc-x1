@@ -13,7 +13,16 @@
 
 ## Todo
 
-1. **Sweep the Todo files for pre-0.80 names and retired conventions.** (wink, 2026-08-21)
+1. **`validate`: fail on an unfilled `[[N]]` rung whose commit is on `main`.** (wink,
+   2026-08-21) Backfill was missed at two consecutive openings because nothing checked it.
+   The Opening's step 1 now names the `rg` check, and the durable fix is a validate element
+   that fails when a chores as-built rung still reads `[[N]]` and `git log --grep` of its
+   title finds the commit on `main`. Then no one has to remember.
+2. **Move the satellites' why into rationale.md.** (wink, 2026-08-21) The "docs: halve
+   AGENTS.md into rationale.md" cycle moved AGENTS.md's rationale and left jj.md, prose.md,
+   notes.md, and versioning.md with theirs inline ("Why:" paragraphs, measured dates). Same
+   treatment, same mirror-heading rule, one file per rung. rationale.md's intro says how.
+3. **Sweep the Todo files for pre-0.80 names and retired conventions.** (wink, 2026-08-21)
    Live entries in `TODO.md` and this file still ask for things in vocabulary the repo has
    since retired, found when the fold-cycle-info close-out grepped for its own two files and
    dissolved two "Shared-doc sync" entries whose sync is now the convergence model. A sweep
@@ -31,14 +40,14 @@
    - an entry whose whole ask is met by a pinned rule dissolves, with the Done entry saying so
    History lines (Done entries, dated narrative of a sync) keep the names they had.
 
-2. **vc-x1 push: per-repo bookmark names.** Allow code-side
+4. **vc-x1 push: per-repo bookmark names.** Allow code-side
    and `.claude`-side bookmarks to differ; currently
    `.claude` is locked to `main` regardless of the
    app-side `<bookmark>`. Sibling generalization to the
    N:1 / `--squash` / `--merge` work — together they make
    push handle all close-out shapes with arbitrary
    bookmark layouts.
-3. **Investigate `linkme` for subcommand registration.**
+5. **Investigate `linkme` for subcommand registration.**
    Distributed-slice registry — each subcommand registers itself
    at link time; `main.rs` discovers them via the slice rather
    than matching a `Commands` enum. Reduces per-subcommand
@@ -49,13 +58,13 @@
    Revisit once the `0.50.0` trait sweep's per-arm cost has been
    felt under real "add a subcommand" load.
    <https://github.com/dtolnay/linkme>
-4. **Investigate `inventory` as `linkme` alternative.** Same
+6. **Investigate `inventory` as `linkme` alternative.** Same
    shape as `linkme` — runtime-iterable registry populated by
    `inventory::submit!` per subcommand. Trade-offs mirror
    linkme's. Pick one if/when the trait sweep's match becomes
    the felt bottleneck.
    <https://github.com/dtolnay/inventory>
-5. **forks-multi-user + bot-data-formats follow-through.**
+7. **forks-multi-user + bot-data-formats follow-through.**
    Design captured across two notes; concrete work to
    land when a cycle picks it up. Major pieces:
    multi-line `ochid:` parser/emitter; bot-side
@@ -67,77 +76,77 @@
    facade-owns-topology stage, config knob included.)
    Each piece is its own future TODO when the design
    hardens. [[2]],[[3]]
-6. **`test_helpers::Fixture` migration + downstream callers.**
+8. **`test_helpers::Fixture` migration + downstream callers.**
    Plus rename `Fixture` → `TestFixtureDual` and `FixturePor`
    → `TestFixturePor` so call sites carry the test-only
    signal that `#[cfg(test)] mod test_helpers` doesn't
    communicate. Was `0.41.1-7`. [[5]]
-7. **`vc-x1 finalize --scope` flag.** Replace `--repo`
+9. **`vc-x1 finalize --scope` flag.** Replace `--repo`
    with the role vocabulary used elsewhere
    (`work|bot|work,bot`). Carry-over from the 0.42.0
    `--scope` sweep (was 0.42.0-5; deferred at -4.7
    close-out). The paired `Single(_)` dogfood item
    (0.42.0-7) is moot after `0.53.0` — `Single(_)`
    deleted. Design lives in chores-07. [[6]]
-8. **Cross-file `chores-NN.md` ordering sanity pass.**
-   `chores-08.md` (the 0.41.1 cycle) landed on `main` via
-   the `0.42.0-4.7` rebase; check that section ordering
-   across `chores-06`/`-07`/`-08`/`-09` is chronologically
-   coherent and normalize if not. Low priority.
-9. **Add a vc-x1 validate-repo?**
-10. **vc-x1 push: rework the two bookmark parameters.**
+10. **Cross-file `chores-NN.md` ordering sanity pass.**
+    `chores-08.md` (the 0.41.1 cycle) landed on `main` via
+    the `0.42.0-4.7` rebase; check that section ordering
+    across `chores-06`/`-07`/`-08`/`-09` is chronologically
+    coherent and normalize if not. Low priority.
+11. **Add a vc-x1 validate-repo?**
+12. **vc-x1 push: rework the two bookmark parameters.**
     `PushArgs` has `bookmark_pos` (positional `BOOKMARK`) +
     `bookmark` (`--bookmark` flag) for one logical value,
     forcing an `or_else` in `From<&PushArgs>`. Collapse to a
     single positional with `--bookmark` as a true clap alias,
     or drop one spelling. [[7]]
-11. **vc-x1 push: `--recheck` — implement or remove.** Parsed by
+13. **vc-x1 push: `--recheck` — implement or remove.** Parsed by
     `PushArgs`, never read; mirrored into `PushParams` with
     `#[allow(dead_code)]`. Either wire the
     skip-preflight-on-resume behavior or drop the flag. [[8]]
-12. **vc-x1 push: `--scope=work|bot|work,bot` flag.**
+14. **vc-x1 push: `--scope=work|bot|work,bot` flag.**
     Was 0.42.0-4 (deferred when cycle pivoted to icr
     rebase work; cycle closed at -4.7). State machine
     becomes scope-aware — single-side scope skips
     `commit-claude`/bookmark-claude/`finalize-claude`.
     [[9]],[[10]],[[11]],[[12]]
-13. **vc-x1 clone: `--scope=work|bot|work,bot` flag.**
+15. **vc-x1 clone: `--scope=work|bot|work,bot` flag.**
     Parallel to `init --scope` for role selection;
     topology (`--por` vs dual) is the separate `--por`
     boolean. Was 0.42.0-6 (deferred at -4.7
     close-out). [[10]],[[11]],[[12]]
-14. **vc-x1 validate-desc / fix-desc:
+16. **vc-x1 validate-desc / fix-desc:
     `--scope=work|bot|work,bot` flag.** Same role vocabulary
     as elsewhere — `work` validates the work repo's commits against
     bot, `bot` reverses, `work,bot` does both (new
     default). [[10]],[[11]],[[12]]
-15. **Unify `.vc-config.toml` accessors onto Pattern B**
+17. **Unify `.vc-config.toml` accessors onto Pattern B**
     (typed struct + `load_from(path)`, like new
     `config::UserConfig` and `push::resolve_state_layout`).
     Replaces the map-typed helpers in `desc_helpers.rs` /
     `fix_desc.rs` / `validate_desc.rs` with a typed
     `WorkspaceConfig` struct. ~50 LOC, mechanical.
     Candidate for 0.41.2. [[13]]
-16. **Layered config precedence (user → workspace → CLI)**
+18. **Layered config precedence (user → workspace → CLI)**
     once `WorkspaceConfig` is typed. Workspace can
     override `[github].owner` etc. for a specific project;
     init can't use the layer (chicken-and-egg) but
     post-init commands can. Depends on the
     `WorkspaceConfig` typed-struct refactor above.
     Candidate for 0.41.2. [[13]]
-17. **Help layout: force over-under everywhere.** Apply
+19. **Help layout: force over-under everywhere.** Apply
     `next_line_help(true)` at the root (or via the existing
     `cli_with_banner` walker) so every subcommand's `-h` /
     `--help` uses the same layout. Today clap auto-picks
     per-command based on the widest flag spec, so
     `sync -h` is two-column but `init -h` is over-under —
     visual inconsistency.
-18. **Replace "Step N" log prefixes with single-word
+20. **Replace "Step N" log prefixes with single-word
     `label: body` convention** (`bookmark`, `provision`,
     `colocate`, `cross-ref`, `symlink`, …); indent labels
     under per-side `code:` / `bot:` headers in dual.
     Originally planned as 0.41.1-6.7; deferred.
-19. **"Stop saying workspace in user-facing surfaces" sweep.**
+21. **"Stop saying workspace in user-facing surfaces" sweep.**
     The `[workspace]` → `[repos]` rename itself shipped in
     the 0.76.0 repo-registry cycle (legacy schemas hard-
     reject with a fix-it; `src/legacy_vc_config.rs` holds
@@ -145,25 +154,25 @@
     what remains of the original entry is the broader
     wording sweep — prose, help text, and identifiers
     still say "workspace" for the dual-repo project root.
-20. **Add `status` (alias `st`) subcommand: `jj st` across both
+22. **Add `status` (alias `st`) subcommand: `jj st` across both
     repos in one shot.** Uses `--scope` from day one. This is
     natural home for the working-copy signal called out and
     it needs to include remotes, like remotes/origin/main. [[14]].
-21. **`vc-x1 init --dry-run` should bypass the
+23. **`vc-x1 init --dry-run` should bypass the
     `--repo-remote` path-existence preflight** (currently fires
     before the dry-run early-return; observed dogfooding
     2026-04-24).
-22. **vc-x1 push: `--squash` flag.** Squashes WC into `@-` via
+24. **vc-x1 push: `--squash` flag.** Squashes WC into `@-` via
     `--ignore-immutable` and force-pushes; needs
     `--force-with-lease`-equivalent + state-sanity preflight in
     place first. [[9]]
-23. **vc-x1 push: `--message-file PATH` flag.** Git-style commit
+25. **vc-x1 push: `--message-file PATH` flag.** Git-style commit
     message file (first line = title, blank, rest = body).
     Alternative to `--title` + `--body`. [[15]]
-24. **Mirror `--check` / `--no-check` onto `vc-x1 push`** (forwards
+26. **Mirror `--check` / `--no-check` onto `vc-x1 push`** (forwards
     through to the preflight `vc-x1 sync` invocation).
     0.37.1 hard-codes `--check`; default stays `--check`.
-25. **Add `validate-repo` subcommand:** diagnostic that runs all
+27. **Add `validate-repo` subcommand:** diagnostic that runs all
     `verify_*` checks (tracking, push state freshness, ochid
     integrity, conflicts, config sanity, working-copy state)
     plus chores↔commit consistency — every `[N]:` anchor
@@ -181,33 +190,33 @@
       This supersedes the chores-15 note asking the checker to
       read its character set from one place, which assumed a
       checkable zero.
-26. **sync: surface working-copy state in the up-to-date summary**
+28. **sync: surface working-copy state in the up-to-date summary**
     (per-repo pending-files count or compact stat). Wording-only
     fix shipped in 0.37.1; this is the design+impl. [[14]]
-27. **bm-track silent-when-clean refinement.** Print on entry/exit
+29. **bm-track silent-when-clean refinement.** Print on entry/exit
     only when state isn't fully tracked or when exit state
     differs from entry. [[17]]
-28. **"Oh shit" revert — post-success undo via `.vc-x1-ops/`
+30. **"Oh shit" revert — post-success undo via `.vc-x1-ops/`
     anchor dir.** Idea-stage; every repo-mutating command drops a
     pre-op snapshot, `vc-x1 undo` restores both repos. [[9]]
-29. **Source-code design ref sweep + AGENTS.md codification:**
+31. **Source-code design ref sweep + AGENTS.md codification:**
     adopt section-name + `blob/main/...` URL pattern for source
     code refs to designs; codify in AGENTS.md alongside the
     existing markdown ref conventions. Sweep targets:
     src/push.rs lines 4, 121, 645, 1219. [[18]]
-30. **Richer bookmark enumeration:** per-bookmark remote presence + tracking status [[19]]
-31. **Per-line/per-thread runtime log points** (future, maybe) [[20]]
-32. **Add Windows symlink support** via `std::os::windows::fs::symlink_dir` [[21]]
-33. **Add "::" revision syntax for jj compatibility**
-34. **Add -p, --parents, -c, --children** so parent and child counts can be asymmetric
-35. **Add integration tests in tests/ for subcommands** using temp jj repos (tempfile crate)
-36. **Fix .claude repo history:** dev0 through dev2 sessions squashed into wrong commit
+32. **Richer bookmark enumeration:** per-bookmark remote presence + tracking status [[19]]
+33. **Per-line/per-thread runtime log points** (future, maybe) [[20]]
+34. **Add Windows symlink support** via `std::os::windows::fs::symlink_dir` [[21]]
+35. **Add "::" revision syntax for jj compatibility**
+36. **Add -p, --parents, -c, --children** so parent and child counts can be asymmetric
+37. **Add integration tests in tests/ for subcommands** using temp jj repos (tempfile crate)
+38. **Fix .claude repo history:** dev0 through dev2 sessions squashed into wrong commit
     [[22]],[[23]]
-37. **Add `vc-x1 setup` subcommand:** completions install, .claude repo init, symlink setup
+39. **Add `vc-x1 setup` subcommand:** completions install, .claude repo init, symlink setup
     [[24]]
-38. **Add dynamic revision completion via `ArgValueCompleter`** (jj doesn't complete revsets
+40. **Add dynamic revision completion via `ArgValueCompleter`** (jj doesn't complete revsets
     either) [[25]],[[26]]
-39. **Test-tempdir override resolution chain.** Both
+41. **Test-tempdir override resolution chain.** Both
     `src/test_helpers::unique_base` and
     `tests/common/unique_base` currently use
     `std::env::temp_dir()` (= `$TMPDIR`). Generalize to
@@ -223,12 +232,12 @@
     env is the realistic surface for tests; for the
     `vc-x1` binary itself a flag is feasible but unclear
     it adds value over the resolution chain.
-40. **`validate-todo` / `fix-todo`: flag malformed lines.**
+42. **`validate-todo` / `fix-todo`: flag malformed lines.**
     A column-0 line inside `## Todo` / `## Bugs` that is
     neither an entry (`N. `) nor a heading is malformed;
     it's currently tolerated silently. Report it so stray
     lines / typos surface.
-41. **`vc-x1` version-string ref resolution.** Today version
+43. **`vc-x1` version-string ref resolution.** Today version
     strings (`0.58.0`, `0.58.0-3`) live in commit titles and
     `Cargo.toml` but aren't git refs, so
     `git diff 0.58.0^1 0.58.0` fails with "ambiguous
@@ -250,7 +259,7 @@
     revsets to chids). Separate gap on the jj side: no clean
     first-parent revset operator in jj 0.40 — equivalent
     today is `jj diff --from <fp-chid> --to <merge-chid>`.
-42. **`vc-x1 push --squash`: symmetric squash on both repos.**
+44. **`vc-x1 push --squash`: symmetric squash on both repos.**
     Automate Option F (manually exercised in the 0.59.0
     close-out [[27]]): app-side squash + bot-side description
     rewrite + force-push, atomically. Demoted from `## Todo`
@@ -271,7 +280,7 @@
       push receives `ochid: /<squashed-chid>` as normal — K
       prior bot records plus the new one gives (K+1):1
       bot→code (2:1 in the 0.59.0 case).
-43. **`vc-x1 clone`: graceful single-repo fallback when no
+45. **`vc-x1 clone`: graceful single-repo fallback when no
     companion `.claude` remote.** Default dual clone errors
     mid-way when `<source>.claude` doesn't exist; `--por` is
     the workaround (works, but you must know to pass it).
@@ -287,7 +296,7 @@
       companion exists.
     - Integration-testable offline via path-form sources
       (code bare repo present, no `.claude` bare repo).
-44. **Sketch cross-repo ochid migration in
+46. **Sketch cross-repo ochid migration in
     cycle-protocol.md.** Remnant of the retired Ideas entry
     "Codify ochid invariant + bot-repo rules + squash gating
     + cross-repo migration" (rest folded into the 0.72.0
@@ -295,13 +304,13 @@
     multi-contributor flow, ochids change at every merge
     until the change reaches the canonical repo's `main` —
     document the migration story.
-45. **Refactor stage: por → dual conversion.** Attach a bot
+47. **Refactor stage: por → dual conversion.** Attach a bot
     companion + `.vc-config.toml` to an existing por
     workspace as a routine subcommand; see
     [the stage](refactor-20260716.md#stage-por--dual-conversion).
     Last program stage on purpose — leans on facade-owns-
     topology and the in-process init pieces.
-46. **Write down what an interlude is.** A docs or planning
+48. **Write down what an interlude is.** A docs or planning
     commit that lands between cycles on the trunk line, taking
     a patch bump rather than a `-N` rung. The facts exist but
     are scattered across four places: `TODO.md`'s program
@@ -319,26 +328,26 @@
       work becomes an interlude rather than a rung appended to
       the running cycle.
 
-47. **`init` template ergonomics.** Take-or-leave ideas from the template restructure (mailbox,
+49. **`init` template ergonomics.** Take-or-leave ideas from the template restructure (mailbox,
     2026-07-31), triaged here 2026-08-02:
     - `--use-template <repo-root>` auto-detecting `work/` / `work.claude/`, so the caller
       passes the template repo rather than its payload subdirectory
     - a no-remote init mode for local testing
     - an empty-dir bot template only needs a `.gitkeep`, since init writes hidden files itself
 
-48. **Warn on the legacy `[workspace]` config schema from any command.** A repo on the old
+50. **Warn on the legacy `[workspace]` config schema from any command.** A repo on the old
     schema reads, logs, and diffs fine for weeks and discovers the problem only when `push`
     hard-errors, the least convenient moment. Cheap fix: any command warns once on a legacy
     config rather than only `config --validate` and `push`. iiac-perf finding (mailbox,
     2026-08-07).
 
-49. **Revset pass-through: stop translating the house dialect.** The CLI still converts
+51. **Revset pass-through: stop translating the house dialect.** The CLI still converts
     house-convention revsets before issuing jj commands. It should pass revsets to jj
     verbatim, so one dialect exists and `jj help -k revsets` is the single authority
     (decided 2026-08-03). The docs side landed with the agent-files adoption; this is the
     CLI side.
 
-50. **Promote body shape into hard rule 9?** Extending title identity to cover the
+52. **Promote body shape into hard rule 9?** Extending title identity to cover the
     problem/solution body shape was deferred at the 2026-08-07 convergence review: the
     convention was two days old, and "a pushed body is coordinate-first to fix" would
     promote every prose rule that touches a body. Concrete trigger: revisit after
@@ -347,7 +356,7 @@
       (2026-08-12), which pinned the intro / `*` facets / `-` solutions form in prose.md. What
       is left here is only the promotion question, on a rule that now has text to promote
 
-51. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
+53. **OSC 8 hyperlinks in `config` TTY output** (wink, 2026-08-09). When stdout is a TTY,
     `vc-x1 config` renders each key's name as an OSC 8 hyperlink to its reference url, so the
     printed schema is clickable in supporting terminals; suppressed when piped, with an
     `ls`-style `--hyperlink=auto|always|never` override.
@@ -356,7 +365,7 @@
     - builds on the vc-config.toml prototype's per-key reference field (the "docs: freshen
       vc-config and config subcmd" cycle), so it waits for that cycle to land
 
-52. **init distributes vc-config.md; reference-base points at the member** (wink + bot,
+54. **init distributes vc-config.md; reference-base points at the member** (wink + bot,
     2026-08-10). `vc-x1 init` seeds a new member with a copy of `vc-config.md` from the
     template payload and stamps `[vc-config] reference-base` with the member's own repo url,
     so every generated doc-reference web link in the member's `.vc-config.toml` lands on a
@@ -390,7 +399,7 @@
       # col-width = 68
       ```
 
-53. **Reference defs: go file-relative, with anchors** (wink + bot, 2026-08-10). The house
+55. **Reference defs: go file-relative, with anchors** (wink + bot, 2026-08-10). The house
     `[N]:` form `/notes/<file>.md` resolves by *convention*, not by any markdown standard:
     no spec says what a leading `/` means, so each viewer picks. Wink's measurements
     (2026-08-10, todo-backlog's `[2]` / `[3]`): GitHub resolves it against the repo root
@@ -415,7 +424,7 @@
       records stay uniform with the pinned convention until this entry's sweep flips both
       together
 
-54. **vc-config.md per-key worked examples** (2026-08-11). The per-key sections mostly restate
+56. **vc-config.md per-key worked examples** (2026-08-11). The per-key sections mostly restate
     each key's one-liner, and a reference link has to reward the click. Cut from the
     "docs: freshen vc-config and config subcmd" ladder at its freeze: no acceptance item
     needs it, since item 3 asks only that each generated link land on a real section, which
@@ -431,7 +440,7 @@
       sequenced after validate-anchors lands and grows the cross-file check, so the ~145-edit
       sweep is machine-verified rather than hand-checked
 
-55. **Config provenance names the schema, not just the binary** (iiac-perf + bot, 2026-08-12).
+57. **Config provenance names the schema, not just the binary** (iiac-perf + bot, 2026-08-12).
     The schema is generated at build time from `vc-config.md`, so an installed binary validates
     against its build's prototype rather than the workspace's, and a key added after that build
     is reported unknown with the config blamed. Member repos run a binary built from this one,
@@ -455,7 +464,7 @@
     - decide there: hash or a schema version. A hash is free, exact, and unreadable; a version
       is readable and someone has to remember to bump it
 
-56. **Cite a Todo or backlog entry by its bold title, not its number** (wink, 2026-08-12).
+58. **Cite a Todo or backlog entry by its bold title, not its number** (wink, 2026-08-12).
     Numbers are addresses that change on every insert. Ranking two entries in one session
     renumbered 15 in `TODO.md` and slid a backlog entry from 56 to 55, invalidating references
     written minutes earlier, one of them already drafted into another member's mailbox. Titles
@@ -486,7 +495,7 @@
     - the bold-title precondition is done (2026-08-12): all 56 entries here carry one, none
       duplicated. What remains is the rule, the citation sweep, and the check
 
-57. **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?**
+59. **What carries a Todo entry: numbered list, heading, or a tracker outside the repo?**
     (wink, 2026-08-12). The numbered-list form is what makes numbers unstable and titles
     unlinkable, so **Cite a Todo or backlog entry by its bold title, not its number** (#56)
     treats a symptom of it. Three routes, and they are not the same size of decision.
@@ -522,7 +531,7 @@
       once, which strengthens the tracker option relative to headings, since headings fix
       citation inside a repo and do nothing for cross-member traffic
 
-58. **Update the template payload, and empty the three-way diff** (2026-08-12, replanned
+60. **Update the template payload, and empty the three-way diff** (2026-08-12, replanned
     2026-08-16, the baseline landed by the "chore: update vc-x1-template" rung). The payload
     tip is now the family's agreed state, and what remains is keeping it that way:
     - the payload takes the 0816-proposal result when that program completes (TODO.md "Empty

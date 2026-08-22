@@ -21,7 +21,9 @@ version. Revisit with a compat clause if a library crate ever splits out.
 name, `vc-x1` on `main`, with per-line dev names on long-lived branches, guarded by `build.rs`
 on every cargo verb. This is the project's answer to versioning.md's
 [Dev artifact name](agent-data/versioning.md#dev-artifact-name): the repo is striving to
-release, so `main` builds install as plain `vc-x1`.
+release, so `main` builds install as plain `vc-x1`. The opening's bump sets the dev name with
+the suffixed version, and the closing's bump restores `vc-x1` with the bare one (missed at two
+closings before this line was written, 2026-08-22).
 
 ## Project conventions and overrides
 
