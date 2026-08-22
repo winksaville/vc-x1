@@ -280,9 +280,9 @@ their own titles on the stem.
 with an optional `(scope)`, at the width in [Line widths](#line-widths), common types `feat`,
 `fix`, `refactor`, `test`, `docs`, `chore`. The body is the [Commit-body form](#commit-body-form)
 above, wrapped per Line widths, with no version in title or body, no file list, and no
-deliberation. A work-repo body describes the artifact's or the records' problem, and an
-agent-repo body describes in-session activity. `ochid:` is the body's last line, stamped by
-push, and a breaking change uses the hyphenated `BREAKING-CHANGE:` trailer key.
+deliberation. `vc-x1 push` gives both repos' commits the same title and body. `ochid:` is the
+body's last line, stamped by push, and a breaking change uses the hyphenated
+`BREAKING-CHANGE:` trailer key.
 
 ### Steps are named, not numbered
 
@@ -299,7 +299,7 @@ the ladder, so a number beside it would restate the position and then have to be
 - **Nothing renumbers.** Inserting, reordering or dropping a step edits the ladder list and
   nothing else. On an unlanded topic bookmark the rungs that already committed an older ladder
   come along. See
-  [Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts).
+  [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark).
 - **`## Todo` ranks are the exception that stays numbered**, because a priority list has an order
   worth reading off (see [Todo format](notes.md#todo-format)). Those numbers are positional too,
   and are equally never used as references.
@@ -332,7 +332,7 @@ The two differ in timing, and the reason is the SHA rather than the version. The
 because a commit cannot record its own SHA. A Done entry has no SHA to wait for and its version
 is already in the manifest of the commit it is written in, so it is written at close-out. On an
 unlanded bookmark it is a draft like the rest of the line
-([Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)), and a renumber of
+([Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark)), and a renumber of
 published versions rewrites it in the same sweep as the rungs.
 
 **How to apply:** name the step by its title and the phase in words ("the close-out", "the

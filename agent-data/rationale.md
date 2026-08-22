@@ -68,6 +68,12 @@ published history. Landing costs one command and buys free rewrites for the whol
 single-step cycle gets a bookmark for the same reason: a one-commit line is exactly where a
 pre-landing rewrite is cheapest.
 
+Pushing to the bookmark makes the work durable and visible, but landing on `main` is
+publication, and that is the line the rules divide at. The series is kept self-consistent
+before landing so the branch reads as one coherent ladder. Amending content rather than
+re-describing keeps hard rule 4 intact and lets the `ochid:` trailers ride along: they carry
+change ids, which survive a rewrite.
+
 ### Opening
 
 **Backfill first.** The 0.80.0 and 0.80.1 as-built rungs were both found unfilled at the
@@ -148,14 +154,6 @@ runs), so only the user can. The fold keeps the change id, so the work-side `och
 resolving. The user repeats the squash-push if new writes land because the agent's back end
 may consolidate session data minutes later.
 
-### Topic bookmarks are drafts
-
-Pushing to the bookmark makes the work durable and visible, but landing on `main` is
-publication, and that is the line the rules divide at. The series is kept self-consistent
-before landing so the branch reads as one coherent ladder. Amending content rather than
-re-describing keeps hard rule 4 intact and lets the `ochid:` trailers ride along: they carry
-change ids, which survive a rewrite.
-
 ### Close-out
 
 _None recorded._
@@ -233,7 +231,7 @@ cycle's records under work its title never promised.
 that collects adopted-ahead rules in `custom.md` hides them from the one review that decides
 them, and a session that skips the project layer misses binding behavior. Both measured,
 2026-08-19 to 2026-08-21, when one member's project layer (`custom-family.md`) held the
-family's messaging rules and the validation commands; retired by the 0.80.0 cycle, chores-17's
+family's messaging rules and the validation commands, retired by the 0.80.0 cycle, chores-17's
 [docs: empty custom-family into the pinned set and config](../notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config).
 
 ## custom.md: the project layer

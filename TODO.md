@@ -5,7 +5,7 @@ and reference links to more details.
 
 Intro paragraphs in `## Todo` and `## Bugs` should begin every
 line with 1 leading space so they don't match the `^\d+\. `
-pattern that locates numbered entries; 2 or 3 spaces also work.
+pattern that locates numbered entries. 2 or 3 spaces also work.
 
 ## In Progress
 
@@ -22,7 +22,7 @@ two places. Shape:
 <what is wrong, a sentence or two>
 
 #### Solution
-<what will be done about it, broad; provisional until the close-out>
+<what will be done about it, broad, provisional until the close-out>
 
 #### Acceptance check
 <the measure of "are you finished?">
@@ -34,12 +34,12 @@ two places. Shape:
 - [[N]] <cycle title> closing
 
 #### Deliberation
-<how the five above were decided; `_None._` if there was nothing to deliberate>
+<how the five above were decided, or `_None._` if there was nothing to deliberate>
 
 #### Ladder details
 <one `#####` subsection per rung, headed by its exact title, opened at laddering with the
-rung's intent and completed at landing with the conceptual delta; the closing rung's only at
-close-out, gotchas in problem/solution form>
+rung's intent and completed at landing with the conceptual delta, and the closing rung's only
+at close-out, gotchas in problem/solution form>
 ```
 
 A multi-cycle program adds one level: the program is the `###`, its current cycle the `####`,
@@ -93,7 +93,7 @@ same treatment later, AGENTS.md first since it is the auto-loaded one.
 - [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][66] (done)
 - [[N]] [docs: label-colon form for AGENTS.md's lists and rules][65] (done)
 - [[N]] [docs: tighten AGENTS.md's prose][67] (done)
-- [[N]] [docs: Winks AGENTS.md's tightening][68]
+- [[N]] [docs: Winks AGENTS.md's tightening][68] (done)
 - [[N]] [docs: halve AGENTS.md into rationale.md closing][63]
 
 #### Deliberation
@@ -214,11 +214,13 @@ section that holds it, the satellite gaining any sentence AGENTS.md alone had.
 
 - AGENTS.md 561 to 456. The protocol tree is now rules plus step lists, each step pointing
   at the satellite that owns its mechanics, and nothing in it is stated a second time
-- new satellite homes, each named for what it holds: jj.md's "vc-x1 push: what it does and
-  does not do", "Close-out shapes", and the per-commit contract in "Local ladders" and the
-  reshape moves in "Cycle bookmarks"; notes.md's "The In Progress block" (the six items, the
-  Ladder details area, the rung form) and "The close-out move" (the four transforms, the Done
-  entry, the In Progress reset); prose.md's "Commit description details"
+- new satellite homes, each named for what it holds:
+  - jj.md's "vc-x1 push: what it does and does not do", "Close-out shapes", and the
+    per-commit contract in "Local ladders" and the reshape moves in "Cycle bookmarks"
+  - notes.md's "The In Progress block" (the six items, the Ladder details area, the rung
+    form) and "The close-out move" (the four transforms, the Done entry, the In Progress
+    reset)
+  - prose.md's "Commit description details"
 - close-out steps 3 and 4 merged (the move and the Done entry are one act in notes.md), so
   backfill is step 7 and the Opening's pointer follows
 - the Terminology "Retired" notes went to rationale.md as history, not rule
@@ -236,7 +238,7 @@ complete without it, applied across AGENTS.md, the hard rules taking short names
 
 - prose.md's "Leads are labels, unmarked" holds the rule, its example, the inverted case (a rule
   stated in bold with commentary after it), definitions (`**Term:**`, not `**Term.**`), and
-  the one-word redundancy as the accepted price; the measured miss stays inline there, since
+  the one-word redundancy as the accepted price. The measured miss stays inline there, since
   prose.md's why has not moved yet
 - the label carries no markup (wink, 2026-08-21, at review): bold is what makes the eye
   skip, and an agent needs no emphasis, so the colon alone marks it
@@ -274,6 +276,25 @@ Problem: the agent's tightening is one reader's cut, and the reader the rules ar
 other one. Solution: wink's own pass over AGENTS.md, landed as its own rung so the two cuts
 are separately reviewable.
 
+- AGENTS.md 389 to 339. wink's cut, reviewed item by item with `--N--` markers in the file:
+  fourteen points raised, six dropped as detail the linked section carries, eight settled
+- rules changed by the pass:
+  - repos are always hyphenated ("work-repo")
+  - the per-rung Bump precedes Work
+  - push is expected at every rung
+  - both repos' commits carry the same title and body (prose.md's "agent-repo body" line
+    retired)
+  - "Project root" and "Short paths" retired from Working practices
+  - `### Topic bookmarks are drafts` folded into Cycles run on a bookmark, its five links
+    repointed and its rationale entry merged
+- wording principle recorded (wink, 2026-08-21): shorter and direct, since redundancy and
+  restated detail hinder the agent rather than protect it, and the linked section carries
+  the detail. A mistake can be resolved, so a rule is stated once
+- the validate rule binds the agent, not the user ("not the boss of me"): the full run is not
+  advised mid-review because `cargo fmt` rewrites files, but `--fast` is safe at any time
+- "work product" replaces "artifact" for what the work-repo holds
+- filed Todo "`vc-x1 validate --full`: accept the default by name"
+
 ##### docs: halve AGENTS.md into rationale.md closing
 
 Closing out the cycle.
@@ -285,11 +306,11 @@ Closing out the cycle.
  descending. Reprioritize by moving an entry, then
  `vc-x1 fix-todo --no-dry-run TODO.md` to renumber.
  The numbers are positional rank, not stable IDs, so to refer
- to a Todo, name it by its **title** (a greppable mention;
- a numbered list item has no anchor to link to), not its
+ to a Todo, name it by its **title** (a greppable mention,
+ since a numbered list item has no anchor to link to), not its
  number. Long-tail entries
  live in [todo-backlog.md](notes/todo-backlog.md). Use the
- [Prose form](/agent-data/prose.md#prose-form); deeper
+ [Prose form](/agent-data/prose.md#prose-form). Deeper
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
@@ -326,7 +347,7 @@ Closing out the cycle.
    records, and the `.agent-session` repoint end to end.
    - **feat: agent naming in config and CLI** (moved 2026-08-21 into the "docs: empty
      custom-family into the pinned set and config" ladder, ahead of its schema-tables rung,
-     so the new tables are born under the new names; the notes below ride with it):
+     so the new tables are born under the new names, and the notes below ride with it):
      `repos.agent` / `[agent-session]` /
      `agent-session` / `--scope=agent`, old spellings rejected rather than aliased, the
      rejection printing its fix-it for both sides (`legacy_vc_config::reject` is the model)
@@ -404,7 +425,7 @@ Closing out the cycle.
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
-   moved; this is the check that could eventually tell us, and
+   moved. This is the check that could eventually tell us, and
    the route to relaxing the gate's coarseness. See
    [the policy](notes/jj-version-policy.md#how-this-could-be-relaxed).
    Two modes over one fixture and one id extractor:
@@ -434,7 +455,7 @@ Closing out the cycle.
    - **What it does not cover.** It compares two versions *on
      our fixture*. A change touching a path the fixture does not
      exercise reports "same" and is wrong. A sample, like `jj -V`
-     is a sample; say so where it is documented rather than
+     is a sample, so say so where it is documented rather than
      letting it read as proof.
    - **Watch operation ids and view ids first.** Those are jj's
      own content-addressed op-store hashes, so they move if
@@ -442,12 +463,11 @@ Closing out the cycle.
      Commit SHAs are gix's, computed from commit content, so they
      mostly pin git rather than jj and are the weaker signal.
    - **Change ids are goldenable, and are the best canary in
-     the set.** Three cases: a commit authored in jj gets a
-     random chid (`JJRng::new_change_id`); a git commit carrying
-     a `change-id` extra header keeps the original; and a git
-     commit without one gets a *deterministic* chid, the commit
-     id's bytes `4..20` reversed and bit-reversed
-     (`git_backend.rs`, `synthetic_change_id_from_git_commit_id`).
+     the set.** Three cases:
+     - a commit authored in jj gets a random chid (`JJRng::new_change_id`)
+     - a git commit carrying a `change-id` extra header keeps the original
+     - a git commit without one gets a *deterministic* chid, the commit id's bytes `4..20`
+       reversed and bit-reversed (`git_backend.rs`, `synthetic_change_id_from_git_commit_id`)
      Build the fixture by importing git commits and every chid
      is reproducible with no seeding at all.
    - That function's doc says "the exact algorithm for the
@@ -467,7 +487,7 @@ Closing out the cycle.
      repo as the guinea pig was the original sketch, but its
      history grows every commit, so the goldens would churn and
      stop meaning anything. A small fixture stays stable and
-     fast; this repo can still be a manual proving ground.
+     fast, but this repo can still be a manual proving ground.
    - Read-only commands get the complementary assertion: hash
      every file under `.jj/` before and after, and record which
      ones are genuinely inert. That is the measurement the policy
@@ -476,7 +496,7 @@ Closing out the cycle.
 5. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
-   non-fast-forward merge; body-intro validation rides as
+   non-fast-forward merge, and body-intro validation rides as
    the first rung. See
    [trapezoid close-out](notes/refactor-20260716.md#stage-trapezoid-close-out)
    and
@@ -528,7 +548,7 @@ Closing out the cycle.
      shares. Cheapest to take while that path is open for another reason
    - tier 0's "values reasonable" describes a capability that does not exist: `key_known`
      compares key paths only and no value is ever inspected. Read tier 0 as "keys known" at
-     the start; value checks land later as ordinary tier-1 findings
+     the start, and value checks land later as ordinary tier-1 findings
    - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
      difference is a finding, not a fatal) or keeps its own
 7. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
@@ -582,7 +602,7 @@ Closing out the cycle.
      body drops the `ochid:` trailer unless it repeats it,
      which silently breaks the cross-repo link. vc-x1 should
      *not* inject the trailer (unlike `push`, which authors
-     the message and stamps it; here the user authors it and
+     the message and stamps it, but here the user authors it and
      the tool shouldn't rewrite their text). It should error
      when the new message loses a trailer the commit had,
      naming what would be lost, with an explicit override
@@ -611,12 +631,12 @@ Closing out the cycle.
     seed manifest.** Replace the separate
     `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
     repos with the one work-repo template, whose live
-    `.claude/` doubles as the bot-side seed source; retire
+    `.claude/` doubles as the bot-side seed source, and retire
     `vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates
     for the new layout. First up after the refactor program.
     - `--use-template` rule: explicit `CODE,BOT` copies all
       non-hidden files from BOT (unchanged, the escape
-      hatch for rich bot seeds); `CODE` alone seeds the bot
+      hatch for rich bot seeds), and `CODE` alone seeds the bot
       side from a fixed manifest (`LICENSE-*`, `README.md`)
       taken from `<CODE>/.claude/`. The `<CODE>.claude`
       sibling default is dropped.
@@ -628,7 +648,7 @@ Closing out the cycle.
     - Manifest members missing in the source are skipped, so
       a code template with no `.claude/` content yields a
       bare-but-valid bot repo (the bot template is
-      optional; init already generates the true minimum
+      optional, since init already generates the true minimum
       itself).
     - `memory/MEMORY.md` moves from copied to generated:
       it is intentionally empty (seeded only because Claude
@@ -644,12 +664,12 @@ Closing out the cycle.
     sketched in forks-multi-user.md
     [Per-user bot repos via URL-shaped ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid):
     URL-shaped trailers, plus the complementary
-    `.vc-config.toml` repo-index form; resolver dispatch is
+    `.vc-config.toml` repo-index form, and resolver dispatch is
     one rule (URL -> fetch, else workspace-relative), existing
     path-form trailers stay the backward-compatible case.
     - Cheap first rung: declare the companion's URL once in
       the committed `.vc-config.toml` (no trailer-format
-      change; any work-repo clone then knows where the bot
+      change, so any work-repo clone then knows where the bot
       repo lives). Rides naturally with the refactor
       program's facade-owns-topology stage
       (bot-repo-location config).
@@ -667,11 +687,11 @@ Closing out the cycle.
     so the landing version can't be anticipated while the
     work is underway. Pervasive version-in-text is
     therefore fragile for any non-linear / multi-contributor
-    workflow. Promoted from Ideas at 0.65.2-0; slated for
+    workflow. Promoted from Ideas at 0.65.2-0. Slated for
     the cycle after 0.65.2.
     - Live in-repo example (2026-07-24): 0.72.0 was
       pre-assigned to the trapezoid close-out cycle, which
-      paused on `support-trapezoid-commits` after `-1`; the
+      paused on `support-trapezoid-commits` after `-1`, and the
       refactor program then ran 0.73.0+ directly off the
       0.71.0 main tip, leaving 0.72.0 a permanent gap, since
       renumbering either branch would rewrite cross-linked
@@ -699,12 +719,12 @@ Closing out the cycle.
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
     and deserves an honestly-named command instead of a mode.
-    - `vc-x1 move-bookmark` (name open): no fetch; move `@`
+    - `vc-x1 move-bookmark` (name open): no fetch, and move `@`
       (and optionally the bookmark) onto a target under the
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-14. **sync follow-up: retire the hidden `--check` alias;
+14. **sync follow-up: retire the hidden `--check` alias, and
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -732,7 +752,7 @@ Closing out the cycle.
       numbered-sequence integrity, not todos specifically.
     - Generic detection: for every `#...#` section, validate the
       column-0 `^\d+\.␠` entries form a contiguous 1..N run.
-      Drops the Todo/Bugs special-casing; auto-covers
+      Drops the Todo/Bugs special-casing, and auto-covers
       `## Ideas` and any new numbered section. Keep the
       column-0 anchor so indented sub-lists aren't counted.
     - Default scope: a fixed list of sequence-managed notes
@@ -772,15 +792,15 @@ Closing out the cycle.
       Todo, a prereq) plus `validate-repo` when it exists.
       Whether push's `preflight` may run them needs a decision
       against the content-agnostic principle (they read
-      `notes/`, which is repo content; the repo-declared-checks idea
+      `notes/`, which is repo content, and the repo-declared-checks idea
       was rejected 2026-07-15 in favor of "run checks
       yourself").
     - This dissolves the docs exception: with doc validators in
       the pre-commit there's always something to validate, so
       the carve-out stops making sense.
     - Its own near-term cycle (chosen over a 0.61.1 insert to
-      avoid rewriting published 0.62.0-x history); no version
-      pre-assigned; see the Todo "Version-number protocol is
+      avoid rewriting published 0.62.0-x history). No version
+      pre-assigned. See the Todo "Version-number protocol is
       fragile" on fragile version targets.
 17. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
@@ -795,7 +815,7 @@ Closing out the cycle.
       close-out (trapezoid)" cycle, whose N-ochid stamping
       also covers a cycle held local and published all at
       once. This Todo is only the no-bot-pairings interop
-      case; the stamping step's multi-line `ochid:` emit is
+      case, and the stamping step's multi-line `ochid:` emit is
       shared groundwork.
     - Teach push to:
       - detect the shape (code WC empty, uncovered commits at
@@ -811,15 +831,15 @@ Closing out the cycle.
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
     "could, not should". Design points:
-    - locate the bot repo (`<cwd>/.claude` or config;
-      shares the lookup with the refactor program's
+    - locate the bot repo (`<cwd>/.claude` or config,
+      which shares the lookup with the refactor program's
       [facade-owns-topology stage](notes/refactor-20260716.md#stage-facade-owns-topology))
       and silently skip when absent
     - severity knob in `.vc-config.toml`
       (`warn|error|off`): unrelated commands (fix-todo)
-      warn at most; push / squash-push / validate-bot
+      warn at most, while push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-19. **CLI reference lives in `--help`; README owns concepts.**
+19. **CLI reference lives in `--help`, and README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -836,7 +856,7 @@ Closing out the cycle.
     - README keeps workflows and concepts (the dual-repo
       model, the cycle, testing recipes, worked examples)
       and points at `--help` instead of restating flag
-      tables. Delete the tables; that is the drift source.
+      tables. Delete the tables. That is the drift source.
       The `## Usage` block is the same species: its trailing
       `#` comments have drifted into three columns (40, 43,
       44) as commands were added, because the alignment is
@@ -847,13 +867,12 @@ Closing out the cycle.
       reference, not the explanations. `long_about` does
       preserve explicit newlines (0.77.0-3's push stage
       list renders as an aligned two-column list).
-    - Optional enforcement, cheapest first: assert README
-      has no flag-table rows; snapshot-test `--help` output
-      so unintended changes surface in review; or generate
-      the reference from clap and assert the committed file
-      matches. The third rhymes with "config: extract
-      flag-backed key descriptions from Clap", the same
-      single-sourcing shape.
+    - Optional enforcement, cheapest first:
+      - assert README has no flag-table rows
+      - snapshot-test `--help` output so unintended changes surface in review
+      - generate the reference from clap and assert the committed file matches. The third
+        rhymes with "config: extract flag-backed key descriptions from Clap", the same
+        single-sourcing shape.
     - Sweep each section against `vc-x1 <cmd> -h`.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
@@ -875,13 +894,17 @@ Closing out the cycle.
       rework of the 0.71.0-9 rendering.
 21. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
-    user's file automatically; report that the line is no longer needed and leave the
-    removal to them (which surface runs the check is TBD; `config --validate` and the
+    user's file automatically. Report that the line is no longer needed and leave the
+    removal to them (which surface runs the check is TBD, and `config --validate` and the
     proposed `validate-repo` are the candidates). Separately, any `revert` reintroduction first
     needs the op-log-derived design: identifiable sync operations, target the parent of the
     run's earliest op, preview and confirm, refuse on intervening non-sync operations.
     Background in
     [chores-16](notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert).
+22. **`vc-x1 validate --full`: accept the default by name.** (wink, 2026-08-21) `full` is the
+    `[validate]` table `vc-x1 validate` runs and `--fast` names the other, so `--full` should be
+    accepted too, unnecessary but allowed, so a reader of a command sees which table ran.
+
 ## Ideas
 
  Items not yet solid enough for `## Todo` (or surfaced
@@ -896,18 +919,18 @@ Closing out the cycle.
    to *surface* that link: view history with the
    conversation and the code side by side, giving provenance, the
    *why* of a change, not just the *what*. The dual-repo +
-   `ochid` design is already the substrate; the cross-links
+   `ochid` design is already the substrate, and the cross-links
    make code↔conversation navigable, so the viewer is UI
    over an already-solved data link.
    - Build direction: keep resolution/assembly in `vc`, an
      editor-agnostic Rust engine/lib extending the
      `show` / `chid` / `desc` family ("given a commit,
      resolve its ochid and assemble the paired diff +
-     conversation slice"); the editor add-on is a thin
+     conversation slice"), and the editor add-on is a thin
      presentation layer over it.
    - Front-end leans a Zed add-on (Rust, preferred), maybe
      VSCode / other. Verify Zed's extension API can host a
-     rich side-by-side panel before committing; an
+     rich side-by-side panel before committing, and an
      editor-agnostic core hedges the bet.
    - `vc-x2`? A rewrite is unwarranted: the audit's
      Commonality pass found the architecture sound (por is
@@ -923,19 +946,19 @@ Closing out the cycle.
    0.63.0).** `por-dual-parity-audit.md` (~1200 lines)
    fuses a *frozen* audit (the `## 1`-`## 8` snapshot
    evidence) with a *living* design (axes, decisions,
-   matrix, gap list); the "audit" name undersells it and
+   matrix, gap list). The "audit" name undersells it and
    the halves have different lifecycles. And
    `por-dual-parity.md` (the stub) overlaps on parity but
    uniquely holds the `por ↔ dual` conversion design.
    - Split the audit doc into a frozen audit snapshot + a
-     living design doc (names TBD; could reclaim
+     living design doc (names TBD, and could reclaim
      `por-dual-parity.md` for the design).
    - Refocus the stub to conversion-only and rename (e.g.
-     `por-dual-conversion.md`); drop its redundant parity
+     `por-dual-conversion.md`), and drop its redundant parity
      half.
    - Repoint refs (`todo.md` `[1]` + the `por -> dual` Todo,
      `copying.md`, the audit's internal anchors + Reading
-     guide) and validate; `chores-10/11/12` mentions are
+     guide) and validate. `chores-10/11/12` mentions are
      historical and stay.
    - Promote the Gap-list items to anchored
      `#### Gap N: <title>` sub-headings so cross-cycle
@@ -959,7 +982,7 @@ Closing out the cycle.
    to the narrative too (the session owns it). Chores
    collapses to an index into the session.
    - The `ochid:` trailer links a work commit to a session
-     *commit*; the index adds within-session granularity:
+     *commit*, and the index adds within-session granularity:
      which conversation span produced the commit, where the
      design argument happened. We think it can be generated
      (the transcript records when pushes happen), making it
@@ -970,7 +993,7 @@ Closing out the cycle.
      into, so live design references keep pointing at
      curated docs, not per-cycle narrative sections.
    - The template side already points this way: chores
-     files are not seeded; a new project's history is its
+     files are not seeded, and a new project's history is its
      own commits + bot session from day one.
 
 ## Bugs

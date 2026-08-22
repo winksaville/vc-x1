@@ -164,7 +164,7 @@ header, the Done entry, and the bookmark all derive from one bare title):
   disposal for the long-lived case below.
 
 **Reshape**, while the bookmark is a draft
-([Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)):
+([Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 
 - **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
   `jj describe`, so hard rule 4 stays intact.
@@ -191,7 +191,7 @@ only holder.
 
 The contrast with a cycle bookmark is the whole point: that one is a draft and may be rewritten
 freely until it lands (see
-[Topic bookmarks are drafts](../AGENTS.md#topic-bookmarks-are-drafts)), this one is
+[Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark)), this one is
 published and may not. Refined 2026-08-03 from the earlier "treated as permanent, never rebased"
 wording, after a fully merged long-lived bookmark was deleted without loss.
 
