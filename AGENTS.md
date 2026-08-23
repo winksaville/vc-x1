@@ -51,7 +51,12 @@ anything `custom.md` points at ([Changing the agent-files](#changing-the-agent-f
 Project layer: the project's own agent-files.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
-`vc-x1 push` ([Cycle protocol](#cycle-protocol)). A cycle is single-step or multi-step.
+`vc-x1 push` ([Cycle protocol](#cycle-protocol)). A cycle is single-step or multi-step:
+single-step when the problem statement has one straightforward solution step, its documentation
+riding in the same commit, otherwise assume multi-step. Development runs on the bookmark under
+the dev name either way, so a single-step cycle grows a ladder at no cost, and the squash
+close-out shape collapses a multi-step one to one commit
+([why](agent-data/rationale.md#terminology)).
 
 Rationale: a rule's why: why it exists, what it cost to learn, what the alternatives were. It lives
 in [rationale.md](agent-data/rationale.md) under the heading that mirrors the rule's here, reached
@@ -78,7 +83,8 @@ title's slug ([Markdown anchor links](agent-data/notes.md#markdown-anchor-links)
 only when the finished cycle lands on it ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)).
 The agent repo needs no bookmark. The bookmark is the unit of review: until it lands the line is a
 draft ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)), and landing is the one approval
-that makes the cycle permanent. A single-step cycle still gets one. Commands are in
+that makes the cycle permanent. A single-step cycle still gets one: development is not done on
+`main`, and a one-line fix reaches it by landing a bookmark like any other cycle. Commands are in
 [Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), and a long-lived program
 bookmark is governed by [Long-lived bookmarks][llb].
 

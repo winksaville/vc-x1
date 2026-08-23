@@ -223,8 +223,8 @@ reshaped commit.
 ```
 
 - `<base>`: the **parent of the ladder's first rung**, the trunk position when the cycle
-  opened. It becomes the first parent. Not always the previous close-out: a docs interlude
-  between cycles sits on the trunk line and must stay there.
+  opened. It becomes the first parent. Not always the previous close-out: a cycle landed
+  linearly since (squash or keep-separate shape) sits on the trunk line and must stay there.
 - `<tip>`: the cycle's last commit before the close-out. It becomes the second parent.
 - `<closeout>`: the close-out commit, created by step 1.
 

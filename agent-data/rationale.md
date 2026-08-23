@@ -39,6 +39,15 @@ would change the rule needs the argument, and a rule whose cost is not written d
 an editor simplifies away. Filed as the Todo "Halve AGENTS.md: move its rationale into
 `agent-data/rationale.md`" (wink, 2026-08-21).
 
+**Single-step or multi-step.** The default is multi-step because the two are asymmetric only
+in cost, never in possibility: a multi-step cycle collapses to one commit at close-out by the
+squash shape, and a single-step cycle grows a ladder because nothing is committed before its
+push and the bookmark stays mutable after it. What multi-step pays is a review stop per rung,
+so the rule names the one shape where that cost buys nothing: one straightforward solution
+step, documentation alongside. The first draft said "touches code and docs" and sorted by file
+type, which is the wrong axis. The question is whether an intermediate state has to be built
+and exercised before the next step makes sense (wink, 2026-08-22).
+
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`.
 "Instruction files", which named the agent-files back when `custom.md` was the only editable
 one. "Ladder (sub-cycle)" for a local ladder, under [Local ladders](#local-ladders).
@@ -66,7 +75,10 @@ keeps the edit list out of the commit body, notes.md's
 A cycle that pushes `main` directly makes every correction a coordinated force-push of
 published history. Landing costs one command and buys free rewrites for the whole cycle. A
 single-step cycle gets a bookmark for the same reason: a one-commit line is exactly where a
-pre-landing rewrite is cheapest.
+pre-landing rewrite is cheapest. "Development is not done on `main`" is stated outright because
+the trapezoid recipe once allowed "a docs interlude between cycles" on the trunk line, and five
+docs commits went to `main` that way before a sixth was caught mid-draft and run as a cycle
+(2026-08-22). The owners will sometimes cheat, and the rule is still the rule.
 
 Pushing to the bookmark makes the work durable and visible, but landing on `main` is
 publication, and that is the line the rules divide at. The series is kept self-consistent
