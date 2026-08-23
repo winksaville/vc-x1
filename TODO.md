@@ -48,7 +48,100 @@ which numbered Todo entries can't). Full rules in
 [Opening](AGENTS.md#opening), and the move's four transforms are in
 [Chores sections](AGENTS.md#chores-sections).
 
-_No cycle currently in progress._
+### docs: fix dev artifacts
+
+#### Problem
+
+The agent-files leave five cycle-protocol gaps that this cycle met in one sitting, each a rule
+the tightening either never placed or left one link short.
+
+* The single-name convention says a cycle builds as `vc-x1-dev` and `main` as `vc-x1`, but no
+  agent-file places the rename at a cycle beat, and two closings landed still named
+  `vc-x1-dev`.
+* The close-out shape list lost its link to the trapezoid recipe in the tightening, and the
+  shapes read in a different order in AGENTS.md and jj.md.
+* The per-rung flow's describe step reaches the commit-body form only at one remove, which let
+  a description get drafted in the retired two-paragraph form.
+* The Cycle term names single-step and multi-step without saying how to choose, which is how
+  this cycle began as edits on `main`.
+* The commit-body form lets a top-level `-` stand with no `*` above it, which reads as a
+  solution to nothing, and it says nothing about a bookend commit, whose body has no problem
+  to state.
+
+#### Solution
+
+Name the rename as an Opening step of its own and the restore as a step of the trapezoid
+recipe, relink the recipe from the close-out shape list, cue the commit-body form at the
+describe step, say when a cycle is single-step or multi-step, and tighten the commit-body
+form so every solution sits under a problem and a bookend body is a pointer to the record.
+
+#### Acceptance check
+
+- `grep -n '^name = ' Cargo.toml` reads `vc-x1-dev` on every rung of the bookmark and `vc-x1`
+  on the landed close-out
+- AGENTS.md's Opening lists Sweep, Bump, Rename as steps 4-6, and the trapezoid recipe's step 2
+  restores the name
+- every link added resolves: Close-out step 5 to the recipe, Opening step 6 and recipe step 2
+  to versioning.md's dev artifact name
+- `rg ';' AGENTS.md custom.md agent-data/jj.md` finds semicolons only inside code spans
+
+#### Ladder
+
+- [[N]] [docs: fix dev artifacts opening][60] (done)
+- [[N]] [docs: rename at the opening and restore in the trapezoid recipe][61]
+- [[N]] [docs: cue the commit-body form at the describe step][62]
+- [[N]] [docs: say when a cycle is single-step or multi-step][63]
+- [[N]] [docs: label the commit-body form][65]
+- [[N]] [docs: fix dev artifacts closing][64]
+
+#### Deliberation
+
+The work began as uncommitted edits on `main`, reviewed as a docs interlude, and the Opening
+ran only after wink named the miss: the recipe's "docs interlude" sentence reads as a waiver
+of hard rule 13, and it is not one. The edits were parked and the Opening run in full, the
+parked edits becoming the rungs. The bookmark is `fix-dev-artifacts`, wink's name, rather than
+the title's slug, a scoped exception granted at the opening. A patch bump: agent-file rules
+only, no change to the tool.
+
+#### Ladder details
+
+##### docs: fix dev artifacts opening
+
+The ten rungs of the halve cycle were unfilled and are backfilled, the 0.80.0 Done entry is
+swept to done.md, and the manifest takes the opening's version under the dev name, the first
+opening to do so by rule.
+
+##### docs: rename at the opening and restore in the trapezoid recipe
+
+The Opening's sweep-and-bump step splits into Sweep, Bump, and Rename, the recipe gains a
+step that restores the plain name and squashes it into the close-out commit before the
+reshape, and custom.md's single-name paragraph points at that step. The close-out shape list
+links the recipe again, with the three shapes in the same order in AGENTS.md and jj.md, and
+two semicolons in the first draft of these edits are reworded.
+
+##### docs: cue the commit-body form at the describe step
+
+Per-rung step 7 names the body's markers inline, so the shape is in front of the writer at the
+moment of writing rather than two links away.
+
+##### docs: say when a cycle is single-step or multi-step
+
+The Cycle term gains the choice: single-step when the problem has one straightforward solution
+step with its documentation in the same commit, otherwise multi-step, since development runs
+on the bookmark under the dev name either way. "Cycles run on a bookmark" states that
+development is not done on `main`, and the recipe's docs-interlude sentence is reworded to
+match.
+
+##### docs: label the commit-body form
+
+Every `-` sits under a `*`, the trivial commit being one of each, so a body reads the same
+with or without the rule open. The intro states the problem this commit resolves, never the
+cycle's, and a bookend commit's body is an intro paragraph naming the cycle and pointing at
+its record, since an opening or closing resolves nothing of its own.
+
+##### docs: fix dev artifacts closing
+
+Closing out the cycle.
 
 ## Todo
 
@@ -783,19 +876,8 @@ cycle and its two docs interludes: template repo names, notes rework)._
     AGENTS.md and the sync they asked for is the convergence model, and files the backlog
     entry "Sweep the Todo files for pre-0.80 names and retired conventions"
 
-- 0.80.0 **docs: empty custom-family into the pinned set and config** [[58]]
-  - the agent side is `agent` in config (`repos.agent`, `[agent-session]`), on the CLI
-    (`--scope=agent`, `agent-session`, `validate-agent`), and in the schema's homes, the old
-    spellings rejected with fix-its
-  - the family facts and the validation commands moved from `custom-family.md` into
-    work-side `[family]` and `[validate]` tables, the latter a new `str-list` kind the TOML
-    reader learned arrays for
-  - `vc-x1 validate [--fast]` runs the configured table, one invocation per element,
-    stopping at the first failure, and the pinned checklists name it
-  - the messaging behavior is pinned in `agent-data/messaging.md`, `custom.md` holds the
-    medium prose alone, and `custom-family.md` is gone
-  - a breaking config change for the family: install 0.80.0 first, then respell, since a
-    0.79.x binary reads a respelled config as single-repo, silently
+_Migrated to [done.md](notes/done.md) on 2026-08-22 (the 0.80.0 entry: empty
+custom-family into the pinned set and config)._
 
 _Migrated to [done.md](notes/done.md) on 2026-08-21 (the 0.79.x pair: retire the remaining jj spawns,
 pin two rules and close the convergence record)._
@@ -821,5 +903,10 @@ hygiene-riders and facade-owns-topology cycles)._
 
 [5]: /notes/forks-multi-user.md
 [29]: /notes/chores/chores-17.md#docs-fold-the-cycle-agent-files-into-agentsmd
-[58]: /notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config
 [59]: /notes/chores/chores-17.md#docs-halve-agentsmd-into-rationalemd
+[60]: #docs-fix-dev-artifacts-opening
+[61]: #docs-rename-at-the-opening-and-restore-in-the-trapezoid-recipe
+[62]: #docs-cue-the-commit-body-form-at-the-describe-step
+[63]: #docs-say-when-a-cycle-is-single-step-or-multi-step
+[64]: #docs-fix-dev-artifacts-closing
+[65]: #docs-label-the-commit-body-form

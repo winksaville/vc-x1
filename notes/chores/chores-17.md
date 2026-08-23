@@ -801,16 +801,16 @@ Run at close-out, 2026-08-22:
 
 ### Ladder
 
-- [[N]] [docs: halve AGENTS.md into rationale.md opening][43]
-- [[N]] [docs: make backfill the opening's first step][48]
-- [[N]] [docs: seed rationale.md and the Rationale term][44]
-- [[N]] [docs: move the cycle protocol's why into rationale.md][45]
-- [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][46]
-- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][50]
-- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][49]
-- [[N]] [docs: tighten AGENTS.md's prose][51]
-- [[N]] [docs: Winks AGENTS.md's tightening][52]
-- [[N]] [docs: halve AGENTS.md into rationale.md closing][47]
+- [[53]] 0.80.2-0 [docs: halve AGENTS.md into rationale.md opening][43]
+- [[54]] 0.80.2-1 [docs: make backfill the opening's first step][48]
+- [[55]] 0.80.2-2 [docs: seed rationale.md and the Rationale term][44]
+- [[56]] 0.80.2-3 [docs: move the cycle protocol's why into rationale.md][45]
+- [[57]] 0.80.2-4 [docs: move the rest of AGENTS.md's why into rationale.md][46]
+- [[58]] 0.80.2-5 [docs: point AGENTS.md's restated mechanics at the satellites][50]
+- [[59]] 0.80.2-6 [docs: label-colon form for AGENTS.md's lists and rules][49]
+- [[60]] 0.80.2-7 [docs: tighten AGENTS.md's prose][51]
+- [[61]] 0.80.2-8 [docs: Winks AGENTS.md's tightening][52]
+- [[62]] 0.80.2 [docs: halve AGENTS.md into rationale.md closing][47]
 
 ### Deliberation
 
@@ -1081,3 +1081,13 @@ name now lives in custom.md's single-name convention.
 [50]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
 [51]: #docs-tighten-agentsmds-prose
 [52]: #docs-winks-agentsmds-tightening
+[53]: https://github.com/winksaville/vc-x1/commit/3ee0b5c494a1 "3ee0b5c494a1111ec1a2cf0a721e4969cf480f6a"
+[54]: https://github.com/winksaville/vc-x1/commit/232f3740cb36 "232f3740cb3632e3b1b44506382aaa912e7ba7ab"
+[55]: https://github.com/winksaville/vc-x1/commit/a29f17baa4ab "a29f17baa4ab33e45fe3e530d78c1379b9f77af2"
+[56]: https://github.com/winksaville/vc-x1/commit/157ef9c6f685 "157ef9c6f6855de9142d79002c049daea391214c"
+[57]: https://github.com/winksaville/vc-x1/commit/1b5891c6480b "1b5891c6480b08d5889dec83802941b0ecee9013"
+[58]: https://github.com/winksaville/vc-x1/commit/9da942d9352d "9da942d9352d751b5bceb1f311a746d951663d3c"
+[59]: https://github.com/winksaville/vc-x1/commit/4fbfadf870d1 "4fbfadf870d126e22fe07f608c54e18c7ad757bf"
+[60]: https://github.com/winksaville/vc-x1/commit/fc0cdd4917f5 "fc0cdd4917f5a41b859cc8b8c7719c7d32322a1d"
+[61]: https://github.com/winksaville/vc-x1/commit/1b0827688e1a "1b0827688e1ac12a078aeb8f088474c140eb9e83"
+[62]: https://github.com/winksaville/vc-x1/commit/4a530f43ca87 "4a530f43ca8724e74961e27cb391ed28003b4b2c"

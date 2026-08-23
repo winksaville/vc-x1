@@ -397,6 +397,20 @@ As TODO.md `## Done` sections fills move them to here.
   - both entries retired from `custom-family.md`'s experimental section and the dogfood log,
     the diff against the payload now carrying them to the family
 
+- 0.80.0 **docs: empty custom-family into the pinned set and config** [[58]]
+  - the agent side is `agent` in config (`repos.agent`, `[agent-session]`), on the CLI
+    (`--scope=agent`, `agent-session`, `validate-agent`), and in the schema's homes, the old
+    spellings rejected with fix-its
+  - the family facts and the validation commands moved from `custom-family.md` into
+    work-side `[family]` and `[validate]` tables, the latter a new `str-list` kind the TOML
+    reader learned arrays for
+  - `vc-x1 validate [--fast]` runs the configured table, one invocation per element,
+    stopping at the first failure, and the pinned checklists name it
+  - the messaging behavior is pinned in `agent-data/messaging.md`, `custom.md` holds the
+    medium prose alone, and `custom-family.md` is gone
+  - a breaking config change for the family: install 0.80.0 first, then respell, since a
+    0.79.x binary reads a respelled config as single-repo, silently
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -533,3 +547,4 @@ As TODO.md `## Done` sections fills move them to here.
 [149]: /notes/chores/chores-17.md#docs-pin-two-rules-and-close-the-convergence-record
 [150]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
 [152]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns
+[58]: /notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config
