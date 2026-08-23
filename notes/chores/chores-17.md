@@ -15,6 +15,7 @@ at `[1]`.
 - [docs: empty custom-family into the pinned set and config](#docs-empty-custom-family-into-the-pinned-set-and-config)
 - [docs: fold the cycle agent-files into AGENTS.md](#docs-fold-the-cycle-agent-files-into-agentsmd)
 - [docs: halve AGENTS.md into rationale.md](#docs-halve-agentsmd-into-rationalemd)
+- [docs: fix dev artifacts](#docs-fix-dev-artifacts)
 
 ## refactor: retire the remaining jj spawns
 
@@ -801,16 +802,16 @@ Run at close-out, 2026-08-22:
 
 ### Ladder
 
-- [[N]] [docs: halve AGENTS.md into rationale.md opening][43]
-- [[N]] [docs: make backfill the opening's first step][48]
-- [[N]] [docs: seed rationale.md and the Rationale term][44]
-- [[N]] [docs: move the cycle protocol's why into rationale.md][45]
-- [[N]] [docs: move the rest of AGENTS.md's why into rationale.md][46]
-- [[N]] [docs: point AGENTS.md's restated mechanics at the satellites][50]
-- [[N]] [docs: label-colon form for AGENTS.md's lists and rules][49]
-- [[N]] [docs: tighten AGENTS.md's prose][51]
-- [[N]] [docs: Winks AGENTS.md's tightening][52]
-- [[N]] [docs: halve AGENTS.md into rationale.md closing][47]
+- [[53]] 0.80.2-0 [docs: halve AGENTS.md into rationale.md opening][43]
+- [[54]] 0.80.2-1 [docs: make backfill the opening's first step][48]
+- [[55]] 0.80.2-2 [docs: seed rationale.md and the Rationale term][44]
+- [[56]] 0.80.2-3 [docs: move the cycle protocol's why into rationale.md][45]
+- [[57]] 0.80.2-4 [docs: move the rest of AGENTS.md's why into rationale.md][46]
+- [[58]] 0.80.2-5 [docs: point AGENTS.md's restated mechanics at the satellites][50]
+- [[59]] 0.80.2-6 [docs: label-colon form for AGENTS.md's lists and rules][49]
+- [[60]] 0.80.2-7 [docs: tighten AGENTS.md's prose][51]
+- [[61]] 0.80.2-8 [docs: Winks AGENTS.md's tightening][52]
+- [[62]] 0.80.2 [docs: halve AGENTS.md into rationale.md closing][47]
 
 ### Deliberation
 
@@ -1027,6 +1028,118 @@ the landed closing and `main` force-pushed, at wink's direction, for a clean his
 0.80.1 closing had missed the same flip. The rule that the closing's bump restores the stable
 name now lives in custom.md's single-name convention.
 
+## docs: fix dev artifacts
+
+### Problem
+
+The agent-files leave six cycle-protocol gaps that this cycle met in one sitting, each a rule
+the tightening either never placed or left one link short.
+
+* The single-name convention says a cycle builds as `vc-x1-dev` and `main` as `vc-x1`, but no
+  agent-file places the rename at a cycle beat, and two closings landed still named
+  `vc-x1-dev`.
+* The close-out shape list lost its link to the trapezoid recipe in the tightening, and the
+  shapes read in a different order in AGENTS.md and jj.md.
+* The per-rung flow's describe step reaches the commit-body form only at one remove, which let
+  a description get drafted in the retired two-paragraph form.
+* The Cycle term names single-step and multi-step without saying how to choose, which is how
+  this cycle began as edits on `main`.
+* The commit-body form lets a top-level `-` stand with no `*` above it, which reads as a
+  solution to nothing, and it says nothing about a bookend commit, whose body has no problem
+  to state.
+* Close-out shapes names the three shapes without saying how to look at the net change before
+  choosing one.
+
+### Solution
+
+The rename is named as an Opening step of its own and the restore as a step of the trapezoid
+recipe, the recipe is relinked from the close-out shape list, the commit-body form is cued at
+the describe step, the Cycle term says when a cycle is single-step or multi-step, the
+commit-body form pairs every solution under a problem and makes a bookend body a pointer to
+the record, and Close-out shapes says how to preview a squash before choosing.
+
+### Acceptance check
+
+- `grep -n '^name = ' Cargo.toml` reads `vc-x1-dev` on every rung of the bookmark and `vc-x1`
+  on the landed close-out
+- AGENTS.md's Opening lists Sweep, Bump, Rename as steps 4-6, and the trapezoid recipe's step 2
+  restores the name
+- every link added resolves: Close-out step 5 to the recipe, Opening step 6 and recipe step 2
+  to versioning.md's dev artifact name
+- `rg ';' AGENTS.md custom.md agent-data/jj.md` finds semicolons only inside code spans
+
+### Ladder
+
+- [[N]] [docs: fix dev artifacts opening][63]
+- [[N]] [docs: rename at the opening and restore in the trapezoid recipe][64]
+- [[N]] [docs: cue the commit-body form at the describe step][65]
+- [[N]] [docs: say when a cycle is single-step or multi-step][66]
+- [[N]] [docs: label the commit-body form][67]
+- [[N]] [docs: preview a squash before choosing the close-out shape][68]
+- [[N]] [docs: fix dev artifacts closing][69]
+
+### Deliberation
+
+The work began as uncommitted edits on `main`, reviewed as a docs interlude, and the Opening
+ran only after wink named the miss: the recipe's "docs interlude" sentence reads as a waiver
+of hard rule 13, and it is not one. The edits were parked and the Opening run in full, the
+parked edits becoming the rungs. The bookmark is `fix-dev-artifacts`, wink's name, rather than
+the title's slug, a scoped exception granted at the opening. A patch bump: agent-file rules
+only, no change to the tool.
+
+### Ladder details
+
+#### docs: fix dev artifacts opening
+
+The ten rungs of the halve cycle were unfilled and are backfilled, the 0.80.0 Done entry is
+swept to done.md, and the manifest takes the opening's version under the dev name, the first
+opening to do so by rule.
+
+#### docs: rename at the opening and restore in the trapezoid recipe
+
+The Opening's sweep-and-bump step splits into Sweep, Bump, and Rename, the recipe gains a
+step that restores the plain name and squashes it into the close-out commit before the
+reshape, and custom.md's single-name paragraph points at that step. The close-out shape list
+links the recipe again, with the three shapes in the same order in AGENTS.md and jj.md, and
+two semicolons in the first draft of these edits are reworded.
+
+#### docs: cue the commit-body form at the describe step
+
+Per-rung step 7 names the body's markers inline, so the shape is in front of the writer at the
+moment of writing rather than two links away.
+
+#### docs: say when a cycle is single-step or multi-step
+
+The Cycle term gains the choice: single-step when the problem has one straightforward solution
+step with its documentation in the same commit, otherwise multi-step, since development runs
+on the bookmark under the dev name either way. "Cycles run on a bookmark" states that
+development is not done on `main`, and the recipe's docs-interlude sentence is reworded to
+match.
+
+#### docs: label the commit-body form
+
+Every `-` sits under a `*`, the trivial commit being one of each, so a body reads the same
+with or without the rule open. The intro states the problem this commit resolves, never the
+cycle's, and a bookend commit's body is an intro paragraph naming the cycle and pointing at
+its record, since an opening or closing resolves nothing of its own.
+
+#### docs: preview a squash before choosing the close-out shape
+
+Close-out shapes says how to see what a squash would carry: diff `<base>` to the tip, at full
+context to read the result rather than the edit, the same view `git log --first-parent` gives
+a trapezoid once landed. The decision is then made on what `main` will carry.
+
+#### docs: fix dev artifacts closing
+
+Problem: the acceptance check's first line, `vc-x1-dev` on every rung of the bookmark, was
+the cycle's own rule exercised for the first time, and the check's last line, the plain name
+on the landed close-out, could only be met by the recipe's new step 2 running as written.
+Solution: all four checks passed at the closing, the six bookmark commits all carrying the dev
+name, and the restore ran as the recipe's step 2 between the close-out push and the reshape.
+What closing taught: the close-out bump sets the bare version under the dev name still, which
+the `build.rs` guard allows, so the version and the name change in different commits by
+design. The 41 MB TODO.md (an unbounded `str.index` slice replaced as an empty string) cost a
+zed restart and taught one script rule: bound every slice and assert it non-empty.
 # References
 
 [1]: #refactor-retire-the-remaining-jj-spawns-opening
@@ -1081,3 +1194,20 @@ name now lives in custom.md's single-name convention.
 [50]: #docs-point-agentsmds-restated-mechanics-at-the-satellites
 [51]: #docs-tighten-agentsmds-prose
 [52]: #docs-winks-agentsmds-tightening
+[53]: https://github.com/winksaville/vc-x1/commit/3ee0b5c494a1 "3ee0b5c494a1111ec1a2cf0a721e4969cf480f6a"
+[54]: https://github.com/winksaville/vc-x1/commit/232f3740cb36 "232f3740cb3632e3b1b44506382aaa912e7ba7ab"
+[55]: https://github.com/winksaville/vc-x1/commit/a29f17baa4ab "a29f17baa4ab33e45fe3e530d78c1379b9f77af2"
+[56]: https://github.com/winksaville/vc-x1/commit/157ef9c6f685 "157ef9c6f6855de9142d79002c049daea391214c"
+[57]: https://github.com/winksaville/vc-x1/commit/1b5891c6480b "1b5891c6480b08d5889dec83802941b0ecee9013"
+[58]: https://github.com/winksaville/vc-x1/commit/9da942d9352d "9da942d9352d751b5bceb1f311a746d951663d3c"
+[59]: https://github.com/winksaville/vc-x1/commit/4fbfadf870d1 "4fbfadf870d126e22fe07f608c54e18c7ad757bf"
+[60]: https://github.com/winksaville/vc-x1/commit/fc0cdd4917f5 "fc0cdd4917f5a41b859cc8b8c7719c7d32322a1d"
+[61]: https://github.com/winksaville/vc-x1/commit/1b0827688e1a "1b0827688e1ac12a078aeb8f088474c140eb9e83"
+[62]: https://github.com/winksaville/vc-x1/commit/4a530f43ca87 "4a530f43ca8724e74961e27cb391ed28003b4b2c"
+[63]: #docs-fix-dev-artifacts-opening
+[64]: #docs-rename-at-the-opening-and-restore-in-the-trapezoid-recipe
+[65]: #docs-cue-the-commit-body-form-at-the-describe-step
+[66]: #docs-say-when-a-cycle-is-single-step-or-multi-step
+[67]: #docs-label-the-commit-body-form
+[68]: #docs-preview-a-squash-before-choosing-the-close-out-shape
+[69]: #docs-fix-dev-artifacts-closing

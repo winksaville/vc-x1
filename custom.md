@@ -22,8 +22,11 @@ name, `vc-x1` on `main`, with per-line dev names on long-lived branches, guarded
 on every cargo verb. This is the project's answer to versioning.md's
 [Dev artifact name](agent-data/versioning.md#dev-artifact-name): the repo is striving to
 release, so `main` builds install as plain `vc-x1`. The opening's bump sets the dev name with
-the suffixed version, and the closing's bump restores `vc-x1` with the bare one (missed at two
-closings before this line was written, 2026-08-22).
+the suffixed version, and the closing's bump sets the bare one under the dev name still. The
+name itself is restored to `vc-x1` at the trapezoid recipe's step 2
+([Trapezoid close-out recipe](agent-data/jj.md#trapezoid-close-out-recipe)), so the bookmark
+stays `vc-x1-dev` until it is reshaped for landing (the restore was missed at two closings
+before this line was written, 2026-08-22).
 
 ## Project conventions and overrides
 

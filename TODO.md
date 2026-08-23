@@ -758,6 +758,15 @@ and older `## Done` sections are moved to [done.md](notes/done.md) to keep this 
 _Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
 cycle and its two docs interludes: template repo names, notes rework)._
 
+- 0.80.3 **docs: fix dev artifacts** [[60]]
+  - the dev-name rename is the Opening's own step and the trapezoid recipe restores the plain
+    name before the reshape, so a bookmark builds as `vc-x1-dev` and `main` as `vc-x1` by rule
+  - the Cycle term says when a cycle is single-step or multi-step, and development is not done
+    on `main`
+  - the commit-body form pairs every `-` under a `*`, scopes the intro to this commit, and
+    makes a bookend body a pointer, with the form cued at the describe step
+  - Close-out shapes says how to preview a squash before choosing
+
 - 0.80.2 **docs: halve AGENTS.md into rationale.md** [[59]]
   - AGENTS.md 593 to 340 lines: the why in the new pinned `agent-data/rationale.md`, headings
     mirroring AGENTS.md's, the restated mechanics in the satellites that own them, the rule
@@ -783,19 +792,8 @@ cycle and its two docs interludes: template repo names, notes rework)._
     AGENTS.md and the sync they asked for is the convergence model, and files the backlog
     entry "Sweep the Todo files for pre-0.80 names and retired conventions"
 
-- 0.80.0 **docs: empty custom-family into the pinned set and config** [[58]]
-  - the agent side is `agent` in config (`repos.agent`, `[agent-session]`), on the CLI
-    (`--scope=agent`, `agent-session`, `validate-agent`), and in the schema's homes, the old
-    spellings rejected with fix-its
-  - the family facts and the validation commands moved from `custom-family.md` into
-    work-side `[family]` and `[validate]` tables, the latter a new `str-list` kind the TOML
-    reader learned arrays for
-  - `vc-x1 validate [--fast]` runs the configured table, one invocation per element,
-    stopping at the first failure, and the pinned checklists name it
-  - the messaging behavior is pinned in `agent-data/messaging.md`, `custom.md` holds the
-    medium prose alone, and `custom-family.md` is gone
-  - a breaking config change for the family: install 0.80.0 first, then respell, since a
-    0.79.x binary reads a respelled config as single-repo, silently
+_Migrated to [done.md](notes/done.md) on 2026-08-22 (the 0.80.0 entry: empty
+custom-family into the pinned set and config)._
 
 _Migrated to [done.md](notes/done.md) on 2026-08-21 (the 0.79.x pair: retire the remaining jj spawns,
 pin two rules and close the convergence record)._
@@ -821,5 +819,5 @@ hygiene-riders and facade-owns-topology cycles)._
 
 [5]: /notes/forks-multi-user.md
 [29]: /notes/chores/chores-17.md#docs-fold-the-cycle-agent-files-into-agentsmd
-[58]: /notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config
 [59]: /notes/chores/chores-17.md#docs-halve-agentsmd-into-rationalemd
+[60]: /notes/chores/chores-17.md#docs-fix-dev-artifacts

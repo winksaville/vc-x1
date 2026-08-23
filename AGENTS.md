@@ -51,7 +51,12 @@ anything `custom.md` points at ([Changing the agent-files](#changing-the-agent-f
 Project layer: the project's own agent-files.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
-`vc-x1 push` ([Cycle protocol](#cycle-protocol)). A cycle is single-step or multi-step.
+`vc-x1 push` ([Cycle protocol](#cycle-protocol)). A cycle is single-step or multi-step:
+single-step when the problem statement has one straightforward solution step, its documentation
+riding in the same commit, otherwise assume multi-step. Development runs on the bookmark under
+the dev name either way, so a single-step cycle grows a ladder at no cost, and the squash
+close-out shape collapses a multi-step one to one commit
+([why](agent-data/rationale.md#terminology)).
 
 Rationale: a rule's why: why it exists, what it cost to learn, what the alternatives were. It lives
 in [rationale.md](agent-data/rationale.md) under the heading that mirrors the rule's here, reached
@@ -78,7 +83,8 @@ title's slug ([Markdown anchor links](agent-data/notes.md#markdown-anchor-links)
 only when the finished cycle lands on it ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)).
 The agent repo needs no bookmark. The bookmark is the unit of review: until it lands the line is a
 draft ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)), and landing is the one approval
-that makes the cycle permanent. A single-step cycle still gets one. Commands are in
+that makes the cycle permanent. A single-step cycle still gets one: development is not done on
+`main`, and a one-line fix reaches it by landing a bookmark like any other cycle. Commands are in
 [Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), and a long-lived program
 bookmark is governed by [Long-lived bookmarks][llb].
 
@@ -94,8 +100,12 @@ then carries step 1). Before that commit ([why](agent-data/rationale.md#opening)
 3. In Progress block: move every line of the chosen `## Todo` entry into the
    [In Progress block](agent-data/notes.md#the-in-progress-block) and shape it as that section
    says.
-4. Sweep and bump: sweep `## Done` ([Retiring Done entries][rde]), then bump the version-of-record
-   to the opening's version ([versioning.md](agent-data/versioning.md#suffix-scheme)).
+4. Sweep: sweep `## Done` ([Retiring Done entries][rde]).
+5. Bump: bump the version-of-record to the opening's version
+   ([versioning.md](agent-data/versioning.md#suffix-scheme)).
+6. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev`
+   ([dev artifact name](agent-data/versioning.md#dev-artifact-name)). The trapezoid recipe's
+   step 2 restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's
 bookend commits are the cycle title plus " opening" and " closing" ([Cycle bookend titles][cbt]).
@@ -120,7 +130,10 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    "go" or equivalent. The review is of the uncommitted working-copy diff (viewing commands in
    [jj basics](agent-data/jj.md#jj-basics)).
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
-   description ([Commit description](#commit-description)).
+   description ([Commit description](#commit-description)) in
+   [Commit-body form](agent-data/prose.md#commit-body-form): an intro stating this commit's
+   problem, `*` for each problem, `-` under it for each solution, a bookend's body the intro
+   alone, read from the file first.
 8. Description review: show the title + body and stop. Ask permission to commit and push without
    spelling out the invocation. The user's go covers the push only when it says so.
 9. Commit + push: on the go, `vc-x1 push <bookmark> --title "..." --body "..."`
@@ -139,7 +152,8 @@ What push does and does not do is in [vc-x1 push][vpush].
 
 The title is a Conventional Commit, each rung's own, sharing a greppable stem across the cycle and
 distinct within its cycle and its chores file (hard rule 9). The body is one or more problem
-statements with one or more solution statements for each problem resolved by this commit. See
+statements with one or more solution statements for each problem resolved by this commit, and a
+bookend's body is a pointer to the cycle's record. See
 [Commit-body form](agent-data/prose.md#commit-body-form). No version, file list or deliberation
 ([why](agent-data/rationale.md#commit-description)). Details at [Commit description details][cdd].
 
@@ -209,10 +223,10 @@ The cycle's last commit is generally bookkeeping and its body describes that boo
    - add the title-only `## Table of Contents` entry
    - write the `## Done` entry ([The close-out move][tcm])
 4. Validate: full validation and update `notes/README.md` if functionality changed.
-5. Close-out shape:
-   - trapezoid (the default)
-   - squash
-   - keep separate ([Close-out shapes](agent-data/jj.md#close-out-shapes))
+5. Close-out shape: ([Close-out shapes](agent-data/jj.md#close-out-shapes))
+   - trapezoid, the default [recipe](agent-data/jj.md#trapezoid-close-out-recipe)
+   - keep separate and have a linear series of commits
+   - squash into a single commit
 6. Land: land the bookmark on the user's go
    ([Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land)). Until then the cycle
    is not permanent. Once `main` contains it, delete it, locally and remotely (hard rule 13).
