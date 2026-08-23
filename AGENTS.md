@@ -132,7 +132,8 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
    description ([Commit description](#commit-description)) in
    [Commit-body form](agent-data/prose.md#commit-body-form): an intro stating this commit's
-   problem, `*` for each problem, `-` under it for each solution, read from the file first.
+   problem, `*` for each problem, `-` under it for each solution, a bookend's body the intro
+   alone, read from the file first.
 8. Description review: show the title + body and stop. Ask permission to commit and push without
    spelling out the invocation. The user's go covers the push only when it says so.
 9. Commit + push: on the go, `vc-x1 push <bookmark> --title "..." --body "..."`
@@ -151,7 +152,8 @@ What push does and does not do is in [vc-x1 push][vpush].
 
 The title is a Conventional Commit, each rung's own, sharing a greppable stem across the cycle and
 distinct within its cycle and its chores file (hard rule 9). The body is one or more problem
-statements with one or more solution statements for each problem resolved by this commit. See
+statements with one or more solution statements for each problem resolved by this commit, and a
+bookend's body is a pointer to the cycle's record. See
 [Commit-body form](agent-data/prose.md#commit-body-form). No version, file list or deliberation
 ([why](agent-data/rationale.md#commit-description)). Details at [Commit description details][cdd].
 

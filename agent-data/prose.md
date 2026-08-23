@@ -133,23 +133,30 @@ separately.
 
 - **An intro paragraph states the general problem**, and defines any word the title assumes. It
   is mandatory. [Prose form](#prose-form) wants it regardless, and a body opening on a bullet is
-  a body a `--body` flag can mistake for an option.
+  a body a `--body` flag can mistake for an option. The problem is *this commit's*, never the
+  cycle's: the cycle's problem lives in the In Progress block and then the chores section, and
+  a body whose problems outnumber what the diff resolves is describing something larger than
+  the commit.
 - **`*` bullets are the problem's facets**: sub-problems that decompose the intro's general
   problem, not a grab-bag of unrelated fixes. A body reaching for unrelated problem bullets is
   usually asking to be more than one commit.
-- **`-` bullets are solutions**, and a `-` solves the nearest enclosing problem: nested under a
-  `*` facet it solves that facet, at top level it solves the intro's general problem, which is
-  how one solution says it retires every facet at once. Position expresses scope.
-- **Zero facets is the trivial commit**: a problem paragraph and one or more top-level `-`
-  solutions. Not a second form, the general form with an empty middle.
+- **`-` bullets are solutions**, and every `-` sits under a `*`, solving that facet. A `-` with
+  no `*` above it reads as a solution to nothing, so there are no top-level solutions: a
+  solution that retires every facet at once is written under each, or the facets are one.
+- **One facet is the trivial commit**: the intro, one `*`, one or more `-` under it. Not a
+  second form, the general form at its smallest.
+- **A bookend body is a pointer**: an opening or closing commit resolves no problem of its own,
+  so its body is the intro paragraph alone, naming the cycle by its title and pointing at its
+  record (the In Progress block while the cycle runs, the chores section after). No `*`, no
+  `-`.
 
-**The markers are typed on purpose**: `*` always means problem, `-` always means solution.
-Indentation alone cannot separate them in the trivial case, where a lone top-level `-` reads as a
-solution only because `-` always is one. The typing also keeps history greppable (`^\* ` finds
-every facet, `^- ` and `^  - ` every solution). Bodies are read as plain text, in `jj log` and in
-terminals, where the markers survive, and if a renderer ever flattens them the indentation still
-carries the structure. So the mixed markers are deliberate, and a linter's consistent-marker rule
-is wrong to normalize them.
+**The markers are typed on purpose**: `*` always means problem, `-` always means solution, and
+the pairing is what a reader counts on: the `-` answers the `*` above it, with no rule to
+consult. The typing also keeps history greppable (`^\* ` finds every facet, `^  - ` every
+solution). Bodies are read as plain text, in `jj log` and in terminals, where the markers
+survive, and if a renderer ever flattens them the indentation still carries the structure. So
+the mixed markers are deliberate, and a linter's consistent-marker rule is wrong to normalize
+them.
 
 Unchanged by this: no version in title or body, no file list, no deliberation, titles per
 [Conventional-commit shape](#conventional-commit-shape-ladder--chores--commit).

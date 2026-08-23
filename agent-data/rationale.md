@@ -141,6 +141,13 @@ rewrite can renumber it. No file list because the diff is the mechanical record.
 deliberation because chores, todo, and the session the `ochid:` trailer names hold that, each
 reachable from the commit by construction.
 
+No top-level `-` and a pointer body for bookends because the earlier form was read wrong by
+its own author twice in one day (2026-08-22): an opening's body restated the cycle's problem
+and then hung two solutions at top level, where the rule said they answered the intro and the
+reader saw solutions to nothing. A form that needs the rule open to be read correctly is
+wrong, so the pairing became mechanical and the bookend, which resolves nothing, got a shape
+with nothing to pair.
+
 ### Pushing
 
 _None recorded._
