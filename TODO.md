@@ -88,7 +88,7 @@ form so every solution sits under a problem and a bookend body is a pointer to t
 #### Ladder
 
 - [[N]] [docs: fix dev artifacts opening][60] (done)
-- [[N]] [docs: rename at the opening and restore in the trapezoid recipe][61]
+- [[N]] [docs: rename at the opening and restore in the trapezoid recipe][61] (done)
 - [[N]] [docs: cue the commit-body form at the describe step][62]
 - [[N]] [docs: say when a cycle is single-step or multi-step][63]
 - [[N]] [docs: label the commit-body form][65]

@@ -94,8 +94,12 @@ then carries step 1). Before that commit ([why](agent-data/rationale.md#opening)
 3. In Progress block: move every line of the chosen `## Todo` entry into the
    [In Progress block](agent-data/notes.md#the-in-progress-block) and shape it as that section
    says.
-4. Sweep and bump: sweep `## Done` ([Retiring Done entries][rde]), then bump the version-of-record
-   to the opening's version ([versioning.md](agent-data/versioning.md#suffix-scheme)).
+4. Sweep: sweep `## Done` ([Retiring Done entries][rde]).
+5. Bump: bump the version-of-record to the opening's version
+   ([versioning.md](agent-data/versioning.md#suffix-scheme)).
+6. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev`
+   ([dev artifact name](agent-data/versioning.md#dev-artifact-name)). The trapezoid recipe's
+   step 2 restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's
 bookend commits are the cycle title plus " opening" and " closing" ([Cycle bookend titles][cbt]).
@@ -209,10 +213,10 @@ The cycle's last commit is generally bookkeeping and its body describes that boo
    - add the title-only `## Table of Contents` entry
    - write the `## Done` entry ([The close-out move][tcm])
 4. Validate: full validation and update `notes/README.md` if functionality changed.
-5. Close-out shape:
-   - trapezoid (the default)
-   - squash
-   - keep separate ([Close-out shapes](agent-data/jj.md#close-out-shapes))
+5. Close-out shape: ([Close-out shapes](agent-data/jj.md#close-out-shapes))
+   - trapezoid, the default [recipe](agent-data/jj.md#trapezoid-close-out-recipe)
+   - keep separate and have a linear series of commits
+   - squash into a single commit
 6. Land: land the bookmark on the user's go
    ([Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land)). Until then the cycle
    is not permanent. Once `main` contains it, delete it, locally and remotely (hard rule 13).
