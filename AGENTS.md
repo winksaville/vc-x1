@@ -124,7 +124,9 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    "go" or equivalent. The review is of the uncommitted working-copy diff (viewing commands in
    [jj basics](agent-data/jj.md#jj-basics)).
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
-   description ([Commit description](#commit-description)).
+   description ([Commit description](#commit-description)) in
+   [Commit-body form](agent-data/prose.md#commit-body-form): an intro stating this commit's
+   problem, `*` for each problem, `-` under it for each solution, read from the file first.
 8. Description review: show the title + body and stop. Ask permission to commit and push without
    spelling out the invocation. The user's go covers the push only when it says so.
 9. Commit + push: on the go, `vc-x1 push <bookmark> --title "..." --body "..."`
