@@ -208,6 +208,15 @@ The three shapes a cycle can land in, chosen by the user at close-out
   informative.
 - **squash** to one commit, right for a focused change. Set up before the close-out push.
 
+**Preview before choosing.** What a squash would carry is the tree diff from `<base>` to the
+tip, whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or in gitk
+"Mark this commit" on `<base>` and "Diff marked commit -> this" on the tip. Raise the context
+to the largest file's length (`--context 1000`, gitk's "Lines of context") and the diff reads as
+the result rather than the edit. If the net diff reads as one change, squash loses nothing. If
+it reads as several stacked, the trapezoid keeps each rung reachable while `git log
+--first-parent` still shows this same net diff once landed. Either way the choice is made on
+what `main` will carry.
+
 ## Trapezoid close-out recipe
 
 The commands behind the trapezoid shape in

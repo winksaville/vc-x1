@@ -52,7 +52,7 @@ which numbered Todo entries can't). Full rules in
 
 #### Problem
 
-The agent-files leave five cycle-protocol gaps that this cycle met in one sitting, each a rule
+The agent-files leave six cycle-protocol gaps that this cycle met in one sitting, each a rule
 the tightening either never placed or left one link short.
 
 * The single-name convention says a cycle builds as `vc-x1-dev` and `main` as `vc-x1`, but no
@@ -67,13 +67,16 @@ the tightening either never placed or left one link short.
 * The commit-body form lets a top-level `-` stand with no `*` above it, which reads as a
   solution to nothing, and it says nothing about a bookend commit, whose body has no problem
   to state.
+* Close-out shapes names the three shapes without saying how to look at the net change before
+  choosing one.
 
 #### Solution
 
 Name the rename as an Opening step of its own and the restore as a step of the trapezoid
 recipe, relink the recipe from the close-out shape list, cue the commit-body form at the
 describe step, say when a cycle is single-step or multi-step, and tighten the commit-body
-form so every solution sits under a problem and a bookend body is a pointer to the record.
+form so every solution sits under a problem and a bookend body is a pointer to the record, and
+say how to preview a squash before choosing the close-out shape.
 
 #### Acceptance check
 
@@ -92,6 +95,7 @@ form so every solution sits under a problem and a bookend body is a pointer to t
 - [[N]] [docs: cue the commit-body form at the describe step][62] (done)
 - [[N]] [docs: say when a cycle is single-step or multi-step][63] (done)
 - [[N]] [docs: label the commit-body form][65] (done)
+- [[N]] [docs: preview a squash before choosing the close-out shape][66] (done)
 - [[N]] [docs: fix dev artifacts closing][64]
 
 #### Deliberation
@@ -138,6 +142,12 @@ Every `-` sits under a `*`, the trivial commit being one of each, so a body read
 with or without the rule open. The intro states the problem this commit resolves, never the
 cycle's, and a bookend commit's body is an intro paragraph naming the cycle and pointing at
 its record, since an opening or closing resolves nothing of its own.
+
+##### docs: preview a squash before choosing the close-out shape
+
+Close-out shapes says how to see what a squash would carry: diff `<base>` to the tip, at full
+context to read the result rather than the edit, the same view `git log --first-parent` gives
+a trapezoid once landed. The decision is then made on what `main` will carry.
 
 ##### docs: fix dev artifacts closing
 
@@ -910,3 +920,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [63]: #docs-say-when-a-cycle-is-single-step-or-multi-step
 [64]: #docs-fix-dev-artifacts-closing
 [65]: #docs-label-the-commit-body-form
+[66]: #docs-preview-a-squash-before-choosing-the-close-out-shape
