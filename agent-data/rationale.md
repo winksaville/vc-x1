@@ -171,7 +171,7 @@ _None recorded._
 
 The agent repo (`.claude`) is a live journal, so everything after a `vc-x1 push` invocation,
 its own record and any closing words, lands in the agent repo's `@` as a trailing tail. That
-tail is why the contract has three parts: the push cannot include its own record, the agent
+tail is why the contract has two actors: the push cannot include its own record, the agent
 cannot fold the tail (its own squash-push is itself session data, so `@` refills the moment it
 runs), so only the user can. The fold keeps the change id, so the work-side `ochid:` keeps
 resolving. The user repeats the squash-push if new writes land because the agent's back end

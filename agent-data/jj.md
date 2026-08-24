@@ -154,6 +154,9 @@ header, the Done entry, and the bookmark all derive from one bare title):
 **Land**, once the close-out is approved: fast-forward the permanent branch to the bookmark.
 
 - `jj bookmark set main -r <bookmark> -R .`, then `jj git push --bookmark main -R .`.
+- Every `jj git push` here is a push under hard rules 2 and 3: it takes its own approval, and
+  the landing sequence's final invocation is preceded by the closing words and followed by
+  silence ([At rest](../AGENTS.md#at-rest-push-stop-squash-push)).
 - It is a fast-forward, so `--allow-backwards` is not wanted. Needing it means the bookmark is
   not a descendant of `main`, and the situation wants a look, not a flag.
 - Landing is the moment the cycle's commits become permanent, so it triggers the records that

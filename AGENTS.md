@@ -191,18 +191,16 @@ separately.
 
 #### At rest: push, stop, squash-push
 
-The contract that keeps both repos clean, hard rule 3 its middle part
+The contract that keeps both repos clean, hard rule 3 its first item's tail
 ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 
-1. Agent pushes: `vc-x1 push` commits and publishes both repos, the work-repo on its bookmark and
-   the agent-repo on `main`, with the same title and body and each its own `ochid:` trailer,
-   stamped by the push.
-2. Agent stops: once the turn's final push or squash-push is invoked, no further work of any kind
-   until the user speaks. Closing words go *before* the invoke. If the harness forces a token, a
-   bare acknowledgment ("landed") is all that is allowed. Under a standing delegation an
-   intermediate push is a step, and the hard stop lands on the turn's *final* push.
-3. User squash-pushes: the user runs `vc-x1 squash-push -R .claude` after the agent goes quiet, and
-   again if new writes land. Only the user can do this.
+1. The agent publishes: completing a step means issuing its publishing command (`vc-x1 push`,
+   `vc-x1 squash-push`, `jj git push`, ...). The agent:
+   - says whatever is worth saying *before* issuing the final publishing command
+   - responds with the one word "Published", satisfying the harness's need for a response
+   - does nothing further until the user speaks
+2. The user squash-pushes: `vc-x1 squash-push -R .claude` whenever they want both repos fully
+   pushed, again as new writes land. Only the user does this.
 
 "Clean" means both repos' `@` empty. A late work-repo tweak after the push is a remote rewrite and
 takes approval like any push ([vc-x1 push][vpush]).

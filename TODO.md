@@ -82,7 +82,7 @@ in gitk at full context, pointed at from README.md.
 - [[N]] [docs: reshape at land opening][61] (done)
 - [[N]] [docs: advance patch by default][62] (done)
 - [[N]] [docs: empty custom.md into the agent-files][67] (done)
-- [[N]] [docs: land under the at-rest contract][63]
+- [[N]] [docs: land under the at-rest contract][63] (done)
 - [[N]] [docs: move the reshape and restore under Land][64]
 - [[N]] [docs: read a change in gitk at full context][65]
 - [[N]] [docs: reshape at land closing][66]
@@ -141,7 +141,13 @@ to it. The role survives as existing machinery: chafes become Todos, edits, and 
 ##### docs: land under the at-rest contract
 
 AGENTS.md's At rest step 2 and jj.md's Land name a `jj git push` bookmark move as a push under
-hard rules 2 and 3, with closing words written before a landing sequence's final invocation.
+hard rules 2 and 3, with closing words written before a landing sequence's final invocation,
+which runs into silence. Born at the fix-dev-artifacts landing, where the recap followed the
+final push because the Land bullets, the one text read at that moment, never mentioned the
+contract. At wink's review the section simplified to an actor timeline, two items for three:
+the agent publishes (say it before the final publishing command, answer "Published", then
+nothing), the user squash-pushes at will. "Published" replaces "landed" as the token, since
+Land is becoming a protocol step, and the push mechanics live in jj.md alone.
 
 ##### docs: move the reshape and restore under Land
 
