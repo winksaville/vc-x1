@@ -83,7 +83,7 @@ in gitk at full context, pointed at from README.md.
 - [[N]] [docs: advance patch by default][62] (done)
 - [[N]] [docs: empty custom.md into the agent-files][67] (done)
 - [[N]] [docs: land under the at-rest contract][63] (done)
-- [[N]] [docs: move the reshape and restore under Land][64]
+- [[N]] [docs: move the reshape and restore under Land][64] (done)
 - [[N]] [docs: read a change in gitk at full context][65]
 - [[N]] [docs: reshape at land closing][66]
 
@@ -104,64 +104,118 @@ in gitk at full context, pointed at from README.md.
 - the opening's subsection names the backfilled and swept work by version, wink's call: missed
   backfills keep happening, and the version is the greppable handle a checker uses, a scoped
   exception to prose.md's versions rule
+- `main` was advanced to the at-rest-contract rung mid-cycle, against
+  [Cycles run on a bookmark](AGENTS.md#cycles-run-on-a-bookmark), which left the trapezoid no
+  trunk-side `<base>` and put the four pushed rungs inside `trunk()`, hence immutable. Rewound to
+  the hack commit `qysmyxow` at wink's call, a ref move only: no commit is rewritten, so the rungs
+  keep their SHAs and `ochid:` trailers, and the bookmark stays a descendant of `main` so Land's
+  fast-forward is still a fast-forward. The hack is the trapezoid's `<base>` and so stays on the
+  first-parent line, which the deliberation above already wanted
 
 #### Ladder details
 
 ##### docs: reshape at land opening
 
-Backfill the seven fix-dev-artifacts rungs, the 0.80.3 cycle's, sweep the 0.80.1 and
-0.80.2 Done entries to done.md while the 0.80.3 entry stays for nearby context, move the
-hack's Todo entry into this block, start chores-18.md since chores-17 passed 1000 lines, and
-bump the version-of-record.
+The cycle's setup, the bookkeeping an opening owes before its first rung.
+
+- Backfill the seven fix-dev-artifacts rungs, the 0.80.3 cycle's.
+- Sweep the 0.80.1 and 0.80.2 Done entries to done.md. The 0.80.3 entry stays for nearby
+  context.
+- Move the hack's Todo entry into this block.
+- Start chores-18.md, since chores-17 passed 1000 lines.
+- Bump the version-of-record.
 
 ##### docs: advance patch by default
 
-Replace versioning.md's shape-versus-contents test with patch by default: minor is deliberate
-and rare, called by the user at an opening, never inferred from a change's content or size,
-and major stays the project's call in custom.md. The section heading becomes "patch by
-default", and custom.md's version-bump paragraph is removed entirely, wink's call: the pinned rule is
-the whole story, and the paragraph restated it with a stale anchor and inline rationale. The Why moves
-to rationale.md as its first per-file section, per the intent that rule files carry the rule
-and rationale.md the argument, and the sweep of the other agent-files' whys is filed as a
-Todo. Along the way wink stated the model, filed as the top Todo: the agent-files are the
-proposal the family dogfoods as its first users, custom.md the downstream users' override and
-kept at the payload default by the authors, so the Major bullet records a made promise as a
-local edit of the rule itself. The last "satellite" framing also leaves the agent-files, which
-are equals, each with its purpose.
+versioning.md's shape-versus-contents test was undecidable in practice, so the section becomes
+"patch by default".
+
+- Patch is the default advance. Minor is deliberate and rare, called by the user at an opening
+  and never inferred from a change's content or size, and major stays the project's call in
+  custom.md.
+- custom.md's version-bump paragraph is removed entirely, wink's call. The pinned rule is the
+  whole story, and the paragraph restated it with a stale anchor and inline rationale.
+- The Why moves to rationale.md as its first per-file section, per the intent that rule files
+  carry the rule and rationale.md the argument. The sweep of the other agent-files' whys is
+  filed as a Todo.
+- Along the way wink stated the model, filed as the top Todo. The agent-files are the proposal
+  the family dogfoods as its first users, and custom.md is the downstream users' override, kept
+  at the payload default by the authors, so the Major bullet records a made promise as a local
+  edit of the rule itself.
+- The last "satellite" framing also leaves the agent-files, which are equals, each with its
+  purpose.
 
 ##### docs: empty custom.md into the agent-files
 
-Inserted at wink's direction after the payload-diff review. Move custom.md's single-name
-convention into versioning.md's dev artifact name rule as the local diff, stated generically,
-drop the Medium facts as derivable, and shrink custom.md to its shell. Retire the dogfood log:
-drain the two in-flight entries (the semicolon exemption to a Todo, the stable-name-install
-rule into the Land rung's principle), delete notes/dogfood.md, and sweep the pinned references
-to it. The role survives as existing machinery: chafes become Todos, edits, and records.
+Inserted at wink's direction after the payload-diff review. custom.md shrinks to its shell and
+the dogfood log retires.
+
+- Move custom.md's single-name convention into versioning.md's dev artifact name rule as the
+  local diff, stated generically, and drop the Medium facts as derivable.
+- Retire the dogfood log, draining its two in-flight entries first.
+  - The semicolon exemption becomes a Todo, and the stable-name-install rule moves into the
+    Land rung's principle.
+  - notes/dogfood.md is deleted and the pinned references to it are swept.
+  - The role survives as existing machinery: chafes become Todos, edits, and records.
 
 ##### docs: land under the at-rest contract
 
-AGENTS.md's At rest step 2 and jj.md's Land name a `jj git push` bookmark move as a push under
-hard rules 2 and 3, with closing words written before a landing sequence's final invocation,
-which runs into silence. Born at the fix-dev-artifacts landing, where the recap followed the
-final push because the Land bullets, the one text read at that moment, never mentioned the
-contract. At wink's review the section simplified to an actor timeline, two items for three:
-the agent publishes (say it before the final publishing command, answer "Published", then
-nothing), the user squash-pushes at will. "Published" replaces "landed" as the token, since
-Land is becoming a protocol step, and the push mechanics live in jj.md alone.
+Born at the fix-dev-artifacts landing, where the recap followed the final push because the Land
+bullets, the one text read at that moment, never mentioned the contract.
+
+- AGENTS.md's At rest step 2 and jj.md's Land name a `jj git push` bookmark move as a push under
+  hard rules 2 and 3, with closing words written before a landing sequence's final invocation,
+  which runs into silence.
+- At wink's review the section simplified to an actor timeline, two items for three.
+  - The agent publishes: say it before the final publishing command, answer "Published", then
+    nothing until the user speaks.
+  - The user squash-pushes at will.
+  - "Published" replaces "landed" as the token, Land now being a protocol step, and the push
+    mechanics live in jj.md alone.
 
 ##### docs: move the reshape and restore under Land
 
-Close-out step 5 chooses and records the shape, and Land executes it: name restore, reshape
-per the recorded choice, fast-forward, and the stable-name install as the last act, run when
-nothing can enter the cycle anymore (drained from the dogfood log: a premature install once
-let one version string mean two behaviors). The single-name text now lives in versioning.md's
-Dev artifact name rule and follows the move.
+Close-out step 5 chooses and records the shape, and Land executes it. The install is the last
+act, run when nothing can enter the cycle anymore (drained from the dogfood log: a premature
+install once let one version string mean two behaviors).
+
+- Land, in jj.md, is the five-step permanence sequence: restore, reshape, fast-forward, install,
+  delete. The single-name text now lives in versioning.md's Dev artifact name rule and follows
+  the move, and Opening step 6's restore pointer follows it.
+- The trapezoid recipe shrinks to the pure reshape, its merge published by the fast-forward
+  itself. The topic bookmark is never re-pushed, so the old two-push window and its stale-SHA
+  caution disappear.
+  - notes.md's copy of that caution goes with them as the stale cross-reference this rung
+    created, its "not on a permanent branch" half covering the case.
+- Terminology rides the same seam. AGENTS.md gains Land, Trapezoid and Artifact, the vocabulary
+  this rung made load-bearing.
+  - rationale.md's Terminology loses the Rationale, Single-step or multi-step and Agent-files
+    entries, wink's call. The first restates the mirroring rule the file's own preamble and
+    How-to-read bullet already state, the second's definition is carried by AGENTS.md's Cycle
+    entry, and the third argues three names without recording a cost, under the file's own bar.
+  - AGENTS.md's two `[why](rationale.md#terminology)` links, both answered by deleted entries,
+    go with them, leaving Retired names alone under the heading.
+  - The name stays "trapezoid", not "trapezoidal-commit". The corpus says trapezoid throughout
+    and the word already names the merge commit.
+- rationale.md's At rest paragraph is rewritten here rather than in the already-pushed at-rest
+  rung that authored it.
+  - The three-clause chain collapses to one fixed-point argument, wink's: the agent's
+    squash-push is an action that adds to the tail, so the user must do it. The duplicated
+    "push cannot include its own record" clause goes, and the repeat-reason folds into "visibly
+    or behind the scenes", one sentence carrying both who must act and when, the back end's
+    late consolidation included.
+  - The `ochid` sentence is corrected while it is open. A fold can only dangle the pointer
+    aimed at the agent repo, which lives in the work-repo commit, not the agent-repo commit's
+    own trailer, which aims the other way and is never at risk.
 
 ##### docs: read a change in gitk at full context
 
-A jj.md subsection on gitk's three views at full context: New version as the result with the
-additions lit, Old version as the file was with the removals lit, and Diff as the two
-interleaved. README.md points at it for the reader making the shape decision.
+A jj.md subsection on gitk's three views at full context.
+
+- New version shows the result, with the additions lit.
+- Old version shows the file as it was, with the removals lit.
+- Diff shows the two interleaved.
+- README.md points at the section, for the reader making the shape decision.
 
 ##### docs: reshape at land closing
 

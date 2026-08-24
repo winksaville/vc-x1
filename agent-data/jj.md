@@ -151,20 +151,33 @@ header, the Done entry, and the bookmark all derive from one bare title):
 - `jj bookmark set <bookmark> -r <rev> -R .` creates it without publishing, for a line that is
   not ready to be seen.
 
-**Land**, once the close-out is approved: fast-forward the permanent branch to the bookmark.
+**Land**, once the close-out is approved: the sequence that makes the cycle permanent. Every
+`jj git push` in it is a push under hard rules 2 and 3, its own approval, the closing words
+before the final invocation, silence after
+([At rest](../AGENTS.md#at-rest-push-stop-squash-push)):
 
-- `jj bookmark set main -r <bookmark> -R .`, then `jj git push --bookmark main -R .`.
-- Every `jj git push` here is a push under hard rules 2 and 3: it takes its own approval, and
-  the landing sequence's final invocation is preceded by the closing words and followed by
-  silence ([At rest](../AGENTS.md#at-rest-push-stop-squash-push)).
-- It is a fast-forward, so `--allow-backwards` is not wanted. Needing it means the bookmark is
-  not a descendant of `main`, and the situation wants a look, not a flag.
+1. Restore the plain name, when the project renamed
+   ([Dev artifact name](versioning.md#dev-artifact-name)): rename `<name>-dev` back to
+   `<name>` in the manifest, `vc-x1 validate --fast` so the lockfile follows, and `jj squash`
+   folds the edit into the closing (`@` sits directly above it).
+2. Reshape per the recorded choice: trapezoid runs the
+   [recipe below](#trapezoid-close-out-recipe), keep separate needs nothing, squash collapses
+   the ladder into the closing.
+3. Fast-forward: `jj bookmark set main -r <closeout> -R .`, then
+   `jj git push --bookmark main -R .`. This push publishes the reshaped commit, so the topic
+   bookmark itself is never re-pushed.
+4. Install: promote the artifact from `main`, the cycle's last act, run when nothing can
+   enter the cycle anymore.
+5. Delete the bookmark, locally and remotely: `jj bookmark delete <bookmark>`, then
+   `jj git push --bookmark <bookmark>` (hard rule 13). The long-lived case below gets the
+   same disposal once fully merged.
+
+- The fast-forward needs no `--allow-backwards`. Needing it means the bookmark is not a
+  descendant of `main`, and the situation wants a look, not a flag.
 - Landing is the moment the cycle's commits become permanent, so it triggers the records that
   wait on permanence: the chores as-built rungs take their SHAs and versions
-  ([Chores commit references](notes.md#chores-commit-references)).
-- The bookmark is redundant once landed and is deleted, locally and remotely: `jj bookmark
-  delete <bookmark>`, then `jj git push --bookmark <bookmark>` to delete the remote ref. Same
-  disposal for the long-lived case below.
+  ([Chores commit references](notes.md#chores-commit-references)). The reshape rewrites the
+  closing's SHA, so no record cites a SHA before the fast-forward.
 
 **Reshape**, while the bookmark is a draft
 ([Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
@@ -200,16 +213,17 @@ wording, after a fully merged long-lived bookmark was deleted without loss.
 
 ## Close-out shapes
 
-The three shapes a cycle can land in, chosen by the user at close-out
-([Close-out](../AGENTS.md#close-out)):
+The three shapes a cycle can land in, chosen by the user and recorded at close-out, executed
+at [Land](#cycle-bookmarks-create-and-land) ([Close-out](../AGENTS.md#close-out)):
 
 - **trapezoid**, the current default: a merge commit whose first parent is the trunk and whose
   second is the ladder, so `git log --first-parent` reads one commit per cycle while every rung
-  stays reachable. Reshaped between two pushes by the [recipe below](#trapezoid-close-out-recipe),
-  whose last step is `jj git push`, not `vc-x1 push`.
+  stays reachable. Reshaped at Land by the [recipe below](#trapezoid-close-out-recipe) and
+  published by the landing fast-forward itself.
 - **keep separate**, one commit per rung on `main`, when the decomposition itself is
   informative.
-- **squash** to one commit, right for a focused change. Set up before the close-out push.
+- **squash** to one commit, right for a focused change: Land collapses the ladder into the
+  closing.
 
 **Preview before choosing.** What a squash would carry is the tree diff from `<base>` to the
 tip, whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or in gitk
@@ -222,11 +236,10 @@ what `main` will carry.
 
 ## Trapezoid close-out recipe
 
-The commands behind the trapezoid shape in
-[Close-out](../AGENTS.md#close-out): a merge commit whose first parent is the trunk line and
-whose second parent is the cycle's ladder, published in five steps, an ordinary close-out push,
-the dev-name restore, a two-command reshape, and a second push that re-points the bookmark at the
-reshaped commit.
+The reshape behind the trapezoid shape, run at [Land](#cycle-bookmarks-create-and-land)
+step 2: the close-out commit, pushed linearly by the closing rung, becomes a merge whose
+first parent is the trunk line and whose second parent is the cycle's ladder. Nothing here
+publishes, the merge goes out with Land's fast-forward.
 
 ```
   main line   ...--<base>------------------<closeout>--
@@ -238,60 +251,37 @@ reshaped commit.
   opened. It becomes the first parent. Not always the previous close-out: a cycle landed
   linearly since (squash or keep-separate shape) sits on the trunk line and must stay there.
 - `<tip>`: the cycle's last commit before the close-out. It becomes the second parent.
-- `<closeout>`: the close-out commit, created by step 1.
+- `<closeout>`: the close-out commit, reshaped here.
 
-Only step 1 is a `vc-x1 push`. The rest is jj, because after step 1 the commits exist and all
-that remains is reshaping and publishing them:
-
-1. `vc-x1 push <bookmark> --title "..." --body "..."`: the ordinary close-out push. It
-   commits both repos, stamps the `ochid:` trailers, and publishes `<closeout>` linearly.
-2. Restore the plain name if the project was [renamed](versioning.md#dev-artifact-name),
-   otherwise skip:
-   - rename `<name>-dev` back to `<name>` in the manifest
-   - run `vc-x1 validate --fast` so the lockfile follows
-   - `jj squash` folds the edit into `<closeout>` (`@` still sits directly above it)
-3. `jj rebase -r <closeout> --onto <base> --onto <tip>`: `<closeout>` becomes the merge.
+1. `jj rebase -r <closeout> --onto <base> --onto <tip>`: `<closeout>` becomes the merge.
    Parent order is the argument order.
-4. `jj new <closeout>`: an empty `@` above the merge. The bookmark followed the rewrite on its
-   own. What step 3 leaves misplaced is the working copy: `jj rebase -r` re-parents descendants
-   onto the rebased commit's old parent, so the empty `@` from step 2 lands beside the merge on
-   `<tip>` and the tree reverts to pre-close-out content, which looks alarming and is not.
-5. `jj git push --bookmark <bookmark> -R .`: publishes the reshaped commit. The agent repo is
-   untouched and its session tail goes out with a separate `vc-x1 squash-push` afterwards.
-
-**Step 5 is not a `vc-x1 push`**, learned at a close-out that tried it. Push runs its whole
-pipeline or none of it, and by the time the reshape is done `.claude` holds the session writes
-from steps 1-4, so `commit-bot` wants to run and the message stage demands a title for it.
-Publishing an already-made commit is a different operation from committing and publishing, and
-only the latter is push's job.
+2. `jj new <closeout>`: an empty `@` above the merge. The bookmark followed the rewrite on
+   its own. What step 1 leaves misplaced is the working copy: `jj rebase -r` re-parents
+   descendants onto the rebased commit's old parent, so the empty `@` lands beside the merge
+   on `<tip>` and the tree reverts to pre-close-out content, which looks alarming and is not.
+3. Verify two parents: `jj log -r <closeout> -T 'parents.map(|p| p.change_id().short(8))'`
+   must list both. jj preserves the second parent even though `<base>` is an ancestor of
+   `<tip>` (observed at three consecutive close-outs), but a collapsed merge is
+   indistinguishable from a correct one in `jj log --no-graph`.
 
 Details:
 
-- **Verify two parents before step 5.** `jj log -r <closeout> -T 'parents.map(|p|
-  p.change_id().short(8))'` must list both. jj preserves the second parent even though `<base>`
-  is an ancestor of `<tip>` (observed at three consecutive close-outs), but a collapsed merge is
-  indistinguishable from a correct one in `jj log --no-graph` and is only visible once published.
-- **Trailers survive.** The squash and the reshape change `<closeout>`'s SHA but not its change
-  id, so the `ochid:` trailers stamped in step 1 stay valid in both directions.
-- **Step 5 moves the bookmark sideways.** Step 1's SHA becomes unreachable, so a
-  [backfill](../AGENTS.md#commits-backfill) must never read a SHA from the window between the
-  two pushes.
-- **Immutability.** No flag is needed on a topic bookmark. Only when `<closeout>` is already on
-  `trunk()` does the rebase need `--ignore-immutable`, and then the push force-updates the
-  target.
+- **Trailers survive.** The restore's squash and the reshape change `<closeout>`'s SHA but
+  not its change id, so the `ochid:` trailers stamped at the closing push stay valid in both
+  directions.
+- **Immutability.** No flag is needed: a topic bookmark's commits are not on `trunk()` until
+  Land's fast-forward.
 
 Recovery:
 
-- **Nothing is published between steps 2 and 4**, so the local reshape is undoable with
+- **Nothing is published until Land's fast-forward**, so the whole reshape is undoable with
   `jj undo` / `jj op restore`.
-- **A collapsed or mis-parented merge**: undo and redo step 3 with the corrected revisions. Do
-  not push a shape you did not intend. After step 5 the remote boundary is crossed and recovery
-  is forward-only.
-- **Working copy left beside the merge** (step 4 skipped): `jj new <closeout>` after the fact.
-  Nothing published is affected, but any commit made in the meantime branches off `<tip>` and
-  needs a rebase onto the merge.
-- **A wrong bookmark position**: `jj bookmark set <bookmark> -r <closeout>` before pushing. If
-  step 5 already published it, the fix is a second sideways move, not a rewrite.
+- **A collapsed or mis-parented merge**: undo and redo step 1 with the corrected revisions.
+  Do not land a shape you did not intend. After the fast-forward the remote boundary is
+  crossed and recovery is forward-only.
+- **Working copy left beside the merge** (step 2 skipped): `jj new <closeout>` after the
+  fact. Any commit made in the meantime branches off `<tip>` and needs a rebase onto the
+  merge.
 
 ## Local ladders
 

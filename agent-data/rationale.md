@@ -36,31 +36,9 @@ question costs seconds, while redoing misaligned work costs much more.
 
 ## Terminology
 
-**Rationale.** The headings mirror so that a missing entry is a grep away: a rule's why is
-either at its own slug or nowhere, and nothing has to be searched for by wording. The file
-exists so the argument can leave AGENTS.md without dying: a session needs the rule, whoever
-would change the rule needs the argument, and a rule whose cost is not written down is the one
-an editor simplifies away. Filed as the Todo "Halve AGENTS.md: move its rationale into
-`agent-data/rationale.md`" (wink, 2026-08-21).
-
-**Single-step or multi-step.** The default is multi-step because the two are asymmetric only
-in cost, never in possibility: a multi-step cycle collapses to one commit at close-out by the
-squash shape, and a single-step cycle grows a ladder because nothing is committed before its
-push and the bookmark stays mutable after it. What multi-step pays is a review stop per rung,
-so the rule names the one shape where that cost buys nothing: one straightforward solution
-step, documentation alongside. The first draft said "touches code and docs" and sorted by file
-type, which is the wrong axis. The question is whether an intermediate state has to be built
-and exercised before the next step makes sense (wink, 2026-08-22).
-
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`.
 "Instruction files", which named the agent-files back when `custom.md` was the only editable
 one. "Ladder (sub-cycle)" for a local ladder, under [Local ladders](#local-ladders).
-
-**Agent-files** is always hyphenated because it names one set rather than a two-word noun
-phrase, and it matches its sibling directory `agent-data/`. **`custom.md` is never pinned**
-because holding what the pinned files structurally cannot is its job. **Project layer** is
-called a *layer* because it loads last and wins conflicts, so it sits over the pinned set
-rather than beside it.
 
 ## The dual-repo model
 
@@ -169,13 +147,13 @@ _None recorded._
 
 #### At rest: push, stop, squash-push
 
-The agent repo (`.claude`) is a live journal, so everything after a `vc-x1 push` invocation,
-its own record and any closing words, lands in the agent repo's `@` as a trailing tail. That
-tail is why the contract has two actors: the push cannot include its own record, the agent
-cannot fold the tail (its own squash-push is itself session data, so `@` refills the moment it
-runs), so only the user can. The fold keeps the change id, so the work-side `ochid:` keeps
-resolving. The user repeats the squash-push if new writes land because the agent's back end
-may consolidate session data minutes later.
+The agent-repo (`.claude`) is a live journal, so everything after a `vc-x1 push` invocation, its
+own record and any closing words, lands in the agent-repo's `@` as a trailing tail. That tail is
+why the agent cannot squash-push the agent-repo: the squash-push is itself an action that adds
+to the tail, so it never reaches a fixed point. Thus the user must do the squash-push in the
+agent-repo anytime the agent acts visibly or behind the scenes. Importantly, a squash-push does
+not alter the change id in the agent-repo commit, so the `ochid` in the work-repo commit
+continues to resolve.
 
 ### Close-out
 
