@@ -1192,6 +1192,9 @@ repeats:
 - `jj-tips.md` in the template repository (path recorded in custom.md): the family's worked
   tutorial with terminal transcripts, e.g. why `jj log` shows fewer commits than `gitk --all`
   and how force-pushes look in jj.
+- [Read a change in gitk at full context](agent-data/jj.md#read-a-change-in-gitk-at-full-context):
+  what gitk's New version, Old version and Diff views each show once the context is raised past
+  the longest file, and how to read a whole range that way.
 
 ## Testing
 

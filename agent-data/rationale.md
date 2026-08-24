@@ -1,6 +1,6 @@
 # Rationale
 
-The why behind [AGENTS.md](../AGENTS.md), one entry per rule that has one. AGENTS.md holds the
+The why behind the agent-files, one entry per rule that has one. AGENTS.md holds the
 rule and its boundaries, and a session needs only that. The argument is for whoever would change
 a rule, and for the family at convergence, and it is kept so a rule is not simplified away by an
 editor who does not know its cost.
@@ -15,8 +15,12 @@ Project-local content goes in [custom.md](../custom.md).
   reaches its why by one fixed pattern, `[why](agent-data/rationale.md#<same-slug>)`. A heading
   with nothing under it but `_None recorded._` is a rule whose why was never written down, which
   is a finding, not a gap to fill with a guess.
+- **Per-file sections sit at the end**, one `##` per agent-file, subheadings mirroring that
+  file's, reached by the same pattern (`[why](rationale.md#<same-slug>)` from inside
+  `agent-data/`). The other agent-files' remaining inline **Why:** paragraphs migrate as they
+  are touched, the full sweep filed as its own cycle.
 - **An entry is the why, then the evidence**: back references to the chores section where the
-  rule was paid for, the dogfood entry, the messages-repo record, the commit. Mostly pointers,
+  rule was paid for, the messages-repo record, the commit. Mostly pointers,
   not a re-telling. The "measured YYYY-MM-DD" lines live here, with the story.
 - **A boundary sentence is not rationale.** A sentence saying what a rule does not cover is the
   rule, and stays in AGENTS.md. What moves here is argument: why the rule exists, what it cost
@@ -32,31 +36,9 @@ question costs seconds, while redoing misaligned work costs much more.
 
 ## Terminology
 
-**Rationale.** The headings mirror so that a missing entry is a grep away: a rule's why is
-either at its own slug or nowhere, and nothing has to be searched for by wording. The file
-exists so the argument can leave AGENTS.md without dying: a session needs the rule, whoever
-would change the rule needs the argument, and a rule whose cost is not written down is the one
-an editor simplifies away. Filed as the Todo "Halve AGENTS.md: move its rationale into
-`agent-data/rationale.md`" (wink, 2026-08-21).
-
-**Single-step or multi-step.** The default is multi-step because the two are asymmetric only
-in cost, never in possibility: a multi-step cycle collapses to one commit at close-out by the
-squash shape, and a single-step cycle grows a ladder because nothing is committed before its
-push and the bookmark stays mutable after it. What multi-step pays is a review stop per rung,
-so the rule names the one shape where that cost buys nothing: one straightforward solution
-step, documentation alongside. The first draft said "touches code and docs" and sorted by file
-type, which is the wrong axis. The question is whether an intermediate state has to be built
-and exercised before the next step makes sense (wink, 2026-08-22).
-
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`.
 "Instruction files", which named the agent-files back when `custom.md` was the only editable
 one. "Ladder (sub-cycle)" for a local ladder, under [Local ladders](#local-ladders).
-
-**Agent-files** is always hyphenated because it names one set rather than a two-word noun
-phrase, and it matches its sibling directory `agent-data/`. **`custom.md` is never pinned**
-because holding what the pinned files structurally cannot is its job. **Project layer** is
-called a *layer* because it loads last and wins conflicts, so it sits over the pinned set
-rather than beside it.
 
 ## The dual-repo model
 
@@ -165,13 +147,13 @@ _None recorded._
 
 #### At rest: push, stop, squash-push
 
-The agent repo (`.claude`) is a live journal, so everything after a `vc-x1 push` invocation,
-its own record and any closing words, lands in the agent repo's `@` as a trailing tail. That
-tail is why the contract has three parts: the push cannot include its own record, the agent
-cannot fold the tail (its own squash-push is itself session data, so `@` refills the moment it
-runs), so only the user can. The fold keeps the change id, so the work-side `ochid:` keeps
-resolving. The user repeats the squash-push if new writes land because the agent's back end
-may consolidate session data minutes later.
+The agent-repo (`.claude`) is a live journal, so everything after a `vc-x1 push` invocation, its
+own record and any closing words, lands in the agent-repo's `@` as a trailing tail. That tail is
+why the agent cannot squash-push the agent-repo: the squash-push is itself an action that adds
+to the tail, so it never reaches a fixed point. Thus the user must do the squash-push in the
+agent-repo anytime the agent acts visibly or behind the scenes. Importantly, a squash-push does
+not alter the change id in the agent-repo commit, so the `ochid` in the work-repo commit
+continues to resolve.
 
 ### Close-out
 
@@ -260,3 +242,16 @@ one. A project-kept rule goes to the pinned file rather than here because writin
 it from exactly the review that should decide it. A pointer entry owes no justification because
 it supersedes nothing, and holding a wider context behind one pointer keeps the rest of the
 file identical to the payload's.
+
+## versioning.md
+
+### Advancing X.Y.Z: patch by default
+
+**The suffix already encodes a commit's phase, so `X.Y.Z` only has to mark the milestones a
+reader should notice.** Two classification tests preceded the rule and failed the same way, by
+demanding a judgment call at every cycle: functional-versus-docs, replaced because volume is
+not scope, and a shape-versus-contents scope test, dropped (2026-08-23) after "shape" proved
+undecidable in practice, a two-file docs edit arguable into "a pipeline reshaped" within a day
+of the test being cited. A pre-1.0 line wants the patch bias: `0.Y.Z` makes no stability
+promise, so a fast-moving minor burns the number's signal for nothing, while a minor that moves
+rarely and deliberately still says something.

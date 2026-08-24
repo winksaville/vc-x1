@@ -411,6 +411,31 @@ As TODO.md `## Done` sections fills move them to here.
   - a breaking config change for the family: install 0.80.0 first, then respell, since a
     0.79.x binary reads a respelled config as single-repo, silently
 
+- 0.80.1 **docs: fold the cycle agent-files into AGENTS.md** [[29]]
+  - `AGENTS.md` holds the cycle protocol as `## Cycle protocol`, one account in the order a
+    cycle meets it, with the at-rest contract (agent pushes, agent stops, user squash-pushes
+    the agent repo) stated once, and `cycle-protocol.md` and `cycle-checklists.md` are gone,
+    their jj mechanics (trapezoid recipe, local-ladder moves) in jj.md
+  - "Ladder (sub-cycle)" retired for "local ladder", "bot repo" for "agent repo" with the
+    actor now "the agent", the "Work" stage name retired, and the Cycle term simplified to
+    one change run from opening to closing as one commit or a ladder of them
+  - filed the next convention cycle: halve AGENTS.md by moving its rationale into
+    `agent-data/rationale.md`
+  - dissolves the Todos "Shared-doc sync: As-built ladder rungs carry `[[N]]` commit refs"
+    and "Shared-doc sync: per-commit chores convention": both conventions are pinned in
+    AGENTS.md and the sync they asked for is the convergence model, and files the backlog
+    entry "Sweep the Todo files for pre-0.80 names and retired conventions"
+
+- 0.80.2 **docs: halve AGENTS.md into rationale.md** [[153]]
+  - AGENTS.md 593 to 340 lines: the why in the new pinned `agent-data/rationale.md`, headings
+    mirroring AGENTS.md's, the restated mechanics in the satellites that own them, the rule
+    text tightened twice (the agent's pass, then wink's, item by item)
+  - two rules added: backfill is the Opening's first step with its `rg` check, and a list
+    lead is an unmarked label ending in a colon (prose.md)
+  - rules changed at wink's pass: repos always hyphenated, Bump before Work, push expected at
+    every rung, both repos' commits share title and body
+  - filed: `validate --full`, the validate element for unfilled rungs, the satellites' why-move
+
 # References
 
 [1]: /notes/chores/chores-01.md#create-a-binary-that-lists-jj-info
@@ -548,3 +573,5 @@ As TODO.md `## Done` sections fills move them to here.
 [150]: /notes/chores/chores-16.md#docs-trial-the-iiac-perf-convergence-proposals
 [152]: /notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns
 [58]: /notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config
+[29]: /notes/chores/chores-17.md#docs-fold-the-cycle-agent-files-into-agentsmd
+[153]: /notes/chores/chores-17.md#docs-halve-agentsmd-into-rationalemd

@@ -45,8 +45,7 @@ Repos: the two repos of [the dual-repo model](#the-dual-repo-model), written hyp
 "work-repo", "agent-repo".
 
 Agent-files: the instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
-anything `custom.md` points at ([Changing the agent-files](#changing-the-agent-files),
-[why](agent-data/rationale.md#terminology)).
+anything `custom.md` points at ([Changing the agent-files](#changing-the-agent-files)).
 
 Project layer: the project's own agent-files.
 
@@ -55,8 +54,22 @@ Cycle: one change, run from opening to closing as one commit or a ladder of them
 single-step when the problem statement has one straightforward solution step, its documentation
 riding in the same commit, otherwise assume multi-step. Development runs on the bookmark under
 the dev name either way, so a single-step cycle grows a ladder at no cost, and the squash
-close-out shape collapses a multi-step one to one commit
-([why](agent-data/rationale.md#terminology)).
+close-out shape collapses a multi-step one to one commit.
+
+Land: the sequence that makes a cycle permanent, run on the user's go at the close-out
+([Close-out](#close-out) step 6, commands in
+[Land](agent-data/jj.md#cycle-bookmarks-create-and-land)). It is the permanence boundary: before
+it the cycle is a draft on its bookmark, after it the commits are permanent and the records that
+wait on permanence come due.
+
+Trapezoid: the default close-out shape, a merge commit whose first parent is the trunk line and
+whose second is the cycle's ladder, so `git log --first-parent` reads one commit per cycle while
+every rung stays reachable ([Close-out shapes](agent-data/jj.md#close-out-shapes)). The word names
+both the merge commit and the figure the graph draws around it.
+
+Artifact: the work-repo's built product, the thing a consumer installs. It carries a `-dev` name
+while a cycle runs ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)) and is
+installed at Land.
 
 Rationale: a rule's why: why it exists, what it cost to learn, what the alternatives were. It lives
 in [rationale.md](agent-data/rationale.md) under the heading that mirrors the rule's here, reached
@@ -104,8 +117,7 @@ then carries step 1). Before that commit ([why](agent-data/rationale.md#opening)
 5. Bump: bump the version-of-record to the opening's version
    ([versioning.md](agent-data/versioning.md#suffix-scheme)).
 6. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev`
-   ([dev artifact name](agent-data/versioning.md#dev-artifact-name)). The trapezoid recipe's
-   step 2 restores it.
+   ([dev artifact name](agent-data/versioning.md#dev-artifact-name)). Land restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's
 bookend commits are the cycle title plus " opening" and " closing" ([Cycle bookend titles][cbt]).
@@ -191,18 +203,16 @@ separately.
 
 #### At rest: push, stop, squash-push
 
-The contract that keeps both repos clean, hard rule 3 its middle part
+The contract that keeps both repos clean, hard rule 3 its first item's tail
 ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 
-1. Agent pushes: `vc-x1 push` commits and publishes both repos, the work-repo on its bookmark and
-   the agent-repo on `main`, with the same title and body and each its own `ochid:` trailer,
-   stamped by the push.
-2. Agent stops: once the turn's final push or squash-push is invoked, no further work of any kind
-   until the user speaks. Closing words go *before* the invoke. If the harness forces a token, a
-   bare acknowledgment ("landed") is all that is allowed. Under a standing delegation an
-   intermediate push is a step, and the hard stop lands on the turn's *final* push.
-3. User squash-pushes: the user runs `vc-x1 squash-push -R .claude` after the agent goes quiet, and
-   again if new writes land. Only the user can do this.
+1. The agent publishes: completing a step means issuing its publishing command (`vc-x1 push`,
+   `vc-x1 squash-push`, `jj git push`, ...). The agent:
+   - says whatever is worth saying *before* issuing the final publishing command
+   - responds with the one word "Published", satisfying the harness's need for a response
+   - does nothing further until the user speaks
+2. The user squash-pushes: `vc-x1 squash-push -R .claude` whenever they want both repos fully
+   pushed. Again, see ([rationale for why](agent-data/rationale.md#at-rest-push-stop-squash-push))
 
 "Clean" means both repos' `@` empty. A late work-repo tweak after the push is a remote rewrite and
 takes approval like any push ([vc-x1 push][vpush]).
@@ -223,13 +233,19 @@ The cycle's last commit is generally bookkeeping and its body describes that boo
    - add the title-only `## Table of Contents` entry
    - write the `## Done` entry ([The close-out move][tcm])
 4. Validate: full validation and update `notes/README.md` if functionality changed.
-5. Close-out shape: ([Close-out shapes](agent-data/jj.md#close-out-shapes))
-   - trapezoid, the default [recipe](agent-data/jj.md#trapezoid-close-out-recipe)
-   - keep separate and have a linear series of commits
+5. Close-out shape: choose the shape with the user and record the choice in the closing
+   rung's subsection ([Close-out shapes](agent-data/jj.md#close-out-shapes)). Nothing reshapes
+   yet, the bookmark stays as pushed:
+   - trapezoid, the default
+   - keep separate, a linear series of commits
    - squash into a single commit
-6. Land: land the bookmark on the user's go
-   ([Cycle bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land)). Until then the cycle
-   is not permanent. Once `main` contains it, delete it, locally and remotely (hard rule 13).
+6. Land: on the user's go, make the cycle permanent in one sequence
+   ([Land](agent-data/jj.md#cycle-bookmarks-create-and-land)):
+   - restore the plain name
+   - reshape per the recorded choice
+   - fast-forward `main`, before which the cycle is not permanent
+   - install the artifact
+   - delete the bookmark, locally and remotely (hard rule 13)
 7. Backfill: done at the next opening's step 1.
 
 ### Chores sections
@@ -351,4 +367,4 @@ justification. A project with a wider context can hold all of it in that file an
 line here. Nothing pinned names the further file: a pinned file asking for something "in custom.md"
 is answered by following the pointer found there.
 
-Precedence: custom.md is loaded last and wins conflicts with this file and the satellites.
+Precedence: custom.md is loaded last and wins conflicts with the other agent-files.

@@ -199,8 +199,8 @@ log. Move entries into `done.md` at these natural beats:
   version-of-record.
 - **Resolving an agent-file experiment**: at the beat where it resolves, not at a ladder
   boundary. Adopted and rejected retire identically, since "we tried this and dropped it" is what
-  history serves worst. The narrative goes in a `chores-NN.md` section and the dogfood entry is
-  removed from wherever the project keeps its log, so that log carries in-flight entries only. See
+  history serves worst. The narrative goes in a `chores-NN.md` section and whatever tracked the
+  experiment (a Todo entry, a dated sub-bullet) retires with it. See
   [Changing the agent-files](../AGENTS.md#changing-the-agent-files).
 
 Migration mechanics:
@@ -362,9 +362,8 @@ opens with the literal `[[N]]` placeholder and no version, and each push backfil
 the commits the previous push made permanent. On a topic branch a section waits until the branch
 lands. The commit itself is the record, and `git log --grep "<title>"` finds it. A deliberate
 rewrite of recorded commits invalidates their SHAs: re-record them once the rewrite is
-published, on the same timing. Never record a SHA from the window between a trapezoid's two
-pushes, or from any commit not on a permanent branch. See the protocol's
-[Commits backfill](../AGENTS.md#commits-backfill).
+published, on the same timing. Never record a SHA from a commit that is not on a permanent
+branch. See the protocol's [Commits backfill](../AGENTS.md#commits-backfill).
 
 Sections that predate this convention keep their `Commits:` lines. The ladder form applies
 going forward.

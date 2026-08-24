@@ -1070,13 +1070,13 @@ the record, and Close-out shapes says how to preview a squash before choosing.
 
 ### Ladder
 
-- [[N]] [docs: fix dev artifacts opening][63]
-- [[N]] [docs: rename at the opening and restore in the trapezoid recipe][64]
-- [[N]] [docs: cue the commit-body form at the describe step][65]
-- [[N]] [docs: say when a cycle is single-step or multi-step][66]
-- [[N]] [docs: label the commit-body form][67]
-- [[N]] [docs: preview a squash before choosing the close-out shape][68]
-- [[N]] [docs: fix dev artifacts closing][69]
+- [[70]] 0.80.3-0 [docs: fix dev artifacts opening][63]
+- [[71]] 0.80.3-1 [docs: rename at the opening and restore in the trapezoid recipe][64]
+- [[72]] 0.80.3-2 [docs: cue the commit-body form at the describe step][65]
+- [[73]] 0.80.3-3 [docs: say when a cycle is single-step or multi-step][66]
+- [[74]] 0.80.3-4 [docs: label the commit-body form][67]
+- [[75]] 0.80.3-5 [docs: preview a squash before choosing the close-out shape][68]
+- [[76]] 0.80.3 [docs: fix dev artifacts closing][69]
 
 ### Deliberation
 
@@ -1211,3 +1211,10 @@ zed restart and taught one script rule: bound every slice and assert it non-empt
 [67]: #docs-label-the-commit-body-form
 [68]: #docs-preview-a-squash-before-choosing-the-close-out-shape
 [69]: #docs-fix-dev-artifacts-closing
+[70]: https://github.com/winksaville/vc-x1/commit/5027a3520e81 "5027a3520e81ecdfe6f867b7b4baf2f9edea7e90"
+[71]: https://github.com/winksaville/vc-x1/commit/074a47cce2ea "074a47cce2ea2d00af8092ca8591fd25c5fa9b49"
+[72]: https://github.com/winksaville/vc-x1/commit/5d2434dcee65 "5d2434dcee655a9856e4928d193d00782364e321"
+[73]: https://github.com/winksaville/vc-x1/commit/a11519f8b2e1 "a11519f8b2e1fd39fd1805090be7986af2fd9ebf"
+[74]: https://github.com/winksaville/vc-x1/commit/2991d8d5a2ff "2991d8d5a2ff66c1cc33a19230690deb746fee54"
+[75]: https://github.com/winksaville/vc-x1/commit/a0abeda0ef2b "a0abeda0ef2b1e2de8cb8fc6ef270c496d0aa0e5"
+[76]: https://github.com/winksaville/vc-x1/commit/a2ef20f5affc "a2ef20f5affc6d8ef723f76fad23a95fa4c624cd"
