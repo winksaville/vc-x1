@@ -226,13 +226,36 @@ at [Land](#cycle-bookmarks-create-and-land) ([Close-out](../AGENTS.md#close-out)
   closing.
 
 **Preview before choosing.** What a squash would carry is the tree diff from `<base>` to the
-tip, whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or in gitk
-"Mark this commit" on `<base>` and "Diff marked commit -> this" on the tip. Raise the context
-to the largest file's length (`--context 1000`, gitk's "Lines of context") and the diff reads as
-the result rather than the edit. If the net diff reads as one change, squash loses nothing. If
-it reads as several stacked, the trapezoid keeps each rung reachable while `git log
---first-parent` still shows this same net diff once landed. Either way the choice is made on
-what `main` will carry.
+tip, whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or the gitk
+range described in [Read a change in gitk at full context](#read-a-change-in-gitk-at-full-context).
+If the net diff reads as one change, squash loses nothing. If it reads as several stacked, the
+trapezoid keeps each rung reachable while `git log --first-parent` still shows this same net diff
+once landed. Either way the choice is made on what `main` will carry.
+
+## Read a change in gitk at full context
+
+gitk renders a change three ways, and at full context each answers a different question. Raise
+"Lines of context" to the longest file's length, or to a large number such as 1000
+(`--context 1000` is the CLI equivalent), to see the entire file, then select:
+
+- **New version**: the file as it now is, with the added lines lit. This is what the permanent
+  branch will carry, so it is the view for judging whether a change reads as one thing.
+- **Old version**: the file as it was, with the removed lines lit. It answers what the change
+  costs, which a diff states only as minus lines out of context.
+- **Diff**: the two interleaved. At full context it is the whole file with the edit marked in
+  place, which is the reading a reviewer wants when the edit is small and the file is not.
+
+The above reads one commit at a time and is useful. Another mode is to see how several commits
+together changed the tree since a given `<base>` commit. To do that:
+
+- Hover over the commit you want as the `<base>`, right click and select "Mark this commit".
+- Hover over any commit above the `<base>`, right click and select
+  "Diff marked commit -> this".
+
+Now New version, Old version and Diff show the net change of everything between `<base>` and
+`this`. If `<base>` is the parent of the `opening` commit and `this` is the `closing`, that is
+what a squash of the cycle would carry, and it can help you decide what shape to choose
+([Close-out shapes](#close-out-shapes)).
 
 ## Trapezoid close-out recipe
 

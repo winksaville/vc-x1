@@ -84,7 +84,7 @@ in gitk at full context, pointed at from README.md.
 - [[N]] [docs: empty custom.md into the agent-files][67] (done)
 - [[N]] [docs: land under the at-rest contract][63] (done)
 - [[N]] [docs: move the reshape and restore under Land][64] (done)
-- [[N]] [docs: read a change in gitk at full context][65]
+- [[N]] [docs: read a change in gitk at full context][65] (done)
 - [[N]] [docs: reshape at land closing][66]
 
 #### Deliberation
@@ -210,12 +210,20 @@ install once let one version string mean two behaviors).
 
 ##### docs: read a change in gitk at full context
 
-A jj.md subsection on gitk's three views at full context.
+A jj.md section on gitk's three views at full context, for the reader making the shape decision.
 
-- New version shows the result, with the additions lit.
-- Old version shows the file as it was, with the removals lit.
-- Diff shows the two interleaved.
-- README.md points at the section, for the reader making the shape decision.
+- New version shows the result, with the additions lit, so it is the view for judging whether a
+  change reads as one thing.
+- Old version shows the file as it was, with the removals lit, which is what a diff states only
+  as minus lines out of context.
+- Diff shows the two interleaved, at full context the whole file with the edit marked in place.
+- The section reads as two modes, wink's structure: one commit at a time, then a marked range.
+  The range form is "Mark this commit" on the base and "Diff marked commit -> this" above it,
+  after which the same three views show the net change, which for a cycle's opening parent and
+  closing is what a squash would carry. Close-out shapes' Preview before choosing points here
+  instead of restating the context trick.
+- It is a `##` section rather than a subsection of Close-out shapes, since README.md links it
+  from jj Tips for Git Users and the reading is not close-out-only.
 
 ##### docs: reshape at land closing
 
@@ -235,7 +243,9 @@ Closing out the cycle.
  detail goes in `notes/chores/chores-NN.md` design
  subsections (link via `[N]` ref).
 
-1. **The agent-files are the proposal, custom.md the users' override.** (wink, 2026-08-23)
+1. Change hard rule "8. Typeable punctuation:" to "8. Prose style:" and include not only the
+   "Typeable punctuation" but also no wall-of-prose. Instead use intro, bullet/sub-bullets.
+2. **The agent-files are the proposal, custom.md the users' override.** (wink, 2026-08-23)
    The agent-files define a default set that others adopt as-is, modify, or override through
    custom.md. The family dogfoods the set as its first users, so a family member wanting a
    change edits the agent-files directly, the diff against the payload being the proposal,
@@ -244,7 +254,7 @@ Closing out the cycle.
    - restate AGENTS.md's "custom.md: the project layer" section and its rationale.md entry to
      this model, custom.md and precedence kept for downstream users (the content relocation
      itself was done at the reshape-at-land cycle's empty-custom.md rung)
-2. **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21)
+3. **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21)
    Bare `vc-x1 config` prints the schema once per side of the default `work,agent` target, and
    since every remaining key has both workspace homes the two blocks are identical apart from
    the header, so the reader sees the same ~40 lines twice. In a workspace with no agent side
@@ -269,7 +279,7 @@ Closing out the cycle.
    - the rendered hints still say `.vc-config.toml` (the `VC_CONFIG_FILE` constant), and the
      md carrier rename is the "regenerate configs in md format" rung's
 
-3. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
+4. **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The
    markdown carrier landed and the cycle closed early for the 0816-proposal agent-files work,
    leaving the surface's completion as its own cycle. The deferred acceptance items ride with
    it: agent vocabulary with old spellings rejected (a test shows the fix-it),
@@ -315,7 +325,7 @@ Closing out the cycle.
      record
    - per-key worked examples in `vc-config.md` remain from the original plan, unscheduled
 
-4. **Drop the global config and the account notion.** vc-x1 loads a user-level
+5. **Drop the global config and the account notion.** vc-x1 loads a user-level
    `~/.config/vc-x1/config.toml` whose whole remaining job, once the unread keys go, is
    expanding an `init` shorthand that the `owner/name` and path target forms already cover
    without it (wink, 2026-08-11: he passes the full url in practice and a local name only when
@@ -351,7 +361,7 @@ Closing out the cycle.
    - runs after the vc-config cycle on purpose: `--refresh --check` makes a schema shrink
      mechanical, so this is the first real customer of the machinery that cycle builds
 
-5. **validate-repo-data.** Golden ids for a fixture repo, so a
+6. **validate-repo-data.** Golden ids for a fixture repo, so a
    jj-lib bump that moves the on-disk data fails loudly instead
    of building green. The gate at `0.78.0-4` refuses on a version
    mismatch precisely because we cannot tell whether the data
@@ -423,7 +433,7 @@ Closing out the cycle.
      ones are genuinely inert. That is the measurement the policy
      names as the way to narrow the gate from "every subcommand"
      to something smaller, backed by evidence.
-6. **refactor: trapezoid-push + body-intro validation.**
+7. **refactor: trapezoid-push + body-intro validation.**
    `vc-x1 trapezoid-push`, a **subcommand** rather than a flag
    on `push` (decided 2026-07-28), publishes a close-out as a
    non-fast-forward merge, and body-intro validation rides as
@@ -461,7 +471,7 @@ Closing out the cycle.
      against the manifest's current name, and gains the open/close rename step beside the
      version bump (custom.md on `main` is the bare skeleton, so neither has a home until that
      merge).
-7. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
+8. **Tiered exit status for `config --validate`** (wink, 2026-08-12). Today every failure is
    `ExitCode::FAILURE`: a misspelled key and a config the tool could not read exit alike, so a
    caller can branch on "clean or not" and nothing finer. Proposed: **0** all tables and keys
    known and their values reasonable, **1** unknown or otherwise non-fatal findings, **2** a
@@ -481,7 +491,7 @@ Closing out the cycle.
      the start, and value checks land later as ordinary tier-1 findings
    - decide there: whether `--refresh --check`'s difference exit joins this scheme (a
      difference is a finding, not a fatal) or keeps its own
-8. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
+9. **`config --toml`: print the TOML a markdown carrier yields** (iiac-perf + bot,
    2026-08-12). The md carrier costs a config file the toml-aware editors and formatters a
    `.toml` gets, and nothing answers "what do these fences actually concatenate to?", which is
    also the question a parse diagnostic raises. Outside the "docs: freshen vc-config and
@@ -497,28 +507,28 @@ Closing out the cycle.
      workspace's values, so nothing today shows a config file's own contents at all
    - decide there: the name (`--toml`, `--as-toml`, `--fences`), and whether it composes with
      `--validate` or excludes it
-9. **The validate family: bare `validate` as the umbrella, `validate-artifact` the runner,
-   `validate-work` the twin of `validate-agent`.** (wink + bot, 2026-08-21) The 0.80.0 cycle
-   shipped bare `vc-x1 validate` running the `[validate]` table, beside `validate-agent`,
-   `validate-desc`, and `validate-todo`, which are at-rest checks of repo state. Read as a
-   family the bare name looks like their parent and is not: it runs cargo while its siblings
-   check bookmarks and records. Supersedes "A committed cycle-check runner" (resolved by
-   `vc-x1 validate`, whose "not a vc-x1 subcommand" line was decided the other way at that
-   cycle: the commands live in config, so the tool assumes nothing about the medium) and
-   absorbs backlog "Add `validate-repo` subcommand", whose "runs all" is this umbrella under
-   a name that no longer fits the family.
-   - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old
-     meaning the way `bot-session` does, and the checklists saying `validate-artifact` per
-     rung and plain `validate` at close-out
-   - add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin,
-     `config --validate` clean, mostly the push preflight exposed read-only
-   - bare `validate` runs everything that applies to the workspace (artifact, work, agent,
-     desc, todo), each reported by name, exit status the worst of them, a side the workspace
-     lacks skipped by name
-   - the `[validate]` config key stays as it is: it is the artifact's validation, and the
-     umbrella reads it
+10. **The validate family: bare `validate` as the umbrella, `validate-artifact` the runner,
+    `validate-work` the twin of `validate-agent`.** (wink + bot, 2026-08-21) The 0.80.0 cycle
+    shipped bare `vc-x1 validate` running the `[validate]` table, beside `validate-agent`,
+    `validate-desc`, and `validate-todo`, which are at-rest checks of repo state. Read as a
+    family the bare name looks like their parent and is not: it runs cargo while its siblings
+    check bookmarks and records. Supersedes "A committed cycle-check runner" (resolved by
+    `vc-x1 validate`, whose "not a vc-x1 subcommand" line was decided the other way at that
+    cycle: the commands live in config, so the tool assumes nothing about the medium) and
+    absorbs backlog "Add `validate-repo` subcommand", whose "runs all" is this umbrella under
+    a name that no longer fits the family.
+    - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old
+      meaning the way `bot-session` does, and the checklists saying `validate-artifact` per
+      rung and plain `validate` at close-out
+    - add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin,
+      `config --validate` clean, mostly the push preflight exposed read-only
+    - bare `validate` runs everything that applies to the workspace (artifact, work, agent,
+      desc, todo), each reported by name, exit status the worst of them, a side the workspace
+      lacks skipped by name
+    - the `[validate]` config key stays as it is: it is the artifact's validation, and the
+      umbrella reads it
 
-10. **`squash-push --title` / `--body`.** `squash-push` amends
+11. **`squash-push --title` / `--body`.** `squash-push` amends
     content only: it folds the working copy into the last
     commit and force-updates the remote, but the commit keeps
     its existing message. Fixing a published commit's *message*
@@ -557,7 +567,7 @@ Closing out the cycle.
       cited nowhere and a rewrite costs nothing. Message fixes
       naturally cluster there, which is exactly where the
       two-step shape bites.
-11. **Restructure templates: single template repo + fixed bot
+12. **Restructure templates: single template repo + fixed bot
     seed manifest.** Replace the separate
     `vc-x1-work-repo-template` + `vc-x1-bot-repo-template`
     repos with the one work-repo template, whose live
@@ -585,7 +595,7 @@ Closing out the cycle.
       tends to create it otherwise), so init emits it like
       `.vc-config.toml` instead of copying, leaving no "is it
       still empty?" invariant in the template.
-12. **ochid: bot-repo location qualifier.** An ochid is
+13. **ochid: bot-repo location qualifier.** An ochid is
     workspace-relative (`/.claude/<chid>`), so nothing in a
     published commit says *where* the companion bot repo
     lives (vc-x1's is `github.com/winksaville/vc-x1.claude`,
@@ -605,7 +615,7 @@ Closing out the cycle.
       (bot-repo-location config).
     - Link rot + mirroring mitigations are in the same doc
       section.
-13. **Version-number protocol is fragile: versions are
+14. **Version-number protocol is fragile: versions are
     baked into titles/bodies/todo/done/chores before the
     change lands.** The cycle protocol embeds an `X.Y.Z-N`
     version in commit titles and bodies, `## Todo` /
@@ -644,7 +654,7 @@ Closing out the cycle.
       AGENTS.md's Cycle protocol (title shape) and Terminology,
       prose.md (commit-recording headers), and the `vc-x1` validators
       that parse `(X.Y.Z)` strings.
-14. **sync follow-up: extract `move-bookmark` command.** The
+15. **sync follow-up: extract `move-bookmark` command.** The
     "put the bookmark / `@` where it belongs" step at the end
     of sync (reposition logic) is useful standalone (e.g. the
     t1B scenario where `main` is right but `@` isn't on it)
@@ -654,7 +664,7 @@ Closing out the cycle.
       same safety rules as sync's reposition step.
     - Sync's final step becomes a call to the same logic.
     - Follow-up to the 0.67.0 single-mode sync cycle.
-15. **sync follow-up: retire the hidden `--check` alias, and
+16. **sync follow-up: retire the hidden `--check` alias, and
     revisit push's auto-rollback.** The first half of this
     entry (push shelling out to `vc-x1 sync --check`, which
     was racy and not actually read-only) is done: 0.77.0-3
@@ -670,7 +680,7 @@ Closing out the cycle.
       index-lock failures during 0.77.0 cost nothing because
       of it. Revisit only with a concrete case where the
       hidden evidence mattered.
-16. **validate-numbering: rename the pair, check all
+17. **validate-numbering: rename the pair, check all
     sequence-managed notes files generically.** `validate-todo`
     / `fix-todo` only operate on the single file passed, so a
     renumber slip in `bugs.md`, `todo-backlog.md`, or
@@ -706,7 +716,7 @@ Closing out the cycle.
       unexercised.
     - Open: revisit fixed-vs-glob at implementation if the
       fixed list proves annoying to maintain.
-17. **pre-commit: single rule (no docs skip) + doc validators.**
+18. **pre-commit: single rule (no docs skip) + doc validators.**
     The pre-commit (cargo cycle: fmt/clippy/test/install) only
     checks code, so it's "skip-able for purely-docs commits",
     but that exception is exactly where checks slip (skipped on
@@ -732,7 +742,7 @@ Closing out the cycle.
       avoid rewriting published 0.62.0-x history). No version
       pre-assigned. See the Todo "Version-number protocol is
       fragile" on fragile version targets.
-18. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
+19. **vc-x1 push: record uncovered code commits (N:1 code↔bot).**
     Today push assumes 1:1 symmetric WC commits with shared
     title/body. The interop / adoption scenario breaks that:
     the code side is worked single-repo style (commit +
@@ -756,7 +766,7 @@ Closing out the cycle.
     - Open: computing "uncovered", likely a revset from the
       code bookmark back to the newest commit referenced by
       the bot journal's ochids.
-19. **Run validate-bot at every vc-x1 invocation
+20. **Run validate-bot at every vc-x1 invocation
     (config-gated).** The check is one jj spawn
     (`jj bookmark list main --all-remotes`), cheap enough
     to run at every execution, noted 2026-07-15 as a
@@ -769,7 +779,7 @@ Closing out the cycle.
       (`warn|error|off`): unrelated commands (fix-todo)
       warn at most, while push / squash-push / validate-bot
       already have their own handling from 0.69.0-3
-20. **CLI reference lives in `--help`, and README owns concepts.**
+21. **CLI reference lives in `--help`, and README owns concepts.**
     Each command is described in three places (clap's
     `long_about`, a README section with a flag table, and
     sometimes AGENTS.md) and only the flag *descriptions*
@@ -807,7 +817,7 @@ Closing out the cycle.
     - Consider regenerating transcripts via support
       scripts (the gen-exmpl pattern) so examples stay
       reproducible.
-21. **config: extract flag-backed key descriptions from Clap.**
+22. **config: extract flag-backed key descriptions from Clap.**
     `config`'s key descriptions live in `config_schema.rs`
     (`doc`/`used_by`). For the handful of keys that map 1:1 to a
     CLI flag (`bot-session.col-width` ↔ `--col-width`,
@@ -822,7 +832,7 @@ Closing out the cycle.
       dropped `default_value_t`, so Clap no longer holds them).
     - Output format is unchanged, only the text source, so no
       rework of the 0.71.0-9 rendering.
-22. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
+23. **Stale `/.vc-x1` gitignore line: report it, and a safer revert, if ever.** The 0.78.3
     residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
     user's file automatically. Report that the line is no longer needed and leave the
     removal to them (which surface runs the check is TBD, and `config --validate` and the
@@ -831,21 +841,21 @@ Closing out the cycle.
     run's earliest op, preview and confirm, refuse on intervening non-sync operations.
     Background in
     [chores-16](notes/chores/chores-16.md#refactor-drop-sync-state-and-remove-revert).
-23. **Move the agent-files' inline whys to rationale.md.** (wink, 2026-08-23) rationale.md
+24. **Move the agent-files' inline whys to rationale.md.** (wink, 2026-08-23) rationale.md
     holds AGENTS.md's whys and, since the advance-patch-by-default rung, a per-file section
     for versioning.md. The other agent-files (jj.md, notes.md, prose.md, messaging.md) still
     carry inline "Why:" paragraphs, burdening the rule files the split exists to keep concise.
     Sweep them into rationale.md per-file sections, one heading per rule, and leave
     `[why](rationale.md#<slug>)` links behind. Filed at the halve cycle, ranked here so it
     stops living only in a chores narrative.
-24. **Semicolon rule: name the whole-file exemption or schedule the sweep.** (wink,
+25. **Semicolon rule: name the whole-file exemption or schedule the sweep.** (wink,
     2026-08-21) prose.md's Semicolons converts a touched file's prose semicolons whole-file,
     but the living records (TODO.md, README.md, the chores files) are touched every cycle and
     never converted, 57 and 64 sites at the 2026-08-21 count. Either the rule names the
     exemption, files every cycle touches are swept rather than converted on touch, or the
     sweep is scheduled. Until then the working rule: a line you write or edit carries none,
     the rest of the file waits. Drained from the dogfood log at its retirement.
-25. **`vc-x1 validate --full`: accept the default by name.** (wink, 2026-08-21) `full` is the
+26. **`vc-x1 validate --full`: accept the default by name.** (wink, 2026-08-21) `full` is the
     `[validate]` table `vc-x1 validate` runs and `--fast` names the other, so `--full` should be
     accepted too, unnecessary but allowed, so a reader of a command sees which table ran.
 
