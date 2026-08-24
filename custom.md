@@ -10,13 +10,6 @@ Versioning specifics are in [versioning.md](agent-data/versioning.md). The valid
 are not here: they are the work side's `[validate]` table in `.vc-config.md`, run by
 `vc-x1 validate` and `vc-x1 validate --fast`, as the pinned checklists say.
 
-**What a version bump promises**: `X.Y.Z` is a scope signal to readers of the history (see
-[Advancing X.Y.Z](agent-data/versioning.md#advancing-xyz-scope-decides)), not a compatibility
-contract. The crate has no library target, but the built CLI has external consumers (the family's
-repos run it), so a change that breaks an existing invocation or the `.vc-config.md` schema is
-called out in the commit and surfaced by the tool's own errors rather than promised by the
-version. Revisit with a compat clause if a library crate ever splits out.
-
 **Single-name convention** (adopted at the 0.78.3 cycle): the package name is the binary's
 name, `vc-x1` on `main`, with per-line dev names on long-lived branches, guarded by `build.rs`
 on every cargo verb. This is the project's answer to versioning.md's

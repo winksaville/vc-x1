@@ -34,22 +34,20 @@ named by its title and located by its position in the ladder list (see
 suffix below is the only number in the system, and since nothing dereferences it, reordering or
 inserting a step leaves the versions already committed alone.
 
-## Advancing X.Y.Z: scope decides
+## Advancing X.Y.Z: patch by default
 
-Which of the three numbers moves is decided by the **scope of the change**, not by whether it
-touched code: **minor for architecture, patch for everything else.**
+Which of the three numbers moves is not a classification problem
+([why](rationale.md#advancing-xyz-patch-by-default)): **patch by default, minor by the user's
+call, major by the project's promise.**
 
-- The test is whether the *shape* of the system changed or only its contents. Minor when the
-  structure moves: a subsystem added or removed, a pipeline reshaped, an output contract
-  redesigned. Patch for work within the existing shape: incremental features, new cases,
-  presentation, docs, notes.
-- **A docs-only change can be a minor** and a large code change can be a patch. Volume is not
-  scope, and the earlier functional-versus-docs test kept getting this backwards.
+- **Patch by default**: every cycle advances `Z`, whatever it touched. Code or docs, large or
+  small, none of it matters, so the choice costs no deliberation.
+- **Minor is deliberate and rare**: the user names it at a cycle's opening when the change
+  deserves a visible marker in the history, and the agent never infers it from a change's
+  content or size.
 - **Major is a project's own call**, since what `X` promises depends on the artifact and its
-  users. The project records that promise in [custom.md](../custom.md).
-
-**Why:** the suffix already encodes a commit's phase, so `X.Y.Z` is free to encode the only other
-thing a reader wants from a version at a glance, how big a change they are looking at.
+  users. A project that makes that promise records it as its local edit of this rule, and
+  absent one the default above governs.
 
 ## Grammar and storage
 

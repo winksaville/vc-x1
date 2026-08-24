@@ -1,6 +1,6 @@
 # Rationale
 
-The why behind [AGENTS.md](../AGENTS.md), one entry per rule that has one. AGENTS.md holds the
+The why behind the agent-files, one entry per rule that has one. AGENTS.md holds the
 rule and its boundaries, and a session needs only that. The argument is for whoever would change
 a rule, and for the family at convergence, and it is kept so a rule is not simplified away by an
 editor who does not know its cost.
@@ -15,6 +15,10 @@ Project-local content goes in [custom.md](../custom.md).
   reaches its why by one fixed pattern, `[why](agent-data/rationale.md#<same-slug>)`. A heading
   with nothing under it but `_None recorded._` is a rule whose why was never written down, which
   is a finding, not a gap to fill with a guess.
+- **Per-file sections sit at the end**, one `##` per agent-file, subheadings mirroring that
+  file's, reached by the same pattern (`[why](rationale.md#<same-slug>)` from inside
+  `agent-data/`). The other agent-files' remaining inline **Why:** paragraphs migrate as they
+  are touched, the full sweep filed as its own cycle.
 - **An entry is the why, then the evidence**: back references to the chores section where the
   rule was paid for, the dogfood entry, the messages-repo record, the commit. Mostly pointers,
   not a re-telling. The "measured YYYY-MM-DD" lines live here, with the story.
@@ -260,3 +264,16 @@ one. A project-kept rule goes to the pinned file rather than here because writin
 it from exactly the review that should decide it. A pointer entry owes no justification because
 it supersedes nothing, and holding a wider context behind one pointer keeps the rest of the
 file identical to the payload's.
+
+## versioning.md
+
+### Advancing X.Y.Z: patch by default
+
+**The suffix already encodes a commit's phase, so `X.Y.Z` only has to mark the milestones a
+reader should notice.** Two classification tests preceded the rule and failed the same way, by
+demanding a judgment call at every cycle: functional-versus-docs, replaced because volume is
+not scope, and a shape-versus-contents scope test, dropped (2026-08-23) after "shape" proved
+undecidable in practice, a two-file docs edit arguable into "a pipeline reshaped" within a day
+of the test being cited. A pre-1.0 line wants the patch bias: `0.Y.Z` makes no stability
+promise, so a fast-moving minor burns the number's signal for nothing, while a minor that moves
+rarely and deliberately still says something.

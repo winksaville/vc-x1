@@ -351,4 +351,4 @@ justification. A project with a wider context can hold all of it in that file an
 line here. Nothing pinned names the further file: a pinned file asking for something "in custom.md"
 is answered by following the pointer found there.
 
-Precedence: custom.md is loaded last and wins conflicts with this file and the satellites.
+Precedence: custom.md is loaded last and wins conflicts with the other agent-files.
