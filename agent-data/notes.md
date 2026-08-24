@@ -199,8 +199,8 @@ log. Move entries into `done.md` at these natural beats:
   version-of-record.
 - **Resolving an agent-file experiment**: at the beat where it resolves, not at a ladder
   boundary. Adopted and rejected retire identically, since "we tried this and dropped it" is what
-  history serves worst. The narrative goes in a `chores-NN.md` section and the dogfood entry is
-  removed from wherever the project keeps its log, so that log carries in-flight entries only. See
+  history serves worst. The narrative goes in a `chores-NN.md` section and whatever tracked the
+  experiment (a Todo entry, a dated sub-bullet) retires with it. See
   [Changing the agent-files](../AGENTS.md#changing-the-agent-files).
 
 Migration mechanics:

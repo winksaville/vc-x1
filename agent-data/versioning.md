@@ -132,8 +132,15 @@ clobbers the binary consumers are running:
   chosen commit with the plain name (or a copy of the dev binary), never by the per-commit
   flow's install.
 
-Projects without external consumers can skip it. A project that adopts it records the fact in
-its `custom.md` layer.
+**Single-name variant**: a repo striving to release makes the package name the binary's name,
+plain `<name>` on `main` only:
+
+- **The opening renames**: its bump sets `<name>-dev` beside the suffixed version, and every
+  rung and the closing build under the dev name, the closing over the bare version.
+- **Land restores**: the rename back to `<name>` is Land's act, so the stable name is only
+  ever installed from what `main` will carry.
+- **A build script guards the pairing** on every cargo verb: a suffixed version under the
+  stable name fails the build, so no mid-cycle install can clobber the consumers' binary.
 
 ## Unique per commit (preference, not requirement)
 

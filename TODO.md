@@ -81,6 +81,7 @@ in gitk at full context, pointed at from README.md.
 
 - [[N]] [docs: reshape at land opening][61] (done)
 - [[N]] [docs: advance patch by default][62] (done)
+- [[N]] [docs: empty custom.md into the agent-files][67] (done)
 - [[N]] [docs: land under the at-rest contract][63]
 - [[N]] [docs: move the reshape and restore under Land][64]
 - [[N]] [docs: read a change in gitk at full context][65]
@@ -128,6 +129,15 @@ kept at the payload default by the authors, so the Major bullet records a made p
 local edit of the rule itself. The last "satellite" framing also leaves the agent-files, which
 are equals, each with its purpose.
 
+##### docs: empty custom.md into the agent-files
+
+Inserted at wink's direction after the payload-diff review. Move custom.md's single-name
+convention into versioning.md's dev artifact name rule as the local diff, stated generically,
+drop the Medium facts as derivable, and shrink custom.md to its shell. Retire the dogfood log:
+drain the two in-flight entries (the semicolon exemption to a Todo, the stable-name-install
+rule into the Land rung's principle), delete notes/dogfood.md, and sweep the pinned references
+to it. The role survives as existing machinery: chafes become Todos, edits, and records.
+
 ##### docs: land under the at-rest contract
 
 AGENTS.md's At rest step 2 and jj.md's Land name a `jj git push` bookmark move as a push under
@@ -136,7 +146,10 @@ hard rules 2 and 3, with closing words written before a landing sequence's final
 ##### docs: move the reshape and restore under Land
 
 Close-out step 5 chooses and records the shape, and Land executes it: name restore, reshape
-per the recorded choice, fast-forward. custom.md's single-name paragraph follows the move.
+per the recorded choice, fast-forward, and the stable-name install as the last act, run when
+nothing can enter the cycle anymore (drained from the dogfood log: a premature install once
+let one version string mean two behaviors). The single-name text now lives in versioning.md's
+Dev artifact name rule and follows the move.
 
 ##### docs: read a change in gitk at full context
 
@@ -168,12 +181,9 @@ Closing out the cycle.
    change edits the agent-files directly, the diff against the payload being the proposal,
    and its own custom.md stays the payload default. Overrides are for users of the set, not
    its authors.
-   - relocate this repo's custom.md content into the files that own it: the single-name
-     convention into versioning.md's dev artifact name rule as the local diff, stated
-     generically, the dogfood-log location generalized into the pinned rule it serves, the
-     Medium facts derivable from the repo itself
    - restate AGENTS.md's "custom.md: the project layer" section and its rationale.md entry to
-     this model, custom.md and precedence kept for downstream users
+     this model, custom.md and precedence kept for downstream users (the content relocation
+     itself was done at the reshape-at-land cycle's empty-custom.md rung)
 2. **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21)
    Bare `vc-x1 config` prints the schema once per side of the default `work,agent` target, and
    since every remaining key has both workspace homes the two blocks are identical apart from
@@ -768,7 +778,14 @@ Closing out the cycle.
     Sweep them into rationale.md per-file sections, one heading per rule, and leave
     `[why](rationale.md#<slug>)` links behind. Filed at the halve cycle, ranked here so it
     stops living only in a chores narrative.
-24. **`vc-x1 validate --full`: accept the default by name.** (wink, 2026-08-21) `full` is the
+24. **Semicolon rule: name the whole-file exemption or schedule the sweep.** (wink,
+    2026-08-21) prose.md's Semicolons converts a touched file's prose semicolons whole-file,
+    but the living records (TODO.md, README.md, the chores files) are touched every cycle and
+    never converted, 57 and 64 sites at the 2026-08-21 count. Either the rule names the
+    exemption, files every cycle touches are swept rather than converted on touch, or the
+    sweep is scheduled. Until then the working rule: a line you write or edit carries none,
+    the rest of the file waits. Drained from the dogfood log at its retirement.
+25. **`vc-x1 validate --full`: accept the default by name.** (wink, 2026-08-21) `full` is the
     `[validate]` table `vc-x1 validate` runs and `--fast` names the other, so `--full` should be
     accepted too, unnecessary but allowed, so a reader of a command sees which table ran.
 
@@ -920,3 +937,4 @@ hygiene-riders and facade-owns-topology cycles)._
 [64]: #docs-move-the-reshape-and-restore-under-land
 [65]: #docs-read-a-change-in-gitk-at-full-context
 [66]: #docs-reshape-at-land-closing
+[67]: #docs-empty-custommd-into-the-agent-files

@@ -361,7 +361,7 @@ different date or never). And the citation goes stale the moment the named proje
 records, while the rule outlives it.
 
 **How to apply:** state the rule and its mechanism in the pinned file, and leave the evidence trail
-in the records of the project that earned it (chores, dogfood log), reachable from the commit
+in the records of the project that earned it (chores, Todo entries), reachable from the commit
 that changed the pinned file. Dates are fine, since a date names a moment, not a member. A
 specimen in
 the scheme's own notation (an example version, an example bookmark name) is a use, not a

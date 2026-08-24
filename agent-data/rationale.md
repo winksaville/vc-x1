@@ -20,7 +20,7 @@ Project-local content goes in [custom.md](../custom.md).
   `agent-data/`). The other agent-files' remaining inline **Why:** paragraphs migrate as they
   are touched, the full sweep filed as its own cycle.
 - **An entry is the why, then the evidence**: back references to the chores section where the
-  rule was paid for, the dogfood entry, the messages-repo record, the commit. Mostly pointers,
+  rule was paid for, the messages-repo record, the commit. Mostly pointers,
   not a re-telling. The "measured YYYY-MM-DD" lines live here, with the story.
 - **A boundary sentence is not rationale.** A sentence saying what a rule does not cover is the
   rule, and stays in AGENTS.md. What moves here is argument: why the rule exists, what it cost
