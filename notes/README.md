@@ -24,6 +24,9 @@ file so it can be found without knowing which cycle produced it, e.g.
 happened (a plan file or a chores section) and is linked from the policy, so neither restates the
 other.
 
+The agent-files' line count over time is in [agent-files-size.md](agent-files-size.md), one row
+per landing, smaller being the quasi-goal.
+
 In the future I expect we may want to create a "notes" database to better manage the information,
 TBD.
 
