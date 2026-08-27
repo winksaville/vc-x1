@@ -75,19 +75,26 @@ auto-generated anchors. The de-facto reference implementation is
 
 ## Todo format
 
-`TODO.md` is organized into `## In Progress`, `## Closed` (the last cycle's finished record,
-[Cycle-record](../AGENTS.md#cycle-record)), `## Todo` (strict priority rank, #1 highest, with the
-long-tail backlog in [todo-backlog.md](../notes/todo-backlog.md)), `## Ideas`, and `## Bugs`
-(pointer to [bugs.md](../notes/bugs.md)) sections. Each item is a short description with reference
-links to more detail.
+`TODO.md` has these sections, in this order. Each item in them is a short description with
+reference links to more detail.
+
+- `## In Progress`: the running cycle's record ([Cycle-record](../AGENTS.md#cycle-record)).
+- `## Closed`: the last cycle's finished record.
+- `## Waiting`: important work that cannot start yet. Each entry names what it waits on and its
+  rank once unblocked, and every opening checks the conditions.
+- `## Todo`: strict priority rank, #1 highest. The long-tail backlog is in
+  [todo-backlog.md](../notes/todo-backlog.md).
+- `## Ideas`: unranked.
+- `## Bugs`: a pointer to [bugs.md](../notes/bugs.md).
+
+Every member has one `TODO.md` of this shape. It is not an agent-file, since its content is the
+project's record, and the payload ships it as a skeleton: `## In Progress` reading
+`_No cycle currently in progress._`, the other sections empty.
 
 `## Todo` and `## Bugs` entries carry explicit `1.` `2.` ... numbers in the source. For `## Todo`
-the number is its **priority rank** (#1 highest, descending), and for `## Bugs` it's just an index.
-They're for grepping and at-a-glance "let's do #1", **not stable IDs**: reorder (to reprioritize),
-insert, or delete freely, then `vc-x1 fix-todo --no-dry-run` renumbers and normalizes
-continuation-line indent, so any given number is positional. **To refer to a Todo durably, name it
-by its title, a plain, greppable text mention.** Not its number (positional, renumbered) and not a
-markdown link: a numbered list item has no anchor to link to.
+the number is its **priority rank** (#1 highest, descending), and for `## Bugs` it is just an index.
+They're for grepping and at-a-glance "let's do #1", **not stable IDs** and they will change.
+To refer to a Todo durably, name it by its title, a plain, greppable text mention.
 
 Numbering helps a human orient in a long list but makes links difficult and fragile, especially an
 external reference pointing in, which can't be auto-fixed when the list renumbers. A robust fix (a

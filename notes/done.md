@@ -1,6 +1,8 @@
 # Done
 
-As TODO.md `## Done` sections fills move them to here.
+Frozen history: the `## Done` entries of cycles that closed before the cycle-record rule
+([Cycle-record](../AGENTS.md#cycle-record)), newest last. Nothing is appended and no ref is
+backfilled. A cycle closed under the rule is read from the landmark commit's `TODO.md > ## Closed`.
 
 - Add --version and -V flags using std lib (clap not a dependency)
 - Use git trailers for inter/intra repo info: ochid trailer, changeID path syntax, .vc-config.toml[[2]]

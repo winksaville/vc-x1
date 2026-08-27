@@ -11,7 +11,9 @@ Repos: the two repos of [the dual-repo model](#the-dual-repo-model), "work-repo"
 always hyphenated.
 
 Agent-files: the instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
-anything `custom.md` points at.
+anything `custom.md` points at. `TODO.md` is not one, since its content is the project's record,
+but the agent-files require that there is one, of the shape in [Todo
+format](agent-data/notes.md#todo-format).
 
 Project layer: the project's own agent-files, `custom.md` and what it points at.
 
@@ -169,6 +171,8 @@ A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the c
   `main` (the trapezoid merge, or the single-step commit) holds the finished block in its
   `TODO.md > ## Closed`.
 - No backfill: a rung carries no `[[N]]` placeholder, no SHA, and no version.
+- Never amended: a late finding about a closed cycle is recorded where it is found, citing the
+  landmark.
 - Design findings that must outlive the cycle go into a `notes/` file by the rung that made them,
   never left in the block.
 - Frozen history: `notes/chores/` and `notes/done.md` are never appended, still linked.
@@ -180,12 +184,14 @@ then carries step 1). A single-step cycle does all of it in its one commit, afte
 shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
 
 1. Bookmark: create and publish the cycle's bookmark, a push that needs approval.
-2. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
+2. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
+   the rank it names.
+3. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
    `## In Progress`, shaped as [The In Progress block](agent-data/notes.md#the-in-progress-block)
    says, the specimen in [cycle-model.md](agent-data/cycle-model.md).
-3. Bump: bump the version-of-record to the opening's version ([Suffix
+4. Bump: bump the version-of-record to the opening's version ([Suffix
    scheme](agent-data/versioning.md#suffix-scheme)).
-4. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
+5. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)). Land restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's
@@ -268,6 +274,8 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    - drop the `(current)` / `(done)` markers
    - add the design subsections the deliberation grew
    - complete the closing rung's subsection
+   - ask what in the block must outlive the cycle, and write it into the `notes/` file it
+     belongs to
    - move the block whole to `## Closed`, leaving `## In Progress` reading
      `_No cycle currently in progress._`.
 3. Validate: full validation, and update `notes/README.md` if functionality changed.

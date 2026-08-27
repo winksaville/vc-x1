@@ -39,3 +39,8 @@ this repo's records after the messages repo has moved on.
 
 The reply is a record in the sender's file, written per the protocol's modes. A reply that cites a
 landed commit wants the durable mode, since the permalink needs the push to exist first.
+
+An outcome cites the cycle that answered the request by its landmark permalink,
+`blob/<landmark sha>/TODO.md#<cycle slug>`, the `## Closed` block of the landmark commit
+([Cycle-record](../AGENTS.md#cycle-record)). A relative link cannot name it, since the block is
+deleted from the tree by the next opening, so the `outcome-local:` form is not used.

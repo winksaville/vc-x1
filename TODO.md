@@ -48,7 +48,7 @@ payload last.
 - [docs: the family agent-files proposal opening][1] (done)
 - [docs: sync the agent-files to zc-ring-x1's set][2] (done)
 - [docs: state the cycle protocol once][3] (done)
-- [docs: one TODO.md, Closed as the history][4]
+- [docs: one TODO.md, Closed as the history][4] (done)
 - [docs: widen Typeable punctuation to Prose style][5]
 - [docs: the restart and the interlude, between cycles][6]
 - [docs: Todo entries as headings, and sweep the retired names][7]
@@ -215,7 +215,8 @@ whether anything in the block should be kept.
 - TODO.md is not an agent-file (wink, 2026-08-27).
   - Its content is the project's record and can never match another member's.
   - The agent-files require that there is one, of the pinned shape: `## In Progress`,
-    `## Closed`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, the block per cycle-model.md.
+    `## Closed`, `## Waiting`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, the block per
+    cycle-model.md.
   - The payload ships a skeleton, `## In Progress` reading `_No cycle currently in progress._`,
     the rest empty.
   - The shape check is a `validate-todo` extension, recorded in the `validate` Todo entry.
@@ -223,9 +224,10 @@ whether anything in the block should be kept.
 - The history freezes.
   - `## Done` moves whole to `notes/done.md`, frozen with `notes/chores/`, headers saying so,
     and `notes/README.md` describes the history as frozen.
-  - Frozen means never deleted (wink, 2026-08-27): the growth is stopped by freezing, and
-    deleting would break every relative link from `## Todo`, the backlog, rationale.md, and the
-    other members' messages.
+  - Frozen means nothing appended (wink, 2026-08-27): the growth is stopped by freezing.
+    Deleting waits, since it would break every relative link from `## Todo`, the backlog,
+    rationale.md, and the other members' messages until a permalink sweep, and is the
+    `## Waiting` entry.
 - A closed block is never amended. A late finding about a closed cycle is recorded where it is
   found, citing the landmark.
 - messaging.md's "the reply cites the entry" is restated.
@@ -237,6 +239,21 @@ whether anything in the block should be kept.
   relies on noticing in the moment.
 - A `vc-x1 closed "<title>"` verb that prints a landed cycle's block from its landmark is a new
   `## Todo` entry, not this cycle.
+- As built:
+  - The rule lives in AGENTS.md's Terminology (agent-files entry) and notes.md's Todo format, and
+    the `validate` Todo entry names the shape check.
+  - `## Closed` carries a four-line intro saying where earlier cycles are, then `_None yet._`.
+  - The two `## Done` entries (0.80.3, 0.80.4) are dropped, not appended to `notes/done.md`: both
+    cycles have chores sections and commits, and a frozen file takes no last append (wink,
+    2026-08-27). done.md's header says it is frozen, and `notes/README.md` says the same of
+    `chores/`. Retiring both is a Todo entry, to run as one cycle after a permalink sweep.
+  - `## Waiting` is added above `## Todo` (wink, 2026-08-27): important work that cannot start
+    yet, each entry with a `Waits on:` condition and its rank once unblocked, checked at every
+    opening. Rank cannot carry it, since rank means "next" and `fix-todo` renumbers from 1, so a
+    blocked entry at #1 would be a standing lie. Its first entry is the frozen-history
+    retirement.
+  - The acquaint read stays `offset=0, limit=60`, which now reaches only the top of a full In
+    Progress block. The sweep rung looks at whether the intro should say so.
 
 ##### docs: widen Typeable punctuation to Prose style
 
@@ -350,19 +367,38 @@ users of the set, not its authors.
 
 Closing out the cycle.
 
+## Closed
+
+The last cycle's finished record, moved here whole by its closing commit and deleted by the next
+opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the landmark commit's copy
+of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
+[notes/done.md](notes/done.md).
+
+_None yet._
+
+## Waiting
+
+Important work that cannot start yet. Each entry names what it waits on, in a form that can be
+checked, and the rank it takes in `## Todo` once unblocked. Every opening checks each condition
+and promotes what is met ([Opening](AGENTS.md#opening)).
+
+- **Retire the frozen history: `notes/chores/` and `notes/done.md`.** (wink, 2026-08-27) They
+  are frozen and no longer grow, and the agent-repo transcript plus git history hold what they
+  hold. Delete both in one cycle, after a sweep turns every link into them (Todo entries, the
+  backlog, rationale.md, the other members' messages) into a permalink at the SHA before the
+  deletion.
+  - Waits on: **`vc-x1 closed "<title>"`** landed, and the session viewer good enough to read
+    a cycle's record from the transcript.
+  - Rank when unblocked: #1.
+
 ## Todo
 
- Entries are in **strict priority rank**, #1 highest,
- descending. Reprioritize by moving an entry, then
- `vc-x1 fix-todo --no-dry-run TODO.md` to renumber.
- The numbers are positional rank, not stable IDs, so to refer
- to a Todo, name it by its **title** (a greppable mention,
- since a numbered list item has no anchor to link to), not its
- number. Long-tail entries
- live in [todo-backlog.md](notes/todo-backlog.md). Use the
- [Prose form](/agent-data/prose.md#prose-form). Deeper
- detail goes in `notes/chores/chores-NN.md` design
- subsections (link via `[N]` ref).
+ Entries are in **strict priority rank**, #1 highest, descending. Reprioritize by moving an entry,
+ then `vc-x1 fix-todo --no-dry-run TODO.md` to renumber. The numbers are positional rank, not stable
+ IDs, so to refer to a Todo, name it by its **title** (a greppable mention, since a numbered list
+ item has no anchor to link to), not its number. Long-tail entries live in
+ [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](/agent-data/prose.md#prose-form).
+ Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
 1. **The vc-config program: finish the surface, then shrink it.** The markdown carrier
    landed and the rest of the config subcommand's work was spread across six entries. They
@@ -990,6 +1026,14 @@ Closing out the cycle.
     - every Todo and backlog entry carries a bold title, unique within its file
     - every `](path#anchor)` and `[N]: path#anchor` in the agent-files resolves against the
       headings (the check that found two dead links on 2026-08-27, run by hand)
+    - `TODO.md` has the pinned shape: `## In Progress`, `## Closed`, `## Waiting`, `## Todo`,
+      `## Ideas`, `## Bugs`, `# References`, in that order, and the In Progress block per
+      cycle-model.md (the `validate-todo` extension, 2026-08-27)
+
+19. **`vc-x1 closed "<title>"`: print a landed cycle's block.** (2026-08-27) A landed cycle's
+    record is its `## Closed` block in the landmark commit's `TODO.md`, and reading it back is
+    two awkward commands (`git log --first-parent main --grep`, then `git show <sha>:TODO.md`).
+    One verb that finds the landmark by title and prints the block.
 
 ## Ideas
 
@@ -1086,59 +1130,6 @@ Closing out the cycle.
 
 _See [bugs.md](notes/bugs.md)._
 
-## Done
-
-Completed tasks are moved from `## Todo` to here, `## Done`, as they are completed
-and older `## Done` sections are moved to [done.md](notes/done.md) to keep this file small.
-
-_Migrated to [done.md](notes/done.md) on 2026-07-24 (the DRY jj facade
-cycle and its two docs interludes: template repo names, notes rework)._
-
-- 0.80.4 **docs: reshape at land** [[12]]
-  - Land is a five-step permanence sequence and the close-out only chooses and records the
-    shape, so a published bookmark is never moved sideways to carry a reshape
-  - a landing's pushes are pushes under hard rules 2 and 3, with closing words before the
-    final one
-  - the version scheme advances patch by default, minor by the user's call at an opening
-  - AGENTS.md's Terminology names Land, Trapezoid and Artifact, and rationale.md's Terminology
-    keeps only what argues rather than defines
-  - jj.md says how to read a change in gitk at full context, linked from README.md
-  - custom.md is back to its shell and the dogfood log is retired
-- 0.80.3 **docs: fix dev artifacts** [[13]]
-  - the dev-name rename is the Opening's own step and the trapezoid recipe restores the plain
-    name before the reshape, so a bookmark builds as `vc-x1-dev` and `main` as `vc-x1` by rule
-  - the Cycle term says when a cycle is single-step or multi-step, and development is not done
-    on `main`
-  - the commit-body form pairs every `-` under a `*`, scopes the intro to this commit, and
-    makes a bookend body a pointer, with the form cued at the describe step
-  - Close-out shapes says how to preview a squash before choosing
-
-_Migrated to [done.md](notes/done.md) on 2026-08-23 (the 0.80.1 and 0.80.2 pair: fold the
-cycle agent-files into AGENTS.md, halve AGENTS.md into rationale.md)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-22 (the 0.80.0 entry: empty
-custom-family into the pinned set and config)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-21 (the 0.79.x pair: retire the remaining jj spawns,
-pin two rules and close the convergence record)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-21 (the six 0.78.x entries: the merged
-agent-file set, three semicolons, line widths, freshen vc-config, the depth-note paragraph,
-and the refactor program block)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-18 (the three pre-convention entries: the
-typeable-punctuation source sweep, drop sync state, and the Claude Code cycle test)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-09 (the
-jj-lib migration and 0.43-bump cycles, and the three docs
-interludes: jj-lib design notes, typeable punctuation,
-re-describe rule)._
-
-_Migrated to [done.md](notes/done.md) on 2026-08-03 (the
-program-ladder, repo-registry, trapezoid-recipe, and
-stateless-push entries), and on 2026-07-28 (the
-hygiene-riders and facade-owns-topology cycles)._
-
 # References
 
 [1]: #docs-the-family-agent-files-proposal-opening
@@ -1152,5 +1143,3 @@ hygiene-riders and facade-owns-topology cycles)._
 [9]: #choretemplate-propose-the-set-to-the-payload
 [10]: #docs-the-family-agent-files-proposal-closing
 [11]: /notes/forks-multi-user.md
-[12]: /notes/chores/chores-18.md#docs-reshape-at-land
-[13]: /notes/chores/chores-17.md#docs-fix-dev-artifacts

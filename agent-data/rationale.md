@@ -168,6 +168,10 @@ again.
 
 ### Opening
 
+`## Waiting` is checked at the opening because that is the moment a choice is being made, and a
+blocked entry cannot hold a rank: rank means "next", `fix-todo` renumbers from 1, and a blocked
+entry at #1 would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
+
 **The bookmark create is a push** because `vc-x1 push` requires the bookmark's remote refs to be
 tracked, so the create has to publish, and a publish takes push approval.
 
@@ -244,13 +248,23 @@ in the agent-repo commit, so the `ochid` in the work-repo commit continues to re
 
 ### Close-out
 
-The finished block moves to `## Closed` so the finalized record exists in a tree
-([Cycle-record](#cycle-record)). The single-step case is spelled out because a single-step close-out
-went wrong when it was left to analogy (2026-08-26): the agent treated the one commit as a closing
-rung, so the agent-repo commit took the title plus " closing" while the work-repo commit kept the
-bare title, the agent-repo held two commits for the one rung, the `ochid:` trailers did not match,
-and the In Progress block was deleted rather than moved, so the cycle reached neither
-`notes/chores/` nor `## Done`. The repair was a hand re-describe and squash.
+Each close-out step exists because a close-out once went wrong without it.
+
+- The finished block moves to `## Closed` so the finalized record exists in a tree
+  ([Cycle-record](#cycle-record)).
+- It asks what must outlive the cycle because the block is replaced one opening later, and the
+  rung-time rule (a design finding goes to `notes/` by the rung that made it) relies on noticing in
+  the moment.
+- A closed block is never amended because its tree is the landmark's, and a rewrite there is a
+  rewrite of published history.
+- The single-step case is spelled out because a single-step close-out went wrong when it was left
+  to analogy (2026-08-26): the agent treated the one commit as a closing rung.
+  - The agent-repo commit took the title plus " closing" while the work-repo commit kept the bare
+    title, and the agent-repo held two commits for the one rung, so the `ochid:` trailers did not
+    match.
+  - The In Progress block was deleted rather than moved, so the cycle reached neither
+    `notes/chores/` nor `## Done`.
+  - The repair was a hand re-describe and squash.
 
 ### Local ladders
 
