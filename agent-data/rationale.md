@@ -67,9 +67,16 @@ _None recorded._
 
 _None recorded._
 
-### Typeable punctuation
+### Prose style
 
-_None recorded._
+The rule widened from typeable punctuation to the whole of prose form (2026-08-27).
+
+- The prose rules arrived one at a time, each as its own hard rule or its own section, and a rule
+  named for one of them was read as covering only that one.
+- One spelling per term (wink, 2026-08-24): either always hyphenated or never, since mixing costs
+  a reader a judgment call and buys nothing.
+- Bullet form (wink, 2026-08-27): sentence bullets and thing-list bullets read differently, and a
+  list that mixes them makes the reader decide which each one is.
 
 ### One title per step
 

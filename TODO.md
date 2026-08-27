@@ -49,94 +49,82 @@ payload last.
 - [docs: sync the agent-files to zc-ring-x1's set][2] (done)
 - [docs: state the cycle protocol once][3] (done)
 - [docs: one TODO.md, Closed as the history][4] (done)
-- [docs: widen Typeable punctuation to Prose style][5]
-- [docs: the restart and the interlude, between cycles][6]
-- [docs: Todo entries as headings, and sweep the retired names][7]
-- [docs: move the satellites' inline whys][8]
-- [chore(template): propose the set to the payload][9]
-- [docs: the family agent-files proposal closing][10]
+- [docs: widen Typeable punctuation to Prose style][5] (done)
+- [build: move the lock off the yanked chacha20][6]
+- [docs: the restart and the interlude, between cycles][7]
+- [docs: Todo entries as headings, and sweep the retired names][8]
+- [docs: move the satellites' inline whys][9]
+- [chore(template): propose the set to the payload][10]
+- [docs: the family agent-files proposal closing][11]
 
 #### Deliberation
 
-Provenance, the re-plan, two decisions, one new rule, and two scope corrections.
+Provenance, the re-plan, the decisions taken on the way, and two scope corrections.
 
-- Provenance: this cycle was opened from conversation, not from one `## Todo` entry. It
-  consolidates eleven convention entries that were spread across `## Todo` and
-  [todo-backlog.md](notes/todo-backlog.md), plus two rules that surfaced on 2026-08-24
-  (hyphenation, restart after close-out), so no single entry is its origin and none is cited as
-  one.
+- Provenance: this cycle was opened from conversation, not from one `## Todo` entry.
+  - It consolidates eleven convention entries that were spread across `## Todo` and
+    [todo-backlog.md](notes/todo-backlog.md), plus two rules that surfaced on 2026-08-24
+    (hyphenation, restart after close-out).
+  - No single entry is its origin, and none is cited as one.
 - Re-planned on zc-ring-x1's set (wink, 2026-08-27), one rung in, nothing pushed past the opening.
-  - wink did not like where the ladder was headed and ran a cycle in zc-ring-x1 instead, whose
-    result is a set with three rules this ladder did not have: the cycle-record (the block is the
-    only record, no chores move, no `## Done` entry, no `[[N]]` backfill), the shape fixed at the
-    first push with squash retired, and rules named rather than numbered. Those subsume the
-    duplication this cycle was opened against, at the records rather than the rule text.
-  - the assessment: take it as the base. Its costs are named as rungs: it states the per-rung flow
-    three times (AGENTS.md, cycle-checklists.md, cycle-protocol.md, the two files vc-x1 had
-    already retired), still cites "hard rule N" in three files after the rules were named, has two
-    dead links (custom.md to the renamed `## custom.md`, rationale.md to vc-x1's chores-17), and
-    leaves messaging.md's citation form and the close-out's "what outlives this block" question
-    unasked.
-  - the abandoned rung, **docs: cut AGENTS.md's steps to a line and a link**, had reached 370 to
-    320 lines with every rule kept. Its finding stands: the remaining bulk is the rules themselves
-    (hard rules 33 lines, per-rung flow 25, close-out 19, working practices 21), so a further cut
-    would have to cut rules. zc-ring-x1's 350-line AGENTS.md is the same file with named-rule
-    headings, and the draft was dropped rather than merged.
-  - the specimens rung dissolves: zc-ring-x1's cycle-model.md is the filled specimen, and the
-    commit-body specimen goes with the prose rung.
-  - the ladder was then cut from fifteen rungs to ten (wink, 2026-08-27): retire-the-copies with
-    the citation fixes, the Closed section with what outlives a cycle and the one-TODO.md
-    rule, restart with interlude (both between cycles), Todo headings with the name sweep
-    (the sweep runs on the headings), and the custom.md restatement into the payload rung, which
-    acts under that model.
-  - this block follows the new rule from this rung on: no `[[N]]` placeholders, and the cycle
-    closes to `## Closed`, not to `notes/chores/`.
-- Hyphenation, decided (wink, 2026-08-24): **one spelling per term, always**. Either always
-  hyphenated or never, and no rule that varies the spelling by how the term is used, since
-  mixing costs a reader a judgment call and buys nothing.
-  - measured 2026-08-24: `work-repo` 12 against `work repo` 6, `agent-repo` 14 against
-    `agent repo` 7. `agent-files`, `version-of-record`, `dual-repo`, `fast-forward` and
-    `as-built` are already single-spelled, so the fix is 13 sites, 10 in jj.md and 3 in
-    AGENTS.md
-  - the nine `closeout` hits are the trapezoid recipe's `<closeout>` placeholder, a code token,
-    and the sweep leaves them alone
-  - the rule goes in prose.md and the Prose style rule names it. Terminology keeps the
-    spellings, but a glossary is read for meaning rather than for spelling, so a rule stated only
-    there is invisible to whoever is writing prose
-- Body shape not promoted into hard rule 9, folded 2026-08-25 from its own rung. Extending
-  title identity to the body was deferred at the 2026-08-07 convergence review ("a pushed body
-  is coordinate-first to fix" would promote every prose rule that touches a body), and the form
-  itself was pinned in prose.md at the "docs: pin the commit-body form" rung (2026-08-12). This
-  cycle answers the promotion question a different way: a specimen beside the rule and a
-  `validate` check on the body (`## Todo` **`validate`: enforce the record shapes the
-  agent-files ask for**), which is stronger than a hard rule and keeps a bad body a plain fix.
-  Hard rule 9 stays as it is.
+  - wink did not like where the ladder was headed and ran a cycle in zc-ring-x1 instead.
+  - Its result is a set with three rules this ladder did not have: the cycle-record (the block is
+    the only record, no chores move, no `## Done` entry, no `[[N]]` backfill), the shape fixed at
+    the first push with squash retired, and rules named rather than numbered.
+  - Those subsume the duplication this cycle was opened against, at the records rather than the
+    rule text, so the set is the base.
+  - Its costs became rungs: the per-rung flow stated three times (AGENTS.md,
+    cycle-checklists.md, cycle-protocol.md), "hard rule N" cited in three files after the rules
+    were named, two dead links, and messaging.md's citation form and the close-out's "what
+    outlives this block" question unasked.
+  - The abandoned rung, **docs: cut AGENTS.md's steps to a line and a link**, had reached 370 to
+    320 lines with every rule kept. Its finding stands: the remaining bulk is the rules
+    themselves, so a further cut would have to cut rules. The draft was dropped, not merged.
+  - The specimens rung dissolved: zc-ring-x1's cycle-model.md is the filled specimen, and the
+    commit-body specimen went to the prose rung.
+  - The ladder was then cut from fifteen rungs to ten by merging same-subject pairs.
+  - This block follows the new rule from the sync rung on: no `[[N]]` placeholders, and the
+    cycle closes to `## Closed`, not to `notes/chores/`.
+- Hyphenation, decided (wink, 2026-08-24): one spelling per term, always.
+  - Either always hyphenated or never, and no rule that varies the spelling by how the term is
+    used, since mixing costs a reader a judgment call and buys nothing.
+  - Measured 2026-08-24 at 13 sites, and 12 at the prose rung after the sync (2 in AGENTS.md, 10
+    in jj.md). The `<closeout>` placeholder in the trapezoid recipe is a code token and stays.
+  - The rule lives in prose.md, since a glossary is read for meaning rather than for spelling.
+- Body shape not promoted into One title per step, folded 2026-08-25 from its own rung.
+  - Extending title identity to the body was deferred at the 2026-08-07 convergence review,
+    since "a pushed body is coordinate-first to fix" would promote every prose rule that touches
+    a body.
+  - This cycle answers it with a specimen beside the rule and a `validate` check on the body
+    (`## Todo` **`validate`: enforce the record shapes the agent-files ask for**), which is
+    stronger than a hard rule and keeps a bad body a plain fix.
 - Rung titles are commit titles, and nine rungs were laddered without a type (2026-08-25).
-  The rule sat in prose.md's Conventional-commit shape while notes.md's ladder bullet said only
-  `<title>`, and Opening step 3's "shape it" did not name the retitle of a moved `## Todo`
-  entry. Five rereads did not see it, since nine consistent misses look like a convention. The
-  two one-line fixes move to the prose rung and the check is in the `validate` entry.
-- Restart the session after a close-out (wink, 2026-08-24): family-universal, so it is a
-  pinned-file rule and not custom.md. Detail in its cycle below.
-- The series is **not** the old Todo 1-7. Only the first two of those were agent-files work.
-  The rest were the config program, validate-repo-data and trapezoid-push, which are the tool
-  rather than the proposal. The config entries are now one `## Todo` entry.
-- **docs: widen Typeable punctuation to Prose style** absorbs three prose rules that arrived
-  separately: the punctuation rule's widening, hyphenation, and the semicolon whole-file question.
-  Splitting them means three cycles reopening the same rule and the same prose.md
-  neighborhood. **Proposed, easy to drop**: the semicolon half was its own `## Todo` entry
-  until this consolidation.
+  - The rule sat in prose.md's Conventional-commit shape while notes.md's ladder bullet said only
+    `<title>`. Five rereads did not see it, since nine consistent misses look like a convention.
+  - The one-line fix is in the prose rung and the check is in the `validate` entry.
+- Restart the session after a close-out (wink, 2026-08-24): family-universal, so a pinned-file
+  rule and not custom.md.
+- The series is not the old Todo 1-7.
+  - Only the first two of those were agent-files work. The rest were the config program,
+    validate-repo-data and trapezoid-push, which are the tool rather than the proposal.
+  - The config entries are now one `## Todo` entry.
+- The semicolon whole-file question dissolved at the prose rung (2026-08-27).
+  - The worry was files every cycle touches, which the convert-on-touch rule would convert whole
+    at the first touch. TODO.md's prose has no semicolons, chores are frozen and never touched,
+    and README.md (52) converts when a commit edits it, per the rule as written.
+  - No exemption is named.
 - Ordering: the consistency rungs run before any rule-text rung, so rule text is written once
-  into a set that says each thing once. The prose rung runs before **docs: move the satellites'
-  inline whys**, since that move rewrites the satellites and would otherwise re-touch what the
-  prose rung just changed. The headings half of **docs: Todo entries as headings, and sweep the
-  retired names** decides before the sweep in the same rung, since headings make a citation a
-  link.
-- Scopes dropped from the docs rungs (wink, 2026-08-27): `(notes)`, `(prose)`, `(rationale)`
-  named the file the diff landed in, which is a one-word file list in the title. A scope names a
-  component as its user would name it, and a docs rung here has none. `chore(template)` keeps
-  its scope, since the template is another repo, a real boundary. The rule is one sentence in
-  prose.md's Commit description details, a correction made in this rung.
+  into a set that says each thing once.
+  - The prose rung runs before **docs: move the satellites' inline whys**, since that move
+    rewrites the satellites and would otherwise re-touch what the prose rung just changed.
+  - The headings half of **docs: Todo entries as headings, and sweep the retired names** decides
+    before the sweep in the same rung, since headings make a citation a link.
+- Scopes dropped from the docs rungs (wink, 2026-08-27).
+  - `(notes)`, `(prose)`, `(rationale)` named the file the diff landed in, which is a one-word
+    file list in the title. A scope names a component as its user would name it, and a docs rung
+    here has none.
+  - `chore(template)` keeps its scope, since the template is another repo, a real boundary.
+  - The rule is one sentence in prose.md's Commit description details.
 
 #### Ladder details
 
@@ -280,6 +268,26 @@ separately.
   - `agent-data/commit-model.md`, the cycle-model cycle's work-rung body and bookend body,
     named from per-rung flow step 7 and from prose.md's Commit-body form.
   - notes.md's ladder bullet says `<title>` is the rung's commit title and links the type set.
+- As built:
+  - The AGENTS.md rule is `### Prose style`, one sentence of links: Prose form, one spelling per
+    term, bullet form, no semicolons, typeable punctuation only. rationale.md's heading follows
+    and carries the whys.
+  - prose.md gains `### One spelling per term` and `### Bullet form` under Prose form, and
+    Commit-body form opens by naming its specimen.
+  - The hyphenation sweep converted 12 sites, 2 in AGENTS.md and 10 in jj.md.
+  - The semicolon question dissolved (the deliberation says why), so no exemption was written.
+  - The deliberation was swept to bullet form and sub-bullets, the Ladder details having been
+    swept at the sync rung.
+
+##### build: move the lock off the yanked chacha20
+
+`cargo install --path . --locked` warns that `chacha20 0.10.1` in Cargo.lock is yanked, at every
+full validation. A yanked version stays installable for a lock that pins it but usually means a
+bug or advisory, and a docs rung's body cannot carry the fix as a facet.
+
+- `cargo update -p chacha20` moves the lock to the nearest unyanked version, then a full
+  validation confirms the build and install.
+- Inserted after the prose rung at the review that surfaced it (wink, 2026-08-27).
 
 ##### docs: the restart and the interlude, between cycles
 
@@ -928,7 +936,7 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
     `jj git push` / `git push`, no `vc-x1 push` in the loop),
     so no bot pairings exist. One bot commit then records
     every code commit not yet covered by a prior `ochid:`,
-    via a multi-line `ochid:` per the design in [[11]].
+    via a multi-line `ochid:` per the design in [[12]].
     - Out of scope: the trapezoid close-out, handled
       natively by the in-progress "feat: push merge
       close-out (trapezoid)" cycle, whose N-ochid stamping
@@ -1137,9 +1145,10 @@ _See [bugs.md](notes/bugs.md)._
 [3]: #docs-state-the-cycle-protocol-once
 [4]: #docs-one-todomd-closed-as-the-history
 [5]: #docs-widen-typeable-punctuation-to-prose-style
-[6]: #docs-the-restart-and-the-interlude-between-cycles
-[7]: #docs-todo-entries-as-headings-and-sweep-the-retired-names
-[8]: #docs-move-the-satellites-inline-whys
-[9]: #choretemplate-propose-the-set-to-the-payload
-[10]: #docs-the-family-agent-files-proposal-closing
-[11]: /notes/forks-multi-user.md
+[6]: #build-move-the-lock-off-the-yanked-chacha20
+[7]: #docs-the-restart-and-the-interlude-between-cycles
+[8]: #docs-todo-entries-as-headings-and-sweep-the-retired-names
+[9]: #docs-move-the-satellites-inline-whys
+[10]: #choretemplate-propose-the-set-to-the-payload
+[11]: #docs-the-family-agent-files-proposal-closing
+[12]: /notes/forks-multi-user.md

@@ -88,10 +88,13 @@ trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers).
 Read [The per-rung flow](#the-per-rung-flow) before commit work and [Before any
 push](#before-any-push) before a push, from the file, not from memory.
 
-### Typeable punctuation
+### Prose style
 
-No em/en dash, ellipsis, or arrow characters in durable text, see [Typeable
-punctuation](agent-data/prose.md#typeable-punctuation-only).
+Durable text follows [Prose form](agent-data/prose.md#prose-form): no wall of prose, [one
+spelling per term](agent-data/prose.md#one-spelling-per-term), [bullet
+form](agent-data/prose.md#bullet-form), [no
+semicolons](agent-data/prose.md#semicolons), and [typeable punctuation
+only](agent-data/prose.md#typeable-punctuation-only).
 
 ### One title per step
 
@@ -131,10 +134,10 @@ How a [cycle](#terminology) runs ([why](agent-data/rationale.md#cycle-protocol))
 
 ### Cycles run on a bookmark
 
-A cycle runs on one topic bookmark in the work repo, created at the opening and named by the cycle
+A cycle runs on one topic bookmark in the work-repo, created at the opening and named by the cycle
 title's slug ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). `main` advances only when
 the finished cycle lands on it, so development is never done on `main`, a single-step cycle
-included. The agent repo needs no bookmark. Commands in [Cycle
+included. The agent-repo needs no bookmark. Commands in [Cycle
 bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), the long-lived case in [Long-lived
 bookmarks][llb].
 
@@ -216,7 +219,8 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    working-copy diff ([jj basics](agent-data/jj.md#jj-basics)).
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
    description in [Commit-body form](agent-data/prose.md#commit-body-form), read from the file first
-   ([Commit description](#commit-description)).
+   with its specimen, [commit-model.md](agent-data/commit-model.md) ([Commit
+   description](#commit-description)).
 8. Description review: show the title + body and stop. Ask permission to commit and push without
    spelling out the invocation. The go covers the push only when it says so.
 9. Commit + push: on the go, `vc-x1 push <bookmark> --title "..." --body "..."` ([Committing vs

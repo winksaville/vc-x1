@@ -75,6 +75,20 @@ the sentence after it is complete without it:
   (wink, 2026-08-21).
 - The price: one word of redundancy, paid on purpose: the label is skippable, the sentence is not.
 
+### One spelling per term
+
+A defined term has one spelling, everywhere: `work-repo` and `agent-repo` are always hyphenated,
+`agent-files`, `version-of-record`, `dual-repo`, and `as-built` likewise, and no rule varies the
+spelling by how the term is used. Terminology in AGENTS.md defines the terms, and this section is
+where the spelling rule lives, since a glossary is read for meaning rather than for spelling.
+
+### Bullet form
+
+A bullet is a full sentence, capitalized and ending in a period or question mark, unless the list
+is a plain list of things (files, names, options), which takes neither. A list is all one or all
+the other. A sentence never opens with a lower-case name (`squash-push`, `rationale.md`), it is
+recast so the name is not the first word.
+
 ### Line widths
 
 Every width number lives here and nowhere else: the other files and sections link here rather than
@@ -119,7 +133,8 @@ opening what it intended to do.
 
 ### Commit-body form
 
-A commit body is the [Problem-first shape](#problem-first-shape) with one addition: a body whose
+The specimen is [commit-model.md](commit-model.md). A commit body is the [Problem-first
+shape](#problem-first-shape) with one addition: a body whose
 problem has several sub-problems arranges them by a fixed recursion, so a reader knows what any
 bullet is from its marker and its depth. The earlier statement, "a problem statement then a solution
 statement, both broad", left that arrangement to taste, and taste converged slowly and separately.

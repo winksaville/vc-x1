@@ -28,7 +28,7 @@ to move/rename a tracked file, just `mv` it on disk and jj detects the rename by
   way a cycle's bookmark is born (see [Cycle bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it and
   creates a new empty working copy on top.
-- The agent repo always has uncommitted changes during an active session because session data
+- The agent-repo always has uncommitted changes during an active session because session data
   updates continuously.
 - `jj rebase` uses `--onto`/`-o` to name the destination(s).
 
@@ -64,7 +64,7 @@ written since teaches only jj's semantics.
 
 ## Cross-repo linking (ochid trailers)
 
-The cross-reference between the work repo and the agent repo is what makes the dual-repo work: every
+The cross-reference between the work-repo and the agent-repo is what makes the dual-repo work: every
 commit points at its counterpart in the other repo, so the "what" (code) and the "why / how"
 (session) stay linked across time. That pointer is the **ochid** (Other Change ID) git trailer.
 
@@ -72,10 +72,10 @@ A **chid** is jj's change ID, a permanent identifier that survives rebases and `
 the commit ID / git SHA, which changes on rewrite). An **ochid** trailer carries the counterpart
 commit's chid as a workspace-root-relative path:
 
-- Paths start with `/`, the workspace root, i.e. the work repo (the project root). `/.claude` is the
+- Paths start with `/`, the workspace root, i.e. the work-repo (the project root). `/.claude` is the
   agent sub-repo.
-- `ochid: /<chid>` references a change in the **work repo**.
-- `ochid: /.claude/<chid>` references a change in the **agent repo**.
+- `ochid: /<chid>` references a change in the **work-repo**.
+- `ochid: /.claude/<chid>` references a change in the **agent-repo**.
 
 Trailers are blank-line-separated `key: value` lines at the end of the commit body, using the chid's
 **12-character** prefix:
@@ -87,13 +87,13 @@ ochid: /wtpmottvxqzl           # points to a work-repo change
 
 How many, and which direction:
 
-- **Work-repo commits** each carry one `ochid: /.claude/<agent-chid>`, the agent repo's change ID.
+- **Work-repo commits** each carry one `ochid: /.claude/<agent-chid>`, the agent-repo's change ID.
 - **The agent-repo commit** carries one `ochid: /<work-chid>` per work-repo commit in that push. The
   count is per *push*, not per cycle. A trapezoid close-out whose rungs were pushed 1:1 as they
   landed still carries exactly one. More than one occurs when a single push publishes several
   work-repo commits.
 
-Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work repo, second agent
+Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work-repo, second agent
 repo).
 
 `ochid:` trailers are **stamped by `vc-x1 push`**. Never hand-write them into a commit body or
@@ -351,7 +351,7 @@ Recovery:
 ## Resolvability
 
 A change ID travels with its commit: a **pushed** commit resolves to the same chid in every clone.
-Cloning the agent repo gave the published `main` tip the same chid as an existing clone. We think jj
+Cloning the agent-repo gave the published `main` tip the same chid as an existing clone. We think jj
 carries the change ID in the git commit object, so it survives `jj git clone` / fetch.
 
 The local-only case is the **working-copy `@`**: jj mints a fresh random chid for `@` in each clone,

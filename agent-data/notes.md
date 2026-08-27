@@ -60,9 +60,8 @@ order: walk the file's prose in document order (`TODO.md` is `## In Progress`, `
 `## Todo`) and number refs as their first `[[N]]` citation appears. This is a file-local rewrite, so
 only that file's `[[N]]` citations and `[N]:` definitions move. Every target and sibling file is
 untouched. A `[[N]]` inside a `` ` `` code span is a literal token, not a citation, and is left
-alone. Do it opportunistically (when the namespace has drifted enough to annoy), not on a schedule.
-`TODO.md` fragments fastest (entries land and get pruned every cycle) and is the usual candidate.
-The frozen files are never re-packed.
+alone. A new ref takes the next free number, out of order is fine. When you think a re-pack is
+needed, ask. The frozen files are never re-packed.
 
 ## Markdown anchor links
 
@@ -132,7 +131,9 @@ under a program heading, each one deeper):
   it. Not the per-commit validation, which asks whether the artifact still works. A changed check is
   one of the things the deliberation exists to justify
 - **ladder**: one rung per step, `- [<title>][M]` plus `(current)` / `(done)`, with `[M]: #<slug>`
-  in the file's `# References`. The closing rung, `<cycle title> closing`, is linked like the rest
+  in the file's `# References`. `<title>` is the rung's commit title, `<type>: <desc>` per
+  [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--commit), so a moved
+  `## Todo` entry is retitled. The closing rung, `<cycle title> closing`, is linked like the rest
 - **deliberation**: how the five above were decided, one bullet per decision. The bullet's lead
   names the decision and its sentence states it, and the sub-bullets carry the reasons, the
   alternatives weighed, and the costs accepted, so a reader can skim the decisions and read the
