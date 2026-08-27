@@ -50,7 +50,7 @@ payload last.
 - [docs: state the cycle protocol once][3] (done)
 - [docs: one TODO.md, Closed as the history][4] (done)
 - [docs: widen Typeable punctuation to Prose style][5] (done)
-- [build: move the lock off the yanked chacha20][6]
+- [build: update the lock to the latest compatible versions][6] (done)
 - [docs: the restart and the interlude, between cycles][7]
 - [docs: Todo entries as headings, and sweep the retired names][8]
 - [docs: move the satellites' inline whys][9]
@@ -279,15 +279,24 @@ separately.
   - The deliberation was swept to bullet form and sub-bullets, the Ladder details having been
     swept at the sync rung.
 
-##### build: move the lock off the yanked chacha20
+##### build: update the lock to the latest compatible versions
 
 `cargo install --path . --locked` warns that `chacha20 0.10.1` in Cargo.lock is yanked, at every
-full validation. A yanked version stays installable for a lock that pins it but usually means a
-bug or advisory, and a docs rung's body cannot carry the fix as a facet.
+full validation, and the rest of the lock had drifted behind the latest compatible versions. A
+yanked version stays installable for a lock that pins it but usually means a bug or advisory, and
+a docs rung's body cannot carry the fix as a facet.
 
-- `cargo update -p chacha20` moves the lock to the nearest unyanked version, then a full
-  validation confirms the build and install.
-- Inserted after the prose rung at the review that surfaced it (wink, 2026-08-27).
+- `cargo update` moved 48 crates within their `Cargo.toml` ranges, chacha20 among them (0.10.1 to
+  0.10.2), and the full validation confirmed the build and install without the warning.
+  - `jj-lib` stays at 0.44 and `gix` at 0.85: a minor bump of either is a `Cargo.toml` edit under
+    the jj version policy, not a lock update.
+- Inserted after the prose rung at the review that surfaced the yank (wink, 2026-08-27), opened
+  for chacha20 alone and widened to the whole lock at its review.
+- Folded in (wink, 2026-08-27): the eleven names the agent sandbox bind-mounts over `/dev/null`
+  at the repo root while a command runs (`.bashrc`, `.gitconfig`, `.vscode`, ...) are
+  gitignored, so `jj st` run by the agent stops listing them as added.
+  - They exist only for the command's duration and only from the agent's shell, so nothing
+    tracked changes, and the gitignore's effect is the `jj st` noise and no more.
 
 ##### docs: the restart and the interlude, between cycles
 
@@ -1145,7 +1154,7 @@ _See [bugs.md](notes/bugs.md)._
 [3]: #docs-state-the-cycle-protocol-once
 [4]: #docs-one-todomd-closed-as-the-history
 [5]: #docs-widen-typeable-punctuation-to-prose-style
-[6]: #build-move-the-lock-off-the-yanked-chacha20
+[6]: #build-update-the-lock-to-the-latest-compatible-versions
 [7]: #docs-the-restart-and-the-interlude-between-cycles
 [8]: #docs-todo-entries-as-headings-and-sweep-the-retired-names
 [9]: #docs-move-the-satellites-inline-whys
