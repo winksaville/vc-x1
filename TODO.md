@@ -47,7 +47,7 @@ payload last.
 
 - [docs: the family agent-files proposal opening][1] (done)
 - [docs: sync the agent-files to zc-ring-x1's set][2] (done)
-- [docs: state the cycle protocol once][3]
+- [docs: state the cycle protocol once][3] (done)
 - [docs: one TODO.md, Closed as the history][4]
 - [docs: widen Typeable punctuation to Prose style][5]
 - [docs: the restart and the interlude, between cycles][6]
@@ -147,12 +147,14 @@ then one `-` per edit, with any decision already taken kept as a line.
 
 The cycle's setup commit: backfill, bookmark, In Progress block, sweep, bump, rename.
 
-- backfill: `chores-18.md`'s seven rungs filled from `main`. The note that `chores-16.md` held
-  sixteen more was stale
-- bookmark created at `main`'s tip `2dc8d969`. Sweep kept both `## Done` entries as nearby
-  context. Bump is a patch, 0.80.5-0, and the package is `vc-x1-dev`
-- bookmark hygiene noted for later: `messages-specimen` is merged and deletable,
-  `support-trapezoid-commits` and `trapezoid-push-vc-x1` are parked by a Todo entry and stay
+- Backfill: `chores-18.md`'s seven rungs filled from `main`. The note that `chores-16.md` held
+  sixteen more was stale.
+- Bookmark: created at `main`'s tip `2dc8d969`.
+- Sweep: kept both `## Done` entries as nearby context.
+- Bump: a patch, 0.80.5-0, and the package is `vc-x1-dev`.
+- Bookmark hygiene, noted for later:
+  - `messages-specimen` is merged and deletable.
+  - `support-trapezoid-commits` and `trapezoid-push-vc-x1` are parked by a Todo entry and stay.
 
 ##### docs: sync the agent-files to zc-ring-x1's set
 
@@ -160,21 +162,23 @@ vc-x1's agent-files and zc-ring-x1's have diverged, and zc-ring-x1's is the one 
 cycle-record, the fixed shape, and named rules. Copy it in whole, so every later rung edits one
 known state, and re-plan this block on it.
 
-- `AGENTS.md` and `agent-data/*` copied byte-for-byte from zc-ring-x1 at its `main` `5a08731d`,
-  which adds `cycle-checklists.md` and `cycle-protocol.md` back for the next rung to retire.
-  `custom.md` was already identical
-- the draft cut of AGENTS.md from the abandoned rung was restored to the opening's copy before
-  the copy, so the diff is zc-ring-x1's set against the opening's, nothing else
-- this block re-planned: solution, acceptance check, ladder, deliberation, and these details.
-  The `[[N]]` placeholders are gone from the ladder, and the ladder was then cut from fifteen
-  rungs to ten by merging same-subject pairs
-- two corrections on the synced set, so it is byte-for-byte except these: prose.md's scope
-  sentence (the deliberation records why), and a stray terminal paste in cycle-checklists.md
-  that had reached our copy only
-- `notes/agent-files-size.md` opened (wink, 2026-08-27): the agent-files' line count, one row
-  per landing, smaller the quasi-goal. Two rows: 2205 lines at the opening, 2822 after the sync,
-  the growth being the two files the next rung retires. Close-out gains a Size step, and
-  `notes/README.md` points at the file
+- `AGENTS.md` and `agent-data/*` are copied from zc-ring-x1 at its `main` `5a08731d`.
+  - The copy brings back `cycle-checklists.md` and `cycle-protocol.md` for the next rung to
+    retire.
+  - `custom.md` was already identical.
+  - The draft cut of AGENTS.md from the abandoned rung was restored first, so the diff is
+    zc-ring-x1's set against the opening's, nothing else.
+  - Two corrections, so the set is byte-for-byte except these: prose.md's scope sentence (the
+    deliberation records why), and a stray terminal paste in cycle-checklists.md that had
+    reached our copy only.
+- This block is re-planned: solution, acceptance check, ladder, deliberation, and these details.
+  - The `[[N]]` placeholders are gone from the ladder.
+  - The ladder was cut from fifteen rungs to ten by merging same-subject pairs.
+- `notes/agent-files-size.md` is opened (wink, 2026-08-27).
+  - It holds the agent-files' line count, one row per landing, smaller the quasi-goal.
+  - Two rows: 2205 lines at the opening, 2822 after the sync, the growth being the two files the
+    next rung retires.
+  - Close-out gains a Size step, and `notes/README.md` points at the file.
 
 ##### docs: state the cycle protocol once
 
@@ -183,16 +187,22 @@ cycle-checklists.md, and cycle-protocol.md, and the three disagree on where "fli
 and on the names of the phases. It also still cites rules by number after naming them, and has
 two dead links.
 
-- fold what only the two files hold (the recovery procedures, the `vc-x1 push` behaviors, the
-  sub-cycle ladder as a local ladder) into jj.md and AGENTS.md, delete the files, and repoint
-  every link into them, in the agent-files and in `notes/`, `README.md`, and `ARCHITECTURE.md`
-- every "hard rule N" in jj.md and rationale.md becomes a link to the named rule
-- custom.md's and rationale.md's links follow the rename to `## custom.md`, and rationale.md's
-  two links into vc-x1's `chores-17.md` become permalinks, since a payload file cannot cite one
-  member's tree by relative path
-- the link check that found them (every `](path#anchor)` and `[N]: path#anchor` in the
-  agent-files resolved against the headings) is recorded in the `validate` Todo entry as a
-  wanted check
+- The two files are deleted.
+  - No link was repointed. Nothing in the agent-files, `README.md`, `ARCHITECTURE.md`, or
+    `notes/README.md` linked into them, only frozen history and live Todo entries, which are
+    the sweep rung's.
+  - Almost everything they held jj.md already had: push behaviors, recovery, the trapezoid
+    recipe, local ladders, viewing for a review.
+  - The three facts jj.md lacked went into its push section:
+    - The agent-repo is a linear journal with one commit per push.
+    - The agent-repo never has a bookmark mirroring a work-repo one.
+    - A squash-push is re-run when `@` is non-empty after a pass.
+- Every "hard rule N" in jj.md and rationale.md is a link to the named rule.
+- The rationale.md heading mirrors AGENTS.md's `## custom.md`, and custom.md's and AGENTS.md's
+  links follow. Its two links into vc-x1's `chores-17.md` are permalinks at `main`, since a
+  payload file cannot cite one member's tree by relative path.
+- The link check that found them (every `](path#anchor)` and `[N]: path#anchor` in the
+  agent-files resolved against the headings) is a bullet in the `validate` Todo entry.
 
 ##### docs: one TODO.md, Closed as the history
 
@@ -202,45 +212,57 @@ landmark commit's tree after that. vc-x1's TODO.md still has the old shape (`## 
 into `notes/chores/` no longer names a finished cycle, and the close-out has no step that asks
 whether anything in the block should be kept.
 
-- TODO.md is not an agent-file (wink, 2026-08-27): its content is the project's record and can
-  never match another member's. The agent-files require that there is one, of the pinned shape
-  (`## In Progress`, `## Closed`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, the block
-  per cycle-model.md), and the payload ships a skeleton (`## In Progress` reading
-  `_No cycle currently in progress._`, the rest empty). The shape check is a `validate-todo`
-  extension, recorded in the `validate` Todo entry
+- TODO.md is not an agent-file (wink, 2026-08-27).
+  - Its content is the project's record and can never match another member's.
+  - The agent-files require that there is one, of the pinned shape: `## In Progress`,
+    `## Closed`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, the block per cycle-model.md.
+  - The payload ships a skeleton, `## In Progress` reading `_No cycle currently in progress._`,
+    the rest empty.
+  - The shape check is a `validate-todo` extension, recorded in the `validate` Todo entry.
 - `## Closed` is added between `## In Progress` and `## Todo`, empty until this cycle closes.
-  `## Done` moves whole to `notes/done.md`, frozen with `notes/chores/`, headers saying so, and
-  `notes/README.md` describes the history as frozen. Frozen means never deleted (wink,
-  2026-08-27): the growth is stopped by freezing, and deleting would break every relative link
-  from `## Todo`, the backlog, rationale.md, and the other members' messages
-- a closed block is never amended: a late finding about a closed cycle is recorded where it is
-  found, citing the landmark
-- messaging.md's "the reply cites the entry" restates the citation as the landmark permalink
-  (`blob/<landmark sha>/TODO.md#<slug>`), the form the messages repo's `outcome-remote:`
-  already uses, and the `outcome-local:` relative form is dropped
-- close-out step 2 gains the question: what in this block must outlive the cycle, and which
-  `notes/` file gets it. Rationale carries why (the block is replaced, and the rung-time rule
-  relies on noticing in the moment)
-- a `vc-x1 closed "<title>"` verb that prints a landed cycle's block from its landmark is a new
-  `## Todo` entry, not this cycle
+- The history freezes.
+  - `## Done` moves whole to `notes/done.md`, frozen with `notes/chores/`, headers saying so,
+    and `notes/README.md` describes the history as frozen.
+  - Frozen means never deleted (wink, 2026-08-27): the growth is stopped by freezing, and
+    deleting would break every relative link from `## Todo`, the backlog, rationale.md, and the
+    other members' messages.
+- A closed block is never amended. A late finding about a closed cycle is recorded where it is
+  found, citing the landmark.
+- messaging.md's "the reply cites the entry" is restated.
+  - The citation is the landmark permalink, `blob/<landmark sha>/TODO.md#<slug>`, the form the
+    messages repo's `outcome-remote:` already uses.
+  - The `outcome-local:` relative form is dropped.
+- Close-out step 2 gains the question: what in this block must outlive the cycle, and which
+  `notes/` file gets it. Rationale carries why: the block is replaced, and the rung-time rule
+  relies on noticing in the moment.
+- A `vc-x1 closed "<title>"` verb that prints a landed cycle's block from its landmark is a new
+  `## Todo` entry, not this cycle.
 
 ##### docs: widen Typeable punctuation to Prose style
 
 The Typeable punctuation rule is the narrowest of a family of prose rules that arrived
 separately.
 
-- widen the rule to "Prose style", carrying typeable punctuation, no wall-of-prose, one
-  spelling per term, and the semicolon rule
-- hyphenation, decided: one spelling per term, always. 13 sites, 10 in jj.md and 3 in
-  AGENTS.md, `work-repo` and `agent-repo`. The rule goes in prose.md, Terminology keeps the
-  spellings
-- semicolons: the whole-file conversion is never run on files every cycle touches (TODO.md,
-  README.md, chores). Either name the exemption or schedule the sweep. Until decided, a line you
-  write carries none and the rest of the file waits
-- from the dissolved specimens rung: `agent-data/commit-model.md`, the cycle-model cycle's
-  work-rung body and bookend body, named from per-rung flow step 7 and from prose.md's
-  Commit-body form, and notes.md's ladder bullet says `<title>` is the rung's commit title and
-  links the type set
+- The rule widens to "Prose style", carrying typeable punctuation, no wall-of-prose, one
+  spelling per term, the semicolon rule, and bullet form.
+- Hyphenation, decided: one spelling per term, always.
+  - The sites are re-measured at the rung, since the sync changed the count (13 at the
+    2026-08-24 measure, `work-repo` and `agent-repo`).
+  - The rule goes in prose.md, and Terminology keeps the spellings.
+- Semicolons: the whole-file conversion is never run on files every cycle touches (TODO.md,
+  README.md, chores). Either name the exemption or schedule the sweep. Until decided, a line
+  you write carries none and the rest of the file waits.
+- Bullet form, decided (wink, 2026-08-27): a bullet is a full sentence, capitalized and ending
+  in a period or question mark, unless the list is a plain list of things (files, names,
+  options), which takes neither. A list is all one or all the other.
+  - A sentence never opens with a lower-case name (`squash-push`, `rationale.md`), it is recast
+    so the name is not the first word.
+  - One paragraph in Prose form. This block's Ladder details were swept to it on 2026-08-27,
+    and the deliberation is swept in this rung.
+- From the dissolved specimens rung:
+  - `agent-data/commit-model.md`, the cycle-model cycle's work-rung body and bookend body,
+    named from per-rung flow step 7 and from prose.md's Commit-body form.
+  - notes.md's ladder bullet says `<title>` is the rung's commit title and links the type set.
 
 ##### docs: the restart and the interlude, between cycles
 
@@ -250,16 +272,18 @@ knows only what is written down. And an interlude, a docs or planning commit on 
 with a patch bump, has its facts spread over four places, no decision rule, and the synced
 set's "development is never done on `main`" reads as forbidding it.
 
-- add a Close-out step, **Restart**, after Land: the user restarts the agent, and before the
-  exit anything the next agent needs is recorded where reacquaint will find it. One line plus a
-  link, the why (context degrades, nothing in flight, an agent cannot restart itself) in
-  rationale.md under the mirrored heading. Pinned, not custom.md: family-universal
-- define the interlude in jj.md beside the trapezoid recipe, which already holds the
-  load-bearing fact (a trapezoid's `<base>` is the parent of the ladder's first rung, because
-  an interlude sits on the trunk line), or record that interludes are retired and the sentence
-  stands
-- add the decision rule: when unplanned work is an interlude rather than a rung appended to
-  the running cycle
+- Close-out gains a step, **Restart**, after Land.
+  - The user restarts the agent, and before the exit anything the next agent needs is recorded
+    where reacquaint will find it.
+  - One line plus a link. The why (context degrades, nothing in flight, an agent cannot restart
+    itself) goes in rationale.md under the mirrored heading.
+  - Pinned, not custom.md: family-universal.
+- The interlude is defined in jj.md beside the trapezoid recipe, or retired.
+  - The recipe already holds the load-bearing fact: a trapezoid's `<base>` is the parent of the
+    ladder's first rung, because an interlude sits on the trunk line.
+  - If interludes are retired instead, the "never on `main`" sentence stands as written.
+- The decision rule is added: when unplanned work is an interlude rather than a rung appended
+  to the running cycle.
 
 ##### docs: Todo entries as headings, and sweep the retired names
 
@@ -268,33 +292,40 @@ renumbered 15 and invalidated references written minutes earlier. And live entri
 and the backlog still ask in vocabulary the repo retired. The heading question is decided first,
 since headings make a citation a link, and the sweep runs on the result.
 
-- what carries an entry, to decide: `###` headings per entry (anchors, links, bold title
-  enforced structurally, cost is the `^\d+\. ` numbering machinery and its validators), GitHub
-  issues (a real tracker, would also subsume the mailbox), or a database (issues' costs plus a
-  tool). The crux is doctrine: durable context lives in committed files, so headings are a
-  change inside the doctrine and the other two are a change to it. A narrower issues route,
-  cross-member coordination only, may survive that objection and is worth separating
-- cite by title, not number, decided: the rule goes in notes.md beside Reference numbering, a
-  number may ride along as a hint. Precondition met in the backlog (every entry bold-titled,
-  none duplicated). Remaining: the rule, the citation sweep, and the uniqueness check once
-  validate-anchors lands
-- the sweep, each species a grep: `bot-session`, `--scope=bot`, `repos.bot`, `validate-bot`
-  (now `agent`); `.vc-config.toml` and `[workspace]` (now `.vc-config.md` and `[repos]`);
-  `custom-family.md` (gone); `cycle-protocol.md` / `cycle-checklists.md` (AGENTS.md's Cycle
-  protocol); Preparation / Work / Close-out, Work-N, Ladder (sub-cycle) (opening / commits /
-  closing, local ladder); bot repo, the bot (agent-repo, the agent); member names (the
-  `[family]` table); backfill, chores move, `## Done` entry (the cycle-record)
-- an entry whose whole ask is met by a pinned rule dissolves, with this block's deliberation
-  saying so. History lines keep the names they had
+- What carries an entry, to decide:
+  - `###` headings per entry: anchors, links, bold title enforced structurally. The cost is the
+    `^\d+\. ` numbering machinery and its validators.
+  - GitHub issues: a real tracker, and it would also subsume the mailbox.
+  - A database: issues' costs plus a tool.
+  - The crux is doctrine. Durable context lives in committed files, so headings are a change
+    inside the doctrine and the other two are a change to it. A narrower issues route,
+    cross-member coordination only, may survive that objection and is worth separating.
+- Cite by title, not number, decided.
+  - The rule goes in notes.md beside Reference numbering, and a number may ride along as a hint.
+  - The precondition is met in the backlog: every entry bold-titled, none duplicated.
+  - Remaining: the rule, the citation sweep, and the uniqueness check once validate-anchors
+    lands.
+- The sweep, each species a grep:
+  - `bot-session`, `--scope=bot`, `repos.bot`, `validate-bot` (now `agent`)
+  - `.vc-config.toml` and `[workspace]` (now `.vc-config.md` and `[repos]`)
+  - `custom-family.md` (gone)
+  - `cycle-protocol.md` / `cycle-checklists.md` (AGENTS.md's Cycle protocol)
+  - Preparation / Work / Close-out, Work-N, Ladder (sub-cycle) (opening / commits / closing,
+    local ladder)
+  - bot repo, the bot (agent-repo, the agent)
+  - member names (the `[family]` table)
+  - backfill, chores move, `## Done` entry (the cycle-record)
+- An entry whose whole ask is met by a pinned rule dissolves, with this block's deliberation
+  saying so. History lines keep the names they had.
 
 ##### docs: move the satellites' inline whys
 
 rationale.md holds AGENTS.md's whys, and prose.md and notes.md still carry `**Why:**` blocks
 inline, with jj.md's whys in prose.
 
-- sweep them into rationale.md per-file sections, one heading per rule, mirrored, leaving
-  `[why](rationale.md#<slug>)` links behind
-- runs after every rung that changes rule text, so each satellite is swept once
+- They are swept into rationale.md per-file sections, one heading per rule, mirrored, leaving
+  `[why](rationale.md#<slug>)` links behind.
+- The rung runs after every rung that changes rule text, so each satellite is swept once.
 
 ##### chore(template): propose the set to the payload
 
@@ -304,16 +335,16 @@ still reads as if custom.md were where a member puts its changes, when the famil
 set: a member edits the agent-files directly and the diff is the proposal, and overrides are for
 users of the set, not its authors.
 
-- restate the custom.md section and its rationale.md entry to that model, keeping custom.md
-  and its precedence for downstream users, since it is the model this rung acts under
-- propose the set to iiac-perf and zc-ring-x1 and record their response here. The copy into
-  `vc-x1-template/work` and the re-sync happen once they agree, and the three-way comparison
-  going empty is the acceptance check of the proposal
-- fix the template's own fossils while there: `jj-tips.md` glosses `@..` wrongly and sits
-  outside `work/`, and `.vc-config.toml` is the pre-0.75.0 schema, to be regenerated as
-  `.vc-config.md`
-- governance, decided: the template stays agent-less, wink writes and pushes at convergence
-  moments, recorded in the acting member's records
+- The custom.md section and its rationale.md entry are restated to that model, keeping
+  custom.md and its precedence for downstream users, since it is the model this rung acts under.
+- The set is proposed to iiac-perf and zc-ring-x1 and their response recorded here.
+  - The copy into `vc-x1-template/work` and the re-sync happen once they agree.
+  - The three-way comparison going empty is the acceptance check of the proposal.
+- The template's own fossils are fixed while there:
+  - `jj-tips.md` glosses `@..` wrongly and sits outside `work/`.
+  - `.vc-config.toml` is the pre-0.75.0 schema, to be regenerated as `.vc-config.md`.
+- Governance, decided: the template stays agent-less, wink writes and pushes at convergence
+  moments, recorded in the acting member's records.
 
 ##### docs: the family agent-files proposal closing
 
@@ -957,6 +988,8 @@ Closing out the cycle.
     - an unfilled `[[N]]` whose commit is on `main` (the backlog entry
       **`validate`: fail on an unfilled `[[N]]` rung whose commit is on `main`** folds in here)
     - every Todo and backlog entry carries a bold title, unique within its file
+    - every `](path#anchor)` and `[N]: path#anchor` in the agent-files resolves against the
+      headings (the check that found two dead links on 2026-08-27, run by hand)
 
 ## Ideas
 

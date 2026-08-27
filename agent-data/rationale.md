@@ -124,21 +124,28 @@ sometimes cheat, and the rule is still the rule.
 
 Pushing to the bookmark makes the work durable and visible, but landing on `main` is publication,
 and that is the line the rules divide at. The series is kept self-consistent before landing so the
-branch reads as one coherent ladder. Amending content rather than re-describing keeps hard rule 4
-intact and lets the `ochid:` trailers ride along: they carry change ids, which survive a rewrite.
+branch reads as one coherent ladder. Amending content rather than re-describing keeps [No
+re-describe without coordinating](../AGENTS.md#no-re-describe-without-coordinating) intact and lets
+the `ochid:` trailers ride along: they carry change ids, which survive a rewrite.
 
 ### Cycle shape
 
-The `ochid:` trailers are change ids. Squashing a work-repo ladder keeps one chid and drops the
-rest, so every agent-repo commit that pointed at a dropped rung is left with a dangling link
-(`vc-x1 validate-desc` reports `not found`). Repairing that means re-describing N agent-repo
-commits, which hard rule 4 forbids, and squashing the agent-repo to match discards the per-rung
-session narrative the agent-repo exists to keep. So squash is not a close-out shape, and since the
-only remaining shapes keep every rung, the one-commit-or-ladder choice has to be made before the
-first push writes the first trailer. The one exception, promoting a pushed single-step commit to an
-opening, is a coordinated re-describe: the change id and the trailer survive it, which is what a
-squash cannot offer. Trapezoid already gives `main` a one-commit-per-cycle read under
-`git log --first-parent`, which is what squash was buying.
+The `ochid:` trailers are change ids, and that is why squash is not a close-out shape and the
+shape is fixed at the first push.
+
+- Squashing a work-repo ladder keeps one chid and drops the rest, so every agent-repo commit that
+  pointed at a dropped rung is left with a dangling link (`vc-x1 validate-desc` reports
+  `not found`).
+- Repairing that means re-describing N agent-repo commits, which [No re-describe without
+  coordinating](../AGENTS.md#no-re-describe-without-coordinating) forbids.
+- Squashing the agent-repo to match discards the per-rung session narrative the agent-repo exists
+  to keep.
+- Since the remaining shapes keep every rung, the one-commit-or-ladder choice has to be made before
+  the first push writes the first trailer.
+- The one exception, promoting a pushed single-step commit to an opening, is a coordinated
+  re-describe: the change id and the trailer survive it, which is what a squash cannot offer.
+- Trapezoid already gives `main` a one-commit-per-cycle read under `git log --first-parent`, which
+  is what squash was buying.
 
 ### Cycle-record
 
@@ -171,7 +178,8 @@ pass while its banner claim is false: a seven-cycle program opened against "end 
 and its close-out claimed the goal met, with about twenty spawn sites surviving, two inside the
 facade the program built (found 2026-08-06 at the 0.78.3 review, and retired by the 0.79.0 cycle,
 chores-17's [refactor: retire the remaining jj
-spawns](../notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns)). Being provisional,
+spawns](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns)).
+Being provisional,
 the check can also be revised *toward* what was achieved, which is the same failure by a slower
 route, so a changed check is one of the things the deliberation exists to justify.
 
@@ -304,9 +312,9 @@ session that skips the project layer misses binding behavior. Both measured, 202
 2026-08-21, when one member's project layer (`custom-family.md`) held the family's messaging rules
 and the validation commands, retired by the 0.80.0 cycle, chores-17's [docs: empty custom-family
 into the pinned set and
-config](../notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config).
+config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config).
 
-## custom.md: the project layer
+## custom.md
 
 It ships holding nothing but its own shape so a project that changes nothing still has a valid one.
 A project-kept rule goes to the pinned file rather than here because writing it here hides it from

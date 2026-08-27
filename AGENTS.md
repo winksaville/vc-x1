@@ -341,7 +341,7 @@ copy ([why](agent-data/rationale.md#changing-the-agent-files)).
 ## custom.md
 
 [custom.md](custom.md) is the project's own layer and is never universal
-([why](agent-data/rationale.md#custommd-the-project-layer)). It ships holding only its own shape,
+([why](agent-data/rationale.md#custommd)). It ships holding only its own shape,
 and a project adds what it needs.
 
 - Overrides section: `## Project conventions and overrides` stays `_None._` unless a rule cannot be

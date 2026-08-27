@@ -113,8 +113,18 @@ repo's `main`. Three behaviors to keep in mind:
 - **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its work is
   already done, so a failed run is re-run, not resumed. If push exits after `push-work` but before
   the agent-repo publish, `vc-x1 squash-push -R .claude` by hand is the rest of it.
-- **`ochid:` trailers are stamped by push** (hard rule 5), never hand-written into `--title` or
-  `--body`.
+- **`ochid:` trailers are stamped by push** ([No hand-written
+  trailers](../AGENTS.md#no-hand-written-trailers)), never hand-written into `--title` or `--body`.
+- **The agent-repo is a linear journal.**
+  - One push is one agent-repo commit on its `main`, paired with the work-repo commit, whatever
+    bookmark the work-repo is on.
+  - Never create an agent-repo bookmark mirroring a work-repo one: it steers session pushes at
+    the wrong remote ref.
+- **Squash-push again if `@` is non-empty** after a pass.
+  - The agent keeps writing session data while the command runs, so its own record lands after
+    the squash.
+  - Session data is append-only, so a re-run never conflicts.
+  - A single pass is never guaranteed to leave `@` empty.
 
 A late work-repo tweak after the push (a forgotten edit) needs `jj squash --ignore-immutable` and a
 re-push, which is a remote rewrite and takes approval like any push.
@@ -150,8 +160,10 @@ and the bookmark derive from one bare title):
   ready to be seen.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Every
-`jj git push` in it is a push under hard rules 2 and 3, its own approval, the closing words before
-the final invocation, silence after ([At rest](../AGENTS.md#at-rest-push-stop-squash-push)):
+`jj git push` in it is a push under [Approval per push](../AGENTS.md#approval-per-push) and [Hard
+stop after the final push](../AGENTS.md#hard-stop-after-the-final-push), its own approval, the
+closing words before the final invocation, silence after ([At
+rest](../AGENTS.md#at-rest-push-stop-squash-push)):
 
 1. Restore the plain name, when the project renamed ([Dev artifact
    name](versioning.md#dev-artifact-name)): rename `<name>-dev` back to `<name>` in the manifest,
@@ -165,8 +177,8 @@ the final invocation, silence after ([At rest](../AGENTS.md#at-rest-push-stop-sq
 4. Install: promote the artifact from `main`, the cycle's last act, run when nothing can enter the
    cycle anymore.
 5. Delete the bookmark, locally and remotely: `jj bookmark delete <bookmark>`, then
-   `jj git push --bookmark <bookmark>` (hard rule 13). The long-lived case below gets the same
-   disposal once fully merged.
+   `jj git push --bookmark <bookmark>` ([Bookmark per cycle](../AGENTS.md#bookmark-per-cycle)). The
+   long-lived case below gets the same disposal once fully merged.
 
 - The fast-forward needs no `--allow-backwards`. Needing it means the bookmark is not a descendant
   of `main`, and the situation wants a look, not a flag.
@@ -177,7 +189,8 @@ the final invocation, silence after ([At rest](../AGENTS.md#at-rest-push-stop-sq
 bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 
 - **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
-  `jj describe`, so hard rule 4 stays intact.
+  `jj describe`, so [No re-describe without
+  coordinating](../AGENTS.md#no-re-describe-without-coordinating) stays intact.
 - **Then force-push the bookmark**, under the same approval as any other push.
 - **Exceptions**, named and moved past: the bookmark has already landed, another branch is stacked
   on it, or the ladder is long and only a trailing snapshot disagrees.
