@@ -36,6 +36,7 @@ mod url;
 mod validate;
 mod validate_anchors;
 mod validate_bot;
+mod validate_config;
 mod validate_desc;
 mod validate_todo;
 mod version;
@@ -267,6 +268,15 @@ pub(crate) enum Commands {
           skip  : skipped (no ochid, no match, or max-fixes reached)\n  \
           err   : ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
+
+    /// Check the workspace's config files
+    #[command(long_about = "Check a workspace's config files.\n\n\
+        Verifies every key is one the schema declares for that side,\n\
+        the legacy schema is rejected, a dual workspace's two [repos]\n\
+        registries agree, the file's own links resolve, and a side's\n\
+        config carries `repos.work`. Read-only; exits non-zero when\n\
+        anything is found. Was `config --validate` before 0.80.6.")]
+    ValidateConfig(validate_config::ValidateConfigArgs),
 
     /// Check a markdown record's own anchors and references
     #[command(long_about = "Check a markdown file's same-file links.\n\n\
@@ -581,6 +591,7 @@ fn main() -> ExitCode {
         }
         Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
+        Commands::ValidateConfig(args) => args.dispatch(&mut ctx),
         Commands::ValidateAnchors(args) => args.dispatch(&mut ctx),
         Commands::ValidateTodo(args) => args.dispatch(&mut ctx),
         Commands::FixTodo(args) => args.dispatch(&mut ctx),

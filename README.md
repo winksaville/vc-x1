@@ -11,6 +11,7 @@
   - [validate-todo](#validate-todo)
   - [fix-todo](#fix-todo)
   - [validate-anchors](#validate-anchors)
+  - [validate-config](#validate-config)
   - [validate-agent](#validate-agent)
   - [config](#config)
   - [clone](#clone)
@@ -622,14 +623,10 @@ from what the code actually reads.
     path as a label, and the file is not opened. The user config (`~/.config/vc-x1/config.toml`)
     has no keyword and is reached only this way
   - the old `bot` keywords are rejected with the `agent` spelling as the fix-it (0.80.0)
-- `--validate`: instead of printing, load the target's actual config file(s) and flag any key the
-  schema doesn't recognize (a typo, a key in the wrong section, or an unknown key), plus, for
-  keyword targets, the legacy-schema rejection and the resolved-agreement invariant of a dual
-  workspace's `[repos]` registries, and the shape of any command list (a `str-list` key holding a
-  plain string is a finding). Exits non-zero if any problem is found. This is an opt-in strict
-  check, since a normal config load silently ignores unknown keys, for forward-compatibility.
-  A missing file is reported and skipped, not failed, for a keyword side the workspace lacks
-  and, today, for a path as well, so a mistyped path validates clean (a Todo tightens this).
+
+Checking a config file against the schema is [`validate-config`](#validate-config), a separate
+subcommand since 0.80.6. `config` prints, `validate-config` checks, and the two take the same
+`[TARGET]`.
 
 A short sample of the printed schema (workspace home):
 
@@ -673,18 +670,54 @@ vc-x1 config work
 # keyword, reach it by path)
 vc-x1 config ~/.config/vc-x1/config.toml
 
-# Check both sides' config files: unknown keys, legacy-schema
-# rejection, and the [repos] resolved-agreement invariant
-vc-x1 config --validate
-
-# Check one explicit file
-vc-x1 config ../other/.vc-config.md --validate
+# Check a config file: see validate-config
+vc-x1 validate-config
 ```
 
 | Flag | Description |
 |------|-------------|
 | `[TARGET]` | `work`, `agent`, `work,agent`, or a config-file path [default: work,bot] |
-| `--validate` | Check the target config file(s) instead of printing the schema |
+
+### validate-config
+
+Check the workspace's config files. `config` prints the schema, and this checks a file against it,
+which is why the two are separate subcommands. Four checks:
+
+- every key is one `vc-config.md` declares for that side, so a typo, a key in the wrong section,
+  or an unknown key is a finding, and a `str-list` key holding a plain string is one too
+- the legacy `[workspace]` schema is rejected with a fix-it, and a dual workspace's two `[repos]`
+  registries must resolve to the same pair
+- the file's own `[[N]]` references and `#anchor` links resolve, and a `vc-config.md#<anchor>` link
+  names a real key section. That last one is a schema lookup rather than a crawl of the other file,
+  since build.rs derives those anchors from the key paths
+- a side's config carries `repos.work`, the one key every instance config has. Not required of a
+  path target, which carries no side information and may name the user config
+
+```
+# Both sides of the surrounding workspace
+vc-x1 validate-config
+
+# One side, or one explicit file
+vc-x1 validate-config work
+vc-x1 validate-config ../other/.vc-config.md
+
+# -v adds per-file counts, -vv a line per site (every key, every
+# link, every required key, with how each resolved)
+vc-x1 -vv validate-config
+```
+
+The summary counts what was checked, so a pass says how much it covered rather than only that it
+passed:
+
+```
+validate-config: 2 file(s), 9 key(s) and 18 link(s) checked, 2 required key(s), 0 problem(s) found
+```
+
+This is an opt-in strict check, since a normal config load ignores unknown keys for
+forward-compatibility. A missing file is reported and skipped rather than failed, for a keyword
+side the workspace lacks and, today, for a path as well, so a mistyped path checks clean (a Todo
+tightens this). Was `config --validate` before 0.80.6, which now errors with this spelling as the
+fix-it.
 
 ### vc-config.md (the schema prototype)
 
@@ -742,7 +775,7 @@ default = 68
 A work-side `.vc-config.md` holds up to three tables. `[repos]` is structural and written by
 `init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
 layer: the agent-file family this repo belongs to, and the commands that validate it. Both are
-work side only: `config --validate` reports them unknown in the agent repo's config.
+work side only: `validate-config` reports them unknown in the agent repo's config.
 
 ````markdown
 ```toml
@@ -773,14 +806,14 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
 on one line or spread to the closing `]`. Each element is one command whose exit status is
 checked, so a command with its own spaces and dashes is one quoted string.
-[`vc-x1 validate`](#validate) (and `--fast`) runs them, `config --validate` checks the tables'
+[`vc-x1 validate`](#validate) (and `--fast`) runs them, `validate-config` checks the tables'
 keys and shapes, and `config work` prints the schema with every key's example:
 
 ```
-vc-x1 config --validate                       # both sides: keys known per side, lists well formed
-vc-x1 config work --validate                  # the work side only
-vc-x1 config agent --validate                 # the agent side only
-vc-x1 config .claude/.vc-config.md --validate # a specific file, checked against every home
+vc-x1 validate-config                       # both sides
+vc-x1 validate-config work                  # the work side only
+vc-x1 validate-config agent                 # the agent side only
+vc-x1 validate-config .claude/.vc-config.md # a specific file, checked against every home
 vc-x1 config work                             # the work side's schema, [family] and [validate] too
 vc-x1 config agent                            # the agent side's schema
 vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path

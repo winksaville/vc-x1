@@ -60,7 +60,7 @@ The items the early close deferred, made runnable:
 - [docs: README covers the new surface][9] (done)
 - [feat: validate-anchors reports what it checked][10] (done)
 - [feat: check a config file's links and keys][5] (done)
-- [feat: add validate-config][11]
+- [feat: add validate-config][11] (done)
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
 
@@ -422,6 +422,24 @@ a different verb from checking a file against it.
 - Taken now rather than in that entry because the code is open and the README section written two
   rungs ago documents a spelling we would otherwise ship and immediately retire. The same reasoning
   as taking the `owner/name` slice out of **Drop the global config and the account notion** early.
+- The code moved with the name. `validate`, `validate_file`, `validate_links`, `key_known`, and
+  `is_str_list` are now `src/validate_config.rs` with their fifteen tests, leaving `config_cmd`
+  the schema printing it is named for. `ConfigTarget`, `parse_target`, and the three home
+  predicates stay there as the shared target vocabulary both subcommands speak.
+- The rejection names a version, as `bot-session`'s does. `Versions live in the version-of-record
+  only` governs durable prose, and a fix-it answering "when did this change" is the one surface
+  where the version is the useful part.
+- README pays the three debts the rung before it recorded, and gains a `validate-config` section
+  beside `validate-anchors`. The `config` section keeps its `[TARGET]` row and says the two
+  subcommands take the same target.
+- Reporting matches `validate-anchors` (wink, 2026-08-28), for the same reason: "all checks passed"
+  over a config with two keys read the same as over one with forty.
+  - The summary counts files, keys, links, and required keys, so a pass says how much it covered.
+  - `-v` gives per-file counts and `-vv` a line per site: every key resolved against the schema,
+    every reference and anchor, every `vc-config.md#<anchor>` naming a key's section, and every
+    required key found present.
+  - A `vc-config.md` fragment counts as a link *checked* rather than one skipped, unlike in
+    `validate-anchors`, since here it does resolve, against the schema.
 
 ##### chore: point config at .agent-session
 
@@ -741,8 +759,10 @@ umbrella under a name that no longer fits the family.
 - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old meaning the
   way `bot-session` does, and the per-rung flow saying `validate-artifact` per rung and plain
   `validate` at close-out
-- add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin, `config
-  --validate` clean, mostly the push preflight exposed read-only
+- add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin,
+  `validate-config` clean, mostly the push preflight exposed read-only
+- landed early, 2026-08-28: `validate-config` is out of `config --validate` and into this family,
+  with the old flag rejected by name. What is left here is the runner rename and the umbrella
 - bare `validate` runs everything that applies to the workspace (artifact, work, agent, desc, todo),
   each reported by name, exit status the worst of them, a side the workspace lacks skipped by name
 - the `[validate]` config key stays as it is: it is the artifact's validation, and the umbrella
