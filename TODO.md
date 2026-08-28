@@ -58,7 +58,8 @@ payload last.
 - [docs: the restart and the interlude, between cycles][7] (done)
 - [docs: Todo entries as headings, and sweep the retired names][8] (done)
 - [docs: move the agent-data files' inline whys][9] (done)
-- [chore(template): propose the set to the payload][10]
+- [chore(template): propose the set to the payload][10] (done)
+- [docs: the rules as one list][13]
 - [docs: the family agent-files proposal closing][11]
 
 #### Deliberation
@@ -436,6 +437,43 @@ users of the set, not its authors.
   - `.vc-config.toml` is the pre-0.75.0 schema, to be regenerated as `.vc-config.md`.
 - Governance, decided: the template stays agent-less, wink writes and pushes at convergence
   moments, recorded in the acting member's records.
+- As built:
+  - `## custom.md` in AGENTS.md now tells the two kinds of project apart, a member that dogfoods
+    the set (diff is the proposal, custom.md holds pointers only) and a user of the set
+    (overrides in custom.md, the other agent-files identical to the payload), and the rationale
+    entry says why the earlier text misled.
+  - "Pinned file" is retired for "agent-file" (wink, 2026-08-27): no agent-file is special, anyone
+    can change any of them, and custom.md is only a convention that makes overriding simpler
+    than editing. The prose.md rule is now "Agent-files name no project", its anchor with it.
+  - "Family" and "member" leave the agent-files (wink, 2026-08-27), a personal notion: the
+    dual-repo model is meant for anyone's repos. The words are set (the payload's agent-files),
+    adopter (a project carrying a copy), and maintainer (the template repository's owner), defined
+    in Terminology. The `[family]` config table keeps its name until its own cycle, the
+    **docs: no single-owner assumption in the agent-files** entry carrying the rename.
+  - `## custom.md` says why the file exists: an adopter experiments with or overrides a rule in
+    one file when practical, and edits the agent-files directly when custom.md cannot serve, as
+    the first adopters do while defining the set.
+  - The proposal body is `notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27`: the
+    seven changes from zc-ring-x1's base, the ask, the copy and the two fossil fixes on agreement,
+    and the acceptance check. The records in `vc-x1-messages` (`iiac-perf.md`, and `zc-ring-x1.md`
+    created by this first write) follow the durable mode, so they are written after this rung's
+    push, with its permalink, and their commit in the messages repo takes wink's go.
+  - The response is recorded where it arrives, in the closing rung if before it, else as the
+    `## Waiting` entry the closing leaves.
+
+##### docs: the rules as one list
+
+AGENTS.md's `## Rules` is fifteen headings with one line each, 82 lines, spread out and hard to
+read as a list, and only 13 links point at a rule's anchor, 8 rules having none. Inserted after
+the custom.md rung (wink, 2026-08-27, per Unplanned work).
+
+- Each rule becomes one bullet: `- **name**: the rule ([mechanics](...), [why](...))`, no heading
+  and no anchor, since fifteen stable rules are safe to cite by name.
+- The 13 incoming links retarget to `AGENTS.md#rules` and name the rule in bold beside the link.
+- rationale.md keeps a `### <rule>` heading per rule under `## Rules`, so the `[why]` links hold,
+  and its reading rule says the mirror is by name for the rules.
+- Rejected: the whole rule in the heading (link markup in the slug, and over 100 columns), and an
+  inline HTML anchor per bullet (HTML in prose, a hand-kept slug).
 
 ##### docs: the family agent-files proposal closing
 
@@ -916,7 +954,10 @@ as "hand the bookmark to the trunk's owner" with two endings: the owner is the u
 sequence) or someone else (push the bookmark, open the review request, close the cycle as a `##
 Waiting` entry on the merge, delete the bookmark once merged, the long-lived case in jj.md). The
 close-out shape then follows the owner's merge policy. Also drop any wording that assumes a single
-user, so the agent-files fit a team member's repo as well as wink's.
+user, so the agent-files fit anyone's repo as well as wink's. With it, rename the `[family]` config
+table and its `family.member` key (2026-08-27: the words left the agent-files' prose for set /
+adopter / maintainer, and the key is the last holder), a schema change with the usual fix-it
+rejection of the old spelling.
 
 ## Ideas
 
@@ -997,4 +1038,5 @@ _See [bugs.md](notes/bugs.md)._
 [9]: #docs-move-the-agent-data-files-inline-whys
 [10]: #choretemplate-propose-the-set-to-the-payload
 [11]: #docs-the-family-agent-files-proposal-closing
+[13]: #docs-the-rules-as-one-list
 [12]: /notes/forks-multi-user.md

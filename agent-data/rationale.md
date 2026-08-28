@@ -2,8 +2,8 @@
 
 The why behind the agent-files, one entry per rule that has one. AGENTS.md holds the rule and its
 boundaries, and a session needs only that. The argument is for whoever would change a rule, and for
-the family at convergence, and it is kept so a rule is not simplified away by an editor who does not
-know its cost.
+the maintainer at convergence, and it is kept so a rule is not simplified away by an editor who
+does not know its cost.
 
 Universal file, shared with the template repository. A proposed change is edited here and converges
 at the template ([Changing the agent-files](../AGENTS.md#changing-the-agent-files)). Project-local
@@ -324,11 +324,11 @@ _None recorded._
 
 ## Changing the agent-files
 
-A member's diff against the template repository's payload is what that member has proposed, so drift
-is a diff, not a mystery: the proposal set needs no maintenance and cannot go stale.
+An adopter's diff against the template repository's payload is what that adopter has proposed, so
+drift is a diff, not a mystery: the proposal set needs no maintenance and cannot go stale.
 
 **A correction goes straight into the payload** because a wrong fact has no second opinion to
-gather, and leaving it in place misleads every member on first read.
+gather, and leaving it in place misleads every adopter on first read.
 
 **An agent-file change is its own commit** so `git log -- AGENTS.md agent-data/` reads as a list of
 rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer links the
@@ -338,7 +338,7 @@ whom, and why.
 **Convention work runs as its own cycle** because rung by rung, rule changes bury a feature cycle's
 records under work its title never promised.
 
-**A rule adopted ahead lives in the pinned file, never a holding section**, because a member that
+**A rule adopted ahead lives in the agent-file, never a holding section**, because an adopter that
 collects adopted-ahead rules in `custom.md` hides them from the one review that decides them, and a
 session that skips the project layer misses binding behavior. Both measured, 2026-08-19 to
 2026-08-21, when one member's project layer (`custom-family.md`) held the family's messaging rules
@@ -349,10 +349,17 @@ config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chor
 ## custom.md
 
 It ships holding nothing but its own shape so a project that changes nothing still has a valid one.
-A project-kept rule goes to the pinned file rather than here because writing it here hides it from
-exactly the review that should decide it. A pointer entry owes no justification because it
-supersedes nothing, and holding a wider context behind one pointer keeps the rest of the file
-identical to the payload's.
+Overriding and editing are both named (wink, 2026-08-27) because the earlier text read as if every
+adopter put its changes here, when custom.md alone is not always capable enough: while the set
+itself is being defined, its first adopters edit the agent-files directly, and the diff against the
+payload is the review that decides each change, which an override here would hide from exactly
+that review. An adopter with no such reason overrides here, its honest record of where it departs,
+and keeping its other agent-files identical to the payload's is what lets it re-sync by copying.
+No agent-file is special: anyone can change any of them, and custom.md is only a convention that
+makes overriding simpler than editing, and one file the place to distribute a project's changes
+when that is practical. A pointer entry owes no
+justification because it supersedes nothing, and holding a wider context behind one pointer keeps
+the rest of the file identical to the payload's.
 
 ## jj.md
 
@@ -385,12 +392,12 @@ step. Written into prose it becomes a second identifier that history is free to 
 renumber of published versions turns every prose mention, transcript and pasted report into residue
 that needs a decoder to read. A renumber cannot touch a title.
 
-### Pinned files name no project
+### Agent-files name no project
 
-**Pinned text is copied to every member**, so a project narration reads as the reader's own history
-("This project adopted the convention on <date>" arrives in repos that adopted it on a different
-date or never). And the citation goes stale the moment the named project retires its records, while
-the rule outlives it.
+**Agent-file text is copied to every adopter**, so a project narration reads as the reader's own
+history ("This project adopted the convention on <date>" arrives in repos that adopted it on a
+different date or never). And the citation goes stale the moment the named project retires its
+records, while the rule outlives it.
 
 ### Speculation marker
 

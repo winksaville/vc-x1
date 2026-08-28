@@ -1,8 +1,8 @@
 # AGENTS.md - Agent Instructions
 
 The universal core of the agent instructions: the dual-repo model, the hard rules, the cycle
-protocol, and a map of the rest. One of the [agent-files](#terminology), carried by every family
-member. Each rule here is one line and a link: the line is the rule, the link is its mechanics, and
+protocol, and a map of the rest. One of the [agent-files](#terminology), carried by every adopter.
+Each rule here is one line and a link: the line is the rule, the link is its mechanics, and
 its why is in [rationale.md](agent-data/rationale.md) under the mirrored heading.
 
 ## Terminology
@@ -16,6 +16,10 @@ but the agent-files require that there is one, of the shape in [Todo
 format](agent-data/notes.md#todo-format).
 
 Project layer: the project's own agent-files, `custom.md` and what it points at.
+
+Set: the agent-files as the template repository's payload carries them, the copy every adopter
+starts from and re-syncs to. Adopter: a project carrying a copy of the set. Maintainer: whoever
+owns the template repository and decides what the payload takes.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
 `vc-x1 push` ([Cycle protocol](#cycle-protocol)). Single-step when the problem statement has one
@@ -113,8 +117,8 @@ When writing Rust, inform the user of every `unwrap*` call outside tests
 
 ### Changing agent-files
 
-A change meant for the family is edited into the local copy of the file it lives in, one not meant
-for the family goes in `custom.md`, see [Changing the agent-files](#changing-the-agent-files).
+A change meant for the set is edited into the local copy of the file it lives in, one meant for
+this project only goes in `custom.md`, see [Changing the agent-files](#changing-the-agent-files).
 
 ### Bookmark per cycle
 
@@ -341,35 +345,41 @@ the machine and collapses into the rung before the cycle continues, each validat
 
 ## Changing the agent-files
 
-The official copies are the template repository's payload, and every member repo carries its own
+The official copies are the template repository's payload, and every adopter carries its own
 copy ([why](agent-data/rationale.md#changing-the-agent-files)).
 
 - Payload read-only: only a *correction* (a factual error, a typo, a stale cross-reference) goes
   straight in.
-- Intent picks the file: a family-wide rule change goes into the local copy of the pinned file,
-  reviewed at convergence on the diff. One not meant for the family goes to `custom.md` and says
-  why.
-- Diff is the proposal: the diff between a member and the payload *is* its open proposal set.
+- Intent picks the file: a rule change meant for the set goes into the local copy of the agent-file
+  it lives in, reviewed at convergence on the diff. One meant for this project only goes to
+  `custom.md` and says why.
+- Diff is the proposal: the diff between an adopter and the payload *is* its open proposal set.
 - Own commit, own cycle: an agent-file change is its own commit, and convention work is its own
   cycle. A convention itch mid-feature becomes a backlog entry, never an inserted rung.
 - Local experiments: a local agent-file may hold an unagreed experiment. Diff against the payload
   when that matters.
-- Convergence: the family reviews the members' diffs, folds what it accepts into the payload, and
-  every member re-syncs.
+- Convergence: the maintainer reviews the adopters' diffs, folds what it accepts into the payload,
+  and every adopter re-syncs.
 - Retirement: a resolved experiment retires like a finished Todo, adopted and rejected alike: the
   cycle that resolved it is its record.
-- Adopted ahead: a rule adopted ahead of its convention cycle lives in the pinned file it belongs
+- Adopted ahead: a rule adopted ahead of its convention cycle lives in the agent-file it belongs
   to, never in a holding section of the project layer.
 
 ## custom.md
 
 [custom.md](custom.md) is the project's own layer and is never universal
-([why](agent-data/rationale.md#custommd)). It ships holding only its own shape,
-and a project adds what it needs.
+([why](agent-data/rationale.md#custommd)). It ships holding only its own shape, and a project adds
+what it needs. Anyone may change any agent-file. custom.md is provided so an adopter can experiment
+with, or override, a rule in one file when that is practical, and keep its other agent-files
+identical to the payload's, so a re-sync is a copy:
 
-- Overrides section: `## Project conventions and overrides` stays `_None._` unless a rule cannot be
-  family-wide. A rule the project would keep is a proposal, and goes in the pinned file as a diff
-  ([Changing the agent-files](#changing-the-agent-files)).
-- Pointer entries: an entry that only points at a further file owes no justification, and a pinned
-  file asking for something "in custom.md" is answered by following the pointer.
+- Overriding: a rule the adopter cannot keep as written goes under `## Project conventions and
+  overrides`, naming the section it supersedes.
+- Editing instead: an adopter with reasons custom.md cannot serve edits the agent-files directly,
+  and its diff from the payload is its proposal ([Changing the
+  agent-files](#changing-the-agent-files)). Defining what the set itself is, as its first adopters
+  are doing, is one such reason. Such an adopter's custom.md holds pointers to project files and
+  nothing else, and `## Project conventions and overrides` stays `_None._`.
+- Pointer entries: an entry that only points at a further file owes no justification, and an
+  agent-file asking for something "in custom.md" is answered by following the pointer.
 - Precedence: custom.md is loaded last and wins conflicts with the other agent-files.

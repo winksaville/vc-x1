@@ -319,16 +319,16 @@ commit, and "what shipped in 0.42.0" is answered by `git log` on the manifest, n
 prose. The earlier chores as-built rungs and `## Done` entries carried versions beside commit SHAs,
 and retired with the records they lived in ([Cycle-record](../AGENTS.md#cycle-record)).
 
-## Pinned files name no project
+## Agent-files name no project
 
-A pinned agent-file states rules and mechanisms. It never names a member project, a member's
-history, or a member's versions. The vc-x1 *CLI* and its versions are tool facts every member shares
-and stay. What is barred is a member repo appearing in universal text
-([why](rationale.md#pinned-files-name-no-project)).
+An agent-file states rules and mechanisms. It never names an adopter, an adopter's history, or an
+adopter's versions. The vc-x1 *CLI* and its versions are tool facts every adopter shares and stay.
+What is barred is an adopter's repo appearing in universal text
+([why](rationale.md#agent-files-name-no-project)).
 
-**How to apply:** state the rule and its mechanism in the pinned file, and leave the evidence trail
+**How to apply:** state the rule and its mechanism in the agent-file, and leave the evidence trail
 in the records of the project that earned it (the cycle-record, Todo entries), reachable from the
-commit that changed the pinned file. Dates are fine, since a date names a moment, not a member. A
+commit that changed the agent-file. Dates are fine, since a date names a moment, not an adopter. A
 specimen in the scheme's own notation (an example version, an example bookmark name) is a use, not a
 reference, per the same distinction [Versions live in the version-of-record
 only](#versions-live-in-the-version-of-record-only) draws.

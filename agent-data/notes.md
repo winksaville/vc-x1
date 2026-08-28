@@ -85,7 +85,7 @@ reference links to more detail.
 - `## Ideas`: unranked.
 - `## Bugs`: a pointer to [bugs.md](../notes/bugs.md).
 
-Every member has one `TODO.md` of this shape. It is not an agent-file, since its content is the
+Every adopter has one `TODO.md` of this shape. It is not an agent-file, since its content is the
 project's record, and the payload ships it as a skeleton: `## In Progress` reading
 `_No cycle currently in progress._`, the other sections empty.
 
