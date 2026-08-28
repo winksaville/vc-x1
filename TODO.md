@@ -7,6 +7,14 @@ Intro paragraphs in `## Todo` and `## Bugs` should begin every
 line with 1 leading space so they don't match the `^\d+\. `
 pattern that locates numbered entries. 2 or 3 spaces also work.
 
+## Continuation notes
+
+Where the agent was, for the agent that comes next: working copy state, the step in flight, an
+open question. Ephemeral, never a record. Written before a restart or when a session is about to
+lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
+
+_None._
+
 ## In Progress
 
 A cycle's record has one home at a time, and while the cycle runs this is it. The block's
@@ -51,7 +59,7 @@ payload last.
 - [docs: one TODO.md, Closed as the history][4] (done)
 - [docs: widen Typeable punctuation to Prose style][5] (done)
 - [build: update the lock to the latest compatible versions][6] (done)
-- [docs: the restart and the interlude, between cycles][7]
+- [docs: the restart and the interlude, between cycles][7] (done)
 - [docs: Todo entries as headings, and sweep the retired names][8]
 - [docs: move the satellites' inline whys][9]
 - [chore(template): propose the set to the payload][10]
@@ -202,9 +210,9 @@ whether anything in the block should be kept.
 
 - TODO.md is not an agent-file (wink, 2026-08-27).
   - Its content is the project's record and can never match another member's.
-  - The agent-files require that there is one, of the pinned shape: `## In Progress`,
-    `## Closed`, `## Waiting`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, the block per
-    cycle-model.md.
+  - The agent-files require that there is one, of the pinned shape: `## Continuation notes`,
+    `## In Progress`, `## Closed`, `## Waiting`, `## Todo`, `## Ideas`, `## Bugs`,
+    `# References`, the block per cycle-model.md.
   - The payload ships a skeleton, `## In Progress` reading `_No cycle currently in progress._`,
     the rest empty.
   - The shape check is a `validate-todo` extension, recorded in the `validate` Todo entry.
@@ -318,6 +326,18 @@ set's "development is never done on `main`" reads as forbidding it.
   - If interludes are retired instead, the "never on `main`" sentence stands as written.
 - The decision rule is added: when unplanned work is an interlude rather than a rung appended
   to the running cycle.
+- As built:
+  - Close-out step 7, Restart, one line, with the why in rationale.md's Close-out.
+  - The interlude is retired, not defined. The synced set had already dropped it from every rule,
+    and a single-step cycle is the same one commit with a bookmark, a record, and a landing, so
+    the "never on `main`" sentence stands.
+  - The decision rule is a new `### Unplanned work` section in AGENTS.md's Cycle protocol, two
+    bullets, a rung inserted or an entry for a later cycle, and the user picks which (wink,
+    2026-08-27: no absolutes, the choice depends on the moment). The build rung inserted in this
+    cycle is the instance.
+  - `## Continuation notes` is TODO.md's first section (wink, 2026-08-27): where the agent was,
+    for the agent that comes next, `_None._` by default, reset by its reader. Restart step 7
+    names it, and it was first used to test a restart mid-review of this rung.
 
 ##### docs: Todo entries as headings, and sweep the retired names
 
@@ -1043,14 +1063,25 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
     - every Todo and backlog entry carries a bold title, unique within its file
     - every `](path#anchor)` and `[N]: path#anchor` in the agent-files resolves against the
       headings (the check that found two dead links on 2026-08-27, run by hand)
-    - `TODO.md` has the pinned shape: `## In Progress`, `## Closed`, `## Waiting`, `## Todo`,
-      `## Ideas`, `## Bugs`, `# References`, in that order, and the In Progress block per
-      cycle-model.md (the `validate-todo` extension, 2026-08-27)
+    - `TODO.md` has the pinned shape: `## Continuation notes`, `## In Progress`, `## Closed`,
+      `## Waiting`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, in that order, and the In
+      Progress block per cycle-model.md (the `validate-todo` extension, 2026-08-27)
 
 19. **`vc-x1 closed "<title>"`: print a landed cycle's block.** (2026-08-27) A landed cycle's
     record is its `## Closed` block in the landmark commit's `TODO.md`, and reading it back is
     two awkward commands (`git log --first-parent main --grep`, then `git show <sha>:TODO.md`).
     One verb that finds the landmark by title and prints the block.
+
+20. **docs: no single-owner assumption in the agent-files.** (wink, 2026-08-27) The rules assume
+    the user owns the trunk: Land fast-forwards `main` and deletes the bookmark, and "`main`
+    advances only when the finished cycle lands on it" states it as a rule. Everything else, the
+    per-rung flow, approval per push, the cycle-record, the bookmark per cycle, holds whether the
+    bookmark ends in a local merge or a review request to another owner. Rewrite Land as "hand
+    the bookmark to the trunk's owner" with two endings: the owner is the user (today's sequence)
+    or someone else (push the bookmark, open the review request, close the cycle as a
+    `## Waiting` entry on the merge, delete the bookmark once merged, the long-lived case in
+    jj.md). The close-out shape then follows the owner's merge policy. Also drop any wording that
+    assumes a single user, so the agent-files fit a team member's repo as well as wink's.
 
 ## Ideas
 

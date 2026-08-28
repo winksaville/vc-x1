@@ -158,6 +158,14 @@ In Progress block may be rewritten to either shape. After it:
   rung's `ochid:` trailer is a change id, and a squash discards all but one. A ladder that shrinks
   to one rung still closes as a ladder, since its opening already pushed.
 
+### Unplanned work
+
+Work that arrives while a cycle runs goes one of two ways, and the user picks which
+([why](agent-data/rationale.md#unplanned-work)):
+
+- A rung inserted into the ladder, usually when it is inside the cycle's subject or blocks it.
+- A `## Todo` or `## Waiting` entry, run as its own cycle later.
+
 ### Cycle-record
 
 A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the cycle-record
@@ -292,6 +300,9 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
 6. Land: on the user's go, restore the plain name, reshape per the choice, fast-forward `main`,
    install the artifact, delete the bookmark locally and remotely ([Bookmark per
    cycle](#bookmark-per-cycle), [Land](agent-data/jj.md#cycle-bookmarks-create-and-land)).
+7. Restart: the user restarts the agent, and before the exit anything the next agent needs is
+   written into `TODO.md > ## Continuation notes`, the first section, which the next acquaint reads
+   first and resets.
 
 ### Local ladders
 

@@ -77,6 +77,9 @@ auto-generated anchors. The de-facto reference implementation is
 `TODO.md` has these sections, in this order. Each item in them is a short description with
 reference links to more detail.
 
+- `## Continuation notes`: where the agent was, for the agent that comes next. Ephemeral, never a
+  record, `_None._` by default, written before a restart or a loss of context, and reset by the
+  agent that reads it.
 - `## In Progress`: the running cycle's record ([Cycle-record](../AGENTS.md#cycle-record)).
 - `## Closed`: the last cycle's finished record.
 - `## Waiting`: important work that cannot start yet. Each entry names what it waits on and its

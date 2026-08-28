@@ -154,6 +154,15 @@ shape is fixed at the first push.
 - Trapezoid already gives `main` a one-commit-per-cycle read under `git log --first-parent`, which
   is what squash was buying.
 
+### Unplanned work
+
+The docs interlude, a commit landed on the trunk line between cycles, is retired (2026-08-27). A
+single-step cycle is the same one commit with a bookmark, a record, and a landing, and the five
+docs commits that went to `main` as interludes are the case against the exception ([Cycles run on
+a bookmark](#cycles-run-on-a-bookmark)). The choice between a rung and an entry is the user's
+because it depends on what they want from the running cycle at that moment, which no rule can
+know.
+
 ### Cycle-record
 
 The chores move, the `## Done` entry, the `done.md` migration, and the SHA backfill were retired
@@ -264,6 +273,9 @@ Each close-out step exists because a close-out once went wrong without it.
   the moment.
 - A closed block is never amended because its tree is the landmark's, and a rewrite there is a
   rewrite of published history.
+- The user restarts the agent after the close-out (wink, 2026-08-24) because context degrades over
+  a long session, nothing is in flight once the cycle has landed, and an agent cannot restart
+  itself, so the step says what must be written down before the exit.
 - The single-step case is spelled out because a single-step close-out went wrong when it was left
   to analogy (2026-08-26): the agent treated the one commit as a closing rung.
   - The agent-repo commit took the title plus " closing" while the work-repo commit kept the bare
