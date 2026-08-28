@@ -57,7 +57,8 @@ The items the early close deferred, made runnable:
 - [chore: generate the config model and seed init][3] (done)
 - [fix: init takes a URL or a path][8] (done)
 - [feat: add validate-anchors][4] (done)
-- [docs: README covers the new surface][9]
+- [docs: README covers the new surface][9] (done)
+- [feat: validate-anchors reports what it checked][10]
 - [feat: check a config file's links and keys][5]
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
@@ -321,8 +322,42 @@ so its examples teach a target spelling init now rejects and a config carrier in
 - Decided (wink, 2026-08-28): a first cut, documenting what changed. Prose and examples, no new
   flag table, since **CLI reference lives in `--help`, and README owns concepts** owns deleting the
   tables and the `## Usage` block, and folding that in here would swallow a ranked entry.
-- The file's 63 semicolons convert, which the touch obliges. The earlier argument for deferring
-  held only while nothing needed saying there.
+- What changed and is now said: a `validate-anchors` section, `init` and `clone` no longer teaching
+  the `owner/name` spelling they reject, the config carrier named `.vc-config.md` in the eleven
+  places that still said `.vc-config.toml`, `vc-config-model.md` listed among the surfaces the
+  prototype drives, and the dead "Revision shortcuts" table-of-contents entry deleted.
+  - The `agent-session` resolution order now says "the work side's `.vc-config.md`" rather than
+    "workspace", which is the `homes` correction reaching its user-facing surface.
+  - The new section needed no flag table, since the subcommand has one positional and no flags. It
+    is already the shape the entry above wants, which is a happy accident rather than a decision.
+- The sweep the touch obliges: 51 prose semicolons converted, and 12 left alone inside fences,
+  where a semicolon is code. Eleven lines the conversion pushed past the prose width were
+  rewrapped, and the ones already over it were left, since a sweep is its own cycle.
+  - `.vc-config.toml` survives in one place on purpose, a link to a frozen chores anchor. The
+    `--config <path>` row instead says the copy takes the name the source's carrier calls for,
+    which is what the code does and covers a TOML source without naming a retired default.
+- The earlier argument for deferring this rung held only while nothing needed saying in README, and
+  wink was right that a user-facing change with no documentation is worse than a sweep.
+
+##### feat: validate-anchors reports what it checked
+
+The summary counts files, so a file with no links passes exactly like one with four hundred, and a
+vacuous pass reads as a real one. The same complaint bug #9 makes about `config --validate` mixing
+"checked, found nothing" with "could not check".
+
+- Decided (wink, 2026-08-28): count the checks rather than the files, and report the cross-file
+  targets skipped, since that number is this rung's coverage gap and the metric that goes to zero
+  when the cross-file stretch lands.
+- Verbosity layers on what `logging.rs` already gives: `-v` is Debug and `-vv` is Trace, so `-v`
+  takes per-file counts and `-vv` takes one line per site, every target with how it resolved and
+  every heading with the slug it produced. The slug algorithm is subtle enough that "what did that
+  heading actually slug to" is the question a failure raises.
+- A failing target names the nearest slug in the file, which turns a finding into a fix without
+  opening the file. Edit distance over a list already in hand.
+- Everything counted is already computed and discarded: `anchor_targets` walks every target and
+  only the failures survive today.
+- Two lines of README touch-up ride along, since the section written one rung earlier describes the
+  output. Cheap now that the semicolon sweep is paid on that file.
 
 ##### feat: check a config file's links and keys
 
@@ -918,4 +953,5 @@ _See [bugs.md](notes/bugs.md)._
 [7]: #feat-finish-the-vc-config-surface-closing
 [8]: #fix-init-takes-a-url-or-a-path
 [9]: #docs-readme-covers-the-new-surface
+[10]: #feat-validate-anchors-reports-what-it-checked
 [12]: /notes/forks-multi-user.md
