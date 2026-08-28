@@ -16,8 +16,8 @@ fn parse(args: &[&str]) -> InitArgs {
 
 #[test]
 fn defaults() {
-    let args = parse(&["vc-x1", "init", "owner/repo"]);
-    assert_eq!(args.target, "owner/repo");
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
+    assert_eq!(args.target, "https://github.com/owner/repo");
     assert!(args.name.is_none());
     assert!(args.account.value.is_none());
     assert!(args.repo.value.is_none());
@@ -34,7 +34,7 @@ fn all_opts() {
     let args = parse(&[
         "vc-x1",
         "init",
-        "owner/repo",
+        "https://github.com/owner/repo",
         "my-dir",
         "--account",
         "work",
@@ -50,7 +50,7 @@ fn all_opts() {
         "--use-template",
         "/tmp/tmpl",
     ]);
-    assert_eq!(args.target, "owner/repo");
+    assert_eq!(args.target, "https://github.com/owner/repo");
     assert_eq!(args.name.as_deref(), Some("my-dir"));
     assert_eq!(args.account.value.as_deref(), Some("work"));
     let sel = args.repo.value.as_ref().expect("--repo set");
@@ -392,8 +392,8 @@ fn target_url_form_accepted() {
 
 #[test]
 fn target_owner_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "owner/repo"]);
-    assert_eq!(args.target, "owner/repo");
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
+    assert_eq!(args.target, "https://github.com/owner/repo");
 }
 
 #[test]
@@ -660,36 +660,58 @@ fn plan_url_with_name_override() {
     assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
 }
 
-// ---------- owner/name shorthand TARGET ----------
+// ---------- the retired owner/name shorthand ----------
 
+/// A slashed TARGET with no path prefix is refused before a plan
+/// exists, so nothing reaches GitHub under a guessed reading.
 #[test]
-fn plan_owner_name_resolves_to_github_ssh() {
-    let args = args_for("winksaville/tf1");
-    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
-    assert_eq!(plan.provisioner, Provisioner::GhCreate);
-    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
-    assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
-}
-
-#[test]
-fn plan_owner_name_eq_ssh_url_form() {
-    // owner/name shorthand must produce the same plan as the
-    // explicit SSH URL it resolves to.
-    let p1 = plan_init(
+fn plan_slashed_target_is_refused() {
+    let err = plan_init(
         &InitParams::from(&args_for("winksaville/tf1")),
         &cfg_empty(),
     )
-    .unwrap();
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("ambiguous"), "{err}");
+    assert!(err.contains("./winksaville/tf1"), "{err}");
+}
+
+/// A `foo.git` directory yields the repo name `foo`, the same
+/// normalization a URL target gets. The two branches disagreeing
+/// is what made a `./tmp/xx1.git` target ask GitHub for `xx1.git`
+/// and then write a remote pointing at a repo GitHub never made.
+#[test]
+fn plan_path_target_strips_the_git_suffix() {
+    let args = args_for("./tmp/xx1.git");
+    let plan = plan_init(&InitParams::from(&args), &cfg_top_level_local("./tmp/bare")).unwrap();
+    assert_eq!(plan.name, "xx1");
+    assert_eq!(plan.bot_name.as_deref(), Some("xx1.claude"));
+}
+
+/// A repo name GitHub would rename is refused before it is asked
+/// for, since GitHub drops a trailing `.git` at creation and the
+/// remote we write afterwards would point at a repo that does not
+/// exist.
+#[test]
+fn github_slug_refuses_a_dot_git_name() {
+    let err = github_slug_from_url("https://github.com/owner/foo.git.git")
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("GitHub drops"), "{err}");
+    assert!(err.contains("'foo'"), "{err}");
+}
+
+#[test]
+fn plan_ssh_url_form_still_works() {
     let p2 = plan_init(
         &InitParams::from(&args_for("git@github.com:winksaville/tf1")),
         &cfg_empty(),
     )
     .unwrap();
-    assert_eq!(p1.work_url, p2.work_url);
-    assert_eq!(p1.bot_url, p2.bot_url);
-    assert_eq!(p1.provisioner, p2.provisioner);
-    assert_eq!(p1.gh_work_slug, p2.gh_work_slug);
-    assert_eq!(p1.gh_bot_slug, p2.gh_bot_slug);
+    assert_eq!(p2.work_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(p2.gh_work_slug.as_deref(), Some("winksaville/tf1"));
+    assert_eq!(p2.provisioner, Provisioner::GhCreate);
+    assert_eq!(p2.gh_bot_slug.as_deref(), Some("winksaville/tf1.claude"));
 }
 
 // ---------- Path TARGET ----------

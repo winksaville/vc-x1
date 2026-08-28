@@ -16,8 +16,8 @@ use crate::options_flags::push_retry::PushRetryOptions;
 
 /// Inputs to the init op, flat, owned, clap-free.
 ///
-/// - `target`: the TARGET positional argument (URL, owner/name,
-///   path, or bare NAME).
+/// - `target`: the TARGET positional argument (URL, path, or
+///   bare NAME).
 /// - `name`: optional `NAME` positional override.
 /// - `account`: `--account` value (None => default account chain).
 /// - `repo`: `--repo` value parsed into a `RepoSelector`.

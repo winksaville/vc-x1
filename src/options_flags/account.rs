@@ -11,8 +11,8 @@ pub struct AccountOption {
     ///
     /// - Without this flag, `[default].account` (or top-level
     ///   `[repo]` shorthand) is used.
-    /// - Meaningful only with Path or bare-NAME targets: URL /
-    ///   owner/name targets supply the remote directly.
+    /// - Meaningful only with Path or bare-NAME targets, since a
+    ///   URL target supplies the remote directly.
     #[arg(
         id = "account",
         long = "account",

@@ -55,6 +55,7 @@ The items the early close deferred, made runnable:
 - [feat: finish the vc-config surface opening][1] (done)
 - [chore: groom the config backlog][2] (done)
 - [chore: generate the config model and seed init][3] (done)
+- [fix: init takes a URL or a path][8] (done)
 - [feat: add validate-anchors][4]
 - [feat: check a config file's links and keys][5]
 - [chore: point config at .agent-session][6]
@@ -221,6 +222,52 @@ still writes `.vc-config.toml`, so every new member starts on the legacy carrier
   error messages in `common.rs`, and four README rows, all describing the carrier rather than
   init's output. The drift predates this rung, and the README half is already **CLI reference lives
   in `--help`, and README owns concepts**.
+
+##### fix: init takes a URL or a path
+
+Hand-checking the rung above, wink ran `vc-x1 init tmp/vc-x1-dev.0.80.6-2` and init tried to create
+a GitHub repo in an organization named `tmp`. Three defects came out of the two runs that followed,
+recorded as `notes/bugs.md` #12, #13, and #14.
+
+- Unplanned work, taken as a rung at wink's call (2026-08-28), since the fix is init's own target
+  handling rather than anything the cycle's other rungs touch.
+- The `owner/name` shorthand is retired rather than disambiguated, which is the end state **Drop
+  the global config and the account notion** decided on 2026-08-21.
+  - The first proposal was a heuristic, reading `X/Y` as a path when `X` names an existing
+    directory. wink's question, under what conditions `tmp/foo` is ambiguous, dissolved it: always,
+    since nothing needs to exist for a path target (init creates missing parents), so both readings
+    are well-formed for every such string and the heuristic guesses at intent rather than detecting
+    anything.
+  - So a slashed target with no path prefix is refused, naming both readings. Refusing rather than
+    silently choosing, since silently choosing is the bug. Once nobody reaches for the shorthand a
+    slashed target can simply mean the path, and the code says so where the rule lives.
+  - This takes a slice of that entry early. What stays there is bare `NAME` and the user-config
+    remote chain, which `plan_from_path` also uses, so the config tier is load-bearing for path
+    targets and unpicking it is still that entry's work, along with `--account` and `--repo`.
+  - `resolve_url` went with the shorthand, since the shorthand was the one form it resolved. That
+    also deletes one of the two places a remote is hardcoded to ssh, which was the entry's stated
+    reason for retiring the shorthand.
+- One name derivation for both target branches. `plan_from_path` ran the directory's `file_name`
+  through `derive_name`, the normalization a URL target already got, so a `foo.git` directory
+  yields the repo name `foo`.
+- A repo name GitHub would rename is refused before it is asked for. GitHub drops a trailing `.git`
+  at creation, so `xx1.git` became `xx1` while init wrote a remote pointing at `xx1.git`, and the
+  push failed with "the repository exists" as the false half. The guard lives in
+  `github_slug_from_url`, the one place on the `gh repo create` path, and refuses rather than
+  repairing, since silently renaming what the caller asked for is how the mismatch started.
+  - Reachable still by a `--name` override or a URL ending `.git.git`, which is why it is a guard
+    and not just a consequence of the derivation fix.
+- The ssh remote is recorded as #14 and not fixed here. The remote scheme is the user config's to
+  state, so it rides the entry that deletes that chain.
+- Two things fell out of touching `notes/bugs.md`: its `# References` heading sat between entries
+  10 and 11 rather than at the end, and the file's prose owed the conversion, 27 semicolons and 14
+  untypeable characters. The two `…` left are inside a quoted jj error message, transcribed rather
+  than authored.
+  - The file already records fixed bugs (#1, #4), so the entries fixed here say so in that shape,
+    naming the rung rather than a version.
+- A wrong diagnosis on the way, recorded because it cost time: the ssh remote looked like the cause
+  of the failed push, since "Could not read from remote repository" reads as auth. wink's `gh repo
+  list` settled it, showing `xx1` where `xx1.git` had been asked for.
 
 ##### feat: add validate-anchors
 
@@ -820,4 +867,5 @@ _See [bugs.md](notes/bugs.md)._
 [5]: #feat-check-a-config-files-links-and-keys
 [6]: #chore-point-config-at-agent-session
 [7]: #feat-finish-the-vc-config-surface-closing
+[8]: #fix-init-takes-a-url-or-a-path
 [12]: /notes/forks-multi-user.md

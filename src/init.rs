@@ -25,23 +25,25 @@ use crate::url::{Target, derive_bot_url, derive_name, parse_target};
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Target: URL, owner/name shorthand, path, or bare NAME.
+    /// Target: URL, path, or bare NAME.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
     ///   used as-is, config not consulted.
-    /// - owner/name shorthand: resolves to
-    ///   `git@github.com:owner/name.git`, config not consulted.
     /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`, is the
     ///   directory path, remote resolved via `--repo` chain.
     /// - Bare NAME: becomes NAME.git, remote resolved via
     ///   `--repo` chain.
+    ///
+    /// A slashed target with no path prefix (`owner/name`) is
+    /// refused: it reads equally as a path and as the retired
+    /// owner/name shorthand, so pass `./owner/name` or a URL.
     #[arg(value_name = "TARGET", verbatim_doc_comment)]
     pub target: String,
 
-    /// Repo directory name override (URL / owner/name forms only).
+    /// Repo directory name override (URL form only).
     ///
-    /// - URL / owner/name forms: repo created at `cwd/<NAME>`
-    ///   instead of the URL-derived name.
+    /// - URL form: repo created at `cwd/<NAME>` instead of the
+    ///   URL-derived name.
     /// - Path / bare-NAME forms: error if given (TARGET already
     ///   names the repo).
     #[arg(value_name = "NAME", verbatim_doc_comment)]
@@ -775,9 +777,6 @@ pub(crate) fn plan_init(
     debug!("parse_target: {:?} -> {:?}", params.target, parsed);
     let plan = match parsed {
         Target::Url(url) => plan_from_url(params, scope, url),
-        Target::OwnerName(o, n) => {
-            plan_from_url(params, scope, format!("git@github.com:{o}/{n}.git"))
-        }
         Target::Path(p) => plan_from_path(params, scope, p, cfg),
         Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
@@ -857,17 +856,24 @@ fn plan_from_path(
         );
     }
     let project_dir = resolve_path_target(&path)?;
-    let name = project_dir
+    let last = project_dir
         .file_name()
         .ok_or_else(|| {
             format!(
-                "path TARGET '{}' has no last component; cannot derive a repo name",
+                "path TARGET '{}' has no last component, so no repo name can be derived",
                 path.display()
             )
         })?
         .to_str()
-        .ok_or("path TARGET is not valid UTF-8")?
-        .to_string();
+        .ok_or("path TARGET is not valid UTF-8")?;
+    // Through `derive_name`, the same normalization a URL target
+    // gets, so a `foo.git` directory yields the repo name `foo`
+    // rather than `foo.git`. The two branches answering this
+    // differently is what made a `./tmp/xx1.git` target ask GitHub
+    // for `xx1.git`, get `xx1` (GitHub drops the suffix), and then
+    // write a remote pointing at the name it never created
+    // (2026-08-28, bugs.md).
+    let name = derive_name(last)?;
     let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
@@ -1100,11 +1106,25 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     {
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
-            return Ok(format!(
-                "{}/{}",
-                parts[parts.len() - 2],
-                parts[parts.len() - 1]
-            ));
+            let name = parts[parts.len() - 1];
+            // GitHub drops a trailing `.git` from a repo name at
+            // creation, so asking for one means the repo it makes
+            // is not the repo the remote we then write points at,
+            // and the first push fails with "the repository
+            // exists" being the false half (2026-08-28, bugs.md).
+            // Refused here rather than repaired, since silently
+            // renaming what the caller asked for is how the
+            // mismatch started.
+            if name.ends_with(".git") {
+                return Err(format!(
+                    "repo name '{name}' ends with '.git', which GitHub drops at creation, so \
+                     the repo would be '{}'. Name it '{}' instead",
+                    name.trim_end_matches(".git"),
+                    name.trim_end_matches(".git")
+                )
+                .into());
+            }
+            return Ok(format!("{}/{name}", parts[parts.len() - 2]));
         }
     }
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
