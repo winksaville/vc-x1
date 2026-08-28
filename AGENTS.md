@@ -2,8 +2,8 @@
 
 The universal core of the agent instructions: the dual-repo model, the hard rules, the cycle
 protocol, and a map of the rest. One of the [agent-files](#terminology), carried by every adopter.
-Each rule here is one line and a link: the line is the rule, the link is its mechanics, and
-its why is in [rationale.md](agent-data/rationale.md) under the mirrored heading.
+The rules are a table of contents: each is a link to the section that holds it, and a section's
+why is in [rationale.md](agent-data/rationale.md) under the mirrored heading.
 
 ## Terminology
 
@@ -39,7 +39,8 @@ Artifact: the work-repo's built product. It carries a `-dev` name while a cycle 
 name](agent-data/versioning.md#dev-artifact-name)) and is installed at Land.
 
 Rationale: a rule's why, in [rationale.md](agent-data/rationale.md) under the heading that mirrors
-the rule's, reached by `[why](agent-data/rationale.md#<same-slug>)`.
+the rule's, reached by `[why](agent-data/rationale.md#<same-slug>)`. Read when changing a rule,
+not when following one.
 
 ## The dual-repo model
 
@@ -51,84 +52,31 @@ Two separate jj-git colocated repos ([jj.md](agent-data/jj.md)):
 
 ## Rules
 
-Rules are named so they can be referenced with a URL ([why](agent-data/rationale.md#hard-rules)).
-None is absolute: a rule bends only when wink says so explicitly, at the moment or as a scoped
-delegation ([Stop and ask](#stop-and-ask) is the path), and the exception is recorded in the cycle's
-records. No rule bends silently.
+The rules, indexed: each a link to the section that states it, grouped by file and in each file's
+order ([why](agent-data/rationale.md#rules)). None is absolute: a rule bends only when the user says
+so explicitly, at the moment or as a scoped delegation ([Stop and ask](#stop-and-ask) is the
+path), and the exception is recorded in the cycle's records. No rule bends silently.
 
-### Read custom.md first
-
-Read [custom.md](custom.md). Its rules override all others.
-
-### jj, not git
-
-Version-control operations use jj. [jj basics](agent-data/jj.md#jj-basics).
-
-### Push commits
-
-A cycle rung is committed only by `vc-x1 push`.
-
-### Approval per push
-
-Every push needs approval except with an explicit waiver, [Before any push](#before-any-push).
-
-### Hard stop after the final push
-
-After the turn's final push nothing until the user speaks, unless an explicit waiver. [At
-rest](#at-rest-push-stop-squash-push).
-
-### No re-describe without coordinating
-
-[Re-describing](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer) a commit must
-be coordinated.
-
-### No hand-written trailers
-
-`vc-x1 push` stamps `ochid:` trailers, never write one by hand. [ochid
-trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers).
-
-### Read the step before the action
-
-Read [The per-rung flow](#the-per-rung-flow) before commit work and [Before any
-push](#before-any-push) before a push, from the file, not from memory.
-
-### Prose style
-
-Durable text follows [Prose form](agent-data/prose.md#prose-form): no wall of prose, [one
-spelling per term](agent-data/prose.md#one-spelling-per-term), [bullet
-form](agent-data/prose.md#bullet-form), [no
-semicolons](agent-data/prose.md#semicolons), and [typeable punctuation
-only](agent-data/prose.md#typeable-punctuation-only).
-
-### One title per step
-
-The ladder rungs, headers and commit title are verbatim identical, see [the
-shape](agent-data/prose.md#conventional-commit-shape-ladder--commit).
-
-### Stop and ask
-
-Stop and ask on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes on a
-simple task has produced no progress.
-
-### Alert on unwrap
-
-When writing Rust, inform the user of every `unwrap*` call outside tests
-([code.md](agent-data/code.md#-ok--comments-on-unwrap-calls-rust)).
-
-### Changing agent-files
-
-A change meant for the set is edited into the local copy of the file it lives in, one meant for
-this project only goes in `custom.md`, see [Changing the agent-files](#changing-the-agent-files).
-
-### Bookmark per cycle
-
-A cycle runs on one bookmark in the work-repo, see [Cycles run on a
-bookmark](#cycles-run-on-a-bookmark).
-
-### Shape at the first push
-
-A cycle is single-step or multi-step from its first push on, and no reshape changes it, see [Cycle
-shape](#cycle-shape).
+- In custom.md:
+  - [Read custom.md first](custom.md)
+- In this file, in its order:
+  - [Bookmark per cycle](#cycles-run-on-a-bookmark)
+  - [Shape at the first push](#cycle-shape)
+  - [Read the step before the action](#the-per-rung-flow)
+  - [Push commits](#committing-vs-pushing)
+  - [Approval per push](#before-any-push)
+  - [Hard stop after the final push](#at-rest-push-stop-squash-push)
+  - [Stop and ask](#stop-and-ask)
+  - [Changing agent-files](#changing-the-agent-files)
+- In jj.md:
+  - [jj, not git](agent-data/jj.md#jj-basics)
+  - [No hand-written trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers)
+  - [No re-describe without coordinating](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer)
+- In prose.md:
+  - [Prose style](agent-data/prose.md#prose-form)
+  - [One title per step](agent-data/prose.md#conventional-commit-shape-ladder--commit)
+- In code.md:
+  - [Alert on unwrap](agent-data/code.md#-ok--comments-on-unwrap-calls-rust)
 
 ## Cycle protocol
 
@@ -157,7 +105,8 @@ In Progress block may be rewritten to either shape. After it:
   - land the commit as it is and run the additional work as one or more further cycles
   - turn the commit into the opening: amend its version-of-record to the `-0` form, re-title it with
     " opening" as a coordinated re-describe that keeps the `ochid:` trailer ([No re-describe without
-    coordinating](#no-re-describe-without-coordinating)), and complete the cycle as multi-step.
+    coordinating](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer)), and
+    complete the cycle as multi-step.
 - A multi-step cycle is a ladder and lands as a trapezoid or kept separate, never squashed: every
   rung's `ochid:` trailer is a change id, and a squash discards all but one. A ladder that shrinks
   to one rung still closes as a ladder, since its opening already pushed.
@@ -240,8 +189,8 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 
 ### Committing vs pushing
 
-A cycle rung is committed *by* `vc-x1 push`, never pre-committed with `jj commit` ([Push
-commits](#push-commits), [why](agent-data/rationale.md#committing-vs-pushing)). "Commit", "push",
+A cycle rung is committed *by* `vc-x1 push`, never pre-committed with `jj commit`
+([why](agent-data/rationale.md#committing-vs-pushing)). "Commit", "push",
 and "commit + push" all mean `vc-x1 push`. A bare `jj commit` is asked for by name and is for local
 saves and [local ladder](#local-ladders) intermediates. What push does is in [vc-x1 push][vpush].
 
@@ -258,15 +207,16 @@ names, until vc-x1 owns them.
 
 #### Before any push
 
-- This specific push has the user's explicit approval.
+([why](agent-data/rationale.md#before-any-push))
+
+- This specific push has the user's explicit approval, or an explicit waiver covers it.
 - Validation ran, and passed, after the last edit.
 - Closing words are written. Nothing follows the turn's final push.
 
 #### At rest: push, stop, squash-push
 
-The contract that keeps both repos clean, [Hard stop after the final
-push](#hard-stop-after-the-final-push) its first item's tail
-([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
+The contract that keeps both repos clean, the rule **Hard stop after the final push** its first
+item's tail ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 
 1. The agent publishes: completing a step means issuing its publishing command. The agent says what
    is worth saying *before* the final publishing command, responds with the one word "Published",
@@ -303,7 +253,7 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    - reshape nothing yet, Land does.
 6. Land: on the user's go, restore the plain name, reshape per the choice, fast-forward `main`,
    install the artifact, delete the bookmark locally and remotely ([Bookmark per
-   cycle](#bookmark-per-cycle), [Land](agent-data/jj.md#cycle-bookmarks-create-and-land)).
+   cycle](#cycles-run-on-a-bookmark), [Land](agent-data/jj.md#cycle-bookmarks-create-and-land)).
 7. Restart: the user restarts the agent, and before the exit anything the next agent needs is
    written into `TODO.md > ## Continuation notes`, the first section, which the next acquaint reads
    first and resets.
@@ -342,6 +292,11 @@ the machine and collapses into the rung before the cycle continues, each validat
   marker](agent-data/prose.md#speculation-marker)).
 - Plain synopsis: end a technical explanation in conversation with one, marked "The plain version:"
   ([Plain synopsis](agent-data/prose.md#plain-synopsis-after-technical-explanations)).
+
+### Stop and ask
+
+Stop and ask on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes on a
+simple task has produced no progress ([why](agent-data/rationale.md#stop-and-ask)).
 
 ## Changing the agent-files
 

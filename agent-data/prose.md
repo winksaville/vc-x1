@@ -10,6 +10,8 @@ content goes in [custom.md](../custom.md).
 
 ## Prose form
 
+([why](rationale.md#prose-form))
+
 Long-lived prose on this project follows one basic shape: a short intro that explains the *why* or
 the high-level *what*, sharpened to a *problem statement* where a surface calls for one (see
 [Problem-first shape](#problem-first-shape)), then a `-` bullet list for the details. The width
@@ -229,6 +231,8 @@ shape](#conventional-commit-shape-ladder--commit) requires between a commit titl
 rung.
 
 ### Conventional-commit shape (ladder / commit)
+
+([why](rationale.md#conventional-commit-shape-ladder--commit))
 
 A ladder step and its commit description share a *title* shape, a [Conventional
 Commits](https://www.conventionalcommits.org/en/v1.0.0/) title (`<type>: <desc>`, an optional

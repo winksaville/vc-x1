@@ -11,8 +11,9 @@ content goes in [custom.md](../custom.md).
 ## jj Basics
 
 **Use jj, not git, for version-control operations** (status, log, diff, commit, push, history
-rewrite). jj coexists with the git backend, so the repo *can* be driven with raw `git`, but this
-project's workflow (bookmarks, the working-copy `@` model, ochid trailers) is expressed in jj terms.
+rewrite, [why](rationale.md#jj-basics)). jj coexists with the git backend, so the repo *can* be
+driven with raw `git`, but this project's workflow (bookmarks, the working-copy `@` model, ochid
+trailers) is expressed in jj terms.
 Reaching for `git` invites state that doesn't match the jj documentation here. There is no `jj mv`:
 to move/rename a tracked file, just `mv` it on disk and jj detects the rename by content.
 
@@ -63,7 +64,8 @@ repository.
 
 The cross-reference between the work-repo and the agent-repo is what makes the dual-repo work: every
 commit points at its counterpart in the other repo, so the "what" (code) and the "why / how"
-(session) stay linked across time. That pointer is the **ochid** (Other Change ID) git trailer.
+(session) stay linked across time. That pointer is the **ochid** (Other Change ID) git trailer
+([why](rationale.md#cross-repo-linking-ochid-trailers)).
 
 A **chid** is jj's change ID, a permanent identifier that survives rebases and `describe`s (unlike
 the commit ID / git SHA, which changes on rewrite). An **ochid** trailer carries the counterpart
@@ -111,7 +113,7 @@ repo's `main`. Three behaviors to keep in mind:
   already done, so a failed run is re-run, not resumed. If push exits after `push-work` but before
   the agent-repo publish, `vc-x1 squash-push -R .claude` by hand is the rest of it.
 - **`ochid:` trailers are stamped by push** ([No hand-written
-  trailers](../AGENTS.md#no-hand-written-trailers)), never hand-written into `--title` or `--body`.
+  trailers](#cross-repo-linking-ochid-trailers)), never hand-written into `--title` or `--body`.
 - **The agent-repo is a linear journal.**
   - One push is one agent-repo commit on its `main`, paired with the work-repo commit, whatever
     bookmark the work-repo is on.
@@ -129,9 +131,11 @@ re-push, which is a remote rewrite and takes approval like any push.
 ## Re-describing: coordinate first, and keep the trailer
 
 **Never `jj describe` a commit that is already published or already carries trailers without
-coordinating with everyone involved first.** It is a history rewrite, and it silently drops the
-cross-repo link. Describing a fresh local commit that has never been described and carries no
-trailers is authoring a message rather than rewriting one, and is not covered. That is a [local
+coordinating with everyone involved first**
+([why](rationale.md#re-describing-coordinate-first-and-keep-the-trailer)). It is a history rewrite,
+and it silently drops the cross-repo link. Describing a fresh local commit that has never been
+described and carries no trailers is authoring a message rather than rewriting one, and is not
+covered. That is a [local
 ladder](../AGENTS.md#local-ladders)'s scratch describe.
 
 When a re-describe is agreed, copy any `ochid:` trailers into the new body by hand (the "don't
@@ -158,8 +162,8 @@ and the bookmark derive from one bare title):
   ready to be seen.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Every
-`jj git push` in it is a push under [Approval per push](../AGENTS.md#approval-per-push) and [Hard
-stop after the final push](../AGENTS.md#hard-stop-after-the-final-push), its own approval, the
+`jj git push` in it is a push under [Approval per push](../AGENTS.md#before-any-push) and [Hard
+stop after the final push](../AGENTS.md#at-rest-push-stop-squash-push), its own approval, the
 closing words before the final invocation, silence after ([At
 rest](../AGENTS.md#at-rest-push-stop-squash-push)):
 
@@ -175,8 +179,9 @@ rest](../AGENTS.md#at-rest-push-stop-squash-push)):
 4. Install: promote the artifact from `main`, the cycle's last act, run when nothing can enter the
    cycle anymore.
 5. Delete the bookmark, locally and remotely: `jj bookmark delete <bookmark>`, then
-   `jj git push --bookmark <bookmark>` ([Bookmark per cycle](../AGENTS.md#bookmark-per-cycle)). The
-   long-lived case below gets the same disposal once fully merged.
+   `jj git push --bookmark <bookmark>` ([Bookmark per
+   cycle](../AGENTS.md#cycles-run-on-a-bookmark)). The long-lived case below gets the same
+   disposal once fully merged.
 
 - The fast-forward needs no `--allow-backwards`. Needing it means the bookmark is not a descendant
   of `main`, and the situation wants a look, not a flag.
@@ -188,7 +193,7 @@ bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 
 - **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
   `jj describe`, so [No re-describe without
-  coordinating](../AGENTS.md#no-re-describe-without-coordinating) stays intact.
+  coordinating](#re-describing-coordinate-first-and-keep-the-trailer) stays intact.
 - **Then force-push the bookmark**, under the same approval as any other push.
 - **Exceptions**, named and moved past: the bookmark has already landed, another branch is stacked
   on it, or the ladder is long and only a trailing snapshot disagrees.

@@ -9,7 +9,15 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+- Cycle `docs: the family agent-files proposal`: all work rungs pushed, the closing rung is next.
+  Its acceptance check is the one the block states.
+- Two items wait on the closing:
+  - The message records in `../vc-x1-messages` (`iiac-perf.md`, and `zc-ring-x1.md` created by
+    the first write) for `notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27`, in the
+    durable mode: the `remote:` permalink is the closing's pushed commit, and the commit in the
+    messages repo takes wink's go.
+  - Land, on wink's go, then the restart the close-out names.
+- Reset this section to `_None._` in the closing rung's first edit.
 
 ## In Progress
 
@@ -59,7 +67,7 @@ payload last.
 - [docs: Todo entries as headings, and sweep the retired names][8] (done)
 - [docs: move the agent-data files' inline whys][9] (done)
 - [chore(template): propose the set to the payload][10] (done)
-- [docs: the rules as one list][13]
+- [docs: the rules as one list][13] (done)
 - [docs: the family agent-files proposal closing][11]
 
 #### Deliberation
@@ -467,13 +475,32 @@ AGENTS.md's `## Rules` is fifteen headings with one line each, 82 lines, spread 
 read as a list, and only 13 links point at a rule's anchor, 8 rules having none. Inserted after
 the custom.md rung (wink, 2026-08-27, per Unplanned work).
 
-- Each rule becomes one bullet: `- **name**: the rule ([mechanics](...), [why](...))`, no heading
-  and no anchor, since fifteen stable rules are safe to cite by name.
-- The 13 incoming links retarget to `AGENTS.md#rules` and name the rule in bold beside the link.
-- rationale.md keeps a `### <rule>` heading per rule under `## Rules`, so the `[why]` links hold,
-  and its reading rule says the mirror is by name for the rules.
-- Rejected: the whole rule in the heading (link markup in the slug, and over 100 columns), and an
-  inline HTML anchor per bullet (HTML in prose, a hand-kept slug).
+- As built (wink, 2026-08-27, after one round as bullets with the rule text inline): the section
+  is a table of contents, fifteen links, each to the section that states the rule, and every
+  citation of a rule points at that section, not at the list. Thirteen rules already had a
+  section that states them. Stop and ask had none and is now `### Stop and ask` under Working
+  practices, and Read the step before the action points at the per-rung flow, whose intro is the
+  rule.
+- rationale.md's `## Rules` is one entry, the TOC's why. The fifteen mirror headings went, Prose
+  style's why moving to `## prose.md > ### Prose form` and Stop and ask's under Working
+  practices, the rest having been `_None recorded._`.
+- Two citations sat inside their own target section (Push commits in Committing vs pushing, Hard
+  stop in At rest) and are plain text there. Before any push now names the waiver the rule
+  named.
+- A `[why]` beside each TOC entry was considered and dropped (wink, 2026-08-27): the target
+  section links its why at its head, and a non-functional link for the six rules without one
+  makes no sense.
+- The six rules with no why under a rationale heading (wink, 2026-08-27) each had one written
+  elsewhere in the set, so it is now under the mirrored heading of the rule's target section, and
+  the target links it at its head: Before any push, jj Basics, Cross-repo linking, Re-describing,
+  Conventional-commit shape, and code.md's unwrap comments. rationale.md is for changing a rule,
+  not following one, and Terminology says so.
+- Grouped by file and ordered by target (wink, 2026-08-27), so the index walks a reader through
+  this file before sending them out, and the intro calls it an index, since a table of contents
+  is expected to be followed by what it lists.
+- Rejected on the way: the whole rule in the heading (link markup in the slug, and over 100
+  columns), an inline HTML anchor per bullet (HTML in prose, a hand-kept slug), and numbering the
+  list (a number implies order or rank, and invites citation by number).
 
 ##### docs: the family agent-files proposal closing
 
@@ -509,6 +536,28 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### `validate`: enforce the record shapes the agent-files ask for
+
+(2026-08-25) The shapes the agent-files state in prose are missed at the point of action and
+invisible on reread, so each checkable one becomes a validate element and `vc-x1 push` refuses what
+fails. First set:
+- every ladder rung title is `<type>(<scope>)?: <desc>` with a type from the conventional-commit set
+  (nine untyped rungs went unnoticed through five rereads on 2026-08-25)
+- a `--body` is an intro paragraph then `*` facets each with at least one `-` under it, or the intro
+  alone for a bookend
+- an unfilled `[[N]]` whose commit is on `main` (the backlog entry **`validate`: fail on an unfilled
+  `[[N]]` on `main`** folds in here)
+- every Todo and backlog entry is a `###` heading, its title unique within its file
+- every `](path#anchor)` and `[N]: path#anchor` in the agent-files resolves against the headings
+  (the check that found two dead links on 2026-08-27, run by hand)
+- `TODO.md` has the pinned shape: `## Continuation notes`, `## In Progress`, `## Closed`, `##
+  Waiting`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, in that order, and the In Progress
+  block per cycle-model.md (2026-08-27)
+- `## Todo` entries are `###` headings, no numbered entries anywhere in the file, and
+  `validate-todo` / `fix-todo` retire, the numbered form they served being gone (2026-08-27)
+- wrapper-level tests for `validate-desc` / `fix-desc` ride along: the analyze cores are covered,
+  the wrappers (file I/O, output, exit codes) are not
 
 ### The vc-config program: finish the surface, then shrink it
 
@@ -916,28 +965,6 @@ refuse on intervening non-sync operations. Background in
 (wink, 2026-08-21) `full` is the `[validate]` table `vc-x1 validate` runs and `--fast` names the
 other, so `--full` should be accepted too, unnecessary but allowed, so a reader of a command sees
 which table ran.
-### `validate`: enforce the record shapes the agent-files ask for
-
-(2026-08-25) The shapes the agent-files state in prose are missed at the point of action and
-invisible on reread, so each checkable one becomes a validate element and `vc-x1 push` refuses what
-fails. First set:
-- every ladder rung title is `<type>(<scope>)?: <desc>` with a type from the conventional-commit set
-  (nine untyped rungs went unnoticed through five rereads on 2026-08-25)
-- a `--body` is an intro paragraph then `*` facets each with at least one `-` under it, or the intro
-  alone for a bookend
-- an unfilled `[[N]]` whose commit is on `main` (the backlog entry **`validate`: fail on an unfilled
-  `[[N]]` on `main`** folds in here)
-- every Todo and backlog entry is a `###` heading, its title unique within its file
-- every `](path#anchor)` and `[N]: path#anchor` in the agent-files resolves against the headings
-  (the check that found two dead links on 2026-08-27, run by hand)
-- `TODO.md` has the pinned shape: `## Continuation notes`, `## In Progress`, `## Closed`, `##
-  Waiting`, `## Todo`, `## Ideas`, `## Bugs`, `# References`, in that order, and the In Progress
-  block per cycle-model.md (2026-08-27)
-- `## Todo` entries are `###` headings, no numbered entries anywhere in the file, and
-  `validate-todo` / `fix-todo` retire, the numbered form they served being gone (2026-08-27)
-- wrapper-level tests for `validate-desc` / `fix-desc` ride along: the analyze cores are covered,
-  the wrappers (file I/O, output, exit codes) are not
-
 ### `vc-x1 closed "<title>"`: print a landed cycle's block
 
 (2026-08-27) A landed cycle's record is its `## Closed` block in the landmark commit's `TODO.md`,

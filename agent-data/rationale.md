@@ -12,9 +12,9 @@ content goes in [custom.md](../custom.md).
 ## How to read this file
 
 - **Headings mirror AGENTS.md's**, same text, same level, so the anchors line up 1:1 and a rule
-  reaches its why by one fixed pattern, `[why](agent-data/rationale.md#<same-slug>)`. A heading with
-  nothing under it but `_None recorded._` is a rule whose why was never written down, which is a
-  finding, not a gap to fill with a guess.
+  reaches its why by one fixed pattern, `[why](agent-data/rationale.md#<same-slug>)`. A heading
+  with nothing under it but `_None recorded._` is a rule whose why was never written down, which
+  is a finding, not a gap to fill with a guess.
 - **Per-file sections sit at the end**, one `##` per agent-file, subheadings mirroring that file's,
   reached by the same pattern (`[why](rationale.md#<same-slug>)` from inside `agent-data/`). The
   other agent-files carry no inline why, only the link (swept 2026-08-27).
@@ -29,78 +29,12 @@ content goes in [custom.md](../custom.md).
 
 ## Rules
 
-### Hard rules
-
-The rules are named so a review can reference one by URL, and each has a heading below mirroring
-AGENTS.md's.
-
-### Read custom.md first
-
-_None recorded._
-
-### jj, not git
-
-_None recorded._
-
-### Push commits
-
-_None recorded._
-
-### Approval per push
-
-_None recorded._
-
-### Hard stop after the final push
-
-_None recorded._
-
-### No re-describe without coordinating
-
-_None recorded._
-
-### No hand-written trailers
-
-_None recorded._
-
-### Read the step before the action
-
-_None recorded._
-
-### Prose style
-
-The rule widened from typeable punctuation to the whole of prose form (2026-08-27).
-
-- The prose rules arrived one at a time, each as its own hard rule or its own section, and a rule
-  named for one of them was read as covering only that one.
-- One spelling per term (wink, 2026-08-24): either always hyphenated or never, since mixing costs
-  a reader a judgment call and buys nothing.
-- Bullet form (wink, 2026-08-27): sentence bullets and thing-list bullets read differently, and a
-  list that mixes them makes the reader decide which each one is.
-
-### One title per step
-
-_None recorded._
-
-### Stop and ask
-
-A clarifying question costs seconds, while redoing misaligned work costs much more.
-
-### Alert on unwrap
-
-_None recorded._
-
-### Changing agent-files
-
-_None recorded._
-
-### Bookmark per cycle
-
-_None recorded._
-
-### Shape at the first push
-
-Under [Cycle shape](#cycle-shape).
-
+The rules are a table of contents, fifteen links, each to the section that states the rule, so a
+rule lives in one place and a citation points there. Until 2026-08-27 each rule was a heading in
+AGENTS.md with one line and a link, 82 lines that read as spread out rather than as a list, and
+every rule had a mirror heading here, eleven of them `_None recorded._`. The names stay, since a
+review cites a rule by name, and they are the link texts. A section that has a why links it at
+its head, so the TOC carries none.
 
 ## Terminology
 
@@ -131,8 +65,8 @@ sometimes cheat, and the rule is still the rule.
 Pushing to the bookmark makes the work durable and visible, but landing on `main` is publication,
 and that is the line the rules divide at. The series is kept self-consistent before landing so the
 branch reads as one coherent ladder. Amending content rather than re-describing keeps [No
-re-describe without coordinating](../AGENTS.md#no-re-describe-without-coordinating) intact and lets
-the `ochid:` trailers ride along: they carry change ids, which survive a rewrite.
+re-describe without coordinating](jj.md#re-describing-coordinate-first-and-keep-the-trailer)
+intact and lets the `ochid:` trailers ride along: they carry change ids, which survive a rewrite.
 
 ### Cycle shape
 
@@ -143,7 +77,7 @@ shape is fixed at the first push.
   pointed at a dropped rung is left with a dangling link (`vc-x1 validate-desc` reports
   `not found`).
 - Repairing that means re-describing N agent-repo commits, which [No re-describe without
-  coordinating](../AGENTS.md#no-re-describe-without-coordinating) forbids.
+  coordinating](jj.md#re-describing-coordinate-first-and-keep-the-trailer) forbids.
 - Squashing the agent-repo to match discards the per-rung session narrative the agent-repo exists
   to keep.
 - Since the remaining shapes keep every rung, the one-commit-or-ladder choice has to be made before
@@ -250,7 +184,9 @@ delegated cycle that skipped a record would leave the deferred reviewer nothing 
 
 #### Before any push
 
-_None recorded._
+**Every push needs approval** because a push publishes, and what is published is corrected only by
+a coordinated force-push of history someone else may already hold. Approval is the one moment the
+user can still say no at no cost.
 
 #### At rest: push, stop, squash-push
 
@@ -318,6 +254,10 @@ publishes.
 **Don't use the per-project memory directory** because easy for everyone to find beats convenient
 for the agent alone. **Mark speculation** so a reader can tell the measured from the inferred.
 
+### Stop and ask
+
+A clarifying question costs seconds, while redoing misaligned work costs much more.
+
 ## File map
 
 _None recorded._
@@ -361,7 +301,21 @@ when that is practical. A pointer entry owes no
 justification because it supersedes nothing, and holding a wider context behind one pointer keeps
 the rest of the file identical to the payload's.
 
+## code.md
+
+### `// OK: ...` comments on `unwrap*` calls (Rust)
+
+**The user is told of every `unwrap*` outside tests** so the site gets reviewed while it is one
+line in the conversation rather than one of many in a diff, and so the acceptable uses are learned
+case by case instead of the call riding in silently.
+
 ## jj.md
+
+### jj Basics
+
+**jj, not git** because the workflow, bookmarks, the working-copy `@` model, and the ochid
+trailers, is expressed in jj terms, and the git backend is only its storage. Driving the repo with
+raw `git` invites state the jj documentation here does not describe.
 
 ### Revsets
 
@@ -369,6 +323,21 @@ the rest of the file identical to the payload's.
 "descendants of x excluding x", which is not jj's meaning, and durable text written under a second
 dialect needs a decoder. Old transcripts and notes written under that gloss decode against it, and
 text written since teaches only jj's.
+
+### Cross-repo linking (ochid trailers)
+
+**Trailers are stamped by push, never hand-written**, because the change id a trailer names does
+not exist until push makes the paired commit: an agent-repo ochid names `@-` after the push, and an
+unpushed `@` gets a fresh chid in every clone ([Resolvability](jj.md#resolvability)). A trailer
+written by hand is at best a guess at that id, and a wrong one breaks the only join between the two
+histories.
+
+### Re-describing: coordinate first, and keep the trailer
+
+**A re-describe is coordinated** because it is a history rewrite that silently drops the cross-repo
+link: the `ochid:` trailer lives in the description, and a new description without it leaves the
+paired commit pointing at nothing. Hit at a coordinated amend (2026-07-29), where the trailer
+survived only by being copied across by hand.
 
 ### Cycle bookmarks: create and land
 
@@ -384,6 +353,24 @@ create bullets and nothing else, while the rule in AGENTS.md stays as it is.
 files under `notes/` rather than inline. The same "slice you need" rule applies to historical files.
 
 ## prose.md
+
+### Prose form
+
+The rule widened from typeable punctuation to the whole of prose form (2026-08-27).
+
+- The prose rules arrived one at a time, each as its own hard rule or its own section, and a rule
+  named for one of them was read as covering only that one.
+- One spelling per term (wink, 2026-08-24): either always hyphenated or never, since mixing costs
+  a reader a judgment call and buys nothing.
+- Bullet form (wink, 2026-08-27): sentence bullets and thing-list bullets read differently, and a
+  list that mixes them makes the reader decide which each one is.
+
+### Conventional-commit shape (ladder / commit)
+
+**One title per step** because the title is the identifier: a record points at a step by its
+title, a plain greppable mention, so the ladder rung, the details heading, and the commit title
+must be verbatim identical for one mention to find all three, and no other identifier is kept
+([Steps are named, not numbered](prose.md#steps-are-named-not-numbered)).
 
 ### Versions live in the version-of-record only
 
