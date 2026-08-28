@@ -50,7 +50,7 @@ The items the early close deferred, made runnable:
 #### Ladder
 
 - [feat: finish the vc-config surface opening][1] (done)
-- [chore: groom the config backlog][2]
+- [chore: groom the config backlog][2] (done)
 - [chore: regenerate configs in md format][3]
 - [feat: add config --refresh][4]
 - [feat: add validate-anchors][5]
@@ -117,18 +117,40 @@ Config work is spread across `## Todo` and the backlog, two entries dead and two
 other entries, so the lists disagree with themselves about what config work remains. Groom them, and
 convert `notes/todo-backlog.md`'s prose as the touch obliges.
 
-- Decided (wink, 2026-08-28), six edits and two foldings: delete **Add a vc-x1 validate-repo?** and
-  **Layered config precedence (user -> workspace -> CLI)**, retire **Add `validate-repo`
-  subcommand** and the `## Todo` stub of **vc-config.md per-key worked examples** into the entries
-  that claim them, amend **Test-tempdir override resolution chain** and **OSC 8 hyperlinks in
-  `config` TTY output**, and fold **init distributes vc-config.md, reference-base at the member**
-  and **Config provenance names the schema, not just the binary** into the vc-config program.
-- The citation at the validate-anchors sub-entry is repointed to **The validate family: umbrella,
-  runner, and `validate-work`**, which is what absorbs `validate-repo`, and the chores-06 design
-  link travels with it.
-- `notes/chores/chores-16.md` says the backlog keeps **Config provenance names the schema, not just
-  the binary**, which the fold stales. Frozen history is never amended, so the sentence stays as the
-  record of what was decided then.
+- Deleted as dead: **Add a vc-x1 validate-repo?**, a bare heading duplicating the entry below it,
+  and **Layered config precedence (user -> workspace -> CLI)**, whose user tier **Drop the global
+  config and the account notion** removes and whose worked example named a key the schema no longer
+  has.
+- Retired: **Add `validate-repo` subcommand** into **The validate family: umbrella, runner, and
+  `validate-work`**, which already said it absorbed it, carrying the implementation note and the
+  chores-06 design link.
+  - Two of its items did not survive. The chores-to-commit consistency check went with the chores
+    record form that held the `Commits:` lines it compares, and the exit code as a count of failed
+    checks is replaced by the umbrella's "the worst of them". Both drops are recorded in the
+    receiving entry, so a later reader is not left to wonder where they went.
+  - Its punctuation-baseline finding went instead to **`validate`: enforce the record shapes the
+    agent-files ask for**, which is where the checkable shapes live.
+- The `## Todo` stub of **vc-config.md per-key worked examples** needed no edit. It left the file
+  with the sub-entry the opening moved, so the backlog entry is the only copy already.
+- Repointed: the surviving mention of `validate-repo`, in **Stale `/.vc-x1` gitignore line**, now
+  names `validate-work`. The mention the plan expected to repoint, in the validate-anchors
+  sub-entry, had already left with the moved sub-entry.
+- Amended: **Test-tempdir override resolution chain** drops the user-config tier from its
+  resolution chain, and **OSC 8 hyperlinks in `config` TTY output** drops its wait on a cycle that
+  has landed.
+- Folded into **The vc-config program**: **init distributes vc-config.md, reference-base at the
+  member** and **Config provenance names the schema, not just the binary**, each carrying a line
+  naming the rung whose code it shares.
+  - `notes/chores/chores-16.md` says the backlog keeps the second of them, which this stales. Frozen
+    history is never amended, so that sentence stays as the record of what was decided then.
+- The sweep the touch obliges: 35 semicolons and 24 untypeable characters, the counts after the
+  deletions took the rest with them.
+  - Two headings moved their anchors, `--recheck` and `por -> dual`. Neither had an inbound link,
+    checked before converting.
+  - Two typos fell out of the rewrapping, "hard- reject" and "facade-owns- topology".
+  - `[16]` lost its last citation with the retired entry, so its definition goes too.
+- One fix outside the subject: **`vc-x1 validate --full`: accept the default by name** and the entry
+  after it had no blank line between them.
 
 ##### chore: regenerate configs in md format
 
@@ -224,6 +246,12 @@ fails. First set:
   block per cycle-model.md (2026-08-27)
 - `## Todo` entries are `###` headings, no numbered entries anywhere in the file, and
   `validate-todo` / `fix-todo` retire, the numbered form they served being gone (2026-08-27)
+- a per-file punctuation baseline, since a byte scan cannot be the check: the rule forbids
+  *authoring* the four characters rather than their presence, and transcribed tool output and
+  published commit titles keep theirs, so record a per-file count and fail when one rises (carried
+  2026-08-28 from the retired backlog entry **Add `validate-repo` subcommand**, and it supersedes
+  the chores-15 note asking the checker to read its character set from one place, which assumed a
+  checkable zero)
 - wrapper-level tests for `validate-desc` / `fix-desc` ride along: the analyze cores are covered,
   the wrappers (file I/O, output, exit codes) are not
 
@@ -340,6 +368,39 @@ than six rankings. Sub-entries keep their bold titles, so a citation by title st
     longer holds them).
   - Output format is unchanged, only the text source, so no rework of the 0.71.0-9 rendering.
 
+- **init distributes vc-config.md, reference-base at the member.** (wink + agent, 2026-08-10, folded
+  in from the backlog 2026-08-28) `vc-x1 init` seeds a new member with a copy of `vc-config.md` from
+  the template payload and stamps `[vc-config] reference-base` with the member's own repo url, so
+  every generated doc-reference web link in the member's `.vc-config.md` lands on a copy the member
+  owns.
+  - the copy is a pinned family file: a member's edits diff against the payload and are its doc
+    proposals, folded back at convergence
+  - folded here because **chore: regenerate configs in md format** already teaches init to emit
+    `.vc-config.md` from the generated model and already owns `reference-base` as the key that
+    survives a refresh, so the two are the same code one rung apart
+
+- **Config provenance names the schema, not just the binary.** (iiac-perf + agent, 2026-08-12,
+  folded in from the backlog 2026-08-28) The schema is generated at build time from `vc-config.md`,
+  so an installed binary validates against its build's prototype rather than the workspace's, and a
+  key added after that build is reported unknown with the config blamed. Member repos run a binary
+  built from this one, so the exposure is the family's.
+  - provenance already prints, keyed to the binary: `--validate` opens with the version banner and
+    `print_schema` with its "settable config keys (from ...)" line, so this is one field on two
+    lines that already exist rather than a new flag
+  - the gap is that a version identifies the *build*, while the question behind an unknown-key
+    complaint is whether that build's `vc-config.md` equals the workspace's. A content hash of the
+    prototype, baked by build.rs beside the schema and printed next to the version, answers it
+    exactly
+  - not covered by **Tiered exit status for `config --validate`**, which was asked and is worth
+    recording: an unknown key is tier 1 whether it is a typo or a stale binary, so the exit status
+    is the same either way. That entry carries severity (could the check run at all) and this one
+    attribution (whose fault the unknown key is), and only the second tells a reader whether to fix
+    a spelling or to rebuild
+  - decide there: a hash or a schema version. A hash is free, exact, and unreadable, while a version
+    is readable and someone has to remember to bump it
+  - folded here because build.rs is already open at **chore: regenerate configs in md format**,
+    which generates the model from the same prototype
+
 ### validate-repo-data
 
 Golden ids for a fixture repo, so a jj-lib bump that moves the on-disk data fails loudly instead of
@@ -425,9 +486,9 @@ table, beside `validate-agent`, `validate-desc`, and `validate-todo`, which are 
 repo state. Read as a family the bare name looks like their parent and is not: it runs cargo while
 its siblings check bookmarks and records. Supersedes "A committed cycle-check runner" (resolved by
 `vc-x1 validate`, whose "not a vc-x1 subcommand" line was decided the other way at that cycle: the
-commands live in config, so the tool assumes nothing about the medium) and absorbs backlog "Add
-`validate-repo` subcommand", whose "runs all" is this umbrella under a name that no longer fits the
-family.
+commands live in config, so the tool assumes nothing about the medium) and absorbs the backlog's
+"Add `validate-repo` subcommand", retired into this entry 2026-08-28, whose "runs all" is this
+umbrella under a name that no longer fits the family.
 - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old meaning the
   way `bot-session` does, and the per-rung flow saying `validate-artifact` per rung and plain
   `validate` at close-out
@@ -437,6 +498,13 @@ family.
   each reported by name, exit status the worst of them, a side the workspace lacks skipped by name
 - the `[validate]` config key stays as it is: it is the artifact's validation, and the umbrella
   reads it
+- implementation, carried from the retired entry: promote `verify_state_sanity` /
+  `verify_completion_sanity` from `push.rs` to `common.rs`, which is the surface `validate-work`
+  reads the push preflight through, and the sketch is [the validate-repo
+  design](notes/chores/chores-06.md#vc-x1-validate-repo-command-design)
+- two of that entry's items did not survive it: the chores-to-commit consistency check, whose
+  `Commits:` lines retired with the chores record form, and the exit code as a count of failed
+  checks, which the umbrella's "the worst of them" above replaces
 
 ### `squash-push --title` / `--body`
 
@@ -579,7 +647,7 @@ not auditing it on a schedule.
 
 The 0.78.3 residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
 user's file automatically. Report that the line is no longer needed and leave the removal to them
-(which surface runs the check is TBD, and `config --validate` and the proposed `validate-repo` are
+(which surface runs the check is TBD, and `config --validate` and the proposed `validate-work` are
 the candidates). Separately, any `revert` reintroduction first needs the op-log-derived design:
 identifiable sync operations, target the parent of the run's earliest op, preview and confirm,
 refuse on intervening non-sync operations. Background in
@@ -590,6 +658,7 @@ refuse on intervening non-sync operations. Background in
 (wink, 2026-08-21) `full` is the `[validate]` table `vc-x1 validate` runs and `--fast` names the
 other, so `--full` should be accepted too, unnecessary but allowed, so a reader of a command sees
 which table ran.
+
 ### `vc-x1 closed "<title>"`: print a landed cycle's block
 
 (2026-08-27) A landed cycle's record is its `## Closed` block in the landmark commit's `TODO.md`,

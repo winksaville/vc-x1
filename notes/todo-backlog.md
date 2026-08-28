@@ -16,53 +16,60 @@ a chores as-built rung still reads `[[N]]` and `git log --grep` of its title fin
 
 ### vc-x1 push: per-repo bookmark names
 
-Allow code-side and `.claude`-side bookmarks to differ; currently `.claude` is locked to `main`
+Allow code-side and `.claude`-side bookmarks to differ. Currently `.claude` is locked to `main`
 regardless of the app-side `<bookmark>`. Sibling generalization to the N:1 / `--squash` / `--merge`
-work — together they make push handle all close-out shapes with arbitrary bookmark layouts.
+work, and together they make push handle all close-out shapes with arbitrary bookmark layouts.
 
 ### Investigate `linkme` for subcommand registration
 
-Distributed-slice registry — each subcommand registers itself at link time; `main.rs` discovers them
-via the slice rather than matching a `Commands` enum. Reduces per-subcommand touchpoints from 3 (mod
-decl + enum variant + match arm) to 1 (registration). Costs: loses compile-time exhaustiveness
-(missing registration = runtime gap); help-output ordering depends on link order unless sorted;
-macro-magic dependency. Revisit once the `0.50.0` trait sweep's per-arm cost has been felt under
-real "add a subcommand" load. <https://github.com/dtolnay/linkme>
+Distributed-slice registry: each subcommand registers itself at link time, and `main.rs` discovers
+them via the slice rather than matching a `Commands` enum. Reduces per-subcommand touchpoints from 3
+(mod decl + enum variant + match arm) to 1 (registration). Costs:
+- loses compile-time exhaustiveness, since a missing registration becomes a runtime gap
+- help-output ordering depends on link order unless sorted
+- a macro-magic dependency
+
+Revisit once the `0.50.0` trait sweep's per-arm cost has been felt under real "add a subcommand"
+load. <https://github.com/dtolnay/linkme>
 
 ### Investigate `inventory` as `linkme` alternative
 
-Same shape as `linkme` — runtime-iterable registry populated by `inventory::submit!` per subcommand.
+Same shape as `linkme`: a runtime-iterable registry populated by `inventory::submit!` per
+subcommand.
 Trade-offs mirror linkme's. Pick one if/when the trait sweep's match becomes the felt bottleneck.
 <https://github.com/dtolnay/inventory>
 
 ### forks-multi-user + bot-data-formats follow-through
 
-Design captured across two notes; concrete work to land when a cycle picks it up. Major pieces:
-multi-line `ochid:` parser/emitter; agent-side immutability enforcement; URL-shaped ochid (per-user
-/ cross-repo); vendor-subdir layout (`.bot/<vendor>/<version>/<id>.<ext>`) + flat-to-vendor
-migration. (The `.claude/` → `.bot/` rename piece moved into the refactor program's
-facade-owns-topology stage, config knob included.) Each piece is its own future TODO when the design
-hardens. [[2]],[[3]]
+Design captured across two notes, with concrete work to land when a cycle picks it up. Major
+pieces:
+- a multi-line `ochid:` parser and emitter
+- agent-side immutability enforcement
+- URL-shaped ochid (per-user, cross-repo)
+- the vendor-subdir layout (`.bot/<vendor>/<version>/<id>.<ext>`) plus the flat-to-vendor migration
+
+(The `.claude/` -> `.bot/` rename piece moved into the refactor program's facade-owns-topology
+stage, config knob included.) Each piece is its own future TODO when the design hardens.
+[[2]],[[3]]
 
 ### `test_helpers::Fixture` migration + downstream callers
 
-Plus rename `Fixture` → `TestFixtureDual` and `FixturePor` → `TestFixturePor` so call sites carry
+Plus rename `Fixture` -> `TestFixtureDual` and `FixturePor` -> `TestFixturePor` so call sites carry
 the test-only signal that `#[cfg(test)] mod test_helpers` doesn't communicate. Was `0.41.1-7`. [[5]]
 
 ### `vc-x1 finalize --scope` flag
 
 Replace `--repo` with the role vocabulary used elsewhere (`work|agent|work,agent`). Carry-over from
-the 0.42.0 `--scope` sweep (was 0.42.0-5; deferred at -4.7 close-out). The paired `Single(_)`
-dogfood item (0.42.0-7) is moot after `0.53.0` — `Single(_)` deleted. Design lives in chores-07.
+the 0.42.0 `--scope` sweep (was 0.42.0-5, deferred at -4.7 close-out). The paired `Single(_)`
+dogfood item (0.42.0-7) is moot after `0.53.0`, where `Single(_)` was deleted. Design lives in
+chores-07.
 [[6]]
 
 ### Cross-file `chores-NN.md` ordering sanity pass
 
-`chores-08.md` (the 0.41.1 cycle) landed on `main` via the `0.42.0-4.7` rebase; check that section
+`chores-08.md` (the 0.41.1 cycle) landed on `main` via the `0.42.0-4.7` rebase. Check that section
 ordering across `chores-06`/`-07`/`-08`/`-09` is chronologically coherent and normalize if not. Low
 priority.
-
-### Add a vc-x1 validate-repo?
 
 ### vc-x1 push: rework the two bookmark parameters
 
@@ -70,25 +77,27 @@ priority.
 logical value, forcing an `or_else` in `From<&PushArgs>`. Collapse to a single positional with
 `--bookmark` as a true clap alias, or drop one spelling. [[7]]
 
-### vc-x1 push: `--recheck` — implement or remove
+### vc-x1 push: `--recheck`, implement or remove
 
-Parsed by `PushArgs`, never read; mirrored into `PushParams` with `#[allow(dead_code)]`. Either wire
+Parsed by `PushArgs`, never read, and mirrored into `PushParams` with `#[allow(dead_code)]`. Either
+wire
 the skip-preflight-on-resume behavior or drop the flag. [[8]]
 
 ### vc-x1 push: `--scope=work|bot|work,bot` flag
 
-Was 0.42.0-4 (deferred when cycle pivoted to icr rebase work; cycle closed at -4.7). State machine
-becomes scope-aware — single-side scope skips `commit-claude`/bookmark-claude/`finalize-claude`.
+Was 0.42.0-4 (deferred when the cycle pivoted to icr rebase work, and the cycle closed at -4.7).
+State machine becomes scope-aware: a single-side scope skips
+`commit-claude`/bookmark-claude/`finalize-claude`.
 [[9]],[[10]],[[11]],[[12]]
 
 ### vc-x1 clone: `--scope=work|bot|work,bot` flag
 
-Parallel to `init --scope` for role selection; topology (`--por` vs dual) is the separate `--por`
+Parallel to `init --scope` for role selection. Topology (`--por` vs dual) is the separate `--por`
 boolean. Was 0.42.0-6 (deferred at -4.7 close-out). [[10]],[[11]],[[12]]
 
 ### validate-desc / fix-desc: `--scope` flag
 
-Same role vocabulary as elsewhere — `work` validates the work-repo's commits against agent, `agent`
+Same role vocabulary as elsewhere: `work` validates the work-repo's commits against agent, `agent`
 reverses, `work,agent` does both (new default). [[10]],[[11]],[[12]]
 
 ### Unify `.vc-config.md` accessors onto Pattern B
@@ -97,28 +106,22 @@ reverses, `work,agent` does both (new default). [[10]],[[11]],[[12]]
 Replaces the map-typed helpers in `desc_helpers.rs` / `fix_desc.rs` / `validate_desc.rs` with a
 typed `WorkspaceConfig` struct. ~50 LOC, mechanical. Candidate for 0.41.2. [[13]]
 
-### Layered config precedence (user → workspace → CLI)
-
-once `WorkspaceConfig` is typed. Workspace can override `[github].owner` etc. for a specific
-project; init can't use the layer (chicken-and-egg) but post-init commands can. Depends on the
-`WorkspaceConfig` typed-struct refactor above. Candidate for 0.41.2. [[13]]
-
 ### Help layout: force over-under everywhere
 
 Apply `next_line_help(true)` at the root (or via the existing `cli_with_banner` walker) so every
 subcommand's `-h` / `--help` uses the same layout. Today clap auto-picks per-command based on the
-widest flag spec, so `sync -h` is two-column but `init -h` is over-under — visual inconsistency.
+widest flag spec, so `sync -h` is two-column but `init -h` is over-under, a visual inconsistency.
 
 ### Single-word `label: body` log prefixes, not "Step N"
 
-(`bookmark`, `provision`, `colocate`, `cross-ref`, `symlink`, …); indent labels under per-side
-`work:` / `agent:` headers in dual. Originally planned as 0.41.1-6.7; deferred.
+(`bookmark`, `provision`, `colocate`, `cross-ref`, `symlink`, ...), and indent labels under
+per-side `work:` / `agent:` headers in dual. Originally planned as 0.41.1-6.7, then deferred.
 
 ### "Stop saying workspace in user-facing surfaces" sweep
 
-The `[workspace]` → `[repos]` rename itself shipped in the 0.76.0 repo-registry cycle (legacy
-schemas hard- reject with a fix-it; `src/legacy_vc_config.rs` holds the compat surface until the
-repo migration sweep); what remains of the original entry is the broader wording sweep — prose, help
+The `[workspace]` -> `[repos]` rename itself shipped in the 0.76.0 repo-registry cycle (legacy
+schemas hard-reject with a fix-it, and `src/legacy_vc_config.rs` holds the compat surface until the
+repo migration sweep). What remains of the original entry is the broader wording sweep: prose, help
 text, and identifiers still say "workspace" for the dual-repo project root.
 
 ### Add `status` (alias `st`): `jj st` across both repos
@@ -128,12 +131,12 @@ needs to include remotes, like remotes/origin/main. [[14]].
 
 ### `init --dry-run`: bypass the `--repo-remote` preflight
 
-(currently fires before the dry-run early-return; observed dogfooding 2026-04-24).
+(currently fires before the dry-run early-return, observed dogfooding 2026-04-24).
 
 ### vc-x1 push: `--squash` flag
 
-Squashes WC into `@-` via `--ignore-immutable` and force-pushes; needs
-`--force-with-lease`-equivalent + state-sanity preflight in place first. [[9]]
+Squashes WC into `@-` via `--ignore-immutable` and force-pushes. Needs a `--force-with-lease`
+equivalent and a state-sanity preflight in place first. [[9]]
 
 ### vc-x1 push: `--message-file PATH` flag
 
@@ -142,26 +145,13 @@ Git-style commit message file (first line = title, blank, rest = body). Alternat
 
 ### Mirror `--check` / `--no-check` onto `vc-x1 push`
 
-(forwards through to the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`; default
-stays `--check`.
-
-### Add `validate-repo` subcommand
-
-diagnostic that runs all `verify_*` checks (tracking, push state freshness, ochid integrity,
-conflicts, config sanity, working-copy state) plus chores↔commit consistency — every `[N]:` anchor
-resolves, and each chores `##` section's recorded title matches its `Commits:` commit's title — and
-reports per-check pass/fail. Exit code = number of failed checks. Implementation: promote
-`verify_state_sanity` / `verify_completion_sanity` from push.rs to `common.rs`. [[16]]
-- **A punctuation check cannot be a byte scan.** The typeable-punctuation rule forbids *authoring*
-  the four characters, not their presence: transcribed tool output and published commit titles keep
-  theirs, and no scanner distinguishes authored from transcribed. Record a per-file count baseline
-  and fail when a count rises. This supersedes the chores-15 note asking the checker to read its
-  character set from one place, which assumed a checkable zero.
+(forwards through to the preflight `vc-x1 sync` invocation). 0.37.1 hard-codes `--check`, and the
+default stays `--check`.
 
 ### sync: surface working-copy state in the up-to-date summary
 
-(per-repo pending-files count or compact stat). Wording-only fix shipped in 0.37.1; this is the
-design+impl. [[14]]
+(per-repo pending-files count or compact stat). Wording-only fix shipped in 0.37.1, and this is the
+design plus implementation. [[14]]
 
 ### bm-track silent-when-clean refinement
 
@@ -170,14 +160,15 @@ Print on entry/exit only when state isn't fully tracked or when exit state diffe
 
 ### "Oh shit" revert: post-success undo via `.vc-x1-ops/`
 
-Idea-stage; every repo-mutating command drops a pre-op snapshot, `vc-x1 undo` restores both repos.
+Idea-stage. Every repo-mutating command drops a pre-op snapshot, and `vc-x1 undo` restores both
+repos.
 [[9]]
 
 ### Source-code design ref sweep + AGENTS.md codification
 
-adopt section-name + `blob/main/...` URL pattern for source code refs to designs; codify in
-AGENTS.md alongside the existing markdown ref conventions. Sweep targets: src/push.rs lines 4, 121,
-645, 1219. [[18]]
+Adopt the section-name plus `blob/main/...` URL pattern for source code refs to designs, and codify
+it in AGENTS.md alongside the existing markdown ref conventions. Sweep targets: src/push.rs lines 4,
+121, 645, 1219. [[18]]
 
 ### Richer bookmark enumeration
 
@@ -216,19 +207,20 @@ completions install, .claude repo init, symlink setup [[24]]
 ### Test-tempdir override resolution chain
 
 Both `src/test_helpers::unique_base` and `tests/common/unique_base` currently use
-`std::env::temp_dir()` (= `$TMPDIR`). Generalize to resolve in priority order: explicit env var
-(e.g. `VC_X1_TEST_TMPDIR`) → user config (`~/.config/vc-x1/config.toml`) → local `.vc-config.md` →
-`std::env::temp_dir()` fallback. Useful when a developer wants tests on a tmpfs / SSD /
+`std::env::temp_dir()` (= `$TMPDIR`). Generalize to resolve in priority order: an explicit env var
+(e.g. `VC_X1_TEST_TMPDIR`), then the local `.vc-config.md`, then the `std::env::temp_dir()`
+fallback. The user-config tier the original chain named goes with **Drop the global config and the
+account notion** (2026-08-28). Useful when a developer wants tests on a tmpfs / SSD /
 project-local path without exporting `TMPDIR` globally. Open question: do we also expose a CLI
-parameter (e.g. `vc-x1 --workspace-tmp …`)? Test binaries can't easily accept arbitrary flags via
-`cargo test --`, so env is the realistic surface for tests; for the `vc-x1` binary itself a flag is
-feasible but unclear it adds value over the resolution chain.
+parameter (e.g. `vc-x1 --workspace-tmp ...`)? Test binaries can't easily accept arbitrary flags via
+`cargo test --`, so env is the realistic surface for tests. For the `vc-x1` binary itself a flag is
+feasible, but it is unclear that it adds value over the resolution chain.
 
 ### `vc-x1` version-string ref resolution
 
 Today version strings (`0.58.0`, `0.58.0-3`) live in commit titles and `Cargo.toml` but aren't git
 refs, so `git diff 0.58.0^1 0.58.0` fails with "ambiguous argument". Auto-tagging at close-out
-clutters the tag namespace fast (one tag per cycle); a resolver is cleaner:
+clutters the tag namespace fast (one tag per cycle), so a resolver is cleaner:
 - `vc-x1 sha <ref>` primitive: accepts version strings, standard git refs (pass-through), jj refs
   (chids, `@`) and outputs a SHA on stdout. Composable into `git diff $(vc-x1 sha X)^1 $(vc-x1 sha
   X)`.
@@ -239,30 +231,32 @@ clutters the tag namespace fast (one tag per cycle); a resolver is cleaner:
   walks first-parent to `0.57.0` naturally.
 
 Builds on existing `vc-x1 chid` (which resolves jj revsets to chids). Separate gap on the jj side:
-no clean first-parent revset operator in jj 0.40 — equivalent today is `jj diff --from <fp-chid>
---to <merge-chid>`.
+no clean first-parent revset operator in jj 0.40, and the equivalent today is
+`jj diff --from <fp-chid> --to <merge-chid>`.
 
 ### `vc-x1 push --squash`: symmetric squash on both repos
 
 Automate Option F (manually exercised in the 0.59.0 close-out [[27]]): app-side squash + bot-side
-description rewrite + force-push, atomically. Demoted from `## Todo` after 0.67.0 — merge non-ff is
+description rewrite + force-push, atomically. Demoted from `## Todo` after 0.67.0: merge non-ff is
 the routine close-out shape and a pre-publication squash needs no tooling, so this entry's domain
 (squashing already-published cycle commits) is off the routine path.
-- App side: squash cycle commits into one new commit; capture the squashed chid.
-- Bot side: rewrite the prior push commits' descriptions — replace their per-commit `ochid:`
-  trailers with one pointing at the squashed chid; add a rewrite-note acknowledging the change
+- App side: squash cycle commits into one new commit, and capture the squashed chid.
+- Bot side: rewrite the prior push commits' descriptions, replacing their per-commit `ochid:`
+  trailers with one pointing at the squashed chid, and add a rewrite-note acknowledging the change
   (preserves historical truth for future readers).
-- Force-push bot `main` (rewrites the published commit; chid preserved via `jj describe`).
+- Force-push bot `main` (rewrites the published commit, and the chid is preserved via
+  `jj describe`).
 - Push app `main`. The new bot commit paired with this push receives `ochid: /<squashed-chid>` as
-  normal — K prior bot records plus the new one gives (K+1):1 bot→code (2:1 in the 0.59.0 case).
+  normal, and K prior bot records plus the new one gives (K+1):1 bot->code (2:1 in the 0.59.0
+  case).
 
 ### `clone`: single-repo fallback without a companion remote
 
-Default dual clone errors mid-way when `<source>.claude` doesn't exist; `--por` is the workaround
+Default dual clone errors mid-way when `<source>.claude` doesn't exist. `--por` is the workaround
 (works, but you must know to pass it).
-- After the code clone, probe the session URL with `git ls-remote <url> HEAD`; on failure report "no
-  companion session repo — cloning code repo only" (GitHub reports missing and no-access
-  identically) and skip the agent clone + symlink; done message says single repo.
+- After the code clone, probe the session URL with `git ls-remote <url> HEAD`. On failure report "no
+  companion session repo, cloning code repo only" (GitHub reports missing and no-access
+  identically), skip the agent clone and symlink, and say single repo in the done message.
 - A clone failure after a successful probe stays a real error.
 - Dry-run text notes steps 2/3 are skipped when no companion exists.
 - Integration-testable offline via path-form sources (code bare repo present, no `.claude` bare
@@ -273,13 +267,13 @@ Default dual clone errors mid-way when `<source>.claude` doesn't exist; `--por` 
 Remnant of the retired Ideas entry "Codify ochid invariant + bot-repo rules + squash gating +
 cross-repo migration" (rest folded into the 0.72.0 merge close-out cycle's docs step): in a
 multi-contributor flow, ochids change at every merge until the change reaches the canonical repo's
-`main` — document the migration story.
+`main`, so document the migration story.
 
-### Refactor stage: por → dual conversion
+### Refactor stage: por -> dual conversion
 
-Attach an agent companion + `.vc-config.md` to an existing por workspace as a routine subcommand;
-see [the stage](refactor-20260716.md#stage-por--dual-conversion). Last program stage on purpose —
-leans on facade-owns- topology and the in-process init pieces.
+Attach an agent companion plus `.vc-config.md` to an existing por workspace as a routine
+subcommand, described in [the stage](refactor-20260716.md#stage-por--dual-conversion). Last program
+stage on purpose, since it leans on facade-owns-topology and the in-process init pieces.
 
 ### `init` template ergonomics
 
@@ -299,51 +293,17 @@ config rather than only `config --validate` and `push`. iiac-perf finding (mailb
 
 The CLI still converts house-convention revsets before issuing jj commands. It should pass revsets
 to jj verbatim, so one dialect exists and `jj help -k revsets` is the single authority (decided
-2026-08-03). The docs side landed with the agent-files adoption; this is the CLI side.
+2026-08-03). The docs side landed with the agent-files adoption, and this is the CLI side.
 
 ### OSC 8 hyperlinks in `config` TTY output
 
 (wink, 2026-08-09). When stdout is a TTY, `vc-x1 config` renders each key's name as an OSC 8
-hyperlink to its reference url, so the printed schema is clickable in supporting terminals;
+hyperlink to its reference url, so the printed schema is clickable in supporting terminals, and
 suppressed when piped, with an `ls`-style `--hyperlink=auto|always|never` override.
 - the stored files keep plain urls: TOML forbids control characters in comments, and editors plus
   most modern terminals linkify plain urls already
-- builds on the vc-config.toml prototype's per-key reference field (the "docs: freshen vc-config and
-  config subcmd" cycle), so it waits for that cycle to land
-
-### init distributes vc-config.md, reference-base at the member
-
-(wink + agent, 2026-08-10). `vc-x1 init` seeds a new member with a copy of `vc-config.md` from the
-template payload and stamps `[vc-config] reference-base` with the member's own repo url, so every
-generated doc-reference web link in the member's `.vc-config.md` lands on a copy the member owns.
-The copy is a pinned family file: a member's edits diff against the payload and are its doc
-proposals, folded back at convergence.
-- the instance `.vc-config.md` stays the only behavior-changing file: pinning and value-carrying are
-  mutually exclusive, since workspace values in a pinned copy would pollute the diff-as-proposal
-  property
-- the prototype `vc-config.toml` stays vc-x1-only build source (schema proposals travel by family
-  channel or fork), and workspace-local keys wait on the `[private]` table
-- `validate-anchors` gains member-side work: the carried copy must still have the headings the
-  instance's `reference:` links anchor at
-- settled at the "chore: regenerate stale config files" rung of the "docs: freshen vc-config and
-  config subcmd" cycle; the fuller ownership model is recorded there
-- the `localfile://./vc-config.md#<anchor>` entry in each key's `doc references:` list lands here,
-  not in the doc-references rung it was drafted in (cut at review, wink 2026-08-10): the entry is
-  useless until the file it names exists locally, which is this entry's seeding. Editors and
-  terminals need a taught handler for the scheme (claude-web: straightforward in neovim / vscode,
-  harder in zed); the rendered list form already leaves room, so adding the entry is append-only
-- a possible example of the localfile link (the doc one-liner will wrap at <=100 rather than this
-  example's width):
-  ```
-  # bot-session.col-width: Default --col-width: first-column width in the
-  #   --fields / --unknown / --per-line views
-  #   used by: bot-session --col-width
-  #   default: 68
-  #   doc references:
-  #    - https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#bot-sessioncol-width
-  #    - localfile://./vc-config.md#bot-sessioncol-width
-  # col-width = 68
-  ```
+- builds on the per-key reference field of the vc-config prototype, which landed with the "docs:
+  freshen vc-config and config subcmd" cycle, so this is unblocked (2026-08-28)
 
 ### Reference defs: go file-relative, with anchors
 
@@ -356,8 +316,9 @@ weak, a VS Code limitation no path form fixes), and Zed treats it as a filesyste
 - only file-relative paths (`<file>.md` from a sibling, `../notes/<file>.md` from elsewhere) resolve
   identically everywhere, since relative-to-the-containing-file is the one interpretation needing no
   convention
-- so the direction is relative paths plus `#anchor` fragments where a def targets a section; costs:
-  a notes.md convention change, a sweep of existing defs, and defs becoming location-dependent (the
+- so the direction is relative paths plus `#anchor` fragments where a def targets a section, at
+  three costs: a notes.md convention change, a sweep of existing defs, and defs becoming
+  location-dependent (the
   close-out move's transform list already rewrites relative links, and validate-anchors' cross-file
   check keeps the sweep honest)
 - sweep inventory (2026-08-10): ~167 root-absolute defs across 9 files (done.md 122, TODO.md 7,
@@ -385,28 +346,6 @@ which it does.
   after validate-anchors lands and grows the cross-file check, so the ~145-edit sweep is
   machine-verified rather than hand-checked
 
-### Config provenance names the schema, not just the binary
-
-(iiac-perf + agent, 2026-08-12). The schema is generated at build time from `vc-config.md`, so an
-installed binary validates against its build's prototype rather than the workspace's, and a key
-added after that build is reported unknown with the config blamed. Member repos run a binary built
-from this one, so the exposure is the family's.
-- provenance already prints, keyed to the binary: `--validate` opens with the banner (`vc-x1-dev
-  0.78.8-8`) and `print_schema` with `# vc-x1 settable config keys (from vc-x1 0.78.8-8)`. So this
-  is one field on two lines that exist, not a new flag
-- the gap is that a version identifies the *build* while the question at an unknown-key complaint is
-  whether that build's `vc-config.md` equals the workspace's. A content hash of the prototype, baked
-  by build.rs beside the schema and printed next to the version, answers it exactly
-- **not covered by `## Todo`'s Tiered exit status for `config --validate`**, which was asked and is
-  worth recording: an unknown key is tier 1 whether it is a typo or a stale binary, so the exit
-  status is the same either way. That entry carries severity (could the check run at all), this one
-  attribution (whose fault the unknown key is), and only the second tells a reader to fix a spelling
-  or to rebuild. It does shrink what is left here: once tier 1 reads as "non-fatal findings" rather
-  than a bare failure, an unknown key looks like a note instead of a fault, and being unsure why it
-  appeared costs less
-- decide there: hash or a schema version. A hash is free, exact, and unreadable; a version is
-  readable and someone has to remember to bump it
-
 # References
 
 [2]: /notes/forks-multi-user.md
@@ -422,7 +361,6 @@ from this one, so the exposure is the family's.
 [13]: /notes/chores/chores-08.md#user-config-0411-3
 [14]: /notes/chores/chores-05.md#open-sync-up-to-date-should-mention-working-copy-state
 [15]: /notes/chores/chores-05.md#capture---message-file-design-for-push-0375
-[16]: /notes/chores/chores-06.md#vc-x1-validate-repo-command-design
 [17]: /notes/chores/chores-06.md#bm-track-silent-when-clean-design
 [18]: /notes/chores/chores-06.md#source-code-design-ref-convention-design
 [19]: /notes/chores/chores-05.md#open-questions--tbd
