@@ -161,7 +161,7 @@ pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
 /// Top-level non-hidden files init writes. Kept here so that if init is
 /// ever extended to write non-hidden top-level files, the pre-flight
 /// conflict scan flags any template that would clash. Currently empty
-/// because init only writes hidden files (`.vc-config.toml`, `.gitignore`),
+/// because init only writes hidden files (`.vc-config.md`, `.gitignore`),
 /// and the template copy skips hidden entries.
 const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
 
@@ -312,7 +312,7 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(gh(&["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-/// Which shape of `.vc-config.toml` to generate.
+/// Which shape of `.vc-config.md` to generate.
 ///
 /// The `[repos]` registry's values are file-relative, so the two
 /// sides of a dual workspace carry different blocks: the side
@@ -329,7 +329,8 @@ pub(crate) enum ConfigRole {
 }
 
 /// Renders the header comment + active `[repos]` registry for a
-/// generated `.vc-config.toml`, role-specific.
+/// generated config file, role-specific. The text is TOML, and
+/// `render_vc_config` fences it.
 fn render_workspace_header(role: ConfigRole) -> String {
     match role {
         ConfigRole::DualWork => r#"# vc-config: Vibe Coding workspace configuration
@@ -403,6 +404,14 @@ fn render_optional_keys_block() -> String {
         {
             continue;
         }
+        // A key with no default has nothing to offer a generated
+        // file: its value is the workspace's to invent. Skipped
+        // before its section header is written, or a section whose
+        // keys are all defaultless (`[family]`, `[validate]`) would
+        // leave a bare header behind with nothing under it.
+        if key.default.is_none() {
+            continue;
+        }
         let (section, _leaf) = section_and_leaf(key.path);
         if current_section.as_deref() != Some(section) {
             // The first section needs a blank line separating it from
@@ -415,23 +424,44 @@ fn render_optional_keys_block() -> String {
             out.push_str(&format!("[{section}]\n"));
             current_section = Some(section.to_string());
         }
-        if key.default.is_none() {
-            continue;
-        }
         out.push_str(&render_key_block(key));
     }
 
     out
 }
 
-/// Renders the complete generated `.vc-config.toml` content for
-/// `role`: the active header + `[repos]` registry, followed by a
-/// commented block documenting the rest of the settable-key
-/// surface (see `render_optional_keys_block`).
+/// The prose a generated `.vc-config.md` opens with, above its
+/// one `toml` fence.
+///
+/// A new workspace's file says what it is and where its
+/// documentation lives, and the links are relative to nothing in
+/// the new repo, so they name the vc-x1 documentation by url.
+const CONFIG_MD_INTRO: &str = "\
+# vc-x1 config file
+
+This workspace's configuration. The `toml` fence below is the configuration itself, and the prose
+around it is yours to write: only a fence tagged exactly `toml` is read.
+
+Every settable key is documented in vc-x1's `vc-config.md`, and `vc-config-model.md` beside it
+shows every table with its default or a typical value. `vc-x1 config` prints the same schema from
+the binary you are running.
+
+";
+
+/// Renders the complete generated `.vc-config.md` content for
+/// `role`: the intro prose, then one `toml` fence holding the
+/// active header + `[repos]` registry and a commented block
+/// documenting the rest of the settable-key surface (see
+/// `render_optional_keys_block`).
+///
+/// One fence rather than one per table: everything after `[repos]`
+/// is commented, so splitting it into per-table fences would make a
+/// document of empty fences. A workspace that uncomments a key is
+/// free to split the file up, which the carrier reads the same way.
 pub(crate) fn render_vc_config(role: ConfigRole) -> String {
-    let mut out = render_workspace_header(role);
-    out.push_str(&render_optional_keys_block());
-    out
+    let mut toml = render_workspace_header(role);
+    toml.push_str(&render_optional_keys_block());
+    format!("{CONFIG_MD_INTRO}```toml\n{toml}```\n")
 }
 
 pub(crate) const GITIGNORE_CODE: &str = "/target
@@ -453,52 +483,61 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.jj
 ";
 
-/// Write the POR (single-repo) canned `.vc-config.toml` into `dir`.
+/// Write the POR (single-repo) canned `.vc-config.md` into `dir`.
 ///
-/// Split from the legacy `write_por_config` so the `.vc-config.toml`
-/// write is gateable by `--config` while the `.gitignore` write
-/// stays unconditional.
+/// Split from the legacy `write_por_config` so the config write is
+/// gateable by `--config` while the `.gitignore` write stays
+/// unconditional.
 fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::WorkOnly),
     )
 }
 
 /// Write the POR (single-repo) `.gitignore` into `dir`. Always
-/// unconditional: `--config` controls only `.vc-config.toml`.
+/// unconditional: `--config` controls only the config file.
 fn write_por_gitignore(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)
 }
 
-/// Copy a user-supplied `.vc-config.toml` from `src` to `dir`.
+/// Copy a user-supplied config file from `src` to `dir`.
 ///
-/// Bytewise copy: no TOML parse, no schema validation. If the
-/// content is malformed the project will surface the problem on
-/// first `find_workspace_root` / config-reader call. Caller is
+/// The destination name follows the source's carrier, `.md` to
+/// `.vc-config.md` and anything else to `.vc-config.toml`, since
+/// naming a TOML file `.md` would hand the markdown filter a file
+/// with no fences and yield an empty config.
+///
+/// Bytewise copy: no parse, no schema validation. If the content is
+/// malformed the project will surface the problem on first
+/// `find_workspace_root` / config-reader call. Caller is
 /// responsible for path-existence preflight.
 fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    std::fs::copy(src, dir.join(".vc-config.toml"))
+    let name = match src.extension().and_then(|e| e.to_str()) {
+        Some("md") => crate::config_md::VC_CONFIG_MD,
+        _ => crate::desc_helpers::VC_CONFIG_FILE,
+    };
+    std::fs::copy(src, dir.join(name))
         .map_err(|e| format!("--config: failed to copy {}: {e}", src.display()))?;
     Ok(())
 }
 
-/// Write the dual-mode work-side `.vc-config.toml` and `.gitignore`
+/// Write the dual-mode work-side `.vc-config.md` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
 fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::DualWork),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
 }
 
-/// Write the dual-mode bot-side `.vc-config.toml` and
-/// `.gitignore` into `dir`. Used by `create_dual` for the bot repo.
+/// Write the dual-mode agent-side `.vc-config.md` and
+/// `.gitignore` into `dir`. Used by `create_dual` for the agent repo.
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::DualBot),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
@@ -1227,7 +1266,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             }
         );
         info!(
-            "  3. Write .vc-config.toml and .gitignore{}",
+            "  3. Write .vc-config.md and .gitignore{}",
             if is_dual {
                 " to both repos"
             } else {
@@ -1330,7 +1369,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// Create-from-empty orchestrator for `--por` (single repo).
 ///
 /// Composes (in order):
-/// - `prepare_local_repo` -> conditional `.vc-config.toml` write
+/// - `prepare_local_repo` -> conditional `.vc-config.md` write
 ///   (gated by `--config`) -> `write_por_gitignore` (always) ->
 ///   `commit_initial` (`OchidStrategy::None`).
 /// - `push_repo` for work side (no `clean_exclude`).

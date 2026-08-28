@@ -24,26 +24,29 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 The config subcommand's surface was left unfinished when the 0.78.8 cycle closed early for the
 agent-files work. `vc-config-test.md` is maintained by hand beside a schema that build.rs already
 knows in full, `init` still writes `.vc-config.toml` so every new member starts on the legacy
-carrier, nothing regenerates a config file's prose when the schema moves, no check resolves the
-records' own anchors, and the agent side is still `.claude` in a vocabulary that renamed everything
-else to agent.
+carrier, nothing checks a config file beyond its key spellings, no check resolves the records' own
+anchors, and the agent side is still `.claude` in a vocabulary that renamed everything else to
+agent.
 
 #### Solution
 
 Run the rungs the early close deferred, one per remaining gap: generate the model and emit the md
-carrier from it at init, add `config --refresh` so a file's prose follows the schema, add
-`validate-anchors` so the records' links are checked rather than read, and repoint the agent side at
-`.agent-session`. The config work spread across the two lists is groomed first, so the ladder is
-written against a list that agrees with itself.
+carrier from it at init, add `validate-anchors` so the records' links are checked rather than read,
+point it at a config file so `config --validate` catches a broken link, a missing required key, and
+a missing table, and repoint the agent side at `.agent-session`. The config work spread across the
+two lists is groomed first, so the ladder is written against a list that agrees with itself.
 
 #### Acceptance check
 
 The items the early close deferred, made runnable:
 
-- `vc-x1 config --refresh --check` exits clean on both sides.
-- `vc-x1 validate-anchors` reports clean over the records.
-- A test renders the generated model and finds the work-side `.vc-config.md` byte-identical to it.
+- `vc-config-model.md` is generated, and a test finds every schema key in it, so completeness holds
+  without a hand count.
 - `vc-x1 init` emits `.vc-config.md` for a new workspace, and no `.vc-config.toml`.
+- `vc-x1 validate-anchors` reports clean over the records.
+- `vc-x1 config --validate` reports both sides clean, and it reports findings on the `.vc-config.md`
+  this cycle inherited, whose `[[3]]` through `[[7]]` have no definitions and whose `[2]` points at
+  an anchor the agent rename killed.
 - `repos.agent` resolves to `.agent-session` end to end.
 - Agent vocabulary rejects the old spellings with a fix-it, already met and re-checked here.
 
@@ -51,9 +54,9 @@ The items the early close deferred, made runnable:
 
 - [feat: finish the vc-config surface opening][1] (done)
 - [chore: groom the config backlog][2] (done)
-- [chore: regenerate configs in md format][3]
-- [feat: add config --refresh][4]
-- [feat: add validate-anchors][5]
+- [chore: generate the config model and seed init][3] (done)
+- [feat: add validate-anchors][4]
+- [feat: check a config file's links and keys][5]
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
 
@@ -62,8 +65,8 @@ The items the early close deferred, made runnable:
 - Provenance: the first sub-entry of **The vc-config program: finish the surface, then shrink it**,
   moved here whole.
   - The entry's other sub-entries keep their ranks, and **Drop the global config and the account
-    notion** runs after this cycle by its own note, since `--refresh --check` is what makes a schema
-    shrink mechanical.
+    notion** runs after this cycle by its own note, since a mechanical schema check is what makes a
+    schema shrink cheap.
 - The agent-naming rung is already landed, so the five deferred rungs are four.
   - Verified 2026-08-28: the schema carries `repos.agent` and `agent-session.*`,
     `legacy_vc_config` rejects the `bot-` spellings, and a test asserts the printed fix-it.
@@ -71,10 +74,29 @@ The items the early close deferred, made runnable:
     rung so the new tables were born under the new names.
   - The `bot_*` identifiers still in `src/` are internal names rather than the rung's subject, and
     belong to the backlog's **"Stop saying workspace in user-facing surfaces" sweep**.
-- One verb, not two, for writing a rendering to its file (wink, 2026-08-28).
-  - **Fix `vc-x1 config`'s rendering** proposes `--output <scope>:<path>` for the same act, and its
-    own bullet says the two overlap and want designing together.
-  - So `--refresh` owns the write and `--output` retires before it is built.
+- The prose is not machine-owned after all, so a config file is checked rather than regenerated
+  (wink, 2026-08-28, re-planned two rungs in).
+  - The plan was a renderer owning every config file's prose, with the work-side `.vc-config.md`
+    byte-identical to what it emits. That cannot hold: our file carries a `[family]` table and a
+    `[validate]` table that are this project's own, while a model shows typical values.
+  - Making it hold would mean the renderer reproducing every adopter's file word for word, which
+    costs each adopter the ability to explain its own config in its own words. Ours opens with an
+    intro paragraph worth keeping.
+  - Every defect the inherited `.vc-config.md` actually has is check-shaped: five citations with no
+    definition, one anchor the agent rename killed, and a paragraph proposing this very rung. A
+    checker finds the first two, and no renderer would have found the third, it would have
+    overwritten it without a word.
+  - So the 2026-08-10 ownership model is half reversed. Fence interiors stay the workspace's own,
+    and now the prose does too.
+  - Costs accepted: **feat: add config --refresh** loses its subject and leaves the ladder, since
+    regenerating the model and seeding a new file are the model rung and `--check` is `--validate`.
+    The same day's "one verb, not two" decision goes with it, and **Fix `vc-x1 config`'s rendering**
+    keeps `--output` as its own open question, its other bullets standing on their own.
+- The checks extend `config --validate` rather than minting a `validate-config` subcommand.
+  - **The validate family: umbrella, runner, and `validate-work`** already routes config checking
+    through `config --validate`, which `validate-work` calls, so a new sibling would need absorbing
+    by that entry the day it landed.
+  - If the name is wanted it is a rename inside that entry, not a second surface opened here.
 - The cross-file `[N]:` stretch stays out of validate-anchors (wink, 2026-08-28).
   - Same-file anchors plus `[N]` definition and use matching is the slice the entry states.
   - The cross-file half is what the agent-files anchor check in **`validate`: enforce the record
@@ -82,6 +104,9 @@ The items the early close deferred, made runnable:
     agent-files proposal, so building for it now would pin a shape still under review.
   - The backlog's **Reference defs: go file-relative, with anchors** names the same cross-file check
     as what would keep its sweep honest, so it inherits the same wait.
+  - The config file's own cross-file links need no stretch: it cites `vc-config.md#<key anchor>` by
+    construction, and build.rs already derives those anchors from the key paths, so "does this link
+    resolve" is a schema lookup rather than a markdown crawl.
 - The grooming is a rung rather than part of the opening (wink, 2026-08-28).
   - The list edits touch `notes/todo-backlog.md`, which carries 39 semicolons and 31 untypeable
     characters, and a commit that edits a file converts that whole file's prose
@@ -89,9 +114,9 @@ The items the early close deferred, made runnable:
   - A 70-site sweep would swamp the opening's diff at review, and splitting the sweep from the
     grooming would leave the two folded entries in both files for a rung or two.
 - Ordering: the list settles first, the generated model before its consumers, the repoint last.
-  - The model has to exist before `--refresh` has anything to render against.
-  - The repoint changes `repos.agent`'s value, which the model's byte-identical comparison test
-    pins, so it follows the rung that writes that test.
+  - The model has to exist before the checks have a statement of what a config file should carry.
+  - The repoint changes `repos.agent`'s value, which the model and init's fixtures both carry, so
+    it follows the rungs that write them.
 - `## Closed` reads `_None._` between cycles (wink, 2026-08-28).
   - No rule states a placeholder for the gap between a cycle's opening and the next closing, and
     every other empty section in the file carries one.
@@ -152,21 +177,50 @@ convert `notes/todo-backlog.md`'s prose as the touch obliges.
 - One fix outside the subject: **`vc-x1 validate --full`: accept the default by name** and the entry
   after it had no blank line between them.
 
-##### chore: regenerate configs in md format
+##### chore: generate the config model and seed init
 
 `vc-config-test.md` is maintained by hand beside a schema build.rs already knows in full, and `init`
 still writes `.vc-config.toml`, so every new member starts on the legacy carrier.
 
 - Decided at the entry: the model is generated rather than maintained, so "contains every key" holds
-  by construction, and the work-side `.vc-config.md` is byte-identical to it under a test.
-
-##### feat: add config --refresh
-
-Nothing regenerates a config file's prose when the schema moves, so a member's `.vc-config.md`
-drifts from the model with no way to tell and no way to fix it but by hand.
-
-- Decided (wink, 2026-08-28): one verb, `--refresh` owning the write, with `--check` exiting nonzero
-  on drift.
+  by construction. It is a specimen and init's seed, not a comparison target, per the re-plan.
+- The model is the artifact and its generator is test-only. `vc-config-model.md` is committed, and
+  `render_model` lives in a `#[cfg(test)] mod model` that writes it under `VC_X1_UPDATE_MODEL=1`,
+  with a test failing when the committed copy falls behind the schema.
+  - Nothing in the shipped binary reads a model, so shipping the generator would have been dead
+    code behind an `allow`, and the golden-file arrangement says the same thing honestly.
+  - Two further tests carry the properties the file exists for: every workspace-side key reaches
+    it, and no user-home-only key does.
+- Init seeds from the same schema rather than from the model file. Its `render_vc_config` now emits
+  markdown, one `toml` fence around the active `[repos]` block and the commented key surface it
+  already generated.
+  - Not the model verbatim: a model shows every table live, and seeding a new workspace with this
+    repo's `[family]` and `[validate]` values would hand it configuration it never chose. The
+    commented-optional shape init already had is the right one, and only its carrier changed.
+  - `--config <path>` copies under the name the source's carrier calls for, `.md` to
+    `.vc-config.md` and anything else to `.vc-config.toml`, since naming a TOML file `.md` hands
+    the markdown filter a file with no fences and yields an empty config.
+- Rides here: the `homes` correction dropping the agent side from the three session keys (nothing
+  reads it, `bot_session` resolves them from the work-side root), and the `.vc-x1` leftovers,
+  `.claude/.vc-x1` and the work `.gitignore` line. Removing our own line is not the automatic edit
+  of a user's file that **Stale `/.vc-x1` gitignore line** bars, which is about other workspaces.
+- Two small extractions the rendering wanted: `toml_simple::parse_array` out of `toml_get_list`, so
+  a value that loads is a value the model can show, and `wrap_hash_comment` generalized to
+  `wrap_prefixed`, since a markdown bullet wraps the way a TOML comment does.
+- A defect the hand-check found: a generated config ended with a bare `[family]` and `[validate]`,
+  two table headers with nothing under them. `render_optional_keys_block` wrote a section's header
+  before deciding whether the key had anything to render, so a section whose keys all lack defaults
+  left its header behind. It predates the carrier change and shipped in the toml files too. Fixed
+  by skipping the key first, and `config_generated_has_no_empty_table` pins it.
+- The inherited `.vc-config.md` keeps its broken links on purpose. Its `[[3]]` through `[[7]]` have
+  no definitions and its `[2]` points at an anchor the agent rename killed, and those are the
+  fixture the acceptance check names for **feat: check a config file's links and keys**. Only the
+  paragraph naming the deleted `vc-config-test.md` changed, which also retires the note proposing
+  this rung.
+- Finding, not fixed here: `.vc-config.toml` is named in a dozen doc comments, two user-facing
+  error messages in `common.rs`, and four README rows, all describing the carrier rather than
+  init's output. The drift predates this rung, and the README half is already **CLI reference lives
+  in `--help`, and README owns concepts**.
 
 ##### feat: add validate-anchors
 
@@ -175,6 +229,17 @@ No check resolves the records' own anchors, so the two dead links the agent-file
 
 - Decided (wink, 2026-08-28): same-file heading anchors by the documented slug algorithm, plus `[N]`
   definition and use matching. The cross-file stretch is out.
+
+##### feat: check a config file's links and keys
+
+`config --validate` checks key spellings and nothing else, so the `.vc-config.md` this cycle
+inherited passes while citing five references it never defines and one anchor the agent rename
+killed.
+
+- The anchor checker from the rung above gains a second caller, and the cross-file half is a schema
+  lookup rather than a markdown crawl (see the deliberation).
+- Two checks ride along: a required key absent for the side, and a schema table the workspace ought
+  to carry but does not, which is the completeness the model was going to guarantee by construction.
 
 ##### chore: point config at .agent-session
 
@@ -750,9 +815,9 @@ _See [bugs.md](notes/bugs.md)._
 
 [1]: #feat-finish-the-vc-config-surface-opening
 [2]: #chore-groom-the-config-backlog
-[3]: #chore-regenerate-configs-in-md-format
-[4]: #feat-add-config---refresh
-[5]: #feat-add-validate-anchors
+[3]: #chore-generate-the-config-model-and-seed-init
+[4]: #feat-add-validate-anchors
+[5]: #feat-check-a-config-files-links-and-keys
 [6]: #chore-point-config-at-agent-session
 [7]: #feat-finish-the-vc-config-surface-closing
 [12]: /notes/forks-multi-user.md

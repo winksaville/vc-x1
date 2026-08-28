@@ -89,7 +89,7 @@ pub fn section_and_leaf(path: &str) -> (&str, &str) {
 /// Format a raw value string per `kind`, the way a default or an
 /// example is rendered on the assignment line: `Usize` bare,
 /// `Str`/`ItemList` quoted.
-fn format_value(kind: ValueKind, raw: &str) -> String {
+pub(crate) fn format_value(kind: ValueKind, raw: &str) -> String {
     match kind {
         ValueKind::Usize => raw.to_string(),
         ValueKind::Str | ValueKind::ItemList => format!("{raw:?}"),
@@ -136,11 +136,19 @@ fn render_default_note(key: &ConfigKey) -> String {
     }
 }
 
-/// Word-wrap `text` into `#`-prefixed lines, `first_prefix` on the
+/// Word-wrap `text` into prefixed lines, `first_prefix` on the
 /// first line and `cont_prefix` on continuations, each kept to
 /// `width` columns where possible (a single word longer than
 /// `width` still gets its own line, unsplit).
-fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: usize) -> String {
+///
+/// The prefixes are the caller's: `"# "` / `"#   "` renders a TOML
+/// comment block, `"- "` / `"  "` a markdown bullet.
+pub(crate) fn wrap_prefixed(
+    text: &str,
+    first_prefix: &str,
+    cont_prefix: &str,
+    width: usize,
+) -> String {
     let mut lines: Vec<String> = Vec::new();
     let mut current = String::new();
     for word in text.split_whitespace() {
@@ -193,7 +201,7 @@ fn wrap_hash_comment(text: &str, first_prefix: &str, cont_prefix: &str, width: u
 pub fn render_key_block(key: &ConfigKey) -> String {
     let mut out = String::new();
     let header_text = format!("{}: {}", key.path, key.doc);
-    out.push_str(&wrap_hash_comment(&header_text, "# ", "#   ", 100));
+    out.push_str(&wrap_prefixed(&header_text, "# ", "#   ", 100));
     out.push_str(&format!("#   used by: {}\n", key.used_by));
     out.push_str(&format!("#   default: {}\n", render_default_note(key)));
     out.push_str(&format!("#   reference: {}\n", key.reference));

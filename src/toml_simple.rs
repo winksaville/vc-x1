@@ -100,13 +100,24 @@ pub fn toml_get_list(
     let Some(raw) = toml_get(map, key) else {
         return Ok(None);
     };
+    parse_array(raw, key).map(Some)
+}
+
+/// Parse a TOML array of double-quoted strings from its literal
+/// text, `label` naming the value in any error.
+///
+/// The one place the array dialect is defined: `toml_get_list`
+/// reads a loaded value through it, and the config model renders a
+/// `str-list` through it, so a value that loads is a value the
+/// model can show.
+pub fn parse_array(raw: &str, label: &str) -> Result<Vec<String>, String> {
     let Some(body) = raw
         .trim()
         .strip_prefix('[')
         .and_then(|s| s.strip_suffix(']'))
     else {
         return Err(format!(
-            "{key}: expected an array like [\"a\", \"b\"], got {raw}"
+            "{label}: expected an array like [\"a\", \"b\"], got {raw}"
         ));
     };
     let mut items = Vec::new();
@@ -114,11 +125,11 @@ pub fn toml_get_list(
     while !rest.is_empty() {
         let Some(after_open) = rest.strip_prefix('"') else {
             return Err(format!(
-                "{key}: array elements must be double-quoted strings, at: {rest}"
+                "{label}: array elements must be double-quoted strings, at: {rest}"
             ));
         };
         let Some(close) = after_open.find('"') else {
-            return Err(format!("{key}: unterminated string in array: {raw}"));
+            return Err(format!("{label}: unterminated string in array: {raw}"));
         };
         items.push(after_open[..close].to_string());
         rest = after_open[close + 1..].trim();
@@ -126,11 +137,11 @@ pub fn toml_get_list(
             rest = r.trim();
         } else if !rest.is_empty() {
             return Err(format!(
-                "{key}: expected `,` between array elements, at: {rest}"
+                "{label}: expected `,` between array elements, at: {rest}"
             ));
         }
     }
-    Ok(Some(items))
+    Ok(items)
 }
 
 /// Look up a `.`-joined config key (e.g. `"repos.work"`) in a loaded config map.

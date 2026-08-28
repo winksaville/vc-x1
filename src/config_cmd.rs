@@ -135,7 +135,7 @@ fn in_any(_homes: &[Home]) -> bool {
 /// key grouped by section (schema order, first-seen section order),
 /// one `[section]` header per section. Each key renders as a
 /// multi-line doc-block via `render_key_block` (shared with
-/// `crate::init`'s generated `.vc-config.toml`).
+/// `crate::init`'s generated `.vc-config.md`).
 fn print_group(header: &str, keys: &[&ConfigKey]) {
     info!("# -- {header} --");
     let mut sections: Vec<&str> = Vec::new();
@@ -395,6 +395,7 @@ pub fn config(_ctx: &Context, params: &ConfigParams) -> Result<(), Box<dyn std::
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config_md::VC_CONFIG_MD;
     use crate::test_helpers::{Fixture, FixturePor};
     use crate::{Cli, Commands};
     use clap::Parser;
@@ -407,10 +408,16 @@ mod tests {
         }
     }
 
-    /// Append raw TOML to a config file.
+    /// Append TOML to a markdown config file, as its own fence.
+    ///
+    /// The carrier concatenates every `toml` fence in document
+    /// order, so a trailing fence adds keys exactly as a trailing
+    /// table did when the carrier was one TOML file.
     fn append(path: &Path, extra: &str) {
         let mut text = std::fs::read_to_string(path).expect("read config");
-        text.push_str(extra);
+        text.push_str("\n```toml\n");
+        text.push_str(extra.trim_start_matches('\n'));
+        text.push_str("```\n");
         std::fs::write(path, text).expect("write config");
     }
 
@@ -497,7 +504,7 @@ mod tests {
     fn validate_flags_unknown_key() {
         let fx = Fixture::new("config-validate-unknown");
         append(
-            &fx.work.join(VC_CONFIG_FILE),
+            &fx.work.join(VC_CONFIG_MD),
             "\n[bogus-section]\nkey = \"v\"\n",
         );
         let params = ConfigParams {
@@ -515,10 +522,10 @@ mod tests {
     fn validate_flags_family_on_agent_side_and_bad_list() {
         let fx = Fixture::new("config-validate-family");
         append(
-            &fx.work.join(VC_CONFIG_FILE),
+            &fx.work.join(VC_CONFIG_MD),
             "\n[family]\nmember = \"x\"\n\n[validate]\nfast = \"cargo test\"\n",
         );
-        append(&fx.bot.join(VC_CONFIG_FILE), "\n[family]\nmember = \"x\"\n");
+        append(&fx.bot.join(VC_CONFIG_MD), "\n[family]\nmember = \"x\"\n");
         let params = ConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
             validate: true,
@@ -598,7 +605,7 @@ mod tests {
     #[test]
     fn validate_explicit_path_target() {
         let fx = Fixture::new("config-validate-path");
-        let path = fx.work.join(VC_CONFIG_FILE);
+        let path = fx.work.join(VC_CONFIG_MD);
         append(&path, "\n[bogus-section]\nkey = \"v\"\n");
         let params = ConfigParams {
             target: ConfigTarget::Path(path),

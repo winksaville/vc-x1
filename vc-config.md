@@ -16,6 +16,10 @@ order, form the TOML that gets parsed. build.rs shares the filter (`src/md_fence
 instance-config loader, so the prototype and a `.vc-config.md` are read by one rule, and prose
 outside the fences never reaches a parser.
 
+The tag must be exactly `toml`. A fence tagged anything else, or tagged not at all, is prose like
+the text around it and never reaches the parser, which is what lets one of these files show a
+specimen config in a `text` fence without the specimen becoming configuration.
+
 Shape: one TOML table per settable key, named by the key's path, dynamic segments quoted
 (`[repo.category."<cat>"]`). Key order here is rendering order everywhere downstream. The
 entries a key's table may carry:
@@ -152,7 +156,7 @@ individual items, and `--all` / `--none` replace the base set entirely.
 
 ```toml
 [agent-session.items]
-homes = ["user", "workspace-code", "workspace-agent"]
+homes = ["user", "workspace-code"]
 kind = "item-list"
 doc = "Default agent-session item set (comma-separated)"
 used-by = "agent-session --<item> / --no-<item> / --all / --none"
@@ -166,7 +170,7 @@ means unlimited. The `--result-lines` flag overrides it.
 
 ```toml
 [agent-session.result-lines]
-homes = ["user", "workspace-code", "workspace-agent"]
+homes = ["user", "workspace-code"]
 kind = "usize"
 doc = "Default --result-lines: max lines shown per tool result (0 = unlimited)"
 used-by = "agent-session --result-lines"
@@ -183,7 +187,7 @@ arbitrarily long and so are left to overflow. The `--col-width` flag overrides i
 
 ```toml
 [agent-session.col-width]
-homes = ["user", "workspace-code", "workspace-agent"]
+homes = ["user", "workspace-code"]
 kind = "usize"
 doc = "Default --col-width: first-column width in the --fields / --unknown / --per-line views"
 used-by = "agent-session --col-width"
