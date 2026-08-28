@@ -68,6 +68,7 @@ payload last.
 - [docs: move the agent-data files' inline whys][9] (done)
 - [chore(template): propose the set to the payload][10] (done)
 - [docs: the rules as one list][13] (done)
+- [docs: the rules as sentences, in bullets][14] (done)
 - [docs: the family agent-files proposal closing][11]
 
 #### Deliberation
@@ -501,6 +502,26 @@ the custom.md rung (wink, 2026-08-27, per Unplanned work).
 - Rejected on the way: the whole rule in the heading (link markup in the slug, and over 100
   columns), an inline HTML anchor per bullet (HTML in prose, a hand-kept slug), and numbering the
   list (a number implies order or rank, and invites citation by number).
+
+##### docs: the rules as sentences, in bullets
+
+The one-list rung left each rule as a bare link. Inserted before the closing (wink, 2026-08-28,
+per Unplanned work), after wink pasted the old numbered Hard Rules beside the list and asked which
+shape serves the agent.
+
+- Each bullet is now a one-sentence summary and the link, the section the rule and the sentence
+  its handle: AGENTS.md is in the agent's context every turn and the linked section is not, and
+  a bare name reminds an agent of a rule it holds without stating one it does not.
+- Bullets, not numbers, since the rules are unordered and numbers bred "hard rule N" citations.
+- Flat, not grouped by file: the link shows the file, so the "In jj.md" headers repeated it, and
+  the order alone keeps this file's rules first.
+- The old list's stale text did not come back: Typeable punctuation is Prose style, the
+  `--chores--` anchor and the "chores `##` header" are the retired names, and the old rule 0 is
+  an ordinary bullet.
+- Two rules the old list did not have or split: Shape at the first push gets its sentence, and
+  Changing the agent-files absorbs the old "Intent picks the file", which was one bullet of that
+  section.
+- rationale.md's `## Rules` records the sentence and the bullets.
 
 ##### docs: the family agent-files proposal closing
 
@@ -1066,4 +1087,5 @@ _See [bugs.md](notes/bugs.md)._
 [10]: #choretemplate-propose-the-set-to-the-payload
 [11]: #docs-the-family-agent-files-proposal-closing
 [13]: #docs-the-rules-as-one-list
+[14]: #docs-the-rules-as-sentences-in-bullets
 [12]: /notes/forks-multi-user.md

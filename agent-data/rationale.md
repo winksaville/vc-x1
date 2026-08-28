@@ -29,12 +29,18 @@ content goes in [custom.md](../custom.md).
 
 ## Rules
 
-The rules are a table of contents, fifteen links, each to the section that states the rule, so a
-rule lives in one place and a citation points there. Until 2026-08-27 each rule was a heading in
-AGENTS.md with one line and a link, 82 lines that read as spread out rather than as a list, and
-every rule had a mirror heading here, eleven of them `_None recorded._`. The names stay, since a
-review cites a rule by name, and they are the link texts. A section that has a why links it at
-its head, so the TOC carries none.
+The rules are an index, fifteen bullets, each a one-sentence summary and a link to the section
+that states the rule, so a rule lives in one place and a citation points there. Until 2026-08-27
+each rule was a numbered heading in AGENTS.md with one line and a link, 82 lines that read as
+spread out rather than as a list, and every rule had a mirror heading here, eleven of them
+`_None recorded._`. The names stay, since a review cites a rule by name. The sentence stays too
+(2026-08-28): AGENTS.md is in the agent's context every turn and the linked section is not, and a
+bare name reminds an agent of a rule it holds without stating one it does not, so the sentence is
+what the agent checks against. Bullets, not numbers, since the rules are unordered and numbering
+bred "hard rule N" citations that broke on every renumber. Flat, not grouped by file
+(2026-08-28): each bullet's link already shows the file, so a per-file header repeated it and cost
+a nesting level, and the order alone keeps this file's rules ahead of the outer files'. A section
+that has a why links it at its head, so the index carries none.
 
 ## Terminology
 

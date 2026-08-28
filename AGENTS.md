@@ -2,8 +2,8 @@
 
 The universal core of the agent instructions: the dual-repo model, the hard rules, the cycle
 protocol, and a map of the rest. One of the [agent-files](#terminology), carried by every adopter.
-The rules are a table of contents: each is a link to the section that holds it, and a section's
-why is in [rationale.md](agent-data/rationale.md) under the mirrored heading.
+The rules are an index: each is a sentence and a link to the section that holds it, and a
+section's why is in [rationale.md](agent-data/rationale.md) under the mirrored heading.
 
 ## Terminology
 
@@ -52,31 +52,41 @@ Two separate jj-git colocated repos ([jj.md](agent-data/jj.md)):
 
 ## Rules
 
-The rules, indexed: each a link to the section that states it, grouped by file and in each file's
-order ([why](agent-data/rationale.md#rules)). None is absolute: a rule bends only when the user says
-so explicitly, at the moment or as a scoped delegation ([Stop and ask](#stop-and-ask) is the
-path), and the exception is recorded in the cycle's records. No rule bends silently.
+The rules, indexed: each a one-sentence summary and a link to the section that states it, this
+file's rules first and then the outer files' in their order ([why](agent-data/rationale.md#rules)).
+The section is the rule, the sentence its handle. None is absolute: a rule bends only when the
+user says so explicitly, at the moment or as a scoped delegation ([Stop and ask](#stop-and-ask) is
+the path), and the exception is recorded in the cycle's records. No rule bends silently.
 
-- In custom.md:
-  - [Read custom.md first](custom.md)
-- In this file, in its order:
-  - [Bookmark per cycle](#cycles-run-on-a-bookmark)
-  - [Shape at the first push](#cycle-shape)
-  - [Read the step before the action](#the-per-rung-flow)
-  - [Push commits](#committing-vs-pushing)
-  - [Approval per push](#before-any-push)
-  - [Hard stop after the final push](#at-rest-push-stop-squash-push)
-  - [Stop and ask](#stop-and-ask)
-  - [Changing agent-files](#changing-the-agent-files)
-- In jj.md:
-  - [jj, not git](agent-data/jj.md#jj-basics)
-  - [No hand-written trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers)
-  - [No re-describe without coordinating](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer)
-- In prose.md:
-  - [Prose style](agent-data/prose.md#prose-form)
-  - [One title per step](agent-data/prose.md#conventional-commit-shape-ladder--commit)
-- In code.md:
-  - [Alert on unwrap](agent-data/code.md#-ok--comments-on-unwrap-calls-rust)
+- Read custom.md first: read [custom.md](custom.md), whose rules override all others.
+- Bookmark per cycle: a cycle runs on one topic bookmark in the work-repo, and `main` advances
+  only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
+- Shape at the first push: single-step or multi-step is fixed by the cycle's first push, and a
+  ladder lands as a trapezoid or kept separate, never squashed ([Cycle shape](#cycle-shape)).
+- Read the step before the action: [The per-rung flow](#the-per-rung-flow) before commit work,
+  [Before any push](#before-any-push) before a push, from the file, not from memory.
+- Push commits: a cycle rung is committed only by `vc-x1 push` ([Committing vs
+  pushing](#committing-vs-pushing)).
+- Approval per push: every push needs the user's explicit approval, or an explicit waiver
+  ([Before any push](#before-any-push)).
+- Hard stop after the final push: after the turn's final push nothing until the user speaks,
+  unless an explicit waiver ([At rest](#at-rest-push-stop-squash-push)).
+- Stop and ask: on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes
+  on a simple task has produced no progress ([Stop and ask](#stop-and-ask)).
+- Changing the agent-files: an agent-file change is its own commit and convention work its own
+  cycle, and intent picks the file, the set's copy for the set, `custom.md` for this project
+  only ([Changing the agent-files](#changing-the-agent-files)).
+- jj, not git: version-control operations use jj ([jj basics](agent-data/jj.md#jj-basics)).
+- No hand-written trailers: `vc-x1 push` stamps `ochid:` trailers, never write one by hand
+  ([ochid trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
+- No re-describe without coordinating: never `jj describe` a published or trailer-carrying
+  commit ([Re-describing](agent-data/jj.md#re-describing-coordinate-first-and-keep-the-trailer)).
+- Prose style: durable text is in the prose form, typeable punctuation included ([Prose
+  form](agent-data/prose.md#prose-form)).
+- One title per step: the ladder rung and the commit title are verbatim identical
+  ([Conventional-commit shape](agent-data/prose.md#conventional-commit-shape-ladder--commit)).
+- Alert on unwrap: say so when introducing an `unwrap` / `expect` / `unwrap_or*` site, with its
+  `// OK: ...` comment ([`// OK` comments](agent-data/code.md#-ok--comments-on-unwrap-calls-rust)).
 
 ## Cycle protocol
 
