@@ -17,8 +17,7 @@ content goes in [custom.md](../custom.md).
   finding, not a gap to fill with a guess.
 - **Per-file sections sit at the end**, one `##` per agent-file, subheadings mirroring that file's,
   reached by the same pattern (`[why](rationale.md#<same-slug>)` from inside `agent-data/`). The
-  other agent-files' remaining inline **Why:** paragraphs migrate as they are touched, the full
-  sweep filed as its own cycle.
+  other agent-files carry no inline why, only the link (swept 2026-08-27).
 - **An entry is the why, then the evidence**: back references to the cycle where the rule was paid
   for, the messages-repo record, the commit. Mostly pointers, not a re-telling. The "measured
   YYYY-MM-DD" lines live here, with the story.
@@ -355,6 +354,55 @@ exactly the review that should decide it. A pointer entry owes no justification 
 supersedes nothing, and holding a wider context behind one pointer keeps the rest of the file
 identical to the payload's.
 
+## jj.md
+
+### Revsets
+
+**jj's own semantics are the one dialect** because an earlier house convention glossed `x..` as
+"descendants of x excluding x", which is not jj's meaning, and durable text written under a second
+dialect needs a decoder. Old transcripts and notes written under that gloss decode against it, and
+text written since teaches only jj's.
+
+### Cycle bookmarks: create and land
+
+**The rule and the commands are separated** because the commands are the part expected to change:
+we think a `vc-x1 start-change <bookmark>` will eventually own the create half, replacing the
+create bullets and nothing else, while the rule in AGENTS.md stays as it is.
+
+## notes.md
+
+### File reads: read the slice you need
+
+**The routine read should stay small.** `TODO.md` grows every cycle, so the backlog and bugs live in
+files under `notes/` rather than inline. The same "slice you need" rule applies to historical files.
+
+## prose.md
+
+### Versions live in the version-of-record only
+
+**The version is a build stamp**, answering "which commit produced this artifact", not a name for a
+step. Written into prose it becomes a second identifier that history is free to invalidate: one
+renumber of published versions turns every prose mention, transcript and pasted report into residue
+that needs a decoder to read. A renumber cannot touch a title.
+
+### Pinned files name no project
+
+**Pinned text is copied to every member**, so a project narration reads as the reader's own history
+("This project adopted the convention on <date>" arrives in repos that adopted it on a different
+date or never). And the citation goes stale the moment the named project retires its records, while
+the rule outlives it.
+
+### Speculation marker
+
+**Unmarked speculation reads like evidence**, and a future reader (or the agent on a later session)
+can pick it up as a known fact when it is not. Measured versus inferred is a distinction worth
+keeping visible in the written record.
+
+### Plain synopsis after technical explanations
+
+**The technical form is precise but easy to misread**, and the plain form catches misunderstandings
+early, when they are cheap.
+
 ## versioning.md
 
 ### Advancing X.Y.Z: patch by default
@@ -367,3 +415,12 @@ a two-file docs edit arguable into "a pipeline reshaped" within a day of the tes
 pre-1.0 line wants the patch bias: `0.Y.Z` makes no stability promise, so a fast-moving minor burns
 the number's signal for nothing, while a minor that moves rarely and deliberately still says
 something.
+
+### Grammar and storage
+
+**One dash, dots only**, because a Python linter/formatter in a sibling repo rejected every
+multi-dash version outright, and the PEP 440 reference parser (`packaging` 26.2, tested
+2026-07-30) confirms the boundary: `1.2.3-3.1`, `1.2.3-x+ab+cd`, `1.2.3-34-abc`, and any second
+`+` are all invalid. `1.2.3+3.1` / `1.2.3+3.1.hotfix` parse at any depth. `1.2.3-1` parses but
+silently becomes the post-release `1.2.3.post1`. The one-dash dotted grammar is the largest form
+every medium accepts.

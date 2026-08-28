@@ -303,20 +303,16 @@ the position and then have to be maintained.
 - **Nothing renumbers.** Inserting, reordering or dropping a step edits the ladder list and nothing
   else. On an unlanded topic bookmark the rungs that already committed an older ladder come along.
   See [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark).
-- **`## Todo` ranks are the exception that stays numbered**, because a priority list has an order
-  worth reading off (see [Todo format](notes.md#todo-format)). Those numbers are positional too, and
-  are equally never used as references.
+- **`## Todo` is ordered, not numbered**: priority is file order ([Todo
+  format](notes.md#todo-format)), so no rank number exists to be cited (the numbered form retired
+  2026-08-27).
 
 ### Versions live in the version-of-record only
 
 No version appears in durable prose: not in a ladder rung, a commit title, or a commit body. The
 manifest is the version's only written home (see [versioning.md](versioning.md)), and a commit's
-version is read from that file at that commit.
-
-**Why:** the version is a build stamp answering "which commit produced this artifact", not a name
-for a step. Written into prose it becomes a second identifier that history is free to invalidate:
-one renumber of published versions turns every prose mention, transcript and pasted report into
-residue that needs a decoder to read. A renumber cannot touch a title.
+version is read from that file at that commit
+([why](rationale.md#versions-live-in-the-version-of-record-only)).
 
 **No surface records a version.** Which commit a version names is read from the manifest at that
 commit, and "what shipped in 0.42.0" is answered by `git log` on the manifest, not by a list kept in
@@ -327,12 +323,8 @@ and retired with the records they lived in ([Cycle-record](../AGENTS.md#cycle-re
 
 A pinned agent-file states rules and mechanisms. It never names a member project, a member's
 history, or a member's versions. The vc-x1 *CLI* and its versions are tool facts every member shares
-and stay. What is barred is a member repo appearing in universal text.
-
-**Why:** pinned text is copied to every member, so a project narration reads as the reader's own
-history ("This project adopted the convention on <date>" arrives in repos that adopted it on a
-different date or never). And the citation goes stale the moment the named project retires its
-records, while the rule outlives it.
+and stay. What is barred is a member repo appearing in universal text
+([why](rationale.md#pinned-files-name-no-project)).
 
 **How to apply:** state the rule and its mechanism in the pinned file, and leave the evidence trail
 in the records of the project that earned it (the cycle-record, Todo entries), reachable from the
@@ -346,11 +338,7 @@ only](#versions-live-in-the-version-of-record-only) draws.
 Durable text the agent writes (agent-files, `notes/`, commit bodies, the cycle-record) should stick
 to observations and direct descriptions of the code or data. If a mechanism, hypothesis, or causal
 claim enters the text, prefix it with "We think ..." (a royal "we") so a reader can tell the
-measured from the inferred.
-
-**Why:** unmarked speculation reads like evidence, and a future reader (or the agent on a later
-session) can pick it up as a known fact when it's not. Measured / inferred is a distinction worth
-keeping visible in the written record.
+measured from the inferred ([why](rationale.md#speculation-marker)).
 
 **How to apply:** observations and factual descriptions need no marker. Prefix with "We think ..."
 (or a close variant like "Our guess is ...") when the claim is a mechanism ("X wins because Y caches
@@ -361,10 +349,8 @@ linearly"), or any reasoning not directly supported by the data on hand.
 
 When a conversational reply centers on a technical explanation (measurement theory, statistics,
 hardware behavior), end it with a short plain-language synopsis, no jargon and no symbols, so the
-reader can check their understanding against the technical version.
-
-**Why:** the technical form is precise but easy to misread, and the plain form catches
-misunderstandings early, when they are cheap.
+reader can check their understanding against the technical version
+([why](rationale.md#plain-synopsis-after-technical-explanations)).
 
 **How to apply:** conversation only, not notes files (a notes entry should already lead with the
 why). Mark it clearly (e.g. "The plain version:"). A reply that is already plain needs no synopsis.

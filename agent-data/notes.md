@@ -12,7 +12,7 @@ content goes in [custom.md](../custom.md).
 ## File reads: read the slice you need
 
 Long notes files are appended to over time. Read only the slice your task needs. Grep or read
-further on demand.
+further on demand ([why](rationale.md#file-reads-read-the-slice-you-need)).
 
 - **`TODO.md`** (the routine acquaint read): the first ~60 lines covers intro + `## In Progress` +
   the top of `## Todo`, its entries in priority order. `Read` with `offset=0, limit=60`.
@@ -24,10 +24,6 @@ further on demand.
   `## Bugs` pointer in TODO.md.
 - **`notes/done.md`** + **`notes/chores/chores-NN.md`**: frozen history. Scan headings first
   (`grep '^## ' notes/chores/chores-NN.md`), then read only the section you need.
-
-**Why:** the routine read should stay small. `TODO.md` grows every cycle, so the backlog and bugs
-live in files under `notes/` rather than inline. The same "slice you need" rule applies to
-historical files.
 
 ## Notes references
 

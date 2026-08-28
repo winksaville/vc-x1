@@ -38,9 +38,10 @@ commit: it marks it mutable and shifts `@`.
 
 ## Revsets
 
-How commits are addressed in `-r` arguments, condensed. jj's own semantics are the one dialect. The
-full language is `jj help -k revsets`, the single authority, and the worked tutorial with terminal
-transcripts is `jj-tips.md`, hosted once in the template repository.
+How commits are addressed in `-r` arguments, condensed. jj's own semantics are the one dialect
+([why](rationale.md#revsets)). The full language is `jj help -k revsets`, the single authority, and
+the worked tutorial with terminal transcripts is `jj-tips.md`, hosted once in the template
+repository.
 
 - A revision is `@` (the working copy), a chid prefix, or a commit id. Unambiguous prefixes are
   accepted, and ambiguous ones are rejected, never guessed.
@@ -57,10 +58,6 @@ transcripts is `jj-tips.md`, hosted once in the template repository.
 - Useful sets: `jj log` (default revset), `jj log -r ::@` (all ancestors of `@`),
   `jj log -r 'all()'` (all visible commits), `jj evolog -r X` (one change's rewrite history),
   `jj op log` (operation history).
-
-History note: an earlier house convention glossed `x..` as "descendants of x excluding x", which is
-not jj's meaning. Old transcripts and notes written under that gloss decode against it. Durable text
-written since teaches only jj's semantics.
 
 ## Cross-repo linking (ochid trailers)
 
@@ -145,7 +142,8 @@ stamped). Hit at a coordinated amend (2026-07-29), where the trailer survived on
 ## Cycle bookmarks: create and land
 
 The mechanics behind [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark). That section
-holds the rule and when it applies, and this one holds the commands.
+holds the rule and when it applies, and this one holds the commands
+([why](rationale.md#cycle-bookmarks-create-and-land)).
 
 **Create**, at the cycle's opening, with the bookmark named by the cycle title's slug (the anchor
 algorithm in [Markdown anchor links](notes.md#markdown-anchor-links), so the block's title heading
@@ -194,9 +192,6 @@ bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 - **Then force-push the bookmark**, under the same approval as any other push.
 - **Exceptions**, named and moved past: the bookmark has already landed, another branch is stacked
   on it, or the ladder is long and only a trailing snapshot disagrees.
-
-We think a `vc-x1 start-change <bookmark>` will eventually own the create half. It would replace the
-create bullets and nothing else, which is why the rule and the commands are separated.
 
 ## Long-lived bookmarks: merge-only by default, deletable once merged
 

@@ -23,7 +23,7 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 
 The family does not have one consistent set of agent-files. Each member carries a copy that has
 drifted from the payload and from the others, the rules are spread between summaries in
-AGENTS.md and detail in the satellites, and an agent acting from the summary misses details the
+AGENTS.md and detail in the agent-data files, and an agent acting from the summary misses details the
 detail file holds. This cycle makes the initial proposal for one set.
 
 #### Solution
@@ -57,7 +57,7 @@ payload last.
 - [build: update the lock to the latest compatible versions][6] (done)
 - [docs: the restart and the interlude, between cycles][7] (done)
 - [docs: Todo entries as headings, and sweep the retired names][8] (done)
-- [docs: move the satellites' inline whys][9]
+- [docs: move the agent-data files' inline whys][9] (done)
 - [chore(template): propose the set to the payload][10]
 - [docs: the family agent-files proposal closing][11]
 
@@ -119,8 +119,8 @@ Provenance, the re-plan, the decisions taken on the way, and two scope correctio
   - No exemption is named.
 - Ordering: the consistency rungs run before any rule-text rung, so rule text is written once
   into a set that says each thing once.
-  - The prose rung runs before **docs: move the satellites' inline whys**, since that move
-    rewrites the satellites and would otherwise re-touch what the prose rung just changed.
+  - The prose rung runs before **docs: move the agent-data files' inline whys**, since that
+    move rewrites the agent-data files and would otherwise re-touch what the prose rung just changed.
   - The headings half of **docs: Todo entries as headings, and sweep the retired names** decides
     before the sweep in the same rung, since headings make a citation a link.
 - Scopes dropped from the docs rungs (wink, 2026-08-27).
@@ -395,14 +395,28 @@ since headings make a citation a link, and the sweep runs on the result.
     because the diff was already a whole-file rewrite. Thirteen headings over 60 characters were
     shortened, their dropped words already in the paragraph.
 
-##### docs: move the satellites' inline whys
+##### docs: move the agent-data files' inline whys
 
 rationale.md holds AGENTS.md's whys, and prose.md and notes.md still carry `**Why:**` blocks
 inline, with jj.md's whys in prose.
 
 - They are swept into rationale.md per-file sections, one heading per rule, mirrored, leaving
   `[why](rationale.md#<slug>)` links behind.
-- The rung runs after every rung that changes rule text, so each satellite is swept once.
+- The rung runs after every rung that changes rule text, so each agent-data file is swept once.
+- Renamed from "the satellites' inline whys" (wink, 2026-08-27): satellite was not obvious.
+- As built:
+  - Moved: prose.md's four (Versions live in the version-of-record only, Pinned files name no
+    project, Speculation marker, Plain synopsis), notes.md's one (File reads), versioning.md's one
+    (Grammar and storage), and jj.md's two whys in prose (the Revsets history note, the Cycle
+    bookmarks "start-change" paragraph). Each rule keeps a `[why](rationale.md#<same-slug>)` link
+    where the block was, and rationale.md gains `## jj.md`, `## notes.md`, `## prose.md` per-file
+    sections, alphabetical, before the existing `## versioning.md`.
+  - Kept: jj.md's Resolvability paragraph, since it is the mechanism the rule rests on, not an
+    argument for it. The `**How to apply:**` paragraphs stay, being rule.
+  - Corrected on the way: prose.md's Steps are named bullet still said `## Todo` ranks stay
+    numbered, stale since the previous rung.
+  - The reading rule in rationale.md no longer promises a future sweep: the agent-files carry no
+    inline why, only the link.
 
 ##### chore(template): propose the set to the payload
 
@@ -980,7 +994,7 @@ _See [bugs.md](notes/bugs.md)._
 [6]: #build-update-the-lock-to-the-latest-compatible-versions
 [7]: #docs-the-restart-and-the-interlude-between-cycles
 [8]: #docs-todo-entries-as-headings-and-sweep-the-retired-names
-[9]: #docs-move-the-satellites-inline-whys
+[9]: #docs-move-the-agent-data-files-inline-whys
 [10]: #choretemplate-propose-the-set-to-the-payload
 [11]: #docs-the-family-agent-files-proposal-closing
 [12]: /notes/forks-multi-user.md
