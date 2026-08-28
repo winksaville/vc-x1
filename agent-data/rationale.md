@@ -185,8 +185,8 @@ again.
 ### Opening
 
 `## Waiting` is checked at the opening because that is the moment a choice is being made, and a
-blocked entry cannot hold a rank: rank means "next", `fix-todo` renumbers from 1, and a blocked
-entry at #1 would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
+blocked entry cannot hold a place in the order: the first entry means "next", and a blocked entry
+there would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
 
 **The bookmark create is a push** because `vc-x1 push` requires the bookmark's remote refs to be
 tracked, so the create has to publish, and a publish takes push approval.

@@ -15,11 +15,11 @@ Long notes files are appended to over time. Read only the slice your task needs.
 further on demand.
 
 - **`TODO.md`** (the routine acquaint read): the first ~60 lines covers intro + `## In Progress` +
-  the top of the ranked `## Todo` (priorities, #1 highest). `Read` with `offset=0, limit=60`.
-  `## Ideas` sits below `## Todo`. Read further only when chasing a lower-ranked entry, an Idea, a
+  the top of `## Todo`, its entries in priority order. `Read` with `offset=0, limit=60`.
+  `## Ideas` sits below `## Todo`. Read further only when chasing a lower entry, an Idea, a
   `[N]` ref, or auditing the whole list.
-- **`notes/todo-backlog.md`**: the long-tail backlog (lower-priority entries below the ranked
-  `## Todo`). Read only when picking up a backlog item, and grep to locate it first.
+- **`notes/todo-backlog.md`**: the long-tail backlog (lower-priority entries below `## Todo`). Read
+  only when picking up a backlog item, and grep to locate it first.
 - **`notes/bugs.md`**: the bug list. Small, so read it whole when triaging a bug or chasing the
   `## Bugs` pointer in TODO.md.
 - **`notes/done.md`** + **`notes/chores/chores-NN.md`**: frozen history. Scan headings first
@@ -84,7 +84,7 @@ reference links to more detail.
 - `## Closed`: the last cycle's finished record.
 - `## Waiting`: important work that cannot start yet. Each entry names what it waits on and its
   rank once unblocked, and every opening checks the conditions.
-- `## Todo`: strict priority rank, #1 highest. The long-tail backlog is in
+- `## Todo`: entries in priority order, the first highest. The long-tail backlog is in
   [todo-backlog.md](../notes/todo-backlog.md).
 - `## Ideas`: unranked.
 - `## Bugs`: a pointer to [bugs.md](../notes/bugs.md).
@@ -93,25 +93,26 @@ Every member has one `TODO.md` of this shape. It is not an agent-file, since its
 project's record, and the payload ships it as a skeleton: `## In Progress` reading
 `_No cycle currently in progress._`, the other sections empty.
 
-`## Todo` and `## Bugs` entries carry explicit `1.` `2.` ... numbers in the source. For `## Todo`
-the number is its **priority rank** (#1 highest, descending), and for `## Bugs` it is just an index.
-They're for grepping and at-a-glance "let's do #1", **not stable IDs** and they will change.
-To refer to a Todo durably, name it by its title, a plain, greppable text mention.
-
-Numbering helps a human orient in a long list but makes links difficult and fragile, especially an
-external reference pointing in, which can't be auto-fixed when the list renumbers. A robust fix (a
-number-free anchor, or a number-tolerant dereference that matches the title slug and wildcards the
-numeric prefix, since a GitHub slug like `5-foo` is encoded, not opaque, so the title is
-recoverable) is a `validate-numbering` design question, out of scope here.
-
-`vc-x1 fix-todo` alone only previews, and `vc-x1 validate-todo` is the read-only check.
+An entry is a `###` heading, its title, followed by its text. Priority is file order, the first
+entry the highest, and reprioritizing is moving the entry. The title is unique within its file and
+is the entry's anchor, so a citation is a link, `[title](TODO.md#<slug>)`, that the anchor check
+verifies ([Prose form](prose.md#prose-form) for the text). Entries carry no number: a rank number
+renumbers on every move and every citation that holds one goes stale, which is why the numbered
+form was retired (2026-08-27). An entry's sub-entries, when it groups several, are bullets with a
+bold title, cited by the bold text.
 
 Example shape:
 
 ```
-# Todo
-1. Add new feature X [details](features.md#feature-x)
-2. Fix bug Y [[1]]
+## Todo
+
+### Add new feature X
+
+The feature, in a sentence or two ([details](features.md#feature-x)).
+
+### Fix bug Y
+
+What is wrong and where [[1]].
 
 [1]: bugs.md#bug-y
 ```
