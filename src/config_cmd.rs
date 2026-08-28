@@ -202,6 +202,7 @@ fn validate_file(
     path: &Path,
     label: &str,
     home_pred: fn(&[Home]) -> bool,
+    require_structural: bool,
 ) -> Result<usize, Box<dyn Error>> {
     if !path.exists() {
         info!("{label}: {} not found, skipping", path.display());
@@ -225,7 +226,67 @@ fn validate_file(
             unknown += 1;
         }
     }
+
+    if require_structural {
+        for key in schema().iter().filter(|k| k.required && home_pred(k.homes)) {
+            if !map.contains_key(key.path) {
+                warn!(
+                    "{label} ({}): missing {:?}, which every instance config carries",
+                    path.display(),
+                    key.path
+                );
+                unknown += 1;
+            }
+        }
+    }
+
+    unknown += validate_links(path, label)?;
     Ok(unknown)
+}
+
+/// Check a config file's prose links: its own anchors and
+/// references, and its `vc-config.md#<anchor>` links into the
+/// schema documentation.
+///
+/// The second half is why a config file gets more than
+/// `validate-anchors` gives any other file. Those links are
+/// generated from key paths, so "does this resolve" is a schema
+/// lookup rather than the markdown crawl the cross-file check
+/// deliberately leaves out.
+fn validate_links(path: &Path, label: &str) -> Result<usize, Box<dyn Error>> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let mut findings = 0;
+
+    for finding in crate::validate_anchors::analyze(&text).findings {
+        warn!(
+            "{label} ({}):{}: {}",
+            path.display(),
+            finding.line,
+            finding.message
+        );
+        findings += 1;
+    }
+
+    // Each key's `reference` ends with the anchor build.rs derived
+    // from its path, so the schema is the authority on what a
+    // vc-config.md fragment may name.
+    let anchors: std::collections::BTreeSet<&str> = schema()
+        .iter()
+        .filter_map(|k| k.reference.rsplit_once('#').map(|(_, a)| a))
+        .collect();
+    for (file, slug, line) in crate::validate_anchors::cross_file_targets(&text) {
+        if !file.ends_with("vc-config.md") || anchors.contains(slug.as_str()) {
+            continue;
+        }
+        warn!(
+            "{label} ({}):{line}: '#{slug}' is not a key's section in vc-config.md",
+            path.display()
+        );
+        findings += 1;
+    }
+
+    Ok(findings)
 }
 
 /// True when the schema types `path` as a `str-list`, whose value
@@ -270,13 +331,14 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
                 match side {
                     Side::Work => match crate::config_md::vc_config_path(root) {
                         Ok(Some(path)) => {
-                            findings += validate_file(&path, "work config", in_work_side)?;
+                            findings += validate_file(&path, "work config", in_work_side, true)?;
                         }
                         Ok(None) => {
                             findings += validate_file(
                                 &root.join(VC_CONFIG_FILE),
                                 "work config",
                                 in_work_side,
+                                true,
                             )?;
                         }
                         Err(e) => {
@@ -287,13 +349,14 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
                     Side::Bot => match bot_repo_path(root) {
                         Ok(Some(bot)) => match crate::config_md::vc_config_path(&bot) {
                             Ok(Some(path)) => {
-                                findings += validate_file(&path, "bot config", in_bot_side)?;
+                                findings += validate_file(&path, "bot config", in_bot_side, true)?;
                             }
                             Ok(None) => {
                                 findings += validate_file(
                                     &bot.join(VC_CONFIG_FILE),
                                     "bot config",
                                     in_bot_side,
+                                    true,
                                 )?;
                             }
                             Err(e) => {
@@ -311,7 +374,10 @@ fn validate(params: &ConfigParams, root: Option<&Path>) -> Result<usize, Box<dyn
             }
         }
         ConfigTarget::Path(path) => {
-            findings += validate_file(path, "config file", in_any)?;
+            // No structural requirement: a path target carries no
+            // side information and may be the user config, which
+            // has no `[repos]` to be missing.
+            findings += validate_file(path, "config file", in_any, false)?;
         }
     }
     Ok(findings)
@@ -419,6 +485,95 @@ mod tests {
         text.push_str(extra.trim_start_matches('\n'));
         text.push_str("```\n");
         std::fs::write(path, text).expect("write config");
+    }
+
+    /// Write one config file into a fresh temp dir and hand back
+    /// its path, for the checks that need a file rather than a
+    /// whole workspace.
+    fn config_file(tag: &str, body: &str) -> PathBuf {
+        let dir = crate::test_helpers::unique_base(tag);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let path = dir.join(VC_CONFIG_MD);
+        std::fs::write(&path, body).expect("write config");
+        path
+    }
+
+    /// The shape this cycle inherited: citations with no
+    /// definitions, and a reference into a key section the agent
+    /// rename killed. Both passed `--validate` before this check.
+    const INHERITED: &str = "\
+# vc-x1 config file
+
+The two repos
+- work [[1]]
+- bot [[2]]
+```toml
+[repos]
+work = \".\"
+agent = \".claude\"
+```
+
+The family
+- member [[3]]
+```toml
+[family]
+member = \"x\"
+```
+
+# References
+
+[1]: vc-config.md#reposwork
+[2]: vc-config.md#reposbot
+";
+
+    /// The inherited file's five defects, found rather than passed
+    /// over: one uncited citation and one dead key section.
+    #[test]
+    fn validate_reports_the_inherited_links() {
+        let path = config_file("config-links-inherited", INHERITED);
+        let findings = validate_file(&path, "config", in_any, false).expect("validate");
+        assert_eq!(
+            findings, 2,
+            "the [[3]] with no definition, and #reposbot naming no key"
+        );
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
+    }
+
+    /// A `vc-config.md` fragment is checked against the schema
+    /// rather than by crawling the file, since build.rs derives
+    /// those anchors from the key paths.
+    #[test]
+    fn validate_resolves_key_sections_against_the_schema() {
+        let good = INHERITED
+            .replace("#reposbot", "#reposagent")
+            .replace("- member [[3]]\n", "- member\n");
+        let path = config_file("config-links-good", &good);
+        let findings = validate_file(&path, "config", in_any, false).expect("validate");
+        assert_eq!(findings, 0, "every link now resolves");
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
+    }
+
+    /// `repos.work` is the one key every instance config carries,
+    /// so its absence is a finding for a side target.
+    #[test]
+    fn validate_reports_a_missing_required_key() {
+        let body = "# c\n\n```toml\n[repos]\nagent = \".claude\"\n```\n";
+        let path = config_file("config-required-missing", body);
+        let findings = validate_file(&path, "work config", in_work_side, true).expect("validate");
+        assert_eq!(findings, 1, "repos.work is missing");
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
+    }
+
+    /// A path target carries no side information and may be the
+    /// user config, which has no `[repos]`, so the structural
+    /// requirement does not apply to it.
+    #[test]
+    fn a_path_target_is_not_required_to_be_an_instance_config() {
+        let body = "# c\n\n```toml\n[agent-session]\ncol-width = 68\n```\n";
+        let path = config_file("config-required-path", body);
+        let findings = validate_file(&path, "config file", in_any, false).expect("validate");
+        assert_eq!(findings, 0);
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
     }
 
     /// The old `bot` keywords are a rejection, not a path target.

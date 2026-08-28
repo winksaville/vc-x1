@@ -161,9 +161,23 @@ fn headings(lines: &[String]) -> Vec<(String, usize)> {
 struct Target {
     slug: String,
     line: usize,
-    /// The target named another file, so its slug belongs to that
-    /// file's headings and this check does not resolve it.
-    cross_file: bool,
+    /// The file the target names, `None` when it names this one.
+    /// A named file's slug belongs to that file's headings, which
+    /// this check does not resolve.
+    file: Option<String>,
+}
+
+/// Every anchor target naming another file, as `(file, slug, line)`.
+///
+/// The check itself resolves none of these. A caller that knows the
+/// other file can: `config --validate` resolves a config's
+/// `vc-config.md#<anchor>` links against the schema, since build.rs
+/// derives those anchors from the key paths.
+pub fn cross_file_targets(content: &str) -> Vec<(String, String, usize)> {
+    anchor_targets(&prose_lines(content))
+        .into_iter()
+        .filter_map(|t| t.file.map(|f| (f, t.slug, t.line)))
+        .collect()
 }
 
 /// Every anchor target: `](...#slug)` inline links and
@@ -185,13 +199,13 @@ fn anchor_targets(lines: &[String]) -> Vec<Target> {
                 out.push(Target {
                     slug: slug.to_string(),
                     line: i + 1,
-                    cross_file: false,
+                    file: None,
                 });
-            } else if let Some((_file, slug)) = dest.split_once('#') {
+            } else if let Some((file, slug)) = dest.split_once('#') {
                 out.push(Target {
                     slug: slug.to_string(),
                     line: i + 1,
-                    cross_file: true,
+                    file: Some(file.to_string()),
                 });
             }
         }
@@ -200,13 +214,13 @@ fn anchor_targets(lines: &[String]) -> Vec<Target> {
                 out.push(Target {
                     slug: slug.trim().to_string(),
                     line: i + 1,
-                    cross_file: false,
+                    file: None,
                 });
-            } else if let Some((_file, slug)) = rest.split_once('#') {
+            } else if let Some((file, slug)) = rest.split_once('#') {
                 out.push(Target {
                     slug: slug.trim().to_string(),
                     line: i + 1,
-                    cross_file: true,
+                    file: Some(file.trim().to_string()),
                 });
             }
         }
@@ -366,12 +380,8 @@ pub fn analyze(content: &str) -> Report {
     }
 
     for target in anchor_targets(&lines) {
-        let Target {
-            slug,
-            line,
-            cross_file,
-        } = target;
-        if cross_file {
+        let Target { slug, line, file } = target;
+        if file.is_some() {
             counts.anchors_cross_file += 1;
             sites.push(Site {
                 line,

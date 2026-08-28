@@ -1,4 +1,4 @@
-# Bugs
+# Bug list
 
 Known defects we're aware of but haven't scheduled a fix for.
 Each entry describes what goes wrong, when, and the cost of

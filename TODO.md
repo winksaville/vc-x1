@@ -59,7 +59,8 @@ The items the early close deferred, made runnable:
 - [feat: add validate-anchors][4] (done)
 - [docs: README covers the new surface][9] (done)
 - [feat: validate-anchors reports what it checked][10] (done)
-- [feat: check a config file's links and keys][5]
+- [feat: check a config file's links and keys][5] (done)
+- [feat: add validate-config][11]
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
 
@@ -374,9 +375,53 @@ inherited passes while citing five references it never defines and one anchor th
 killed.
 
 - The anchor checker from the rung above gains a second caller, and the cross-file half is a schema
-  lookup rather than a markdown crawl (see the deliberation).
-- Two checks ride along: a required key absent for the side, and a schema table the workspace ought
-  to carry but does not, which is the completeness the model was going to guarantee by construction.
+  lookup rather than a markdown crawl (see the deliberation). Each key's `reference` ends with the
+  anchor build.rs derived from its path, so the schema is the authority on what a `vc-config.md`
+  fragment may name, and `validate_anchors::cross_file_targets` hands the caller the targets the
+  general check declines to resolve.
+- The required-key check is `repos.work`, the one key every instance config carries. It applies to
+  a side target and not to a path target, since a path may name the user config, which has no
+  `[repos]` to be missing. That distinction is the test
+  `a_path_target_is_not_required_to_be_an_instance_config`.
+  - The "schema table the workspace ought to carry" check the plan named dissolved into this one.
+    Only `repos.work` is `required`, so a missing table is a missing required key, and inventing a
+    second notion of oughtness would have been a rule with no key behind it.
+- Both sides' config files are fixed, which is what takes the acceptance check from "reports
+  findings" to "reports clean": the work side defines `[3]` through `[7]` and repoints `[2]` at
+  `#reposagent`, and the agent side repoints the same anchor and stops naming the deleted
+  `vc-config-test.md`. Both said "bot" where the vocabulary now says agent.
+- The inherited shape is kept as a test fixture rather than only as a memory, so the check that
+  found it stays pinned to it after the files are clean.
+- One line off-subject, closing the last structural finding this cycle raised: `notes/bugs.md` is
+  retitled `# Bug list` (wink, 2026-08-28), the same fix as this file's, and the file needed no
+  sweep since the bug entries already paid it. `validate-anchors` over the live records now reports
+  2, both in the design doc the Ideas entry **Restructure the design-cli parity docs** plans to
+  split, down from the 10 it found when it first ran.
+
+##### feat: add validate-config
+
+The validate family is `validate-desc`, `validate-todo`, `validate-agent`, `validate-anchors`, and
+the config check alone hides behind another subcommand's flag. `config` prints the schema, which is
+a different verb from checking a file against it.
+
+- Decided (wink, 2026-08-28): `validate-config`, not `validate-vc-config`. Every sibling is
+  `validate-<object>` with a short common noun, and the object includes the user config at
+  `~/.config/vc-x1/config.toml`, which is plain TOML rather than a vc-config file, so naming the
+  format would be wrong about one of the things the command validates. The `vc-` is the binary's.
+  - If a second config format ever needs separating, that is handled then rather than pre-empted in
+    a name now.
+- `config --validate` is retired with a rejection naming the new spelling, the treatment
+  `bot-session` and the legacy `[workspace]` schema got.
+- **The validate family: umbrella, runner, and `validate-work`** gains a line saying this slice
+  landed early, since it currently says `validate-work` calls `config --validate`.
+- README owes three edits, deferred to here on purpose rather than written one rung earlier and
+  deleted here: the `--validate` bullet in the config section, the "unknown keys, legacy-schema
+  rejection" comment above the example, and the `[validate]` tables paragraph's "keys known per
+  side, lists well formed" line. All three understate the check as of the rung before this one, and
+  all three are text this rename rewrites anyway.
+- Taken now rather than in that entry because the code is open and the README section written two
+  rungs ago documents a spelling we would otherwise ship and immediately retire. The same reasoning
+  as taking the `owner/name` slice out of **Drop the global config and the account notion** early.
 
 ##### chore: point config at .agent-session
 
@@ -962,4 +1007,5 @@ _See [bugs.md](notes/bugs.md)._
 [8]: #fix-init-takes-a-url-or-a-path
 [9]: #docs-readme-covers-the-new-surface
 [10]: #feat-validate-anchors-reports-what-it-checked
+[11]: #feat-add-validate-config
 [12]: /notes/forks-multi-user.md
