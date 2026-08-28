@@ -61,7 +61,7 @@ The items the early close deferred, made runnable:
 - [feat: validate-anchors reports what it checked][10] (done)
 - [feat: check a config file's links and keys][5] (done)
 - [feat: add validate-config][11] (done)
-- [chore: point config at .agent-session][6]
+- [chore: point config at .agent-session][6] (done)
 - [feat: finish the vc-config surface closing][7]
 
 #### Deliberation
@@ -443,10 +443,22 @@ a different verb from checking a file against it.
 
 ##### chore: point config at .agent-session
 
-The agent side is still `.claude` while the vocabulary around it renamed to agent.
+The agent side was still `.claude` while the vocabulary around it had renamed to agent.
 
-- wink's between-session move (mv, the config edit, the `.gitignore` edit, `vc-x1 symlink`), with
-  the following session committing the record.
+- `repos.agent` names `.agent-session`, which is what the directory has been called since the
+  between-session `mv`. The link `vc-x1 symlink` had already made by hand becomes the one the
+  config derives, so the two agree rather than happening to match.
+- The move alone left `vc-x1 push` dead: it resolves the agent side through `require_bot_dir`, and
+  the coherence check found no config and no jj repo under `.claude`. Both `validate-config` and
+  `validate-agent` reported it, each exiting 1. The config edit is what clears them, and this
+  rung's own push is the end-to-end proof, being the command that was blocked.
+- `.gitignore` gains `/.agent-session` beside `/.git` and `/.jj`, and `/.claude` stays. The harness
+  bind-mounts ten `/dev/null` nodes over `<project>/.claude` on every command and recreates the
+  directory when it is deleted, a restart included (observed 2026-08-28), so that line still has a
+  job. Claude Code reads the session data through the symlink and never through `repos.agent`,
+  which is why the move looked complete from the user's side.
+- The rung found that `vc-x1 init` still seeds `.claude`, recorded as the first `## Todo` entry
+  rather than folded in here, its reach being every workspace init creates.
 
 ##### feat: finish the vc-config surface closing
 
@@ -493,6 +505,26 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### `init` still seeds `.claude` as the agent directory
+
+(2026-08-28) The agent rename covered the vocabulary and this repo's own layout and left `init`'s
+default alone, so every workspace it creates lands in the mount collision this repo just left. With
+the agent repo at `<project>/.claude`, the harness's ten `/dev/null` bind mounts land inside the
+agent repo, and the seeded agent-side `.gitignore` carries only `.git` and `.jj`. We think an agent
+working there meets ten untracked device nodes in `jj st`, since the work side's `/.claude` line
+cannot reach inside a second repo.
+
+- The default has five sites: `DEFAULT_BOT_DIR` (`src/init.rs:161`), the seeded work config's
+  `agent = ".claude"` (`src/init.rs:347`), `GITIGNORE_CODE` (`src/init.rs:470`), the GitHub repo
+  name `<name>.claude` (`src/init.rs:986`, `:1032`), and the `example` for `repos.agent` in
+  `vc-config.md`, which build.rs regenerates into `vc-config-model.md`.
+- Three tests pin it: `src/init/tests.rs:82`, `:125`, `:156`.
+- Open question, and the reason this is an entry rather than a one-line default swap: does the
+  GitHub repo suffix follow the directory? Repos named `<name>.claude` already exist under the old
+  name, so changing the suffix is a decision about published names rather than about a default.
+- Found while running **chore: point config at .agent-session**, whose record holds what the
+  collision costs a workspace that stays on `.claude`.
 
 ### `validate`: enforce the record shapes the agent-files ask for
 
