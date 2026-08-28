@@ -34,6 +34,7 @@ mod toml_simple;
 mod transcript;
 mod url;
 mod validate;
+mod validate_anchors;
 mod validate_bot;
 mod validate_desc;
 mod validate_todo;
@@ -266,6 +267,16 @@ pub(crate) enum Commands {
           skip  : skipped (no ochid, no match, or max-fixes reached)\n  \
           err   : ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
+
+    /// Check a markdown record's own anchors and references
+    #[command(long_about = "Check a markdown file's same-file links.\n\n\
+        Verifies every `](#slug)` link and `[N]: #slug` definition\n\
+        resolves to a heading in the same file, every `[[N]]` citation\n\
+        has a definition and every definition is cited, and no two\n\
+        headings slug to one anchor. Cross-file targets are skipped.\n\
+        Read-only; exits non-zero when anything is found. With no\n\
+        FILE, checks every `.md` in the workspace.")]
+    ValidateAnchors(validate_anchors::ValidateAnchorsArgs),
 
     /// Check todo-file entry numbering and indent
     #[command(
@@ -570,6 +581,7 @@ fn main() -> ExitCode {
         }
         Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
+        Commands::ValidateAnchors(args) => args.dispatch(&mut ctx),
         Commands::ValidateTodo(args) => args.dispatch(&mut ctx),
         Commands::FixTodo(args) => args.dispatch(&mut ctx),
         Commands::Clone(args) => args.dispatch(&mut ctx),

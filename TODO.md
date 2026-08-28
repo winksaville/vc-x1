@@ -1,4 +1,4 @@
-# Todo
+# Todo and cycle record
 
 This file contains near term tasks with a short description and reference links to more details.
 Its shape is [Todo format](agent-data/notes.md#todo-format).
@@ -56,7 +56,8 @@ The items the early close deferred, made runnable:
 - [chore: groom the config backlog][2] (done)
 - [chore: generate the config model and seed init][3] (done)
 - [fix: init takes a URL or a path][8] (done)
-- [feat: add validate-anchors][4]
+- [feat: add validate-anchors][4] (done)
+- [docs: README covers the new surface][9]
 - [feat: check a config file's links and keys][5]
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
@@ -276,6 +277,52 @@ No check resolves the records' own anchors, so the two dead links the agent-file
 
 - Decided (wink, 2026-08-28): same-file heading anchors by the documented slug algorithm, plus `[N]`
   definition and use matching. The cross-file stretch is out.
+- Three checks, all same-file: an anchor target resolving to a heading, a citation having a
+  definition and a definition being cited, and no two headings slugging to one anchor. The third
+  was not in the plan and pays for itself immediately, since a duplicate slug silently sends every
+  link to the first heading, which is the failure a reader cannot see.
+- The analysis is pure and the subcommand reads files around it, so the checks are tested on
+  strings rather than on fixtures.
+- Fenced code and code spans are blanked before anything is scanned. A `[[N]]` in a code span is a
+  quoted identifier by [Notes references](agent-data/notes.md#notes-references), and a specimen's
+  `#` line inside a fence is code.
+- Two corrections the first real run forced:
+  - `[title][N]`, the reference-link form a ladder rung uses for its own subsection, is a citation.
+    Counting only `[[N]]` reported all eight of this cycle's rungs as uncited definitions.
+  - The frozen history is out of the default file set. Over the whole repo the check found 299
+    problems, 289 of them in `notes/chores/` and `notes/done.md`, which no commit may touch. Naming
+    a file explicitly still checks it, so the frozen history is readable on demand.
+- Ten findings remain over the live records, and this rung fixes none of them, which is deliberate
+  in three different ways:
+  - Five are the `.vc-config.md` citations with no definitions, the fixture the next rung's
+    acceptance check names.
+  - One is `README.md`'s table of contents pointing at a "Revision shortcuts" section that no
+    longer exists. Fixing one line there obliges converting the file's 63 semicolons, and **CLI
+    reference lives in `--help`, and README owns concepts** rewrites that file wholesale, so the
+    sweep is worth paying there rather than here.
+  - Two were `# Todo` colliding with `## Todo` and `# Bugs` with `## Bugs`. This file's is fixed
+    here, retitled to `# Todo and cycle record` (wink, 2026-08-28), which needs no convention cycle:
+    the title is prescribed by nothing, cited by nothing, and `## Todo` is cited sixteen times
+    across the agent-files, so the title is both the cheap side and the inaccurate one. The file
+    holds seven sections and Todo is one of them.
+  - `notes/bugs.md` keeps its collision pending your call between retitling it and dropping its
+    `## Bugs` heading, which the file does not need.
+  - The remaining two are in a design doc the Ideas entry **Restructure the design-cli parity
+    docs** already plans to split.
+- Not added to the `[validate]` table. The umbrella that decides what runs per rung is **The
+  validate family: umbrella, runner, and `validate-work`**, and adding it before the records are
+  clean would fail every commit.
+
+##### docs: README covers the new surface
+
+README documents a surface this cycle changed in five places and never mentions `validate-anchors`,
+so its examples teach a target spelling init now rejects and a config carrier init no longer writes.
+
+- Decided (wink, 2026-08-28): a first cut, documenting what changed. Prose and examples, no new
+  flag table, since **CLI reference lives in `--help`, and README owns concepts** owns deleting the
+  tables and the `## Usage` block, and folding that in here would swallow a ranked entry.
+- The file's 63 semicolons convert, which the touch obliges. The earlier argument for deferring
+  held only while nothing needed saying there.
 
 ##### feat: check a config file's links and keys
 
@@ -319,7 +366,9 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   [agent-files-proposal-0827.md](notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27).
   On agreement: copy `AGENTS.md`, `custom.md`, and `agent-data/*` into `vc-x1-template/work`
   with the two fossil fixes the proposal names (`jj-tips.md`, `.vc-config.toml`), then re-sync
-  every adopter. The acceptance check is the three-way comparison going empty.
+  every adopter. The payload's `TODO.md` skeleton takes the `# Todo and cycle record` retitle with
+  them, since the anchor collision it removes ships in every copy. The acceptance check is the
+  three-way comparison going empty.
   - Waits on: a reply from each of iiac-perf and zc-ring-x1 in `../vc-x1-messages`, agreeing or
     amending.
   - Place when unblocked: first.
@@ -868,4 +917,5 @@ _See [bugs.md](notes/bugs.md)._
 [6]: #chore-point-config-at-agent-session
 [7]: #feat-finish-the-vc-config-surface-closing
 [8]: #fix-init-takes-a-url-or-a-path
+[9]: #docs-readme-covers-the-new-surface
 [12]: /notes/forks-multi-user.md
