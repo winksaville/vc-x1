@@ -11,3 +11,17 @@
 # already existing elements were commented out
 
 #/target
+
+# Names the agent sandbox bind-mounts over /dev/null at the repo root while a command runs,
+# so `jj st` run by the agent does not list them.
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.idea
+/.mcp.json
+/.profile
+/.ripgreprc
+/.vscode
+/.zprofile
+/.zshrc

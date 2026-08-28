@@ -48,13 +48,13 @@ Run at the close-out. Four of the five report here, the fifth at Land:
 
 ### Ladder
 
-- [[N]] [docs: reshape at land opening][1]
-- [[N]] [docs: advance patch by default][2]
-- [[N]] [docs: empty custom.md into the agent-files][3]
-- [[N]] [docs: land under the at-rest contract][4]
-- [[N]] [docs: move the reshape and restore under Land][5]
-- [[N]] [docs: read a change in gitk at full context][6]
-- [[N]] [docs: reshape at land closing][7]
+- [[8]] 0.80.4-0 [docs: reshape at land opening][1]
+- [[9]] 0.80.4-1 [docs: advance patch by default][2]
+- [[10]] 0.80.4-2 [docs: empty custom.md into the agent-files][3]
+- [[11]] 0.80.4-3 [docs: land under the at-rest contract][4]
+- [[12]] 0.80.4-4 [docs: move the reshape and restore under Land][5]
+- [[13]] 0.80.4-5 [docs: read a change in gitk at full context][6]
+- [[14]] 0.80.4 [docs: reshape at land closing][7]
 
 ### Deliberation
 
@@ -217,3 +217,10 @@ block into this section.
 [5]: #docs-move-the-reshape-and-restore-under-land
 [6]: #docs-read-a-change-in-gitk-at-full-context
 [7]: #docs-reshape-at-land-closing
+[8]: https://github.com/winksaville/vc-x1/commit/8e3cac729a8c "8e3cac729a8c01d6ef2d64bff3b285e5be0c2c7a"
+[9]: https://github.com/winksaville/vc-x1/commit/fa4e8936fce6 "fa4e8936fce608270eb8fe2ad6425c8d5547299e"
+[10]: https://github.com/winksaville/vc-x1/commit/d7ba0cc719b6 "d7ba0cc719b68cc39a022f9e91c700d730143ab8"
+[11]: https://github.com/winksaville/vc-x1/commit/ba7a482ac2ec "ba7a482ac2ecf84ae1c2e17f570dba59ba10b5dd"
+[12]: https://github.com/winksaville/vc-x1/commit/c8275ecde396 "c8275ecde396b73962295cae3737d81a0344476e"
+[13]: https://github.com/winksaville/vc-x1/commit/94b2a161ee4b "94b2a161ee4b4a0a45e92e1ec8aad19c36c7c72d"
+[14]: https://github.com/winksaville/vc-x1/commit/2dc8d969c3f3 "2dc8d969c3f351a0454d5c2b8f024b0db0af3965"

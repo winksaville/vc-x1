@@ -3,10 +3,12 @@
 This directory contains various notes and documentation related to the project. Each file is
 organized by topic for easy reference.
 
-By default there are the chores-NN.md files in [chores/](chores). Chores are general notes about
-tasks; short term tasks and their status live at the repo root in [../TODO.md](../TODO.md). The
-chores-NN files are numbered in sequence; the highest-numbered file is the active one, older ones
-are closed.
+The chores-NN.md files in [chores/](chores) and [done.md](done.md) are frozen history: the records
+of cycles that closed before the cycle-record rule ([Cycle-record](../AGENTS.md#cycle-record)).
+Nothing is appended to them. They stay until the agent-repo transcripts are comfortable to read a
+cycle from, then both retire in one cycle after a permalink sweep of the links into them (the `##
+Waiting` entry in [../TODO.md](../TODO.md)). A cycle's live record is [../TODO.md](../TODO.md)'s `##
+In Progress` block, and a closed cycle's is its `## Closed` block in the landmark commit's tree.
 
 Tool architecture lives at the repo root in [`../ARCHITECTURE.md`](../ARCHITECTURE.md): the
 CLI-args / `Context`+`Params` split, a generic module map, the subcommand model, and what the
@@ -23,6 +25,9 @@ file so it can be found without knowing which cycle produced it, e.g.
 [jj-version-policy.md](jj-version-policy.md). The investigation behind such a rule stays where it
 happened (a plan file or a chores section) and is linked from the policy, so neither restates the
 other.
+
+The agent-files' line count over time is in [agent-files-size.md](agent-files-size.md), one row
+per landing, smaller being the quasi-goal.
 
 In the future I expect we may want to create a "notes" database to better manage the information,
 TBD.
