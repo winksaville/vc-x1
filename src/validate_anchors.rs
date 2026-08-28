@@ -25,7 +25,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
@@ -157,27 +157,95 @@ fn headings(lines: &[String]) -> Vec<(String, usize)> {
     out
 }
 
-/// Every same-file anchor target: `](#slug)` inline links and
-/// `[N]: #slug` definitions, as `(slug, line)`.
+/// One anchor target found in the prose.
+struct Target {
+    slug: String,
+    line: usize,
+    /// The target named another file, so its slug belongs to that
+    /// file's headings and this check does not resolve it.
+    cross_file: bool,
+}
+
+/// Every anchor target: `](...#slug)` inline links and
+/// `[N]: ...#slug` definitions, same-file and cross-file alike.
 ///
-/// A target naming another file is skipped here, since resolving
-/// it is the cross-file check this rung leaves out.
-fn anchor_targets(lines: &[String]) -> Vec<(String, usize)> {
+/// Cross-file ones are collected rather than dropped so the report
+/// can say how many links it did not resolve, which is exactly the
+/// coverage this check lacks until the cross-file half lands.
+fn anchor_targets(lines: &[String]) -> Vec<Target> {
     let mut out = Vec::new();
     for (i, line) in lines.iter().enumerate() {
-        for (idx, _) in line.match_indices("](#") {
-            let rest = &line[idx + 3..];
-            if let Some(end) = rest.find(')') {
-                out.push((rest[..end].to_string(), i + 1));
+        for (idx, _) in line.match_indices("](") {
+            let rest = &line[idx + 2..];
+            let Some(end) = rest.find(')') else {
+                continue;
+            };
+            let dest = &rest[..end];
+            if let Some(slug) = dest.strip_prefix('#') {
+                out.push(Target {
+                    slug: slug.to_string(),
+                    line: i + 1,
+                    cross_file: false,
+                });
+            } else if let Some((_file, slug)) = dest.split_once('#') {
+                out.push(Target {
+                    slug: slug.to_string(),
+                    line: i + 1,
+                    cross_file: true,
+                });
             }
         }
-        if let Some(rest) = ref_def(line)
-            && let Some(slug) = rest.strip_prefix('#')
-        {
-            out.push((slug.trim().to_string(), i + 1));
+        if let Some(rest) = ref_def(line) {
+            if let Some(slug) = rest.strip_prefix('#') {
+                out.push(Target {
+                    slug: slug.trim().to_string(),
+                    line: i + 1,
+                    cross_file: false,
+                });
+            } else if let Some((_file, slug)) = rest.split_once('#') {
+                out.push(Target {
+                    slug: slug.trim().to_string(),
+                    line: i + 1,
+                    cross_file: true,
+                });
+            }
         }
     }
     out
+}
+
+/// Levenshtein distance, for naming the slug a failing target most
+/// likely meant.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut cur = vec![0usize; b_chars.len() + 1];
+    for (i, ca) in a.chars().enumerate() {
+        cur[0] = i + 1;
+        for (j, cb) in b_chars.iter().enumerate() {
+            let cost = usize::from(ca != *cb);
+            cur[j + 1] = (prev[j] + cost).min(prev[j + 1] + 1).min(cur[j] + 1);
+        }
+        std::mem::swap(&mut prev, &mut cur);
+    }
+    prev[b_chars.len()]
+}
+
+/// The heading slug a failing target most likely meant, when one is
+/// close enough to be worth naming.
+///
+/// The threshold scales with the slug's length, so a short anchor
+/// needs a near-exact neighbour while a long one tolerates a
+/// rename of one word. Nothing is suggested when the nearest is
+/// further than that, since a wrong suggestion costs more than
+/// none.
+fn nearest_slug<'a>(slug: &str, slugs: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    let limit = (slug.len() / 3).max(2);
+    slugs
+        .map(|s| (edit_distance(slug, s), s))
+        .filter(|(d, _)| *d <= limit)
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, s)| s)
 }
 
 /// The target of a `[N]: <target>` definition line, if the line is
@@ -229,20 +297,61 @@ fn citations(line: &str) -> Vec<u32> {
     out
 }
 
+/// What one file's check looked at, beside what it found.
+///
+/// The counts exist so a pass says how much it covered: a file with
+/// no links passed identically to one with four hundred while the
+/// summary counted files.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Counts {
+    pub headings: usize,
+    /// Same-file anchor targets resolved against those headings.
+    pub anchors_checked: usize,
+    pub anchors_failed: usize,
+    /// Targets naming another file, which this check does not
+    /// resolve. The coverage gap, reported rather than hidden.
+    pub anchors_cross_file: usize,
+    pub refs_defined: usize,
+    pub refs_cited: usize,
+}
+
+/// One thing the check looked at, for `-vv`.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Site {
+    pub line: usize,
+    pub detail: String,
+}
+
+/// One file's whole result: what was found, what was looked at, and
+/// how much of each.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Report {
+    pub findings: Vec<Finding>,
+    pub sites: Vec<Site>,
+    pub counts: Counts,
+}
+
 /// Check one markdown file's own links, returning every finding in
-/// document order.
+/// document order beside the tally of what was checked.
 ///
 /// Pure: the caller reads the file and reports. See the module doc
 /// for the three checks.
-pub fn analyze(content: &str) -> Vec<Finding> {
+pub fn analyze(content: &str) -> Report {
     let lines = prose_lines(content);
     let mut findings: Vec<Finding> = Vec::new();
+    let mut sites: Vec<Site> = Vec::new();
+    let mut counts = Counts::default();
 
     let heads = headings(&lines);
     let slugs: BTreeSet<&str> = heads.iter().map(|(s, _)| s.as_str()).collect();
+    counts.headings = heads.len();
 
     let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
     for (slug, line) in &heads {
+        sites.push(Site {
+            line: *line,
+            detail: format!("heading slugs to '#{slug}'"),
+        });
         if let Some(first) = seen.get(slug.as_str()) {
             findings.push(Finding {
                 line: *line,
@@ -256,13 +365,40 @@ pub fn analyze(content: &str) -> Vec<Finding> {
         }
     }
 
-    for (slug, line) in anchor_targets(&lines) {
-        if !slugs.contains(slug.as_str()) {
-            findings.push(Finding {
+    for target in anchor_targets(&lines) {
+        let Target {
+            slug,
+            line,
+            cross_file,
+        } = target;
+        if cross_file {
+            counts.anchors_cross_file += 1;
+            sites.push(Site {
                 line,
-                message: format!("'#{slug}' matches no heading in this file"),
+                detail: format!("'#{slug}' names another file, not resolved"),
             });
+            continue;
         }
+        counts.anchors_checked += 1;
+        if slugs.contains(slug.as_str()) {
+            sites.push(Site {
+                line,
+                detail: format!("'#{slug}' resolves"),
+            });
+            continue;
+        }
+        counts.anchors_failed += 1;
+        let message = match nearest_slug(&slug, slugs.iter().copied()) {
+            Some(near) => {
+                format!("'#{slug}' matches no heading in this file. Did you mean '#{near}'?")
+            }
+            None => format!("'#{slug}' matches no heading in this file"),
+        };
+        sites.push(Site {
+            line,
+            detail: format!("'#{slug}' does not resolve"),
+        });
+        findings.push(Finding { line, message });
     }
 
     let mut defined: BTreeMap<u32, usize> = BTreeMap::new();
@@ -277,13 +413,20 @@ pub fn analyze(content: &str) -> Vec<Finding> {
             cited.entry(n).or_insert(i + 1);
         }
     }
+    counts.refs_defined = defined.len();
+    counts.refs_cited = cited.len();
     for (n, line) in &cited {
-        if !defined.contains_key(n) {
-            findings.push(Finding {
+        if defined.contains_key(n) {
+            sites.push(Site {
                 line: *line,
-                message: format!("[[{n}]] is cited but never defined"),
+                detail: format!("[[{n}]] has a definition"),
             });
+            continue;
         }
+        findings.push(Finding {
+            line: *line,
+            message: format!("[[{n}]] is cited but never defined"),
+        });
     }
     for (n, line) in &defined {
         if !cited.contains_key(n) {
@@ -295,7 +438,12 @@ pub fn analyze(content: &str) -> Vec<Finding> {
     }
 
     findings.sort_by_key(|f| f.line);
-    findings
+    sites.sort_by_key(|s| s.line);
+    Report {
+        findings,
+        sites,
+        counts,
+    }
 }
 
 /// Directories the default set never descends into.
@@ -361,32 +509,66 @@ pub fn validate_anchors(
         params.files.clone()
     };
 
-    let mut total = 0usize;
+    let mut total = Counts::default();
+    let mut findings = 0usize;
     for file in &files {
         let content = std::fs::read_to_string(file)
             .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
-        for finding in analyze(&content) {
-            warn!("{}:{}: {}", file.display(), finding.line, finding.message);
-            total += 1;
+        let report = analyze(&content);
+        for site in &report.sites {
+            trace!("{}:{}: {}", file.display(), site.line, site.detail);
         }
+        for finding in &report.findings {
+            warn!("{}:{}: {}", file.display(), finding.line, finding.message);
+        }
+        let c = &report.counts;
+        debug!(
+            "{}: {} heading(s), {} link(s) checked, {} failed, {} cross-file, {} ref(s) defined, \
+             {} cited",
+            file.display(),
+            c.headings,
+            c.anchors_checked,
+            c.anchors_failed,
+            c.anchors_cross_file,
+            c.refs_defined,
+            c.refs_cited
+        );
+        findings += report.findings.len();
+        total.headings += c.headings;
+        total.anchors_checked += c.anchors_checked;
+        total.anchors_failed += c.anchors_failed;
+        total.anchors_cross_file += c.anchors_cross_file;
+        total.refs_defined += c.refs_defined;
+        total.refs_cited += c.refs_cited;
     }
 
     let n = files.len();
     let word = if n == 1 { "file" } else { "files" };
-    if total == 0 {
-        info!("validate-anchors: {n} {word} checked, all links resolve");
+    // The link count is the summary's point: it separates a pass
+    // that checked something from one that had nothing to check.
+    let checked = total.anchors_checked + total.refs_cited;
+    info!(
+        "validate-anchors: {n} {word}, {checked} link(s) checked, {} failed, {} cross-file \
+         skipped, {} heading(s)",
+        findings, total.anchors_cross_file, total.headings
+    );
+    if findings == 0 {
         debug!("validate-anchors: exit");
         Ok(())
     } else {
-        info!("validate-anchors: {n} {word} checked, {total} problem(s) found");
         debug!("validate-anchors: exit with findings");
-        Err(format!("{total} anchor problem(s) found").into())
+        Err(format!("{findings} anchor problem(s) found").into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The findings alone, which is what most of these assert on.
+    fn findings(md: &str) -> Vec<Finding> {
+        analyze(md).findings
+    }
 
     /// The documented algorithm, on the cases the rule names: a
     /// colon leaves one hyphen, a slash between spaces leaves two.
@@ -404,13 +586,13 @@ mod tests {
     #[test]
     fn resolving_links_are_clean() {
         let md = "# One\n\n## Two words\n\nSee [it](#two-words) and [[1]].\n\n[1]: #one\n";
-        assert_eq!(analyze(md), vec![]);
+        assert_eq!(findings(md), vec![]);
     }
 
     #[test]
     fn dead_anchor_is_a_finding() {
         let md = "# One\n\nSee [it](#nope).\n";
-        let f = analyze(md);
+        let f = findings(md);
         assert_eq!(f.len(), 1, "{f:?}");
         assert!(f[0].message.contains("'#nope'"), "{f:?}");
         assert_eq!(f[0].line, 3);
@@ -421,7 +603,7 @@ mod tests {
     #[test]
     fn undefined_citation_is_a_finding() {
         let md = "# One\n\nSee [[3]] and [[4]].\n\n[1]: #one\n\nAlso [[1]].\n";
-        let found = analyze(md);
+        let found = findings(md);
         let messages: Vec<&str> = found.iter().map(|f| f.message.as_str()).collect();
         assert!(messages.iter().any(|m| m.contains("[[3]] is cited")));
         assert!(messages.iter().any(|m| m.contains("[[4]] is cited")));
@@ -435,13 +617,86 @@ mod tests {
     #[test]
     fn reference_link_counts_as_a_citation() {
         let md = "# One\n\n- [a rung][1]\n\n## A rung\n\n[1]: #a-rung\n";
-        assert_eq!(analyze(md), vec![]);
+        assert_eq!(findings(md), vec![]);
+    }
+
+    /// Counted rather than dropped, so the summary can say how much
+    /// of the file it did not resolve.
+    #[test]
+    fn cross_file_targets_are_counted() {
+        let md = "# One\n\nSee [it](notes/other.md#whatever) and [[1]].\n\n[1]: other.md#thing\n";
+        let c = analyze(md).counts;
+        assert_eq!(c.anchors_cross_file, 2);
+        assert_eq!(c.anchors_checked, 0);
+    }
+
+    /// The counts are what separate a pass that checked something
+    /// from one that had nothing to check.
+    #[test]
+    fn counts_describe_what_was_checked() {
+        let md = "# One\n\n## Two words\n\nSee [it](#two-words) and [[1]].\n\n[1]: #one\n";
+        let c = analyze(md).counts;
+        assert_eq!(c.headings, 2);
+        assert_eq!(
+            c.anchors_checked, 2,
+            "the inline link and the [1] definition"
+        );
+        assert_eq!(c.anchors_failed, 0);
+        assert_eq!(c.refs_defined, 1);
+        assert_eq!(c.refs_cited, 1);
+    }
+
+    /// A file with nothing to check reports zero rather than
+    /// passing as though it had checked something.
+    #[test]
+    fn a_file_with_no_links_counts_none() {
+        let c = analyze("# One\n\nProse only.\n").counts;
+        assert_eq!(c.anchors_checked, 0);
+        assert_eq!(c.refs_cited, 0);
+        assert_eq!(c.headings, 1);
+    }
+
+    /// A near miss names the heading it probably meant, which is the
+    /// fix the reader would otherwise open the file to find.
+    #[test]
+    fn a_near_miss_suggests_the_nearest_heading() {
+        let md = "# One\n\n## Todo format\n\nSee [it](#todo-formats).\n";
+        let f = findings(md);
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert!(
+            f[0].message.contains("Did you mean '#todo-format'?"),
+            "{f:?}"
+        );
+    }
+
+    /// Nothing is suggested when nothing is close, since a wrong
+    /// suggestion costs more than none.
+    #[test]
+    fn a_far_miss_suggests_nothing() {
+        let md = "# One\n\n## Todo format\n\nSee [it](#completely-different).\n";
+        let f = findings(md);
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert!(!f[0].message.contains("Did you mean"), "{f:?}");
+    }
+
+    /// Every heading and every resolved link is a site, which is
+    /// what `-vv` prints.
+    #[test]
+    fn sites_cover_headings_and_resolved_links() {
+        let md = "# One\n\n## Two words\n\nSee [it](#two-words).\n";
+        let details: Vec<String> = analyze(md).sites.into_iter().map(|s| s.detail).collect();
+        assert!(
+            details
+                .iter()
+                .any(|d| d.contains("heading slugs to '#one'"))
+        );
+        assert!(details.iter().any(|d| d.contains("'#two-words' resolves")));
     }
 
     #[test]
     fn uncited_definition_is_a_finding() {
         let md = "# One\n\nNothing cites it.\n\n[9]: #one\n";
-        let f = analyze(md);
+        let f = findings(md);
         assert_eq!(f.len(), 1, "{f:?}");
         assert!(f[0].message.contains("[9] is defined"), "{f:?}");
     }
@@ -449,7 +704,7 @@ mod tests {
     #[test]
     fn duplicate_heading_anchor_is_a_finding() {
         let md = "# Todo\n\n## Todo\n";
-        let f = analyze(md);
+        let f = findings(md);
         assert_eq!(f.len(), 1, "{f:?}");
         assert!(f[0].message.contains("duplicate heading anchor"), "{f:?}");
     }
@@ -459,7 +714,7 @@ mod tests {
     #[test]
     fn cross_file_targets_are_skipped() {
         let md = "# One\n\nSee [it](notes/other.md#whatever) and [[1]].\n\n[1]: other.md#thing\n";
-        assert_eq!(analyze(md), vec![]);
+        assert_eq!(findings(md), vec![]);
     }
 
     /// A fenced specimen is code, so its `#` lines are not headings
@@ -467,7 +722,7 @@ mod tests {
     #[test]
     fn fenced_code_is_not_prose() {
         let md = "# One\n\n```\n## Not a heading\n[[7]]\n```\n";
-        assert_eq!(analyze(md), vec![]);
+        assert_eq!(findings(md), vec![]);
     }
 
     /// A `[[N]]` in a code span is a quoted identifier, which
@@ -475,6 +730,6 @@ mod tests {
     #[test]
     fn code_span_citation_is_not_a_citation() {
         let md = "# One\n\nThe token `[[7]]` is literal text.\n";
-        assert_eq!(analyze(md), vec![]);
+        assert_eq!(findings(md), vec![]);
     }
 }

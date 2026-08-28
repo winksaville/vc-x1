@@ -58,7 +58,7 @@ The items the early close deferred, made runnable:
 - [fix: init takes a URL or a path][8] (done)
 - [feat: add validate-anchors][4] (done)
 - [docs: README covers the new surface][9] (done)
-- [feat: validate-anchors reports what it checked][10]
+- [feat: validate-anchors reports what it checked][10] (done)
 - [feat: check a config file's links and keys][5]
 - [chore: point config at .agent-session][6]
 - [feat: finish the vc-config surface closing][7]
@@ -356,8 +356,16 @@ vacuous pass reads as a real one. The same complaint bug #9 makes about `config 
   opening the file. Edit distance over a list already in hand.
 - Everything counted is already computed and discarded: `anchor_targets` walks every target and
   only the failures survive today.
-- Two lines of README touch-up ride along, since the section written one rung earlier describes the
-  output. Cheap now that the semicolon sweep is paid on that file.
+- The README section written one rung earlier describes the output, so it gains the summary line,
+  the `-v` / `-vv` split, and the nearest-heading suggestion. Cheap now that the sweep is paid.
+- `analyze` returns a `Report` (findings, sites, counts) rather than a bare finding list, so the
+  subcommand does the reporting and the checks stay testable on strings.
+- The number that justifies the rung: over this repo's live records the check resolves 220 links
+  and skips 220 as cross-file. Half the links are outside its reach, which the old summary's "40
+  files checked" gave a reader no way to know.
+- The suggestion threshold scales with the slug's length, at least two edits and at most a third of
+  it, so a short anchor needs a near-exact neighbour. Nothing is offered past that, since a wrong
+  suggestion costs more than none.
 
 ##### feat: check a config file's links and keys
 

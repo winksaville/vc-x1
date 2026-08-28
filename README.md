@@ -513,7 +513,7 @@ reader. Three checks, all within one file:
 - no two headings slug to the same anchor, which markdown resolves silently, so every link to it
   reaches the first heading
 
-Cross-file targets (`](other.md#slug)`) are recognized and skipped, since resolving one means
+Cross-file targets (`](other.md#slug)`) are counted but not resolved, since resolving one means
 slugging another file. Read-only, and exits non-zero when anything is found.
 
 ```
@@ -523,7 +523,21 @@ vc-x1 validate-anchors
 # Specific files, which is also how the frozen history is checked,
 # since notes/chores/ and notes/done.md are out of the default set
 vc-x1 validate-anchors TODO.md notes/bugs.md
+
+# -v adds per-file counts, -vv a line per site (every link with how
+# it resolved, every heading with the slug it produced)
+vc-x1 -vv validate-anchors TODO.md
 ```
+
+The summary counts links rather than files, so a pass says how much it covered and the cross-file
+tally names what it did not:
+
+```
+validate-anchors: 40 files, 220 link(s) checked, 8 failed, 220 cross-file skipped, 511 heading(s)
+```
+
+A failing target names the nearest heading in the file when one is close enough to be worth
+naming, so the fix usually does not need the file opened.
 
 The slug algorithm is the one [notes.md](./agent-data/notes.md#markdown-anchor-links) documents:
 lowercase, drop every character that is not alphanumeric, a hyphen, or an underscore, and map each
