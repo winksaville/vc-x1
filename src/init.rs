@@ -25,23 +25,25 @@ use crate::url::{Target, derive_bot_url, derive_name, parse_target};
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Target: URL, owner/name shorthand, path, or bare NAME.
+    /// Target: URL, path, or bare NAME.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
     ///   used as-is, config not consulted.
-    /// - owner/name shorthand: resolves to
-    ///   `git@github.com:owner/name.git`, config not consulted.
     /// - Path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`, is the
     ///   directory path, remote resolved via `--repo` chain.
     /// - Bare NAME: becomes NAME.git, remote resolved via
     ///   `--repo` chain.
+    ///
+    /// A slashed target with no path prefix (`owner/name`) is
+    /// refused: it reads equally as a path and as the retired
+    /// owner/name shorthand, so pass `./owner/name` or a URL.
     #[arg(value_name = "TARGET", verbatim_doc_comment)]
     pub target: String,
 
-    /// Repo directory name override (URL / owner/name forms only).
+    /// Repo directory name override (URL form only).
     ///
-    /// - URL / owner/name forms: repo created at `cwd/<NAME>`
-    ///   instead of the URL-derived name.
+    /// - URL form: repo created at `cwd/<NAME>` instead of the
+    ///   URL-derived name.
     /// - Path / bare-NAME forms: error if given (TARGET already
     ///   names the repo).
     #[arg(value_name = "NAME", verbatim_doc_comment)]
@@ -161,7 +163,7 @@ pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
 /// Top-level non-hidden files init writes. Kept here so that if init is
 /// ever extended to write non-hidden top-level files, the pre-flight
 /// conflict scan flags any template that would clash. Currently empty
-/// because init only writes hidden files (`.vc-config.toml`, `.gitignore`),
+/// because init only writes hidden files (`.vc-config.md`, `.gitignore`),
 /// and the template copy skips hidden entries.
 const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
 
@@ -312,7 +314,7 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
     Ok(gh(&["repo", "view", &full], Path::new(".")).is_ok())
 }
 
-/// Which shape of `.vc-config.toml` to generate.
+/// Which shape of `.vc-config.md` to generate.
 ///
 /// The `[repos]` registry's values are file-relative, so the two
 /// sides of a dual workspace carry different blocks: the side
@@ -329,7 +331,8 @@ pub(crate) enum ConfigRole {
 }
 
 /// Renders the header comment + active `[repos]` registry for a
-/// generated `.vc-config.toml`, role-specific.
+/// generated config file, role-specific. The text is TOML, and
+/// `render_vc_config` fences it.
 fn render_workspace_header(role: ConfigRole) -> String {
     match role {
         ConfigRole::DualWork => r#"# vc-config: Vibe Coding workspace configuration
@@ -403,6 +406,14 @@ fn render_optional_keys_block() -> String {
         {
             continue;
         }
+        // A key with no default has nothing to offer a generated
+        // file: its value is the workspace's to invent. Skipped
+        // before its section header is written, or a section whose
+        // keys are all defaultless (`[family]`, `[validate]`) would
+        // leave a bare header behind with nothing under it.
+        if key.default.is_none() {
+            continue;
+        }
         let (section, _leaf) = section_and_leaf(key.path);
         if current_section.as_deref() != Some(section) {
             // The first section needs a blank line separating it from
@@ -415,23 +426,44 @@ fn render_optional_keys_block() -> String {
             out.push_str(&format!("[{section}]\n"));
             current_section = Some(section.to_string());
         }
-        if key.default.is_none() {
-            continue;
-        }
         out.push_str(&render_key_block(key));
     }
 
     out
 }
 
-/// Renders the complete generated `.vc-config.toml` content for
-/// `role`: the active header + `[repos]` registry, followed by a
-/// commented block documenting the rest of the settable-key
-/// surface (see `render_optional_keys_block`).
+/// The prose a generated `.vc-config.md` opens with, above its
+/// one `toml` fence.
+///
+/// A new workspace's file says what it is and where its
+/// documentation lives, and the links are relative to nothing in
+/// the new repo, so they name the vc-x1 documentation by url.
+const CONFIG_MD_INTRO: &str = "\
+# vc-x1 config file
+
+This workspace's configuration. The `toml` fence below is the configuration itself, and the prose
+around it is yours to write: only a fence tagged exactly `toml` is read.
+
+Every settable key is documented in vc-x1's `vc-config.md`, and `vc-config-model.md` beside it
+shows every table with its default or a typical value. `vc-x1 config` prints the same schema from
+the binary you are running.
+
+";
+
+/// Renders the complete generated `.vc-config.md` content for
+/// `role`: the intro prose, then one `toml` fence holding the
+/// active header + `[repos]` registry and a commented block
+/// documenting the rest of the settable-key surface (see
+/// `render_optional_keys_block`).
+///
+/// One fence rather than one per table: everything after `[repos]`
+/// is commented, so splitting it into per-table fences would make a
+/// document of empty fences. A workspace that uncomments a key is
+/// free to split the file up, which the carrier reads the same way.
 pub(crate) fn render_vc_config(role: ConfigRole) -> String {
-    let mut out = render_workspace_header(role);
-    out.push_str(&render_optional_keys_block());
-    out
+    let mut toml = render_workspace_header(role);
+    toml.push_str(&render_optional_keys_block());
+    format!("{CONFIG_MD_INTRO}```toml\n{toml}```\n")
 }
 
 pub(crate) const GITIGNORE_CODE: &str = "/target
@@ -453,52 +485,61 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.jj
 ";
 
-/// Write the POR (single-repo) canned `.vc-config.toml` into `dir`.
+/// Write the POR (single-repo) canned `.vc-config.md` into `dir`.
 ///
-/// Split from the legacy `write_por_config` so the `.vc-config.toml`
-/// write is gateable by `--config` while the `.gitignore` write
-/// stays unconditional.
+/// Split from the legacy `write_por_config` so the config write is
+/// gateable by `--config` while the `.gitignore` write stays
+/// unconditional.
 fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::WorkOnly),
     )
 }
 
 /// Write the POR (single-repo) `.gitignore` into `dir`. Always
-/// unconditional: `--config` controls only `.vc-config.toml`.
+/// unconditional: `--config` controls only the config file.
 fn write_por_gitignore(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(&dir.join(".gitignore"), GITIGNORE_APP_ONLY)
 }
 
-/// Copy a user-supplied `.vc-config.toml` from `src` to `dir`.
+/// Copy a user-supplied config file from `src` to `dir`.
 ///
-/// Bytewise copy: no TOML parse, no schema validation. If the
-/// content is malformed the project will surface the problem on
-/// first `find_workspace_root` / config-reader call. Caller is
+/// The destination name follows the source's carrier, `.md` to
+/// `.vc-config.md` and anything else to `.vc-config.toml`, since
+/// naming a TOML file `.md` would hand the markdown filter a file
+/// with no fences and yield an empty config.
+///
+/// Bytewise copy: no parse, no schema validation. If the content is
+/// malformed the project will surface the problem on first
+/// `find_workspace_root` / config-reader call. Caller is
 /// responsible for path-existence preflight.
 fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    std::fs::copy(src, dir.join(".vc-config.toml"))
+    let name = match src.extension().and_then(|e| e.to_str()) {
+        Some("md") => crate::config_md::VC_CONFIG_MD,
+        _ => crate::desc_helpers::VC_CONFIG_FILE,
+    };
+    std::fs::copy(src, dir.join(name))
         .map_err(|e| format!("--config: failed to copy {}: {e}", src.display()))?;
     Ok(())
 }
 
-/// Write the dual-mode work-side `.vc-config.toml` and `.gitignore`
+/// Write the dual-mode work-side `.vc-config.md` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
 fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::DualWork),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
 }
 
-/// Write the dual-mode bot-side `.vc-config.toml` and
-/// `.gitignore` into `dir`. Used by `create_dual` for the bot repo.
+/// Write the dual-mode agent-side `.vc-config.md` and
+/// `.gitignore` into `dir`. Used by `create_dual` for the agent repo.
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
-        &dir.join(".vc-config.toml"),
+        &dir.join(crate::config_md::VC_CONFIG_MD),
         &render_vc_config(ConfigRole::DualBot),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
@@ -736,9 +777,6 @@ pub(crate) fn plan_init(
     debug!("parse_target: {:?} -> {:?}", params.target, parsed);
     let plan = match parsed {
         Target::Url(url) => plan_from_url(params, scope, url),
-        Target::OwnerName(o, n) => {
-            plan_from_url(params, scope, format!("git@github.com:{o}/{n}.git"))
-        }
         Target::Path(p) => plan_from_path(params, scope, p, cfg),
         Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
@@ -818,17 +856,24 @@ fn plan_from_path(
         );
     }
     let project_dir = resolve_path_target(&path)?;
-    let name = project_dir
+    let last = project_dir
         .file_name()
         .ok_or_else(|| {
             format!(
-                "path TARGET '{}' has no last component; cannot derive a repo name",
+                "path TARGET '{}' has no last component, so no repo name can be derived",
                 path.display()
             )
         })?
         .to_str()
-        .ok_or("path TARGET is not valid UTF-8")?
-        .to_string();
+        .ok_or("path TARGET is not valid UTF-8")?;
+    // Through `derive_name`, the same normalization a URL target
+    // gets, so a `foo.git` directory yields the repo name `foo`
+    // rather than `foo.git`. The two branches answering this
+    // differently is what made a `./tmp/xx1.git` target ask GitHub
+    // for `xx1.git`, get `xx1` (GitHub drops the suffix), and then
+    // write a remote pointing at the name it never created
+    // (2026-08-28, bugs.md).
+    let name = derive_name(last)?;
     let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
     plan_from_resolved(scope, name, project_dir, &cat, &val)
 }
@@ -1061,11 +1106,25 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     {
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
-            return Ok(format!(
-                "{}/{}",
-                parts[parts.len() - 2],
-                parts[parts.len() - 1]
-            ));
+            let name = parts[parts.len() - 1];
+            // GitHub drops a trailing `.git` from a repo name at
+            // creation, so asking for one means the repo it makes
+            // is not the repo the remote we then write points at,
+            // and the first push fails with "the repository
+            // exists" being the false half (2026-08-28, bugs.md).
+            // Refused here rather than repaired, since silently
+            // renaming what the caller asked for is how the
+            // mismatch started.
+            if name.ends_with(".git") {
+                return Err(format!(
+                    "repo name '{name}' ends with '.git', which GitHub drops at creation, so \
+                     the repo would be '{}'. Name it '{}' instead",
+                    name.trim_end_matches(".git"),
+                    name.trim_end_matches(".git")
+                )
+                .into());
+            }
+            return Ok(format!("{}/{name}", parts[parts.len() - 2]));
         }
     }
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
@@ -1227,7 +1286,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             }
         );
         info!(
-            "  3. Write .vc-config.toml and .gitignore{}",
+            "  3. Write .vc-config.md and .gitignore{}",
             if is_dual {
                 " to both repos"
             } else {
@@ -1330,7 +1389,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// Create-from-empty orchestrator for `--por` (single repo).
 ///
 /// Composes (in order):
-/// - `prepare_local_repo` -> conditional `.vc-config.toml` write
+/// - `prepare_local_repo` -> conditional `.vc-config.md` write
 ///   (gated by `--config`) -> `write_por_gitignore` (always) ->
 ///   `commit_initial` (`OchidStrategy::None`).
 /// - `push_repo` for work side (no `clean_exclude`).

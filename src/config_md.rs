@@ -79,12 +79,215 @@ pub fn load(dir: &Path) -> Result<Option<VcConfig>, Box<dyn std::error::Error>> 
     Ok(Some(VcConfig { path, map }))
 }
 
+/// The config-file model's generator.
+///
+/// Test-only on purpose. The artifact is the committed
+/// `vc-config-model.md`, and this module is what writes it, run by
+/// `model_file_is_current` with `VC_X1_UPDATE_MODEL=1`. Nothing in
+/// the shipped binary reads a model, so shipping its generator
+/// would be dead weight, and the checks that will read one lift out
+/// what they need when they land.
+#[cfg(test)]
+mod model {
+    use crate::config_schema::{
+        ConfigKey, Home, ValueKind, format_value, schema, section_and_leaf, wrap_prefixed,
+    };
+    use crate::toml_simple;
+
+    /// The model config file's name, at the repo root.
+    ///
+    /// Generated rather than maintained, so "carries every key" holds
+    /// by construction rather than by a hand count. The
+    /// `model_file_is_current` test keeps the committed copy so.
+    pub const VC_CONFIG_MODEL: &str = "vc-config-model.md";
+
+    /// The prose width the project wraps durable text at, which the
+    /// model's bullets and its `str-list` values follow.
+    const PROSE_WIDTH: usize = 100;
+
+    /// The model's prose header, everything above its first table.
+    const MODEL_INTRO: &str = "\
+# vc-x1 config file
+
+A model config file: every table and key a workspace config may carry, each with its default or a
+typical value. Generated from the schema, so it cannot fall behind the keys the binary knows. Copy
+the tables you need into your own `.vc-config.md` and drop the rest.
+
+The values inside a `toml` fence are the workspace's own, and the prose around them is
+documentation. Only a fence tagged exactly `toml` is read, so any other fence is prose like the
+text beside it. Each bullet links to its key's entry in the schema documentation.
+";
+
+    /// The value a model file shows for `key`: its default, else its
+    /// representative example, else a placeholder by kind.
+    ///
+    /// The prototype requires one of the two, so the placeholder arm is
+    /// unreachable for a schema build.rs accepted, and it stays for the
+    /// same reason [`crate::config_schema::render_value`] has one.
+    fn model_value(key: &ConfigKey) -> String {
+        match key.default.or(key.example) {
+            Some(v) => format_value(key.kind, v),
+            None => crate::config_schema::render_value(key),
+        }
+    }
+
+    /// Render one key's assignment line (or lines) for a model fence.
+    ///
+    /// A `str-list` whose one-line form would run past the prose width
+    /// breaks one element per line, which is the shape a real config
+    /// file uses for a `[validate]` table and the one a reader can diff
+    /// a command out of. Everything else is one line.
+    fn model_assignment(key: &ConfigKey) -> String {
+        let (_section, leaf) = section_and_leaf(key.path);
+        let value = model_value(key);
+        let one_line = format!("{leaf} = {value}\n");
+        if key.kind != ValueKind::StrList || one_line.len() <= PROSE_WIDTH {
+            return one_line;
+        }
+        let Ok(items) = toml_simple::parse_array(&value, key.path) else {
+            return one_line;
+        };
+        let mut out = format!("{leaf} = [\n");
+        for item in items {
+            out.push_str(&format!("  {item:?},\n"));
+        }
+        out.push_str("]\n");
+        out
+    }
+
+    /// True when `key` belongs in a workspace config file at all.
+    ///
+    /// The user-home-only keys (`default.*`, `repo.*`, `account.*`)
+    /// are a different file, so a model of a workspace config never
+    /// shows them.
+    pub(super) fn in_workspace(key: &ConfigKey) -> bool {
+        key.homes
+            .iter()
+            .any(|h| matches!(h, Home::WorkspaceCode | Home::WorkspaceBot))
+    }
+
+    /// Render the model config file: every workspace-side key grouped
+    /// into its table, each table's keys listed as doc-link bullets
+    /// above a `toml` fence carrying that table's values.
+    ///
+    /// The shape is the compact one a hand-written `.vc-config.md`
+    /// uses, so the model reads as the thing it models:
+    ///
+    /// - one `- <leaf>: <doc> [[N]]` bullet per key, wrapped at the
+    ///   prose width, its `[[N]]` defined in the trailing
+    ///   `# References` section as that key's documentation url
+    /// - one fence per table, keys in schema order, so the file's
+    ///   reading order is the schema's
+    ///
+    /// A key's url is its `reference`, which build.rs derives from
+    /// `[vc-config] reference-base`, so a fork's model points at the
+    /// fork's own copy of the documentation.
+    pub fn render_model() -> String {
+        let mut sections: Vec<(&str, Vec<&ConfigKey>)> = Vec::new();
+        for key in schema().iter().filter(|k| in_workspace(k)) {
+            let (section, _leaf) = section_and_leaf(key.path);
+            match sections.last_mut() {
+                Some((seen, keys)) if *seen == section => keys.push(key),
+                _ => sections.push((section, vec![key])),
+            }
+        }
+
+        let mut out = String::from(MODEL_INTRO);
+        let mut references: Vec<&'static str> = Vec::new();
+        for (section, keys) in &sections {
+            out.push_str(&format!("\nThe `[{section}]` table\n"));
+            for key in keys {
+                references.push(key.reference);
+                let (_section, leaf) = section_and_leaf(key.path);
+                let bullet = format!("{leaf}: {} [[{}]]", key.doc, references.len());
+                out.push_str(&wrap_prefixed(&bullet, "- ", "  ", PROSE_WIDTH));
+            }
+            out.push_str(&format!("```toml\n[{section}]\n"));
+            for key in keys {
+                out.push_str(&model_assignment(key));
+            }
+            out.push_str("```\n");
+        }
+
+        out.push_str("\n# References\n\n");
+        for (i, reference) in references.iter().enumerate() {
+            out.push_str(&format!("[{}]: {reference}\n", i + 1));
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::model::{VC_CONFIG_MODEL, in_workspace, render_model};
     use super::*;
+    use crate::config_schema::schema;
 
-    /// The model rendering (vc-config-test.md's shape): compact,
-    /// one fence per table, doc-link bullets above it.
+    /// The committed model file, resolved from the manifest dir so
+    /// the test does not depend on the harness's working directory.
+    fn model_path() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(VC_CONFIG_MODEL)
+    }
+
+    /// The committed model is what the schema renders today.
+    ///
+    /// This is what makes the file generated rather than
+    /// maintained: a schema change that does not reach it fails
+    /// here. Set `VC_X1_UPDATE_MODEL=1` to rewrite it, which is how
+    /// a schema change lands in the file.
+    #[test]
+    fn model_file_is_current() {
+        let rendered = render_model();
+        let path = model_path();
+        if std::env::var_os("VC_X1_UPDATE_MODEL").is_some() {
+            std::fs::write(&path, &rendered).expect("write the model");
+            return;
+        }
+        let committed = std::fs::read_to_string(&path).expect("read the model");
+        assert_eq!(
+            committed, rendered,
+            "{} is stale: re-run with VC_X1_UPDATE_MODEL=1",
+            VC_CONFIG_MODEL
+        );
+    }
+
+    /// Every workspace-side key reaches the model.
+    ///
+    /// The property the file exists to hold, asserted against the
+    /// schema rather than counted by hand.
+    #[test]
+    fn model_carries_every_workspace_key() {
+        let rendered = render_model();
+        let toml = md_to_toml(&rendered).expect("the model's fences");
+        let map = toml_simple::toml_parse(&toml);
+        for key in schema().iter().filter(|k| in_workspace(k)) {
+            assert!(
+                map.contains_key(key.path),
+                "the model is missing {}",
+                key.path
+            );
+        }
+    }
+
+    /// No key the model shows is one a workspace config may not
+    /// hold, which is the other half of `--validate`'s question.
+    #[test]
+    fn model_shows_no_user_only_key() {
+        let rendered = render_model();
+        let toml = md_to_toml(&rendered).expect("the model's fences");
+        let map = toml_simple::toml_parse(&toml);
+        for path in map.keys() {
+            let key = schema()
+                .iter()
+                .find(|k| k.path == path)
+                .unwrap_or_else(|| panic!("the model shows an unknown key {path}"));
+            assert!(in_workspace(key), "the model shows a user-only key {path}");
+        }
+    }
+
+    /// The compact shape the model renders and a hand-written
+    /// config file uses: one fence per table, doc-link bullets
+    /// above it.
     const COMPACT: &str = "\
 # vc-x1 config file
 

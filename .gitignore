@@ -1,8 +1,8 @@
 /target
 /.claude
+/.agent-session
 /.git
 /.jj
-/.vc-x1
 /tmp
 
 

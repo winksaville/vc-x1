@@ -7,10 +7,10 @@
 //! - `--por`: single repo into `<target>`. No `.claude/`, no
 //!   symlink.
 //!
-//! TARGET shapes (all routed through `parse_target`): URL,
-//! `owner/name` shorthand, or a local path (`./X`, `/X`, `~/X`,
-//! `.`, `..`). Path-form is symmetric with `git clone /local/bare.git`,
-//! useful for fixtures and CI scratch dirs.
+//! TARGET shapes (all routed through `parse_target`): a URL or a
+//! local path (`./X`, `/X`, `~/X`, `.`, `..`). Path-form is
+//! symmetric with `git clone /local/bare.git`, useful for fixtures
+//! and CI scratch dirs.
 //!
 //! `clone_one` and `clone_dual` are `pub(crate)` so init's `-3`
 //! reshape can reuse them for the "URL exists -> clone" preflight
@@ -27,16 +27,17 @@ use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
-use crate::url::{Target, derive_bot_url, derive_name, parse_target, resolve_url};
+use crate::url::{Target, derive_bot_url, derive_name, parse_target};
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
 pub struct CloneArgs {
-    /// Source to clone: URL, owner/name shorthand, or local path.
+    /// Source to clone: URL or local path.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
-    /// - owner/name shorthand: resolves to
-    ///   `git@github.com:owner/name.git`
+    /// - A slashed source with no path prefix (`owner/name`) is
+    ///   refused: it reads equally as a path and as the retired
+    ///   owner/name shorthand, so pass `./owner/name` or a URL.
     /// - Local path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`
     ///   (passed directly to `git clone`)
     #[arg(value_name = "TARGET", verbatim_doc_comment)]
@@ -58,7 +59,7 @@ pub struct CloneArgs {
 
 /// Inputs to the clone op, flat, owned, clap-free.
 ///
-/// - `target`: the `TARGET` positional (URL, `owner/name`, or
+/// - `target`: the `TARGET` positional (URL or
 ///   local path).
 /// - `name`: optional `NAME` positional override for the
 ///   destination dir.
@@ -117,12 +118,11 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
     let parsed = parse_target(&params.target)?;
     let source = match parsed {
         Target::Url(u) => u,
-        Target::OwnerName(o, n) => resolve_url(&format!("{o}/{n}")),
         Target::Path(p) => p.to_str().ok_or("path is not valid UTF-8")?.to_string(),
         Target::BareName(n) => {
             return Err(format!(
-                "'{n}' is a bare name: clone has no config-driven defaults; \
-                 use 'owner/{n}', a full URL, or './{n}' for a local path"
+                "'{n}' is a bare name and clone has no config-driven defaults. Use a full \
+                 URL, or './{n}' for a local path"
             )
             .into());
         }

@@ -1,8 +1,8 @@
 //! Parsing and derivation helpers for URLs and target strings.
 //!
 //! Single source of truth for the positional `<TARGET>` forms
-//! that `init` and `clone` accept (URL, owner/name shorthand,
-//! path) and for the URL-derivation helpers shared between them.
+//! that `init` and `clone` accept (URL, path, bare NAME) and for
+//! the URL-derivation helpers shared between them.
 //!
 //! Lifted from `clone.rs` / `init.rs` in 0.41.1-1; consumers
 //! migrate to `parse_target` in 0.41.1-2 (clone) and 0.41.1-3
@@ -13,27 +13,27 @@ use std::path::PathBuf;
 /// A parsed positional `<TARGET>` argument to `init` or `clone`.
 ///
 /// - `Url`: full git URL (`scheme://...` or SSH `user@host:path`).
-/// - `OwnerName(owner, name)`: `owner/name` shorthand;
-///   resolves to `git@github.com:owner/name.git`.
 /// - `Path`: local path with explicit prefix
 ///   (`./`, `../`, `/`, `~/`, or bare `~`). Path text is preserved
-///   literally; tilde expansion is the consumer's responsibility.
+///   literally, and tilde expansion is the consumer's
+///   responsibility.
 /// - `BareName`: a bare alphanumeric (no `/`, `:`, or path
-///   prefix). Init resolves it via the user-config remote chain;
-///   clone errors on it (no config-driven default).
+///   prefix). Init resolves it via the user-config remote chain,
+///   and clone errors on it (no config-driven default).
+///
+/// The retired fourth form is the `owner/name` shorthand, which
+/// [`parse_target`] now rejects. See there for why.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Target {
     Url(String),
-    OwnerName(String, String),
     Path(PathBuf),
     BareName(String),
 }
 
-/// Parse a positional `<TARGET>` argument into one of the four
+/// Parse a positional `<TARGET>` argument into one of the three
 /// `Target` variants.
 ///
-/// Detection order (path forms first, then URL, then shorthand,
-/// then bare NAME):
+/// Detection order (path forms first, then URL, then bare NAME):
 ///
 /// - Path forms: bare `.`, `..`, or `~`; or starts with `./`,
 ///   `../`, `/`, or `~/`. `.` and `..` are POSIX cwd/parent and
@@ -41,14 +41,23 @@ pub enum Target {
 ///   directory name via `canonicalize` + `file_name`.
 /// - URL: contains `://`, or SSH-style `user@host:path` (an `@`
 ///   followed somewhere by `:`).
-/// - `owner/name` shorthand: exactly one `/`, both sides non-empty,
-///   no path or URL indicators.
 /// - Bare NAME: no `/`, no `:`, no URL/path indicators. Init
 ///   resolves it via the user-config remote chain (repo created
-///   at `cwd/<NAME>`); clone errors on it (no config).
+///   at `cwd/<NAME>`), and clone errors on it (no config).
 ///
-/// Errors only on empty input or syntactic garbage that fits
-/// none of the above (e.g. `owner/name/extra`).
+/// A slashed target with no path prefix (`owner/name`, `tmp/foo`)
+/// is refused, naming both readings. It used to be the `owner/name`
+/// shorthand, and the reading is undecidable: nothing needs to
+/// exist for a path target, since init creates missing parents, so
+/// `tmp/foo` is a well-formed path and a well-formed `owner/name`
+/// at the same time. The old rule broke the tie toward the
+/// shorthand, which silently turned a `tmp/foo` path into a request
+/// to create a repo in an organization named `tmp` (2026-08-28,
+/// bugs.md). Refusing is the transitional step: once nobody reaches
+/// for the shorthand, a slashed target can simply mean the path.
+///
+/// Errors otherwise only on empty input or syntactic garbage that
+/// fits none of the above.
 pub fn parse_target(s: &str) -> Result<Target, String> {
     if s.is_empty() {
         return Err("empty target".into());
@@ -74,14 +83,15 @@ pub fn parse_target(s: &str) -> Result<Target, String> {
         return Ok(Target::Url(s.to_string()));
     }
 
-    if s.matches('/').count() == 1
-        && let Some((owner, name)) = s.split_once('/')
-        && !owner.is_empty()
-        && !name.is_empty()
-        && !owner.contains(':')
-        && !name.contains(':')
-    {
-        return Ok(Target::OwnerName(owner.to_string(), name.to_string()));
+    // A slash with no path prefix: the retired shorthand's shape,
+    // and also a perfectly ordinary relative path. Neither reading
+    // wins on syntax, so neither is guessed.
+    if s.contains('/') && !s.contains(':') {
+        return Err(format!(
+            "'{s}' is ambiguous: it could name the local path './{s}' or the GitHub repo \
+             '{s}', and the owner/name shorthand is retired. Pass './{s}' for the path, or \
+             the repo's URL"
+        ));
     }
 
     // Bare NAME: no slash, no colon, no URL pattern. Init expands
@@ -125,21 +135,6 @@ pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
         return Err(format!("cannot derive project name from '{url}'").into());
     }
     Ok(last.to_string())
-}
-
-/// Resolve a target string to a git clone URL.
-///
-/// - `owner/name` (single `/`, no `:` or scheme) ->
-///   `git@github.com:owner/name.git`.
-/// - Anything else is passed through as-is (already a URL).
-pub fn resolve_url(url: &str) -> String {
-    if url.contains("://") || url.contains('@') {
-        return url.to_string();
-    }
-    if url.matches('/').count() == 1 && !url.contains(':') {
-        return format!("git@github.com:{url}.git");
-    }
-    url.to_string()
 }
 
 /// Derive the bot-repo URL from a work-side URL.
@@ -204,25 +199,6 @@ mod tests {
         assert_eq!(derive_name("/tmp/foo").unwrap(), "foo");
     }
 
-    // --- resolve_url -------------------------------------------------
-
-    #[test]
-    fn resolve_url_shorthand() {
-        assert_eq!(resolve_url("owner/repo"), "git@github.com:owner/repo.git");
-    }
-
-    #[test]
-    fn resolve_url_ssh_passthrough() {
-        let url = "git@github.com:owner/repo.git";
-        assert_eq!(resolve_url(url), url);
-    }
-
-    #[test]
-    fn resolve_url_https_passthrough() {
-        let url = "https://github.com/owner/repo.git";
-        assert_eq!(resolve_url(url), url);
-    }
-
     // --- derive_bot_url ------------------------------------------
 
     #[test]
@@ -277,14 +253,24 @@ mod tests {
         );
     }
 
-    // --- parse_target: owner/name shorthand --------------------------
+    // --- parse_target: the retired owner/name shorthand --------------
 
+    /// A slashed target with no path prefix is refused, and the
+    /// message carries both readings so the caller can pick one.
     #[test]
-    fn parse_target_owner_name() {
-        assert_eq!(
-            parse_target("owner/repo").unwrap(),
-            Target::OwnerName("owner".into(), "repo".into()),
-        );
+    fn parse_target_slashed_is_refused() {
+        let err = parse_target("owner/repo").unwrap_err();
+        assert!(err.contains("ambiguous"), "{err}");
+        assert!(err.contains("./owner/repo"), "{err}");
+        assert!(err.contains("URL"), "{err}");
+    }
+
+    /// The case that found the bug: a plausible relative path used
+    /// to become a request to create a repo in an org named `tmp`.
+    #[test]
+    fn parse_target_relative_path_without_prefix_is_refused() {
+        let err = parse_target("tmp/foo").unwrap_err();
+        assert!(err.contains("./tmp/foo"), "{err}");
     }
 
     // --- parse_target: path forms ------------------------------------
@@ -364,10 +350,13 @@ mod tests {
         );
     }
 
+    /// A multi-slash target is refused by the same rule as a
+    /// single-slash one: it is a path or it is nothing, and saying
+    /// so needs the `./` prefix.
     #[test]
     fn parse_target_too_many_slashes_errors() {
         let err = parse_target("owner/name/extra").unwrap_err();
-        assert!(err.contains("not a recognized target"), "got: {err}");
+        assert!(err.contains("./owner/name/extra"), "got: {err}");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! CLI subprocess tests for `config`: pin the annotated-schema
 //! print, the positional target (side keywords / explicit path),
-//! and `--validate`'s unknown-key check.
+//! and `validate-config`'s unknown-key check.
 
 mod common;
 
@@ -72,7 +72,7 @@ fn cli_config_user_path() {
     assert!(stdout.contains("[repos]"), "got: {stdout}");
 }
 
-/// `config --validate` against a clean single-repo workspace (a
+/// `validate-config` against a clean single-repo workspace (a
 /// valid `[agent-session].col-width`) exits 0: the work side checks
 /// out and the absent bot side is skipped with a note.
 #[test]
@@ -83,18 +83,17 @@ fn cli_config_validate_clean() {
         "[repos]\nwork = \".\"\n\n[agent-session]\ncol-width = 40\n",
     )
     .expect("write vc-config");
-    let out = run_ok(
-        fx.cmd()
-            .current_dir(&fx.base)
-            .arg("config")
-            .arg("--validate"),
-    );
+    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("validate-config"));
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("all checks passed"), "got: {stdout}");
+    assert!(stdout.contains("0 problem(s) found"), "got: {stdout}");
+    assert!(
+        stdout.contains("key(s) and"),
+        "the summary counts what it checked: {stdout}"
+    );
     assert!(stdout.contains("no bot repo configured"), "got: {stdout}");
 }
 
-/// `config --validate` against a workspace config with typo'd keys
+/// `validate-config` against a workspace config with typo'd keys
 /// exits non-zero and names each unknown key.
 #[test]
 fn cli_config_validate_unknown() {
@@ -105,18 +104,13 @@ fn cli_config_validate_unknown() {
          40\n\n[agent-session]\nresult-line = 3\n",
     )
     .expect("write vc-config");
-    let out = run_err(
-        fx.cmd()
-            .current_dir(&fx.base)
-            .arg("config")
-            .arg("--validate"),
-    );
+    let out = run_err(fx.cmd().current_dir(&fx.base).arg("validate-config"));
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("agent-session.col-widht"), "got: {stderr}");
     assert!(stderr.contains("2 problem(s) found"), "got: {stderr}");
 }
 
-/// `config <path> --validate` against a user config using the
+/// `validate-config <path>` against a user config using the
 /// dynamic `repo.category.<cat>` family exits 0: a path target
 /// validates against the whole schema, and the placeholder matches
 /// the concrete `remote` segment.
@@ -134,10 +128,25 @@ fn cli_config_validate_dynamic_ok() {
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("config")
-            .arg(&user_cfg)
-            .arg("--validate"),
+            .arg("validate-config")
+            .arg(&user_cfg),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("all checks passed"), "got: {stdout}");
+    assert!(stdout.contains("0 problem(s) found"), "got: {stdout}");
+}
+
+/// The retired `config --validate` spelling errors with a fix-it
+/// naming the subcommand, rather than silently printing the schema
+/// or dying in clap.
+#[test]
+fn cli_config_validate_flag_retired() {
+    let fx = CliFixture::new("config-validate-retired");
+    let out = run_err(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("config")
+            .arg("--validate"),
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("validate-config"), "got: {stderr}");
 }

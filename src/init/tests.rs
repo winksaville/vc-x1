@@ -16,8 +16,8 @@ fn parse(args: &[&str]) -> InitArgs {
 
 #[test]
 fn defaults() {
-    let args = parse(&["vc-x1", "init", "owner/repo"]);
-    assert_eq!(args.target, "owner/repo");
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
+    assert_eq!(args.target, "https://github.com/owner/repo");
     assert!(args.name.is_none());
     assert!(args.account.value.is_none());
     assert!(args.repo.value.is_none());
@@ -34,7 +34,7 @@ fn all_opts() {
     let args = parse(&[
         "vc-x1",
         "init",
-        "owner/repo",
+        "https://github.com/owner/repo",
         "my-dir",
         "--account",
         "work",
@@ -50,7 +50,7 @@ fn all_opts() {
         "--use-template",
         "/tmp/tmpl",
     ]);
-    assert_eq!(args.target, "owner/repo");
+    assert_eq!(args.target, "https://github.com/owner/repo");
     assert_eq!(args.name.as_deref(), Some("my-dir"));
     assert_eq!(args.account.value.as_deref(), Some("work"));
     let sel = args.repo.value.as_ref().expect("--repo set");
@@ -117,16 +117,38 @@ fn config_generated_toml_parses_to_active_keys_only() {
             .unwrap_or(0) // OK: test-only uniqueness suffix, and 0 fallback is harmless
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
-    let path = dir.join(".vc-config.toml");
+    let path = dir.join(crate::config_md::VC_CONFIG_MD);
     std::fs::write(&path, render_vc_config(ConfigRole::DualWork)).expect("write config");
 
-    let map = crate::toml_simple::toml_load(&path).expect("parse generated config");
+    let map = crate::config_md::load_file(&path).expect("parse generated config");
     assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
     assert_eq!(map.get("repos.agent").map(String::as_str), Some(".claude"));
     assert!(!map.contains_key("agent-session.col-width"));
     assert!(!map.contains_key("push.state-file"));
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// No table header is emitted without a key under it.
+///
+/// A section whose keys all lack defaults (`[family]`, `[validate]`)
+/// has nothing to render, and emitting its header anyway left a
+/// generated config ending in two bare tables.
+#[test]
+fn config_generated_has_no_empty_table() {
+    let rendered = render_vc_config(ConfigRole::DualWork);
+    let is_header = |l: &str| l.starts_with('[') && l.ends_with(']');
+    let mut lines = rendered.lines().filter(|l| !l.trim().is_empty()).peekable();
+    while let Some(line) = lines.next() {
+        if !is_header(line) {
+            continue;
+        }
+        let next = lines.peek().copied().unwrap_or("```");
+        assert!(
+            !is_header(next) && next != "```",
+            "{line} has no keys under it"
+        );
+    }
 }
 
 #[test]
@@ -370,8 +392,8 @@ fn target_url_form_accepted() {
 
 #[test]
 fn target_owner_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "owner/repo"]);
-    assert_eq!(args.target, "owner/repo");
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
+    assert_eq!(args.target, "https://github.com/owner/repo");
 }
 
 #[test]
@@ -638,36 +660,58 @@ fn plan_url_with_name_override() {
     assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
 }
 
-// ---------- owner/name shorthand TARGET ----------
+// ---------- the retired owner/name shorthand ----------
 
+/// A slashed TARGET with no path prefix is refused before a plan
+/// exists, so nothing reaches GitHub under a guessed reading.
 #[test]
-fn plan_owner_name_resolves_to_github_ssh() {
-    let args = args_for("winksaville/tf1");
-    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
-    assert_eq!(plan.provisioner, Provisioner::GhCreate);
-    assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
-    assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
-}
-
-#[test]
-fn plan_owner_name_eq_ssh_url_form() {
-    // owner/name shorthand must produce the same plan as the
-    // explicit SSH URL it resolves to.
-    let p1 = plan_init(
+fn plan_slashed_target_is_refused() {
+    let err = plan_init(
         &InitParams::from(&args_for("winksaville/tf1")),
         &cfg_empty(),
     )
-    .unwrap();
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("ambiguous"), "{err}");
+    assert!(err.contains("./winksaville/tf1"), "{err}");
+}
+
+/// A `foo.git` directory yields the repo name `foo`, the same
+/// normalization a URL target gets. The two branches disagreeing
+/// is what made a `./tmp/xx1.git` target ask GitHub for `xx1.git`
+/// and then write a remote pointing at a repo GitHub never made.
+#[test]
+fn plan_path_target_strips_the_git_suffix() {
+    let args = args_for("./tmp/xx1.git");
+    let plan = plan_init(&InitParams::from(&args), &cfg_top_level_local("./tmp/bare")).unwrap();
+    assert_eq!(plan.name, "xx1");
+    assert_eq!(plan.bot_name.as_deref(), Some("xx1.claude"));
+}
+
+/// A repo name GitHub would rename is refused before it is asked
+/// for, since GitHub drops a trailing `.git` at creation and the
+/// remote we write afterwards would point at a repo that does not
+/// exist.
+#[test]
+fn github_slug_refuses_a_dot_git_name() {
+    let err = github_slug_from_url("https://github.com/owner/foo.git.git")
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("GitHub drops"), "{err}");
+    assert!(err.contains("'foo'"), "{err}");
+}
+
+#[test]
+fn plan_ssh_url_form_still_works() {
     let p2 = plan_init(
         &InitParams::from(&args_for("git@github.com:winksaville/tf1")),
         &cfg_empty(),
     )
     .unwrap();
-    assert_eq!(p1.work_url, p2.work_url);
-    assert_eq!(p1.bot_url, p2.bot_url);
-    assert_eq!(p1.provisioner, p2.provisioner);
-    assert_eq!(p1.gh_work_slug, p2.gh_work_slug);
-    assert_eq!(p1.gh_bot_slug, p2.gh_bot_slug);
+    assert_eq!(p2.work_url, "git@github.com:winksaville/tf1.git");
+    assert_eq!(p2.gh_work_slug.as_deref(), Some("winksaville/tf1"));
+    assert_eq!(p2.provisioner, Provisioner::GhCreate);
+    assert_eq!(p2.gh_bot_slug.as_deref(), Some("winksaville/tf1.claude"));
 }
 
 // ---------- Path TARGET ----------
@@ -959,8 +1003,8 @@ fn por_fixture_creates_single_repo_layout() {
 fn por_fixture_writes_work_only_config_files() {
     let fx = crate::test_helpers::FixturePor::new("por-config");
 
-    let cfg =
-        std::fs::read_to_string(fx.work.join(".vc-config.toml")).expect("read .vc-config.toml");
+    let cfg = std::fs::read_to_string(fx.work.join(crate::config_md::VC_CONFIG_MD))
+        .expect("read the config");
     assert!(cfg.contains("work = \".\""), "expected POR work = \".\"");
     assert!(
         !cfg.contains("bot ="),
@@ -988,11 +1032,11 @@ fn por_fixture_main_tracks_origin() {
 
 // ---------- --config flag (POR only) ----------
 
-/// `--config none` skips writing `.vc-config.toml` while still
+/// `--config none` skips writing the config file while still
 /// writing `.gitignore`. The repo gets created and pushed
 /// successfully: config-less repos remain valid POR shape from
-/// jj/git's perspective. Downstream commands that need
-/// `.vc-config.toml` will fail loudly when they try to read it.
+/// jj/git's perspective. Downstream commands that need a config
+/// will fail loudly when they try to read it.
 #[test]
 fn por_config_none_skips_vc_config_writes_gitignore() {
     let fx = crate::test_helpers::FixturePor::new_with_config(
@@ -1001,8 +1045,8 @@ fn por_config_none_skips_vc_config_writes_gitignore() {
     );
 
     assert!(
-        !fx.work.join(".vc-config.toml").exists(),
-        "--config none must skip .vc-config.toml"
+        !fx.work.join(crate::config_md::VC_CONFIG_MD).exists(),
+        "--config none must skip the config file"
     );
     assert!(
         fx.work.join(".gitignore").exists(),
@@ -1010,9 +1054,10 @@ fn por_config_none_skips_vc_config_writes_gitignore() {
     );
 }
 
-/// `--config <path>` copies the user-supplied file to
-/// `.vc-config.toml` bytewise. `.gitignore` still written from
-/// the canned source.
+/// `--config <path>` copies the user-supplied file bytewise, under
+/// the name its carrier calls for: a `.toml` source stays
+/// `.vc-config.toml`, which is what this case covers. `.gitignore`
+/// is still written from the canned source.
 #[test]
 fn por_config_path_copies_user_file() {
     let base = crate::test_helpers::unique_base("por-config-path");
@@ -1123,16 +1168,16 @@ fn dual_fixture_creates_dual_repo_layout() {
 fn dual_fixture_writes_work_and_bot_config_files() {
     let fx = crate::test_helpers::Fixture::new("dual-config");
 
-    let work_cfg = std::fs::read_to_string(fx.work.join(".vc-config.toml"))
-        .expect("read work .vc-config.toml");
+    let work_cfg = std::fs::read_to_string(fx.work.join(crate::config_md::VC_CONFIG_MD))
+        .expect("read the work config");
     assert!(work_cfg.contains("work = \".\""), "work work = \".\"");
     assert!(
         work_cfg.contains("agent = \".claude\""),
         "work agent = \".claude\""
     );
 
-    let bot_cfg =
-        std::fs::read_to_string(fx.bot.join(".vc-config.toml")).expect("read bot .vc-config.toml");
+    let bot_cfg = std::fs::read_to_string(fx.bot.join(crate::config_md::VC_CONFIG_MD))
+        .expect("read the agent config");
     assert!(bot_cfg.contains("work = \"..\""), "bot work = \"..\"");
     assert!(bot_cfg.contains("agent = \".\""), "bot agent = \".\"");
 
@@ -1174,7 +1219,7 @@ fn dual_fixture_preserves_bot_across_work_clean() {
         "bot .git must survive work-side clean"
     );
     assert!(
-        fx.bot.join(".vc-config.toml").exists(),
-        "bot .vc-config.toml must survive work-side clean"
+        fx.bot.join(crate::config_md::VC_CONFIG_MD).exists(),
+        "the agent config must survive work-side clean"
     );
 }

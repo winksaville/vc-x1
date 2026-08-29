@@ -1,4 +1,4 @@
-# Todo
+# Todo and cycle record
 
 This file contains near term tasks with a short description and reference links to more details.
 Its shape is [Todo format](agent-data/notes.md#todo-format).
@@ -26,529 +26,486 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### docs: the family agent-files proposal
+### feat: finish the vc-config surface
 
 #### Problem
 
-The family does not have one consistent set of agent-files. Each member carries a copy that has
-drifted from the payload and from the others, the rules are spread between summaries in
-AGENTS.md and detail in the agent-data files, and an agent acting from the summary misses details the
-detail file holds. This cycle makes the initial proposal for one set.
+The config subcommand's surface was left unfinished when the 0.78.8 cycle closed early for the
+agent-files work. `vc-config-test.md` is maintained by hand beside a schema that build.rs already
+knows in full, `init` still writes `.vc-config.toml` so every new member starts on the legacy
+carrier, nothing checks a config file beyond its key spellings, no check resolves the records' own
+anchors, and the agent side is still `.claude` in a vocabulary that renamed everything else to
+agent.
 
 #### Solution
 
-One set of agent-files, `AGENTS.md`, `custom.md`, and `agent-data/*`, that anyone can adopt as-is
-and customize through `custom.md`. The base is zc-ring-x1's set as landed 2026-08-26, which
-carries the cycle-record, the cycle shape fixed at the first push, and named rules. This cycle
-synced vc-x1 to it, then cut what the synced set said more than once (the per-rung flow, stated
-three times, is stated once in AGENTS.md, and `cycle-checklists.md` and `cycle-protocol.md` are
-gone), moved every inline why into rationale.md, widened Typeable punctuation to Prose style,
-made Todo entries headings, added Restart, Unplanned work, `## Continuation notes`, `## Waiting`,
-and `## Closed`, froze the old history, put the rules in one list of sentences and links, and
-proposed the set to iiac-perf and zc-ring-x1 in
-[agent-files-proposal-0827.md](notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27).
-The set is 2126 lines, from 2822 after the sync. The copy into `vc-x1-template/work` and the
-re-sync wait on their agreement, the `## Waiting` entry this closing leaves. Every rung is
-convention work, so [Changing the agent-files](AGENTS.md#changing-the-agent-files)'s own-cycle
-rule is met by the cycle as a whole.
+Every rung the early close deferred ran, and two landed differently from the plan.
+`vc-config-model.md` is generated from the schema and seeds a new workspace's `.vc-config.md` at
+init, which also learned to take a URL or a path. `validate-anchors` checks the records' links
+rather than leaving them to be read. The config check it was built beside became `validate-config`,
+its own subcommand, rather than the `config --validate` flag the plan named. The agent side is
+`.agent-session` end to end. The config work spread across the two lists was groomed first, so the
+ladder ran against a list that agreed with itself.
 
 #### Acceptance check
 
-The three-way comparison between the two members and the payload goes empty, which is the check
-the last work rung already names. Within this repo: every agent-file link resolves, no agent-file
-names a rule by number, and the per-rung flow is stated in one file.
+The items the early close deferred, made runnable:
+
+- `vc-config-model.md` is generated, and a test finds every schema key in it, so completeness holds
+  without a hand count.
+- `vc-x1 init` emits `.vc-config.md` for a new workspace, and no `.vc-config.toml`.
+- `vc-x1 validate-anchors` reports clean over the records.
+- `vc-x1 validate-config` reports both sides clean, and it reports findings on the `.vc-config.md`
+  this cycle inherited, whose `[[3]]` through `[[7]]` have no definitions and whose `[2]` points at
+  an anchor the agent rename killed. The item was written as `config --validate`, the spelling the
+  plan assumed, and is recorded here under the name that answers it.
+- `repos.agent` resolves to `.agent-session` end to end.
+- Agent vocabulary rejects the old spellings with a fix-it, already met and re-checked here.
 
 #### Ladder
 
-The sync first, then the rungs that make the synced set consistent, then the rule-text rungs, the
-payload last.
-
-- [docs: the family agent-files proposal opening][1]
-- [docs: sync the agent-files to zc-ring-x1's set][2]
-- [docs: state the cycle protocol once][3]
-- [docs: one TODO.md, Closed as the history][4]
-- [docs: widen Typeable punctuation to Prose style][5]
-- [build: update the lock to the latest compatible versions][6]
-- [docs: the restart and the interlude, between cycles][7]
-- [docs: Todo entries as headings, and sweep the retired names][8]
-- [docs: move the agent-data files' inline whys][9]
-- [chore(template): propose the set to the payload][10]
-- [docs: the rules as one list][13]
-- [docs: the rules as sentences, in bullets][14]
-- [docs: the family agent-files proposal closing][11]
+- [feat: finish the vc-config surface opening][1]
+- [chore: groom the config backlog][2]
+- [chore: generate the config model and seed init][3]
+- [fix: init takes a URL or a path][8]
+- [feat: add validate-anchors][4]
+- [docs: README covers the new surface][9]
+- [feat: validate-anchors reports what it checked][10]
+- [feat: check a config file's links and keys][5]
+- [feat: add validate-config][11]
+- [chore: point config at .agent-session][6]
+- [feat: finish the vc-config surface closing][7]
 
 #### Deliberation
 
-Provenance, the re-plan, the decisions taken on the way, and two scope corrections.
-
-- Provenance: this cycle was opened from conversation, not from one `## Todo` entry.
-  - It consolidates eleven convention entries that were spread across `## Todo` and
-    [todo-backlog.md](notes/todo-backlog.md), plus two rules that surfaced on 2026-08-24
-    (hyphenation, restart after close-out).
-  - No single entry is its origin, and none is cited as one.
-- Re-planned on zc-ring-x1's set (wink, 2026-08-27), one rung in, nothing pushed past the opening.
-  - wink did not like where the ladder was headed and ran a cycle in zc-ring-x1 instead.
-  - Its result is a set with three rules this ladder did not have: the cycle-record (the block is
-    the only record, no chores move, no `## Done` entry, no `[[N]]` backfill), the shape fixed at
-    the first push with squash retired, and rules named rather than numbered.
-  - Those subsume the duplication this cycle was opened against, at the records rather than the
-    rule text, so the set is the base.
-  - Its costs became rungs: the per-rung flow stated three times (AGENTS.md,
-    cycle-checklists.md, cycle-protocol.md), "hard rule N" cited in three files after the rules
-    were named, two dead links, and messaging.md's citation form and the close-out's "what
-    outlives this block" question unasked.
-  - The abandoned rung, **docs: cut AGENTS.md's steps to a line and a link**, had reached 370 to
-    320 lines with every rule kept. Its finding stands: the remaining bulk is the rules
-    themselves, so a further cut would have to cut rules. The draft was dropped, not merged.
-  - The specimens rung dissolved: zc-ring-x1's cycle-model.md is the filled specimen, and the
-    commit-body specimen went to the prose rung.
-  - The ladder was then cut from fifteen rungs to ten by merging same-subject pairs.
-  - This block follows the new rule from the sync rung on: no `[[N]]` placeholders, and the
-    cycle closes to `## Closed`, not to `notes/chores/`.
-- Hyphenation, decided (wink, 2026-08-24): one spelling per term, always.
-  - Either always hyphenated or never, and no rule that varies the spelling by how the term is
-    used, since mixing costs a reader a judgment call and buys nothing.
-  - Measured 2026-08-24 at 13 sites, and 12 at the prose rung after the sync (2 in AGENTS.md, 10
-    in jj.md). The `<closeout>` placeholder in the trapezoid recipe is a code token and stays.
-  - The rule lives in prose.md, since a glossary is read for meaning rather than for spelling.
-- Body shape not promoted into One title per step, folded 2026-08-25 from its own rung.
-  - Extending title identity to the body was deferred at the 2026-08-07 convergence review,
-    since "a pushed body is coordinate-first to fix" would promote every prose rule that touches
-    a body.
-  - This cycle answers it with a specimen beside the rule and a `validate` check on the body
-    (`## Todo` **`validate`: enforce the record shapes the agent-files ask for**), which is
-    stronger than a hard rule and keeps a bad body a plain fix.
-- Rung titles are commit titles, and nine rungs were laddered without a type (2026-08-25).
-  - The rule sat in prose.md's Conventional-commit shape while notes.md's ladder bullet said only
-    `<title>`. Five rereads did not see it, since nine consistent misses look like a convention.
-  - The one-line fix is in the prose rung and the check is in the `validate` entry.
-- Restart the session after a close-out (wink, 2026-08-24): family-universal, so a pinned-file
-  rule and not custom.md.
-- The series is not the old Todo 1-7.
-  - Only the first two of those were agent-files work. The rest were the config program,
-    validate-repo-data and trapezoid-push, which are the tool rather than the proposal.
-  - The config entries are now one `## Todo` entry.
-- The semicolon whole-file question dissolved at the prose rung (2026-08-27).
-  - The worry was files every cycle touches, which the convert-on-touch rule would convert whole
-    at the first touch. TODO.md's prose has no semicolons, chores are frozen and never touched,
-    and README.md (52) converts when a commit edits it, per the rule as written.
-  - No exemption is named.
-- Ordering: the consistency rungs run before any rule-text rung, so rule text is written once
-  into a set that says each thing once.
-  - The prose rung runs before **docs: move the agent-data files' inline whys**, since that
-    move rewrites the agent-data files and would otherwise re-touch what the prose rung just changed.
-  - The headings half of **docs: Todo entries as headings, and sweep the retired names** decides
-    before the sweep in the same rung, since headings make a citation a link.
-- Scopes dropped from the docs rungs (wink, 2026-08-27).
-  - `(notes)`, `(prose)`, `(rationale)` named the file the diff landed in, which is a one-word
-    file list in the title. A scope names a component as its user would name it, and a docs rung
-    here has none.
-  - `chore(template)` keeps its scope, since the template is another repo, a real boundary.
-  - The rule is one sentence in prose.md's Commit description details.
+- Provenance: the first sub-entry of **The vc-config program: finish the surface, then shrink it**,
+  moved here whole.
+  - The entry's other sub-entries keep their ranks, and **Drop the global config and the account
+    notion** runs after this cycle by its own note, since a mechanical schema check is what makes a
+    schema shrink cheap.
+- The agent-naming rung is already landed, so the five deferred rungs are four.
+  - Verified 2026-08-28: the schema carries `repos.agent` and `agent-session.*`,
+    `legacy_vc_config` rejects the `bot-` spellings, and a test asserts the printed fix-it.
+  - The entry records why, the rung was moved into the 2026-08-21 ladder ahead of its schema-tables
+    rung so the new tables were born under the new names.
+  - The `bot_*` identifiers still in `src/` are internal names rather than the rung's subject, and
+    belong to the backlog's **"Stop saying workspace in user-facing surfaces" sweep**.
+- The prose is not machine-owned after all, so a config file is checked rather than regenerated
+  (wink, 2026-08-28, re-planned two rungs in).
+  - The plan was a renderer owning every config file's prose, with the work-side `.vc-config.md`
+    byte-identical to what it emits. That cannot hold: our file carries a `[family]` table and a
+    `[validate]` table that are this project's own, while a model shows typical values.
+  - Making it hold would mean the renderer reproducing every adopter's file word for word, which
+    costs each adopter the ability to explain its own config in its own words. Ours opens with an
+    intro paragraph worth keeping.
+  - Every defect the inherited `.vc-config.md` actually has is check-shaped: five citations with no
+    definition, one anchor the agent rename killed, and a paragraph proposing this very rung. A
+    checker finds the first two, and no renderer would have found the third, it would have
+    overwritten it without a word.
+  - So the 2026-08-10 ownership model is half reversed. Fence interiors stay the workspace's own,
+    and now the prose does too.
+  - Costs accepted: **feat: add config --refresh** loses its subject and leaves the ladder, since
+    regenerating the model and seeding a new file are the model rung and `--check` is `--validate`.
+    The same day's "one verb, not two" decision goes with it, and **Fix `vc-x1 config`'s rendering**
+    keeps `--output` as its own open question, its other bullets standing on their own.
+- The checks extend `config --validate` rather than minting a `validate-config` subcommand.
+  - **The validate family: umbrella, runner, and `validate-work`** already routes config checking
+    through `config --validate`, which `validate-work` calls, so a new sibling would need absorbing
+    by that entry the day it landed.
+  - If the name is wanted it is a rename inside that entry, not a second surface opened here.
+  - Reversed at **feat: add validate-config**, the last work rung, by the escape hatch the bullet
+    above left open. The flag hid a different verb behind the schema printer, so the check took its
+    own name and `--validate` retired with a rejection naming it.
+- The cross-file `[N]:` stretch stays out of validate-anchors (wink, 2026-08-28).
+  - Same-file anchors plus `[N]` definition and use matching is the slice the entry states.
+  - The cross-file half is what the agent-files anchor check in **`validate`: enforce the record
+    shapes the agent-files ask for** wants, and that check waits on the family's answer to the
+    agent-files proposal, so building for it now would pin a shape still under review.
+  - The backlog's **Reference defs: go file-relative, with anchors** names the same cross-file check
+    as what would keep its sweep honest, so it inherits the same wait.
+  - The config file's own cross-file links need no stretch: it cites `vc-config.md#<key anchor>` by
+    construction, and build.rs already derives those anchors from the key paths, so "does this link
+    resolve" is a schema lookup rather than a markdown crawl.
+- The grooming is a rung rather than part of the opening (wink, 2026-08-28).
+  - The list edits touch `notes/todo-backlog.md`, which carries 39 semicolons and 31 untypeable
+    characters, and a commit that edits a file converts that whole file's prose
+    ([Semicolons](agent-data/prose.md#semicolons)).
+  - A 70-site sweep would swamp the opening's diff at review, and splitting the sweep from the
+    grooming would leave the two folded entries in both files for a rung or two.
+- Ordering: the list settles first, the generated model before its consumers, the repoint last.
+  - The model has to exist before the checks have a statement of what a config file should carry.
+  - The repoint changes `repos.agent`'s value, which the model and init's fixtures both carry, so
+    it follows the rungs that write them.
+- `## Closed` reads `_None._` between cycles (wink, 2026-08-28).
+  - No rule states a placeholder for the gap between a cycle's opening and the next closing, and
+    every other empty section in the file carries one.
 
 #### Ladder details
 
-One subsection per rung, headed by the rung's exact title: the problem in a sentence or two,
-then one `-` per edit, with any decision already taken kept as a line.
+##### feat: finish the vc-config surface opening
 
-##### docs: the family agent-files proposal opening
+The cycle's setup commit: bookmark, the Waiting check, the In Progress block, the bump, the rename.
 
-The cycle's setup commit: backfill, bookmark, In Progress block, sweep, bump, rename.
+- Bookmark: created and published at `main`'s tip `a4309084`.
+- Waiting: neither entry's condition is met. Neither outbound proposal record in `../vc-x1-messages`
+  carries a `read:` field yet, and `vc-x1 closed` does not exist.
+- Moved here: the vc-config program's first sub-entry, whose four undone rungs are this ladder's
+  work rungs.
+- Bump: a patch, 0.80.6-0, and the package is `vc-x1-dev`.
+- `## Closed` reads `_None._`, the last cycle's block now held only by the landmark commit
+  `a4309084`.
 
-- Backfill: `chores-18.md`'s seven rungs filled from `main`. The note that `chores-16.md` held
-  sixteen more was stale.
-- Bookmark: created at `main`'s tip `2dc8d969`.
-- Sweep: kept both `## Done` entries as nearby context.
-- Bump: a patch, 0.80.5-0, and the package is `vc-x1-dev`.
-- Bookmark hygiene, noted for later:
-  - `messages-specimen` is merged and deletable.
-  - `support-trapezoid-commits` and `trapezoid-push-vc-x1` are parked by a Todo entry and stay.
+##### chore: groom the config backlog
 
-##### docs: sync the agent-files to zc-ring-x1's set
+Config work is spread across `## Todo` and the backlog, two entries dead and two already claimed by
+other entries, so the lists disagree with themselves about what config work remains. Groom them, and
+convert `notes/todo-backlog.md`'s prose as the touch obliges.
 
-vc-x1's agent-files and zc-ring-x1's have diverged, and zc-ring-x1's is the one with the
-cycle-record, the fixed shape, and named rules. Copy it in whole, so every later rung edits one
-known state, and re-plan this block on it.
+- Deleted as dead: **Add a vc-x1 validate-repo?**, a bare heading duplicating the entry below it,
+  and **Layered config precedence (user -> workspace -> CLI)**, whose user tier **Drop the global
+  config and the account notion** removes and whose worked example named a key the schema no longer
+  has.
+- Retired: **Add `validate-repo` subcommand** into **The validate family: umbrella, runner, and
+  `validate-work`**, which already said it absorbed it, carrying the implementation note and the
+  chores-06 design link.
+  - Two of its items did not survive. The chores-to-commit consistency check went with the chores
+    record form that held the `Commits:` lines it compares, and the exit code as a count of failed
+    checks is replaced by the umbrella's "the worst of them". Both drops are recorded in the
+    receiving entry, so a later reader is not left to wonder where they went.
+  - Its punctuation-baseline finding went instead to **`validate`: enforce the record shapes the
+    agent-files ask for**, which is where the checkable shapes live.
+- The `## Todo` stub of **vc-config.md per-key worked examples** needed no edit. It left the file
+  with the sub-entry the opening moved, so the backlog entry is the only copy already.
+- Repointed: the surviving mention of `validate-repo`, in **Stale `/.vc-x1` gitignore line**, now
+  names `validate-work`. The mention the plan expected to repoint, in the validate-anchors
+  sub-entry, had already left with the moved sub-entry.
+- Amended: **Test-tempdir override resolution chain** drops the user-config tier from its
+  resolution chain, and **OSC 8 hyperlinks in `config` TTY output** drops its wait on a cycle that
+  has landed.
+- Folded into **The vc-config program**: **init distributes vc-config.md, reference-base at the
+  member** and **Config provenance names the schema, not just the binary**, each carrying a line
+  naming the rung whose code it shares.
+  - `notes/chores/chores-16.md` says the backlog keeps the second of them, which this stales. Frozen
+    history is never amended, so that sentence stays as the record of what was decided then.
+- The sweep the touch obliges: 35 semicolons and 24 untypeable characters, the counts after the
+  deletions took the rest with them.
+  - Two headings moved their anchors, `--recheck` and `por -> dual`. Neither had an inbound link,
+    checked before converting.
+  - Two typos fell out of the rewrapping, "hard- reject" and "facade-owns- topology".
+  - `[16]` lost its last citation with the retired entry, so its definition goes too.
+- One fix outside the subject: **`vc-x1 validate --full`: accept the default by name** and the entry
+  after it had no blank line between them.
 
-- `AGENTS.md` and `agent-data/*` are copied from zc-ring-x1 at its `main` `5a08731d`.
-  - The copy brings back `cycle-checklists.md` and `cycle-protocol.md` for the next rung to
-    retire.
-  - `custom.md` was already identical.
-  - The draft cut of AGENTS.md from the abandoned rung was restored first, so the diff is
-    zc-ring-x1's set against the opening's, nothing else.
-  - Two corrections, so the set is byte-for-byte except these: prose.md's scope sentence (the
-    deliberation records why), and a stray terminal paste in cycle-checklists.md that had
-    reached our copy only.
-- This block is re-planned: solution, acceptance check, ladder, deliberation, and these details.
-  - The `[[N]]` placeholders are gone from the ladder.
-  - The ladder was cut from fifteen rungs to ten by merging same-subject pairs.
-- `notes/agent-files-size.md` is opened (wink, 2026-08-27).
-  - It holds the agent-files' line count, one row per landing, smaller the quasi-goal.
-  - Two rows: 2205 lines at the opening, 2822 after the sync, the growth being the two files the
-    next rung retires.
-  - Close-out gains a Size step, and `notes/README.md` points at the file.
+##### chore: generate the config model and seed init
 
-##### docs: state the cycle protocol once
+`vc-config-test.md` is maintained by hand beside a schema build.rs already knows in full, and `init`
+still writes `.vc-config.toml`, so every new member starts on the legacy carrier.
 
-The synced set states the per-rung flow, the opening, and the close-out three times: AGENTS.md,
-cycle-checklists.md, and cycle-protocol.md, and the three disagree on where "flip to done" sits
-and on the names of the phases. It also still cites rules by number after naming them, and has
-two dead links.
+- Decided at the entry: the model is generated rather than maintained, so "contains every key" holds
+  by construction. It is a specimen and init's seed, not a comparison target, per the re-plan.
+- The model is the artifact and its generator is test-only. `vc-config-model.md` is committed, and
+  `render_model` lives in a `#[cfg(test)] mod model` that writes it under `VC_X1_UPDATE_MODEL=1`,
+  with a test failing when the committed copy falls behind the schema.
+  - Nothing in the shipped binary reads a model, so shipping the generator would have been dead
+    code behind an `allow`, and the golden-file arrangement says the same thing honestly.
+  - Two further tests carry the properties the file exists for: every workspace-side key reaches
+    it, and no user-home-only key does.
+- Init seeds from the same schema rather than from the model file. Its `render_vc_config` now emits
+  markdown, one `toml` fence around the active `[repos]` block and the commented key surface it
+  already generated.
+  - Not the model verbatim: a model shows every table live, and seeding a new workspace with this
+    repo's `[family]` and `[validate]` values would hand it configuration it never chose. The
+    commented-optional shape init already had is the right one, and only its carrier changed.
+  - `--config <path>` copies under the name the source's carrier calls for, `.md` to
+    `.vc-config.md` and anything else to `.vc-config.toml`, since naming a TOML file `.md` hands
+    the markdown filter a file with no fences and yields an empty config.
+- Rides here: the `homes` correction dropping the agent side from the three session keys (nothing
+  reads it, `bot_session` resolves them from the work-side root), and the `.vc-x1` leftovers,
+  `.claude/.vc-x1` and the work `.gitignore` line. Removing our own line is not the automatic edit
+  of a user's file that **Stale `/.vc-x1` gitignore line** bars, which is about other workspaces.
+- Two small extractions the rendering wanted: `toml_simple::parse_array` out of `toml_get_list`, so
+  a value that loads is a value the model can show, and `wrap_hash_comment` generalized to
+  `wrap_prefixed`, since a markdown bullet wraps the way a TOML comment does.
+- A defect the hand-check found: a generated config ended with a bare `[family]` and `[validate]`,
+  two table headers with nothing under them. `render_optional_keys_block` wrote a section's header
+  before deciding whether the key had anything to render, so a section whose keys all lack defaults
+  left its header behind. It predates the carrier change and shipped in the toml files too. Fixed
+  by skipping the key first, and `config_generated_has_no_empty_table` pins it.
+- The inherited `.vc-config.md` keeps its broken links on purpose. Its `[[3]]` through `[[7]]` have
+  no definitions and its `[2]` points at an anchor the agent rename killed, and those are the
+  fixture the acceptance check names for **feat: check a config file's links and keys**. Only the
+  paragraph naming the deleted `vc-config-test.md` changed, which also retires the note proposing
+  this rung.
+- Finding, not fixed here: `.vc-config.toml` is named in a dozen doc comments, two user-facing
+  error messages in `common.rs`, and four README rows, all describing the carrier rather than
+  init's output. The drift predates this rung, and the README half is already **CLI reference lives
+  in `--help`, and README owns concepts**.
 
-- The two files are deleted.
-  - No link was repointed. Nothing in the agent-files, `README.md`, `ARCHITECTURE.md`, or
-    `notes/README.md` linked into them, only frozen history and live Todo entries, which are
-    the sweep rung's.
-  - Almost everything they held jj.md already had: push behaviors, recovery, the trapezoid
-    recipe, local ladders, viewing for a review.
-  - The three facts jj.md lacked went into its push section:
-    - The agent-repo is a linear journal with one commit per push.
-    - The agent-repo never has a bookmark mirroring a work-repo one.
-    - A squash-push is re-run when `@` is non-empty after a pass.
-- Every "hard rule N" in jj.md and rationale.md is a link to the named rule.
-- The rationale.md heading mirrors AGENTS.md's `## custom.md`, and custom.md's and AGENTS.md's
-  links follow. Its two links into vc-x1's `chores-17.md` are permalinks at `main`, since a
-  payload file cannot cite one member's tree by relative path.
-- The link check that found them (every `](path#anchor)` and `[N]: path#anchor` in the
-  agent-files resolved against the headings) is a bullet in the `validate` Todo entry.
+##### fix: init takes a URL or a path
 
-##### docs: one TODO.md, Closed as the history
+Hand-checking the rung above, wink ran `vc-x1 init tmp/vc-x1-dev.0.80.6-2` and init tried to create
+a GitHub repo in an organization named `tmp`. Three defects came out of the two runs that followed,
+recorded as `notes/bugs.md` #12, #13, and #14.
 
-Under the cycle-record rule a finished block lives in `## Closed` for one cycle and in the
-landmark commit's tree after that. vc-x1's TODO.md still has the old shape (`## Done` inline,
-`notes/chores/` open), nothing says a member must have a TODO.md of that shape, a relative link
-into `notes/chores/` no longer names a finished cycle, and the close-out has no step that asks
-whether anything in the block should be kept.
+- Unplanned work, taken as a rung at wink's call (2026-08-28), since the fix is init's own target
+  handling rather than anything the cycle's other rungs touch.
+- The `owner/name` shorthand is retired rather than disambiguated, which is the end state **Drop
+  the global config and the account notion** decided on 2026-08-21.
+  - The first proposal was a heuristic, reading `X/Y` as a path when `X` names an existing
+    directory. wink's question, under what conditions `tmp/foo` is ambiguous, dissolved it: always,
+    since nothing needs to exist for a path target (init creates missing parents), so both readings
+    are well-formed for every such string and the heuristic guesses at intent rather than detecting
+    anything.
+  - So a slashed target with no path prefix is refused, naming both readings. Refusing rather than
+    silently choosing, since silently choosing is the bug. Once nobody reaches for the shorthand a
+    slashed target can simply mean the path, and the code says so where the rule lives.
+  - This takes a slice of that entry early. What stays there is bare `NAME` and the user-config
+    remote chain, which `plan_from_path` also uses, so the config tier is load-bearing for path
+    targets and unpicking it is still that entry's work, along with `--account` and `--repo`.
+  - `resolve_url` went with the shorthand, since the shorthand was the one form it resolved. That
+    also deletes one of the two places a remote is hardcoded to ssh, which was the entry's stated
+    reason for retiring the shorthand.
+- One name derivation for both target branches. `plan_from_path` ran the directory's `file_name`
+  through `derive_name`, the normalization a URL target already got, so a `foo.git` directory
+  yields the repo name `foo`.
+- A repo name GitHub would rename is refused before it is asked for. GitHub drops a trailing `.git`
+  at creation, so `xx1.git` became `xx1` while init wrote a remote pointing at `xx1.git`, and the
+  push failed with "the repository exists" as the false half. The guard lives in
+  `github_slug_from_url`, the one place on the `gh repo create` path, and refuses rather than
+  repairing, since silently renaming what the caller asked for is how the mismatch started.
+  - Reachable still by a `--name` override or a URL ending `.git.git`, which is why it is a guard
+    and not just a consequence of the derivation fix.
+- The ssh remote is recorded as #14 and not fixed here. The remote scheme is the user config's to
+  state, so it rides the entry that deletes that chain.
+- Two things fell out of touching `notes/bugs.md`: its `# References` heading sat between entries
+  10 and 11 rather than at the end, and the file's prose owed the conversion, 27 semicolons and 14
+  untypeable characters. The two `…` left are inside a quoted jj error message, transcribed rather
+  than authored.
+  - The file already records fixed bugs (#1, #4), so the entries fixed here say so in that shape,
+    naming the rung rather than a version.
+- A wrong diagnosis on the way, recorded because it cost time: the ssh remote looked like the cause
+  of the failed push, since "Could not read from remote repository" reads as auth. wink's `gh repo
+  list` settled it, showing `xx1` where `xx1.git` had been asked for.
 
-- TODO.md is not an agent-file (wink, 2026-08-27).
-  - Its content is the project's record and can never match another member's.
-  - The agent-files require that there is one, of the pinned shape: `## Continuation notes`,
-    `## In Progress`, `## Closed`, `## Waiting`, `## Todo`, `## Ideas`, `## Bugs`,
-    `# References`, the block per cycle-model.md.
-  - The payload ships a skeleton, `## In Progress` reading `_No cycle currently in progress._`,
-    the rest empty.
-  - The shape check is a `validate-todo` extension, recorded in the `validate` Todo entry.
-- `## Closed` is added between `## In Progress` and `## Todo`, empty until this cycle closes.
-- The history freezes.
-  - `## Done` moves whole to `notes/done.md`, frozen with `notes/chores/`, headers saying so,
-    and `notes/README.md` describes the history as frozen.
-  - Frozen means nothing appended (wink, 2026-08-27): the growth is stopped by freezing.
-    Deleting waits, since it would break every relative link from `## Todo`, the backlog,
-    rationale.md, and the other members' messages until a permalink sweep, and is the
-    `## Waiting` entry.
-- A closed block is never amended. A late finding about a closed cycle is recorded where it is
-  found, citing the landmark.
-- messaging.md's "the reply cites the entry" is restated.
-  - The citation is the landmark permalink, `blob/<landmark sha>/TODO.md#<slug>`, the form the
-    messages repo's `outcome-remote:` already uses.
-  - The `outcome-local:` relative form is dropped.
-- Close-out step 2 gains the question: what in this block must outlive the cycle, and which
-  `notes/` file gets it. Rationale carries why: the block is replaced, and the rung-time rule
-  relies on noticing in the moment.
-- A `vc-x1 closed "<title>"` verb that prints a landed cycle's block from its landmark is a new
-  `## Todo` entry, not this cycle.
-- As built:
-  - The rule lives in AGENTS.md's Terminology (agent-files entry) and notes.md's Todo format, and
-    the `validate` Todo entry names the shape check.
-  - `## Closed` carries a four-line intro saying where earlier cycles are, then `_None yet._`.
-  - The two `## Done` entries (0.80.3, 0.80.4) are dropped, not appended to `notes/done.md`: both
-    cycles have chores sections and commits, and a frozen file takes no last append (wink,
-    2026-08-27). done.md's header says it is frozen, and `notes/README.md` says the same of
-    `chores/`. Retiring both is a Todo entry, to run as one cycle after a permalink sweep.
-  - `## Waiting` is added above `## Todo` (wink, 2026-08-27): important work that cannot start
-    yet, each entry with a `Waits on:` condition and its rank once unblocked, checked at every
-    opening. Rank cannot carry it, since rank means "next" and `fix-todo` renumbers from 1, so a
-    blocked entry at #1 would be a standing lie. Its first entry is the frozen-history
-    retirement.
-  - The acquaint read stays `offset=0, limit=60`, which now reaches only the top of a full In
-    Progress block. The sweep rung looks at whether the intro should say so.
+##### feat: add validate-anchors
 
-##### docs: widen Typeable punctuation to Prose style
+No check resolves the records' own anchors, so the two dead links the agent-files cycle found on
+2026-08-27 were found by hand.
 
-The Typeable punctuation rule is the narrowest of a family of prose rules that arrived
-separately.
+- Decided (wink, 2026-08-28): same-file heading anchors by the documented slug algorithm, plus `[N]`
+  definition and use matching. The cross-file stretch is out.
+- Three checks, all same-file: an anchor target resolving to a heading, a citation having a
+  definition and a definition being cited, and no two headings slugging to one anchor. The third
+  was not in the plan and pays for itself immediately, since a duplicate slug silently sends every
+  link to the first heading, which is the failure a reader cannot see.
+- The analysis is pure and the subcommand reads files around it, so the checks are tested on
+  strings rather than on fixtures.
+- Fenced code and code spans are blanked before anything is scanned. A `[[N]]` in a code span is a
+  quoted identifier by [Notes references](agent-data/notes.md#notes-references), and a specimen's
+  `#` line inside a fence is code.
+- Two corrections the first real run forced:
+  - `[title][N]`, the reference-link form a ladder rung uses for its own subsection, is a citation.
+    Counting only `[[N]]` reported all eight of this cycle's rungs as uncited definitions.
+  - The frozen history is out of the default file set. Over the whole repo the check found 299
+    problems, 289 of them in `notes/chores/` and `notes/done.md`, which no commit may touch. Naming
+    a file explicitly still checks it, so the frozen history is readable on demand.
+- Ten findings remain over the live records, and this rung fixes none of them, which is deliberate
+  in three different ways:
+  - Five are the `.vc-config.md` citations with no definitions, the fixture the next rung's
+    acceptance check names.
+  - One is `README.md`'s table of contents pointing at a "Revision shortcuts" section that no
+    longer exists. Fixing one line there obliges converting the file's 63 semicolons, and **CLI
+    reference lives in `--help`, and README owns concepts** rewrites that file wholesale, so the
+    sweep is worth paying there rather than here.
+  - Two were `# Todo` colliding with `## Todo` and `# Bugs` with `## Bugs`. This file's is fixed
+    here, retitled to `# Todo and cycle record` (wink, 2026-08-28), which needs no convention cycle:
+    the title is prescribed by nothing, cited by nothing, and `## Todo` is cited sixteen times
+    across the agent-files, so the title is both the cheap side and the inaccurate one. The file
+    holds seven sections and Todo is one of them.
+  - `notes/bugs.md` keeps its collision pending your call between retitling it and dropping its
+    `## Bugs` heading, which the file does not need.
+  - The remaining two are in a design doc the Ideas entry **Restructure the design-cli parity
+    docs** already plans to split.
+- Not added to the `[validate]` table. The umbrella that decides what runs per rung is **The
+  validate family: umbrella, runner, and `validate-work`**, and adding it before the records are
+  clean would fail every commit.
 
-- The rule widens to "Prose style", carrying typeable punctuation, no wall-of-prose, one
-  spelling per term, the semicolon rule, and bullet form.
-- Hyphenation, decided: one spelling per term, always.
-  - The sites are re-measured at the rung, since the sync changed the count (13 at the
-    2026-08-24 measure, `work-repo` and `agent-repo`).
-  - The rule goes in prose.md, and Terminology keeps the spellings.
-- Semicolons: the whole-file conversion is never run on files every cycle touches (TODO.md,
-  README.md, chores). Either name the exemption or schedule the sweep. Until decided, a line
-  you write carries none and the rest of the file waits.
-- Bullet form, decided (wink, 2026-08-27): a bullet is a full sentence, capitalized and ending
-  in a period or question mark, unless the list is a plain list of things (files, names,
-  options), which takes neither. A list is all one or all the other.
-  - A sentence never opens with a lower-case name (`squash-push`, `rationale.md`), it is recast
-    so the name is not the first word.
-  - One paragraph in Prose form. This block's Ladder details were swept to it on 2026-08-27,
-    and the deliberation is swept in this rung.
-- From the dissolved specimens rung:
-  - `agent-data/commit-model.md`, the cycle-model cycle's work-rung body and bookend body,
-    named from per-rung flow step 7 and from prose.md's Commit-body form.
-  - notes.md's ladder bullet says `<title>` is the rung's commit title and links the type set.
-- As built:
-  - The AGENTS.md rule is `### Prose style`, one sentence of links: Prose form, one spelling per
-    term, bullet form, no semicolons, typeable punctuation only. rationale.md's heading follows
-    and carries the whys.
-  - prose.md gains `### One spelling per term` and `### Bullet form` under Prose form, and
-    Commit-body form opens by naming its specimen.
-  - The hyphenation sweep converted 12 sites, 2 in AGENTS.md and 10 in jj.md.
-  - The semicolon question dissolved (the deliberation says why), so no exemption was written.
-  - The deliberation was swept to bullet form and sub-bullets, the Ladder details having been
-    swept at the sync rung.
+##### docs: README covers the new surface
 
-##### build: update the lock to the latest compatible versions
+README documents a surface this cycle changed in five places and never mentions `validate-anchors`,
+so its examples teach a target spelling init now rejects and a config carrier init no longer writes.
 
-`cargo install --path . --locked` warns that `chacha20 0.10.1` in Cargo.lock is yanked, at every
-full validation, and the rest of the lock had drifted behind the latest compatible versions. A
-yanked version stays installable for a lock that pins it but usually means a bug or advisory, and
-a docs rung's body cannot carry the fix as a facet.
+- Decided (wink, 2026-08-28): a first cut, documenting what changed. Prose and examples, no new
+  flag table, since **CLI reference lives in `--help`, and README owns concepts** owns deleting the
+  tables and the `## Usage` block, and folding that in here would swallow a ranked entry.
+- What changed and is now said: a `validate-anchors` section, `init` and `clone` no longer teaching
+  the `owner/name` spelling they reject, the config carrier named `.vc-config.md` in the eleven
+  places that still said `.vc-config.toml`, `vc-config-model.md` listed among the surfaces the
+  prototype drives, and the dead "Revision shortcuts" table-of-contents entry deleted.
+  - The `agent-session` resolution order now says "the work side's `.vc-config.md`" rather than
+    "workspace", which is the `homes` correction reaching its user-facing surface.
+  - The new section needed no flag table, since the subcommand has one positional and no flags. It
+    is already the shape the entry above wants, which is a happy accident rather than a decision.
+- The sweep the touch obliges: 51 prose semicolons converted, and 12 left alone inside fences,
+  where a semicolon is code. Eleven lines the conversion pushed past the prose width were
+  rewrapped, and the ones already over it were left, since a sweep is its own cycle.
+  - `.vc-config.toml` survives in one place on purpose, a link to a frozen chores anchor. The
+    `--config <path>` row instead says the copy takes the name the source's carrier calls for,
+    which is what the code does and covers a TOML source without naming a retired default.
+- The earlier argument for deferring this rung held only while nothing needed saying in README, and
+  wink was right that a user-facing change with no documentation is worse than a sweep.
 
-- `cargo update` moved 48 crates within their `Cargo.toml` ranges, chacha20 among them (0.10.1 to
-  0.10.2), and the full validation confirmed the build and install without the warning.
-  - `jj-lib` stays at 0.44 and `gix` at 0.85: a minor bump of either is a `Cargo.toml` edit under
-    the jj version policy, not a lock update.
-- Inserted after the prose rung at the review that surfaced the yank (wink, 2026-08-27), opened
-  for chacha20 alone and widened to the whole lock at its review.
-- Folded in (wink, 2026-08-27): the eleven names the agent sandbox bind-mounts over `/dev/null`
-  at the repo root while a command runs (`.bashrc`, `.gitconfig`, `.vscode`, ...) are
-  gitignored, so `jj st` run by the agent stops listing them as added.
-  - They exist only for the command's duration and only from the agent's shell, so nothing
-    tracked changes, and the gitignore's effect is the `jj st` noise and no more.
+##### feat: validate-anchors reports what it checked
 
-##### docs: the restart and the interlude, between cycles
+The summary counts files, so a file with no links passes exactly like one with four hundred, and a
+vacuous pass reads as a real one. The same complaint bug #9 makes about `config --validate` mixing
+"checked, found nothing" with "could not check".
 
-Two things happen between cycles that the agent-files do not describe. After a close-out wink
-exits and restarts the agent, so the next cycle opens on a fresh context, and a restarted agent
-knows only what is written down. And an interlude, a docs or planning commit on the trunk line
-with a patch bump, has its facts spread over four places, no decision rule, and the synced
-set's "development is never done on `main`" reads as forbidding it.
+- Decided (wink, 2026-08-28): count the checks rather than the files, and report the cross-file
+  targets skipped, since that number is this rung's coverage gap and the metric that goes to zero
+  when the cross-file stretch lands.
+- Verbosity layers on what `logging.rs` already gives: `-v` is Debug and `-vv` is Trace, so `-v`
+  takes per-file counts and `-vv` takes one line per site, every target with how it resolved and
+  every heading with the slug it produced. The slug algorithm is subtle enough that "what did that
+  heading actually slug to" is the question a failure raises.
+- A failing target names the nearest slug in the file, which turns a finding into a fix without
+  opening the file. Edit distance over a list already in hand.
+- Everything counted is already computed and discarded: `anchor_targets` walks every target and
+  only the failures survive today.
+- The README section written one rung earlier describes the output, so it gains the summary line,
+  the `-v` / `-vv` split, and the nearest-heading suggestion. Cheap now that the sweep is paid.
+- `analyze` returns a `Report` (findings, sites, counts) rather than a bare finding list, so the
+  subcommand does the reporting and the checks stay testable on strings.
+- The number that justifies the rung: over this repo's live records the check resolves 220 links
+  and skips 220 as cross-file. Half the links are outside its reach, which the old summary's "40
+  files checked" gave a reader no way to know.
+- The suggestion threshold scales with the slug's length, at least two edits and at most a third of
+  it, so a short anchor needs a near-exact neighbour. Nothing is offered past that, since a wrong
+  suggestion costs more than none.
 
-- Close-out gains a step, **Restart**, after Land.
-  - The user restarts the agent, and before the exit anything the next agent needs is recorded
-    where reacquaint will find it.
-  - One line plus a link. The why (context degrades, nothing in flight, an agent cannot restart
-    itself) goes in rationale.md under the mirrored heading.
-  - Pinned, not custom.md: family-universal.
-- The interlude is defined in jj.md beside the trapezoid recipe, or retired.
-  - The recipe already holds the load-bearing fact: a trapezoid's `<base>` is the parent of the
-    ladder's first rung, because an interlude sits on the trunk line.
-  - If interludes are retired instead, the "never on `main`" sentence stands as written.
-- The decision rule is added: when unplanned work is an interlude rather than a rung appended
-  to the running cycle.
-- As built:
-  - Close-out step 7, Restart, one line, with the why in rationale.md's Close-out.
-  - The interlude is retired, not defined. The synced set had already dropped it from every rule,
-    and a single-step cycle is the same one commit with a bookmark, a record, and a landing, so
-    the "never on `main`" sentence stands.
-  - The decision rule is a new `### Unplanned work` section in AGENTS.md's Cycle protocol, two
-    bullets, a rung inserted or an entry for a later cycle, and the user picks which (wink,
-    2026-08-27: no absolutes, the choice depends on the moment). The build rung inserted in this
-    cycle is the instance.
-  - `## Continuation notes` is TODO.md's first section (wink, 2026-08-27): where the agent was,
-    for the agent that comes next, `_None._` by default, reset by its reader. Restart step 7
-    names it, and it was first used to test a restart mid-review of this rung.
+##### feat: check a config file's links and keys
 
-##### docs: Todo entries as headings, and sweep the retired names
+`config --validate` checks key spellings and nothing else, so the `.vc-config.md` this cycle
+inherited passes while citing five references it never defines and one anchor the agent rename
+killed.
 
-Numbered Todo entries make numbers unstable and titles unlinkable: ranking two entries
-renumbered 15 and invalidated references written minutes earlier. And live entries in `TODO.md`
-and the backlog still ask in vocabulary the repo retired. The heading question is decided first,
-since headings make a citation a link, and the sweep runs on the result.
+- The anchor checker from the rung above gains a second caller, and the cross-file half is a schema
+  lookup rather than a markdown crawl (see the deliberation). Each key's `reference` ends with the
+  anchor build.rs derived from its path, so the schema is the authority on what a `vc-config.md`
+  fragment may name, and `validate_anchors::cross_file_targets` hands the caller the targets the
+  general check declines to resolve.
+- The required-key check is `repos.work`, the one key every instance config carries. It applies to
+  a side target and not to a path target, since a path may name the user config, which has no
+  `[repos]` to be missing. That distinction is the test
+  `a_path_target_is_not_required_to_be_an_instance_config`.
+  - The "schema table the workspace ought to carry" check the plan named dissolved into this one.
+    Only `repos.work` is `required`, so a missing table is a missing required key, and inventing a
+    second notion of oughtness would have been a rule with no key behind it.
+- Both sides' config files are fixed, which is what takes the acceptance check from "reports
+  findings" to "reports clean": the work side defines `[3]` through `[7]` and repoints `[2]` at
+  `#reposagent`, and the agent side repoints the same anchor and stops naming the deleted
+  `vc-config-test.md`. Both said "bot" where the vocabulary now says agent.
+- The inherited shape is kept as a test fixture rather than only as a memory, so the check that
+  found it stays pinned to it after the files are clean.
+- One line off-subject, closing the last structural finding this cycle raised: `notes/bugs.md` is
+  retitled `# Bug list` (wink, 2026-08-28), the same fix as this file's, and the file needed no
+  sweep since the bug entries already paid it. `validate-anchors` over the live records now reports
+  2, both in the design doc the Ideas entry **Restructure the design-cli parity docs** plans to
+  split, down from the 10 it found when it first ran.
 
-- What carries an entry, to decide:
-  - `###` headings per entry: anchors, links, bold title enforced structurally. The cost is the
-    `^\d+\. ` numbering machinery and its validators.
-  - GitHub issues: a real tracker, and it would also subsume the mailbox.
-  - A database: issues' costs plus a tool.
-  - The crux is doctrine. Durable context lives in committed files, so headings are a change
-    inside the doctrine and the other two are a change to it. A narrower issues route,
-    cross-member coordination only, may survive that objection and is worth separating.
-- Cite by title, not number, decided.
-  - The rule goes in notes.md beside Reference numbering, and a number may ride along as a hint.
-  - The precondition is met in the backlog: every entry bold-titled, none duplicated.
-  - Remaining: the rule, the citation sweep, and the uniqueness check once validate-anchors
-    lands.
-- The sweep, each species a grep:
-  - `bot-session`, `--scope=bot`, `repos.bot`, `validate-bot` (now `agent`)
-  - `.vc-config.toml` and `[workspace]` (now `.vc-config.md` and `[repos]`)
-  - `custom-family.md` (gone)
-  - `cycle-protocol.md` / `cycle-checklists.md` (AGENTS.md's Cycle protocol)
-  - Preparation / Work / Close-out, Work-N, Ladder (sub-cycle) (opening / commits / closing,
-    local ladder)
-  - bot repo, the bot (agent-repo, the agent)
-  - member names (the `[family]` table)
-  - backfill, chores move, `## Done` entry (the cycle-record)
-- An entry whose whole ask is met by a pinned rule dissolves, with this block's deliberation
-  saying so. History lines keep the names they had.
-- As built:
-  - Headings, decided (wink, 2026-08-27): every `## Todo`, `## Ideas`, and backlog entry is a
-    `###` heading, priority is file order, and a citation is a link to the anchor. Todo format in
-    notes.md carries the rule and the example, the three intros and the backlog's follow it, and
-    the numbered form's machinery (the leading-space intro convention, `fix-todo` renumbering) is
-    gone from the prose. The code side, `validate-todo` / `fix-todo`, retires under the
-    `validate` shape entry, not here.
-  - The frame (wink, 2026-08-27): headings are the step inside the doctrine, durable context in
-    committed files. `done.md` and `notes/chores/` are a stopgap being abandoned, and the record's
-    eventual home is the commits, their chids, and the agent-repo dialog, searchable, which wants
-    the database that connects them. That is Ideas' "`vc` as a code+conversation provenance tool",
-    and the reason to hurry it.
-  - Dissolved, each met by a pinned rule: "Version-number protocol is fragile" (Versions live in
-    the version-of-record only, Steps are named, not numbered), "validate-numbering: rename the
-    pair" (no numbered sequence remains), "pre-commit: single rule (no docs skip)" (per-rung flow
-    step 5 validates doc-only commits, and its doc-validator half is the `validate` shape entry),
-    and the backlog's "`validate-todo` / `fix-todo`: flag malformed lines" (a column-0 line under a
-    heading is a paragraph). The validate-numbering entry's wrapper-test wish moved into the
-    `validate` shape entry.
-  - The sweep: agent for bot in prose, `.vc-config.md` for `.vc-config.toml` where the current
-    file is meant, the Cycle protocol for `cycle-protocol.md` / `cycle-checklists.md`, opening for
-    Preparation, and titles for the `#N` cites (two of which had already drifted off their
-    entries). Kept: quoted titles, template repo names, config keys an entry proposes to rename,
-    bugs.md's numbers, and every `notes/chores/` link.
-  - Bodies reflowed to the 100-column convention (wink, 2026-08-27), structure kept, done here
-    because the diff was already a whole-file rewrite. Thirteen headings over 60 characters were
-    shortened, their dropped words already in the paragraph.
+##### feat: add validate-config
 
-##### docs: move the agent-data files' inline whys
+The validate family is `validate-desc`, `validate-todo`, `validate-agent`, `validate-anchors`, and
+the config check alone hides behind another subcommand's flag. `config` prints the schema, which is
+a different verb from checking a file against it.
 
-rationale.md holds AGENTS.md's whys, and prose.md and notes.md still carry `**Why:**` blocks
-inline, with jj.md's whys in prose.
+- Decided (wink, 2026-08-28): `validate-config`, not `validate-vc-config`. Every sibling is
+  `validate-<object>` with a short common noun, and the object includes the user config at
+  `~/.config/vc-x1/config.toml`, which is plain TOML rather than a vc-config file, so naming the
+  format would be wrong about one of the things the command validates. The `vc-` is the binary's.
+  - If a second config format ever needs separating, that is handled then rather than pre-empted in
+    a name now.
+- `config --validate` is retired with a rejection naming the new spelling, the treatment
+  `bot-session` and the legacy `[workspace]` schema got.
+- **The validate family: umbrella, runner, and `validate-work`** gains a line saying this slice
+  landed early, since it currently says `validate-work` calls `config --validate`.
+- README owes three edits, deferred to here on purpose rather than written one rung earlier and
+  deleted here: the `--validate` bullet in the config section, the "unknown keys, legacy-schema
+  rejection" comment above the example, and the `[validate]` tables paragraph's "keys known per
+  side, lists well formed" line. All three understate the check as of the rung before this one, and
+  all three are text this rename rewrites anyway.
+- Taken now rather than in that entry because the code is open and the README section written two
+  rungs ago documents a spelling we would otherwise ship and immediately retire. The same reasoning
+  as taking the `owner/name` slice out of **Drop the global config and the account notion** early.
+- The code moved with the name. `validate`, `validate_file`, `validate_links`, `key_known`, and
+  `is_str_list` are now `src/validate_config.rs` with their fifteen tests, leaving `config_cmd`
+  the schema printing it is named for. `ConfigTarget`, `parse_target`, and the three home
+  predicates stay there as the shared target vocabulary both subcommands speak.
+- The rejection names a version, as `bot-session`'s does. `Versions live in the version-of-record
+  only` governs durable prose, and a fix-it answering "when did this change" is the one surface
+  where the version is the useful part.
+- README pays the three debts the rung before it recorded, and gains a `validate-config` section
+  beside `validate-anchors`. The `config` section keeps its `[TARGET]` row and says the two
+  subcommands take the same target.
+- Reporting matches `validate-anchors` (wink, 2026-08-28), for the same reason: "all checks passed"
+  over a config with two keys read the same as over one with forty.
+  - The summary counts files, keys, links, and required keys, so a pass says how much it covered.
+  - `-v` gives per-file counts and `-vv` a line per site: every key resolved against the schema,
+    every reference and anchor, every `vc-config.md#<anchor>` naming a key's section, and every
+    required key found present.
+  - A `vc-config.md` fragment counts as a link *checked* rather than one skipped, unlike in
+    `validate-anchors`, since here it does resolve, against the schema.
 
-- They are swept into rationale.md per-file sections, one heading per rule, mirrored, leaving
-  `[why](rationale.md#<slug>)` links behind.
-- The rung runs after every rung that changes rule text, so each agent-data file is swept once.
-- Renamed from "the satellites' inline whys" (wink, 2026-08-27): satellite was not obvious.
-- As built:
-  - Moved: prose.md's four (Versions live in the version-of-record only, Pinned files name no
-    project, Speculation marker, Plain synopsis), notes.md's one (File reads), versioning.md's one
-    (Grammar and storage), and jj.md's two whys in prose (the Revsets history note, the Cycle
-    bookmarks "start-change" paragraph). Each rule keeps a `[why](rationale.md#<same-slug>)` link
-    where the block was, and rationale.md gains `## jj.md`, `## notes.md`, `## prose.md` per-file
-    sections, alphabetical, before the existing `## versioning.md`.
-  - Kept: jj.md's Resolvability paragraph, since it is the mechanism the rule rests on, not an
-    argument for it. The `**How to apply:**` paragraphs stay, being rule.
-  - Corrected on the way: prose.md's Steps are named bullet still said `## Todo` ranks stay
-    numbered, stale since the previous rung.
-  - The reading rule in rationale.md no longer promises a future sweep: the agent-files carry no
-    inline why, only the link.
+##### chore: point config at .agent-session
 
-##### chore(template): propose the set to the payload
+The agent side was still `.claude` while the vocabulary around it had renamed to agent.
 
-The payload is the family's agreed state, and this cycle's result reaches it only once the
-other members agree, which this cycle cannot run by itself. And AGENTS.md's "custom.md" section
-still reads as if custom.md were where a member puts its changes, when the family dogfoods the
-set: a member edits the agent-files directly and the diff is the proposal, and overrides are for
-users of the set, not its authors.
+- `repos.agent` names `.agent-session`, which is what the directory has been called since the
+  between-session `mv`. The link `vc-x1 symlink` had already made by hand becomes the one the
+  config derives, so the two agree rather than happening to match.
+- The move alone left `vc-x1 push` dead: it resolves the agent side through `require_bot_dir`, and
+  the coherence check found no config and no jj repo under `.claude`. Both `validate-config` and
+  `validate-agent` reported it, each exiting 1. The config edit is what clears them, and this
+  rung's own push is the end-to-end proof, being the command that was blocked.
+- `.gitignore` gains `/.agent-session` beside `/.git` and `/.jj`, and `/.claude` stays. The harness
+  bind-mounts ten `/dev/null` nodes over `<project>/.claude` on every command and recreates the
+  directory when it is deleted, a restart included (observed 2026-08-28), so that line still has a
+  job. Claude Code reads the session data through the symlink and never through `repos.agent`,
+  which is why the move looked complete from the user's side.
+- The rung found that `vc-x1 init` still seeds `.claude`, recorded as the first `## Todo` entry
+  rather than folded in here, its reach being every workspace init creates.
 
-- The custom.md section and its rationale.md entry are restated to that model, keeping
-  custom.md and its precedence for downstream users, since it is the model this rung acts under.
-- The set is proposed to iiac-perf and zc-ring-x1 and their response recorded here.
-  - The copy into `vc-x1-template/work` and the re-sync happen once they agree.
-  - The three-way comparison going empty is the acceptance check of the proposal.
-- The template's own fossils are fixed while there:
-  - `jj-tips.md` glosses `@..` wrongly and sits outside `work/`.
-  - `.vc-config.toml` is the pre-0.75.0 schema, to be regenerated as `.vc-config.md`.
-- Governance, decided: the template stays agent-less, wink writes and pushes at convergence
-  moments, recorded in the acting member's records.
-- As built:
-  - `## custom.md` in AGENTS.md now tells the two kinds of project apart, a member that dogfoods
-    the set (diff is the proposal, custom.md holds pointers only) and a user of the set
-    (overrides in custom.md, the other agent-files identical to the payload), and the rationale
-    entry says why the earlier text misled.
-  - "Pinned file" is retired for "agent-file" (wink, 2026-08-27): no agent-file is special, anyone
-    can change any of them, and custom.md is only a convention that makes overriding simpler
-    than editing. The prose.md rule is now "Agent-files name no project", its anchor with it.
-  - "Family" and "member" leave the agent-files (wink, 2026-08-27), a personal notion: the
-    dual-repo model is meant for anyone's repos. The words are set (the payload's agent-files),
-    adopter (a project carrying a copy), and maintainer (the template repository's owner), defined
-    in Terminology. The `[family]` config table keeps its name until its own cycle, the
-    **docs: no single-owner assumption in the agent-files** entry carrying the rename.
-  - `## custom.md` says why the file exists: an adopter experiments with or overrides a rule in
-    one file when practical, and edits the agent-files directly when custom.md cannot serve, as
-    the first adopters do while defining the set.
-  - The proposal body is `notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27`: the
-    seven changes from zc-ring-x1's base, the ask, the copy and the two fossil fixes on agreement,
-    and the acceptance check. The records in `vc-x1-messages` (`iiac-perf.md`, and `zc-ring-x1.md`
-    created by this first write) follow the durable mode, so they are written after this rung's
-    push, with its permalink, and their commit in the messages repo takes wink's go.
-  - The response is recorded where it arrives, in the closing rung if before it, else as the
-    `## Waiting` entry the closing leaves.
-
-##### docs: the rules as one list
-
-AGENTS.md's `## Rules` is fifteen headings with one line each, 82 lines, spread out and hard to
-read as a list, and only 13 links point at a rule's anchor, 8 rules having none. Inserted after
-the custom.md rung (wink, 2026-08-27, per Unplanned work).
-
-- As built (wink, 2026-08-27, after one round as bullets with the rule text inline): the section
-  is a table of contents, fifteen links, each to the section that states the rule, and every
-  citation of a rule points at that section, not at the list. Thirteen rules already had a
-  section that states them. Stop and ask had none and is now `### Stop and ask` under Working
-  practices, and Read the step before the action points at the per-rung flow, whose intro is the
-  rule.
-- rationale.md's `## Rules` is one entry, the TOC's why. The fifteen mirror headings went, Prose
-  style's why moving to `## prose.md > ### Prose form` and Stop and ask's under Working
-  practices, the rest having been `_None recorded._`.
-- Two citations sat inside their own target section (Push commits in Committing vs pushing, Hard
-  stop in At rest) and are plain text there. Before any push now names the waiver the rule
-  named.
-- A `[why]` beside each TOC entry was considered and dropped (wink, 2026-08-27): the target
-  section links its why at its head, and a non-functional link for the six rules without one
-  makes no sense.
-- The six rules with no why under a rationale heading (wink, 2026-08-27) each had one written
-  elsewhere in the set, so it is now under the mirrored heading of the rule's target section, and
-  the target links it at its head: Before any push, jj Basics, Cross-repo linking, Re-describing,
-  Conventional-commit shape, and code.md's unwrap comments. rationale.md is for changing a rule,
-  not following one, and Terminology says so.
-- Grouped by file and ordered by target (wink, 2026-08-27), so the index walks a reader through
-  this file before sending them out, and the intro calls it an index, since a table of contents
-  is expected to be followed by what it lists.
-- Rejected on the way: the whole rule in the heading (link markup in the slug, and over 100
-  columns), an inline HTML anchor per bullet (HTML in prose, a hand-kept slug), and numbering the
-  list (a number implies order or rank, and invites citation by number).
-
-##### docs: the rules as sentences, in bullets
-
-The one-list rung left each rule as a bare link. Inserted before the closing (wink, 2026-08-28,
-per Unplanned work), after wink pasted the old numbered Hard Rules beside the list and asked which
-shape serves the agent.
-
-- Each bullet is now a one-sentence summary and the link, the section the rule and the sentence
-  its handle: AGENTS.md is in the agent's context every turn and the linked section is not, and
-  a bare name reminds an agent of a rule it holds without stating one it does not.
-- Bullets, not numbers, since the rules are unordered and numbers bred "hard rule N" citations.
-- Flat, not grouped by file: the link shows the file, so the "In jj.md" headers repeated it, and
-  the order alone keeps this file's rules first.
-- The old list's stale text did not come back: Typeable punctuation is Prose style, the
-  `--chores--` anchor and the "chores `##` header" are the retired names, and the old rule 0 is
-  an ordinary bullet.
-- Two rules the old list did not have or split: Shape at the first push gets its sentence, and
-  Changing the agent-files absorbs the old "Intent picks the file", which was one bullet of that
-  section.
-- rationale.md's `## Rules` records the sentence and the bullets.
-
-##### docs: the family agent-files proposal closing
+##### feat: finish the vc-config surface closing
 
 Closing out the cycle.
 
-- Acceptance check, in this repo: pass. Every real link in the agent-files resolves (the eight
-  the check flagged are placeholders in prose, `<same-slug>`, `feature-x`), no agent-file names
-  a rule by number, and the per-rung flow is stated in AGENTS.md alone.
-- Acceptance check, the three-way comparison: not run to empty, and the why is known. The
-  payload's `main` still holds the pre-sync set (no rationale.md, no messaging.md), because the
-  copy waits on the proposal's answer, which has not arrived. The propose rung already routes an
-  unanswered proposal to a `## Waiting` entry, and that entry is written by this closing.
-- Outlives the block: the abandoned cut rung's finding, that the remaining bulk is the rules
-  themselves, goes to `notes/agent-files-size.md`, the file that will ask the question again.
-  The proposal's content is already in `notes/messages/`. Nothing else in the block is needed
-  past the landmark.
-- Size: 11 files, 2126 lines, recorded in `notes/agent-files-size.md`.
-- `notes/README.md` is unchanged, no functionality changed.
-- Close-out shape: trapezoid, the default, chosen with wink.
-- `## Continuation notes` reset to `_None._`, its first use having been this cycle's restart.
-
+- Acceptance check: six items, six pass, run 2026-08-28 against `vc-x1-dev 0.80.6-9`.
+  - The model is generated and two tests hold it, `model_file_is_current` and
+    `model_carries_every_workspace_key` in `src/config_md.rs`.
+  - `vc-x1 init` emitted `.vc-config.md` on both sides of a fresh workspace and no
+    `.vc-config.toml`, checked on a workspace made from the binary of the rung before this one.
+  - `validate-anchors` reports 43 files, 226 links and 521 headings, with the two standing findings
+    in `notes/design-cli/por-dual-parity-audit.md` that the Ideas entry **Restructure the design-cli
+    parity docs** holds open. Clean apart from those two, which is what the item meant.
+  - `validate-config` reports both sides clean, 2 files, 9 keys, 18 links and 0 problems. Against
+    the `.vc-config.md` this cycle inherited it reports 6, the five undefined `[[3]]` through
+    `[[7]]` and the `#reposbot` anchor the agent rename killed, which is the item's other half.
+  - `repos.agent` resolves to `.agent-session` end to end, proved by the rung before this one and
+    by that rung's own push reaching the agent side.
+  - The agent vocabulary rejects the old spellings with a fix-it, asserted by a test.
+- Close-out shape: trapezoid (wink, 2026-08-28), the default. Land reshapes, this rung does not.
+- What outlives the cycle: the ownership reversal alone, and it leaves as the `## Todo` entry
+  **Write up who owns a config file's prose** rather than as a notes file written here (wink,
+  2026-08-28). The other two candidates are already carried by live entries, the cross-file `[N]:`
+  wait by **`validate`: enforce the record shapes the agent-files ask for** and the
+  `validate-<object>` naming rule by **The validate family: umbrella, runner, and
+  `validate-work`**.
+- `notes/README.md` is untouched. It indexes the notes directory's conventions rather than the
+  tool's subcommands, and this cycle added no notes file. The subcommand documentation was paid for
+  by **docs: README covers the new surface** and the README edits inside **feat: add
+  validate-config**.
+- The agent-files are untouched by this cycle, so the `notes/agent-files-size.md` row repeats the
+  last count rather than reporting a change.
 
 ## Waiting
 
@@ -561,7 +518,9 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   [agent-files-proposal-0827.md](notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27).
   On agreement: copy `AGENTS.md`, `custom.md`, and `agent-data/*` into `vc-x1-template/work`
   with the two fossil fixes the proposal names (`jj-tips.md`, `.vc-config.toml`), then re-sync
-  every adopter. The acceptance check is the three-way comparison going empty.
+  every adopter. The payload's `TODO.md` skeleton takes the `# Todo and cycle record` retitle with
+  them, since the anchor collision it removes ships in every copy. The acceptance check is the
+  three-way comparison going empty.
   - Waits on: a reply from each of iiac-perf and zc-ring-x1 in `../vc-x1-messages`, agreeing or
     amending.
   - Place when unblocked: first.
@@ -580,6 +539,46 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### Write up who owns a config file's prose
+
+(2026-08-28) The cycle **feat: finish the vc-config surface** reversed half the 2026-08-10
+ownership model and left the reversal in its closed record, where it is found only by knowing which
+cycle produced it. The rule now is that a fence interior and the prose around it are both the
+workspace's own, and the tool checks a config file rather than regenerating it, because a renderer
+owning every adopter's prose would cost each adopter the ability to explain its own config. That is
+a rule about what the tool does rather than a record of what was done, so it wants its own topic
+file ([notes/README.md](notes/README.md)), say `notes/config-ownership.md`.
+
+- Ranked first (wink, 2026-08-28). History holds the reversal either way, and the risk it guards
+  against is a regenerating config surface being proposed again before the rule is findable.
+- The retired **feat: add config --refresh** and the `--output` question still open in **Fix
+  `vc-x1 config`'s rendering** are the two places the reversal changed a plan, so the file should
+  name them.
+
+### `init` still seeds `.claude` as the agent directory
+
+(2026-08-28) The agent rename covered the vocabulary and this repo's own layout and left `init`'s
+default alone, so every workspace it creates lands in the mount collision this repo just left. With
+the agent repo at `<project>/.claude`, the harness's ten `/dev/null` bind mounts land inside the
+agent repo, and the seeded agent-side `.gitignore` carries only `.git` and `.jj`. We think an agent
+working there meets ten untracked device nodes in `jj st`, since the work side's `/.claude` line
+cannot reach inside a second repo.
+
+- The default has five sites: `DEFAULT_BOT_DIR` (`src/init.rs:161`), the seeded work config's
+  `agent = ".claude"` (`src/init.rs:347`), `GITIGNORE_CODE` (`src/init.rs:470`), the GitHub repo
+  name `<name>.claude` (`src/init.rs:986`, `:1032`), and the `example` for `repos.agent` in
+  `vc-config.md`, which build.rs regenerates into `vc-config-model.md`.
+- Three tests pin it: `src/init/tests.rs:82`, `:125`, `:156`.
+- Open question, and the reason this is an entry rather than a one-line default swap: does the
+  GitHub repo suffix follow the directory? Repos named `<name>.claude` already exist under the old
+  name, so changing the suffix is a decision about published names rather than about a default.
+- `vc-x1 push` labels the agent side `.claude` in its pending-changes report while resolving the
+  configured path beside it, so the line reads `.claude (<root>/.agent-session):`. The label is the
+  string literal at `src/push.rs:377`, and eight doc comments in that file name `.claude` for the
+  bot repo generally. Cosmetic, and the same rename not having reached everywhere.
+- Found while running **chore: point config at .agent-session**, whose record holds what the
+  collision costs a workspace that stays on `.claude`.
 
 ### `validate`: enforce the record shapes the agent-files ask for
 
@@ -600,6 +599,12 @@ fails. First set:
   block per cycle-model.md (2026-08-27)
 - `## Todo` entries are `###` headings, no numbered entries anywhere in the file, and
   `validate-todo` / `fix-todo` retire, the numbered form they served being gone (2026-08-27)
+- a per-file punctuation baseline, since a byte scan cannot be the check: the rule forbids
+  *authoring* the four characters rather than their presence, and transcribed tool output and
+  published commit titles keep theirs, so record a per-file count and fail when one rises (carried
+  2026-08-28 from the retired backlog entry **Add `validate-repo` subcommand**, and it supersedes
+  the chores-15 note asking the checker to read its character set from one place, which assumed a
+  checkable zero)
 - wrapper-level tests for `validate-desc` / `fix-desc` ride along: the analyze cores are covered,
   the wrappers (file I/O, output, exit codes) are not
 
@@ -608,49 +613,6 @@ fails. First set:
 The markdown carrier landed and the rest of the config subcommand's work was spread across six
 entries. They share one surface, one schema and one set of tests, so they run as one program rather
 than six rankings. Sub-entries keep their bold titles, so a citation by title still resolves.
-- **Finish the vc-config surface (the five rungs deferred at the 0.78.8 early close).** The markdown
-  carrier landed and the cycle closed early for the 0816-proposal agent-files work, leaving the
-  surface's completion as its own cycle. The deferred acceptance items ride with it: agent
-  vocabulary with old spellings rejected (a test shows the fix-it), `config --refresh` with
-  `--check` clean on both sides, `validate-anchors` clean over the records, and the `.agent-session`
-  repoint end to end.
-  - **feat: agent naming in config and CLI** (moved 2026-08-21 into the "docs: empty custom-family
-    into the pinned set and config" ladder, ahead of its schema-tables rung, so the new tables are
-    born under the new names, and the notes below ride with it): `repos.agent` / `[agent-session]` /
-    `agent-session` / `--scope=agent`, old spellings rejected rather than aliased, the rejection
-    printing its fix-it for both sides (`legacy_vc_config::reject` is the model)
-    - rejection, not aliases (wink, 2026-08-12, iiac-perf concurring): an alias is a live dual-name
-      path that stays temporary only if someone later deletes it, while a rejection is permanent and
-      harmless. `repos.bot` is a topology key, so the fix-it turns the flag day into a five-second
-      edit at a moment the member picks
-    - values untouched: `repos.agent = ".claude"` until the repoint rung, and the ochid label stays
-      `/.claude/` (test-pinned). The pinned-prose sweep stays excluded (convention work runs as its
-      own cycle), and `homes` -> `files` waits for the Drop-the-global-config entry below, this rung
-      respelling `workspace-bot` alone
-  - **chore: regenerate configs in md format**: `vc-config-test.md` becomes the generated model
-    `vc-config-model.md` (generated, not maintained: build.rs already knows every key, so "contains
-    every key" holds by construction), the work-side `.vc-config.md` byte-identical to it (a test
-    renders and compares), both sides regenerated, and the `.vc-x1` leftovers retired
-    (`.claude/.vc-x1`, the work `.gitignore` line)
-    - ownership model (2026-08-10): fence interiors are the workspace's own, the prose between
-      fences is machine-owned rendering, and the durable link edit is `reference-base`, an active
-      key surviving refresh
-    - the `homes` correction rides here: the three `bot-session` keys drop the agent side, which
-      nothing reads
-    - the model carries derived `reference-base` https urls, and the info-string rule's negative
-      half (only fences tagged exactly `toml` are live) lands in `vc-config.md`
-    - init emits `.vc-config.md` from the generated model for new workspaces (found 2026-08-19: init
-      still writes `.vc-config.toml`, starting every new member on the legacy carrier)
-  - **feat: add config --refresh**: regenerate a file's prose while preserving fence interiors and
-    `[repos]` byte-for-byte, `--check` exiting nonzero on drift
-  - **feat: add validate-anchors**: same-file heading anchors via the documented slug algorithm plus
-    `[N]` definition/use matching, the validate-repo design's first standalone slice (the backlog's
-    **Add `validate-repo` subcommand** absorbs it at pickup). Stretch: cross-file `[N]:` targets
-    (the backlog's **Reference defs: go file-relative, with anchors**)
-  - **chore: point config at .agent-session**: wink's between-session move (mv, config edit,
-    `.gitignore` edit, `vc-x1 symlink`), with the following session committing the record
-  - per-key worked examples in `vc-config.md` remain from the original plan, unscheduled
-
 - **Fix `vc-x1 config`'s rendering: print once, and write with `--output`.** (wink, 2026-08-21) Bare
   `vc-x1 config` prints the schema once per side of the default `work,agent` target, and since every
   remaining key has both workspace homes the two blocks are identical apart from the header, so the
@@ -759,6 +721,39 @@ than six rankings. Sub-entries keep their bold titles, so a citation by title st
     longer holds them).
   - Output format is unchanged, only the text source, so no rework of the 0.71.0-9 rendering.
 
+- **init distributes vc-config.md, reference-base at the member.** (wink + agent, 2026-08-10, folded
+  in from the backlog 2026-08-28) `vc-x1 init` seeds a new member with a copy of `vc-config.md` from
+  the template payload and stamps `[vc-config] reference-base` with the member's own repo url, so
+  every generated doc-reference web link in the member's `.vc-config.md` lands on a copy the member
+  owns.
+  - the copy is a pinned family file: a member's edits diff against the payload and are its doc
+    proposals, folded back at convergence
+  - folded here because **chore: regenerate configs in md format** already teaches init to emit
+    `.vc-config.md` from the generated model and already owns `reference-base` as the key that
+    survives a refresh, so the two are the same code one rung apart
+
+- **Config provenance names the schema, not just the binary.** (iiac-perf + agent, 2026-08-12,
+  folded in from the backlog 2026-08-28) The schema is generated at build time from `vc-config.md`,
+  so an installed binary validates against its build's prototype rather than the workspace's, and a
+  key added after that build is reported unknown with the config blamed. Member repos run a binary
+  built from this one, so the exposure is the family's.
+  - provenance already prints, keyed to the binary: `--validate` opens with the version banner and
+    `print_schema` with its "settable config keys (from ...)" line, so this is one field on two
+    lines that already exist rather than a new flag
+  - the gap is that a version identifies the *build*, while the question behind an unknown-key
+    complaint is whether that build's `vc-config.md` equals the workspace's. A content hash of the
+    prototype, baked by build.rs beside the schema and printed next to the version, answers it
+    exactly
+  - not covered by **Tiered exit status for `config --validate`**, which was asked and is worth
+    recording: an unknown key is tier 1 whether it is a typo or a stale binary, so the exit status
+    is the same either way. That entry carries severity (could the check run at all) and this one
+    attribution (whose fault the unknown key is), and only the second tells a reader whether to fix
+    a spelling or to rebuild
+  - decide there: a hash or a schema version. A hash is free, exact, and unreadable, while a version
+    is readable and someone has to remember to bump it
+  - folded here because build.rs is already open at **chore: regenerate configs in md format**,
+    which generates the model from the same prototype
+
 ### validate-repo-data
 
 Golden ids for a fixture repo, so a jj-lib bump that moves the on-disk data fails loudly instead of
@@ -844,18 +839,27 @@ table, beside `validate-agent`, `validate-desc`, and `validate-todo`, which are 
 repo state. Read as a family the bare name looks like their parent and is not: it runs cargo while
 its siblings check bookmarks and records. Supersedes "A committed cycle-check runner" (resolved by
 `vc-x1 validate`, whose "not a vc-x1 subcommand" line was decided the other way at that cycle: the
-commands live in config, so the tool assumes nothing about the medium) and absorbs backlog "Add
-`validate-repo` subcommand", whose "runs all" is this umbrella under a name that no longer fits the
-family.
+commands live in config, so the tool assumes nothing about the medium) and absorbs the backlog's
+"Add `validate-repo` subcommand", retired into this entry 2026-08-28, whose "runs all" is this
+umbrella under a name that no longer fits the family.
 - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old meaning the
   way `bot-session` does, and the per-rung flow saying `validate-artifact` per rung and plain
   `validate` at close-out
-- add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin, `config
-  --validate` clean, mostly the push preflight exposed read-only
+- add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin,
+  `validate-config` clean, mostly the push preflight exposed read-only
+- landed early, 2026-08-28: `validate-config` is out of `config --validate` and into this family,
+  with the old flag rejected by name. What is left here is the runner rename and the umbrella
 - bare `validate` runs everything that applies to the workspace (artifact, work, agent, desc, todo),
   each reported by name, exit status the worst of them, a side the workspace lacks skipped by name
 - the `[validate]` config key stays as it is: it is the artifact's validation, and the umbrella
   reads it
+- implementation, carried from the retired entry: promote `verify_state_sanity` /
+  `verify_completion_sanity` from `push.rs` to `common.rs`, which is the surface `validate-work`
+  reads the push preflight through, and the sketch is [the validate-repo
+  design](notes/chores/chores-06.md#vc-x1-validate-repo-command-design)
+- two of that entry's items did not survive it: the chores-to-commit consistency check, whose
+  `Commits:` lines retired with the chores record form, and the exit code as a count of failed
+  checks, which the umbrella's "the worst of them" above replaces
 
 ### `squash-push --title` / `--body`
 
@@ -998,7 +1002,7 @@ not auditing it on a schedule.
 
 The 0.78.3 residue. Existing workspaces keep their `/.vc-x1` `.gitignore` line: never edit the
 user's file automatically. Report that the line is no longer needed and leave the removal to them
-(which surface runs the check is TBD, and `config --validate` and the proposed `validate-repo` are
+(which surface runs the check is TBD, and `config --validate` and the proposed `validate-work` are
 the candidates). Separately, any `revert` reintroduction first needs the op-log-derived design:
 identifiable sync operations, target the parent of the run's earliest op, preview and confirm,
 refuse on intervening non-sync operations. Background in
@@ -1009,6 +1013,7 @@ refuse on intervening non-sync operations. Background in
 (wink, 2026-08-21) `full` is the `[validate]` table `vc-x1 validate` runs and `--fast` names the
 other, so `--full` should be accepted too, unnecessary but allowed, so a reader of a command sees
 which table ran.
+
 ### `vc-x1 closed "<title>"`: print a landed cycle's block
 
 (2026-08-27) A landed cycle's record is its `## Closed` block in the landmark commit's `TODO.md`,
@@ -1098,17 +1103,15 @@ _See [bugs.md](notes/bugs.md)._
 
 # References
 
-[1]: #docs-the-family-agent-files-proposal-opening
-[2]: #docs-sync-the-agent-files-to-zc-ring-x1s-set
-[3]: #docs-state-the-cycle-protocol-once
-[4]: #docs-one-todomd-closed-as-the-history
-[5]: #docs-widen-typeable-punctuation-to-prose-style
-[6]: #build-update-the-lock-to-the-latest-compatible-versions
-[7]: #docs-the-restart-and-the-interlude-between-cycles
-[8]: #docs-todo-entries-as-headings-and-sweep-the-retired-names
-[9]: #docs-move-the-agent-data-files-inline-whys
-[10]: #choretemplate-propose-the-set-to-the-payload
-[11]: #docs-the-family-agent-files-proposal-closing
-[13]: #docs-the-rules-as-one-list
-[14]: #docs-the-rules-as-sentences-in-bullets
+[1]: #feat-finish-the-vc-config-surface-opening
+[2]: #chore-groom-the-config-backlog
+[3]: #chore-generate-the-config-model-and-seed-init
+[4]: #feat-add-validate-anchors
+[5]: #feat-check-a-config-files-links-and-keys
+[6]: #chore-point-config-at-agent-session
+[7]: #feat-finish-the-vc-config-surface-closing
+[8]: #fix-init-takes-a-url-or-a-path
+[9]: #docs-readme-covers-the-new-surface
+[10]: #feat-validate-anchors-reports-what-it-checked
+[11]: #feat-add-validate-config
 [12]: /notes/forks-multi-user.md
