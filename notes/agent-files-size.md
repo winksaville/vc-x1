@@ -20,7 +20,6 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-08-25 | docs: the family agent-files proposal opening | 10 | 2205 | vc-x1's set |
 | 2026-08-27 | docs: sync the agent-files to zc-ring-x1's set | 12 | 2822 | two files back, 863 |
 | 2026-08-28 | docs: the family agent-files proposal | 11 | 2126 | cycle-checklists and cycle-protocol folded into AGENTS.md, commit-model added |
-| 2026-08-28 | feat: finish the vc-config surface | 11 | 2126 | agent-files untouched, the row records the check |
 
 Per file at the last row, replaced at each close-out, the history being in the commits:
 
