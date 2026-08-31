@@ -217,6 +217,10 @@ Each close-out step exists because a close-out once went wrong without it.
 - The user restarts the agent after the close-out (wink, 2026-08-24) because context degrades over
   a long session, nothing is in flight once the cycle has landed, and an agent cannot restart
   itself, so the step says what must be written down before the exit.
+- The `(current)` / `(done)` markers stay in the closed block (wink, 2026-08-28) because they have
+  value: the finished block is the ladder as it was worked, and a closed block is one every rung of
+  which reads `(done)`, so a rung reading otherwise is a finding. The earlier "drop the markers"
+  step was one more transform of the record, of the kind [Cycle-record](#cycle-record) retired.
 - The single-step case is spelled out because a single-step close-out went wrong when it was left
   to analogy (2026-08-26): the agent treated the one commit as a closing rung.
   - The agent-repo commit took the title plus " closing" while the work-repo commit kept the bare
@@ -259,6 +263,18 @@ publishes.
 **Delegate mechanical subtasks to lesser models** because top-model tokens are the scarce resource.
 **Don't use the per-project memory directory** because easy for everyone to find beats convenient
 for the agent alone. **Mark speculation** so a reader can tell the measured from the inferred.
+
+### A session's rules are its own agent-files
+
+Written after a session, working from this project, committed and pushed in a sibling shared repo
+under that repo's own protocol alone (2026-08-30): it read the sibling's README as displacing
+these files' review stops, and the scoping clause that would have caught it sat inside a file it
+had already decided not to open, so the scope had to move into the rules themselves. Stating rule
+identity plus explicit delegation removes the conflict between "the sibling's README governs" and
+"these files govern" rather than adjudicating it: each governs its own jurisdiction, the repo's
+protocol the write's shape, the session's files the conduct around it. The dual-repo thought
+experiment settled the boundary (wink): were the target a full dual-repo project, the answer is
+to message its agent rather than write its repo, so a foreign repo's rules never bind by default.
 
 ### Stop and ask
 

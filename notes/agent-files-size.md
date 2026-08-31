@@ -21,19 +21,19 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-08-27 | docs: sync the agent-files to zc-ring-x1's set | 12 | 2822 | two files back, 863 |
 | 2026-08-28 | docs: the family agent-files proposal | 11 | 2126 | cycle-checklists and cycle-protocol folded into AGENTS.md, commit-model added |
 | 2026-08-31 | docs: point custom.md at the messages repo | 11 | 2127 | the messaging line replaces custom.md's `_None._` |
+| 2026-08-31 | agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31 | 10 | 2109 | iiac-perf's set verbatim, messaging.md out |
 
 Per file at the last row, replaced at each close-out, the history being in the commits:
 
 ```
-   350 AGENTS.md
+   362 AGENTS.md
     12 custom.md
     92 agent-data/code.md
     42 agent-data/commit-model.md
     76 agent-data/cycle-model.md
    376 agent-data/jj.md
-    46 agent-data/messaging.md
    169 agent-data/notes.md
    360 agent-data/prose.md
-   426 agent-data/rationale.md
+   442 agent-data/rationale.md
    178 agent-data/versioning.md
 ```

@@ -26,45 +26,56 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### docs: point custom.md at the messages repo
+
+### agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31
 
 #### Problem
 
-The accepted messages rules make each member's `custom.md` the home of its communication rules,
-and iiac-perf offered the same one line for every member under the sibling convention. Both
-adopters carry it, while ours existed only as an uncommitted draft in the working copy, one
-session away from being lost.
+The cycle **docs: the family agent-files proposal** proposed the set, both members accepted, and
+iiac-perf's landed copy at `eb3fa5eb6152` (built on zc-ring-x1's `e1bc046c`) is the family's
+converged set. Ours diverged from it three ways: wink's 2026-08-28 markers-stay ruling never
+reached our copy, iiac-perf's accepted session-rule-identity rule was not yet in ours, and
+`agent-data/messaging.md` survived here alone.
 
 #### Solution
 
-Committed the family-wide messaging line verbatim under `## Project conventions and overrides`:
-the `../vc-x1-messages` repo, its `README.md` the governing protocol, the inbox read at acquaint
-per its Read messages action.
+Adopted iiac-perf's agent-files verbatim, one commit: `AGENTS.md`, `custom.md`, and
+`agent-data/*` copied with the delete side, so our tree carries their bytes exactly.
 
 #### Acceptance check
 
-The line in `custom.md` matches the offered string in the record
-`## 2026-08-31T03:34:01.193Z iiac-perf adopted the agent-files set` of the messages repo's
-`topics/agent-files.md` verbatim modulo line wrap, and `vc-x1 validate` passes.
+`diff -r` of `AGENTS.md`, `custom.md`, and `agent-data/` against `../iiac-perf` is empty, and
+`vc-x1 validate` passes. Ran at the close: empty, and validation passed.
 
 #### Ladder
 
-- docs: point custom.md at the messages repo
+- agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31
 
 #### Deliberation
 
-- Single-step, the line already drafted (wink, 2026-08-31).
-  - The line was in the working copy before the cycle opened; the cycle wraps it in the
-    protocol's bookkeeping so it lands as its own commit, as an agent-file change must.
-- Ordered before the convergence cycle (wink, 2026-08-31).
-  - It is our half of an enactment both adopters already completed, it touches no file
-    convergence touches, and it clears the working copy for that larger cycle.
-- Todo maintenance rides the commit (wink, 2026-08-31).
-  - **Copy the proposed set into the payload, and re-sync** takes iiac-perf's adoption facts:
-    landed at `eb3fa5eb6152` on zc-ring-x1's copy at `e1bc046c`, `messaging.md` omitted as the
-    accepted rules direct, and their session-rule-identity rule offered as their one diff.
-  - A new entry queues POR support for `vc-x1 push`, with the failing test as its opening move
-    and auto-detection, no `--por` flag, as its design note.
+- Single-step (wink, 2026-08-31): with wink ruling accept on every divergence the three-way diff
+  surfaced, the fold is one copy command, and the bookkeeping rides the same commit.
+- The title invents the `agent-files` type (wink, 2026-08-31), used ahead of its convention: the
+  declaration (the type, phase scopes `proposal` / `adoption`, the dated member-list grammar) is
+  the next cycle's proposal to the family, and this title is its first use. An explicit
+  exception to [Conventional-commit
+  shape](agent-data/prose.md#conventional-commit-shape-ladder--commit)'s common-set wording,
+  recorded here as [Rules](AGENTS.md#rules) requires.
+- Adopt verbatim, then propose (wink, 2026-08-31): an adoption takes the member's bytes exactly,
+  and every departure of ours goes to its own cycle, whose diff is the proposal. A first
+  multi-step attempt mixed the two and was parked whole as the local bookmark
+  `docs-add-cc-type-and-scope`, the donor for the proposal cycle; its pushed rungs' agent-repo
+  ochid pairs point into that parked line, superseded rather than broken.
+- The payload takes nothing until the family agrees 100% (wink, 2026-08-31): vc-x1-template's
+  `main` was rolled back to `03e5648c` after an early payload copy, which is parked in the
+  template as draft `9a4614a1` with the two fossil fixes the proposal names. The payload becomes
+  the agreed identical set once the family converges.
+- zc-ring-x1's three acceptance remarks (the Size step's missing rationale, Restart as a user
+  step inside the agent's protocol, Bullet form's scope) are noted and deferred, the Size remark
+  riding [Size is recorded only when an agent-file
+  changed](#size-is-recorded-only-when-an-agent-file-changed).
+- The adoption-done record follows the Land: a reply to zc-ring-x1's acceptance record in the
+  messages repo, our inbox line for it deleted with the reply, done.
 
 ## Waiting
 
@@ -88,31 +99,37 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### Copy the proposed set into the payload, and re-sync
+### Propose the declared commit types to the family
 
-(2026-08-28) The cycle **docs: the family agent-files proposal** proposed the set to iiac-perf and
-zc-ring-x1 in [agent-files-proposal-0827.md](notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27).
-Both accepted, and iiac-perf adopted and landed (2026-08-31) at `eb3fa5eb6152`, taking
-zc-ring-x1's copy at `e1bc046c`, the accepted counter completed, and omitting
-`agent-data/messaging.md`. Copy the converged set, `AGENTS.md`, `custom.md`, and
-`agent-data/*`, into `vc-x1-template/work` with the two fossil fixes the proposal names
-(`jj-tips.md`, `.vc-config.toml`), then re-sync every adopter. The payload's `TODO.md` skeleton
-takes the `# Todo and cycle record` retitle with them, since the anchor collision it removes ships
-in every copy. The acceptance check is the three-way comparison going empty.
+(2026-08-31) The cycle **agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31** adopted
+iiac-perf's set verbatim, and our additions beyond it are unproposed: the project-declared-types
+paragraph for prose.md's Conventional-commit shape (the `agent-files` type, phase scopes
+`proposal` / `adoption`, the dated member-list grammar, the type heading any commit in the set's
+work), the notes.md rewrap of the markers-stay line, and the queued validate element's "or a
+project-declared type". Run as `agent-files(proposal): to iiac-perf, zc-ring-x1, <date>`, taking
+the edits from the parked local bookmark `docs-add-cc-type-and-scope`, and send the proposal
+record when it lands.
 
-- Promoted from `## Waiting` at the opening of **docs: propose the messages rules** (2026-08-29),
-  both conditions met.
-- The messages rules stand as the messages repo's `README.md` (2026-08-31), so
-  `agent-data/messaging.md` leaves the set here too, enacting what both adopters already enacted.
-- iiac-perf's one diff against the set is a proposal to decide at this convergence: the
-  session-rule-identity rule, a session's rules are the agent-files it started in, at
-  `AGENTS.md#a-sessions-rules-are-its-own-agent-files` of their `eb3fa5eb6152`.
-- The inbox line for zc-ring-x1's acceptance record goes done when this cycle triages the
-  remarks below, per the messages repo's Acknowledge action.
-- zc-ring-x1's remarks ride along: the Size close-out step reads as vc-x1's habit and has no
-  rationale entry, Restart is a user step stated inside the agent's protocol, and Bullet form
-  could say it applies to text written from now on. Two anchor collisions they fixed, `# Todo` and
-  `# Bugs` slugging to their section titles, are already fixed here.
+- The payload takes nothing until the family agrees 100% (wink, 2026-08-31): vc-x1-template's
+  `main` sits at `03e5648c`, the earlier payload copy parked there as draft `9a4614a1` with the
+  two fossil fixes (`jj-tips.md`'s `x..` gloss, `.vc-config.toml` regenerated as
+  `.vc-config.md`), redone or reused when agreement lands. The template's `.claude` side holds
+  the same config regeneration unpushed, its remote being ssh.
+- Version at the opening is wink's call: `0.80.10` by patch default, or `0.81.0` if the
+  convention change deserves the visible marker.
+
+### Size is recorded only when an agent-file changed
+
+(wink, 2026-08-29) [Close-out step 4](AGENTS.md#close-out) has every cycle record the agent-files
+line count in `notes/agent-files-size.md`, so a cycle that touched no agent-file adds a row saying
+so, which is a row that records nothing. Two such rows were added, by **feat: finish the vc-config
+surface** and **docs: propose the messages rules**, and the second cycle deleted both. Change the
+step to record the count only when the cycle changed an agent-file, and say the same in the
+file's own preamble. An agent-file change, so its own commit.
+
+- zc-ring-x1's acceptance remark rides here (2026-08-31): the Size close-out step reads as
+  vc-x1's habit and has no rationale entry, so this entry's cycle writes the missing rationale,
+  or retires the step, when it runs.
 
 ### Support POR workspaces in `push`
 
@@ -125,14 +142,29 @@ flag: `init` needs `--por` because it creates the topology, while `push` reads a
 today's refusal, the error names a dual workspace and nothing is mutated, which inverts into the
 POR-success test when support lands.
 
-### Size is recorded only when an agent-file changed
+### Get defaults from .vc-config in cli processing
 
-(wink, 2026-08-29) [Close-out step 4](AGENTS.md#close-out) has every cycle record the agent-files
-line count in `notes/agent-files-size.md`, so a cycle that touched no agent-file adds a row saying
-so, which is a row that records nothing. Two such rows were added, by **feat: finish the vc-config
-surface** and **docs: propose the messages rules**, and the second cycle deleted both. Change the
-step to record the count only when the cycle changed an agent-file, and say the same in the
-file's own preamble. An agent-file change, so its own commit.
+When processing the default parameters for a vc-x1 subcommand look in .vc-config.
+For instance `vc-x1 validate-desc` should have a default that is both repos
+and their locations are in vc-config::repos.*. This is also a way to determine
+if a repo is a dual repo or not.
+
+- Overlaps [Support POR workspaces in `push`](#support-por-workspaces-in-push): `bot_repo_path()`
+  reading `repos.agent` is the same dual-or-POR signal that entry names.
+
+### Add support subcommand status of the repos
+
+Implement `jj st` for either or both repos, I do the following command frequently
+to be sure the repos are "clean" or not i.e. clean = (empty) (no description set) 
+
+### Enhance squash-push
+
+Display status of both repos and conditionally push if not clean if the status
+changed display the final status. A --yes would mean do a push without prompting.
+
+- A near neighbor of [Add support subcommand status of the
+  repos](#add-support-subcommand-status-of-the-repos): the status display here could be that
+  subcommand's output.
 
 ### Write up who owns a config file's prose
 
@@ -514,6 +546,12 @@ else workspace-relative), existing path-form trailers stay the backward-compatib
   trailer-format change, so any work-repo clone then knows where the agent-repo lives). Rides
   naturally with the refactor program's facade-owns-topology stage (agent-repo-location config).
 - Link rot + mirroring mitigations are in the same doc section.
+- A real case of our own (2026-08-31): the ARM session made six commits in the sibling
+  `vc-x1-messages` clone (the read and done marks plus the marked-done revision record, `main`
+  at `5cf8aad7`), while its transcript rode vc-x1's agent-repo squash-push with no work-repo
+  commit to pair with, so nothing links the two histories. A URL-shaped ochid on the transcript
+  commit could have named the messages-repo commit, the same shape as a pull request whose real
+  history lives in another repo.
 
 ### sync follow-up: extract `move-bookmark` command
 

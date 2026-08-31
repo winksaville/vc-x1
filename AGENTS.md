@@ -59,6 +59,9 @@ user says so explicitly, at the moment or as a scoped delegation ([Stop and ask]
 the path), and the exception is recorded in the cycle's records. No rule bends silently.
 
 - Read custom.md first: read [custom.md](custom.md), whose rules override all others.
+- A session's rules are its own agent-files: the ones it started in, binding in every repo it
+  writes, and another repo's rules bind only by delegation ([A session's rules are its own
+  agent-files](#a-sessions-rules-are-its-own-agent-files)).
 - Bookmark per cycle: a cycle runs on one topic bookmark in the work-repo, and `main` advances
   only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
 - Shape at the first push: single-step or multi-step is fixed by the cycle's first push, and a
@@ -247,7 +250,6 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
 2. Finalize the cycle-record in place ([Cycle-record](#cycle-record)):
    - sync the title if the scope shifted, and every anchor back-reference with it
    - replace the provisional solution statement with what was done
-   - drop the `(current)` / `(done)` markers
    - add the design subsections the deliberation grew
    - complete the closing rung's subsection
    - ask what in the block must outlive the cycle, and write it into the `notes/` file it
@@ -302,6 +304,16 @@ the machine and collapses into the rung before the cycle continues, each validat
   marker](agent-data/prose.md#speculation-marker)).
 - Plain synopsis: end a technical explanation in conversation with one, marked "The plain version:"
   ([Plain synopsis](agent-data/prose.md#plain-synopsis-after-technical-explanations)).
+
+### A session's rules are its own agent-files
+
+A session's rules are the agent-files of the project it started in, and rules living in any other
+repo are ignored unless these files or the user direct otherwise
+([why](agent-data/rationale.md#a-sessions-rules-are-its-own-agent-files)). So another repo's own
+protocol (a shared store's README, another project's agent-files) governs a write to it only as
+far as the delegation reaches, and this file's conduct rules, the step reads, the reviews, the
+per-push approval, and the stops, bind every commit and push the session makes, in any repo,
+cycle or not. A repo with a live agent of its own is not written at all: message its agent.
 
 ### Stop and ask
 
