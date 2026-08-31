@@ -20,12 +20,13 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-08-25 | docs: the family agent-files proposal opening | 10 | 2205 | vc-x1's set |
 | 2026-08-27 | docs: sync the agent-files to zc-ring-x1's set | 12 | 2822 | two files back, 863 |
 | 2026-08-28 | docs: the family agent-files proposal | 11 | 2126 | cycle-checklists and cycle-protocol folded into AGENTS.md, commit-model added |
+| 2026-08-31 | docs: point custom.md at the messages repo | 11 | 2127 | the messaging line replaces custom.md's `_None._` |
 
 Per file at the last row, replaced at each close-out, the history being in the commits:
 
 ```
    350 AGENTS.md
-    11 custom.md
+    12 custom.md
     92 agent-data/code.md
     42 agent-data/commit-model.md
     76 agent-data/cycle-model.md

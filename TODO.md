@@ -26,91 +26,45 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### docs: propose the messages rules
+### docs: point custom.md at the messages repo
 
 #### Problem
 
-The family's messaging behavior sits in `agent-data/messaging.md`, a universal agent-file that no
-agent-file points at (iiac-perf's finding of 2026-08-29), and the protocol it defers to costs two
-writes in two repos per message, assumes sibling clones on one disk, and never shrinks. iiac-perf's
-README draft of the same day rewrites that protocol in place and asks the set to keep messaging
-reachable, which is the wrong direction: the agent-files are universal, and how agents coordinate
-is not.
+The accepted messages rules make each member's `custom.md` the home of its communication rules,
+and iiac-perf offered the same one line for every member under the sibling convention. Both
+adopters carry it, while ours existed only as an uncommitted draft in the working copy, one
+session away from being lost.
 
 #### Solution
 
-Proposed eight rules as the protocol of `vc-x1-messages`, reconsidered from one constraint, a
-single shared repo every participant can reach, in
-[messages-rules-0829.md](notes/messages/messages-rules-0829.md#proposal-2026-08-29). A message is a
-record in `messages.md` or a topic file, `## <UTC-timestamp> <title>` with `from:`, `to:`, `read:`,
-and `done:` always present, its body the message or a reference, owned by `from:` and deletable by
-them once every `to:` is in `done:` and `main@origin` has it. `<member>.md` is that member's inbox,
-one link line per record addressed to them, which is what a session opens. The set changes the rules imply,
-`messaging.md` leaving and `custom.md` holding each project's own communication rules, wait on the
-answer. The record that sends the proposal is written after Land, since it needs the landmark.
+Committed the family-wide messaging line verbatim under `## Project conventions and overrides`:
+the `../vc-x1-messages` repo, its `README.md` the governing protocol, the inbox read at acquaint
+per its Read messages action.
 
 #### Acceptance check
 
-`notes/messages/messages-rules-0829.md` carries the `## Proposal 2026-08-29` anchor that a record
-can cite, and `vc-x1 validate-anchors` over the files this cycle touches reports clean. Pass, 3
-files, 0 failed. The workspace-wide run finds two problems in
-`notes/design-cli/por-dual-parity-audit.md`, last changed 2026-07-08, so they predate the cycle and
-are a finding for the backlog rather than this check. The record in `iiac-perf.md` that cites the
-proposal is written after Land by construction, so it is not part of this check.
+The line in `custom.md` matches the offered string in the record
+`## 2026-08-31T03:34:01.193Z iiac-perf adopted the agent-files set` of the messages repo's
+`topics/agent-files.md` verbatim modulo line wrap, and `vc-x1 validate` passes.
 
 #### Ladder
 
-- docs: propose the messages rules
+- docs: point custom.md at the messages repo
 
 #### Deliberation
 
-- Opened from conversation, not from a `## Todo` entry (wink, 2026-08-29).
-  - The request it answers is iiac-perf's README draft record, which is read and gets its outcome
-    after Land. The "a request becomes an entry" rule is one the proposal names as a project
-    convention rather than protocol, and this block is the entry.
-- The initial conditions decide `messaging.md`'s fate, not the orphan (wink, 2026-08-29).
-  - The set should be the basis for any repo of any content. Coordination between agents cannot be
-    universal and may not even be wanted, so it lives in `custom.md`, inline or by reference. The
-    orphan is then not a regression to fix but a file that should not be in the set.
-  - By the same test the `// OK` unwrap rule, `cargo fmt`, and the `-dev` rename are Rust or
-    built-product specific. Not this cycle's subject, and a later one should apply the test to the
-    rest of the set.
-- The message goes in the record (wink, 2026-08-29).
-  - Requiring the body in the sender's repo existed so the messages repo could be disposable. It
-    is not, so the requirement bought two writes, two modes, and a permalink ordering rule for
-    nothing. A body may still be a reference when the message is about something elsewhere.
-  - A database was weighed: GitHub Issues on the same repo, git-bug, Dolt. All need connectivity
-    or a server or both, and the family wants to work offline, so a repo it stays.
-- Growth is bounded by deletion, and deletion by `main@origin` (wink, 2026-08-29).
-  - The repo has history, so a complete record can go from the file and be recovered. The
-    condition that its completing commit is on `main@origin` is what stops a machine that has
-    not pushed from deleting the only copy.
-- The record lives once, owned by `from:`, its recipients' state inside it (wink, 2026-08-29).
-  - The first draft had one file per recipient and a broadcast as a copy per file, each deleted
-    by its own recipient. wink did not like the duplication, and a shared file the sender owns
-    was the suggestion.
-  - Taken one step further: `from:` and `to:` are fields, so a record is free of its file, and
-    `read:` and `done:` list `<timestamp> <member>` per recipient. Records live in `messages.md`
-    or a `<topic>.md`.
-  - That made a session's inbox a two-condition query over the repo. wink's fix: `<member>.md`
-    is the inbox, one link line per record addressed to them, appended by the sender. A line per
-    recipient instead of a copy per recipient, and the state stays in the record.
-  - Lifetime splits with one owner each: the record is `from:`'s, gone once complete and pushed,
-    and the inbox line is the recipient's, gone once they are in `done:`.
-  - Sending a message no longer needs a commit in the sender's repo, which the old protocol
-    required and this cycle is the last to pay.
-- The id is the heading, `<timestamp> <title>`, with the sender in `from:` (wink, 2026-08-29).
-  - Timestamps are not unique, and a title makes the anchor readable. The sender moving to a
-    field is what frees the record from its file.
-- Single-step, on a bookmark, the set changes deferred (wink, 2026-08-29).
-  - The proposal is one file. `messaging.md` leaving the set and the `custom.md` pointer are set
-    changes that wait on the family's answer, and each is its own commit when it comes.
-  - The bookmark is where the proposal is reviewed and revised before it merges to `main` and the
-    record is sent.
-- Waiting: **Copy the proposed set into the payload, and re-sync** is promoted to first in
-  `## Todo`, both replies having arrived accepting.
-  - What it copies now depends on this proposal's answer, since `messaging.md` leaving is a set
-    change, so the entry says so.
+- Single-step, the line already drafted (wink, 2026-08-31).
+  - The line was in the working copy before the cycle opened; the cycle wraps it in the
+    protocol's bookkeeping so it lands as its own commit, as an agent-file change must.
+- Ordered before the convergence cycle (wink, 2026-08-31).
+  - It is our half of an enactment both adopters already completed, it touches no file
+    convergence touches, and it clears the working copy for that larger cycle.
+- Todo maintenance rides the commit (wink, 2026-08-31).
+  - **Copy the proposed set into the payload, and re-sync** takes iiac-perf's adoption facts:
+    landed at `eb3fa5eb6152` on zc-ring-x1's copy at `e1bc046c`, `messaging.md` omitted as the
+    accepted rules direct, and their session-rule-identity rule offered as their one diff.
+  - A new entry queues POR support for `vc-x1 push`, with the failing test as its opening move
+    and auto-detection, no `--por` flag, as its design note.
 
 ## Waiting
 
@@ -138,22 +92,38 @@ Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
 (2026-08-28) The cycle **docs: the family agent-files proposal** proposed the set to iiac-perf and
 zc-ring-x1 in [agent-files-proposal-0827.md](notes/messages/agent-files-proposal-0827.md#proposal-2026-08-27).
-Both accepted on 2026-08-28 and 2026-08-29, iiac-perf adopting zc-ring-x1's copy at `6f91c4016812`
-whose one differing line is zc-ring-x1's accepted counter. Copy `AGENTS.md`, `custom.md`, and
-`agent-data/*` into `vc-x1-template/work` with the two fossil fixes the proposal names
+Both accepted, and iiac-perf adopted and landed (2026-08-31) at `eb3fa5eb6152`, taking
+zc-ring-x1's copy at `e1bc046c`, the accepted counter completed, and omitting
+`agent-data/messaging.md`. Copy the converged set, `AGENTS.md`, `custom.md`, and
+`agent-data/*`, into `vc-x1-template/work` with the two fossil fixes the proposal names
 (`jj-tips.md`, `.vc-config.toml`), then re-sync every adopter. The payload's `TODO.md` skeleton
 takes the `# Todo and cycle record` retitle with them, since the anchor collision it removes ships
 in every copy. The acceptance check is the three-way comparison going empty.
 
 - Promoted from `## Waiting` at the opening of **docs: propose the messages rules** (2026-08-29),
   both conditions met.
-- What is copied depends on that proposal's answer: on agreement `agent-data/messaging.md` leaves
-  the set and `custom.md` carries each project's own communication rules, so the copy runs after
-  the answer, or takes the deletion with it.
+- The messages rules stand as the messages repo's `README.md` (2026-08-31), so
+  `agent-data/messaging.md` leaves the set here too, enacting what both adopters already enacted.
+- iiac-perf's one diff against the set is a proposal to decide at this convergence: the
+  session-rule-identity rule, a session's rules are the agent-files it started in, at
+  `AGENTS.md#a-sessions-rules-are-its-own-agent-files` of their `eb3fa5eb6152`.
+- The inbox line for zc-ring-x1's acceptance record goes done when this cycle triages the
+  remarks below, per the messages repo's Acknowledge action.
 - zc-ring-x1's remarks ride along: the Size close-out step reads as vc-x1's habit and has no
   rationale entry, Restart is a user step stated inside the agent's protocol, and Bullet form
   could say it applies to text written from now on. Two anchor collisions they fixed, `# Todo` and
   `# Bugs` slugging to their section titles, are already fixed here.
+
+### Support POR workspaces in `push`
+
+(2026-08-31) `vc-x1 push` refuses a POR workspace at its first stage (`require_bot_dir`: "this
+operation requires a dual workspace"), confirmed by probe at 0.80.7, and the July audit records it
+as dual-only ([audit](notes/design-cli/por-dual-parity-audit.md)). Support is auto-detected, not a
+flag: `init` needs `--por` because it creates the topology, while `push` reads an existing one, so
+`bot_repo_path()` returning `None` is the POR signal. On a POR the bot stages skip and the
+`ochid:` trailer is omitted, there being no other side to name. The opening rung is a test pinning
+today's refusal, the error names a dual workspace and nothing is mutated, which inverts into the
+POR-success test when support lands.
 
 ### Size is recorded only when an agent-file changed
 
@@ -664,6 +634,17 @@ rejection of the old spelling.
 Items not yet solid enough for `## Todo` (or surfaced during close-out / end-of-day before they are
 fully formed). Triaged at the next opening: promote to `## Todo` / `notes/todo-backlog.md`, fold
 into a picked-up cycle, or drop.
+
+### Tool-results land in the agent-repo, tmp/ for the non-durable
+
+(wink, 2026-08-31) The harness persists oversized command output to
+`<session>/tool-results/*.txt`, which resolves through the projects symlink into
+`./.agent-session`, so those blobs are committed and pushed with the session record at the next
+squash-push (session `07191fe5`'s is already tracked). The agent can use, or be directed to use,
+repo-local `tmp/` (gitignored) by redirecting chatty commands (`cmd > tmp/<name>.log 2>&1`) when
+the output does not need to be durable: both parties inspect the same file and the agent-repo's
+history stays lean. Open choices: pin the redirect practice as a `custom.md` line, and whether
+the agent-repo should gitignore `*/tool-results/` at the cost of transcript references dangling.
 
 ### `vc` as a code+conversation provenance tool (grander ambition)
 
