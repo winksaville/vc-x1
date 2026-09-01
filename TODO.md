@@ -27,55 +27,67 @@ of this section, and the cycles before the rule in the frozen [notes/chores/](no
 [notes/done.md](notes/done.md).
 
 
-### agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31
+### agent-files(proposal): to iiac-perf, zc-ring-x1, 2026-08-31
 
 #### Problem
 
-The cycle **docs: the family agent-files proposal** proposed the set, both members accepted, and
-iiac-perf's landed copy at `eb3fa5eb6152` (built on zc-ring-x1's `e1bc046c`) is the family's
-converged set. Ours diverged from it three ways: wink's 2026-08-28 markers-stay ruling never
-reached our copy, iiac-perf's accepted session-rule-identity rule was not yet in ours, and
-`agent-data/messaging.md` survived here alone.
+The cycle **agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31** took iiac-perf's set
+verbatim, so our additions beyond it are unproposed: the `agent-files` type its own title used
+ahead of convention as a recorded exception (the phase scopes `proposal` / `adoption`, the dated
+member-list grammar), the notes.md rewrap of the markers-stay line, and the queued validate
+element's declared-type allowance.
 
 #### Solution
 
-Adopted iiac-perf's agent-files verbatim, one commit: `AGENTS.md`, `custom.md`, and
-`agent-data/*` copied with the delete side, so our tree carries their bytes exactly.
+Proposed by restructure rather than a bolted-on paragraph: prose.md's Commit description details
+paragraph became `### Commit titles and descriptions`, an intro carrying the description details
+over `####` subsections for the common types, the scope rule, and Project-declared types, the
+last holding the mechanism (a declaration names the type, its scope vocabulary, and its
+description grammar, a project's own declarations living in `custom.md`) and the set's
+`agent-files` declaration. The shape section keeps the structure, AGENTS.md's `[cdd]` and the
+queued validate element retarget, rationale.md mirrors the new section, and notes.md's over-long
+line rewraps. The proposal record goes to the family when the cycle lands.
 
 #### Acceptance check
 
-`diff -r` of `AGENTS.md`, `custom.md`, and `agent-data/` against `../iiac-perf` is empty, and
-`vc-x1 validate` passes. Ran at the close: empty, and validation passed.
+`vc-x1 validate` passes, and every link the restructure touched resolves: the anchors
+`#commit-titles-and-descriptions` and `#project-declared-types` exist in prose.md and are what
+AGENTS.md's `[cdd]` and the validate element name. Ran at the close: every anchor and link
+present, and validation passed.
 
 #### Ladder
 
-- agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31
+- agent-files(proposal): to iiac-perf, zc-ring-x1, 2026-08-31
 
 #### Deliberation
 
-- Single-step (wink, 2026-08-31): with wink ruling accept on every divergence the three-way diff
-  surfaced, the fold is one copy command, and the bookkeeping rides the same commit.
-- The title invents the `agent-files` type (wink, 2026-08-31), used ahead of its convention: the
-  declaration (the type, phase scopes `proposal` / `adoption`, the dated member-list grammar) is
-  the next cycle's proposal to the family, and this title is its first use. An explicit
-  exception to [Conventional-commit
-  shape](agent-data/prose.md#conventional-commit-shape-ladder--commit)'s common-set wording,
-  recorded here as [Rules](AGENTS.md#rules) requires.
-- Adopt verbatim, then propose (wink, 2026-08-31): an adoption takes the member's bytes exactly,
-  and every departure of ours goes to its own cycle, whose diff is the proposal. A first
-  multi-step attempt mixed the two and was parked whole as the local bookmark
-  `docs-add-cc-type-and-scope`, the donor for the proposal cycle; its pushed rungs' agent-repo
-  ochid pairs point into that parked line, superseded rather than broken.
+- Single-step (wink, 2026-08-31): one restructure with its documentation, so the one commit
+  carries the opening's and the close-out's duties and the bare cycle title, the adoption
+  cycle's shape.
+- 0.81.0 (wink, 2026-08-31): minor by the user's call, the convention change deserving the
+  visible marker.
+- Home of the declaration (wink, 2026-08-31): commit-model.md was weighed and rejected, its
+  charter being specimen-only ("the rules are in Commit-body form"), so the vocabulary became
+  its own prose.md section, wink's structure with the third subsection named Project-declared
+  types rather than a combinations section, the declared-type bundle being its only content.
+- The donor rung `4220604` on the parked bookmark `docs-add-cc-type-and-scope` supplied the
+  edits, reworked into the new structure rather than copied. The bookmark is a tidy candidate
+  now the proposal carries its content, with `messages-rules-proposal` in vc-x1-messages and
+  origin's three stale landed-cycle bookmarks (`messages-specimen`, `support-trapezoid-commits`,
+  `trapezoid-push-vc-x1`).
+- Title width: the dated member-list grammar runs past Line widths' title cap (this title 59
+  characters, the adoption's 61), a cost the declaration accepts without yet saying so, flagged
+  for the family in the proposal record.
+- The jj.md Land-step-4 tightening stays queued (2026-08-31): it is conditioned on the
+  validate-artifact rename, so it rides that work's cycle, not this proposal.
 - The payload takes nothing until the family agrees 100% (wink, 2026-08-31): vc-x1-template's
-  `main` was rolled back to `03e5648c` after an early payload copy, which is parked in the
-  template as draft `9a4614a1` with the two fossil fixes the proposal names. The payload becomes
-  the agreed identical set once the family converges.
-- zc-ring-x1's three acceptance remarks (the Size step's missing rationale, Restart as a user
-  step inside the agent's protocol, Bullet form's scope) are noted and deferred, the Size remark
-  riding [Size is recorded only when an agent-file
-  changed](#size-is-recorded-only-when-an-agent-file-changed).
-- The adoption-done record follows the Land: a reply to zc-ring-x1's acceptance record in the
-  messages repo, our inbox line for it deleted with the reply, done.
+  `main` sits at `03e5648c`, the earlier payload copy parked there as draft `9a4614a1` with the
+  two fossil fixes (`jj-tips.md`'s `x..` gloss, `.vc-config.toml` regenerated as
+  `.vc-config.md`), redone or reused when agreement lands. The template's `.claude` side holds
+  the same config regeneration unpushed, its remote being ssh.
+- The proposal record follows the Land, like the adoption-done record: a message to iiac-perf
+  and zc-ring-x1 in the messages repo, where our two earlier `sent-to:` lines still await
+  replies.
 
 ## Waiting
 
@@ -98,25 +110,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
-
-### Propose the declared commit types to the family
-
-(2026-08-31) The cycle **agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31** adopted
-iiac-perf's set verbatim, and our additions beyond it are unproposed: the project-declared-types
-paragraph for prose.md's Conventional-commit shape (the `agent-files` type, phase scopes
-`proposal` / `adoption`, the dated member-list grammar, the type heading any commit in the set's
-work), the notes.md rewrap of the markers-stay line, and the queued validate element's "or a
-project-declared type". Run as `agent-files(proposal): to iiac-perf, zc-ring-x1, <date>`, taking
-the edits from the parked local bookmark `docs-add-cc-type-and-scope`, and send the proposal
-record when it lands.
-
-- The payload takes nothing until the family agrees 100% (wink, 2026-08-31): vc-x1-template's
-  `main` sits at `03e5648c`, the earlier payload copy parked there as draft `9a4614a1` with the
-  two fossil fixes (`jj-tips.md`'s `x..` gloss, `.vc-config.toml` regenerated as
-  `.vc-config.md`), redone or reused when agreement lands. The template's `.claude` side holds
-  the same config regeneration unpushed, its remote being ssh.
-- Version at the opening is wink's call: `0.80.10` by patch default, or `0.81.0` if the
-  convention change deserves the visible marker.
 
 ### Size is recorded only when an agent-file changed
 
@@ -212,7 +205,9 @@ cannot reach inside a second repo.
 invisible on reread, so each checkable one becomes a validate element and `vc-x1 push` refuses what
 fails. First set:
 - every ladder rung title is `<type>(<scope>)?: <desc>` with a type from the conventional-commit set
-  (nine untyped rungs went unnoticed through five rereads on 2026-08-25)
+  or a project-declared type per [Project-declared
+  types](agent-data/prose.md#project-declared-types) (nine untyped rungs went unnoticed through
+  five rereads on 2026-08-25)
 - a `--body` is an intro paragraph then `*` facets each with at least one `-` under it, or the intro
   alone for a bookend
 - an unfilled `[[N]]` whose commit is on `main` (the backlog entry **`validate`: fail on an unfilled
@@ -471,6 +466,11 @@ umbrella under a name that no longer fits the family.
 - rename the runner to `validate-artifact` (`--fast` kept), `validate` rejecting the old meaning the
   way `bot-session` does, and the per-rung flow saying `validate-artifact` per rung and plain
   `validate` at close-out
+- with the rename, tighten jj.md's Land step 4: it names the act ("promote the artifact from
+  `main`") but no command, so a raw `cargo install` was improvised there (2026-08-31). The step
+  should name the runner, whose full table ends in the install, so the config stays the single
+  source of the commands and the landed tree is re-proved at the commit being promoted. A
+  set-level edit, so it rides the next agent-files proposal
 - add `validate-work`: the work side at rest, the cycle bookmark tracked and at origin,
   `validate-config` clean, mostly the push preflight exposed read-only
 - landed early, 2026-08-28: `validate-config` is out of `config --validate` and into this family,
