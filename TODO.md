@@ -17,7 +17,98 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### agent-files(proposal): 0.1.0
+
+#### Problem
+
+The `agent-files` title grammar names the members and the date, so the two landed titles run 59
+and 61 characters against Line widths' 50-character cap, and a third member breaks any cap for
+good. The member list also repeats the message record's `from:` and `to:` fields. The set itself
+carries no version, so which set an adopter holds is answerable only by a diff.
+
+#### Solution
+
+Version the set: an empty file with the version in its name, `agent-data/version-X.Y.Z{-suffix}`,
+bumped by proposal cycles through the suffix scheme and copied bare by adoptions. The `agent-files`
+title becomes `agent-files(<scope>): X.Y.Z`, the version its uniqueness token and the member list
+left to the message record, and the rule barring versions from titles names this title as its one
+exception. vc-x1 reports the workspace's set version in its banner and its version report.
+
+#### Acceptance check
+
+`vc-x1 validate` passes, every title in the ladder is under the cap and the bookends match the
+declared grammar, `agent-data/version-0.1.0` exists at the close and no other `version-*` file
+does, `agent-data/prose.md` no longer holds `<to|from> <member-list>`, and `vc-x1 -V` run in this
+repo prints `agent-files 0.1.0` beside its own version while `vc-x1 version` lists it.
+
+#### Ladder
+
+- [agent-files(proposal): 0.1.0 opening][1] (done)
+- [docs: version the set and title agent-files by it][2]
+- [feat: report the set version with -V and version][3]
+- [agent-files(proposal): 0.1.0 closing][4]
+
+#### Deliberation
+
+- Multi-step (wink, 2026-09-01): the cycle was drafted single-step and converted before its first
+  push, while the shape was still free, so the mechanics it proposes run once in full, the set
+  version walking `-0`, `-1`, `-2`, bare beside the artifact's, with the dev rename exercised.
+  - The draft's docs edits were split into a stash commit beside the line and the opening pushed
+    from the working copy, the docs rung restoring them from the stash.
+- The reporting rung is inside the subject (wink, 2026-09-01): the feature exists only because of
+  the set version, and a reader on the command line has no other way to see the number without
+  finding the file, so it rides here rather than as its own `feat` cycle.
+- 0.1.0 as the first set version (2026-09-01): the set has had no number, and the first proposal
+  under the scheme takes the first minor.
+- The version in the title, against Versions live in the version-of-record only: the rule's
+  reason, a build stamp a renumber can invalidate, does not apply, since the set's version names an
+  agreed text and a renumber is the failure it exists to prevent. The exception is written into the
+  rule with its rationale rather than left as a recorded bend.
+- An empty file over a one-line file (wink, 2026-09-01): the listing shows the number without a
+  read, a bump is a rename git tracks as one, and `git log --diff-filter=A` on the pattern is the
+  version log. The H1 line and a `## Version` section were rejected for anchor churn at every
+  bump.
+- The trailer in the file name only (wink, 2026-09-01): a rung title is its ladder line and carries
+  no version, so a multi-step proposal's rungs are told apart by the bookends while the file walks
+  `-0`, `-1`, bare, as the artifact version does.
+- Proposals bump, adoptions copy: a proposal bumps at its opening and its title names the new
+  number, an adoption copies the source's bare file and its title names what it took, so the same
+  title in two repos means the copy and its origin. Two proposers claiming one number are the
+  maintainer's to settle at convergence.
+- The version reported is the workspace's (wink, 2026-09-01): the set in the repo vc-x1 runs in,
+  read at run time, `none` outside one, never the set vc-x1's own repo carried at build.
+- Bookmark by the strict anchor slug, `agent-filesproposal-010`, per jj.md's Create rule, where the
+  last cycle used a readable form.
+- 0.82.0 (2026-09-01): minor, the last convention cycle's precedent for a convention change.
+- The proposal record follows the Land: a reply on the messages repo's agent-files topic, with
+  iiac-perf's title-width report as the record it answers. A `status` command and an
+  `agent-files {diff|copy}` group, and nesting the `validate-*` commands, were weighed and go to
+  `## Todo` as the next cycles.
+
+#### Ladder details
+
+##### agent-files(proposal): 0.1.0 opening
+
+The cycle's setup commit: the bookmark, `## Closed` emptied, this block, the artifact bumped to
+its `-0` under the dev name, and the first set version file, `version-0.1.0-0`.
+
+##### docs: version the set and title agent-files by it
+
+The two landed `agent-files` titles run past the title cap and repeat the message record, and the
+set has no version. versioning.md defines the set's version, prose.md's declaration titles
+`agent-files` by it and the Versions rule admits that one title, rationale.md carries both whys,
+and AGENTS.md's Terminology and Bump steps carry the set version.
+
+##### feat: report the set version with -V and version
+
+A reader on the command line cannot see the set version without finding a file in a
+subdirectory. vc-x1 reads the workspace's `agent-data/version-*` at run time and prints it in the
+banner beside its own version, and as a line of `vc-x1 version`, `none` when there is no workspace
+or no file.
+
+##### agent-files(proposal): 0.1.0 closing
+
+Closing out the cycle.
 
 ## Closed
 
@@ -25,69 +116,6 @@ The last cycle's finished record, moved here whole by its closing commit and del
 opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the landmark commit's copy
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
-
-
-### agent-files(proposal): to iiac-perf, zc-ring-x1, 2026-08-31
-
-#### Problem
-
-The cycle **agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31** took iiac-perf's set
-verbatim, so our additions beyond it are unproposed: the `agent-files` type its own title used
-ahead of convention as a recorded exception (the phase scopes `proposal` / `adoption`, the dated
-member-list grammar), the notes.md rewrap of the markers-stay line, and the queued validate
-element's declared-type allowance.
-
-#### Solution
-
-Proposed by restructure rather than a bolted-on paragraph: prose.md's Commit description details
-paragraph became `### Commit titles and descriptions`, an intro carrying the description details
-over `####` subsections for the common types, the scope rule, and Project-declared types, the
-last holding the mechanism (a declaration names the type, its scope vocabulary, and its
-description grammar, a project's own declarations living in `custom.md`) and the set's
-`agent-files` declaration. The shape section keeps the structure, AGENTS.md's `[cdd]` and the
-queued validate element retarget, rationale.md mirrors the new section, and notes.md's over-long
-line rewraps. The proposal record goes to the family when the cycle lands.
-
-#### Acceptance check
-
-`vc-x1 validate` passes, and every link the restructure touched resolves: the anchors
-`#commit-titles-and-descriptions` and `#project-declared-types` exist in prose.md and are what
-AGENTS.md's `[cdd]` and the validate element name. Ran at the close: every anchor and link
-present, and validation passed.
-
-#### Ladder
-
-- agent-files(proposal): to iiac-perf, zc-ring-x1, 2026-08-31
-
-#### Deliberation
-
-- Single-step (wink, 2026-08-31): one restructure with its documentation, so the one commit
-  carries the opening's and the close-out's duties and the bare cycle title, the adoption
-  cycle's shape.
-- 0.81.0 (wink, 2026-08-31): minor by the user's call, the convention change deserving the
-  visible marker.
-- Home of the declaration (wink, 2026-08-31): commit-model.md was weighed and rejected, its
-  charter being specimen-only ("the rules are in Commit-body form"), so the vocabulary became
-  its own prose.md section, wink's structure with the third subsection named Project-declared
-  types rather than a combinations section, the declared-type bundle being its only content.
-- The donor rung `4220604` on the parked bookmark `docs-add-cc-type-and-scope` supplied the
-  edits, reworked into the new structure rather than copied. The bookmark is a tidy candidate
-  now the proposal carries its content, with `messages-rules-proposal` in vc-x1-messages and
-  origin's three stale landed-cycle bookmarks (`messages-specimen`, `support-trapezoid-commits`,
-  `trapezoid-push-vc-x1`).
-- Title width: the dated member-list grammar runs past Line widths' title cap (this title 59
-  characters, the adoption's 61), a cost the declaration accepts without yet saying so, flagged
-  for the family in the proposal record.
-- The jj.md Land-step-4 tightening stays queued (2026-08-31): it is conditioned on the
-  validate-artifact rename, so it rides that work's cycle, not this proposal.
-- The payload takes nothing until the family agrees 100% (wink, 2026-08-31): vc-x1-template's
-  `main` sits at `03e5648c`, the earlier payload copy parked there as draft `9a4614a1` with the
-  two fossil fixes (`jj-tips.md`'s `x..` gloss, `.vc-config.toml` regenerated as
-  `.vc-config.md`), redone or reused when agreement lands. The template's `.claude` side holds
-  the same config regeneration unpushed, its remote being ssh.
-- The proposal record follows the Land, like the adoption-done record: a message to iiac-perf
-  and zc-ring-x1 in the messages repo, where our two earlier `sent-to:` lines still await
-  replies.
 
 ## Waiting
 
@@ -110,6 +138,26 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### The status and agent-files commands
+
+(wink, 2026-09-01) Both repos' state takes two invocations, `jj st -R .` and `jj st -R .claude`,
+and the agent-files diff against a peer takes three `diff -s` lines nobody types. `vc-x1 status`,
+alias `st`, prints both repos' status under their labels, and is the home of At rest's "clean",
+both `@` empty. `vc-x1 agent-files {diff|copy}` joins the `version` subcommand the proposal cycle
+adds: `diff` against the template payload by default (`family.template`) or `--against <path>`,
+covering AGENTS.md and `agent-data/` and reporting custom.md on one line since the project layer
+always differs, and `copy`, inbound only, from the template or `--from <path>`, mirroring
+AGENTS.md and `agent-data/` deletions included, never custom.md or TODO.md, the working copy left
+uncommitted for the adoption rung's review. A `bump` for the set version's per-rung rename waits
+until the scheme has run by hand once.
+
+### Nest the validate and fix commands
+
+(wink, 2026-09-01) Six flat `validate-*` commands, their `-old` variants, and two `fix-*` are a
+namespace asking for `validate {bot|desc|config|anchors|todo}` and `fix {desc|todo}`, bare
+`validate` staying the full run. The flat names stay as hidden aliases for a while, the validate
+table and typing habits using them, and retire in a later cycle.
 
 ### Size is recorded only when an agent-file changed
 
@@ -746,4 +794,8 @@ _See [bugs.md](notes/bugs.md)._
 
 # References
 
+[1]: #agent-filesproposal-010-opening
+[2]: #docs-version-the-set-and-title-agent-files-by-it
+[3]: #feat-report-the-set-version-with--v-and-version
+[4]: #agent-filesproposal-010-closing
 [12]: /notes/forks-multi-user.md
