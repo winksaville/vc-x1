@@ -28,23 +28,25 @@ carries no version, so which set an adopter holds is answerable only by a diff.
 
 #### Solution
 
-Version the set: an empty file with the version in its name, `agent-data/version-X.Y.Z{-suffix}`,
-bumped by proposal cycles through the suffix scheme and copied bare by adoptions. The `agent-files`
-title becomes `agent-files(<scope>): X.Y.Z`, the version its uniqueness token and the member list
+Version the set: an empty file with the version in its name,
+`agent-data/agent-files-vX.Y.Z{-suffix}`, bumped by proposal cycles through the suffix scheme and
+copied bare by adoptions, the version spelled `vX.Y.Z` wherever it is written. The `agent-files`
+title becomes `agent-files(<scope>): vX.Y.Z`, the version its uniqueness token and the member list
 left to the message record, and the rule barring versions from titles names this title as its one
 exception. vc-x1 reports the workspace's set version in its banner and its version report.
 
 #### Acceptance check
 
 `vc-x1 validate` passes, every title in the ladder is under the cap and the bookends match the
-declared grammar, `agent-data/version-0.1.0` exists at the close and no other `version-*` file
-does, `agent-data/prose.md` no longer holds `<to|from> <member-list>`, and `vc-x1 -V` run in this
-repo prints `agent-files 0.1.0` beside its own version while `vc-x1 version` lists it.
+declared grammar, `agent-data/agent-files-v0.1.0` exists at the close and no other
+`agent-files-v*` file does, `agent-data/prose.md` no longer holds `<to|from> <member-list>`, and
+`vc-x1 -V` run in this repo prints `agent-files v0.1.0` beside its own version while `vc-x1 version`
+lists it.
 
 #### Ladder
 
 - [agent-files(proposal): 0.1.0 opening][1] (done)
-- [docs: version the set and title agent-files by it][2]
+- [docs: version the set and title agent-files by it][2] (done)
 - [feat: report the set version with -V and version][3]
 - [agent-files(proposal): 0.1.0 closing][4]
 
@@ -60,6 +62,11 @@ repo prints `agent-files 0.1.0` beside its own version while `vc-x1 version` lis
   finding the file, so it rides here rather than as its own `feat` cycle.
 - 0.1.0 as the first set version (2026-09-01): the set has had no number, and the first proposal
   under the scheme takes the first minor.
+- The `v` spelling, `v0.1.0` everywhere (wink, 2026-09-01), adopted after the opening pushed: a
+  bare number after the title's colon could be anything, cargo's own output pairs a name with a
+  `v` version while a tool's banner stays bare, and the file became `agent-files-v0.1.0` so its
+  name says what it versions. This cycle's own title keeps the bare `0.1.0` its published opening
+  carries, the one title under the scheme spelled that way.
 - The version in the title, against Versions live in the version-of-record only: the rule's
   reason, a build stamp a renumber can invalidate, does not apply, since the set's version names an
   agreed text and a renumber is the failure it exists to prevent. The exception is written into the
@@ -95,14 +102,27 @@ its `-0` under the dev name, and the first set version file, `version-0.1.0-0`.
 ##### docs: version the set and title agent-files by it
 
 The two landed `agent-files` titles run past the title cap and repeat the message record, and the
-set has no version. versioning.md defines the set's version, prose.md's declaration titles
-`agent-files` by it and the Versions rule admits that one title, rationale.md carries both whys,
-and AGENTS.md's Terminology and Bump steps carry the set version.
+set has no version.
+
+* The set had no version-of-record.
+  - versioning.md's The set's version defines one: the empty `agent-data/agent-files-vX.Y.Z` file,
+    proposals bumping through the suffix scheme and adoptions copying, the `v` spelling everywhere
+    it is written, and the payload's number the agreed one. AGENTS.md's Terminology names it and
+    the Opening and per-rung Bump steps bump it beside the artifact's in a proposal cycle. This
+    rung renamed the opening's `version-0.1.0-0` to `agent-files-v0.1.0-1`.
+* The title grammar named members and a date, and the Versions rule barred any version from a
+  title.
+  - prose.md's declaration becomes `agent-files(<scope>): vX.Y.Z`, the member list left to the
+    message record, and the Versions rule names the `agent-files` title as its one exception,
+    rationale.md carrying why the rule's reason does not reach it.
+* The file name and the `v` were settled during the rung, not at the opening.
+  - Recorded in the deliberation. The cycle's own title stays bare, its opening being published.
 
 ##### feat: report the set version with -V and version
 
 A reader on the command line cannot see the set version without finding a file in a
-subdirectory. vc-x1 reads the workspace's `agent-data/version-*` at run time and prints it in the
+subdirectory. vc-x1 reads the workspace's `agent-data/agent-files-v*` at run time and prints it in
+the
 banner beside its own version, and as a line of `vc-x1 version`, `none` when there is no workspace
 or no file.
 
