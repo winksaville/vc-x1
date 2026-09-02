@@ -125,6 +125,7 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
+vc-x1 status [SCOPE] [-R PATH]             # Working-copy status by scope, work|agent|both, and the clean verdict (alias st)
 vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
@@ -213,8 +214,8 @@ over positional arguments.
 ### Multi-repo queries
 
 `-s`/`--scope` selects workspace sides by role keyword. `work` is the work repo, `agent` is the
-`.claude` repo, `work,agent` is both. The workspace root is found by walking up from cwd (the existing
-`find_workspace_root` rule).
+`.claude` repo, `both` (or the spelled-out `work,agent`) is both. The workspace root is found by
+walking up from cwd (the existing `find_workspace_root` rule).
 
 ```
 vc-x1 chid -s work,bot          # both sides of the workspace

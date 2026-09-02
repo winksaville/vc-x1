@@ -27,8 +27,9 @@ agent-files diff against a peer takes three `diff -s` lines nobody types. At res
 
 #### Solution
 
-`vc-x1 status`, alias `st`, prints both repos' status under their labels and a verdict line, and
-is the home of At rest's "clean". `vc-x1 agent-files {diff|copy} [DIR]` joins the `version`
+`vc-x1 status [SCOPE]`, alias `st`, prints the scoped repos' status under their labels and a
+verdict line, `SCOPE` a positional or `-s`, `work|agent|both`, `work` the default, `both` the
+home of At rest's "clean", and `work` answering in a plain jj repo with no config. `vc-x1 agent-files {diff|copy} [DIR]` joins the `version`
 subcommand, `DIR` a directory holding a copy of the set, resolved from the operand, then the
 `agent-files.<cmd>.dir` config key, then `family.template`: `diff` compares AGENTS.md and
 `agent-data/`, one line per file, and custom.md on one line since the project layer always
@@ -41,8 +42,9 @@ version's per-rung rename waits until the scheme has run by hand once.
 
 #### Acceptance check
 
-`vc-x1 validate` passes. `vc-x1-dev status` in this repo prints both repos under their labels with
-the `@` and `@-` lines `jj st` prints and a verdict, and `vc-x1-dev st` is the same command.
+`vc-x1 validate` passes. `vc-x1-dev status both` in this repo prints both repos under their
+labels with the `@` and `@-` lines `jj st` prints and a verdict, bare `vc-x1-dev st` prints the
+work side alone, and `vc-x1-dev st` in a plain jj repo prints that repo.
 `vc-x1-dev agent-files diff` in this repo names AGENTS.md, the four changed agent-data files, the
 version file as ours only, and custom.md as the project layer, and exits non-zero, and with `-c`
 compares custom.md like the rest. `vc-x1-dev agent-files copy` into a scratch copy of this repo
@@ -54,7 +56,7 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
 #### Ladder
 
 - [feat: the status and agent-files commands opening][1] (done)
-- [feat: status, both repos' state in one call][2]
+- [feat: status, both repos' state in one call][2] (done)
 - [feat: the agent-files config table][3]
 - [feat: agent-files diff against a set directory][4]
 - [feat: agent-files copy from a set directory][5]
@@ -88,11 +90,11 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
   had none. A `diff = ["--custom"]` list of arguments merged into argv needs no new kind but
   escapes validation and the generated config's docs, and invites every future flag in as a
   string.
-- The At rest edit rides in the status rung (wink, 2026-09-02): pointing AGENTS.md's "clean" at
-  the command is an agent-file change, and Own commit, own cycle would make it its own commit. The
-  user folded it into the feature that gives the word a home, a one-line pointer and nothing a
-  convention review would weigh, so the rule bends here by the user's explicit say and this is
-  the record of it.
+- The At rest edit waits for its own cycle (wink, 2026-09-02): pointing AGENTS.md's "clean" at
+  the command is an agent-file change, and Own commit, own cycle holds. It was drafted as a
+  rung of its own, then folded into the status rung as a one-line pointer, then taken out again
+  to run as a convention cycle after this one lands, with the other close-out entries in
+  `## Todo`.
 - The older entry **Add support subcommand status of the repos** is absorbed: this cycle's
   `status` is that entry, so it is deleted rather than left to be closed twice, and the
   squash-push entry that cited it now cites this cycle.
@@ -109,10 +111,31 @@ dev name.
 ##### feat: status, both repos' state in one call
 
 Both repos' state takes two `jj st` invocations, and nothing prints the verdict At rest asks for.
-A `status` subcommand, alias `st`, snapshots both repos in-process and prints each under its label
-with its changed files, the `@` and `@-` lines, and a clean or dirty verdict. AGENTS.md's At rest,
-which defines "clean" as both `@` empty and names no command, points the definition at the new
-command in the same commit.
+
+* The facts `jj st` prints had no in-process reader.
+  - The jj facade gains one, a working-copy status of the changed paths with their letter, the `@`
+    and parent lines in `jj st`'s shape, and the two bits the verdict is made of, empty and
+    described. It snapshots first, as every `@`-relative read does, so the answer is about the
+    filesystem now. Renames show as a delete and an add, since nothing here tracks copies.
+* The two repos are read one at a time and the verdict is in the reader's head.
+  - `status`, alias `st`, takes a scope as a positional or `-s`, `work` by default, `agent`, or
+    `both`, resolves the workspace from `-R` or the current directory, prints the work side under
+    `work` and the agent side under its directory's name, and ends with one line: `clean`, or
+    `dirty` naming each repo and why. The repos come from the shared scope resolver, so `work`
+    needs no config and a plain jj repo answers for it, and `agent` outside a dual workspace is
+    that resolver's error.
+  - `both` joins the scope keywords (wink, 2026-09-02), the same set as `work,agent`, and every
+    `-s` in the tool takes it, since the parser is one.
+  - The root finder walks up past a nested `.jj`, so a plain repo under a workspace's tree, a
+    scratch repo in `tmp/`, resolved to the workspace. `status` stops at the nearest jj repo
+    unless it is one of the workspace's own sides, so a nested plain repo answers as itself and
+    the agent dir still means the workspace. Found by the scratch run of the acceptance check.
+  - Clean is both `@` empty and undescribed: the description is the second bit because an empty
+    described `@` is an intent nothing has published, and the verdict says which bit failed.
+  - The exit status is success either way. The squash-push entry that wants a machine-readable
+    verdict gets a flag when it runs.
+* At rest defines "clean" and names no command.
+  - Left as it is: the pointer to `vc-x1 status` is the convention cycle's, entered in `## Todo`.
 
 ##### feat: the agent-files config table
 
@@ -212,6 +235,13 @@ binary came from the commit `main` was about to carry and the pre-push window wi
 closed. Write that order into Land, with the note that a single-step draft's validation installs
 under the plain name and a later conversion to multi-step leaves that install behind until Land. A
 convention change, paired with the entry above.
+
+### At rest names vc-x1 status as the verdict's printer
+
+(wink, 2026-09-02) AGENTS.md's At rest defines "clean" as both `@` empty and names no command
+that answers it. The **feat: the status and agent-files commands** cycle gives the word a home,
+`vc-x1 status`, and the one-line pointer in At rest is an agent-file change, so it runs as its
+own cycle after that one lands, with the two close-out entries above if they are ready.
 
 ### Global -R anchors the workspace for every command
 

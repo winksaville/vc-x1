@@ -23,6 +23,7 @@ mod push;
 mod repo_utils;
 mod show;
 mod squash_push;
+mod status;
 mod subcommand;
 mod symlink;
 mod sync;
@@ -198,6 +199,20 @@ pub(crate) enum Commands {
 
     /// Show commit details and diff summary
     Show(show::ShowArgs),
+
+    /// Working-copy status by scope and the clean verdict
+    #[command(
+        name = "status",
+        visible_alias = "st",
+        long_about = "Print the working-copy status of the scoped repos, `work`\n\
+        by default, `agent`, or `both`, each under its label with the\n\
+        changed paths and the @ and @- lines as `jj st` prints them,\n\
+        then one verdict line: `clean` when every scoped @ is empty\n\
+        and undescribed, At rest's meaning of the word for `both`,\n\
+        else `dirty` naming each repo and why. A plain jj repo with\n\
+        no vc-x1 config answers for `work`."
+    )]
+    Status(status::StatusArgs),
 
     /// Display an agent session transcript as a conversation
     #[command(
@@ -597,6 +612,7 @@ fn main() -> ExitCode {
         Commands::Desc(args) => args.dispatch(&mut ctx),
         Commands::List(args) => args.dispatch(&mut ctx),
         Commands::Show(args) => args.dispatch(&mut ctx),
+        Commands::Status(args) => args.dispatch(&mut ctx),
         Commands::BotSession(args) => args.dispatch(&mut ctx),
         Commands::BotSessionOld { .. } => {
             error!(

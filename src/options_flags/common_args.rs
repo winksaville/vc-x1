@@ -27,11 +27,12 @@ use super::scope::{Scope, parse_scope};
 /// - `revision`: `-r` / `--revision` (default `@`). `..` notation is
 ///   parsed downstream by `common::parse_dot_rev`.
 /// - `repo` / `scope`: `-R PATH` overrides the workspace root, `-s
-///   work|agent|work,agent` selects sides. They compose
+///   work|agent|both` selects sides. They compose
 ///   (`common::resolve_repos`). Defaults preserve today's behavior:
 ///   no flag -> `[.]`, `-R foo` alone -> `[foo]`. `-s` alone resolves
 ///   against `find_workspace_root()`. `-R + -s` resolves against the
-///   `-R` path. `-s` is keyword-only (`work|agent|work,agent|agent,work`).
+///   `-R` path. `-s` is keyword-only (`work|agent|both`, or the spelled-out
+///   `work,agent|agent,work`).
 ///   Path-based single-repo operation routes through `-R`.
 /// - `limit`: `-n` / `--commits`, caps the output.
 /// - `label` / `no_label`: `-l` / `--label` (default `===`) and
@@ -58,7 +59,7 @@ pub struct CommonArgs {
     #[arg(
         short = 's',
         long = "scope",
-        value_name = "work|agent|work,agent",
+        value_name = "work|agent|both",
         value_parser = parse_scope
     )]
     pub scope: Option<Scope>,

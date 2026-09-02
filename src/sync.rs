@@ -95,12 +95,12 @@ pub struct SyncArgs {
 
     /// Which repo(s) of the workspace to sync.
     ///
-    /// `SCOPE=work|agent|work,agent`:
+    /// `SCOPE=work|agent|both`:
     ///
     /// - `work`: sync only the work repo.
     /// - `agent`: sync only the bot repo (errors if no bot repo
     ///   is configured).
-    /// - `work,agent`: sync both repos.
+    /// - `both` (or `work,agent`): sync both repos.
     ///
     /// Composes with `-R` as the workspace root. Default depends
     /// on workspace state: dual workspace -> `work,agent`, and a
