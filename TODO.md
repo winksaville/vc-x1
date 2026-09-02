@@ -57,6 +57,7 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
 
 - [feat: the status and agent-files commands opening][1] (done)
 - [feat: status, both repos' state in one call][2] (done)
+- [feat: status completes its scope keywords][7] (done)
 - [feat: the agent-files config table][3]
 - [feat: agent-files diff against a set directory][4]
 - [feat: agent-files copy from a set directory][5]
@@ -136,6 +137,29 @@ Both repos' state takes two `jj st` invocations, and nothing prints the verdict 
     verdict gets a flag when it runs.
 * At rest defines "clean" and names no command.
   - Left as it is: the pointer to `vc-x1 status` is the convention cycle's, entered in `## Todo`.
+
+##### feat: status completes its scope keywords
+
+`vc-x1 status <tab>` offered only flags, since a value parser written as a function declares no
+values for the shell completer to offer.
+
+* Clap's dynamic completer offers what a parser declares, and `parse_scope` declares nothing.
+  - The scope module gains a parser that declares `work`, `agent`, and `both`, wrapping the same
+    parse, and status's positional and `-s` use it, so the completer offers the three, a partial
+    `b` completes to `both`, a bad value lists them, and the help shows them under `SCOPE`.
+  - The other `-s` flags keep the function parser, since they also take the spelled-out
+    `work,agent` forms and pin older error text. Sweeping them is the CLI consolidation
+    entry's.
+* README.md listed `status` on one line and had no section for it.
+  - A `### status` section, with the scope, the labels, the verdict and its two reasons, the
+    plain and nested repo rules, examples, and a sample output, so each rung's README change is
+    the reader's test sheet.
+* The bare listing offered `st` and not `status`.
+  - The completer keeps one candidate per subcommand and takes the first by name, so a visible
+    alias that sorts first hides the command. `st` becomes a hidden alias, named in the about
+    line: the listing shows `status`, and `st<tab>` completes to it.
+* Inserted by the user mid-cycle (wink, 2026-09-02) as its own rung, split from the config rung's
+  working copy with the config work stashed beside the line and restored after this push.
 
 ##### feat: the agent-files config table
 
@@ -895,4 +919,5 @@ _See [bugs.md](notes/bugs.md)._
 [4]: #feat-agent-files-diff-against-a-set-directory
 [5]: #feat-agent-files-copy-from-a-set-directory
 [6]: #feat-the-status-and-agent-files-commands-closing
+[7]: #feat-status-completes-its-scope-keywords
 [12]: /notes/forks-multi-user.md

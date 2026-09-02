@@ -58,6 +58,16 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
     }
 }
 
+/// The scope keywords as a parser that declares them, so shell
+/// completion offers `work`, `agent`, and `both` where a bare
+/// function parser offers nothing. The spelled-out `work,agent`
+/// forms stay with `parse_scope` for the flags that predate `both`.
+pub fn scope_keywords() -> impl clap::builder::TypedValueParser<Value = Scope> {
+    use clap::builder::TypedValueParser as _;
+    clap::builder::PossibleValuesParser::new(["work", "agent", "both"])
+        .try_map(|s: String| parse_scope(&s))
+}
+
 impl Scope {
     /// True when the role set includes the work side.
     pub fn has_work(&self) -> bool {

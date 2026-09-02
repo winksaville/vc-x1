@@ -19,23 +19,18 @@ use log::info;
 use crate::common;
 use crate::context::Context;
 use crate::jj;
-use crate::options_flags::scope::{Scope, Side, parse_scope};
+use crate::options_flags::scope::{Scope, Side, scope_keywords};
 use crate::subcommand::SubcommandRunner;
 
 /// CLI args for `status`.
 #[derive(Args, Debug)]
 pub struct StatusArgs {
-    /// Side(s) to report: work|agent|both [default: work]
-    #[arg(value_name = "SCOPE", value_parser = parse_scope, conflicts_with = "scope")]
+    /// Side(s) to report [default: work]
+    #[arg(value_name = "SCOPE", value_parser = scope_keywords(), conflicts_with = "scope")]
     pub pos_scope: Option<Scope>,
 
     /// Side(s) to report, the positional's flag form
-    #[arg(
-        short = 's',
-        long = "scope",
-        value_name = "work|agent|both",
-        value_parser = parse_scope
-    )]
+    #[arg(short = 's', long = "scope", value_name = "SCOPE", value_parser = scope_keywords())]
     pub scope: Option<Scope>,
 
     /// Workspace root or single jj repo path [default: the workspace

@@ -6,6 +6,7 @@
 - [Build and install](#build-and-install)
 - [Usage](#usage)
   - [Shell completion](#shell-completion)
+  - [status](#status)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
@@ -302,6 +303,50 @@ remains single-repo.
 
 `-s` is keyword-only: `work`, `agent`, `work,agent`, `agent,work`. Path-based single-repo operation uses
 `-R` (above).
+
+### status
+
+Working-copy status of the workspace's repos in one call, alias `st`, and the verdict At rest's
+"clean" asks for. Each scoped repo prints under its label, `work` for the work repo and the agent
+repo's directory name for the agent repo, in the shape `jj st` prints: the changed paths with
+their letter (`M`, `A`, `D`, a rename showing as a `D` and an `A`), the `Working copy (@)` line,
+and one `Parent commit (@-)` line per parent. One verdict line ends the output:
+
+- `status: clean` when every scoped `@` is empty and has no description
+- `status: dirty: <label> @ has changes, ...` naming each repo that is not, and why: `@ has
+  changes` or `@ is described`, since an empty described `@` is an intent nothing has published
+
+The scope is a positional `SCOPE` or `-s`/`--scope`, one of `work`, `agent`, or `both`, `work`
+by default. `both` is the At rest check, both repos' `@` empty. Tab completion offers the three
+keywords. The exit status is success either way; the verdict is the line, not the code.
+
+The workspace is `-R`/`--repo` when given, else found from the current directory. A plain jj repo
+with no vc-x1 config answers for `work` as itself, and `agent` there is an error naming the
+missing config. A plain repo nested inside a workspace's tree, a scratch repo under `tmp/`,
+answers as itself too: the nearest jj repo wins unless it is one of the workspace's own sides, so
+running from inside the agent repo still means the workspace.
+
+```
+vc-x1 status                    # the work repo, the default scope
+vc-x1 st both                   # both repos and the At rest verdict
+vc-x1 st agent                  # the agent repo alone
+vc-x1 st -s both -R ../other    # ../other's workspace
+```
+
+```
+work (/home/me/proj):
+Working copy changes:
+M TODO.md
+Working copy  (@) : xxolwztqspnz 5e7322c164bb (no description set)
+Parent commit (@-): plnxxqtpwqrs 48d678c8efb4 main | feat: the last landed cycle
+
+.agent-session (/home/me/proj/.agent-session):
+The working copy has no changes.
+Working copy  (@) : kpuqynnomnxv 360bdc189b1c (empty) (no description set)
+Parent commit (@-): vtkwkumoqlpx b424f97b1a2c main | feat: the last landed cycle
+
+status: dirty: work @ has changes
+```
 
 ### agent-session
 

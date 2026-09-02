@@ -200,10 +200,10 @@ pub(crate) enum Commands {
     /// Show commit details and diff summary
     Show(show::ShowArgs),
 
-    /// Working-copy status by scope and the clean verdict
+    /// Working-copy status and clean verdict, by scope (alias st)
     #[command(
         name = "status",
-        visible_alias = "st",
+        alias = "st",
         long_about = "Print the working-copy status of the scoped repos, `work`\n\
         by default, `agent`, or `both`, each under its label with the\n\
         changed paths and the @ and @- lines as `jj st` prints them,\n\
