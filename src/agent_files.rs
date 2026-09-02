@@ -15,6 +15,10 @@
 //!   version`, `none` with the reason when there is no version.
 //! - `AgentFilesArgs`: the `agent-files` subcommand group, `version`
 //!   printing the bare names one per line, for scripts.
+//! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
+//!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
+//!   per-workspace defaults for the `diff` and `copy` operands and
+//!   their `--custom` choice.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -68,6 +72,62 @@ pub fn report_line(work_root: Option<&Path>) -> String {
             }
         }
     }
+}
+
+/// One command's table, `[agent-files.diff]` or
+/// `[agent-files.copy]`: the default `DIR` operand and the
+/// default `--custom` choice, each `None` when the key is absent.
+// Consumed by the diff and copy rungs that follow this one.
+#[allow(dead_code)]
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct CommandDefaults {
+    /// `dir`: a directory holding a copy of the set, as written,
+    /// relative to the config file's directory.
+    pub dir: Option<String>,
+    /// `custom`: compare or copy custom.md with the rest.
+    pub custom: Option<bool>,
+}
+
+/// The work side's `[agent-files.*]` tables.
+#[allow(dead_code)]
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct WorkspaceAgentFiles {
+    pub diff: CommandDefaults,
+    pub copy: CommandDefaults,
+}
+
+/// Read the `[agent-files.diff]` and `[agent-files.copy]` tables
+/// of the config at `root`. No config, or no tables, is the
+/// default; a `custom` that is not a bare `true` or `false` is an
+/// error naming the key, since a malformed config is fatal rather
+/// than silently ignored.
+#[allow(dead_code)]
+pub fn config_at(root: &Path) -> Result<WorkspaceAgentFiles, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(root)? else {
+        return Ok(WorkspaceAgentFiles::default());
+    };
+    let get = |key: &str| crate::toml_simple::toml_get(&cfg.map, key);
+    let parse_bool = |key: &str| -> Result<Option<bool>, Box<dyn std::error::Error>> {
+        match get(key).map(String::as_str) {
+            None => Ok(None),
+            Some("true") => Ok(Some(true)),
+            Some("false") => Ok(Some(false)),
+            Some(other) => Err(format!(
+                "{key}: invalid bool {other:?}: expected true or false, unquoted"
+            )
+            .into()),
+        }
+    };
+    Ok(WorkspaceAgentFiles {
+        diff: CommandDefaults {
+            dir: get("agent-files.diff.dir").cloned(),
+            custom: parse_bool("agent-files.diff.custom")?,
+        },
+        copy: CommandDefaults {
+            dir: get("agent-files.copy.dir").cloned(),
+            custom: parse_bool("agent-files.copy.custom")?,
+        },
+    })
 }
 
 /// CLI args for the `agent-files` group.
@@ -150,6 +210,53 @@ mod tests {
             " (agent-files v0.1.0-1, v0.1.0-2)"
         );
         assert_eq!(report_line(Some(&root)), "agent-files v0.1.0-1, v0.1.0-2");
+    }
+
+    /// A config carrying both tables reads back typed, one carrying
+    /// neither is the default, and a `custom` that is not a bare
+    /// bool is an error naming the key.
+    #[test]
+    fn config_tables_read_back_typed() {
+        let write = |tag: &str, fences: &str| {
+            let root = root_with(tag, &[]);
+            std::fs::write(
+                root.join(crate::config_md::VC_CONFIG_MD),
+                format!("```toml\n[repos]\nwork = \".\"\n```\n{fences}"),
+            )
+            .expect("write config");
+            root
+        };
+        let both = write(
+            "cfg-both",
+            "```toml\n[agent-files.diff]\ndir = \"../peer\"\ncustom = true\n\n\
+             [agent-files.copy]\ndir = \"../tpl/work\"\ncustom = false\n```\n",
+        );
+        assert_eq!(
+            config_at(&both).unwrap(),
+            WorkspaceAgentFiles {
+                diff: CommandDefaults {
+                    dir: Some("../peer".to_string()),
+                    custom: Some(true),
+                },
+                copy: CommandDefaults {
+                    dir: Some("../tpl/work".to_string()),
+                    custom: Some(false),
+                },
+            }
+        );
+        let none = write("cfg-none", "");
+        assert_eq!(config_at(&none).unwrap(), WorkspaceAgentFiles::default());
+        assert_eq!(
+            config_at(&root_with("cfg-absent", &[])).unwrap(),
+            WorkspaceAgentFiles::default()
+        );
+        let bad = write(
+            "cfg-bad",
+            "```toml\n[agent-files.copy]\ncustom = \"yes\"\n```\n",
+        );
+        let err = config_at(&bad).unwrap_err().to_string();
+        assert!(err.contains("agent-files.copy.custom"), "{err}");
+        assert!(err.contains("\"yes\""), "{err}");
     }
 
     /// No workspace, or a workspace without the file: the banner says

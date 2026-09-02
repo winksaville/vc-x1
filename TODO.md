@@ -58,7 +58,7 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
 - [feat: the status and agent-files commands opening][1] (done)
 - [feat: status, both repos' state in one call][2] (done)
 - [feat: status completes its scope keywords][7] (done)
-- [feat: the agent-files config table][3]
+- [feat: the agent-files config table][3] (done)
 - [feat: agent-files diff against a set directory][4]
 - [feat: agent-files copy from a set directory][5]
 - [feat: the status and agent-files commands closing][6]
@@ -164,9 +164,24 @@ values for the shell completer to offer.
 ##### feat: the agent-files config table
 
 The diff and copy commands want per-workspace defaults for their operand and their custom.md
-choice, and the schema has no boolean kind. vc-config.md gains `[agent-files.diff]` and
-`[agent-files.copy]`, each with `dir` and `custom`, the `bool` kind beside them, validate-config
-accepting the tables and rejecting a bad value.
+choice, and the schema has no boolean kind.
+
+* The schema typed strings, sizes, and lists, and a yes-or-no key had no honest kind.
+  - `bool` joins the kinds: the prototype accepts it and checks its default is a bare `true` or
+    `false`, the generated constant is a Rust `bool`, the renderers print it bare, and
+    validate-config flags a `bool` key holding anything else as a finding by shape, the way a
+    scalar in a `str-list` key already is.
+* The commands had nowhere to keep a workspace's defaults.
+  - Four keys, `agent-files.diff.dir`, `agent-files.diff.custom`, `agent-files.copy.dir`, and
+    `agent-files.copy.custom`, work-side only. The `dir` keys have examples and no default, since
+    absent they defer to `family.template`, and the `custom` keys default to false, the rule's
+    own reading of the project layer. The committed model config regenerated with the two
+    tables.
+  - The agent-files module reads the tables back typed, a missing config or table being the
+    default and a `custom` that is not a bare bool an error naming the key. The diff and copy
+    rungs consume it.
+  - README's Workspace config tables section shows the two tables and how the flags and the
+    operand override them.
 
 ##### feat: agent-files diff against a set directory
 
@@ -266,6 +281,15 @@ convention change, paired with the entry above.
 that answers it. The **feat: the status and agent-files commands** cycle gives the word a home,
 `vc-x1 status`, and the one-line pointer in At rest is an agent-file change, so it runs as its
 own cycle after that one lands, with the two close-out entries above if they are ready.
+
+### config --merge folds new keys into a workspace config
+
+(wink, 2026-09-02) `vc-x1 config` prints and validates, and a workspace whose config predates a
+key learns of it only by reading the model. A `--merge` takes the model's tables and keys, adds
+the ones the file lacks as commented lines with their default or example, leaves what the file
+holds untouched, and writes the file back for review in the working copy. First use: dogfood it
+on this repo's `.vc-config.md`, which the **feat: the status and agent-files commands** cycle
+left without the `[agent-files.*]` tables on purpose.
 
 ### Global -R anchors the workspace for every command
 

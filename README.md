@@ -819,10 +819,12 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to three tables. `[repos]` is structural and written by
+A work-side `.vc-config.md` holds up to five tables. `[repos]` is structural and written by
 `init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
-layer: the agent-file family this repo belongs to, and the commands that validate it. Both are
-work side only: `validate-config` reports them unknown in the agent repo's config.
+layer: the agent-file family this repo belongs to, and the commands that validate it.
+`[agent-files.diff]` and `[agent-files.copy]` (0.83.0) hold the defaults for the `agent-files`
+commands' `DIR` operand and `--custom` choice. All four are work side only: `validate-config`
+reports them unknown in the agent repo's config.
 
 ````markdown
 ```toml
@@ -848,7 +850,23 @@ full = [                          # the per-commit validation, in order, one com
 ]
 fast = ["cargo test --bins"]      # the subset a ladder rung runs
 ```
+
+```toml
+[agent-files.diff]
+dir = "../iiac-perf"              # default DIR for agent-files diff, else family.template
+custom = true                     # compare custom.md too, as -c/--custom would
+
+[agent-files.copy]
+dir = "../vc-x1-template/work"    # default DIR for agent-files copy, else family.template
+custom = false                    # never copy custom.md unless -c/--custom
+```
 ````
+
+The `custom` keys are `bool` keys, a bare `true` or `false`: `validate-config` reports a quoted
+or other value as a finding by shape, and the commands refuse a config that holds one. A `dir`
+is relative to the config file's directory, and absent, the command falls back to
+`family.template`. The flags win over the table for one run: `-c`/`--custom` turns custom.md
+on, `--no-custom` turns it off, and a `DIR` operand replaces `dir`.
 
 The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
 on one line or spread to the closing `]`. Each element is one command whose exit status is
@@ -861,7 +879,7 @@ vc-x1 validate-config                       # both sides
 vc-x1 validate-config work                  # the work side only
 vc-x1 validate-config agent                 # the agent side only
 vc-x1 validate-config .claude/.vc-config.md # a specific file, checked against every home
-vc-x1 config work                             # the work side's schema, [family] and [validate] too
+vc-x1 config work                             # the work side's schema, [family], [validate], and [agent-files.*] too
 vc-x1 config agent                            # the agent side's schema
 vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
 ```

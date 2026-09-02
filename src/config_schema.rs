@@ -29,6 +29,8 @@ pub enum Home {
 pub enum ValueKind {
     Str,
     Usize,
+    /// `true` or `false`, bare.
+    Bool,
     /// A comma-separated list inside one string.
     ItemList,
     /// A TOML array of strings, one element per item (the
@@ -87,11 +89,11 @@ pub fn section_and_leaf(path: &str) -> (&str, &str) {
 }
 
 /// Format a raw value string per `kind`, the way a default or an
-/// example is rendered on the assignment line: `Usize` bare,
-/// `Str`/`ItemList` quoted.
+/// example is rendered on the assignment line: `Usize` and `Bool`
+/// bare, `Str`/`ItemList` quoted.
 pub(crate) fn format_value(kind: ValueKind, raw: &str) -> String {
     match kind {
-        ValueKind::Usize => raw.to_string(),
+        ValueKind::Usize | ValueKind::Bool => raw.to_string(),
         ValueKind::Str | ValueKind::ItemList => format!("{raw:?}"),
         ValueKind::StrList => raw.to_string(),
     }
@@ -111,6 +113,7 @@ pub fn render_value(key: &ConfigKey) -> String {
                 match key.kind {
                     ValueKind::Str => "<str>".to_string(),
                     ValueKind::Usize => "<usize>".to_string(),
+                    ValueKind::Bool => "<bool>".to_string(),
                     ValueKind::ItemList => "<items>".to_string(),
                     ValueKind::StrList => "<list>".to_string(),
                 }
@@ -366,6 +369,32 @@ mod tests {
                 ex,
                 "{p} renders its array verbatim"
             );
+        }
+    }
+
+    /// The agent-files tables are work-side only: each command's
+    /// `dir` a `str` with an example, its `custom` a `bool`
+    /// defaulting to false, and the generated constants carry
+    /// those defaults typed.
+    #[test]
+    fn agent_files_tables() {
+        let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
+        for cmd in ["diff", "copy"] {
+            let dir = find(&format!("agent-files.{cmd}.dir"));
+            assert_eq!(dir.homes, &[Home::WorkspaceCode]);
+            assert_eq!(dir.kind, ValueKind::Str);
+            assert!(dir.default.is_none() && dir.example.is_some());
+            let custom = find(&format!("agent-files.{cmd}.custom"));
+            assert_eq!(custom.homes, &[Home::WorkspaceCode]);
+            assert_eq!(custom.kind, ValueKind::Bool);
+            assert_eq!(custom.default, Some("false"));
+            assert_eq!(format_value(custom.kind, "false"), "false");
+            // The typed constant is the rendered default, read back.
+            let typed = match cmd {
+                "diff" => AGENT_FILES_DIFF_CUSTOM_DEFAULT,
+                _ => AGENT_FILES_COPY_CUSTOM_DEFAULT,
+            };
+            assert_eq!(custom.default.map(|d| d == "true"), Some(typed));
         }
     }
 

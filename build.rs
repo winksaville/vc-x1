@@ -187,8 +187,11 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
         }
         let missing = |what: &str| -> ! { panic!("vc-config.md: [{path}] is missing {what}") };
         let kind = kind.unwrap_or_else(|| missing("kind"));
-        if !matches!(kind.as_str(), "str" | "usize" | "item-list" | "str-list") {
-            panic!("vc-config.md: [{path}] kind = {kind:?}: not str/usize/item-list/str-list");
+        if !matches!(
+            kind.as_str(),
+            "str" | "usize" | "bool" | "item-list" | "str-list"
+        ) {
+            panic!("vc-config.md: [{path}] kind = {kind:?}: not str/usize/bool/item-list/str-list");
         }
         if kind == "str-list" {
             for (what, v) in [("default", &default), ("example", &example)] {
@@ -204,6 +207,12 @@ fn parse_prototype(text: &str) -> (String, Vec<ProtoKey>) {
             && d.parse::<usize>().is_err()
         {
             panic!("vc-config.md: [{path}] default {d:?} is not a usize");
+        }
+        if kind == "bool"
+            && let Some(d) = &default
+            && !matches!(d.as_str(), "true" | "false")
+        {
+            panic!("vc-config.md: [{path}] default {d:?} is not a bool");
         }
         if homes.is_empty() {
             missing("homes");
@@ -315,6 +324,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
         let kind = match key.kind.as_str() {
             "str" => "ValueKind::Str",
             "usize" => "ValueKind::Usize",
+            "bool" => "ValueKind::Bool",
             "item-list" => "ValueKind::ItemList",
             "str-list" => "ValueKind::StrList",
             other => panic!("vc-config.md: [{}] unknown kind {other:?}", key.path),
@@ -378,6 +388,7 @@ fn render_config_schema(keys: &[ProtoKey], base: &str) -> String {
         out.push_str("#[allow(dead_code)]\n");
         match key.kind.as_str() {
             "usize" => out.push_str(&format!("pub const {name}: usize = {default};\n")),
+            "bool" => out.push_str(&format!("pub const {name}: bool = {default};\n")),
             _ => out.push_str(&format!("pub const {name}: &str = {default:?};\n")),
         }
     }

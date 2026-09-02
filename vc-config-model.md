@@ -43,9 +43,27 @@ template = "../vc-x1-template"
 messages = "../vc-x1-messages"
 ```
 
+The `[agent-files.diff]` table
+- dir: Default DIR for agent-files diff: a directory holding a copy of the set [[9]]
+- custom: Default for agent-files diff --custom: compare custom.md like the rest of the set [[10]]
+```toml
+[agent-files.diff]
+dir = "../iiac-perf"
+custom = false
+```
+
+The `[agent-files.copy]` table
+- dir: Default DIR for agent-files copy: a directory holding a copy of the set [[11]]
+- custom: Default for agent-files copy --custom: copy custom.md with the rest of the set [[12]]
+```toml
+[agent-files.copy]
+dir = "../vc-x1-template/work"
+custom = false
+```
+
 The `[validate]` table
-- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[9]]
-- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[10]]
+- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[13]]
+- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[14]]
 ```toml
 [validate]
 full = [
@@ -67,5 +85,9 @@ fast = ["cargo test --bins"]
 [6]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymember
 [7]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familytemplate
 [8]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymessages
-[9]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
-[10]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
+[9]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffdir
+[10]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffcustom
+[11]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopydir
+[12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
+[13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
+[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
