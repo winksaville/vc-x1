@@ -1,3 +1,4 @@
+mod agent_files;
 mod bot_session;
 mod chid;
 mod clone;
@@ -71,6 +72,19 @@ fn invoked_name() -> String {
 fn banner() -> &'static str {
     static BANNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     BANNER.get_or_init(|| format!("{} {}", invoked_name(), env!("CARGO_PKG_VERSION")))
+}
+
+/// The banner a run prints: the plain banner plus the workspace's
+/// set version, ` (agent-files v0.1.0)`, when the current directory
+/// is in a workspace that records one. Help keeps the plain banner,
+/// since help is not a run and its text must not depend on the cwd.
+fn run_banner() -> String {
+    let root = common::find_workspace_root();
+    format!(
+        "{}{}",
+        banner(),
+        agent_files::banner_suffix(root.as_deref())
+    )
 }
 
 /// Top-level about line: name, version, and the project tagline
@@ -159,6 +173,10 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
+    /// The agent-files set: `version` prints the workspace's set version
+    #[command(name = "agent-files")]
+    AgentFiles(agent_files::AgentFilesArgs),
+
     /// Print vc-x1, jj-lib, and jj-data versions
     #[command(
         long_about = "Print every version that describes this run: vc-x1's own,\n\
@@ -502,10 +520,10 @@ fn main() -> ExitCode {
                 // read as a stuttered header (seen dogfooding the
                 // argv0 banner, 2026-08-06).
                 if !cli.no_banner && cli.command.is_some() {
-                    eprintln!("{}", banner());
+                    eprintln!("{}", run_banner());
                 }
             }
-            1 => log::info!("{}", banner()),
+            1 => log::info!("{}", run_banner()),
             _ => {
                 for line in version::report(banner()) {
                     log::info!("{line}");
@@ -557,6 +575,13 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    // Reads a directory listing, never a repo, and must answer in a
+    // plain old repo too, so it runs after the gate and before
+    // `Context::load`.
+    if let Commands::AgentFiles(args) = &cmd {
+        return args.run();
+    }
+
     let mut ctx = match context::Context::load() {
         Ok(c) => c,
         Err(e) => {
@@ -567,7 +592,7 @@ fn main() -> ExitCode {
 
     match cmd {
         // Handled above, before `Context::load`.
-        Commands::Version => ExitCode::SUCCESS,
+        Commands::Version | Commands::AgentFiles(_) => ExitCode::SUCCESS,
         Commands::Chid(args) => args.dispatch(&mut ctx),
         Commands::Desc(args) => args.dispatch(&mut ctx),
         Commands::List(args) => args.dispatch(&mut ctx),

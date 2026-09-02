@@ -211,7 +211,12 @@ fn data_line(label: &str, path: &Path) -> String {
 /// repo that fails to load, the line says so rather than being
 /// dropped, so a missing repo never reads as a clean report.
 pub fn report(banner: &str) -> Vec<String> {
-    let mut lines = vec![banner.to_string(), format!("jj-lib {}", jj_lib_version())];
+    let root = common::find_workspace_root();
+    let mut lines = vec![
+        banner.to_string(),
+        crate::agent_files::report_line(root.as_deref()),
+        format!("jj-lib {}", jj_lib_version()),
+    ];
 
     match jj_cli_triple() {
         Ok(theirs) => lines.push(format!("jj {theirs}")),
@@ -227,7 +232,7 @@ pub fn report(banner: &str) -> Vec<String> {
         return lines;
     }
 
-    match common::find_workspace_root() {
+    match root {
         None => lines.push("jj-data none: not in a vc-x1 workspace".to_string()),
         Some(root) => {
             lines.push(data_line("work", &root));
@@ -282,11 +287,14 @@ mod tests {
         }
     }
 
+    /// The banner, then the set version, then jj-lib: the two
+    /// versions that describe the run come before the tool it links.
     #[test]
-    fn report_starts_with_banner_and_jj_lib() {
+    fn report_starts_with_banner_set_version_and_jj_lib() {
         let lines = report("vc-x1-dev 0.0.0");
         assert_eq!(lines[0], "vc-x1-dev 0.0.0");
-        assert_eq!(lines[1], format!("jj-lib {}", jj_lib_version()));
+        assert!(lines[1].starts_with("agent-files "), "got: {}", lines[1]);
+        assert_eq!(lines[2], format!("jj-lib {}", jj_lib_version()));
     }
 
     // The single-name convention's guard lives in build.rs (not a

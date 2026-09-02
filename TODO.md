@@ -17,7 +17,7 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-### agent-files(proposal): 0.1.0
+### agent-files(proposal): v0.1.0
 
 #### Problem
 
@@ -45,10 +45,10 @@ lists it.
 
 #### Ladder
 
-- [agent-files(proposal): 0.1.0 opening][1] (done)
+- [agent-files(proposal): v0.1.0 opening][1] (done)
 - [docs: version the set and title agent-files by it][2] (done)
-- [feat: report the set version with -V and version][3]
-- [agent-files(proposal): 0.1.0 closing][4]
+- [feat: report the set version with -V and version][3] (done)
+- [agent-files(proposal): v0.1.0 closing][4]
 
 #### Deliberation
 
@@ -60,13 +60,21 @@ lists it.
 - The reporting rung is inside the subject (wink, 2026-09-01): the feature exists only because of
   the set version, and a reader on the command line has no other way to see the number without
   finding the file, so it rides here rather than as its own `feat` cycle.
-- 0.1.0 as the first set version (2026-09-01): the set has had no number, and the first proposal
+- v0.1.0 as the first set version (2026-09-01): the set has had no number, and the first proposal
   under the scheme takes the first minor.
 - The `v` spelling, `v0.1.0` everywhere (wink, 2026-09-01), adopted after the opening pushed: a
   bare number after the title's colon could be anything, cargo's own output pairs a name with a
   `v` version while a tool's banner stays bare, and the file became `agent-files-v0.1.0` so its
-  name says what it versions. This cycle's own title keeps the bare `0.1.0` its published opening
-  carries, the one title under the scheme spelled that way.
+  name says what it versions. The opening had pushed as `0.1.0`, and was re-described to `v0.1.0`
+  in the work-repo only, a coordinated re-describe with the trailer kept by hand, so the scheme's
+  first cycle carries its own spelling everywhere. Its agent-repo pair keeps the pushed title, the
+  pair being found by change id and time, never by title, and the experiment below is the check.
+  The bookmark keeps the slug of the pushed title, a name that dies at Land.
+- The re-describe experiment (wink, 2026-09-01), run before the rewrite and after: the change id,
+  the author time, the `ochid:` trailer, the agent-repo pair, and the transcript lines around the
+  push were unchanged, and only the SHA and the committer time moved, the docs rung's committer
+  time with them as a rebased descendant. So a rewritten work commit keeps its rung's start and
+  its link, and its push moment survives only in its pair. The Waiting entry holds the follow-up.
 - The version in the title, against Versions live in the version-of-record only: the rule's
   reason, a build stamp a renumber can invalidate, does not apply, since the set's version names an
   agreed text and a renumber is the failure it exists to prevent. The exception is written into the
@@ -94,7 +102,7 @@ lists it.
 
 #### Ladder details
 
-##### agent-files(proposal): 0.1.0 opening
+##### agent-files(proposal): v0.1.0 opening
 
 The cycle's setup commit: the bookmark, `## Closed` emptied, this block, the artifact bumped to
 its `-0` under the dev name, and the first set version file, `version-0.1.0-0`.
@@ -116,17 +124,28 @@ set has no version.
     message record, and the Versions rule names the `agent-files` title as its one exception,
     rationale.md carrying why the rule's reason does not reach it.
 * The file name and the `v` were settled during the rung, not at the opening.
-  - Recorded in the deliberation. The cycle's own title stays bare, its opening being published.
+  - Recorded in the deliberation, and the opening was re-titled afterwards.
 
 ##### feat: report the set version with -V and version
 
 A reader on the command line cannot see the set version without finding a file in a
-subdirectory. vc-x1 reads the workspace's `agent-data/agent-files-v*` at run time and prints it in
-the
-banner beside its own version, and as a line of `vc-x1 version`, `none` when there is no workspace
-or no file.
+subdirectory.
 
-##### agent-files(proposal): 0.1.0 closing
+* The set version had no reporter.
+  - A module reads the names under the workspace's `agent-data/agent-files-v*` at run time. The
+    run banner, on stderr or by `-V`, gains ` (agent-files v0.1.0)`, `vc-x1 version` gains an
+    `agent-files v0.1.0` line as its second, and `vc-x1 agent-files version` prints the bare name
+    for scripts. Outside a workspace the banner stays plain, the report line says `none` with
+    the reason, and the subcommand fails with it.
+  - Several files, a bump that left both names, show as all of them, sorted, rather than one
+    picked by a guess.
+* The banner also heads every help page.
+  - Help keeps the plain banner: it is not a run, and its text must not depend on the cwd.
+* The `agent-files` group needs no repo.
+  - It runs after the version gate, which exempts nothing, and before `Context::load`, so it
+    answers in a plain old repo too. `diff` and `copy` join it in their own cycle.
+
+##### agent-files(proposal): v0.1.0 closing
 
 Closing out the cycle.
 
@@ -143,6 +162,28 @@ Important work that cannot start yet. Each entry names what it waits on, in a fo
 checked, and the rank it takes in `## Todo` once unblocked. Every opening checks each condition
 and promotes what is met ([Opening](AGENTS.md#opening)).
 
+- **Check the transcript join on the landed `agent-files(proposal): v0.1.0` trapezoid.** (wink,
+  2026-09-01) Its opening was re-described after its push, in the work-repo only, so its title
+  differs from its agent-repo pair's and its committer time is the rewrite's, not the push's, and
+  the docs rung's committer time moved with it as a rebased descendant. The join the records rely
+  on is: blame gives the commit, the commit's pair (by `ochid:`, or by the pair whose time is the
+  push) gives the transcript slice, a text search of the slice gives the tool call, and the first
+  hit being a tool call rather than a tool result says the agent wrote the line. Two probes ran
+  before the rewrite and behaved as predicted, an agent-written line found in a Bash tool call and
+  a hand-edited line found first in a read. The pair's slice ends just before its own push call,
+  which lands in the next pair's slice. Two more findings from the same day: the transcript is the
+  timeline, its lines appended with their own timestamps and the push calls among them, so the
+  agent-repo is durable storage for the file and its commit structure carries no part of the
+  join, with the caveat that attachment and queue lines land a millisecond or two before the
+  message they belong to (11 backward steps in one session), so a join sorts by timestamp or
+  reads message lines only. And compaction appends, it does not rewrite: ten earlier sessions in
+  the agent-repo each hold a `user` line flagged `isCompactSummary` mid-file with every earlier
+  line intact and its timestamp unchanged, so no tool call is lost, only the reasoning before a
+  post-compaction call may survive as summary alone. Re-run the probes on the landed trapezoid,
+  add a line from each rung, and decide whether the trailer is load-bearing or convenience, and
+  what a `vc-x1` command for the join needs.
+  - Waits on: the `agent-files(proposal): v0.1.0` cycle landed.
+  - Place when unblocked: first.
 - **Retire the frozen history: `notes/chores/` and `notes/done.md`.** (wink, 2026-08-27) They
   are frozen and no longer grow, and the agent-repo transcript plus git history hold what they
   hold. Delete both in one cycle, after a sweep turns every link into them (Todo entries, the
@@ -171,6 +212,16 @@ always differs, and `copy`, inbound only, from the template or `--from <path>`, 
 AGENTS.md and `agent-data/` deletions included, never custom.md or TODO.md, the working copy left
 uncommitted for the adoption rung's review. A `bump` for the set version's per-rung rename waits
 until the scheme has run by hand once.
+
+### Global -R anchors the workspace for every command
+
+(wink, 2026-09-01) `vc-x1 version -R vc-x1` and `vc-x1 -V -R vc-x1` from a parent directory are
+refused, since `-R` is not global: seven subcommands declare their own, with their own defaults
+and meanings, and the workspace root finder is anchored on the cwd. One global `-R <path>` on the
+root command, as jj has it, anchors the root search for every subcommand, `version`, `-V`, and
+the `agent-files` group included, so the report and the banner follow it, and the per-subcommand
+flags retire or become its aliases. CLI-surface consolidation, paired with the nesting entry
+below.
 
 ### Nest the validate and fix commands
 
@@ -814,8 +865,8 @@ _See [bugs.md](notes/bugs.md)._
 
 # References
 
-[1]: #agent-filesproposal-010-opening
+[1]: #agent-filesproposal-v010-opening
 [2]: #docs-version-the-set-and-title-agent-files-by-it
 [3]: #feat-report-the-set-version-with--v-and-version
-[4]: #agent-filesproposal-010-closing
+[4]: #agent-filesproposal-v010-closing
 [12]: /notes/forks-multi-user.md
