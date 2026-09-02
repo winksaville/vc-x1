@@ -59,7 +59,7 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
 - [feat: status, both repos' state in one call][2] (done)
 - [feat: status completes its scope keywords][7] (done)
 - [feat: the agent-files config table][3] (done)
-- [feat: agent-files diff against a set directory][4]
+- [feat: agent-files diff against a set directory][4] (done)
 - [feat: agent-files copy from a set directory][5]
 - [feat: the status and agent-files commands closing][6]
 
@@ -91,6 +91,14 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
   had none. A `diff = ["--custom"]` list of arguments merged into argv needs no new kind but
   escapes validation and the generated config's docs, and invites every future flag in as a
   string.
+- Two operands, redone on the draft (wink, 2026-09-02): the diff and copy commands were pushed
+  with one `DIR` operand and this workspace implicit. A bare `copy` then rewrote this repo's
+  set when a guard was expected to refuse, and the implicit destination read as the cause: an
+  explicit `SRC DST`, and `A B` for diff, is obvious and opens the outbound case, the maintainer
+  folding an adopter's set into the payload from anywhere. The pushed diff rung was amended in
+  place and re-described with its trailer kept, the bookmark force-pushed, and the copy rung
+  finished on the new shape, the branch being a draft for exactly this. The versions kept their
+  numbers.
 - The At rest edit waits for its own cycle (wink, 2026-09-02): pointing AGENTS.md's "clean" at
   the command is an agent-file change, and Own commit, own cycle holds. It was drafted as a
   rung of its own, then folded into the status rung as a one-line pointer, then taken out again
@@ -185,10 +193,28 @@ choice, and the schema has no boolean kind.
 
 ##### feat: agent-files diff against a set directory
 
-Which set an adopter holds is answerable only by three `diff` lines nobody types. `agent-files
-diff [DIR]` compares AGENTS.md and `agent-data/` against the set directory resolved from the
-operand, the config, or `family.template`, one line per file, custom.md on one line unless
-`--custom`, non-zero when they differ.
+Which set an adopter holds is answerable only by three `diff` lines nobody types.
+
+* Nothing compared a set against another copy of it.
+  - `agent-files diff [A] [B]` lists the union of both sides' set files, AGENTS.md and the plain
+    files under `agent-data/`, each as same, differs, only in A, or only in B, then `N of M
+    differ`, and exits non-zero when anything differs, as `diff` does. Byte comparison, since a
+    re-sync is a byte copy. custom.md rides along as the project layer, not compared, until
+    `-c`/`--custom` compares it, with `--no-custom` overriding a config that says so.
+  - A is the operand, else `agent-files.diff.dir`, else `family.template`, and B is the operand,
+    else this workspace, the header line naming where each came from and the report showing
+    the directories as written. Two operands need no workspace, so two peers compare from
+    anywhere. The resolvers are shared with the copy rung, where the pair is its source and
+    destination.
+* `family.template` named the template repository, whose root holds the template's own
+  AGENTS.md, not the payload.
+  - This repo's config names the payload directory, `../vc-x1-template/work`, as the deliberation
+    settled, and the key's prose and example in vc-config.md say so, the model regenerated with
+    them.
+* First run: against the payload, AGENTS.md and four agent-data files differ and the version
+  file is only here, the v0.1.0 proposal set as expected. Against iiac-perf with `-c`, nothing
+  differs, custom.md included, so the two adopters carry one set.
+* README's agent-files section covers `version` and `diff`, with a sample report.
 
 ##### feat: agent-files copy from a set directory
 

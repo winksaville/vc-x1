@@ -7,6 +7,7 @@
 - [Usage](#usage)
   - [Shell completion](#shell-completion)
   - [status](#status)
+  - [agent-files](#agent-files)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
@@ -143,6 +144,7 @@ vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmar
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
+vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -346,6 +348,47 @@ Working copy  (@) : kpuqynnomnxv 360bdc189b1c (empty) (no description set)
 Parent commit (@-): vtkwkumoqlpx b424f97b1a2c main | feat: the last landed cycle
 
 status: dirty: work @ has changes
+```
+
+### agent-files
+
+The agent-files set is `AGENTS.md`, the files under `agent-data/`, and the project layer
+`custom.md`, as [AGENTS.md](AGENTS.md#terminology) defines it. The group runs before the
+workspace loads, so it answers in a plain repo too.
+
+`agent-files version` prints the set version, the name of the `agent-data/agent-files-vX.Y.Z`
+file with its prefix removed, bare, one per line when a bump left several, and fails outside a
+workspace or in one without the file.
+
+`agent-files diff [A] [B]` compares two copies of the set, one line per file, names only: `same`,
+`differs`, `only in A`, or `only in B`, then `N of M differ`. It answers whether a re-sync is a
+copy, and its exit status is non-zero when anything differs, as `diff`'s is. `custom.md` is
+reported as the project layer and not compared unless `-c`/`--custom` compares it like the rest,
+for a family whose project layers are meant to be identical, and `--no-custom` overrides a config
+that says so.
+
+`A` is the operand, else the config's `agent-files.diff.dir`, else `family.template`, the config
+values relative to the config file's directory. `B` is the operand, else this workspace. So a
+bare `diff` compares the payload against this workspace, one operand compares that copy against
+this workspace, and two operands compare any two copies from anywhere, no workspace needed. The
+header line says where each came from, and a missing or non-directory operand is an error naming
+what to set.
+
+```
+vc-x1 agent-files diff                             # the payload against this workspace
+vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
+vc-x1 agent-files diff ../iiac-perf -c             # custom.md too
+vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
+```
+
+```
+agent-files diff: ../vc-x1-template/work (family.template) against /home/me/proj (this workspace)
+AGENTS.md                       differs
+agent-data/agent-files-v0.1.0   only in /home/me/proj
+agent-data/code.md              same
+agent-data/notes.md             differs
+custom.md                       project layer, not compared (-c compares it)
+3 of 4 differ
 ```
 
 ### agent-session
@@ -836,7 +879,7 @@ agent = ".claude"
 ```toml
 [family]
 member = "vc-x1"                  # this repo's name in the family, and its messages record
-template = "../vc-x1-template"    # the payload holding the pinned agent-files
+template = "../vc-x1-template/work"  # the payload directory holding the pinned agent-files
 messages = "../vc-x1-messages"    # the family's notification repo
 ```
 

@@ -244,16 +244,19 @@ example = "vc-x1"
 
 ## family.template
 
-Path to the family's template repository, the payload holding the pinned agent-files, relative
-to the config file's directory. A member's diff against it is that member's proposal set.
+Path to the family's template payload, the directory holding the pinned agent-files, AGENTS.md
+and `agent-data/`, relative to the config file's directory. A template repository that keeps its
+payload in a subdirectory is named down to it, `../vc-x1-template/work`. A member's diff against
+it is that member's proposal set, and `agent-files diff` and `copy` use it when they are given no
+directory of their own.
 
 ```toml
 [family.template]
 homes = ["workspace-code"]
 kind = "str"
-doc = "Path to the family's template repository, relative to this config file's directory"
-used-by = "agent-file diffs against the payload (AGENTS.md, Changing the agent-files)"
-example = "../vc-x1-template"
+doc = "Path to the family's template payload, the directory holding the pinned agent-files"
+used-by = "agent-files diff and copy, their default DIR"
+example = "../vc-x1-template/work"
 ```
 
 ## family.messages

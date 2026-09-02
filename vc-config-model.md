@@ -34,12 +34,13 @@ agent = ".claude"
 The `[family]` table
 - member: This repo's member name in its agent-file family (also its record file in the messages
   repo) [[6]]
-- template: Path to the family's template repository, relative to this config file's directory [[7]]
+- template: Path to the family's template payload, the directory holding the pinned agent-files
+  [[7]]
 - messages: Path to the family's messages repo, relative to this config file's directory [[8]]
 ```toml
 [family]
 member = "vc-x1"
-template = "../vc-x1-template"
+template = "../vc-x1-template/work"
 messages = "../vc-x1-messages"
 ```
 

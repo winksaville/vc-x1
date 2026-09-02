@@ -14,7 +14,8 @@
 //! - `report_line(root)`: the `agent-files ...` line of `vc-x1
 //!   version`, `none` with the reason when there is no version.
 //! - `AgentFilesArgs`: the `agent-files` subcommand group, `version`
-//!   printing the bare names one per line, for scripts.
+//!   printing the bare names one per line, for scripts, and `diff`
+//!   ([`diff`]) naming what differs from a copy of the set.
 //! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
 //!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
 //!   per-workspace defaults for the `diff` and `copy` operands and
@@ -27,6 +28,8 @@ use clap::{Args, Subcommand};
 use log::error;
 
 use crate::common;
+
+pub mod diff;
 
 /// The file-name prefix every set version file carries.
 const PREFIX: &str = "agent-files-";
@@ -77,8 +80,6 @@ pub fn report_line(work_root: Option<&Path>) -> String {
 /// One command's table, `[agent-files.diff]` or
 /// `[agent-files.copy]`: the default `DIR` operand and the
 /// default `--custom` choice, each `None` when the key is absent.
-// Consumed by the diff and copy rungs that follow this one.
-#[allow(dead_code)]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct CommandDefaults {
     /// `dir`: a directory holding a copy of the set, as written,
@@ -89,7 +90,6 @@ pub struct CommandDefaults {
 }
 
 /// The work side's `[agent-files.*]` tables.
-#[allow(dead_code)]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct WorkspaceAgentFiles {
     pub diff: CommandDefaults,
@@ -101,7 +101,6 @@ pub struct WorkspaceAgentFiles {
 /// default; a `custom` that is not a bare `true` or `false` is an
 /// error naming the key, since a malformed config is fatal rather
 /// than silently ignored.
-#[allow(dead_code)]
 pub fn config_at(root: &Path) -> Result<WorkspaceAgentFiles, Box<dyn std::error::Error>> {
     let Some(cfg) = crate::config_md::load(root)? else {
         return Ok(WorkspaceAgentFiles::default());
@@ -149,13 +148,25 @@ pub enum AgentFilesCommand {
         one without the file."
     )]
     Version,
+
+    /// Name the set files that differ from a copy of the set in DIR
+    #[command(
+        long_about = "Compare this workspace's agent-files set, AGENTS.md and\n\
+        agent-data/, against the copy in DIR, one line per file: same,\n\
+        differs, only here, or only there. custom.md is reported as the\n\
+        project layer unless -c/--custom compares it. DIR defaults to\n\
+        the config's agent-files.diff.dir, else family.template, relative\n\
+        to the config file's directory. Exits non-zero when anything\n\
+        differs, as diff does."
+    )]
+    Diff(diff::DiffArgs),
 }
 
 impl AgentFilesArgs {
     /// Run the chosen subcommand against the workspace found from
     /// the current directory.
     pub fn run(&self) -> ExitCode {
-        match self.command {
+        match &self.command {
             AgentFilesCommand::Version => {
                 let root = common::find_workspace_root();
                 let vs = root.as_deref().map(versions).unwrap_or_default(); // OK: no root, no versions
@@ -168,6 +179,7 @@ impl AgentFilesArgs {
                 }
                 ExitCode::SUCCESS
             }
+            AgentFilesCommand::Diff(args) => args.run(),
         }
     }
 }

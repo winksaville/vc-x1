@@ -174,7 +174,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
-    /// The agent-files set: `version` prints the workspace's set version
+    /// The agent-files set: its version, and a diff against a copy of it
     #[command(name = "agent-files")]
     AgentFiles(agent_files::AgentFilesArgs),
 
