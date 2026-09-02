@@ -139,8 +139,9 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
-vc-x1 version                              # Report vc-x1, jj-lib, jj, and jj-data versions
-vc-x1 --version                            # Print version
+vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
+vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
+vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
 

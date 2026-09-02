@@ -195,3 +195,63 @@ fn cli_validate_bot_old_name_rejected() {
     assert!(stderr.contains("pre-0.80.0"), "got: {stderr}");
     assert!(stderr.contains("`validate-agent`"), "got: {stderr}");
 }
+
+/// The banner and the report carry the workspace's agent-files set
+/// version, read from the name of `agent-data/agent-files-v*`, and
+/// `agent-files version` prints it bare. In a workspace without the
+/// file the banner stays plain and the subcommand says why.
+#[test]
+fn cli_reports_the_agent_files_set_version() {
+    let fx = CliFixture::new("smoke-set-version");
+    std::fs::write(fx.base.join(".vc-config.toml"), "[repos]\nwork = \".\"\n")
+        .expect("write vc-config");
+    let data = fx.base.join("agent-data");
+    std::fs::create_dir_all(&data).expect("mkdir agent-data");
+    std::fs::write(data.join("agent-files-v0.1.0"), "").expect("write version file");
+
+    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("-V"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("(agent-files v0.1.0)"),
+        "expected the set version in the banner, got: {stdout:?}"
+    );
+
+    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("version"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.lines().any(|l| l == "agent-files v0.1.0"),
+        "expected an agent-files line in the report, got: {stdout:?}"
+    );
+
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("agent-files")
+            .arg("version"),
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "v0.1.0\n");
+
+    // A second workspace with no `agent-data`, its own config so the
+    // root finder stops there rather than walking up into the first.
+    let outside = fx.path("outside");
+    std::fs::create_dir_all(&outside).expect("mkdir outside");
+    std::fs::write(outside.join(".vc-config.toml"), "[repos]\nwork = \".\"\n")
+        .expect("write outside vc-config");
+    let out = run_ok(fx.cmd().current_dir(&outside).arg("-V"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !stdout.contains("agent-files"),
+        "expected a plain banner without a version file, got: {stdout:?}"
+    );
+    let out = run_err(
+        fx.cmd()
+            .current_dir(&outside)
+            .arg("agent-files")
+            .arg("version"),
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("agent-files none: no agent-data/agent-files-v* file"),
+        "expected the none reason, got: {stderr:?}"
+    );
+}
