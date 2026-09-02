@@ -17,7 +17,127 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### feat: the status and agent-files commands
+
+#### Problem
+
+Both repos' state takes two invocations, `jj st -R .` and `jj st -R .agent-session`, and the
+agent-files diff against a peer takes three `diff -s` lines nobody types. At rest's "clean", both
+`@` empty, has no command that answers it.
+
+#### Solution
+
+`vc-x1 status`, alias `st`, prints both repos' status under their labels and a verdict line, and
+is the home of At rest's "clean". `vc-x1 agent-files {diff|copy} [DIR]` joins the `version`
+subcommand, `DIR` a directory holding a copy of the set, resolved from the operand, then the
+`agent-files.<cmd>.dir` config key, then `family.template`: `diff` compares AGENTS.md and
+`agent-data/`, one line per file, and custom.md on one line since the project layer always
+differs, and `copy`, inbound only, mirrors AGENTS.md and `agent-data/` deletions included, never
+custom.md or TODO.md, the working copy left uncommitted for the adoption rung's review. Both take
+`-c|--custom` to include custom.md, for a family whose project layers are meant to be identical,
+with `--no-custom` to override a config that sets it, and an `[agent-files.diff]` and
+`[agent-files.copy]` table in the config hold `dir` and `custom` defaults. A `bump` for the set
+version's per-rung rename waits until the scheme has run by hand once.
+
+#### Acceptance check
+
+`vc-x1 validate` passes. `vc-x1-dev status` in this repo prints both repos under their labels with
+the `@` and `@-` lines `jj st` prints and a verdict, and `vc-x1-dev st` is the same command.
+`vc-x1-dev agent-files diff` in this repo names AGENTS.md, the four changed agent-data files, the
+version file as ours only, and custom.md as the project layer, and exits non-zero, and with `-c`
+compares custom.md like the rest. `vc-x1-dev agent-files copy` into a scratch copy of this repo
+leaves its working copy equal to the payload in AGENTS.md and `agent-data/`, custom.md and TODO.md
+untouched, with nothing committed. With `[agent-files.diff]` setting `dir` and `custom = true` in
+the scratch copy's config, a bare `diff` uses both, `diff --no-custom` overrides the one, and an
+operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
+
+#### Ladder
+
+- [feat: the status and agent-files commands opening][1] (done)
+- [feat: status, both repos' state in one call][2]
+- [feat: the agent-files config table][3]
+- [feat: agent-files diff against a set directory][4]
+- [feat: agent-files copy from a set directory][5]
+- [feat: the status and agent-files commands closing][6]
+
+#### Deliberation
+
+- The transcript join entry is promoted first and passed over (wink, 2026-09-02): its condition is
+  met and it asked to be first, but nothing blocks on it and the landed trapezoid keeps, so this
+  cycle runs the commands the family asked for and the join check follows.
+- The payload directory is named by the config, not found by the code: the template repo keeps
+  its payload under `work/`, so `family.template` names that directory and the command reads
+  AGENTS.md and `agent-data/` under it, with no heuristic about the template's shape.
+- Names-only diff: one line per file, "differs", "only here", "only in payload", the project layer
+  on one line, and a non-zero exit when the sets differ, since the question the command answers is
+  whether a re-sync is a copy. A unified diff waits for a `-p` flag and a caller who wants it.
+- custom.md by flag (wink, 2026-09-02): AGENTS.md says the project layer is never universal, and
+  the commands keep that as their default, custom.md reported on one line and never copied. A
+  family whose custom.md files are pointer-only, as the first adopters' are, wants them identical
+  too, so `-c|--custom` includes it in both commands, and `--no-custom` overrides a config that
+  sets it.
+- The set directory is a positional operand (wink, 2026-09-02): `diff DIR` reads as `git diff
+  <ref>` does, and `copy DIR` names its source the way `git pull <remote>` does, the `cp` idiom
+  of a trailing destination answered by the command being inbound only and printing its resolved
+  source first. The operand is optional, resolving positional, then config, then
+  `family.template`, so the config keys are named for the operand, `agent-files.diff.dir` and
+  `agent-files.copy.dir`, not for flags that no longer exist.
+- Typed config tables over a list of default arguments (wink, 2026-09-02): `[agent-files.diff]`
+  and `[agent-files.copy]` each hold `dir` and `custom`, resolved as the agent-session keys are,
+  flag, then workspace config, then built-in, and `custom` adds a `bool` kind to the schema, which
+  had none. A `diff = ["--custom"]` list of arguments merged into argv needs no new kind but
+  escapes validation and the generated config's docs, and invites every future flag in as a
+  string.
+- The At rest edit rides in the status rung (wink, 2026-09-02): pointing AGENTS.md's "clean" at
+  the command is an agent-file change, and Own commit, own cycle would make it its own commit. The
+  user folded it into the feature that gives the word a home, a one-line pointer and nothing a
+  convention review would weigh, so the rule bends here by the user's explicit say and this is
+  the record of it.
+- The older entry **Add support subcommand status of the repos** is absorbed: this cycle's
+  `status` is that entry, so it is deleted rather than left to be closed twice, and the
+  squash-push entry that cited it now cites this cycle.
+- 0.83.0: minor, a feature cycle.
+
+#### Ladder details
+
+##### feat: the status and agent-files commands opening
+
+The cycle's setup commit: the bookmark, `## Closed` emptied, the Waiting entry promoted, the
+Continuation notes acted on and reset, this block, and the artifact bumped to its `-0` under the
+dev name.
+
+##### feat: status, both repos' state in one call
+
+Both repos' state takes two `jj st` invocations, and nothing prints the verdict At rest asks for.
+A `status` subcommand, alias `st`, snapshots both repos in-process and prints each under its label
+with its changed files, the `@` and `@-` lines, and a clean or dirty verdict. AGENTS.md's At rest,
+which defines "clean" as both `@` empty and names no command, points the definition at the new
+command in the same commit.
+
+##### feat: the agent-files config table
+
+The diff and copy commands want per-workspace defaults for their operand and their custom.md
+choice, and the schema has no boolean kind. vc-config.md gains `[agent-files.diff]` and
+`[agent-files.copy]`, each with `dir` and `custom`, the `bool` kind beside them, validate-config
+accepting the tables and rejecting a bad value.
+
+##### feat: agent-files diff against a set directory
+
+Which set an adopter holds is answerable only by three `diff` lines nobody types. `agent-files
+diff [DIR]` compares AGENTS.md and `agent-data/` against the set directory resolved from the
+operand, the config, or `family.template`, one line per file, custom.md on one line unless
+`--custom`, non-zero when they differ.
+
+##### feat: agent-files copy from a set directory
+
+A re-sync is a copy by hand, file by file, deletions easy to miss. `agent-files copy [DIR]`
+mirrors AGENTS.md and `agent-data/` inbound from the resolved set directory, deletions included,
+custom.md only with `--custom`, never TODO.md, prints its source first, refuses a working copy
+already dirty in those paths, and leaves the result uncommitted for review.
+
+##### feat: the status and agent-files commands closing
+
+Closing out the cycle.
 
 ## Closed
 
@@ -26,150 +146,7 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.1.0
-
-#### Problem
-
-The `agent-files` title grammar names the members and the date, so the two landed titles run 59
-and 61 characters against Line widths' 50-character cap, and a third member breaks any cap for
-good. The member list also repeats the message record's `from:` and `to:` fields. The set itself
-carries no version, so which set an adopter holds is answerable only by a diff.
-
-#### Solution
-
-The set is versioned. versioning.md's The set's version defines the record, an empty file with
-the version in its name, `agent-data/agent-files-vX.Y.Z{-suffix}`, proposals bumping it through
-the suffix scheme and adoptions copying it bare, spelled `vX.Y.Z` wherever it is written, and
-this cycle walked it from `version-0.1.0-0` through `agent-files-v0.1.0-1` and `-2` to
-`agent-files-v0.1.0`. prose.md's declaration became `agent-files(<scope>): vX.Y.Z`, the version
-the uniqueness token and the member list left to the message record, the Versions rule names the
-`agent-files` title as its one exception, rationale.md carries the whys, and AGENTS.md's
-Terminology and Bump steps carry the set version. vc-x1 reports the workspace's set version in
-its run banner, as the second line of `vc-x1 version`, and bare from `vc-x1 agent-files version`.
-
-#### Acceptance check
-
-`vc-x1 validate` passes, every title in the ladder is under the cap and the bookends match the
-declared grammar, `agent-data/agent-files-v0.1.0` exists at the close and no other
-`agent-files-v*` file does, `agent-data/prose.md` no longer holds `<to|from> <member-list>`, and
-`vc-x1 -V` run in this repo prints `agent-files v0.1.0` beside its own version while `vc-x1 version`
-lists it. Ran at the close: validation passed, the four titles are 37, 49, 48, and 37 characters
-with the bookends in the declared grammar, `agent-files-v0.1.0` is the only version file, the old
-grammar is gone from prose.md, and the dev binary printed `(agent-files v0.1.0)` in its banner and
-`agent-files v0.1.0` as the report's second line.
-
-#### Ladder
-
-- [agent-files(proposal): v0.1.0 opening][1] (done)
-- [docs: version the set and title agent-files by it][2] (done)
-- [feat: report the set version with -V and version][3] (done)
-- [agent-files(proposal): v0.1.0 closing][4] (done)
-
-#### Deliberation
-
-- Multi-step (wink, 2026-09-01): the cycle was drafted single-step and converted before its first
-  push, while the shape was still free, so the mechanics it proposes run once in full, the set
-  version walking `-0`, `-1`, `-2`, bare beside the artifact's, with the dev rename exercised.
-  - The draft's docs edits were split into a stash commit beside the line and the opening pushed
-    from the working copy, the docs rung restoring them from the stash.
-- The reporting rung is inside the subject (wink, 2026-09-01): the feature exists only because of
-  the set version, and a reader on the command line has no other way to see the number without
-  finding the file, so it rides here rather than as its own `feat` cycle.
-- v0.1.0 as the first set version (2026-09-01): the set has had no number, and the first proposal
-  under the scheme takes the first minor.
-- The `v` spelling, `v0.1.0` everywhere (wink, 2026-09-01), adopted after the opening pushed: a
-  bare number after the title's colon could be anything, cargo's own output pairs a name with a
-  `v` version while a tool's banner stays bare, and the file became `agent-files-v0.1.0` so its
-  name says what it versions. The opening had pushed as `0.1.0`, and was re-described to `v0.1.0`
-  in the work-repo only, a coordinated re-describe with the trailer kept by hand, so the scheme's
-  first cycle carries its own spelling everywhere. Its agent-repo pair keeps the pushed title, the
-  pair being found by change id and time, never by title, and the experiment below is the check.
-  The bookmark keeps the slug of the pushed title, a name that dies at Land.
-- The re-describe experiment (wink, 2026-09-01), run before the rewrite and after: the change id,
-  the author time, the `ochid:` trailer, the agent-repo pair, and the transcript lines around the
-  push were unchanged, and only the SHA and the committer time moved, the docs rung's committer
-  time with them as a rebased descendant. So a rewritten work commit keeps its rung's start and
-  its link, and its push moment survives only in its pair. The Waiting entry holds the follow-up.
-- The version in the title, against Versions live in the version-of-record only: the rule's
-  reason, a build stamp a renumber can invalidate, does not apply, since the set's version names an
-  agreed text and a renumber is the failure it exists to prevent. The exception is written into the
-  rule with its rationale rather than left as a recorded bend.
-- An empty file over a one-line file (wink, 2026-09-01): the listing shows the number without a
-  read, a bump is a rename git tracks as one, and `git log --diff-filter=A` on the pattern is the
-  version log. The H1 line and a `## Version` section were rejected for anchor churn at every
-  bump.
-- The trailer in the file name only (wink, 2026-09-01): a rung title is its ladder line and carries
-  no version, so a multi-step proposal's rungs are told apart by the bookends while the file walks
-  `-0`, `-1`, bare, as the artifact version does.
-- Proposals bump, adoptions copy: a proposal bumps at its opening and its title names the new
-  number, an adoption copies the source's bare file and its title names what it took, so the same
-  title in two repos means the copy and its origin. Two proposers claiming one number are the
-  maintainer's to settle at convergence.
-- The version reported is the workspace's (wink, 2026-09-01): the set in the repo vc-x1 runs in,
-  read at run time, `none` outside one, never the set vc-x1's own repo carried at build.
-- Bookmark by the strict anchor slug, `agent-filesproposal-010`, per jj.md's Create rule, where the
-  last cycle used a readable form.
-- 0.82.0 (2026-09-01): minor, the last convention cycle's precedent for a convention change.
-- The proposal record follows the Land: a reply on the messages repo's agent-files topic, with
-  iiac-perf's title-width report as the record it answers. A `status` command and an
-  `agent-files {diff|copy}` group, and nesting the `validate-*` commands, were weighed and go to
-  `## Todo` as the next cycles.
-
-#### Ladder details
-
-##### agent-files(proposal): v0.1.0 opening
-
-The cycle's setup commit: the bookmark, `## Closed` emptied, this block, the artifact bumped to
-its `-0` under the dev name, and the first set version file, `version-0.1.0-0`.
-
-##### docs: version the set and title agent-files by it
-
-The two landed `agent-files` titles run past the title cap and repeat the message record, and the
-set has no version.
-
-* The set had no version-of-record.
-  - versioning.md's The set's version defines one: the empty `agent-data/agent-files-vX.Y.Z` file,
-    proposals bumping through the suffix scheme and adoptions copying, the `v` spelling everywhere
-    it is written, and the payload's number the agreed one. AGENTS.md's Terminology names it and
-    the Opening and per-rung Bump steps bump it beside the artifact's in a proposal cycle. This
-    rung renamed the opening's `version-0.1.0-0` to `agent-files-v0.1.0-1`.
-* The title grammar named members and a date, and the Versions rule barred any version from a
-  title.
-  - prose.md's declaration becomes `agent-files(<scope>): vX.Y.Z`, the member list left to the
-    message record, and the Versions rule names the `agent-files` title as its one exception,
-    rationale.md carrying why the rule's reason does not reach it.
-* The file name and the `v` were settled during the rung, not at the opening.
-  - Recorded in the deliberation, and the opening was re-titled afterwards.
-
-##### feat: report the set version with -V and version
-
-A reader on the command line cannot see the set version without finding a file in a
-subdirectory.
-
-* The set version had no reporter.
-  - A module reads the names under the workspace's `agent-data/agent-files-v*` at run time. The
-    run banner, on stderr or by `-V`, gains ` (agent-files v0.1.0)`, `vc-x1 version` gains an
-    `agent-files v0.1.0` line as its second, and `vc-x1 agent-files version` prints the bare name
-    for scripts. Outside a workspace the banner stays plain, the report line says `none` with
-    the reason, and the subcommand fails with it.
-  - Several files, a bump that left both names, show as all of them, sorted, rather than one
-    picked by a guess.
-* The banner also heads every help page.
-  - Help keeps the plain banner: it is not a run, and its text must not depend on the cwd.
-* The `agent-files` group needs no repo.
-  - It runs after the version gate, which exempts nothing, and before `Context::load`, so it
-    answers in a plain old repo too. `diff` and `copy` join it in their own cycle.
-
-##### agent-files(proposal): v0.1.0 closing
-
-Closing out the cycle: the acceptance check run and recorded, the block finalized and moved to
-`## Closed`, both versions bare, the size row added, and the README's subcommand list extended.
-
-* Nothing in the block needs a `notes/` file of its own.
-  - The convention lives in the agent-files it changed, and the transcript-join findings live in
-    the Waiting entry whose check they set up.
-* Close-out shape: trapezoid, the default, since the family reads the landed merge as the
-  proposal and its ladder shows the set version walking its suffixes.
+_None._
 
 ## Waiting
 
@@ -177,28 +154,6 @@ Important work that cannot start yet. Each entry names what it waits on, in a fo
 checked, and the rank it takes in `## Todo` once unblocked. Every opening checks each condition
 and promotes what is met ([Opening](AGENTS.md#opening)).
 
-- **Check the transcript join on the landed `agent-files(proposal): v0.1.0` trapezoid.** (wink,
-  2026-09-01) Its opening was re-described after its push, in the work-repo only, so its title
-  differs from its agent-repo pair's and its committer time is the rewrite's, not the push's, and
-  the docs rung's committer time moved with it as a rebased descendant. The join the records rely
-  on is: blame gives the commit, the commit's pair (by `ochid:`, or by the pair whose time is the
-  push) gives the transcript slice, a text search of the slice gives the tool call, and the first
-  hit being a tool call rather than a tool result says the agent wrote the line. Two probes ran
-  before the rewrite and behaved as predicted, an agent-written line found in a Bash tool call and
-  a hand-edited line found first in a read. The pair's slice ends just before its own push call,
-  which lands in the next pair's slice. Two more findings from the same day: the transcript is the
-  timeline, its lines appended with their own timestamps and the push calls among them, so the
-  agent-repo is durable storage for the file and its commit structure carries no part of the
-  join, with the caveat that attachment and queue lines land a millisecond or two before the
-  message they belong to (11 backward steps in one session), so a join sorts by timestamp or
-  reads message lines only. And compaction appends, it does not rewrite: ten earlier sessions in
-  the agent-repo each hold a `user` line flagged `isCompactSummary` mid-file with every earlier
-  line intact and its timestamp unchanged, so no tool call is lost, only the reasoning before a
-  post-compaction call may survive as summary alone. Re-run the probes on the landed trapezoid,
-  add a line from each rung, and decide whether the trailer is load-bearing or convenience, and
-  what a `vc-x1` command for the join needs.
-  - Waits on: the `agent-files(proposal): v0.1.0` cycle landed.
-  - Place when unblocked: first.
 - **Retire the frozen history: `notes/chores/` and `notes/done.md`.** (wink, 2026-08-27) They
   are frozen and no longer grow, and the agent-repo transcript plus git history hold what they
   hold. Delete both in one cycle, after a sweep turns every link into them (Todo entries, the
@@ -215,18 +170,48 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The status and agent-files commands
+### Check the transcript join on the landed proposal trapezoid
 
-(wink, 2026-09-01) Both repos' state takes two invocations, `jj st -R .` and `jj st -R .claude`,
-and the agent-files diff against a peer takes three `diff -s` lines nobody types. `vc-x1 status`,
-alias `st`, prints both repos' status under their labels, and is the home of At rest's "clean",
-both `@` empty. `vc-x1 agent-files {diff|copy}` joins the `version` subcommand the proposal cycle
-adds: `diff` against the template payload by default (`family.template`) or `--against <path>`,
-covering AGENTS.md and `agent-data/` and reporting custom.md on one line since the project layer
-always differs, and `copy`, inbound only, from the template or `--from <path>`, mirroring
-AGENTS.md and `agent-data/` deletions included, never custom.md or TODO.md, the working copy left
-uncommitted for the adoption rung's review. A `bump` for the set version's per-rung rename waits
-until the scheme has run by hand once.
+(wink, 2026-09-01) The `agent-files(proposal): v0.1.0` opening was re-described after its push, in
+the work-repo only, so its title differs from its agent-repo pair's and its committer time is the
+rewrite's, not the push's, and the docs rung's committer time moved with it as a rebased
+descendant. The join the records rely on is: blame gives the commit, the commit's pair (by
+`ochid:`, or by the pair whose time is the push) gives the transcript slice, a text search of the
+slice gives the tool call, and the first hit being a tool call rather than a tool result says the
+agent wrote the line. Two probes ran before the rewrite and behaved as predicted, an agent-written
+line found in a Bash tool call and a hand-edited line found first in a read. The pair's slice ends
+just before its own push call, which lands in the next pair's slice. Two more findings from the
+same day: the transcript is the timeline, its lines appended with their own timestamps and the
+push calls among them, so the agent-repo is durable storage for the file and its commit structure
+carries no part of the join, with the caveat that attachment and queue lines land a millisecond or
+two before the message they belong to (11 backward steps in one session), so a join sorts by
+timestamp or reads message lines only. And compaction appends, it does not rewrite: ten earlier
+sessions in the agent-repo each hold a `user` line flagged `isCompactSummary` mid-file with every
+earlier line intact and its timestamp unchanged, so no tool call is lost, only the reasoning before
+a post-compaction call may survive as summary alone. Re-run the probes on the landed trapezoid, add
+a line from each rung, and decide whether the trailer is load-bearing or convenience, and what a
+`vc-x1` command for the join needs. Promoted from `## Waiting` at the 2026-09-02 opening, its
+condition met, and passed over for the commands cycle.
+
+### Continuation notes leave the work-repo dirty after Land
+
+(wink, 2026-09-01) Close-out step 7 has the agent write `## Continuation notes` before the exit,
+and Land's last push has already gone, so the session ends with `TODO.md` modified in the
+work-repo while the agent-repo is clean, and At rest's "both `@` empty" does not hold at the one
+moment it is checked by eye. Seen at the first Land under the rule. Think about where the notes
+belong: committed by a push of their own, which the hard stop after the final push forbids as
+written, written before the closing rung so the closing carries them, kept in the agent-repo
+whose session data is the same kind of ephemera, or accepted as the one dirt a restart is
+allowed to leave, and say so in At rest.
+
+### Land validates and installs before the main push
+
+(wink, 2026-09-01) The first Land under the rule ran the full validation, with its install, after
+the name restore and before the `main` push, rather than jj.md's step 4 after it, so the plain
+binary came from the commit `main` was about to carry and the pre-push window with a stale `vc-x1`
+closed. Write that order into Land, with the note that a single-step draft's validation installs
+under the plain name and a later conversion to multi-step leaves that install behind until Land. A
+convention change, paired with the entry above.
 
 ### Global -R anchors the workspace for every command
 
@@ -279,19 +264,13 @@ if a repo is a dual repo or not.
 - Overlaps [Support POR workspaces in `push`](#support-por-workspaces-in-push): `bot_repo_path()`
   reading `repos.agent` is the same dual-or-POR signal that entry names.
 
-### Add support subcommand status of the repos
-
-Implement `jj st` for either or both repos, I do the following command frequently
-to be sure the repos are "clean" or not i.e. clean = (empty) (no description set) 
-
 ### Enhance squash-push
 
 Display status of both repos and conditionally push if not clean if the status
 changed display the final status. A --yes would mean do a push without prompting.
 
-- A near neighbor of [Add support subcommand status of the
-  repos](#add-support-subcommand-status-of-the-repos): the status display here could be that
-  subcommand's output.
+- The status display here is `vc-x1 status`'s output, once the **feat: the status and
+  agent-files commands** cycle lands it.
 
 ### Write up who owns a config file's prose
 
@@ -880,8 +859,10 @@ _See [bugs.md](notes/bugs.md)._
 
 # References
 
-[1]: #agent-filesproposal-v010-opening
-[2]: #docs-version-the-set-and-title-agent-files-by-it
-[3]: #feat-report-the-set-version-with--v-and-version
-[4]: #agent-filesproposal-v010-closing
+[1]: #feat-the-status-and-agent-files-commands-opening
+[2]: #feat-status-both-repos-state-in-one-call
+[3]: #feat-the-agent-files-config-table
+[4]: #feat-agent-files-diff-against-a-set-directory
+[5]: #feat-agent-files-copy-from-a-set-directory
+[6]: #feat-the-status-and-agent-files-commands-closing
 [12]: /notes/forks-multi-user.md
