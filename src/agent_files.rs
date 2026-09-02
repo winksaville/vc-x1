@@ -14,8 +14,9 @@
 //! - `report_line(root)`: the `agent-files ...` line of `vc-x1
 //!   version`, `none` with the reason when there is no version.
 //! - `AgentFilesArgs`: the `agent-files` subcommand group, `version`
-//!   printing the bare names one per line, for scripts, and `diff`
-//!   ([`diff`]) naming what differs from a copy of the set.
+//!   printing the bare names one per line, for scripts, `diff`
+//!   ([`diff`]) naming what differs from a copy of the set, and
+//!   `copy` ([`copy`]) making this set that copy.
 //! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
 //!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
 //!   per-workspace defaults for the `diff` and `copy` operands and
@@ -29,6 +30,7 @@ use log::error;
 
 use crate::common;
 
+pub mod copy;
 pub mod diff;
 
 /// The file-name prefix every set version file carries.
@@ -149,17 +151,35 @@ pub enum AgentFilesCommand {
     )]
     Version,
 
-    /// Name the set files that differ from a copy of the set in DIR
+    /// Name the set files that differ between two copies of the set
     #[command(
-        long_about = "Compare this workspace's agent-files set, AGENTS.md and\n\
-        agent-data/, against the copy in DIR, one line per file: same,\n\
-        differs, only here, or only there. custom.md is reported as the\n\
-        project layer unless -c/--custom compares it. DIR defaults to\n\
-        the config's agent-files.diff.dir, else family.template, relative\n\
-        to the config file's directory. Exits non-zero when anything\n\
+        long_about = "Compare two copies of the agent-files set, AGENTS.md and\n\
+        agent-data/, one line per file: same, differs, only in A, or\n\
+        only in B. custom.md is reported as the project layer unless\n\
+        -c/--custom compares it. A defaults to the config's\n\
+        agent-files.diff.dir, else family.template, relative to the\n\
+        config file's directory, and B to this workspace.\n\n\
+        With one operand it is A, and B is this workspace: `diff ../x`\n\
+        compares ../x against here. Give both to compare the other way,\n\
+        or two copies from anywhere. Exits non-zero when anything\n\
         differs, as diff does."
     )]
     Diff(diff::DiffArgs),
+
+    /// Make DST's set a copy of SRC's, uncommitted
+    #[command(
+        long_about = "Copy the set in SRC over the one in DST: AGENTS.md and\n\
+        agent-data/, deletions included, never TODO.md, and custom.md\n\
+        only with -c/--custom. SRC defaults to the config's\n\
+        agent-files.copy.dir, else family.template, and DST to this\n\
+        workspace.\n\n\
+        With one operand it is SRC, and DST is this workspace: `copy\n\
+        ../x` copies from ../x into here. Give both to send this\n\
+        workspace's set somewhere, `copy . ../x`. Prints both ends and\n\
+        each step, refuses a DST whose jj working copy already changes\n\
+        the set, and leaves the result uncommitted for review."
+    )]
+    Copy(copy::CopyArgs),
 }
 
 impl AgentFilesArgs {
@@ -180,6 +200,7 @@ impl AgentFilesArgs {
                 ExitCode::SUCCESS
             }
             AgentFilesCommand::Diff(args) => args.run(),
+            AgentFilesCommand::Copy(args) => args.run(),
         }
     }
 }

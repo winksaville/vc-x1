@@ -39,7 +39,7 @@ pub struct DiffArgs {
     #[arg(value_name = "A")]
     pub a: Option<PathBuf>,
 
-    /// The other copy [default: this workspace]
+    /// The other copy [default: this workspace, so one operand is A]
     #[arg(value_name = "B")]
     pub b: Option<PathBuf>,
 

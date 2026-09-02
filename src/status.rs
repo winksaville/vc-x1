@@ -76,7 +76,7 @@ impl TryFrom<&StatusArgs> for StatusParams {
 
 /// The nearest ancestor of `start`, itself included, holding a
 /// `.jj` directory: the repo `jj st` would report from there.
-fn nearest_jj(start: &Path) -> Option<PathBuf> {
+pub(crate) fn nearest_jj(start: &Path) -> Option<PathBuf> {
     start
         .ancestors()
         .find(|d| d.join(".jj").is_dir())

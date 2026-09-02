@@ -145,6 +145,7 @@ vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squas
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
 vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
+vc-x1 agent-files copy [SRC] [DST] [-c]    # Make DST's set a copy of SRC's, uncommitted
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -374,11 +375,33 @@ this workspace, and two operands compare any two copies from anywhere, no worksp
 header line says where each came from, and a missing or non-directory operand is an error naming
 what to set.
 
+`agent-files copy [SRC] [DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
+what differs or exists only in `SRC`, deletes what exists only in `DST` under `agent-data/`,
+never touches `TODO.md`, and copies `custom.md` only with `-c`/`--custom`. The operands resolve
+as `diff`'s do: `SRC` is the operand, else `agent-files.copy.dir`, else `family.template`, and
+`DST` is the operand, else this workspace. So a bare `copy` re-syncs this workspace from the
+payload, and two operands copy between any two directories, which is how a maintainer folds an
+adopter's set into the payload. It prints its source and destination and each step first,
+refuses a `DST` whose jj working copy already changes a set file, so the copy's changes are the
+only ones there, and leaves the result uncommitted: `jj diff` there is the review, and the
+commit is yours to make. A `DST` outside any jj repo gets no guard, and the run says so.
+
 ```
 vc-x1 agent-files diff                             # the payload against this workspace
 vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
 vc-x1 agent-files diff ../iiac-perf -c             # custom.md too
 vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
+vc-x1 agent-files copy                             # re-sync this workspace from the payload
+vc-x1 agent-files copy ../iiac-perf -c             # take a peer's set, custom.md included
+vc-x1 agent-files copy ../iiac-perf ../vc-x1-template/work  # fold a peer's set into the payload
+```
+
+```
+agent-files copy: from ../vc-x1-template/work (family.template) into /home/me/proj (this workspace)
+copy   AGENTS.md
+copy   agent-data/notes.md
+delete agent-data/agent-files-v0.1.0
+3 step(s) applied, left uncommitted for review
 ```
 
 ```

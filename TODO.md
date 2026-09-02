@@ -60,7 +60,7 @@ operand overrides the other, and `vc-x1-dev validate-config` accepts the tables.
 - [feat: status completes its scope keywords][7] (done)
 - [feat: the agent-files config table][3] (done)
 - [feat: agent-files diff against a set directory][4] (done)
-- [feat: agent-files copy from a set directory][5]
+- [feat: agent-files copy from a set directory][5] (done)
 - [feat: the status and agent-files commands closing][6]
 
 #### Deliberation
@@ -218,10 +218,22 @@ Which set an adopter holds is answerable only by three `diff` lines nobody types
 
 ##### feat: agent-files copy from a set directory
 
-A re-sync is a copy by hand, file by file, deletions easy to miss. `agent-files copy [DIR]`
-mirrors AGENTS.md and `agent-data/` inbound from the resolved set directory, deletions included,
-custom.md only with `--custom`, never TODO.md, prints its source first, refuses a working copy
-already dirty in those paths, and leaves the result uncommitted for review.
+A re-sync is a copy by hand, file by file, deletions easy to miss.
+
+* Nothing made a set a copy of another.
+  - `agent-files copy [SRC] [DST]` plans from the diff rung's comparison, a copy for each file
+    that differs or is only in SRC and a delete for each that is only in DST, prints both ends
+    and the steps, applies them, and leaves the result uncommitted, `jj diff` in DST being the
+    review and the commit the user's. custom.md moves only with `-c`, TODO.md never. SRC
+    resolves as diff's A does, from `agent-files.copy.dir` and `family.template`, and DST as
+    its B, this workspace by default, so two operands copy between any two directories and the
+    maintainer folds an adopter's set into the payload from anywhere.
+  - The guard is on DST: when it sits in a jj repo whose working copy already changes a set
+    file, the copy is refused naming the changes, so the copy's changes are the only ones in
+    those paths. DST is located relative to that repo, since the payload is a subdirectory of
+    the template repo. A DST outside any jj repo gets no guard and the run says so. Copying a
+    directory onto itself is refused.
+* README's agent-files section covers `copy`, with a sample run.
 
 ##### feat: the status and agent-files commands closing
 
