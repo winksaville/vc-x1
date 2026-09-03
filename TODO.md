@@ -64,7 +64,7 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
 
 - [docs: check the transcript join on two landed trapezoids opening][1] (done)
 - [docs: probe the proposal cycle's transcript writes][2] (done)
-- [docs: probe the status cycle's transcript writes][3]
+- [docs: probe the status cycle's transcript writes][3] (done)
 - [docs: write the transcript-write findings and the command's needs][4]
 - [docs: check the transcript join on two landed trapezoids closing][5]
 
@@ -128,8 +128,19 @@ committer time no longer match its partner's.
 
 The status commands cycle landed with no rewrite, so it is the clean case.
 
-- Run the same probes from one line in each rung.
-- Record the same outcomes per rung, so the two cycles compare key by key.
+- Seven probes, one line per rung, are tabled in
+  [notes/transcript-write.md](notes/transcript-write.md) beside the proposal cycle's.
+- The trailer found the partner for every rung in both directions, and the committer time for
+  none: At rest's squash-push amends every partner, and only jj's evolution log still holds the
+  predecessor partner whose time is the push's, to the second.
+- The work commit's committer time is the transcript's push call time in five of seven rungs, so
+  the work side reaches the transcript timeline directly, until a content amend or the trapezoid
+  reshape moves it.
+- Two lines were written in an earlier time-window, one of them two cycles back, the Todo entry's
+  own text. Blame with every move flag still reports the move, and `git log -S` on the line's text
+  is what reaches back.
+- The transcript writes were all Bash calls, so a Bash write classifier is the one that matters
+  here.
 
 ##### docs: write the transcript-write findings and the command's needs
 

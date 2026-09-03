@@ -43,15 +43,30 @@ Three steps, each with its key.
 
 The `agent-files(proposal): v0.1.0` cycle, landed 2026-09-01 as a trapezoid, its opening
 re-described in the work-repo after its push and its docs rung rebased under the rewrite. The
-change ids are jj's, 12-character prefixes.
+change ids are jj's, shown as 8-character prefixes like the SHAs. Cross-linked means each
+commit's `ochid:` trailer names the other's change id.
 
-| rung | work commit | partner | trailer, both ways | committer time, work / partner | probe line, file | blame | first hit in the partner's time-window |
-|---|---|---|---|---|---|---|---|
-| opening | zukxlopuvsvz (d8bc656) | vmyyqnvxsqmm (03ece2d) | yes | 20:03:54 / 17:18:19 | TODO.md, a deliberation bullet | opening, at the landmark | assistant text, the draft shown for review; the transcript write, a Bash call, is the second hit |
-| docs | mztnopmmqtsz (ec36508) | nlkwlqqovmkx (6aee454) | yes | 20:03:54 / 18:27:46 | versioning.md, The set's version | docs, at main | none; the transcript write is a Bash call in the opening's time-window |
-| feat | smnrwvyppwqm (269a548) | ozmpznkymwuu (604581c) | yes | 21:12:30 / 21:12:30 | agent_files.rs, a doc comment | feat, at main | the transcript write, a Write call |
-| closing | plnxxqtpqztl (48d678c) | vtkwkumowotp (b424f97) | yes | 21:23:59 / 21:41:17 | agent-files-size.md, the cycle's row | closing, at main | the transcript write, a Bash call running a python edit |
-| closing | same | same | yes | same | README.md, the command list | closing, at main | the feat rung's push call, whose body quotes the phrase; the transcript write is the third hit |
+| rung | work commit | partner | `ochid:`<br>cross-linked | committer time<br>work | committer time<br>partner |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| opening | `zukxlopu` / `d8bc656` | `vmyyqnvx` / `03ece2d` | yes | `20:03:54` | `17:18:19` |
+| docs | `mztnopmm` / `ec36508` | `nlkwlqqo` / `6aee454` | yes | `20:03:54` | `18:27:46` |
+| feat | `smnrwvyp` / `269a548` | `ozmpznky` / `604581c` | yes | `21:12:30` | `21:12:30` |
+| closing | `plnxxqtp` / `48d678c` | `vtkwkumo` / `b424f97` | yes | `21:23:59` | `21:41:17` |
+
+The probe lines, one per rung and two for the closing: the file, where blame ran and what it
+gave, and the first hit in the partner's time-window.
+
+- opening: TODO.md, a deliberation bullet. Blame at the landmark gives the opening. The first hit
+  is assistant text, the draft shown for review, and the transcript write, a Bash call, is the
+  second hit.
+- docs: versioning.md, The set's version. Blame at main gives the docs rung. No hit in its own
+  time-window: the transcript write is a Bash call in the opening's.
+- feat: agent_files.rs, a doc comment. Blame at main gives the feat rung. The first hit is the
+  transcript write, a Write call.
+- closing: agent-files-size.md, the cycle's row. Blame at main gives the closing. The first hit is
+  the transcript write, a Bash call running a python edit.
+- closing: README.md, the command list. Blame at main gives the closing. The first hit is the feat
+  rung's push call, whose body quotes the phrase, and the transcript write is the third hit.
 
 Findings, one per bullet.
 
@@ -76,3 +91,73 @@ Findings, one per bullet.
   rung's holds the opening's. The closing's partner is the exception, amended after the cycle landed
   on `main` by the squash-push that captured the session tail, so its time-window holds its own
   push and the landing on `main`, and its committer time is the amend's.
+
+## Probes: the status commands cycle, 2026-09-03
+
+The `feat: the status and agent-files commands` cycle, landed 2026-09-02 as a trapezoid with no
+rewrite of any rung's description, the clean case. Times are local, -07:00, as git prints them,
+and the transcript's UTC timestamps are converted. Cross-linked means each commit's `ochid:`
+trailer names the other's change id.
+
+| rung | work commit | partner | `ochid:`<br>cross-linked | committer time<br>work | committer time<br>partner | push call |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| opening | `xxolwztq` / `5e7322c` | `kpuqynno` / `360bdc1` | yes | `09:36:10` | `10:17:08` | `09:36:10` |
+| status | `mkyrrwpw` / `5b0d98d` | `usttvspw` / `9389275` | yes | `13:54:44` | `14:14:25` | `13:54:44` |
+| scope | `twslszzm` / `df69024` | `mozmzqut` / `34fa627` | yes | `15:20:49` | `15:21:32` | `15:20:49` |
+| config | `qwxxwsur` / `d2ce72d` | `ovopkpns` / `f902151` | yes | `15:51:11` | `16:18:58` | `15:51:10` |
+| diff | `osrpzzlp` / `dbd4e12` | `lxmrwznk` / `517eb94` | yes | `17:24:00` | `17:25:24` | `16:30:12` |
+| copy | `rzrtyssm` / `a3b7faf` | `tvnokuqy` / `383a94b` | yes | `17:50:57` | `17:52:23` | `17:50:56` |
+| closing | `zkszmqlp` / `940a991` | `mxvvvxqw` / `4f628db` | yes | `18:09:54` | `18:15:54` | `18:08:21` |
+
+The push call column is the `vc-x1-dev push` call's timestamp in the transcript. The diff rung's
+commit was amended after it and re-published by a `jj git push` at 17:24:04, and the closing's
+was reshaped into the trapezoid at 18:09:54.
+
+The probe lines, one per rung: the file, where blame ran and what it gave, and the first hit in
+the partner's time-window.
+
+- opening: TODO.md, the Problem's first sentence. Blame at the landmark gives the opening. The
+  first hit is a tool result, the Todo entry read from disk. The transcript write is in the
+  proposal cycle's opening time-window, 2026-09-01, where the entry was written.
+- status: status.rs, the module doc. Blame at main gives the status rung. The first hit is the
+  transcript write, a Bash call running a python edit.
+- scope: scope.rs, a doc comment. Blame at main gives the scope rung. The first hit is the
+  transcript write, a Bash call running a python edit.
+- config: config_schema.rs, a test's doc comment. Blame at main gives the config rung. No hit in
+  its own time-window: the transcript write is a Bash call in the scope rung's, split into a stash
+  commit and restored.
+- diff: diff.rs, the module doc. Blame at main gives the diff rung. The first hit is the
+  transcript write, a Bash heredoc, and two later heredocs rewrote the file.
+- copy: copy.rs, the module doc. Blame at main gives the copy rung. The first hit is the
+  transcript write, a Bash heredoc.
+- closing: TODO.md, the close-out shape line. Blame at the landmark gives the closing. The first
+  hit is the transcript write, a Bash call running a python edit.
+
+Findings, one per bullet.
+
+- The trailer found the partner for every rung, in both directions, as in the proposal cycle.
+- The committer time found the partner for no rung, in the clean case. Every partner's current
+  commit is the At rest squash-push's, which folds the session tail into it and stamps the amend's
+  time. jj's evolution log shows the predecessor partner, the commit the push made, and its time
+  is the push's to the second: the opening's predecessor is stamped 09:36:10, the work commit's
+  time. git keeps no predecessors, so the time key on the agent side needs jj.
+- The work commit's committer time is the transcript's push call time, to the second, in five of
+  seven rungs. The diff rung's is its `jj git push` after a content amend, and the closing's is the
+  trapezoid reshape, 93 seconds after its push. So the work side indexes the transcript timeline
+  directly when nothing rewrote the commit after its push, and the rewrite cases move it by
+  minutes.
+- Two of seven lines were written in an earlier time-window, and one of them two cycles back. The
+  opening's line is the Todo entry's own text, written 2026-09-01 in the proposal cycle's opening
+  time-window and only moved by this opening. The config line was written during the scope rung,
+  split into a stash commit by `jj split`, and restored into the config rung. The stash pattern
+  recurs: the proposal cycle's docs rung, this cycle's config rung.
+- Blame reports where the line arrived, not where its text was first written. Every move
+  detection flag, `-M`, `-M -C`, `-w -M -M`, still blamed the moved Todo line to this cycle's
+  opening. `git log -S` with the line's text finds the first commit carrying it, in either repo,
+  and is the step that reaches back past a move.
+- Every transcript write found was a Bash call, a python edit or a heredoc, and none was a `Write`
+  or `Edit` call. The classifier for a Bash call, by what its command writes, is the one that
+  matters in this project.
+- The push call is `vc-x1-dev push` while a cycle runs, so a search for push calls matches both
+  names. The diff rung's time-window holds one, and then the `jj git push` that re-published the
+  amended commit.
