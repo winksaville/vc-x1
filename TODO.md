@@ -21,64 +21,77 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 
 #### Problem
 
-The join that gives a line of durable text its provenance is untested against a rewritten
-trapezoid, and the `vc-x1` command that would run the join has no requirements.
+The connection from a change to a line in a work-repo file to the discussion of that change in
+the agent-repo is untested against a rewritten cycle, and the `vc-x1` command that would find
+it has no requirements.
 
-- Durable text: the cycle-record in `TODO.md` and the `notes/` files, in the work-repo.
-- The join, from one line of durable text to the tool call that wrote that line:
-  - blame gives the work-repo commit the line landed in
-  - the commit's pair in the agent-repo, found by the `ochid:` trailer or by the push time, gives
-    the transcript slice
-  - a text search of the slice for the line gives the tool call, and the first hit being a call
-    rather than a tool result says the agent wrote the line
+- The line is any line in any work-repo file: code, a doc comment, a markdown file, the
+  cycle-record.
+- The connection, from one such line to its transcript write, the tool call that wrote it, and so
+  to the conversation around that call:
+  - blame gives the work-repo commit the change landed in
+  - the commit's partner in the agent-repo, found by the `ochid:` trailer or by the push time, gives
+    the time-window, the transcript lines that partner appended
+  - a text search of the time-window for the line gives the transcript write
 - Two probes ran on the `agent-files(proposal): v0.1.0` cycle and behaved as predicted, before its
-  opening was re-described after its push, in the work-repo only. That trapezoid now has:
-  - a rung whose title differs from its pair's title
+  opening was re-described after its push, in the work-repo only. That cycle now has:
+  - a rung whose title differs from its partner's title
   - a rung whose committer time is the rewrite's, not the push's
   - a docs rung whose committer time moved with it, as a rebased descendant
-- Undecided: whether the join survives that rewrite, which of its two keys carries it, the trailer
-  or the push time, and what a `vc-x1` command for the join needs.
+- Undecided: whether the connection survives that rewrite, which key finds the partner, the trailer
+  or the push time, and what a `vc-x1` command for the transcript write needs.
 
 #### Solution
 
-Re-run the probes on two landed trapezoids, and write the outcomes and the decisions into a
+Re-run the probes on two landed cycles, and write the outcomes and the decisions into a
 `notes/` file.
 
-- The proposal trapezoid, the rewritten case above.
-- The `feat: the status and agent-files commands` trapezoid, landed 2026-09-02 with no rewrite, the
+- The proposal cycle, the rewritten case above.
+- The `feat: the status and agent-files commands` cycle, landed 2026-09-02 with no rewrite, the
   clean case.
 - One line from each rung of both, so the two runs compare key by key.
-- The decisions: whether the trailer is load-bearing or convenience, and what a join command needs.
+- The decisions: whether the trailer is load-bearing or convenience, and what a transcript-write
+  command needs.
 
 #### Acceptance check
 
-- For every rung of both trapezoids, one line the agent wrote resolves through blame, the pair, and
-  a text search of the pair's slice to a tool call.
-- The `notes/` file records each probe's outcome, the trailer's role, and the join command's
-  requirements.
+- For every rung of both cycles, one line the agent wrote resolves through blame, the partner,
+  and a text search of the partner's time-window to its transcript write.
+- The `notes/` file records each probe's outcome, the trailer's role, and the transcript-write
+  command's requirements.
 
 #### Ladder
 
 - [docs: check the transcript join on two landed trapezoids opening][1] (done)
-- [docs: probe the join on the proposal trapezoid][2]
-- [docs: probe the join on the status trapezoid][3]
-- [docs: write the join findings and the command's needs][4]
+- [docs: probe the proposal cycle's transcript writes][2] (done)
+- [docs: probe the status cycle's transcript writes][3]
+- [docs: write the transcript-write findings and the command's needs][4]
 - [docs: check the transcript join on two landed trapezoids closing][5]
 
 #### Deliberation
 
-- two trapezoids, not one: the proposal trapezoid is the rewritten case the entry was written for,
-  and the status commands trapezoid is the clean case, so probing both shows whether the join holds
-  by the trailer alone, by the push time alone, or needs both
+- two cycles, not one: the proposal cycle is the rewritten case the entry was written for, and
+  the status commands cycle is the clean case, so probing both shows whether the partner is
+  found by the trailer alone, by the push time alone, or needs both
 - multi-step, not single: the entry ends in three decisions, the trailer's role, the command's
-  needs, and what the cycle-record and the notes should say about the join, and each wants a
+  needs, and what the cycle-record and the notes should say about the connection, and each wants a
   review point
 - four `## Todo` edits ride the opening: the cross-file links entry from iiac-perf's message, the
   rewritten squash-push entry, the status redesign entry, and the cycle-record shape entry that
   this block's own review produced, since the opening edits `TODO.md` anyway and a commit per Todo
   entry is a habit not wanted
-- the reply to iiac-perf goes out after the opening pushes, not after Land: the messages protocol
-  links by SHA, and a trapezoid keeps every rung, so the opening commit's SHA is durable once pushed
+- the reply to iiac-perf goes out after the opening pushes, not after the cycle lands on `main`:
+  the messages protocol links by SHA, and a trapezoid keeps every rung, so the opening commit's SHA
+  is durable once pushed
+- the words, settled at the first probe rung's review (wink, 2026-09-03): "join" hid a three-hop
+  lookup behind a one-key database word, and "pair" named the set rather than the member. The
+  words are partner, the commit a trailer names, with adjectives for its states, candidate and
+  predecessor, time-window, the transcript lines a partner appended, and transcript write, the tool
+  call that wrote the line, cited by its timestamp. The command is named by what it returns,
+  `transcript-write`, as `blame` is, so the procedure needs no noun
+  - the cycle title keeps "join": the opening's commit title is pushed and carries it, and a
+    re-describe of a pushed commit is the thing this cycle probes. The notes file says the title
+    predates the words
 
 #### Ladder details
 
@@ -93,35 +106,46 @@ The cycle's setup commit.
 - Carry four `## Todo` edits made at acquaint and during this block's review, per the
   deliberation.
 
-##### docs: probe the join on the proposal trapezoid
+##### docs: probe the proposal cycle's transcript writes
 
-The proposal trapezoid's opening was re-described after its push, so the opening's title and
-committer time no longer match its pair's.
+The proposal cycle's opening was re-described after its push, so the opening's title and
+committer time no longer match its partner's.
 
-- Run the join from one agent-written line in each rung.
-- Record, per rung, whether the trailer finds the pair and whether the push time finds the pair.
+- Five probes, one line per rung and two for the closing, are tabled in
+  [notes/transcript-write.md](notes/transcript-write.md) with the findings and the terms.
+- The trailer found the partner for every rung in both directions, and the committer time for one
+  of four: jj's change id survived every rewrite, and either side's time can move.
+- The search runs over the session's timeline, not one time-window: the docs rung's line was
+  written before the opening's push and stashed, so its transcript write is in the opening's
+  time-window.
+- The transcript write is the first hit that writes the file, not the first hit that is a tool
+  call: a hit can be a review draft in an assistant text block, or a push call whose body quotes
+  the line.
+- Deferred to the findings rung: whether the trailer is load-bearing, which these probes already
+  argue, waits on the clean case for the comparison.
 
-##### docs: probe the join on the status trapezoid
+##### docs: probe the status cycle's transcript writes
 
-The status commands trapezoid landed with no rewrite, so it is the clean case.
+The status commands cycle landed with no rewrite, so it is the clean case.
 
-- Run the same join from one line in each rung.
-- Record the same two outcomes per rung, so the two trapezoids compare key by key.
+- Run the same probes from one line in each rung.
+- Record the same outcomes per rung, so the two cycles compare key by key.
 
-##### docs: write the join findings and the command's needs
+##### docs: write the transcript-write findings and the command's needs
 
-The probes' outcomes say which key is load-bearing, and nothing durable holds them yet.
+The probes' outcomes say which key finds the partner, and the decisions are not yet written.
 
-- Write the outcomes and the two decisions, the trailer's role and what a join command needs, into
-  a `notes/` file.
+- Write the two decisions, the trailer's role and what a transcript-write command needs, into
+  the `notes/` file beside the probes.
 - Give the command a `## Todo` entry if the findings call for one.
 - Carry two findings from 2026-09-01 into the same file:
   - the transcript is the timeline: its lines are appended with their own timestamps, the push
     calls among them, so the agent-repo is durable storage for the file and its commit structure
-    carries no part of the join
+    carries no part of the lookup
     - attachment and queue lines land a millisecond or two before the message they belong to, 11
-      backward steps in one session, so a join sorts by timestamp or reads message lines only
-    - a pair's slice ends just before its own push call, which lands in the next pair's slice
+      backward steps in one session, so a search sorts by timestamp or reads message lines only
+    - a partner's time-window ends just before its own push call, which lands in the next
+      time-window
   - compaction appends rather than rewrites: ten earlier sessions each hold a `user` line flagged
     `isCompactSummary` mid-file with every earlier line intact, so no tool call is lost, and only
     the reasoning before a post-compaction call may survive as summary alone
@@ -209,6 +233,10 @@ in one `agent-files` proposal cycle:
 - prose.md, a term rule: use the Terminology section's term when one exists, since the family
   shares words across projects and "records" already means iiac-perf's `--records` option to its
   owner, where the cycle-record was meant.
+- AGENTS.md and jj.md, "Land" as a proper noun: the Terminology entry and jj.md's heading make a
+  verb into a name, and a reader is left to guess whether it means the push or the arrival on
+  `main`. Say "land on `main`", or on whichever bookmark, wherever the name is used, and retire the
+  entry.
 
 ### config --merge folds new keys into a workspace config
 
@@ -911,8 +939,8 @@ _See [bugs.md](notes/bugs.md)._
 # References
 
 [1]: #docs-check-the-transcript-join-on-two-landed-trapezoids-opening
-[2]: #docs-probe-the-join-on-the-proposal-trapezoid
-[3]: #docs-probe-the-join-on-the-status-trapezoid
-[4]: #docs-write-the-join-findings-and-the-commands-needs
+[2]: #docs-probe-the-proposal-cycles-transcript-writes
+[3]: #docs-probe-the-status-cycles-transcript-writes
+[4]: #docs-write-the-transcript-write-findings-and-the-commands-needs
 [5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
 [12]: /notes/forks-multi-user.md
