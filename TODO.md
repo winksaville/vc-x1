@@ -9,21 +9,7 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-- The cycle **feat: the status and agent-files commands** landed on `main` as a trapezoid
-  (2026-09-02), its bookmark deleted, the plain `vc-x1 0.83.0` installed from the merge. Its
-  record is `## Closed`.
-- Land again ran the full validation, with its install, after the name restore and before the
-  `main` push, as the Todo entry **Land validates and installs before the main push** describes.
-- `## Todo` is in order: the transcript join check first, then the config `--merge` entry, and the
-  three close-out convention entries, the At rest pointer at `vc-x1 status` among them, which the
-  user wants as one cycle after this one.
-- Two habits for the next session, learned the hard way: a `cd` in a Bash call persists into the
-  calls that run beside it, so use subshells or absolute paths when running commands in parallel,
-  and never run `agent-files copy` in this repo without an explicit DST, since the guard protects
-  only a dirty set and a clean one takes the copy.
-- These notes were committed on the bookmark `continuation-20260903T0118Z`, pushed with `vc-x1 push` so
-  both repos were clean at the restart. The next opening starts from that commit, so delete the
-  bookmark, locally and remotely, once the next opening has pushed.
+_None._
 
 ## In Progress
 
@@ -31,7 +17,118 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### docs: check the transcript join on two landed trapezoids
+
+#### Problem
+
+The join that gives a line of durable text its provenance is untested against a rewritten
+trapezoid, and the `vc-x1` command that would run the join has no requirements.
+
+- Durable text: the cycle-record in `TODO.md` and the `notes/` files, in the work-repo.
+- The join, from one line of durable text to the tool call that wrote that line:
+  - blame gives the work-repo commit the line landed in
+  - the commit's pair in the agent-repo, found by the `ochid:` trailer or by the push time, gives
+    the transcript slice
+  - a text search of the slice for the line gives the tool call, and the first hit being a call
+    rather than a tool result says the agent wrote the line
+- Two probes ran on the `agent-files(proposal): v0.1.0` cycle and behaved as predicted, before its
+  opening was re-described after its push, in the work-repo only. That trapezoid now has:
+  - a rung whose title differs from its pair's title
+  - a rung whose committer time is the rewrite's, not the push's
+  - a docs rung whose committer time moved with it, as a rebased descendant
+- Undecided: whether the join survives that rewrite, which of its two keys carries it, the trailer
+  or the push time, and what a `vc-x1` command for the join needs.
+
+#### Solution
+
+Re-run the probes on two landed trapezoids, and write the outcomes and the decisions into a
+`notes/` file.
+
+- The proposal trapezoid, the rewritten case above.
+- The `feat: the status and agent-files commands` trapezoid, landed 2026-09-02 with no rewrite, the
+  clean case.
+- One line from each rung of both, so the two runs compare key by key.
+- The decisions: whether the trailer is load-bearing or convenience, and what a join command needs.
+
+#### Acceptance check
+
+- For every rung of both trapezoids, one line the agent wrote resolves through blame, the pair, and
+  a text search of the pair's slice to a tool call.
+- The `notes/` file records each probe's outcome, the trailer's role, and the join command's
+  requirements.
+
+#### Ladder
+
+- [docs: check the transcript join on two landed trapezoids opening][1] (done)
+- [docs: probe the join on the proposal trapezoid][2]
+- [docs: probe the join on the status trapezoid][3]
+- [docs: write the join findings and the command's needs][4]
+- [docs: check the transcript join on two landed trapezoids closing][5]
+
+#### Deliberation
+
+- two trapezoids, not one: the proposal trapezoid is the rewritten case the entry was written for,
+  and the status commands trapezoid is the clean case, so probing both shows whether the join holds
+  by the trailer alone, by the push time alone, or needs both
+- multi-step, not single: the entry ends in three decisions, the trailer's role, the command's
+  needs, and what the cycle-record and the notes should say about the join, and each wants a
+  review point
+- four `## Todo` edits ride the opening: the cross-file links entry from iiac-perf's message, the
+  rewritten squash-push entry, the status redesign entry, and the cycle-record shape entry that
+  this block's own review produced, since the opening edits `TODO.md` anyway and a commit per Todo
+  entry is a habit not wanted
+- the reply to iiac-perf goes out after the opening pushes, not after Land: the messages protocol
+  links by SHA, and a trapezoid keeps every rung, so the opening commit's SHA is durable once pushed
+
+#### Ladder details
+
+##### docs: check the transcript join on two landed trapezoids opening
+
+The cycle's setup commit.
+
+- Create and publish the bookmark, delete `## Closed`'s contents, move the Todo entry into this
+  block, reset the continuation notes, and bump the version-of-record.
+- Rename the package to its dev name: the build script requires the dev name beside a suffixed
+  version, whatever the cycle touches.
+- Carry four `## Todo` edits made at acquaint and during this block's review, per the
+  deliberation.
+
+##### docs: probe the join on the proposal trapezoid
+
+The proposal trapezoid's opening was re-described after its push, so the opening's title and
+committer time no longer match its pair's.
+
+- Run the join from one agent-written line in each rung.
+- Record, per rung, whether the trailer finds the pair and whether the push time finds the pair.
+
+##### docs: probe the join on the status trapezoid
+
+The status commands trapezoid landed with no rewrite, so it is the clean case.
+
+- Run the same join from one line in each rung.
+- Record the same two outcomes per rung, so the two trapezoids compare key by key.
+
+##### docs: write the join findings and the command's needs
+
+The probes' outcomes say which key is load-bearing, and nothing durable holds them yet.
+
+- Write the outcomes and the two decisions, the trailer's role and what a join command needs, into
+  a `notes/` file.
+- Give the command a `## Todo` entry if the findings call for one.
+- Carry two findings from 2026-09-01 into the same file:
+  - the transcript is the timeline: its lines are appended with their own timestamps, the push
+    calls among them, so the agent-repo is durable storage for the file and its commit structure
+    carries no part of the join
+    - attachment and queue lines land a millisecond or two before the message they belong to, 11
+      backward steps in one session, so a join sorts by timestamp or reads message lines only
+    - a pair's slice ends just before its own push call, which lands in the next pair's slice
+  - compaction appends rather than rewrites: ten earlier sessions each hold a `user` line flagged
+    `isCompactSummary` mid-file with every earlier line intact, so no tool call is lost, and only
+    the reasoning before a post-compaction call may survive as summary alone
+
+##### docs: check the transcript join on two landed trapezoids closing
+
+Closing out the cycle.
 
 ## Closed
 
@@ -40,249 +137,7 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: the status and agent-files commands
-
-#### Problem
-
-Both repos' state takes two invocations, `jj st -R .` and `jj st -R .agent-session`, and the
-agent-files diff against a peer takes three `diff -s` lines nobody types. At rest's "clean", both
-`@` empty, has no command that answers it.
-
-#### Solution
-
-`vc-x1 status [SCOPE]`, alias `st`, prints the scoped repos' status under their labels in `jj
-st`'s shape and a verdict line, `SCOPE` a positional or `-s` completing to `work|agent|both`,
-`work` the default and `both` the home of At rest's "clean", `both` a new scope keyword
-everywhere, a plain jj repo answering for `work`, and a plain repo nested in a workspace's tree
-answering as itself. `vc-x1 agent-files {diff|copy} [A|SRC] [B|DST]` joins `version`: the first
-operand is the other copy of the set, else `agent-files.<cmd>.dir`, else `family.template`, the
-second this workspace unless given, so two operands work from anywhere. `diff` names each set
-file's state and exits non-zero when anything differs, `copy` makes DST's set a byte copy of
-SRC's, deletions included, never TODO.md, refuses a DST whose jj working copy already changes the
-set, and leaves the result uncommitted. custom.md is the project layer, reported and never
-copied, until `-c|--custom` brings it in, `--no-custom` overriding the config. The
-`[agent-files.diff]` and `[agent-files.copy]` tables hold `dir` and `custom`, `custom` the
-schema's first `bool`. `family.template` names the payload directory. A `bump` for the set
-version's per-rung rename still waits until the scheme has run by hand once.
-
-#### Acceptance check
-
-`vc-x1 validate` passes. `vc-x1-dev status both` in this repo prints both repos under their
-labels with the `@` and `@-` lines `jj st` prints and a verdict, bare `vc-x1-dev st` prints the
-work side alone, and `vc-x1-dev st` in a plain jj repo prints that repo.
-`vc-x1-dev agent-files diff` in this repo names AGENTS.md, the four changed agent-data files, the
-version file as ours only, and custom.md as the project layer, and exits non-zero, and with `-c`
-compares custom.md like the rest. `vc-x1-dev agent-files copy` into a scratch copy of this repo
-leaves its working copy equal to the payload in AGENTS.md and `agent-data/`, custom.md and TODO.md
-untouched, with nothing committed. With `[agent-files.diff]` setting `dir` and `custom = true` in
-the scratch copy's config, a bare `diff` uses both, `diff --no-custom` overrides the one, and an
-operand overrides the other, and `vc-x1-dev validate-config` accepts the tables. Ran at the
-close with `vc-x1-dev 0.83.0-5`: full validation passed; `st both` printed both repos under
-`work` and `.agent-session` with the `@` and `@-` lines and the dirty verdict, bare `st` the
-work side alone, and `st` in a plain jj repo that repo, clean; bare `agent-files diff` named
-AGENTS.md, notes, prose, rationale, versioning, and the version file as only here, exit 1, and
-`-c` against iiac-perf reported 0 of 11 differ; in a scratch clone, `copy` from the payload
-applied six steps and the diff after reported 0 of 9, custom.md and TODO.md untouched, nothing
-committed; with `[agent-files.diff]` setting `dir` and `custom = true` in the clone's config,
-`validate-config` accepted it, bare `diff` took both, `--no-custom` overrode the one, and an
-operand overrode the other. Pass.
-
-#### Ladder
-
-- [feat: the status and agent-files commands opening][1] (done)
-- [feat: status, both repos' state in one call][2] (done)
-- [feat: status completes its scope keywords][7] (done)
-- [feat: the agent-files config table][3] (done)
-- [feat: agent-files diff against a set directory][4] (done)
-- [feat: agent-files copy from a set directory][5] (done)
-- [feat: the status and agent-files commands closing][6] (done)
-
-#### Deliberation
-
-- The transcript join entry is promoted first and passed over (wink, 2026-09-02): its condition is
-  met and it asked to be first, but nothing blocks on it and the landed trapezoid keeps, so this
-  cycle runs the commands the family asked for and the join check follows.
-- The payload directory is named by the config, not found by the code: the template repo keeps
-  its payload under `work/`, so `family.template` names that directory and the command reads
-  AGENTS.md and `agent-data/` under it, with no heuristic about the template's shape.
-- Names-only diff: one line per file, "differs", "only here", "only in payload", the project layer
-  on one line, and a non-zero exit when the sets differ, since the question the command answers is
-  whether a re-sync is a copy. A unified diff waits for a `-p` flag and a caller who wants it.
-- custom.md by flag (wink, 2026-09-02): AGENTS.md says the project layer is never universal, and
-  the commands keep that as their default, custom.md reported on one line and never copied. A
-  family whose custom.md files are pointer-only, as the first adopters' are, wants them identical
-  too, so `-c|--custom` includes it in both commands, and `--no-custom` overrides a config that
-  sets it.
-- The set directory is a positional operand (wink, 2026-09-02): `diff DIR` reads as `git diff
-  <ref>` does, and `copy DIR` names its source the way `git pull <remote>` does, the `cp` idiom
-  of a trailing destination answered by the command being inbound only and printing its resolved
-  source first. The operand is optional, resolving positional, then config, then
-  `family.template`, so the config keys are named for the operand, `agent-files.diff.dir` and
-  `agent-files.copy.dir`, not for flags that no longer exist.
-- Typed config tables over a list of default arguments (wink, 2026-09-02): `[agent-files.diff]`
-  and `[agent-files.copy]` each hold `dir` and `custom`, resolved as the agent-session keys are,
-  flag, then workspace config, then built-in, and `custom` adds a `bool` kind to the schema, which
-  had none. A `diff = ["--custom"]` list of arguments merged into argv needs no new kind but
-  escapes validation and the generated config's docs, and invites every future flag in as a
-  string.
-- Two operands, redone on the draft (wink, 2026-09-02): the diff and copy commands were pushed
-  with one `DIR` operand and this workspace implicit. A bare `copy` then rewrote this repo's
-  set when a guard was expected to refuse, and the implicit destination read as the cause: an
-  explicit `SRC DST`, and `A B` for diff, is obvious and opens the outbound case, the maintainer
-  folding an adopter's set into the payload from anywhere. The pushed diff rung was amended in
-  place and re-described with its trailer kept, the bookmark force-pushed, and the copy rung
-  finished on the new shape, the branch being a draft for exactly this. The versions kept their
-  numbers.
-- The At rest edit waits for its own cycle (wink, 2026-09-02): pointing AGENTS.md's "clean" at
-  the command is an agent-file change, and Own commit, own cycle holds. It was drafted as a
-  rung of its own, then folded into the status rung as a one-line pointer, then taken out again
-  to run as a convention cycle after this one lands, with the other close-out entries in
-  `## Todo`.
-- The older entry **Add support subcommand status of the repos** is absorbed: this cycle's
-  `status` is that entry, so it is deleted rather than left to be closed twice, and the
-  squash-push entry that cited it now cites this cycle.
-- 0.83.0: minor, a feature cycle.
-
-#### Ladder details
-
-##### feat: the status and agent-files commands opening
-
-The cycle's setup commit: the bookmark, `## Closed` emptied, the Waiting entry promoted, the
-Continuation notes acted on and reset, this block, and the artifact bumped to its `-0` under the
-dev name.
-
-##### feat: status, both repos' state in one call
-
-Both repos' state takes two `jj st` invocations, and nothing prints the verdict At rest asks for.
-
-* The facts `jj st` prints had no in-process reader.
-  - The jj facade gains one, a working-copy status of the changed paths with their letter, the `@`
-    and parent lines in `jj st`'s shape, and the two bits the verdict is made of, empty and
-    described. It snapshots first, as every `@`-relative read does, so the answer is about the
-    filesystem now. Renames show as a delete and an add, since nothing here tracks copies.
-* The two repos are read one at a time and the verdict is in the reader's head.
-  - `status`, alias `st`, takes a scope as a positional or `-s`, `work` by default, `agent`, or
-    `both`, resolves the workspace from `-R` or the current directory, prints the work side under
-    `work` and the agent side under its directory's name, and ends with one line: `clean`, or
-    `dirty` naming each repo and why. The repos come from the shared scope resolver, so `work`
-    needs no config and a plain jj repo answers for it, and `agent` outside a dual workspace is
-    that resolver's error.
-  - `both` joins the scope keywords (wink, 2026-09-02), the same set as `work,agent`, and every
-    `-s` in the tool takes it, since the parser is one.
-  - The root finder walks up past a nested `.jj`, so a plain repo under a workspace's tree, a
-    scratch repo in `tmp/`, resolved to the workspace. `status` stops at the nearest jj repo
-    unless it is one of the workspace's own sides, so a nested plain repo answers as itself and
-    the agent dir still means the workspace. Found by the scratch run of the acceptance check.
-  - Clean is both `@` empty and undescribed: the description is the second bit because an empty
-    described `@` is an intent nothing has published, and the verdict says which bit failed.
-  - The exit status is success either way. The squash-push entry that wants a machine-readable
-    verdict gets a flag when it runs.
-* At rest defines "clean" and names no command.
-  - Left as it is: the pointer to `vc-x1 status` is the convention cycle's, entered in `## Todo`.
-
-##### feat: status completes its scope keywords
-
-`vc-x1 status <tab>` offered only flags, since a value parser written as a function declares no
-values for the shell completer to offer.
-
-* Clap's dynamic completer offers what a parser declares, and `parse_scope` declares nothing.
-  - The scope module gains a parser that declares `work`, `agent`, and `both`, wrapping the same
-    parse, and status's positional and `-s` use it, so the completer offers the three, a partial
-    `b` completes to `both`, a bad value lists them, and the help shows them under `SCOPE`.
-  - The other `-s` flags keep the function parser, since they also take the spelled-out
-    `work,agent` forms and pin older error text. Sweeping them is the CLI consolidation
-    entry's.
-* README.md listed `status` on one line and had no section for it.
-  - A `### status` section, with the scope, the labels, the verdict and its two reasons, the
-    plain and nested repo rules, examples, and a sample output, so each rung's README change is
-    the reader's test sheet.
-* The bare listing offered `st` and not `status`.
-  - The completer keeps one candidate per subcommand and takes the first by name, so a visible
-    alias that sorts first hides the command. `st` becomes a hidden alias, named in the about
-    line: the listing shows `status`, and `st<tab>` completes to it.
-* Inserted by the user mid-cycle (wink, 2026-09-02) as its own rung, split from the config rung's
-  working copy with the config work stashed beside the line and restored after this push.
-
-##### feat: the agent-files config table
-
-The diff and copy commands want per-workspace defaults for their operand and their custom.md
-choice, and the schema has no boolean kind.
-
-* The schema typed strings, sizes, and lists, and a yes-or-no key had no honest kind.
-  - `bool` joins the kinds: the prototype accepts it and checks its default is a bare `true` or
-    `false`, the generated constant is a Rust `bool`, the renderers print it bare, and
-    validate-config flags a `bool` key holding anything else as a finding by shape, the way a
-    scalar in a `str-list` key already is.
-* The commands had nowhere to keep a workspace's defaults.
-  - Four keys, `agent-files.diff.dir`, `agent-files.diff.custom`, `agent-files.copy.dir`, and
-    `agent-files.copy.custom`, work-side only. The `dir` keys have examples and no default, since
-    absent they defer to `family.template`, and the `custom` keys default to false, the rule's
-    own reading of the project layer. The committed model config regenerated with the two
-    tables.
-  - The agent-files module reads the tables back typed, a missing config or table being the
-    default and a `custom` that is not a bare bool an error naming the key. The diff and copy
-    rungs consume it.
-  - README's Workspace config tables section shows the two tables and how the flags and the
-    operand override them.
-
-##### feat: agent-files diff against a set directory
-
-Which set an adopter holds is answerable only by three `diff` lines nobody types.
-
-* Nothing compared a set against another copy of it.
-  - `agent-files diff [A] [B]` lists the union of both sides' set files, AGENTS.md and the plain
-    files under `agent-data/`, each as same, differs, only in A, or only in B, then `N of M
-    differ`, and exits non-zero when anything differs, as `diff` does. Byte comparison, since a
-    re-sync is a byte copy. custom.md rides along as the project layer, not compared, until
-    `-c`/`--custom` compares it, with `--no-custom` overriding a config that says so.
-  - A is the operand, else `agent-files.diff.dir`, else `family.template`, and B is the operand,
-    else this workspace, the header line naming where each came from and the report showing
-    the directories as written. Two operands need no workspace, so two peers compare from
-    anywhere. The resolvers are shared with the copy rung, where the pair is its source and
-    destination.
-* `family.template` named the template repository, whose root holds the template's own
-  AGENTS.md, not the payload.
-  - This repo's config names the payload directory, `../vc-x1-template/work`, as the deliberation
-    settled, and the key's prose and example in vc-config.md say so, the model regenerated with
-    them.
-* First run: against the payload, AGENTS.md and four agent-data files differ and the version
-  file is only here, the v0.1.0 proposal set as expected. Against iiac-perf with `-c`, nothing
-  differs, custom.md included, so the two adopters carry one set.
-* README's agent-files section covers `version` and `diff`, with a sample report.
-
-##### feat: agent-files copy from a set directory
-
-A re-sync is a copy by hand, file by file, deletions easy to miss.
-
-* Nothing made a set a copy of another.
-  - `agent-files copy [SRC] [DST]` plans from the diff rung's comparison, a copy for each file
-    that differs or is only in SRC and a delete for each that is only in DST, prints both ends
-    and the steps, applies them, and leaves the result uncommitted, `jj diff` in DST being the
-    review and the commit the user's. custom.md moves only with `-c`, TODO.md never. SRC
-    resolves as diff's A does, from `agent-files.copy.dir` and `family.template`, and DST as
-    its B, this workspace by default, so two operands copy between any two directories and the
-    maintainer folds an adopter's set into the payload from anywhere.
-  - The guard is on DST: when it sits in a jj repo whose working copy already changes a set
-    file, the copy is refused naming the changes, so the copy's changes are the only ones in
-    those paths. DST is located relative to that repo, since the payload is a subdirectory of
-    the template repo. A DST outside any jj repo gets no guard and the run says so. Copying a
-    directory onto itself is refused.
-* README's agent-files section covers `copy`, with a sample run.
-
-##### feat: the status and agent-files commands closing
-
-Closing out the cycle: the acceptance check run and recorded, the block finalized and moved to
-`## Closed`, the version bare, the dev name kept for Land to restore.
-
-* Nothing in the block needs a `notes/` file of its own.
-  - The commands' rules are in the README and the code, the nested-repo root rule with them,
-    and the redo is the deliberation's to keep.
-* No agent-file changed, so the size step has nothing to record.
-  - No row added, by the user's say at the close, the Todo entry **Size is recorded only when an
-    agent-file changed** holding the rule change.
-* notes/README.md describes the notes directory, not the tool's commands, so it is unchanged.
-* Close-out shape: trapezoid, the default, the ladder showing the redo in place.
-
+_None._
 
 ## Waiting
 
@@ -305,29 +160,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
-
-### Check the transcript join on the landed proposal trapezoid
-
-(wink, 2026-09-01) The `agent-files(proposal): v0.1.0` opening was re-described after its push, in
-the work-repo only, so its title differs from its agent-repo pair's and its committer time is the
-rewrite's, not the push's, and the docs rung's committer time moved with it as a rebased
-descendant. The join the records rely on is: blame gives the commit, the commit's pair (by
-`ochid:`, or by the pair whose time is the push) gives the transcript slice, a text search of the
-slice gives the tool call, and the first hit being a tool call rather than a tool result says the
-agent wrote the line. Two probes ran before the rewrite and behaved as predicted, an agent-written
-line found in a Bash tool call and a hand-edited line found first in a read. The pair's slice ends
-just before its own push call, which lands in the next pair's slice. Two more findings from the
-same day: the transcript is the timeline, its lines appended with their own timestamps and the
-push calls among them, so the agent-repo is durable storage for the file and its commit structure
-carries no part of the join, with the caveat that attachment and queue lines land a millisecond or
-two before the message they belong to (11 backward steps in one session), so a join sorts by
-timestamp or reads message lines only. And compaction appends, it does not rewrite: ten earlier
-sessions in the agent-repo each hold a `user` line flagged `isCompactSummary` mid-file with every
-earlier line intact and its timestamp unchanged, so no tool call is lost, only the reasoning before
-a post-compaction call may survive as summary alone. Re-run the probes on the landed trapezoid, add
-a line from each rung, and decide whether the trailer is load-bearing or convenience, and what a
-`vc-x1` command for the join needs. Promoted from `## Waiting` at the 2026-09-02 opening, its
-condition met, and passed over for the commands cycle.
 
 ### Continuation notes leave the work-repo dirty after Land
 
@@ -356,6 +188,28 @@ that answers it. The **feat: the status and agent-files commands** cycle gives t
 `vc-x1 status`, and the one-line pointer in At rest is an agent-file change, so it runs as its
 own cycle after that one lands, with the two close-out entries above if they are ready.
 
+### The cycle-record's items are an intro and bullets, and a pronoun names its noun
+
+(wink, 2026-09-03) A cycle-record's Problem came out as three sentences with thirteen commas, a
+wall of prose, with an "it" whose referent was four words from a different "its". The Prose form
+already asks for a short intro and bullets and names the cycle-record as a surface, but the
+specimen every block copies shows paragraphs, so the paragraph wins. Fix and unify four places
+in one `agent-files` proposal cycle:
+
+- cycle-model.md: rewrite the specimen's Problem, Solution, and Acceptance check as an intro
+  sentence and bullets, the shape the **docs: check the transcript join on two landed trapezoids**
+  opening settled on, since "copy the shape, not the words" is the specimen's own instruction.
+- notes.md, The In Progress block: each item is in the Prose form, an intro sentence that states
+  the claim and bullets that carry the detail, and the acceptance check is one runnable check per
+  bullet. Replaces "a sentence or two".
+- prose.md, a pronoun rule beside Semicolons: a pronoun whose referent is not the sentence's
+  subject is replaced by its noun, and two referents in one sentence are both named.
+- prose.md, a density heuristic a reader can run: a sentence with more than three commas, or a
+  paragraph with more than three sentences of detail, becomes an intro and bullets.
+- prose.md, a term rule: use the Terminology section's term when one exists, since the family
+  shares words across projects and "records" already means iiac-perf's `--records` option to its
+  owner, where the cycle-record was meant.
+
 ### config --merge folds new keys into a workspace config
 
 (wink, 2026-09-02) `vc-x1 config` prints and validates, and a workspace whose config predates a
@@ -364,6 +218,22 @@ the ones the file lacks as commented lines with their default or example, leaves
 holds untouched, and writes the file back for review in the working copy. First use: dogfood it
 on this repo's `.vc-config.md`, which the **feat: the status and agent-files commands** cycle
 left without the `[agent-files.*]` tables on purpose.
+
+### validate-anchors fails a cross-file link whose file is absent
+
+(iiac-perf, 2026-09-02) Nothing checks that a cross-file markdown link's target file exists.
+`validate-anchors` recognizes cross-file targets and skips them, counting them in its report,
+and `validate-config` resolves only a `vc-config.md#<anchor>` fragment against the schema, so a
+link to a file that is not there passes both. The concrete case is `.vc-config.md`, the file the
+family copies between repos: zc-ring-x1's links `vc-config.md` and `vc-config-test.md`, neither
+in that repo, and `vc-x1 validate-config` (0.82.0) on a copy of it reports six problems with
+neither missing file among them. The cheapest check: a cross-file target's file half is a path,
+and "does the file exist" needs no slugging of the other file, so fail a link whose file is
+absent, relative to the file holding the link, while still skipping the fragment. The fragment
+half stays the crawl the backlog already plans. Reported by iiac-perf's message
+**2026-09-02T17:26:18.543Z Cross-file links go unchecked** in `../vc-x1-messages`, which asks
+for a reply naming it and linking where this landed, so the reply goes out once this entry's
+commit is pushed.
 
 ### Global -R anchors the workspace for every command
 
@@ -416,13 +286,42 @@ if a repo is a dual repo or not.
 - Overlaps [Support POR workspaces in `push`](#support-por-workspaces-in-push): `bot_repo_path()`
   reading `repos.agent` is the same dual-or-POR signal that entry names.
 
+### status prints a verdict per repo and exits with a bit per side
+
+(wink, 2026-09-03) `vc-x1 status` prints each scoped repo's `jj st` block and a summary line,
+more than the At rest check needs. The redesign: the default output is one line per scoped repo,
+`<label>: clean` or `<label>: dirty: <why>`, the why being the `@ has changes` and `@ is
+described` the verdict already names, and the global `-v` restores today's blocks. What `-vv`
+adds is left open until a use shows up. The exit code is a bit per side, `work` 1 and
+`.agent-session` 2, so `both` exits 0 clean, 1, 2, or 3, and the code means the same repo
+whatever the scope, since the scope is one keyword and `both` runs work then agent. Errors exit
+outside 0 to 3, so `$?` is never ambiguous, which means the command returns its own exit code
+rather than the runner's Ok-or-1 mapping, as `agent-files diff` does. The per-repo verdict is
+exposed as a function, since **Enhance squash-push** calls it for its precheck and after-check,
+and it carries the bookmark's publish state beside the working-copy verdict, since that entry's
+"clean" needs both. The docs follow: the command's help, the README's status section, and the
+At rest pointer entry above, whose wording describes the output.
+
 ### Enhance squash-push
 
-Display status of both repos and conditionally push if not clean if the status
-changed display the final status. A --yes would mean do a push without prompting.
+(wink, 2026-09-03) `squash-push` runs a precheck, asks before it acts, and reports the state it
+leaves. The precheck is `vc-x1 status`'s per-repo verdict composed with the bookmark's publish
+state, which the command already reads: "clean" only when `@` is empty and undescribed and the
+bookmark is at its origin, since a status-clean repo with an unpushed bookmark is the one thing
+the command exists to publish. Clean prints the status line, `<label>: clean`, and exits 0 with
+nothing done. Dirty asks whether to squash-push, with `push`'s prompt helper and its rule that a
+non-tty without `--yes` is an error rather than a hang. `--yes` skips the prompt, a
+`[squash-push] yes` config key sets the default, and since a boolean flag cannot turn a config
+yes back off, `--ask` is its opposite. The key defaults to yes, so today's behavior is the
+default and the change is additive. After the push the command runs status again and prints the
+line. On the agent-repo that line is often `dirty: @ has changes` a moment after a successful
+push, since the transcript grows while the push runs and the after-check snapshots again, so the
+exit code says whether the push completed, not what the after-status found. `vc-x1 push`'s
+agent-side stage builds the params directly and takes the precheck and prompt off there, the
+shape of its existing publish-state suppression, since mid-push "dirty" is the normal state.
 
-- The status display here is `vc-x1 status`'s output, once the **feat: the status and
-  agent-files commands** cycle lands it.
+- Sequenced after the status redesign, which exposes the per-repo verdict this command calls
+  for both checks: two cycles, status first, or one cycle with the status rung first.
 
 ### Write up who owns a config file's prose
 
@@ -1011,11 +910,9 @@ _See [bugs.md](notes/bugs.md)._
 
 # References
 
-[1]: #feat-the-status-and-agent-files-commands-opening
-[2]: #feat-status-both-repos-state-in-one-call
-[3]: #feat-the-agent-files-config-table
-[4]: #feat-agent-files-diff-against-a-set-directory
-[5]: #feat-agent-files-copy-from-a-set-directory
-[6]: #feat-the-status-and-agent-files-commands-closing
-[7]: #feat-status-completes-its-scope-keywords
+[1]: #docs-check-the-transcript-join-on-two-landed-trapezoids-opening
+[2]: #docs-probe-the-join-on-the-proposal-trapezoid
+[3]: #docs-probe-the-join-on-the-status-trapezoid
+[4]: #docs-write-the-join-findings-and-the-commands-needs
+[5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
 [12]: /notes/forks-multi-user.md
