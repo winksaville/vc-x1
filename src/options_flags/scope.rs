@@ -5,7 +5,8 @@
 //! - `Side` is the role enum: `Work` or `Bot`. The CLI
 //!   keywords that name them are `work` and `agent`.
 //! - `Scope` is a newtype over `Vec<Side>`: the parsed role
-//!   set (`work`, `agent`, `work,agent`, `agent,work`).
+//!   set (`work`, `agent`, `both`, and the spelled-out
+//!   `work,agent` / `agent,work`).
 //! - Path-based single-repo operation lives on `-R/--repo`,
 //!   not in `--scope`. `Scope` carries role information only.
 
@@ -31,8 +32,9 @@ pub struct Scope(pub Vec<Side>);
 
 /// Parse a `--scope` value string.
 ///
-/// Accepts exactly the four role-keyword forms (`work`, `agent`,
-/// `work,agent`, `agent,work`) preserving order. Anything else (an
+/// Accepts the role-keyword forms (`work`, `agent`, `both`, and
+/// the spelled-out `work,agent` / `agent,work`) preserving order,
+/// `both` being `work,agent`. Anything else (an
 /// empty string, a bare name, duplicate or out-of-set
 /// combinations, a path) is an error: path-based single-repo
 /// operation uses `-R/--repo`, not `--scope`.
@@ -40,7 +42,7 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
     match s {
         "work" => Ok(Scope(vec![Side::Work])),
         "agent" => Ok(Scope(vec![Side::Bot])),
-        "work,agent" => Ok(Scope(vec![Side::Work, Side::Bot])),
+        "both" | "work,agent" => Ok(Scope(vec![Side::Work, Side::Bot])),
         "agent,work" => Ok(Scope(vec![Side::Bot, Side::Work])),
         "" => Err("--scope: value is empty".into()),
         "bot" | "work,bot" | "bot,work" => Err(format!(
@@ -50,10 +52,20 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
         )),
         other => Err(format!(
             "--scope: '{other}' is not a recognized form. \
-             Expected one of `work`, `agent`, `work,agent`, `agent,work`. \
+             Expected one of `work`, `agent`, `both`, `work,agent`, `agent,work`. \
              For single-repo operation by path, use `-R/--repo`."
         )),
     }
+}
+
+/// The scope keywords as a parser that declares them, so shell
+/// completion offers `work`, `agent`, and `both` where a bare
+/// function parser offers nothing. The spelled-out `work,agent`
+/// forms stay with `parse_scope` for the flags that predate `both`.
+pub fn scope_keywords() -> impl clap::builder::TypedValueParser<Value = Scope> {
+    use clap::builder::TypedValueParser as _;
+    clap::builder::PossibleValuesParser::new(["work", "agent", "both"])
+        .try_map(|s: String| parse_scope(&s))
 }
 
 impl Scope {
@@ -159,6 +171,15 @@ mod tests {
     fn parse_keyword_work_bot_preserves_order() {
         assert_eq!(
             parse_scope("work,agent").unwrap(),
+            Scope(vec![Side::Work, Side::Bot])
+        );
+    }
+
+    /// `both` is `work,agent`, the work side first.
+    #[test]
+    fn parse_keyword_both() {
+        assert_eq!(
+            parse_scope("both").unwrap(),
             Scope(vec![Side::Work, Side::Bot])
         );
     }

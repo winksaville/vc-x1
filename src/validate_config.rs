@@ -210,6 +210,17 @@ fn validate_file(
             counts.findings += 1;
             continue;
         }
+        if is_bool(key)
+            && let Some(v) = map.get(key)
+            && !matches!(v.as_str(), "true" | "false")
+        {
+            warn!(
+                "{label} ({}): {key} = {v:?} is not a bool (true or false, unquoted)",
+                path.display()
+            );
+            counts.findings += 1;
+            continue;
+        }
         trace!("{label} ({}): {key} is known", path.display());
     }
 
@@ -316,6 +327,13 @@ fn is_str_list(path: &str) -> bool {
     schema()
         .iter()
         .any(|k| k.path == path && k.kind == crate::config_schema::ValueKind::StrList)
+}
+
+/// True when the schema types `path` as a `bool`.
+fn is_bool(path: &str) -> bool {
+    schema()
+        .iter()
+        .any(|k| k.path == path && k.kind == crate::config_schema::ValueKind::Bool)
 }
 
 /// Validate the target's config file(s), returning the total count
@@ -574,6 +592,26 @@ member = \"x\"
             .expect("validate")
             .findings;
         assert_eq!(findings, 2, "the bad list on work, the family key on agent");
+    }
+
+    /// The agent-files tables validate as work-side keys, and a
+    /// `bool` key holding anything but a bare true or false is a
+    /// finding by shape.
+    #[test]
+    fn validate_agent_files_tables_and_bad_bool() {
+        let fx = Fixture::new("config-validate-agent-files");
+        append(
+            &fx.work.join(VC_CONFIG_MD),
+            "\n[agent-files.diff]\ndir = \"../peer\"\ncustom = true\n\n\
+             [agent-files.copy]\ncustom = \"yes\"\n",
+        );
+        let params = ValidateConfigParams {
+            target: ConfigTarget::Scope(Scope(vec![Side::Work])),
+        };
+        let findings = validate(&params, Some(&fx.work))
+            .expect("validate")
+            .findings;
+        assert_eq!(findings, 1, "only the quoted yes is a finding");
     }
 
     #[test]

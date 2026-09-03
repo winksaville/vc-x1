@@ -22,6 +22,8 @@
 //!   `has_tracked_remote`: typed bookmark and remote-ref queries
 //!   over the view (they replaced parsing `jj bookmark list`
 //!   output).
+//! - `wc_status`: the facts `jj st` prints for `@`, changed paths,
+//!   the `@` and `@-` lines, empty and described.
 //! - `diff_stat`: a `diff --stat`-shaped summary of `@` against
 //!   its parents.
 //! - `is_no_such_revision`: the typed unresolvable-revision test.
@@ -514,6 +516,101 @@ pub fn diff_stat(repo: &Path) -> Result<String> {
         plural(deletions, "deletion", "deletions"),
     ));
     Ok(out)
+}
+
+/// One repo's working-copy status, the facts `jj st` prints:
+/// the changed paths with their letter, the `@` and `@-` lines,
+/// and the two bits At rest's "clean" is made of.
+#[derive(Debug)]
+pub struct WcStatus {
+    /// `(letter, path)` per changed file: `M`, `A`, or `D`, in
+    /// tree order. Renames show as a `D` and an `A`.
+    pub changes: Vec<(char, String)>,
+    /// `@` as `jj st` prints it: change id, commit id, bookmarks,
+    /// `(empty)`, and the title or `(no description set)`.
+    pub wc_line: String,
+    /// One line per parent of `@`, the same shape.
+    pub parent_lines: Vec<String>,
+    /// `@` has no file changes against its parents.
+    pub empty: bool,
+    /// `@` carries a description.
+    pub described: bool,
+}
+
+/// The `chid cid [bookmarks |] [(empty) ]title` line for `commit`,
+/// the shape of `jj st`'s working-copy and parent lines.
+fn status_line(
+    repo_at_head: &std::sync::Arc<jj_lib::repo::ReadonlyRepo>,
+    commit: &Commit,
+) -> Result<String> {
+    let bookmarks = common::format_bookmarks_at(repo_at_head, commit.id());
+    let empty = commit.is_empty(repo_at_head.as_ref()).block_on()?;
+    let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
+    let title = if first_line.is_empty() {
+        "(no description set)"
+    } else {
+        first_line
+    };
+    let mut line = format!(
+        "{} {}",
+        common::format_chid(commit),
+        &commit.id().hex()[..12]
+    );
+    if !bookmarks.is_empty() {
+        line.push_str(&format!(" {bookmarks} |"));
+    }
+    if empty {
+        line.push_str(" (empty)");
+    }
+    line.push(' ');
+    line.push_str(title);
+    Ok(line)
+}
+
+/// The working-copy status of `repo`, snapshotting first so the
+/// answer is about the filesystem now (the `@`-relative read in
+/// `repo_for_read`).
+pub fn wc_status(repo: &Path) -> Result<WcStatus> {
+    let (workspace, repo_at_head) = repo_for_read(repo, "@")?;
+    let ids = common::resolve_revset(&workspace, &repo_at_head, "@")?;
+    let [id] = ids.as_slice() else {
+        return Err(
+            format!("jj::wc_status: expected exactly one commit for @, got {ids:?}").into(),
+        );
+    };
+    let commit = repo_at_head.store().get_commit(id)?;
+    let parent_tree = commit.parent_tree(repo_at_head.as_ref()).block_on()?;
+    let commit_tree = commit.tree();
+    let mut changes = Vec::new();
+    for entry in TreeDiffIterator::new(&parent_tree, &commit_tree, &EverythingMatcher) {
+        let diff = entry.values?;
+        let before = diff.before.as_resolved().cloned().flatten();
+        let after = diff.after.as_resolved().cloned().flatten();
+        if matches!(&before, Some(TreeValue::Tree(_))) || matches!(&after, Some(TreeValue::Tree(_)))
+        {
+            continue;
+        }
+        let present = |side: &jj_lib::merge::MergedTreeValue| side.is_present();
+        let letter = match (present(&diff.before), present(&diff.after)) {
+            (false, false) => continue,
+            (false, true) => 'A',
+            (true, false) => 'D',
+            (true, true) => 'M',
+        };
+        changes.push((letter, entry.path.as_internal_file_string().to_string()));
+    }
+    let mut parent_lines = Vec::new();
+    for pid in commit.parent_ids() {
+        let parent = repo_at_head.store().get_commit(pid)?;
+        parent_lines.push(status_line(&repo_at_head, &parent)?);
+    }
+    Ok(WcStatus {
+        empty: commit.is_empty(repo_at_head.as_ref()).block_on()?,
+        described: !commit.description().trim().is_empty(),
+        wc_line: status_line(&repo_at_head, &commit)?,
+        parent_lines,
+        changes,
+    })
 }
 
 #[cfg(test)]

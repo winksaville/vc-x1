@@ -6,6 +6,8 @@
 - [Build and install](#build-and-install)
 - [Usage](#usage)
   - [Shell completion](#shell-completion)
+  - [status](#status)
+  - [agent-files](#agent-files)
   - [validate-desc](#validate-desc)
   - [fix-desc](#fix-desc)
   - [validate-todo](#validate-todo)
@@ -125,6 +127,7 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
+vc-x1 status [SCOPE] [-R PATH]             # Working-copy status by scope, work|agent|both, and the clean verdict (alias st)
 vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
@@ -141,6 +144,8 @@ vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmar
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
+vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
+vc-x1 agent-files copy [SRC] [DST] [-c]    # Make DST's set a copy of SRC's, uncommitted
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -213,8 +218,8 @@ over positional arguments.
 ### Multi-repo queries
 
 `-s`/`--scope` selects workspace sides by role keyword. `work` is the work repo, `agent` is the
-`.claude` repo, `work,agent` is both. The workspace root is found by walking up from cwd (the existing
-`find_workspace_root` rule).
+`.claude` repo, `both` (or the spelled-out `work,agent`) is both. The workspace root is found by
+walking up from cwd (the existing `find_workspace_root` rule).
 
 ```
 vc-x1 chid -s work,bot          # both sides of the workspace
@@ -301,6 +306,113 @@ remains single-repo.
 
 `-s` is keyword-only: `work`, `agent`, `work,agent`, `agent,work`. Path-based single-repo operation uses
 `-R` (above).
+
+### status
+
+Working-copy status of the workspace's repos in one call, alias `st`, and the verdict At rest's
+"clean" asks for. Each scoped repo prints under its label, `work` for the work repo and the agent
+repo's directory name for the agent repo, in the shape `jj st` prints: the changed paths with
+their letter (`M`, `A`, `D`, a rename showing as a `D` and an `A`), the `Working copy (@)` line,
+and one `Parent commit (@-)` line per parent. One verdict line ends the output:
+
+- `status: clean` when every scoped `@` is empty and has no description
+- `status: dirty: <label> @ has changes, ...` naming each repo that is not, and why: `@ has
+  changes` or `@ is described`, since an empty described `@` is an intent nothing has published
+
+The scope is a positional `SCOPE` or `-s`/`--scope`, one of `work`, `agent`, or `both`, `work`
+by default. `both` is the At rest check, both repos' `@` empty. Tab completion offers the three
+keywords. The exit status is success either way; the verdict is the line, not the code.
+
+The workspace is `-R`/`--repo` when given, else found from the current directory. A plain jj repo
+with no vc-x1 config answers for `work` as itself, and `agent` there is an error naming the
+missing config. A plain repo nested inside a workspace's tree, a scratch repo under `tmp/`,
+answers as itself too: the nearest jj repo wins unless it is one of the workspace's own sides, so
+running from inside the agent repo still means the workspace.
+
+```
+vc-x1 status                    # the work repo, the default scope
+vc-x1 st both                   # both repos and the At rest verdict
+vc-x1 st agent                  # the agent repo alone
+vc-x1 st -s both -R ../other    # ../other's workspace
+```
+
+```
+work (/home/me/proj):
+Working copy changes:
+M TODO.md
+Working copy  (@) : xxolwztqspnz 5e7322c164bb (no description set)
+Parent commit (@-): plnxxqtpwqrs 48d678c8efb4 main | feat: the last landed cycle
+
+.agent-session (/home/me/proj/.agent-session):
+The working copy has no changes.
+Working copy  (@) : kpuqynnomnxv 360bdc189b1c (empty) (no description set)
+Parent commit (@-): vtkwkumoqlpx b424f97b1a2c main | feat: the last landed cycle
+
+status: dirty: work @ has changes
+```
+
+### agent-files
+
+The agent-files set is `AGENTS.md`, the files under `agent-data/`, and the project layer
+`custom.md`, as [AGENTS.md](AGENTS.md#terminology) defines it. The group runs before the
+workspace loads, so it answers in a plain repo too.
+
+`agent-files version` prints the set version, the name of the `agent-data/agent-files-vX.Y.Z`
+file with its prefix removed, bare, one per line when a bump left several, and fails outside a
+workspace or in one without the file.
+
+`agent-files diff [A] [B]` compares two copies of the set, one line per file, names only: `same`,
+`differs`, `only in A`, or `only in B`, then `N of M differ`. It answers whether a re-sync is a
+copy, and its exit status is non-zero when anything differs, as `diff`'s is. `custom.md` is
+reported as the project layer and not compared unless `-c`/`--custom` compares it like the rest,
+for a family whose project layers are meant to be identical, and `--no-custom` overrides a config
+that says so.
+
+`A` is the operand, else the config's `agent-files.diff.dir`, else `family.template`, the config
+values relative to the config file's directory. `B` is the operand, else this workspace. So a
+bare `diff` compares the payload against this workspace, one operand compares that copy against
+this workspace, and two operands compare any two copies from anywhere, no workspace needed. The
+header line says where each came from, and a missing or non-directory operand is an error naming
+what to set.
+
+`agent-files copy [SRC] [DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
+what differs or exists only in `SRC`, deletes what exists only in `DST` under `agent-data/`,
+never touches `TODO.md`, and copies `custom.md` only with `-c`/`--custom`. The operands resolve
+as `diff`'s do: `SRC` is the operand, else `agent-files.copy.dir`, else `family.template`, and
+`DST` is the operand, else this workspace. So a bare `copy` re-syncs this workspace from the
+payload, and two operands copy between any two directories, which is how a maintainer folds an
+adopter's set into the payload. It prints its source and destination and each step first,
+refuses a `DST` whose jj working copy already changes a set file, so the copy's changes are the
+only ones there, and leaves the result uncommitted: `jj diff` there is the review, and the
+commit is yours to make. A `DST` outside any jj repo gets no guard, and the run says so.
+
+```
+vc-x1 agent-files diff                             # the payload against this workspace
+vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
+vc-x1 agent-files diff ../iiac-perf -c             # custom.md too
+vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
+vc-x1 agent-files copy                             # re-sync this workspace from the payload
+vc-x1 agent-files copy ../iiac-perf -c             # take a peer's set, custom.md included
+vc-x1 agent-files copy ../iiac-perf ../vc-x1-template/work  # fold a peer's set into the payload
+```
+
+```
+agent-files copy: from ../vc-x1-template/work (family.template) into /home/me/proj (this workspace)
+copy   AGENTS.md
+copy   agent-data/notes.md
+delete agent-data/agent-files-v0.1.0
+3 step(s) applied, left uncommitted for review
+```
+
+```
+agent-files diff: ../vc-x1-template/work (family.template) against /home/me/proj (this workspace)
+AGENTS.md                       differs
+agent-data/agent-files-v0.1.0   only in /home/me/proj
+agent-data/code.md              same
+agent-data/notes.md             differs
+custom.md                       project layer, not compared (-c compares it)
+3 of 4 differ
+```
 
 ### agent-session
 
@@ -773,10 +885,12 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to three tables. `[repos]` is structural and written by
+A work-side `.vc-config.md` holds up to five tables. `[repos]` is structural and written by
 `init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
-layer: the agent-file family this repo belongs to, and the commands that validate it. Both are
-work side only: `validate-config` reports them unknown in the agent repo's config.
+layer: the agent-file family this repo belongs to, and the commands that validate it.
+`[agent-files.diff]` and `[agent-files.copy]` (0.83.0) hold the defaults for the `agent-files`
+commands' `DIR` operand and `--custom` choice. All four are work side only: `validate-config`
+reports them unknown in the agent repo's config.
 
 ````markdown
 ```toml
@@ -788,7 +902,7 @@ agent = ".claude"
 ```toml
 [family]
 member = "vc-x1"                  # this repo's name in the family, and its messages record
-template = "../vc-x1-template"    # the payload holding the pinned agent-files
+template = "../vc-x1-template/work"  # the payload directory holding the pinned agent-files
 messages = "../vc-x1-messages"    # the family's notification repo
 ```
 
@@ -802,7 +916,23 @@ full = [                          # the per-commit validation, in order, one com
 ]
 fast = ["cargo test --bins"]      # the subset a ladder rung runs
 ```
+
+```toml
+[agent-files.diff]
+dir = "../iiac-perf"              # default DIR for agent-files diff, else family.template
+custom = true                     # compare custom.md too, as -c/--custom would
+
+[agent-files.copy]
+dir = "../vc-x1-template/work"    # default DIR for agent-files copy, else family.template
+custom = false                    # never copy custom.md unless -c/--custom
+```
 ````
+
+The `custom` keys are `bool` keys, a bare `true` or `false`: `validate-config` reports a quoted
+or other value as a finding by shape, and the commands refuse a config that holds one. A `dir`
+is relative to the config file's directory, and absent, the command falls back to
+`family.template`. The flags win over the table for one run: `-c`/`--custom` turns custom.md
+on, `--no-custom` turns it off, and a `DIR` operand replaces `dir`.
 
 The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
 on one line or spread to the closing `]`. Each element is one command whose exit status is
@@ -815,7 +945,7 @@ vc-x1 validate-config                       # both sides
 vc-x1 validate-config work                  # the work side only
 vc-x1 validate-config agent                 # the agent side only
 vc-x1 validate-config .claude/.vc-config.md # a specific file, checked against every home
-vc-x1 config work                             # the work side's schema, [family] and [validate] too
+vc-x1 config work                             # the work side's schema, [family], [validate], and [agent-files.*] too
 vc-x1 config agent                            # the agent side's schema
 vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
 ```

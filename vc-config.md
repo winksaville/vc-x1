@@ -29,8 +29,8 @@ entries a key's table may carry:
   - `"user"`: the user-wide config, `~/.config/vc-x1/config.toml` (or
     `$XDG_CONFIG_HOME/vc-x1/config.toml`). One per user, still TOML rather than markdown
   - `"workspace-code"`, `"workspace-agent"`: the work side's and the agent side's instance config
-- `kind`: value shape, one of `"str"`, `"usize"`, `"item-list"` (a comma-separated list in
-  one string), `"str-list"` (a TOML array of strings, one element per item)
+- `kind`: value shape, one of `"str"`, `"usize"`, `"bool"`, `"item-list"` (a comma-separated
+  list in one string), `"str-list"` (a TOML array of strings, one element per item)
 - `doc`: one-line description (rendered into generated configs, so keep it tight)
 - `used-by`: what reads the value once it is set, which is a different question from `homes`:
   the command or flag it feeds, or the structural role it plays
@@ -244,16 +244,19 @@ example = "vc-x1"
 
 ## family.template
 
-Path to the family's template repository, the payload holding the pinned agent-files, relative
-to the config file's directory. A member's diff against it is that member's proposal set.
+Path to the family's template payload, the directory holding the pinned agent-files, AGENTS.md
+and `agent-data/`, relative to the config file's directory. A template repository that keeps its
+payload in a subdirectory is named down to it, `../vc-x1-template/work`. A member's diff against
+it is that member's proposal set, and `agent-files diff` and `copy` use it when they are given no
+directory of their own.
 
 ```toml
 [family.template]
 homes = ["workspace-code"]
 kind = "str"
-doc = "Path to the family's template repository, relative to this config file's directory"
-used-by = "agent-file diffs against the payload (AGENTS.md, Changing the agent-files)"
-example = "../vc-x1-template"
+doc = "Path to the family's template payload, the directory holding the pinned agent-files"
+used-by = "agent-files diff and copy, their default DIR"
+example = "../vc-x1-template/work"
 ```
 
 ## family.messages
@@ -268,6 +271,65 @@ kind = "str"
 doc = "Path to the family's messages repo, relative to this config file's directory"
 used-by = "the acquaint check and replies (agent-data/messaging.md)"
 example = "../vc-x1-messages"
+```
+
+## agent-files.diff.dir
+
+The directory `vc-x1 agent-files diff` compares against when no `DIR` operand is given: a
+directory holding a copy of the set, AGENTS.md and `agent-data/`, relative to the config file's
+directory. Absent, the command compares against `family.template`.
+
+```toml
+[agent-files.diff.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Default DIR for agent-files diff: a directory holding a copy of the set"
+used-by = "agent-files diff [DIR]"
+example = "../iiac-perf"
+```
+
+## agent-files.diff.custom
+
+Whether `vc-x1 agent-files diff` compares custom.md like the rest of the set, for a family whose
+project layers are meant to be identical. The `-c`/`--custom` flag turns it on for one run and
+`--no-custom` turns it off.
+
+```toml
+[agent-files.diff.custom]
+homes = ["workspace-code"]
+kind = "bool"
+doc = "Default for agent-files diff --custom: compare custom.md like the rest of the set"
+used-by = "agent-files diff --custom"
+default = false
+```
+
+## agent-files.copy.dir
+
+The directory `vc-x1 agent-files copy` copies from when no `DIR` operand is given: a directory
+holding a copy of the set, relative to the config file's directory. Absent, the command copies
+from `family.template`.
+
+```toml
+[agent-files.copy.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Default DIR for agent-files copy: a directory holding a copy of the set"
+used-by = "agent-files copy [DIR]"
+example = "../vc-x1-template/work"
+```
+
+## agent-files.copy.custom
+
+Whether `vc-x1 agent-files copy` copies custom.md with the rest of the set. The `-c`/`--custom`
+flag turns it on for one run and `--no-custom` turns it off.
+
+```toml
+[agent-files.copy.custom]
+homes = ["workspace-code"]
+kind = "bool"
+doc = "Default for agent-files copy --custom: copy custom.md with the rest of the set"
+used-by = "agent-files copy --custom"
+default = false
 ```
 
 ## validate.full

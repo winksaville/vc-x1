@@ -14,7 +14,13 @@
 //! - `report_line(root)`: the `agent-files ...` line of `vc-x1
 //!   version`, `none` with the reason when there is no version.
 //! - `AgentFilesArgs`: the `agent-files` subcommand group, `version`
-//!   printing the bare names one per line, for scripts.
+//!   printing the bare names one per line, for scripts, `diff`
+//!   ([`diff`]) naming what differs from a copy of the set, and
+//!   `copy` ([`copy`]) making this set that copy.
+//! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
+//!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
+//!   per-workspace defaults for the `diff` and `copy` operands and
+//!   their `--custom` choice.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -23,6 +29,9 @@ use clap::{Args, Subcommand};
 use log::error;
 
 use crate::common;
+
+pub mod copy;
+pub mod diff;
 
 /// The file-name prefix every set version file carries.
 const PREFIX: &str = "agent-files-";
@@ -70,6 +79,58 @@ pub fn report_line(work_root: Option<&Path>) -> String {
     }
 }
 
+/// One command's table, `[agent-files.diff]` or
+/// `[agent-files.copy]`: the default `DIR` operand and the
+/// default `--custom` choice, each `None` when the key is absent.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct CommandDefaults {
+    /// `dir`: a directory holding a copy of the set, as written,
+    /// relative to the config file's directory.
+    pub dir: Option<String>,
+    /// `custom`: compare or copy custom.md with the rest.
+    pub custom: Option<bool>,
+}
+
+/// The work side's `[agent-files.*]` tables.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct WorkspaceAgentFiles {
+    pub diff: CommandDefaults,
+    pub copy: CommandDefaults,
+}
+
+/// Read the `[agent-files.diff]` and `[agent-files.copy]` tables
+/// of the config at `root`. No config, or no tables, is the
+/// default; a `custom` that is not a bare `true` or `false` is an
+/// error naming the key, since a malformed config is fatal rather
+/// than silently ignored.
+pub fn config_at(root: &Path) -> Result<WorkspaceAgentFiles, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(root)? else {
+        return Ok(WorkspaceAgentFiles::default());
+    };
+    let get = |key: &str| crate::toml_simple::toml_get(&cfg.map, key);
+    let parse_bool = |key: &str| -> Result<Option<bool>, Box<dyn std::error::Error>> {
+        match get(key).map(String::as_str) {
+            None => Ok(None),
+            Some("true") => Ok(Some(true)),
+            Some("false") => Ok(Some(false)),
+            Some(other) => Err(format!(
+                "{key}: invalid bool {other:?}: expected true or false, unquoted"
+            )
+            .into()),
+        }
+    };
+    Ok(WorkspaceAgentFiles {
+        diff: CommandDefaults {
+            dir: get("agent-files.diff.dir").cloned(),
+            custom: parse_bool("agent-files.diff.custom")?,
+        },
+        copy: CommandDefaults {
+            dir: get("agent-files.copy.dir").cloned(),
+            custom: parse_bool("agent-files.copy.custom")?,
+        },
+    })
+}
+
 /// CLI args for the `agent-files` group.
 #[derive(Args, Debug)]
 pub struct AgentFilesArgs {
@@ -89,13 +150,43 @@ pub enum AgentFilesCommand {
         one without the file."
     )]
     Version,
+
+    /// Name the set files that differ between two copies of the set
+    #[command(
+        long_about = "Compare two copies of the agent-files set, AGENTS.md and\n\
+        agent-data/, one line per file: same, differs, only in A, or\n\
+        only in B. custom.md is reported as the project layer unless\n\
+        -c/--custom compares it. A defaults to the config's\n\
+        agent-files.diff.dir, else family.template, relative to the\n\
+        config file's directory, and B to this workspace.\n\n\
+        With one operand it is A, and B is this workspace: `diff ../x`\n\
+        compares ../x against here. Give both to compare the other way,\n\
+        or two copies from anywhere. Exits non-zero when anything\n\
+        differs, as diff does."
+    )]
+    Diff(diff::DiffArgs),
+
+    /// Make DST's set a copy of SRC's, uncommitted
+    #[command(
+        long_about = "Copy the set in SRC over the one in DST: AGENTS.md and\n\
+        agent-data/, deletions included, never TODO.md, and custom.md\n\
+        only with -c/--custom. SRC defaults to the config's\n\
+        agent-files.copy.dir, else family.template, and DST to this\n\
+        workspace.\n\n\
+        With one operand it is SRC, and DST is this workspace: `copy\n\
+        ../x` copies from ../x into here. Give both to send this\n\
+        workspace's set somewhere, `copy . ../x`. Prints both ends and\n\
+        each step, refuses a DST whose jj working copy already changes\n\
+        the set, and leaves the result uncommitted for review."
+    )]
+    Copy(copy::CopyArgs),
 }
 
 impl AgentFilesArgs {
     /// Run the chosen subcommand against the workspace found from
     /// the current directory.
     pub fn run(&self) -> ExitCode {
-        match self.command {
+        match &self.command {
             AgentFilesCommand::Version => {
                 let root = common::find_workspace_root();
                 let vs = root.as_deref().map(versions).unwrap_or_default(); // OK: no root, no versions
@@ -108,6 +199,8 @@ impl AgentFilesArgs {
                 }
                 ExitCode::SUCCESS
             }
+            AgentFilesCommand::Diff(args) => args.run(),
+            AgentFilesCommand::Copy(args) => args.run(),
         }
     }
 }
@@ -150,6 +243,53 @@ mod tests {
             " (agent-files v0.1.0-1, v0.1.0-2)"
         );
         assert_eq!(report_line(Some(&root)), "agent-files v0.1.0-1, v0.1.0-2");
+    }
+
+    /// A config carrying both tables reads back typed, one carrying
+    /// neither is the default, and a `custom` that is not a bare
+    /// bool is an error naming the key.
+    #[test]
+    fn config_tables_read_back_typed() {
+        let write = |tag: &str, fences: &str| {
+            let root = root_with(tag, &[]);
+            std::fs::write(
+                root.join(crate::config_md::VC_CONFIG_MD),
+                format!("```toml\n[repos]\nwork = \".\"\n```\n{fences}"),
+            )
+            .expect("write config");
+            root
+        };
+        let both = write(
+            "cfg-both",
+            "```toml\n[agent-files.diff]\ndir = \"../peer\"\ncustom = true\n\n\
+             [agent-files.copy]\ndir = \"../tpl/work\"\ncustom = false\n```\n",
+        );
+        assert_eq!(
+            config_at(&both).unwrap(),
+            WorkspaceAgentFiles {
+                diff: CommandDefaults {
+                    dir: Some("../peer".to_string()),
+                    custom: Some(true),
+                },
+                copy: CommandDefaults {
+                    dir: Some("../tpl/work".to_string()),
+                    custom: Some(false),
+                },
+            }
+        );
+        let none = write("cfg-none", "");
+        assert_eq!(config_at(&none).unwrap(), WorkspaceAgentFiles::default());
+        assert_eq!(
+            config_at(&root_with("cfg-absent", &[])).unwrap(),
+            WorkspaceAgentFiles::default()
+        );
+        let bad = write(
+            "cfg-bad",
+            "```toml\n[agent-files.copy]\ncustom = \"yes\"\n```\n",
+        );
+        let err = config_at(&bad).unwrap_err().to_string();
+        assert!(err.contains("agent-files.copy.custom"), "{err}");
+        assert!(err.contains("\"yes\""), "{err}");
     }
 
     /// No workspace, or a workspace without the file: the banner says
