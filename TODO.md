@@ -9,7 +9,21 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+- The cycle **feat: the status and agent-files commands** landed on `main` as a trapezoid
+  (2026-09-02), its bookmark deleted, the plain `vc-x1 0.83.0` installed from the merge. Its
+  record is `## Closed`.
+- Land again ran the full validation, with its install, after the name restore and before the
+  `main` push, as the Todo entry **Land validates and installs before the main push** describes.
+- `## Todo` is in order: the transcript join check first, then the config `--merge` entry, and the
+  three close-out convention entries, the At rest pointer at `vc-x1 status` among them, which the
+  user wants as one cycle after this one.
+- Two habits for the next session, learned the hard way: a `cd` in a Bash call persists into the
+  calls that run beside it, so use subshells or absolute paths when running commands in parallel,
+  and never run `agent-files copy` in this repo without an explicit DST, since the guard protects
+  only a dirty set and a clean one takes the copy.
+- These notes were committed on the bookmark `continuation-20260903T0118Z`, pushed with `vc-x1 push` so
+  both repos were clean at the restart. The next opening starts from that commit, so delete the
+  bookmark, locally and remotely, once the next opening has pushed.
 
 ## In Progress
 
