@@ -1,6 +1,6 @@
 [package]
-name = "vc-x1"
-version = "0.83.1"
+name = "vc-x1-dev"
+version = "0.83.2"
 edition = "2024"
 
 # Single-name convention (chores-16, 0.78.3): the package name IS

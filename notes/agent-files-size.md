@@ -24,6 +24,7 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-08-31 | agent-files(adoption): from iiac-perf, zc-ring-x1, 2026-08-31 | 10 | 2109 | iiac-perf's set verbatim, messaging.md out |
 | 2026-08-31 | agent-files(proposal): to iiac-perf, zc-ring-x1, 2026-08-31 | 10 | 2158 | the commit-vocabulary section and its rationale, declared types in |
 | 2026-09-01 | agent-files(proposal): v0.1.0 | 10 | 2230 | the set's version and its rationale, titles by version, the empty version file uncounted |
+| 2026-09-04 | agent-files(adoption): v0.2.0 | 10 | 2231 | iiac-perf's set verbatim: `## Closed` last in the Todo format list, `# References` named, the re-pack parenthetical dropped |
 
 Per file at the last row, replaced at each close-out, the history being in the commits:
 
@@ -34,7 +35,7 @@ Per file at the last row, replaced at each close-out, the history being in the c
     42 agent-data/commit-model.md
     76 agent-data/cycle-model.md
    376 agent-data/jj.md
-   170 agent-data/notes.md
+   171 agent-data/notes.md
    401 agent-data/prose.md
    488 agent-data/rationale.md
    204 agent-data/versioning.md
