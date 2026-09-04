@@ -9,21 +9,7 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-- The cycle **docs: check the transcript join on two landed trapezoids** is complete and pushed on
-  the bookmark `docs-check-the-transcript-join-on-two-landed-trapezoids`, this closing included.
-  Land is all that remains of it.
-- The focus at restart, and wink's own ranking (2026-09-03): the `vc-x1 lookup` cycle, whose
-  requirements are settled in [What the lookup command
-  needs](notes/transcript-write.md#what-the-lookup-command-needs), and then a look at iiac-perf and
-  zc-ring-x1 to see how the lookup behaves across the family, which is the first test of whether
-  the design serves an adopter rather than only this repo.
-- Pending, each its own approval, both deferred through the cycle: delete the bookmark
-  `continuation-20260903T0118Z` locally and remotely, and send iiac-perf the reply to
-  **2026-09-02T17:26:18.543Z Cross-file links go unchecked**, whose inbox line is still unmarked,
-  with a sha-link to the opening commit `c7301982ca7d`, per the messages repo's Write a response.
-- Habits: a `cd` in one Bash call leaks into the calls beside it, so use `-R` or absolute paths and
-  never `cd` in a parallel call. `vc-x1 push` needs `--yes`, stdin not being a tty. Never run
-  `agent-files copy` here without an explicit DST.
+_None._
 
 ## In Progress
 
@@ -33,293 +19,6 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 
 _No cycle currently in progress._
 
-## Closed
-
-The last cycle's finished record, moved here whole by its closing commit and deleted by the next
-opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the landmark commit's copy
-of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
-[notes/done.md](notes/done.md).
-
-### docs: check the transcript join on two landed trapezoids
-
-#### Problem
-
-The connection from a change to a line in a work-repo file to the discussion of that change in
-the agent-repo is untested against a rewritten cycle, and the `vc-x1` command that would find
-it has no requirements.
-
-- The line is any line in any work-repo file: code, a doc comment, a markdown file, the
-  cycle-record.
-- The connection, from one such line to its transcript write, the tool call that wrote it, and so
-  to the conversation around that call:
-  - blame gives the work-repo commit the change landed in
-  - the commit's partner in the agent-repo, found by the `ochid:` trailer or by the push time, gives
-    the time-window, the transcript lines that partner appended
-  - a text search of the time-window for the line gives the transcript write
-- Two probes ran on the `agent-files(proposal): v0.1.0` cycle and behaved as predicted, before its
-  opening was re-described after its push, in the work-repo only. That cycle now has:
-  - a rung whose title differs from its partner's title
-  - a rung whose committer time is the rewrite's, not the push's
-  - a docs rung whose committer time moved with it, as a rebased descendant
-- Undecided: whether the connection survives that rewrite, which key finds the partner, the trailer
-  or the push time, and what a `vc-x1` command for the transcript write needs.
-
-#### Solution
-
-The probes ran on two landed cycles and then on three rewrites this cycle made itself, and the
-outcomes, the decisions, and the command's requirements are in
-[notes/transcript-write.md](notes/transcript-write.md).
-
-- The proposal cycle, the rewritten case above, five lines.
-- The `feat: the status and agent-files commands` cycle, landed 2026-09-02 with no rewrite, the
-  clean case, seven lines.
-- This cycle's own rewrites, run as rungs with predictions written before each: a content amend of
-  a pushed rung and a restart between rungs, two lines. The third, a re-describe of every rung, was
-  deferred to a `## Todo` entry once the landed cycles had evidenced its predictions.
-- The decisions: the trailer is load-bearing, not a convenience, and the `lookup` command's
-  requirements are stated for both directions, naming jj-lib rather than the `jj` binary.
-
-#### Acceptance check
-
-- For every rung of both cycles, one line the agent wrote resolves through blame, the partner,
-  and a text search of the partner's time-window to its transcript write.
-- The `notes/` file records each probe's outcome, the trailer's role, and the `lookup` command's
-  requirements.
-
-Result, run at the close-out: pass on both, the first with its wording corrected by what the cycle
-found.
-
-- Fourteen lines were probed and fourteen resolved to their transcript write, so no line was lost
-  in either direction.
-- Ten of the fourteen were found in their partner's own time-window. The other four needed the
-  session's timeline instead: three written earlier and stashed or moved, one written later by the
-  rung that amended the line's commit. So "a text search of the partner's time-window" is the
-  wrong search space, and the check's wording was written before the cycle knew that. The
-  requirement it became is the timeline search, backwards and forwards from the partner's push.
-- The `notes/` file records all fourteen, the trailer's role, and the requirements.
-
-#### Ladder
-
-- [docs: check the transcript join on two landed trapezoids opening][1] (done)
-- [docs: probe the proposal cycle's transcript writes][2] (done)
-- [docs: probe the status cycle's transcript writes][3] (done)
-- [docs: amend the status probe rung's tables][6] (done)
-- [docs: probe the amended rung across a restart][7] (done)
-- [docs: the lookup findings and the command's needs][4] (done)
-- [docs: check the transcript join on two landed trapezoids closing][5] (done)
-
-#### Deliberation
-
-- two cycles, not one: the proposal cycle is the rewritten case the entry was written for, and
-  the status commands cycle is the clean case, so probing both shows whether the partner is
-  found by the trailer alone, by the push time alone, or needs both
-- multi-step, not single: the entry ends in three decisions, the trailer's role, the command's
-  needs, and what the cycle-record and the notes should say about the connection, and each wants a
-  review point
-- four `## Todo` edits ride the opening: the cross-file links entry from iiac-perf's message, the
-  rewritten squash-push entry, the status redesign entry, and the cycle-record shape entry that
-  this block's own review produced, since the opening edits `TODO.md` anyway and a commit per Todo
-  entry is a habit not wanted
-- the reply to iiac-perf goes out after the opening pushes, not after the cycle lands on `main`:
-  the messages protocol links by SHA, and a trapezoid keeps every rung, so the opening commit's SHA
-  is durable once pushed
-- the words, settled at the first probe rung's review (wink, 2026-09-03): "join" hid a three-hop
-  lookup behind a one-key database word, and "pair" named the set rather than the member. The
-  words are partner, the commit a trailer names, with adjectives for its states, candidate and
-  predecessor, time-window, the transcript lines a partner appended, and transcript write, the tool
-  call that wrote the line, cited by its timestamp. The command was first named by what it
-  returns, `transcript-write`, and renamed below
-  - the procedure is the work-to-transcript lookup (wink, 2026-09-03), named after the status
-    probe rung: a name with no party in it was found nebulous, and this one carries both ends and
-    the direction. The reverse is the transcript-to-work lookup
-  - the objective both serve, put plainly at the amend rung's review (wink, 2026-09-03): point at
-    a line in either repo and see the relevant lines in the other, every work line resolving to a
-    window of transcript lines and every transcript line to a window of work lines. The notes
-    file's Objective section holds it, and the findings rung states the command's needs in both
-    directions
-  - the command is `vc-x1 lookup [SCOPE] FILE:LINE` (wink, 2026-09-03), one command for both
-    directions: `SCOPE` is the side the line is on, `work` or `agent` in `status`'s keywords,
-    inferred from the path when omitted, and `FILE:LINE` is the form editors and compilers print.
-    `transcript-write` as a name said what the command returned and not what it did
-  - the cycle title keeps "join": the opening's commit title is pushed and carries it, and a
-    re-describe of a pushed commit is the thing this cycle probes. The notes file says the title
-    predates the words
-- three experiments as explicit rungs (wink, 2026-09-03), inserted after the status probe rung: a
-  content amend of a pushed rung, a restart between rungs, and a re-describe of every rung. Each
-  is a rewrite the probes had met only by happenstance, the diff rung's amend and the proposal
-  opening's re-describe, and a rung gives each a title, a review point, and predictions written
-  before the run. A transcript write can be probed only after the push that captures it, so each
-  rung makes its writes and the rung after probes them
-  - the re-describe is the lighter form, titles and bodies only: swapping the words in each
-    rung's content would squash edits into commits every later rung also touched, and the
-    conflicts would cost more than the case is worth. The content swap waits for the findings rung
-  - the re-describe is deferred to a `## Todo` entry (wink, 2026-09-03), so the ladder loses its
-    redo rung: the proposal cycle's re-described opening already evidences all four of its
-    predictions, and re-describing eight pushed commits, renaming the bookmark, and
-    force-publishing immediately before Land is the risk this cycle need not take for a
-    confirmation. The entry says so, for whoever ranks it
-  - the cycle title keeps "join" for good, since the redo that would have changed it is deferred,
-    and the notes file says the title predates the words
-
-#### Ladder details
-
-##### docs: check the transcript join on two landed trapezoids opening
-
-The cycle's setup commit.
-
-- Create and publish the bookmark, delete `## Closed`'s contents, move the Todo entry into this
-  block, reset the continuation notes, and bump the version-of-record.
-- Rename the package to its dev name: the build script requires the dev name beside a suffixed
-  version, whatever the cycle touches.
-- Carry four `## Todo` edits made at acquaint and during this block's review, per the
-  deliberation.
-
-##### docs: probe the proposal cycle's transcript writes
-
-The proposal cycle's opening was re-described after its push, so the opening's title and
-committer time no longer match its partner's.
-
-- Five probes, one line per rung and two for the closing, are tabled in
-  [notes/transcript-write.md](notes/transcript-write.md) with the findings and the terms.
-- The trailer found the partner for every rung in both directions, and the committer time for one
-  of four: jj's change id survived every rewrite, and either side's time can move.
-- The search runs over the session's timeline, not one time-window: the docs rung's line was
-  written before the opening's push and stashed, so its transcript write is in the opening's
-  time-window.
-- The transcript write is the first hit that writes the file, not the first hit that is a tool
-  call: a hit can be a review draft in an assistant text block, or a push call whose body quotes
-  the line.
-- Deferred to the findings rung: whether the trailer is load-bearing, which these probes already
-  argue, waits on the clean case for the comparison.
-
-##### docs: probe the status cycle's transcript writes
-
-The status commands cycle landed with no rewrite, so it is the clean case.
-
-- Seven probes, one line per rung, are tabled in
-  [notes/transcript-write.md](notes/transcript-write.md) beside the proposal cycle's.
-- The trailer found the partner for every rung in both directions, and the committer time for
-  none: At rest's squash-push amends every partner, and only jj's evolution log still holds the
-  predecessor partner whose time is the push's, to the second.
-- The work commit's committer time is the transcript's push call time in five of seven rungs, so
-  the work side reaches the transcript timeline directly, until a content amend or the trapezoid
-  reshape moves it.
-- Two lines were written in an earlier time-window, one of them two cycles back, the Todo entry's
-  own text. Blame with every move flag still reports the move, and `git log -S` on the line's text
-  is what reaches back.
-- The transcript writes were all Bash calls, so a Bash write classifier is the one that matters
-  here.
-
-##### docs: amend the status probe rung's tables
-
-A content amend of a pushed rung is the rewrite the diff rung met by accident, and no line has
-been probed for it. The status probe rung's tables have a review fix pending, which is the amend.
-
-- The fix: the trailer column becomes `ochid:` cross-linked, defined once before each table, the
-  committer time splits into a work column and a partner column, and every time and id sits in a
-  code span so the digits align.
-- The fix is squashed into the status probe rung, and this rung's push force-publishes the
-  rewritten bookmark. The predictions, for the probe rung after the restart:
-  - blame gives the status probe rung, which still owns the line under its change id
-  - the trailer still finds the partner, unchanged, since the amend keeps the description
-  - the partner's time-window does not hold the transcript write: the write is this session's,
-    and this rung's push folds it into this rung's partner, one time-window later
-  - the work commit's committer time is the amend's, so the push-call key fails for it
-- Done at 17:35:22 local: the fix squashed into the status probe rung by `jj squash --into` with
-  the destination's message kept, the rung after it rebased, and the bookmark moved locally with
-  the remote still on the old line until this rung's push.
-- The user restarts the agent after this rung's push, which is the next rung's experiment.
-
-##### docs: probe the amended rung across a restart
-
-A restart between rungs starts a new session file, so the next partner's diff touches two
-transcript files, and no probe has crossed that seam.
-
-- Probe a fixed table line from the amended rung against the predictions above, and record the
-  outcome.
-- This rung's own edits are the restart's writes, made in the new session file, and its push
-  captures the old session's tail and the new file together. Predictions, for the findings rung:
-  - the partner's diff lists two files, the old session's tail and the new session's head
-  - the transcript write of a line this rung writes is in the new file
-  - the continuation notes and the acquaint read leave lines the lookup has to pass over, and
-    nothing else
-- The probe, run at the restart: the amended table's header line, `notes/transcript-write.md:122`,
-  the `ochid:` cross-linked header the fix introduced.
-  - Blame at the bookmark tip gives `oqylllmy` / `0e9c26e` at `17:35:22`, the status probe rung
-    under its own change id, as predicted: an amend keeps the change id and the line's ownership.
-  - The trailer is unchanged, so the partner is still `lurssvuqkmkk` / `89a03bb4` at `16:44:30`,
-    as predicted, and it resolves in both directions.
-  - The partner's time-window, the 222 lines it appended to the old session file, runs `14:28:16`
-    to `16:40:55` and does not hold the write, as predicted.
-  - The write is a Bash call at `17:35:09` in the old session file, the edit that rewrote both
-    tables, and the amend rung's own partner `wuosxztlklms` / `f85167ba` holds it, its window
-    covering the lines from the probe rung's push to the amend's. The prediction put the write one
-    window later, in this rung's partner, and that was wrong: the write preceded the amend rung's
-    push, so that push captured it. A content amend's write lands in the partner of the rung that
-    made the amend, which is the rung the lookup must reach, and blame names the amended rung
-    instead.
-  - The work committer time, `17:35:22`, fails as a push-call key as predicted, since the partner
-    was pushed 51 minutes earlier. It still names a call in the same timeline, the `jj squash` that
-    made the amend, 13 seconds after the write: a content amend made in session stamps the work
-    commit with its own tool call, not with a push.
-  - The amend partner's `jj evolog` still holds the predecessor stamped at `18:38:06`, the amend
-    rung's work committer time to the second, so At rest's re-amend hides the push time rather than
-    losing it.
-  - Three later hits on the line's text are read-side noise, a grep, a sed, and this rung's blame,
-    all in the new session file. A hit is the write only when its call writes the file, which the
-    proposal probe found as well.
-- Observed before this rung's push, on the working copy: the agent-repo carries the old session
-  file modified and the new one added, the two files the first prediction names.
-- The `lookup` Todo entry takes the one requirement this probe adds, a forward search past an
-  amend, since a backwards search from the partner's push cannot reach the write.
-- The rung's own slip, that three rungs reviewed on `--fast` and left the installed dev artifact at
-  the opening's version, became the `## Todo` entry **push refuses when no full validate passed on
-  the current tree** rather than an inserted rung, per [Unplanned
-  work](AGENTS.md#unplanned-work). The entry carries the design, the two rejected keys, and wink's
-  reading that the instructions may simply be too complex.
-
-##### docs: the lookup findings and the command's needs
-
-The probes' outcomes said which key finds the partner, and the decisions were not yet written.
-
-- The two decisions go into [notes/transcript-write.md](notes/transcript-write.md): the `ochid:`
-  trailer is load-bearing rather than a convenience, and the `lookup` command's requirements are
-  stated for both directions in their one home.
-- The two findings from 2026-09-01 are carried into the same file as **The transcript is the
-  timeline**, compaction's append-only behaviour among them, placed ahead of the procedure so the
-  structural facts precede the steps that rely on them.
-- This cycle's own rewrites get a probe section beside the two landed cycles', so the evidence
-  reads as three cycles rather than two plus a cycle-record.
-- The procedure's search step gains the forward case, the one requirement the two landed cycles did
-  not produce.
-- The `## Todo` entry trades its copy of the requirements for a pointer, since a second copy
-  drifts, and keeps what the probes did not answer, the output's shape.
-- The restart rung's two remaining predictions are confirmed here, after the push that captured
-  them: its partner spans both session files, and the probed line's write is in the new one.
-- The requirements name jj-lib rather than the `jj` binary (wink, 2026-09-03, at this rung's
-  review), which the codebase already does everywhere but the version gate. jj-lib 0.44.0 carries
-  all three steps: `FileAnnotator` for blame, with a line's origin line number the CLI does not
-  print, the `diff_lines` revset for the reach back past a move, and `evolution` for the
-  predecessor partner. The by-hand section keeps its commands and says that is what they are.
-
-##### docs: check the transcript join on two landed trapezoids closing
-
-Closing out the cycle.
-
-- The acceptance check passes on both clauses, with the first clause's wording corrected by what
-  the cycle found. The result is recorded above.
-- [notes/README.md](notes/README.md) gains what the notes file grew into: not only the connection
-  and the probes, but the two decisions and the command's requirements.
-- The size table takes no row, since no agent-file changed. Every rule this cycle met held as
-  written, and the two it exposed as unenforced are `## Todo` entries rather than edits.
-- The cycle title keeps "join" although the words retired mid-cycle. The opening's commit title is
-  pushed and carries it, the redo that would have changed it is deferred, and the notes file says
-  the title predates the words.
-- What outlives the cycle is already in [notes/transcript-write.md](notes/transcript-write.md),
-  written by the rungs that found it rather than swept up here. The rest of this block, the
-  predictions and each rung's outcome, is the cycle's own record and lives in the landmark.
-- Close-out shape: trapezoid, the default, so every rung's `ochid:` trailer survives and the
-  ladder stays readable under the merge.
 
 ## Waiting
 
@@ -480,6 +179,18 @@ half stays the crawl the backlog already plans. Reported by iiac-perf's message
 **2026-09-02T17:26:18.543Z Cross-file links go unchecked** in `../vc-x1-messages`, which asks
 for a reply naming it and linking where this landed, so the reply goes out once this entry's
 commit is pushed.
+
+### The opening deletes the closed block's reference definitions with it
+
+(wink, 2026-09-04) A closed block's ladder links its rungs as `- [<title>][N]`, and the `[N]:
+#<slug>` definitions live outside the block, in the file's `# References`, pointing at its
+`Ladder details` subsections. The opening's "delete whatever `## Closed` holds" takes the block
+and leaves the definitions, so every opening since the ladder form arrived left dead definitions
+behind, seven at the `agent-files(adoption): v0.2.0` opening. Nothing said so, because
+`validate-anchors` is not in `.vc-config.md`'s `[validate]` table. Two edits: [The In Progress
+block](agent-data/notes.md#the-in-progress-block) says the definitions go with the block at the
+next opening, and `validate-anchors` joins the validate table once its three known failures are
+fixed, so a dead definition fails the push that made it.
 
 ### Global -R anchors the workspace for every command
 
@@ -1172,13 +883,62 @@ collapses to an index into the session.
 
 _See [bugs.md](notes/bugs.md)._
 
+## Closed
+
+The last cycle's finished record, moved here whole by its closing commit and deleted by the next
+opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the landmark commit's copy
+of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
+[notes/done.md](notes/done.md).
+
+### agent-files(adoption): v0.2.0
+
+#### Problem
+
+`## Closed` sat third in `TODO.md`, between `## In Progress` and `## Waiting`, so the last cycle's
+finished record, a few hundred lines when the cycle was long, stood between the acquaint read and
+the queue every reader scrolls to. wink moved the section to the end of the file by hand, and the
+Todo format list in [notes.md](agent-data/notes.md) then disagreed with the file.
+
+#### Solution
+
+Adopt iiac-perf's `agent-files(proposal): v0.2.0`, landed at iiac-perf `main` `8d0133a3` and
+proposed by the record **2026-09-04T21:02:40.514Z Todo format's section order, proposed** in
+`../vc-x1-messages`: its `notes.md` copied verbatim, the version file renamed to `v0.2.0`, and this
+project's `TODO.md` order matching. The proposal moves `## Closed` below `## Bugs` in the Todo
+format list, adds `# References` to the list as the file's last section, and deletes the re-pack
+rule's parenthetical that restated the order.
+
+#### Acceptance check
+
+`vc-x1 agent-files diff ../iiac-perf`, with that checkout on its `main` at `8d0133a3`, reports
+`0 of 10 differ`, `TODO.md`'s `## ` headings read Continuation notes, In Progress, Waiting, Todo,
+Ideas, Bugs, Closed, then `# References`, and `vc-x1 validate` passes.
+
+- Result: pass, the diff run and the headings listed before the push.
+
+#### Ladder
+
+- agent-files(adoption): v0.2.0 (done)
+
+#### Deliberation
+
+- An adoption, not a parallel proposal. This cycle opened as `docs: Closed moves to the end of
+  TODO.md` with its own edits to `notes.md`, and iiac-perf made the same change the same day with
+  two better decisions: the re-pack parenthetical deleted rather than corrected, since it was a
+  second home for the order, and `# References` named in the list, which is the hole that let the
+  hand move put `## Closed` after it here. Two proposers on one number are settled by the
+  maintainer, so vc-x1 takes iiac-perf's set as the family's `v0.2.0` and the cycle re-titled
+  before its first push, the shape still being open.
+- The opening's step 3 left dead definitions behind: the closed block's ladder links live in
+  `# References`, outside the block, so deleting the block orphaned `[1]`..`[7]`, and
+  `validate-anchors` would have said so but is not in the `[validate]` table. Deleted here, and
+  the rule gap is a `## Todo` entry, not an edit in an adoption.
+- The copy was made by hand, `git archive` of the landed commit into a scratch directory and
+  `cp`, before `vc-x1 agent-files copy` came to mind, and `copy` then refused the workspace as
+  one whose working copy already changes the set. The guard held and the check above is the
+  command's, so the result is what `copy` would have made. The next adoption starts with `copy`.
+- The size table takes a row, since an agent-file changed.
+
 # References
 
-[1]: #docs-check-the-transcript-join-on-two-landed-trapezoids-opening
-[2]: #docs-probe-the-proposal-cycles-transcript-writes
-[3]: #docs-probe-the-status-cycles-transcript-writes
-[4]: #docs-the-lookup-findings-and-the-commands-needs
-[5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
-[6]: #docs-amend-the-status-probe-rungs-tables
-[7]: #docs-probe-the-amended-rung-across-a-restart
 [12]: /notes/forks-multi-user.md
