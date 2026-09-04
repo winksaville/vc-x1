@@ -50,22 +50,25 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
 - The `feat: the status and agent-files commands` cycle, landed 2026-09-02 with no rewrite, the
   clean case.
 - One line from each rung of both, so the two runs compare key by key.
-- The decisions: whether the trailer is load-bearing or convenience, and what a transcript-write
+- The decisions: whether the trailer is load-bearing or convenience, and what the `lookup`
   command needs.
 
 #### Acceptance check
 
 - For every rung of both cycles, one line the agent wrote resolves through blame, the partner,
   and a text search of the partner's time-window to its transcript write.
-- The `notes/` file records each probe's outcome, the trailer's role, and the transcript-write
-  command's requirements.
+- The `notes/` file records each probe's outcome, the trailer's role, and the `lookup` command's
+  requirements.
 
 #### Ladder
 
 - [docs: check the transcript join on two landed trapezoids opening][1] (done)
 - [docs: probe the proposal cycle's transcript writes][2] (done)
 - [docs: probe the status cycle's transcript writes][3] (done)
-- [docs: write the transcript-write findings and the command's needs][4]
+- [docs: amend the status probe rung's tables][6] (done)
+- [docs: probe the amended rung across a restart][7]
+- [docs: redo the ladder's descriptions under the agreed words][8]
+- [docs: write the lookup findings and the command's needs][4]
 - [docs: check the transcript join on two landed trapezoids closing][5]
 
 #### Deliberation
@@ -87,11 +90,34 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
   lookup behind a one-key database word, and "pair" named the set rather than the member. The
   words are partner, the commit a trailer names, with adjectives for its states, candidate and
   predecessor, time-window, the transcript lines a partner appended, and transcript write, the tool
-  call that wrote the line, cited by its timestamp. The command is named by what it returns,
-  `transcript-write`, as `blame` is, so the procedure needs no noun
+  call that wrote the line, cited by its timestamp. The command was first named by what it
+  returns, `transcript-write`, and renamed below
+  - the procedure is the work-to-transcript lookup (wink, 2026-09-03), named after the status
+    probe rung: a name with no party in it was found nebulous, and this one carries both ends and
+    the direction. The reverse is the transcript-to-work lookup
+  - the objective both serve, put plainly at the amend rung's review (wink, 2026-09-03): point at
+    a line in either repo and see the relevant lines in the other, every work line resolving to a
+    window of transcript lines and every transcript line to a window of work lines. The notes
+    file's Objective section holds it, and the findings rung states the command's needs in both
+    directions
+  - the command is `vc-x1 lookup [SCOPE] FILE:LINE` (wink, 2026-09-03), one command for both
+    directions: `SCOPE` is the side the line is on, `work` or `agent` in `status`'s keywords,
+    inferred from the path when omitted, and `FILE:LINE` is the form editors and compilers print.
+    `transcript-write` as a name said what the command returned and not what it did
   - the cycle title keeps "join": the opening's commit title is pushed and carries it, and a
     re-describe of a pushed commit is the thing this cycle probes. The notes file says the title
     predates the words
+- three experiments as explicit rungs (wink, 2026-09-03), inserted after the status probe rung: a
+  content amend of a pushed rung, a restart between rungs, and a re-describe of every rung. Each
+  is a rewrite the probes had met only by happenstance, the diff rung's amend and the proposal
+  opening's re-describe, and a rung gives each a title, a review point, and predictions written
+  before the run. A transcript write can be probed only after the push that captures it, so each
+  rung makes its writes and the rung after probes them
+  - the re-describe is the lighter form, titles and bodies only: swapping the words in each
+    rung's content would squash edits into commits every later rung also touched, and the
+    conflicts would cost more than the case is worth. The content swap waits for the findings rung
+  - the cycle title changes at the redo, so the deliberation's earlier bullet, that the title
+    keeps "join", holds until then
 
 #### Ladder details
 
@@ -142,13 +168,64 @@ The status commands cycle landed with no rewrite, so it is the clean case.
 - The transcript writes were all Bash calls, so a Bash write classifier is the one that matters
   here.
 
-##### docs: write the transcript-write findings and the command's needs
+##### docs: amend the status probe rung's tables
+
+A content amend of a pushed rung is the rewrite the diff rung met by accident, and no line has
+been probed for it. The status probe rung's tables have a review fix pending, which is the amend.
+
+- The fix: the trailer column becomes `ochid:` cross-linked, defined once before each table, the
+  committer time splits into a work column and a partner column, and every time and id sits in a
+  code span so the digits align.
+- The fix is squashed into the status probe rung, and this rung's push force-publishes the
+  rewritten bookmark. The predictions, for the probe rung after the restart:
+  - blame gives the status probe rung, which still owns the line under its change id
+  - the trailer still finds the partner, unchanged, since the amend keeps the description
+  - the partner's time-window does not hold the transcript write: the write is this session's,
+    and this rung's push folds it into this rung's partner, one time-window later
+  - the work commit's committer time is the amend's, so the push-call key fails for it
+- Done at 17:35:22 local: the fix squashed into the status probe rung by `jj squash --into` with
+  the destination's message kept, the rung after it rebased, and the bookmark moved locally with
+  the remote still on the old line until this rung's push.
+- The user restarts the agent after this rung's push, which is the next rung's experiment.
+
+##### docs: probe the amended rung across a restart
+
+A restart between rungs starts a new session file, so the next partner's diff touches two
+transcript files, and no probe has crossed that seam.
+
+- Probe a fixed table line from the amended rung against the predictions above, and record the
+  outcome.
+- This rung's own edits are the restart's writes, made in the new session file, and its push
+  captures the old session's tail and the new file together. Predictions, for the findings rung:
+  - the partner's diff lists two files, the old session's tail and the new session's head
+  - the transcript write of a line this rung writes is in the new file
+  - the continuation notes and the acquaint read leave lines the lookup has to pass over, and
+    nothing else
+
+##### docs: redo the ladder's descriptions under the agreed words
+
+Every rung's title and body carry the retired words, "join" above all, and a re-describe of every
+pushed rung is the full-rewrite case the proposal cycle's opening showed once.
+
+- Re-describe each rung under coordination, keeping every `ochid:` trailer, titles and bodies
+  only. The cycle title becomes its agreed form, the bookmark takes the new slug, the old one is
+  deleted remotely, and the push force-publishes the rewritten line. Predictions, for the findings
+  rung:
+  - every trailer still resolves, since the change ids do not move
+  - every work committer time moves to the redo, so the push-call key fails for every rung
+  - every rung's title differs from its partner's, since the agent-repo's commits are published on
+    `main` and are not rewritten
+  - the transcript writes stay in their old time-windows, and only the redo's own edits land in
+    this rung's partner
+
+##### docs: write the lookup findings and the command's needs
 
 The probes' outcomes say which key finds the partner, and the decisions are not yet written.
 
-- Write the two decisions, the trailer's role and what a transcript-write command needs, into
+- Write the two decisions, the trailer's role and what the `lookup` command needs, into
   the `notes/` file beside the probes.
-- Give the command a `## Todo` entry if the findings call for one.
+- Complete the command's `## Todo` entry, **vc-x1 lookup resolves a line in either repo to a
+  window in the other**, added at the amend rung with the requirements known then.
 - Carry two findings from 2026-09-01 into the same file:
   - the transcript is the timeline: its lines are appended with their own timestamps, the push
     calls among them, so the agent-repo is durable storage for the file and its commit structure
@@ -195,6 +272,34 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### vc-x1 lookup resolves a line in either repo to a window in the other
+
+(wink, 2026-09-03) The objective, put plainly at the **docs: check the transcript join on two
+landed trapezoids** cycle: point at a line in either repo and see the relevant lines in the
+other. `vc-x1 lookup [SCOPE] FILE:LINE`, `SCOPE` the side the line is on in `status`'s keywords,
+`work` or `agent`, inferred from the path when omitted, `FILE:LINE` as editors and compilers
+print it, and the output the window on the other side. The design is in
+[notes/transcript-write.md](notes/transcript-write.md), whose Objective and Terms sections are
+the spec, and the cycle's findings rung completes this entry's requirements. What the probes have
+established so far, one requirement per bullet:
+
+- Blame by `jj file annotate`, on a tree that still holds the line, the landmark for a
+  cycle-record line.
+- The partner by the `ochid:` trailer, never by time: the trailer resolved every rung probed, in
+  both directions, through every rewrite, and time matched one rung of eleven.
+- The partner's time-window from its diff of the session files, which can be two files across a
+  restart, and its predecessor from `jj evolog` when the push-time stamp is wanted, since At
+  rest's squash-push amends every partner.
+- The transcript write by a search backwards through the session's timeline from the partner's
+  push, not the time-window alone, since a stashed or moved line was written a time-window or a
+  cycle earlier, and by `diff_lines(substring:...)` across history when the line's text predates
+  the blame.
+- A write classifier for Bash calls, by what the command writes, since every transcript write
+  found in this project was a python edit or a heredoc and none a `Write` or `Edit` call, and a
+  push-call matcher that accepts both `vc-x1` and `vc-x1-dev`.
+- The reverse direction from a transcript line: the agent-repo commit whose diff holds it, its
+  trailers' work commits, their diffs as the window, narrowed to one file for a transcript write.
 
 ### Continuation notes leave the work-repo dirty after Land
 
@@ -952,6 +1057,9 @@ _See [bugs.md](notes/bugs.md)._
 [1]: #docs-check-the-transcript-join-on-two-landed-trapezoids-opening
 [2]: #docs-probe-the-proposal-cycles-transcript-writes
 [3]: #docs-probe-the-status-cycles-transcript-writes
-[4]: #docs-write-the-transcript-write-findings-and-the-commands-needs
+[4]: #docs-write-the-lookup-findings-and-the-commands-needs
 [5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
+[6]: #docs-amend-the-status-probe-rungs-tables
+[7]: #docs-probe-the-amended-rung-across-a-restart
+[8]: #docs-redo-the-ladders-descriptions-under-the-agreed-words
 [12]: /notes/forks-multi-user.md

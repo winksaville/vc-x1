@@ -8,6 +8,26 @@ and means the agent-repo transcript associated with two work-repo cycles, the tw
 transcripts for short. The probes chose lines from code, a doc comment, agent-data, notes,
 and the cycle-record.
 
+## Objective
+
+Point at a line in either repo and see the relevant lines in the other (wink, 2026-09-03, the
+first time it was put plainly). Two lookups, one structure:
+
+- Work-to-transcript: a line in any work-repo file resolves to a window of lines in the agent-repo
+  transcript, its partner's time-window or an earlier one, with the transcript write pinning a
+  point inside it.
+- Transcript-to-work: a line in the transcript resolves to a window of lines in the work-repo, the
+  diff of the work commits the same push made, narrowed to one file when the line is a transcript
+  write and the whole diff when it is discussion.
+
+The command is one, `vc-x1 lookup [SCOPE] FILE:LINE`: `SCOPE` is the side the line is on, `work`
+or `agent` as `status` spells them, inferred from the path when omitted, and the output is the
+window on the other side. `FILE:LINE` is the form editors, compilers, and grep print, so a line
+can be pasted from any of them.
+
+Whether every line resolves is what the probes test, and the stash pattern is the known hole in
+both directions, with a text search across history, jj's `diff_lines()`, the known patch.
+
 ## Terms
 
 - **Partner**: the commit on the other side that an `ochid:` trailer names. A work-repo commit has
@@ -30,8 +50,8 @@ and the cycle-record.
 
 Three steps, each with its key.
 
-- Blame: `git blame` on a tree that still holds the line gives the work-repo commit the change
-  landed in. A cycle-record line lives only in the landmark's tree once the next opening deletes
+- Blame: `jj file annotate` on a tree that still holds the line gives the work-repo commit the
+  change landed in, as `git blame` does. A cycle-record line lives only in the landmark's tree once the next opening deletes
   `## Closed`, so blame runs at the landmark for those.
 - Partner: the commit's `ochid:` trailer names the agent-repo change id, and that commit's diff of
   the session's `.jsonl` is its time-window.
@@ -153,8 +173,10 @@ Findings, one per bullet.
   recurs: the proposal cycle's docs rung, this cycle's config rung.
 - Blame reports where the line arrived, not where its text was first written. Every move
   detection flag, `-M`, `-M -C`, `-w -M -M`, still blamed the moved Todo line to this cycle's
-  opening. `git log -S` with the line's text finds the first commit carrying it, in either repo,
-  and is the step that reaches back past a move.
+  opening. A search of history for the line's text finds the first commit carrying it, in either
+  repo, and is the step that reaches back past a move: `jj log -r 'diff_lines(substring:"...")'`,
+  newest first, so the last entry is the first appearance, and `git log -S` agrees. The bare
+  pattern is a glob, so the kind must be explicit, and `diff_contains` is the deprecated name.
 - Every transcript write found was a Bash call, a python edit or a heredoc, and none was a `Write`
   or `Edit` call. The classifier for a Bash call, by what its command writes, is the one that
   matters in this project.
