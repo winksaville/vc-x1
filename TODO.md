@@ -67,7 +67,7 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
 - [docs: probe the status cycle's transcript writes][3] (done)
 - [docs: amend the status probe rung's tables][6] (done)
 - [docs: probe the amended rung across a restart][7] (done)
-- [docs: write the lookup findings and the command's needs][4]
+- [docs: the lookup findings and the command's needs][4] (done)
 - [docs: check the transcript join on two landed trapezoids closing][5]
 
 #### Deliberation
@@ -240,25 +240,29 @@ transcript files, and no probe has crossed that seam.
   work](AGENTS.md#unplanned-work). The entry carries the design, the two rejected keys, and wink's
   reading that the instructions may simply be too complex.
 
-##### docs: write the lookup findings and the command's needs
+##### docs: the lookup findings and the command's needs
 
-The probes' outcomes say which key finds the partner, and the decisions are not yet written.
+The probes' outcomes said which key finds the partner, and the decisions were not yet written.
 
-- Write the two decisions, the trailer's role and what the `lookup` command needs, into
-  the `notes/` file beside the probes.
-- Complete the command's `## Todo` entry, **vc-x1 lookup resolves a line in either repo to a
-  window in the other**, added at the amend rung with the requirements known then.
-- Carry two findings from 2026-09-01 into the same file:
-  - the transcript is the timeline: its lines are appended with their own timestamps, the push
-    calls among them, so the agent-repo is durable storage for the file and its commit structure
-    carries no part of the lookup
-    - attachment and queue lines land a millisecond or two before the message they belong to, 11
-      backward steps in one session, so a search sorts by timestamp or reads message lines only
-    - a partner's time-window ends just before its own push call, which lands in the next
-      time-window
-  - compaction appends rather than rewrites: ten earlier sessions each hold a `user` line flagged
-    `isCompactSummary` mid-file with every earlier line intact, so no tool call is lost, and only
-    the reasoning before a post-compaction call may survive as summary alone
+- The two decisions go into [notes/transcript-write.md](notes/transcript-write.md): the `ochid:`
+  trailer is load-bearing rather than a convenience, and the `lookup` command's requirements are
+  stated for both directions in their one home.
+- The two findings from 2026-09-01 are carried into the same file as **The transcript is the
+  timeline**, compaction's append-only behaviour among them, placed ahead of the procedure so the
+  structural facts precede the steps that rely on them.
+- This cycle's own rewrites get a probe section beside the two landed cycles', so the evidence
+  reads as three cycles rather than two plus a cycle-record.
+- The procedure's search step gains the forward case, the one requirement the two landed cycles did
+  not produce.
+- The `## Todo` entry trades its copy of the requirements for a pointer, since a second copy
+  drifts, and keeps what the probes did not answer, the output's shape.
+- The restart rung's two remaining predictions are confirmed here, after the push that captured
+  them: its partner spans both session files, and the probed line's write is in the new one.
+- The requirements name jj-lib rather than the `jj` binary (wink, 2026-09-03, at this rung's
+  review), which the codebase already does everywhere but the version gate. jj-lib 0.44.0 carries
+  all three steps: `FileAnnotator` for blame, with a line's origin line number the CLI does not
+  print, the `diff_lines` revset for the reach back past a move, and `evolution` for the
+  predecessor partner. The by-hand section keeps its commands and says that is what they are.
 
 ##### docs: check the transcript join on two landed trapezoids closing
 
@@ -301,30 +305,16 @@ Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 landed trapezoids** cycle: point at a line in either repo and see the relevant lines in the
 other. `vc-x1 lookup [SCOPE] FILE:LINE`, `SCOPE` the side the line is on in `status`'s keywords,
 `work` or `agent`, inferred from the path when omitted, `FILE:LINE` as editors and compilers
-print it, and the output the window on the other side. The design is in
-[notes/transcript-write.md](notes/transcript-write.md), whose Objective and Terms sections are
-the spec, and the cycle's findings rung completes this entry's requirements. What the probes have
-established so far, one requirement per bullet:
+print it, and the output the window on the other side.
 
-- Blame by `jj file annotate`, on a tree that still holds the line, the landmark for a
-  cycle-record line.
-- The partner by the `ochid:` trailer, never by time: the trailer resolved every rung probed, in
-  both directions, through every rewrite, and time matched one rung of eleven.
-- The partner's time-window from its diff of the session files, which can be two files across a
-  restart, and its predecessor from `jj evolog` when the push-time stamp is wanted, since At
-  rest's squash-push amends every partner.
-- The transcript write by a search backwards through the session's timeline from the partner's
-  push, not the time-window alone, since a stashed or moved line was written a time-window or a
-  cycle earlier, and by `diff_lines(substring:...)` across history when the line's text predates
-  the blame.
-- A write classifier for Bash calls, by what the command writes, since every transcript write
-  found in this project was a python edit or a heredoc and none a `Write` or `Edit` call, and a
-  push-call matcher that accepts both `vc-x1` and `vc-x1-dev`.
-- The reverse direction from a transcript line: the agent-repo commit whose diff holds it, its
-  trailers' work commits, their diffs as the window, narrowed to one file for a transcript write.
-- A search forward of the partner as well as backwards when the work commit carries a content
-  amend, since the amend's write lands in the partner of the rung that made it, later than the
-  amended rung's own window, and the work committer time names the amend's tool call there.
+- The requirements are settled and live in [What the lookup command
+  needs](notes/transcript-write.md#what-the-lookup-command-needs), their one home, with the
+  Objective and Terms sections above them as the spec and three cycles of probes below them as the
+  evidence. This entry points there rather than carrying a second copy that can drift.
+- The `ochid:` trailer is load-bearing, so the command resolves a partner by the trailer and treats
+  a commit without one as the degraded case, naming candidates rather than guessing.
+- Open, and not answered by the probes: the output's shape, whether a window prints as a line range,
+  a rendered transcript excerpt, or a session-viewer link, and what an unresolvable line prints.
 
 ### Continuation notes leave the work-repo dirty after Land
 
@@ -1138,7 +1128,7 @@ _See [bugs.md](notes/bugs.md)._
 [1]: #docs-check-the-transcript-join-on-two-landed-trapezoids-opening
 [2]: #docs-probe-the-proposal-cycles-transcript-writes
 [3]: #docs-probe-the-status-cycles-transcript-writes
-[4]: #docs-write-the-lookup-findings-and-the-commands-needs
+[4]: #docs-the-lookup-findings-and-the-commands-needs
 [5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
 [6]: #docs-amend-the-status-probe-rungs-tables
 [7]: #docs-probe-the-amended-rung-across-a-restart

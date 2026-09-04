@@ -46,18 +46,98 @@ both directions, with a text search across history, jj's `diff_lines()`, the kno
   by its timestamp, since transcript entries carry no other id. The discussion is the turns around
   it.
 
+## The transcript is the timeline
+
+The agent-repo's `.jsonl` files are the record, and its commits only cut them into windows
+(2026-09-01, confirmed by every probe since). The repo provides durable storage and a window's
+bounds, and no other part of the lookup reads its commit structure.
+
+- Lines are appended with their own timestamps, the push calls among them, so a window is a span of
+  lines and a partner is what names its ends.
+- Attachment and queue lines land a millisecond or two before the message they belong to, 11
+  backward steps in one session, so a search sorts by timestamp or reads message lines only.
+- A partner's time-window ends just before its own push call, which lands in the next window.
+- Compaction appends rather than rewrites: ten earlier sessions each hold a `user` line flagged
+  `isCompactSummary` mid-file with every earlier line intact, so no tool call is lost. Only the
+  reasoning before a post-compaction call may survive as summary alone.
+- A restart starts a new session file, so one window can span two of them. This cycle's restart
+  rung's partner appended 38 lines to the old session and 469 to the new.
+
 ## Finding a line's transcript write
 
-Three steps, each with its key.
+Three steps, each with its key. The commands here are the by-hand form, what the probes ran and
+what a reader can run today. The command implements the same three steps against jj-lib, per [What
+the lookup command needs](#what-the-lookup-command-needs).
 
 - Blame: `jj file annotate` on a tree that still holds the line gives the work-repo commit the
-  change landed in, as `git blame` does. A cycle-record line lives only in the landmark's tree once the next opening deletes
-  `## Closed`, so blame runs at the landmark for those.
+  change landed in, as `git blame` does. A cycle-record line lives only in the landmark's tree once
+  the next opening deletes `## Closed`, so blame runs at the landmark for those.
 - Partner: the commit's `ochid:` trailer names the agent-repo change id, and that commit's diff of
   the session's `.jsonl` is its time-window.
-- Search: a text search for the line, backwards from the partner's push through the session's
-  timeline, finds the entries that carry it, and the first one that writes the line's file is the
-  transcript write.
+- Search: a text search for the line through the session's timeline finds the entries that carry
+  it, and the one that writes the line's file is the transcript write. Backwards from the partner's
+  push reaches a line written earlier and stashed. Forwards past it reaches a line the work commit
+  gained by a later content amend, whose write is in the amending rung's partner.
+
+## The trailer's role
+
+The `ochid:` trailer is load-bearing, not a convenience (decided 2026-09-03, on twelve rungs across
+three cycles). Without it a lookup degrades from an answer to a list of candidates.
+
+- It resolved the partner for every rung probed, in both directions, through a re-describe, a
+  rebase, a content amend, a trapezoid reshape, and At rest's re-amend of a published partner. jj's
+  change id is what survives every rewrite, and the trailer names the change id.
+- Time never replaced it. Time found the partner for one rung of twelve, and both sides move: the
+  work side on a re-describe, a rebase, or an amend, the agent side on every At rest squash-push.
+- So a commit with no trailer is the degraded case rather than the normal one, and `lookup` says so
+  instead of guessing: a tolerance gives candidate partners, and the command names them all.
+
+## What the lookup command needs
+
+`vc-x1 lookup [SCOPE] FILE:LINE`, the requirements the probes settled (2026-09-03). This section is
+their one home, and the `## Todo` entry points here rather than restating them. The split below is
+also the build's: jj-lib serves the version-control half of both directions, and the transcript
+half is ours to write.
+
+- jj-lib, not the `jj` binary (wink, 2026-09-03). vc-x1 links jj-lib already, and the [jj version
+  coupling policy](jj-version-policy.md) is what makes that safe. Shelling out is reserved for
+  reading the user's own binary, which is `version.rs`'s job and no one else's. jj-lib 0.44.0
+  carries every version-control step both directions need:
+  - blame by `FileAnnotator::from_commit`, whose `FileAnnotation::line_origins()` gives a
+    `LineOrigin` per line, the commit id and the line's number at its origin, so the command gets
+    more than `jj file annotate` prints. Its initializer is async. It runs on a tree that still
+    holds the line, which for a cycle-record line is the landmark, since the next opening deletes
+    `## Closed`
+  - the reach back past a move by the `diff_lines(substring:"...")` revset, read newest first,
+    since blame reports where a line arrived whatever its move flags are set to. The kind must be
+    explicit, a bare pattern being a glob, and `diff_contains` is the deprecated alias jj-lib
+    still maps to it
+  - a commit from a change id, which is how an `ochid:` trailer resolves to its partner, and a
+    commit's diff, which is what bounds a window on either side
+  - the predecessor partner from the `evolution` module, wanted whenever the push-time stamp is,
+    since At rest's squash-push amends every partner and git keeps no predecessors
+
+Work-to-transcript, on top of those:
+
+- The partner by the `ochid:` trailer, never by time.
+- The window from the partner's diff of the session files, which is two files across a restart.
+- The search over the session's timeline, backwards from the partner's push for a stashed line and
+  forwards past it for a line a later amend brought in, not over the window alone.
+- A write classifier: `Write` and `Edit` by name, a Bash call by what its command writes. Every
+  transcript write found in this project was a Bash python edit or heredoc. A hit that is assistant
+  text, a tool result, or a push call quoting the line is not the write.
+
+Transcript-to-work, the same capabilities run the other way:
+
+- The agent-repo commit whose diff holds the line, found by the line's number in its session file.
+- That commit's `ochid:` trailers, which name every work commit the same push published.
+- Those commits' diffs as the window, narrowed to one file when the line is a transcript write and
+  taken whole when it is discussion.
+
+Both directions:
+
+- A push-call matcher accepting `vc-x1` and `vc-x1-dev`, since the artifact carries the dev name
+  while a cycle runs.
 
 ## Probes: the proposal cycle, 2026-09-03
 
@@ -183,3 +263,36 @@ Findings, one per bullet.
 - The push call is `vc-x1-dev push` while a cycle runs, so a search for push calls matches both
   names. The diff rung's time-window holds one, and then the `jj git push` that re-published the
   amended commit.
+
+## Probes: this cycle's own rewrites, 2026-09-03
+
+The two cycles above were landed before they were probed. This cycle then made its own rewrites as
+explicit rungs, each with its predictions written before the run, so an amend and a restart could be
+probed rather than met by accident. The third experiment, a re-describe of every rung, was deferred
+to a `## Todo` entry once the two landed cycles had evidenced its predictions.
+
+The amend: a review fix to the status probe rung's tables was squashed into that pushed rung, and
+the line probed is a fixed table header.
+
+- Blame at the bookmark tip still gives the amended rung, `oqylllmy`, now stamped with the amend's
+  time, `17:35:22`. The change id and the line's ownership survive.
+- The trailer is untouched, so the partner is still `lurssvuqkmkk` / `89a03bb4`, whose window,
+  `14:28:16` to `16:40:55`, does not hold the write.
+- The write is a Bash call at `17:35:09`, held by the partner of the rung that made the amend,
+  `wuosxztlklms` / `f85167ba`. An amend moves the write forward of the amended rung's own window, so
+  a search running only backwards from the partner's push cannot reach it. This is the one
+  requirement the two landed cycles did not produce.
+- The work committer time fails as a push-call index, its partner having been pushed 51 minutes
+  earlier, and instead names the `jj squash` call that made the amend, 13 seconds after the write.
+  An amend made in session still lands in the timeline, at a different kind of call.
+- `jj evolog` on the partner still holds the predecessor stamped `18:38:06`, the amend rung's work
+  committer time to the second, so At rest's re-amend hides the push time rather than losing it.
+
+The restart: the agent was restarted between rungs, so the next partner spans two session files.
+
+- The partner appended 38 lines to the old session's tail and 469 to the new session's head, and its
+  window is the two spans read as one timeline.
+- A line that rung wrote resolves to a Bash call at `19:34:38` in the new file, its only hit
+  anywhere.
+- The acquaint read and the rung's own probes leave hits that are reads rather than writes, a grep,
+  a sed, and a blame, all carrying the probed line's text. The classifier is what passes over them.
