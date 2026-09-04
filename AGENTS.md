@@ -50,11 +50,19 @@ not when following one.
 
 Two separate jj-git colocated repos ([jj.md](agent-data/jj.md)):
 
-1. Work-repo: the project root, `.`, holding the project's work product.
-2. Agent-repo: the agent's session data, in the directory `.vc-config.md`'s `[repos] agent`
-   names ([.vc-config.md](agent-data/jj.md#vc-configmd)), written `<agent-dir>` wherever a
-   command below needs it, reached by Claude Code through a symlink at
-   `~/.claude/projects/<mangled-project-path>` (`vc-x1 symlink` creates it).
+Each side is located by a `.vc-config.md`, never by the current directory
+([.vc-config.md](agent-data/jj.md#vc-configmd)). The root is found by walking up from wherever a
+command runs to the nearest such file, whose `[repos] work`, resolved against that file's own
+directory, is the work-repo. A walk reaching the agent-repo's config first still lands on the
+work-repo, since that copy's `work` points there, so neither side need be nested in the other.
+
+1. Work-repo: the project's work product, in the directory the work-repo's `.vc-config.md`
+   declares as `[repos] work`, which is that file's own directory and the workspace root.
+2. Agent-repo: the agent's session data, in the directory the work-repo's `.vc-config.md`
+   declares as `[repos] agent`, the agent-side copy of that key naming itself and so answering
+   a different question. Written `<agent-dir>` wherever a command below needs it, and reached
+   by Claude Code through a symlink at `~/.claude/projects/<mangled-project-path>`, which
+   `vc-x1 init` creates for a dual workspace and `vc-x1 symlink` creates on demand.
 
 ## Rules
 

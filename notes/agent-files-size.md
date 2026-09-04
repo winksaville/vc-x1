@@ -27,22 +27,23 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-09-01 | agent-files(proposal): v0.1.0 | 10 | 2230 | the set's version and its rationale, titles by version, the empty version file uncounted |
 | 2026-09-04 | agent-files(adoption): v0.2.0 | 10 | 2231 | iiac-perf's set verbatim: `## Closed` last in the Todo format list, `# References` named, the re-pack parenthetical dropped |
 | 2026-09-04 | agent-files(proposal): v0.2.1 | 10 | 2238 | the agent-repo's directory comes from `.vc-config.md` at six sites, and the `ochid:` trailer's `/.claude` says at first use that it is a label and not one |
+| 2026-09-04 | agent-files(proposal): v0.2.2 | 10 | 2255 | iiac-perf's notes on v0.2.1 plus wink's: the citation names the work-repo's config, the label rule keeps one home, the `[repos]` specimen says which cell the project chooses, and the `ochid:` prefix names a side rather than a path, and both repos are located by the `[repos]` entry that resolves home rather than by a literal directory |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
 landings before the set was versioned relative to the first version (`- v0.1.0` one before it,
 `-- v0.1.0` two before), and a landed local change carries a `-trailer` version.
 
-| File | v0.2.1 | v0.2.0 | v0.1.0 |
+| File | v0.2.2 | v0.2.1 | v0.2.0 |
 |---|---:|---:|---:|
-| AGENTS.md | 371 | 369 | 369 |
+| AGENTS.md | 379 | 371 | 369 |
 | custom.md | 12 | 12 | 12 |
 | agent-data/code.md | 92 | 92 | 92 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 76 | 76 | 76 |
-| agent-data/jj.md | 381 | 376 | 376 |
-| agent-data/notes.md | 171 | 171 | 170 |
+| agent-data/jj.md | 390 | 381 | 376 |
+| agent-data/notes.md | 171 | 171 | 171 |
 | agent-data/prose.md | 401 | 401 | 401 |
 | agent-data/rationale.md | 488 | 488 | 488 |
 | agent-data/versioning.md | 204 | 204 | 204 |
-| total | 2238 | 2231 | 2230 |
+| total | 2255 | 2238 | 2231 |

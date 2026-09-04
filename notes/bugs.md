@@ -342,4 +342,21 @@ insert / delete / reorder.
       user config's to state. Rides "Drop the global config and the account notion", which
       deletes that chain, with #10 and #11.
 
+15. **`validate-anchors` mis-slugs a heading holding a code span.** GitHub strips the backticks
+    and keeps the text, so `### Support POR workspaces in \`push\`` anchors at
+    `#support-por-workspaces-in-push`, which is what
+    [Markdown anchor links](../agent-data/notes.md#markdown-anchor-links) documents. The command
+    drops a trailing span outright, offering `#support-por-workspaces-in`, and turns an interior
+    one into a hyphen per character, so `### A workspace anchor, so \`[repos]\` is shareable`
+    is reported as `#a-workspace-anchor-so-----------is-shareable`.
+    - **Cost:** every correct link to such a heading is reported as a failure, so the command's
+      output is noise wherever headings name code, and a reader who trusts it edits a working
+      link into a broken one. `TODO.md` carried one such false warning long enough to be
+      dismissed as furniture, by this agent among others.
+    - **Reproduce:** a three-line file, one `##` heading ending in a code span and one link to
+      its GitHub anchor, run through `vc-x1 validate-anchors`.
+    - **Fix direction:** slug from the heading's rendered text, stripping the span's delimiters
+      and keeping its content, per the documented algorithm. The command is not in the
+      `[validate]` table, which is why the defect has survived.
+
 # References

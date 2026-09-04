@@ -883,6 +883,37 @@ collapses to an index into the session.
 - The template side already points this way: chores files are not seeded, and a new project's
   history is its own commits + agent session from day one.
 
+### A workspace anchor, so `[repos]` is shareable
+
+(wink, 2026-09-04) `[repos]` values resolve against the config file's own directory, which is why
+the two sides' blocks must differ in every entry, and why a `.vc-config.md` copied between repos
+carries values that are wrong in its new home. Define `workspace` as the offset from a config to
+the workspace root and anchor `[repos] work` and `[repos] agent` to that instead, so the table is
+shareable and only the one `workspace` line is per-clone. It also collapses two rules into one:
+root-finding (the nearest config's `[repos] work`) and side detection (the entry resolving to its
+own directory) are separate traversals over the same three values today, and four defects in
+**agent-files(proposal): v0.2.2** came from prose describing that pair and confusing it.
+
+- `workspace` must be readable with no other knowledge, since it is what tells a reader which side
+  it is on, so it cannot depend on side detection. We think that means it replaces `[repos] work`
+  rather than sitting beside it, keeping both being a way to keep both rules under new names.
+- Ship it with a `[repos] work` fallback as a migration window, converting all three family repos
+  in the same cycle, and delete the fallback in a second one. A fallback left standing makes three
+  rules where there were two, which is the surface the change exists to shrink.
+- The gain is not identical configs: a file has to know where it sits, so one line always differs.
+  The gain is that it is one named line and the rest of the table is shared.
+- Related: [ochid values may be URLs](#ochid-values-may-be-urls). An anchored `[repos]` would let a
+  trailer prefix be derived rather than the constant it is now.
+
+### ochid values may be URLs
+
+(wink, 2026-09-04) An `ochid:` is a side label and a chid, resolvable only inside the workspace
+that wrote it. Letting the value be a URL would let a commit point at a counterpart in a repo the
+reader holds no checkout of, which is what a family member reading another member's history
+needs. Surfaced at the **agent-files(proposal): v0.2.2** close-out, from wink's direction that it
+is coming soon, and that cycle's wording was kept side-based rather than path-based so it does not
+have to be undone when it arrives.
+
 ## Bugs
 
 _See [bugs.md](notes/bugs.md)._
@@ -894,79 +925,141 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.2.1
+### agent-files(proposal): v0.2.2
 
 #### Problem
 
-The agent-files hardcode `.claude` as the agent-repo's directory, while `.vc-config.md`'s
-`[repos] agent` is what actually names it. This repo sets `agent = ".agent-session"`, so six
-passages name a directory that is not the agent-repo here: the dual-repo model's item 2, the
-`At rest` squash-push command, `jj.md`'s `jj st` and `jj log` examples, `push`'s recovery line,
-and `rationale.md`'s parenthetical gloss. A session that follows them literally gets `There is
-no jj repo in ".claude"`, which is what this session's acquaint got, and then misreads it as a
-sandbox artifact rather than a stale instruction.
+`agent-files(proposal): v0.2.1` made the agent-repo's directory a config lookup instead of a
+literal, and iiac-perf, having paused their own proposal and read our working copy before it
+landed, found two defects in the new text.
+
+- The citation names `.vc-config.md` without naming a side, and both sides carry a `[repos] agent`
+  key. The work-repo's names the agent directory; the agent-repo's says `agent = "."`, naming
+  itself, so read against the agent-side copy the sentence says the agent-repo is the directory
+  you are standing in, which is true and useless for finding it. It resolves correctly today only
+  because a session's cwd is the work-repo, an answer right by coincidence of where the reader
+  happens to stand.
+- The rung that said the `ochid:` trailer's `/.claude` is a label gave that fact a second home,
+  three hundred lines from the one `jj.md` already carried. A fact with two homes is what let
+  `.claude` go stale, so v0.2.1 introduced the defect class it existed to repair.
+
+wink then found a third, in the text v0.2.1 and v0.2.2 both inherited rather than wrote. The
+section calls an `ochid:` a "workspace-root-relative path" and opens "Paths start with `/`, the
+workspace root", which is false whenever the agent-repo sits outside that tree, as
+`../the-agent-session-repo` would. The source says so plainly: `OCHID_BOT_LABEL` is the constant
+`/.claude`, a test asserts a differently-named agent directory still gets it, and `find_root`
+notes the two sides need no nesting assumption. What actually picks the side is `is_bot_dir`,
+which reads a directory's own `.vc-config.md` and resolves `[repos] agent` against it. So the
+prose asserted a path where the config decides a side, which is this cycle's subject one level
+down.
+
+And a fourth, of the same family, found by wink in the passage v0.2.1 rewrote half of. The
+dual-repo model defined the work-repo as "the project root, `.`", which is a claim about the
+current directory that nothing supports: a session may start anywhere beneath the root, and
+`find_workspace_root_from` walks up to find it rather than assuming it. v0.2.1 made the agent
+side a config lookup and left the work side a literal, so the model asserted for one repo
+exactly what it had stopped asserting for the other. The first repair was wrong too: it defined
+the work-repo by the self-resolution rule, which is how a directory's *side* is detected, not how
+the root is *found*. Root-finding is the nearest config's `[repos] work`, and the walk may reach
+the agent-repo's config first and follow its `work` home, so the two rules are separate
+traversals over the same values and the model had them swapped.
 
 #### Solution
 
-Replace the hardcoded directory with `<agent-dir>`, a shorthand the dual-repo model defines as
-what `.vc-config.md`'s `[repos] agent` names, and point `jj.md`'s `[repos]` specimen at the same
-placeholder. Two families of `.claude` stay untouched, and the block says why so a later sweep
-does not take them: the `/.claude/` inside an `ochid:` trailer is a fixed per-side label resolved
-by side detection rather than a path, and `~/.claude/projects/...` is Claude Code's own
-directory, correct as written. The label's own first use called it "the agent sub-repo",
-which reads as a path, so it gains the sentence the `.vc-config.md` section already carried.
+Qualify the citation as **the work-repo's** `.vc-config.md`, in the dual-repo model and in
+`jj.md`'s lead sentence for the command list. Leave the label rule stated once, at the `ochid:`
+bullet where a reader first meets `/.claude` and forms the wrong reading, and turn the
+`.vc-config.md` section's closing sentence into a pointer to it. Add the clause iiac-perf's fourth
+note offers, that `<agent-dir>` is the only cell of the `[repos]` specimen the project chooses, so
+the placeholder does not read as a variable the reader is meant to resolve.
 
-`notes/agent-files-size.md` rides along, since the cycle edits it for its own row anyway: it takes
-iiac-perf's shape, landed at their `main` `8d0133a3`, whose per-file table is three set-version
-columns newest-left rather than a snapshot of the current counts, so which file moved between two
-versions is read from the file rather than from the commits.
+Restate the trailer's prefix from the code rather than from its shape: a side, not a location,
+`/` referring to the work-repo and `/.claude` to the agent-repo, with each repo's location the
+path the work-repo's `.vc-config.md` declares and the agent's free to be any reachable relative
+path, inside the work-repo's tree or outside it. The "path" framing goes with it, the label and
+the repo it refers to are kept distinct rather than equated, and the wording is side-based
+rather than path-based so that widening an `ochid:` value to a URL does not have to undo it.
+That widening is an `## Ideas` entry, not this cycle's work.
+
+Define the root the way `find_workspace_root_from` finds it, by the nearest `.vc-config.md`'s
+`[repos] work`, and say that the walk may reach either side's config. Side detection is not
+restated here, `jj.md`'s `ochid:` bullet being its one home, so the model carries the rule a
+reader of this file needs and no more. The two rules being separate at all is the subject of a
+new `## Ideas` entry, [A workspace anchor](#a-workspace-anchor-so-repos-is-shareable).
 
 #### Acceptance check
 
-`grep -rn '\.claude' AGENTS.md custom.md agent-data/` returns only the trailer labels
-(`jj.md` under `Cross-repo linking` and the side-label sentence) and Claude Code's own
-`~/.claude` paths (`AGENTS.md`'s dual-repo model and `No memory directory`); `ls agent-data`
-shows `agent-files-v0.2.1` and no `v0.2.0`; each column of the per-file table in
-`notes/agent-files-size.md` sums to its `total` row; `vc-x1 validate` passes.
+Every `[repos] agent` citation in `AGENTS.md` and `agent-data/jj.md` names the work-repo's copy;
+the label rule is stated once in `jj.md`, at the `ochid:` bullet, the `.vc-config.md` section
+holding a pointer; no text calls an `ochid:` a path or roots it at the workspace root; the
+`[repos]` specimen carries the only-cell-chosen clause; neither repo is defined by a literal
+directory, `grep -n 'project root' AGENTS.md agent-data/*.md` matching nothing; `ls agent-data` shows
+`agent-files-v0.2.2` and no `v0.2.1`; `vc-x1 validate` passes.
 
-- Result: pass, all four legs run before the push: the grep returns the two trailer-label groups
-  and the two `~/.claude` paths and nothing else, `ls agent-data` shows only `v0.2.1`, the three
-  columns sum to 2238, 2231 and 2230 against their `total` rows, and `vc-x1 validate` passes.
+- Result: pass, all six legs run before the push: both citations read "the work-repo's
+  `.vc-config.md` ... under `[repos] agent`", the label rule is stated once at the `ochid:`
+  bullet with the `.vc-config.md` section holding only a pointer, neither
+  `workspace-root-relative` nor `Paths start with` matches anywhere, the only-cell clause is
+  there, neither repo is defined by a literal directory, `ls agent-data` shows only `v0.2.2`,
+  and `vc-x1 validate` passes.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.1 (done)
+- agent-files(proposal): v0.2.2 (done)
 
 #### Deliberation
 
-- A correction, so it goes straight in and takes a patch on the set. `Payload read-only` admits a
-  factual error without a proposal, and `Which digit` gives a correction the patch digit, so the
-  set goes v0.2.0 -> v0.2.1 and the artifact 0.83.2 -> 0.83.3.
-  - It is still an outbound `proposal` scope: the family carries the same stale text, and this
-    repo is not the payload, so the diff is what iiac-perf and zc-ring-x1 adopt.
-- `<agent-dir>` rather than this repo's `.agent-session`. `Agent-files name no project` bars an
-  adopter's layout from universal text, and the literal path is the error being fixed, so writing
-  a second literal would only move it.
-  - The shorthand is defined once, in the dual-repo model, and `jj.md` gains a lead sentence for
-    the list that already uses `<repo>`, so the two placeholders read as a pair.
-- Two families are not errors and are named in the record so a later sweep leaves them. The trailer
-  labels are fixed by side detection, `jj.md` says so already, and changing them would break every
-  landed trailer's resolution. `~/.claude/projects/` is the harness's path, not ours.
-- Single-step. One idea applied at six sites, its documentation in the same commit, and the whole
-  diff is what the family reviews, so a ladder would hand them one correction in fragments.
-- The size file's shape folded in rather than deferred, wink's call. The cycle already writes a
-  row there, so a later cycle would have rewritten the same lines, and the two edits would have
-  met as a conflict in a file whose whole content is a table.
-  - It is not an agent-file, `custom.md` pointing only at the messages repo, so taking it is a
-    project change and leaves v0.2.1 a correction.
-  - It does not close `### Size is recorded only when an agent-file changed`. The intro sentence
-    the shape brought states the rule, but `AGENTS.md`'s close-out step 4 still asks every cycle
-    for a row, and making the two agree is a rule change at a minor bump. The entry is narrowed
-    to that half.
-- v0.2.1 stands beside iiac-perf's unlanded `v0.3.0`. Theirs is a working-copy draft with no
-  record sent, rewriting `notes.md`'s `## Reference numbering`, and ours touches `AGENTS.md`,
-  `jj.md` and `rationale.md`, so the two propose off the agreed `v0.2.0` without overlapping and
-  the maintainer orders them at convergence.
+- v0.2.2 taken though iiac-perf named it for their paused proposal, wink's call. Ours lands first
+  and takes the next number in order, so the payload advances without a gap, and they re-propose
+  under the next as the maintainer's tie-break already contemplates.
+  - The cost is a second renumber for them, their proposal having already moved from `v0.3.0` to
+    `v0.2.2`. The record says so plainly rather than leaving them to notice.
+- The `ochid:` bullet carries the label rule and the `.vc-config.md` section points at it, not the
+  reverse. The bullet is where `/.claude` is first seen and misread, and a reader who forms the
+  wrong impression there will not travel three hundred lines to have it corrected, while one
+  asking whether the trailer follows the registry is already looking the fact up and follows a
+  link happily.
+- iiac-perf's third note is not acted on. `<agent-dir>` is defined in both `AGENTS.md` and
+  `jj.md`, which is two homes by the same test the second defect fails, and it stays because an
+  agent-file is read on its own: a session reading `jj.md` before `AGENTS.md` would otherwise
+  meet an undefined placeholder. The label rule had no such excuse, both homes being one file.
+- The third defect was read out of the source, not out of `jj.md`, which is what found it. The
+  file's own account of the trailer was the thing under audit, so citing it would have confirmed
+  the error, and `is_bot_dir`, `OCHID_BOT_LABEL` and the test for a differently-named agent
+  directory answer the question the prose could not be trusted on.
+  - It also shows the fix's limit. v0.2.1 chased the literal `.claude` and left the sentence a
+    reader forms the wrong model from, since that sentence never spelled the directory.
+- Wording chosen against a stated future, wink's call: an `ochid:` value is to be allowed to be a
+  URL. So the bullets say what a prefix names rather than what shape a value has, and constrain
+  `[repos] agent` not at all, since the point of the entry is that the agent-repo may live
+  anywhere a relative path reaches.
+  - The bullet needed a second pass for the same reason the cycle exists. It first read
+    "`/.claude` is the agent-repo", equating a label with a directory in the sentence written to
+    stop that equation, and now says the label refers to the repo and the config gives the repo
+    its path. The habit of writing "X is Y" is what produces the defect, not any one sentence.
+- Side detection is not stated in `AGENTS.md` at all. It has a home in `jj.md`, a reader of the
+  dual-repo model needs the root-finding rule rather than the side test, and a second home is the
+  defect this cycle spent four fixes on.
+- Two rules over three values is the standing hazard, and the cycle documents it rather than
+  repairing it. Repairing it is a config-schema change with a migration, so it is an entry.
+- Patch, not minor, and iiac-perf raised it: v0.2.2 is the first text saying the agent-repo may
+  sit outside the work-repo's tree, so is that new permission? The widening, if any, happened at
+  v0.2.1, which dropped `<project>/.claude` and left no rule forbidding it, and the capability is
+  older still, `find_workspace_root_from` having always noted that the two sides need no nesting
+  assumption. Documenting the absence of a prohibition is a correction.
+  - Checked for self-service by running the same test on their proposal: does an adopter
+    following the old text violate the new one? For their `## Reference numbering` restatement,
+    no, which is the patch they had already called. The test does not bend toward us.
+- A `validate-anchors` defect surfaced while checking this block's own links and went to
+  `notes/bugs.md` as #15 rather than into the cycle. The command mis-slugs a heading holding a
+  code span, so it calls correct links broken, and `TODO.md` carried one such false warning long
+  enough that this agent dismissed it as pre-existing furniture before testing it. That is why
+  the acceptance check greps rather than leaning on the command.
+- Single-step, as v0.2.1 was. Five edits, one subject, and the family reviews the diff whole.
+  The subject grew twice under review, from two defects to four, and stayed one subject: every
+  one of them is prose asserting a location the config declares.
+- The finding arrived from a read of an uncommitted working copy, which no rule provides for and
+  which worked. Recorded as a fact about how this one went, not proposed as a practice.
 
 # References
 
