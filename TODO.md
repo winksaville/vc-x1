@@ -215,8 +215,12 @@ table and typing habits using them, and retire in a later cycle.
 line count in `notes/agent-files-size.md`, so a cycle that touched no agent-file adds a row saying
 so, which is a row that records nothing. Two such rows were added, by **feat: finish the vc-config
 surface** and **docs: propose the messages rules**, and the second cycle deleted both. Change the
-step to record the count only when the cycle changed an agent-file, and say the same in the
-file's own preamble. An agent-file change, so its own commit.
+step to record the count only when the cycle changed an agent-file. An agent-file change, so its
+own commit, and a rule change rather than a correction, so it takes a minor bump.
+
+- The notes-file half is done, by **agent-files(proposal): v0.2.1**, which took iiac-perf's shape
+  for the file and with it the preamble sentence stating the rule. What is left is `AGENTS.md`
+  agreeing with the file it points at.
 
 - zc-ring-x1's acceptance remark rides here (2026-08-31): the Size close-out step reads as
   vc-x1's habit and has no rationale entry, so this entry's cycle writes the missing rationale,
@@ -890,54 +894,79 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(adoption): v0.2.0
+### agent-files(proposal): v0.2.1
 
 #### Problem
 
-`## Closed` sat third in `TODO.md`, between `## In Progress` and `## Waiting`, so the last cycle's
-finished record, a few hundred lines when the cycle was long, stood between the acquaint read and
-the queue every reader scrolls to. wink moved the section to the end of the file by hand, and the
-Todo format list in [notes.md](agent-data/notes.md) then disagreed with the file.
+The agent-files hardcode `.claude` as the agent-repo's directory, while `.vc-config.md`'s
+`[repos] agent` is what actually names it. This repo sets `agent = ".agent-session"`, so six
+passages name a directory that is not the agent-repo here: the dual-repo model's item 2, the
+`At rest` squash-push command, `jj.md`'s `jj st` and `jj log` examples, `push`'s recovery line,
+and `rationale.md`'s parenthetical gloss. A session that follows them literally gets `There is
+no jj repo in ".claude"`, which is what this session's acquaint got, and then misreads it as a
+sandbox artifact rather than a stale instruction.
 
 #### Solution
 
-Adopt iiac-perf's `agent-files(proposal): v0.2.0`, landed at iiac-perf `main` `8d0133a3` and
-proposed by the record **2026-09-04T21:02:40.514Z Todo format's section order, proposed** in
-`../vc-x1-messages`: its `notes.md` copied verbatim, the version file renamed to `v0.2.0`, and this
-project's `TODO.md` order matching. The proposal moves `## Closed` below `## Bugs` in the Todo
-format list, adds `# References` to the list as the file's last section, and deletes the re-pack
-rule's parenthetical that restated the order.
+Replace the hardcoded directory with `<agent-dir>`, a shorthand the dual-repo model defines as
+what `.vc-config.md`'s `[repos] agent` names, and point `jj.md`'s `[repos]` specimen at the same
+placeholder. Two families of `.claude` stay untouched, and the block says why so a later sweep
+does not take them: the `/.claude/` inside an `ochid:` trailer is a fixed per-side label resolved
+by side detection rather than a path, and `~/.claude/projects/...` is Claude Code's own
+directory, correct as written. The label's own first use called it "the agent sub-repo",
+which reads as a path, so it gains the sentence the `.vc-config.md` section already carried.
+
+`notes/agent-files-size.md` rides along, since the cycle edits it for its own row anyway: it takes
+iiac-perf's shape, landed at their `main` `8d0133a3`, whose per-file table is three set-version
+columns newest-left rather than a snapshot of the current counts, so which file moved between two
+versions is read from the file rather than from the commits.
 
 #### Acceptance check
 
-`vc-x1 agent-files diff ../iiac-perf`, with that checkout on its `main` at `8d0133a3`, reports
-`0 of 10 differ`, `TODO.md`'s `## ` headings read Continuation notes, In Progress, Waiting, Todo,
-Ideas, Bugs, Closed, then `# References`, and `vc-x1 validate` passes.
+`grep -rn '\.claude' AGENTS.md custom.md agent-data/` returns only the trailer labels
+(`jj.md` under `Cross-repo linking` and the side-label sentence) and Claude Code's own
+`~/.claude` paths (`AGENTS.md`'s dual-repo model and `No memory directory`); `ls agent-data`
+shows `agent-files-v0.2.1` and no `v0.2.0`; each column of the per-file table in
+`notes/agent-files-size.md` sums to its `total` row; `vc-x1 validate` passes.
 
-- Result: pass, the diff run and the headings listed before the push.
+- Result: pass, all four legs run before the push: the grep returns the two trailer-label groups
+  and the two `~/.claude` paths and nothing else, `ls agent-data` shows only `v0.2.1`, the three
+  columns sum to 2238, 2231 and 2230 against their `total` rows, and `vc-x1 validate` passes.
 
 #### Ladder
 
-- agent-files(adoption): v0.2.0 (done)
+- agent-files(proposal): v0.2.1 (done)
 
 #### Deliberation
 
-- An adoption, not a parallel proposal. This cycle opened as `docs: Closed moves to the end of
-  TODO.md` with its own edits to `notes.md`, and iiac-perf made the same change the same day with
-  two better decisions: the re-pack parenthetical deleted rather than corrected, since it was a
-  second home for the order, and `# References` named in the list, which is the hole that let the
-  hand move put `## Closed` after it here. Two proposers on one number are settled by the
-  maintainer, so vc-x1 takes iiac-perf's set as the family's `v0.2.0` and the cycle re-titled
-  before its first push, the shape still being open.
-- The opening's step 3 left dead definitions behind: the closed block's ladder links live in
-  `# References`, outside the block, so deleting the block orphaned `[1]`..`[7]`, and
-  `validate-anchors` would have said so but is not in the `[validate]` table. Deleted here, and
-  the rule gap is a `## Todo` entry, not an edit in an adoption.
-- The copy was made by hand, `git archive` of the landed commit into a scratch directory and
-  `cp`, before `vc-x1 agent-files copy` came to mind, and `copy` then refused the workspace as
-  one whose working copy already changes the set. The guard held and the check above is the
-  command's, so the result is what `copy` would have made. The next adoption starts with `copy`.
-- The size table takes a row, since an agent-file changed.
+- A correction, so it goes straight in and takes a patch on the set. `Payload read-only` admits a
+  factual error without a proposal, and `Which digit` gives a correction the patch digit, so the
+  set goes v0.2.0 -> v0.2.1 and the artifact 0.83.2 -> 0.83.3.
+  - It is still an outbound `proposal` scope: the family carries the same stale text, and this
+    repo is not the payload, so the diff is what iiac-perf and zc-ring-x1 adopt.
+- `<agent-dir>` rather than this repo's `.agent-session`. `Agent-files name no project` bars an
+  adopter's layout from universal text, and the literal path is the error being fixed, so writing
+  a second literal would only move it.
+  - The shorthand is defined once, in the dual-repo model, and `jj.md` gains a lead sentence for
+    the list that already uses `<repo>`, so the two placeholders read as a pair.
+- Two families are not errors and are named in the record so a later sweep leaves them. The trailer
+  labels are fixed by side detection, `jj.md` says so already, and changing them would break every
+  landed trailer's resolution. `~/.claude/projects/` is the harness's path, not ours.
+- Single-step. One idea applied at six sites, its documentation in the same commit, and the whole
+  diff is what the family reviews, so a ladder would hand them one correction in fragments.
+- The size file's shape folded in rather than deferred, wink's call. The cycle already writes a
+  row there, so a later cycle would have rewritten the same lines, and the two edits would have
+  met as a conflict in a file whose whole content is a table.
+  - It is not an agent-file, `custom.md` pointing only at the messages repo, so taking it is a
+    project change and leaves v0.2.1 a correction.
+  - It does not close `### Size is recorded only when an agent-file changed`. The intro sentence
+    the shape brought states the rule, but `AGENTS.md`'s close-out step 4 still asks every cycle
+    for a row, and making the two agree is a rule change at a minor bump. The entry is narrowed
+    to that half.
+- v0.2.1 stands beside iiac-perf's unlanded `v0.3.0`. Theirs is a working-copy draft with no
+  record sent, rewriting `notes.md`'s `## Reference numbering`, and ours touches `AGENTS.md`,
+  `jj.md` and `rationale.md`, so the two propose off the agreed `v0.2.0` without overlapping and
+  the maintainer orders them at convergence.
 
 # References
 

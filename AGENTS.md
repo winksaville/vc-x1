@@ -51,8 +51,10 @@ not when following one.
 Two separate jj-git colocated repos ([jj.md](agent-data/jj.md)):
 
 1. Work-repo: the project root, `.`, holding the project's work product.
-2. Agent-repo: `<project>/.claude`, the agent's session data, reached by Claude Code through a
-   symlink at `~/.claude/projects/<mangled-project-path>` (`vc-x1 symlink` creates it).
+2. Agent-repo: the agent's session data, in the directory `.vc-config.md`'s `[repos] agent`
+   names ([.vc-config.md](agent-data/jj.md#vc-configmd)), written `<agent-dir>` wherever a
+   command below needs it, reached by Claude Code through a symlink at
+   `~/.claude/projects/<mangled-project-path>` (`vc-x1 symlink` creates it).
 
 ## Rules
 
@@ -241,7 +243,7 @@ item's tail ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 1. The agent publishes: completing a step means issuing its publishing command. The agent says what
    is worth saying *before* the final publishing command, responds with the one word "Published",
    and does nothing further until the user speaks.
-2. The user squash-pushes: `vc-x1 squash-push -R .claude` whenever they want both repos fully
+2. The user squash-pushes: `vc-x1 squash-push -R <agent-dir>` whenever they want both repos fully
    pushed.
 
 "Clean" means both repos' `@` empty. A late work-repo tweak after the push is a remote rewrite and

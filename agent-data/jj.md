@@ -17,8 +17,12 @@ trailers) is expressed in jj terms.
 Reaching for `git` invites state that doesn't match the jj documentation here. There is no `jj mv`:
 to move/rename a tracked file, just `mv` it on disk and jj detects the rename by content.
 
-- `jj st -R .` / `jj st -R .claude`: show working copy status
-- `jj log -R .` / `jj log -R .claude`: show commit log
+Below, `<repo>` is either side's path and `<agent-dir>` the agent-repo's, which
+`.vc-config.md`'s `[repos] agent` names ([.vc-config.md](#vc-configmd)) rather than any fixed
+directory.
+
+- `jj st -R .` / `jj st -R <agent-dir>`: show working copy status
+- `jj log -R .` / `jj log -R <agent-dir>`: show commit log
 - `jj commit -m "title" -m "body" -R <repo>`: finalize working copy into a commit
 - `jj describe -m "title" -m "body" -R <repo>`: set description without committing
 - `jj git push --bookmark <name> -R <repo>`: push a bookmark (no `--allow-new` flag: jj pushes new
@@ -71,8 +75,9 @@ A **chid** is jj's change ID, a permanent identifier that survives rebases and `
 the commit ID / git SHA, which changes on rewrite). An **ochid** trailer carries the counterpart
 commit's chid as a workspace-root-relative path:
 
-- Paths start with `/`, the workspace root, i.e. the work-repo (the project root). `/.claude` is the
-  agent sub-repo.
+- Paths start with `/`, the workspace root, i.e. the work-repo (the project root). `/.claude`
+  labels the agent side, and is a fixed label rather than the agent-repo's directory, which
+  `.vc-config.md` names ([.vc-config.md](#vc-configmd)).
 - `ochid: /<chid>` references a change in the **work-repo**.
 - `ochid: /.claude/<chid>` references a change in the **agent-repo**.
 
@@ -111,7 +116,7 @@ repo's `main`. Three behaviors to keep in mind:
   bookmark's remote refs are tracked.
 - **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its work is
   already done, so a failed run is re-run, not resumed. If push exits after `push-work` but before
-  the agent-repo publish, `vc-x1 squash-push -R .claude` by hand is the rest of it.
+  the agent-repo publish, `vc-x1 squash-push -R <agent-dir>` by hand is the rest of it.
 - **`ochid:` trailers are stamped by push** ([No hand-written
   trailers](#cross-repo-linking-ochid-trailers)), never hand-written into `--title` or `--body`.
 - **The agent-repo is a linear journal.**
@@ -366,10 +371,10 @@ allowed, discouraged), so the two sides' blocks **differ**: the entry that resol
 own directory names its side, and the two sides must agree on the same resolved work/agent pair:
 
 ```toml
-# work side          # agent side
-[repos]              [repos]
-work = "."           work = ".."
-agent = ".claude"    agent = "."
+# work side              # agent side
+[repos]                  [repos]
+work = "."               work = ".."
+agent = "<agent-dir>"    agent = "."
 ```
 
 Ochid trailer prefixes are fixed per-side labels (`/` work, `/.claude` agent) resolved by side
