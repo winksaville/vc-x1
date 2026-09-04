@@ -66,8 +66,7 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
 - [docs: probe the proposal cycle's transcript writes][2] (done)
 - [docs: probe the status cycle's transcript writes][3] (done)
 - [docs: amend the status probe rung's tables][6] (done)
-- [docs: probe the amended rung across a restart][7]
-- [docs: redo the ladder's descriptions under the agreed words][8]
+- [docs: probe the amended rung across a restart][7] (done)
 - [docs: write the lookup findings and the command's needs][4]
 - [docs: check the transcript join on two landed trapezoids closing][5]
 
@@ -116,8 +115,13 @@ Re-run the probes on two landed cycles, and write the outcomes and the decisions
   - the re-describe is the lighter form, titles and bodies only: swapping the words in each
     rung's content would squash edits into commits every later rung also touched, and the
     conflicts would cost more than the case is worth. The content swap waits for the findings rung
-  - the cycle title changes at the redo, so the deliberation's earlier bullet, that the title
-    keeps "join", holds until then
+  - the re-describe is deferred to a `## Todo` entry (wink, 2026-09-03), so the ladder loses its
+    redo rung: the proposal cycle's re-described opening already evidences all four of its
+    predictions, and re-describing eight pushed commits, renaming the bookmark, and
+    force-publishing immediately before Land is the risk this cycle need not take for a
+    confirmation. The entry says so, for whoever ranks it
+  - the cycle title keeps "join" for good, since the redo that would have changed it is deferred,
+    and the notes file says the title predates the words
 
 #### Ladder details
 
@@ -201,22 +205,40 @@ transcript files, and no probe has crossed that seam.
   - the transcript write of a line this rung writes is in the new file
   - the continuation notes and the acquaint read leave lines the lookup has to pass over, and
     nothing else
-
-##### docs: redo the ladder's descriptions under the agreed words
-
-Every rung's title and body carry the retired words, "join" above all, and a re-describe of every
-pushed rung is the full-rewrite case the proposal cycle's opening showed once.
-
-- Re-describe each rung under coordination, keeping every `ochid:` trailer, titles and bodies
-  only. The cycle title becomes its agreed form, the bookmark takes the new slug, the old one is
-  deleted remotely, and the push force-publishes the rewritten line. Predictions, for the findings
-  rung:
-  - every trailer still resolves, since the change ids do not move
-  - every work committer time moves to the redo, so the push-call key fails for every rung
-  - every rung's title differs from its partner's, since the agent-repo's commits are published on
-    `main` and are not rewritten
-  - the transcript writes stay in their old time-windows, and only the redo's own edits land in
-    this rung's partner
+- The probe, run at the restart: the amended table's header line, `notes/transcript-write.md:122`,
+  the `ochid:` cross-linked header the fix introduced.
+  - Blame at the bookmark tip gives `oqylllmy` / `0e9c26e` at `17:35:22`, the status probe rung
+    under its own change id, as predicted: an amend keeps the change id and the line's ownership.
+  - The trailer is unchanged, so the partner is still `lurssvuqkmkk` / `89a03bb4` at `16:44:30`,
+    as predicted, and it resolves in both directions.
+  - The partner's time-window, the 222 lines it appended to the old session file, runs `14:28:16`
+    to `16:40:55` and does not hold the write, as predicted.
+  - The write is a Bash call at `17:35:09` in the old session file, the edit that rewrote both
+    tables, and the amend rung's own partner `wuosxztlklms` / `f85167ba` holds it, its window
+    covering the lines from the probe rung's push to the amend's. The prediction put the write one
+    window later, in this rung's partner, and that was wrong: the write preceded the amend rung's
+    push, so that push captured it. A content amend's write lands in the partner of the rung that
+    made the amend, which is the rung the lookup must reach, and blame names the amended rung
+    instead.
+  - The work committer time, `17:35:22`, fails as a push-call key as predicted, since the partner
+    was pushed 51 minutes earlier. It still names a call in the same timeline, the `jj squash` that
+    made the amend, 13 seconds after the write: a content amend made in session stamps the work
+    commit with its own tool call, not with a push.
+  - The amend partner's `jj evolog` still holds the predecessor stamped at `18:38:06`, the amend
+    rung's work committer time to the second, so At rest's re-amend hides the push time rather than
+    losing it.
+  - Three later hits on the line's text are read-side noise, a grep, a sed, and this rung's blame,
+    all in the new session file. A hit is the write only when its call writes the file, which the
+    proposal probe found as well.
+- Observed before this rung's push, on the working copy: the agent-repo carries the old session
+  file modified and the new one added, the two files the first prediction names.
+- The `lookup` Todo entry takes the one requirement this probe adds, a forward search past an
+  amend, since a backwards search from the partner's push cannot reach the write.
+- The rung's own slip, that three rungs reviewed on `--fast` and left the installed dev artifact at
+  the opening's version, became the `## Todo` entry **push refuses when no full validate passed on
+  the current tree** rather than an inserted rung, per [Unplanned
+  work](AGENTS.md#unplanned-work). The entry carries the design, the two rejected keys, and wink's
+  reading that the instructions may simply be too complex.
 
 ##### docs: write the lookup findings and the command's needs
 
@@ -300,6 +322,9 @@ established so far, one requirement per bullet:
   push-call matcher that accepts both `vc-x1` and `vc-x1-dev`.
 - The reverse direction from a transcript line: the agent-repo commit whose diff holds it, its
   trailers' work commits, their diffs as the window, narrowed to one file for a transcript write.
+- A search forward of the partner as well as backwards when the work commit carries a content
+  amend, since the amend's write lands in the partner of the rung that made it, later than the
+  amended rung's own window, and the work committer time names the amend's tool call there.
 
 ### Continuation notes leave the work-repo dirty after Land
 
@@ -320,6 +345,44 @@ binary came from the commit `main` was about to carry and the pre-push window wi
 closed. Write that order into Land, with the note that a single-step draft's validation installs
 under the plain name and a later conversion to multi-step leaves that install behind until Land. A
 convention change, paired with the entry above.
+
+### push refuses when no full validate passed on the current tree
+
+(wink, 2026-09-03) Two rules in [Before any push](AGENTS.md#before-any-push) have no check and both
+fail in silence: that validation ran and passed after the last edit, and that the full run, the one
+that installs, is what a review is owed. This cycle broke the second for three rungs. The installed
+`vc-x1-dev` reported the opening's `0.83.1-0` while the manifest had reached `0.83.1-4`, and nothing
+said so until wink ran `vc-x1-dev -V` by hand. A doc-only rung makes it likeliest, since `--fast`
+looks sufficient there and the install looks like waste.
+
+- The proposal: a successful full `vc-x1 validate` writes a stamp holding the working copy's tree
+  identity and the manifest version, and `vc-x1 push` refuses when the current tree does not match
+  it. The message names the version gap, which is the legible form of the failure.
+- The artifact needs no inspection: `cargo install --path . --locked` is the last element of
+  `[validate] full`, so a full run that passed on this tree installed by construction. Recording
+  that the run passed is stronger than checking what it installed, and it carries to an adopter
+  whose artifact has no `-V` and no cargo.
+- Rejected, `~/.cargo/.crates2.json` (wink, 2026-09-03): it holds the name, version, and source path
+  such a check would want, and it is a cargo internal. It succeeded the `[v1]` `.crates.toml`, which
+  cargo still writes beside it, so the format has churned once already, and the newer file carries
+  no version marker of its own, so the next change misparses rather than announces itself.
+- Rejected, the running binary's own version: the flow invokes `vc-x1 push`, the stable binary an
+  earlier Land installed from this same path, whose name and version differ from a mid-cycle
+  manifest's every time. The check would need a paired rule that the flow runs `vc-x1-dev`, and an
+  escape hatch for a dev build too broken to push itself.
+- The counter-evidence, and why this is an entry and not a decision (wink, 2026-09-03): a tracking
+  file has burned us here before, in [bugs.md](notes/bugs.md) item 8, where `push` adopted a stale
+  `.vc-x1/push-state.toml` from an earlier invocation, resumed at its final stage, squashed a new
+  session's transcript into an already-published bot commit, and force-pushed it sideways, leaving
+  permanent residue in iiac-perf's repo. Whoever takes this weighs that first. A stamp holds facts
+  that are compared rather than stages that are resumed, which is the smaller thing, and the same
+  hazard still applies: a stamp that cannot be trusted has to fail closed and demand a validate.
+- wink's reading (2026-09-03): the root problem may be that the instructions are too complex, in
+  which case a gate patches over the complexity and the cheaper fix is fewer or clearer rules. [The
+  per-rung flow](AGENTS.md#the-per-rung-flow) step 5 is one clause requiring the full run and one
+  granting `--fast` for iteration, and the grant is the half that got read.
+- Pairs with **Land validates and installs before the main push**, the same install-currency
+  question at the other end of a cycle.
 
 ### At rest names vc-x1 status as the verdict's printer
 
@@ -975,6 +1038,24 @@ table and its `family.member` key (2026-08-27: the words left the agent-files' p
 adopter / maintainer, and the key is the last holder), a schema change with the usual fix-it
 rejection of the old spelling.
 
+### Probe a full re-describe of a landed ladder, or retire the question
+
+(wink, 2026-09-03) Deferred from the **docs: check the transcript join on two landed trapezoids**
+cycle, where it was a rung and was dropped at the amend probe's review. The case is a re-describe
+of every rung of a pushed ladder, titles and bodies only, with the bookmark renamed and the line
+force-published: the heaviest rewrite the work-to-transcript lookup can meet.
+
+- Its four predictions were written before the deferral: every `ochid:` trailer still resolves,
+  since change ids do not move, every work committer time moves to the redo so the push-call key
+  fails for every rung, every rung's title diverges from its partner's, since agent-repo commits
+  on `main` are not rewritten, and the transcript writes stay in their old time-windows.
+- Rank it low or retire it: the proposal cycle's opening was re-described after its push and
+  evidences all four at one rung, and the amend probe evidences the committer-time half again. The
+  open question is only whether eight rungs behave as one did.
+- If it runs, it wants a cycle whose ladder is expendable, not a cycle about to land. Re-describing
+  pushed commits, renaming a bookmark, and force-publishing just before Land was judged the wrong
+  risk for a confirmation.
+
 ## Ideas
 
 Items not yet solid enough for `## Todo` (or surfaced during close-out / end-of-day before they are
@@ -1061,5 +1142,4 @@ _See [bugs.md](notes/bugs.md)._
 [5]: #docs-check-the-transcript-join-on-two-landed-trapezoids-closing
 [6]: #docs-amend-the-status-probe-rungs-tables
 [7]: #docs-probe-the-amended-rung-across-a-restart
-[8]: #docs-redo-the-ladders-descriptions-under-the-agreed-words
 [12]: /notes/forks-multi-user.md
