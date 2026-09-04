@@ -29,6 +29,12 @@ other.
 The agent-files' line count over time is in [agent-files-size.md](agent-files-size.md), one row
 per landing, smaller being the quasi-goal.
 
+How a change to a line in any work-repo file is connected to its discussion in the agent-repo,
+the partner commit, its time-window, and the transcript write, is in
+[transcript-write.md](transcript-write.md). It carries the objective and the terms, the by-hand
+procedure, the two decisions the probes settled, the `vc-x1 lookup` command's requirements in
+their one home, and the probes themselves, three cycles of them.
+
 In the future I expect we may want to create a "notes" database to better manage the information,
 TBD.
 
