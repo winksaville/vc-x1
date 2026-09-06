@@ -359,4 +359,50 @@ insert / delete / reorder.
       and keeping its content, per the documented algorithm. The command is not in the
       `[validate]` table, which is why the defect has survived.
 
+16. **`clone --dry-run` names `.claude` as the bot dir whatever the config says.** The real clone
+    reads the cloned work-repo's `repos.agent` and puts the bot repo where it names
+    (`src/clone.rs`, `clone_dual`), so a config declaring `.agent-session` round-trips. The dry
+    run's step 2 line hardcodes `{name}/.claude`, and it cannot do better, since the config is
+    inside the repo the dry run does not clone.
+    - **Cost:** the dry run misreports the layout the real run produces, which is the one thing
+      a dry run is for. Found 2026-09-06 while checking a clone on `7600x` that had put the bot
+      repo at `.claude`: the cause there was a stale binary, and the dry-run line was read on
+      the way.
+    - **Fix direction:** say what the dry run knows, "`{name}/<repos.agent>`, `.claude` when the
+      cloned config declares none", rather than a name it has not read.
+    - **Fixed** by "fix: clone says the right dir and stops on a rejected config": the step 2 line
+      says `{name}/<repos.agent>` and spells out the fallback.
+
+17. **`clone`'s rejected-config warning names `.vc-config.toml`.** The file is
+    `.vc-config.md`, and the warning's neighbour on the legacy branch says so correctly. Same
+    function, same day, as #16.
+    - **Cost:** a user whose cloned config failed to parse is sent to look for a file that
+      does not exist.
+    - **Fix direction:** name the file by the constant the resolvers use, which is
+      `config_md::VC_CONFIG_MD`. `VC_CONFIG_FILE` is the legacy toml name, the very trap the
+      warning fell into.
+    - **Fixed** by "fix: clone says the right dir and stops on a rejected config".
+
+18. **`clone` continues after the cloned config declares no agent side.** When the cloned
+    work-repo's `.vc-config.md` is rejected (an old `repos.bot` spelling, a toml block that does
+    not parse) and no legacy `.vc-config.toml` is there to fall back on, or when it is a
+    single-repo config with no `repos.agent` at all, `clone_dual` guesses `.claude`, clones the
+    bot repo there, makes the symlink, and prints "Done!". The rejected case warns first, with
+    the resolver's multi-line fix-it wrapped in parentheses inside a one-line warning and a
+    "continuing" tail after the closing paren. Found by wink running the #17 fixture,
+    2026-09-06.
+    - **Cost:** a workspace whose config every other command rejects on first use, or one that
+      is dual on disk and single in its config, with a bot repo that may be in the wrong place
+      and a warning that scrolled past.
+    - A neighbour, same output: the Done block's "Bot repo:" label is not padded to match
+      "Work repo:" and "Symlink:", so the paths do not line up.
+    - **Fixed** by "fix: clone says the right dir and stops on a rejected config": both cases
+      are one error after the work clone, two lines, that `[repos].agent` is missing so no
+      agent-repo was cloned, and to add it or rename `repos.bot`. The work clone is left as a
+      POR, the shape `--por` makes, and the recovery, fixing the field and then cloning the
+      agent-repo, is by hand until [sync clones a declared but absent
+      agent-repo](../TODO.md#sync-clones-a-declared-but-absent-agent-repo). The legacy toml
+      branch stays a warning, since it reads the old file and reproduces the old layout. The
+      label is padded.
+
 # References

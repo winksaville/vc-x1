@@ -42,6 +42,77 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Retire sync --check and the in-process wording
+
+(wink, 2026-09-06) The migration from spawning `jj` to calling jj-lib and gix inside the binary
+is complete: clippy forbids `Command::new` with a documented allowlist, and the four sites left
+are the `jj -V` version probe, whose subject is the user's binary, `gh` for the GitHub API, the
+editor push opens, and validate running the configured commands. Two leftovers still describe
+the migration as in flight. The hidden `sync --check` flag says it is "kept solely for push's
+preflight shell-out until that is rewired", and push has no such call, so the flag and its
+branches are dead code behind a comment about a caller that no longer exists. And "in-process"
+appears thirty-odd times in `src/`, meaningful only while a spawned alternative existed: in the
+sync and jj comments it now implies a path that is gone, and in push's stage log it reaches the
+user, who cannot choose a path and gains nothing from the word. Delete the flag and its branches,
+reword the comments to say what the code does rather than which side of the migration it is on,
+and strip the two push stage lines. The clone dry run lost its three at the fix that found this.
+First because it is an hour's refactor and every reader of those comments until then is misled.
+
+### sync clones a declared but absent agent-repo
+
+(wink, 2026-09-06) A dual clone that stops because the cloned config declares no agent side
+leaves a POR, and today the recovery after fixing the field is a by-hand clone of the derived
+`.claude` remote into the directory the field names, then `vc-x1 symlink`. Sync already resolves
+its repo set from the config on disk, so a declared `repos.agent` whose directory does not exist
+is a fourth state beside up-to-date, behind, ahead and diverged, "absent", whose act is the
+second half of `clone_dual`: a colocated clone from the work remote's derived URL, then the
+symlink. The config need not be committed, since sync reads the file, so the user fixes the
+field, runs `vc-x1 sync .`, and the agent that then starts has both sides and commits the fix
+as a cycle. Two guards: the work repo must have a remote to derive from, a clear error otherwise,
+and "absent" means the directory is missing, not present and not a repo, since a stray
+directory at that name is the user's. When this lands, the clone error's second line says "then
+`vc-x1 sync .`" instead of leaving the clone to the hand. The scenario is a new vc-x1 meeting an
+old repo, and #18 in [bugs.md](notes/bugs.md) is where it was found.
+
+### init turns a POR into a dual-repo
+
+(wink, 2026-09-06) The step after the entry above: a work-repo with no `.vc-config.md` at all,
+or a single-repo config, run through `vc-x1 init .` gains the agent side, the config's
+`repos.agent` field written, the agent-repo created and published, the symlink made, where today
+init only creates a workspace from nothing. With it the whole ladder from an old repo to a dual
+workspace is clone, init, sync, each command doing the part its name says.
+
+### clone from a path refuses a dirty source
+
+(wink, 2026-09-06) A clone fetches the source's bookmarks and checks out `main`, never the
+source's working copy, which is right for a URL and a surprise for a path: the user is looking
+at the directory, edits `.vc-config.md` there, clones, and gets the old key, with the tool
+blamed. Found running the #18 fixture. For a path source, a working copy with changes is an
+error, not a warning, since the path form is rare and deliberate, the cost is one commit, and
+`jj git clone` is there for anyone who wants the draft left behind. The message names what
+would be checked out and where it sits against `@-`, so the user knows whether committing is
+enough or `main` must move too:
+
+```
+error: ../src/work has uncommitted changes, and a clone checks out main at bc7a4366, which is @-.
+Commit and move main, or use jj git clone to check out main as it is.
+```
+
+with "two commits behind @-" when they differ. A clean working copy with `main` behind `@-` is
+a feature bookmark in progress and is not refused.
+
+### clone takes -b for the work-repo's bookmark
+
+(wink, 2026-09-06) `jj git clone -b` picks which fetched bookmark the working copy sits on, and
+vc-x1 clone always picks `main`. Reviewing a cycle branch on another machine, which is how the
+stale binary on `7600x` was found, wants the branch checked out. `-b <bookmark>` on the work
+side, `main` by default, the agent side pinned to `main` as always, since it is a linear
+journal. The cloned config is then read from the chosen bookmark's tree, which is right: a
+branch that renamed the agent directory clones to the renamed one. The other `jj git clone`
+flags stay out: `--depth` breaks the `ochid:` cross-links, which need history on both sides,
+and `--remote`, `--tag` and `--object-hash` are not choices a workspace should differ on. The
+dirty-source error above names the chosen bookmark in place of `main`.
+
 ### vc-x1 lookup resolves a line in either repo to a window in the other
 
 (wink, 2026-09-03) The objective, put plainly at the **docs: check the transcript join on two
@@ -925,141 +996,93 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.2.2
+### fix: clone says the right dir and stops on a rejected config
 
 #### Problem
 
-`agent-files(proposal): v0.2.1` made the agent-repo's directory a config lookup instead of a
-literal, and iiac-perf, having paused their own proposal and read our working copy before it
-landed, found two defects in the new text.
+`notes/bugs.md` #16 and #17, found 2026-09-06 while checking a clone on `7600x` that had put
+the bot repo at `.claude`. The cause there was a stale binary, but reading `clone_dual` on the way
+turned up two lines that misname what the real clone does: the `--dry-run` step 2 line hardcodes
+`{name}/.claude` where the real run reads the cloned work-repo's `repos.agent`, and the
+rejected-config warning names `.vc-config.toml` where the file the resolver read is
+`.vc-config.md`.
 
-- The citation names `.vc-config.md` without naming a side, and both sides carry a `[repos] agent`
-  key. The work-repo's names the agent directory; the agent-repo's says `agent = "."`, naming
-  itself, so read against the agent-side copy the sentence says the agent-repo is the directory
-  you are standing in, which is true and useless for finding it. It resolves correctly today only
-  because a session's cwd is the work-repo, an answer right by coincidence of where the reader
-  happens to stand.
-- The rung that said the `ochid:` trailer's `/.claude` is a label gave that fact a second home,
-  three hundred lines from the one `jj.md` already carried. A fact with two homes is what let
-  `.claude` go stale, so v0.2.1 introduced the defect class it existed to repair.
-
-wink then found a third, in the text v0.2.1 and v0.2.2 both inherited rather than wrote. The
-section calls an `ochid:` a "workspace-root-relative path" and opens "Paths start with `/`, the
-workspace root", which is false whenever the agent-repo sits outside that tree, as
-`../the-agent-session-repo` would. The source says so plainly: `OCHID_BOT_LABEL` is the constant
-`/.claude`, a test asserts a differently-named agent directory still gets it, and `find_root`
-notes the two sides need no nesting assumption. What actually picks the side is `is_bot_dir`,
-which reads a directory's own `.vc-config.md` and resolves `[repos] agent` against it. So the
-prose asserted a path where the config decides a side, which is this cycle's subject one level
-down.
-
-And a fourth, of the same family, found by wink in the passage v0.2.1 rewrote half of. The
-dual-repo model defined the work-repo as "the project root, `.`", which is a claim about the
-current directory that nothing supports: a session may start anywhere beneath the root, and
-`find_workspace_root_from` walks up to find it rather than assuming it. v0.2.1 made the agent
-side a config lookup and left the work side a literal, so the model asserted for one repo
-exactly what it had stopped asserting for the other. The first repair was wrong too: it defined
-the work-repo by the self-resolution rule, which is how a directory's *side* is detected, not how
-the root is *found*. Root-finding is the nearest config's `[repos] work`, and the walk may reach
-the agent-repo's config first and follow its `work` home, so the two rules are separate
-traversals over the same values and the model had them swapped.
+wink ran the #17 fixture on the pushed commit and found #18 behind the wording: the branch
+warns and continues. It guesses `.claude`, clones the bot repo there, makes the symlink and
+prints "Done!", leaving a workspace whose config every other command rejects, and the warning
+itself wraps the resolver's multi-line fix-it inside parentheses on one line. A single-repo
+config with no `repos.agent` at all goes the same way without even the warning. The Done
+block's "Bot repo:" label is unpadded beside it.
 
 #### Solution
 
-Qualify the citation as **the work-repo's** `.vc-config.md`, in the dual-repo model and in
-`jj.md`'s lead sentence for the command list. Leave the label rule stated once, at the `ochid:`
-bullet where a reader first meets `/.claude` and forms the wrong reading, and turn the
-`.vc-config.md` section's closing sentence into a pointer to it. Add the clause iiac-perf's fourth
-note offers, that `<agent-dir>` is the only cell of the `[repos]` specimen the project chooses, so
-the placeholder does not read as a variable the reader is meant to resolve.
+The dry-run line says `{name}/<repos.agent>` and spells out the fallback, `.claude` when the
+cloned config declares none, which is all the dry run can know, since the config is inside the
+repo it does not clone. The warning names the file by `config_md::VC_CONFIG_MD`. The first draft
+of the fix reached for `VC_CONFIG_FILE`, which is the legacy toml name, so the bug entry's fix
+direction was wrong in the same way the warning was and is corrected in the same commit. Both bug
+entries, written uncommitted before the cycle opened, ride in this commit with their Fixed lines.
 
-Restate the trailer's prefix from the code rather than from its shape: a side, not a location,
-`/` referring to the work-repo and `/.claude` to the agent-repo, with each repo's location the
-path the work-repo's `.vc-config.md` declares and the agent's free to be any reachable relative
-path, inside the work-repo's tree or outside it. The "path" framing goes with it, the label and
-the repo it refers to are kept distinct rather than equated, and the wording is side-based
-rather than path-based so that widening an `ochid:` value to a URL does not have to undo it.
-That widening is an `## Ideas` entry, not this cycle's work.
-
-Define the root the way `find_workspace_root_from` finds it, by the nearest `.vc-config.md`'s
-`[repos] work`, and say that the walk may reach either side's config. Side detection is not
-restated here, `jj.md`'s `ochid:` bullet being its one home, so the model carries the rule a
-reader of this file needs and no more. The two rules being separate at all is the subject of a
-new `## Ideas` entry, [A workspace anchor](#a-workspace-anchor-so-repos-is-shareable).
+Both the rejected branch and the no-agent branch are one error after the work clone, wink's
+call to fix it here in wink's own wording: two lines, that `[repos].agent` is missing so no
+agent-repo was cloned, and to add it or rename `repos.bot` in a pre-0.80.0 config. Nothing is
+deleted, since removing what the user just fetched is a destructive act on a guess, and what is
+left is the shape `--por` makes. The resolver's rewrite is not repeated in the error, since any
+command run in the clone prints it. The legacy toml branch stays a warning, since it reads the
+old file and reproduces the old layout. The label is padded. #18 records all of it, and the two
+`## Todo` entries this discussion produced, retiring `sync --check` and the in-process
+wording, sync cloning the absent agent-repo, init upgrading a POR, clone refusing a dirty path
+source, and clone taking `-b`, are written at the head of `## Todo`.
 
 #### Acceptance check
 
-Every `[repos] agent` citation in `AGENTS.md` and `agent-data/jj.md` names the work-repo's copy;
-the label rule is stated once in `jj.md`, at the `ochid:` bullet, the `.vc-config.md` section
-holding a pointer; no text calls an `ochid:` a path or roots it at the workspace root; the
-`[repos]` specimen carries the only-cell-chosen clause; neither repo is defined by a literal
-directory, `grep -n 'project root' AGENTS.md agent-data/*.md` matching nothing; `ls agent-data` shows
-`agent-files-v0.2.2` and no `v0.2.1`; `vc-x1 validate` passes.
+`vc-x1 clone --dry-run https://github.com/winksaville/vc-x1` prints no literal `.claude` path,
+`grep -n 'vc-config.toml' src/clone.rs` matches nothing, and `vc-x1 validate` passes. Added
+with #18: a clone of a work-repo whose config spells `repos.bot`, and one whose config has no
+`repos.agent`, each exit non-zero after the work clone, with no `.claude` directory, no symlink
+and no "Done!", and a two-line error naming the missing field and the rename.
 
-- Result: pass, all six legs run before the push: both citations read "the work-repo's
-  `.vc-config.md` ... under `[repos] agent`", the label rule is stated once at the `ochid:`
-  bullet with the `.vc-config.md` section holding only a pointer, neither
-  `workspace-root-relative` nor `Paths start with` matches anywhere, the only-cell clause is
-  there, neither repo is defined by a literal directory, `ls agent-data` shows only `v0.2.2`,
-  and `vc-x1 validate` passes.
+- Result: the first and third legs pass, the dry run printing `vc-x1/<repos.agent>` with the
+  fallback spelled out and the full validation passing with 0.83.5 installed. The second leg as
+  written fails: it matches the legacy-schema warning three lines above, which names
+  `.vc-config.toml` correctly, that being the legacy file. The check was over-broad, not the
+  fix, so the leg is narrowed to `grep -n "repo's .vc-config.toml" src/clone.rs`, the wording
+  only the defective warning used, and that matches nothing.
+- Result of the #18 leg: pass. Both fixture clones exit 1 after the work clone, `work` and
+  `por` each hold `.git`, `.jj` and `.vc-config.md` and nothing else, no symlink is made, and
+  the error is the two lines.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.2 (done)
+- fix: clone says the right dir and stops on a rejected config (done)
 
 #### Deliberation
 
-- v0.2.2 taken though iiac-perf named it for their paused proposal, wink's call. Ours lands first
-  and takes the next number in order, so the payload advances without a gap, and they re-propose
-  under the next as the maintainer's tie-break already contemplates.
-  - The cost is a second renumber for them, their proposal having already moved from `v0.3.0` to
-    `v0.2.2`. The record says so plainly rather than leaving them to notice.
-- The `ochid:` bullet carries the label rule and the `.vc-config.md` section points at it, not the
-  reverse. The bullet is where `/.claude` is first seen and misread, and a reader who forms the
-  wrong impression there will not travel three hundred lines to have it corrected, while one
-  asking whether the trailer follows the registry is already looking the fact up and follows a
-  link happily.
-- iiac-perf's third note is not acted on. `<agent-dir>` is defined in both `AGENTS.md` and
-  `jj.md`, which is two homes by the same test the second defect fails, and it stays because an
-  agent-file is read on its own: a session reading `jj.md` before `AGENTS.md` would otherwise
-  meet an undefined placeholder. The label rule had no such excuse, both homes being one file.
-- The third defect was read out of the source, not out of `jj.md`, which is what found it. The
-  file's own account of the trailer was the thing under audit, so citing it would have confirmed
-  the error, and `is_bot_dir`, `OCHID_BOT_LABEL` and the test for a differently-named agent
-  directory answer the question the prose could not be trusted on.
-  - It also shows the fix's limit. v0.2.1 chased the literal `.claude` and left the sentence a
-    reader forms the wrong model from, since that sentence never spelled the directory.
-- Wording chosen against a stated future, wink's call: an `ochid:` value is to be allowed to be a
-  URL. So the bullets say what a prefix names rather than what shape a value has, and constrain
-  `[repos] agent` not at all, since the point of the entry is that the agent-repo may live
-  anywhere a relative path reaches.
-  - The bullet needed a second pass for the same reason the cycle exists. It first read
-    "`/.claude` is the agent-repo", equating a label with a directory in the sentence written to
-    stop that equation, and now says the label refers to the repo and the config gives the repo
-    its path. The habit of writing "X is Y" is what produces the defect, not any one sentence.
-- Side detection is not stated in `AGENTS.md` at all. It has a home in `jj.md`, a reader of the
-  dual-repo model needs the root-finding rule rather than the side test, and a second home is the
-  defect this cycle spent four fixes on.
-- Two rules over three values is the standing hazard, and the cycle documents it rather than
-  repairing it. Repairing it is a config-schema change with a migration, so it is an entry.
-- Patch, not minor, and iiac-perf raised it: v0.2.2 is the first text saying the agent-repo may
-  sit outside the work-repo's tree, so is that new permission? The widening, if any, happened at
-  v0.2.1, which dropped `<project>/.claude` and left no rule forbidding it, and the capability is
-  older still, `find_workspace_root_from` having always noted that the two sides need no nesting
-  assumption. Documenting the absence of a prohibition is a correction.
-  - Checked for self-service by running the same test on their proposal: does an adopter
-    following the old text violate the new one? For their `## Reference numbering` restatement,
-    no, which is the patch they had already called. The test does not bend toward us.
-- A `validate-anchors` defect surfaced while checking this block's own links and went to
-  `notes/bugs.md` as #15 rather than into the cycle. The command mis-slugs a heading holding a
-  code span, so it calls correct links broken, and `TODO.md` carried one such false warning long
-  enough that this agent dismissed it as pre-existing furniture before testing it. That is why
-  the acceptance check greps rather than leaning on the command.
-- Single-step, as v0.2.1 was. Five edits, one subject, and the family reviews the diff whole.
-  The subject grew twice under review, from two defects to four, and stayed one subject: every
-  one of them is prose asserting a location the config declares.
-- The finding arrived from a read of an uncommitted working copy, which no rule provides for and
-  which worked. Recorded as a fact about how this one went, not proposed as a practice.
+- Single-step, wink's call, on "any reason not to fix both now": two one-line edits in one
+  function, whose documentation is the bug entries' Fixed lines. The title was synced at
+  close-out when #18 joined, the bookmark renamed with it.
+- The review stops are waived for this cycle, wink's words "do the complete fix except for
+  landing on main", recorded here as the rules ask. The go covers the work, the description, and
+  the one push, and Land waits for a separate go.
+- The dry run says what it can know rather than reading the config, since the config is in the
+  repo the dry run does not clone. Fetching the one file to say the real name would make a dry
+  run touch the network, which is the opposite of what a dry run promises.
+- The acceptance check's grep leg is narrowed at close-out, from any `vc-config.toml` in the file
+  to the defective warning's own wording. The broad leg would have failed against a correct
+  file, since the legacy branch must name the legacy file, and a check that fails on correct
+  code measures nothing. The failure and the narrowing are both recorded under the check.
+- #18 is fixed in this cycle rather than the next, wink's call on "some reason not to". The
+  commit was pushed but the bookmark is a draft, so the cost is a coordinated re-describe that
+  keeps the trailer and a rewrite of the entries, which is bookkeeping, against a second cycle
+  whose whole subject is the line this one had already touched.
+- Stop, not fall back, when the config declares no agent side, rejected or absent alike. A
+  dual clone was asked for and the layout is unknowable, so continuing produces a workspace that
+  is wrong on first use, while a work clone left as a POR is exactly what `--por` produces.
+- The error is two lines, wink's call, after three drafts. The first said "cannot read", which
+  was false, the file was read and rejected. The second carried the resolver's whole rewrite
+  block, which any command in the clone prints anyway. The third said "remove and clone again",
+  when what is there is already a POR and needs only its agent side, which is the sync entry's
+  subject. What survived is the fact and the fix: the field is missing, add it or rename it.
 
 # References
 

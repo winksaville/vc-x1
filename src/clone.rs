@@ -142,11 +142,11 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
     if params.dry_run {
         info!("Dry run, would execute:");
         if params.por {
-            info!("  1. clone --colocate {source} {name} (in-process)");
+            info!("  1. clone --colocate {source} {name}");
         } else {
             let bot_source = derive_bot_url(&source);
-            info!("  1. clone --colocate {source} {name} (in-process)");
-            info!("  2. clone --colocate {bot_source} {name}/.claude (in-process)");
+            info!("  1. clone --colocate {source} {name}");
+            info!("  2. clone --colocate {bot_source} {name}/<repos.agent>");
             info!("  3. Create Claude Code symlink");
         }
         return Ok(());
@@ -196,16 +196,29 @@ pub(crate) fn clone_dual(
     clone_one(work_source, target_dir)?;
     // The local bot dir name comes from the *cloned* work repo's
     // config (`repos.agent`), so a workspace that chose a
-    // non-`.claude` dir round-trips through clone, and
-    // absent/unreadable falls back to the default. A legacy-schema
+    // non-`.claude` dir round-trips through clone. A legacy-schema
     // config (which the resolvers reject) is honored here: clone
     // is where an old repo first arrives, so it completes with the
     // legacy-declared bot dir and a warning pointing at the
-    // [repos] rewrite.
+    // [repos] rewrite. No accepted `repos.agent`, whether the key
+    // is absent, misspelled, or the file does not parse, is one
+    // error: a dual clone was asked for and the config does not
+    // declare one, so the work clone stays as a POR and the error
+    // says what to do. Any command run there prints the precise
+    // rejection.
+    let no_agent = || -> Box<dyn std::error::Error> {
+        format!(
+            "cloned the work-repo, but its {} [repos].agent is missing, so no agent-repo \
+             was cloned.\nAdd it, or rename repos.bot to repos.agent if the config is \
+             pre-0.80.0.",
+            crate::config_md::VC_CONFIG_MD
+        )
+        .into()
+    };
     let bot_dir = match crate::common::configured_bot_dir(target_dir) {
         Ok(Some(p)) => p,
-        Ok(None) => target_dir.join(".claude"),
-        Err(e) => match crate::legacy_vc_config::configured_bot_dir(target_dir) {
+        Ok(None) => return Err(no_agent()),
+        Err(_) => match crate::legacy_vc_config::configured_bot_dir(target_dir) {
             Some(p) => {
                 warn!(
                     "cloned work repo uses a legacy .vc-config.toml schema; \
@@ -216,13 +229,7 @@ pub(crate) fn clone_dual(
                 );
                 p
             }
-            None => {
-                warn!(
-                    "cannot read the cloned work repo's .vc-config.toml ({e}); \
-                     continuing with the default bot dir '.claude'"
-                );
-                target_dir.join(".claude")
-            }
+            None => return Err(no_agent()),
         },
     };
     // A relative local-path TARGET resolves against the process
@@ -236,7 +243,7 @@ pub(crate) fn clone_dual(
     info!("");
     info!("Done! Project cloned to {}", target_dir.display());
     info!("  Work repo:    {}", target_dir.display());
-    info!("  Bot repo: {}", bot_dir.display());
+    info!("  Bot repo:     {}", bot_dir.display());
     info!(
         "  Symlink:      {} -> {}",
         sl.symlink_path.display(),
