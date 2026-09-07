@@ -998,86 +998,54 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### refactor: retire the sync check flag and the in-process wording
+### agent-files(adoption): v0.2.3
 
 #### Problem
 
-The migration from spawning `jj` to calling jj-lib and gix inside the binary is complete:
-clippy forbids `Command::new` with a documented allowlist, and the four sites left are the
-`jj -V` version probe, whose subject is the user's binary, `gh` for the GitHub API, the editor
-push opens, and validate running the configured commands. Two leftovers still describe the
-migration as in flight. The hidden `sync --check` flag says it is "kept solely for push's
-preflight shell-out until that is rewired", and push has no such call, so the flag and its
-branches are dead code behind a comment about a caller that no longer exists. And "in-process"
-appears thirty-one times in `src/`, meaningful only while a spawned alternative existed: in the
-sync and jj comments it now implies a path that is gone, and in push's stage log it reaches the
-user, who cannot choose a path and gains nothing from the word.
+iiac-perf's `agent-files(proposal): v0.2.3` landed on 2026-09-07 with eight rules corrected where
+they live, each with its why in `rationale.md`, and two of the eight are findings against text we
+wrote in `v0.2.2`: the dual-repo model defined the work-repo by a walk the reader performs, and
+the digit rule would have moved the minor at nearly every proposal. The other six close cases the
+rules met in iiac-perf's bench cycle. Our set at `v0.2.2` carries none of them, and the family
+record **2026-09-07T17:24:39.498Z v0.2.3 landed, adopt v0.2.3** in `../vc-x1-messages` asks for
+the adoption.
 
 #### Solution
 
-Delete the flag, its params field, and its branches, reword every comment to say what the code
-does rather than which side of the migration it is on, and strip the two push stage lines.
-
-Grown at review, wink's asks: the live documents too. `README.md` gains a "No process spawns"
-section under Contributing that states the mechanism explicitly, the ban as config, the grant as
-an attribute on the site, the numbered comment in `clippy.toml` as a register that nothing
-checks, since clippy has no allowlist and the word "allowlist" had implied one. The clippy
-header shrinks to a pointer at that section, and the nine site comments say "Register entry"
-where they said "Allowlist entry". The five live mentions of the word in `README.md` and
-`ARCHITECTURE.md` say what each meant, synchronous, through jj-lib, unit test versus CLI test.
-The frozen history and the migration's own design note keep the word, as records of the time it
-named something.
+Adopt iiac-perf's set at its `main` `d5d5e77a3bb1` verbatim, by `vc-x1 agent-files copy
+../iiac-perf`: `AGENTS.md` and `agent-data/*` copied, the version file renamed to `v0.2.3`, and
+`custom.md` untouched. The eight edits: `## Reference numbering` names no file, punctuation
+conversion is paid in a penultimate rung or the single-step commit, continuation facts are filed
+or kept before a reset, pushed titles keep their names through a rename, a waiver's scope is
+recorded with the bend, the `#[allow]` obligation follows the lints, the dual-repo model is two
+definitions with `[repos] work` at `"."`, and the agent-files version tends to the patch, the
+heading and term now "Agent-files version".
 
 #### Acceptance check
 
-`vc-x1 sync --check` is rejected as an unknown flag, `rg -F in-process --glob='*.rs'` matches
-nothing, `rg -F '(in-process)' src/push.rs` matches nothing, and `vc-x1 validate` passes.
+`vc-x1 agent-files diff ../iiac-perf`, with that checkout on its `main` at `d5d5e77a`, reports
+`0 of 10 differ`, `ls agent-data` shows `agent-files-v0.2.3` alone, and `vc-x1 validate` passes.
 
-- Result: pass, all four legs. `vc-x1 sync --check` exits 2 with "unexpected argument", both
-  greps match nothing, and the full validation passed with 0.84.0 installed. The wording leg
-  was first scoped to `src/`, and wink's review found three stragglers under `tests/`, where
-  the word contrasted unit tests with the CLI tests that spawn the binary. Reworded to say
-  that, and the leg widened to every Rust file. A fifth leg, added with the doc pass:
-  `rg -F in-process README.md ARCHITECTURE.md clippy.toml` matches nothing, and it passes.
+- Result: pass, the diff and the listing run after the copy and validation run after the last
+  edit, all before the push.
 
 #### Ladder
 
-- refactor: retire the sync check flag and the in-process wording (done)
+- agent-files(adoption): v0.2.3 (done)
 
 #### Deliberation
 
-- Single-step: one file loses a flag, eleven lose a word, and no step wants a review of its own.
-- Minor bump, 0.84.0, since a CLI flag goes, hidden or not.
-- The title spells the flag as "the sync check flag" rather than `--check`, so the bookmark slug
-  does not carry a triple hyphen.
-- The word is replaced, not deleted, where it carried a fact. "In-process since 0.69.0-1" on
-  push's squash-push stage says why there is no detached child, so it reads "Synchronous since
-  0.69.0-1". Where it only named the migration's side it goes, and a test named for comparing
-  the facade against a spawned `jj` is renamed for what it compares.
-- The sweep found a second retired thing: push's integration tests opened by explaining that
-  most of them skip `preflight` because its `sync --check` step re-invokes the binary. Preflight
-  was retired earlier, its tracking check moved into the push-work stage, and no test passes
-  `--from message` any more, so the paragraph described two things that do not exist. Rewritten
-  to what the tests do.
-- The word had no definition anywhere and three meanings: library call versus spawned binary,
-  synchronous versus detached child, and unit test versus CLI test, each with its own opposite.
-  Found when wink asked whether the other 82 mentions were history. 69 are, and the live ones
-  are now said in the words of what they mean, so no definition is needed, and the one place
-  the policy is stated is the README section.
-- "Allowlist" goes with it, wink's finding: there is none. Clippy's `disallowed-methods` bans a
-  method and cannot list permitted sites, so the grant is the attribute and the numbered comment
-  is a register that nothing enforces. The README says so in those words, and a code register,
-  one spawn module owning the one `Command::new` behind an enum of permitted kinds, is left as
-  a thought rather than an entry until wink wants it.
-- The `--check` and `--no-check` rejection tests are one test each at the parser and the CLI, so
-  a stale script fails loudly on either spelling.
-- A late finding about the previous cycle, recorded here because this is where it was made, by
-  iiac-perf reviewing the landmark "fix: clone says the right dir and stops on a rejected
-  config". Its body says the dry run's step 2 line is followed by a line beneath naming the dir
-  the cloned config declares, else `.claude`. The line was removed by a later squash into the
-  same commit, and the body was not revisited, so the landed commit describes a line that is
-  not there. The cause is a step skipped: a squash into a described commit changes the diff the
-  body describes, and re-opens the description review. The landmark is not amended.
+- An adoption, nothing countered. vc-x1 reviewed the set twice before Land, from iiac-perf's
+  working copy and again from the pushed commit, and both reviews were folded in, the last a one
+  clause fix in `rationale.md` at our ask, so the text at `d5d5e77a` is one the family agrees on.
+- The copy was made by `vc-x1 agent-files copy`, the first adoption to use it, as the `v0.2.0`
+  record said the next would. It applied nine steps, left them uncommitted for review, and the
+  diff command reported the result.
+- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+- The size table takes a row, since agent-files changed: 2315 lines from 2255, 53 of the 60 in
+  `rationale.md`, one paragraph per rule change.
+- No dev rename, as in the `v0.2.0` and `v0.2.2` cycles: a docs-only single-step commit leaves the
+  artifact as it is.
 
 # References
 
