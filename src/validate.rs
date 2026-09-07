@@ -154,7 +154,7 @@ fn run_one(root: &Path, command: &str) -> Result<std::process::ExitStatus, Strin
     let Some(program) = words.next() else {
         return Err("validate: an empty command element".to_string());
     };
-    // Allowlist entry 5 (clippy.toml): the validate subcommand runs
+    // Register entry 5 (clippy.toml): the validate subcommand runs
     // the workspace's configured validation commands, which is its
     // whole job, and each runs as the user would type it.
     #[allow(clippy::disallowed_methods)]

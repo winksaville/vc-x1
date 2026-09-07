@@ -1,5 +1,5 @@
-//! Typed facade over jj: reads and the publish-path mutations, all
-//! in-process through jj-lib (the jj-lib migration stage of
+//! Typed facade over jj: reads and the publish-path mutations,
+//! through jj-lib (the jj-lib migration stage of
 //! `notes/refactor-20260716.md`).
 //!
 //! Reads resolve through `common::load_repo` +
@@ -213,7 +213,7 @@ fn repo_for_read(
     }
 }
 
-/// Resolve `revset` in-process and return its commits, in revset
+/// Resolve `revset` and return its commits, in revset
 /// order (newest first, matching `jj log`).
 fn commits_of(repo: &Path, revset: &str) -> Result<Vec<Commit>> {
     let (workspace, repo_at_head) = repo_for_read(repo, revset)?;
@@ -247,8 +247,7 @@ pub fn rev_exists(repo: &Path, rev: &str) -> Result<bool> {
 }
 
 /// True when `e` is jj's unresolvable-revision error, the typed
-/// `RevsetResolutionError::NoSuchRevision` (every rev query is
-/// in-process now, so the stderr-wording fallback is gone).
+/// `RevsetResolutionError::NoSuchRevision`.
 pub fn is_no_such_revision(e: &(dyn std::error::Error + 'static)) -> bool {
     matches!(
         e.downcast_ref::<RevsetResolutionError>(),
@@ -391,7 +390,7 @@ fn stat_side_content(
 }
 
 /// Render a `jj diff --stat`-shaped summary of the working-copy
-/// commit (`@`) against its parents, in-process: one
+/// commit (`@`) against its parents: one
 /// `<path> | <total> <graph>` line per changed file and the
 /// `N files changed, X insertions(+), Y deletions(-)` summary
 /// line, which is emitted even when nothing changed (callers
@@ -630,10 +629,10 @@ mod tests {
     fn in_process_commit_updates_colocated_git() {
         let fx = Fixture::new("jjmut");
         std::fs::write(fx.work.join("mut.txt"), "hello").unwrap();
-        commit(&fx.work, "test: in-process commit\n\nbody line").unwrap();
+        commit(&fx.work, "test: facade commit\n\nbody line").unwrap();
         assert_eq!(
             desc_of(&fx.work, "@-").unwrap(),
-            "test: in-process commit\n\nbody line"
+            "test: facade commit\n\nbody line"
         );
         assert!(is_empty(&fx.work, "@").unwrap());
         assert_eq!(
@@ -941,7 +940,8 @@ mod tests {
         assert!(references_working_copy("abc123::(@-)"));
     }
 
-    /// Remote-bookmark forms and plain revsets stay in-process.
+    /// Remote-bookmark forms and plain revsets do not reference the
+    /// working copy.
     #[test]
     fn non_working_copy_revsets_are_not_detected() {
         assert!(!references_working_copy("main"));
@@ -952,13 +952,13 @@ mod tests {
         assert!(!references_working_copy("abc123::main"));
     }
 
-    /// The in-process id/description accessors agree with the
-    /// spawned `jj log` templates on the same commit.
+    /// The facade's id/description accessors agree with `jj log`
+    /// templates run through the CLI on the same commit.
     #[test]
-    fn in_process_reads_match_spawned_jj() {
+    fn facade_reads_match_jj_cli() {
         let fx = Fixture::new("jjreads");
         // Pin `@-` to its concrete commit id so every query below
-        // is a non-`@` revset (the in-process path under test).
+        // is a non-`@` revset (the facade path under test).
         let rev = test_helpers::cid(&fx.work, "@-");
         assert_eq!(cid_short_of(&fx.work, &rev).unwrap(), rev);
         assert!(cid_of(&fx.work, &rev).unwrap().starts_with(&rev));
@@ -975,7 +975,7 @@ mod tests {
         assert_eq!(is_empty(&fx.work, &rev).unwrap(), expected_empty);
     }
 
-    /// `matches` / `rev_exists` in-process: valid-but-empty is
+    /// `matches` / `rev_exists`: valid-but-empty is
     /// `false`, unresolvable folds to `false` via the typed
     /// `NoSuchRevision`, and a real commit id resolves.
     #[test]
@@ -987,7 +987,7 @@ mod tests {
         assert!(!rev_exists(&fx.work, "no-such-bookmark-xyz").unwrap());
     }
 
-    /// bugs.md #1 in-process: a transiently held `.git/index.lock`
+    /// bugs.md #1: a transiently held `.git/index.lock`
     /// no longer fails the mutation: the session's git half retries
     /// until the holder lets go (here, a thread releasing it well
     /// inside the backoff budget).

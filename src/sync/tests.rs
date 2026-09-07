@@ -3,10 +3,9 @@
 use super::*;
 use crate::options_flags::scope::Side;
 
-/// Default flags: no `--check` (the default is the normal atomic
-/// sync), bookmark "main", remote "origin", no `-R` and no `--scope`
-/// (caller will resolve via the workspace-default scope), `--quiet`
-/// off.
+/// Default flags: bookmark "main", remote "origin", no `-R` and no
+/// `--scope` (caller will resolve via the workspace-default scope),
+/// `--quiet` off.
 #[test]
 fn parse_defaults() {
     use clap::Parser;
@@ -16,7 +15,6 @@ fn parse_defaults() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test"]).unwrap();
-    assert!(!cli.args.check);
     assert!(!cli.args.quiet);
     assert!(!cli.args.rebase);
     assert_eq!(cli.args.bookmark, "main");
@@ -63,37 +61,22 @@ fn parse_overrides() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--bookmark", "dev", "--remote", "upstream"]).unwrap();
-    assert!(!cli.args.check);
     assert_eq!(cli.args.bookmark, "dev");
     assert_eq!(cli.args.remote, "upstream");
     assert!(cli.args.scope.is_none());
 }
 
-/// Hidden deprecated `--check` still parses (push preflight relies
-/// on it until rewired in-process) and flows through to params.
+/// `--check` and `--no-check` are gone: a stale script invocation
+/// must fail loudly rather than silently flip semantics.
 #[test]
-fn parse_check_flag() {
+fn parse_check_flags_rejected() {
     use clap::Parser;
     #[derive(Parser)]
     struct Cli {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--check"]).unwrap();
-    assert!(cli.args.check);
-    assert!(SyncParams::from(&cli.args).check);
-}
-
-/// `--no-check` is gone: a stale script invocation must fail
-/// loudly rather than silently flip semantics.
-#[test]
-fn parse_no_check_rejected() {
-    use clap::Parser;
-    #[derive(Parser)]
-    struct Cli {
-        #[command(flatten)]
-        args: SyncArgs,
-    }
+    assert!(Cli::try_parse_from(["test", "--check"]).is_err());
     assert!(Cli::try_parse_from(["test", "--no-check"]).is_err());
 }
 

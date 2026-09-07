@@ -391,9 +391,9 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
     }
 }
 
-/// Rewrite a commit's description through the facade (in-process
-/// `jj describe`; the facade applies no immutability check, which
-/// is what the spawned form's `--ignore-immutable` asked for).
+/// Rewrite a commit's description through the facade, which applies
+/// no immutability check, so it behaves as `jj describe
+/// --ignore-immutable`.
 fn jj_describe(
     commit_id: &jj_lib::backend::CommitId,
     new_desc: &str,

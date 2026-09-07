@@ -42,7 +42,7 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 ///
 /// Mirrors `src/test_helpers::unique_base`'s shape (timestamp +
 /// per-process counter) but uses a `vc-x1-cli-test-` prefix to
-/// distinguish from the in-process fixtures' `vc-x1-test-` paths.
+/// distinguish from the unit-test fixtures' `vc-x1-test-` paths.
 pub fn unique_base(tag: &str) -> PathBuf {
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -58,7 +58,7 @@ pub fn unique_base(tag: &str) -> PathBuf {
 /// from `CARGO_PKG_NAME` (the default bin name is the package
 /// name) so a Cargo.toml rename needs no edit here.
 pub fn vc_x1() -> Command {
-    // Allowlist entry 4 (clippy.toml): the CLI tests' launcher.
+    // Register entry 4 (clippy.toml): the CLI tests' launcher.
     // Spawning the built binary is what a CLI test is.
     #[allow(clippy::disallowed_methods)]
     Command::new(env!(concat!("CARGO_BIN_EXE_", env!("CARGO_PKG_NAME"))))
@@ -161,7 +161,7 @@ impl Drop for CliFixture {
 /// isolate the jj user config under the fixture home, and this
 /// crate can't reach the binary's `test_helpers` module.
 pub fn jj(home: &Path, dir: &Path, args: &[&str]) -> String {
-    // Allowlist entry 4 (clippy.toml): test-helper jj inspection
+    // Register entry 4 (clippy.toml): test-helper jj inspection
     // under the fixture's isolated home.
     #[allow(clippy::disallowed_methods)]
     let out = Command::new("jj")

@@ -6,8 +6,8 @@
 //! - ours: `CARGO_PKG_VERSION`, compile time.
 //! - jj-lib's: `JJ_LIB_VERSION`, resolved from `Cargo.lock` by
 //!   `build.rs`, because jj-lib exports no version constant. It is
-//!   what writes ops once the mutations move in-process, so it is
-//!   compile-time by nature, not by compromise.
+//!   what writes ops, so it is compile-time by nature, not by
+//!   compromise.
 //! - the data's: read through jj-lib's public accessors only. What
 //!   comes back is backend *type* names (the `.jj/repo/<backend>/type`
 //!   files `RepoLoader::init_from_file_system` reads), because that
@@ -81,10 +81,10 @@ impl std::fmt::Display for GateError {
 impl std::error::Error for GateError {}
 
 /// Run `jj -V` and return its trimmed stdout: the gate's one
-/// spawn, owned here so the allowlist entry and its subject live
+/// spawn, owned here so the register entry and its subject live
 /// in the same module.
 fn probe_jj_version() -> Result<String, GateError> {
-    // Allowlist entry 1 (clippy.toml): the version gate's probe.
+    // Register entry 1 (clippy.toml): the version gate's probe.
     // The gate compares the user's jj CLI against our jj-lib, so
     // the CLI spawn is its subject matter.
     #[allow(clippy::disallowed_methods)]

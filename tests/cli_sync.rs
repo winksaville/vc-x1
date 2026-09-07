@@ -144,37 +144,11 @@ fn cli_sync_default_moves_main_and_at_after_peer_push() {
     assert_trb_synced(&p);
 }
 
-/// The hidden deprecated `--check` alias (push preflight's
-/// verify-only shell-out) still parses and still skips the
-/// reposition step: after it runs, trB's `main` has moved (jj's
-/// fetch auto-ffs the tracked bookmark: the mode was never fully
-/// read-only) but `@-` stays on the pre-fetch tip.
+/// `--check` and `--no-check` are gone: a stale script invocation
+/// must fail loudly rather than silently flip semantics.
 #[test]
-fn cli_sync_check_alias_verifies_only() {
-    let p = setup_peer_push("sync-check-peer-push");
-    let pre_at_parent = cid(&p.fx.home, &p.tr_b, "@-");
-    run_ok(
-        p.fx.cmd()
-            .current_dir(&p.tr_b)
-            .env("PATH", test_path())
-            .args(["sync", "--check"]),
-    );
-    assert_eq!(
-        cid(&p.fx.home, &p.tr_b, "main"),
-        p.pushed,
-        "fetch auto-ff still moves trB's main under --check"
-    );
-    assert_eq!(
-        cid(&p.fx.home, &p.tr_b, "@-"),
-        pre_at_parent,
-        "--check must not reposition @"
-    );
-}
-
-/// `--no-check` is gone: a stale script invocation must fail
-/// loudly rather than silently flip semantics.
-#[test]
-fn cli_sync_no_check_rejected() {
-    let fx = CliFixture::new("sync-no-check-rejected");
+fn cli_sync_check_flags_rejected() {
+    let fx = CliFixture::new("sync-check-flags-rejected");
+    run_err(fx.cmd().current_dir(&fx.base).args(["sync", "--check"]));
     run_err(fx.cmd().current_dir(&fx.base).args(["sync", "--no-check"]));
 }

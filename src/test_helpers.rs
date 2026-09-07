@@ -46,7 +46,7 @@ pub fn test_ctx() -> Context {
 /// directly rather than calling `crate::jj` so test inspection
 /// stays independent of the facade under test.
 pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
-    // Allowlist entry 4 (clippy.toml): test helpers spawn the real
+    // Register entry 4 (clippy.toml): test helpers spawn the real
     // installed jj for fixture setup and interop verification,
     // deliberately independent of the facade under test.
     #[allow(clippy::disallowed_methods)]
@@ -70,7 +70,7 @@ pub fn jj_ok(repo: &Path, args: &[&str]) -> String {
 /// whose repo does not exist yet (e.g. `jj git clone` making a
 /// "second machine" copy).
 pub fn jj_ok_at(cwd: &Path, args: &[&str]) -> String {
-    // Allowlist entry 4 (clippy.toml): test helpers, see `jj_ok`.
+    // Register entry 4 (clippy.toml): test helpers, see `jj_ok`.
     #[allow(clippy::disallowed_methods)]
     let out = std::process::Command::new("jj")
         .args(args)
@@ -88,9 +88,9 @@ pub fn jj_ok_at(cwd: &Path, args: &[&str]) -> String {
 
 /// Run `git <args>` in `cwd`, asserting success and returning
 /// trimmed stdout. Interop verification: reading with the real git what
-/// our in-process writes produced on the colocated side.
+/// our writes produced on the colocated side.
 pub fn git_ok(cwd: &Path, args: &[&str]) -> String {
-    // Allowlist entry 4 (clippy.toml): test helpers, see `jj_ok`.
+    // Register entry 4 (clippy.toml): test helpers, see `jj_ok`.
     #[allow(clippy::disallowed_methods)]
     let out = std::process::Command::new("git")
         .args(args)

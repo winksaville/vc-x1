@@ -85,7 +85,6 @@ fn resolver_chain_against_init_repo_local() {
 /// default resolution is not exercised by this helper.
 fn default_params() -> SyncParams {
     SyncParams {
-        check: false,
         quiet: false,
         bookmark: "main".to_string(),
         remote: "origin".to_string(),

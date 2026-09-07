@@ -1195,7 +1195,7 @@ vc-x1 squash-push feature -R . --squash @,@--
 
 Behavior notes:
 
-- Runs fully in-process, so a failure is a visible non-zero exit. (Replaces the `finalize`
+- Runs synchronously, so a failure is a visible non-zero exit. (Replaces the `finalize`
   subcommand, whose detached background child could be killed silently at command exit.)
 - With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0.
   with an empty `@` but the remote behind, it skips the squash and still pushes.
@@ -1232,7 +1232,7 @@ Stages, top to bottom:
 | `commit-bot` | `jj commit` `.claude` with ochid trailer pointing at the work repo (skipped if `.claude` is clean) |
 | `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
 | `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
-| `squash-push-bot` | In-process squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
+| `squash-push-bot` | Synchronous squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
 
 **Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
 precondition and does nothing when its work is already done, so re-running after a failure is simply
@@ -1306,7 +1306,7 @@ a plain dev commit on `@-` that we push directly. The bot repo mirrors the bot's
 session writes land in `@` (above the last committed commit), and squash-push folds those trailing
 writes into that commit just before pushing, so one atomic state goes upstream.
 
-The run is fully in-process and synchronous, so what you see is the whole flow:
+The run is synchronous, no background child, so what you see is the whole flow:
 ```
 $ vc-x1 squash-push -R "$bot"
 squash-push: squashing @ -> @-...
@@ -1417,7 +1417,7 @@ repeats:
 
 The repo ships two flavors of tests:
 
-- **In-process tests**: `#[cfg(test)] mod tests { ... }` blocks inside `src/*.rs`. These call
+- **Unit tests**: `#[cfg(test)] mod tests { ... }` blocks inside `src/*.rs`. These call
   library code directly (no subprocess spawn) and run fastest. The dual / POR fixture tests under
   `src/init.rs::tests` build throwaway workspaces by invoking `init::init` as a function.
 - **CLI subprocess integration tests**: files under `tests/`. These spawn the `vc-x1` binary that
@@ -1431,7 +1431,7 @@ Run everything with:
 
 ```bash
 cargo test                 # unit + integration
-cargo test --bins          # binary unit tests only (in-process)
+cargo test --bins          # unit tests only, no binary spawned
 cargo test --test cli_init # one integration test crate
 ```
 
@@ -1450,7 +1450,7 @@ globally:
 VC_X1_TEST_TMPDIR=/dev/shm/vc-x1 cargo test
 ```
 
-Fixture directories are named `vc-x1-test-<tag>-<ts>-<n>` (in-process) and
+Fixture directories are named `vc-x1-test-<tag>-<ts>-<n>` (unit) and
 `vc-x1-cli-test-<tag>-<ts>-<n>` (CLI). RAII drop removes them on test exit, while SIGKILLs /
 panics in `Drop` can leak, so search and clean manually:
 
@@ -1577,6 +1577,33 @@ Bot-facing conventions are canonical in [AGENTS.md](AGENTS.md) (hard rules + fil
 Task tracking and release details: near-term tasks in [TODO.md](TODO.md), per-release details in
 `notes/chores/chores-*.md`, and notes-specific formatting rules in
 [notes/README.md](notes/README.md).
+
+### No process spawns
+
+vc-x1 runs jj and git through the jj-lib and gix libraries, never by spawning the `jj` or `git`
+binaries. The ban is enforced, and the exceptions are not: there is no allowlist. What exists is
+three things, and it pays to know which is which.
+
+- **The ban is config.** `clippy.toml` lists `std::process::Command::new` under
+  `disallowed-methods`, and `Cargo.toml` sets that lint to deny, so a bare call anywhere fails
+  `cargo clippy`, which `vc-x1 validate` runs.
+- **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
+  is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
+  it claims. Nine sites carry one today.
+- **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
+  kinds of spawn that are permitted and why: the `jj -V` version probe, push's `$EDITOR`, init's
+  `gh` calls, the test helpers and the CLI tests' launcher, and validate running the configured
+  commands. Nothing checks the register against the attributes. A site with an attribute and no
+  entry passes the build and is a review finding.
+
+To see every granted site:
+
+```bash
+rg '^\s*#.allow.*disallowed_methods' -A 1
+```
+
+jj-lib's own git children, the network legs of fetch, push and clone, are jj-lib's business and
+no lint here sees them.
 
 ## License
 

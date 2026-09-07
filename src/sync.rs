@@ -10,9 +10,7 @@
 //!
 //! Sync is a single atomic operation: verify-then-act happens
 //! inside one invocation against one fetch snapshot (a separate
-//! check-then-apply pair of runs would race the remote). The
-//! hidden deprecated `--check` flag preserves the old verify-only
-//! mode for `push`'s preflight until that is rewired in-process.
+//! check-then-apply pair of runs would race the remote).
 //!
 //! **Stop-on-error**: a failure leaves state where the failing step
 //! stopped so the user can inspect it. Each repo's pre-sync op id
@@ -51,17 +49,6 @@ use crate::subcommand::SubcommandRunner;
 ///   - POR (no `.vc-config.toml`) -> cwd
 #[derive(Args, Debug)]
 pub struct SyncArgs {
-    /// Verify only: fetch + classify, erroring if any repo needs
-    /// action, with no bookmark move and no `@` reposition.
-    ///
-    /// Deprecated and hidden: kept solely for `push`'s preflight
-    /// shell-out until that is rewired in-process (see the
-    /// `TODO.md` sync follow-up). Note the fetch still
-    /// auto-fast-forwards a tracked bookmark: this mode was never
-    /// fully read-only.
-    #[arg(long, hide = true)]
-    pub check: bool,
-
     /// Suppress all informational output (exit code signals result)
     #[arg(short, long)]
     pub quiet: bool,
@@ -121,10 +108,6 @@ pub struct SyncArgs {
 /// - `bookmark`: bookmark to sync in the work repo (default
 ///   `main`). The bot repo always syncs `main`.
 /// - `remote`: remote to sync against (default `origin`).
-/// - `check`: hidden deprecated `--check`, verify-only mode
-///   (fetch + classify + report, error if action needed, no
-///   bookmark move, no `@` reposition). Absent => the normal
-///   atomic sync.
 /// - `rebase`: `--rebase`, rebase a non-empty `@` onto the synced
 ///   bookmark without prompting (work repo only, see
 ///   `reposition_work`).
@@ -136,7 +119,6 @@ pub struct SyncParams {
     pub quiet: bool,
     pub bookmark: String,
     pub remote: String,
-    pub check: bool,
     pub rebase: bool,
     pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
@@ -150,7 +132,6 @@ impl From<&SyncArgs> for SyncParams {
             quiet: a.quiet,
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
-            check: a.check,
             rebase: a.rebase,
             repo: a.repo.clone(),
             scope: a.scope.clone(),
@@ -271,8 +252,8 @@ pub fn sync_repos(
     params: &SyncParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!(
-        "sync: enter (check={}, bookmark={}, remote={})",
-        params.check, params.bookmark, params.remote
+        "sync: enter (bookmark={}, remote={})",
+        params.bookmark, params.remote
     );
 
     // Preflight: verify bookmark tracking on every repo before any
@@ -301,14 +282,12 @@ pub fn sync_repos(
     }
 
     // Run the plan, then reposition `@` onto the freshly-synced
-    // bookmark (skipped in deprecated verify-only mode). Both live
-    // inside the same stop-on-error region: any failure falls
-    // through to the report below with state left in place.
+    // bookmark. Both live inside the same stop-on-error region: any
+    // failure falls through to the report below with state left in
+    // place.
     let result = run_plan(ctx, &snapshots, params).and_then(|()| {
-        if !params.check {
-            for (repo, _) in &snapshots {
-                reposition_at(repo, repo_bookmark(repo, &params.bookmark), params)?;
-            }
+        for (repo, _) in &snapshots {
+            reposition_at(repo, repo_bookmark(repo, &params.bookmark), params)?;
         }
         Ok(())
     });
@@ -387,38 +366,21 @@ fn run_plan(
         }
     }
 
-    // Phase 3: act (subprocess output streams through as usual).
-    // `act_on_state` short-circuits in deprecated verify-only mode,
-    // making it a true no-op here. Repositioning `@` onto the synced
-    // bookmark happens after `run_plan` returns (see `sync_repos`),
-    // outside the revert region.
+    // Phase 3: act. Repositioning `@` onto the synced bookmark
+    // happens after `run_plan` returns (see `sync_repos`), outside
+    // the revert region.
     for repo_ctx in &ctxs {
         act_on_state(ctx, repo_ctx, params)?;
     }
 
-    // Phase 4: verify-only mode is fatal when action would be
-    // needed. The normal sync ran the action above and is done.
-    if params.check && any_action_needed {
-        let n_action = ctxs
-            .iter()
-            .filter(|c| matches!(c.state, State::Behind { .. } | State::Diverged { .. }))
-            .count();
-        let noun = if n_action == 1 { "repo" } else { "repos" };
-        return Err(format!(
-            "sync: {n_action} {noun} need action (see above): \
-             resolve with `vc-x1 sync` and re-run"
-        )
-        .into());
-    }
     Ok(())
 }
 
 /// Fetch `repo` from `remote` without streaming chatter to `info!`.
 ///
-/// The facade's in-process fetch returns one line per changed
-/// remote bookmark. The caller decides whether to surface them
-/// (action case) or drop them (clean case), which is what this
-/// wrapper's stderr capture did in the spawned form.
+/// The facade's fetch returns one line per changed remote
+/// bookmark. The caller decides whether to surface them (action
+/// case) or drop them (clean case).
 fn fetch_silent(
     ctx: &mut Context,
     repo: &Path,
@@ -567,7 +529,7 @@ fn reposition_work(
 /// `read_line`. A `y`/`yes` (case-insensitive) answer confirms.
 ///
 /// Under `cargo test` the harness inherits the invoking terminal's
-/// stdin, so an in-process test reaching this path would block on
+/// stdin, so a test reaching this path would block on
 /// `read_line` waiting for the user: the `cfg!(test)` arm pins the
 /// non-interactive answer instead.
 fn confirm_rebase(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
@@ -607,32 +569,28 @@ fn act_on_state(
     match &repo_ctx.state {
         State::UpToDate | State::Ahead { .. } | State::NoRemote => Ok(()),
         State::Behind { .. } => {
-            if !params.check {
-                info!("{}: setting '{bookmark}' to {remote_rev}", repo.display());
-                ctx.session(repo)?.bookmark_set(bookmark, &remote_rev)?;
-            }
+            info!("{}: setting '{bookmark}' to {remote_rev}", repo.display());
+            ctx.session(repo)?.bookmark_set(bookmark, &remote_rev)?;
             Ok(())
         }
         State::Diverged { local, remote } => {
-            if !params.check {
-                // `local` is either a single commit id or a comma-joined list
-                // of heads when the bookmark is conflicted. Pick the head
-                // that isn't the remote: that's the local-only tip. The
-                // comma-joined path covers the jj post-fetch divergence
-                // shape (local bookmark conflicted between old local head
-                // and freshly-fetched remote head).
-                let local_head = local
-                    .split(',')
-                    .find(|h| *h != remote)
-                    .unwrap_or(local.as_str());
-                info!(
-                    "{}: rebasing {local_head} onto {remote_rev}",
-                    repo.display()
-                );
-                ctx.session(repo)?.rebase_branch(local_head, &remote_rev)?;
-                if has_conflicts(repo)? {
-                    return Err(format!("{}: rebase produced conflicts", repo.display()).into());
-                }
+            // `local` is either a single commit id or a comma-joined list
+            // of heads when the bookmark is conflicted. Pick the head
+            // that isn't the remote: that's the local-only tip. The
+            // comma-joined path covers the jj post-fetch divergence
+            // shape (local bookmark conflicted between old local head
+            // and freshly-fetched remote head).
+            let local_head = local
+                .split(',')
+                .find(|h| *h != remote)
+                .unwrap_or(local.as_str());
+            info!(
+                "{}: rebasing {local_head} onto {remote_rev}",
+                repo.display()
+            );
+            ctx.session(repo)?.rebase_branch(local_head, &remote_rev)?;
+            if has_conflicts(repo)? {
+                return Err(format!("{}: rebase produced conflicts", repo.display()).into());
             }
             Ok(())
         }
@@ -714,8 +672,8 @@ fn local_bookmark_heads(
 
 /// Like `jj::cid_short_of`, but `Ok(None)` when the revset doesn't resolve.
 ///
-/// The unresolvable-revision error (`jj::is_no_such_revision`,
-/// typed in-process or by stderr wording when spawned) maps to
+/// The unresolvable-revision error (`jj::is_no_such_revision`)
+/// maps to
 /// `Ok(None)` so callers can distinguish "missing" from "other
 /// failure".
 fn try_commit_id(repo: &Path, rev: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {

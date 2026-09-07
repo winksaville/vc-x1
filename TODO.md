@@ -42,22 +42,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### Retire sync --check and the in-process wording
-
-(wink, 2026-09-06) The migration from spawning `jj` to calling jj-lib and gix inside the binary
-is complete: clippy forbids `Command::new` with a documented allowlist, and the four sites left
-are the `jj -V` version probe, whose subject is the user's binary, `gh` for the GitHub API, the
-editor push opens, and validate running the configured commands. Two leftovers still describe
-the migration as in flight. The hidden `sync --check` flag says it is "kept solely for push's
-preflight shell-out until that is rewired", and push has no such call, so the flag and its
-branches are dead code behind a comment about a caller that no longer exists. And "in-process"
-appears thirty-odd times in `src/`, meaningful only while a spawned alternative existed: in the
-sync and jj comments it now implies a path that is gone, and in push's stage log it reaches the
-user, who cannot choose a path and gains nothing from the word. Delete the flag and its branches,
-reword the comments to say what the code does rather than which side of the migration it is on,
-and strip the two push stage lines. The clone dry run lost its three at the fix that found this.
-First because it is an hour's refactor and every reader of those comments until then is misled.
-
 ### sync clones a declared but absent agent-repo
 
 (wink, 2026-09-06) A dual clone that stops because the cloned config declares no agent side
@@ -73,6 +57,19 @@ and "absent" means the directory is missing, not present and not a repo, since a
 directory at that name is the user's. When this lands, the clone error's second line says "then
 `vc-x1 sync .`" instead of leaving the clone to the hand. The scenario is a new vc-x1 meeting an
 old repo, and #18 in [bugs.md](notes/bugs.md) is where it was found.
+
+### clone takes --agent for the agent-repo's source
+
+(iiac-perf, 2026-09-06) The clone's local location now follows the cloned config, and what is
+still fixed by convention is the remote: `derive_bot_url` appends `.claude` to the work-repo's
+source, so clone can only fetch an agent-repo that sits in the same namespace under the same
+owner. That is the piece the multi-contributor case breaks, since a second contributor's
+agent-repo lives under their own owner, and the URL cannot come from the work-repo's config for
+the reason the design note gives. The general shape is a second source, `vc-x1 clone <work-url>
+--agent <url>`, with the derivation as the default when the flag is absent: one flag, and the
+onboarding path from the note, cloning someone else's work-repo with your own agent-repo, is one
+command. After the sync entry above, since sync cloning an absent agent-repo needs the same URL
+and decides where it is stored, a flag or a per-user config.
 
 ### init turns a POR into a dual-repo
 
@@ -100,6 +97,11 @@ Commit and move main, or use jj git clone to check out main as it is.
 
 with "two commits behind @-" when they differ. A clean working copy with `main` behind `@-` is
 a feature bookmark in progress and is not refused.
+
+Rides with this cycle, from iiac-perf's review of the landed clone fix: a test that a config
+declaring the agent-repo outside the work-repo's tree, `../name.claude`, clones there, since the
+resolution already follows the config but the symlink then points outside the target directory
+and nothing exercises it.
 
 ### clone takes -b for the work-repo's bookmark
 
@@ -996,93 +998,86 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### fix: clone says the right dir and stops on a rejected config
+### refactor: retire the sync check flag and the in-process wording
 
 #### Problem
 
-`notes/bugs.md` #16 and #17, found 2026-09-06 while checking a clone on `7600x` that had put
-the bot repo at `.claude`. The cause there was a stale binary, but reading `clone_dual` on the way
-turned up two lines that misname what the real clone does: the `--dry-run` step 2 line hardcodes
-`{name}/.claude` where the real run reads the cloned work-repo's `repos.agent`, and the
-rejected-config warning names `.vc-config.toml` where the file the resolver read is
-`.vc-config.md`.
-
-wink ran the #17 fixture on the pushed commit and found #18 behind the wording: the branch
-warns and continues. It guesses `.claude`, clones the bot repo there, makes the symlink and
-prints "Done!", leaving a workspace whose config every other command rejects, and the warning
-itself wraps the resolver's multi-line fix-it inside parentheses on one line. A single-repo
-config with no `repos.agent` at all goes the same way without even the warning. The Done
-block's "Bot repo:" label is unpadded beside it.
+The migration from spawning `jj` to calling jj-lib and gix inside the binary is complete:
+clippy forbids `Command::new` with a documented allowlist, and the four sites left are the
+`jj -V` version probe, whose subject is the user's binary, `gh` for the GitHub API, the editor
+push opens, and validate running the configured commands. Two leftovers still describe the
+migration as in flight. The hidden `sync --check` flag says it is "kept solely for push's
+preflight shell-out until that is rewired", and push has no such call, so the flag and its
+branches are dead code behind a comment about a caller that no longer exists. And "in-process"
+appears thirty-one times in `src/`, meaningful only while a spawned alternative existed: in the
+sync and jj comments it now implies a path that is gone, and in push's stage log it reaches the
+user, who cannot choose a path and gains nothing from the word.
 
 #### Solution
 
-The dry-run line says `{name}/<repos.agent>` and spells out the fallback, `.claude` when the
-cloned config declares none, which is all the dry run can know, since the config is inside the
-repo it does not clone. The warning names the file by `config_md::VC_CONFIG_MD`. The first draft
-of the fix reached for `VC_CONFIG_FILE`, which is the legacy toml name, so the bug entry's fix
-direction was wrong in the same way the warning was and is corrected in the same commit. Both bug
-entries, written uncommitted before the cycle opened, ride in this commit with their Fixed lines.
+Delete the flag, its params field, and its branches, reword every comment to say what the code
+does rather than which side of the migration it is on, and strip the two push stage lines.
 
-Both the rejected branch and the no-agent branch are one error after the work clone, wink's
-call to fix it here in wink's own wording: two lines, that `[repos].agent` is missing so no
-agent-repo was cloned, and to add it or rename `repos.bot` in a pre-0.80.0 config. Nothing is
-deleted, since removing what the user just fetched is a destructive act on a guess, and what is
-left is the shape `--por` makes. The resolver's rewrite is not repeated in the error, since any
-command run in the clone prints it. The legacy toml branch stays a warning, since it reads the
-old file and reproduces the old layout. The label is padded. #18 records all of it, and the two
-`## Todo` entries this discussion produced, retiring `sync --check` and the in-process
-wording, sync cloning the absent agent-repo, init upgrading a POR, clone refusing a dirty path
-source, and clone taking `-b`, are written at the head of `## Todo`.
+Grown at review, wink's asks: the live documents too. `README.md` gains a "No process spawns"
+section under Contributing that states the mechanism explicitly, the ban as config, the grant as
+an attribute on the site, the numbered comment in `clippy.toml` as a register that nothing
+checks, since clippy has no allowlist and the word "allowlist" had implied one. The clippy
+header shrinks to a pointer at that section, and the nine site comments say "Register entry"
+where they said "Allowlist entry". The five live mentions of the word in `README.md` and
+`ARCHITECTURE.md` say what each meant, synchronous, through jj-lib, unit test versus CLI test.
+The frozen history and the migration's own design note keep the word, as records of the time it
+named something.
 
 #### Acceptance check
 
-`vc-x1 clone --dry-run https://github.com/winksaville/vc-x1` prints no literal `.claude` path,
-`grep -n 'vc-config.toml' src/clone.rs` matches nothing, and `vc-x1 validate` passes. Added
-with #18: a clone of a work-repo whose config spells `repos.bot`, and one whose config has no
-`repos.agent`, each exit non-zero after the work clone, with no `.claude` directory, no symlink
-and no "Done!", and a two-line error naming the missing field and the rename.
+`vc-x1 sync --check` is rejected as an unknown flag, `rg -F in-process --glob='*.rs'` matches
+nothing, `rg -F '(in-process)' src/push.rs` matches nothing, and `vc-x1 validate` passes.
 
-- Result: the first and third legs pass, the dry run printing `vc-x1/<repos.agent>` with the
-  fallback spelled out and the full validation passing with 0.83.5 installed. The second leg as
-  written fails: it matches the legacy-schema warning three lines above, which names
-  `.vc-config.toml` correctly, that being the legacy file. The check was over-broad, not the
-  fix, so the leg is narrowed to `grep -n "repo's .vc-config.toml" src/clone.rs`, the wording
-  only the defective warning used, and that matches nothing.
-- Result of the #18 leg: pass. Both fixture clones exit 1 after the work clone, `work` and
-  `por` each hold `.git`, `.jj` and `.vc-config.md` and nothing else, no symlink is made, and
-  the error is the two lines.
+- Result: pass, all four legs. `vc-x1 sync --check` exits 2 with "unexpected argument", both
+  greps match nothing, and the full validation passed with 0.84.0 installed. The wording leg
+  was first scoped to `src/`, and wink's review found three stragglers under `tests/`, where
+  the word contrasted unit tests with the CLI tests that spawn the binary. Reworded to say
+  that, and the leg widened to every Rust file. A fifth leg, added with the doc pass:
+  `rg -F in-process README.md ARCHITECTURE.md clippy.toml` matches nothing, and it passes.
 
 #### Ladder
 
-- fix: clone says the right dir and stops on a rejected config (done)
+- refactor: retire the sync check flag and the in-process wording (done)
 
 #### Deliberation
 
-- Single-step, wink's call, on "any reason not to fix both now": two one-line edits in one
-  function, whose documentation is the bug entries' Fixed lines. The title was synced at
-  close-out when #18 joined, the bookmark renamed with it.
-- The review stops are waived for this cycle, wink's words "do the complete fix except for
-  landing on main", recorded here as the rules ask. The go covers the work, the description, and
-  the one push, and Land waits for a separate go.
-- The dry run says what it can know rather than reading the config, since the config is in the
-  repo the dry run does not clone. Fetching the one file to say the real name would make a dry
-  run touch the network, which is the opposite of what a dry run promises.
-- The acceptance check's grep leg is narrowed at close-out, from any `vc-config.toml` in the file
-  to the defective warning's own wording. The broad leg would have failed against a correct
-  file, since the legacy branch must name the legacy file, and a check that fails on correct
-  code measures nothing. The failure and the narrowing are both recorded under the check.
-- #18 is fixed in this cycle rather than the next, wink's call on "some reason not to". The
-  commit was pushed but the bookmark is a draft, so the cost is a coordinated re-describe that
-  keeps the trailer and a rewrite of the entries, which is bookkeeping, against a second cycle
-  whose whole subject is the line this one had already touched.
-- Stop, not fall back, when the config declares no agent side, rejected or absent alike. A
-  dual clone was asked for and the layout is unknowable, so continuing produces a workspace that
-  is wrong on first use, while a work clone left as a POR is exactly what `--por` produces.
-- The error is two lines, wink's call, after three drafts. The first said "cannot read", which
-  was false, the file was read and rejected. The second carried the resolver's whole rewrite
-  block, which any command in the clone prints anyway. The third said "remove and clone again",
-  when what is there is already a POR and needs only its agent side, which is the sync entry's
-  subject. What survived is the fact and the fix: the field is missing, add it or rename it.
+- Single-step: one file loses a flag, eleven lose a word, and no step wants a review of its own.
+- Minor bump, 0.84.0, since a CLI flag goes, hidden or not.
+- The title spells the flag as "the sync check flag" rather than `--check`, so the bookmark slug
+  does not carry a triple hyphen.
+- The word is replaced, not deleted, where it carried a fact. "In-process since 0.69.0-1" on
+  push's squash-push stage says why there is no detached child, so it reads "Synchronous since
+  0.69.0-1". Where it only named the migration's side it goes, and a test named for comparing
+  the facade against a spawned `jj` is renamed for what it compares.
+- The sweep found a second retired thing: push's integration tests opened by explaining that
+  most of them skip `preflight` because its `sync --check` step re-invokes the binary. Preflight
+  was retired earlier, its tracking check moved into the push-work stage, and no test passes
+  `--from message` any more, so the paragraph described two things that do not exist. Rewritten
+  to what the tests do.
+- The word had no definition anywhere and three meanings: library call versus spawned binary,
+  synchronous versus detached child, and unit test versus CLI test, each with its own opposite.
+  Found when wink asked whether the other 82 mentions were history. 69 are, and the live ones
+  are now said in the words of what they mean, so no definition is needed, and the one place
+  the policy is stated is the README section.
+- "Allowlist" goes with it, wink's finding: there is none. Clippy's `disallowed-methods` bans a
+  method and cannot list permitted sites, so the grant is the attribute and the numbered comment
+  is a register that nothing enforces. The README says so in those words, and a code register,
+  one spawn module owning the one `Command::new` behind an enum of permitted kinds, is left as
+  a thought rather than an entry until wink wants it.
+- The `--check` and `--no-check` rejection tests are one test each at the parser and the CLI, so
+  a stale script fails loudly on either spelling.
+- A late finding about the previous cycle, recorded here because this is where it was made, by
+  iiac-perf reviewing the landmark "fix: clone says the right dir and stops on a rejected
+  config". Its body says the dry run's step 2 line is followed by a line beneath naming the dir
+  the cloned config declares, else `.claude`. The line was removed by a later squash into the
+  same commit, and the body was not revisited, so the landed commit describes a line that is
+  not there. The cause is a step skipped: a squash into a described commit changes the diff the
+  body describes, and re-opens the description review. The landmark is not amended.
 
 # References
 

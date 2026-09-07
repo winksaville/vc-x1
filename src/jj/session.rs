@@ -1,4 +1,4 @@
-//! `RepoSession`: an in-process working session with one repo.
+//! `RepoSession`: a working session with one repo.
 //!
 //! The plumbing jj's own CLI wraps around every mutation
 //! (`WorkspaceCommandHelper` in jj-cli), reduced to what the facade's
@@ -937,7 +937,7 @@ fn is_lock_contention(e: &(dyn std::error::Error + 'static)) -> bool {
 }
 
 /// Run `f`, retrying on git lockfile contention with a short
-/// doubling backoff: the in-process home of the bugs.md #1 fix (gix
+/// doubling backoff: the home of the bugs.md #1 fix (gix
 /// gives the lock one attempt, so the retry loop is ours to own).
 ///
 /// Callers wrap only git writes that precede the transaction

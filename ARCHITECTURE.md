@@ -111,8 +111,8 @@ per-subcommand refactor status):
   `default_scope` / `scope_to_repos` / `resolve_repos`
   (the top-level entry combining the `-R PATH` override and
   the `-s code|bot|code,bot` role selection).
-- `src/jj.rs` — the typed facade over jj, fully
-  in-process through jj-lib (0.79.0): reads
+- `src/jj.rs` — the typed facade over jj, entirely
+  through jj-lib (0.79.0), no `jj` spawned: reads
   (`matches` / `rev_exists`, the id/description
   accessors, the typed bookmark and remote-ref view
   queries, `diff_stat`, `current_op_id`) plus one-shot
@@ -120,10 +120,12 @@ per-subcommand refactor status):
   (commit/describe, bookmarks, push/fetch,
   repositioning, op restore, squash, and the
   init/clone provisioning). The only process spawns
-  left are clippy.toml's documented allowlist (the
+  left are the sites clippy.toml's register names (the
   version gate's `jj -V`, push's `$EDITOR`, init's gh
-  provisioning, test helpers), enforced by its
-  `disallowed-methods` ban on `Command::new`.
+  provisioning, test helpers, validate's configured
+  commands), each under an explicit `#[allow]` of its
+  `disallowed-methods` ban on `Command::new`
+  (README's [No process spawns](README.md#no-process-spawns)).
 
 **Subcommand-layer scaffolding:**
 

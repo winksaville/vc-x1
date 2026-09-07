@@ -6,7 +6,7 @@
 //!   accumulates session data continuously (the session tail). Also
 //!   useful on the work repo as a deliberate amend-and-push (a
 //!   published-history rewrite, so the push is a forced update).
-//! - Runs fully in-process: preflight validations, then squash +
+//! - Runs synchronously: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
 //!   child that a sandboxed run silently killed: the loss

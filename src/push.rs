@@ -498,7 +498,7 @@ fn compose_message_via_editor() -> Result<(String, String), Box<dyn std::error::
 ";
     fs::write(&msg_path, template)?;
     info!("push message: launching {editor} on {}", msg_path.display());
-    // Allowlist entry 2 (clippy.toml): push's `$EDITOR` launch.
+    // Register entry 2 (clippy.toml): push's `$EDITOR` launch.
     // Interactive message editing is a spawn by definition.
     #[allow(clippy::disallowed_methods)]
     let status = std::process::Command::new(&editor)
@@ -679,7 +679,7 @@ fn stage_push_work(
     Ok(())
 }
 
-/// Squash-push `.claude` in-process, always pushing
+/// Squash-push `.claude`, always pushing
 /// `BOT_BOOKMARK` (`main`): the bot repo's bookmark is
 /// pinned, so the work-repo bookmark plays no part here.
 ///
@@ -687,7 +687,7 @@ fn stage_push_work(
 ///   `commit-bot`) into the bot commit, then pushes, via
 ///   `squash_push::squash_push`, so the ochid-drop guard
 ///   applies and a failure is a visible push failure.
-/// - In-process since 0.69.0-1 (the stage's detached child died
+/// - Synchronous since 0.69.0-1 (the stage's detached child died
 ///   silently at sandbox teardown: the loss diagnosed in
 ///   0.68.1).
 /// - `--no-squash-push` turns this stage into a no-op so the
@@ -701,13 +701,10 @@ fn stage_squash_push_bot(
     let bot = bot_path(root)?;
     let bot_arg = bot.to_string_lossy();
     if params.dry_run {
-        info!(
-            "push squash-push-bot: [dry-run] would squash @ -> @- and push {bk} in {bot_arg} \
-             (in-process)"
-        );
+        info!("push squash-push-bot: [dry-run] would squash @ -> @- and push {bk} in {bot_arg}");
         return Ok(());
     }
-    info!("push squash-push-bot: squash @ -> @- + push {bk} -R {bot_arg} (in-process)");
+    info!("push squash-push-bot: squash @ -> @- + push {bk} -R {bot_arg}");
     let sp = crate::squash_push::SquashPushParams {
         repo: bot.clone(),
         squash: SquashSpec {

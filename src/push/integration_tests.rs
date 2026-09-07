@@ -4,13 +4,9 @@
 //! fixtures (bare-git remotes + colocated jj repos under a
 //! unique tempdir via `crate::test_helpers::Fixture`).
 //!
-//! Most tests use `--from message` to skip `preflight`: its
-//! `sync --check` step re-invokes `current_exe()`, which under
-//! `cargo test` is the test harness, not the CLI binary. Most
-//! also use `--no-squash-push`
-//! to focus on the earlier stages (message, commit-work,
-//! commit-bot, bookmark-set, push-work); the
-//! `push_squash_push_bot_*` tests run the in-process
+//! Most tests use `--no-squash-push` to focus on the earlier
+//! stages (message, commit-work, commit-bot, bookmark-set,
+//! push-work); the `push_squash_push_bot_*` tests run the
 //! `squash-push-bot` stage for real. Everything is exercised
 //! against the fixture's local bare-git remotes.
 //!
@@ -172,7 +168,7 @@ fn push_happy_bot_dirty() {
 
 /// The real `squash-push-bot` stage: a full push (no
 /// `--no-squash-push`) squashes `.claude`'s tail and pushes `main`
-/// to the bot repo's origin in-process, synchronously, no
+/// to the bot repo's origin synchronously, no
 /// detached child (the 0.68.1-diagnosed loss).
 #[test]
 fn push_squash_push_bot_inline_pushes_bot_main() {

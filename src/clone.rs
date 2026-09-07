@@ -165,7 +165,7 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
     Ok(())
 }
 
-/// Clone a single repo in-process (`jj git clone --colocate`
+/// Clone a single repo (`jj git clone --colocate`
 /// semantics) and verify bookmark tracking.
 ///
 /// - `source` is the clone source (URL or local path, a relative

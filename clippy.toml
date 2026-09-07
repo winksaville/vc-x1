@@ -1,16 +1,10 @@
-# Process-spawn ban: the "retire the remaining jj spawns" cycle's
-# enforcement (0.79.0). vc-x1 runs jj and git in-process through
-# jj-lib/gix, so a new `Command::new` site is a regression unless it
-# joins the documented allowlist below. An allowed site carries
-# `#[allow(clippy::disallowed_methods)]` plus a comment naming its
-# allowlist entry, so every exception is visible in the diff that
-# adds it. `[lints.clippy] disallowed_methods = "deny"` in
-# Cargo.toml makes a bare site fail `cargo clippy` outright.
+# Process-spawn ban, since 0.79.0. The mechanism, the ban as config,
+# the grant as an attribute, this comment as the register, is
+# explained in README.md under "No process spawns". A new
+# `Command::new` site needs an entry below and a visible
+# `#[allow(clippy::disallowed_methods)]` naming it.
 #
-# Enumerate the granted exceptions (the enforced half of this list):
-#   rg '^\s*#.allow.*disallowed_methods' -A 1
-#
-# The allowlist, closed (wink, 2026-08-19), reopened once for entry 5:
+# The register, closed (wink, 2026-08-19), reopened once for entry 5:
 #
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
@@ -24,7 +18,7 @@
 # 4. Test helpers (src/test_helpers.rs and tests/common/mod.rs):
 #    real-jj/git fixture setup and interop verification, kept
 #    deliberately independent of the facade under test, and never a
-#    substitute for asserting our jj-lib paths in-process. The CLI
+#    substitute for asserting our jj-lib paths directly. The CLI
 #    tests' launcher spawning the built vc-x1 binary is this entry
 #    too: spawning the binary is what a CLI test is.
 # 5. The validate subcommand (src/validate.rs): runs the
@@ -37,5 +31,5 @@
 # default-branch query) are jj-lib's implementation detail, not
 # vc-x1 spawn sites, and no lint here sees them.
 disallowed-methods = [
-    { path = "std::process::Command::new", reason = "vc-x1 is in-process by design (jj-lib/gix): a new spawn site needs an entry in clippy.toml's documented allowlist and a visible #[allow] at the site" },
+    { path = "std::process::Command::new", reason = "vc-x1 runs jj and git through jj-lib and gix, never by spawning their binaries: a new spawn site needs an entry in the register comment at the top of clippy.toml and a visible #[allow] at the site (README: No process spawns)" },
 ]

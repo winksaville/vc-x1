@@ -284,7 +284,7 @@ pub(crate) fn rewrite_readme_first_line(
 fn gh(args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
     debug!("$ gh {args_str}");
-    // Allowlist entry 3 (clippy.toml): init's gh provisioning.
+    // Register entry 3 (clippy.toml): init's gh provisioning.
     // Creating a repo on GitHub is the forge's REST API, not a
     // version-control operation, and gh is its authenticated
     // client.
@@ -1170,7 +1170,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     // --- Preflight ---
     info!("Preflight checks...");
 
-    // No "is jj installed" probe: init runs in-process through
+    // No "is jj installed" probe: init runs through
     // jj-lib, and main's version gate already errored out on a
     // missing or mismatched jj CLI before dispatch.
     if plan.provisioner == Provisioner::GhCreate {
@@ -1643,7 +1643,7 @@ fn run_remote_step(
 }
 
 /// Create a bare git repo at `path` with `main` as the initial
-/// branch, in-process via gix (was a `git init --bare
+/// branch, via gix (was a `git init --bare
 /// --initial-branch=main` spawn, the last `git` spawn in init).
 ///
 /// The branch is pinned by an in-memory `init.defaultBranch`
