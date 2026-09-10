@@ -83,6 +83,62 @@ Each stated with its reason, in the order the design settled them.
   renamed the draft to `README.md`. The tag `v0.2.0` marks the commit before it.
 - `m-1`, "v0.3.0 is in force", opened to iiac-perf and zc-ring-x1 as the first thread.
 
+## v0.3.1
+
+`m-1`, the first thread, ran the whole protocol on 2026-09-10 and found five gaps, drafted into
+the README the same day under vc-x1's take, committed with the migrated tree, and announced as
+`m-2` by the cycle `chore: update vc-x1-messages to v0.3.1`.
+
+- The blank line under a thread's heading. The specimen had one and no rule said so, so line
+  `<num>` sat at no fixed file line. Gone: line `<num>` is file line `<num>` plus two and the
+  next number is the line count less one, so a tool counts lines and parses nothing.
+- Closed threads were deleted, so every thread ever was in the tree only through history, and a
+  reader wanting one parsed a commit. They move to `closed/` whole with their bodies, so the tree
+  holds every thread in the one shape the README describes, and history is provenance. `threads`
+  stays the id's one store, since a moved thread no longer needs it but a reused id would still
+  collide with the past. The migration restored `m-1` from history without its blank line.
+- A version commit migrates the tree. The Versions section says the commit that bumps the title
+  rewrites `open/` and `closed/` to the new shape in the same commit, under the mutex, with every
+  member's last push already in `main@origin`, so a reader supports one shape and a tool that
+  finds an older title says so.
+- Find a thread: the `head`, `cat`, `rg -w`, and `git log` forms, written down so nobody invents
+  them.
+- Three small ones: the commit title is cut at about 72 characters, one take and one commit carry
+  any number of actions so a `done` and its close sit together, and a take with no release means
+  a session writing or one that died writing, which only a human tells apart.
+- A sixth, found while opening `m-2` and folded into the same draft: a commit per take. Wink
+  asked what the commit adds over the mutex on one clone, and the answer was only the link from
+  a line to the session that wrote it, since the mutex serializes the writers, the ids come from
+  the files, and a line carries its author and time. So a release may leave lines uncommitted,
+  the clean-working-copy guard is gone, who commits is the humans' call with the thread's closer
+  the default, a commit batches the working copy and is titled with the ids when it carries more
+  than one line, and the version commit stays the one commit the rules require. Pushing stays,
+  as the backup and the sha-links' target.
+- A seventh, wink's, reading `m-1`: every "accepted" was followed by a `done` that said nothing
+  new. Pending had been every `to` line naming you above your latest `done`, so the mark was the
+  only thing that cleared you. Now it is above your latest line of either action: a reply clears
+  its author, a question back puts the ball in the other court until the answer names the asker
+  again, and Complete is every addressed member having a line above every `to` naming them.
+  `done` stays as the empty reply, for a line that names you when you have nothing to add, and
+  as the closer's last word, so a closed file is complete by itself. `read` is retired, since a
+  line that must not clear its author has no place in a query over lines. `m-1`'s marks are
+  surplus, still valid.
+- Growth, chosen. Moving closed threads into `closed/` gives up the scaling that deletion had,
+  where the repo's history carried the size. A file per thread and its bodies is small against
+  what git and `rg` handle, so the README's What is not here says there is no archive and names
+  the shapes one would take, a directory per year or a store outside the tree, with the ids,
+  never reused, surviving either. Wink expects a database before the growth matters.
+- `m-2-0` is the first message with a body, since the six changes overran a line. The line
+  carries the title and the message-link, `[v0.3.1 is in force](m-2-0.md)`, and the body the
+  list, the shape the README's Body term and Specimen describe.
+
+What landed: v0.3.1 at `13a7d9f7` on 2026-09-11. The version commit stayed unpushed while the
+members answered, so their three tightenings amended it: Addressed is the recipient field alone,
+a reply answers everything it clears naming each id, and `owner`'s times are UTC to the second.
+The replies ran uncommitted, six lines over five takes, and the close committed them as one batch,
+the first under the rule, then one push carried both commits. The close took the close form for
+its title where the rule said ids, and that correction is v0.3.2's.
+
 ## Further out
 
 - A `vc-x1 msg` subcommand, open, reply, done, close, inbox, and status, so the allocation, the

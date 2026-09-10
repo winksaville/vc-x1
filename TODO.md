@@ -19,7 +19,6 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 
 _No cycle currently in progress._
 
-
 ## Waiting
 
 Important work that cannot start yet. Each entry names what it waits on, in a form that can be
@@ -42,19 +41,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### chore: update vc-x1-messages to v0.3.1
-
-(wink, 2026-09-10) The first thread under v0.3.0 found five gaps, drafted the same day into
-`../vc-x1-messages/README.md` v0.3.1, uncommitted in that repo's working copy under vc-x1's
-take, with `closed/m-1.md` restored from history beside it: no blank line under the heading,
-so line `<num>` is file line `<num>` plus two and the next number is the line count less one,
-closed threads moved to `closed/` rather than deleted so every thread is in the tree in one
-shape and a tool never parses history, a Versions section stating that the version commit
-migrates the tree, a Find a thread section, commit titles cut at about 72 characters, one take
-across a `done` and its close, and what a take with no release means. The cycle commits the
-draft, opens `m-2` to iiac-perf and zc-ring-x1 in one take, and records the outcome here as
-**chore: update vc-x1-messages to v0.3.0** did.
-
 ### agent-files(proposal): v0.2.4, the messaging pointer names Pending
 
 (wink, 2026-09-10) `custom.md`'s messaging entry says a session reads our inbox in
@@ -67,6 +53,15 @@ zc-ring-x1 on a thread and adopted by each with a copy. Found by **chore: update
 vc-x1-messages to v0.3.0**, which drafted the clause as a rung and pulled it, since a bump
 belongs to a proposal cycle's opening. Nothing is wrong meanwhile, the README governs and the
 pointer only misnames the query.
+
+### chore: update vc-x1-messages to v0.3.2, the close commit's title
+
+(wink, 2026-09-11) The README's title rule at v0.3.1 says a commit carrying several lines is
+titled by their ids, and the first close under it, `13a7d9f7`, carried six and took the close
+form instead, `close m-2 v0.3.1 is in force`, since six ids read as noise and the close is the
+event. The rule follows: a commit that closes a thread is titled in the close form whatever lines
+it carries, and the ids form is for a batch that closes nothing. A one-clause Versions entry, in
+force by its commit, announced on a thread as v0.3.1 was.
 
 ### sync clones a declared but absent agent-repo
 
@@ -1024,106 +1019,83 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### chore: update vc-x1-messages to v0.3.0
+### chore: update vc-x1-messages to v0.3.1
 
 #### Problem
 
-The `../vc-x1-messages` protocol at v0.2.0 spreads a message's state over a topic file and three
-inbox files, joined by a heading that each member slugs by hand, and on 2026-09-09 two members
-disagreed on whether a thread was complete with the files unable to settle it by eye. On the way
-to that finding: slugs drift between members (`v0-2-3` against `v023`), and one inbox lacks a
-`sent-to` line from before the convention existed.
+The first thread under v0.3.0, `m-1`, found five gaps in the rules on 2026-09-10: a blank line
+under the heading, so line `<num>` sat at no fixed file line; closed threads deleted, so a reader
+wanting one parsed history; no word that a version commit migrates the tree; no section on finding
+a thread; and nothing on a commit title's length, on one take across a `done` and its close, or on
+what a take with no release means. Two more came while opening `m-2`: a commit per take, which
+the mutex makes unnecessary on one clone, and a `done` after every reply, which the reply makes
+unnecessary.
 
 #### Solution
 
-v0.3.0 is in force in `../vc-x1-messages`: one file per thread, `open/m-<tid>.md`, every line an
-`m-<tid>-<num>` numbered by the file itself, `done` marks compared by number, the file's existence
-the open state, bodies as files beside the thread, and no inbox files. The draft was written with
-wink in this conversation, committed in the messages repo, revised by iiac-perf's own commit, and
-cut over on 2026-09-10 by the sequence its Cutover section states, the v0.2.0 tree at tag
-`v0.2.0`. `m-1` announced it, both members accepted on the thread, and vc-x1 closed it. This
-repo keeps the design record in `notes/messages/messages-rules-0910.md`.
+v0.3.1 is in force in `../vc-x1-messages` at `13a7d9f7`. The version commit carried the README,
+`closed/m-1.md` restored from history without its blank line, `threads` at 2, and `m-2` opened to
+iiac-perf and zc-ring-x1 with the first body file, and stayed unpushed while they answered. Two
+rules were folded in before it was made, a release may leave lines uncommitted and a member's own
+line clears their pending, and the two acceptances asked for three tightenings, folded in by
+amending it. The six replies ran uncommitted across five takes, and the close committed them as
+one batch with vc-x1's `done` last, then the push carried both commits. The v0.3.1 section in
+`notes/messages/messages-rules-0910.md` holds the design.
 
 #### Acceptance check
 
-The proposal record is on `../vc-x1-messages` `main` with a sha-link to the draft in this repo,
-both members have answered it, and the outcome is recorded here: the cutover done and the
-messages repo's `README.md` titled v0.3.0, or the counters filed as `## Todo` entries.
+`../vc-x1-messages` `main@origin` has `README.md` titled v0.3.1, `closed/m-1.md` with no blank
+line, and `closed/m-2.md` complete: a `to vc-x1` line and a `done` from each of iiac-perf and
+zc-ring-x1, and vc-x1's `done` in the commit that closed it. Or what a member asked to change is
+filed as a `## Todo` entry.
 
-- Result: pass, on the cutover path rather than the proposal path. The messages repo's
-  `README.md` is titled v0.3.0 at `1f3ea08d`, iiac-perf accepted by editing the draft and again
-  as `m-1-1`, zc-ring-x1 accepted as `m-1-3`, both on origin, and `m-1` closed at `6d9b932b`
-  with every member done. The sha-link to a draft in this repo never existed, since the draft
-  was committed in the messages repo instead, which the deliberation records.
+- Result: pass. `main@origin` is `13a7d9f7`, `README.md` is titled v0.3.1, `closed/m-1.md` opens
+  on its heading and line 0, and `closed/m-2.md` holds zc-ring-x1's `done` at 4, iiac-perf's at 5,
+  and vc-x1's at 6, in the close commit. The three changes the members asked for went into the
+  version commit by amendment rather than into `## Todo`, since it was unpushed.
 
 #### Ladder
 
-- [chore: update vc-x1-messages to v0.3.0 opening][13] (done)
-- [docs: the messages rules v0.3.0, as landed][14] (done)
-- [chore: update vc-x1-messages to v0.3.0 closing][17] (done)
+- chore: update vc-x1-messages to v0.3.1 (done)
 
 #### Deliberation
 
-- The draft lives in `notes/messages/`, not only in the messages repo: a proposal record links its
-  text by sha-link, and only a commit in a repo the record can point at is durable. The earlier
-  proposals sit there for the same reason.
-  - revised 2026-09-10: wink had the draft committed in `../vc-x1-messages` instead, so iiac-perf
-    could edit on top of it, and the messages repo is durable and sha-linkable on its own. What
-    `notes/messages/` keeps is the design record, not a copy of the README
-- The cutover ran in `../vc-x1-messages` on 2026-09-10 before this cycle's first work rung, by
-  wink's decision, once iiac-perf had accepted by editing the draft: vc-x1 closed its four pending
-  lines, the cutover commit followed the draft's own section, and `m-1` opened as the trial.
-  zc-ring-x1 answers there, in the new rules, so the proposal record the ladder planned was
-  dropped and the ladder shrank to the record rung.
-- The `custom.md` clause left the ladder on 2026-09-10: the text is identical across the three
-  members, so changing it is a proposal, and a proposal's bump belongs to an
-  `agent-files(proposal)` cycle, filed in `## Todo` to run after this one closes.
-- The dev rename applies, docs-only or not: the build script refuses a suffixed version under
-  the stable name, and a multi-step cycle's versions are suffixed. The `v0.2.0`, `v0.2.2`, and
-  `v0.2.3` cycles skipped it because a single-step commit carries the bare version.
-- The version tends to the patch, `0.84.2`, since nothing in the artifact changes.
+- Single-step: the work is one commit in the messages repo and one commit here at the end, so
+  no ladder, the bare version `0.84.3`, and no dev rename.
+- The draft and `m-2` land in one commit: the README's Versions section has the version commit
+  migrate the tree in the same commit under the mutex, and opening `m-2` in it means no member
+  sees v0.3.1 without the thread that names it.
+- The clean-working-copy guard is waived for this write: the draft was left uncommitted under
+  vc-x1's take on purpose, so one take spans the draft and its commit, wink's decision recorded in
+  the continuation notes before the restart.
+- The messages commit is a bare `jj commit` with the session link, as the `m-1` commits were: the
+  messages repo runs no cycle of its own, and its README fixes the title.
+- A commit is optional for lines, folded into v0.3.1 while the draft was still uncommitted:
+  wink asked what a commit adds over the mutex on one clone, and it adds only the session link,
+  so the clean-working-copy guard goes, the closer commits by default, and the version commit
+  stays required.
+- A member's own line clears their pending, folded in the same way: wink read `m-1` and saw
+  every "accepted" followed by a `done` that added nothing, so Pending counts from a member's
+  latest line of either action, `done` is the empty reply and the closer's last word, and `read`
+  is retired.
+- The version commit stays unpushed until both members answer, wink's call: the members read
+  this clone's tree, so a push shows them nothing more, and before the push a change they ask
+  for amends the commit instead of making a v0.3.2. The close's push carries it, the members'
+  lines batched with it under the new rule. "Push when connected" is bent for the window, and
+  the `m-2-0` body says so.
+- The replies' three tightenings amended the unpushed version commit rather than opening v0.3.2:
+  Addressed is the recipient field alone (zc-ring-x1), a reply answers everything it clears,
+  naming each id, and `owner`'s times are UTC to the second (iiac-perf). The amendment is what
+  the unpushed window was for, and `m-2-0`'s body had said so.
+- The closer's `done` went in on wink's call, as the opener's last word, though the file was
+  complete without it: the members had written theirs, and the last word belongs to whoever
+  started the thread.
+- The close commit is titled in the close form, `close m-2 v0.3.1 is in force`, where the
+  README's title rule says the ids when a commit carries lines. The ids ran to six and read as
+  noise, so the close form won and the rule follows as a v0.3.2 correction, filed in `## Todo`.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-- The `v0.2.0` title commit in `../vc-x1-messages` (its local `main`, `76190098`) was made by a
-  bare `jj commit` before this cycle opened, so it carries the session link and no `ochid:`. It
-  stays as it is, the session link being the record of the conversation.
-- The first thread found five rule gaps, and they are the next cycle, not this one: no blank
-  line under the heading so line `<num>` is file line `<num>` plus two, closed threads moved to
-  `closed/` instead of deleted so every thread is in the tree in one shape and history is never
-  parsed, a Find a thread section, commit titles cut at about 72 characters, one take across a
-  `done` and its close, and a stale-take sentence. The v0.3.1 draft with `m-1` migrated into
-  `closed/` sits uncommitted in the messages repo under vc-x1's take, and its cycle opens next.
-- Close-out shape: trapezoid, the default, three commits behind a merge.
-
-#### Ladder details
-
-##### chore: update vc-x1-messages to v0.3.0 opening
-
-The cycle's setup commit: publish the bookmark, delete `## Closed`'s contents, write this block from
-the conversation's continuation notes, reset them, and bump the version-of-record.
-
-##### docs: the messages rules v0.3.0, as landed
-
-The design behind v0.3.0 lived in one conversation, and the README states rules without their
-reasons. `notes/messages/messages-rules-0910.md` holds the findings that started it, each decision
-with its reason, the alternatives set aside, what landed and how, and what is further out.
-
-* The README's rules have no recorded why, and the cycle-record cannot hold it.
-  - The notes file is the design record, in the shape the earlier proposals used, and the
-    cycle-record's deliberation points at it.
-* The ladder planned a proposal, a copy of the draft, and a cutover rung that ran elsewhere.
-  - The ladder is this record alone, and the acceptance check keeps waiting on both members'
-    lines on `m-1`.
-
-##### chore: update vc-x1-messages to v0.3.0 closing
-
-Closing out the cycle. What closing taught: a cycle whose subject is another repo has its
-acceptance check there, and the check passed only once the other members had run, so the
-close-out waited on them rather than on any rung here. The wait was the trial itself.
-
+- Close-out shape: single-step, one commit, no choice to record.
 
 # References
 
 [12]: /notes/forks-multi-user.md
-[13]: #chore-update-vc-x1-messages-to-v030-opening
-[14]: #docs-the-messages-rules-v030-as-landed
-[17]: #chore-update-vc-x1-messages-to-v030-closing
