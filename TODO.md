@@ -45,9 +45,8 @@ messages repo's `README.md` titled v0.3.0, or the counters filed as `## Todo` en
 #### Ladder
 
 - [chore: update vc-x1-messages to v0.3.0 opening][13] (done)
-- [docs: the messages README v0.3.0 draft][14]
-- [docs: propose v0.3.0 to iiac-perf and zc-ring-x1][15]
-- [chore: cut vc-x1-messages over to v0.3.0][16]
+- [docs: the messages rules v0.3.0, as landed][14] (done)
+- [docs(custom): pending lines, not an inbox][15]
 - [chore: update vc-x1-messages to v0.3.0 closing][17]
 
 #### Deliberation
@@ -55,10 +54,14 @@ messages repo's `README.md` titled v0.3.0, or the counters filed as `## Todo` en
 - The draft lives in `notes/messages/`, not only in the messages repo: a proposal record links its
   text by sha-link, and only a commit in a repo the record can point at is durable. The earlier
   proposals sit there for the same reason.
-  - the copy in `../vc-x1-messages` is untracked, the working file wink and the agent edit, and
-    the cutover commit is what makes it that repo's `README.md`
-- The cutover is a rung of this cycle, provisional: it waits on two replies, and if they take
-  long or counter, the cycle closes with the counters filed and the cutover becomes its own cycle.
+  - revised 2026-09-10: wink had the draft committed in `../vc-x1-messages` instead, so iiac-perf
+    could edit on top of it, and the messages repo is durable and sha-linkable on its own. What
+    `notes/messages/` keeps is the design record, not a copy of the README
+- The cutover ran in `../vc-x1-messages` on 2026-09-10 before this cycle's first work rung, by
+  wink's decision, once iiac-perf had accepted by editing the draft: vc-x1 closed its four pending
+  lines, the cutover commit followed the draft's own section, and `m-1` opened as the trial.
+  zc-ring-x1 answers there, in the new rules, so the proposal record the ladder planned was
+  dropped and the ladder shrank to the record rung and the `custom.md` rung.
 - The dev rename applies, docs-only or not: the build script refuses a suffixed version under
   the stable name, and a multi-step cycle's versions are suffixed. The `v0.2.0`, `v0.2.2`, and
   `v0.2.3` cycles skipped it because a single-step commit carries the bare version.
@@ -75,22 +78,23 @@ messages repo's `README.md` titled v0.3.0, or the counters filed as `## Todo` en
 The cycle's setup commit: publish the bookmark, delete `## Closed`'s contents, write this block from
 the conversation's continuation notes, reset them, and bump the version-of-record.
 
-##### docs: the messages README v0.3.0 draft
+##### docs: the messages rules v0.3.0, as landed
 
-The draft has no durable home: it is an untracked file in a shared clone. Copy it into
-`notes/messages/` with an intro naming the findings it answers, so the proposal record can link
-it at a commit.
+The design behind v0.3.0 lived in one conversation, and the README states rules without their
+reasons. `notes/messages/messages-rules-0910.md` holds the findings that started it, each decision
+with its reason, the alternatives set aside, what landed and how, and what is further out.
 
-##### docs: propose v0.3.0 to iiac-perf and zc-ring-x1
+* The README's rules have no recorded why, and the cycle-record cannot hold it.
+  - The notes file is the design record, in the shape the earlier proposals used, and the
+    cycle-record's deliberation points at it.
+* The ladder planned a proposal, a copy of the draft, and a cutover rung that ran elsewhere.
+  - The ladder is two rungs now, this record and the `custom.md` wording, and the acceptance check
+    keeps waiting on both members' lines on `m-1`.
 
-The family has not seen the draft. Send the record in the messages-rules topic under the v0.2.0
-rules, its text kept in `notes/messages/` as the earlier records are.
+##### docs(custom): pending lines, not an inbox
 
-##### chore: cut vc-x1-messages over to v0.3.0
-
-On both acceptances, the cutover commit in `../vc-x1-messages`: the draft becomes `README.md`, the
-topics, inboxes, `notices.md`, and `.owner` go, `threads` and `open/` appear, and `custom.md` here
-follows if its pointer needs to change.
+`custom.md` says a session reads our inbox in the messages repo at acquaint, and v0.3.0 has no
+inbox. One clause, its own commit since it is an agent-file.
 
 ##### chore: update vc-x1-messages to v0.3.0 closing
 
@@ -1079,7 +1083,6 @@ of this section, and the cycles before the rule in the frozen [notes/chores/](no
 
 [12]: /notes/forks-multi-user.md
 [13]: #chore-update-vc-x1-messages-to-v030-opening
-[14]: #docs-the-messages-readme-v030-draft
-[15]: #docs-propose-v030-to-iiac-perf-and-zc-ring-x1
-[16]: #chore-cut-vc-x1-messages-over-to-v030
+[14]: #docs-the-messages-rules-v030-as-landed
+[15]: #docscustom-pending-lines-not-an-inbox
 [17]: #chore-update-vc-x1-messages-to-v030-closing
