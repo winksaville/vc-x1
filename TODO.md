@@ -17,7 +17,84 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### chore: update vc-x1-messages to v0.3.0
+
+#### Problem
+
+The `../vc-x1-messages` protocol at v0.2.0 spreads a message's state over a topic file and three
+inbox files, joined by a heading that each member slugs by hand, and on 2026-09-09 two members
+disagreed on whether a thread was complete with the files unable to settle it by eye. On the way
+to that finding: slugs drift between members (`v0-2-3` against `v023`), and one inbox lacks a
+`sent-to` line from before the convention existed.
+
+#### Solution
+
+Propose v0.3.0 to the family: one file per thread, `open/m-<tid>.md`, every line an
+`m-<tid>-<num>` numbered by the file itself, `done` marks compared by number, the file's existence
+the open state, bodies as files beside the thread, and no inbox files. The draft was written with
+wink in this conversation and sits at `../vc-x1-messages/README-v0.3.0-draft.md`. This cycle
+keeps the draft and the proposal's text in `notes/messages/`, sends the record, and cuts the
+messages repo over when iiac-perf and zc-ring-x1 accept.
+
+#### Acceptance check
+
+The proposal record is on `../vc-x1-messages` `main` with a sha-link to the draft in this repo,
+both members have answered it, and the outcome is recorded here: the cutover done and the
+messages repo's `README.md` titled v0.3.0, or the counters filed as `## Todo` entries.
+
+#### Ladder
+
+- [chore: update vc-x1-messages to v0.3.0 opening][13] (done)
+- [docs: the messages README v0.3.0 draft][14]
+- [docs: propose v0.3.0 to iiac-perf and zc-ring-x1][15]
+- [chore: cut vc-x1-messages over to v0.3.0][16]
+- [chore: update vc-x1-messages to v0.3.0 closing][17]
+
+#### Deliberation
+
+- The draft lives in `notes/messages/`, not only in the messages repo: a proposal record links its
+  text by sha-link, and only a commit in a repo the record can point at is durable. The earlier
+  proposals sit there for the same reason.
+  - the copy in `../vc-x1-messages` is untracked, the working file wink and the agent edit, and
+    the cutover commit is what makes it that repo's `README.md`
+- The cutover is a rung of this cycle, provisional: it waits on two replies, and if they take
+  long or counter, the cycle closes with the counters filed and the cutover becomes its own cycle.
+- The dev rename applies, docs-only or not: the build script refuses a suffixed version under
+  the stable name, and a multi-step cycle's versions are suffixed. The `v0.2.0`, `v0.2.2`, and
+  `v0.2.3` cycles skipped it because a single-step commit carries the bare version.
+- The version tends to the patch, `0.84.2`, since nothing in the artifact changes.
+- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+- The `v0.2.0` title commit in `../vc-x1-messages` (its local `main`, `76190098`) was made by a
+  bare `jj commit` before this cycle opened, so it carries the session link and no `ochid:`. It
+  stays as it is, the session link being the record of the conversation.
+
+#### Ladder details
+
+##### chore: update vc-x1-messages to v0.3.0 opening
+
+The cycle's setup commit: publish the bookmark, delete `## Closed`'s contents, write this block from
+the conversation's continuation notes, reset them, and bump the version-of-record.
+
+##### docs: the messages README v0.3.0 draft
+
+The draft has no durable home: it is an untracked file in a shared clone. Copy it into
+`notes/messages/` with an intro naming the findings it answers, so the proposal record can link
+it at a commit.
+
+##### docs: propose v0.3.0 to iiac-perf and zc-ring-x1
+
+The family has not seen the draft. Send the record in the messages-rules topic under the v0.2.0
+rules, its text kept in `notes/messages/` as the earlier records are.
+
+##### chore: cut vc-x1-messages over to v0.3.0
+
+On both acceptances, the cutover commit in `../vc-x1-messages`: the draft becomes `README.md`, the
+topics, inboxes, `notices.md`, and `.owner` go, `threads` and `open/` appear, and `custom.md` here
+follows if its pointer needs to change.
+
+##### chore: update vc-x1-messages to v0.3.0 closing
+
+Closing out the cycle.
 
 
 ## Waiting
@@ -998,55 +1075,11 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(adoption): v0.2.3
-
-#### Problem
-
-iiac-perf's `agent-files(proposal): v0.2.3` landed on 2026-09-07 with eight rules corrected where
-they live, each with its why in `rationale.md`, and two of the eight are findings against text we
-wrote in `v0.2.2`: the dual-repo model defined the work-repo by a walk the reader performs, and
-the digit rule would have moved the minor at nearly every proposal. The other six close cases the
-rules met in iiac-perf's bench cycle. Our set at `v0.2.2` carries none of them, and the family
-record **2026-09-07T17:24:39.498Z v0.2.3 landed, adopt v0.2.3** in `../vc-x1-messages` asks for
-the adoption.
-
-#### Solution
-
-Adopt iiac-perf's set at its `main` `d5d5e77a3bb1` verbatim, by `vc-x1 agent-files copy
-../iiac-perf`: `AGENTS.md` and `agent-data/*` copied, the version file renamed to `v0.2.3`, and
-`custom.md` untouched. The eight edits: `## Reference numbering` names no file, punctuation
-conversion is paid in a penultimate rung or the single-step commit, continuation facts are filed
-or kept before a reset, pushed titles keep their names through a rename, a waiver's scope is
-recorded with the bend, the `#[allow]` obligation follows the lints, the dual-repo model is two
-definitions with `[repos] work` at `"."`, and the agent-files version tends to the patch, the
-heading and term now "Agent-files version".
-
-#### Acceptance check
-
-`vc-x1 agent-files diff ../iiac-perf`, with that checkout on its `main` at `d5d5e77a`, reports
-`0 of 10 differ`, `ls agent-data` shows `agent-files-v0.2.3` alone, and `vc-x1 validate` passes.
-
-- Result: pass, the diff and the listing run after the copy and validation run after the last
-  edit, all before the push.
-
-#### Ladder
-
-- agent-files(adoption): v0.2.3 (done)
-
-#### Deliberation
-
-- An adoption, nothing countered. vc-x1 reviewed the set twice before Land, from iiac-perf's
-  working copy and again from the pushed commit, and both reviews were folded in, the last a one
-  clause fix in `rationale.md` at our ask, so the text at `d5d5e77a` is one the family agrees on.
-- The copy was made by `vc-x1 agent-files copy`, the first adoption to use it, as the `v0.2.0`
-  record said the next would. It applied nine steps, left them uncommitted for review, and the
-  diff command reported the result.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-- The size table takes a row, since agent-files changed: 2315 lines from 2255, 53 of the 60 in
-  `rationale.md`, one paragraph per rule change.
-- No dev rename, as in the `v0.2.0` and `v0.2.2` cycles: a docs-only single-step commit leaves the
-  artifact as it is.
-
 # References
 
 [12]: /notes/forks-multi-user.md
+[13]: #chore-update-vc-x1-messages-to-v030-opening
+[14]: #docs-the-messages-readme-v030-draft
+[15]: #docs-propose-v030-to-iiac-perf-and-zc-ring-x1
+[16]: #chore-cut-vc-x1-messages-over-to-v030
+[17]: #chore-update-vc-x1-messages-to-v030-closing
