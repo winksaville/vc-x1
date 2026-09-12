@@ -51,7 +51,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 #### Ladder
 
 - [feat: vc-x1 lookup for dual repos opening][1] (done)
-- [feat: parse SCOPE and FILE:LINE and place the line in a repo][2]
+- [feat: parse SCOPE and FILE:LINE and place the line in a repo][2] (done)
 - [test: a fixture dual workspace with known partners, pushed][3]
 - [feat: resolve a partner by its ochid trailer, candidates when it has none][4]
 - [feat: blame a work line to its commit, reaching past a move][5]
@@ -106,6 +106,22 @@ the package to its dev name.
 
 The command's edge: parse the optional `SCOPE` keyword and the `FILE:LINE` argument, resolve the
 file to one side of the workspace, and refuse a line the file does not have.
+
+- `SCOPE` is one side, never `both`, since a line is on one side. Two positionals read as `SCOPE
+  FILE:LINE` and one as `FILE:LINE`, with `-s` the flag form and a positional beside it an error
+  rather than a tie-break.
+- The side is where the file's canonical path lands, the agent repo checked first since it may
+  nest in the work repo. A named side is a check, and a disagreement is an error, never a hint,
+  since a wrong side would resolve to the wrong repo's history in silence.
+- A named side also gives a repo-relative path a home: a `FILE` that does not exist relative to
+  the current directory is taken relative to that side's repo root, so a transcript line can be
+  named from the work root without spelling the agent dir.
+- The line is read from the file on disk, since that is what the editor or compiler printed the
+  number from, and a line past the end is refused with the file's count. What blame needs, a tree
+  that holds the line, is the next rungs' concern.
+- `Located`, the side, the repo, the repo-relative path, and the line's text, is what every later
+  step starts from. This rung prints it, `<side> <path>:<line>` and the text, and the window
+  replaces that output when the directions land.
 
 ##### test: a fixture dual workspace with known partners, pushed
 

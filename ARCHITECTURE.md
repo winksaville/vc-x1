@@ -144,7 +144,7 @@ where one exists) and the entrypoint `pub fn x(...)`. Modules:
 (+ `todo_helpers`), `validate_bot`, `clone`, `init`
 (+ `init/params`), `symlink`, `sync`,
 `squash_push`, `push`,
-`config_cmd`, `bot_session` (+ `transcript`). Which ones have ported to `(ctx, params)` and which
+`config_cmd`, `bot_session` (+ `transcript`), `lookup`. Which ones have ported to `(ctx, params)` and which
 compose `options_flags/` leaves: `notes/chores/chores-*.md` +
 `TODO.md`.
 

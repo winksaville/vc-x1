@@ -68,6 +68,29 @@ pub fn scope_keywords() -> impl clap::builder::TypedValueParser<Value = Scope> {
         .try_map(|s: String| parse_scope(&s))
 }
 
+/// The one-side keywords as a parser that declares them, `work`
+/// and `agent`, for a flag that names the side a thing is on.
+pub fn side_keywords() -> impl clap::builder::TypedValueParser<Value = Side> {
+    use clap::builder::TypedValueParser as _;
+    clap::builder::PossibleValuesParser::new(["work", "agent"]).try_map(|s: String| {
+        match s.as_str() {
+            "work" => Ok(Side::Work),
+            "agent" => Ok(Side::Bot),
+            other => Err(format!(
+                "'{other}' is not a side: expected `work` or `agent`"
+            )),
+        }
+    })
+}
+
+/// A side's CLI keyword, `work` or `agent`.
+pub fn side_keyword(side: Side) -> &'static str {
+    match side {
+        Side::Work => "work",
+        Side::Bot => "agent",
+    }
+}
+
 impl Scope {
     /// True when the role set includes the work side.
     pub fn has_work(&self) -> bool {
