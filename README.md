@@ -128,6 +128,7 @@ vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 status [SCOPE] [-R PATH]             # Working-copy status by scope, work|agent|both, and the clean verdict (alias st)
+vc-x1 lookup [SCOPE] FILE:LINE           # The other repo's window for a line in this one
 vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
@@ -349,6 +350,65 @@ Working copy  (@) : kpuqynnomnxv 360bdc189b1c (empty) (no description set)
 Parent commit (@-): vtkwkumoqlpx b424f97b1a2c main | feat: the last landed cycle
 
 status: dirty: work @ has changes
+```
+
+### lookup
+
+Show the lines in the other repo that a line in this one relates to. `vc-x1 lookup [SCOPE]
+FILE:LINE` takes a line as an editor, a compiler, or grep prints it, places the file on one side
+of the workspace, and resolves it to the window on the other side, work-to-transcript or
+transcript-to-work. The requirements are in [What the lookup command
+needs](notes/transcript-write.md#what-the-lookup-command-needs).
+
+- `SCOPE` is the side the line is on, `work` or `agent`, as a positional before `FILE:LINE` or as
+  `-s`/`--scope`. Omitted, it is inferred from the file's path. Named, a `FILE` that does not
+  exist relative to the current directory is taken relative to that side's repo root, so a
+  repo-relative path works from anywhere once the side is said. A named side the path disagrees
+  with is an error, never a hint.
+- `FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line must
+  exist in the file on disk.
+- The workspace is `-R`/`--repo` when given, else found from the file.
+- `-r`/`--revision REV` reads the line from the file as of REV instead of from disk, for a line
+  the working copy no longer holds, such as a cycle-record line the next opening deleted.
+
+A work line prints the commit it arrived in, blamed at the working copy after a snapshot, and
+that commit's partner by its `ochid:` trailer. When the line moved, the commit that first wrote
+it and that commit's partner follow. A commit with no trailer prints its candidate partners, the
+agent commits within `--tolerance` seconds of it, 60 by default, nearest first:
+
+```
+work TODO.md:21
+    The first decision needs revising.
+commit  kxpuoxoznwyn TODO.md:21 fix: the design note closing
+written yuoqvtxvozko fix: the design note opening
+partner vxkqvspultnv fix: the design note closing
+written partner qxqzomnwkonk fix: the design note opening
+```
+
+An agent line, a session file's line, prints as the rendered transcript entry, then the agent
+commit that appended it, blamed at the agent repo's working copy after a snapshot, and every work
+commit that commit's `ochid:` trailers name, the work commits its push published. Each work
+commit's diff is the window, printed as `FILE:START-END` regions with their removed and added
+lines. When the line is a transcript write the window narrows to the files it wrote, one for a
+`Write` or `Edit` and every changed file a `Bash` command names, and any other line is discussion
+and takes the diff whole. A line not yet pushed says so:
+
+```
+agent 1d000000-0000-4000-8000-000000000002.jsonl:17
+    1d000000-0000-4000-8000-000000000002.jsonl:17 2026-09-12 20:24:58Z tool Edit: .../dr-1/design.md
+commit  upzpmzpyuqzo 1d000000-0000-4000-8000-000000000002.jsonl:17 fix: revise the first decision
+partner ntuwppkqupwv fix: revise the first decision
+write   design.md in ntuwppkqupwv
+window  design.md:3-3
+  - The first decision.
+  + The first decision, revised and checked.
+```
+
+```
+vc-x1 lookup TODO.md:53                  # the side inferred from the path
+vc-x1 lookup agent e355f8b2.jsonl:1200   # repo-relative under the agent repo
+vc-x1 lookup work TODO.md:53 -R ../proj  # a workspace elsewhere
+vc-x1 lookup TODO.md:11 -r main-         # the line as of a revision
 ```
 
 ### agent-files
@@ -1434,6 +1494,23 @@ cargo test                 # unit + integration
 cargo test --bins          # unit tests only, no binary spawned
 cargo test --test cli_init # one integration test crate
 ```
+
+### Acceptance fixtures
+
+The lookup's tests run over pre-created dual workspaces with documented relationships, one per
+name under the directory the work side's `[test] fixtures` key names, `../vc-x1-fixtures` here.
+A test picks a fixture by name and skips with a notice when the path is absent, so `cargo test`
+passes on a bare clone, and runs the fixture's cases when it is there.
+
+- `dr-1`, `dr` for dual repo, is the simple one-to-one shape: a work repo and its agent repo at
+  `.claude`, laid out as `vc-x1 clone` lays a dual workspace out, run through four cycles by
+  the scripted agent in `support/fixtures/build-dr-1.py`. Its README lists every relationship
+  and `relationships.json` beside it carries them for the tests. Its remotes are
+  `github.com/winksaville/vc-x1-fixtures-dr-1-work` and `vc-x1-fixtures-dr-1-agent`.
+- To get it: `git clone` the work remote as `../vc-x1-fixtures/dr-1` and the agent remote as
+  its `.claude`, then `jj git init --colocate` in each. To rebuild it from nothing: the script
+  with `--local`, then `--publish` once the result reads right.
+- A one-work-to-many-agents fixture is a numbered sibling, `dr-2`.
 
 ### Test tempdir location
 

@@ -17,6 +17,7 @@ mod jj;
 mod legacy_vc_config;
 mod list;
 mod logging;
+mod lookup;
 mod md_fence;
 mod options_flags;
 mod push;
@@ -213,6 +214,19 @@ pub(crate) enum Commands {
         no vc-x1 config answers for `work`."
     )]
     Status(status::StatusArgs),
+
+    /// Show the lines in the other repo that a line in this one relates to
+    #[command(
+        long_about = "Resolve a line in either repo of a dual workspace to the\n\
+        window of lines in the other repo.\n\n\
+        `lookup [SCOPE] FILE:LINE`: SCOPE is the side the line is on,\n\
+        `work` or `agent`, and FILE:LINE is the form editors, compilers,\n\
+        and grep print. SCOPE is inferred from the file's path when\n\
+        omitted, and with SCOPE given a path relative to that side's\n\
+        repo root works from anywhere. A named SCOPE the path disagrees\n\
+        with is an error. The line must exist in the file on disk."
+    )]
+    Lookup(lookup::LookupArgs),
 
     /// Display an agent session transcript as a conversation
     #[command(
@@ -613,6 +627,7 @@ fn main() -> ExitCode {
         Commands::List(args) => args.dispatch(&mut ctx),
         Commands::Show(args) => args.dispatch(&mut ctx),
         Commands::Status(args) => args.dispatch(&mut ctx),
+        Commands::Lookup(args) => args.dispatch(&mut ctx),
         Commands::BotSession(args) => args.dispatch(&mut ctx),
         Commands::BotSessionOld { .. } => {
             error!(

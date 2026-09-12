@@ -1109,7 +1109,7 @@ fn push_result(lines: &mut Vec<String>, text: &str, is_error: bool, cap: usize) 
 /// - `Read`/`Write`/`Edit` -> `file_path`.
 /// - Fallback -> compact `key=value` pairs of string inputs.
 /// - Always truncated to `GIST_CHAR_CAP` chars.
-fn tool_use_gist(name: &str, input: &Value) -> String {
+pub(crate) fn tool_use_gist(name: &str, input: &Value) -> String {
     let detail = match name {
         "Bash" => input["command"]
             .as_str()
@@ -1150,7 +1150,7 @@ fn truncate_chars(s: &str, max: usize) -> String {
 /// documented guarantee, so a timestamp in any other shape
 /// (offset form, too short) passes through verbatim rather than
 /// being sliced and mislabeled.
-fn short_time(ts: Option<&str>) -> String {
+pub(crate) fn short_time(ts: Option<&str>) -> String {
     match ts {
         Some(t) if t.ends_with('Z') => match t.get(..19) {
             Some(dt) => format!("{}Z", dt.replacen('T', " ", 1)),

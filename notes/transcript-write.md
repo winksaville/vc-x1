@@ -139,6 +139,32 @@ Both directions:
 - A push-call matcher accepting `vc-x1` and `vc-x1-dev`, since the artifact carries the dev name
   while a cycle runs.
 
+## What building the lookup command found
+
+`vc-x1 lookup` landed in the **feat: vc-x1 lookup for dual repos** cycle (2026-09-12), built
+against the requirements above and tested over the `dr-1` fixture, a scripted dual workspace
+whose relationships are recorded as it is built (see the README's Acceptance fixtures). What the
+build found that the probes did not:
+
+- A move is a move only when the diff says so. A cycle-record moved from `## In Progress` to
+  `## Closed` with nothing between the sections keeps its lines as diff context and blames to
+  the opening. With Todo entries between, as a real `TODO.md` has, the closing removes and re-adds
+  them and blame names the closing. The probes' "the move still blamed to the opening" is the
+  first case, and the reach back by `diff_lines()` is what the second needs.
+- A push call is where a shell segment starts with `vc-x1 push`, not where the text appears. This
+  cycle's opening wrote its record with a heredoc whose prose mentions `vc-x1 push`, and a filter
+  on the bare text refused the real write.
+- One Bash call can write several files: the same heredoc wrote the record and bumped the
+  manifest. So a transcript write narrows the transcript-to-work window to every changed file its
+  command names, not to one.
+- A partner's window read from its current commit already holds an amend's lines, since At rest's
+  squash-push folds them into the partner. No direction needed a predecessor partner, so the
+  evolution walk is built and tested but unread.
+- The session timeline orders files by their first timestamp and each in file order. Concurrent
+  sessions writing one agent repo would interleave and are not handled.
+- A window is hundreds of entries in a real session, so the command prints the write with
+  `-C` entries of context rather than the whole window.
+
 ## Probes: the proposal cycle, 2026-09-03
 
 The `agent-files(proposal): v0.1.0` cycle, landed 2026-09-01 as a trapezoid, its opening

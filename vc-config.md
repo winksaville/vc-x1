@@ -360,3 +360,19 @@ doc = "Fast validation, in order, one invocation per element, run by `vc-x1 vali
 used-by = "vc-x1 validate --fast"
 example = ["cargo test --bins"]
 ```
+
+## test.fixtures
+
+The directory holding the acceptance-test fixtures, pre-created workspaces with documented
+relationships, one dual workspace per name, relative to the config file's directory. A test picks a
+fixture by name under it and skips with a notice when the path is absent, so `cargo test` passes on
+a bare clone. Owned by the work side because the tests are the artifact's.
+
+```toml
+[test.fixtures]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo test`"
+used-by = "cargo test"
+example = "../vc-x1-fixtures"
+```

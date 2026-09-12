@@ -27,6 +27,34 @@ use crate::options_flags::repo::RepoOption;
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
+/// A named acceptance fixture under the workspace's `[test]
+/// fixtures` directory, or `None` with a notice on stderr when it is
+/// absent, so a bare clone's `cargo test` passes.
+///
+/// - The directory comes from this crate's own `.vc-config.md`,
+///   resolved relative to the manifest dir, never from the current
+///   directory, so the harness's cwd does not matter.
+/// - A fixture is a dual workspace laid out as `vc-x1 clone` lays
+///   one out, its README listing the relationships its tests assert
+///   and `relationships.json` carrying them.
+pub fn fixture(name: &str) -> Option<PathBuf> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let cfg = crate::config_md::load(root)
+        .expect("load this crate's own config")
+        .expect("this crate has a .vc-config.md");
+    let Some(dir) = crate::toml_simple::toml_get(&cfg.map, "test.fixtures") else {
+        eprintln!("fixture {name}: no [test] fixtures key in .vc-config.md: skipping");
+        return None;
+    };
+    let path = crate::common::resolve_repo_path(root, dir).join(name);
+    if path.join(".jj").is_dir() {
+        Some(path)
+    } else {
+        eprintln!("fixture {name} absent at {}: skipping", path.display());
+        None
+    }
+}
+
 /// Per-process counter so same-nanosecond tempdir collisions yield
 /// distinct paths when tests run in parallel.
 static COUNTER: AtomicU64 = AtomicU64::new(0);

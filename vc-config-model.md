@@ -76,6 +76,14 @@ full = [
 fast = ["cargo test --bins"]
 ```
 
+The `[test]` table
+- fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
+  test` [[15]]
+```toml
+[test]
+fixtures = "../vc-x1-fixtures"
+```
+
 # References
 
 [1]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-sessionitems
@@ -92,3 +100,4 @@ fast = ["cargo test --bins"]
 [12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
 [13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
 [14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
+[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

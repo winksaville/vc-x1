@@ -19,8 +19,8 @@ use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::{
-    RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions, RevsetParseContext,
-    RevsetWorkspaceContext, SymbolResolver,
+    ResolvedRevsetExpression, RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions,
+    RevsetParseContext, RevsetWorkspaceContext, SymbolResolver,
 };
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
@@ -462,6 +462,25 @@ pub fn resolve_revset(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
+    let resolved = resolve_expression(workspace, repo, revset_str)?;
+    let revset = resolved.evaluate(repo.as_ref())?;
+
+    let mut commit_ids = Vec::new();
+    let mut stream = revset.commit_change_ids();
+    while let Some(result) = stream.next().block_on() {
+        let (commit_id, _change_id) = result?;
+        commit_ids.push(commit_id);
+    }
+    Ok(commit_ids)
+}
+
+/// Parse and resolve a revset string to its expression, the form an
+/// annotator takes as its domain, without evaluating it.
+pub fn resolve_expression(
+    workspace: &Workspace,
+    repo: &Arc<ReadonlyRepo>,
+    revset_str: &str,
+) -> Result<Arc<ResolvedRevsetExpression>, Box<dyn std::error::Error>> {
     let aliases_map = RevsetAliasesMap::new();
     let fileset_aliases_map = FilesetAliasesMap::new();
     let extensions = RevsetExtensions::default();
@@ -491,16 +510,7 @@ pub fn resolve_revset(
 
     let no_extensions: &[Box<dyn jj_lib::revset::SymbolResolverExtension>] = &[];
     let symbol_resolver = SymbolResolver::new(repo.as_ref(), no_extensions);
-    let resolved = expression.resolve_user_expression(repo.as_ref(), &symbol_resolver)?;
-    let revset = resolved.evaluate(repo.as_ref())?;
-
-    let mut commit_ids = Vec::new();
-    let mut stream = revset.commit_change_ids();
-    while let Some(result) = stream.next().block_on() {
-        let (commit_id, _change_id) = result?;
-        commit_ids.push(commit_id);
-    }
-    Ok(commit_ids)
+    Ok(expression.resolve_user_expression(repo.as_ref(), &symbol_resolver)?)
 }
 
 /// Verify all remote refs for `bookmark` in `repo` are tracked.
