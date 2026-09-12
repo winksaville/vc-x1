@@ -54,7 +54,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 - [feat: parse SCOPE and FILE:LINE and place the line in a repo][2] (done)
 - [test: a fixture dual workspace with known partners][3] (done)
 - [feat: resolve a partner by its ochid trailer, candidates when it has none][4] (done)
-- [feat: blame a work line to its commit, reaching past a move][5]
+- [feat: blame a work line to its commit, reaching past a move][5] (done)
 - [feat: the work-to-transcript window and the line's transcript write][6]
 - [feat: the transcript-to-work window][7]
 - [feat: vc-x1 lookup for dual repos closing][8]
@@ -180,6 +180,29 @@ commit, and a commit without one answered with the candidates inside a time tole
 
 Blame at a tree that holds the line, and when the commit blame gives is not where the line was
 written, the reach back through history by the line's text.
+
+- Blame runs jj-lib's annotator over the starting commit's ancestors, and the starting commit is
+  the working copy after a snapshot, as any jj command takes one, so a line edited since the last
+  snapshot blames to the working copy and says it has no partner yet. `-r` starts at a named
+  revision instead, for a line only a landmark's tree holds.
+- A move only exists when the diff says so. The fixture's first record move had nothing between
+  In Progress and Closed, so the diff kept the record's lines in place and blame named the
+  opening, which jj's own annotate confirmed. A Todo section between the two makes the closing
+  remove and re-add them, and then blame names the closing and the reach back finds the opening.
+  So the probes' "the move still blamed to the opening" is the degenerate case, not a rule.
+- The reach back asks for the roots of the ancestors whose diff carries the line's text, by the
+  `diff_lines(substring:...)` revset. One root other than the blamed commit is the writer, and
+  several or none leave blame's answer standing. Lines under eight characters are not searched,
+  since short text recurs too readily to name a first writer.
+- The tests hold blame to two oracles the code under test does not produce: jj's own annotate at
+  main, recorded by the fixture build, and the builder's snapshots of which push first carried
+  each line. The invariant is that the writer, the reach back's answer or else blame's, is the
+  push that first carried the line, at every later push whose tree still holds it.
+- A set-aside line blames to the rung that restored it and has no earlier writer in history. Its
+  write is earlier only in the transcript, which is the window rung's backward search.
+- The command prints the commit, the writer, and both partners, and the window replaces the
+  partner lines when the directions land. `common::resolve_revset` was split so the annotator
+  can take a resolved expression as its domain.
 
 ##### feat: the work-to-transcript window and the line's transcript write
 

@@ -225,6 +225,8 @@ class Agent:
         self.pushes = []
         self.writes = []
         self.discussion = []
+        self.moved = []
+        self.snapshots = []
 
     def start_session(self, sid):
         self.session = Session(sid, self.agent, self.work, self.clock)
@@ -248,8 +250,10 @@ class Agent:
         self.writes.append({"session": s.sid, "line": n, "tool": "Write", "file": rel, "text": note, "push": None})
         return n
 
-    def edit(self, rel, old, new, note):
+    def edit(self, rel, old, new, note, moves=()):
         path = self.work / rel
+        for text in moves:
+            self.moved.append({"file": rel, "text": text, "push": len(self.pushes)})
         before = path.read_text()
         assert before.count(old) == 1, f"{rel}: old string not unique: {old!r}"
         path.write_text(before.replace(old, new, 1))
@@ -283,9 +287,18 @@ class Agent:
     def _snapshot(self):
         return {s.sid: s.n for s in self.sessions}
 
+    def _files(self):
+        """The work files' lines as they are at a push."""
+        out = {}
+        for rel in ("notes.md", "design.md", "TODO.md"):
+            path = self.work / rel
+            out[rel] = path.read_text().splitlines() if path.exists() else []
+        self.snapshots.append(out)
+
     def push(self, bookmark, title, body, case):
         self.clock.tick(30)
         before = self._snapshot()
+        self._files()
         self.j.run([VC, "push", bookmark, "--yes", "--title", title, "--body", body], self.work)
         work_chid = self.j.chid(self.work, bookmark)
         agent_chid = self.j.chid(self.agent, "main")
@@ -312,6 +325,7 @@ class Agent:
         agent 20 seconds later."""
         self.clock.tick(30)
         before = self._snapshot()
+        self._files()
         self.j.jj(self.work, "commit", "-m", f"{title}\n\n{body}")
         self.j.jj(self.work, "bookmark", "set", "main", "-r", "@-")
         self.j.jj(self.work, "git", "push", "--bookmark", "main")
@@ -446,7 +460,7 @@ def main():
     a.say("Opening: the In Progress block, and an early line for notes.md that I will set aside.", discussion=True)
     a.create_bookmark("the-design-note")
     a.write("TODO.md",
-            "# Todo\n\n## In Progress\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n## Closed\n\n_None._\n",
+            "# Todo\n\n## In Progress\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n_None._\n",
             "A design note, written over two rungs.")
     a.edit("notes.md", "A first note.\n", "A first note.\nA note written early and set aside.\n",
            "A note written early and set aside.")
@@ -473,9 +487,10 @@ def main():
                  "rung")
     a.say("Closing: the record moves to Closed.")
     a.edit("TODO.md",
-           "## In Progress\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n## Closed\n\n_None._\n",
-           "## In Progress\n\n_No cycle currently in progress._\n\n## Closed\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n- Result: pass, both decisions are in design.md.\n",
-           "- Result: pass, both decisions are in design.md.")
+           "## In Progress\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n_None._\n",
+           "## In Progress\n\n_No cycle currently in progress._\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n- Result: pass, both decisions are in design.md.\n",
+           "- Result: pass, both decisions are in design.md.",
+           moves=["A design note, written over two rungs."])
     pB3 = a.push("the-design-note", "feat: the design note closing",
                  "Closes the cycle \"feat: the design note\". Its record is the In\nProgress block in TODO.md.",
                  "closing")
@@ -491,8 +506,8 @@ def main():
     a.say("Continuation notes read. Opening fix: the design note.", discussion=True)
     a.create_bookmark("fix-the-design-note")
     a.edit("TODO.md",
-           "## In Progress\n\n_No cycle currently in progress._\n\n## Closed\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n- Result: pass, both decisions are in design.md.\n",
-           "## In Progress\n\n### fix: the design note\n\nThe first decision needs revising.\n\n## Closed\n\n_None._\n",
+           "## In Progress\n\n_No cycle currently in progress._\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n### feat: the design note\n\nA design note, written over two rungs.\n\n- Result: pass, both decisions are in design.md.\n",
+           "## In Progress\n\n### fix: the design note\n\nThe first decision needs revising.\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n_None._\n",
            "The first decision needs revising.")
     pC0 = a.push("fix-the-design-note", "fix: the design note opening",
                  "Opens the cycle \"fix: the design note\". Its record is the In\nProgress block in TODO.md.",
@@ -508,6 +523,9 @@ def main():
     clock.tick(30)
     jj.jj(work, "squash")
     jj.jj(work, "git", "push", "--bookmark", "fix-the-design-note")
+    a.snapshots.pop()
+    a._files()
+
     a.bash("jj squash && jj git push --bookmark fix-the-design-note",
            "Fold the fix into the rung and re-push the bookmark", "Changes to push to origin:\n  bookmark: fix-the-design-note [move sideways]")
     a.pushes[pC1]["rewritten"] = True
@@ -520,13 +538,17 @@ def main():
         if w["session"] == S2:
             w["end"] = a.session.n
     a.marks[S2] = a.session.n
+    for w in a.writes + a.discussion:
+        if w["push"] is None:
+            w["push"] = pC1
     a.bash("vc-x1 squash-push -R .claude", "Fold the session tail into the rung's partner",
            "squash-push: done")
     a.say("Closing.")
     a.edit("TODO.md",
-           "## In Progress\n\n### fix: the design note\n\nThe first decision needs revising.\n\n## Closed\n\n_None._\n",
-           "## In Progress\n\n_No cycle currently in progress._\n\n## Closed\n\n### fix: the design note\n\nThe first decision needs revising.\n\n- Result: pass, the first decision is revised and checked.\n",
-           "- Result: pass, the first decision is revised and checked.")
+           "## In Progress\n\n### fix: the design note\n\nThe first decision needs revising.\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n_None._\n",
+           "## In Progress\n\n_No cycle currently in progress._\n\n## Todo\n\n### docs: a glossary\n\nThe terms the notes use.\n\n### test: a second fixture\n\nOne work repo with two agent repos.\n\n## Closed\n\n### fix: the design note\n\nThe first decision needs revising.\n\n- Result: pass, the first decision is revised and checked.\n",
+           "- Result: pass, the first decision is revised and checked.",
+           moves=["The first decision needs revising."])
     pC2 = a.push("fix-the-design-note", "fix: the design note closing",
                  "Closes the cycle \"fix: the design note\". Its record is the In\nProgress block in TODO.md.",
                  "closing")
@@ -576,11 +598,27 @@ def describe(a, work, init_work, init_agent):
         p = a.pushes[w["push"]]
         lines = final[w["file"]]
         line = lines.index(w["text"]) + 1 if w["text"] in lines else None
+        arrives = None
+        for i, snap in enumerate(a.snapshots):
+            present = w["text"] in snap.get(w["file"], [])
+            before = i > 0 and w["text"] in a.snapshots[i - 1].get(w["file"], [])
+            if present and not before:
+                arrives = i
+        moved_at = next((m["push"] for m in a.moved if m["file"] == w["file"] and m["text"] == w["text"]), None)
         writes.append({
             "file": w["file"], "text": w["text"], "line_on_main": line,
             "work": p["work"], "agent": p["agent"], "push": w["push"],
+            "arrives": arrives, "moved_at": moved_at,
             "write": {"session": w["session"], "line": w["line"], "tool": w["tool"]},
         })
+    blamed = {}
+    for rel in ("notes.md", "design.md", "TODO.md"):
+        out = a.j.jj(work, "file", "annotate", "-r", "main", "-T",
+                     'commit.change_id() ++ "\\n"', rel)
+        blamed[rel] = out.splitlines()
+    for w in writes:
+        if w["line_on_main"]:
+            w["blamed_on_main"] = blamed[w["file"]][w["line_on_main"] - 1]
     return {
         "fixture": "dr-1",
         "sessions": {"s1": S1, "s2": S2},
@@ -612,13 +650,17 @@ def readme(rel):
         out.append(f"| {i} | {p['title']} | {p['case']} | `{p['work'][:12]}` | `{p['agent'][:12]}` | {win} | {'yes' if p['rewritten'] else ''} | {'yes' if p['predecessor'] else ''} |")
     out.append("\nThe window is the session file, by its last four characters, and the lines the agent commit added.\n")
     out.append("## Work lines and their transcript writes\n")
-    out.append("| file | line on main | text | push | write |")
-    out.append("|:---|---:|:---|---:|:---|")
+    out.append("| file | line on main | text | write | in push | arrives | moved at |")
+    out.append("|:---|---:|:---|:---|---:|---:|---:|")
     for w in rel["writes"]:
         line = w["line_on_main"] if w["line_on_main"] else "gone"
-        out.append(f"| {w['file']} | {line} | {w['text']} | {w['push']} | {w['write']['session'][-4:]}:{w['write']['line']} {w['write']['tool']} |")
+        moved = w["moved_at"] if w["moved_at"] is not None else ""
+        out.append(f"| {w['file']} | {line} | {w['text']} | {w['write']['session'][-4:]}:{w['write']['line']} {w['write']['tool']} | {w['push']} | {w['arrives']} | {moved} |")
     out.append(
-        "\n`gone` marks a cycle-record line the next opening deleted, so it is in the landmark's tree only.\n"
+        "\n`gone` marks a line no longer on main: a cycle-record line the next opening deleted, so it is\n"
+        "in the landmark's tree only, or a line a later edit replaced. `in push` is the push whose window\n"
+        "holds the write, `arrives` the push whose commit first carries the line, and `moved at` the\n"
+        "closing whose diff removed it from In Progress and added it to Closed, past the Todo entries.\n"
     )
     out.append("## Discussion lines\n")
     out.append("| session:line | push |")

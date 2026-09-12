@@ -368,11 +368,28 @@ needs](notes/transcript-write.md#what-the-lookup-command-needs).
 - `FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line must
   exist in the file on disk.
 - The workspace is `-R`/`--repo` when given, else found from the file.
+- `-r`/`--revision REV` reads the line from the file as of REV instead of from disk, for a line
+  the working copy no longer holds, such as a cycle-record line the next opening deleted.
+
+A work line prints the commit it arrived in, blamed at the working copy after a snapshot, and
+that commit's partner by its `ochid:` trailer. When the line moved, the commit that first wrote
+it and that commit's partner follow. A commit with no trailer prints its candidate partners, the
+agent commits within `--tolerance` seconds of it, 60 by default, nearest first:
+
+```
+work TODO.md:21
+    The first decision needs revising.
+commit  kxpuoxoznwyn TODO.md:21 fix: the design note closing
+written yuoqvtxvozko fix: the design note opening
+partner vxkqvspultnv fix: the design note closing
+written partner qxqzomnwkonk fix: the design note opening
+```
 
 ```
 vc-x1 lookup TODO.md:53                  # the side inferred from the path
 vc-x1 lookup agent e355f8b2.jsonl:1200   # repo-relative under the agent repo
 vc-x1 lookup work TODO.md:53 -R ../proj  # a workspace elsewhere
+vc-x1 lookup TODO.md:11 -r main-         # the line as of a revision
 ```
 
 ### agent-files

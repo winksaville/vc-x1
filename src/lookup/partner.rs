@@ -16,10 +16,6 @@
 //!   walked back from a commit, whole, or only the versions that
 //!   carried its title, which are the ones a push published.
 
-// Consumed by the window rungs that follow, and until then reached
-// by the tests alone.
-#![allow(dead_code, reason = "consumed by the window rungs that follow")]
-
 use std::sync::Arc;
 
 use futures::StreamExt;
@@ -125,6 +121,10 @@ fn candidates(
 /// The working copy's snapshots are in the chain too, since jj
 /// records each as a rewrite, so most commits have predecessors and
 /// the interesting ones are what `pushed_predecessors` keeps.
+#[allow(
+    dead_code,
+    reason = "the work-to-transcript window reads an amended partner's"
+)]
 pub fn predecessors(
     repo: &Arc<ReadonlyRepo>,
     commit: &Commit,
@@ -143,6 +143,10 @@ pub fn predecessors(
 /// The predecessors that carried `commit`'s title: the versions a
 /// push published before the rewrite, which is what an amended
 /// partner's push-time window is read from.
+#[allow(
+    dead_code,
+    reason = "the work-to-transcript window reads an amended partner's"
+)]
 pub fn pushed_predecessors(
     repo: &Arc<ReadonlyRepo>,
     commit: &Commit,
@@ -154,20 +158,29 @@ pub fn pushed_predecessors(
         .collect())
 }
 
+/// A commit's change id in jj's spelling, whole.
+pub fn chid(c: &Commit) -> String {
+    jj_lib::hex_util::encode_reverse_hex(jj_lib::object_id::ObjectId::as_bytes(c.change_id()))
+}
+
+/// A commit's change id as the trailers and the logs spell it, the
+/// first twelve characters.
+pub fn short_chid(c: &Commit) -> String {
+    chid(c)[..12].to_string()
+}
+
+/// A commit's title, its description's first line.
+pub fn title(c: &Commit) -> &str {
+    c.description().lines().next().unwrap_or("") // OK: obvious
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::lookup::tests::dr1;
-    use jj_lib::hex_util::encode_reverse_hex;
-    use jj_lib::object_id::ObjectId;
 
-    /// A commit's change id in jj's spelling.
-    fn chid(c: &Commit) -> String {
-        encode_reverse_hex(c.change_id().as_bytes())
-    }
-
-    /// One commit by its full change id.
-    fn by_chid(ws: &Workspace, repo: &Arc<ReadonlyRepo>, id: &str) -> Commit {
+    /// One commit by a revset naming exactly one.
+    pub(crate) fn by_chid(ws: &Workspace, repo: &Arc<ReadonlyRepo>, id: &str) -> Commit {
         let ids = common::resolve_revset(ws, repo, id).unwrap();
         assert_eq!(ids.len(), 1, "{id}");
         repo.store().get_commit(&ids[0]).unwrap()

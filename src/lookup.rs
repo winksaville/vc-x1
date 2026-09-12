@@ -22,12 +22,22 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::info;
 
+use jj_lib::commit::Commit;
+use jj_lib::repo::Repo;
+
 use crate::common;
 use crate::context::Context;
 use crate::options_flags::scope::{Side, side_keyword, side_keywords};
 use crate::subcommand::SubcommandRunner;
 
+pub mod blame;
 pub mod partner;
+
+use partner::{Partner, short_chid, title};
+
+/// The default tolerance, in seconds, inside which a commit with no
+/// trailer takes the other side's commits as candidate partners.
+const DEFAULT_TOLERANCE_SECS: i64 = 60;
 
 /// CLI args for `lookup`.
 #[derive(Args, Debug)]
@@ -49,6 +59,16 @@ pub struct LookupArgs {
     /// Workspace root [default: the workspace around the file]
     #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repo: Option<PathBuf>,
+
+    /// Read the line from the file as of REV rather than from disk,
+    /// for a line the working copy no longer holds
+    #[arg(short = 'r', long = "revision", value_name = "REV")]
+    pub revision: Option<String>,
+
+    /// Seconds within which a commit with no ochid trailer takes the
+    /// other side's commits as candidate partners
+    #[arg(long = "tolerance", value_name = "SECS", default_value_t = DEFAULT_TOLERANCE_SECS)]
+    pub tolerance: i64,
 }
 
 /// Clap-free params for `lookup`.
@@ -62,6 +82,10 @@ pub struct LookupParams {
     pub line: usize,
     /// The workspace root when `-R` gave one.
     pub root: Option<PathBuf>,
+    /// The revision to read the line from, in place of disk.
+    pub rev: Option<String>,
+    /// The candidates' tolerance, in seconds.
+    pub tolerance_secs: i64,
 }
 
 impl TryFrom<&LookupArgs> for LookupParams {
@@ -81,11 +105,16 @@ impl TryFrom<&LookupArgs> for LookupParams {
             None => (a.scope, a.first.as_str()),
         };
         let (file, line) = parse_file_line(target)?;
+        if a.tolerance < 0 {
+            return Err("lookup: --tolerance is a number of seconds, so not negative".into());
+        }
         Ok(LookupParams {
             side,
             file,
             line,
             root: a.repo.clone(),
+            rev: a.revision.clone(),
+            tolerance_secs: a.tolerance,
         })
     }
 }
@@ -143,12 +172,16 @@ pub struct Located {
     pub side: Side,
     /// The repo root of that side, canonical.
     pub repo: PathBuf,
+    /// The other side's repo root, canonical, when the workspace has
+    /// one.
+    pub other: Option<PathBuf>,
     /// The file's path relative to `repo`.
     pub rel: PathBuf,
     /// The 1-based line number.
     pub line: usize,
-    /// The line's text, without its newline.
-    pub text: String,
+    /// The line's text from disk, without its newline, or `None`
+    /// when a revision is to supply it.
+    pub text: Option<String>,
 }
 
 /// The workspace's two sides, canonical: the root and the agent
@@ -177,6 +210,15 @@ impl Sides {
             .map(|b| b.canonicalize())
             .transpose()?;
         Ok(Sides { root, bot })
+    }
+
+    /// The other side's repo, `None` for `work` in a workspace with
+    /// no agent repo.
+    fn other_of(&self, side: Side) -> Option<&Path> {
+        match side {
+            Side::Work => self.bot.as_deref(),
+            Side::Bot => Some(&self.root),
+        }
     }
 
     /// The repo of `side`, an error for `agent` in a workspace with
@@ -219,7 +261,8 @@ impl Sides {
 ///   side that disagrees is an error, never a hint.
 /// - The line must exist in the file as it is on disk, since the
 ///   working copy is what an editor or a compiler printed the line
-///   from.
+///   from, unless a revision is named, which supplies it from that
+///   tree instead.
 pub fn locate(params: &LookupParams, cwd: &Path) -> Result<Located, Box<dyn std::error::Error>> {
     let given = if params.file.is_absolute() {
         params.file.clone()
@@ -273,34 +316,141 @@ pub fn locate(params: &LookupParams, cwd: &Path) -> Result<Located, Box<dyn std:
         .into());
     }
     let repo = sides.repo_of(side)?.to_path_buf();
+    let other = sides.other_of(side).map(Path::to_path_buf);
     let rel = file.strip_prefix(&repo)?.to_path_buf();
-    let content = std::fs::read_to_string(&file)
-        .map_err(|e| format!("lookup: cannot read '{}': {e}", file.display()))?;
-    let count = content.lines().count();
-    let Some(text) = content.lines().nth(params.line - 1) else {
-        return Err(format!(
-            "lookup: '{}' has {count} line(s), so there is no line {}",
-            rel.display(),
-            params.line
-        )
-        .into());
+    let text = if params.rev.is_some() {
+        None
+    } else {
+        let content = std::fs::read_to_string(&file)
+            .map_err(|e| format!("lookup: cannot read '{}': {e}", file.display()))?;
+        let count = content.lines().count();
+        let Some(text) = content.lines().nth(params.line - 1) else {
+            return Err(format!(
+                "lookup: '{}' has {count} line(s), so there is no line {}",
+                rel.display(),
+                params.line
+            )
+            .into());
+        };
+        Some(text.to_string())
     };
     Ok(Located {
         side,
         repo,
+        other,
         rel,
         line: params.line,
-        text: text.to_string(),
+        text,
     })
 }
 
+/// One commit for a revset that must name exactly one.
+fn one_commit(
+    workspace: &jj_lib::workspace::Workspace,
+    repo: &std::sync::Arc<jj_lib::repo::ReadonlyRepo>,
+    rev: &str,
+) -> Result<Commit, Box<dyn std::error::Error>> {
+    let ids = common::resolve_revset(workspace, repo, rev)?;
+    match ids.as_slice() {
+        [id] => Ok(repo.store().get_commit(id)?),
+        other => Err(format!("lookup: '{rev}' names {} commits, not one", other.len()).into()),
+    }
+}
+
+/// Print a partner answer under `label`: one line per linked commit
+/// or candidate, or the one line saying there is none.
+fn print_partner(label: &str, answer: &Partner) {
+    match answer {
+        Partner::Linked(commits) => {
+            for c in commits {
+                info!("{label} {} {}", short_chid(c), title(c));
+            }
+        }
+        Partner::Candidates {
+            tolerance_secs,
+            commits,
+        } if commits.is_empty() => {
+            info!("{label} none: no ochid trailer, and no commit within {tolerance_secs}s");
+        }
+        Partner::Candidates { commits, .. } => {
+            for c in commits {
+                info!("{label} candidate {} {}", short_chid(c), title(c));
+            }
+        }
+    }
+}
+
 /// Place the line and print where it landed, `<side> <path>:<line>`
-/// and the line's text.
-pub fn lookup(_ctx: &Context, params: &LookupParams) -> Result<(), Box<dyn std::error::Error>> {
+/// and the line's text, then for a work line the commit it arrived
+/// in, the commit that wrote it when it moved, and their partners.
+///
+/// The work repo is snapshotted first, as any jj command does, so a
+/// line edited since the last snapshot blames to the working copy
+/// rather than to a tree that lacks it.
+pub fn lookup(ctx: &mut Context, params: &LookupParams) -> Result<(), Box<dyn std::error::Error>> {
     let cwd = std::env::current_dir()?;
     let at = locate(params, &cwd)?;
     info!("{} {}:{}", side_keyword(at.side), at.rel.display(), at.line);
-    info!("    {}", at.text);
+    if let Some(text) = &at.text {
+        info!("    {text}");
+    }
+    if at.side != Side::Work {
+        return Ok(());
+    }
+    if params.rev.is_none() {
+        ctx.session(&at.repo)?.snapshot()?;
+    }
+    let (ws, repo) = common::load_repo(&at.repo)?;
+    let wc_id = repo.view().get_wc_commit_id(ws.workspace_name()).cloned();
+    let start = match &params.rev {
+        Some(rev) => one_commit(&ws, &repo, rev)?,
+        None => {
+            let id = wc_id
+                .clone()
+                .ok_or("lookup: the work repo has no working-copy commit")?;
+            repo.store().get_commit(&id)?
+        }
+    };
+    let found = blame::origin(&ws, &repo, &start, &at.rel, at.line)?;
+    match &at.text {
+        Some(text) if *text != found.text => {
+            return Err(format!(
+                "lookup: line {} of '{}' on disk differs from the last snapshot, so run \
+                 `jj status` to snapshot it first:\n    disk: {text}\n    tree: {}",
+                at.line,
+                at.rel.display(),
+                found.text
+            )
+            .into());
+        }
+        Some(_) => {}
+        None => info!("    {}", found.text),
+    }
+    if wc_id.as_ref() == Some(found.commit.id()) {
+        info!("commit  the working copy, not committed yet, so no partner");
+        return Ok(());
+    }
+    info!(
+        "commit  {} {}:{} {}",
+        short_chid(&found.commit),
+        at.rel.display(),
+        found.line_at_origin,
+        title(&found.commit)
+    );
+    if let Some(w) = &found.written {
+        info!("written {} {}", short_chid(w), title(w));
+    }
+    let Some(other) = &at.other else {
+        info!("partner none: the workspace has no agent repo");
+        return Ok(());
+    };
+    let (ows, orepo) = common::load_repo(other)?;
+    let answer = partner::partners(&found.commit, (&ows, &orepo), params.tolerance_secs)?;
+    print_partner("partner", &answer);
+    if let Some(w) = &found.written {
+        let answer = partner::partners(w, (&ows, &orepo), params.tolerance_secs)?;
+        print_partner("written partner", &answer);
+    }
     Ok(())
 }
 
@@ -347,6 +497,12 @@ mod tests {
         assert_eq!(p.file, PathBuf::from("TODO.md"));
         assert_eq!(p.line, 3);
         assert_eq!(p.root, None);
+        assert_eq!(p.rev, None);
+        assert_eq!(p.tolerance_secs, DEFAULT_TOLERANCE_SECS);
+        let p = params(&["t", "TODO.md:3", "-r", "main", "--tolerance", "5"]).unwrap();
+        assert_eq!(p.rev.as_deref(), Some("main"));
+        assert_eq!(p.tolerance_secs, 5);
+        assert!(params(&["t", "TODO.md:3", "--tolerance=-5"]).is_err());
     }
 
     #[test]
@@ -390,6 +546,8 @@ mod tests {
             file: file.to_path_buf(),
             line,
             root: None,
+            rev: None,
+            tolerance_secs: DEFAULT_TOLERANCE_SECS,
         }
     }
 
@@ -400,11 +558,16 @@ mod tests {
         assert_eq!(at.side, Side::Work);
         assert_eq!(at.repo, fx.work.canonicalize().unwrap());
         assert_eq!(at.rel, PathBuf::from("notes.md"));
-        assert_eq!(at.text, "two");
+        assert_eq!(at.text.as_deref(), Some("two"));
+        assert_eq!(at.other, Some(fx.bot.canonicalize().unwrap()));
         let at = locate(&p(None, &fx.bot.join("s.jsonl"), 3), &fx.base).unwrap();
         assert_eq!(at.side, Side::Bot);
         assert_eq!(at.repo, fx.bot.canonicalize().unwrap());
-        assert_eq!(at.text, "{\"a\":3}");
+        assert_eq!(at.text.as_deref(), Some("{\"a\":3}"));
+        assert_eq!(at.other, Some(fx.work.canonicalize().unwrap()));
+        let mut with_rev = p(None, &fx.work.join("notes.md"), 9);
+        with_rev.rev = Some("@".into());
+        assert_eq!(locate(&with_rev, &fx.base).unwrap().text, None);
     }
 
     #[test]
@@ -412,7 +575,7 @@ mod tests {
         let fx = seeded("lookup-relative");
         let at = locate(&p(None, Path::new("notes.md"), 1), &fx.work).unwrap();
         assert_eq!(at.side, Side::Work);
-        assert_eq!(at.text, "one");
+        assert_eq!(at.text.as_deref(), Some("one"));
     }
 
     #[test]
