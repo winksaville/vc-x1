@@ -17,7 +17,124 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### feat: vc-x1 lookup for dual repos
+
+#### Problem
+
+A line in either repo of a dual workspace has relevant lines in the other, and finding them is
+a by-hand procedure of three steps with three keys, blame, the `ochid:` trailer, and a text
+search over the session's timeline. The objective, put plainly at the **docs: check the
+transcript join on two landed trapezoids** cycle: point at a line in either repo and see the
+relevant lines in the other. The long form of this entry was **vc-x1 lookup resolves a line in
+either repo to a window in the other**, retitled at the move.
+
+#### Solution
+
+`vc-x1 lookup [SCOPE] FILE:LINE`, `SCOPE` the side the line is on in `status`'s keywords, `work`
+or `agent`, inferred from the path when omitted, `FILE:LINE` as editors and compilers print it,
+and the output the window on the other side. The requirements are settled and live in [What the
+lookup command needs](notes/transcript-write.md#what-the-lookup-command-needs), their one home,
+with the Objective and Terms sections above them as the spec and three cycles of probes below
+them as the evidence. The `ochid:` trailer is load-bearing, so the command resolves a partner by
+the trailer and treats a commit without one as the degraded case, naming candidates rather than
+guessing. Acceptance tests run over a pre-created fixture dual workspace with documented
+relationships, committed and pushed.
+
+#### Acceptance check
+
+`cargo test` passes with the fixture `../vc-x1-fixtures/dr-1` present, its tests running every
+relationship the fixture's README lists in both directions, and skipping with a notice when the
+path is absent. By hand, `vc-x1-dev lookup TODO.md:<line>` on a deliberation line of this block
+prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup agent
+<session>.jsonl:<line>` on that window's write prints the work commit's diff of `TODO.md`.
+
+#### Ladder
+
+- [feat: vc-x1 lookup for dual repos opening][1] (done)
+- [feat: parse SCOPE and FILE:LINE and place the line in a repo][2]
+- [test: a fixture dual workspace with known partners, pushed][3]
+- [feat: resolve a partner by its ochid trailer, candidates when it has none][4]
+- [feat: blame a work line to its commit, reaching past a move][5]
+- [feat: the work-to-transcript window and the line's transcript write][6]
+- [feat: the transcript-to-work window][7]
+- [feat: vc-x1 lookup for dual repos closing][8]
+
+#### Deliberation
+
+- Waiver, wink's, 2026-09-12: the agent completes the whole ladder, every push from the bookmark
+  creation through the closing push and the per-rung work and description review stops covered,
+  since completing it unattended means not stopping at them. Validation still runs before every
+  push, and Stop and ask still holds for any deviation or question. Land is outside the waiver:
+  the closing is a stage that opens wink's review, which may add rungs after it or rewind, and the
+  reshape and `main` move only on wink's go.
+- Multi-step, patch by default: seven work rungs over two directions and a fixture, so a ladder,
+  the version `0.84.7-0` at the opening and the package renamed `vc-x1-dev`.
+- Fixtures, wink's design: acceptance tests run over pre-created dual workspaces with documented
+  relationships, committed and pushed, more of them over time.
+  - The sibling checkout is `../vc-x1-fixtures/<name>/`, the first `dr-1`, `dr` for dual repo,
+    its remotes `github.com/winksaville/vc-x1-fixtures-dr-1-work` and
+    `vc-x1-fixtures-dr-1-agent`, laid out as `vc-x1 clone` lays out a dual workspace so the
+    command sees an ordinary one, its own `.vc-config.md` labeling the sides `work` and `agent`.
+  - A new `.vc-config.md` key, `[test] fixtures`, names the directory, not a pair, and a test
+    picks a fixture by name under it and skips with a notice when the path is absent, so `cargo
+    test` passes on a bare clone.
+  - `dr-1` is the simple one-to-one shape, and its README says so: a later one-work-to-many-agents
+    fixture, a por like vc-x1-messages with several agents on it, is a numbered sibling.
+  - The first fixture's content: a workspace made with `vc-x1 init`, run through three cycles
+    with `vc-x1 push`, one single-step, one multi-step landed as a trapezoid, one with an amended
+    rung, so a rewritten partner and a predecessor exist, the agent-repo's session files carrying
+    hand-written tool-call lines in the real shape, one write per work line, every relationship
+    listed in the README, plus one commit stripped of its trailer for the candidates case and one
+    line written before its push and stashed for the reach-past-a-move case.
+- Output shape: a window prints as a `FILE:START-END` header and the lines, a transcript window
+  rendered as timestamp, role, and tool name per entry, and a viewer link deferred to the session
+  viewer the `## Waiting` entry names. An unresolvable line prints why it did not resolve, the
+  step that failed and what it found, on stderr with a non-zero exit.
+- jj-lib, not the `jj` binary: blame by `FileAnnotator`, the reach past a move by the
+  `diff_lines()` revset, the partner by change id, per the requirements note.
+- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+
+#### Ladder details
+
+##### feat: vc-x1 lookup for dual repos opening
+
+The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
+Todo entry into this block, reset the continuation notes, bump the version-of-record, and rename
+the package to its dev name.
+
+##### feat: parse SCOPE and FILE:LINE and place the line in a repo
+
+The command's edge: parse the optional `SCOPE` keyword and the `FILE:LINE` argument, resolve the
+file to one side of the workspace, and refuse a line the file does not have.
+
+##### test: a fixture dual workspace with known partners, pushed
+
+The evidence the acceptance tests run over: the `dr-1` fixture built and pushed, the `[test]
+fixtures` config key, and the test harness that opens a fixture by name or skips with a notice.
+
+##### feat: resolve a partner by its ochid trailer, candidates when it has none
+
+The version-control half's key: a commit's `ochid:` trailer resolved to its partner's current
+commit, and a commit without one answered with the candidates inside a time tolerance.
+
+##### feat: blame a work line to its commit, reaching past a move
+
+Blame at a tree that holds the line, and when the commit blame gives is not where the line was
+written, the reach back through history by the line's text.
+
+##### feat: the work-to-transcript window and the line's transcript write
+
+The work-to-transcript direction whole: the partner's time-window from its diff of the session
+files, the search over the timeline for the transcript write, and the rendered window.
+
+##### feat: the transcript-to-work window
+
+The transcript-to-work direction: the agent-repo commit whose diff holds the line, its trailers,
+and the work commits' diffs as the window, narrowed to one file for a transcript write.
+
+##### feat: vc-x1 lookup for dual repos closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -128,23 +245,6 @@ branch that renamed the agent directory clones to the renamed one. The other `jj
 flags stay out: `--depth` breaks the `ochid:` cross-links, which need history on both sides,
 and `--remote`, `--tag` and `--object-hash` are not choices a workspace should differ on. The
 dirty-source error above names the chosen bookmark in place of `main`.
-
-### vc-x1 lookup resolves a line in either repo to a window in the other
-
-(wink, 2026-09-03) The objective, put plainly at the **docs: check the transcript join on two
-landed trapezoids** cycle: point at a line in either repo and see the relevant lines in the
-other. `vc-x1 lookup [SCOPE] FILE:LINE`, `SCOPE` the side the line is on in `status`'s keywords,
-`work` or `agent`, inferred from the path when omitted, `FILE:LINE` as editors and compilers
-print it, and the output the window on the other side.
-
-- The requirements are settled and live in [What the lookup command
-  needs](notes/transcript-write.md#what-the-lookup-command-needs), their one home, with the
-  Objective and Terms sections above them as the spec and three cycles of probes below them as the
-  evidence. This entry points there rather than carrying a second copy that can drift.
-- The `ochid:` trailer is load-bearing, so the command resolves a partner by the trailer and treats
-  a commit without one as the degraded case, naming candidates rather than guessing.
-- Open, and not answered by the probes: the output's shape, whether a window prints as a line range,
-  a rendered transcript excerpt, or a session-viewer link, and what an unresolvable line prints.
 
 ### Continuation notes leave the work-repo dirty after Land
 
@@ -1012,63 +1112,16 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### chore: update vc-x1-messages to v0.3.3
-
-#### Problem
-
-The v0.3.2 title rule has two forms, line ids for a batch that closes nothing and `close
-m-<tid> <title>` for a close, and neither covers a commit that closes two threads, iiac-perf's
-finding at `m-3-1`. The first batch under it, `a4d4e22f`, carried five lines across two threads
-and was titled `m-3 m-4` against the rule, since five line ids read as noise.
-
-#### Solution
-
-A single-step cycle. In `../vc-x1-messages`, under one take held through the review: the README
-title to v0.3.3, the title rule replaced by one form, the ids of the threads the commit touches,
-`m-3 m-4`, a close included, the Find a thread bullet and a v0.3.3 Versions bullet with it, and
-`m-5` opened to iiac-perf and zc-ring-x1 with the one-line announcement, which also withdraws
-`m-3-3`'s one close per commit, committed as `m-5` and pushed. Here, one commit: this record,
-the version bump, a v0.3.3 section in `notes/messages/messages-rules-0910.md`, and the `feat:
-vc-x1 msg` Todo entry told that the title question is settled.
-
-#### Acceptance check
-
-`../vc-x1-messages` `main@origin` has `README.md` titled v0.3.3, its title rule giving every
-commit the ids of the threads it touches, and `open/m-5.md` holding a `to iiac-perf,zc-ring-x1`
-line from vc-x1 that names the change and withdraws `m-3-3`. The members' replies and the closes
-come later and are not in the check.
-
-- Result: pass. `main@origin` is `662195de`, its `README.md` is titled v0.3.3 with the title
-  rule giving every commit the ids of the threads it touches, and its `open/m-5.md` holds
-  `m-5-0` from vc-x1 to iiac-perf,zc-ring-x1 naming the change and withdrawing `m-3-3`. Read
-  from the tracked ref the push set, as v0.3.2 was.
-
-#### Ladder
-
-- chore: update vc-x1-messages to v0.3.3 (done)
-
-#### Deliberation
-
-- Single-step: one rule in the messages repo and one commit here, so no ladder, the bare
-  `0.84.6`, and no dev rename, as v0.3.2.
-- One form, not three: wink's pick among thread ids always, thread ids with a `close` prefix, and
-  one close per commit with the v0.3.2 close form kept. The title is a convenience and the diff
-  says what a commit did in each thread, so the event a prefix would mark is one `git show`
-  away, and one form leaves no gap for `vc-x1 msg` to close.
-- The rule follows a title written before it: `a4d4e22f` was titled `m-3 m-4` on wink's call
-  where v0.3.2 said five line ids, as `13a7d9f7` took the close form where v0.3.1 said six. Each
-  version so far has followed the practice that broke the one before.
-- `m-3-3` is withdrawn by `m-5-0`, not by a line in `m-3`: a search for `m-3-3` finds every later
-  line naming it, and a `to` line in `m-3` would renew a pending for members already pending
-  there.
-- The take is held through the work review, so the draft `m-5-0` can change before its release
-  without the rewrite bend v0.3.2 needed, and the mutex says what is true, that a session is
-  writing.
-- No fetch before the version commit: the Versions rule wants every member's last push in
-  `main@origin`, and the members write on this one clone, so origin holds nothing the clone
-  lacks.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+_None._
 
 # References
 
+[1]: #feat-vc-x1-lookup-for-dual-repos-opening
+[2]: #feat-parse-scope-and-fileline-and-place-the-line-in-a-repo
+[3]: #test-a-fixture-dual-workspace-with-known-partners-pushed
+[4]: #feat-resolve-a-partner-by-its-ochid-trailer-candidates-when-it-has-none
+[5]: #feat-blame-a-work-line-to-its-commit-reaching-past-a-move
+[6]: #feat-the-work-to-transcript-window-and-the-lines-transcript-write
+[7]: #feat-the-transcript-to-work-window
+[8]: #feat-vc-x1-lookup-for-dual-repos-closing
 [12]: /notes/forks-multi-user.md
