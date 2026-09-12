@@ -55,7 +55,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 - [test: a fixture dual workspace with known partners][3] (done)
 - [feat: resolve a partner by its ochid trailer, candidates when it has none][4] (done)
 - [feat: blame a work line to its commit, reaching past a move][5] (done)
-- [feat: the work-to-transcript window and the line's transcript write][6]
+- [feat: the work-to-transcript window and the line's transcript write][6] (done)
 - [feat: the transcript-to-work window][7]
 - [feat: vc-x1 lookup for dual repos closing][8]
 

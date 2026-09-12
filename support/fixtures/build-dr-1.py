@@ -587,9 +587,39 @@ def main():
     print(json.dumps(rel["pushes"], indent=1))
 
 
+def jj_windows(a):
+    """Each push's window as jj records it: for every session file the
+    agent commit changed, the lines past its parent's count. The build's
+    own counters miss what a later squash-push folds into a partner, so
+    the committed trees are the record."""
+    agent = a.agent
+    for p in a.pushes:
+        window = []
+        for sess in a.sessions:
+            name = f"{sess.sid}.jsonl"
+            def count(rev):
+                out = subprocess.run(
+                    ["jj", "--no-pager", "file", "show", "-r", rev, name],
+                    cwd=agent, env=a.j.env(), text=True, capture_output=True)
+                return len(out.stdout.splitlines()) if out.returncode == 0 else 0
+            before, after = count(p["agent"] + "-"), count(p["agent"])
+            if after > before:
+                window.append({"session": sess.sid, "start": before + 1, "end": after})
+        p["window"] = window
+    def owner(sid, line):
+        for i, p in enumerate(a.pushes):
+            for w in p["window"]:
+                if w["session"] == sid and w["start"] <= line <= w["end"]:
+                    return i
+        return None
+    for w in a.writes + a.discussion:
+        w["push"] = owner(w["session"], w["line"])
+
+
 def describe(a, work, init_work, init_agent):
     """The relationships as JSON: the pushes with their windows, the
     writes with the work line each produced, and the discussion lines."""
+    jj_windows(a)
     final = {}
     for rel in ("notes.md", "design.md", "TODO.md"):
         final[rel] = (work / rel).read_text().splitlines()
@@ -648,7 +678,9 @@ def readme(rel):
     for i, p in enumerate(rel["pushes"]):
         win = ", ".join(f"{w['session'][-4:]}:{w['start']}-{w['end']}" for w in p["window"])
         out.append(f"| {i} | {p['title']} | {p['case']} | `{p['work'][:12]}` | `{p['agent'][:12]}` | {win} | {'yes' if p['rewritten'] else ''} | {'yes' if p['predecessor'] else ''} |")
-    out.append("\nThe window is the session file, by its last four characters, and the lines the agent commit added.\n")
+    out.append("\nThe window is the session file, by its last four characters, and the lines the agent commit added,\n"
+               "read from the agent commits with jj. This file is written before its own push, so that push is\n"
+               "not in the table, and `relationships.json` is the same record.\n")
     out.append("## Work lines and their transcript writes\n")
     out.append("| file | line on main | text | write | in push | arrives | moved at |")
     out.append("|:---|---:|:---|:---|---:|---:|---:|")

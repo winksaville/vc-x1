@@ -32,12 +32,17 @@ use crate::subcommand::SubcommandRunner;
 
 pub mod blame;
 pub mod partner;
+pub mod window;
 
 use partner::{Partner, short_chid, title};
 
 /// The default tolerance, in seconds, inside which a commit with no
 /// trailer takes the other side's commits as candidate partners.
 const DEFAULT_TOLERANCE_SECS: i64 = 60;
+
+/// The default number of timeline entries printed on each side of a
+/// transcript write.
+const DEFAULT_CONTEXT: usize = 3;
 
 /// CLI args for `lookup`.
 #[derive(Args, Debug)]
@@ -69,6 +74,10 @@ pub struct LookupArgs {
     /// other side's commits as candidate partners
     #[arg(long = "tolerance", value_name = "SECS", default_value_t = DEFAULT_TOLERANCE_SECS)]
     pub tolerance: i64,
+
+    /// Timeline entries to print on each side of the transcript write
+    #[arg(short = 'C', long = "context", value_name = "N", default_value_t = DEFAULT_CONTEXT)]
+    pub context: usize,
 }
 
 /// Clap-free params for `lookup`.
@@ -86,6 +95,8 @@ pub struct LookupParams {
     pub rev: Option<String>,
     /// The candidates' tolerance, in seconds.
     pub tolerance_secs: i64,
+    /// Entries printed on each side of the transcript write.
+    pub context: usize,
 }
 
 impl TryFrom<&LookupArgs> for LookupParams {
@@ -115,6 +126,7 @@ impl TryFrom<&LookupArgs> for LookupParams {
             root: a.repo.clone(),
             rev: a.revision.clone(),
             tolerance_secs: a.tolerance,
+            context: a.context,
         })
     }
 }
@@ -380,9 +392,119 @@ fn print_partner(label: &str, answer: &Partner) {
     }
 }
 
+/// A committed work line resolved to the agent side: the blame, the
+/// partner of the commit that wrote it, that partner's window, and
+/// the transcript write when one is found.
+pub struct WorkResolution {
+    /// The partner answer for the writer, the moved-from commit when
+    /// the line moved, else the blamed commit.
+    pub partner: Partner,
+    /// The agent commit the window is read from: the one linked
+    /// partner, or the nearest candidate.
+    pub agent: Option<Commit>,
+    /// The window's spans in the agent repo's session files.
+    pub spans: Vec<window::Span>,
+    /// The agent repo's timeline on disk.
+    pub timeline: window::Timeline,
+    /// The timeline position of the window's end.
+    pub end: Option<usize>,
+    /// The timeline position of the transcript write.
+    pub write: Option<usize>,
+}
+
+/// Resolve a committed work line, blame's `origin` for it, to its
+/// transcript write.
+///
+/// - The writer is the commit the line was first written in, the
+///   reach back's answer when it moved, and its partner is where the
+///   write's window is.
+/// - The search runs over the whole timeline from that window's end,
+///   backwards and then forwards, so a line set aside before an
+///   earlier push or amended in after its own is still found.
+pub fn resolve_work(
+    origin: &blame::Origin,
+    agent_root: &Path,
+    rel: &Path,
+    tolerance_secs: i64,
+) -> Result<WorkResolution, Box<dyn std::error::Error>> {
+    let (aws, arepo) = common::load_repo(agent_root)?;
+    let writer = origin.written.as_ref().unwrap_or(&origin.commit);
+    let partner = partner::partners(writer, (&aws, &arepo), tolerance_secs)?;
+    let agent = match &partner {
+        Partner::Linked(commits) => commits.first().cloned(),
+        Partner::Candidates { commits, .. } => commits.first().cloned(),
+    };
+    let spans = match &agent {
+        Some(a) => window::window_of(&arepo, a)?,
+        None => Vec::new(),
+    };
+    let timeline = window::Timeline::load(agent_root)?;
+    let end = timeline.window_end(&spans);
+    let write = end.and_then(|e| timeline.find_write(e, rel, &origin.text));
+    Ok(WorkResolution {
+        partner,
+        agent,
+        spans,
+        timeline,
+        end,
+        write,
+    })
+}
+
+/// Print the window's spans, the transcript write, and the entries
+/// around it.
+fn print_window(r: &WorkResolution, rel: &Path, context: usize) {
+    let candidate = matches!(r.partner, Partner::Candidates { .. });
+    let label = if candidate {
+        "candidate window"
+    } else {
+        "window"
+    };
+    for span in &r.spans {
+        info!(
+            "{label} {}:{}-{}",
+            span.file.display(),
+            span.start,
+            span.end
+        );
+    }
+    let Some(w) = r.write else {
+        if r.agent.is_some() {
+            info!(
+                "write   none found: no Write, Edit, or Bash call on {} carries the line",
+                rel.display()
+            );
+        }
+        return;
+    };
+    let placed = &r.timeline.entries[w];
+    let where_ = match r.end {
+        Some(end) if w > end => " (after the window, a later amend)",
+        _ if !r.spans.iter().any(|s| {
+            s.file == placed.file && (s.start..=s.end).contains(&placed.entry.line_no)
+        }) =>
+        {
+            " (before the window, written early)"
+        }
+        _ => "",
+    };
+    info!(
+        "write   {}:{}{where_}",
+        placed.file.display(),
+        placed.entry.line_no
+    );
+    let from = w.saturating_sub(context);
+    let to = (w + context).min(r.timeline.entries.len() - 1);
+    for i in from..=to {
+        let mark = if i == w { ">" } else { " " };
+        info!("  {mark} {}", window::render(&r.timeline.entries[i]));
+    }
+}
+
 /// Place the line and print where it landed, `<side> <path>:<line>`
 /// and the line's text, then for a work line the commit it arrived
-/// in, the commit that wrote it when it moved, and their partners.
+/// in, the commit that wrote it when it moved, the writer's partner,
+/// that partner's window, and the transcript write.
 ///
 /// The work repo is snapshotted first, as any jj command does, so a
 /// line edited since the last snapshot blames to the working copy
@@ -444,13 +566,9 @@ pub fn lookup(ctx: &mut Context, params: &LookupParams) -> Result<(), Box<dyn st
         info!("partner none: the workspace has no agent repo");
         return Ok(());
     };
-    let (ows, orepo) = common::load_repo(other)?;
-    let answer = partner::partners(&found.commit, (&ows, &orepo), params.tolerance_secs)?;
-    print_partner("partner", &answer);
-    if let Some(w) = &found.written {
-        let answer = partner::partners(w, (&ows, &orepo), params.tolerance_secs)?;
-        print_partner("written partner", &answer);
-    }
+    let r = resolve_work(&found, other, &at.rel, params.tolerance_secs)?;
+    print_partner("partner", &r.partner);
+    print_window(&r, &at.rel, params.context);
     Ok(())
 }
 
@@ -548,6 +666,7 @@ mod tests {
             root: None,
             rev: None,
             tolerance_secs: DEFAULT_TOLERANCE_SECS,
+            context: DEFAULT_CONTEXT,
         }
     }
 
@@ -693,6 +812,51 @@ mod tests {
             };
             assert!(names_it, "{}: {name} on {file}", w["text"]);
         }
+    }
+
+    /// From the tree that first carries each line, or the closing
+    /// that moved it, the resolution finds the write the fixture
+    /// recorded, the set-aside line's before its window and the
+    /// no-trailer line's through the candidate window.
+    #[test]
+    fn dr1_every_committed_line_finds_its_transcript_write() {
+        use crate::lookup::blame::lines_at;
+        use crate::lookup::partner::tests::by_chid;
+        let Some((root, rel)) = dr1() else { return };
+        let (ws, repo) = common::load_repo(&root).unwrap();
+        let agent_root = root.join(".claude");
+        let pushes = rel["pushes"].as_array().unwrap();
+        let mut checked = 0;
+        for w in rel["writes"].as_array().unwrap() {
+            let Some(arrives) = w["arrives"].as_u64() else {
+                continue;
+            };
+            let at = w["moved_at"].as_u64().unwrap_or(arrives) as usize;
+            let start = by_chid(&ws, &repo, pushes[at]["work"].as_str().unwrap());
+            let file = Path::new(w["file"].as_str().unwrap());
+            let text = w["text"].as_str().unwrap();
+            let idx = lines_at(&start, file)
+                .unwrap()
+                .iter()
+                .position(|l| l == text)
+                .unwrap();
+            let o = crate::lookup::blame::origin(&ws, &repo, &start, file, idx + 1).unwrap();
+            let r = resolve_work(&o, &agent_root, file, 60).unwrap();
+            let found = &r.timeline.entries[r.write.expect(text)];
+            let want = &w["write"];
+            assert_eq!(
+                found.file,
+                PathBuf::from(format!("{}.jsonl", want["session"].as_str().unwrap())),
+                "{text}"
+            );
+            assert_eq!(
+                found.entry.line_no as u64,
+                want["line"].as_u64().unwrap(),
+                "{text}"
+            );
+            checked += 1;
+        }
+        assert_eq!(checked, 10);
     }
 
     #[test]
