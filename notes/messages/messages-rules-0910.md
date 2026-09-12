@@ -136,13 +136,31 @@ What landed: v0.3.1 at `13a7d9f7` on 2026-09-11. The version commit stayed unpus
 members answered, so their three tightenings amended it: Addressed is the recipient field alone,
 a reply answers everything it clears naming each id, and `owner`'s times are UTC to the second.
 The replies ran uncommitted, six lines over five takes, and the close committed them as one batch,
-the first under the rule, then one push carried both commits. The close took the close form for
-its title where the rule said ids, and that correction is v0.3.2's.
+the first under the rule, then one push carried both commits. The close was titled `close m-2
+v0.3.1 is in force` where the rule said six ids, and that correction is v0.3.2's.
+
+## v0.3.2
+
+The first close under v0.3.1, `13a7d9f7`, carried six lines, the members' replies and vc-x1's
+`done`, and the title rule said six ids. The close was titled `close m-2 v0.3.1 is in force`,
+since six ids read as noise and the close is the event, and the rule now follows the practice: a
+commit that closes a thread is titled `close m-<tid> <title>` whatever lines it carries, and a
+title that lists ids, `m-2-1 m-2-2 m-3-0`, is for a batch that closes nothing. The change is one
+clause in the title rule and a Versions bullet, announced as `m-3` on 2026-09-11 by the cycle
+`chore: update vc-x1-messages to v0.3.2`, a line with no body since one clause fits in a line,
+and pushed at once rather than held as v0.3.1 was: one clause has nothing to amend, and a change
+a member asks for is a v0.3.3.
+
+What v0.3.2 leaves open: a commit that closes a thread and also carries lines in other threads,
+or closes two threads, has no title, since the close form names one thread. The title is a
+convenience, not a store, a thread's commits are found by path, so the gap waits for `vc-x1
+msg`, filed as a Todo, where a tool that commits at each release makes a batch that crosses
+threads impossible.
 
 ## Further out
 
-- A `vc-x1 msg` subcommand, open, reply, done, close, inbox, and status, so the allocation, the
-  guards, and the pending query are code.
+- A `vc-x1 msg` subcommand, open, reply, done, close, pending, and status, so the allocation,
+  the guards, the pending query, and the commit are code. Filed as a Todo on 2026-09-11.
 - Wink's stated direction, for another day: an async message-based communication server. The
   thread file is its persistence format, an append-only log with a thread id, a sequence, addressed
   messages, and per-member done marks.

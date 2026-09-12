@@ -41,14 +41,19 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### chore: update vc-x1-messages to v0.3.2, the close commit's title
+### feat: vc-x1 msg, the messages protocol as code
 
-(wink, 2026-09-11) The README's title rule at v0.3.1 says a commit carrying several lines is
-titled by their ids, and the first close under it, `13a7d9f7`, carried six and took the close
-form instead, `close m-2 v0.3.1 is in force`, since six ids read as noise and the close is the
-event. The rule follows: a commit that closes a thread is titled in the close form whatever lines
-it carries, and the ids form is for a batch that closes nothing. A one-clause Versions entry, in
-force by its commit, announced on a thread as v0.3.1 was.
+(wink, 2026-09-11) The README's write actions run by hand, take, edit, release, commit, and the
+title rule has a gap the hand cannot close: a commit that closes a thread and also carries lines
+in other threads, or closes two threads, has no title under v0.3.2, since the close form names
+one thread. The title is a convenience, not a store, so the gap costs a skim of `git log`, but
+the answer is the subcommand the messages-rules note names under Further out: `vc-x1 msg`, with
+open, reply, done, close, pending, and status, the repo found through `[family] messages` in
+`.vc-config.md`, so the id allocation, the guards, the pending query, and the commit are code
+and the by-hand steps go. We think a tool commits at each release, so a commit carries what one
+take wrote and a batch never crosses threads, and the title question dissolves, but that is the
+cycle's to decide. Found at **chore: update vc-x1-messages to v0.3.2**, asking what a batch
+across threads is titled. Its own cycle, multi-step, and next.
 
 ### sync clones a declared but absent agent-repo
 
@@ -1006,50 +1011,62 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.2.4
+### chore: update vc-x1-messages to v0.3.2
 
 #### Problem
 
-`custom.md`'s messaging entry says a session reads our inbox in `../vc-x1-messages` at acquaint,
-and the messages rules at v0.3.0 have no inbox: what a session reads is what is pending for us,
-Pending being the README's term for the query that replaced it. The line is identical in all
-three members' `custom.md`, so the one-clause change is a proposal. Found by **chore: update
-vc-x1-messages to v0.3.0**, which drafted the clause as a rung and pulled it, since a bump
-belongs to a proposal cycle's opening. Nothing is wrong meanwhile, the README governs and the
-pointer only misnames the query.
+The README's title rule at v0.3.1 says a commit carrying several lines is titled by their ids,
+and the first close under it, `13a7d9f7`, carried six and was titled `close m-2 v0.3.1 is in
+force` instead, since six ids read as noise and the close is the event. The rule
+follows: a commit that closes a thread is titled `close m-<tid> <title>` whatever lines it
+carries, and a title that lists ids is for a batch that closes nothing.
 
 #### Solution
 
-A single-step `agent-files(proposal): v0.2.4` cycle: rename `agent-data/agent-files-v0.2.3` to
-`agent-data/agent-files-v0.2.4` and reword the clause, "reads our inbox there" to "reads what is
-pending for us there", in one commit. After Land, a thread to iiac-perf and zc-ring-x1 names the
-landed commit, and each adopts with a copy.
+A single-step cycle. In `../vc-x1-messages`, under one take: the README title to v0.3.2, the
+title rule reworded so a title of ids is for a batch that closes nothing and `close m-<tid>
+<title>` covers any commit that closes a thread, a v0.3.2 Versions bullet, and `m-3` opened to
+iiac-perf and zc-ring-x1 with the one-line announcement, committed under the line's title and
+pushed. Here, one commit: this record, the version bump, and a v0.3.2 section in
+`notes/messages/messages-rules-0910.md`.
 
 #### Acceptance check
 
-`vc-x1 agent-files version` prints `v0.2.4` and `ls agent-data` shows no `agent-files-v0.2.3`,
-and `custom.md`'s messaging entry says a session reads what is pending for us and does not say
-inbox. The thread that announces it is opened after Land, and the members' adoptions are their
-own records.
+`../vc-x1-messages` `main@origin` has `README.md` titled v0.3.2, its title rule giving `close
+m-<tid> <title>` to any commit that closes a thread, and `open/m-3.md` holding a
+`to iiac-perf,zc-ring-x1` line from vc-x1 that names the change. The members' replies and the
+close come later and are not in the check.
 
-- Result: pass. `vc-x1 agent-files version` prints `v0.2.4`, `agent-data` holds
-  `agent-files-v0.2.4` and no v0.2.3 file, and the messaging entry's second line reads "a session
-  reads what is pending for us there at acquaint", with no "inbox" left in the file.
+- Result: pass. `main@origin` is `ca79739a`, its `README.md` is titled v0.3.2 with the title
+  rule giving `close m-<tid> <title>` to a commit that closes a thread, and its `open/m-3.md`
+  holds `m-3-0` from vc-x1 to iiac-perf,zc-ring-x1 naming the change. Read from the tracked ref
+  the push set, since a `git fetch` could not take the credential lock in the sandbox.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.4 (done)
+- chore: update vc-x1-messages to v0.3.2 (done)
 
 #### Deliberation
 
-- Single-step: a rename and one clause, so one commit carrying the bare `0.84.4` and the bare
-  `v0.2.4`, and no dev rename, as the v0.3.1 chore did.
-- The thread follows the cycle rather than sitting in it: the announcement wants a sha-link to a
-  landed commit, and the write runs in `../vc-x1-messages` under its own README, so it is opened
-  after Land, the way `m-1` and `m-2` followed their cycles.
-- `vc-x1 agent-files diff` against `../vc-x1-template/work` is not the acceptance check: the
-  template still holds the 2026-08-31 set, unversioned, so the diff names most of the set and
-  says nothing about this change.
+- Single-step: one clause in the messages repo and one commit here, so no ladder, the bare
+  `0.84.5`, and no dev rename, as v0.3.1.
+- The version commit is pushed at once, not held: v0.3.1 was held unpushed so the members' asks
+  could amend it, and that window was for six changes landing together. One clause has nothing
+  to amend, "push when connected" is the rule, and a change a member asks for is a v0.3.3.
+- The announcement is a line, not a body: one clause fits in a line, and a body is for a message
+  that wants more than one.
+- `m-4`, announcing agent-files v0.2.4, follows this cycle rather than sharing its commit, wink's
+  call, so that thread's eventual close is titled under the settled rule.
+- `m-3-0` was rewritten once, a bend of the README's "nothing edits a line once written",
+  granted by wink at the work review: the line named the two title shapes "the close form" and
+  "the ids form", names the README never defines, and it was unpushed and unread. Rewritten under
+  a second take with its time updated, the id kept. The bend covers that one line before its
+  push and nothing after.
+- The title rule still has a gap, found at the review: a commit that closes a thread and carries
+  other threads' lines, or closes two, has no title. Not fixed here, since the title is a
+  convenience and a thread's commits are found by path. Filed as `feat: vc-x1 msg` in `## Todo`,
+  first, wink's call, and not folded into this cycle: a one-clause rules change whose
+  announcement is written does not carry a feature.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 # References
