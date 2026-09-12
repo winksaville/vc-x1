@@ -440,6 +440,96 @@ mod tests {
         assert!(err.to_string().contains("3 line(s)"), "{err}");
     }
 
+    /// The dr-1 fixture's root and its relationships, or `None` when
+    /// the fixture is absent.
+    fn dr1() -> Option<(PathBuf, serde_json::Value)> {
+        let root = crate::test_helpers::fixture("dr-1")?;
+        let text = std::fs::read_to_string(root.join("relationships.json")).unwrap();
+        Some((root, serde_json::from_str(&text).unwrap()))
+    }
+
+    /// Every push's two change ids resolve to one commit each, the
+    /// work commit carries the push's title, and each side's trailer
+    /// names the other, except the pair made by hand.
+    #[test]
+    fn dr1_pushes_are_cross_linked() {
+        use jj_lib::repo::Repo;
+        let Some((root, rel)) = dr1() else { return };
+        let (ww, wr) = common::load_repo(&root).unwrap();
+        let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
+        for p in rel["pushes"].as_array().unwrap() {
+            let work = p["work"].as_str().unwrap();
+            let agent = p["agent"].as_str().unwrap();
+            let wid = common::resolve_revset(&ww, &wr, work).unwrap();
+            let aid = common::resolve_revset(&aw, &ar, agent).unwrap();
+            assert_eq!(wid.len(), 1, "work {work}");
+            assert_eq!(aid.len(), 1, "agent {agent}");
+            let wc = wr.store().get_commit(&wid[0]).unwrap();
+            let ac = ar.store().get_commit(&aid[0]).unwrap();
+            assert_eq!(wc.description().lines().next(), p["title"].as_str());
+            assert_eq!(ac.description().lines().next(), p["title"].as_str());
+            let w_ochid = common::extract_ochid(&wc);
+            let a_ochid = common::extract_ochid(&ac);
+            if p["case"] == "no-trailer" {
+                assert!(w_ochid.is_none() && a_ochid.is_none(), "{}", p["title"]);
+            } else {
+                let w_bare = crate::desc_helpers::extract_bare_id(w_ochid.as_deref().unwrap());
+                let a_bare = crate::desc_helpers::extract_bare_id(a_ochid.as_deref().unwrap());
+                assert!(
+                    agent.starts_with(w_bare),
+                    "{}: {w_bare} vs {agent}",
+                    p["title"]
+                );
+                assert!(
+                    work.starts_with(a_bare),
+                    "{}: {a_bare} vs {work}",
+                    p["title"]
+                );
+            }
+        }
+    }
+
+    /// Every window lies within its session file, and every write is
+    /// a tool call of the named tool on the named file at the named
+    /// line.
+    #[test]
+    fn dr1_writes_are_where_the_record_says() {
+        use crate::transcript::{ContentBlock, EntryKind, parse_str};
+        let Some((root, rel)) = dr1() else { return };
+        let agent = root.join(".claude");
+        let session = |sid: &str| {
+            let text = std::fs::read_to_string(agent.join(format!("{sid}.jsonl"))).unwrap();
+            parse_str(&text)
+        };
+        for p in rel["pushes"].as_array().unwrap() {
+            for w in p["window"].as_array().unwrap() {
+                let t = session(w["session"].as_str().unwrap());
+                let end = w["end"].as_u64().unwrap() as usize;
+                assert!(t.malformed.is_empty());
+                assert!(end <= t.entries.len(), "{}: {end}", p["title"]);
+            }
+        }
+        for w in rel["writes"].as_array().unwrap() {
+            let write = &w["write"];
+            let t = session(write["session"].as_str().unwrap());
+            let line = write["line"].as_u64().unwrap() as usize;
+            let entry = t.entries.iter().find(|e| e.line_no == line).unwrap();
+            let EntryKind::Assistant { content, .. } = &entry.kind else {
+                panic!("{}: not an assistant line", w["text"]);
+            };
+            let [ContentBlock::ToolUse { name, input, .. }] = content.as_slice() else {
+                panic!("{}: not one tool call", w["text"]);
+            };
+            assert_eq!(name, write["tool"].as_str().unwrap());
+            let file = w["file"].as_str().unwrap();
+            let names_it = match name.as_str() {
+                "Bash" => input["command"].as_str().unwrap().contains(file),
+                _ => input["file_path"].as_str().unwrap().ends_with(file),
+            };
+            assert!(names_it, "{}: {name} on {file}", w["text"]);
+        }
+    }
+
     #[test]
     fn locate_rejects_a_file_outside_the_workspace() {
         let fx = seeded("lookup-outside");

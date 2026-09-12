@@ -1459,6 +1459,23 @@ cargo test --bins          # unit tests only, no binary spawned
 cargo test --test cli_init # one integration test crate
 ```
 
+### Acceptance fixtures
+
+The lookup's tests run over pre-created dual workspaces with documented relationships, one per
+name under the directory the work side's `[test] fixtures` key names, `../vc-x1-fixtures` here.
+A test picks a fixture by name and skips with a notice when the path is absent, so `cargo test`
+passes on a bare clone, and runs the fixture's cases when it is there.
+
+- `dr-1`, `dr` for dual repo, is the simple one-to-one shape: a work repo and its agent repo at
+  `.claude`, laid out as `vc-x1 clone` lays a dual workspace out, run through four cycles by
+  the scripted agent in `support/fixtures/build-dr-1.py`. Its README lists every relationship
+  and `relationships.json` beside it carries them for the tests. Its remotes are
+  `github.com/winksaville/vc-x1-fixtures-dr-1-work` and `vc-x1-fixtures-dr-1-agent`.
+- To get it: `git clone` the work remote as `../vc-x1-fixtures/dr-1` and the agent remote as
+  its `.claude`, then `jj git init --colocate` in each. To rebuild it from nothing: the script
+  with `--local`, then `--publish` once the result reads right.
+- A one-work-to-many-agents fixture is a numbered sibling, `dr-2`.
+
 ### Test tempdir location
 
 Both test layers create throwaway fixtures under a tempdir. The parent directory resolves in

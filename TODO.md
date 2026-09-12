@@ -52,7 +52,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 
 - [feat: vc-x1 lookup for dual repos opening][1] (done)
 - [feat: parse SCOPE and FILE:LINE and place the line in a repo][2] (done)
-- [test: a fixture dual workspace with known partners, pushed][3]
+- [test: a fixture dual workspace with known partners][3] (done)
 - [feat: resolve a partner by its ochid trailer, candidates when it has none][4]
 - [feat: blame a work line to its commit, reaching past a move][5]
 - [feat: the work-to-transcript window and the line's transcript write][6]
@@ -123,10 +123,39 @@ file to one side of the workspace, and refuse a line the file does not have.
   step starts from. This rung prints it, `<side> <path>:<line>` and the text, and the window
   replaces that output when the directions land.
 
-##### test: a fixture dual workspace with known partners, pushed
+##### test: a fixture dual workspace with known partners
 
 The evidence the acceptance tests run over: the `dr-1` fixture built and pushed, the `[test]
 fixtures` config key, and the test harness that opens a fixture by name or skips with a notice.
+
+- The fixture is built by a script, `support/fixtures/build-dr-1.py`, a scripted agent that
+  makes the file edits, appends the transcript lines in the real shape, and runs the pushes, so
+  the relationships are known by construction and the build is repeatable. Its README lists
+  them and `relationships.json` carries them for the tests, so a test asserts what the record
+  says rather than a hand-copied line number.
+- Every tool call's transcript line is appended after the tool runs, the push call included, so
+  a push call lands in the next window as the probes observed, and a write always precedes the
+  push that commits it.
+- Commit times are pinned through `JJ_CONFIG`'s `debug.commit-timestamp`, the one clock feeding
+  the transcript timestamps too, so the cycles sit ten minutes apart and the no-trailer pair
+  twenty seconds apart, and the candidates case has a known spacing.
+- The cases: a single-step cycle, a multi-step cycle landed as a trapezoid, a line written at
+  the opening and set aside as a patch until the second rung, a cycle-record moved to Closed, a
+  rung amended after its push with the partner squash-pushed so both sides have a predecessor,
+  a restart so one window spans two session files, and a pair made by hand with no trailer.
+- The transcript's `cwd` and the tools' `file_path` are the build machine's absolute paths, as
+  real transcripts hold, so a write is matched to a file by the path relative to the entry's
+  `cwd` when the absolute prefix differs, which a fixture checked out elsewhere needs and a
+  live workspace never notices.
+- The GitHub remotes the design names were created, but the build's push to them was refused by
+  the session's auto-mode classifier as publishing to a public surface, so the fixture is built
+  with `--local` and the script's `--publish` mode points both repos at GitHub and pushes, one
+  command for wink to run. The tests read the local checkout either way. The rung was laddered
+  as "test: a fixture dual workspace with known partners, pushed" and retitled before its push
+  to drop the claim, since a title names what the commit did.
+- Init derives the agent remote's name by appending `.claude` to the work remote's, so the
+  design's `-agent` name is reached by creating the two repos with gh and re-pointing init's
+  local remotes, rather than by init's own provisioning.
 
 ##### feat: resolve a partner by its ochid trailer, candidates when it has none
 
@@ -1134,7 +1163,7 @@ _None._
 
 [1]: #feat-vc-x1-lookup-for-dual-repos-opening
 [2]: #feat-parse-scope-and-fileline-and-place-the-line-in-a-repo
-[3]: #test-a-fixture-dual-workspace-with-known-partners-pushed
+[3]: #test-a-fixture-dual-workspace-with-known-partners
 [4]: #feat-resolve-a-partner-by-its-ochid-trailer-candidates-when-it-has-none
 [5]: #feat-blame-a-work-line-to-its-commit-reaching-past-a-move
 [6]: #feat-the-work-to-transcript-window-and-the-lines-transcript-write
