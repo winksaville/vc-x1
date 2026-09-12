@@ -27,6 +27,8 @@ use crate::context::Context;
 use crate::options_flags::scope::{Side, side_keyword, side_keywords};
 use crate::subcommand::SubcommandRunner;
 
+pub mod partner;
+
 /// CLI args for `lookup`.
 #[derive(Args, Debug)]
 pub struct LookupArgs {
@@ -442,7 +444,7 @@ mod tests {
 
     /// The dr-1 fixture's root and its relationships, or `None` when
     /// the fixture is absent.
-    fn dr1() -> Option<(PathBuf, serde_json::Value)> {
+    pub(super) fn dr1() -> Option<(PathBuf, serde_json::Value)> {
         let root = crate::test_helpers::fixture("dr-1")?;
         let text = std::fs::read_to_string(root.join("relationships.json")).unwrap();
         Some((root, serde_json::from_str(&text).unwrap()))

@@ -53,7 +53,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 - [feat: vc-x1 lookup for dual repos opening][1] (done)
 - [feat: parse SCOPE and FILE:LINE and place the line in a repo][2] (done)
 - [test: a fixture dual workspace with known partners][3] (done)
-- [feat: resolve a partner by its ochid trailer, candidates when it has none][4]
+- [feat: resolve a partner by its ochid trailer, candidates when it has none][4] (done)
 - [feat: blame a work line to its commit, reaching past a move][5]
 - [feat: the work-to-transcript window and the line's transcript write][6]
 - [feat: the transcript-to-work window][7]
@@ -161,6 +161,20 @@ fixtures` config key, and the test harness that opens a fixture by name or skips
 
 The version-control half's key: a commit's `ochid:` trailer resolved to its partner's current
 commit, and a commit without one answered with the candidates inside a time tolerance.
+
+- A trailer names a change id, and the change id's current commit is the partner, so one
+  resolution serves the reshaped closing and the amended rung alike. An agent commit carries one
+  trailer per work commit its push published, so the answer is a list in trailer order.
+- A trailer that resolves to nothing is an error naming the trailer, never an empty answer: a
+  dangling link is a broken workspace, and a missing one is the candidates case.
+- Candidates are every commit on the other side whose committer time is within a tolerance,
+  nearest first, gathered by a scan of `all()`, which is fine at this repo's size and is the
+  thing to replace with a date revset if a repo ever makes it slow.
+- The predecessors come from jj's evolution log, walked back from the commit. Every snapshot of
+  the working copy is a rewrite in that log, so the chain is never empty and the interesting
+  entries are the ones that carried the commit's title, the versions a push published, which
+  `pushed_predecessors` keeps for the amended partner's push-time window.
+- The module is reached by its tests alone until the window rungs consume it, and says so.
 
 ##### feat: blame a work line to its commit, reaching past a move
 
