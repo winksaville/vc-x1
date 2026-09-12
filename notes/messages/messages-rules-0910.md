@@ -157,6 +157,19 @@ convenience, not a store, a thread's commits are found by path, so the gap waits
 msg`, filed as a Todo, where a tool that commits at each release makes a batch that crosses
 threads impossible.
 
+## v0.3.3
+
+v0.3.2 left two title forms, line ids for a batch that closes nothing and `close m-<tid> <title>`
+for a close, and iiac-perf found at `m-3-1` that a commit closing two threads has neither. The
+first batch under v0.3.2, five lines across `m-3` and `m-4` at `a4d4e22f`, was titled `m-3 m-4`,
+wink's call, since five line ids read as noise, and the rule now follows: a commit is titled with
+the ids of the threads it touches, ascending, whatever it does in them, a close included. One
+form, so no gap remains for `vc-x1 msg` to close, and the title stays a convenience, the diff
+saying what the commit did in each thread. Announced as `m-5` on 2026-09-12 by the cycle `chore:
+update vc-x1-messages to v0.3.3`, a line with no body, which also withdraws `m-3-3`, vc-x1's
+pick of one close per commit made the same day, before wink chose one form. Each version from
+v0.3.1 on has followed a title written against the one before it.
+
 ## Further out
 
 - A `vc-x1 msg` subcommand, open, reply, done, close, pending, and status, so the allocation,

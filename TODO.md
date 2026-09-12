@@ -51,9 +51,10 @@ the answer is the subcommand the messages-rules note names under Further out: `v
 open, reply, done, close, pending, and status, the repo found through `[family] messages` in
 `.vc-config.md`, so the id allocation, the guards, the pending query, and the commit are code
 and the by-hand steps go. We think a tool commits at each release, so a commit carries what one
-take wrote and a batch never crosses threads, and the title question dissolves, but that is the
-cycle's to decide. Found at **chore: update vc-x1-messages to v0.3.2**, asking what a batch
-across threads is titled. Its own cycle, multi-step, and next.
+take wrote and a batch never crosses threads. Found at **chore: update vc-x1-messages to
+v0.3.2**, asking what a batch across threads is titled, and **chore: update vc-x1-messages to
+v0.3.3** answered it, the ids of the threads the commit touches, so the tool titles by that rule
+and its own question is whether it commits at each release. Its own cycle, multi-step, and next.
 
 ### sync clones a declared but absent agent-repo
 
@@ -1011,62 +1012,61 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### chore: update vc-x1-messages to v0.3.2
+### chore: update vc-x1-messages to v0.3.3
 
 #### Problem
 
-The README's title rule at v0.3.1 says a commit carrying several lines is titled by their ids,
-and the first close under it, `13a7d9f7`, carried six and was titled `close m-2 v0.3.1 is in
-force` instead, since six ids read as noise and the close is the event. The rule
-follows: a commit that closes a thread is titled `close m-<tid> <title>` whatever lines it
-carries, and a title that lists ids is for a batch that closes nothing.
+The v0.3.2 title rule has two forms, line ids for a batch that closes nothing and `close
+m-<tid> <title>` for a close, and neither covers a commit that closes two threads, iiac-perf's
+finding at `m-3-1`. The first batch under it, `a4d4e22f`, carried five lines across two threads
+and was titled `m-3 m-4` against the rule, since five line ids read as noise.
 
 #### Solution
 
-A single-step cycle. In `../vc-x1-messages`, under one take: the README title to v0.3.2, the
-title rule reworded so a title of ids is for a batch that closes nothing and `close m-<tid>
-<title>` covers any commit that closes a thread, a v0.3.2 Versions bullet, and `m-3` opened to
-iiac-perf and zc-ring-x1 with the one-line announcement, committed under the line's title and
-pushed. Here, one commit: this record, the version bump, and a v0.3.2 section in
-`notes/messages/messages-rules-0910.md`.
+A single-step cycle. In `../vc-x1-messages`, under one take held through the review: the README
+title to v0.3.3, the title rule replaced by one form, the ids of the threads the commit touches,
+`m-3 m-4`, a close included, the Find a thread bullet and a v0.3.3 Versions bullet with it, and
+`m-5` opened to iiac-perf and zc-ring-x1 with the one-line announcement, which also withdraws
+`m-3-3`'s one close per commit, committed as `m-5` and pushed. Here, one commit: this record,
+the version bump, a v0.3.3 section in `notes/messages/messages-rules-0910.md`, and the `feat:
+vc-x1 msg` Todo entry told that the title question is settled.
 
 #### Acceptance check
 
-`../vc-x1-messages` `main@origin` has `README.md` titled v0.3.2, its title rule giving `close
-m-<tid> <title>` to any commit that closes a thread, and `open/m-3.md` holding a
-`to iiac-perf,zc-ring-x1` line from vc-x1 that names the change. The members' replies and the
-close come later and are not in the check.
+`../vc-x1-messages` `main@origin` has `README.md` titled v0.3.3, its title rule giving every
+commit the ids of the threads it touches, and `open/m-5.md` holding a `to iiac-perf,zc-ring-x1`
+line from vc-x1 that names the change and withdraws `m-3-3`. The members' replies and the closes
+come later and are not in the check.
 
-- Result: pass. `main@origin` is `ca79739a`, its `README.md` is titled v0.3.2 with the title
-  rule giving `close m-<tid> <title>` to a commit that closes a thread, and its `open/m-3.md`
-  holds `m-3-0` from vc-x1 to iiac-perf,zc-ring-x1 naming the change. Read from the tracked ref
-  the push set, since a `git fetch` could not take the credential lock in the sandbox.
+- Result: pass. `main@origin` is `662195de`, its `README.md` is titled v0.3.3 with the title
+  rule giving every commit the ids of the threads it touches, and its `open/m-5.md` holds
+  `m-5-0` from vc-x1 to iiac-perf,zc-ring-x1 naming the change and withdrawing `m-3-3`. Read
+  from the tracked ref the push set, as v0.3.2 was.
 
 #### Ladder
 
-- chore: update vc-x1-messages to v0.3.2 (done)
+- chore: update vc-x1-messages to v0.3.3 (done)
 
 #### Deliberation
 
-- Single-step: one clause in the messages repo and one commit here, so no ladder, the bare
-  `0.84.5`, and no dev rename, as v0.3.1.
-- The version commit is pushed at once, not held: v0.3.1 was held unpushed so the members' asks
-  could amend it, and that window was for six changes landing together. One clause has nothing
-  to amend, "push when connected" is the rule, and a change a member asks for is a v0.3.3.
-- The announcement is a line, not a body: one clause fits in a line, and a body is for a message
-  that wants more than one.
-- `m-4`, announcing agent-files v0.2.4, follows this cycle rather than sharing its commit, wink's
-  call, so that thread's eventual close is titled under the settled rule.
-- `m-3-0` was rewritten once, a bend of the README's "nothing edits a line once written",
-  granted by wink at the work review: the line named the two title shapes "the close form" and
-  "the ids form", names the README never defines, and it was unpushed and unread. Rewritten under
-  a second take with its time updated, the id kept. The bend covers that one line before its
-  push and nothing after.
-- The title rule still has a gap, found at the review: a commit that closes a thread and carries
-  other threads' lines, or closes two, has no title. Not fixed here, since the title is a
-  convenience and a thread's commits are found by path. Filed as `feat: vc-x1 msg` in `## Todo`,
-  first, wink's call, and not folded into this cycle: a one-clause rules change whose
-  announcement is written does not carry a feature.
+- Single-step: one rule in the messages repo and one commit here, so no ladder, the bare
+  `0.84.6`, and no dev rename, as v0.3.2.
+- One form, not three: wink's pick among thread ids always, thread ids with a `close` prefix, and
+  one close per commit with the v0.3.2 close form kept. The title is a convenience and the diff
+  says what a commit did in each thread, so the event a prefix would mark is one `git show`
+  away, and one form leaves no gap for `vc-x1 msg` to close.
+- The rule follows a title written before it: `a4d4e22f` was titled `m-3 m-4` on wink's call
+  where v0.3.2 said five line ids, as `13a7d9f7` took the close form where v0.3.1 said six. Each
+  version so far has followed the practice that broke the one before.
+- `m-3-3` is withdrawn by `m-5-0`, not by a line in `m-3`: a search for `m-3-3` finds every later
+  line naming it, and a `to` line in `m-3` would renew a pending for members already pending
+  there.
+- The take is held through the work review, so the draft `m-5-0` can change before its release
+  without the rewrite bend v0.3.2 needed, and the mutex says what is true, that a session is
+  writing.
+- No fetch before the version commit: the Versions rule wants every member's last push in
+  `main@origin`, and the members write on this one clone, so origin holds nothing the clone
+  lacks.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 # References
