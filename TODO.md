@@ -56,7 +56,7 @@ prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup ag
 - [feat: resolve a partner by its ochid trailer, candidates when it has none][4] (done)
 - [feat: blame a work line to its commit, reaching past a move][5] (done)
 - [feat: the work-to-transcript window and the line's transcript write][6] (done)
-- [feat: the transcript-to-work window][7]
+- [feat: the transcript-to-work window][7] (done)
 - [feat: vc-x1 lookup for dual repos closing][8]
 
 #### Deliberation
@@ -213,6 +213,24 @@ files, the search over the timeline for the transcript write, and the rendered w
 
 The transcript-to-work direction: the agent-repo commit whose diff holds the line, its trailers,
 and the work commits' diffs as the window, narrowed to one file for a transcript write.
+
+- The agent commit is found by blame on the session file, with no reach back: a session file is
+  append-only, so a line arrives in the commit that appended it. Blame was split into the
+  arrival and the reach back so this direction takes the first alone.
+- Every trailer gets a window, since one push can publish several work commits, and a commit
+  with no trailer takes its nearest candidate's, as the other direction does.
+- The window is jj-lib's line diff of each changed file, printed as the new side's range with the
+  removed and added lines. A trapezoid merge diffs against its merged parents, so a landed
+  cycle's merge reads as the ladder's net change.
+- Narrowing was planned to one file, and the acceptance line refused it: this cycle's opening
+  wrote its record with one Bash call that also bumped the manifest, so the call wrote two
+  files. A `Write` or `Edit` still narrows to one, the longest path match winning, and a `Bash`
+  call narrows to every changed file its command names, by repo-relative path or by a name no
+  other changed file shares.
+- The session line prints rendered, file and line, time, role, and gist, in place of its JSON.
+- The tests hold every recorded write to the push whose jj-read window holds it, narrowed to the
+  line's file and adding the line when that push is where the line arrived, and every discussion
+  line to its work commit's whole diff.
 
 ##### feat: vc-x1 lookup for dual repos closing
 

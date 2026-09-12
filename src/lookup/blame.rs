@@ -73,6 +73,22 @@ pub fn origin(
     rel: &Path,
     line: usize,
 ) -> Result<Origin, Box<dyn std::error::Error>> {
+    let mut found = arrived(workspace, repo, start, rel, line)?;
+    found.written = reach_back(workspace, repo, &found.commit, &found.text)?;
+    Ok(found)
+}
+
+/// Blame alone, with no reach back: the commit the line arrived in.
+///
+/// What a session file's line wants, since a session file is
+/// append-only and a line arrives where it was written.
+pub fn arrived(
+    workspace: &Workspace,
+    repo: &Arc<ReadonlyRepo>,
+    start: &Commit,
+    rel: &Path,
+    line: usize,
+) -> Result<Origin, Box<dyn std::error::Error>> {
     let path = RepoPathBuf::from_relative_path(rel)?;
     let mut annotator = FileAnnotator::from_commit(start, &path).block_on()?;
     let domain = common::resolve_expression(workspace, repo, &format!("::{}", start.id().hex()))?;
@@ -95,11 +111,10 @@ pub fn origin(
     let text = String::from_utf8_lossy(text)
         .trim_end_matches(['\n', '\r'])
         .to_string();
-    let written = reach_back(workspace, repo, &commit, &text)?;
     Ok(Origin {
         commit,
         line_at_origin: found.line_number + 1,
-        written,
+        written: None,
         text,
     })
 }

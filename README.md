@@ -385,6 +385,25 @@ partner vxkqvspultnv fix: the design note closing
 written partner qxqzomnwkonk fix: the design note opening
 ```
 
+An agent line, a session file's line, prints as the rendered transcript entry, then the agent
+commit that appended it, blamed at the agent repo's working copy after a snapshot, and every work
+commit that commit's `ochid:` trailers name, the work commits its push published. Each work
+commit's diff is the window, printed as `FILE:START-END` regions with their removed and added
+lines. When the line is a transcript write the window narrows to the files it wrote, one for a
+`Write` or `Edit` and every changed file a `Bash` command names, and any other line is discussion
+and takes the diff whole. A line not yet pushed says so:
+
+```
+agent 1d000000-0000-4000-8000-000000000002.jsonl:17
+    1d000000-0000-4000-8000-000000000002.jsonl:17 2026-09-12 20:24:58Z tool Edit: .../dr-1/design.md
+commit  upzpmzpyuqzo 1d000000-0000-4000-8000-000000000002.jsonl:17 fix: revise the first decision
+partner ntuwppkqupwv fix: revise the first decision
+write   design.md in ntuwppkqupwv
+window  design.md:3-3
+  - The first decision.
+  + The first decision, revised and checked.
+```
+
 ```
 vc-x1 lookup TODO.md:53                  # the side inferred from the path
 vc-x1 lookup agent e355f8b2.jsonl:1200   # repo-relative under the agent repo

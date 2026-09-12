@@ -33,6 +33,7 @@ use crate::subcommand::SubcommandRunner;
 pub mod blame;
 pub mod partner;
 pub mod window;
+pub mod work_window;
 
 use partner::{Partner, short_chid, title};
 
@@ -451,6 +452,148 @@ pub fn resolve_work(
     })
 }
 
+/// An agent line resolved to the work side: the agent commit that
+/// appended it, that commit's partners, and each partner's window.
+pub struct AgentResolution {
+    /// The partner answer for the agent commit.
+    pub partner: Partner,
+    /// One window per work commit: the commit, the files the line
+    /// wrote when it is a transcript write, empty for discussion, and
+    /// the regions.
+    pub windows: Vec<(Commit, Vec<PathBuf>, Vec<work_window::Hunk>)>,
+}
+
+/// Resolve an agent line, blame's arrival for it, to the work commits
+/// its push published and their diffs.
+///
+/// - Every linked partner gets a window, and with no trailer the
+///   nearest candidate does.
+/// - A line that is a transcript write of a file the work commit
+///   changed narrows that commit's window to the file, and any other
+///   line, discussion, takes the diff whole.
+pub fn resolve_agent(
+    arrival: &blame::Origin,
+    work_root: &Path,
+    tolerance_secs: i64,
+) -> Result<AgentResolution, Box<dyn std::error::Error>> {
+    let (ws, repo) = common::load_repo(work_root)?;
+    let partner = partner::partners(&arrival.commit, (&ws, &repo), tolerance_secs)?;
+    let commits: Vec<Commit> = match &partner {
+        Partner::Linked(commits) => commits.clone(),
+        Partner::Candidates { commits, .. } => commits.first().cloned().into_iter().collect(),
+    };
+    let entry = crate::transcript::parse_str(&arrival.text)
+        .entries
+        .into_iter()
+        .next();
+    let mut windows = Vec::new();
+    for c in commits {
+        let changed = work_window::changed_files(&repo, &c)?;
+        let narrowed = entry
+            .as_ref()
+            .map(|e| work_window::written_files(e, &changed))
+            .unwrap_or_default(); // OK: an unparsed line is discussion
+        let only = (!narrowed.is_empty()).then_some(narrowed.as_slice());
+        let hunks = work_window::hunks_of(&repo, &c, only)?;
+        windows.push((c, narrowed, hunks));
+    }
+    Ok(AgentResolution { partner, windows })
+}
+
+/// Print each work window: whether the line wrote a file, then every
+/// region as `FILE:START-END` with its removed and added lines.
+fn print_work_windows(r: &AgentResolution) {
+    for (commit, narrowed, hunks) in &r.windows {
+        if narrowed.is_empty() {
+            info!("discussion, so {}'s whole diff", short_chid(commit));
+        } else {
+            let files: Vec<String> = narrowed.iter().map(|f| f.display().to_string()).collect();
+            info!("write   {} in {}", files.join(", "), short_chid(commit));
+        }
+        for h in hunks {
+            let end = h.start + h.len.saturating_sub(1);
+            if h.len == 0 {
+                info!(
+                    "window  {}:{} (removed before it)",
+                    h.file.display(),
+                    h.start
+                );
+            } else {
+                info!("window  {}:{}-{}", h.file.display(), h.start, end);
+            }
+            for l in &h.removed {
+                info!("  - {l}");
+            }
+            for l in &h.added {
+                info!("  + {l}");
+            }
+        }
+    }
+}
+
+/// Resolve and print an agent line: the agent commit that appended
+/// it, its partners, and their windows.
+fn lookup_agent(
+    ctx: &mut Context,
+    params: &LookupParams,
+    at: &Located,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if params.rev.is_none() {
+        ctx.session(&at.repo)?.snapshot()?;
+    }
+    let (ws, repo) = common::load_repo(&at.repo)?;
+    let wc_id = repo.view().get_wc_commit_id(ws.workspace_name()).cloned();
+    let start = match &params.rev {
+        Some(rev) => one_commit(&ws, &repo, rev)?,
+        None => {
+            let id = wc_id.ok_or("lookup: the agent repo has no working-copy commit")?;
+            repo.store().get_commit(&id)?
+        }
+    };
+    let arrival = blame::arrived(&ws, &repo, &start, &at.rel, at.line)?;
+    if at.text.is_none() {
+        print_entry(&at.rel, at.line, &arrival.text);
+    }
+    if repo.view().get_wc_commit_id(ws.workspace_name()) == Some(arrival.commit.id()) {
+        info!("commit  the working copy, not pushed yet, so no partner");
+        return Ok(());
+    }
+    info!(
+        "commit  {} {}:{} {}",
+        short_chid(&arrival.commit),
+        at.rel.display(),
+        arrival.line_at_origin,
+        title(&arrival.commit)
+    );
+    let Some(work_root) = &at.other else {
+        return Err("lookup: an agent line needs its work repo".into());
+    };
+    let r = resolve_agent(&arrival, work_root, params.tolerance_secs)?;
+    print_partner("partner", &r.partner);
+    print_work_windows(&r);
+    Ok(())
+}
+
+/// Print a session file's line as the rendered timeline entry, or
+/// the raw text when it does not parse.
+fn print_entry(file: &Path, line: usize, text: &str) {
+    match crate::transcript::parse_str(text)
+        .entries
+        .into_iter()
+        .next()
+    {
+        Some(mut entry) => {
+            entry.line_no = line;
+            let placed = window::Placed {
+                file: file.to_path_buf(),
+                entry,
+            };
+            info!("    {}", window::render(&placed));
+        }
+        None => info!("    {text}"),
+    }
+}
+
 /// Print the window's spans, the transcript write, and the entries
 /// around it.
 fn print_window(r: &WorkResolution, rel: &Path, context: usize) {
@@ -513,11 +656,14 @@ pub fn lookup(ctx: &mut Context, params: &LookupParams) -> Result<(), Box<dyn st
     let cwd = std::env::current_dir()?;
     let at = locate(params, &cwd)?;
     info!("{} {}:{}", side_keyword(at.side), at.rel.display(), at.line);
+    if at.side == Side::Bot {
+        if let Some(text) = &at.text {
+            print_entry(&at.rel, at.line, text);
+        }
+        return lookup_agent(ctx, params, &at);
+    }
     if let Some(text) = &at.text {
         info!("    {text}");
-    }
-    if at.side != Side::Work {
-        return Ok(());
     }
     if params.rev.is_none() {
         ctx.session(&at.repo)?.snapshot()?;
@@ -857,6 +1003,77 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 10);
+    }
+
+    /// Every recorded write, looked up from its session line, lands on
+    /// the push whose window holds it, and when that push's work
+    /// commit is where the line arrived, the window is narrowed to the
+    /// line's file and adds the line.
+    #[test]
+    fn dr1_every_write_resolves_to_its_work_window() {
+        use crate::lookup::partner::{chid, tests::by_chid};
+        let Some((root, rel)) = dr1() else { return };
+        let agent_root = root.join(".claude");
+        let (aw, ar) = common::load_repo(&agent_root).unwrap();
+        let main = by_chid(&aw, &ar, "main");
+        let pushes = rel["pushes"].as_array().unwrap();
+        let mut narrowed = 0;
+        for w in rel["writes"].as_array().unwrap() {
+            let Some(push) = w["push"].as_u64() else {
+                continue;
+            };
+            let p = &pushes[push as usize];
+            let session =
+                PathBuf::from(format!("{}.jsonl", w["write"]["session"].as_str().unwrap()));
+            let line = w["write"]["line"].as_u64().unwrap() as usize;
+            let arrival = blame::arrived(&aw, &ar, &main, &session, line).unwrap();
+            assert_eq!(chid(&arrival.commit), p["agent"], "{}", w["text"]);
+            let r = resolve_agent(&arrival, &root, 60).unwrap();
+            let [(work, file, hunks)] = r.windows.as_slice() else {
+                panic!("{}: one window", w["text"]);
+            };
+            assert_eq!(chid(work), p["work"], "{}", w["text"]);
+            if w["arrives"].as_u64() == Some(push) {
+                assert_eq!(*file, vec![PathBuf::from(w["file"].as_str().unwrap())]);
+                assert!(
+                    hunks
+                        .iter()
+                        .any(|h| h.added.iter().any(|l| l == &w["text"])),
+                    "{}",
+                    w["text"]
+                );
+                narrowed += 1;
+            }
+        }
+        assert!(narrowed >= 8, "{narrowed}");
+    }
+
+    /// A discussion line takes its work commit's diff whole.
+    #[test]
+    fn dr1_discussion_takes_the_whole_diff() {
+        use crate::lookup::partner::{chid, tests::by_chid};
+        let Some((root, rel)) = dr1() else { return };
+        let agent_root = root.join(".claude");
+        let (aw, ar) = common::load_repo(&agent_root).unwrap();
+        let main = by_chid(&aw, &ar, "main");
+        let pushes = rel["pushes"].as_array().unwrap();
+        for d in rel["discussion"].as_array().unwrap() {
+            let p = &pushes[d["push"].as_u64().unwrap() as usize];
+            let session = PathBuf::from(format!("{}.jsonl", d["session"].as_str().unwrap()));
+            let line = d["line"].as_u64().unwrap() as usize;
+            let arrival = blame::arrived(&aw, &ar, &main, &session, line).unwrap();
+            let r = resolve_agent(&arrival, &root, 60).unwrap();
+            let [(work, file, hunks)] = r.windows.as_slice() else {
+                panic!("one window");
+            };
+            assert_eq!(chid(work), p["work"]);
+            assert!(file.is_empty());
+            let (ws, wr) = common::load_repo(&root).unwrap();
+            let whole =
+                work_window::hunks_of(&wr, &by_chid(&ws, &wr, p["work"].as_str().unwrap()), None)
+                    .unwrap();
+            assert_eq!(*hunks, whole);
+        }
     }
 
     #[test]
