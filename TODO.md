@@ -9,19 +9,26 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-Written 2026-09-12 in the closing of **feat: vc-x1 lookup for dual repos**, before its push, so
-the work-repo stays clean.
+Written 2026-09-12 after **feat: vc-x1 lookup for dual repos** landed, on the
+`wip-continuation-notes` bookmark, which also carries two new `## Todo` entries.
 
-- State: the closing is pushed to `vc-x1-lookup-for-dual-repos`, and the cycle is not landed.
-  Land is wink's, after reviewing the closing, which may add rungs or rewind. The recorded shape
-  is a trapezoid, to confirm at Land, with the rename back to `vc-x1` first.
+- Landed: the lookup cycle is on `main` as a trapezoid merge, `4227364a`, with its bookmark
+  deleted and the plain `vc-x1 0.84.7` installed. Its record is in `## Closed`. The stale
+  `vc-x1-dev` binary is still installed.
+- This bookmark is work in progress, wink's call, not a cycle: no version bump and no cycle
+  record. It holds the two Todo entries at the head of `## Todo`, **lookup narrows a write's work
+  window to its lines and flags a renamed partner** and **lookup --history steps a region through
+  the commits that changed it**, filed from wink's trial of `lookup` before Land, and these notes.
+  How it reaches `main`, landed as is or folded into the next cycle's opening, is open.
+- No next cycle is agreed. The two entries above are the natural candidates.
 - The fixture: `../vc-x1-fixtures/dr-1` is built with local bare remotes under
   `../vc-x1-fixtures/.remotes`, and `.jjconfig-dr-1.toml` beside it is the build's pinned clock.
-  The GitHub repos `winksaville/vc-x1-fixtures-dr-1-work` and `-agent` exist and are empty,
-  since the push was refused in session. Publishing is wink's call:
-  `python3 support/fixtures/build-dr-1.py ../vc-x1-fixtures --publish`.
-- The fixture was rebuilt three times this cycle, and its change ids differ each time, so a
-  rebuild after publishing is a force-push of both repos.
+  The GitHub repos `winksaville/vc-x1-fixtures-dr-1-work` and `-agent` exist and are empty, since
+  the push was refused in session. Publishing is wink's call:
+  `python3 support/fixtures/build-dr-1.py ../vc-x1-fixtures --publish`. A rebuild changes every
+  change id, so a rebuild after publishing force-pushes both repos.
+- Messages: not checked since this session's acquaint, when nothing was pending.
+- `tmp/todo-entries.patch` held the Todo entries across Land and can be deleted.
 
 ## In Progress
 
@@ -52,6 +59,47 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### lookup narrows a write's work window to its lines and flags a renamed partner
+
+(wink, 2026-09-12) Found trying **feat: vc-x1 lookup for dual repos** by hand before its Land.
+`lookup agent` on a transcript write narrows the work window to the files the call wrote, and
+that is too wide: session line 846 of `2b15dd23` wrote TODO.md and notes/bugs.md, and the window
+printed nine regions, 188 added lines, while the call's own text carries about 67 of them. Most
+regions were written partly by that call and partly by other calls in the same rung, so dropping
+whole regions removes only two of nine.
+
+- Line narrowing: keep the added lines the call's text carries, a heredoc body, a Write's content,
+  an Edit's new string, with a line or two of context, and say how many lines the commit added
+  that the call did not.
+- A renamed partner: `lookup TODO.md:100` printed a commit and its partner with different titles,
+  "fix: clone says the right dir and stops on a rejected config" and "fix: clone's dry run and
+  warning name the right files", though each trailer names the other. A push gives both the same
+  title, so one side was re-described after its push. Print one line saying so when the titles
+  differ, so the pair does not read as a wrong link.
+
+### lookup --history steps a region through the commits that changed it
+
+(wink, 2026-09-12) The time dimension of a lookup: from a line, step older and newer through the
+commits that changed its region, each step showing the region there, its partner, and the
+transcript write, as `git log -L` does for one side. The interactive form, clicking a line and
+arrowing through time, is the session viewer's, the one the `## Waiting` entry names, so vc-x1
+computes the chain and the viewer draws it.
+
+- Two axes. The work axis is the region's commit history. The agent axis is the session timeline,
+  stepping between writes to the same file or between push windows, and is the easier, since the
+  timeline and windows exist.
+- Older: blame names the last commit to touch the lines, and mapping the range through that
+  commit's line diff gives the region in its parent, repeated to the region's first appearance.
+  The reach back covers a moved line.
+- Newer: a commit can have several descendants, and a trapezoid is that shape. Follow the line
+  that reaches `main`, with a ladder's rungs a detour to step into.
+- An amended step can show its predecessor, the first reader for the partner module's evolution
+  walk.
+- Shape: `lookup --history FILE:LINE` prints the chain oldest first, commit, range, partner, and
+  write per step, with a JSON form for the viewer. Each step uses the line narrowing of the entry
+  above. The `dr-1` fixture has a line edited across two cycles, a real move, and an amend to test
+  it over.
 
 ### feat: vc-x1 msg, the messages protocol as code
 
