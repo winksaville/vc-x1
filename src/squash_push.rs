@@ -18,6 +18,12 @@
 //!   and stops, and every other run prints the line again after the
 //!   push. The after-check reports only, since the exit code is the
 //!   push's.
+//! - Asks before acting, when asking is on. `squash-push.yes` sets
+//!   the default and is true, so today's behavior is what a bare run
+//!   gets, `--ask` turns the prompt on, and `--yes` turns it off,
+//!   since a boolean flag cannot turn a configured true back off.
+//!   With the prompt on, a non-tty stdin is an error rather than a
+//!   hang, and a declined prompt is an error too.
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
 //!   `BOOKMARK@origin`, an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
@@ -54,6 +60,14 @@ pub struct SquashPushArgs {
 
     #[command(flatten)]
     pub squash: SquashOption,
+
+    /// Act without asking, once the precheck has found work
+    #[arg(short = 'y', long = "yes", conflicts_with = "ask")]
+    pub yes: bool,
+
+    /// Ask before acting, overriding a configured squash-push.yes
+    #[arg(long = "ask")]
+    pub ask: bool,
 }
 
 /// Per-invocation squash-push inputs: the clap-free shape the op
@@ -74,6 +88,47 @@ pub struct SquashPushParams {
     /// just moved the bookmark, this stage publishes it), so the
     /// report would be a false alarm.
     pub report_publish_state: bool,
+    /// Act without asking once the precheck has found work. True is
+    /// today's behavior and the built-in default, so the prompt is
+    /// opt-in. Resolved from `--yes`, then `--ask`, then the repo's
+    /// `squash-push.yes`, then the built-in.
+    pub yes: bool,
+}
+
+/// The `yes` choice: the flags, then the config key, then the
+/// built-in default.
+///
+/// The same order `agent-files diff` resolves its `--custom` by. A
+/// boolean flag cannot turn a configured `true` back off, which is
+/// why `--ask` exists rather than a `--no-yes`.
+pub fn resolve_yes(yes: bool, ask: bool, key_value: Option<bool>, default: bool) -> bool {
+    if yes {
+        true
+    } else if ask {
+        false
+    } else {
+        key_value.unwrap_or(default)
+    }
+}
+
+/// The `squash-push.yes` key of the config in `repo`, if any.
+///
+/// Read from the repo the command is pointed at rather than from the
+/// workspace, so each side may answer differently and a plain repo
+/// outside a workspace simply has no answer.
+fn config_yes(repo: &Path) -> Result<Option<bool>, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(repo)? else {
+        return Ok(None);
+    };
+    match crate::toml_simple::toml_get(&cfg.map, "squash-push.yes").map(String::as_str) {
+        None => Ok(None),
+        Some("true") => Ok(Some(true)),
+        Some("false") => Ok(Some(false)),
+        Some(other) => Err(format!(
+            "squash-push.yes: invalid bool {other:?}: expected true or false, unquoted"
+        )
+        .into()),
+    }
 }
 
 impl TryFrom<&SquashPushArgs> for SquashPushParams {
@@ -84,6 +139,12 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
     fn try_from(a: &SquashPushArgs) -> Result<Self, String> {
         let repo = std::fs::canonicalize(&a.repo)
             .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
+        let yes = resolve_yes(
+            a.yes,
+            a.ask,
+            config_yes(&repo).map_err(|e| e.to_string())?,
+            crate::config_schema::SQUASH_PUSH_YES_DEFAULT,
+        );
         Ok(SquashPushParams {
             repo,
             squash: a.squash.value.clone().unwrap_or_else(|| SquashSpec {
@@ -92,6 +153,7 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
             }), // OK: --squash absent -> the command's default @,@- pair
             bookmark: a.bookmark.clone(),
             report_publish_state: true,
+            yes,
         })
     }
 }
@@ -277,6 +339,33 @@ fn read_state(params: &SquashPushParams) -> Result<RunState, Box<dyn std::error:
     })
 }
 
+/// Ask whether to act, when asking is on.
+///
+/// `yes` skips it, which is the default. With the prompt on, a
+/// non-tty stdin is an error rather than a hang, the rule `push`'s
+/// step gate follows, and a declined prompt is an error too, so a
+/// caller that scripted the run learns it did not happen.
+fn confirm(
+    params: &SquashPushParams,
+    state: &RunState,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if params.yes {
+        debug!("squash-push: --yes skips the prompt");
+        return Ok(());
+    }
+    if !crate::common::is_stdin_tty() {
+        return Err("squash-push: asking requires a tty (stdin is not interactive);                     add --yes to act without asking"
+            .into());
+    }
+    let answer = crate::common::prompt(&format!("{}. squash-push? [y/N] ", state.line(label)))?;
+    let normalized = answer.trim().to_ascii_lowercase();
+    if normalized != "y" && normalized != "yes" {
+        return Err(format!("squash-push: declined (got {answer:?})").into());
+    }
+    Ok(())
+}
+
 /// True when `rev` has no file changes and no description: nothing
 /// worth squashing.
 fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
@@ -336,6 +425,11 @@ pub fn squash_push(
         info!("{}", before.line(&label));
         return Ok(());
     }
+
+    // The prompt sits between the precheck and the work, so it is
+    // asked only when there is something to decline, and it names
+    // what the precheck found.
+    confirm(params, &before, &label)?;
 
     // Empty-source handling: nothing to squash, but the precheck
     // found work, so the push still runs.
@@ -495,6 +589,7 @@ mod tests {
             squash: squash_at(),
             bookmark: "main".to_string(),
             report_publish_state: true,
+            yes: true,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("squash-push should publish the lost commit");
@@ -521,6 +616,7 @@ mod tests {
             squash: squash_at(),
             bookmark: "main".to_string(),
             report_publish_state: true,
+            yes: true,
         };
         let state = read_state(&params).expect("read state");
         assert!(state.nothing_to_do(), "{state:?}");
@@ -555,6 +651,7 @@ mod tests {
             squash: squash_at(),
             bookmark: "main".to_string(),
             report_publish_state: true,
+            yes: true,
         };
         let state = read_state(&params).expect("read state");
         // `@` is empty and undescribed and `main` matches origin, so
@@ -595,6 +692,7 @@ mod tests {
             squash: squash_at(),
             bookmark: "main".to_string(),
             report_publish_state: true,
+            yes: true,
         };
         let before = read_state(&params).expect("read state");
         assert_eq!(before.line("bot"), "bot: dirty: @ has changes");
@@ -608,6 +706,105 @@ mod tests {
         };
         assert_eq!(cid("main"), cid("main@origin"));
         assert!(read_state(&params).expect("after").nothing_to_do());
+    }
+
+    /// Flag, then key, then default, in that order, and `-y` with
+    /// `--ask` is refused so the two cannot disagree.
+    #[test]
+    fn yes_resolution_order() {
+        assert!(resolve_yes(true, false, Some(false), false));
+        assert!(!resolve_yes(false, true, Some(true), true));
+        assert!(resolve_yes(false, false, Some(true), false));
+        assert!(!resolve_yes(false, false, Some(false), true));
+        assert!(resolve_yes(false, false, None, true));
+        assert!(!resolve_yes(false, false, None, false));
+        assert!(Cli::try_parse_from(["vc-x1", "squash-push", "-y", "--ask"]).is_err());
+        let a = parse(&["vc-x1", "squash-push", "--yes"]);
+        assert!(a.yes && !a.ask);
+        let a = parse(&["vc-x1", "squash-push", "--ask"]);
+        assert!(a.ask && !a.yes);
+    }
+
+    /// The built-in default is to act without asking, so today's
+    /// behavior is what a bare invocation still gets.
+    #[test]
+    fn the_default_is_to_act_without_asking() {
+        let args = parse(&["vc-x1", "squash-push"]);
+        let params = SquashPushParams::try_from(&args).expect("params");
+        assert!(params.yes, "a bare run does not prompt");
+    }
+
+    /// A repo's own config answers, and a malformed value is an
+    /// error naming the key rather than a silent default.
+    #[test]
+    fn the_repo_config_answers_and_a_bad_value_errors() {
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-config-yes");
+        let cfg = fx.bot.join(crate::config_md::VC_CONFIG_MD);
+        let base = std::fs::read_to_string(&cfg).unwrap_or_default();
+
+        let with_key = |v: &str| format!("{base}\n```toml\n[squash-push]\nyes = {v}\n```\n");
+        std::fs::write(&cfg, with_key("false")).expect("write config");
+        assert_eq!(config_yes(&fx.bot).expect("read"), Some(false));
+
+        std::fs::write(&cfg, with_key("\"no\"")).expect("write config");
+        let err = config_yes(&fx.bot).expect_err("bad bool").to_string();
+        assert!(err.contains("squash-push.yes"), "{err}");
+        assert!(err.contains("\"no\""), "{err}");
+
+        std::fs::write(&cfg, base).expect("restore config");
+        assert_eq!(config_yes(&fx.bot).expect("read"), None);
+    }
+
+    /// With asking on and no tty, the run errors rather than
+    /// hanging on `read_line`, the rule push's step gate follows.
+    #[test]
+    fn asking_without_a_tty_errors_rather_than_hangs() {
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-ask-no-tty");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+        let params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            report_publish_state: true,
+            yes: false,
+        };
+        let state = read_state(&params).expect("read state");
+        // `cargo test` gives the test binary no tty, so this is the
+        // non-interactive path rather than a hang.
+        let err = confirm(&params, &state, "bot")
+            .expect_err("no tty and asking")
+            .to_string();
+        assert!(err.contains("requires a tty"), "{err}");
+        assert!(err.contains("--yes"), "{err}");
+
+        // And the whole run refuses for the same reason, before it
+        // has touched anything.
+        let err = squash_push(&mut crate::test_helpers::test_ctx(), &params)
+            .expect_err("run refuses")
+            .to_string();
+        assert!(err.contains("requires a tty"), "{err}");
+    }
+
+    /// A clean run never reaches the prompt, so asking is on and the
+    /// run still succeeds without a tty.
+    #[test]
+    fn a_clean_run_never_asks() {
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-clean-no-ask");
+        let params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            report_publish_state: true,
+            yes: false,
+        };
+        squash_push(&mut crate::test_helpers::test_ctx(), &params)
+            .expect("nothing to decline, so nothing is asked");
     }
 
     /// The label is the repo's directory name, since the command

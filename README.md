@@ -1287,6 +1287,8 @@ vc-x1 squash-push feature -R . --squash @,@--
 | `[BOOKMARK]` | Bookmark to advance and push [default: main] |
 | `-R, --repo <PATH>` | Path to jj repo [default: .] |
 | `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
+| `-y, --yes` | Act without asking, once the precheck found work |
+| `--ask` | Ask before acting, overriding a configured `squash-push.yes` |
 
 Behavior notes:
 
@@ -1302,6 +1304,14 @@ Behavior notes:
   looked up. That line is a report only: the agent repo's transcript grows while the push runs, so a
   correct push often reads `dirty: @ has changes` a moment later, and the exit code says whether the
   push completed, not what the after-check found.
+- With work found, it asks before acting when asking is on. `squash-push.yes` sets the default and
+  is `true`, so a bare run still acts without asking as it always has. `--ask` turns the prompt on
+  for one run and `-y`/`--yes` turns it off, which is why `--ask` exists rather than a `--no-yes`: a
+  boolean flag cannot turn a configured `true` back off. The key is read from the repo `-R` points
+  at, so the two sides of a workspace may answer differently. With the prompt on, a non-tty run is
+  an error naming `--yes` rather than a hang, the rule [`push --step`](#push) follows, and declining
+  is an error too, so a scripted run learns it did not happen. A run the precheck found clean never
+  reaches the prompt.
 - With an empty `@` but work still to do, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost, see
   [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.

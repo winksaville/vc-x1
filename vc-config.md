@@ -332,6 +332,23 @@ used-by = "agent-files copy --custom"
 default = false
 ```
 
+## squash-push.yes
+
+Whether `vc-x1 squash-push` acts without asking once its precheck has found work. True is today's
+behavior and the default, so the prompt is opt-in: `--ask` turns it on for one run and `--yes`
+turns it off, since a boolean flag cannot turn a configured `true` back off. Owned by both sides,
+read from the repo the command is pointed at, so each side may answer differently. With the prompt
+on, a non-tty run is an error rather than a hang.
+
+```toml
+[squash-push.yes]
+homes = ["workspace-code", "workspace-agent"]
+kind = "bool"
+doc = "Default for squash-push: act without asking once the precheck found work"
+used-by = "squash-push --yes / --ask"
+default = true
+```
+
 ## validate.full
 
 The full validation: the commands the per-commit checklist runs before a push, in order, each

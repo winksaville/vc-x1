@@ -20,7 +20,6 @@
 //! call, not something a tool can infer.
 
 use std::fs;
-use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 use clap::Args;
@@ -170,7 +169,7 @@ impl SubcommandRunner for PushArgs {
 /// `--yes` overrides the check: script callers opt in by
 /// asserting "all prompts auto-approved".
 fn is_stdin_tty() -> bool {
-    std::io::stdin().is_terminal()
+    crate::common::is_stdin_tty()
 }
 
 /// Entry point for the `push` subcommand.
@@ -716,6 +715,7 @@ fn stage_squash_push_bot(
         // just moved main and this stage publishes it): don't report
         // a lost publish.
         report_publish_state: false,
+        yes: true,
     };
     crate::squash_push::squash_push(ctx, &sp)
 }

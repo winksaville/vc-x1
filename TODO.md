@@ -52,7 +52,7 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
 
 - [feat: squash-push checks, asks, reports opening][1] (done)
 - [feat: squash-push checks before and after][2] (done)
-- [feat: squash-push asks before it acts][3]
+- [feat: squash-push asks before it acts][3] (done)
 - [refactor: push skips the squash-push prompt][4]
 - [feat: squash-push checks, asks, reports closing][5]
 
@@ -133,6 +133,32 @@ left, and the verdict that would tell it is private to `status` and covers the w
 ##### feat: squash-push asks before it acts
 
 Nothing gives a caller a chance to decline, and the default has no home outside the flag.
+
+* A prompt has to default to not prompting, or it breaks every caller.
+  - `squash-push.yes` means "act without asking" and defaults to true, so a bare run behaves exactly
+    as it did and the change is additive. `--ask` turns the prompt on and `--yes` turns it off,
+    which is the shape a boolean config forces: a flag can only set true, so turning a configured
+    true back off needs a differently named flag, not a `--no-yes`.
+  - Resolution is flag, then key, then built-in, the order `agent-files diff` already resolves
+    `--custom` by, so the two commands answer the same question the same way.
+  - The key is read from the repo `-R` names rather than from the workspace, so each side may answer
+    differently and a plain repo outside a workspace simply has no answer. A malformed value is an
+    error naming the key, since a config that says something unreadable is not a default.
+* The prompt's placement decides what it can say.
+  - It sits between the precheck and the work, so it is asked only when there is something to
+    decline and its question carries the precheck's own line. A clean run never reaches it, which is
+    what lets asking be on without making a no-op run interactive.
+* A prompt with nowhere to read from hangs instead of failing.
+  - A non-tty stdin with asking on is an error naming `--yes`, the rule `push`'s step gate already
+    follows, and declining is an error too, so a scripted caller learns the run did not happen
+    rather than reading a success it did not get.
+  - `is_stdin_tty` moved from `push` to `common`, beside `prompt`. `push` already depends on
+    `squash-push`, so borrowing it the other way would have made the dependency circular, and the
+    test belongs with the function whose hazard it guards.
+* The config key had no home in the prototype.
+  - `[squash-push.yes]` opens the table, and `build.rs` renders the registry entry and the default
+    constant from it, so the behavioral default and the documented one are one line. The generated
+    `vc-config-model.md` regenerated with it, which its own test caught and named the fix for.
 
 ##### refactor: push skips the squash-push prompt
 
