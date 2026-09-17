@@ -41,6 +41,27 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Enhance squash-push
+
+(wink, 2026-09-03) `squash-push` runs a precheck, asks before it acts, and reports the state it
+leaves. The precheck is `vc-x1 status`'s per-repo verdict composed with the bookmark's publish
+state, which the command already reads: "clean" only when `@` is empty and undescribed and the
+bookmark is at its origin, since a status-clean repo with an unpushed bookmark is the one thing
+the command exists to publish. Clean prints the status line, `<label>: clean`, and exits 0 with
+nothing done. Dirty asks whether to squash-push, with `push`'s prompt helper and its rule that a
+non-tty without `--yes` is an error rather than a hang. `--yes` skips the prompt, a
+`[squash-push] yes` config key sets the default, and since a boolean flag cannot turn a config
+yes back off, `--ask` is its opposite. The key defaults to yes, so today's behavior is the
+default and the change is additive. After the push the command runs status again and prints the
+line. On the agent-repo that line is often `dirty: @ has changes` a moment after a successful
+push, since the transcript grows while the push runs and the after-check snapshots again, so the
+exit code says whether the push completed, not what the after-status found. `vc-x1 push`'s
+agent-side stage builds the params directly and takes the precheck and prompt off there, the
+shape of its existing publish-state suppression, since mid-push "dirty" is the normal state.
+
+- Sequenced after the status redesign, which exposes the per-repo verdict this command calls
+  for both checks: two cycles, status first, or one cycle with the status rung first.
+
 ### lookup narrows a write's work window to its lines and flags a renamed partner
 
 (wink, 2026-09-12) Found trying **feat: vc-x1 lookup for dual repos** by hand before its Land.
@@ -356,27 +377,6 @@ exposed as a function, since **Enhance squash-push** calls it for its precheck a
 and it carries the bookmark's publish state beside the working-copy verdict, since that entry's
 "clean" needs both. The docs follow: the command's help, the README's status section, and the
 At rest pointer entry above, whose wording describes the output.
-
-### Enhance squash-push
-
-(wink, 2026-09-03) `squash-push` runs a precheck, asks before it acts, and reports the state it
-leaves. The precheck is `vc-x1 status`'s per-repo verdict composed with the bookmark's publish
-state, which the command already reads: "clean" only when `@` is empty and undescribed and the
-bookmark is at its origin, since a status-clean repo with an unpushed bookmark is the one thing
-the command exists to publish. Clean prints the status line, `<label>: clean`, and exits 0 with
-nothing done. Dirty asks whether to squash-push, with `push`'s prompt helper and its rule that a
-non-tty without `--yes` is an error rather than a hang. `--yes` skips the prompt, a
-`[squash-push] yes` config key sets the default, and since a boolean flag cannot turn a config
-yes back off, `--ask` is its opposite. The key defaults to yes, so today's behavior is the
-default and the change is additive. After the push the command runs status again and prints the
-line. On the agent-repo that line is often `dirty: @ has changes` a moment after a successful
-push, since the transcript grows while the push runs and the after-check snapshots again, so the
-exit code says whether the push completed, not what the after-status found. `vc-x1 push`'s
-agent-side stage builds the params directly and takes the precheck and prompt off there, the
-shape of its existing publish-state suppression, since mid-push "dirty" is the normal state.
-
-- Sequenced after the status redesign, which exposes the per-repo verdict this command calls
-  for both checks: two cycles, status first, or one cycle with the status rung first.
 
 ### Write up who owns a config file's prose
 
@@ -1019,56 +1019,76 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(adoption): v0.2.5
+### feat(agent-files): size slides the count table
 
 #### Problem
 
-[Close-out step 4](AGENTS.md#close-out) has every cycle record the agent-files line count, so a
-cycle that touched no agent-file adds a row that records nothing, and the step has no rationale
-entry, zc-ring-x1's acceptance remark of 2026-08-31. The notes file already says a cycle that
-touched none adds no row, so `AGENTS.md` disagrees with the file it points at. zc-ring-x1
-proposed the fix as **agent-files(proposal): v0.2.5**, thread m-6 in `../vc-x1-messages`, and
-asked vc-x1 as the maintainer to fold or reject it. The long form of this entry was **Size is
-recorded only when an agent-file changed**, retitled at the move.
+The agent-files line count that [close-out step 4](AGENTS.md#close-out) records is taken by hand:
+a `wc -l` over the set with `rationale.md` left out of the total, transcribed into the two tables
+in [agent-files-size.md](notes/agent-files-size.md). The second of those is a three-column window
+that has to slide, a column inserted at the left and the oldest dropped at the right, which is the
+kind of edit a hand gets wrong and nothing checks.
 
 #### Solution
 
-A single-step `agent-files(adoption): v0.2.5` cycle took zc-ring-x1's proposal commit `1bbc72b2`
-verbatim: `AGENTS.md` and `agent-data/rationale.md` copied, and the version marker renamed to
-`agent-data/agent-files-v0.2.5`. `notes/agent-files-size.md` states the count's new definition in
-its own words, adds the row, and slides the per-file window with `rationale.md` shown uncounted.
-The continuation notes left by the lookup cycle were reset, and after Land a `done` line in m-6
-names the landed commit.
+A third subcommand beside `version` and `diff`, `vc-x1 agent-files size`, in
+`src/agent_files/size.rs`. It counts the set's `.md` files, so the extensionless version marker
+falls out by that rule rather than by a name the code has to know, shows `rationale.md`'s
+count in angle brackets and leaves it out of the total, and rewrites the per-file table with a new
+leftmost column labelled by the set's version file and the rightmost column dropped. It reuses
+`diff.rs`'s operand resolution, so `DIR` defaults to this workspace and the report names where it
+came from. Dry-run by default, printing the table it would write, and `--no-dry-run` applies it.
+The `## Counts` row stays the close-out's to write. The notes file's own convention changed with
+the command: an uncounted cell was `-` and is now `<N>`, so the number survives, and an empty cell
+is now what says a file was not in the set that landing.
 
 #### Acceptance check
 
-`vc-x1 agent-files version` prints `v0.2.5`, `vc-x1 agent-files diff ../zc-ring-x1` names no
-agent-file, and close-out step 4 in `AGENTS.md` says a cycle that touched no agent-file adds no row.
+Run in this workspace, `vc-x1 agent-files size` reports nine counted files and 1774 lines with
+`agent-data/rationale.md` shown as `<543>`, and its dry run names both the column it would insert
+and the `v0.2.3` column it would drop while leaving the file unchanged on disk. `cargo test`
+passes. This cycle changes no agent-file, so close-out step 4 adds no row and the window does not
+slide.
 
-- Result: pass. `vc-x1 agent-files version` prints `v0.2.5`, `vc-x1 agent-files diff
-  ../zc-ring-x1` reports 0 of 10 differ, and step 4 reads "when an agent-file changed, record the
-  line count ... A cycle that touched none adds no row". The count is 1774 over nine files, the
-  same total zc-ring-x1 recorded.
+- Result: pass. The report is the nine files, 1774 lines, and `<543>`, matching the `wc -l` the
+  v0.2.5 row was taken by. The dry run prints `column v0.2.5 in, column v0.2.3 out` with the whole
+  slid table, and `notes/agent-files-size.md` has the same md5 after it as before. `cargo test`
+  passes, 595 tests. No agent-file changed, so no row was added and the window was not slid.
 
 #### Ladder
 
-- agent-files(adoption): v0.2.5 (done)
+- feat(agent-files): size slides the count table (done)
 
 #### Deliberation
 
-- Waiver, wink's, 2026-09-16: "You have permission to complete the adoption of v0.2.5", read as
-  the bookmark creation, the work and description review stops, and the commit push. Validation
-  still runs before the push. Land is outside it, as at the lookup cycle, and moves on wink's go.
-- Adoption, not proposal: the change is inbound from zc-ring-x1, so the cycle copies its version
-  file and bumps no set version of its own, and the title names what it took.
-- Single-step: two files copied, a rename, and the size note, so one commit carrying the bare
-  `0.84.8`, and no dev rename, as the v0.2.4 cycle did.
-- The bump is a patch, which the proposal chose and [Advancing
-  X.Y.Z](agent-data/versioning.md#advancing-xyz-patch-by-default) asks for. The Todo entry's
-  "takes a minor bump" was written before that rule and is not followed.
-- The count's new definition is each adopter's own notes file, so this cycle rewrites our preamble
-  in its own words rather than copying zc-ring-x1's, whose table has a different history.
-- The m-6 line follows Land, since it wants a sha-link to a landed commit.
+- Single-step, since the work is one new module beside `diff.rs` whose operand resolution and
+  set-file walk it reuses, so one commit carrying the bare `0.84.9` and no dev rename.
+- An uncounted cell carries its number, `<543>` rather than `-` (wink, 2026-09-17), so a reader
+  sees what the why-file costs without running `wc`. The v0.2.4 and v0.2.3 cells stay bare,
+  because `rationale.md` really was in those totals, and the one stale `-` in the v0.2.5 column
+  became `<543>` in this cycle.
+- Dry-run by default with `--no-dry-run` rather than the `--write` first proposed, so the tool has
+  one spelling for the write toggle across `fix-desc`, `fix-todo`, and this.
+- The `## Counts` row is left to the close-out. Its Files and Lines are mechanical and its Landed
+  and Cycle are derivable, but its Note is prose, so a command writing four cells of five would
+  still leave a hand in the file.
+- The column label comes from the set's version file, with `--label` for the forms a version
+  cannot produce: the pre-versioning relative labels, and a local change landed between versions.
+  The flag's test found that such a label opens on a `-` and so needs clap's `--label=TEXT` form,
+  which the help and the README both now say.
+- A repeated label is warned about rather than refused, because a cycle that changes an agent-file
+  without moving the set version is a real case and the file, not the command, decides what such a
+  column should be called.
+- The window keeps the width it finds rather than a constant three, so widening the history is an
+  edit to the notes file and not a flag here.
+- A row whose cells all emptied goes out with the column that held its last number, which is how a
+  file dropped from the set leaves the table without anyone deleting the row.
+- `wc -l` is counted as newlines rather than `lines()`, so a file with no final newline agrees with
+  the shell the notes file's definition names.
+- The `.md` filter is what leaves the version marker out, and wink's check at the review (2026-09-17)
+  showed the marker is zero bytes, so its lines were never the reason. What the filter buys is that
+  the marker takes no row in the table and no place in the file count, and the code comments, the
+  command's help, and the README were corrected to say that rather than implying its lines mattered.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 # References

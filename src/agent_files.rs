@@ -15,8 +15,10 @@
 //!   version`, `none` with the reason when there is no version.
 //! - `AgentFilesArgs`: the `agent-files` subcommand group, `version`
 //!   printing the bare names one per line, for scripts, `diff`
-//!   ([`diff`]) naming what differs from a copy of the set, and
-//!   `copy` ([`copy`]) making this set that copy.
+//!   ([`diff`]) naming what differs from a copy of the set, `copy`
+//!   ([`copy`]) making this set that copy, and `size` ([`size`])
+//!   counting the set's lines and sliding the table that records
+//!   them.
 //! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
 //!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
 //!   per-workspace defaults for the `diff` and `copy` operands and
@@ -32,6 +34,7 @@ use crate::common;
 
 pub mod copy;
 pub mod diff;
+pub mod size;
 
 /// The file-name prefix every set version file carries.
 const PREFIX: &str = "agent-files-";
@@ -180,6 +183,24 @@ pub enum AgentFilesCommand {
         the set, and leaves the result uncommitted for review."
     )]
     Copy(copy::CopyArgs),
+
+    /// Count the set's lines, and slide the table that records them
+    #[command(long_about = "Count the set's markdown, AGENTS.md, custom.md, and\n\
+        agent-data/*.md, one line per file and a total. The version\n\
+        marker is not markdown, so it takes no row and no place in\n\
+        the file count. It is empty, so it would add nothing to the\n\
+        total either.\n\
+        agent-data/rationale.md is: its number is shown in angle\n\
+        brackets and left out of the total, being the rules' why\n\
+        rather than a rule.\n\n\
+        Then the per-file table in notes/agent-files-size.md, the one\n\
+        headed `| File |`, gets a new leftmost column labelled by the\n\
+        set's version file and loses its rightmost one, so the window\n\
+        keeps its width. Dry-run by default: --no-dry-run writes it.\n\
+        DIR defaults to this workspace, --file names another notes\n\
+        file, and --label names a column the version file cannot,\n\
+        written --label=TEXT when the label opens on a `-`.")]
+    Size(size::SizeArgs),
 }
 
 impl AgentFilesArgs {
@@ -201,6 +222,7 @@ impl AgentFilesArgs {
             }
             AgentFilesCommand::Diff(args) => args.run(),
             AgentFilesCommand::Copy(args) => args.run(),
+            AgentFilesCommand::Size(args) => args.run(),
         }
     }
 }

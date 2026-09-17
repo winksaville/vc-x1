@@ -147,6 +147,7 @@ vc-x1 version                              # Report vc-x1, agent-files, jj-lib, 
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
 vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
 vc-x1 agent-files copy [SRC] [DST] [-c]    # Make DST's set a copy of SRC's, uncommitted
+vc-x1 agent-files size [DIR]               # Count the set's lines, and slide the table that records them
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -446,6 +447,22 @@ refuses a `DST` whose jj working copy already changes a set file, so the copy's 
 only ones there, and leaves the result uncommitted: `jj diff` there is the review, and the
 commit is yours to make. A `DST` outside any jj repo gets no guard, and the run says so.
 
+`agent-files size [DIR]` counts the set's markdown, `AGENTS.md`, `custom.md`, and
+`agent-data/*.md`, one line per file and a total. The version marker has no `.md` extension, so it
+takes no row and no place in the file count, and being empty it would add nothing to the total
+either. `agent-data/rationale.md` is counted: its number is shown in angle brackets and left out
+of the total, being the rules' why rather than a rule, so a rule gaining a why does not read as
+the set growing.
+
+It then slides the per-file table in `notes/agent-files-size.md`, the one headed `| File |`: a new
+leftmost column labelled by the set's version file goes in, the rightmost column goes out, and the
+window keeps the width it had. A file new to the set takes its sorted slot with empty cells behind
+it, one gone from the set keeps its remaining numbers until the window passes them, and the `total`
+row stays last. It is dry-run by default, printing the table it would write, and `--no-dry-run`
+applies it. `DIR` is the operand, else this workspace, `--file` names another notes file, and
+`--label` names a column the version file cannot: write `--label=- v0.1.0` for a label opening on
+a `-`. The `## Counts` table above is left alone, since its note is prose.
+
 ```
 vc-x1 agent-files diff                             # the payload against this workspace
 vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
@@ -454,6 +471,8 @@ vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
 vc-x1 agent-files copy                             # re-sync this workspace from the payload
 vc-x1 agent-files copy ../iiac-perf -c             # take a peer's set, custom.md included
 vc-x1 agent-files copy ../iiac-perf ../vc-x1-template/work  # fold a peer's set into the payload
+vc-x1 agent-files size                             # the count, and the slide it would make
+vc-x1 agent-files size --no-dry-run                # slide the table
 ```
 
 ```
@@ -462,6 +481,22 @@ copy   AGENTS.md
 copy   agent-data/notes.md
 delete agent-data/agent-files-v0.1.0
 3 step(s) applied, left uncommitted for review
+```
+
+```
+agent-files size: /home/me/proj (this workspace)
+AGENTS.md                     384
+custom.md                      12
+agent-data/code.md             94
+agent-data/rationale.md     <543>
+agent-data/versioning.md      204
+9 files, 1774 lines
+notes/agent-files-size.md: column v0.2.6 in, column v0.2.3 out
+| File | v0.2.6 | v0.2.5 | v0.2.4 |
+|---|---:|---:|---:|
+| AGENTS.md | 384 | 384 | 384 |
+| total | 1774 | 1774 | 2315 |
+re-run with --no-dry-run to apply
 ```
 
 ```

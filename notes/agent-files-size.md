@@ -11,11 +11,16 @@ A finding from the proposal cycle (2026-08-27), for whoever next tries a cut: a 
 AGENTS.md from 370 to 320 lines with every rule kept found that the remaining bulk is the rules
 themselves, so a further cut has to cut rules, and that is a convention decision, not an edit.
 
-The count is `wc -l` over `AGENTS.md`, `custom.md`, and `agent-data/*.md` less `rationale.md`,
-taken at the close-out of a cycle that changed an agent-file and recorded here as the closing
-rung's last edit, with the cycle title as the row's label. `rationale.md` is left out because it is
-the rules' why and grows with every rule that gains one, so a rule gaining a why does not read as
-the set growing. Rows before v0.2.5 counted it.
+The count is `wc -l` over `AGENTS.md`, `custom.md`, and `agent-data/*.md`, the total leaving out
+`rationale.md`, taken at the close-out of a cycle that changed an agent-file and recorded here as
+the closing rung's last edit, with the cycle title as the row's label. `rationale.md` is out of the
+total because it is the rules' why and grows with every rule that gains one, so a rule gaining a
+why does not read as the set growing. Rows before v0.2.5 counted it.
+
+`vc-x1 agent-files size` takes the count and slides the per-file table, a new leftmost column in
+and the oldest out. It is dry-run by default and `--no-dry-run` writes the file, `--label=TEXT`
+names a column the set's version file cannot, and the `## Counts` row above stays a hand's work,
+since its note is prose.
 
 ## Counts
 
@@ -38,8 +43,9 @@ the set growing. Rows before v0.2.5 counted it.
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
 landings before the set was versioned relative to the first version (`- v0.1.0` one before it,
-`-- v0.1.0` two before), and a landed local change carries a `-trailer` version. A `-` cell is a
-file the count leaves out.
+`-- v0.1.0` two before), and a landed local change carries a `-trailer` version. A cell in angle
+brackets, `<543>`, is a file the total leaves out, shown so a reader sees what it costs, and an
+empty cell is a file that was not in the set that landing.
 
 | File | v0.2.5 | v0.2.4 | v0.2.3 |
 |---|---:|---:|---:|
@@ -51,6 +57,6 @@ file the count leaves out.
 | agent-data/jj.md | 391 | 391 | 391 |
 | agent-data/notes.md | 166 | 166 | 166 |
 | agent-data/prose.md | 405 | 405 | 405 |
-| agent-data/rationale.md | - | 541 | 541 |
+| agent-data/rationale.md | <543> | 541 | 541 |
 | agent-data/versioning.md | 204 | 204 | 204 |
 | total | 1774 | 2315 | 2315 |

@@ -27,7 +27,8 @@ happened (a plan file or a chores section) and is linked from the policy, so nei
 other.
 
 The agent-files' line count over time is in [agent-files-size.md](agent-files-size.md), one row
-per landing, smaller being the quasi-goal.
+per landing, smaller being the quasi-goal. `vc-x1 agent-files size` takes the count and slides
+that file's per-file window.
 
 How a change to a line in any work-repo file is connected to its discussion in the agent-repo,
 the partner commit, its time-window, and the transcript write, is in
