@@ -17,7 +17,100 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### feat: squash-push checks, asks, reports
+
+#### Problem
+
+`squash-push` acts unconditionally and says nothing about what it left. It has no precheck, so a
+repo that is already fully published gets the whole sequence run at it anyway. It never asks, so
+there is no moment at which a caller can decline. It reports nothing, so after it returns the only
+way to learn whether both repos are published is to run `status` by hand. `vc-x1 push` calls it as
+its agent-side stage, where mid-push "dirty" is the normal state, so whatever is added has to stay
+out of push's way.
+
+#### Solution
+
+A precheck, a prompt, and an after-check, all three reading one verdict. "Clean" is the working-copy
+verdict composed with the bookmark's publish state, since a status-clean repo with an unpushed
+bookmark is the one thing the command exists to publish. Clean prints its line and exits 0 having
+done nothing. Dirty asks, with `push`'s prompt helper and its rule that a non-tty without `--yes` is
+an error rather than a hang, and `--yes`, `--ask`, and a `[squash-push] yes` config key decide the
+default. After the push it prints the line again. Push's agent stage builds its params directly and
+so takes neither the precheck nor the prompt.
+
+#### Acceptance check
+
+In a fixture dual workspace: `vc-x1 squash-push -R <agent-dir>` against a fully published repo
+prints `<label>: clean`, exits 0, and leaves the remote ref where it was. Against a dirty one it
+prompts, `--yes` skips the prompt, `--ask` overrides a config `yes = true`, and a non-tty without
+`--yes` exits non-zero with a message rather than hanging. After a push it prints the state line,
+and the exit code reflects the push rather than the after-status, which the agent-repo's growing
+transcript can make read dirty. `vc-x1 push` completes every stage with no prompt on its agent side.
+`cargo test` passes and `vc-x1 config work` lists `squash-push.yes`.
+
+#### Ladder
+
+- [feat: squash-push checks, asks, reports opening][1] (done)
+- [refactor: the verdict squash-push will call][2]
+- [feat: squash-push checks before and after][3]
+- [feat: squash-push asks before it acts][4]
+- [refactor: push skips the squash-push prompt][5]
+- [feat: squash-push checks, asks, reports closing][6]
+
+#### Deliberation
+
+- The status prerequisite is split rather than taken whole. The entry offered two cycles or one with
+  the status rung first, but `dirt` in `src/status.rs` is already the per-repo working-copy verdict
+  and only needs exposing and composing with the publish state. The rest of **status prints a
+  verdict per repo and exits with a bit per side**, its one-line default output, its `-v` blocks,
+  and its exit bit per side, is separate user-visible value with its own docs, so it stays its own
+  cycle. Folding it in would put two commands' behavior changes in one cycle.
+- Multi-step, since the verdict, the two checks, the prompt, and push's stage are four reviewable
+  changes and the config key brings a prototype edit with them.
+- The titles carry no scope (wink, 2026-09-17), the slot earning its place only in a declared type,
+  and the stem `squash-push` collects the cycle instead. Today's rule already makes the scope
+  optional, so nothing bends here. The rule change itself is agent-file work and is entered in
+  `## Todo` as its own cycle.
+- The config key defaults to yes, so today's behavior is the default and the change is additive. A
+  boolean flag cannot turn a config yes back off, which is why `--ask` exists as `--yes`'s opposite
+  rather than a `--no-yes`.
+- The after-check's exit code says whether the push completed, not what the after-status found. The
+  agent-repo's transcript grows while the push runs, so a correct push often reports `dirty: @ has
+  changes` a moment later, and an exit code taking that as failure would be wrong.
+- `[squash-push.yes]` opens a table the prototype does not have. The shape follows its neighbours
+  and `build.rs` regenerates the registry and the default constant from it, so no copy is hand-kept.
+- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+
+#### Ladder details
+
+##### feat: squash-push checks, asks, reports opening
+
+The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
+Todo entry into this block, enter the scope-rule entry it displaced, bump the version-of-record,
+and rename the package to its dev name.
+
+##### refactor: the verdict squash-push will call
+
+The per-repo verdict is private to `status` and covers the working copy alone, so the command that
+needs it cannot reach it and would not get the whole answer if it could.
+
+##### feat: squash-push checks before and after
+
+`squash-push` runs its sequence whatever state it finds and returns without saying what state it
+left.
+
+##### feat: squash-push asks before it acts
+
+Nothing gives a caller a chance to decline, and the default has no home outside the flag.
+
+##### refactor: push skips the squash-push prompt
+
+`push` drives `squash-push` as a stage where dirty is normal and no human is watching, so the
+precheck and the prompt are wrong there.
+
+##### feat: squash-push checks, asks, reports closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -41,26 +134,17 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### Enhance squash-push
+### Commit titles carry no scope, the declared types aside
 
-(wink, 2026-09-03) `squash-push` runs a precheck, asks before it acts, and reports the state it
-leaves. The precheck is `vc-x1 status`'s per-repo verdict composed with the bookmark's publish
-state, which the command already reads: "clean" only when `@` is empty and undescribed and the
-bookmark is at its origin, since a status-clean repo with an unpushed bookmark is the one thing
-the command exists to publish. Clean prints the status line, `<label>: clean`, and exits 0 with
-nothing done. Dirty asks whether to squash-push, with `push`'s prompt helper and its rule that a
-non-tty without `--yes` is an error rather than a hang. `--yes` skips the prompt, a
-`[squash-push] yes` config key sets the default, and since a boolean flag cannot turn a config
-yes back off, `--ask` is its opposite. The key defaults to yes, so today's behavior is the
-default and the change is additive. After the push the command runs status again and prints the
-line. On the agent-repo that line is often `dirty: @ has changes` a moment after a successful
-push, since the transcript grows while the push runs and the after-check snapshots again, so the
-exit code says whether the push completed, not what the after-status found. `vc-x1 push`'s
-agent-side stage builds the params directly and takes the precheck and prompt off there, the
-shape of its existing publish-state suppression, since mid-push "dirty" is the normal state.
-
-- Sequenced after the status redesign, which exposes the per-repo verdict this command calls
-  for both checks: two cycles, status first, or one cycle with the status rung first.
+(wink, 2026-09-17) [Conventional commit scopes](agent-data/prose.md#conventional-commit-scopes)
+asks a title's scope for a component name, and [Conventional-commit
+shape](agent-data/prose.md#conventional-commit-shape-ladder--commit) offers `feat(push): ...` as
+its example. A scope on a plain type repeats what the description already says, and a cycle is
+collected by the greppable stem its titles share rather than by the scope. The slot earns its place
+only in a declared type, where it carries the declaration's own vocabulary, today
+`agent-files(proposal)` and `agent-files(adoption)`. The change: a plain type carries no scope, a
+declared type keeps its, and the shape section's example loses one. `prose.md` is a universal file,
+so this runs as an `agent-files(proposal)` cycle that bumps the set version.
 
 ### lookup narrows a write's work window to its lines and flags a renamed partner
 
@@ -1019,78 +1103,14 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat(agent-files): size slides the count table
-
-#### Problem
-
-The agent-files line count that [close-out step 4](AGENTS.md#close-out) records is taken by hand:
-a `wc -l` over the set with `rationale.md` left out of the total, transcribed into the two tables
-in [agent-files-size.md](notes/agent-files-size.md). The second of those is a three-column window
-that has to slide, a column inserted at the left and the oldest dropped at the right, which is the
-kind of edit a hand gets wrong and nothing checks.
-
-#### Solution
-
-A third subcommand beside `version` and `diff`, `vc-x1 agent-files size`, in
-`src/agent_files/size.rs`. It counts the set's `.md` files, so the extensionless version marker
-falls out by that rule rather than by a name the code has to know, shows `rationale.md`'s
-count in angle brackets and leaves it out of the total, and rewrites the per-file table with a new
-leftmost column labelled by the set's version file and the rightmost column dropped. It reuses
-`diff.rs`'s operand resolution, so `DIR` defaults to this workspace and the report names where it
-came from. Dry-run by default, printing the table it would write, and `--no-dry-run` applies it.
-The `## Counts` row stays the close-out's to write. The notes file's own convention changed with
-the command: an uncounted cell was `-` and is now `<N>`, so the number survives, and an empty cell
-is now what says a file was not in the set that landing.
-
-#### Acceptance check
-
-Run in this workspace, `vc-x1 agent-files size` reports nine counted files and 1774 lines with
-`agent-data/rationale.md` shown as `<543>`, and its dry run names both the column it would insert
-and the `v0.2.3` column it would drop while leaving the file unchanged on disk. `cargo test`
-passes. This cycle changes no agent-file, so close-out step 4 adds no row and the window does not
-slide.
-
-- Result: pass. The report is the nine files, 1774 lines, and `<543>`, matching the `wc -l` the
-  v0.2.5 row was taken by. The dry run prints `column v0.2.5 in, column v0.2.3 out` with the whole
-  slid table, and `notes/agent-files-size.md` has the same md5 after it as before. `cargo test`
-  passes, 595 tests. No agent-file changed, so no row was added and the window was not slid.
-
-#### Ladder
-
-- feat(agent-files): size slides the count table (done)
-
-#### Deliberation
-
-- Single-step, since the work is one new module beside `diff.rs` whose operand resolution and
-  set-file walk it reuses, so one commit carrying the bare `0.84.9` and no dev rename.
-- An uncounted cell carries its number, `<543>` rather than `-` (wink, 2026-09-17), so a reader
-  sees what the why-file costs without running `wc`. The v0.2.4 and v0.2.3 cells stay bare,
-  because `rationale.md` really was in those totals, and the one stale `-` in the v0.2.5 column
-  became `<543>` in this cycle.
-- Dry-run by default with `--no-dry-run` rather than the `--write` first proposed, so the tool has
-  one spelling for the write toggle across `fix-desc`, `fix-todo`, and this.
-- The `## Counts` row is left to the close-out. Its Files and Lines are mechanical and its Landed
-  and Cycle are derivable, but its Note is prose, so a command writing four cells of five would
-  still leave a hand in the file.
-- The column label comes from the set's version file, with `--label` for the forms a version
-  cannot produce: the pre-versioning relative labels, and a local change landed between versions.
-  The flag's test found that such a label opens on a `-` and so needs clap's `--label=TEXT` form,
-  which the help and the README both now say.
-- A repeated label is warned about rather than refused, because a cycle that changes an agent-file
-  without moving the set version is a real case and the file, not the command, decides what such a
-  column should be called.
-- The window keeps the width it finds rather than a constant three, so widening the history is an
-  edit to the notes file and not a flag here.
-- A row whose cells all emptied goes out with the column that held its last number, which is how a
-  file dropped from the set leaves the table without anyone deleting the row.
-- `wc -l` is counted as newlines rather than `lines()`, so a file with no final newline agrees with
-  the shell the notes file's definition names.
-- The `.md` filter is what leaves the version marker out, and wink's check at the review (2026-09-17)
-  showed the marker is zero bytes, so its lines were never the reason. What the filter buys is that
-  the marker takes no row in the table and no place in the file count, and the code comments, the
-  command's help, and the README were corrected to say that rather than implying its lines mattered.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+_None._
 
 # References
 
+[1]: #feat-squash-push-checks-asks-reports-opening
+[2]: #refactor-the-verdict-squash-push-will-call
+[3]: #feat-squash-push-checks-before-and-after
+[4]: #feat-squash-push-asks-before-it-acts
+[5]: #refactor-push-skips-the-squash-push-prompt
+[6]: #feat-squash-push-checks-asks-reports-closing
 [12]: /notes/forks-multi-user.md
