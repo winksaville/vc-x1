@@ -1271,6 +1271,12 @@ The primary use case is folding the bot repo's session tail: session data keeps 
 the last commit (including the record of the push itself), and only the user, acting after the bot
 goes quiet, can capture all of it. Zero ceremony by design:
 
+Every run begins by asking whether it has work, and ends by saying what it left. A run with nothing
+to do prints `<label>: clean` and exits 0 having touched nothing, so the command is safe to call
+when you are unsure, and every other run prints that line again after the push. With work found it
+acts without asking, which is what `squash-push.yes` defaults to, and `--ask` turns a confirmation
+prompt on. The details of each are in the behavior notes below.
+
 ```
 # In .claude: squash @ -> @-, advance main, push
 vc-x1 squash-push -R .claude
@@ -1280,6 +1286,24 @@ vc-x1 squash-push
 
 # Custom bookmark and squash pair
 vc-x1 squash-push feature -R . --squash @,@--
+
+# Confirm before acting, overriding a configured squash-push.yes
+vc-x1 squash-push -R .claude --ask
+```
+
+```
+.claude: dirty: @ has changes. squash-push? [y/N] y
+squash-push: squashing @ -> @-...
+squash-push: setting bookmark 'main' to @-...
+squash-push: pushing 'main' to origin...
+squash-push: done
+.claude: clean
+```
+
+```
+# Nothing to do: no squash, no push, nothing touched
+vc-x1 squash-push -R .claude
+.claude: clean
 ```
 
 | Flag | Description |

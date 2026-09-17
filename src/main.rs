@@ -399,12 +399,28 @@ pub(crate) enum Commands {
         Captures a repo's trailing working-copy writes into the last\n\
         commit and publishes it: rewriting an already-pushed commit,\n\
         so the push is a forced update. Built for the bot repo\n\
-        (`.claude`, the session tail); also useful on the work repo\n\
-        as a deliberate amend-and-push.\n\n\
+        (`.claude`, the session tail), and useful on the work repo as\n\
+        a deliberate amend-and-push.\n\n\
         Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
-        @ -> @- and pushes `main` in `.`. With an empty `@` the squash\n\
-        is skipped; if the bookmark already matches the remote the\n\
-        command reports \"already sync'd\" and exits 0."
+        @ -> @- and pushes `main` in `.`. With an empty `@` but work\n\
+        still to do, the squash is skipped and the push still runs.\n\n\
+        A precheck asks whether the run has work at all: the working\n\
+        copy at rest, the bookmark at its origin, and the bookmark\n\
+        already at the squash target. That third condition is there\n\
+        because a bookmark behind its target has a commit to publish\n\
+        even when it matches origin. A run with no work prints\n\
+        `<label>: clean` and exits 0 having touched nothing, <label>\n\
+        being the repo's directory name. Every other run prints the\n\
+        same line after the push, as a report only: the exit code\n\
+        says whether the push completed, not what that line found.\n\n\
+        With work found, the run acts without asking, the default\n\
+        `squash-push.yes` sets. --ask turns the prompt on for one run\n\
+        and -y/--yes turns it off. With the prompt on, a non-tty run\n\
+        is an error rather than a hang, and declining is an error too.\n\n\
+        As `vc-x1 push`'s squash-push-bot stage it says nothing and\n\
+        asks nothing, there being no one mid-push to read a line or\n\
+        answer a prompt. The precheck's decision still applies, so a\n\
+        stage with no work still does nothing."
     )]
     SquashPush(squash_push::SquashPushArgs),
 

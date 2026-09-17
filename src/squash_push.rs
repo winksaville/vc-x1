@@ -391,14 +391,19 @@ fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std:
     Ok(jj::desc_of(repo, rev)?.is_empty())
 }
 
-/// Run the `squash-push` op: preflight, then squash (skipped when
-/// the source is empty and undescribed) + bookmark-set + push.
+/// Run the `squash-push` op: preflight, the precheck, the prompt,
+/// then squash (skipped when the source is empty and undescribed) +
+/// bookmark-set + push, then the after-check.
 ///
-/// - With an empty source and the bookmark already matching both
-///   the squash target and the remote, reports "already sync'd"
-///   and exits 0: nothing to do.
-/// - With an empty source but the remote behind, skips the squash
+/// - The precheck stops a run with no work: the working copy at
+///   rest, the bookmark at its origin, and the bookmark already at
+///   the squash target. It prints `<label>: clean` and exits 0.
+/// - With an empty source but work still to do, skips the squash
 ///   and still pushes.
+/// - The after-check prints the state the run left and never fails,
+///   so the exit code is the push's ([`RunState`]).
+/// - As push's stage (`at_rest` false) the decision stands and every
+///   line and the prompt go.
 pub fn squash_push(
     ctx: &mut Context,
     params: &SquashPushParams,

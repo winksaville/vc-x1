@@ -54,7 +54,8 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
 - [feat: squash-push checks before and after][2] (done)
 - [feat: squash-push asks before it acts][3] (done)
 - [refactor: push skips the squash-push prompt][4] (done)
-- [feat: squash-push checks, asks, reports closing][5]
+- [docs: squash-push's help matches what it does][5] (done)
+- [feat: squash-push checks, asks, reports closing][6]
 
 #### Deliberation
 
@@ -89,6 +90,16 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
   through 5. It does not cover the closing rung, and it does not cover Land, both of which stop for
   the user. Validation still runs before every push, and so does the pre-push check for files the
   working copy picked up unnoticed.
+- A rung was inserted before the closing (wink, 2026-09-17), after wink read `--help` and the README
+  and could not see the new capabilities. Two findings: the `long_about` still promised the
+  `already sync'd` message rung 2 deleted, which is a defect this cycle introduced, and the README
+  carried the rest only in its flag table and behavior notes, where the section's prose and examples
+  never mentioned it. Inside the cycle's subject, so a rung rather than a `## Todo` entry. The
+  waiver above extends to it on the same terms.
+- The per-rung docs discipline failed on the CLI surface. Rungs 2 through 4 each updated the module
+  doc and the README's notes, and none updated the `long_about` or the op's own doc comment, so the
+  two surfaces a user actually reads first drifted while the ones a reader of the source reads
+  stayed current.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder details
@@ -179,6 +190,33 @@ precheck and the prompt are wrong there.
     rung 2, so gating the whole precheck would have quietly taken it away from push.
   - A test pins each half: the stage asks nothing where the same params at rest are an error, and the
     stage still leaves the operation log untouched when it has no work.
+
+##### docs: squash-push's help matches what it does
+
+`--help` promises a message rung 2 deleted, and the command's own help says nothing about the
+precheck, the prompt, or the after-check.
+
+* The help promised output the binary no longer produces.
+  - The `long_about` still described reporting `already sync'd` and exiting 0. Rung 2 replaced that
+    message with the verdict line, so the help had been wrong since that rung landed, and it is the
+    first thing a user reads.
+  - It now carries the precheck's three conditions with the reason the third exists, the after-check
+    and its report-only status, the prompt and its two flags, and push's stage. The op's own doc
+    comment carried the same stale description and was corrected with it.
+  - Its two prose semicolons went while the string was being rewritten, which
+    [Comments are prose](agent-data/code.md#comments-are-prose) owes once a commit touches the file.
+* The README had the facts where a reader looks last.
+  - Everything new sat in the flag table and the behavior notes, so the section's opening prose and
+    its three examples described a command without a precheck or a prompt. The opening now states
+    both in two sentences and points at the notes for the detail.
+  - Two examples were added, an `--ask` run with its transcript and a no-op run, because the
+    clean-run behavior is the one worth seeing rather than reading: it makes the command safe to call
+    when unsure, and no prose says that as plainly as a two-line sample.
+* The lesson is about where docs live, not about this command.
+  - Each of rungs 2 through 4 updated the module doc and the README's notes, and none updated the
+    `long_about`. The surfaces a source reader sees stayed current while the surfaces a user sees
+    drifted, and nothing in the per-rung flow catches that, since validation does not read help text.
+    Recorded here rather than acted on, since a check for it is its own work.
 
 ##### feat: squash-push checks, asks, reports closing
 
@@ -1183,5 +1221,6 @@ _None._
 [2]: #feat-squash-push-checks-before-and-after
 [3]: #feat-squash-push-asks-before-it-acts
 [4]: #refactor-push-skips-the-squash-push-prompt
-[5]: #feat-squash-push-checks-asks-reports-closing
+[5]: #docs-squash-pushs-help-matches-what-it-does
+[6]: #feat-squash-push-checks-asks-reports-closing
 [12]: /notes/forks-multi-user.md
