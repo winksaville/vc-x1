@@ -1292,8 +1292,17 @@ Behavior notes:
 
 - Runs synchronously, so a failure is a visible non-zero exit. (Replaces the `finalize`
   subcommand, whose detached background child could be killed silently at command exit.)
-- With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0.
-  with an empty `@` but the remote behind, it skips the squash and still pushes.
+- A precheck asks whether the run has work, reading the verdict `status` computes (the working copy
+  at rest, the bookmark at its origin) plus this command's own question of whether the bookmark has
+  reached the squash target. A bookmark behind its target has a commit to publish even when it
+  matches origin, which is why the third condition is there. Nothing to do prints `<label>: clean`
+  and exits 0 having touched nothing, `<label>` being the repo's directory name since the command
+  takes a path rather than a scope.
+- Every other run prints the same line after the push, so the state it left is reported rather than
+  looked up. That line is a report only: the agent repo's transcript grows while the push runs, so a
+  correct push often reads `dirty: @ has changes` a moment later, and the exit code says whether the
+  push completed, not what the after-check found.
+- With an empty `@` but work still to do, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost, see
   [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an

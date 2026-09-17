@@ -51,11 +51,10 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
 #### Ladder
 
 - [feat: squash-push checks, asks, reports opening][1] (done)
-- [refactor: the verdict squash-push will call][2]
-- [feat: squash-push checks before and after][3]
-- [feat: squash-push asks before it acts][4]
-- [refactor: push skips the squash-push prompt][5]
-- [feat: squash-push checks, asks, reports closing][6]
+- [feat: squash-push checks before and after][2] (done)
+- [feat: squash-push asks before it acts][3]
+- [refactor: push skips the squash-push prompt][4]
+- [feat: squash-push checks, asks, reports closing][5]
 
 #### Deliberation
 
@@ -65,8 +64,14 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
   verdict per repo and exits with a bit per side**, its one-line default output, its `-v` blocks,
   and its exit bit per side, is separate user-visible value with its own docs, so it stays its own
   cycle. Folding it in would put two commands' behavior changes in one cycle.
-- Multi-step, since the verdict, the two checks, the prompt, and push's stage are four reviewable
-  changes and the config key brings a prototype edit with them.
+- Multi-step, since the two checks, the prompt, and push's stage are three reviewable changes and
+  the config key brings a prototype edit with them.
+- The verdict extraction was its own rung until the merge (wink, 2026-09-17). `vc-x1` is a binary
+  crate, so a `pub` item with no caller is dead code and `cargo clippy --all-targets -- -D warnings`
+  fails the rung, and a `#[cfg(test)]` caller silences only the test target. The alternative was a
+  temporary `#[allow(dead_code)]` that the next rung removed, which puts scaffolding in published
+  history. So the extraction lands with its first caller, which is also the first point at which
+  there is anything to review it against.
 - The titles carry no scope (wink, 2026-09-17), the slot earning its place only in a declared type,
   and the stem `squash-push` collects the cycle instead. Today's rule already makes the scope
   optional, so nothing bends here. The rule change itself is agent-file work and is entered in
@@ -79,6 +84,11 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
   changes` a moment later, and an exit code taking that as failure would be wrong.
 - `[squash-push.yes]` opens a table the prototype does not have. The shape follows its neighbours
   and `build.rs` regenerates the registry and the default constant from it, so no copy is hand-kept.
+- Waiver, wink's, 2026-09-17: "permission to complete the cycle upto but not including the
+  close-out", read as the work and description review stops and the push approval on rungs 2
+  through 5. It does not cover the closing rung, and it does not cover Land, both of which stop for
+  the user. Validation still runs before every push, and so does the pre-push check for files the
+  working copy picked up unnoticed.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder details
@@ -89,15 +99,36 @@ The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s 
 Todo entry into this block, enter the scope-rule entry it displaced, bump the version-of-record,
 and rename the package to its dev name.
 
-##### refactor: the verdict squash-push will call
-
-The per-repo verdict is private to `status` and covers the working copy alone, so the command that
-needs it cannot reach it and would not get the whole answer if it could.
-
 ##### feat: squash-push checks before and after
 
 `squash-push` runs its sequence whatever state it finds and returns without saying what state it
-left.
+left, and the verdict that would tell it is private to `status` and covers the working copy alone.
+
+* The verdict was private and half an answer.
+  - `RepoVerdict` carries the working-copy status whole beside the named bookmark's publish state,
+    and `repo_verdict(repo, bookmark)` reads both in one pass. A `None` bookmark leaves the publish
+    half absent rather than clean, which is the distinction `status` needs and a boolean would have
+    flattened.
+  - The status blocks render from the same read, so exposing the verdict did not add a second walk
+    over the repo.
+  - `why()` joins the halves working copy first, and there is no `is_clean()`: the one caller wanted
+    the reason, so a second method saying only whether there was one had nothing to do.
+* The entry's definition of "clean" has a hole, and it loses a commit.
+  - "Clean" as written is `@` empty and undescribed and the bookmark at its origin. A repo where all
+    three hold but the bookmark sits behind the squash target has an unpublished commit, and a
+    precheck reading the entry literally would skip exactly the work the command exists to do.
+  - So the run composes a third condition of its own, the bookmark against the squash target, and
+    `RunState` is the verdict plus that answer. It stays out of `repo_verdict`, since which revision
+    a bookmark ought to have reached is this command's question and not one `status` can answer.
+  - The condition is not new behavior. The `already sync'd` early return it replaces compared the
+    bookmark to both the target and the remote, so the three comparisons were always there and the
+    precheck is where they now live, named.
+* Nothing said what state the run left.
+  - The after-check prints the same line the precheck does, and reports only. The agent repo's
+    transcript grows while the push runs, so a correct push commonly reads dirty a moment later, and
+    an exit code taking that as failure would call every successful agent-side push a failure.
+  - The label is the repo's directory name. `status` labels the work side `work` and the agent side
+    by its directory, but this command is given a path and no scope, so a name is what it has.
 
 ##### feat: squash-push asks before it acts
 
@@ -1108,9 +1139,8 @@ _None._
 # References
 
 [1]: #feat-squash-push-checks-asks-reports-opening
-[2]: #refactor-the-verdict-squash-push-will-call
-[3]: #feat-squash-push-checks-before-and-after
-[4]: #feat-squash-push-asks-before-it-acts
-[5]: #refactor-push-skips-the-squash-push-prompt
-[6]: #feat-squash-push-checks-asks-reports-closing
+[2]: #feat-squash-push-checks-before-and-after
+[3]: #feat-squash-push-asks-before-it-acts
+[4]: #refactor-push-skips-the-squash-push-prompt
+[5]: #feat-squash-push-checks-asks-reports-closing
 [12]: /notes/forks-multi-user.md

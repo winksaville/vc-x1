@@ -11,6 +11,13 @@
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
 //!   child that a sandboxed run silently killed: the loss
 //!   diagnosed in 0.68.1).
+//! - Prechecks and after-checks with one verdict: the working copy
+//!   and the bookmark's publish state from `status`, plus this
+//!   command's own question of whether the bookmark has reached the
+//!   squash target. A run with nothing to do prints `<label>: clean`
+//!   and stops, and every other run prints the line again after the
+//!   push. The after-check reports only, since the exit code is the
+//!   push's.
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
 //!   `BOOKMARK@origin`, an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
@@ -26,6 +33,7 @@ use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
 use crate::options_flags::squash::{SquashOption, SquashSpec};
+use crate::status;
 use crate::subcommand::SubcommandRunner;
 
 /// Squash `@` into `@-`, advance BOOKMARK, and push.
@@ -206,6 +214,69 @@ fn check_squash_keeps_ochids(
     .into())
 }
 
+/// The repo's label for a verdict line: its directory name, since
+/// this command takes a path rather than a scope, and the name is
+/// what tells two repos of one workspace apart.
+fn label(repo: &Path) -> String {
+    repo.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| repo.display().to_string())
+}
+
+/// One reading of the repo: the verdict `status` shares, plus
+/// whether the bookmark has reached the squash target.
+///
+/// The third condition is this command's own. A bookmark behind its
+/// squash target has a commit to publish even when it matches
+/// origin, so a verdict-only test would skip exactly the work the
+/// command exists to do.
+#[derive(Debug)]
+struct RunState {
+    verdict: status::RepoVerdict,
+    bookmark_at_target: bool,
+}
+
+impl RunState {
+    /// Nothing for this run to do: at rest, published, and the
+    /// bookmark already where the squash would leave it.
+    fn nothing_to_do(&self) -> bool {
+        self.why().is_none()
+    }
+
+    /// Why this run has work, `None` when it has none.
+    fn why(&self) -> Option<String> {
+        let mut parts: Vec<String> = self.verdict.why().into_iter().collect();
+        if !self.bookmark_at_target {
+            parts.push("bookmark behind the squash target".to_string());
+        }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(", "))
+        }
+    }
+
+    /// The verdict line, `<label>: clean` or `<label>: dirty: <why>`.
+    fn line(&self, label: &str) -> String {
+        match self.why() {
+            None => format!("{label}: clean"),
+            Some(why) => format!("{label}: dirty: {why}"),
+        }
+    }
+}
+
+/// Read the repo's state: the shared verdict over the bookmark, and
+/// the bookmark against the squash target.
+fn read_state(params: &SquashPushParams) -> Result<RunState, Box<dyn std::error::Error>> {
+    let verdict = status::repo_verdict(&params.repo, Some(&params.bookmark))?;
+    let bookmark_at_target = jj::cid_of(&params.repo, &params.bookmark)?
+        == jj::cid_of(&params.repo, &params.squash.target)?;
+    Ok(RunState {
+        verdict,
+        bookmark_at_target,
+    })
+}
+
 /// True when `rev` has no file changes and no description: nothing
 /// worth squashing.
 fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
@@ -228,7 +299,6 @@ pub fn squash_push(
     params: &SquashPushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("squash_push: entry params={params:?}");
-    let repo_str = params.repo.to_string_lossy().to_string();
     let sq = &params.squash;
     let bookmark = &params.bookmark;
 
@@ -256,19 +326,20 @@ pub fn squash_push(
         }
     }
 
-    // Empty-source handling: nothing to squash. If the bookmark
-    // already matches both the target and the remote, nothing to
-    // push either: report and exit 0.
+    // The precheck: nothing at rest, published, and already at the
+    // squash target is a run with no work, so it says so and stops.
+    // It subsumes the narrower "already sync'd" test this replaced,
+    // whose three comparisons are the three the verdict now carries.
+    let label = label(&params.repo);
+    let before = read_state(params)?;
+    if before.nothing_to_do() {
+        info!("{}", before.line(&label));
+        return Ok(());
+    }
+
+    // Empty-source handling: nothing to squash, but the precheck
+    // found work, so the push still runs.
     if rev_is_empty_undescribed(&params.repo, &sq.source)? {
-        let target_cid = jj::cid_of(&params.repo, &sq.target)?;
-        let bookmark_cid = jj::cid_of(&params.repo, bookmark)?;
-        // OK: unresolvable remote bookmark (never pushed) -> treated as not sync'd
-        let remote_cid =
-            jj::cid_of(&params.repo, &format!("{bookmark}@origin")).unwrap_or_default();
-        if bookmark_cid == target_cid && bookmark_cid == remote_cid {
-            info!("squash-push: repo '{repo_str}' is already sync'd with remote");
-            return Ok(());
-        }
         info!(
             "squash-push: {} is empty, skipping squash, still pushing",
             sq.source
@@ -290,6 +361,12 @@ pub fn squash_push(
     ctx.session(&params.repo)?.git_push_bookmark(bookmark)?;
 
     info!("squash-push: done");
+
+    // The after-check reports and never fails. The agent repo's
+    // transcript grows while the push runs, so a correct push often
+    // reads dirty a moment later, and the exit code says whether the
+    // push completed rather than what this read found.
+    info!("{}", read_state(params)?.line(&label));
     Ok(())
 }
 
@@ -429,6 +506,116 @@ mod tests {
             )
         };
         assert_eq!(cid("main"), cid("main@origin"), "main should be published");
+    }
+
+    /// The precheck: a repo at rest, published, and with its
+    /// bookmark already at the squash target has no work, so the
+    /// run says `<label>: clean` and pushes nothing.
+    #[test]
+    fn precheck_stops_a_run_with_no_work() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-precheck-clean");
+        let params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            report_publish_state: true,
+        };
+        let state = read_state(&params).expect("read state");
+        assert!(state.nothing_to_do(), "{state:?}");
+        assert_eq!(state.line("bot"), "bot: clean");
+
+        let op_before = jj_ok(&fx.bot, &["op", "log", "--no-graph", "-T", "id", "-n", "1"]);
+        squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("clean run");
+        assert_eq!(
+            jj_ok(&fx.bot, &["op", "log", "--no-graph", "-T", "id", "-n", "1"]),
+            op_before,
+            "a clean run touches nothing"
+        );
+    }
+
+    /// The third condition is this command's own: a bookmark behind
+    /// its squash target has a commit to publish even though the
+    /// working copy is at rest and the bookmark matches origin, so
+    /// the precheck must not call that clean.
+    #[test]
+    fn a_bookmark_behind_the_target_is_not_clean() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-behind-target");
+        std::fs::write(fx.bot.join("session.txt"), "data\n").expect("write");
+        jj_ok(
+            &fx.bot,
+            &["commit", "-m", "a commit the bookmark has not reached"],
+        );
+
+        let params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            report_publish_state: true,
+        };
+        let state = read_state(&params).expect("read state");
+        // `@` is empty and undescribed and `main` matches origin, so
+        // the shared verdict alone would read clean.
+        assert_eq!(state.verdict.why(), None);
+        assert!(!state.bookmark_at_target);
+        assert!(!state.nothing_to_do());
+        assert_eq!(
+            state.line("bot"),
+            "bot: dirty: bookmark behind the squash target"
+        );
+
+        squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("publishes the commit");
+        let cid = |rev: &str| {
+            jj_ok(
+                &fx.bot,
+                &["log", "-r", rev, "--no-graph", "-T", "commit_id"],
+            )
+        };
+        assert_eq!(cid("main"), cid("main@origin"), "the commit is published");
+        assert!(
+            read_state(&params).expect("after").nothing_to_do(),
+            "and the repo is left with nothing to do"
+        );
+    }
+
+    /// A dirty working copy is named by the line the precheck and
+    /// the after-check share.
+    #[test]
+    fn a_dirty_working_copy_is_named_then_left_clean() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-dirty-wc");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+
+        let params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            report_publish_state: true,
+        };
+        let before = read_state(&params).expect("read state");
+        assert_eq!(before.line("bot"), "bot: dirty: @ has changes");
+
+        squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("squash and push");
+        let cid = |rev: &str| {
+            jj_ok(
+                &fx.bot,
+                &["log", "-r", rev, "--no-graph", "-T", "commit_id"],
+            )
+        };
+        assert_eq!(cid("main"), cid("main@origin"));
+        assert!(read_state(&params).expect("after").nothing_to_do());
+    }
+
+    /// The label is the repo's directory name, since the command
+    /// takes a path rather than a scope.
+    #[test]
+    fn label_is_the_directory_name() {
+        assert_eq!(label(Path::new("/a/b/.agent-session")), ".agent-session");
+        assert_eq!(label(Path::new("/a/b/work")), "work");
     }
 
     #[test]
