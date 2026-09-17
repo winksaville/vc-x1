@@ -27,8 +27,12 @@
 //! - Reports an at-rest publish mismatch (BOOKMARK not matching
 //!   `BOOKMARK@origin`, an earlier publish was lost) and proceeds:
 //!   publishing is the command's job, so healing is not
-//!   auto-fixing. Suppressed when run as push's `squash-push-bot`
-//!   stage, where the mismatch is the normal mid-push state.
+//!   auto-fixing.
+//! - Says nothing and asks nothing as push's `squash-push-bot`
+//!   stage, which `at_rest` marks. Every line above is addressed to
+//!   a person, and mid-push there is neither a person to read them
+//!   nor a state worth describing. The precheck's decision still
+//!   applies, so a stage with nothing to do still does nothing.
 
 use std::path::{Path, PathBuf};
 
@@ -80,14 +84,22 @@ pub struct SquashPushParams {
     pub repo: PathBuf,
     pub squash: SquashSpec,
     pub bookmark: String,
-    /// Report an at-rest publish mismatch (BOOKMARK not matching
-    /// `BOOKMARK@origin`, an earlier publish was lost) before
-    /// proceeding. True for CLI invocations, which run at rest.
-    /// `vc-x1 push`'s `squash-push-bot` stage sets false: there
-    /// the mismatch is the normal mid-push state (`bookmark-set`
-    /// just moved the bookmark, this stage publishes it), so the
-    /// report would be a false alarm.
-    pub report_publish_state: bool,
+    /// This run is the user's at-rest invocation rather than
+    /// `vc-x1 push`'s `squash-push-bot` stage.
+    ///
+    /// Everything addressed to a person is gated on it: the
+    /// publish-mismatch report, the precheck's and after-check's
+    /// lines, and the prompt. Mid-push every one of them is wrong.
+    /// The mismatch is the normal state there, since `bookmark-set`
+    /// just moved the bookmark and this stage is what publishes it.
+    /// The verdict lines describe a repo caught mid-sequence. And
+    /// nobody is watching to answer a prompt.
+    ///
+    /// What is not gated is the precheck's decision. A stage with
+    /// nothing to do should still do nothing, which is the behavior
+    /// the `already sync'd` early return gave push before the
+    /// precheck replaced it.
+    pub at_rest: bool,
     /// Act without asking once the precheck has found work. True is
     /// today's behavior and the built-in default, so the prompt is
     /// opt-in. Resolved from `--yes`, then `--ask`, then the repo's
@@ -152,7 +164,7 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
                 target: "@-".to_string(),
             }), // OK: --squash absent -> the command's default @,@- pair
             bookmark: a.bookmark.clone(),
-            report_publish_state: true,
+            at_rest: true,
             yes,
         })
     }
@@ -350,6 +362,10 @@ fn confirm(
     state: &RunState,
     label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if !params.at_rest {
+        debug!("squash-push: push's stage does not ask");
+        return Ok(());
+    }
     if params.yes {
         debug!("squash-push: --yes skips the prompt");
         return Ok(());
@@ -398,8 +414,8 @@ pub fn squash_push(
     // between runs, so a mismatch means an earlier publish was
     // lost. Publishing is this command's job, so it proceeds: the
     // report is the point, not a refusal. Suppressed when run as
-    // push's `squash-push-bot` stage (see `report_publish_state`).
-    if params.report_publish_state {
+    // push's `squash-push-bot` stage (see `at_rest`).
+    if params.at_rest {
         match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
             crate::common::PublishState::InSync => {}
             crate::common::PublishState::NeverPushed => info!(
@@ -422,7 +438,9 @@ pub fn squash_push(
     let label = label(&params.repo);
     let before = read_state(params)?;
     if before.nothing_to_do() {
-        info!("{}", before.line(&label));
+        if params.at_rest {
+            info!("{}", before.line(&label));
+        }
         return Ok(());
     }
 
@@ -460,7 +478,9 @@ pub fn squash_push(
     // transcript grows while the push runs, so a correct push often
     // reads dirty a moment later, and the exit code says whether the
     // push completed rather than what this read found.
-    info!("{}", read_state(params)?.line(&label));
+    if params.at_rest {
+        info!("{}", read_state(params)?.line(&label));
+    }
     Ok(())
 }
 
@@ -569,7 +589,7 @@ mod tests {
         assert_eq!(params.repo, std::fs::canonicalize(".").unwrap());
         assert_eq!(params.bookmark, "main");
         assert_eq!(params.squash, squash_at());
-        assert!(params.report_publish_state, "CLI invocations report");
+        assert!(params.at_rest, "a CLI invocation runs at rest");
     }
 
     /// A lost publish (`main` moved without a push) is healed by a
@@ -588,7 +608,7 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: true,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
@@ -615,7 +635,7 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: true,
         };
         let state = read_state(&params).expect("read state");
@@ -650,7 +670,7 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: true,
         };
         let state = read_state(&params).expect("read state");
@@ -691,7 +711,7 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: true,
         };
         let before = read_state(&params).expect("read state");
@@ -769,7 +789,7 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: false,
         };
         let state = read_state(&params).expect("read state");
@@ -800,11 +820,65 @@ mod tests {
             repo: fx.bot.clone(),
             squash: squash_at(),
             bookmark: "main".to_string(),
-            report_publish_state: true,
+            at_rest: true,
             yes: false,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("nothing to decline, so nothing is asked");
+    }
+
+    /// push's stage asks nothing even with asking on and no tty,
+    /// which at rest is an error. The prompt is a person's question
+    /// and mid-push there is no person.
+    #[test]
+    fn pushs_stage_never_asks() {
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-stage-silent");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+        let stage = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            at_rest: false,
+            yes: false,
+        };
+        let state = read_state(&stage).expect("read state");
+        confirm(&stage, &state, "bot").expect("push's stage does not ask");
+
+        // The same params at rest are the error rung 3 introduced,
+        // so it is `at_rest` doing the work here and not `yes`.
+        let at_rest = SquashPushParams {
+            at_rest: true,
+            ..stage
+        };
+        assert!(confirm(&at_rest, &state, "bot").is_err(), "at rest it asks");
+
+        squash_push(&mut crate::test_helpers::test_ctx(), &at_rest)
+            .expect_err("and the at-rest run refuses without a tty");
+    }
+
+    /// The precheck's decision is not gated: a stage with nothing to
+    /// do still does nothing, which is what the `already sync'd`
+    /// early return gave push before the precheck replaced it.
+    #[test]
+    fn pushs_stage_still_skips_a_run_with_no_work() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-stage-noop");
+        let stage = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            at_rest: false,
+            yes: true,
+        };
+        assert!(read_state(&stage).expect("state").nothing_to_do());
+
+        let op = || jj_ok(&fx.bot, &["op", "log", "--no-graph", "-T", "id", "-n", "1"]);
+        let before = op();
+        squash_push(&mut crate::test_helpers::test_ctx(), &stage).expect("no-op stage");
+        assert_eq!(before, op(), "a stage with no work touches nothing");
     }
 
     /// The label is the repo's directory name, since the command

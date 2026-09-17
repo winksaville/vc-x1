@@ -714,7 +714,7 @@ fn stage_squash_push_bot(
         // Mid-push the mismatch is the normal state (bookmark-set
         // just moved main and this stage publishes it): don't report
         // a lost publish.
-        report_publish_state: false,
+        at_rest: false,
         yes: true,
     };
     crate::squash_push::squash_push(ctx, &sp)

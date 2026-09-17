@@ -53,7 +53,7 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
 - [feat: squash-push checks, asks, reports opening][1] (done)
 - [feat: squash-push checks before and after][2] (done)
 - [feat: squash-push asks before it acts][3] (done)
-- [refactor: push skips the squash-push prompt][4]
+- [refactor: push skips the squash-push prompt][4] (done)
 - [feat: squash-push checks, asks, reports closing][5]
 
 #### Deliberation
@@ -164,6 +164,21 @@ Nothing gives a caller a chance to decline, and the default has no home outside 
 
 `push` drives `squash-push` as a stage where dirty is normal and no human is watching, so the
 precheck and the prompt are wrong there.
+
+* Two flags were growing where one distinction lives.
+  - `report_publish_state` already marked the difference between the user's invocation and push's
+    stage, and rung 3 had added `yes: true` beside it for the same reason. So the field is renamed
+    `at_rest` and broadened rather than joined by a third: it now gates the publish-mismatch report,
+    the precheck's line, the after-check's line, and the prompt, which are the whole of what this
+    command addresses to a person.
+  - The rename is the rung. Nothing was added, and the count of booleans describing the same fact
+    went from two to one.
+* What "off mid-push" means needed a line drawn through the precheck.
+  - The decision stays on and only the speech goes off. A stage with nothing to do should still do
+    nothing, and that was the behavior of the `already sync'd` early return the precheck replaced in
+    rung 2, so gating the whole precheck would have quietly taken it away from push.
+  - A test pins each half: the stage asks nothing where the same params at rest are an error, and the
+    stage still leaves the operation log untouched when it has no work.
 
 ##### feat: squash-push checks, asks, reports closing
 

@@ -1315,6 +1315,11 @@ Behavior notes:
 - With an empty `@` but work still to do, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost, see
   [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
+- As [`push`](#push)'s `squash-push-bot` stage it says nothing and asks nothing. Every line above is
+  addressed to a person, and mid-push there is neither a person to read them nor a settled state
+  worth describing: the mismatch is normal there, since push's `bookmark-set` just moved the
+  bookmark and this stage is what publishes it. The precheck's decision still applies, so a stage
+  with nothing to do still does nothing.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.
