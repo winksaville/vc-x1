@@ -11,8 +11,11 @@ A finding from the proposal cycle (2026-08-27), for whoever next tries a cut: a 
 AGENTS.md from 370 to 320 lines with every rule kept found that the remaining bulk is the rules
 themselves, so a further cut has to cut rules, and that is a convention decision, not an edit.
 
-The count is `wc -l AGENTS.md custom.md agent-data/*.md`, taken at close-out and recorded here as
-the closing rung's last edit, with the cycle title as the row's label.
+The count is `wc -l` over `AGENTS.md`, `custom.md`, and `agent-data/*.md` less `rationale.md`,
+taken at the close-out of a cycle that changed an agent-file and recorded here as the closing
+rung's last edit, with the cycle title as the row's label. `rationale.md` is left out because it is
+the rules' why and grows with every rule that gains one, so a rule gaining a why does not read as
+the set growing. Rows before v0.2.5 counted it.
 
 ## Counts
 
@@ -30,22 +33,24 @@ the closing rung's last edit, with the cycle title as the row's label.
 | 2026-09-04 | agent-files(proposal): v0.2.2 | 10 | 2255 | iiac-perf's notes on v0.2.1 plus wink's: the citation names the work-repo's config, the label rule keeps one home, the `[repos]` specimen says which cell the project chooses, and the `ochid:` prefix names a side rather than a path, and both repos are located by the `[repos]` entry that resolves home rather than by a literal directory |
 | 2026-09-07 | agent-files(adoption): v0.2.3 | 10 | 2315 | iiac-perf's set verbatim by `vc-x1 agent-files copy`: eight rules corrected where they live with a why each in `rationale.md`, the dual-repo model as two definitions, the agent-files version tending to the patch, and the heading and term renamed "Agent-files version" |
 | 2026-09-11 | agent-files(proposal): v0.2.4 | 10 | 2315 | the messaging pointer in `custom.md` names Pending instead of an inbox, one clause reworded on one line, so the count holds |
+| 2026-09-16 | agent-files(adoption): v0.2.5 | 9 | 1774 | zc-ring-x1's proposal verbatim: a size row only when an agent-file changed, with its why, and `rationale.md` out of the count, so the files drop to 9 and the total loses its 543 lines |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
 landings before the set was versioned relative to the first version (`- v0.1.0` one before it,
-`-- v0.1.0` two before), and a landed local change carries a `-trailer` version.
+`-- v0.1.0` two before), and a landed local change carries a `-trailer` version. A `-` cell is a
+file the count leaves out.
 
-| File | v0.2.4 | v0.2.3 | v0.2.2 |
+| File | v0.2.5 | v0.2.4 | v0.2.3 |
 |---|---:|---:|---:|
-| AGENTS.md | 384 | 384 | 379 |
+| AGENTS.md | 384 | 384 | 384 |
 | custom.md | 12 | 12 | 12 |
-| agent-data/code.md | 94 | 94 | 92 |
+| agent-data/code.md | 94 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 76 | 76 | 76 |
-| agent-data/jj.md | 391 | 391 | 390 |
-| agent-data/notes.md | 166 | 166 | 171 |
-| agent-data/prose.md | 405 | 405 | 401 |
-| agent-data/rationale.md | 541 | 541 | 488 |
+| agent-data/jj.md | 391 | 391 | 391 |
+| agent-data/notes.md | 166 | 166 | 166 |
+| agent-data/prose.md | 405 | 405 | 405 |
+| agent-data/rationale.md | - | 541 | 541 |
 | agent-data/versioning.md | 204 | 204 | 204 |
-| total | 2315 | 2315 | 2255 |
+| total | 1774 | 2315 | 2315 |

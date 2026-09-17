@@ -9,26 +9,7 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-Written 2026-09-12 after **feat: vc-x1 lookup for dual repos** landed, on the
-`wip-continuation-notes` bookmark, which also carries two new `## Todo` entries.
-
-- Landed: the lookup cycle is on `main` as a trapezoid merge, `4227364a`, with its bookmark
-  deleted and the plain `vc-x1 0.84.7` installed. Its record is in `## Closed`. The stale
-  `vc-x1-dev` binary is still installed.
-- This bookmark is work in progress, wink's call, not a cycle: no version bump and no cycle
-  record. It holds the two Todo entries at the head of `## Todo`, **lookup narrows a write's work
-  window to its lines and flags a renamed partner** and **lookup --history steps a region through
-  the commits that changed it**, filed from wink's trial of `lookup` before Land, and these notes.
-  How it reaches `main`, landed as is or folded into the next cycle's opening, is open.
-- No next cycle is agreed. The two entries above are the natural candidates.
-- The fixture: `../vc-x1-fixtures/dr-1` is built with local bare remotes under
-  `../vc-x1-fixtures/.remotes`, and `.jjconfig-dr-1.toml` beside it is the build's pinned clock.
-  The GitHub repos `winksaville/vc-x1-fixtures-dr-1-work` and `-agent` exist and are empty, since
-  the push was refused in session. Publishing is wink's call:
-  `python3 support/fixtures/build-dr-1.py ../vc-x1-fixtures --publish`. A rebuild changes every
-  change id, so a rebuild after publishing force-pushes both repos.
-- Messages: not checked since this session's acquaint, when nothing was pending.
-- `tmp/todo-entries.patch` held the Todo entries across Land and can be deleted.
+_None._
 
 ## In Progress
 
@@ -338,23 +319,6 @@ below.
 namespace asking for `validate {bot|desc|config|anchors|todo}` and `fix {desc|todo}`, bare
 `validate` staying the full run. The flat names stay as hidden aliases for a while, the validate
 table and typing habits using them, and retire in a later cycle.
-
-### Size is recorded only when an agent-file changed
-
-(wink, 2026-08-29) [Close-out step 4](AGENTS.md#close-out) has every cycle record the agent-files
-line count in `notes/agent-files-size.md`, so a cycle that touched no agent-file adds a row saying
-so, which is a row that records nothing. Two such rows were added, by **feat: finish the vc-config
-surface** and **docs: propose the messages rules**, and the second cycle deleted both. Change the
-step to record the count only when the cycle changed an agent-file. An agent-file change, so its
-own commit, and a rule change rather than a correction, so it takes a minor bump.
-
-- The notes-file half is done, by **agent-files(proposal): v0.2.1**, which took iiac-perf's shape
-  for the file and with it the preamble sentence stating the rule. What is left is `AGENTS.md`
-  agreeing with the file it points at.
-
-- zc-ring-x1's acceptance remark rides here (2026-08-31): the Size close-out step reads as
-  vc-x1's habit and has no rationale entry, so this entry's cycle writes the missing rationale,
-  or retires the step, when it runs.
 
 ### Support POR workspaces in `push`
 
@@ -1055,274 +1019,58 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: vc-x1 lookup for dual repos
+### agent-files(adoption): v0.2.5
 
 #### Problem
 
-A line in either repo of a dual workspace has relevant lines in the other, and finding them is
-a by-hand procedure of three steps with three keys, blame, the `ochid:` trailer, and a text
-search over the session's timeline. The objective, put plainly at the **docs: check the
-transcript join on two landed trapezoids** cycle: point at a line in either repo and see the
-relevant lines in the other. The long form of this entry was **vc-x1 lookup resolves a line in
-either repo to a window in the other**, retitled at the move.
+[Close-out step 4](AGENTS.md#close-out) has every cycle record the agent-files line count, so a
+cycle that touched no agent-file adds a row that records nothing, and the step has no rationale
+entry, zc-ring-x1's acceptance remark of 2026-08-31. The notes file already says a cycle that
+touched none adds no row, so `AGENTS.md` disagrees with the file it points at. zc-ring-x1
+proposed the fix as **agent-files(proposal): v0.2.5**, thread m-6 in `../vc-x1-messages`, and
+asked vc-x1 as the maintainer to fold or reject it. The long form of this entry was **Size is
+recorded only when an agent-file changed**, retitled at the move.
 
 #### Solution
 
-`vc-x1 lookup [SCOPE] FILE:LINE` does the by-hand procedure in both directions through jj-lib,
-over a scripted fixture workspace whose relationships are recorded as it is built.
-
-- The edge places the line: `SCOPE` one side, inferred from the path, a named side a check, and
-  a repo-relative path accepted once the side is named.
-- Work-to-transcript: blame at the snapshotted working copy or `-r`, a reach back by
-  `diff_lines()` when the line moved, the writer's partner by its `ochid:` trailer or candidates
-  by `--tolerance`, the partner's window from its diff of the session files, and the transcript
-  write found over the whole timeline, printed with `-C` entries of context.
-- Transcript-to-work: blame on the session file for the agent commit, every trailer's work
-  commit, and each one's line diff as the window, narrowed to the files a write names.
-- The `dr-1` fixture is built by `support/fixtures/build-dr-1.py` at `../vc-x1-fixtures/dr-1`,
-  named by the new `[test] fixtures` key, with local remotes: its GitHub push was refused in
-  session, and `--publish` is the one command that does it.
+A single-step `agent-files(adoption): v0.2.5` cycle took zc-ring-x1's proposal commit `1bbc72b2`
+verbatim: `AGENTS.md` and `agent-data/rationale.md` copied, and the version marker renamed to
+`agent-data/agent-files-v0.2.5`. `notes/agent-files-size.md` states the count's new definition in
+its own words, adds the row, and slides the per-file window with `rationale.md` shown uncounted.
+The continuation notes left by the lookup cycle were reset, and after Land a `done` line in m-6
+names the landed commit.
 
 #### Acceptance check
 
-`cargo test` passes with the fixture `../vc-x1-fixtures/dr-1` present, its tests running every
-relationship the fixture's README lists in both directions, and skipping with a notice when the
-path is absent. By hand, `vc-x1-dev lookup TODO.md:<line>` on a deliberation line of this block
-prints the transcript window of the rung that wrote it, and `vc-x1-dev lookup agent
-<session>.jsonl:<line>` on that window's write prints the work commit's diff of `TODO.md`.
+`vc-x1 agent-files version` prints `v0.2.5`, `vc-x1 agent-files diff ../zc-ring-x1` names no
+agent-file, and close-out step 4 in `AGENTS.md` says a cycle that touched no agent-file adds no row.
 
-- Result: pass. With `../vc-x1-fixtures/dr-1` present the fourteen fixture tests pass, covering
-  every write, discussion line, window, and partner the fixture's README lists, both directions,
-  and with the directory moved aside all fourteen skip with the notice. By hand, the
-  deliberation's "Multi-step, patch by default" line resolves to the opening, its partner, the
-  window `e355f8b2-da66-4a09-bbc6-53aa54893f8e.jsonl:1-277`, and the write at line 233, and
-  `lookup agent` on line 233 prints the opening's diff narrowed to `Cargo.toml` and `TODO.md`.
-  One part of the design is not met: the fixture is committed locally and not pushed, since the
-  push to GitHub was refused in session.
+- Result: pass. `vc-x1 agent-files version` prints `v0.2.5`, `vc-x1 agent-files diff
+  ../zc-ring-x1` reports 0 of 10 differ, and step 4 reads "when an agent-file changed, record the
+  line count ... A cycle that touched none adds no row". The count is 1774 over nine files, the
+  same total zc-ring-x1 recorded.
 
 #### Ladder
 
-- [feat: vc-x1 lookup for dual repos opening][1] (done)
-- [feat: parse SCOPE and FILE:LINE and place the line in a repo][2] (done)
-- [test: a fixture dual workspace with known partners][3] (done)
-- [feat: resolve a partner by its ochid trailer, candidates when it has none][4] (done)
-- [feat: blame a work line to its commit, reaching past a move][5] (done)
-- [feat: the work-to-transcript window and the line's transcript write][6] (done)
-- [feat: the transcript-to-work window][7] (done)
-- [feat: vc-x1 lookup for dual repos closing][8] (done)
+- agent-files(adoption): v0.2.5 (done)
 
 #### Deliberation
 
-- Waiver, wink's, 2026-09-12: the agent completes the whole ladder, every push from the bookmark
-  creation through the closing push and the per-rung work and description review stops covered,
-  since completing it unattended means not stopping at them. Validation still runs before every
-  push, and Stop and ask still holds for any deviation or question. Land is outside the waiver:
-  the closing is a stage that opens wink's review, which may add rungs after it or rewind, and the
-  reshape and `main` move only on wink's go.
-- Multi-step, patch by default: seven work rungs over two directions and a fixture, so a ladder,
-  the version `0.84.7-0` at the opening and the package renamed `vc-x1-dev`.
-- Fixtures, wink's design: acceptance tests run over pre-created dual workspaces with documented
-  relationships, committed and pushed, more of them over time.
-  - The sibling checkout is `../vc-x1-fixtures/<name>/`, the first `dr-1`, `dr` for dual repo,
-    its remotes `github.com/winksaville/vc-x1-fixtures-dr-1-work` and
-    `vc-x1-fixtures-dr-1-agent`, laid out as `vc-x1 clone` lays out a dual workspace so the
-    command sees an ordinary one, its own `.vc-config.md` labeling the sides `work` and `agent`.
-  - A new `.vc-config.md` key, `[test] fixtures`, names the directory, not a pair, and a test
-    picks a fixture by name under it and skips with a notice when the path is absent, so `cargo
-    test` passes on a bare clone.
-  - `dr-1` is the simple one-to-one shape, and its README says so: a later one-work-to-many-agents
-    fixture, a por like vc-x1-messages with several agents on it, is a numbered sibling.
-  - The first fixture's content: a workspace made with `vc-x1 init`, run through three cycles
-    with `vc-x1 push`, one single-step, one multi-step landed as a trapezoid, one with an amended
-    rung, so a rewritten partner and a predecessor exist, the agent-repo's session files carrying
-    hand-written tool-call lines in the real shape, one write per work line, every relationship
-    listed in the README, plus one commit stripped of its trailer for the candidates case and one
-    line written before its push and stashed for the reach-past-a-move case.
-- Output shape: a window prints as a `FILE:START-END` header and the lines, a transcript window
-  rendered as timestamp, role, and tool name per entry, and a viewer link deferred to the session
-  viewer the `## Waiting` entry names. An unresolvable line prints why it did not resolve, the
-  step that failed and what it found, on stderr with a non-zero exit.
-- jj-lib, not the `jj` binary: blame by `FileAnnotator`, the reach past a move by the
-  `diff_lines()` revset, the partner by change id, per the requirements note.
+- Waiver, wink's, 2026-09-16: "You have permission to complete the adoption of v0.2.5", read as
+  the bookmark creation, the work and description review stops, and the commit push. Validation
+  still runs before the push. Land is outside it, as at the lookup cycle, and moves on wink's go.
+- Adoption, not proposal: the change is inbound from zc-ring-x1, so the cycle copies its version
+  file and bumps no set version of its own, and the title names what it took.
+- Single-step: two files copied, a rename, and the size note, so one commit carrying the bare
+  `0.84.8`, and no dev rename, as the v0.2.4 cycle did.
+- The bump is a patch, which the proposal chose and [Advancing
+  X.Y.Z](agent-data/versioning.md#advancing-xyz-patch-by-default) asks for. The Todo entry's
+  "takes a minor bump" was written before that rule and is not followed.
+- The count's new definition is each adopter's own notes file, so this cycle rewrites our preamble
+  in its own words rather than copying zc-ring-x1's, whose table has a different history.
+- The m-6 line follows Land, since it wants a sha-link to a landed commit.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-- The fixture is a scripted build, not a hand-run of three cycles: a script that makes the edits,
-  appends the transcript lines, and runs the pushes knows every relationship by construction, so
-  the tests assert a record rather than hand-copied numbers, and the fixture can be rebuilt. It
-  runs four cycles, the three planned plus a pair committed by hand for the no-trailer case, and
-  a restart.
-- Two oracles the code under test does not produce check it: jj's own annotate for blame, and
-  jj's line counts of the agent commits for the windows, both run by the build.
-- The fixture is not on GitHub. The two repos were created with gh, and the build's push to them
-  was refused by the session's auto-mode classifier as publishing to a public surface, which
-  needs wink's decision. `build-dr-1.py ../vc-x1-fixtures --publish` does it.
-- The fixture rung was laddered as "test: a fixture dual workspace with known partners, pushed"
-  and retitled before its push, since the commit did not push the fixture.
-- The model changed from Fable 5.1 to Opus 5 at wink's `/model` during the blame rung, and the
-  rung finished under Opus 5.
-- Close-out shape: trapezoid, the default, recorded for wink to confirm at Land, which the waiver
-  leaves outside.
-
-#### Ladder details
-
-##### feat: vc-x1 lookup for dual repos opening
-
-The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
-Todo entry into this block, reset the continuation notes, bump the version-of-record, and rename
-the package to its dev name.
-
-##### feat: parse SCOPE and FILE:LINE and place the line in a repo
-
-The command's edge: parse the optional `SCOPE` keyword and the `FILE:LINE` argument, resolve the
-file to one side of the workspace, and refuse a line the file does not have.
-
-- `SCOPE` is one side, never `both`, since a line is on one side. Two positionals read as `SCOPE
-  FILE:LINE` and one as `FILE:LINE`, with `-s` the flag form and a positional beside it an error
-  rather than a tie-break.
-- The side is where the file's canonical path lands, the agent repo checked first since it may
-  nest in the work repo. A named side is a check, and a disagreement is an error, never a hint,
-  since a wrong side would resolve to the wrong repo's history in silence.
-- A named side also gives a repo-relative path a home: a `FILE` that does not exist relative to
-  the current directory is taken relative to that side's repo root, so a transcript line can be
-  named from the work root without spelling the agent dir.
-- The line is read from the file on disk, since that is what the editor or compiler printed the
-  number from, and a line past the end is refused with the file's count. What blame needs, a tree
-  that holds the line, is the next rungs' concern.
-- `Located`, the side, the repo, the repo-relative path, and the line's text, is what every later
-  step starts from. This rung prints it, `<side> <path>:<line>` and the text, and the window
-  replaces that output when the directions land.
-
-##### test: a fixture dual workspace with known partners
-
-The evidence the acceptance tests run over: the `dr-1` fixture built and pushed, the `[test]
-fixtures` config key, and the test harness that opens a fixture by name or skips with a notice.
-
-- The fixture is built by a script, `support/fixtures/build-dr-1.py`, a scripted agent that
-  makes the file edits, appends the transcript lines in the real shape, and runs the pushes, so
-  the relationships are known by construction and the build is repeatable. Its README lists
-  them and `relationships.json` carries them for the tests, so a test asserts what the record
-  says rather than a hand-copied line number.
-- Every tool call's transcript line is appended after the tool runs, the push call included, so
-  a push call lands in the next window as the probes observed, and a write always precedes the
-  push that commits it.
-- Commit times are pinned through `JJ_CONFIG`'s `debug.commit-timestamp`, the one clock feeding
-  the transcript timestamps too, so the cycles sit ten minutes apart and the no-trailer pair
-  twenty seconds apart, and the candidates case has a known spacing.
-- The cases: a single-step cycle, a multi-step cycle landed as a trapezoid, a line written at
-  the opening and set aside as a patch until the second rung, a cycle-record moved to Closed, a
-  rung amended after its push with the partner squash-pushed so both sides have a predecessor,
-  a restart so one window spans two session files, and a pair made by hand with no trailer.
-- The transcript's `cwd` and the tools' `file_path` are the build machine's absolute paths, as
-  real transcripts hold, so a write is matched to a file by the path relative to the entry's
-  `cwd` when the absolute prefix differs, which a fixture checked out elsewhere needs and a
-  live workspace never notices.
-- The GitHub remotes the design names were created, but the build's push to them was refused by
-  the session's auto-mode classifier as publishing to a public surface, so the fixture is built
-  with `--local` and the script's `--publish` mode points both repos at GitHub and pushes, one
-  command for wink to run. The tests read the local checkout either way. The rung was laddered
-  as "test: a fixture dual workspace with known partners, pushed" and retitled before its push
-  to drop the claim, since a title names what the commit did.
-- Init derives the agent remote's name by appending `.claude` to the work remote's, so the
-  design's `-agent` name is reached by creating the two repos with gh and re-pointing init's
-  local remotes, rather than by init's own provisioning.
-
-##### feat: resolve a partner by its ochid trailer, candidates when it has none
-
-The version-control half's key: a commit's `ochid:` trailer resolved to its partner's current
-commit, and a commit without one answered with the candidates inside a time tolerance.
-
-- A trailer names a change id, and the change id's current commit is the partner, so one
-  resolution serves the reshaped closing and the amended rung alike. An agent commit carries one
-  trailer per work commit its push published, so the answer is a list in trailer order.
-- A trailer that resolves to nothing is an error naming the trailer, never an empty answer: a
-  dangling link is a broken workspace, and a missing one is the candidates case.
-- Candidates are every commit on the other side whose committer time is within a tolerance,
-  nearest first, gathered by a scan of `all()`, which is fine at this repo's size and is the
-  thing to replace with a date revset if a repo ever makes it slow.
-- The predecessors come from jj's evolution log, walked back from the commit. Every snapshot of
-  the working copy is a rewrite in that log, so the chain is never empty and the interesting
-  entries are the ones that carried the commit's title, the versions a push published, which
-  `pushed_predecessors` keeps for the amended partner's push-time window.
-- The module is reached by its tests alone until the window rungs consume it, and says so.
-
-##### feat: blame a work line to its commit, reaching past a move
-
-Blame at a tree that holds the line, and when the commit blame gives is not where the line was
-written, the reach back through history by the line's text.
-
-- Blame runs jj-lib's annotator over the starting commit's ancestors, and the starting commit is
-  the working copy after a snapshot, as any jj command takes one, so a line edited since the last
-  snapshot blames to the working copy and says it has no partner yet. `-r` starts at a named
-  revision instead, for a line only a landmark's tree holds.
-- A move only exists when the diff says so. The fixture's first record move had nothing between
-  In Progress and Closed, so the diff kept the record's lines in place and blame named the
-  opening, which jj's own annotate confirmed. A Todo section between the two makes the closing
-  remove and re-add them, and then blame names the closing and the reach back finds the opening.
-  So the probes' "the move still blamed to the opening" is the degenerate case, not a rule.
-- The reach back asks for the roots of the ancestors whose diff carries the line's text, by the
-  `diff_lines(substring:...)` revset. One root other than the blamed commit is the writer, and
-  several or none leave blame's answer standing. Lines under eight characters are not searched,
-  since short text recurs too readily to name a first writer.
-- The tests hold blame to two oracles the code under test does not produce: jj's own annotate at
-  main, recorded by the fixture build, and the builder's snapshots of which push first carried
-  each line. The invariant is that the writer, the reach back's answer or else blame's, is the
-  push that first carried the line, at every later push whose tree still holds it.
-- A set-aside line blames to the rung that restored it and has no earlier writer in history. Its
-  write is earlier only in the transcript, which is the window rung's backward search.
-- The command prints the commit, the writer, and both partners, and the window replaces the
-  partner lines when the directions land. `common::resolve_revset` was split so the annotator
-  can take a resolved expression as its domain.
-
-##### feat: the work-to-transcript window and the line's transcript write
-
-The work-to-transcript direction whole: the partner's time-window from its diff of the session
-files, the search over the timeline for the transcript write, and the rendered window.
-
-##### feat: the transcript-to-work window
-
-The transcript-to-work direction: the agent-repo commit whose diff holds the line, its trailers,
-and the work commits' diffs as the window, narrowed to one file for a transcript write.
-
-- The agent commit is found by blame on the session file, with no reach back: a session file is
-  append-only, so a line arrives in the commit that appended it. Blame was split into the
-  arrival and the reach back so this direction takes the first alone.
-- Every trailer gets a window, since one push can publish several work commits, and a commit
-  with no trailer takes its nearest candidate's, as the other direction does.
-- The window is jj-lib's line diff of each changed file, printed as the new side's range with the
-  removed and added lines. A trapezoid merge diffs against its merged parents, so a landed
-  cycle's merge reads as the ladder's net change.
-- Narrowing was planned to one file, and the acceptance line refused it: this cycle's opening
-  wrote its record with one Bash call that also bumped the manifest, so the call wrote two
-  files. A `Write` or `Edit` still narrows to one, the longest path match winning, and a `Bash`
-  call narrows to every changed file its command names, by repo-relative path or by a name no
-  other changed file shares.
-- The session line prints rendered, file and line, time, role, and gist, in place of its JSON.
-- The tests hold every recorded write to the push whose jj-read window holds it, narrowed to the
-  line's file and adding the line when that push is where the line arrived, and every discussion
-  line to its work commit's whole diff.
-
-##### feat: vc-x1 lookup for dual repos closing
-
-Closing out the cycle.
-
-- The acceptance check passed on both halves, and its by-hand half found the two classifier bugs
-  the fixture could not, a push-call filter matching prose and a Bash write of two files. The
-  fixture shapes what its builder imagined, and the real repo is the check that shape cannot
-  replace.
-- The comment-semicolon debt the code conventions attach to edited source files was checked and
-  is zero, so no penultimate rung paid it.
-- The findings that outlive the cycle are in [What building the lookup command
-  found](notes/transcript-write.md#what-building-the-lookup-command-found).
-- The agent-files are untouched, so `notes/agent-files-size.md` takes no row.
-- Close-out shape: trapezoid, the default. Land is wink's, after the review this closing opens.
 
 # References
 
-[1]: #feat-vc-x1-lookup-for-dual-repos-opening
-[2]: #feat-parse-scope-and-fileline-and-place-the-line-in-a-repo
-[3]: #test-a-fixture-dual-workspace-with-known-partners
-[4]: #feat-resolve-a-partner-by-its-ochid-trailer-candidates-when-it-has-none
-[5]: #feat-blame-a-work-line-to-its-commit-reaching-past-a-move
-[6]: #feat-the-work-to-transcript-window-and-the-lines-transcript-write
-[7]: #feat-the-transcript-to-work-window
-[8]: #feat-vc-x1-lookup-for-dual-repos-closing
 [12]: /notes/forks-multi-user.md
