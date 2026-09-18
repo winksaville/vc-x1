@@ -1271,6 +1271,20 @@ The primary use case is folding the bot repo's session tail: session data keeps 
 the last commit (including the record of the push itself), and only the user, acting after the bot
 goes quiet, can capture all of it. Zero ceremony by design:
 
+`BOOKMARK` defaults to the bookmark of the line you are on, the nearest one at or above the squash
+target. There is no literal default: on the agent repo the line's bookmark is `main`, and on a work
+repo running a cycle it is the topic bookmark, so a bare run publishes the line you are working and
+never advances `main`. Several candidates, or none, is an error asking you to name one, since a
+wrong guess publishes something. A literal `main` default used to sit here, and on 2026-09-17 a bare
+run on the work repo mid-cycle advanced `main` onto the cycle tip and pushed it, which is Land's
+fast-forward step performed by accident.
+
+Every run begins by asking whether it has work, and ends by saying what it left. A run with nothing
+to do prints `<label>: clean` and exits 0 having touched nothing, so the command is safe to call
+when you are unsure, and every other run prints that line again after the push. With work found it
+acts without asking, which is what `squash-push.yes` defaults to, and `--ask` turns a confirmation
+prompt on. The details of each are in the behavior notes below.
+
 ```
 # In .claude: squash @ -> @-, advance main, push
 vc-x1 squash-push -R .claude
@@ -1278,24 +1292,78 @@ vc-x1 squash-push -R .claude
 # Bare invocation: same, in the current directory's repo
 vc-x1 squash-push
 
-# Custom bookmark and squash pair
+# Name the bookmark explicitly, with a custom squash pair
 vc-x1 squash-push feature -R . --squash @,@--
+
+# Confirm before acting, overriding a configured squash-push.yes
+vc-x1 squash-push -R .claude --ask
+```
+
+```
+.claude: dirty: @ has changes. squash-push? [y/N] y
+squash-push: squashing @ -> @-...
+squash-push: setting bookmark 'main' to @-...
+squash-push: pushing 'main' to origin...
+squash-push: done
+.claude: clean
+```
+
+```
+# Nothing to do: no squash, no push, nothing touched
+vc-x1 squash-push -R .claude
+.claude: clean
+```
+
+Every at-rest run prints the verdict line before it acts as well as after, so a run that is about
+to do something says what it found first:
+
+```
+vc-x1: dirty: bookmark behind the squash target
+squash-push: @ is empty, skipping squash, still pushing
+squash-push: setting bookmark 'topic' to @-...
+squash-push: pushing 'topic' to origin...
+squash-push: done
+vc-x1: clean
 ```
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Bookmark to advance and push [default: main] |
+| `[BOOKMARK]` | Bookmark to advance and push [default: the line's own, see below] |
 | `-R, --repo <PATH>` | Path to jj repo [default: .] |
 | `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
+| `-y, --yes` | Act without asking, once the precheck found work |
+| `--ask` | Ask before acting, overriding a configured `squash-push.yes` |
 
 Behavior notes:
 
 - Runs synchronously, so a failure is a visible non-zero exit. (Replaces the `finalize`
   subcommand, whose detached background child could be killed silently at command exit.)
-- With an empty `@` and the bookmark already at the remote it reports "already sync'd" and exits 0.
-  with an empty `@` but the remote behind, it skips the squash and still pushes.
+- A precheck asks whether the run has work, reading the verdict `status` computes (the working copy
+  at rest, the bookmark at its origin) plus this command's own question of whether the bookmark has
+  reached the squash target. A bookmark behind its target has a commit to publish even when it
+  matches origin, which is why the third condition is there. Nothing to do prints `<label>: clean`
+  and exits 0 having touched nothing, `<label>` being the repo's directory name since the command
+  takes a path rather than a scope.
+- Every other run prints the same line after the push, so the state it left is reported rather than
+  looked up. That line is a report only: the agent repo's transcript grows while the push runs, so a
+  correct push often reads `dirty: @ has changes` a moment later, and the exit code says whether the
+  push completed, not what the after-check found.
+- With work found, it asks before acting when asking is on. `squash-push.yes` sets the default and
+  is `true`, so a bare run still acts without asking as it always has. `--ask` turns the prompt on
+  for one run and `-y`/`--yes` turns it off, which is why `--ask` exists rather than a `--no-yes`: a
+  boolean flag cannot turn a configured `true` back off. The key is read from the repo `-R` points
+  at, so the two sides of a workspace may answer differently. With the prompt on, a non-tty run is
+  an error naming `--yes` rather than a hang, the rule [`push --step`](#push) follows, and declining
+  is an error too, so a scripted run learns it did not happen. A run the precheck found clean never
+  reaches the prompt.
+- With an empty `@` but work still to do, it skips the squash and still pushes.
 - If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost, see
   [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
+- As [`push`](#push)'s `squash-push-bot` stage it says nothing and asks nothing. Every line above is
+  addressed to a person, and mid-push there is neither a person to read them nor a settled state
+  worth describing: the mismatch is normal there, since push's `bookmark-set` just moved the
+  bookmark and this stage is what publishes it. The precheck's decision still applies, so a stage
+  with nothing to do still does nothing.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.

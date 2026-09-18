@@ -166,6 +166,17 @@ pub fn prompt(msg: &str) -> Result<String, Box<dyn std::error::Error>> {
     Ok(trimmed)
 }
 
+/// Whether stdin is a terminal.
+///
+/// A prompt on a non-tty stdin hangs on `read_line` rather than
+/// failing, so a command that is about to ask something tests this
+/// first and errors instead. It sits here with [`prompt`], since
+/// every prompting command needs it.
+pub fn is_stdin_tty() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal()
+}
+
 /// Wrap text in ANSI bold escape codes.
 pub fn bold(s: &str) -> String {
     format!("\x1b[1m{s}\x1b[0m")

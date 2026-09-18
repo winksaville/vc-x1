@@ -10,6 +10,10 @@
 //!   them, then one verdict line: `clean` when every scoped `@` is
 //!   empty and undescribed, `dirty` naming the repos that are not.
 //!   `work` needs no config, so a plain jj repo answers for it.
+//! - `repo_verdict(repo, bookmark)` / `RepoVerdict`: one repo's
+//!   verdict, the working-copy status with the named bookmark's
+//!   publish state composed in. `status` asks about the working copy
+//!   alone and `squash-push` asks about both.
 
 use std::path::{Path, PathBuf};
 
@@ -121,13 +125,79 @@ impl SubcommandRunner for StatusArgs {
     }
 }
 
-/// One repo's verdict: `None` when clean, else why it is not.
+/// One repo's working-copy verdict: `None` when at rest, else why
+/// it is not.
 fn dirt(st: &jj::WcStatus) -> Option<&'static str> {
     match (st.empty, st.described) {
         (true, false) => None,
         (false, _) => Some("@ has changes"),
         (true, true) => Some("@ is described"),
     }
+}
+
+/// One repo's verdict: the working copy, and the named bookmark's
+/// state against its origin.
+///
+/// The two halves are separate questions and a caller may want
+/// either, so both are carried rather than reduced to a boolean
+/// here. `status` asks about the working copy alone, while
+/// `squash-push` needs both, since a repo whose `@` is at rest but
+/// whose bookmark is unpublished is exactly what that command
+/// exists to publish.
+#[derive(Debug)]
+pub struct RepoVerdict {
+    /// The working-copy status, kept whole so a caller can render
+    /// the `jj st` block from the same read.
+    pub st: jj::WcStatus,
+    /// The bookmark's publish state, `None` when no bookmark was
+    /// named.
+    pub publish: Option<common::PublishState>,
+}
+
+impl RepoVerdict {
+    /// Why the working copy is not at rest, `None` when it is.
+    pub fn wc_dirt(&self) -> Option<&'static str> {
+        dirt(&self.st)
+    }
+
+    /// Why the bookmark is not at its origin, `None` when it is or
+    /// when none was named.
+    pub fn publish_dirt(&self) -> Option<&'static str> {
+        match self.publish {
+            None | Some(common::PublishState::InSync) => None,
+            Some(common::PublishState::NeverPushed) => Some("bookmark never pushed"),
+            Some(common::PublishState::Mismatch { .. }) => Some("bookmark not at origin"),
+        }
+    }
+
+    /// Why the repo is not clean, the working copy first and the
+    /// bookmark after it, joined. `None` when it is clean.
+    pub fn why(&self) -> Option<String> {
+        let parts: Vec<&str> = [self.wc_dirt(), self.publish_dirt()]
+            .into_iter()
+            .flatten()
+            .collect();
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(", "))
+        }
+    }
+}
+
+/// Read one repo's verdict. `bookmark` names the bookmark whose
+/// publish state to compose in, and `None` asks about the working
+/// copy alone.
+pub fn repo_verdict(
+    repo: &Path,
+    bookmark: Option<&str>,
+) -> Result<RepoVerdict, Box<dyn std::error::Error>> {
+    let st = jj::wc_status(repo)?;
+    let publish = match bookmark {
+        Some(b) => Some(common::bookmark_publish_state(repo, b)?),
+        None => None,
+    };
+    Ok(RepoVerdict { st, publish })
 }
 
 /// Render one repo's block, `jj st`'s shape under a label line.
@@ -194,9 +264,9 @@ fn verdict(reports: &[(String, jj::WcStatus)]) -> String {
 pub fn status(_ctx: &Context, params: &StatusParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut reports = Vec::new();
     for (label, path) in &params.repos {
-        let st = jj::wc_status(path)?;
-        info!("{}", render(label, path, &st));
-        reports.push((label.clone(), st));
+        let v = repo_verdict(path, None)?;
+        info!("{}", render(label, path, &v.st));
+        reports.push((label.clone(), v.st));
     }
     info!("{}", verdict(&reports));
     Ok(())
@@ -276,6 +346,62 @@ mod tests {
         assert_eq!(repos, vec![("work".to_string(), plain.clone())]);
         assert!(labeled_repos(&Scope(vec![Side::Bot]), Some(&plain)).is_err());
         assert_eq!(resolve_root(&fx.base).unwrap(), None);
+    }
+
+    /// The verdict's two halves and how `why` joins them. A
+    /// bookmark at its origin adds nothing, one that never reached
+    /// it or sits elsewhere is named after the working copy.
+    #[test]
+    fn repo_verdict_composes_its_halves() {
+        let fx = Fixture::new("verdict-halves");
+
+        // A fresh fixture: `@` at rest and `main` published.
+        let v = repo_verdict(&fx.work, Some("main")).expect("verdict");
+        assert_eq!(v.wc_dirt(), None);
+        assert_eq!(v.publish_dirt(), None);
+        assert_eq!(v.why(), None);
+
+        // Asking about no bookmark leaves the publish half absent
+        // rather than clean, which is what `status` wants.
+        let v = repo_verdict(&fx.work, None).expect("verdict");
+        assert!(v.publish.is_none());
+        assert_eq!(v.why(), None);
+
+        // A changed working copy, still published.
+        std::fs::write(fx.work.join("new.txt"), "x\n").expect("write");
+        let v = repo_verdict(&fx.work, Some("main")).expect("verdict");
+        assert_eq!(v.wc_dirt(), Some("@ has changes"));
+        assert_eq!(v.why().as_deref(), Some("@ has changes"));
+
+        // Both halves dirty: the working copy leads.
+        crate::test_helpers::jj_ok(&fx.work, &["commit", "-m", "unpublished"]);
+        crate::test_helpers::jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
+        std::fs::write(fx.work.join("more.txt"), "y\n").expect("write");
+        let v = repo_verdict(&fx.work, Some("main")).expect("verdict");
+        assert_eq!(v.wc_dirt(), Some("@ has changes"));
+        assert_eq!(v.publish_dirt(), Some("bookmark not at origin"));
+        assert_eq!(
+            v.why().as_deref(),
+            Some("@ has changes, bookmark not at origin")
+        );
+    }
+
+    /// A described but empty `@` is dirty for its description, and a
+    /// bookmark with no origin counterpart is named as never pushed.
+    #[test]
+    fn repo_verdict_describes_and_never_pushed() {
+        let fx = Fixture::new("verdict-described");
+        crate::test_helpers::jj_ok(&fx.work, &["describe", "-m", "empty but described"]);
+        let v = repo_verdict(&fx.work, Some("main")).expect("verdict");
+        assert_eq!(v.wc_dirt(), Some("@ is described"));
+
+        crate::test_helpers::jj_ok(&fx.work, &["bookmark", "create", "unpushed", "-r", "@-"]);
+        let v = repo_verdict(&fx.work, Some("unpushed")).expect("verdict");
+        assert_eq!(v.publish_dirt(), Some("bookmark never pushed"));
+        assert_eq!(
+            v.why().as_deref(),
+            Some("@ is described, bookmark never pushed")
+        );
     }
 
     /// A fresh dual workspace is clean under `both`: both `@`

@@ -18,10 +18,10 @@
 //! - `chid_of` / `cid_of` / `cid_short_of` / `cids_short_of`:
 //!   change / commit ids.
 //! - `desc_of` / `is_empty`: description and emptiness.
-//! - `local_bookmark_exists` / `non_tracking_remote_of` /
-//!   `has_tracked_remote`: typed bookmark and remote-ref queries
-//!   over the view (they replaced parsing `jj bookmark list`
-//!   output).
+//! - `local_bookmark_exists` / `local_bookmarks_at` /
+//!   `non_tracking_remote_of` / `has_tracked_remote`: typed bookmark
+//!   and remote-ref queries over the view (they replaced parsing
+//!   `jj bookmark list` output).
 //! - `wc_status`: the facts `jj st` prints for `@`, changed paths,
 //!   the `@` and `@-` lines, empty and described.
 //! - `diff_stat`: a `diff --stat`-shaped summary of `@` against
@@ -324,6 +324,26 @@ pub fn local_bookmark_exists(repo: &Path, name: &str) -> Result<bool> {
     let (_workspace, repo_at_head) = common::load_repo(repo)?;
     let name = RefName::new(name);
     Ok(repo_at_head.view().get_local_bookmark(name).is_present())
+}
+
+/// The local bookmarks pointing at any commit `revset` resolves to,
+/// sorted and deduplicated.
+///
+/// Used to answer "which branch am I on", which jj has no single
+/// word for: the caller asks about the nearest bookmarked ancestor
+/// and reads the names back from here.
+pub fn local_bookmarks_at(repo: &Path, revset: &str) -> Result<Vec<String>> {
+    let (workspace, repo_at_head) = repo_for_read(repo, revset)?;
+    let ids = common::resolve_revset(&workspace, &repo_at_head, revset)?;
+    let mut names: Vec<String> = repo_at_head
+        .view()
+        .local_bookmarks()
+        .filter(|(_, target)| target.added_ids().any(|id| ids.contains(id)))
+        .map(|(name, _)| name.as_str().to_string())
+        .collect();
+    names.sort();
+    names.dedup();
+    Ok(names)
 }
 
 /// The first non-tracking remote ref of `bookmark`, if any: a

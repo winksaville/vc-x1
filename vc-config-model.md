@@ -62,9 +62,16 @@ dir = "../vc-x1-template/work"
 custom = false
 ```
 
+The `[squash-push]` table
+- yes: Default for squash-push: act without asking once the precheck found work [[13]]
+```toml
+[squash-push]
+yes = true
+```
+
 The `[validate]` table
-- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[13]]
-- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[14]]
+- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[14]]
+- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[15]]
 ```toml
 [validate]
 full = [
@@ -78,7 +85,7 @@ fast = ["cargo test --bins"]
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[15]]
+  test` [[16]]
 ```toml
 [test]
 fixtures = "../vc-x1-fixtures"
@@ -98,6 +105,7 @@ fixtures = "../vc-x1-fixtures"
 [10]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffcustom
 [11]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopydir
 [12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
-[13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
-[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
+[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
+[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
+[16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
