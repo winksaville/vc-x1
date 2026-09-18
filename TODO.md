@@ -55,7 +55,8 @@ transcript can make read dirty. `vc-x1 push` completes every stage with no promp
 - [feat: squash-push asks before it acts][3] (done)
 - [refactor: push skips the squash-push prompt][4] (done)
 - [docs: squash-push's help matches what it does][5] (done)
-- [feat: squash-push checks, asks, reports closing][6]
+- [fix: squash-push defaults to the line it is on][6] (done)
+- [feat: squash-push checks, asks, reports closing][7]
 
 #### Deliberation
 
@@ -217,6 +218,40 @@ precheck, the prompt, or the after-check.
     `long_about`. The surfaces a source reader sees stayed current while the surfaces a user sees
     drifted, and nothing in the per-rung flow catches that, since validation does not read help text.
     Recorded here rather than acted on, since a check for it is its own work.
+
+##### fix: squash-push defaults to the line it is on
+
+`BOOKMARK` defaults to the literal `main`, which on a work repo running a cycle means "land the
+cycle", and a run that acts says nothing about why, so it does that silently.
+
+* A literal default cannot know which line you are on.
+  - `default_value = "main"` was chosen for the agent repo, where `main` is the working line. On a
+    work repo running a cycle `main` is deliberately behind, so a bare run there meant "advance main
+    to the cycle tip and publish it", which is Land's fast-forward step done by accident. It
+    happened on 2026-09-17 and cost a backwards force-push of `main`.
+  - The default is now the nearest bookmarked ancestor of the squash target, which is "the branch
+    you are on" in the only sense jj affords, computed by `heads(::(<target>) & bookmarks())` over
+    the new `jj::local_bookmarks_at`. The literal is gone rather than relocated.
+  - It survives a local ladder, which the first design considered did not: the ladder's own commits
+    carry no bookmark, and resolving past them reaches the topic bookmark rather than `main`. A test
+    pins that case specifically.
+  - Several candidates or none is an error naming what it found. A wrong guess here publishes
+    something, so the caller decides.
+  - What this is not: a refusal when the bookmark sits behind the squash target. That is the agent
+    repo's normal state, `jj commit` having left `main` one behind, and advancing it is the whole
+    job. The line you are on is the discriminator, never the distance.
+* A run that acts said nothing about why.
+  - The verdict line printed only when there was nothing to do. With work found the flow went to the
+    prompt, which the default `yes` returns from silently, so the only line a user saw was the
+    after-check's, by which point the push had happened. That is what let the bad run pass
+    unremarked.
+  - The line now prints on every at-rest run, before the action as well as after, so
+    `dirty: bookmark behind the squash target` is on screen before anything moves.
+* A test was reading the developer's checkout.
+  - `try_from_canonicalizes_and_defaults` asserted the bookmark was `main` while resolving against
+    `.`, which the literal default made true everywhere and the new resolution would make depend on
+    whatever bookmark the checkout was on. It moved onto a fixture, where the answer is a fact about
+    the fixture rather than about the machine.
 
 ##### feat: squash-push checks, asks, reports closing
 
@@ -1222,5 +1257,6 @@ _None._
 [3]: #feat-squash-push-asks-before-it-acts
 [4]: #refactor-push-skips-the-squash-push-prompt
 [5]: #docs-squash-pushs-help-matches-what-it-does
-[6]: #feat-squash-push-checks-asks-reports-closing
+[6]: #fix-squash-push-defaults-to-the-line-it-is-on
+[7]: #feat-squash-push-checks-asks-reports-closing
 [12]: /notes/forks-multi-user.md

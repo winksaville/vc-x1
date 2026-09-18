@@ -54,9 +54,11 @@ use crate::subcommand::SubcommandRunner;
 /// squashes `@ -> @-` and pushes `main` in `.`.
 #[derive(Args, Debug)]
 pub struct SquashPushArgs {
-    /// Bookmark to advance and push
-    #[arg(value_name = "BOOKMARK", default_value = "main")]
-    pub bookmark: String,
+    /// Bookmark to advance and push [default: the bookmark of the
+    /// line you are on, the nearest one at or above the squash
+    /// target]
+    #[arg(value_name = "BOOKMARK")]
+    pub bookmark: Option<String>,
 
     /// Path to jj repo
     #[arg(short = 'R', long, default_value = ".")]
@@ -157,13 +159,18 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
             config_yes(&repo).map_err(|e| e.to_string())?,
             crate::config_schema::SQUASH_PUSH_YES_DEFAULT,
         );
+        let squash = a.squash.value.clone().unwrap_or_else(|| SquashSpec {
+            source: "@".to_string(),
+            target: "@-".to_string(),
+        }); // OK: --squash absent -> the command's default @,@- pair
+        let bookmark = match &a.bookmark {
+            Some(b) => b.clone(),
+            None => current_bookmark(&repo, &squash.target).map_err(|e| e.to_string())?,
+        };
         Ok(SquashPushParams {
             repo,
-            squash: a.squash.value.clone().unwrap_or_else(|| SquashSpec {
-                source: "@".to_string(),
-                target: "@-".to_string(),
-            }), // OK: --squash absent -> the command's default @,@- pair
-            bookmark: a.bookmark.clone(),
+            squash: squash.clone(),
+            bookmark,
             at_rest: true,
             yes,
         })
@@ -286,6 +293,47 @@ fn check_squash_keeps_ochids(
         repo.display(),
     )
     .into())
+}
+
+/// The bookmark a run defaults to: the one on the line it is on,
+/// meaning the nearest bookmarked ancestor of the squash target.
+///
+/// There is no literal default any more. `main` was one, and it was
+/// only ever right by coincidence. On the agent repo `main` is the
+/// working line, so it was correct there. On a work repo running a
+/// cycle `main` is deliberately behind, the cycle's commits living on
+/// a topic bookmark, so a defaulted run there meant "advance main to
+/// the cycle tip and publish it", which is Land's fast-forward step
+/// done by accident. Observed 2026-09-17, which cost a rewind of
+/// `main` on the remote.
+///
+/// The nearest bookmarked ancestor is "the branch you are on" in the
+/// only sense jj affords, and it is right on both repos: the agent
+/// side's last commit carries `main`, a cycle's ladder carries the
+/// topic bookmark, and a local ladder's unbookmarked commits still
+/// resolve past themselves to the topic bookmark rather than to
+/// `main`.
+///
+/// Two cases are decided by the caller rather than guessed, since a
+/// wrong guess here publishes something: several candidates, and
+/// none.
+fn current_bookmark(repo: &Path, target: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let nearest = format!("heads(::({target}) & bookmarks())");
+    let mut found = jj::local_bookmarks_at(repo, &nearest)?;
+    match found.len() {
+        1 => Ok(found.remove(0)), // OK: len() == 1 checked by this arm
+        0 => Err(format!(
+            "no bookmark on this line: nothing at or above '{target}' in '{}' carries one,              so name the bookmark to advance",
+            repo.display()
+        )
+        .into()),
+        _ => Err(format!(
+            "several bookmarks on this line at or above '{target}' in '{}': {},              so name the one to advance",
+            repo.display(),
+            found.join(", ")
+        )
+        .into()),
+    }
 }
 
 /// The repo's label for a verdict line: its directory name, since
@@ -442,10 +490,10 @@ pub fn squash_push(
     // whose three comparisons are the three the verdict now carries.
     let label = label(&params.repo);
     let before = read_state(params)?;
+    if params.at_rest {
+        info!("{}", before.line(&label));
+    }
     if before.nothing_to_do() {
-        if params.at_rest {
-            info!("{}", before.line(&label));
-        }
         return Ok(());
     }
 
@@ -516,10 +564,12 @@ mod tests {
         }
     }
 
+    /// No bookmark given parses as none, the resolution being the
+    /// repo's own answer rather than a literal clap can supply.
     #[test]
     fn no_args_defaults() {
         let args = parse(&["vc-x1", "squash-push"]);
-        assert_eq!(args.bookmark, "main");
+        assert_eq!(args.bookmark, None);
         assert_eq!(args.repo, PathBuf::from("."));
         assert!(args.squash.value.is_none());
     }
@@ -527,7 +577,7 @@ mod tests {
     #[test]
     fn bookmark_positional() {
         let args = parse(&["vc-x1", "squash-push", "dev-0.14.0"]);
-        assert_eq!(args.bookmark, "dev-0.14.0");
+        assert_eq!(args.bookmark.as_deref(), Some("dev-0.14.0"));
         assert_eq!(args.repo, PathBuf::from("."));
     }
 
@@ -547,7 +597,7 @@ mod tests {
         .unwrap();
         assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
         if let Some(Commands::SquashPush(args)) = cli.command {
-            assert_eq!(args.bookmark, "dev-0.14.0");
+            assert_eq!(args.bookmark.as_deref(), Some("dev-0.14.0"));
             assert_eq!(args.repo, PathBuf::from(".claude"));
             assert_eq!(args.squash.value, Some(squash_at()));
         } else {
@@ -589,12 +639,77 @@ mod tests {
 
     #[test]
     fn try_from_canonicalizes_and_defaults() {
-        let args = parse(&["vc-x1", "squash-push"]);
-        let params = SquashPushParams::try_from(&args).unwrap();
-        assert_eq!(params.repo, std::fs::canonicalize(".").unwrap());
-        assert_eq!(params.bookmark, "main");
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-try-from");
+        let args = SquashPushArgs {
+            bookmark: None,
+            repo: fx.bot.clone(),
+            squash: crate::options_flags::squash::SquashOption { value: None },
+            yes: false,
+            ask: false,
+        };
+        let params = SquashPushParams::try_from(&args).expect("params");
+        assert_eq!(
+            params.repo,
+            std::fs::canonicalize(&fx.bot).expect("canonical")
+        );
         assert_eq!(params.squash, squash_at());
         assert!(params.at_rest, "a CLI invocation runs at rest");
+        // The agent side's last commit carries `main`, so the line's
+        // bookmark is `main` and the old literal default's answer is
+        // reached by reading the repo instead of assuming it.
+        assert_eq!(params.bookmark, "main");
+    }
+
+    /// The default bookmark is the line's, not a literal: on a work
+    /// repo whose cycle runs on a topic bookmark it resolves to that
+    /// bookmark and never to `main`, which is the bug that landed a
+    /// cycle early on 2026-09-17.
+    #[test]
+    fn the_default_bookmark_is_the_line_not_main() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-line-bookmark");
+        assert_eq!(current_bookmark(&fx.work, "@-").expect("on main"), "main");
+
+        // Open a topic bookmark the way a cycle does, and commit on
+        // it, leaving `main` behind.
+        jj_ok(&fx.work, &["git", "push", "--named", "topic=@-"]);
+        std::fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "a rung"]);
+        jj_ok(&fx.work, &["bookmark", "set", "topic", "-r", "@-"]);
+        assert_eq!(current_bookmark(&fx.work, "@-").expect("on topic"), "topic");
+
+        // A local ladder's unbookmarked commits still resolve past
+        // themselves to the topic bookmark rather than to `main`.
+        jj_ok(&fx.work, &["new"]);
+        std::fs::write(fx.work.join("ladder.txt"), "scratch\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "a local ladder commit"]);
+        assert_eq!(
+            current_bookmark(&fx.work, "@-").expect("on ladder"),
+            "topic"
+        );
+    }
+
+    /// Several candidates and none are decided by the caller, since a
+    /// wrong guess publishes something.
+    #[test]
+    fn an_ambiguous_or_absent_line_is_refused() {
+        use crate::test_helpers::{Fixture, jj_ok};
+
+        let fx = Fixture::new("sp-line-ambiguous");
+        jj_ok(&fx.work, &["bookmark", "create", "second", "-r", "@-"]);
+        let err = current_bookmark(&fx.work, "@-")
+            .expect_err("two bookmarks on one commit")
+            .to_string();
+        assert!(err.contains("several bookmarks"), "{err}");
+        assert!(err.contains("main") && err.contains("second"), "{err}");
+
+        let err = current_bookmark(&fx.work, "root()")
+            .expect_err("nothing bookmarked at or above root")
+            .to_string();
+        assert!(err.contains("no bookmark on this line"), "{err}");
     }
 
     /// A lost publish (`main` moved without a push) is healed by a

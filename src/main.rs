@@ -402,8 +402,16 @@ pub(crate) enum Commands {
         (`.claude`, the session tail), and useful on the work repo as\n\
         a deliberate amend-and-push.\n\n\
         Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
-        @ -> @- and pushes `main` in `.`. With an empty `@` but work\n\
-        still to do, the squash is skipped and the push still runs.\n\n\
+        @ -> @- in `.` and pushes the bookmark of the line you are\n\
+        on. With an empty `@` but work still to do, the squash is\n\
+        skipped and the push still runs.\n\n\
+        BOOKMARK defaults to the line's own bookmark, the nearest one\n\
+        at or above the squash target, and there is no literal\n\
+        default. On the agent repo that is `main`. On a work repo\n\
+        running a cycle it is the topic bookmark, so a bare run\n\
+        publishes the line you are working and never advances `main`.\n\
+        Several candidates, or none, is an error asking you to name\n\
+        one, since a wrong guess here publishes something.\n\n\
         A precheck asks whether the run has work at all: the working\n\
         copy at rest, the bookmark at its origin, and the bookmark\n\
         already at the squash target. That third condition is there\n\
