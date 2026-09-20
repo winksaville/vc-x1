@@ -867,9 +867,21 @@ mod tests {
 
     /// The built-in default is to act without asking, so today's
     /// behavior is what a bare invocation still gets.
+    ///
+    /// The params are built against a fixture rather than the
+    /// developer's checkout. `try_from` resolves the line's bookmark
+    /// now, and a checkout with a cycle in flight carries both `main`
+    /// and the cycle's bookmark on one line, an ambiguity the answer
+    /// this test asks for does not depend on. Its sibling
+    /// `try_from_canonicalizes_and_defaults` moved onto a fixture for
+    /// the same reason (0.84.10) and this one was missed.
     #[test]
     fn the_default_is_to_act_without_asking() {
-        let args = parse(&["vc-x1", "squash-push"]);
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-default-yes");
+        let mut args = parse(&["vc-x1", "squash-push"]);
+        args.repo = fx.bot.clone();
         let params = SquashPushParams::try_from(&args).expect("params");
         assert!(params.yes, "a bare run does not prompt");
     }

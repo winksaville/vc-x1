@@ -405,4 +405,18 @@ insert / delete / reorder.
       branch stays a warning, since it reads the old file and reproduces the old layout. The
       label is padded.
 
+19. **`validate-anchors` drops a heading's code-span text when it slugs.** A heading carrying a code
+    span slugs as though the span and its text were absent, with the spaces around it surviving, so
+    ``### Support POR workspaces in `push` `` computes as `support-por-workspaces-in` where GitHub
+    gives `support-por-workspaces-in-push`, and ``## A in `mid` word`` computes as `a-in--word`
+    rather than `a-in-mid-word`. Found by the **feat: init adopts an existing tree** opening,
+    2026-09-20, on the live instance at `TODO.md:515`, whose link is the correct one.
+    - **Cost:** no heading holding backticks can be linked without `validate-anchors` reporting it,
+      and that false positive is indistinguishable from a real break, so the check cannot be run to
+      zero. The "did you mean" line quotes the truncated slug, which invites the reader to break a
+      working link.
+    - **Fix direction:** strip the backticks and keep the span's text. The strip is in place today,
+      the shape the anchor rule already names for the em dash, so the spaces on both sides of a span
+      survive and double the hyphen.
+
 # References
