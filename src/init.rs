@@ -1,3 +1,4 @@
+mod adopt;
 mod params;
 pub use params::InitParams;
 
@@ -85,6 +86,15 @@ pub struct InitArgs {
     /// `--config`.
     #[command(flatten)]
     pub config: ConfigOption,
+
+    /// Grow an existing TARGET into a dual workspace rather than
+    /// refuse it.
+    ///
+    /// TARGET may be a plain directory, a repo with no workspace
+    /// config, or a single-repo workspace. A dual workspace is
+    /// refused, having nothing to grow.
+    #[arg(long)]
+    pub adopt: bool,
 
     /// The agent repo's directory, one name inside the project
     /// directory [default: .agent-session]. Dual only.
@@ -879,6 +889,7 @@ pub(crate) fn plan_init(
 
     if scope.is_work_only() {
         for (set, flag) in [
+            (params.adopt, "--adopt"),
             (params.agent_dir.is_some(), "--agent-dir"),
             (params.agent_repo.is_some(), "--agent-repo"),
             (params.agent_suffix.is_some(), "--agent-suffix"),
@@ -1285,6 +1296,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     let cfg = &ctx.user_config;
     let plan = plan_init(params, cfg)?;
     let is_dual = plan.scope.is_both();
+    let state = adopt::detect_target_state(&plan.project_dir)?;
+    debug!("init: target is {state:?}");
 
     // --- Preflight ---
     info!("Preflight checks...");
@@ -1298,9 +1311,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
     }
 
-    if plan.project_dir.exists() {
-        return Err(format!("'{}' already exists", plan.project_dir.display()).into());
-    }
+    check_target_state(&plan.project_dir, &state, params.adopt)?;
 
     match &plan.provisioner {
         Provisioner::GhCreate => {
@@ -1781,6 +1792,41 @@ fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         open_opts,
     )?;
     Ok(())
+}
+
+/// Whether init may go on with a target in `state`.
+///
+/// A fresh init wants an absent target, and `--adopt` an existing
+/// one it can grow. A dual workspace has nothing to grow, and the
+/// states adopt does not take yet are refused by name.
+fn check_target_state(
+    dir: &Path,
+    state: &adopt::TargetState,
+    adopting: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use adopt::TargetState;
+    let dir = dir.display();
+    match (state, adopting) {
+        (TargetState::Absent, false) => Ok(()),
+        (TargetState::Absent, true) => {
+            Err(format!("--adopt: '{dir}' does not exist: drop --adopt to create it").into())
+        }
+        (TargetState::Dual, _) => Err(format!(
+            "'{dir}' is already {}: there is nothing to adopt",
+            state.describe()
+        )
+        .into()),
+        (_, false) => Err(format!(
+            "'{dir}' already exists and is {}: pass --adopt to grow it into a dual workspace",
+            state.describe()
+        )
+        .into()),
+        (_, true) => Err(format!(
+            "--adopt: '{dir}' is {}, which adopt does not take yet",
+            state.describe()
+        )
+        .into()),
+    }
 }
 
 /// Split an `owner/name` slug. Errors if the shape is wrong (no `/`

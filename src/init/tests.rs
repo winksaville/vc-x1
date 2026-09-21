@@ -589,6 +589,7 @@ fn args_for(target: &str) -> InitArgs {
         },
         use_template: UseTemplateOption::default(),
         config: ConfigOption::default(),
+        adopt: false,
         agent_dir: None,
         agent_repo: None,
         agent_suffix: None,
@@ -655,6 +656,127 @@ fn cfg_two_accounts() -> UserConfig {
         bot_session_result_lines: None,
         bot_session_col_width: None,
     }
+}
+
+// ---------- the target's state ----------
+
+/// A scratch directory for one state test, removed on drop.
+struct StateDir(PathBuf);
+
+impl StateDir {
+    fn new(tag: &str) -> Self {
+        let dir = std::env::temp_dir().join(format!(
+            "vcx1-init-state-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0) // OK: test-only uniqueness suffix, and 0 fallback is harmless
+        ));
+        std::fs::create_dir_all(&dir).expect("create state dir");
+        Self(dir)
+    }
+
+    fn config(&self, body: &str) {
+        let fenced = format!("```toml\n{body}```\n");
+        std::fs::write(self.0.join(crate::config_md::VC_CONFIG_MD), fenced).expect("write config");
+    }
+}
+
+impl Drop for StateDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn state_reads_each_shape() {
+    use super::adopt::{TargetState, detect_target_state};
+
+    let d = StateDir::new("shapes");
+    assert_eq!(
+        detect_target_state(&d.0.join("missing")).unwrap(),
+        TargetState::Absent
+    );
+    std::fs::write(d.0.join("notes.txt"), "work\n").unwrap();
+    assert_eq!(detect_target_state(&d.0).unwrap(), TargetState::PlainDir);
+
+    std::fs::create_dir(d.0.join(".git")).unwrap();
+    assert_eq!(detect_target_state(&d.0).unwrap(), TargetState::Por);
+
+    d.config("[repos]\nwork = \".\"\n");
+    assert_eq!(detect_target_state(&d.0).unwrap(), TargetState::SingleRepo);
+
+    d.config("[repos]\nwork = \".\"\nagent = \".agent-session\"\n");
+    assert_eq!(detect_target_state(&d.0).unwrap(), TargetState::Dual);
+
+    // A dual workspace's agent repo declares itself as `.`, and is
+    // dual too.
+    d.config("[repos]\nwork = \"..\"\nagent = \".\"\n");
+    assert_eq!(detect_target_state(&d.0).unwrap(), TargetState::Dual);
+}
+
+#[test]
+fn state_refuses_what_no_state_describes() {
+    use super::adopt::detect_target_state;
+
+    let d = StateDir::new("refusals");
+    let file = d.0.join("a-file");
+    std::fs::write(&file, "x").unwrap();
+    let err = detect_target_state(&file).unwrap_err().to_string();
+    assert!(err.contains("not a directory"), "{err}");
+
+    // A config with no repo beside it.
+    d.config("[repos]\nwork = \".\"\n");
+    let err = detect_target_state(&d.0).unwrap_err().to_string();
+    assert!(err.contains("no repo"), "{err}");
+
+    // A repo whose config has no work side.
+    std::fs::create_dir(d.0.join(".jj")).unwrap();
+    d.config("[family]\nmember = \"x\"\n");
+    let err = detect_target_state(&d.0).unwrap_err().to_string();
+    assert!(err.contains("repos.work"), "{err}");
+}
+
+#[test]
+fn an_existing_target_needs_adopt() {
+    use super::adopt::TargetState;
+    let dir = Path::new("/x/proj");
+
+    check_target_state(dir, &TargetState::Absent, false).expect("fresh create");
+    let err = check_target_state(dir, &TargetState::Absent, true)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("does not exist"), "{err}");
+
+    for state in [
+        TargetState::PlainDir,
+        TargetState::Por,
+        TargetState::SingleRepo,
+    ] {
+        let err = check_target_state(dir, &state, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("pass --adopt"), "{err}");
+        assert!(err.contains(state.describe()), "{err}");
+    }
+    for adopting in [false, true] {
+        let err = check_target_state(dir, &TargetState::Dual, adopting)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("nothing to adopt"), "{err}");
+    }
+}
+
+#[test]
+fn adopt_is_meaningless_with_por() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.por.value = true;
+    args.adopt = true;
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .expect_err("refused")
+        .to_string();
+    assert!(err.contains("--adopt"), "{err}");
 }
 
 // ---------- the agent side's names ----------

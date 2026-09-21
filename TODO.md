@@ -122,7 +122,7 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [fix: squash-push tests never read the terminal][9] (done)
 - [feat: init records the agent-repo's name][2] (done)
 - [feat: init defaults to .agent-session][3] (done)
-- [feat: init adopt detects the target's state][4]
+- [feat: init adopt detects the target's state][4] (done)
 - [feat: init adopt takes a plain directory][5]
 - [feat: init adopt takes a POR][6]
 - [test: init adopt on a plain directory][7]
@@ -235,6 +235,30 @@ land inside the agent repo, and the name is a constant no caller can override.
 
 An existing target is refused before init looks at it, so the four states it could be in are
 indistinguishable to the command that has to grow them.
+
+* Init refused any existing target with one message, whatever it held.
+  - `--adopt` asks init to grow an existing target into a dual workspace, and init now reads which
+    of four states the target is in before it decides: a plain directory with no repo, a repo with
+    no workspace config, a single-repo workspace, or a dual-repo workspace.
+  - A repo is a `.git` or a `.jj` in the target itself, and the config's `repos.agent` separates
+    single-repo from dual. A dual workspace's agent repo declares `agent = "."`, so it reads as
+    dual.
+* The refusal did not say what would work.
+  - Without `--adopt`, an existing target is refused by its state and pointed at `--adopt`.
+  - A dual workspace is refused either way, having nothing to grow, and `--adopt` on a target that
+    does not exist is refused too, since a missing directory is likelier a typo than a request.
+  - The three states adopt will take are refused by name until their rungs land.
+* Some targets fit no state, and init must not guess at them.
+  - A file, a config with no repo beside it, and a config with no `repos.work` are errors, and a
+    legacy config gets its existing fix-it.
+  - A target inside another repo is not refused. Checking the ancestors would block every adopt
+    under a home directory kept in git, and the one nesting that matters, the agent repo of a dual
+    workspace, is caught by its config.
+* `--adopt` grows an agent side, so it is refused with `--por`.
+* Riding along, unrelated to adopt: this repo's `[validate] fast` is now the same list as `full`,
+  on trial. `cargo test --bins` saved about four seconds and skipped clippy and the integration
+  tests, where this cycle's failures turned up. The flag and the key stay, for a project whose
+  full run is slow.
 
 ##### feat: init adopt takes a plain directory
 
