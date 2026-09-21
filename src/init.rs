@@ -1,5 +1,6 @@
 mod adopt;
 mod params;
+mod steps;
 pub use params::InitParams;
 
 use std::path::{Path, PathBuf};
@@ -637,8 +638,33 @@ fn write_work_config(
             agent_repo: Some(agent_repo),
         }),
     )?;
-    write_file(&dir.join(".gitignore"), &render_work_gitignore(agent_dir))?;
-    Ok(())
+    write_work_gitignore(dir, agent_dir)
+}
+
+/// Write the work repo's `.gitignore`, or keep the one an adopted
+/// directory already has and give it the agent directory's line.
+///
+/// The line is what keeps the agent repo, a repo of its own inside
+/// the work tree, out of the work repo's commits.
+fn write_work_gitignore(dir: &Path, agent_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let path = dir.join(".gitignore");
+    let existing = match std::fs::read_to_string(&path) {
+        Ok(existing) => existing,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return write_file(&path, &render_work_gitignore(agent_dir));
+        }
+        Err(e) => return Err(format!("cannot read '{}': {e}", path.display()).into()),
+    };
+    let line = format!("/{agent_dir}");
+    if existing.lines().any(|l| l.trim() == line) {
+        return Ok(());
+    }
+    let sep = if existing.is_empty() || existing.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
+    write_file(&path, &format!("{existing}{sep}{line}\n"))
 }
 
 /// Write the dual-mode agent-side `.vc-config.md` and
@@ -873,6 +899,14 @@ pub(crate) fn plan_init(
             "--por takes a single template path; got '{t}' (drop the `,BOT` half)"
         )
         .into());
+    }
+
+    if params.adopt && params.use_template.is_some() {
+        return Err(
+            "--use-template is not taken with --adopt: a template would overwrite the \
+             adopted directory's files of the same name"
+                .into(),
+        );
     }
 
     if params.config.is_some() && !params.por {
@@ -1312,6 +1346,15 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     }
 
     check_target_state(&plan.project_dir, &state, params.adopt)?;
+    if let Some(agent) = &plan.agent
+        && agent.path.exists()
+    {
+        return Err(format!(
+            "'{}' already exists: name another agent directory with --agent-dir",
+            agent.path.display()
+        )
+        .into());
+    }
 
     match &plan.provisioner {
         Provisioner::GhCreate => {
@@ -1404,117 +1447,30 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         "--public"
     };
 
+    let steps = steps::Steps::new(
+        &plan,
+        params,
+        templates.as_ref(),
+        visibility,
+        create_symlink,
+    );
     if params.dry_run {
-        info!("Dry run, would execute:");
-        info!("  1. Create directories: {}", plan.project_dir.display());
-        info!(
-            "  2. git init + jj git init --colocate on {}",
-            if is_dual {
-                "both repos"
-            } else {
-                "the work repo"
-            }
-        );
-        info!(
-            "  3. Write .vc-config.md and .gitignore{}",
-            if is_dual {
-                " to both repos"
-            } else {
-                " (work-only layout)"
-            }
-        );
-        match &templates {
-            Some((c, b)) => {
-                info!("  4. Copy templates (non-hidden) + rewrite README.md first line");
-                info!("       work: {}", c.display());
-                if let Some(b) = b {
-                    info!("       bot:  {}", b.display());
-                }
-            }
-            None => info!("  4. (skipped, no --use-template)"),
-        }
-        if is_dual {
-            info!("  5. jj commit both with placeholder ochids");
-            info!("  6. Get both chids, jj describe both with correct ochids");
-            info!("  7. Remove jj from both (git clean -xdf)");
+        if params.adopt {
+            info!(
+                "Dry run, adopting {}, {}, would execute:",
+                plan.project_dir.display(),
+                state.describe()
+            );
         } else {
-            info!("  5. jj commit work with 'Initial commit'");
-            info!("  6. (skipped, no cross-reference in single-repo)");
-            info!("  7. Remove jj (git clean -xdf)");
+            info!("Dry run, would execute:");
         }
-        let agent_url = plan.agent.as_ref().map(|a| a.url.as_str());
-        let agent_slug = plan.agent.as_ref().and_then(|a| a.gh_slug.as_deref());
-        match &plan.provisioner {
-            Provisioner::GhCreate => {
-                if is_dual {
-                    info!(
-                        "  8. gh repo create {} {visibility}; push to {}",
-                        agent_slug.unwrap_or(""), // OK: dry-run display only
-                        agent_url.unwrap_or(""),  // OK: dry-run display only
-                    );
-                } else {
-                    info!("  8. (skipped, no bot side in single-repo)");
-                }
-                info!(
-                    "  9. gh repo create {} {visibility}; push to {}",
-                    plan.gh_work_slug.as_deref().unwrap_or(""), // OK: dry-run display only
-                    plan.work_url
-                );
-            }
-            Provisioner::LocalBareInit => {
-                if is_dual {
-                    info!(
-                        "  8. git init --bare {}; push to {}",
-                        plan.agent
-                            .as_ref()
-                            .and_then(|a| a.bare_path.as_ref())
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_default(), // OK: dry-run display only
-                        agent_url.unwrap_or(""), // OK: dry-run display only
-                    );
-                } else {
-                    info!("  8. (skipped, no bot side in single-repo)");
-                }
-                info!(
-                    "  9. git init --bare {}; push to {}",
-                    plan.work_bare_path
-                        .as_ref()
-                        .map(|p| p.display().to_string())
-                        .unwrap_or_default(), // OK: dry-run display only
-                    plan.work_url
-                );
-            }
-            Provisioner::ExternalPreExisting => {
-                if is_dual {
-                    info!(
-                        "  8. skip create; push to pre-existing {}",
-                        agent_url.unwrap_or(""), // OK: dry-run display only
-                    );
-                } else {
-                    info!("  8. (skipped, no bot side in single-repo)");
-                }
-                info!("  9. skip create; push to pre-existing {}", plan.work_url);
-            }
-        }
-        info!(
-            "  10. jj git init --colocate on {}",
-            if is_dual {
-                "both repos"
-            } else {
-                "the work repo"
-            }
-        );
-        if is_dual {
-            info!("  11. Create Claude Code symlink");
-        } else {
-            info!("  11. (skipped, no .claude symlink in single-repo)");
-        }
+        steps.print_all();
         return Ok(());
     }
 
     match &plan.agent {
-        None => create_por(params, &plan, templates, visibility, create_symlink),
-        Some(agent) => create_dual(params, &plan, agent, templates, visibility, create_symlink),
+        None => create_por(params, &plan, &steps, templates, visibility),
+        Some(agent) => create_dual(params, &plan, agent, &steps, templates, visibility),
     }
 }
 
@@ -1527,37 +1483,36 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 /// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no bot repo), no bot push, no symlink.
 ///
-/// `_create_symlink` is unused (no symlink in single-repo), kept in
-/// the signature for shape-symmetry with `create_dual`.
+/// `steps` numbers and titles each step as it starts.
 fn create_por(
     params: &InitParams,
     plan: &InitPlan,
+    steps: &steps::Steps,
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
-    _create_symlink: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use steps::Step;
     let work_template = templates.as_ref().map(|(c, _)| c.as_path());
 
+    steps.begin(Step::PrepareWork);
     prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+    steps.begin(Step::ConfigWork);
     match &params.config {
         None => write_por_vc_config(&plan.project_dir)?,
         Some(ConfigKind::None) => {} // skip, user asked not to write
         Some(ConfigKind::Path(p)) => copy_user_config(p, &plan.project_dir)?,
     }
     write_por_gitignore(&plan.project_dir)?;
+    steps.begin(Step::CommitWork);
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::None)?;
-
-    info!("Step 6: (skipped, no cross-reference in single-repo)");
     // Colocated, so the jj commit id is the git hash.
     let hash = jj::cid_of(&plan.project_dir, "@-")?;
     debug!("work repo: chid={work_chid} hash={hash}");
 
-    info!("Step 8: (skipped, no bot side in single-repo)");
-
+    steps.begin(Step::PublishWork);
     let work_chid_final = push_repo(
         &plan.project_dir,
         "work",
-        "Step 9",
         plan,
         params,
         visibility,
@@ -1565,8 +1520,6 @@ fn create_por(
         plan.gh_work_slug.as_deref(),
         plan.work_bare_path.as_deref(),
     )?;
-
-    info!("Step 11: (skipped, no .claude symlink in single-repo)");
 
     info!("");
     info!("Done! Project created at {}", plan.project_dir.display());
@@ -1595,16 +1548,19 @@ fn create_dual(
     params: &InitParams,
     plan: &InitPlan,
     agent: &AgentPlan,
+    steps: &steps::Steps,
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
-    create_symlink: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use steps::Step;
     let (work_template, agent_template) = match templates.as_ref() {
         Some((c, b)) => (Some(c.as_path()), b.as_deref()),
         None => (None, None),
     };
 
+    steps.begin(Step::PrepareWork);
     prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+    steps.begin(Step::ConfigWork);
     // The recorded name is the agent-repo's *remote* name, the last
     // segment of its origin URL, which is not `agent.name`: that is the
     // local directory's project name, and a fixture whose bare is
@@ -1612,18 +1568,23 @@ fn create_dual(
     // two diverging.
     let agent_repo = derive_name(&agent.url)?;
     write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
+    steps.begin(Step::CommitWork);
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::Placeholder)?;
 
+    steps.begin(Step::PrepareAgent);
     prepare_local_repo(&agent.path, "agent", agent_template, &agent.name)?;
+    steps.begin(Step::ConfigAgent);
     write_bot_config(&agent.path)?;
+    steps.begin(Step::CommitAgent);
     let agent_chid = commit_initial(&agent.path, "agent", OchidStrategy::Placeholder)?;
 
+    steps.begin(Step::CrossLink);
     cross_ref_ochids(&plan.project_dir, &work_chid, &agent.path, &agent_chid)?;
 
+    steps.begin(Step::PublishAgent);
     let agent_chid_final = push_repo(
         &agent.path,
         "agent",
-        "Step 8",
         plan,
         params,
         visibility,
@@ -1631,10 +1592,10 @@ fn create_dual(
         agent.gh_slug.as_deref(),
         agent.bare_path.as_deref(),
     )?;
+    steps.begin(Step::PublishWork);
     let work_chid_final = push_repo(
         &plan.project_dir,
         "work",
-        "Step 9",
         plan,
         params,
         visibility,
@@ -1643,11 +1604,10 @@ fn create_dual(
         plan.work_bare_path.as_deref(),
     )?;
 
-    let sl_opt = if create_symlink {
-        info!("Step 11: Creating Claude Code symlink...");
+    let sl_opt = if params.create_symlink {
+        steps.begin(Step::Symlink);
         Some(symlink::install(&plan.project_dir)?)
     } else {
-        info!("Step 11: (skipped, symlink disabled by caller)");
         None
     };
 
@@ -1685,15 +1645,12 @@ fn create_dual(
 /// - `target`: repo working dir (already populated by
 ///   `prepare_local_repo` + `commit_initial`).
 /// - `info_label`: narration tag (`"work"`, `"agent"`, etc.).
-/// - `step_label_provision`: `"Step 8"` (bot) or
-///   `"Step 9"` (work), appears in the provision/push narration.
 /// - `plan` / `params` / `visibility` / `remote_url` / `gh_slug` /
 ///   `bare_path`: forwarded to `run_remote_step`.
 #[allow(clippy::too_many_arguments)]
 fn push_repo(
     target: &Path,
     info_label: &str,
-    step_label_provision: &str,
     plan: &InitPlan,
     params: &InitParams,
     visibility: &str,
@@ -1701,34 +1658,24 @@ fn push_repo(
     gh_slug: Option<&str>,
     bare_path: Option<&Path>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Step 7: Setting {info_label} bookmark...");
     debug!("place {info_label}-side main bookmark at the initial commit");
     jj::bookmark_set(target, "main", "@-")?;
 
     run_remote_step(
-        step_label_provision,
-        info_label,
-        plan,
-        remote_url,
-        gh_slug,
-        bare_path,
-        visibility,
-        target,
-        params,
+        info_label, plan, remote_url, gh_slug, bare_path, visibility, target, params,
     )?;
 
     crate::common::verify_tracking(target, "main")?;
     jj::chid_of(target, "@-")
 }
 
-/// Execute Step 8 or Step 9 for one side.
+/// Provision one side's remote and push its `main` there.
 ///
 /// - Provision the remote per the plan's provisioner.
 /// - Add `origin` and push `main` with retry.
 /// - Centralizing keeps both sides' step bodies identical.
 #[allow(clippy::too_many_arguments)]
 fn run_remote_step(
-    step_label: &str,
     side_label: &str,
     plan: &InitPlan,
     remote_url: &str,
@@ -1743,7 +1690,7 @@ fn run_remote_step(
             // Safe: GhCreate always supplies gh_slug.
             #[allow(clippy::unwrap_used)]
             let slug = gh_slug.unwrap(); // OK: GhCreate path always sets gh_slug
-            info!("{step_label}: Creating GitHub repo {slug} ({side_label})...");
+            debug!("create GitHub repo {slug} ({side_label})");
             debug!("create {side_label}-side remote on GitHub");
             gh(&["repo", "create", slug, visibility], &plan.project_dir)?;
         }
@@ -1751,15 +1698,12 @@ fn run_remote_step(
             // Safe: LocalBareInit always supplies bare_path.
             #[allow(clippy::unwrap_used)]
             let bare = bare_path.unwrap(); // OK: LocalBareInit path always sets bare_path
-            info!(
-                "{step_label}: Initializing local bare repo at {} ({side_label})...",
-                bare.display()
-            );
+            debug!("init local bare repo at {} ({side_label})", bare.display());
             debug!("init {side_label}-side bare repo as the local origin");
             init_bare_main(bare)?;
         }
         Provisioner::ExternalPreExisting => {
-            info!("{step_label}: Using pre-existing {side_label} remote {remote_url}");
+            debug!("use pre-existing {side_label} remote {remote_url}");
         }
     }
     debug!("point {side_label}-side jj at its remote");
@@ -1799,6 +1743,9 @@ fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 /// A fresh init wants an absent target, and `--adopt` an existing
 /// one it can grow. A dual workspace has nothing to grow, and the
 /// states adopt does not take yet are refused by name.
+///
+/// - A plain directory is adopted: both repos are created around its
+///   content, which becomes the work repo's first commit.
 fn check_target_state(
     dir: &Path,
     state: &adopt::TargetState,
@@ -1807,7 +1754,7 @@ fn check_target_state(
     use adopt::TargetState;
     let dir = dir.display();
     match (state, adopting) {
-        (TargetState::Absent, false) => Ok(()),
+        (TargetState::Absent, false) | (TargetState::PlainDir, true) => Ok(()),
         (TargetState::Absent, true) => {
             Err(format!("--adopt: '{dir}' does not exist: drop --adopt to create it").into())
         }

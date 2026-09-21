@@ -123,7 +123,7 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init records the agent-repo's name][2] (done)
 - [feat: init defaults to .agent-session][3] (done)
 - [feat: init adopt detects the target's state][4] (done)
-- [feat: init adopt takes a plain directory][5]
+- [feat: init adopt takes a plain directory][5] (done)
 - [feat: init adopt takes a POR][6]
 - [test: init adopt on a plain directory][7]
 - [feat: init adopts an existing tree closing][8]
@@ -265,6 +265,36 @@ indistinguishable to the command that has to grow them.
 A directory that is no repo at all has to gain both repos at once, with its own content as the
 work-repo's first commit.
 
+* `--adopt` refused a plain directory as not taken yet.
+  - It is taken now: init creates both repos around the directory as a fresh init would, and the
+    work repo's first commit is everything its `.gitignore` does not exclude. The rest of the
+    fresh init, the configs, the cross-linked `ochid:` trailers, the remotes, and the symlink, is
+    unchanged.
+  - A directory already holding the agent directory is refused before anything is written, and
+    `--use-template` is refused with `--adopt`, since a template would overwrite files of the same
+    name (wink, 2026-09-21).
+* jj leaves a new file over 1MiB out of a snapshot, and the facade dropped the report that said so.
+  - The first commit tracks every file whatever its size and lists the ones over the limit (wink,
+    2026-09-21). The directory was adopted to be committed, and a `.gitignore` is how to keep a
+    file out. Only new files are limited, so once tracked, later snapshots take their changes.
+  - The snapshot now returns what it left out for size, and `commit_any_size` snapshots once to
+    learn that and again with the limit lifted. Every other caller still ignores the report, which
+    is [bugs.md #20](notes/bugs.md), since `push` can leave a new large file out the same way.
+* An adopted directory may already have a `.gitignore`.
+  - It is kept, and given the agent directory's line when it lacks it (wink, 2026-09-21). With
+    none, init writes its usual one.
+* Init's narration numbered its steps apart from the order they ran (wink, 2026-09-21).
+  - A real run printed Step 7, 8, 7, 9, 11 and prose for the rest, the dry run listed eleven steps
+    against the retired design, among them a `git clean -xdf` that would read as a threat to an
+    adopted directory's content, and a step 10 that no longer runs.
+  - One list in `src/init/steps.rs` now names each step a plan runs, numbered 1 to N in run order.
+    The dry run prints it whole and the real run prints `Step N: <title>` as each step starts, so
+    the two cannot disagree, and a step a plan does not run is left out rather than printed as
+    skipped.
+  - A dual run is ten steps, the last the symlink, and a single-repo run four. The helpers' own
+    lines that repeated a step's title became debug lines, and what they add, a commit's chid and
+    the files over the size limit, prints indented under its step.
+
 ##### feat: init adopt takes a POR
 
 A repo already carries history, a `.gitignore`, and possibly a single-repo config, none of which the
@@ -272,7 +302,10 @@ create path's unconditional writes may clobber.
 
 ##### test: init adopt on a plain directory
 
-The adopt paths are exercised by hand on one real directory and by nothing that runs again.
+The adopt rungs test `init()` in process, with the symlink turned off, so nothing that runs again
+drives the `vc-x1` binary through an adopt, and the symlink step is checked by hand alone. The rung
+adds CLI integration tests to `tests/cli_init.rs`, the binary as a subprocess with `HOME`
+redirected (wink, 2026-09-21).
 
 ##### feat: init adopts an existing tree closing
 
@@ -624,6 +657,28 @@ apply, and a command that applies it.
   key it no longer knows rather than renaming it. The same spelling across the family would be
   nice, not required. The candidates are `update-config`, `config --update`, and `config update`
   under **Nest the validate and fix commands**.
+
+### --repo takes a URL, and a separate flag takes the path for local remotes
+
+(wink, 2026-09-21) `--repo local=<dir>` reads as the local work repo, where it names the directory
+init creates the bare origins in, standing in for GitHub. The two categories of one flag also
+overlap, since `remote=` takes a path prefix too, meaning bare repos someone else created. Split
+them by what they take:
+
+- `--repo <url>` names a remote on a server, a URL and never a path.
+- A separate flag, `--repo-local <path>` or `--repo-test <path>`, the name for this cycle to settle,
+  takes a path and only a path, and init creates the bare repos there. The two conflict.
+- Init creates the path when it is missing. Today a missing one fails with jj's "Could not open
+  data at".
+- The bares are named after the project, `<path>/<name>.git` and `<path>/<name>.agent-session.git`,
+  not the fixed `remote-work.git`, so one path holds several projects' remotes as one GitHub account
+  holds several repos. The fixtures and `tests/cli_sync.rs` are built on the fixed names.
+- The user config's account keys, `repo.default` and `repo.category.<cat>`, were shaped for one
+  flag with categories (0.41.1-4). Two flags want a key each, named by their long names, and the
+  old keys rejected with a fix-it, which is work for [repos.agent becomes repos.agent-dir, and a
+  command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date).
+- `local=` and `remote=` as category values are rejected with a fix-it, not kept as aliases.
 
 ### The code says agent where it still says bot
 

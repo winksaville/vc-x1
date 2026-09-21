@@ -779,6 +779,175 @@ fn adopt_is_meaningless_with_por() {
     assert!(err.contains("--adopt"), "{err}");
 }
 
+// ---------- adopting a plain directory ----------
+
+/// Adopt a plain directory under `base/work`, with local bares under
+/// `base`, and no symlink.
+fn adopt_plain(base: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = args_for(&base.join("work").to_string_lossy());
+    args.repo.value = Some(RepoSelector {
+        category: "local".into(),
+        value: Some(base.to_string_lossy().into_owned()),
+    });
+    args.provision.dry_run.value = false;
+    args.adopt = true;
+    let mut params = InitParams::from(&args);
+    params.create_symlink = false;
+    init(&crate::test_helpers::test_ctx(), &params)
+}
+
+/// A plain directory's content, large files included, is the work
+/// repo's first commit, its `.gitignore` is kept and given the agent
+/// line, and the agent repo grows beside it, both published.
+#[test]
+fn adopt_plain_directory_commits_its_content() {
+    use crate::test_helpers::jj_ok_at;
+
+    let base = crate::test_helpers::unique_base("adopt-plain");
+    let work = base.join("work");
+    std::fs::create_dir_all(work.join("pins")).unwrap();
+    std::fs::write(work.join("notes.txt"), "a record\n").unwrap();
+    // Over jj's 1MiB new-file limit, which a plain snapshot skips.
+    std::fs::write(
+        work.join("pins").join("big.jsonl"),
+        vec![b'x'; 2 * 1024 * 1024],
+    )
+    .unwrap();
+    std::fs::write(work.join(".gitignore"), "*.log").unwrap();
+    std::fs::write(work.join("run.log"), "noise\n").unwrap();
+
+    adopt_plain(&base).expect("adopt a plain directory");
+
+    let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    for tracked in [".gitignore", ".vc-config.md", "notes.txt", "pins/big.jsonl"] {
+        assert!(
+            files.lines().any(|l| l == tracked),
+            "{tracked} tracked: {files}"
+        );
+    }
+    assert!(
+        !files.lines().any(|l| l == "run.log"),
+        "ignored stays out: {files}"
+    );
+    assert!(
+        !files.lines().any(|l| l.starts_with(".agent-session")),
+        "the agent repo is not in the work repo: {files}"
+    );
+
+    let gitignore = std::fs::read_to_string(work.join(".gitignore")).unwrap();
+    assert_eq!(
+        gitignore, "*.log\n/.agent-session\n",
+        "kept, and given the line"
+    );
+
+    let agent = work.join(".agent-session");
+    assert!(agent.join(".jj").exists(), "agent repo created");
+    assert!(base.join("remote-work.git").exists());
+    assert!(base.join("remote-work.agent-session.git").exists());
+    assert_eq!(
+        crate::common::configured_agent_repo(&work)
+            .unwrap()
+            .as_deref(),
+        Some("remote-work.agent-session")
+    );
+    // Cross-linked like a fresh init's.
+    let desc = crate::test_helpers::description(&work, "@-");
+    assert!(desc.contains("ochid: /.agent-session/"), "{desc}");
+
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// An adopted `.gitignore` that already names the agent directory is
+/// left as it is.
+#[test]
+fn adopt_keeps_a_gitignore_that_has_the_line() {
+    let base = crate::test_helpers::unique_base("adopt-gitignore");
+    let work = base.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    std::fs::write(work.join(".gitignore"), "/.agent-session\n/target\n").unwrap();
+    adopt_plain(&base).expect("adopt");
+    assert_eq!(
+        std::fs::read_to_string(work.join(".gitignore")).unwrap(),
+        "/.agent-session\n/target\n"
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// A plain directory already holding the agent directory is refused
+/// before anything is written.
+#[test]
+fn adopt_refuses_an_existing_agent_directory() {
+    let base = crate::test_helpers::unique_base("adopt-agent-exists");
+    let work = base.join("work");
+    std::fs::create_dir_all(work.join(".agent-session")).unwrap();
+    let err = adopt_plain(&base).expect_err("refused").to_string();
+    assert!(err.contains("--agent-dir"), "{err}");
+    assert!(!work.join(".jj").exists(), "nothing written");
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn adopt_refuses_a_template() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.adopt = true;
+    args.use_template.value = Some("../tmpl".into());
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .expect_err("refused")
+        .to_string();
+    assert!(err.contains("--use-template"), "{err}");
+}
+
+// ---------- the steps, numbered as they run ----------
+
+/// A dual plan runs ten steps in order, the symlink last, and drops
+/// the symlink when it is turned off rather than printing it skipped.
+#[test]
+fn steps_dual_run_in_order() {
+    use super::steps::{Step, Steps};
+    let args = args_for("git@github.com:winksaville/tf1");
+    let params = InitParams::from(&args);
+    let plan = plan_init(&params, &cfg_empty()).unwrap();
+    let all = Steps::new(&plan, &params, None, "--public", true);
+    assert_eq!(
+        all.steps(),
+        vec![
+            Step::PrepareWork,
+            Step::ConfigWork,
+            Step::CommitWork,
+            Step::PrepareAgent,
+            Step::ConfigAgent,
+            Step::CommitAgent,
+            Step::CrossLink,
+            Step::PublishAgent,
+            Step::PublishWork,
+            Step::Symlink,
+        ]
+    );
+    let no_symlink = Steps::new(&plan, &params, None, "--public", false);
+    assert_eq!(no_symlink.steps().len(), 9);
+    assert!(!no_symlink.steps().contains(&Step::Symlink));
+}
+
+/// A single-repo plan runs four steps, with no gaps where the agent
+/// side's would be.
+#[test]
+fn steps_por_have_no_gaps() {
+    use super::steps::{Step, Steps};
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.por.value = true;
+    let params = InitParams::from(&args);
+    let plan = plan_init(&params, &cfg_empty()).unwrap();
+    assert_eq!(
+        Steps::new(&plan, &params, None, "--public", true).steps(),
+        vec![
+            Step::PrepareWork,
+            Step::ConfigWork,
+            Step::CommitWork,
+            Step::PublishWork,
+        ]
+    );
+}
+
 // ---------- the agent side's names ----------
 
 /// `--agent-dir` names the directory, and the work config records it.

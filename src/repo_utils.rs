@@ -64,8 +64,8 @@ pub fn prepare_local_repo(
     template: Option<&Path>,
     name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!(
-        "Preparing local repo {info_label} directory at {}",
+    debug!(
+        "prepare local repo {info_label} directory at {}",
         target.display()
     );
 
@@ -76,12 +76,12 @@ pub fn prepare_local_repo(
 
     // The colocated init creates the git repo itself: the former
     // explicit `git init` was redundant (0.76.0-5).
-    info!("Initializing {info_label} repo (jj, colocated)...");
+    debug!("init {info_label} repo (jj, colocated)");
     jj::git_init_colocated(target)?;
 
     if let Some(t) = template {
-        info!(
-            "Copying {info_label} template: {} -> {}",
+        debug!(
+            "copy {info_label} template: {} -> {}",
             t.display(),
             target.display()
         );
@@ -94,6 +94,11 @@ pub fn prepare_local_repo(
 
 /// Commit the prepared working copy as an initial commit and
 /// return its chid (`jj @-`).
+///
+/// Every file not ignored goes in, whatever its size: an adopted
+/// directory's content is what the commit is for, and a `.gitignore`
+/// is how to keep a file out. Files over jj's new-file size limit are
+/// named, since a later snapshot would not have taken them.
 ///
 /// Pairs with `prepare_local_repo`: caller calls `prepare_local_repo`,
 /// optionally writes role-specific files (e.g. `.vc-config.toml`,
@@ -116,14 +121,20 @@ pub fn commit_initial(
         OchidStrategy::None => "Initial commit",
         OchidStrategy::Placeholder => "Initial commit\n\nochid: /none",
     };
-    info!("Committing {info_label}...");
-    jj::commit(target, msg)?;
+    debug!("commit {info_label}");
+    let large = jj::commit_any_size(target, msg)?;
+    if !large.is_empty() {
+        info!(
+            "  tracked {} file(s) over jj's new-file size limit:",
+            large.len()
+        );
+        for (path, size) in &large {
+            info!("    {path} ({size} bytes)");
+        }
+    }
 
     let chid = jj::chid_of(target, "@-")?;
-    info!(
-        "Committed {info_label} initial at {} chid = {chid}",
-        target.display()
-    );
+    info!("  {info_label} initial commit: chid {chid}");
     Ok(chid)
 }
 
@@ -150,7 +161,7 @@ pub fn cross_ref_ochids(
     bot_dir: &Path,
     bot_chid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Setting ochid cross-references...");
+    debug!("set ochid cross-references");
     // The bot-side ochid prefix is the bot dir's workspace-relative
     // path (`/<dir-name>`), derived from the dir init just created.
     let bot_name = bot_dir

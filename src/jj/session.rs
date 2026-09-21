@@ -57,7 +57,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
-use jj_lib::working_copy::{SnapshotOptions, WorkingCopyFreshness};
+use jj_lib::working_copy::{SnapshotOptions, UntrackedReason, WorkingCopyFreshness};
 use jj_lib::workspace::Workspace;
 use log::debug;
 use pollster::FutureExt;
@@ -268,6 +268,13 @@ impl RepoSession {
     /// The CLI's `maybe_snapshot`: import git HEAD, snapshot the
     /// working copy, import git refs, each its own operation.
     pub fn snapshot(&mut self) -> Result<()> {
+        self.snapshot_with(None).map(|_| ())
+    }
+
+    /// `snapshot`, with the new-file size limit overridden when
+    /// `max_new_file_size` is `Some`, returning the new files the
+    /// limit left untracked, with their sizes.
+    fn snapshot_with(&mut self, max_new_file_size: Option<u64>) -> Result<Vec<(String, u64)>> {
         let _lock = self.lock_git()?;
         // Reload at head (under the lock when colocated): sessions
         // outlive single verbs in a `Context`, and another process
@@ -277,11 +284,11 @@ impl RepoSession {
         if self.colocated {
             self.import_git_head()?;
         }
-        self.snapshot_working_copy()?;
+        let too_large = self.snapshot_working_copy(max_new_file_size)?;
         if self.colocated {
             self.import_git_refs()?;
         }
-        Ok(())
+        Ok(too_large)
     }
 
     /// Import a moved git HEAD (someone ran plain git here): check
@@ -327,7 +334,7 @@ impl RepoSession {
     /// Deviation: no immutable-wc-commit branch. vc-x1 never edits
     /// an immutable commit, and evaluating `immutable_heads()` needs
     /// the CLI's revset-alias machinery.
-    fn snapshot_working_copy(&mut self) -> Result<()> {
+    fn snapshot_working_copy(&mut self, max_override: Option<u64>) -> Result<Vec<(String, u64)>> {
         let name = self.workspace.workspace_name().to_owned();
         let repo = self.repo.clone();
 
@@ -351,6 +358,9 @@ impl RepoSession {
         if max_new_file_size == 0 {
             max_new_file_size = u64::MAX;
         }
+        if let Some(max) = max_override {
+            max_new_file_size = max;
+        }
         let options = SnapshotOptions {
             base_ignores: self.base_ignores()?,
             progress: None,
@@ -362,7 +372,7 @@ impl RepoSession {
         let workspace_root = self.workspace.workspace_root().to_owned();
         let mut locked_ws = self.workspace.start_working_copy_mutation().block_on()?;
         let Some(wc_commit_id) = repo.view().get_wc_commit_id(&name).cloned() else {
-            return Ok(()); // Workspace deleted from the repo view.
+            return Ok(Vec::new()); // Workspace deleted from the repo view.
         };
         let mut wc_commit = repo.store().get_commit(&wc_commit_id)?;
         match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo)
@@ -372,7 +382,7 @@ impl RepoSession {
             WorkingCopyFreshness::Updated(wc_operation) => {
                 self.repo = repo.reload_at(&wc_operation).block_on()?;
                 let Some(id) = self.repo.view().get_wc_commit_id(&name).cloned() else {
-                    return Ok(());
+                    return Ok(Vec::new());
                 };
                 wc_commit = self.repo.store().get_commit(&id)?;
             }
@@ -386,7 +396,17 @@ impl RepoSession {
             }
         }
 
-        let (new_tree, _stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+        let (new_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+        let too_large = stats
+            .untracked_paths
+            .iter()
+            .filter_map(|(path, reason)| match reason {
+                UntrackedReason::FileTooLarge { size, .. } => {
+                    Some((path.as_internal_file_string().to_string(), *size))
+                }
+                UntrackedReason::FileNotAutoTracked => None,
+            })
+            .collect();
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             debug!("working-copy tree changed; committing snapshot operation");
             let mut tx = self.repo.start_transaction();
@@ -415,7 +435,7 @@ impl RepoSession {
             self.repo = tx.commit("snapshot working copy").block_on()?;
         }
         locked_ws.finish(self.repo.op_id().clone()).block_on()?;
-        Ok(())
+        Ok(too_large)
     }
 
     /// Import git refs (fetch results, refs moved by plain git) and
@@ -568,6 +588,22 @@ impl RepoSession {
             )
             .into()),
         }
+    }
+
+    /// `commit`, tracking every new file whatever its size.
+    ///
+    /// Returns the new files over `snapshot.max-new-file-size`, with
+    /// their sizes, which a plain `commit` would have left out, so
+    /// the caller can say what the lifted limit let in. For a first
+    /// commit of content the user asked to adopt, where a silently
+    /// missing file is the worse outcome.
+    pub fn commit_any_size(&mut self, desc: &str) -> Result<Vec<(String, u64)>> {
+        let too_large = self.snapshot_with(None)?;
+        if !too_large.is_empty() {
+            self.snapshot_with(Some(u64::MAX))?;
+        }
+        self.commit(desc)?;
+        Ok(too_large)
     }
 
     /// Snapshot the working copy, then update the wc commit's

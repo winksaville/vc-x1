@@ -1133,6 +1133,9 @@ vc-x1 init my-project --repo local=/path/to/parent
 # Preview without executing
 vc-x1 init my-project --dry-run
 
+# Grow an existing plain directory into a dual workspace
+vc-x1 init . --adopt
+
 # Name the agent repo's directory and its remote
 vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
 vc-x1 init my-project --agent-repo my-project.claude
@@ -1154,6 +1157,7 @@ vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
 | `--por` | Plain single repo (no agent repo) |
+| `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
 | `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
@@ -1171,6 +1175,17 @@ Non-hidden contents are copied recursively into each target, and hidden entries 
 `.git/`, `.jj/`). If either template has a `README.md` at its root, its first line is rewritten to
 `# <repo-name>`: `<name>` for the work repo and `<name>.claude` for the bot repo. For local
 verification without hitting GitHub, combine `--use-template` with `--repo local=<PARENT>`.
+
+**`--adopt`**. Without it an existing TARGET is refused, named by what it holds. With it, init
+grows the target into a dual workspace:
+
+- A plain directory, no repo: both repos are created around it, and everything in it that its
+  `.gitignore` does not exclude is the work repo's first commit, whatever the file sizes. Files
+  over jj's new-file size limit (1MiB by default) are listed, since jj would otherwise leave them
+  out. A `.gitignore` it already has is kept and given the agent directory's line.
+- A dual-repo workspace is refused, having nothing to grow.
+
+`--adopt` is refused with `--por` and with `--use-template`, and on a TARGET that does not exist.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 

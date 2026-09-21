@@ -419,4 +419,17 @@ insert / delete / reorder.
       the shape the anchor rule already names for the em dash, so the spaces on both sides of a span
       survive and double the hyphen.
 
+20. **A snapshot leaves a new file over 1MiB out without a word.** The jj facade snapshots with
+    jj's `snapshot.max-new-file-size`, 1MiB by default, and discards the snapshot's report of the
+    files it left untracked, so a new file over the limit is silently not committed. Found by the
+    **feat: init adopt takes a plain directory** rung, 2026-09-21, whose acceptance directory holds
+    records of 7M to 10M.
+    - **Cost:** `vc-x1 push` commits the working copy through the same snapshot, so a new large
+      file in either repo is left out of the pushed commit, and the push reports success. The file
+      stays in the working copy, untracked, until someone notices it is missing from the remote.
+    - Init's first commit no longer has the gap: `commit_any_size` tracks every file and lists the
+      ones over the limit. Every other snapshot still has it.
+    - **Fix direction:** return the report from every snapshot and warn with the paths and sizes,
+      as jj's CLI does, or refuse a push that would leave a new file out.
+
 # References

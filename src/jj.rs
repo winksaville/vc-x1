@@ -67,8 +67,19 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 /// One-shot `RepoSession::commit`: update the wc commit's
 /// description and start a new empty change on top (`jj commit`).
+///
+/// Test-only since init's initial commit moved to
+/// [`commit_any_size`], its one production caller.
+#[cfg(test)]
 pub fn commit(repo: &Path, desc: &str) -> Result<()> {
     session::RepoSession::open(repo)?.commit(desc)
+}
+
+/// One-shot `RepoSession::commit_any_size`: `commit` tracking every
+/// new file whatever its size, returning those over the configured
+/// limit with their sizes.
+pub fn commit_any_size(repo: &Path, desc: &str) -> Result<Vec<(String, u64)>> {
+    session::RepoSession::open(repo)?.commit_any_size(desc)
 }
 
 /// One-shot `RepoSession::describe`: rewrite `rev`'s description
