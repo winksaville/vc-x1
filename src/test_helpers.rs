@@ -60,10 +60,13 @@ pub fn fixture(name: &str) -> Option<PathBuf> {
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Fresh `Context` for op-level tests: default user config, no
-/// sessions open. Matches the production shape of one `Context`
-/// per invocation without reading the developer's real config.
+/// sessions open, and no tty. Matches the production shape of one
+/// `Context` per invocation without reading the developer's real
+/// config or the terminal `cargo test` may have been run from.
 pub fn test_ctx() -> Context {
-    Context::new(crate::config::UserConfig::default())
+    let mut ctx = Context::new(crate::config::UserConfig::default());
+    ctx.stdin_is_tty = false;
+    ctx
 }
 
 /// Run `jj <args> -R <repo>` in a test, asserting success and

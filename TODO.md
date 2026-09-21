@@ -56,17 +56,6 @@ on a POR keeps its history and adds the agent side, on an already-dual workspace
 error, and a workspace whose config carries no `repos.agent-repo` still clones, taking `.claude`.
 `cargo test` passes and `vc-x1 config work` lists `repos.agent-repo`.
 
-#### Ladder
-
-- [feat: init adopts an existing tree opening][1] (done)
-- [feat: init records the agent-repo's name][2]
-- [feat: init defaults to .agent-session][3]
-- [feat: init adopt detects the target's state][4]
-- [feat: init adopt takes a plain directory][5]
-- [feat: init adopt takes a POR][6]
-- [test: init adopt on a plain directory][7]
-- [feat: init adopts an existing tree closing][8]
-
 #### Deliberation
 
 - Two `## Todo` entries are consumed rather than one. **init turns a POR into a dual-repo** is the
@@ -117,7 +106,17 @@ error, and a workspace whose config carries no `repos.agent-repo` still clones, 
   the fix, and an inserted rung would have had to push before the opening it depends on.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
-#### Ladder details
+#### Ladder
+
+- [feat: init adopts an existing tree opening][1] (done)
+- [fix: squash-push tests never read the terminal][9] (done)
+- [feat: init records the agent-repo's name][2]
+- [feat: init defaults to .agent-session][3]
+- [feat: init adopt detects the target's state][4]
+- [feat: init adopt takes a plain directory][5]
+- [feat: init adopt takes a POR][6]
+- [test: init adopt on a plain directory][7]
+- [feat: init adopts an existing tree closing][8]
 
 ##### feat: init adopts an existing tree opening
 
@@ -136,6 +135,29 @@ name. Publishing the bookmark broke a test, so the fix rides here too.
   - A heading's code-span text is dropped when its slug is computed, so the correct link at
     `TODO.md:515` reads as a break and the check cannot be run to zero. It has nothing to do with
     adopt, so it went to `notes/bugs.md` as #19.
+
+##### fix: squash-push tests never read the terminal
+
+Inserted ahead of the rung in flight, whose edits wait as a patch. `vc-x1 validate` run from a
+terminal failed one squash-push test and hung on another, since both reached the real prompt.
+
+* The tests assumed `cargo test` gives them no tty, and it does not: the test binary inherits the
+  stdin `cargo test` was started with, which is the terminal when a person runs it.
+  - `asking_without_a_tty_errors_rather_than_hangs` prompted, read an empty answer, and failed on
+    the decline. `pushs_stage_never_asks` prompted at rest and waited for an answer.
+  - The agent's own validation runs with no terminal, so it passed there and the gap went unseen.
+* Whether a person is there to ask is now read once, into `Context`, and a test states it.
+  - `Context::new` fills `stdin_is_tty` from the real stdin, `test_ctx` sets it false, and
+    squash-push's `confirm` takes it as an argument rather than reading stdin itself.
+  - The whole suite now passes under a pseudo-terminal, which is how the fix was checked.
+* `push` keeps its own four tty checks, since no test reaches them. They move to the `Context`
+  field when a test does.
+* This block's `#### Ladder` now follows `#### Deliberation` and heads the rung subsections, in
+  place of a separate `#### Ladder details` heading.
+  - The rungs' list sits beside the subsections it links, as their index.
+  - A rule bent by wink's say-so: the layout differs from the one `notes.md`, `cycle-model.md`, and
+    `AGENTS.md` describe. The bend covers this block's layout only. The agent-file text is left for
+    [The ladder heads the rung subsections](#the-ladder-heads-the-rung-subsections), its own cycle.
 
 ##### feat: init records the agent-repo's name
 
@@ -465,6 +487,22 @@ in one `agent-files` proposal cycle:
   verb into a name, and a reader is left to guess whether it means the push or the arrival on
   `main`. Say "land on `main`", or on whichever bookmark, wherever the name is used, and retire the
   entry.
+
+### The ladder heads the rung subsections
+
+(wink, 2026-09-21) The In Progress block puts `#### Ladder` after the Acceptance check and the rung
+subsections under a separate `#### Ladder details` heading, with the whole Deliberation between
+them. The **feat: init adopts an existing tree** block moved the ladder below the Deliberation,
+where it heads the subsections as their index, and dropped the second heading. Carry it into the
+agent-files in one `agent-files` proposal cycle:
+
+- notes.md, The In Progress block: the `Ladder details` area paragraph and the single-step case,
+  which then has no subsections under its `#### Ladder`.
+- cycle-model.md: the specimen's order and headings.
+- AGENTS.md: the Cycle-record items list, and step 4 of The per-rung flow, which names the area.
+- The cost to weigh: the ladder carries `(current)` and now sits past the Deliberation, outside the
+  60-line acquaint read. The Continuation notes name the rung in flight at a restart, which may be
+  enough, or the acquaint read may look for `(current)` instead.
 
 ### config --merge folds new keys into a workspace config
 
@@ -1186,4 +1224,5 @@ _None._
 [6]: #feat-init-adopt-takes-a-por
 [7]: #test-init-adopt-on-a-plain-directory
 [8]: #feat-init-adopts-an-existing-tree-closing
+[9]: #fix-squash-push-tests-never-read-the-terminal
 [12]: /notes/forks-multi-user.md
