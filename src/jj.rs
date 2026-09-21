@@ -135,7 +135,7 @@ pub fn git_clone_colocated(source: &str, target: &Path) -> Result<()> {
     // `absolute_git_url`): later fetches resolve the stored URL
     // against the repo dir, not the cwd the user typed it in
     // (bugs.md #2's class). URL forms pass through.
-    let mut url = gix::url::parse(source.into())?;
+    let mut url = gix::url::parse(source)?;
     url.canonicalize(&std::env::current_dir()?)?;
     let source = match String::from_utf8(url.to_bstring().into()) {
         Ok(s) => s,
@@ -609,7 +609,7 @@ pub fn wc_status(repo: &Path) -> Result<WcStatus> {
         {
             continue;
         }
-        let present = |side: &jj_lib::merge::MergedTreeValue| side.is_present();
+        let present = |side: &jj_lib::backend::MergedTreeValue| side.is_present();
         let letter = match (present(&diff.before), present(&diff.after)) {
             (false, false) => continue,
             (false, true) => 'A',

@@ -75,6 +75,17 @@ Sequenced with **status prints a verdict per repo and exits with a bit per side*
 about scope handling and per-side exit codes, so the scope resolution is written once rather than
 twice. Either one cycle covering both, or two adjacent with status first.
 
+### A squash-push test reads the live repo's bookmarks
+
+(wink, 2026-09-20) `squash_push::tests::the_default_is_to_act_without_asking` resolves a bare
+`squash-push`'s default bookmark against the vc-x1 repo the tests run in, not a fixture. At a
+cycle's opening the topic bookmark sits on `main`'s commit, the resolution refuses the two-bookmark
+tie, and the test fails until the cycle's first push moves the bookmark off `main`. The test should
+resolve against a fixture, or check only the `yes` default without resolving a bookmark. The
+`trunk()` tie-break in [squash-push and status take a
+SCOPE](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks) would also clear
+it, but a test should not depend on the live repo's state either way.
+
 ### Commit titles carry no scope, the declared types aside
 
 (wink, 2026-09-17) [Conventional commit scopes](agent-data/prose.md#conventional-commit-scopes)
@@ -1044,288 +1055,54 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: squash-push checks, asks, reports
+### fix: bump jj-lib to 0.45 and gix to 0.87
 
 #### Problem
 
-`squash-push` acts unconditionally and says nothing about what it left. It has no precheck, so a
-repo that is already fully published gets the whole sequence run at it anyway. It never asks, so
-there is no moment at which a caller can decline. It reports nothing, so after it returns the only
-way to learn whether both repos are published is to run `status` by hand. `vc-x1 push` calls it as
-its agent-side stage, where mid-push "dirty" is the normal state, so whatever is added has to stay
-out of push's way.
+The installed jj moved to 0.45.1, and the version gate refuses to run against a mismatched jj-lib,
+so vc-x1 built on jj-lib 0.44 stops at every command. jj-lib 0.45 resolves gix 0.87, and the
+lock-contention downcast needs the two to agree, so both crates move together.
 
 #### Solution
 
-A precheck, a prompt, and an after-check, all three reading one verdict, plus a default bookmark the
-command works out rather than assumes. `status` exposes `RepoVerdict`, the working-copy status with a
-named bookmark's publish state composed in, and `squash-push` adds the question only it can ask,
-whether the bookmark has reached the squash target. "Clean" is all three, and a clean run prints
-`<label>: clean` and exits 0 having touched nothing. Every at-rest run prints that line before
-acting as well as after, the after-check reporting only, since the exit code is the push's. With
-work found the run acts without asking, the default `squash-push.yes` sets, and `--ask` turns the
-prompt on while `--yes` turns it off, a non-tty run with the prompt on being an error rather than a
-hang. `BOOKMARK` lost its literal `main` default for the bookmark of the line the repo is on, the
-nearest one at or above the squash target, which is `main` on the agent repo and the topic bookmark
-on a work repo mid-cycle. One `at_rest` flag marks push's agent stage, where every line and the
-prompt go and only the precheck's decision stays.
+Bumped jj-lib to 0.45 and gix to 0.87 and followed the API moves the compiler surfaced. jj-lib now
+records a git HEAD per workspace, so `import_head`, `reset_head`, `update_intent_to_add`, and
+`View::git_head` take the workspace's name or root, and `restore_op` carries the view's `git_heads`
+map forward where it carried the single `git_head`. `GitBackend::git_workdir` is gone, and the
+colocation check reads the workdir from the backend's git repo instead. `RepoPathUiConverter` moved
+to `ui_path` and `MergedTreeValue` to `backend`. gix-url's `parse` takes any `AsBStr`, so the source
+passes as it is.
 
 #### Acceptance check
 
-In a fixture dual workspace: `vc-x1 squash-push -R <agent-dir>` against a fully published repo
-prints `<label>: clean`, exits 0, and leaves the remote ref where it was. Against a dirty one it
-prompts, `--yes` skips the prompt, `--ask` overrides a config `yes = true`, and a non-tty without
-`--yes` exits non-zero with a message rather than hanging. After a push it prints the state line,
-and the exit code reflects the push rather than the after-status, which the agent-repo's growing
-transcript can make read dirty. `vc-x1 push` completes every stage with no prompt on its agent side.
-`cargo test` passes and `vc-x1 config work` lists `squash-push.yes`.
+`vc-x1 validate` passes, and the installed `vc-x1-dev -V` reports jj-lib 0.45.1 and runs against
+the installed jj 0.45.1 without the version gate refusing.
 
-- Result: pass, with one case demonstrated directly rather than by fixture. `vc-x1-dev squash-push
-  -R .` on this work repo, the invocation that landed the cycle by accident on 2026-09-17, printed
-  `vc-x1: clean` and exited 0, and `main` stayed at `57c04360` while the topic bookmark stayed at
-  its tip. `vc-x1 config work` lists `squash-push.yes`. The remaining cases are pinned by 25 tests
-  in `squash_push`, each over a real fixture dual workspace: `precheck_stops_a_run_with_no_work`,
-  `a_bookmark_behind_the_target_is_not_clean`, `a_dirty_working_copy_is_named_then_left_clean`,
-  `asking_without_a_tty_errors_rather_than_hangs`, `a_clean_run_never_asks`,
-  `the_repo_config_answers_and_a_bad_value_errors`, `pushs_stage_never_asks`,
-  `pushs_stage_still_skips_a_run_with_no_work`, `the_default_bookmark_is_the_line_not_main`, and
-  `an_ambiguous_or_absent_line_is_refused`. Full validation passes, 610 tests.
-- Not checked as stated: the `--ask` prompt's interactive accept. A test binary has no tty, so what
-  is pinned is the refusal without one and the skip under `--yes`, and the accepted path was
-  exercised by hand only.
+Pass. `vc-x1 validate` passed in full before the bookmark existed, and after it every test but the
+waived one passes. `vc-x1-dev -VV` reports jj-lib 0.45.1 and jj 0.45.1 and runs, where the 0.84.10
+`vc-x1` is refused with `jj-lib 0.44.0 != jj 0.45.1`.
 
 #### Ladder
 
-- [feat: squash-push checks, asks, reports opening][1] (done)
-- [feat: squash-push checks before and after][2] (done)
-- [feat: squash-push asks before it acts][3] (done)
-- [refactor: push skips the squash-push prompt][4] (done)
-- [docs: squash-push's help matches what it does][5] (done)
-- [fix: squash-push defaults to the line it is on][6] (done)
-- [feat: squash-push checks, asks, reports closing][7] (done)
+- fix: bump jj-lib to 0.45 and gix to 0.87 (done)
 
 #### Deliberation
 
-- The status prerequisite is split rather than taken whole. The entry offered two cycles or one with
-  the status rung first, but `dirt` in `src/status.rs` is already the per-repo working-copy verdict
-  and only needs exposing and composing with the publish state. The rest of **status prints a
-  verdict per repo and exits with a bit per side**, its one-line default output, its `-v` blocks,
-  and its exit bit per side, is separate user-visible value with its own docs, so it stays its own
-  cycle. Folding it in would put two commands' behavior changes in one cycle.
-- Multi-step, since the two checks, the prompt, and push's stage are three reviewable changes and
-  the config key brings a prototype edit with them.
-- The verdict extraction was its own rung until the merge (wink, 2026-09-17). `vc-x1` is a binary
-  crate, so a `pub` item with no caller is dead code and `cargo clippy --all-targets -- -D warnings`
-  fails the rung, and a `#[cfg(test)]` caller silences only the test target. The alternative was a
-  temporary `#[allow(dead_code)]` that the next rung removed, which puts scaffolding in published
-  history. So the extraction lands with its first caller, which is also the first point at which
-  there is anything to review it against.
-- The titles carry no scope (wink, 2026-09-17), the slot earning its place only in a declared type,
-  and the stem `squash-push` collects the cycle instead. Today's rule already makes the scope
-  optional, so nothing bends here. The rule change itself is agent-file work and is entered in
-  `## Todo` as its own cycle.
-- The config key defaults to yes, so today's behavior is the default and the change is additive. A
-  boolean flag cannot turn a config yes back off, which is why `--ask` exists as `--yes`'s opposite
-  rather than a `--no-yes`.
-- The after-check's exit code says whether the push completed, not what the after-status found. The
-  agent-repo's transcript grows while the push runs, so a correct push often reports `dirty: @ has
-  changes` a moment later, and an exit code taking that as failure would be wrong.
-- `[squash-push.yes]` opens a table the prototype does not have. The shape follows its neighbours
-  and `build.rs` regenerates the registry and the default constant from it, so no copy is hand-kept.
-- Waiver, wink's, 2026-09-17: "permission to complete the cycle upto but not including the
-  close-out", read as the work and description review stops and the push approval on rungs 2
-  through 5. It does not cover the closing rung, and it does not cover Land, both of which stop for
-  the user. Validation still runs before every push, and so does the pre-push check for files the
-  working copy picked up unnoticed.
-- A rung was inserted before the closing (wink, 2026-09-17), after wink read `--help` and the README
-  and could not see the new capabilities. Two findings: the `long_about` still promised the
-  `already sync'd` message rung 2 deleted, which is a defect this cycle introduced, and the README
-  carried the rest only in its flag table and behavior notes, where the section's prose and examples
-  never mentioned it. Inside the cycle's subject, so a rung rather than a `## Todo` entry. The
-  waiver above extends to it on the same terms.
-- The per-rung docs discipline failed on the CLI surface. Rungs 2 through 4 each updated the module
-  doc and the README's notes, and none updated the `long_about` or the op's own doc comment, so the
-  two surfaces a user actually reads first drifted while the ones a reader of the source reads
-  stayed current.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-
-#### Ladder details
-
-##### feat: squash-push checks, asks, reports opening
-
-The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
-Todo entry into this block, enter the scope-rule entry it displaced, bump the version-of-record,
-and rename the package to its dev name.
-
-##### feat: squash-push checks before and after
-
-`squash-push` runs its sequence whatever state it finds and returns without saying what state it
-left, and the verdict that would tell it is private to `status` and covers the working copy alone.
-
-* The verdict was private and half an answer.
-  - `RepoVerdict` carries the working-copy status whole beside the named bookmark's publish state,
-    and `repo_verdict(repo, bookmark)` reads both in one pass. A `None` bookmark leaves the publish
-    half absent rather than clean, which is the distinction `status` needs and a boolean would have
-    flattened.
-  - The status blocks render from the same read, so exposing the verdict did not add a second walk
-    over the repo.
-  - `why()` joins the halves working copy first, and there is no `is_clean()`: the one caller wanted
-    the reason, so a second method saying only whether there was one had nothing to do.
-* The entry's definition of "clean" has a hole, and it loses a commit.
-  - "Clean" as written is `@` empty and undescribed and the bookmark at its origin. A repo where all
-    three hold but the bookmark sits behind the squash target has an unpublished commit, and a
-    precheck reading the entry literally would skip exactly the work the command exists to do.
-  - So the run composes a third condition of its own, the bookmark against the squash target, and
-    `RunState` is the verdict plus that answer. It stays out of `repo_verdict`, since which revision
-    a bookmark ought to have reached is this command's question and not one `status` can answer.
-  - The condition is not new behavior. The `already sync'd` early return it replaces compared the
-    bookmark to both the target and the remote, so the three comparisons were always there and the
-    precheck is where they now live, named.
-* Nothing said what state the run left.
-  - The after-check prints the same line the precheck does, and reports only. The agent repo's
-    transcript grows while the push runs, so a correct push commonly reads dirty a moment later, and
-    an exit code taking that as failure would call every successful agent-side push a failure.
-  - The label is the repo's directory name. `status` labels the work side `work` and the agent side
-    by its directory, but this command is given a path and no scope, so a name is what it has.
-
-##### feat: squash-push asks before it acts
-
-Nothing gives a caller a chance to decline, and the default has no home outside the flag.
-
-* A prompt has to default to not prompting, or it breaks every caller.
-  - `squash-push.yes` means "act without asking" and defaults to true, so a bare run behaves exactly
-    as it did and the change is additive. `--ask` turns the prompt on and `--yes` turns it off,
-    which is the shape a boolean config forces: a flag can only set true, so turning a configured
-    true back off needs a differently named flag, not a `--no-yes`.
-  - Resolution is flag, then key, then built-in, the order `agent-files diff` already resolves
-    `--custom` by, so the two commands answer the same question the same way.
-  - The key is read from the repo `-R` names rather than from the workspace, so each side may answer
-    differently and a plain repo outside a workspace simply has no answer. A malformed value is an
-    error naming the key, since a config that says something unreadable is not a default.
-* The prompt's placement decides what it can say.
-  - It sits between the precheck and the work, so it is asked only when there is something to
-    decline and its question carries the precheck's own line. A clean run never reaches it, which is
-    what lets asking be on without making a no-op run interactive.
-* A prompt with nowhere to read from hangs instead of failing.
-  - A non-tty stdin with asking on is an error naming `--yes`, the rule `push`'s step gate already
-    follows, and declining is an error too, so a scripted caller learns the run did not happen
-    rather than reading a success it did not get.
-  - `is_stdin_tty` moved from `push` to `common`, beside `prompt`. `push` already depends on
-    `squash-push`, so borrowing it the other way would have made the dependency circular, and the
-    test belongs with the function whose hazard it guards.
-* The config key had no home in the prototype.
-  - `[squash-push.yes]` opens the table, and `build.rs` renders the registry entry and the default
-    constant from it, so the behavioral default and the documented one are one line. The generated
-    `vc-config-model.md` regenerated with it, which its own test caught and named the fix for.
-
-##### refactor: push skips the squash-push prompt
-
-`push` drives `squash-push` as a stage where dirty is normal and no human is watching, so the
-precheck and the prompt are wrong there.
-
-* Two flags were growing where one distinction lives.
-  - `report_publish_state` already marked the difference between the user's invocation and push's
-    stage, and rung 3 had added `yes: true` beside it for the same reason. So the field is renamed
-    `at_rest` and broadened rather than joined by a third: it now gates the publish-mismatch report,
-    the precheck's line, the after-check's line, and the prompt, which are the whole of what this
-    command addresses to a person.
-  - The rename is the rung. Nothing was added, and the count of booleans describing the same fact
-    went from two to one.
-* What "off mid-push" means needed a line drawn through the precheck.
-  - The decision stays on and only the speech goes off. A stage with nothing to do should still do
-    nothing, and that was the behavior of the `already sync'd` early return the precheck replaced in
-    rung 2, so gating the whole precheck would have quietly taken it away from push.
-  - A test pins each half: the stage asks nothing where the same params at rest are an error, and the
-    stage still leaves the operation log untouched when it has no work.
-
-##### docs: squash-push's help matches what it does
-
-`--help` promises a message rung 2 deleted, and the command's own help says nothing about the
-precheck, the prompt, or the after-check.
-
-* The help promised output the binary no longer produces.
-  - The `long_about` still described reporting `already sync'd` and exiting 0. Rung 2 replaced that
-    message with the verdict line, so the help had been wrong since that rung landed, and it is the
-    first thing a user reads.
-  - It now carries the precheck's three conditions with the reason the third exists, the after-check
-    and its report-only status, the prompt and its two flags, and push's stage. The op's own doc
-    comment carried the same stale description and was corrected with it.
-  - Its two prose semicolons went while the string was being rewritten, which
-    [Comments are prose](agent-data/code.md#comments-are-prose) owes once a commit touches the file.
-* The README had the facts where a reader looks last.
-  - Everything new sat in the flag table and the behavior notes, so the section's opening prose and
-    its three examples described a command without a precheck or a prompt. The opening now states
-    both in two sentences and points at the notes for the detail.
-  - Two examples were added, an `--ask` run with its transcript and a no-op run, because the
-    clean-run behavior is the one worth seeing rather than reading: it makes the command safe to call
-    when unsure, and no prose says that as plainly as a two-line sample.
-* The lesson is about where docs live, not about this command.
-  - Each of rungs 2 through 4 updated the module doc and the README's notes, and none updated the
-    `long_about`. The surfaces a source reader sees stayed current while the surfaces a user sees
-    drifted, and nothing in the per-rung flow catches that, since validation does not read help text.
-    Recorded here rather than acted on, since a check for it is its own work.
-
-##### fix: squash-push defaults to the line it is on
-
-`BOOKMARK` defaults to the literal `main`, which on a work repo running a cycle means "land the
-cycle", and a run that acts says nothing about why, so it does that silently.
-
-* A literal default cannot know which line you are on.
-  - `default_value = "main"` was chosen for the agent repo, where `main` is the working line. On a
-    work repo running a cycle `main` is deliberately behind, so a bare run there meant "advance main
-    to the cycle tip and publish it", which is Land's fast-forward step done by accident. It
-    happened on 2026-09-17 and cost a backwards force-push of `main`.
-  - The default is now the nearest bookmarked ancestor of the squash target, which is "the branch
-    you are on" in the only sense jj affords, computed by `heads(::(<target>) & bookmarks())` over
-    the new `jj::local_bookmarks_at`. The literal is gone rather than relocated.
-  - It survives a local ladder, which the first design considered did not: the ladder's own commits
-    carry no bookmark, and resolving past them reaches the topic bookmark rather than `main`. A test
-    pins that case specifically.
-  - Several candidates or none is an error naming what it found. A wrong guess here publishes
-    something, so the caller decides.
-  - What this is not: a refusal when the bookmark sits behind the squash target. That is the agent
-    repo's normal state, `jj commit` having left `main` one behind, and advancing it is the whole
-    job. The line you are on is the discriminator, never the distance.
-* A run that acts said nothing about why.
-  - The verdict line printed only when there was nothing to do. With work found the flow went to the
-    prompt, which the default `yes` returns from silently, so the only line a user saw was the
-    after-check's, by which point the push had happened. That is what let the bad run pass
-    unremarked.
-  - The line now prints on every at-rest run, before the action as well as after, so
-    `dirty: bookmark behind the squash target` is on screen before anything moves.
-* A test was reading the developer's checkout.
-  - `try_from_canonicalizes_and_defaults` asserted the bookmark was `main` while resolving against
-    `.`, which the literal default made true everywhere and the new resolution would make depend on
-    whatever bookmark the checkout was on. It moved onto a fixture, where the answer is a fact about
-    the fixture rather than about the machine.
-
-##### feat: squash-push checks, asks, reports closing
-
-Closing out the cycle.
-
-* What closing taught: the cycle's own dogfooding found two defects its ladder had not planned for,
-  and both were in surfaces the per-rung flow does not check.
-  - The `long_about` promised a message rung 2 had deleted, and no rung noticed, because validation
-    compiles help text without reading it. Rungs 2 through 4 each updated the module doc and the
-    README's notes and none updated the CLI's own help. A rung was inserted to fix it.
-  - The literal `main` default published a cycle early during a routine at-rest squash-push, which
-    cost a backwards force-push of `main` on the remote. It was not a regression, since 0.84.9 would
-    have done the same, but this cycle was the one that made the command safe to run and so was the
-    cycle that owed the fix. A second rung was inserted for it.
-  - Both were found by the user running the built artifact, not by the ladder. The dev name is what
-    made that safe to do mid-cycle, and it is also what made the wrong run recoverable, since the
-    stable binary was never replaced.
-* Close-out shape: trapezoid, the default. The seven commits are steps toward one behavior rather
-  than seven independently interesting changes, so `git log --first-parent` should read one commit
-  per cycle while every rung stays reachable. Recorded here and executed at Land.
+- a cycle of its own, not a rung of the running feature cycle: the upgrade has nothing to do with
+  that feature, and landing it on `main` first lets the feature's bookmark rebase onto it
+  - its edits were separated out of that cycle's working copy, which is set aside as a patch until
+    this cycle lands
+- single-step: the compiler names every change, so there is one straightforward step
+- this cycle takes the version the feature cycle held, and the feature cycle renumbers at its
+  rebase: `main` then never steps backwards, and the rebase rewrites the feature's pushed opening
+  anyway
+- the push is waived past one failing test, by the user, for this push only: the waiver does not
+  cover Land or any later push
+  - `squash_push::tests::the_default_is_to_act_without_asking` reads the live repo's bookmarks,
+    and this cycle's bookmark on `main`'s commit trips its two-bookmark refusal. The fault is the
+    test's, not the upgrade's, and it goes to `## Todo` as [A squash-push test reads the live
+    repo's bookmarks](#a-squash-push-test-reads-the-live-repos-bookmarks)
 
 # References
 
-[1]: #feat-squash-push-checks-asks-reports-opening
-[2]: #feat-squash-push-checks-before-and-after
-[3]: #feat-squash-push-asks-before-it-acts
-[4]: #refactor-push-skips-the-squash-push-prompt
-[5]: #docs-squash-pushs-help-matches-what-it-does
-[6]: #fix-squash-push-defaults-to-the-line-it-is-on
-[7]: #feat-squash-push-checks-asks-reports-closing
 [12]: /notes/forks-multi-user.md

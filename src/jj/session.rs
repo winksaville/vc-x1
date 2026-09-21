@@ -53,9 +53,10 @@ use jj_lib::lock::FileLock;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
-use jj_lib::repo_path::{RepoPath, RepoPathUiConverter};
+use jj_lib::repo_path::RepoPath;
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
+use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::{SnapshotOptions, WorkingCopyFreshness};
 use jj_lib::workspace::Workspace;
 use log::debug;
@@ -197,7 +198,8 @@ fn is_colocated(workspace: &Workspace, repo: &Arc<ReadonlyRepo>) -> bool {
     let Ok(backend) = git::get_git_backend(repo.store()) else {
         return false;
     };
-    let Some(git_workdir) = backend.git_workdir() else {
+    let git_repo = backend.git_repo();
+    let Some(git_workdir) = git_repo.workdir() else {
         return false;
     };
     if git_workdir == workspace.workspace_root() {
@@ -286,12 +288,21 @@ impl RepoSession {
     /// out the new head and reset the working-copy state to it.
     fn import_git_head(&mut self) -> Result<()> {
         let mut tx = self.repo.start_transaction();
-        git::import_head(tx.repo_mut()).block_on()?;
+        git::import_head(
+            tx.repo_mut(),
+            self.workspace.workspace_name(),
+            self.workspace.workspace_root(),
+        )
+        .block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
         debug!("git HEAD moved; importing");
-        let new_git_head = tx.repo().view().git_head().clone();
+        let new_git_head = tx
+            .repo()
+            .view()
+            .git_head(self.workspace.workspace_name())
+            .clone();
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let name = self.workspace.workspace_name().to_owned();
             let head_commit = tx.repo().store().get_commit(new_git_head_id)?;
@@ -348,6 +359,7 @@ impl RepoSession {
             max_new_file_size,
         };
 
+        let workspace_root = self.workspace.workspace_root().to_owned();
         let mut locked_ws = self.workspace.start_working_copy_mutation().block_on()?;
         let Some(wc_commit_id) = repo.view().get_wc_commit_id(&name).cloned() else {
             return Ok(()); // Workspace deleted from the repo view.
@@ -391,6 +403,7 @@ impl RepoSession {
                 retry_git_lock(|| {
                     git::update_intent_to_add(
                         mut_repo.base_repo().as_ref(),
+                        &workspace_root,
                         &wc_commit.tree(),
                         &new_wc_commit.tree(),
                     )
@@ -507,7 +520,13 @@ impl RepoSession {
             retry_git_lock(|| {
                 if let Some(id) = &new_wc_commit_id {
                     let wc_commit = tx.repo().store().get_commit(id)?;
-                    git::reset_head(tx.repo_mut(), &wc_commit).block_on()?;
+                    git::reset_head(
+                        tx.repo_mut(),
+                        &name,
+                        self.workspace.workspace_root(),
+                        &wc_commit,
+                    )
+                    .block_on()?;
                 }
                 git::export_refs(tx.repo_mut())?;
                 Ok(())
@@ -657,7 +676,7 @@ impl RepoSession {
         let mut new_view = target_op.view().block_on()?.store_view().clone();
         let current_view = self.repo.view().store_view();
         new_view.git_refs = current_view.git_refs.clone();
-        new_view.git_head = current_view.git_head.clone();
+        new_view.git_heads = current_view.git_heads.clone();
         let mut tx = self.start_tx();
         tx.repo_mut().set_view(new_view);
         self.finish_tx(

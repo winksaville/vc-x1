@@ -17,12 +17,12 @@ use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::hex_util::encode_reverse_hex;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
-use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::{
     ResolvedRevsetExpression, RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions,
     RevsetParseContext, RevsetWorkspaceContext, SymbolResolver,
 };
 use jj_lib::settings::UserSettings;
+use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::workspace::Workspace;
 use log::{debug, error, info};
 use pollster::FutureExt;
