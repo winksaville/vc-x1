@@ -149,6 +149,31 @@ pub fn derive_bot_url(work_url: &str) -> String {
     }
 }
 
+/// Derive the agent-repo URL from the work-side URL and the name
+/// the workspace records for it.
+///
+/// The owner and the host come from the work URL, so only the last
+/// segment is replaced and a fork under a different owner resolves
+/// to that owner's agent-repo.
+///
+/// - `agent_repo` is `[remote] agent-repo`, the name the work-side
+///   config declares.
+/// - `None` falls back to [`derive_bot_url`], the `.claude` suffix
+///   every workspace created before the key carries. Absence is
+///   what marks such a workspace, so the fallback is read off the
+///   config rather than probed over the network.
+pub fn agent_url(work_url: &str, agent_repo: Option<&str>) -> String {
+    let Some(name) = agent_repo else {
+        return derive_bot_url(work_url);
+    };
+    let (stem, git) = match work_url.strip_suffix(".git") {
+        Some(stem) => (stem, ".git"),
+        None => (work_url, ""),
+    };
+    let cut = stem.rfind(['/', ':']).map_or(0, |i| i + 1);
+    format!("{}{name}{git}", &stem[..cut])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,6 +222,43 @@ mod tests {
     #[test]
     fn derive_name_local_bare_path_without_git() {
         assert_eq!(derive_name("/tmp/foo").unwrap(), "foo");
+    }
+
+    // --- agent_url -----------------------------------------------
+
+    /// A recorded name replaces the work URL's last segment, so the
+    /// owner and the host still come from the work side.
+    #[test]
+    fn agent_url_swaps_the_last_segment() {
+        assert_eq!(
+            agent_url("git@github.com:owner/repo.git", Some("repo.agent-session")),
+            "git@github.com:owner/repo.agent-session.git"
+        );
+        assert_eq!(
+            agent_url("https://github.com/owner/repo", Some("elsewhere")),
+            "https://github.com/owner/elsewhere"
+        );
+        assert_eq!(
+            agent_url("/tmp/foo.git", Some("bar.claude")),
+            "/tmp/bar.claude.git"
+        );
+        // A bare name has no separator, so the whole value is the
+        // segment being replaced.
+        assert_eq!(agent_url("repo", Some("agent")), "agent");
+    }
+
+    /// No recorded name is how a workspace created before the key
+    /// says so, and it reads as the `.claude` suffix.
+    #[test]
+    fn agent_url_without_a_name_falls_back_to_claude() {
+        assert_eq!(
+            agent_url("https://github.com/owner/repo.git", None),
+            derive_bot_url("https://github.com/owner/repo.git")
+        );
+        assert_eq!(
+            agent_url("https://github.com/owner/repo.git", None),
+            "https://github.com/owner/repo.claude.git"
+        );
     }
 
     // --- derive_bot_url ------------------------------------------

@@ -77,17 +77,37 @@ fn target_required_at_parse_time() {
 fn config_content_dual() {
     // Per-side variants: [repos] values are file-relative, so
     // the sides differ. The "." entry names the side.
-    let work = render_vc_config(ConfigRole::DualWork);
+    let work = render_vc_config(ConfigRole::DualWork, Some("proj.claude"));
     assert!(work.contains("work = \".\""));
     assert!(work.contains("agent = \".claude\""));
-    let bot = render_vc_config(ConfigRole::DualBot);
+    // The work side records the agent-repo's remote name, since it is
+    // what clone and sync read before an agent-repo exists to ask.
+    // An active line, not the header comment that also names the
+    // table.
+    assert!(work.lines().any(|l| l.trim_start() == "[remote]"));
+    assert!(work.contains("agent-repo = \"proj.claude\""));
+    let bot = render_vc_config(ConfigRole::DualBot, None);
     assert!(bot.contains("work = \"..\""));
     assert!(bot.contains("agent = \".\""));
+    assert!(!bot.lines().any(|l| l.trim_start() == "[remote]"));
+}
+
+/// No name renders no `agent-repo` line, which is the shape of every
+/// workspace created before the key and reads as the work repo's name
+/// plus `.claude`.
+#[test]
+fn config_content_dual_without_an_agent_repo_name() {
+    let work = render_vc_config(ConfigRole::DualWork, None);
+    assert!(work.contains("agent = \".claude\""));
+    assert!(
+        !work.lines().any(|l| l.trim_start() == "[remote]"),
+        "no active [remote] table"
+    );
 }
 
 #[test]
 fn config_optional_keys_are_commented_only() {
-    let work = render_vc_config(ConfigRole::DualWork);
+    let work = render_vc_config(ConfigRole::DualWork, None);
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
     assert!(work.contains("used by: agent-session --col-width"));
@@ -118,11 +138,19 @@ fn config_generated_toml_parses_to_active_keys_only() {
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     let path = dir.join(crate::config_md::VC_CONFIG_MD);
-    std::fs::write(&path, render_vc_config(ConfigRole::DualWork)).expect("write config");
+    std::fs::write(
+        &path,
+        render_vc_config(ConfigRole::DualWork, Some("proj.claude")),
+    )
+    .expect("write config");
 
     let map = crate::config_md::load_file(&path).expect("parse generated config");
     assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
     assert_eq!(map.get("repos.agent").map(String::as_str), Some(".claude"));
+    assert_eq!(
+        map.get("remote.agent-repo").map(String::as_str),
+        Some("proj.claude")
+    );
     assert!(!map.contains_key("agent-session.col-width"));
     assert!(!map.contains_key("push.state-file"));
 
@@ -136,7 +164,7 @@ fn config_generated_toml_parses_to_active_keys_only() {
 /// generated config ending in two bare tables.
 #[test]
 fn config_generated_has_no_empty_table() {
-    let rendered = render_vc_config(ConfigRole::DualWork);
+    let rendered = render_vc_config(ConfigRole::DualWork, Some("proj.claude"));
     let is_header = |l: &str| l.starts_with('[') && l.ends_with(']');
     let mut lines = rendered.lines().filter(|l| !l.trim().is_empty()).peekable();
     while let Some(line) = lines.next() {
@@ -953,7 +981,7 @@ fn error_por_with_comma_template() {
 
 #[test]
 fn config_content_work_only() {
-    let work_only_repo = render_vc_config(ConfigRole::WorkOnly);
+    let work_only_repo = render_vc_config(ConfigRole::WorkOnly, None);
     assert!(work_only_repo.contains("work = \".\""));
     assert!(!work_only_repo.contains("bot ="));
 }
@@ -1221,5 +1249,29 @@ fn dual_fixture_preserves_bot_across_work_clean() {
     assert!(
         fx.bot.join(crate::config_md::VC_CONFIG_MD).exists(),
         "the agent config must survive work-side clean"
+    );
+}
+
+/// The recorded `repos.agent-repo` is the agent-repo's *remote* name,
+/// not the local project's.
+///
+/// The fixture's project is called `work` while its agent bare is
+/// `remote-work.claude.git`, so a key written from the project name
+/// would send clone at a repo that does not exist. Writing the
+/// project name is the bug this test was added for.
+#[test]
+fn init_records_the_agent_repos_remote_name() {
+    let fx = crate::test_helpers::Fixture::new("init-agent-repo-key");
+    let recorded = crate::common::configured_agent_repo(&fx.work)
+        .expect("read config")
+        .expect("the key is written");
+    assert_eq!(recorded, "remote-work.claude");
+
+    // And it is what the derivation turns into the agent-repo's URL,
+    // beside the work bare it sits next to.
+    let work_url = format!("{}/remote-work.git", fx.base.display());
+    assert_eq!(
+        crate::url::agent_url(&work_url, Some(&recorded)),
+        format!("{}/remote-work.claude.git", fx.base.display())
     );
 }

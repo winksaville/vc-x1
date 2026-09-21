@@ -980,18 +980,36 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to five tables. `[repos]` is structural and written by
-`init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
-layer: the agent-file family this repo belongs to, and the commands that validate it.
-`[agent-files.diff]` and `[agent-files.copy]` (0.83.0) hold the defaults for the `agent-files`
-commands' `DIR` operand and `--custom` choice. All four are work side only: `validate-config`
-reports them unknown in the agent repo's config.
+A work-side `.vc-config.md` holds up to six tables:
+
+- `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
+  carries too.
+- `[remote]` (0.84.12): remote names rather than paths. Its one key, `agent-repo`, is the
+  agent-repo's name on its remote, which `clone` reads before there is an agent-repo to ask.
+  - Only the last URL segment is recorded. The owner and the host come from the work repo's own
+    remote, so the two repos are siblings in one namespace.
+  - An absent key means the work repo's name plus `.claude`, the name every workspace created
+    before the key carries.
+- `[family]` (0.80.0): the agent-file family this repo belongs to, which was prose in the project
+  layer before.
+- `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
+  before.
+- `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
+  commands' `DIR` operand and `--custom` choice.
+
+All but `[repos]` are work side only: `validate-config` reports them unknown in the agent repo's
+config.
 
 ````markdown
 ```toml
 [repos]
 work = "."
-agent = ".claude"
+agent = ".claude"                 # the agent repo's directory, relative to this file
+```
+
+```toml
+[remote]
+agent-repo = "vc-x1.claude"       # the agent repo's name on its remote
 ```
 
 ```toml

@@ -895,6 +895,23 @@ pub fn configured_bot_dir(
     }
 }
 
+/// The agent-repo's remote name the workspace config declares
+/// (`[remote] agent-repo`): a pure config read, no verification.
+///
+/// `Ok(None)` when the key is absent, which is how a workspace
+/// created before the key says so. The caller then falls back to
+/// the `.claude` suffix (see [`crate::url::agent_url`]). A
+/// workspace with no config at all answers the same way, since it
+/// declares nothing either.
+pub fn configured_agent_repo(
+    workspace_root: &Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(workspace_root)? else {
+        return Ok(None);
+    };
+    Ok(crate::toml_simple::toml_get(&cfg.map, "remote.agent-repo").cloned())
+}
+
 /// Resolve the bot repo of a workspace that *requires* one.
 ///
 /// The dual-only sibling of [`bot_repo_path`] for operations that

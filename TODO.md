@@ -9,7 +9,15 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+- Asked and not answered: whether the flag-name rule gets written down. A settable key's leaf is
+  its flag's long name, in nine pairs (`--account`, `--debug`, `--repo`, `--result-lines`,
+  `--col-width`, `--custom` twice, `--yes`, and the `[DIR]` operand), with no exception among the
+  keys that have a flag. It is written nowhere, which is how `remote.agent-name` came to be proposed
+  and corrected. The candidate home is one line in the "Shape:" prose of `vc-config.md`, in rung 2.
+- Asked three times and not answered: whether to write a `## Todo` entry for using "dual-repo
+  workspace" consistently and defining it in `README.md`. The spellings in the tree today are
+  dual-repo, dual workspace, POR, single-repo workspace, and `is_work_only()`, which `prose.md > One
+  spelling per term` forbids.
 
 ## In Progress
 
@@ -41,9 +49,9 @@ one it refuses, and grows the missing agent side: the agent-repo created and pub
 directory's content becomes the work-repo's first commit, and a repo's history is left alone. Beside
 it the agent side's default name becomes `.agent-session` on the directory and on the remote, with
 `--agent-dir` for the directory, `--agent-repo` for a full remote name, and `--agent-suffix` for a
-suffix that must begin with `.` or `-`, and a new `repos.agent-repo` key records the remote's name
-so clone and sync read it instead of deriving it. An absent key means `.claude`, which is what keeps
-every workspace created before the change clonable.
+suffix that must begin with `.` or `-`, and a new `[remote] agent-repo` key records the remote's
+name so clone and sync read it instead of deriving it. An absent key means `.claude`, which is what
+keeps every workspace created before the change clonable.
 
 #### Acceptance check
 
@@ -53,8 +61,8 @@ the first commit, `.agent-session` on both sides, two public repos under `winksa
 https, the Claude Code symlink live, and `vc-x1 status` clean on both sides. In a fixture, `--adopt`
 on a POR keeps its history and adds the agent side, on an already-dual workspace it refuses,
 `--agent-repo` with `--agent-suffix` is an error, a suffix opening with neither `.` nor `-` is an
-error, and a workspace whose config carries no `repos.agent-repo` still clones, taking `.claude`.
-`cargo test` passes and `vc-x1 config work` lists `repos.agent-repo`.
+error, and a workspace whose config carries no `[remote] agent-repo` still clones, taking
+`.claude`. `cargo test` passes and `vc-x1 config work` lists `remote.agent-repo`.
 
 #### Deliberation
 
@@ -64,7 +72,7 @@ error, and a workspace whose config carries no `repos.agent-repo` still clones, 
   adopted under `.claude` would be born into the mount collision.
   - The folded entry's open question, whether the GitHub repo suffix follows the directory, is
     answered yes (wink, 2026-09-20). Repos already published as `<name>.claude` keep their names,
-    and the `repos.agent-repo` key is what lets them.
+    and the `[remote] agent-repo` key is what lets them.
 - The plain-directory case is new work beyond the entry, which named a POR and a single-repo config
   only. Neither describes `../iiac-perf-expr-1`, and that directory is the acceptance check, so the
   third state is in scope from the start.
@@ -79,9 +87,9 @@ error, and a workspace whose config carries no `repos.agent-repo` still clones, 
   work remote, so a fork under another owner still resolves, and `notes/forks-multi-user.md` reads
   the config as the home for repos the project already tracks and a URL as the form for a one-off
   external contributor.
-- An absent `repos.agent-repo` means `.claude`, rather than a probe of both names. Absence is what
-  says the workspace predates the key, so the fallback is a fact about the file instead of a network
-  guess, and it retires once the key is everywhere.
+- An absent `[remote] agent-repo` means `.claude`, rather than a probe of both names. Absence is
+  what says the workspace predates the key, so the fallback is a fact about the file instead of a
+  network guess, and it retires once the key is everywhere.
 - Only init writes the key, since init writes the config anyway. A fetch that edits a tracked file
   would leave the tree dirty with an edit the user then owes a commit, so `clone` and `sync` suggest
   the key instead, and `validate-config` carries the suggestion, its job being the config files.
@@ -89,7 +97,9 @@ error, and a workspace whose config carries no `repos.agent-repo` still clones, 
   and **clone takes --agent for the agent-repo's source** rank above this one: sync's act becomes a
   call into what adopt builds, and clone's flag stays the per-contributor URL the config key
   deliberately does not carry.
-- The entry **config --merge folds new keys into a workspace config** stays too. Adopt patches the
+- The entry [repos.agent becomes repos.agent-dir, and a command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date) stays too,
+  holding what was **config --merge folds new keys into a workspace config**. Adopt patches the
   `[repos]` table it owns rather than growing a general merge.
 - Multi-step, with the two name rungs ahead of the four adopt rungs. Each adopt rung would otherwise
   be written against a default and a derivation it is about to change.
@@ -110,7 +120,7 @@ error, and a workspace whose config carries no `repos.agent-repo` still clones, 
 
 - [feat: init adopts an existing tree opening][1] (done)
 - [fix: squash-push tests never read the terminal][9] (done)
-- [feat: init records the agent-repo's name][2]
+- [feat: init records the agent-repo's name][2] (done)
 - [feat: init defaults to .agent-session][3]
 - [feat: init adopt detects the target's state][4]
 - [feat: init adopt takes a plain directory][5]
@@ -163,6 +173,34 @@ terminal failed one squash-push test and hung on another, since both reached the
 
 Nothing records what a workspace's agent-repo is called, so every reader that needs the name appends
 `.claude` to the work source, and a workspace naming it anything else cannot be found.
+
+* There is nowhere in a workspace to record the agent-repo's name.
+  - A workspace is two repos ([the dual-repo model](AGENTS.md#the-dual-repo-model)), and the
+    agent-repo has a remote of its own. Where it sits locally is `repos.agent`'s answer, a path
+    that defaults to a directory inside the work-repo's and may name anywhere in the tree. What it
+    is called on its remote was nobody's answer.
+  - The work-side `.vc-config.md` gains a `[remote]` table whose `agent-repo` key holds the last
+    segment of that remote's URL. The file is markdown whose `toml` fences are the configuration
+    and whose prose reaches no parser, which is [how the carrier is
+    read](vc-config.md#how-this-file-is-read).
+  - A table of its own, not a second `[repos]` entry: `[repos]` registers local paths, and the two
+    keys a letter apart were misread at review the day the key was drafted.
+  - README.md's [Workspace config tables](README.md#workspace-config-tables) documents the table
+    beside the others, now as one bullet per table where it was one paragraph for all of them.
+  - Our own config now carries `[remote] agent-repo = "vc-x1.claude"`, the name GitHub holds this
+    project's agent-repo under, while `repos.agent` puts it at `.agent-session`. The two differ
+    here, which is why neither can be derived from the other.
+* Every workspace that already exists records no agent-repo name, and that cannot be an error.
+  - An absent key reads as the `.claude` suffix, and `validate-config` suggests the key without
+    counting a finding, so an old workspace still validates clean while the suggestion spreads it.
+* Clone needed the agent-repo's name before it had the config that holds it.
+  - The URL derivation moved to after the work clone, beside the `repos.agent` read already waiting
+    there. The legacy branch is not asked for the key, since it is reached only when the `[repos]`
+    config was rejected.
+* Init had the project's name and the remote's both in reach, and recorded the project's.
+  - The value written is the last segment of the agent-repo's origin URL, not the plan's `bot_name`,
+    which is the local directory's project name. The `cli_sync` fixture caught it: a project called
+    `tr` whose agent bare is `remote-work.claude.git`.
 
 ##### feat: init defaults to .agent-session
 
@@ -488,6 +526,12 @@ in one `agent-files` proposal cycle:
   `main`. Say "land on `main`", or on whichever bookmark, wherever the name is used, and retire the
   entry.
 
+Evidence, 2026-09-20: rung 2 of **feat: init adopts an existing tree** took four review rounds on
+its `Ladder details`, and every round found a record-prose defect rather than a code one. The `*`
+facets stated answers where problems go, "the name" left its referent a paragraph away, the text
+assumed the reader knew `.vc-config.md` and the markdown-as-config carrier, and "this workspace
+records" gave a workspace agency it has not got.
+
 ### The ladder heads the rung subsections
 
 (wink, 2026-09-21) The In Progress block puts `#### Ladder` after the Acceptance check and the rung
@@ -504,14 +548,34 @@ agent-files in one `agent-files` proposal cycle:
   60-line acquaint read. The Continuation notes name the rung in flight at a restart, which may be
   enough, or the acquaint read may look for `(current)` instead.
 
-### config --merge folds new keys into a workspace config
+### repos.agent becomes repos.agent-dir, and a command brings a config up to date
 
-(wink, 2026-09-02) `vc-x1 config` prints and validates, and a workspace whose config predates a
-key learns of it only by reading the model. A `--merge` takes the model's tables and keys, adds
-the ones the file lacks as commented lines with their default or example, leaves what the file
-holds untouched, and writes the file back for review in the working copy. First use: dogfood it
-on this repo's `.vc-config.md`, which the **feat: the status and agent-files commands** cycle
-left without the `[agent-files.*]` tables on purpose.
+(wink, 2026-09-02, 2026-09-21) Two changes that need each other: a key rename every adopter must
+apply, and a command that applies it.
+
+- `repos.agent` becomes `repos.agent-dir`. It holds the agent-repo's directory while `[remote]
+  agent-repo` holds its name on the remote, and the flag that sets the directory is `--agent-dir`.
+  A key's leaf is its flag's long name everywhere else.
+  - Breaking, unlike the `[remote]` key: every adopter's config carries `repos.agent`, and
+    workspace-root discovery reads it. The old key is rejected with a fix-it, as `repos.bot` was
+    at 0.80.0 (`reject_old_agent_keys` in `src/legacy_vc_config.rs`), never read as an alias.
+- A command brings a config up to date, and the fix-it names it. Today `vc-x1 config` prints and
+  validates, and a workspace whose config predates a change learns of it only by reading the model.
+  - It renames every old key found, across both sides' config files, from one old-to-new table that
+    also carries `repos.bot`.
+  - It adds the model's tables and keys the file lacks, as commented lines with their default or
+    example, and leaves what the file holds untouched.
+  - It edits in place and keeps the prose: in a `.vc-config.md` only the key lines inside the `toml`
+    fences change, and prose that still names an old key is reported rather than rewritten.
+  - A dry run by default, as `fix-desc` and `fix-todo` are, and the result is reviewed in the
+    working copy.
+  - First use: this repo's `.vc-config.md`, which the **feat: the status and agent-files commands**
+    cycle left without the `[agent-files.*]` tables on purpose.
+- The name is undecided. iiac-perf has `update-config FILE`, which does the same job by
+  regenerating the file from its template, keeping the values and losing the prose, and fails on a
+  key it no longer knows rather than renaming it. The same spelling across the family would be
+  nice, not required. The candidates are `update-config`, `config --update`, and `config update`
+  under **Nest the validate and fix commands**.
 
 ### validate-anchors fails a cross-file link whose file is absent
 

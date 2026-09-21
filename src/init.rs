@@ -333,20 +333,39 @@ pub(crate) enum ConfigRole {
 /// Renders the header comment + active `[repos]` registry for a
 /// generated config file, role-specific. The text is TOML, and
 /// `render_vc_config` fences it.
-fn render_workspace_header(role: ConfigRole) -> String {
+fn render_workspace_header(role: ConfigRole, agent_repo: Option<&str>) -> String {
     match role {
-        ConfigRole::DualWork => r#"# vc-config: Vibe Coding workspace configuration
+        ConfigRole::DualWork => {
+            // The agent-repo's remote name is the work side's to
+            // record: clone and sync read it from here, since at the
+            // moment they need it there is no agent-repo to ask. It
+            // gets a table of its own because `[repos]` registers
+            // local paths and this is a remote name. A `None` name
+            // omits the table, which is the shape every workspace
+            // created before the key has, and reads as the work name
+            // plus `.claude`.
+            let remote_table = match agent_repo {
+                Some(name) => format!("\n[remote]\nagent-repo = \"{name}\"\n"),
+                None => String::new(),
+            };
+            format!(
+                r#"# vc-config: Vibe Coding workspace configuration
 #
 # [repos] is the workspace's repo registry: work and bot are paths
 # relative to this file's directory (absolute allowed, discouraged).
 # The entry that resolves to this config's own directory names the
 # side: work = "." makes this the work repo.
+#
+# [remote] holds remote names rather than paths. agent-repo is the
+# agent-repo's name on its remote, the last URL segment only, since
+# the owner and the host come from the work repo's own remote.
 
 [repos]
 work = "."
 agent = ".claude"
-"#
-        .to_string(),
+{remote_table}"#
+            )
+        }
         ConfigRole::DualBot => r#"# vc-config: Vibe Coding workspace configuration
 #
 # [repos] is the workspace's repo registry: work and bot are paths
@@ -396,7 +415,9 @@ fn render_optional_keys_block() -> String {
 
     let mut current_section: Option<String> = None;
     for key in schema() {
-        if key.path.starts_with("repos.") {
+        // `[repos]` and `[remote]` are rendered actively above, so
+        // their keys are not offered again as commented overrides.
+        if key.path.starts_with("repos.") || key.path.starts_with("remote.") {
             continue;
         }
         if !key
@@ -460,8 +481,8 @@ the binary you are running.
 /// is commented, so splitting it into per-table fences would make a
 /// document of empty fences. A workspace that uncomments a key is
 /// free to split the file up, which the carrier reads the same way.
-pub(crate) fn render_vc_config(role: ConfigRole) -> String {
-    let mut toml = render_workspace_header(role);
+pub(crate) fn render_vc_config(role: ConfigRole, agent_repo: Option<&str>) -> String {
+    let mut toml = render_workspace_header(role, agent_repo);
     toml.push_str(&render_optional_keys_block());
     format!("{CONFIG_MD_INTRO}```toml\n{toml}```\n")
 }
@@ -493,7 +514,7 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::WorkOnly),
+        &render_vc_config(ConfigRole::WorkOnly, None),
     )
 }
 
@@ -526,10 +547,13 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 
 /// Write the dual-mode work-side `.vc-config.md` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
-fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// `agent_repo` is the agent-repo's name on the remote, recorded as
+/// `repos.agent-repo` so clone and sync need not derive it.
+fn write_work_config(dir: &Path, agent_repo: &str) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::DualWork),
+        &render_vc_config(ConfigRole::DualWork, Some(agent_repo)),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
     Ok(())
@@ -540,7 +564,7 @@ fn write_work_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::DualBot),
+        &render_vc_config(ConfigRole::DualBot, None),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())
@@ -1480,7 +1504,13 @@ fn create_dual(
     };
 
     prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
-    write_work_config(&plan.project_dir)?;
+    // The recorded name is the agent-repo's *remote* name, the last
+    // segment of its origin URL, which is not `bot_name`: that is the
+    // local directory's project name, and a fixture whose bare is
+    // `remote-work.claude.git` under a project called `tr` shows the
+    // two diverging.
+    let agent_repo = derive_name(bot_url)?;
+    write_work_config(&plan.project_dir, &agent_repo)?;
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::Placeholder)?;
 
     prepare_local_repo(bot_dir, "agent", bot_template, bot_name)?;
