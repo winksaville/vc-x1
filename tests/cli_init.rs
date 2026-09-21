@@ -15,7 +15,7 @@ mod common;
 use common::{CliFixture, run_ok};
 
 /// `vc-x1 init <base>/work --por --repo=local=<base>` lays down
-/// the POR layout: work repo at `<base>/work/`, no `.claude/`
+/// the POR layout: work repo at `<base>/work/`, no `.agent-session/`
 /// peer, bare origin at `<base>/remote.git`.
 #[test]
 fn cli_init_por_creates_layout() {
@@ -34,8 +34,8 @@ fn cli_init_por_creates_layout() {
 
     assert!(work.exists() && work.is_dir(), "work dir present");
     assert!(
-        !work.join(".claude").exists(),
-        "POR layout must not have a .claude/ peer"
+        !work.join(".agent-session").exists(),
+        "POR layout must not have a .agent-session/ peer"
     );
     assert!(
         fx.path("remote.git").exists(),
@@ -46,7 +46,7 @@ fn cli_init_por_creates_layout() {
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.path("remote-work.claude.git").exists(),
+        !fx.path("remote-work.agent-session.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
@@ -57,7 +57,7 @@ fn cli_init_por_creates_layout() {
 fn cli_init_dual_creates_layout() {
     let fx = CliFixture::new("init-dual-layout");
     let work = fx.path("work");
-    let bot = work.join(".claude");
+    let bot = work.join(".agent-session");
     let base_str = fx.base.to_string_lossy().into_owned();
     let work_str = work.to_string_lossy().into_owned();
 
@@ -69,13 +69,16 @@ fn cli_init_dual_creates_layout() {
     );
 
     assert!(work.exists() && work.is_dir(), "work dir present");
-    assert!(bot.exists() && bot.is_dir(), "nested .claude dir present");
+    assert!(
+        bot.exists() && bot.is_dir(),
+        "nested .agent-session dir present"
+    );
     assert!(
         fx.path("remote-work.git").exists(),
         "work-side bare origin present"
     );
     assert!(
-        fx.path("remote-work.claude.git").exists(),
+        fx.path("remote-work.agent-session.git").exists(),
         "bot-side bare origin present"
     );
     assert!(

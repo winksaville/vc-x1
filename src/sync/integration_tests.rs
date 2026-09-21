@@ -232,7 +232,7 @@ fn sync_bot_noop_when_up_to_date() {
 #[test]
 fn sync_bot_jj_new_when_main_moves() {
     let fx = Fixture::new("bot-jjnew-moved");
-    let remote_bot = fx.base.join("remote-work.claude.git");
+    let remote_bot = fx.base.join("remote-work.agent-session.git");
     let remote_head = push_from_clone(
         &fx.base,
         &remote_bot,
@@ -297,7 +297,7 @@ fn sync_bot_errors_when_at_parent_off_main() {
 #[test]
 fn sync_conflict_stops_and_keeps_state() {
     let fx = Fixture::new("trailing-conflict");
-    let remote_bot = fx.base.join("remote-work.claude.git");
+    let remote_bot = fx.base.join("remote-work.agent-session.git");
     push_from_clone(
         &fx.base,
         &remote_bot,
@@ -638,7 +638,7 @@ fn sync_feature_bookmark_pins_bot_to_main() {
     jj_ok(&fx.work, &["bookmark", "create", "feature", "-r", "main"]);
     jj_ok(&fx.work, &["git", "push", "--bookmark", "feature"]);
     // Bot remote advances main while feature work is underway.
-    let remote_bot = fx.base.join("remote-work.claude.git");
+    let remote_bot = fx.base.join("remote-work.agent-session.git");
     let remote_head = push_from_clone(
         &fx.base,
         &remote_bot,

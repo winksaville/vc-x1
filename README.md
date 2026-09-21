@@ -1098,9 +1098,20 @@ the source project was created with `vc-x1 init`.
 
 ### init
 
-Create a new dual-repo project: a work repo with a `.claude` bot repo as a git submodule. Both repos
-are initialized with `git` and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The
-bot repo is added as a submodule so `git clone --recursive` clones both.
+Create a new dual-repo project: a work repo with its agent repo nested inside it, at
+`.agent-session` unless `--agent-dir` names another directory. Both repos are initialized with `git`
+and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores the agent
+repo's directory, and its config records where the agent repo is and what its remote calls it, so
+`vc-x1 clone` fetches both.
+
+The agent repo's remote name is the work repo's name plus `.agent-session`, beside the work repo
+under the same owner:
+
+- `--agent-suffix` replaces the suffix, and must begin with `.` or `-`.
+- `--agent-repo` gives the whole name instead, and the two conflict.
+- The directory and the remote name are chosen separately, so `--agent-dir` changes neither name.
+- A workspace created before 0.84.12 records no remote name, which reads as `.claude`, the suffix
+  init used then.
 
 ```
 # Create public project in current directory (GitHub via gh)
@@ -1122,6 +1133,10 @@ vc-x1 init my-project --repo local=/path/to/parent
 # Preview without executing
 vc-x1 init my-project --dry-run
 
+# Name the agent repo's directory and its remote
+vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
+vc-x1 init my-project --agent-repo my-project.claude
+
 # Seed both repos from template directories (sibling layout)
 vc-x1 init my-project --use-template \
     ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
@@ -1138,7 +1153,10 @@ vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
 | `[NAME]` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
-| `--por` | Plain single repo (no `.claude/` companion) |
+| `--por` | Plain single repo (no agent repo) |
+| `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
+| `--agent-repo <NAME>` | The agent repo's whole remote name |
+| `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
 | `--private` | Create private GitHub repos [default: public] |
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |

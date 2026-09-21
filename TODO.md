@@ -121,7 +121,7 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init adopts an existing tree opening][1] (done)
 - [fix: squash-push tests never read the terminal][9] (done)
 - [feat: init records the agent-repo's name][2] (done)
-- [feat: init defaults to .agent-session][3]
+- [feat: init defaults to .agent-session][3] (done)
 - [feat: init adopt detects the target's state][4]
 - [feat: init adopt takes a plain directory][5]
 - [feat: init adopt takes a POR][6]
@@ -206,6 +206,30 @@ Nothing records what a workspace's agent-repo is called, so every reader that ne
 
 A workspace init creates puts its agent-repo at `<project>/.claude`, where the harness's bind mounts
 land inside the agent repo, and the name is a constant no caller can override.
+
+* The directory is a constant, and `.claude` is where the harness's bind mounts land.
+  - The default is `.agent-session`, and `--agent-dir` names another. The work config records it
+    as `repos.agent`, and the work `.gitignore` ignores it.
+  - It is one name, not a path: the agent side's config reaches the work repo as `..`, and `.git`
+    and `.jj` are refused as the work repo's own.
+* The remote name was the work source plus `.claude`, derived in two places.
+  - One function now builds a dual plan's agent side for every provisioner. The remote name is
+    `--agent-repo`, else the work URL's last segment plus `--agent-suffix`, else plus
+    `.agent-session`, and the URL keeps the work repo's owner and host.
+  - The plan holds that side as one `AgentPlan`, present exactly when the workspace is dual, where
+    it was six optional fields. The dual steps take it whole, so the four `unwrap()` calls that
+    read its parts are gone.
+  - A suffix must begin with `.` or `-` and name something after it, and the two remote-name flags
+    conflict. A suffix like `-agent` is a value, not a flag.
+  - The directory and the remote name are chosen apart, so `--agent-dir` alone leaves the remote
+    name at its default.
+* Existing workspaces keep `.claude`.
+  - Their configs record no `[remote] agent-repo`, and an absent key still means `.claude`, so they
+    clone as before. `derive_bot_url` stays for that fallback alone.
+* The `--por` shape has no agent repo.
+  - The three flags are refused with it.
+* Left as it is: `--use-template`'s default agent template is still the `<CODE>.claude` sibling,
+  since it names a template on disk rather than a workspace's directory.
 
 ##### feat: init adopt detects the target's state
 
@@ -576,6 +600,25 @@ apply, and a command that applies it.
   key it no longer knows rather than renaming it. The same spelling across the family would be
   nice, not required. The candidates are `update-config`, `config --update`, and `config update`
   under **Nest the validate and fix commands**.
+
+### The code says agent where it still says bot
+
+(wink, 2026-09-21) 0.80.0 renamed the bot side to the agent side in the config and on the CLI, and
+the code kept the old word: about 314 `bot_` and `Side::Bot` identifiers across `src`. A reader
+meets both words for one repo, and output a user reads still carries the old one.
+
+- Output first, since a user reads it:
+  - `clone`'s summary prints `Bot repo:` (`src/clone.rs`).
+  - `push`'s stages are `commit-bot` and `squash-push-bot`, and it prints `restored bot repo`.
+  - `push` prints `.claude had no pending changes` whatever the agent repo's directory is, which is
+    wrong as well as old.
+  - `fix-desc` says `no bot side`.
+- Then the identifiers: `Side::Bot`, `is_bot_dir`, `write_bot_config`, `bot_dir` and its kin, and
+  the `bot_session` and `validate_bot` modules.
+- Out of scope: the old-config code in `src/legacy_vc_config.rs`, whose `bot` spellings are the old
+  names it rejects, and the `--scope bot` rejection, which names the old value on purpose.
+- `create_dual` in `src/init.rs` was renamed by **feat: init defaults to .agent-session**, as the
+  first function its rung rewrote.
 
 ### validate-anchors fails a cross-file link whose file is absent
 

@@ -77,16 +77,19 @@ fn target_required_at_parse_time() {
 fn config_content_dual() {
     // Per-side variants: [repos] values are file-relative, so
     // the sides differ. The "." entry names the side.
-    let work = render_vc_config(ConfigRole::DualWork, Some("proj.claude"));
+    let work = render_vc_config(ConfigRole::DualWork {
+        agent_dir: ".agent-session",
+        agent_repo: Some("proj.claude"),
+    });
     assert!(work.contains("work = \".\""));
-    assert!(work.contains("agent = \".claude\""));
+    assert!(work.contains("agent = \".agent-session\""));
     // The work side records the agent-repo's remote name, since it is
     // what clone and sync read before an agent-repo exists to ask.
     // An active line, not the header comment that also names the
     // table.
     assert!(work.lines().any(|l| l.trim_start() == "[remote]"));
     assert!(work.contains("agent-repo = \"proj.claude\""));
-    let bot = render_vc_config(ConfigRole::DualBot, None);
+    let bot = render_vc_config(ConfigRole::DualBot);
     assert!(bot.contains("work = \"..\""));
     assert!(bot.contains("agent = \".\""));
     assert!(!bot.lines().any(|l| l.trim_start() == "[remote]"));
@@ -97,8 +100,11 @@ fn config_content_dual() {
 /// plus `.claude`.
 #[test]
 fn config_content_dual_without_an_agent_repo_name() {
-    let work = render_vc_config(ConfigRole::DualWork, None);
-    assert!(work.contains("agent = \".claude\""));
+    let work = render_vc_config(ConfigRole::DualWork {
+        agent_dir: ".agent-session",
+        agent_repo: None,
+    });
+    assert!(work.contains("agent = \".agent-session\""));
     assert!(
         !work.lines().any(|l| l.trim_start() == "[remote]"),
         "no active [remote] table"
@@ -107,7 +113,10 @@ fn config_content_dual_without_an_agent_repo_name() {
 
 #[test]
 fn config_optional_keys_are_commented_only() {
-    let work = render_vc_config(ConfigRole::DualWork, None);
+    let work = render_vc_config(ConfigRole::DualWork {
+        agent_dir: ".agent-session",
+        agent_repo: None,
+    });
     // The doc-block header/used-by/default lines precede the
     // commented assignment.
     assert!(work.contains("used by: agent-session --col-width"));
@@ -140,13 +149,19 @@ fn config_generated_toml_parses_to_active_keys_only() {
     let path = dir.join(crate::config_md::VC_CONFIG_MD);
     std::fs::write(
         &path,
-        render_vc_config(ConfigRole::DualWork, Some("proj.claude")),
+        render_vc_config(ConfigRole::DualWork {
+            agent_dir: ".agent-session",
+            agent_repo: Some("proj.claude"),
+        }),
     )
     .expect("write config");
 
     let map = crate::config_md::load_file(&path).expect("parse generated config");
     assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
-    assert_eq!(map.get("repos.agent").map(String::as_str), Some(".claude"));
+    assert_eq!(
+        map.get("repos.agent").map(String::as_str),
+        Some(".agent-session")
+    );
     assert_eq!(
         map.get("remote.agent-repo").map(String::as_str),
         Some("proj.claude")
@@ -164,7 +179,10 @@ fn config_generated_toml_parses_to_active_keys_only() {
 /// generated config ending in two bare tables.
 #[test]
 fn config_generated_has_no_empty_table() {
-    let rendered = render_vc_config(ConfigRole::DualWork, Some("proj.claude"));
+    let rendered = render_vc_config(ConfigRole::DualWork {
+        agent_dir: ".agent-session",
+        agent_repo: Some("proj.claude"),
+    });
     let is_header = |l: &str| l.starts_with('[') && l.ends_with(']');
     let mut lines = rendered.lines().filter(|l| !l.trim().is_empty()).peekable();
     while let Some(line) = lines.next() {
@@ -181,11 +199,12 @@ fn config_generated_has_no_empty_table() {
 
 #[test]
 fn gitignore_work_excludes_bot() {
-    assert!(GITIGNORE_CODE.contains("/.claude"));
-    assert!(GITIGNORE_CODE.contains("/.git"));
-    assert!(GITIGNORE_CODE.contains("/.jj"));
+    let gitignore = render_work_gitignore(".agent-session");
+    assert!(gitignore.lines().any(|l| l == "/.agent-session"));
+    assert!(gitignore.lines().any(|l| l == "/.git"));
+    assert!(gitignore.lines().any(|l| l == "/.jj"));
     // No state dir: nothing of vc-x1's persists in a workspace.
-    assert!(!GITIGNORE_CODE.contains("/.vc-x1"));
+    assert!(!gitignore.contains("/.vc-x1"));
 }
 
 #[test]
@@ -570,6 +589,9 @@ fn args_for(target: &str) -> InitArgs {
         },
         use_template: UseTemplateOption::default(),
         config: ConfigOption::default(),
+        agent_dir: None,
+        agent_repo: None,
+        agent_suffix: None,
     }
 }
 
@@ -635,6 +657,135 @@ fn cfg_two_accounts() -> UserConfig {
     }
 }
 
+// ---------- the agent side's names ----------
+
+/// `--agent-dir` names the directory, and the work config records it.
+#[test]
+fn plan_agent_dir_names_the_directory() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.agent_dir = Some(".sess".into());
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
+    assert_eq!(plan.agent.as_ref().map(|a| a.dir.as_str()), Some(".sess"));
+    let cwd = std::env::current_dir().unwrap();
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.path.clone()),
+        Some(cwd.join("tf1").join(".sess"))
+    );
+    // The remote name does not follow the directory.
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.url.as_str()),
+        Some("git@github.com:winksaville/tf1.agent-session.git")
+    );
+}
+
+/// `--agent-suffix` replaces the default suffix on the remote name.
+#[test]
+fn plan_agent_suffix_names_the_remote() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.agent_suffix = Some("-agent".into());
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.url.as_str()),
+        Some("git@github.com:winksaville/tf1-agent.git")
+    );
+    assert_eq!(
+        plan.agent.as_ref().and_then(|a| a.gh_slug.as_deref()),
+        Some("winksaville/tf1-agent")
+    );
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.dir.as_str()),
+        Some(".agent-session")
+    );
+}
+
+/// `--agent-repo` is the whole remote name, under the work repo's
+/// owner, and a local bare takes it too.
+#[test]
+fn plan_agent_repo_is_the_whole_remote_name() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.agent_repo = Some("tf1.claude".into());
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.url.as_str()),
+        Some("git@github.com:winksaville/tf1.claude.git")
+    );
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.name.as_str()),
+        Some("tf1.claude")
+    );
+
+    let mut args = args_for("/tmp/xyz/tf1");
+    args.repo.value = Some(RepoSelector {
+        category: "local".into(),
+        value: Some("/tmp/xyz".into()),
+    });
+    args.agent_repo = Some("sessions".into());
+    let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
+    assert_eq!(
+        plan.agent.as_ref().and_then(|a| a.bare_path.clone()),
+        Some(PathBuf::from("/tmp/xyz/sessions.git"))
+    );
+}
+
+/// `--agent-repo` and `--agent-suffix` both name the remote, so the
+/// pair is refused.
+#[test]
+fn agent_repo_conflicts_with_agent_suffix() {
+    let err = Cli::try_parse_from([
+        "vc-x1",
+        "init",
+        "tf1",
+        "--agent-repo",
+        "x",
+        "--agent-suffix",
+        ".y",
+    ])
+    .expect_err("the pair is refused");
+    assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+}
+
+/// A suffix opens with `.` or `-` and names something after it.
+#[test]
+fn agent_suffix_must_open_with_a_dot_or_dash() {
+    for bad in ["agent", ".", "-", "_agent", ".a/b"] {
+        assert!(
+            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-suffix", bad]).is_err(),
+            "{bad:?} is refused"
+        );
+    }
+    for good in [".agent-session", "-agent"] {
+        let args = parse(&["vc-x1", "init", "tf1", "--agent-suffix", good]);
+        assert_eq!(args.agent_suffix.as_deref(), Some(good));
+    }
+}
+
+/// A directory is one name inside the project, never the work
+/// repo's own.
+#[test]
+fn agent_dir_is_one_name_inside_the_project() {
+    for bad in ["", ".", "..", "a/b", ".git", ".jj"] {
+        assert!(
+            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-dir", bad]).is_err(),
+            "{bad:?} is refused"
+        );
+    }
+    let args = parse(&["vc-x1", "init", "tf1", "--agent-dir", ".sess"]);
+    assert_eq!(args.agent_dir.as_deref(), Some(".sess"));
+}
+
+/// A POR has no agent side, so its flags are refused.
+#[test]
+fn agent_flags_are_meaningless_with_por() {
+    let mut args = args_for("git@github.com:winksaville/tf1");
+    args.por.value = true;
+    args.agent_dir = Some(".sess".into());
+    let err = plan_init(&InitParams::from(&args), &cfg_empty())
+        .expect_err("refused")
+        .to_string();
+    assert!(err.contains("--agent-dir"), "{err}");
+    assert!(err.contains("--por"), "{err}");
+}
+
 // ---------- URL TARGET ----------
 
 #[test]
@@ -645,11 +796,14 @@ fn plan_url_ssh_github_dual() {
     assert_eq!(plan.name, "tf1");
     assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
     assert_eq!(
-        plan.bot_url.as_deref(),
-        Some("git@github.com:winksaville/tf1.claude.git")
+        plan.agent.as_ref().map(|a| a.url.as_str()),
+        Some("git@github.com:winksaville/tf1.agent-session.git")
     );
     assert_eq!(plan.gh_work_slug.as_deref(), Some("winksaville/tf1"));
-    assert_eq!(plan.gh_bot_slug.as_deref(), Some("winksaville/tf1.claude"));
+    assert_eq!(
+        plan.agent.as_ref().and_then(|a| a.gh_slug.as_deref()),
+        Some("winksaville/tf1.agent-session")
+    );
 }
 
 #[test]
@@ -667,11 +821,16 @@ fn plan_url_non_github_uses_external_provisioner() {
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert_eq!(plan.provisioner, Provisioner::ExternalPreExisting);
     assert!(plan.gh_work_slug.is_none());
-    assert!(plan.gh_bot_slug.is_none());
+    assert!(
+        plan.agent
+            .as_ref()
+            .and_then(|a| a.gh_slug.as_ref())
+            .is_none()
+    );
     assert_eq!(plan.work_url, "git@gitlab.com:winksaville/tf1.git");
     assert_eq!(
-        plan.bot_url.as_deref(),
-        Some("git@gitlab.com:winksaville/tf1.claude.git")
+        plan.agent.as_ref().map(|a| a.url.as_str()),
+        Some("git@gitlab.com:winksaville/tf1.agent-session.git")
     );
 }
 
@@ -713,7 +872,10 @@ fn plan_path_target_strips_the_git_suffix() {
     let args = args_for("./tmp/xx1.git");
     let plan = plan_init(&InitParams::from(&args), &cfg_top_level_local("./tmp/bare")).unwrap();
     assert_eq!(plan.name, "xx1");
-    assert_eq!(plan.bot_name.as_deref(), Some("xx1.claude"));
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.name.as_str()),
+        Some("xx1.agent-session")
+    );
 }
 
 /// A repo name GitHub would rename is refused before it is asked
@@ -739,7 +901,10 @@ fn plan_ssh_url_form_still_works() {
     assert_eq!(p2.work_url, "git@github.com:winksaville/tf1.git");
     assert_eq!(p2.gh_work_slug.as_deref(), Some("winksaville/tf1"));
     assert_eq!(p2.provisioner, Provisioner::GhCreate);
-    assert_eq!(p2.gh_bot_slug.as_deref(), Some("winksaville/tf1.claude"));
+    assert_eq!(
+        p2.agent.as_ref().and_then(|a| a.gh_slug.as_deref()),
+        Some("winksaville/tf1.agent-session")
+    );
 }
 
 // ---------- Path TARGET ----------
@@ -760,11 +925,17 @@ fn plan_path_absolute_with_repo_local() {
         Some(PathBuf::from("/tmp/xyz/remote-work.git"))
     );
     assert_eq!(
-        plan.bot_bare_path,
-        Some(PathBuf::from("/tmp/xyz/remote-work.claude.git"))
+        plan.agent.as_ref().and_then(|a| a.bare_path.clone()),
+        Some(PathBuf::from("/tmp/xyz/remote-work.agent-session.git"))
     );
-    assert_eq!(plan.bot_dir, Some(PathBuf::from("/tmp/xyz/tf1/.claude")));
-    assert_eq!(plan.bot_name.as_deref(), Some("tf1.claude"));
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.path.clone()),
+        Some(PathBuf::from("/tmp/xyz/tf1/.agent-session"))
+    );
+    assert_eq!(
+        plan.agent.as_ref().map(|a| a.name.as_str()),
+        Some("tf1.agent-session")
+    );
 }
 
 #[test]
@@ -809,8 +980,8 @@ fn plan_bare_name_uses_top_level_repo_local() {
         Some(PathBuf::from("/tmp/fixtures/remote-work.git"))
     );
     assert_eq!(
-        plan.bot_bare_path,
-        Some(PathBuf::from("/tmp/fixtures/remote-work.claude.git"))
+        plan.agent.as_ref().and_then(|a| a.bare_path.clone()),
+        Some(PathBuf::from("/tmp/fixtures/remote-work.agent-session.git"))
     );
 }
 
@@ -858,10 +1029,7 @@ fn plan_por_path_local_single_bare() {
         Some(PathBuf::from("/tmp/xyz/remote.git"))
     );
     assert_eq!(plan.work_url, "/tmp/xyz/remote.git");
-    assert!(plan.bot_bare_path.is_none());
-    assert!(plan.bot_url.is_none());
-    assert!(plan.bot_dir.is_none());
-    assert!(plan.bot_name.is_none());
+    assert!(plan.agent.is_none());
 }
 
 #[test]
@@ -871,8 +1039,7 @@ fn plan_por_url_no_bot() {
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_work_only());
     assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
-    assert!(plan.bot_url.is_none());
-    assert!(plan.gh_bot_slug.is_none());
+    assert!(plan.agent.is_none());
 }
 
 #[test]
@@ -880,8 +1047,7 @@ fn plan_default_scope_is_work_bot() {
     let args = args_for("git@github.com:winksaville/tf1");
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_both());
-    assert!(plan.bot_url.is_some());
-    assert!(plan.bot_dir.is_some());
+    assert!(plan.agent.is_some());
 }
 
 // ---------- Errors ----------
@@ -981,14 +1147,14 @@ fn error_por_with_comma_template() {
 
 #[test]
 fn config_content_work_only() {
-    let work_only_repo = render_vc_config(ConfigRole::WorkOnly, None);
+    let work_only_repo = render_vc_config(ConfigRole::WorkOnly);
     assert!(work_only_repo.contains("work = \".\""));
     assert!(!work_only_repo.contains("bot ="));
 }
 
 #[test]
 fn gitignore_work_only_omits_bot() {
-    assert!(!GITIGNORE_APP_ONLY.contains("/.claude"));
+    assert!(!GITIGNORE_APP_ONLY.contains("/.agent-session"));
     assert!(GITIGNORE_APP_ONLY.contains("/.git"));
     assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
     assert!(!GITIGNORE_APP_ONLY.contains("/.vc-x1"));
@@ -997,9 +1163,9 @@ fn gitignore_work_only_omits_bot() {
 // ---------- POR end-to-end fixture (drives init with --scope=por) ----------
 
 /// POR fixture builds without panic and lays down the
-/// single-repo tree: `<base>/work/` exists, no `.claude/`
+/// single-repo tree: `<base>/work/` exists, no `.agent-session/`
 /// peer, bare origin sits at `<base>/remote.git` (not the
-/// dual `remote-work.git` / `remote-work.claude.git` pair).
+/// dual `remote-work.git` / `remote-work.agent-session.git` pair).
 #[test]
 fn por_fixture_creates_single_repo_layout() {
     let fx = crate::test_helpers::FixturePor::new("por-layout");
@@ -1007,8 +1173,8 @@ fn por_fixture_creates_single_repo_layout() {
     assert!(fx.work.exists(), "work dir should exist");
     assert!(fx.work.is_dir(), "work should be a directory");
     assert!(
-        !fx.work.join(".claude").exists(),
-        "POR layout must not have a .claude/ peer"
+        !fx.work.join(".agent-session").exists(),
+        "POR layout must not have a .agent-session/ peer"
     );
     assert!(
         fx.base.join("remote.git").exists(),
@@ -1019,14 +1185,14 @@ fn por_fixture_creates_single_repo_layout() {
         "dual-shape bares should be absent in POR"
     );
     assert!(
-        !fx.base.join("remote-work.claude.git").exists(),
+        !fx.base.join("remote-work.agent-session.git").exists(),
         "dual-shape bares should be absent in POR"
     );
 }
 
 /// POR fixture writes the WorkOnly config + .gitignore variants:
 /// `work = "."` with no `agent` key, and `.gitignore` has no
-/// `/.claude` exclusion.
+/// `/.agent-session` exclusion.
 #[test]
 fn por_fixture_writes_work_only_config_files() {
     let fx = crate::test_helpers::FixturePor::new("por-config");
@@ -1041,8 +1207,8 @@ fn por_fixture_writes_work_only_config_files() {
 
     let gi = std::fs::read_to_string(fx.work.join(".gitignore")).expect("read .gitignore");
     assert!(
-        !gi.contains("/.claude"),
-        "POR .gitignore must not exclude /.claude"
+        !gi.contains("/.agent-session"),
+        "POR .gitignore must not exclude /.agent-session"
     );
     assert!(gi.contains("/.git"), "expected /.git entry");
     assert!(gi.contains("/.jj"), "expected /.jj entry");
@@ -1159,8 +1325,8 @@ fn config_none_passes_preflight() {
 // invariants `push_repo` must preserve (-6.3 extraction).
 
 /// Dual fixture lays down both repos and both bare origins:
-/// `<base>/work/`, `<base>/work/.claude/`, `<base>/remote-work.git`,
-/// `<base>/remote-work.claude.git`. POR-shape `remote.git` is absent.
+/// `<base>/work/`, `<base>/work/.agent-session/`, `<base>/remote-work.git`,
+/// `<base>/remote-work.agent-session.git`. POR-shape `remote.git` is absent.
 #[test]
 fn dual_fixture_creates_dual_repo_layout() {
     let fx = crate::test_helpers::Fixture::new("dual-layout");
@@ -1168,14 +1334,14 @@ fn dual_fixture_creates_dual_repo_layout() {
     assert!(fx.work.exists() && fx.work.is_dir(), "work dir present");
     assert!(
         fx.bot.exists() && fx.bot.is_dir(),
-        "nested .claude dir present"
+        "nested .agent-session dir present"
     );
     assert!(
         fx.base.join("remote-work.git").exists(),
         "work-side bare origin present"
     );
     assert!(
-        fx.base.join("remote-work.claude.git").exists(),
+        fx.base.join("remote-work.agent-session.git").exists(),
         "bot-side bare origin present"
     );
     assert!(
@@ -1186,11 +1352,11 @@ fn dual_fixture_creates_dual_repo_layout() {
 
 /// Dual fixture writes the WORK / BOT config + .gitignore
 /// variants: per-side `[repos]` registries:
-/// - work side `work = "."`, `bot = ".claude"`
+/// - work side `work = "."`, `bot = ".agent-session"`
 /// - bot side `work = ".."`, `bot = "."`
 ///
 /// Side detection is by self-resolution.
-/// Work-side `.gitignore` excludes `/.claude` (bot subdir is
+/// Work-side `.gitignore` excludes `/.agent-session` (bot subdir is
 /// git-ignored from the work-side view).
 #[test]
 fn dual_fixture_writes_work_and_bot_config_files() {
@@ -1200,8 +1366,8 @@ fn dual_fixture_writes_work_and_bot_config_files() {
         .expect("read the work config");
     assert!(work_cfg.contains("work = \".\""), "work work = \".\"");
     assert!(
-        work_cfg.contains("agent = \".claude\""),
-        "work agent = \".claude\""
+        work_cfg.contains("agent = \".agent-session\""),
+        "work agent = \".agent-session\""
     );
 
     let bot_cfg = std::fs::read_to_string(fx.bot.join(crate::config_md::VC_CONFIG_MD))
@@ -1212,8 +1378,8 @@ fn dual_fixture_writes_work_and_bot_config_files() {
     let work_gi =
         std::fs::read_to_string(fx.work.join(".gitignore")).expect("read work .gitignore");
     assert!(
-        work_gi.contains("/.claude"),
-        "work .gitignore excludes /.claude"
+        work_gi.contains("/.agent-session"),
+        "work .gitignore excludes /.agent-session"
     );
 }
 
@@ -1230,17 +1396,15 @@ fn dual_fixture_both_sides_track_origin() {
         .expect("bot-side main should track origin/main after push_repo");
 }
 
-/// Work-side `git clean -xdf --exclude .claude` must preserve
-/// the nested bot repo's `.jj/` and `.git/` state. This
-/// pins `push_repo`'s `clean_exclude = Some(".claude")` path
-/// in the dual work-side call.
+/// The work side's publishing must preserve the nested agent repo's
+/// `.jj/` and `.git/` state, which sits inside the work tree.
 #[test]
 fn dual_fixture_preserves_bot_across_work_clean() {
     let fx = crate::test_helpers::Fixture::new("dual-clean-exclude");
 
     assert!(
         fx.bot.join(".jj").exists(),
-        "bot .jj must survive work-side clean (clean_exclude=.claude)"
+        "bot .jj must survive work-side clean"
     );
     assert!(
         fx.bot.join(".git").exists(),
@@ -1252,11 +1416,11 @@ fn dual_fixture_preserves_bot_across_work_clean() {
     );
 }
 
-/// The recorded `repos.agent-repo` is the agent-repo's *remote* name,
+/// The recorded `[remote] agent-repo` is the agent-repo's *remote* name,
 /// not the local project's.
 ///
 /// The fixture's project is called `work` while its agent bare is
-/// `remote-work.claude.git`, so a key written from the project name
+/// `remote-work.agent-session.git`, so a key written from the project name
 /// would send clone at a repo that does not exist. Writing the
 /// project name is the bug this test was added for.
 #[test]
@@ -1265,13 +1429,13 @@ fn init_records_the_agent_repos_remote_name() {
     let recorded = crate::common::configured_agent_repo(&fx.work)
         .expect("read config")
         .expect("the key is written");
-    assert_eq!(recorded, "remote-work.claude");
+    assert_eq!(recorded, "remote-work.agent-session");
 
     // And it is what the derivation turns into the agent-repo's URL,
     // beside the work bare it sits next to.
     let work_url = format!("{}/remote-work.git", fx.base.display());
     assert_eq!(
         crate::url::agent_url(&work_url, Some(&recorded)),
-        format!("{}/remote-work.claude.git", fx.base.display())
+        format!("{}/remote-work.agent-session.git", fx.base.display())
     );
 }

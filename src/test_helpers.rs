@@ -180,7 +180,7 @@ pub fn unique_base(tag: &str) -> PathBuf {
 /// local=<base>` (so config lookup is skipped via the
 /// resolve_repo short-circuit). `create_symlink=false` suppresses
 /// the `~/.claude/projects/` side effect. Exposes the two repo
-/// paths (`work` and `work/.claude`). The tempdir tree is removed
+/// paths (`work` and `work/.agent-session`). The tempdir tree is removed
 /// when the value is dropped, so a panicking test still cleans up
 /// after itself.
 pub struct Fixture {
@@ -188,7 +188,7 @@ pub struct Fixture {
     pub base: PathBuf,
     /// Work repo path (`<base>/work`).
     pub work: PathBuf,
-    /// Bot repo path (`<base>/work/.claude`).
+    /// Bot repo path (`<base>/work/.agent-session`).
     pub bot: PathBuf,
 }
 
@@ -215,9 +215,9 @@ impl Fixture {
         // sets the bare-repo parent so the layout mirrors the old
         // `--repo-local <base>` + NAME=`work` shape:
         //   <base>/work/                  (work repo)
-        //   <base>/work/.claude/          (bot repo)
+        //   <base>/work/.agent-session/   (bot repo)
         //   <base>/remote-work.git        (work bare origin)
-        //   <base>/remote-work.claude.git      (bot bare origin)
+        //   <base>/remote-work.agent-session.git (bot bare origin)
         let work_path = base.join("work");
         let args = InitArgs {
             target: work_path.to_string_lossy().into_owned(),
@@ -235,6 +235,9 @@ impl Fixture {
                 value: use_template,
             },
             config: ConfigOption::default(),
+            agent_dir: None,
+            agent_repo: None,
+            agent_suffix: None,
         };
         let ctx = Context::load().expect("load user config for test fixture");
         let mut params = InitParams::from(&args);
@@ -242,7 +245,7 @@ impl Fixture {
         init(&ctx, &params).expect("build test fixture via init");
 
         let work = base.join("work");
-        let bot = work.join(".claude");
+        let bot = work.join(crate::init::DEFAULT_AGENT_DIR);
 
         if with_pending {
             write_file(&work.join("TODO.md"), "# TODO\n- first feature\n")
@@ -283,7 +286,7 @@ impl Drop for Fixture {
 /// `init::init` with `por: true` and a path TARGET, where
 /// `--repo local=<base>` steers the bare origin to
 /// `<base>/remote.git` (vs. dual's `remote-work.git` /
-/// `remote-work.claude.git`). No `.claude/` peer, no symlink.
+/// `remote-work.agent-session.git`). No agent peer, no symlink.
 ///
 /// Field shape differs from `Fixture` (there is no `bot` peer
 /// path), so it's a distinct type rather than an `Option<PathBuf>`
@@ -326,6 +329,9 @@ impl FixturePor {
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption::default(),
             config: ConfigOption { value: config },
+            agent_dir: None,
+            agent_repo: None,
+            agent_suffix: None,
         };
         let ctx = Context::load().expect("load user config for POR test fixture");
         let mut params = InitParams::from(&args);

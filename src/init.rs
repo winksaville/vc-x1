@@ -20,7 +20,7 @@ use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
-use crate::url::{Target, derive_bot_url, derive_name, parse_target};
+use crate::url::{Target, derive_name, parse_target};
 
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
@@ -62,7 +62,7 @@ pub struct InitArgs {
     pub repo: RepoOption,
 
     /// `--por`: flatten of the shared [`PorFlag`] leaf. Absent
-    /// (default) -> dual workspace (work + `.claude/` bot
+    /// (default) -> dual workspace (work + `.agent-session/` agent
     /// repo), present -> plain single repo.
     #[command(flatten)]
     pub por: PorFlag,
@@ -85,6 +85,56 @@ pub struct InitArgs {
     /// `--config`.
     #[command(flatten)]
     pub config: ConfigOption,
+
+    /// The agent repo's directory, one name inside the project
+    /// directory [default: .agent-session]. Dual only.
+    #[arg(long, value_name = "DIR", value_parser = parse_agent_dir)]
+    pub agent_dir: Option<String>,
+
+    /// The agent repo's full name on its remote. Dual only.
+    ///
+    /// Default: the work repo's name plus `--agent-suffix`.
+    #[arg(long, value_name = "NAME", conflicts_with = "agent_suffix")]
+    pub agent_repo: Option<String>,
+
+    /// The suffix the work repo's name takes to name the agent
+    /// repo on its remote, beginning with `.` or `-`
+    /// [default: .agent-session]. Dual only.
+    #[arg(
+        long,
+        value_name = "SUFFIX",
+        allow_hyphen_values = true,
+        value_parser = parse_agent_suffix
+    )]
+    pub agent_suffix: Option<String>,
+}
+
+/// Parse `--agent-dir`: one name inside the project directory.
+///
+/// One name, not a path, since the agent side's own config reaches
+/// the work repo as `..`. `.git` and `.jj` are the work repo's own.
+fn parse_agent_dir(s: &str) -> Result<String, String> {
+    if s.is_empty() || s == "." || s == ".." || s.contains(['/', '\\']) {
+        return Err(format!(
+            "'{s}' is not one directory name inside the project (e.g. .agent-session)"
+        ));
+    }
+    if s == ".git" || s == ".jj" {
+        return Err(format!("'{s}' is the work repo's own directory"));
+    }
+    Ok(s.to_string())
+}
+
+/// Parse `--agent-suffix`: it must begin with `.` or `-` and carry
+/// more than that one character, so the agent repo's name reads as
+/// the work repo's with something added.
+fn parse_agent_suffix(s: &str) -> Result<String, String> {
+    if s.len() < 2 || !s.starts_with(['.', '-']) || s.contains(['/', ':']) {
+        return Err(format!(
+            "'{s}' must begin with '.' or '-' and name something after it (e.g. .agent-session)"
+        ));
+    }
+    Ok(s.to_string())
 }
 
 /// Run an operation with retries, sleeping between attempts.
@@ -153,12 +203,17 @@ pub(crate) fn parse_use_template(
     Ok((work, bot))
 }
 
-/// Default bot-repo directory name a fresh init records and
-/// creates. After the 0.75.0-3 sweep every *reader* resolves the
-/// dir from `repos.agent`, so this constant (plus the literals in the
-/// `ConfigRole::DualWork` render and `GITIGNORE_CODE`, which must
-/// change with it) is where a new workspace's default is chosen.
-pub(crate) const DEFAULT_BOT_DIR: &str = ".claude";
+/// Default agent-repo directory a fresh init records and creates,
+/// `--agent-dir` its override. Every *reader* resolves the dir from
+/// `repos.agent`, so this is where a new workspace's default is
+/// chosen. Not `.claude`, where the harness's bind mounts land.
+pub(crate) const DEFAULT_AGENT_DIR: &str = ".agent-session";
+
+/// Default suffix the work repo's name takes to name the agent repo
+/// on its remote, `--agent-suffix` its override and `--agent-repo`
+/// its replacement. A workspace's recorded `[remote] agent-repo`
+/// wins over it, and its absence still means `.claude`.
+pub(crate) const DEFAULT_AGENT_SUFFIX: &str = ".agent-session";
 
 /// Top-level non-hidden files init writes. Kept here so that if init is
 /// ever extended to write non-hidden top-level files, the pre-flight
@@ -321,9 +376,14 @@ fn gh_repo_exists(owner: &str, name: &str) -> Result<bool, Box<dyn std::error::E
 /// whose entry resolves to the config's own directory (`"."`)
 /// names that side.
 #[derive(Clone, Copy)]
-pub(crate) enum ConfigRole {
-    /// The work repo of a dual-repo workspace.
-    DualWork,
+pub(crate) enum ConfigRole<'a> {
+    /// The work repo of a dual-repo workspace: `agent_dir` is the
+    /// agent repo's directory and `agent_repo` its name on the
+    /// remote, `None` rendering no `[remote]` table.
+    DualWork {
+        agent_dir: &'a str,
+        agent_repo: Option<&'a str>,
+    },
     /// The bot repo of a dual-repo workspace.
     DualBot,
     /// The sole repo in a single-repo (POR) workspace.
@@ -333,9 +393,12 @@ pub(crate) enum ConfigRole {
 /// Renders the header comment + active `[repos]` registry for a
 /// generated config file, role-specific. The text is TOML, and
 /// `render_vc_config` fences it.
-fn render_workspace_header(role: ConfigRole, agent_repo: Option<&str>) -> String {
+fn render_workspace_header(role: ConfigRole) -> String {
     match role {
-        ConfigRole::DualWork => {
+        ConfigRole::DualWork {
+            agent_dir,
+            agent_repo,
+        } => {
             // The agent-repo's remote name is the work side's to
             // record: clone and sync read it from here, since at the
             // moment they need it there is no agent-repo to ask. It
@@ -362,7 +425,7 @@ fn render_workspace_header(role: ConfigRole, agent_repo: Option<&str>) -> String
 
 [repos]
 work = "."
-agent = ".claude"
+agent = "{agent_dir}"
 {remote_table}"#
             )
         }
@@ -481,17 +544,17 @@ the binary you are running.
 /// is commented, so splitting it into per-table fences would make a
 /// document of empty fences. A workspace that uncomments a key is
 /// free to split the file up, which the carrier reads the same way.
-pub(crate) fn render_vc_config(role: ConfigRole, agent_repo: Option<&str>) -> String {
-    let mut toml = render_workspace_header(role, agent_repo);
+pub(crate) fn render_vc_config(role: ConfigRole) -> String {
+    let mut toml = render_workspace_header(role);
     toml.push_str(&render_optional_keys_block());
     format!("{CONFIG_MD_INTRO}```toml\n{toml}```\n")
 }
 
-pub(crate) const GITIGNORE_CODE: &str = "/target
-/.claude
-/.git
-/.jj
-";
+/// Gitignore for a dual workspace's work repo: the agent repo's
+/// directory is ignored, since it is a repo of its own.
+pub(crate) fn render_work_gitignore(agent_dir: &str) -> String {
+    format!("/target\n/{agent_dir}\n/.git\n/.jj\n")
+}
 
 const GITIGNORE_SESSION: &str = ".git
 .jj
@@ -499,8 +562,8 @@ const GITIGNORE_SESSION: &str = ".git
 
 /// Gitignore for a single-repo workspace.
 ///
-/// - Same as `GITIGNORE_CODE` minus the `/.claude` entry: there's
-///   no bot subdir in single-repo mode.
+/// - Same as `render_work_gitignore` minus the agent directory's
+///   entry: there's no agent subdir in single-repo mode.
 pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.git
 /.jj
@@ -514,7 +577,7 @@ pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 fn write_por_vc_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::WorkOnly, None),
+        &render_vc_config(ConfigRole::WorkOnly),
     )
 }
 
@@ -548,14 +611,23 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
 /// Write the dual-mode work-side `.vc-config.md` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
 ///
-/// `agent_repo` is the agent-repo's name on the remote, recorded as
-/// `repos.agent-repo` so clone and sync need not derive it.
-fn write_work_config(dir: &Path, agent_repo: &str) -> Result<(), Box<dyn std::error::Error>> {
+/// `agent_dir` is the agent repo's directory, recorded as
+/// `repos.agent` and ignored, and `agent_repo` its name on the
+/// remote, recorded as `[remote] agent-repo` so clone need not
+/// derive it.
+fn write_work_config(
+    dir: &Path,
+    agent_dir: &str,
+    agent_repo: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::DualWork, Some(agent_repo)),
+        &render_vc_config(ConfigRole::DualWork {
+            agent_dir,
+            agent_repo: Some(agent_repo),
+        }),
     )?;
-    write_file(&dir.join(".gitignore"), GITIGNORE_CODE)?;
+    write_file(&dir.join(".gitignore"), &render_work_gitignore(agent_dir))?;
     Ok(())
 }
 
@@ -564,7 +636,7 @@ fn write_work_config(dir: &Path, agent_repo: &str) -> Result<(), Box<dyn std::er
 fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     write_file(
         &dir.join(crate::config_md::VC_CONFIG_MD),
-        &render_vc_config(ConfigRole::DualBot, None),
+        &render_vc_config(ConfigRole::DualBot),
     )?;
     write_file(&dir.join(".gitignore"), GITIGNORE_SESSION)?;
     Ok(())
@@ -730,19 +802,27 @@ pub(crate) struct InitPlan {
     /// GitHub `owner/name` for the work side, only populated for
     /// the `GhCreate` path (`gh repo create` needs it).
     pub gh_work_slug: Option<String>,
-    /// Bot-side dir. None when `scope.is_work_only()`.
-    pub bot_dir: Option<PathBuf>,
-    /// Bot-side project name (e.g. `<name>.claude`). None when
-    /// `scope.is_work_only()`.
-    pub bot_name: Option<String>,
-    /// Bot-side origin URL. None when `scope.is_work_only()`.
-    pub bot_url: Option<String>,
-    /// Bot-side bare-repo path. `Some` only under `LocalBareInit`
-    /// with `scope.is_both()`.
-    pub bot_bare_path: Option<PathBuf>,
-    /// Bot-side GitHub slug. `Some` only under `GhCreate` with
-    /// `scope.is_both()`.
-    pub gh_bot_slug: Option<String>,
+    /// The agent side, `Some` exactly when `scope.is_both()`, so a
+    /// dual step takes it whole rather than unwrapping its parts.
+    pub agent: Option<AgentPlan>,
+}
+
+/// A dual plan's agent side, filled by [`plan_agent_side`].
+#[derive(Debug)]
+pub(crate) struct AgentPlan {
+    /// The directory as the work config records it, one name
+    /// (`.agent-session`).
+    pub dir: String,
+    /// `project_dir` joined with `dir`.
+    pub path: PathBuf,
+    /// The project name its README takes (e.g. `<name>.agent-session`).
+    pub name: String,
+    /// The origin URL.
+    pub url: String,
+    /// The bare-repo path, `Some` only under `LocalBareInit`.
+    pub bare_path: Option<PathBuf>,
+    /// The GitHub slug, `Some` only under `GhCreate`.
+    pub gh_slug: Option<String>,
 }
 
 /// Build an `InitPlan` from CLI args + user config.
@@ -797,23 +877,40 @@ pub(crate) fn plan_init(
         return Err(format!("--config: path does not exist: {}", p.display()).into());
     }
 
+    if scope.is_work_only() {
+        for (set, flag) in [
+            (params.agent_dir.is_some(), "--agent-dir"),
+            (params.agent_repo.is_some(), "--agent-repo"),
+            (params.agent_suffix.is_some(), "--agent-suffix"),
+        ] {
+            if set {
+                return Err(
+                    format!("{flag} is meaningless with --por (there is no agent repo)").into(),
+                );
+            }
+        }
+    }
+
     let parsed = parse_target(&params.target)?;
     debug!("parse_target: {:?} -> {:?}", params.target, parsed);
-    let plan = match parsed {
+    let mut plan = match parsed {
         Target::Url(url) => plan_from_url(params, scope, url),
         Target::Path(p) => plan_from_path(params, scope, p, cfg),
         Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
+    if plan.scope.is_both() {
+        plan.agent = Some(plan_agent_side(&plan, params)?);
+    }
     debug!(
         "plan_init: project_dir={}, name={}, work_url={}, provisioner={:?}, \
-         gh_work_slug={:?}, work_bare_path={:?}, bot_url={:?}",
+         gh_work_slug={:?}, work_bare_path={:?}, agent={:?}",
         plan.project_dir.display(),
         plan.name,
         plan.work_url,
         plan.provisioner,
         plan.gh_work_slug,
         plan.work_bare_path,
-        plan.bot_url,
+        plan.agent,
     );
     Ok(plan)
 }
@@ -972,12 +1069,13 @@ fn plan_remote(
 
 /// Plan for `category = "local"`: bare repos under a parent dir.
 ///
-/// - Dual: `<parent>/remote-work.git` + `<parent>/remote-work.claude.git`.
+/// - Dual: `<parent>/remote-work.git`, and the agent bare beside it,
+///   named by [`plan_agent_side`] (`remote-work.agent-session.git`).
 /// - POR: `<parent>/remote.git`.
 ///
-/// The bot bare is `derive_bot_url` of the work bare (the same
-/// rule `clone` uses to locate a bot source), so a locally
-/// init'd project round-trips through `vc-x1 clone` (bugs.md #2).
+/// The agent bare's name is recorded in the work config, which is
+/// what `clone` reads to locate it, so a locally init'd project
+/// round-trips through `vc-x1 clone` (bugs.md #2).
 fn plan_local(
     scope: Scope,
     name: String,
@@ -986,28 +1084,11 @@ fn plan_local(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let parent = normalize_local_parent(parent_spec)?;
 
-    if scope.is_work_only() {
-        let work_bare = parent.join("remote.git");
-        return Ok(InitPlan {
-            scope,
-            work_url: work_bare.to_string_lossy().to_string(),
-            work_bare_path: Some(work_bare),
-            project_dir,
-            name,
-            provisioner: Provisioner::LocalBareInit,
-            gh_work_slug: None,
-            bot_dir: None,
-            bot_name: None,
-            bot_url: None,
-            bot_bare_path: None,
-            gh_bot_slug: None,
-        });
-    }
-
-    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
-    let work_bare = parent.join("remote-work.git");
-    let bot_bare = PathBuf::from(crate::url::derive_bot_url(&work_bare.to_string_lossy()));
-    let bot_name = format!("{name}.claude");
+    let work_bare = if scope.is_work_only() {
+        parent.join("remote.git")
+    } else {
+        parent.join("remote-work.git")
+    };
     Ok(InitPlan {
         scope,
         work_url: work_bare.to_string_lossy().to_string(),
@@ -1016,11 +1097,7 @@ fn plan_local(
         name,
         provisioner: Provisioner::LocalBareInit,
         gh_work_slug: None,
-        bot_url: Some(bot_bare.to_string_lossy().to_string()),
-        bot_bare_path: Some(bot_bare),
-        bot_dir: Some(bot_dir),
-        bot_name: Some(bot_name),
-        gh_bot_slug: None,
+        agent: None,
     })
 }
 
@@ -1036,30 +1113,6 @@ fn build_plan(
     provisioner: Provisioner,
     gh_work_slug: Option<String>,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
-    if scope.is_work_only() {
-        return Ok(InitPlan {
-            scope,
-            project_dir,
-            name,
-            work_url,
-            provisioner,
-            work_bare_path: None,
-            gh_work_slug,
-            bot_dir: None,
-            bot_name: None,
-            bot_url: None,
-            bot_bare_path: None,
-            gh_bot_slug: None,
-        });
-    }
-    let bot_url = derive_bot_url(&work_url);
-    let bot_name = format!("{name}.claude");
-    let bot_dir = project_dir.join(DEFAULT_BOT_DIR);
-    let gh_bot_slug = if provisioner == Provisioner::GhCreate {
-        Some(github_slug_from_url(&bot_url)?)
-    } else {
-        None
-    };
     Ok(InitPlan {
         scope,
         project_dir,
@@ -1068,11 +1121,53 @@ fn build_plan(
         provisioner,
         work_bare_path: None,
         gh_work_slug,
-        bot_url: Some(bot_url),
-        bot_name: Some(bot_name),
-        bot_dir: Some(bot_dir),
-        bot_bare_path: None,
-        gh_bot_slug,
+        agent: None,
+    })
+}
+
+/// A dual plan's agent side, from the work side and the `--agent-*`
+/// flags, one rule for every provisioner.
+///
+/// - The directory is `--agent-dir`, else `.agent-session`.
+/// - The remote name is `--agent-repo`, else the work URL's last
+///   segment plus `--agent-suffix`, else plus `.agent-session`, and
+///   the URL is the work URL with that segment replaced, so the two
+///   repos are siblings under one owner.
+/// - The local bare, under `--repo local`, is that URL as a path,
+///   and the GitHub slug, under `gh repo create`, is read off it.
+fn plan_agent_side(
+    plan: &InitPlan,
+    params: &InitParams,
+) -> Result<AgentPlan, Box<dyn std::error::Error>> {
+    let agent_dir = params
+        .agent_dir
+        .clone()
+        .unwrap_or_else(|| DEFAULT_AGENT_DIR.to_string()); // OK: absent flag means the default
+    let suffix = params
+        .agent_suffix
+        .as_deref()
+        .unwrap_or(DEFAULT_AGENT_SUFFIX); // OK: absent flag means the default
+    let remote_name = match &params.agent_repo {
+        Some(name) => name.clone(),
+        None => format!("{}{suffix}", derive_name(&plan.work_url)?),
+    };
+    let url = crate::url::agent_url(&plan.work_url, Some(&remote_name));
+    Ok(AgentPlan {
+        path: plan.project_dir.join(&agent_dir),
+        dir: agent_dir,
+        name: match &params.agent_repo {
+            Some(name) => name.clone(),
+            None => format!("{}{suffix}", plan.name),
+        },
+        bare_path: match plan.provisioner {
+            Provisioner::LocalBareInit => Some(PathBuf::from(&url)),
+            _ => None,
+        },
+        gh_slug: match plan.provisioner {
+            Provisioner::GhCreate => Some(github_slug_from_url(&url)?),
+            _ => None,
+        },
+        url,
     })
 }
 
@@ -1216,7 +1311,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             if gh_repo_exists(work_owner, work_name)? {
                 return Err(format!("GitHub repo '{work_slug}' already exists").into());
             }
-            if let Some(bot_slug) = plan.gh_bot_slug.as_ref() {
+            if let Some(bot_slug) = plan.agent.as_ref().and_then(|a| a.gh_slug.as_ref()) {
                 let (bot_owner, bot_name) = split_slug(bot_slug)?;
                 if gh_repo_exists(bot_owner, bot_name)? {
                     return Err(format!("GitHub repo '{bot_slug}' already exists").into());
@@ -1234,7 +1329,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                 )
                 .into());
             }
-            if let Some(bot_bare) = plan.bot_bare_path.as_ref()
+            if let Some(bot_bare) = plan.agent.as_ref().and_then(|a| a.bare_path.as_ref())
                 && bot_bare.exists()
             {
                 return Err(format!(
@@ -1261,7 +1356,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                     .into());
                 }
             }
-            if let Some(bot_url) = plan.bot_url.as_ref()
+            if let Some(bot_url) = plan.agent.as_ref().map(|a| &a.url)
                 && !is_remote_url(bot_url)
             {
                 let p = PathBuf::from(bot_url);
@@ -1336,13 +1431,15 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             info!("  6. (skipped, no cross-reference in single-repo)");
             info!("  7. Remove jj (git clean -xdf)");
         }
+        let agent_url = plan.agent.as_ref().map(|a| a.url.as_str());
+        let agent_slug = plan.agent.as_ref().and_then(|a| a.gh_slug.as_deref());
         match &plan.provisioner {
             Provisioner::GhCreate => {
                 if is_dual {
                     info!(
                         "  8. gh repo create {} {visibility}; push to {}",
-                        plan.gh_bot_slug.as_deref().unwrap_or(""), // OK: dry-run display only
-                        plan.bot_url.as_deref().unwrap_or(""),     // OK: dry-run display only
+                        agent_slug.unwrap_or(""), // OK: dry-run display only
+                        agent_url.unwrap_or(""),  // OK: dry-run display only
                     );
                 } else {
                     info!("  8. (skipped, no bot side in single-repo)");
@@ -1357,11 +1454,12 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                 if is_dual {
                     info!(
                         "  8. git init --bare {}; push to {}",
-                        plan.bot_bare_path
+                        plan.agent
                             .as_ref()
+                            .and_then(|a| a.bare_path.as_ref())
                             .map(|p| p.display().to_string())
                             .unwrap_or_default(), // OK: dry-run display only
-                        plan.bot_url.as_deref().unwrap_or(""), // OK: dry-run display only
+                        agent_url.unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
                     info!("  8. (skipped, no bot side in single-repo)");
@@ -1379,7 +1477,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
                 if is_dual {
                     info!(
                         "  8. skip create; push to pre-existing {}",
-                        plan.bot_url.as_deref().unwrap_or(""), // OK: dry-run display only
+                        agent_url.unwrap_or(""), // OK: dry-run display only
                     );
                 } else {
                     info!("  8. (skipped, no bot side in single-repo)");
@@ -1403,10 +1501,9 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         return Ok(());
     }
 
-    if params.por {
-        create_por(params, &plan, templates, visibility, create_symlink)
-    } else {
-        create_dual(params, &plan, templates, visibility, create_symlink)
+    match &plan.agent {
+        None => create_por(params, &plan, templates, visibility, create_symlink),
+        Some(agent) => create_dual(params, &plan, agent, templates, visibility, create_symlink),
     }
 }
 
@@ -1481,54 +1578,47 @@ fn create_por(
 /// - `cross_ref_ochids`: rewrite both initial commits' placeholder
 ///   trailers once each side's chid is known.
 /// - `push_repo` for bot side (no `clean_exclude`).
-/// - `push_repo` for work side with `clean_exclude = Some(".claude")`
-///   so the nested bot repo survives the work-side clean.
+/// - `push_repo` for work side.
 /// - `symlink::install` (when `create_symlink`).
 fn create_dual(
     params: &InitParams,
     plan: &InitPlan,
+    agent: &AgentPlan,
     templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
     create_symlink: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    #[allow(clippy::unwrap_used)]
-    let bot_dir = plan.bot_dir.as_ref().unwrap(); // OK: scope=work,bot => bot_dir set
-    #[allow(clippy::unwrap_used)]
-    let bot_name = plan.bot_name.as_ref().unwrap(); // OK: scope=work,bot => bot_name set
-    #[allow(clippy::unwrap_used)]
-    let bot_url = plan.bot_url.as_deref().unwrap(); // OK: scope=work,bot => bot_url set
-
-    let (work_template, bot_template) = match templates.as_ref() {
+    let (work_template, agent_template) = match templates.as_ref() {
         Some((c, b)) => (Some(c.as_path()), b.as_deref()),
         None => (None, None),
     };
 
     prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
     // The recorded name is the agent-repo's *remote* name, the last
-    // segment of its origin URL, which is not `bot_name`: that is the
+    // segment of its origin URL, which is not `agent.name`: that is the
     // local directory's project name, and a fixture whose bare is
-    // `remote-work.claude.git` under a project called `tr` shows the
+    // `remote-work.agent-session.git` under a project called `tr` shows the
     // two diverging.
-    let agent_repo = derive_name(bot_url)?;
-    write_work_config(&plan.project_dir, &agent_repo)?;
+    let agent_repo = derive_name(&agent.url)?;
+    write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
     let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::Placeholder)?;
 
-    prepare_local_repo(bot_dir, "agent", bot_template, bot_name)?;
-    write_bot_config(bot_dir)?;
-    let bot_chid = commit_initial(bot_dir, "agent", OchidStrategy::Placeholder)?;
+    prepare_local_repo(&agent.path, "agent", agent_template, &agent.name)?;
+    write_bot_config(&agent.path)?;
+    let agent_chid = commit_initial(&agent.path, "agent", OchidStrategy::Placeholder)?;
 
-    cross_ref_ochids(&plan.project_dir, &work_chid, bot_dir, &bot_chid)?;
+    cross_ref_ochids(&plan.project_dir, &work_chid, &agent.path, &agent_chid)?;
 
-    let bot_chid_final = push_repo(
-        bot_dir,
+    let agent_chid_final = push_repo(
+        &agent.path,
         "agent",
         "Step 8",
         plan,
         params,
         visibility,
-        bot_url,
-        plan.gh_bot_slug.as_deref(),
-        plan.bot_bare_path.as_deref(),
+        &agent.url,
+        agent.gh_slug.as_deref(),
+        agent.bare_path.as_deref(),
     )?;
     let work_chid_final = push_repo(
         &plan.project_dir,
@@ -1556,7 +1646,7 @@ fn create_dual(
         "  Work repo:    {}  (chid={work_chid_final})",
         plan.work_url
     );
-    info!("  Bot repo: {bot_url}  (chid={bot_chid_final})");
+    info!("  Agent repo:   {}  (chid={agent_chid_final})", agent.url);
     if let Some(sl) = sl_opt.as_ref() {
         info!(
             "  Symlink:      {} -> {}",
