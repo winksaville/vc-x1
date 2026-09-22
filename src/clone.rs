@@ -135,8 +135,11 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         Some(n) => n.clone(),
         None => derive_name(&params.target)?,
     };
+    // NAME may be a path, `./name`, which a plain join keeps as
+    // `…/./name`: the symlink named from that would never match the
+    // one Claude Code looks for.
     let parent_dir = std::env::current_dir()?;
-    let project_dir = parent_dir.join(&name);
+    let project_dir = crate::common::normalize_path(&parent_dir.join(&name));
 
     if project_dir.exists() {
         return Err(format!("'{}' already exists", project_dir.display()).into());

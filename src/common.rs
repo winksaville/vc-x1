@@ -177,6 +177,34 @@ pub fn is_stdin_tty() -> bool {
     std::io::stdin().is_terminal()
 }
 
+/// Lexically normalize a path: collapse `.` / `..` components
+/// without touching disk. `std::fs::canonicalize` requires the
+/// path to exist, and a destination init or clone is about to create
+/// doesn't yet. A path that names a symlink's location this way must
+/// match the one Claude Code derives from the real working directory,
+/// which carries neither.
+pub fn normalize_path(p: &Path) -> PathBuf {
+    let mut out: Vec<std::path::Component> = Vec::new();
+    for comp in p.components() {
+        match comp {
+            std::path::Component::ParentDir => {
+                let pop = matches!(
+                    out.last(),
+                    Some(std::path::Component::Normal(_)) | Some(std::path::Component::CurDir)
+                );
+                if pop {
+                    out.pop();
+                } else {
+                    out.push(comp);
+                }
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out.iter().collect()
+}
+
 /// Wrap text in ANSI bold escape codes.
 pub fn bold(s: &str) -> String {
     format!("\x1b[1m{s}\x1b[0m")

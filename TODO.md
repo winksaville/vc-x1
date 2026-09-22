@@ -127,7 +127,8 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init adopt takes a POR][6] (done)
 - [test: init adopt runs end to end][7] (done)
 - [feat: path arguments complete in the shell][10] (done)
-- [fix: clone names its symlink from a normalized path][11]
+- [fix: clone names its symlink from a normalized path][11] (done)
+- [fix: init's ochid trailer names the agent side by its label][13]
 - [feat: init adopts an existing tree closing][8]
 
 ##### feat: init adopts an existing tree opening
@@ -373,6 +374,27 @@ Inserted after the completion rung (wink, 2026-09-21), from a clone in the field
 NAME to the working directory as given, so `./dtdrvvx1` makes `…/experiments/./dtdrvvx1`, and the
 symlink encodes that path to `-home-…-experiments---dtdrvvx1`, a name Claude Code never looks
 for, so a session there keeps its history outside the agent repo.
+
+* `clone` joined its NAME to the working directory without normalizing it.
+  - It now collapses `.` and `..` the way `init`'s path targets already did. `normalize_path`
+    moved from `init.rs` to `common.rs` so both call the one copy.
+* The symlink's name is the path encoded character by character, so any `.` or `..` a caller let
+  through changed it.
+  - `SymLink::new` normalizes the working directory and the target before encoding, so every
+    caller, `clone`, `init`, and `symlink`, names the link as Claude Code derives it from the real
+    directory.
+* Nothing covered a dotted destination.
+  - `tests/cli_clone.rs` clones into `./cl` through the binary and checks the output has no `/./`
+    and the one symlink is named from `<base>/cl`. A symlink unit test names the link from
+    `/home/user/./project` and `/home/user/x/../project` as `-home-user-project`.
+
+##### fix: init's ochid trailer names the agent side by its label
+
+Inserted after the symlink fix (wink, 2026-09-21), from `validate-desc` in the field. The agent
+side's ochid label is `/.claude` whatever its directory is called, which `push` writes and
+`validate-desc` checks, but init's cross-link spells the prefix from the directory's name. Since
+init defaults to `.agent-session`, every workspace it makes starts with a work commit whose
+trailer `validate-desc` rejects.
 
 ##### feat: init adopts an existing tree closing
 
@@ -1488,4 +1510,5 @@ _None._
 [9]: #fix-squash-push-tests-never-read-the-terminal
 [10]: #feat-path-arguments-complete-in-the-shell
 [11]: #fix-clone-names-its-symlink-from-a-normalized-path
+[13]: #fix-inits-ochid-trailer-names-the-agent-side-by-its-label
 [12]: /notes/forks-multi-user.md

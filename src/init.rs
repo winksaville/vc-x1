@@ -1303,32 +1303,7 @@ fn resolve_path_target(p: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> 
     } else {
         std::env::current_dir()?.join(pb)
     };
-    Ok(normalize_path(&abs))
-}
-
-/// Lexically normalize a path: collapse `.` / `..` components
-/// without touching disk. `std::fs::canonicalize` requires the
-/// path to exist, but init's destination doesn't yet.
-fn normalize_path(p: &Path) -> PathBuf {
-    let mut out: Vec<std::path::Component> = Vec::new();
-    for comp in p.components() {
-        match comp {
-            std::path::Component::ParentDir => {
-                let pop = matches!(
-                    out.last(),
-                    Some(std::path::Component::Normal(_)) | Some(std::path::Component::CurDir)
-                );
-                if pop {
-                    out.pop();
-                } else {
-                    out.push(comp);
-                }
-            }
-            std::path::Component::CurDir => {}
-            other => out.push(other),
-        }
-    }
-    out.iter().collect()
+    Ok(crate::common::normalize_path(&abs))
 }
 
 /// Extract the `owner/name` slug from a GitHub URL (any of the
