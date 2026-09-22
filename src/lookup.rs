@@ -19,7 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::info;
 
 use jj_lib::commit::Commit;
@@ -51,11 +51,11 @@ pub struct LookupArgs {
     /// `SCOPE FILE:LINE`, or `FILE:LINE` alone: SCOPE is the side
     /// the line is on, `work` or `agent`, inferred from the path
     /// when omitted
-    #[arg(value_name = "SCOPE|FILE:LINE")]
+    #[arg(value_name = "SCOPE|FILE:LINE", value_hint = ValueHint::FilePath)]
     pub first: String,
 
     /// `FILE:LINE` when the first argument is SCOPE
-    #[arg(value_name = "FILE:LINE")]
+    #[arg(value_name = "FILE:LINE", value_hint = ValueHint::FilePath)]
     pub second: Option<String>,
 
     /// The side the line is on, the positional's flag form

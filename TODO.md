@@ -126,7 +126,8 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init adopt takes a plain directory][5] (done)
 - [feat: init adopt takes a POR][6] (done)
 - [test: init adopt runs end to end][7] (done)
-- [feat: path arguments complete in the shell][10]
+- [feat: path arguments complete in the shell][10] (done)
+- [fix: clone names its symlink from a normalized path][11]
 - [feat: init adopts an existing tree closing][8]
 
 ##### feat: init adopts an existing tree opening
@@ -352,6 +353,26 @@ redirected (wink, 2026-09-21).
 Inserted after the adopt rungs (wink, 2026-09-21). An argument that takes a path completes in the
 shell only when it is a `PathBuf`, so `init`'s TARGET and seven others typed as a `String` or
 parsed by a function of their own complete nothing under `COMPLETE=bash`.
+
+* clap's completion engine completes a path only for an argument it knows takes one, a `PathBuf`
+  or an argument with a `value_hint`, and eight path arguments were neither.
+  - `init` and `clone` TARGET take `AnyPath`, since each also takes a URL, and `symlink` TARGET
+    and `--use-template` take `DirPath`.
+  - `lookup`'s `FILE:LINE`, in either position, `--config none|PATH`, and the `config` and
+    `validate-config` TARGET take `FilePath`. The path completes and the rest, `:LINE` or a side
+    keyword, is typed.
+* Nothing checked what the binary offers.
+  - `tests/cli_complete.rs` asks the built binary for candidates the way the shell hook does,
+    over the fish protocol, which prints one per line, and checks each argument offers a path in a
+    scratch tree. `validate-anchors`, a `PathBuf` that completed already, rides along as the
+    control. The bash protocol gives the same answer by hand.
+
+##### fix: clone names its symlink from a normalized path
+
+Inserted after the completion rung (wink, 2026-09-21), from a clone in the field. `clone` joins its
+NAME to the working directory as given, so `./dtdrvvx1` makes `…/experiments/./dtdrvvx1`, and the
+symlink encodes that path to `-home-…-experiments---dtdrvvx1`, a name Claude Code never looks
+for, so a session there keeps its history outside the agent repo.
 
 ##### feat: init adopts an existing tree closing
 
@@ -1466,4 +1487,5 @@ _None._
 [8]: #feat-init-adopts-an-existing-tree-closing
 [9]: #fix-squash-push-tests-never-read-the-terminal
 [10]: #feat-path-arguments-complete-in-the-shell
+[11]: #fix-clone-names-its-symlink-from-a-normalized-path
 [12]: /notes/forks-multi-user.md

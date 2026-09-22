@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{debug, info, trace, warn};
 
 use crate::common::{bot_repo_path, find_workspace_root, reject_legacy_config};
@@ -43,7 +43,12 @@ pub struct ValidateConfigArgs {
     /// `work,agent`, or a config-file path. The user config
     /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
     /// path.
-    #[arg(value_parser = parse_target, default_value = "work,agent", verbatim_doc_comment)]
+    #[arg(
+        value_parser = parse_target,
+        value_hint = ValueHint::FilePath,
+        default_value = "work,agent",
+        verbatim_doc_comment
+    )]
     pub target: ConfigTarget,
 }
 

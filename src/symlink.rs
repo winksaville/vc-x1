@@ -9,7 +9,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{debug, info};
 
 use crate::context::Context;
@@ -253,7 +253,7 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
 #[derive(Args, Debug)]
 pub struct SymlinkArgs {
     /// Directory to link to [default: from repos.agent, else .claude]
-    #[arg(value_name = "TARGET")]
+    #[arg(value_name = "TARGET", value_hint = ValueHint::DirPath)]
     pub target: Option<String>,
 
     /// Directory for symlink [default: ~/.claude/projects]

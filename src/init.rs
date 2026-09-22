@@ -5,7 +5,7 @@ pub use params::InitParams;
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{debug, info};
 
 use crate::config::{self, UserConfig};
@@ -41,7 +41,7 @@ pub struct InitArgs {
     /// A slashed target with no path prefix (`owner/name`) is
     /// refused: it reads equally as a path and as the retired
     /// owner/name shorthand, so pass `./owner/name` or a URL.
-    #[arg(value_name = "TARGET", verbatim_doc_comment)]
+    #[arg(value_name = "TARGET", value_hint = ValueHint::AnyPath, verbatim_doc_comment)]
     pub target: String,
 
     /// Repo directory name override (URL form only).

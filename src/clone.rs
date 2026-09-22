@@ -21,7 +21,7 @@
 
 use std::path::Path;
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{info, warn};
 
 use crate::context::Context;
@@ -43,7 +43,7 @@ pub struct CloneArgs {
     ///   owner/name shorthand, so pass `./owner/name` or a URL.
     /// - Local path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`
     ///   (passed directly to `git clone`)
-    #[arg(value_name = "TARGET", verbatim_doc_comment)]
+    #[arg(value_name = "TARGET", value_hint = ValueHint::AnyPath, verbatim_doc_comment)]
     pub target: String,
 
     /// Destination dir name in cwd [default: derived from TARGET]

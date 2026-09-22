@@ -1,7 +1,7 @@
 //! `--use-template`: seed repos from template directories.
 //! See [options_flags](README.md) for shared architecture.
 
-use clap::Args;
+use clap::{Args, ValueHint};
 
 /// `--use-template` leaf (Option: non-boolean domain), see
 /// [Consuming an OF](README.md#consuming-an-of).
@@ -23,6 +23,7 @@ pub struct UseTemplateOption {
         id = "use_template",
         long = "use-template",
         value_name = "WORK[,BOT]",
+        value_hint = ValueHint::DirPath,
         verbatim_doc_comment
     )]
     pub value: Option<String>,
