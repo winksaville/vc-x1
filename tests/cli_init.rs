@@ -233,3 +233,45 @@ fn cli_init_existing_target_refusals() {
     assert!(text.contains("does not exist"), "{text}");
     assert!(!work.join(".jj").exists(), "nothing written");
 }
+
+/// A workspace init makes passes `validate-desc` on both sides, its
+/// agent directory named anything: the trailers carry the sides'
+/// labels, `/.claude` for the agent side, never the directory's name.
+#[test]
+fn cli_init_trailers_pass_validate_desc() {
+    let fx = CliFixture::new("init-trailers-valid");
+    let local = format!("--repo=local={}", fx.base.display());
+
+    let fresh = fx.path("fresh");
+    run_ok(
+        fx.cmd()
+            .arg("init")
+            .arg(&fresh)
+            .arg(&local)
+            .args(["--agent-dir", ".sess"]),
+    );
+
+    let adopted = fx.path("adopted");
+    std::fs::create_dir_all(&adopted).expect("mkdir adopted");
+    // Its own bare parent, since both workspaces' bares share names.
+    std::fs::create_dir_all(fx.path("bares")).expect("mkdir bares");
+    std::fs::write(adopted.join("notes.txt"), "a record\n").expect("write notes");
+    run_ok(
+        fx.cmd()
+            .arg("init")
+            .arg(&adopted)
+            .arg("--adopt")
+            .arg(format!("--repo=local={}", fx.path("bares").display()))
+            .args(["--agent-dir", ".sess"]),
+    );
+
+    for work in [&fresh, &adopted] {
+        for repo in [work.clone(), work.join(".sess")] {
+            run_ok(
+                fx.cmd()
+                    .args(["validate-desc", "-r", "@-", "-R"])
+                    .arg(&repo),
+            );
+        }
+    }
+}

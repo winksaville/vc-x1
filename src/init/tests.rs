@@ -852,7 +852,7 @@ fn adopt_plain_directory_commits_its_content() {
     );
     // Cross-linked like a fresh init's.
     let desc = crate::test_helpers::description(&work, "@-");
-    assert!(desc.contains("ochid: /.agent-session/"), "{desc}");
+    assert!(desc.contains("ochid: /.claude/"), "{desc}");
 
     let _ = std::fs::remove_dir_all(&base);
 }
@@ -979,7 +979,7 @@ fn adopt_repo_with_origin_keeps_history_and_pushes_nothing() {
 
     let desc = description(&fx.work, "@-");
     assert!(desc.starts_with(ADOPT_TITLE), "{desc}");
-    assert!(desc.contains("ochid: /.agent-session/"), "{desc}");
+    assert!(desc.contains("ochid: /.claude/"), "{desc}");
     assert_eq!(
         chid(&fx.work, "@--"),
         first,

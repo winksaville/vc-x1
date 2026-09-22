@@ -128,7 +128,7 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [test: init adopt runs end to end][7] (done)
 - [feat: path arguments complete in the shell][10] (done)
 - [fix: clone names its symlink from a normalized path][11] (done)
-- [fix: init's ochid trailer names the agent side by its label][13]
+- [fix: init's ochid trailer names the agent side by its label][13] (done)
 - [feat: init adopts an existing tree closing][8]
 
 ##### feat: init adopts an existing tree opening
@@ -395,6 +395,15 @@ side's ochid label is `/.claude` whatever its directory is called, which `push` 
 `validate-desc` checks, but init's cross-link spells the prefix from the directory's name. Since
 init defaults to `.agent-session`, every workspace it makes starts with a work commit whose
 trailer `validate-desc` rejects.
+
+* `cross_ref_ochids` spelled the agent side's prefix from its directory, `/<dir>/`, where its own
+  doc comment said `/.claude/`.
+  - It writes the sides' canonical labels, `OCHID_BOT_LABEL` and `OCHID_WORK_LABEL`, the ones
+    `push` writes and `validate-desc` checks. The two differed only once rung 3 moved the default
+    off `.claude`.
+* Two init tests asserted `ochid: /.agent-session/`, pinning the bug as the behavior.
+  - They assert `/.claude/`, and a CLI test makes a fresh workspace and adopts a plain directory,
+    both with `--agent-dir .sess`, and runs `validate-desc` on all four repos.
 
 ##### feat: init adopts an existing tree closing
 

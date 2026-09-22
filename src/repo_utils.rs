@@ -21,6 +21,7 @@ use std::path::Path;
 use log::{debug, info};
 
 use crate::common::mkdir_p;
+use crate::desc_helpers::{OCHID_BOT_LABEL, OCHID_WORK_LABEL};
 use crate::init::{copy_template_recursive, rewrite_readme_first_line};
 use crate::jj;
 
@@ -170,19 +171,12 @@ pub fn cross_ref_ochids(
     bot_chid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("set ochid cross-references");
-    // The bot-side ochid prefix is the bot dir's workspace-relative
-    // path (`/<dir-name>`), derived from the dir init just created.
-    let bot_name = bot_dir
-        .file_name()
-        .ok_or_else(|| {
-            format!(
-                "cross_ref_ochids: bot dir '{}' has no name",
-                bot_dir.display()
-            )
-        })?
-        .to_string_lossy();
-    let work_desc = format!("{work_title}\n\nochid: /{bot_name}/{bot_chid}");
-    let bot_desc = format!("{INITIAL_TITLE}\n\nochid: /{work_chid}");
+    // Each side is named by its canonical label, never by its
+    // directory: `/.claude` is the agent side's whatever the
+    // directory is called, the label `push` writes and `validate-desc`
+    // checks.
+    let work_desc = format!("{work_title}\n\nochid: {OCHID_BOT_LABEL}/{bot_chid}");
+    let bot_desc = format!("{INITIAL_TITLE}\n\nochid: {OCHID_WORK_LABEL}{work_chid}");
 
     debug!("work side: rewrite initial commit's ochid to point at bot chid");
     jj::describe(work_dir, "@-", &work_desc)?;
