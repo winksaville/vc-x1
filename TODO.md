@@ -125,7 +125,8 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init adopt detects the target's state][4] (done)
 - [feat: init adopt takes a plain directory][5] (done)
 - [feat: init adopt takes a POR][6] (done)
-- [test: init adopt on a plain directory][7]
+- [test: init adopt runs end to end][7] (done)
+- [feat: path arguments complete in the shell][10]
 - [feat: init adopts an existing tree closing][8]
 
 ##### feat: init adopts an existing tree opening
@@ -328,12 +329,29 @@ create path's unconditional writes may clobber.
   - The preflight's two work-side `unwrap()` calls became `if let`, since an adopted repo's plan
     has no work slug or bare to check.
 
-##### test: init adopt on a plain directory
+##### test: init adopt runs end to end
 
 The adopt rungs test `init()` in process, with the symlink turned off, so nothing that runs again
 drives the `vc-x1` binary through an adopt, and the symlink step is checked by hand alone. The rung
 adds CLI integration tests to `tests/cli_init.rs`, the binary as a subprocess with `HOME`
 redirected (wink, 2026-09-21).
+
+* No test drove the binary through an adopt, and the symlink step had no test at all.
+  - `tests/cli_init.rs` runs the built `vc-x1` as a subprocess with `HOME` in the fixture, so the
+    symlink lands there, and reads the log it prints.
+  - A plain directory: all ten steps print and no eleventh, a file over jj's new-file limit is
+    named, both repos and both bare origins appear, and the symlink points at the agent repo.
+  - The single-repo workspace `init --por` makes, adopted in a second run: step 1 edits its config
+    in place, no work publish step runs, the origin's `main`, read with the real git, is where it
+    was, the agent bare sits beside the origin, and the symlink points at the agent repo.
+  - The refusals: an existing target without `--adopt` is told to pass it, `--adopt` on a missing
+    target is told it does not exist, and neither writes anything.
+
+##### feat: path arguments complete in the shell
+
+Inserted after the adopt rungs (wink, 2026-09-21). An argument that takes a path completes in the
+shell only when it is a `PathBuf`, so `init`'s TARGET and seven others typed as a `String` or
+parsed by a function of their own complete nothing under `COMPLETE=bash`.
 
 ##### feat: init adopts an existing tree closing
 
@@ -1444,7 +1462,8 @@ _None._
 [4]: #feat-init-adopt-detects-the-targets-state
 [5]: #feat-init-adopt-takes-a-plain-directory
 [6]: #feat-init-adopt-takes-a-por
-[7]: #test-init-adopt-on-a-plain-directory
+[7]: #test-init-adopt-runs-end-to-end
 [8]: #feat-init-adopts-an-existing-tree-closing
 [9]: #fix-squash-push-tests-never-read-the-terminal
+[10]: #feat-path-arguments-complete-in-the-shell
 [12]: /notes/forks-multi-user.md
