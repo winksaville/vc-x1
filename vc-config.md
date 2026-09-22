@@ -226,6 +226,34 @@ used-by = "default_scope, scope resolution, ochid prefixes (structural)"
 example = ".claude"
 ```
 
+## remote.agent-repo
+
+The agent-repo's name on its remote, which `clone` and `sync` need when there is no agent-repo yet
+to ask. Its own table rather than a `[repos]` entry: `[repos]` registers local paths and this is a
+remote name, and two keys a letter apart, one a path and one a name, were misread the day the key
+was drafted.
+
+Only the last URL segment is recorded. The owner and the host come from the work-repo's own remote,
+so the two repos are siblings in one namespace and a fork under a different owner resolves to that
+owner's agent-repo. An agent-repo outside the work-repo's namespace cannot be reached by derivation
+and is named by a flag instead, which is the [clone
+takes --agent](TODO.md#clone-takes---agent-for-the-agent-repos-source) entry's subject.
+
+An absent key means the work repo's name plus `.claude`, which is what every workspace created
+before the key carries.
+
+There is no `[remote] work`: clone is handed the work-repo's URL as its argument and git holds it
+after that, so a recorded copy could only disagree with the remote the repo actually has.
+
+```toml
+[remote.agent-repo]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The agent-repo's name on its remote, the last URL segment only, since the owner and host come from the work-repo's remote. Absent means the work repo's name plus .claude"
+used-by = "clone and sync, deriving the agent-repo's URL"
+example = "myproject.agent-session"
+```
+
 ## family.member
 
 This repo's name as a member of an agent-file family: the name its sibling repos know it by,

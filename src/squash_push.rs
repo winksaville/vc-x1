@@ -402,13 +402,15 @@ fn read_state(params: &SquashPushParams) -> Result<RunState, Box<dyn std::error:
 /// Ask whether to act, when asking is on.
 ///
 /// `yes` skips it, which is the default. With the prompt on, a
-/// non-tty stdin is an error rather than a hang, the rule `push`'s
-/// step gate follows, and a declined prompt is an error too, so a
-/// caller that scripted the run learns it did not happen.
+/// non-tty stdin (`stdin_is_tty`, from the `Context`) is an error
+/// rather than a hang, the rule `push`'s step gate follows, and a
+/// declined prompt is an error too, so a caller that scripted the
+/// run learns it did not happen.
 fn confirm(
     params: &SquashPushParams,
     state: &RunState,
     label: &str,
+    stdin_is_tty: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !params.at_rest {
         debug!("squash-push: push's stage does not ask");
@@ -418,9 +420,12 @@ fn confirm(
         debug!("squash-push: --yes skips the prompt");
         return Ok(());
     }
-    if !crate::common::is_stdin_tty() {
-        return Err("squash-push: asking requires a tty (stdin is not interactive);                     add --yes to act without asking"
-            .into());
+    if !stdin_is_tty {
+        return Err(
+            "squash-push: asking requires a tty (stdin is not interactive); add --yes to act \
+             without asking"
+                .into(),
+        );
     }
     let answer = crate::common::prompt(&format!("{}. squash-push? [y/N] ", state.line(label)))?;
     let normalized = answer.trim().to_ascii_lowercase();
@@ -500,7 +505,7 @@ pub fn squash_push(
     // The prompt sits between the precheck and the work, so it is
     // asked only when there is something to decline, and it names
     // what the precheck found.
-    confirm(params, &before, &label)?;
+    confirm(params, &before, &label, ctx.stdin_is_tty)?;
 
     // Empty-source handling: nothing to squash, but the precheck
     // found work, so the push still runs.
@@ -867,9 +872,21 @@ mod tests {
 
     /// The built-in default is to act without asking, so today's
     /// behavior is what a bare invocation still gets.
+    ///
+    /// The params are built against a fixture rather than the
+    /// developer's checkout. `try_from` resolves the line's bookmark
+    /// now, and a checkout with a cycle in flight carries both `main`
+    /// and the cycle's bookmark on one line, an ambiguity the answer
+    /// this test asks for does not depend on. Its sibling
+    /// `try_from_canonicalizes_and_defaults` moved onto a fixture for
+    /// the same reason (0.84.10) and this one was missed.
     #[test]
     fn the_default_is_to_act_without_asking() {
-        let args = parse(&["vc-x1", "squash-push"]);
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-default-yes");
+        let mut args = parse(&["vc-x1", "squash-push"]);
+        args.repo = fx.bot.clone();
         let params = SquashPushParams::try_from(&args).expect("params");
         assert!(params.yes, "a bare run does not prompt");
     }
@@ -913,9 +930,9 @@ mod tests {
             yes: false,
         };
         let state = read_state(&params).expect("read state");
-        // `cargo test` gives the test binary no tty, so this is the
-        // non-interactive path rather than a hang.
-        let err = confirm(&params, &state, "bot")
+        // The test states no tty rather than inheriting `cargo
+        // test`'s stdin, which is a terminal when run from one.
+        let err = confirm(&params, &state, "bot", false)
             .expect_err("no tty and asking")
             .to_string();
         assert!(err.contains("requires a tty"), "{err}");
@@ -964,7 +981,7 @@ mod tests {
             yes: false,
         };
         let state = read_state(&stage).expect("read state");
-        confirm(&stage, &state, "bot").expect("push's stage does not ask");
+        confirm(&stage, &state, "bot", false).expect("push's stage does not ask");
 
         // The same params at rest are the error rung 3 introduced,
         // so it is `at_rest` doing the work here and not `yes`.
@@ -972,7 +989,10 @@ mod tests {
             at_rest: true,
             ..stage
         };
-        assert!(confirm(&at_rest, &state, "bot").is_err(), "at rest it asks");
+        assert!(
+            confirm(&at_rest, &state, "bot", false).is_err(),
+            "at rest it asks"
+        );
 
         squash_push(&mut crate::test_helpers::test_ctx(), &at_rest)
             .expect_err("and the at-rest run refuses without a tty");

@@ -9,8 +9,8 @@
 //! The two init/clone incompatibilities this test used to work
 //! around inline (bugs.md #1 and #2) were fixed at 0.76.0-5:
 //! init's local bares are created with `--initial-branch=main`,
-//! and its bot bare is `derive_bot_url` of the work bare, so
-//! init's naming and clone's derivation agree. A relative
+//! and its agent bare's name is recorded in the work config, which
+//! is what clone reads to find it. A relative
 //! local-path TARGET now resolves on both sides too, so the
 //! absolute-path requirement is gone.
 
@@ -119,11 +119,11 @@ fn assert_trb_synced(p: &PeerPush) {
         p.pushed,
         "trB's @ should be repositioned onto the new main"
     );
-    let bot = p.tr_b.join(".claude");
+    let bot = p.tr_b.join(".agent-session");
     assert_eq!(
         cid(home, &bot, "@-"),
         cid(home, &bot, "main"),
-        "trB/.claude's @ should be repositioned onto its main"
+        "trB/.agent-session's @ should be repositioned onto its main"
     );
 }
 

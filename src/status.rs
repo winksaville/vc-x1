@@ -413,7 +413,7 @@ mod tests {
         let both = Scope(vec![Side::Work, Side::Bot]);
         let repos = labeled_repos(&both, Some(&fx.work)).unwrap();
         assert_eq!(repos[0].0, "work");
-        assert_eq!(repos[1].0, ".claude");
+        assert_eq!(repos[1].0, ".agent-session");
         let reports: Vec<(String, jj::WcStatus)> = repos
             .into_iter()
             .map(|(l, p)| (l, jj::wc_status(&p).unwrap()))

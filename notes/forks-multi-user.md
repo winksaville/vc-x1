@@ -263,6 +263,16 @@ after the leading `/`) already encodes either model:
 `/.claude/<chid>` for shared, `/.claude-alice/<chid>` for
 per-user. The trailer format itself is forward-compatible.
 
+### The agent label is not the directory
+
+The agent side's ochid label is `/.claude`, `OCHID_BOT_LABEL`, whatever its directory is called:
+this repo's agent directory is `.agent-session` and its trailers read `ochid: /.claude/<chid>`. The
+label resolves through the `[repos]` registry, so renaming the directory leaves every published
+trailer valid. `push` writes it and `validate-desc` checks it, and anything else writing a trailer
+uses the constant, never the directory's name: init's cross-link once spelled it from the
+directory, and every workspace it made under the `.agent-session` default failed `validate-desc`
+until the **feat: init adopts an existing tree** cycle fixed it.
+
 ### Per-user bot repos via URL-shaped ochid
 
 Per-user bot repos become practical for distributed

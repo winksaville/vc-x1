@@ -9,7 +9,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{debug, info};
 
 use crate::context::Context;
@@ -70,11 +70,15 @@ impl SymLink {
     /// * `target`: the directory the symlink should point to (resolved to absolute)
     /// * `symlink_dir`: parent directory for the symlink (e.g. `~/.claude/projects`)
     pub fn new(cwd: &Path, target: &Path, symlink_dir: &Path) -> Result<Self, String> {
-        let abs_target = if target.is_absolute() {
+        // Claude Code names a project by its real working directory,
+        // which has no `.` or `..` in it, so the name is derived from
+        // the same shape whatever the caller passed.
+        let cwd = &crate::common::normalize_path(cwd);
+        let abs_target = crate::common::normalize_path(&if target.is_absolute() {
             target.to_path_buf()
         } else {
             cwd.join(target)
-        };
+        });
 
         let cwd_str = cwd
             .to_str()
@@ -114,11 +118,15 @@ impl SymLink {
         symlink_dir: &Path,
         symlink_meta: Option<Option<PathBuf>>,
     ) -> Result<Self, String> {
-        let abs_target = if target.is_absolute() {
+        // Claude Code names a project by its real working directory,
+        // which has no `.` or `..` in it, so the name is derived from
+        // the same shape whatever the caller passed.
+        let cwd = &crate::common::normalize_path(cwd);
+        let abs_target = crate::common::normalize_path(&if target.is_absolute() {
             target.to_path_buf()
         } else {
             cwd.join(target)
-        };
+        });
 
         let cwd_str = cwd
             .to_str()
@@ -253,7 +261,7 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
 #[derive(Args, Debug)]
 pub struct SymlinkArgs {
     /// Directory to link to [default: from repos.agent, else .claude]
-    #[arg(value_name = "TARGET")]
+    #[arg(value_name = "TARGET", value_hint = ValueHint::DirPath)]
     pub target: Option<String>,
 
     /// Directory for symlink [default: ~/.claude/projects]
@@ -402,6 +410,28 @@ mod tests {
             encode_path("/home/wink/.config/test"),
             "-home-wink--config-test"
         );
+    }
+
+    /// A working directory with `.` or `..` in it names the symlink as
+    /// its normalized form does, since that is the name Claude Code
+    /// derives from the real directory.
+    #[test]
+    fn dotted_cwd_names_the_normalized_path() {
+        let symlink_dir = Path::new("/home/user/.claude/projects");
+        for cwd in ["/home/user/./project", "/home/user/x/../project"] {
+            let sl = SymLink::with_meta(Path::new(cwd), Path::new(".claude"), symlink_dir, None)
+                .unwrap();
+            assert_eq!(
+                sl.symlink_path,
+                PathBuf::from("/home/user/.claude/projects/-home-user-project"),
+                "{cwd}"
+            );
+            assert_eq!(
+                sl.abs_target,
+                PathBuf::from("/home/user/project/.claude"),
+                "{cwd}"
+            );
+        }
     }
 
     #[test]

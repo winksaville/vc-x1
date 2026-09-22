@@ -21,10 +21,11 @@
 //! beside `validate-desc`, `validate-todo`, `validate-agent`, and
 //! `validate-anchors`.
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
-use clap::Args;
+use clap::{Args, ValueHint};
 use log::{debug, info, trace, warn};
 
 use crate::common::{bot_repo_path, find_workspace_root, reject_legacy_config};
@@ -42,7 +43,12 @@ pub struct ValidateConfigArgs {
     /// `work,agent`, or a config-file path. The user config
     /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
     /// path.
-    #[arg(value_parser = parse_target, default_value = "work,agent", verbatim_doc_comment)]
+    #[arg(
+        value_parser = parse_target,
+        value_hint = ValueHint::FilePath,
+        default_value = "work,agent",
+        verbatim_doc_comment
+    )]
     pub target: ConfigTarget,
 }
 
@@ -240,6 +246,10 @@ fn validate_file(
         }
     }
 
+    if let Some(msg) = agent_repo_suggestion(&map) {
+        info!("{label} ({}): {msg}", path.display());
+    }
+
     let links = validate_links(path, label)?;
     counts.links += links.links;
     counts.findings += links.findings;
@@ -253,6 +263,36 @@ fn validate_file(
         counts.findings
     );
     Ok(counts)
+}
+
+/// The `[remote] agent-repo` suggestion for a config that wants one,
+/// or `None` when it does not.
+///
+/// A suggestion rather than a finding, logged at `info!` and left
+/// out of the count: absence is legal and means the work repo's name
+/// plus `.claude` (see [`crate::url::agent_url`]), so a workspace
+/// created before the key still validates clean. The nag is what
+/// spreads the key, and once every workspace carries one the
+/// derivation's fallback can retire.
+///
+/// Returns the message rather than logging it, so the gating is
+/// testable without capturing the log.
+///
+/// - Only the work side of a dual workspace is asked: `repos.work`
+///   of `"."` beside a `repos.agent`. The agent side's config
+///   carries a `repos.agent` of its own (`"."`) and is not where the
+///   name belongs.
+fn agent_repo_suggestion(map: &HashMap<String, String>) -> Option<String> {
+    let is_dual_work_side =
+        map.get("repos.work").is_some_and(|v| v == ".") && map.contains_key("repos.agent");
+    if !is_dual_work_side || map.contains_key("remote.agent-repo") {
+        return None;
+    }
+    Some(
+        "no [remote] agent-repo, so the agent-repo's remote name is taken as the work repo's plus \
+         .claude. Add the key to pin it."
+            .to_string(),
+    )
 }
 
 /// Check a config file's prose links: its own anchors and
@@ -694,5 +734,35 @@ member = \"x\"
             .expect("validate")
             .findings;
         assert_eq!(findings, 1);
+    }
+
+    /// The suggestion is for the work side of a dual workspace that
+    /// has no `[remote] agent-repo`, and for nothing else.
+    #[test]
+    fn the_agent_repo_suggestion_is_gated() {
+        let map = |pairs: &[(&str, &str)]| -> HashMap<String, String> {
+            pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                .collect()
+        };
+
+        let work_side = map(&[("repos.work", "."), ("repos.agent", ".claude")]);
+        assert!(agent_repo_suggestion(&work_side).is_some());
+
+        let already_pinned = map(&[
+            ("repos.work", "."),
+            ("repos.agent", ".claude"),
+            ("remote.agent-repo", "ws.claude"),
+        ]);
+        assert!(agent_repo_suggestion(&already_pinned).is_none());
+
+        // The agent side declares `agent = "."`, and the name is not
+        // its to carry.
+        let agent_side = map(&[("repos.work", ".."), ("repos.agent", ".")]);
+        assert!(agent_repo_suggestion(&agent_side).is_none());
+
+        let single_repo = map(&[("repos.work", ".")]);
+        assert!(agent_repo_suggestion(&single_repo).is_none());
     }
 }

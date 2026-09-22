@@ -19,7 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
+use clap::{Args, ValueHint};
 
 use log::info;
 
@@ -67,7 +67,12 @@ pub struct ConfigArgs {
     /// `work,agent`, or a config-file path. The user config
     /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
     /// path.
-    #[arg(value_parser = parse_target, default_value = "work,agent", verbatim_doc_comment)]
+    #[arg(
+        value_parser = parse_target,
+        value_hint = ValueHint::FilePath,
+        default_value = "work,agent",
+        verbatim_doc_comment
+    )]
     pub target: ConfigTarget,
 
     /// Retired at 0.80.6: the check is `vc-x1 validate-config`,

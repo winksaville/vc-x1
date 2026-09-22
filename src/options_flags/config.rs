@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use clap::Args;
+use clap::{Args, ValueHint};
 
 /// Parsed `--config` value.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,6 +38,7 @@ pub struct ConfigOption {
         id = "config",
         long = "config",
         value_name = "none|PATH",
+        value_hint = ValueHint::FilePath,
         verbatim_doc_comment
     )]
     pub value: Option<String>,

@@ -31,12 +31,20 @@ work = "."
 agent = ".claude"
 ```
 
+The `[remote]` table
+- agent-repo: The agent-repo's name on its remote, the last URL segment only, since the owner and
+  host come from the work-repo's remote. Absent means the work repo's name plus .claude [[6]]
+```toml
+[remote]
+agent-repo = "myproject.agent-session"
+```
+
 The `[family]` table
 - member: This repo's member name in its agent-file family (also its record file in the messages
-  repo) [[6]]
+  repo) [[7]]
 - template: Path to the family's template payload, the directory holding the pinned agent-files
-  [[7]]
-- messages: Path to the family's messages repo, relative to this config file's directory [[8]]
+  [[8]]
+- messages: Path to the family's messages repo, relative to this config file's directory [[9]]
 ```toml
 [family]
 member = "vc-x1"
@@ -45,8 +53,8 @@ messages = "../vc-x1-messages"
 ```
 
 The `[agent-files.diff]` table
-- dir: Default DIR for agent-files diff: a directory holding a copy of the set [[9]]
-- custom: Default for agent-files diff --custom: compare custom.md like the rest of the set [[10]]
+- dir: Default DIR for agent-files diff: a directory holding a copy of the set [[10]]
+- custom: Default for agent-files diff --custom: compare custom.md like the rest of the set [[11]]
 ```toml
 [agent-files.diff]
 dir = "../iiac-perf"
@@ -54,8 +62,8 @@ custom = false
 ```
 
 The `[agent-files.copy]` table
-- dir: Default DIR for agent-files copy: a directory holding a copy of the set [[11]]
-- custom: Default for agent-files copy --custom: copy custom.md with the rest of the set [[12]]
+- dir: Default DIR for agent-files copy: a directory holding a copy of the set [[12]]
+- custom: Default for agent-files copy --custom: copy custom.md with the rest of the set [[13]]
 ```toml
 [agent-files.copy]
 dir = "../vc-x1-template/work"
@@ -63,15 +71,15 @@ custom = false
 ```
 
 The `[squash-push]` table
-- yes: Default for squash-push: act without asking once the precheck found work [[13]]
+- yes: Default for squash-push: act without asking once the precheck found work [[14]]
 ```toml
 [squash-push]
 yes = true
 ```
 
 The `[validate]` table
-- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[14]]
-- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[15]]
+- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[15]]
+- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[16]]
 ```toml
 [validate]
 full = [
@@ -85,7 +93,7 @@ fast = ["cargo test --bins"]
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[16]]
+  test` [[17]]
 ```toml
 [test]
 fixtures = "../vc-x1-fixtures"
@@ -98,14 +106,15 @@ fixtures = "../vc-x1-fixtures"
 [3]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-sessioncol-width
 [4]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#reposwork
 [5]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#reposagent
-[6]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymember
-[7]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familytemplate
-[8]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymessages
-[9]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffdir
-[10]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffcustom
-[11]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopydir
-[12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
-[13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
-[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
-[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[6]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#remoteagent-repo
+[7]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymember
+[8]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familytemplate
+[9]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#familymessages
+[10]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffdir
+[11]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffcustom
+[12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopydir
+[13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
+[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
+[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
+[16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
+[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

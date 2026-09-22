@@ -9,7 +9,15 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+- Asked and not answered: whether the flag-name rule gets written down. A settable key's leaf is
+  its flag's long name, in nine pairs (`--account`, `--debug`, `--repo`, `--result-lines`,
+  `--col-width`, `--custom` twice, `--yes`, and the `[DIR]` operand), with no exception among the
+  keys that have a flag. It is written nowhere, which is how `remote.agent-name` came to be proposed
+  and corrected. The candidate home is one line in the "Shape:" prose of `vc-config.md`, in rung 2.
+- Asked three times and not answered: whether to write a `## Todo` entry for using "dual-repo
+  workspace" consistently and defining it in `README.md`. The spellings in the tree today are
+  dual-repo, dual workspace, POR, single-repo workspace, and `is_work_only()`, which `prose.md > One
+  spelling per term` forbids.
 
 ## In Progress
 
@@ -183,14 +191,6 @@ onboarding path from the note, cloning someone else's work-repo with your own ag
 command. After the sync entry above, since sync cloning an absent agent-repo needs the same URL
 and decides where it is stored, a flag or a per-user config.
 
-### init turns a POR into a dual-repo
-
-(wink, 2026-09-06) The step after the entry above: a work-repo with no `.vc-config.md` at all,
-or a single-repo config, run through `vc-x1 init .` gains the agent side, the config's
-`repos.agent` field written, the agent-repo created and published, the symlink made, where today
-init only creates a workspace from nothing. With it the whole ladder from an old repo to a dual
-workspace is clone, init, sync, each command doing the part its name says.
-
 ### clone from a path refuses a dirty source
 
 (wink, 2026-09-06) A clone fetches the source's bookmarks and checks out `main`, never the
@@ -323,14 +323,106 @@ in one `agent-files` proposal cycle:
   `main`. Say "land on `main`", or on whichever bookmark, wherever the name is used, and retire the
   entry.
 
-### config --merge folds new keys into a workspace config
+Evidence, 2026-09-20: rung 2 of **feat: init adopts an existing tree** took four review rounds on
+its `Ladder details`, and every round found a record-prose defect rather than a code one. The `*`
+facets stated answers where problems go, "the name" left its referent a paragraph away, the text
+assumed the reader knew `.vc-config.md` and the markdown-as-config carrier, and "this workspace
+records" gave a workspace agency it has not got.
 
-(wink, 2026-09-02) `vc-x1 config` prints and validates, and a workspace whose config predates a
-key learns of it only by reading the model. A `--merge` takes the model's tables and keys, adds
-the ones the file lacks as commented lines with their default or example, leaves what the file
-holds untouched, and writes the file back for review in the working copy. First use: dogfood it
-on this repo's `.vc-config.md`, which the **feat: the status and agent-files commands** cycle
-left without the `[agent-files.*]` tables on purpose.
+### The ladder heads the rung subsections
+
+(wink, 2026-09-21) The In Progress block puts `#### Ladder` after the Acceptance check and the rung
+subsections under a separate `#### Ladder details` heading, with the whole Deliberation between
+them. The **feat: init adopts an existing tree** block moved the ladder below the Deliberation,
+where it heads the subsections as their index, and dropped the second heading. Carry it into the
+agent-files in one `agent-files` proposal cycle:
+
+- notes.md, The In Progress block: the `Ladder details` area paragraph and the single-step case,
+  which then has no subsections under its `#### Ladder`.
+- cycle-model.md: the specimen's order and headings.
+- AGENTS.md: the Cycle-record items list, and step 4 of The per-rung flow, which names the area.
+- The cost to weigh: the ladder carries `(current)` and now sits past the Deliberation, outside the
+  60-line acquaint read. The Continuation notes name the rung in flight at a restart, which may be
+  enough, or the acquaint read may look for `(current)` instead.
+
+### repos.agent becomes repos.agent-dir, and a command brings a config up to date
+
+(wink, 2026-09-02, 2026-09-21) Two changes that need each other: a key rename every adopter must
+apply, and a command that applies it.
+
+- `repos.agent` becomes `repos.agent-dir`. It holds the agent-repo's directory while `[remote]
+  agent-repo` holds its name on the remote, and the flag that sets the directory is `--agent-dir`.
+  A key's leaf is its flag's long name everywhere else.
+  - Breaking, unlike the `[remote]` key: every adopter's config carries `repos.agent`, and
+    workspace-root discovery reads it. The old key is rejected with a fix-it, as `repos.bot` was
+    at 0.80.0 (`reject_old_agent_keys` in `src/legacy_vc_config.rs`), never read as an alias.
+- A command brings a config up to date, and the fix-it names it. Today `vc-x1 config` prints and
+  validates, and a workspace whose config predates a change learns of it only by reading the model.
+  - It renames every old key found, across both sides' config files, from one old-to-new table that
+    also carries `repos.bot`.
+  - It adds the model's tables and keys the file lacks, as commented lines with their default or
+    example, and leaves what the file holds untouched.
+  - It edits in place and keeps the prose: in a `.vc-config.md` only the key lines inside the `toml`
+    fences change, and prose that still names an old key is reported rather than rewritten.
+  - A dry run by default, as `fix-desc` and `fix-todo` are, and the result is reviewed in the
+    working copy.
+  - First use: this repo's `.vc-config.md`, which the **feat: the status and agent-files commands**
+    cycle left without the `[agent-files.*]` tables on purpose.
+- The name is undecided. iiac-perf has `update-config FILE`, which does the same job by
+  regenerating the file from its template, keeping the values and losing the prose, and fails on a
+  key it no longer knows rather than renaming it. The same spelling across the family would be
+  nice, not required. The candidates are `update-config`, `config --update`, and `config update`
+  under **Nest the validate and fix commands**.
+
+### init adopt takes a git-only repo
+
+(wink, 2026-09-21) **feat: init adopt takes a POR** took a jj repo colocated with git, with or
+without a single-repo config, and points a git-only repo, `.git` with no `.jj`, at
+`jj git init --colocate`, which the user runs before adopting. Adopt could run it: the facade's
+colocated init creates a new `.git`, and attaching to an existing one is jj's other init path,
+which the facade lacks.
+
+### --repo takes a URL, and a separate flag takes the path for local remotes
+
+(wink, 2026-09-21) `--repo local=<dir>` reads as the local work repo, where it names the directory
+init creates the bare origins in, standing in for GitHub. The two categories of one flag also
+overlap, since `remote=` takes a path prefix too, meaning bare repos someone else created. Split
+them by what they take:
+
+- `--repo <url>` names a remote on a server, a URL and never a path.
+- A separate flag, `--repo-local <path>` or `--repo-test <path>`, the name for this cycle to settle,
+  takes a path and only a path, and init creates the bare repos there. The two conflict.
+- Init creates the path when it is missing. Today a missing one fails with jj's "Could not open
+  data at", and only at the publish step, after an adopt has already committed the work repo, so
+  preflight checks it before anything is written.
+- The bares are named after the project, `<path>/<name>.git` and `<path>/<name>.agent-session.git`,
+  not the fixed `remote-work.git`, so one path holds several projects' remotes as one GitHub account
+  holds several repos. The fixtures and `tests/cli_sync.rs` are built on the fixed names.
+- The user config's account keys, `repo.default` and `repo.category.<cat>`, were shaped for one
+  flag with categories (0.41.1-4). Two flags want a key each, named by their long names, and the
+  old keys rejected with a fix-it, which is work for [repos.agent becomes repos.agent-dir, and a
+  command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date).
+- `local=` and `remote=` as category values are rejected with a fix-it, not kept as aliases.
+
+### The code says agent where it still says bot
+
+(wink, 2026-09-21) 0.80.0 renamed the bot side to the agent side in the config and on the CLI, and
+the code kept the old word: about 314 `bot_` and `Side::Bot` identifiers across `src`. A reader
+meets both words for one repo, and output a user reads still carries the old one.
+
+- Output first, since a user reads it:
+  - `clone`'s summary prints `Bot repo:` (`src/clone.rs`).
+  - `push`'s stages are `commit-bot` and `squash-push-bot`, and it prints `restored bot repo`.
+  - `push` prints `.claude had no pending changes` whatever the agent repo's directory is, which is
+    wrong as well as old.
+  - `fix-desc` says `no bot side`.
+- Then the identifiers: `Side::Bot`, `is_bot_dir`, `write_bot_config`, `bot_dir` and its kin, and
+  the `bot_session` and `validate_bot` modules.
+- Out of scope: the old-config code in `src/legacy_vc_config.rs`, whose `bot` spellings are the old
+  names it rejects, and the `--scope bot` rejection, which names the old value on purpose.
+- `create_dual` in `src/init.rs` was renamed by **feat: init defaults to .agent-session**, as the
+  first function its rung rewrote.
 
 ### validate-anchors fails a cross-file link whose file is absent
 
@@ -429,30 +521,6 @@ file ([notes/README.md](notes/README.md)), say `notes/config-ownership.md`.
 - The retired **feat: add config --refresh** and the `--output` question still open in **Fix
   `vc-x1 config`'s rendering** are the two places the reversal changed a plan, so the file should
   name them.
-
-### `init` still seeds `.claude` as the agent directory
-
-(2026-08-28) The agent rename covered the vocabulary and this repo's own layout and left `init`'s
-default alone, so every workspace it creates lands in the mount collision this repo just left. With
-the agent repo at `<project>/.claude`, the harness's ten `/dev/null` bind mounts land inside the
-agent repo, and the seeded agent-side `.gitignore` carries only `.git` and `.jj`. We think an agent
-working there meets ten untracked device nodes in `jj st`, since the work side's `/.claude` line
-cannot reach inside a second repo.
-
-- The default has five sites: `DEFAULT_BOT_DIR` (`src/init.rs:161`), the seeded work config's
-  `agent = ".claude"` (`src/init.rs:347`), `GITIGNORE_CODE` (`src/init.rs:470`), the GitHub repo
-  name `<name>.claude` (`src/init.rs:986`, `:1032`), and the `example` for `repos.agent` in
-  `vc-config.md`, which build.rs regenerates into `vc-config-model.md`.
-- Three tests pin it: `src/init/tests.rs:82`, `:125`, `:156`.
-- Open question, and the reason this is an entry rather than a one-line default swap: does the
-  GitHub repo suffix follow the directory? Repos named `<name>.claude` already exist under the old
-  name, so changing the suffix is a decision about published names rather than about a default.
-- `vc-x1 push` labels the agent side `.claude` in its pending-changes report while resolving the
-  configured path beside it, so the line reads `.claude (<root>/.agent-session):`. The label is the
-  string literal at `src/push.rs:377`, and eight doc comments in that file name `.claude` for the
-  bot repo generally. Cosmetic, and the same rename not having reached everywhere.
-- Found while running **chore: point config at .agent-session**, whose record holds what the
-  collision costs a workspace that stays on `.claude`.
 
 ### `validate`: enforce the record shapes the agent-files ask for
 
@@ -1055,54 +1123,431 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### fix: bump jj-lib to 0.45 and gix to 0.87
+### feat: init adopts an existing tree
 
 #### Problem
 
-The installed jj moved to 0.45.1, and the version gate refuses to run against a mismatched jj-lib,
-so vc-x1 built on jj-lib 0.44 stops at every command. jj-lib 0.45 resolves gix 0.87, and the
-lock-contention downcast needs the two to agree, so both crates move together.
+Today `vc-x1 init` creates a workspace from nothing and refuses any target that already exists, so a
+directory holding work cannot become a dual workspace. The recovery is by hand on both sides, two
+colocated `jj git init` runs, two `.vc-config.md` files, two `.gitignore` files, the remotes, and
+the symlink, and the two initial commits end up with no `ochid:` cross-link, since a trailer is
+never hand-written. Three inputs want the one command: a plain directory that is no repo at all, a
+repo with no `.vc-config.md`, and a repo whose config declares only the work side. Beside that, the
+agent side a fresh init creates lands at `<project>/.claude`, the mount collision this repo left
+when it moved to `.agent-session`, and the agent remote's name is derived by appending `.claude` to
+the work source rather than read from anywhere, so nothing records what an existing workspace's
+agent-repo is called.
 
 #### Solution
 
-Bumped jj-lib to 0.45 and gix to 0.87 and followed the API moves the compiler surfaced. jj-lib now
-records a git HEAD per workspace, so `import_head`, `reset_head`, `update_intent_to_add`, and
-`View::git_head` take the workspace's name or root, and `restore_op` carries the view's `git_heads`
-map forward where it carried the single `git_head`. `GitBackend::git_workdir` is gone, and the
-colocation check reads the workdir from the backend's git repo instead. `RepoPathUiConverter` moved
-to `ui_path` and `MergedTreeValue` to `backend`. gix-url's `parse` takes any `AsBStr`, so the source
-passes as it is.
+`vc-x1 init --adopt` grows an existing directory into a dual workspace, reading which state it is
+in first:
+
+- A plain directory gets both repos around it, its content, large files included, the work repo's
+  first commit.
+- A jj repo colocated with git, with no config or a single-repo one, keeps its history and gains
+  one commit on top, its config edited in place when it has one. With an `origin`, the agent
+  repo's remote is derived beside it and the work side pushes nothing.
+- A dual workspace, a missing target, and a git-only repo are refused, the last pointed at
+  `jj git init --colocate`.
+
+Beside it, init's agent side defaults to `.agent-session` on the directory and the remote, with
+`--agent-dir`, `--agent-repo`, and `--agent-suffix` to name them, and the work config records the
+remote's name as `[remote] agent-repo`, which `clone` reads, an absent key still meaning `.claude`.
+The field runs along the way fixed four more things in the same code: the step narration numbered
+1 to N in run order, shell completion for path arguments, a `clone` destination normalized before
+it names the symlink, and init's `ochid:` trailer written with the agent side's label rather than
+its directory's name.
 
 #### Acceptance check
 
-`vc-x1 validate` passes, and the installed `vc-x1-dev -V` reports jj-lib 0.45.1 and runs against
-the installed jj 0.45.1 without the version gate refusing.
-
-Pass. `vc-x1 validate` passed in full before the bookmark existed, and after it every test but the
-waived one passes. `vc-x1-dev -VV` reports jj-lib 0.45.1 and jj 0.45.1 and runs, where the 0.84.10
-`vc-x1` is refused with `jj-lib 0.44.0 != jj 0.45.1`.
-
-#### Ladder
-
-- fix: bump jj-lib to 0.45 and gix to 0.87 (done)
+The tree at `../iiac-perf-expr-1`, a plain directory of experiment records shared with iiac-perf,
+becomes a dual workspace in one `vc-x1 init . --adopt`: its `pins/` and `smooth/` records tracked in
+the first commit, `.agent-session` on both sides, two public repos under `winksaville` pushed over
+https, the Claude Code symlink live, and `vc-x1 status` clean on both sides. In a fixture, `--adopt`
+on a POR keeps its history and adds the agent side, on an already-dual workspace it refuses,
+`--agent-repo` with `--agent-suffix` is an error, a suffix opening with neither `.` nor `-` is an
+error, and a workspace whose config carries no `[remote] agent-repo` still clones, taking
+`.claude`. `cargo test` passes and `vc-x1 config work` lists `remote.agent-repo`.
 
 #### Deliberation
 
-- a cycle of its own, not a rung of the running feature cycle: the upgrade has nothing to do with
-  that feature, and landing it on `main` first lets the feature's bookmark rebase onto it
-  - its edits were separated out of that cycle's working copy, which is set aside as a patch until
-    this cycle lands
-- single-step: the compiler names every change, so there is one straightforward step
-- this cycle takes the version the feature cycle held, and the feature cycle renumbers at its
-  rebase: `main` then never steps backwards, and the rebase rewrites the feature's pushed opening
-  anyway
-- the push is waived past one failing test, by the user, for this push only: the waiver does not
-  cover Land or any later push
-  - `squash_push::tests::the_default_is_to_act_without_asking` reads the live repo's bookmarks,
-    and this cycle's bookmark on `main`'s commit trips its two-bookmark refusal. The fault is the
-    test's, not the upgrade's, and it goes to `## Todo` as [A squash-push test reads the live
-    repo's bookmarks](#a-squash-push-test-reads-the-live-repos-bookmarks)
+- Two `## Todo` entries are consumed rather than one. **init turns a POR into a dual-repo** is the
+  cycle's subject, and **`init` still seeds `.claude` as the agent directory** folds in because
+  every adopt rung would otherwise be written against the default it asks to change, and a workspace
+  adopted under `.claude` would be born into the mount collision.
+  - The folded entry's open question, whether the GitHub repo suffix follows the directory, is
+    answered yes (wink, 2026-09-20). Repos already published as `<name>.claude` keep their names,
+    and the `[remote] agent-repo` key is what lets them.
+- The plain-directory case is new work beyond the entry, which named a POR and a single-repo config
+  only. Neither describes `../iiac-perf-expr-1`, and that directory is the acceptance check, so the
+  third state is in scope from the start.
+- The opt-in is `--adopt` rather than init detecting an existing target by itself. The entry's
+  wording offered the bare `vc-x1 init .` and `notes/vc-x1-init.md` leaned the other way, and a path
+  target that happens to exist should not silently change what the command does.
+- Two remote-name flags, rather than one value read as a name or a suffix by its first character
+  (wink, 2026-09-20). A full name goes to `--agent-repo`, a suffix to `--agent-suffix`, which errors
+  unless it opens with `.` or `-`, and the two conflict. One polymorphic value would hide the
+  discriminator inside a parser.
+- The config key holds the agent-repo's name, not a URL. The owner and host keep coming from the
+  work remote, so a fork under another owner still resolves, and `notes/forks-multi-user.md` reads
+  the config as the home for repos the project already tracks and a URL as the form for a one-off
+  external contributor.
+- An absent `[remote] agent-repo` means `.claude`, rather than a probe of both names. Absence is
+  what says the workspace predates the key, so the fallback is a fact about the file instead of a
+  network guess, and it retires once the key is everywhere.
+- Only init writes the key, since init writes the config anyway. A fetch that edits a tracked file
+  would leave the tree dirty with an edit the user then owes a commit, so `clone` and `sync` suggest
+  the key instead, and `validate-config` carries the suggestion, its job being the config files.
+- The neighbouring entries stay and narrow. Both **sync clones a declared but absent agent-repo**
+  and **clone takes --agent for the agent-repo's source** rank above this one: sync's act becomes a
+  call into what adopt builds, and clone's flag stays the per-contributor URL the config key
+  deliberately does not carry.
+- The entry [repos.agent becomes repos.agent-dir, and a command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date) stays too,
+  holding what was **config --merge folds new keys into a workspace config**. Adopt patches the
+  `[repos]` table it owns rather than growing a general merge.
+- Multi-step, with the two name rungs ahead of the four adopt rungs. Each adopt rung would otherwise
+  be written against a default and a derivation it is about to change.
+- The greppable stem is `init`, carried by every rung, since each changes what one command does. The
+  bookends carry the bare cycle title, so the pair brackets the ladder on its own grep.
+- The repos are public and the remote is https (wink, 2026-09-20), passed at the acceptance run as
+  `--repo remote=` with the https namespace. The user config's ssh default is left alone, being the
+  user's own file.
+- The records are tracked data (wink, 2026-09-20). The 28M of `.jsonl` under `pins/` and `smooth/`
+  goes into the first commit rather than into a gitignore, since the records are what the experiment
+  is.
+- The blocking test fix is folded into the opening rather than inserted as a rung (wink,
+  2026-09-20). Publishing the bookmark is what breaks the test, so no rung could validate ahead of
+  the fix, and an inserted rung would have had to push before the opening it depends on.
+- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
+
+#### Ladder
+
+- [feat: init adopts an existing tree opening][1] (done)
+- [fix: squash-push tests never read the terminal][9] (done)
+- [feat: init records the agent-repo's name][2] (done)
+- [feat: init defaults to .agent-session][3] (done)
+- [feat: init adopt detects the target's state][4] (done)
+- [feat: init adopt takes a plain directory][5] (done)
+- [feat: init adopt takes a POR][6] (done)
+- [test: init adopt runs end to end][7] (done)
+- [feat: path arguments complete in the shell][10] (done)
+- [fix: clone names its symlink from a normalized path][11] (done)
+- [fix: init's ochid trailer names the agent side by its label][13] (done)
+- [feat: init adopts an existing tree closing][8] (done)
+
+##### feat: init adopts an existing tree opening
+
+The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
+two Todo entries into this block, bump the version-of-record, and rename the package to its dev
+name. Publishing the bookmark broke a test, so the fix rides here too.
+
+* A test built its params against the developer's checkout.
+  - `the_default_is_to_act_without_asking` resolved against `.`, and `try_from` now reads the
+    line's bookmark, so publishing the cycle's bookmark put both `main` and it on one line and the
+    resolution became ambiguous. The test moved onto a fixture, where its sibling
+    `try_from_canonicalizes_and_defaults` already sits.
+  - Every opening would have met it, since putting a second bookmark on the line is what an
+    opening does. The previous cycle moved the sibling for the same reason and missed this one.
+* A false positive in `validate-anchors` was filed rather than fixed.
+  - A heading's code-span text is dropped when its slug is computed, so the correct link at
+    `TODO.md:515` reads as a break and the check cannot be run to zero. It has nothing to do with
+    adopt, so it went to `notes/bugs.md` as #19.
+
+##### fix: squash-push tests never read the terminal
+
+Inserted ahead of the rung in flight, whose edits wait as a patch. `vc-x1 validate` run from a
+terminal failed one squash-push test and hung on another, since both reached the real prompt.
+
+* The tests assumed `cargo test` gives them no tty, and it does not: the test binary inherits the
+  stdin `cargo test` was started with, which is the terminal when a person runs it.
+  - `asking_without_a_tty_errors_rather_than_hangs` prompted, read an empty answer, and failed on
+    the decline. `pushs_stage_never_asks` prompted at rest and waited for an answer.
+  - The agent's own validation runs with no terminal, so it passed there and the gap went unseen.
+* Whether a person is there to ask is now read once, into `Context`, and a test states it.
+  - `Context::new` fills `stdin_is_tty` from the real stdin, `test_ctx` sets it false, and
+    squash-push's `confirm` takes it as an argument rather than reading stdin itself.
+  - The whole suite now passes under a pseudo-terminal, which is how the fix was checked.
+* `push` keeps its own four tty checks, since no test reaches them. They move to the `Context`
+  field when a test does.
+* This block's `#### Ladder` now follows `#### Deliberation` and heads the rung subsections, in
+  place of a separate `#### Ladder details` heading.
+  - The rungs' list sits beside the subsections it links, as their index.
+  - A rule bent by wink's say-so: the layout differs from the one `notes.md`, `cycle-model.md`, and
+    `AGENTS.md` describe. The bend covers this block's layout only. The agent-file text is left for
+    [The ladder heads the rung subsections](#the-ladder-heads-the-rung-subsections), its own cycle.
+
+##### feat: init records the agent-repo's name
+
+Nothing records what a workspace's agent-repo is called, so every reader that needs the name appends
+`.claude` to the work source, and a workspace naming it anything else cannot be found.
+
+* There is nowhere in a workspace to record the agent-repo's name.
+  - A workspace is two repos ([the dual-repo model](AGENTS.md#the-dual-repo-model)), and the
+    agent-repo has a remote of its own. Where it sits locally is `repos.agent`'s answer, a path
+    that defaults to a directory inside the work-repo's and may name anywhere in the tree. What it
+    is called on its remote was nobody's answer.
+  - The work-side `.vc-config.md` gains a `[remote]` table whose `agent-repo` key holds the last
+    segment of that remote's URL. The file is markdown whose `toml` fences are the configuration
+    and whose prose reaches no parser, which is [how the carrier is
+    read](vc-config.md#how-this-file-is-read).
+  - A table of its own, not a second `[repos]` entry: `[repos]` registers local paths, and the two
+    keys a letter apart were misread at review the day the key was drafted.
+  - README.md's [Workspace config tables](README.md#workspace-config-tables) documents the table
+    beside the others, now as one bullet per table where it was one paragraph for all of them.
+  - Our own config now carries `[remote] agent-repo = "vc-x1.claude"`, the name GitHub holds this
+    project's agent-repo under, while `repos.agent` puts it at `.agent-session`. The two differ
+    here, which is why neither can be derived from the other.
+* Every workspace that already exists records no agent-repo name, and that cannot be an error.
+  - An absent key reads as the `.claude` suffix, and `validate-config` suggests the key without
+    counting a finding, so an old workspace still validates clean while the suggestion spreads it.
+* Clone needed the agent-repo's name before it had the config that holds it.
+  - The URL derivation moved to after the work clone, beside the `repos.agent` read already waiting
+    there. The legacy branch is not asked for the key, since it is reached only when the `[repos]`
+    config was rejected.
+* Init had the project's name and the remote's both in reach, and recorded the project's.
+  - The value written is the last segment of the agent-repo's origin URL, not the plan's `bot_name`,
+    which is the local directory's project name. The `cli_sync` fixture caught it: a project called
+    `tr` whose agent bare is `remote-work.claude.git`.
+
+##### feat: init defaults to .agent-session
+
+A workspace init creates puts its agent-repo at `<project>/.claude`, where the harness's bind mounts
+land inside the agent repo, and the name is a constant no caller can override.
+
+* The directory is a constant, and `.claude` is where the harness's bind mounts land.
+  - The default is `.agent-session`, and `--agent-dir` names another. The work config records it
+    as `repos.agent`, and the work `.gitignore` ignores it.
+  - It is one name, not a path: the agent side's config reaches the work repo as `..`, and `.git`
+    and `.jj` are refused as the work repo's own.
+* The remote name was the work source plus `.claude`, derived in two places.
+  - One function now builds a dual plan's agent side for every provisioner. The remote name is
+    `--agent-repo`, else the work URL's last segment plus `--agent-suffix`, else plus
+    `.agent-session`, and the URL keeps the work repo's owner and host.
+  - The plan holds that side as one `AgentPlan`, present exactly when the workspace is dual, where
+    it was six optional fields. The dual steps take it whole, so the four `unwrap()` calls that
+    read its parts are gone.
+  - A suffix must begin with `.` or `-` and name something after it, and the two remote-name flags
+    conflict. A suffix like `-agent` is a value, not a flag.
+  - The directory and the remote name are chosen apart, so `--agent-dir` alone leaves the remote
+    name at its default.
+* Existing workspaces keep `.claude`.
+  - Their configs record no `[remote] agent-repo`, and an absent key still means `.claude`, so they
+    clone as before. `derive_bot_url` stays for that fallback alone.
+* The `--por` shape has no agent repo.
+  - The three flags are refused with it.
+* Left as it is: `--use-template`'s default agent template is still the `<CODE>.claude` sibling,
+  since it names a template on disk rather than a workspace's directory.
+
+##### feat: init adopt detects the target's state
+
+An existing target is refused before init looks at it, so the four states it could be in are
+indistinguishable to the command that has to grow them.
+
+* Init refused any existing target with one message, whatever it held.
+  - `--adopt` asks init to grow an existing target into a dual workspace, and init now reads which
+    of four states the target is in before it decides: a plain directory with no repo, a repo with
+    no workspace config, a single-repo workspace, or a dual-repo workspace.
+  - A repo is a `.git` or a `.jj` in the target itself, and the config's `repos.agent` separates
+    single-repo from dual. A dual workspace's agent repo declares `agent = "."`, so it reads as
+    dual.
+* The refusal did not say what would work.
+  - Without `--adopt`, an existing target is refused by its state and pointed at `--adopt`.
+  - A dual workspace is refused either way, having nothing to grow, and `--adopt` on a target that
+    does not exist is refused too, since a missing directory is likelier a typo than a request.
+  - The three states adopt will take are refused by name until their rungs land.
+* Some targets fit no state, and init must not guess at them.
+  - A file, a config with no repo beside it, and a config with no `repos.work` are errors, and a
+    legacy config gets its existing fix-it.
+  - A target inside another repo is not refused. Checking the ancestors would block every adopt
+    under a home directory kept in git, and the one nesting that matters, the agent repo of a dual
+    workspace, is caught by its config.
+* `--adopt` grows an agent side, so it is refused with `--por`.
+* Riding along, unrelated to adopt: this repo's `[validate] fast` is now the same list as `full`,
+  on trial. `cargo test --bins` saved about four seconds and skipped clippy and the integration
+  tests, where this cycle's failures turned up. The flag and the key stay, for a project whose
+  full run is slow.
+
+##### feat: init adopt takes a plain directory
+
+A directory that is no repo at all has to gain both repos at once, with its own content as the
+work-repo's first commit.
+
+* `--adopt` refused a plain directory as not taken yet.
+  - It is taken now: init creates both repos around the directory as a fresh init would, and the
+    work repo's first commit is everything its `.gitignore` does not exclude. The rest of the
+    fresh init, the configs, the cross-linked `ochid:` trailers, the remotes, and the symlink, is
+    unchanged.
+  - A directory already holding the agent directory is refused before anything is written, and
+    `--use-template` is refused with `--adopt`, since a template would overwrite files of the same
+    name (wink, 2026-09-21).
+* jj leaves a new file over 1MiB out of a snapshot, and the facade dropped the report that said so.
+  - The first commit tracks every file whatever its size and lists the ones over the limit (wink,
+    2026-09-21). The directory was adopted to be committed, and a `.gitignore` is how to keep a
+    file out. Only new files are limited, so once tracked, later snapshots take their changes.
+  - The snapshot now returns what it left out for size, and `commit_any_size` snapshots once to
+    learn that and again with the limit lifted. Every other caller still ignores the report, which
+    is [bugs.md #20](notes/bugs.md), since `push` can leave a new large file out the same way.
+* An adopted directory may already have a `.gitignore`.
+  - It is kept, and given the agent directory's line when it lacks it (wink, 2026-09-21). With
+    none, init writes its usual one.
+* Init's narration numbered its steps apart from the order they ran (wink, 2026-09-21).
+  - A real run printed Step 7, 8, 7, 9, 11 and prose for the rest, the dry run listed eleven steps
+    against the retired design, among them a `git clean -xdf` that would read as a threat to an
+    adopted directory's content, and a step 10 that no longer runs.
+  - One list in `src/init/steps.rs` now names each step a plan runs, numbered 1 to N in run order.
+    The dry run prints it whole and the real run prints `Step N: <title>` as each step starts, so
+    the two cannot disagree, and a step a plan does not run is left out rather than printed as
+    skipped.
+  - A dual run is ten steps, the last the symlink, and a single-repo run four. The helpers' own
+    lines that repeated a step's title became debug lines, and what they add, a commit's chid and
+    the files over the size limit, prints indented under its step.
+
+##### feat: init adopt takes a POR
+
+A repo already carries history, a `.gitignore`, and possibly a single-repo config, none of which the
+create path's unconditional writes may clobber.
+
+* `--adopt` refused a repo as not taken yet.
+  - A jj repo colocated with git and with no workspace config is taken now. Its history stays, and
+    one commit goes on top, titled "Adopt as a dual-repo workspace", carrying `.vc-config.md`, the
+    `.gitignore` line, and the `ochid:` trailer to the agent repo's first commit.
+  - A single-repo workspace, the shape `init --por` makes, is taken too (wink, 2026-09-21): its
+    first run in the field was refused, since every POR vc-x1 makes carries a config. Its config is
+    edited in place, `agent =` into `[repos]` and `agent-repo =` under `[remote]`, a header added
+    when the file has none, every other line kept, and the result read back and restored when it
+    does not declare both keys.
+  - A git-only repo stays refused, pointed at `jj git init --colocate`, and is filed as [init adopt
+    takes a git-only repo](#init-adopt-takes-a-git-only-repo).
+* A repo usually has a remote already, which a fresh init would try to create.
+  - With an `origin`, that is the work repo's remote, and the agent's is derived beside it, the
+    provisioner read off the origin's URL. The work side creates and pushes nothing, its commit the
+    user's to land (wink, 2026-09-21), and `--repo` and `--account` are refused.
+  - With no origin, the remotes come from `--repo` as a fresh init's do, and both are pushed.
+  - Resolving `--repo` needs the user config, which a repo with an origin does not. Under `--adopt`
+    the chain's error is held and raised only when the target has no origin to use.
+* A repo may hold uncommitted work, which adopt's commit would take in.
+  - A working copy with changes or a description is refused before anything is written (wink,
+    2026-09-21).
+* The steps follow the repo's shape: no prepare step, the commit titled as it is and called the
+  adopt commit where the cross-link names it, and no work publish when an origin exists.
+  - A commit's detail line reads "work commit" rather than "work initial commit", which an adopt
+    commit is not.
+  - The preflight's two work-side `unwrap()` calls became `if let`, since an adopted repo's plan
+    has no work slug or bare to check.
+
+##### test: init adopt runs end to end
+
+The adopt rungs test `init()` in process, with the symlink turned off, so nothing that runs again
+drives the `vc-x1` binary through an adopt, and the symlink step is checked by hand alone. The rung
+adds CLI integration tests to `tests/cli_init.rs`, the binary as a subprocess with `HOME`
+redirected (wink, 2026-09-21).
+
+* No test drove the binary through an adopt, and the symlink step had no test at all.
+  - `tests/cli_init.rs` runs the built `vc-x1` as a subprocess with `HOME` in the fixture, so the
+    symlink lands there, and reads the log it prints.
+  - A plain directory: all ten steps print and no eleventh, a file over jj's new-file limit is
+    named, both repos and both bare origins appear, and the symlink points at the agent repo.
+  - The single-repo workspace `init --por` makes, adopted in a second run: step 1 edits its config
+    in place, no work publish step runs, the origin's `main`, read with the real git, is where it
+    was, the agent bare sits beside the origin, and the symlink points at the agent repo.
+  - The refusals: an existing target without `--adopt` is told to pass it, `--adopt` on a missing
+    target is told it does not exist, and neither writes anything.
+
+##### feat: path arguments complete in the shell
+
+Inserted after the adopt rungs (wink, 2026-09-21). An argument that takes a path completes in the
+shell only when it is a `PathBuf`, so `init`'s TARGET and seven others typed as a `String` or
+parsed by a function of their own complete nothing under `COMPLETE=bash`.
+
+* clap's completion engine completes a path only for an argument it knows takes one, a `PathBuf`
+  or an argument with a `value_hint`, and eight path arguments were neither.
+  - `init` and `clone` TARGET take `AnyPath`, since each also takes a URL, and `symlink` TARGET
+    and `--use-template` take `DirPath`.
+  - `lookup`'s `FILE:LINE`, in either position, `--config none|PATH`, and the `config` and
+    `validate-config` TARGET take `FilePath`. The path completes and the rest, `:LINE` or a side
+    keyword, is typed.
+* Nothing checked what the binary offers.
+  - `tests/cli_complete.rs` asks the built binary for candidates the way the shell hook does,
+    over the fish protocol, which prints one per line, and checks each argument offers a path in a
+    scratch tree. `validate-anchors`, a `PathBuf` that completed already, rides along as the
+    control. The bash protocol gives the same answer by hand.
+
+##### fix: clone names its symlink from a normalized path
+
+Inserted after the completion rung (wink, 2026-09-21), from a clone in the field. `clone` joins its
+NAME to the working directory as given, so `./dtdrvvx1` makes `…/experiments/./dtdrvvx1`, and the
+symlink encodes that path to `-home-…-experiments---dtdrvvx1`, a name Claude Code never looks
+for, so a session there keeps its history outside the agent repo.
+
+* `clone` joined its NAME to the working directory without normalizing it.
+  - It now collapses `.` and `..` the way `init`'s path targets already did. `normalize_path`
+    moved from `init.rs` to `common.rs` so both call the one copy.
+* The symlink's name is the path encoded character by character, so any `.` or `..` a caller let
+  through changed it.
+  - `SymLink::new` normalizes the working directory and the target before encoding, so every
+    caller, `clone`, `init`, and `symlink`, names the link as Claude Code derives it from the real
+    directory.
+* Nothing covered a dotted destination.
+  - `tests/cli_clone.rs` clones into `./cl` through the binary and checks the output has no `/./`
+    and the one symlink is named from `<base>/cl`. A symlink unit test names the link from
+    `/home/user/./project` and `/home/user/x/../project` as `-home-user-project`.
+
+##### fix: init's ochid trailer names the agent side by its label
+
+Inserted after the symlink fix (wink, 2026-09-21), from `validate-desc` in the field. The agent
+side's ochid label is `/.claude` whatever its directory is called, which `push` writes and
+`validate-desc` checks, but init's cross-link spells the prefix from the directory's name. Since
+init defaults to `.agent-session`, every workspace it makes starts with a work commit whose
+trailer `validate-desc` rejects.
+
+* `cross_ref_ochids` spelled the agent side's prefix from its directory, `/<dir>/`, where its own
+  doc comment said `/.claude/`.
+  - It writes the sides' canonical labels, `OCHID_BOT_LABEL` and `OCHID_WORK_LABEL`, the ones
+    `push` writes and `validate-desc` checks. The two differed only once rung 3 moved the default
+    off `.claude`.
+* Two init tests asserted `ochid: /.agent-session/`, pinning the bug as the behavior.
+  - They assert `/.claude/`, and a CLI test makes a fresh workspace and adopts a plain directory,
+    both with `--agent-dir .sess`, and runs `validate-desc` on all four repos.
+
+##### feat: init adopts an existing tree closing
+
+Closing out the cycle.
+
+* Acceptance check: pass (2026-09-22).
+  - `vc-x1-dev init ./iiac-perf-expr-1 --adopt` ran ten steps. The 21 records in `claim/`,
+    `pins/`, and `smooth/` are tracked in the first commit, 23 files with the config and
+    `.gitignore`, the three records over the 5MiB limit named and tracked. Both repos are public
+    under `winksaville` with `https://` origins, the directory and the remote are `.agent-session`,
+    the symlink is named from the normalized path, `vc-x1 status both` is clean, and
+    `validate-desc` passes on both sides.
+  - The fixture half runs in `cargo test`: a POR keeps its history, a dual workspace is refused,
+    the two remote-name flags conflict, a bad suffix is refused, an absent `[remote] agent-repo`
+    clones as `.claude`, and `config work` lists `remote.agent-repo`.
+* The Problem's three inputs are all taken: the single-repo workspace, planned for later, came in
+  when its first run in the field was refused.
+* Close-out shape: trapezoid (wink, 2026-09-22).
+* What the field taught: four of the cycle's twelve rungs came from runs in the user's shell rather
+  than from the plan, and each found what the in-process tests could not see, a terminal on stdin,
+  a symlink named from a dotted path, a trailer spelled from a directory, and ssh from a user
+  config. Running the built binary on real directories before the closing was worth the rungs it
+  added.
+* Filed for later: the missing `--repo local=<dir>` parent fails at the agent's publish, after the
+  work repo is committed, so a preflight check joins the `--repo` entry.
 
 # References
 
+[1]: #feat-init-adopts-an-existing-tree-opening
+[2]: #feat-init-records-the-agent-repos-name
+[3]: #feat-init-defaults-to-agent-session
+[4]: #feat-init-adopt-detects-the-targets-state
+[5]: #feat-init-adopt-takes-a-plain-directory
+[6]: #feat-init-adopt-takes-a-por
+[7]: #test-init-adopt-runs-end-to-end
+[8]: #feat-init-adopts-an-existing-tree-closing
+[9]: #fix-squash-push-tests-never-read-the-terminal
+[10]: #feat-path-arguments-complete-in-the-shell
+[11]: #fix-clone-names-its-symlink-from-a-normalized-path
+[13]: #fix-inits-ochid-trailer-names-the-agent-side-by-its-label
 [12]: /notes/forks-multi-user.md

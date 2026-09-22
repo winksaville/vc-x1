@@ -405,4 +405,31 @@ insert / delete / reorder.
       branch stays a warning, since it reads the old file and reproduces the old layout. The
       label is padded.
 
+19. **`validate-anchors` drops a heading's code-span text when it slugs.** A heading carrying a code
+    span slugs as though the span and its text were absent, with the spaces around it surviving, so
+    ``### Support POR workspaces in `push` `` computes as `support-por-workspaces-in` where GitHub
+    gives `support-por-workspaces-in-push`, and ``## A in `mid` word`` computes as `a-in--word`
+    rather than `a-in-mid-word`. Found by the **feat: init adopts an existing tree** opening,
+    2026-09-20, on the live instance at `TODO.md:515`, whose link is the correct one.
+    - **Cost:** no heading holding backticks can be linked without `validate-anchors` reporting it,
+      and that false positive is indistinguishable from a real break, so the check cannot be run to
+      zero. The "did you mean" line quotes the truncated slug, which invites the reader to break a
+      working link.
+    - **Fix direction:** strip the backticks and keep the span's text. The strip is in place today,
+      the shape the anchor rule already names for the em dash, so the spaces on both sides of a span
+      survive and double the hyphen.
+
+20. **A snapshot leaves a new file over 1MiB out without a word.** The jj facade snapshots with
+    jj's `snapshot.max-new-file-size`, 1MiB by default, and discards the snapshot's report of the
+    files it left untracked, so a new file over the limit is silently not committed. Found by the
+    **feat: init adopt takes a plain directory** rung, 2026-09-21, whose acceptance directory holds
+    records of 7M to 10M.
+    - **Cost:** `vc-x1 push` commits the working copy through the same snapshot, so a new large
+      file in either repo is left out of the pushed commit, and the push reports success. The file
+      stays in the working copy, untracked, until someone notices it is missing from the remote.
+    - Init's first commit no longer has the gap: `commit_any_size` tracks every file and lists the
+      ones over the limit. Every other snapshot still has it.
+    - **Fix direction:** return the report from every snapshot and warn with the paths and sizes,
+      as jj's CLI does, or refuse a push that would leave a new file out.
+
 # References

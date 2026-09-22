@@ -21,8 +21,12 @@ use std::path::Path;
 use log::{debug, info};
 
 use crate::common::mkdir_p;
+use crate::desc_helpers::{OCHID_BOT_LABEL, OCHID_WORK_LABEL};
 use crate::init::{copy_template_recursive, rewrite_readme_first_line};
 use crate::jj;
+
+/// The title of a new repo's first commit.
+pub const INITIAL_TITLE: &str = "Initial commit";
 
 /// Initial-commit ochid policy used by `commit_initial`.
 ///
@@ -64,8 +68,8 @@ pub fn prepare_local_repo(
     template: Option<&Path>,
     name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!(
-        "Preparing local repo {info_label} directory at {}",
+    debug!(
+        "prepare local repo {info_label} directory at {}",
         target.display()
     );
 
@@ -76,12 +80,12 @@ pub fn prepare_local_repo(
 
     // The colocated init creates the git repo itself: the former
     // explicit `git init` was redundant (0.76.0-5).
-    info!("Initializing {info_label} repo (jj, colocated)...");
+    debug!("init {info_label} repo (jj, colocated)");
     jj::git_init_colocated(target)?;
 
     if let Some(t) = template {
-        info!(
-            "Copying {info_label} template: {} -> {}",
+        debug!(
+            "copy {info_label} template: {} -> {}",
             t.display(),
             target.display()
         );
@@ -95,6 +99,11 @@ pub fn prepare_local_repo(
 /// Commit the prepared working copy as an initial commit and
 /// return its chid (`jj @-`).
 ///
+/// Every file not ignored goes in, whatever its size: an adopted
+/// directory's content is what the commit is for, and a `.gitignore`
+/// is how to keep a file out. Files over jj's new-file size limit are
+/// named, since a later snapshot would not have taken them.
+///
 /// Pairs with `prepare_local_repo`: caller calls `prepare_local_repo`,
 /// optionally writes role-specific files (e.g. `.vc-config.toml`,
 /// `.gitignore`) into the tree, then calls this to capture the
@@ -103,27 +112,35 @@ pub fn prepare_local_repo(
 /// Parameters:
 /// - `target`: repo working dir, already prepared.
 /// - `info_label`: narration tag, mirroring `prepare_local_repo`.
-/// - `ochid_strategy`: message policy: `None` writes a plain
-///   `Initial commit`, while `Placeholder` writes
-///   `Initial commit\n\nochid: /none` for later rewrite by
-///   `cross_ref_ochids`.
+/// - `title`: the commit's title, [`INITIAL_TITLE`] for a new
+///   repo's first commit.
+/// - `ochid_strategy`: message policy: `None` writes the bare title,
+///   while `Placeholder` adds an `ochid: /none` trailer for later
+///   rewrite by `cross_ref_ochids`.
 pub fn commit_initial(
     target: &Path,
     info_label: &str,
+    title: &str,
     ochid_strategy: OchidStrategy,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let msg = match ochid_strategy {
-        OchidStrategy::None => "Initial commit",
-        OchidStrategy::Placeholder => "Initial commit\n\nochid: /none",
+        OchidStrategy::None => title.to_string(),
+        OchidStrategy::Placeholder => format!("{title}\n\nochid: /none"),
     };
-    info!("Committing {info_label}...");
-    jj::commit(target, msg)?;
+    debug!("commit {info_label}");
+    let large = jj::commit_any_size(target, &msg)?;
+    if !large.is_empty() {
+        info!(
+            "  tracked {} file(s) over jj's new-file size limit:",
+            large.len()
+        );
+        for (path, size) in &large {
+            info!("    {path} ({size} bytes)");
+        }
+    }
 
     let chid = jj::chid_of(target, "@-")?;
-    info!(
-        "Committed {info_label} initial at {} chid = {chid}",
-        target.display()
-    );
+    info!("  {info_label} commit: chid {chid}");
     Ok(chid)
 }
 
@@ -139,6 +156,8 @@ pub fn commit_initial(
 ///
 /// Parameters:
 /// - `work_dir`: work repo on disk, receiving `/.claude/<chid>`.
+/// - `work_title`: the work commit's title, kept as it is: an adopted
+///   repo's commit is not its first.
 /// - `work_chid`: work-side initial-commit chid, embedded into
 ///   the bot-side trailer.
 /// - `bot_dir`: bot repo on disk, receiving `/<chid>`.
@@ -146,24 +165,18 @@ pub fn commit_initial(
 ///   into the work-side trailer.
 pub fn cross_ref_ochids(
     work_dir: &Path,
+    work_title: &str,
     work_chid: &str,
     bot_dir: &Path,
     bot_chid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Setting ochid cross-references...");
-    // The bot-side ochid prefix is the bot dir's workspace-relative
-    // path (`/<dir-name>`), derived from the dir init just created.
-    let bot_name = bot_dir
-        .file_name()
-        .ok_or_else(|| {
-            format!(
-                "cross_ref_ochids: bot dir '{}' has no name",
-                bot_dir.display()
-            )
-        })?
-        .to_string_lossy();
-    let work_desc = format!("Initial commit\n\nochid: /{bot_name}/{bot_chid}");
-    let bot_desc = format!("Initial commit\n\nochid: /{work_chid}");
+    debug!("set ochid cross-references");
+    // Each side is named by its canonical label, never by its
+    // directory: `/.claude` is the agent side's whatever the
+    // directory is called, the label `push` writes and `validate-desc`
+    // checks.
+    let work_desc = format!("{work_title}\n\nochid: {OCHID_BOT_LABEL}/{bot_chid}");
+    let bot_desc = format!("{INITIAL_TITLE}\n\nochid: {OCHID_WORK_LABEL}{work_chid}");
 
     debug!("work side: rewrite initial commit's ochid to point at bot chid");
     jj::describe(work_dir, "@-", &work_desc)?;
@@ -193,7 +206,8 @@ mod tests {
         std::fs::create_dir_all(&base).expect("mkdir base");
 
         prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
-        let chid = commit_initial(&target, "work", OchidStrategy::None).expect("commit_initial");
+        let chid = commit_initial(&target, "work", INITIAL_TITLE, OchidStrategy::None)
+            .expect("commit_initial");
 
         assert!(!chid.is_empty(), "chid returned");
         assert!(target.join(".jj").exists(), "jj initialized");
@@ -219,8 +233,8 @@ mod tests {
         std::fs::create_dir_all(&base).expect("mkdir base");
 
         prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
-        let _chid =
-            commit_initial(&target, "work", OchidStrategy::Placeholder).expect("commit_initial");
+        let _chid = commit_initial(&target, "work", INITIAL_TITLE, OchidStrategy::Placeholder)
+            .expect("commit_initial");
 
         let log = git_ok(&target, &["log", "-1", "--format=%B"]);
         assert!(log.contains("Initial commit"));
@@ -243,8 +257,8 @@ mod tests {
         std::fs::create_dir_all(&base).expect("mkdir base");
 
         prepare_local_repo(&target, "scratch", None, "scratch").expect("prepare_local_repo");
-        let _chid =
-            commit_initial(&target, "scratch", OchidStrategy::None).expect("commit_initial");
+        let _chid = commit_initial(&target, "scratch", INITIAL_TITLE, OchidStrategy::None)
+            .expect("commit_initial");
 
         assert!(target.join(".jj").exists(), "jj still initialized");
         assert!(target.join(".git").exists(), "git still initialized");

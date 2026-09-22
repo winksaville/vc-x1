@@ -23,12 +23,16 @@ use crate::jj::session::RepoSession;
 ///   (`~/.config/vc-x1/config.toml` or its discovered equivalent).
 /// - `sessions`: the invocation's open `RepoSession`s, keyed by
 ///   canonicalized repo path; access via `session`.
+/// - `stdin_is_tty`: whether a prompt has a person to ask, read
+///   once here so a test states it rather than inheriting whatever
+///   stdin `cargo test` was started with.
 ///
 /// The `--log` path lived here while the retired detach machinery
 /// (0.69.0-2) needed to forward it to its re-exec'd child; logging
 /// is now fully handled at CLI startup and the field is gone.
 pub struct Context {
     pub user_config: UserConfig,
+    pub stdin_is_tty: bool,
     sessions: HashMap<PathBuf, RepoSession>,
 }
 
@@ -38,6 +42,7 @@ impl Context {
     pub fn new(user_config: UserConfig) -> Self {
         Self {
             user_config,
+            stdin_is_tty: crate::common::is_stdin_tty(),
             sessions: HashMap::new(),
         }
     }

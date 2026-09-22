@@ -122,6 +122,10 @@ Test 6:
 
 ## Findings: missing incremental-upgrade path
 
+Answered at 0.84.12 by `init --adopt`, whose design is [Adopting an existing
+tree](#adopting-an-existing-tree). The `--scope` sketch below is kept as the record of what was
+wanted.
+
 `init` today supports two and only two terminal modes from a
 clean dir:
 
@@ -218,3 +222,38 @@ generated workspace looks identical to what
 The user's stated priority (2026-04-27): implement
 path-form support **before** the 0.41.1 sync fix, since the
 sync fix's validation harness benefits from the shorthand.
+
+## Adopting an existing tree
+
+`init --adopt` (0.84.12, the **feat: init adopts an existing tree** cycle) grows an existing
+directory into a dual workspace. Without it, an existing target is refused, named by what it
+holds. `src/init/adopt.rs` reads the target first:
+
+| State | What adopt does |
+|---|---|
+| Absent | refuses: `--adopt` on a missing target is likelier a typo than a request |
+| Plain directory, no repo | both repos created around it, its content the work repo's first commit |
+| A repo with no workspace config | one commit on top, its history kept |
+| A single-repo workspace | as above, its config edited in place |
+| A dual-repo workspace | refuses: nothing to grow, the agent repo of one included |
+
+The decisions behind it:
+
+- A repo is a `.git` or a `.jj` in the target itself. Adopt takes a jj repo colocated with git and
+  points a git-only one at `jj git init --colocate`. A working copy with uncommitted work is
+  refused, since adopt's commit would take it in.
+- An adopted repo's commit, "Adopt as a dual-repo workspace", carries `.vc-config.md`, the
+  `.gitignore` line, and the `ochid:` trailer, and goes on top of its history. With an `origin`,
+  the work side pushes nothing, that commit being the user's to land, and the agent repo's remote
+  is derived beside the origin, the provisioner read off its URL. With no origin, the remotes come
+  from `--repo` as a fresh init's do.
+- The `--repo` chain needs the user config, which a repo with an origin does not, so under
+  `--adopt` the chain's error is held and raised only when the target has no origin.
+- A single-repo workspace's config is edited by adding lines only, `agent =` after the last key of
+  `[repos]` and `agent-repo =` under `[remote]`, with prose, comments, and other keys untouched.
+  The file is read back and restored when it does not declare both keys.
+- An adopted directory's `.gitignore` is kept and given the agent directory's line.
+- The first commit tracks every file whatever its size, since jj leaves a new file over
+  `snapshot.max-new-file-size` untracked, and names the ones over the limit.
+- `--use-template` is refused with `--adopt`, since a template would overwrite files of the same
+  name.

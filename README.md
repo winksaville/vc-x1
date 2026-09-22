@@ -980,18 +980,36 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to five tables. `[repos]` is structural and written by
-`init`. `[family]` and `[validate]` (added at 0.80.0) hold what used to be prose in the project
-layer: the agent-file family this repo belongs to, and the commands that validate it.
-`[agent-files.diff]` and `[agent-files.copy]` (0.83.0) hold the defaults for the `agent-files`
-commands' `DIR` operand and `--custom` choice. All four are work side only: `validate-config`
-reports them unknown in the agent repo's config.
+A work-side `.vc-config.md` holds up to six tables:
+
+- `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
+  carries too.
+- `[remote]` (0.84.12): remote names rather than paths. Its one key, `agent-repo`, is the
+  agent-repo's name on its remote, which `clone` reads before there is an agent-repo to ask.
+  - Only the last URL segment is recorded. The owner and the host come from the work repo's own
+    remote, so the two repos are siblings in one namespace.
+  - An absent key means the work repo's name plus `.claude`, the name every workspace created
+    before the key carries.
+- `[family]` (0.80.0): the agent-file family this repo belongs to, which was prose in the project
+  layer before.
+- `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
+  before.
+- `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
+  commands' `DIR` operand and `--custom` choice.
+
+All but `[repos]` are work side only: `validate-config` reports them unknown in the agent repo's
+config.
 
 ````markdown
 ```toml
 [repos]
 work = "."
-agent = ".claude"
+agent = ".claude"                 # the agent repo's directory, relative to this file
+```
+
+```toml
+[remote]
+agent-repo = "vc-x1.claude"       # the agent repo's name on its remote
 ```
 
 ```toml
@@ -1080,9 +1098,20 @@ the source project was created with `vc-x1 init`.
 
 ### init
 
-Create a new dual-repo project: a work repo with a `.claude` bot repo as a git submodule. Both repos
-are initialized with `git` and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The
-bot repo is added as a submodule so `git clone --recursive` clones both.
+Create a new dual-repo project: a work repo with its agent repo nested inside it, at
+`.agent-session` unless `--agent-dir` names another directory. Both repos are initialized with `git`
+and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores the agent
+repo's directory, and its config records where the agent repo is and what its remote calls it, so
+`vc-x1 clone` fetches both.
+
+The agent repo's remote name is the work repo's name plus `.agent-session`, beside the work repo
+under the same owner:
+
+- `--agent-suffix` replaces the suffix, and must begin with `.` or `-`.
+- `--agent-repo` gives the whole name instead, and the two conflict.
+- The directory and the remote name are chosen separately, so `--agent-dir` changes neither name.
+- A workspace created before 0.84.12 records no remote name, which reads as `.claude`, the suffix
+  init used then.
 
 ```
 # Create public project in current directory (GitHub via gh)
@@ -1104,6 +1133,13 @@ vc-x1 init my-project --repo local=/path/to/parent
 # Preview without executing
 vc-x1 init my-project --dry-run
 
+# Grow an existing plain directory into a dual workspace
+vc-x1 init . --adopt
+
+# Name the agent repo's directory and its remote
+vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
+vc-x1 init my-project --agent-repo my-project.claude
+
 # Seed both repos from template directories (sibling layout)
 vc-x1 init my-project --use-template \
     ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
@@ -1120,7 +1156,11 @@ vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
 | `[NAME]` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
-| `--por` | Plain single repo (no `.claude/` companion) |
+| `--por` | Plain single repo (no agent repo) |
+| `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
+| `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
+| `--agent-repo <NAME>` | The agent repo's whole remote name |
+| `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
 | `--private` | Create private GitHub repos [default: public] |
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
@@ -1135,6 +1175,28 @@ Non-hidden contents are copied recursively into each target, and hidden entries 
 `.git/`, `.jj/`). If either template has a `README.md` at its root, its first line is rewritten to
 `# <repo-name>`: `<name>` for the work repo and `<name>.claude` for the bot repo. For local
 verification without hitting GitHub, combine `--use-template` with `--repo local=<PARENT>`.
+
+**`--adopt`**. Without it an existing TARGET is refused, named by what it holds. With it, init
+grows the target into a dual workspace:
+
+- A plain directory, no repo: both repos are created around it, and everything in it that its
+  `.gitignore` does not exclude is the work repo's first commit, whatever the file sizes. Files
+  over jj's new-file size limit (1MiB by default) are listed, since jj would otherwise leave them
+  out. A `.gitignore` it already has is kept and given the agent directory's line.
+- A jj repo colocated with git and with no workspace config: its history stays, and one commit,
+  "Adopt as a dual-repo workspace", goes on top, carrying `.vc-config.md`, the `.gitignore` line,
+  and the `ochid:` trailer to the agent repo's first commit. With an `origin`, the agent repo's
+  remote is derived beside it, `--repo` and `--account` are refused, and the work side pushes
+  nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
+  fresh init, and both are pushed. A working copy with uncommitted work is refused, and a git-only
+  repo is pointed at `jj git init --colocate`.
+- A single-repo workspace, one whose config declares `repos.work` alone, such as `init --por`
+  makes: adopted as the repo above, except that its config is edited in place. `agent =` goes into
+  `[repos]` and `agent-repo =` under `[remote]`, and every other line, prose and comments
+  included, stays as it was.
+- A dual-repo workspace is refused, having nothing to grow.
+
+`--adopt` is refused with `--por` and with `--use-template`, and on a TARGET that does not exist.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 

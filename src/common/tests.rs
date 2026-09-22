@@ -731,3 +731,25 @@ fn resolve_repos_repo_plus_scope_bot_only() {
     assert_eq!(repos, vec![root.join(".claude")]);
     std::fs::remove_dir_all(&base).ok();
 }
+
+/// `configured_agent_repo` is a pure config read: the key when it is
+/// there, `None` when it is not, which is what a workspace created
+/// before the key looks like.
+#[test]
+fn configured_agent_repo_reads_the_key_or_none() {
+    let base = ws_tempdir("agent-repo-key");
+    let root = base.join("ws");
+    std::fs::create_dir_all(&root).unwrap();
+
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    assert_eq!(configured_agent_repo(&root).unwrap(), None);
+
+    let with_key = format!("{WORK_DUAL}\n[remote]\nagent-repo = \"ws.agent-session\"\n");
+    std::fs::write(root.join(VC_CONFIG_FILE), with_key).unwrap();
+    assert_eq!(
+        configured_agent_repo(&root).unwrap().as_deref(),
+        Some("ws.agent-session")
+    );
+
+    std::fs::remove_dir_all(&base).ok();
+}

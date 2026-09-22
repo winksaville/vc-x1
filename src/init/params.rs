@@ -28,6 +28,9 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `push_retry`: `--push-retries` / `--push-retry-delay`.
 /// - `use_template`: `--use-template` value.
 /// - `config`: resolved `--config` value (None => canned write).
+/// - `adopt`: `--adopt`, grow an existing target.
+/// - `agent_dir`, `agent_repo`, `agent_suffix`: the `--agent-*`
+///   flags, None meaning the default (dual only).
 /// - `create_symlink`: whether `init` should create the
 ///   `~/.claude/projects/` symlink for dual runs (production
 ///   path = true; test fixtures suppress with false).
@@ -42,6 +45,10 @@ pub struct InitParams {
     pub push_retry: PushRetryOptions,
     pub use_template: Option<String>,
     pub config: Option<ConfigKind>,
+    pub adopt: bool,
+    pub agent_dir: Option<String>,
+    pub agent_repo: Option<String>,
+    pub agent_suffix: Option<String>,
     pub create_symlink: bool,
 }
 
@@ -63,6 +70,10 @@ impl From<&InitArgs> for InitParams {
             push_retry: a.provision.push_retry.clone(),
             use_template: a.use_template.value.clone(),
             config: a.config.resolve(ConfigKind::None),
+            adopt: a.adopt,
+            agent_dir: a.agent_dir.clone(),
+            agent_repo: a.agent_repo.clone(),
+            agent_suffix: a.agent_suffix.clone(),
             create_symlink: true,
         }
     }

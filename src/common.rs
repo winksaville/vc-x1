@@ -177,6 +177,34 @@ pub fn is_stdin_tty() -> bool {
     std::io::stdin().is_terminal()
 }
 
+/// Lexically normalize a path: collapse `.` / `..` components
+/// without touching disk. `std::fs::canonicalize` requires the
+/// path to exist, and a destination init or clone is about to create
+/// doesn't yet. A path that names a symlink's location this way must
+/// match the one Claude Code derives from the real working directory,
+/// which carries neither.
+pub fn normalize_path(p: &Path) -> PathBuf {
+    let mut out: Vec<std::path::Component> = Vec::new();
+    for comp in p.components() {
+        match comp {
+            std::path::Component::ParentDir => {
+                let pop = matches!(
+                    out.last(),
+                    Some(std::path::Component::Normal(_)) | Some(std::path::Component::CurDir)
+                );
+                if pop {
+                    out.pop();
+                } else {
+                    out.push(comp);
+                }
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out.iter().collect()
+}
+
 /// Wrap text in ANSI bold escape codes.
 pub fn bold(s: &str) -> String {
     format!("\x1b[1m{s}\x1b[0m")
@@ -893,6 +921,23 @@ pub fn configured_bot_dir(
         )
         .into()),
     }
+}
+
+/// The agent-repo's remote name the workspace config declares
+/// (`[remote] agent-repo`): a pure config read, no verification.
+///
+/// `Ok(None)` when the key is absent, which is how a workspace
+/// created before the key says so. The caller then falls back to
+/// the `.claude` suffix (see [`crate::url::agent_url`]). A
+/// workspace with no config at all answers the same way, since it
+/// declares nothing either.
+pub fn configured_agent_repo(
+    workspace_root: &Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(workspace_root)? else {
+        return Ok(None);
+    };
+    Ok(crate::toml_simple::toml_get(&cfg.map, "remote.agent-repo").cloned())
 }
 
 /// Resolve the bot repo of a workspace that *requires* one.
