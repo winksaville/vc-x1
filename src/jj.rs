@@ -126,6 +126,19 @@ pub fn git_init_colocated(target: &Path) -> Result<()> {
     Ok(())
 }
 
+/// The URL git remote `name` fetches from in the colocated repo at
+/// `repo`, or `None` when there is no such remote. Read with gix from
+/// the git side, the half of a colocated repo that holds remotes.
+pub fn remote_url(repo: &Path, name: &str) -> Result<Option<String>> {
+    let git = gix::open(repo)?;
+    let Ok(remote) = git.find_remote(name) else {
+        return Ok(None);
+    };
+    Ok(remote
+        .url(gix::remote::Direction::Fetch)
+        .map(|u| u.to_bstring().to_string()))
+}
+
 /// One-shot `RepoSession::add_git_remote`: register git remote
 /// `name` at `url` (`jj git remote add <name> <url>`).
 pub fn git_remote_add(repo: &Path, name: &str, url: &str) -> Result<()> {

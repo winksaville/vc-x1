@@ -19,7 +19,9 @@ use crate::options_flags::push_retry::PushRetryOptions;
 use crate::options_flags::repo::RepoOption;
 use crate::options_flags::scope::{Scope, Side};
 use crate::options_flags::use_template::UseTemplateOption;
-use crate::repo_utils::{OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo};
+use crate::repo_utils::{
+    INITIAL_TITLE, OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo,
+};
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
 use crate::url::{Target, derive_name, parse_target};
@@ -841,7 +843,43 @@ pub(crate) struct InitPlan {
     /// The agent side, `Some` exactly when `scope.is_both()`, so a
     /// dual step takes it whole rather than unwrapping its parts.
     pub agent: Option<AgentPlan>,
+    /// What the work side starts from, set once the target is read.
+    pub work_start: WorkStart,
+    /// The `--repo` chain's error, held under `--adopt` until the
+    /// target shows whether an origin makes the chain unneeded.
+    pub remote_error: Option<String>,
 }
+
+/// What the work side of a plan starts from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum WorkStart {
+    /// No repo yet: init creates one, in a new directory or around an
+    /// adopted plain directory's content, and publishes it.
+    Fresh,
+    /// A repo `--adopt` grows, whose history stays: init adds one
+    /// commit on top. `has_origin` is whether it already has a remote,
+    /// in which case the work side creates and pushes nothing, and
+    /// `has_config` whether it is a single-repo workspace, whose config
+    /// is edited in place rather than written.
+    Repo { has_origin: bool, has_config: bool },
+}
+
+impl WorkStart {
+    /// An adopted repo whose origin makes the work side publish
+    /// nothing.
+    pub(crate) fn keeps_its_origin(self) -> bool {
+        matches!(
+            self,
+            WorkStart::Repo {
+                has_origin: true,
+                ..
+            }
+        )
+    }
+}
+
+/// The title of the commit adopt adds on top of an existing repo.
+pub(crate) const ADOPT_TITLE: &str = "Adopt as a dual-repo workspace";
 
 /// A dual plan's agent side, filled by [`plan_agent_side`].
 #[derive(Debug)]
@@ -943,7 +981,9 @@ pub(crate) fn plan_init(
         Target::Path(p) => plan_from_path(params, scope, p, cfg),
         Target::BareName(n) => plan_from_bare_name(params, scope, n, cfg),
     }?;
-    if plan.scope.is_both() {
+    // A held `--repo` error leaves no work URL to derive from yet: the
+    // adopted repo's origin supplies one, or the error is raised.
+    if plan.scope.is_both() && plan.remote_error.is_none() {
         plan.agent = Some(plan_agent_side(&plan, params)?);
     }
     debug!(
@@ -1040,8 +1080,7 @@ fn plan_from_path(
     // write a remote pointing at the name it never created
     // (2026-08-28, bugs.md).
     let name = derive_name(last)?;
-    let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
-    plan_from_resolved(scope, name, project_dir, &cat, &val)
+    plan_from_chain(params, scope, name, project_dir, cfg)
 }
 
 /// Plan when TARGET is a bare alphanumeric NAME. Destination at
@@ -1059,8 +1098,39 @@ fn plan_from_bare_name(
     }
     let cwd = std::env::current_dir()?;
     let project_dir = cwd.join(&name);
-    let (cat, val) = config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref())?;
-    plan_from_resolved(scope, name, project_dir, &cat, &val)
+    plan_from_chain(params, scope, name, project_dir, cfg)
+}
+
+/// Resolve the `--repo` chain and plan from it.
+///
+/// Under `--adopt`, a failed resolution is held rather than raised:
+/// an adopted repo with an origin takes its remotes from that, and
+/// needs no chain, so the error is raised only once the target turns
+/// out to have none ([`plan_existing_repo`]). The plan it leaves is a
+/// placeholder, which the origin replaces.
+fn plan_from_chain(
+    params: &InitParams,
+    scope: Scope,
+    name: String,
+    project_dir: PathBuf,
+    cfg: &UserConfig,
+) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    match config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref()) {
+        Ok((cat, val)) => plan_from_resolved(scope, name, project_dir, &cat, &val),
+        Err(e) if params.adopt => {
+            let mut plan = build_plan(
+                scope,
+                name,
+                project_dir,
+                String::new(),
+                Provisioner::ExternalPreExisting,
+                None,
+            )?;
+            plan.remote_error = Some(e.to_string());
+            Ok(plan)
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Build an `InitPlan` for a Path or BareName target after the
@@ -1143,6 +1213,8 @@ fn plan_local(
         provisioner: Provisioner::LocalBareInit,
         gh_work_slug: None,
         agent: None,
+        work_start: WorkStart::Fresh,
+        remote_error: None,
     })
 }
 
@@ -1167,6 +1239,8 @@ fn build_plan(
         work_bare_path: None,
         gh_work_slug,
         agent: None,
+        work_start: WorkStart::Fresh,
+        remote_error: None,
     })
 }
 
@@ -1328,13 +1402,25 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 
     let create_symlink = params.create_symlink;
     let cfg = &ctx.user_config;
-    let plan = plan_init(params, cfg)?;
+    let mut plan = plan_init(params, cfg)?;
     let is_dual = plan.scope.is_both();
     let state = adopt::detect_target_state(&plan.project_dir)?;
     debug!("init: target is {state:?}");
 
     // --- Preflight ---
     info!("Preflight checks...");
+
+    check_target_state(&plan.project_dir, &state, params.adopt)?;
+    if matches!(
+        state,
+        adopt::TargetState::Por | adopt::TargetState::SingleRepo
+    ) {
+        adopt::check_repo(&plan.project_dir)?;
+        plan_existing_repo(&mut plan, params, state == adopt::TargetState::SingleRepo)?;
+    }
+    if let Some(e) = &plan.remote_error {
+        return Err(format!("{e} (the target has no origin to take the remotes from)").into());
+    }
 
     // No "is jj installed" probe: init runs through
     // jj-lib, and main's version gate already errored out on a
@@ -1344,8 +1430,6 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         gh(&["auth", "status"], Path::new("."))
             .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
     }
-
-    check_target_state(&plan.project_dir, &state, params.adopt)?;
     if let Some(agent) = &plan.agent
         && agent.path.exists()
     {
@@ -1358,12 +1442,13 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 
     match &plan.provisioner {
         Provisioner::GhCreate => {
-            #[allow(clippy::unwrap_used)]
-            // OK: GhCreate path always sets gh_work_slug
-            let work_slug = plan.gh_work_slug.as_ref().unwrap();
-            let (work_owner, work_name) = split_slug(work_slug)?;
-            if gh_repo_exists(work_owner, work_name)? {
-                return Err(format!("GitHub repo '{work_slug}' already exists").into());
+            // An adopted repo's own origin has no slug to check: it
+            // exists already, and nothing creates it.
+            if let Some(work_slug) = plan.gh_work_slug.as_ref() {
+                let (work_owner, work_name) = split_slug(work_slug)?;
+                if gh_repo_exists(work_owner, work_name)? {
+                    return Err(format!("GitHub repo '{work_slug}' already exists").into());
+                }
             }
             if let Some(bot_slug) = plan.agent.as_ref().and_then(|a| a.gh_slug.as_ref()) {
                 let (bot_owner, bot_name) = split_slug(bot_slug)?;
@@ -1373,10 +1458,9 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             }
         }
         Provisioner::LocalBareInit => {
-            #[allow(clippy::unwrap_used)]
-            // OK: LocalBareInit path always sets work_bare_path
-            let work_bare = plan.work_bare_path.as_ref().unwrap();
-            if work_bare.exists() {
+            if let Some(work_bare) = plan.work_bare_path.as_ref()
+                && work_bare.exists()
+            {
                 return Err(format!(
                     "bare repo '{}' already exists; refusing to clobber",
                     work_bare.display()
@@ -1504,7 +1588,12 @@ fn create_por(
     }
     write_por_gitignore(&plan.project_dir)?;
     steps.begin(Step::CommitWork);
-    let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::None)?;
+    let work_chid = commit_initial(
+        &plan.project_dir,
+        "work",
+        INITIAL_TITLE,
+        OchidStrategy::None,
+    )?;
     // Colocated, so the jj commit id is the git hash.
     let hash = jj::cid_of(&plan.project_dir, "@-")?;
     debug!("work repo: chid={work_chid} hash={hash}");
@@ -1558,8 +1647,16 @@ fn create_dual(
         None => (None, None),
     };
 
-    steps.begin(Step::PrepareWork);
-    prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+    // An adopted repo is prepared already, and keeps its history: its
+    // commit goes on top of it under a title of its own.
+    let work_title = match plan.work_start {
+        WorkStart::Fresh => {
+            steps.begin(Step::PrepareWork);
+            prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+            INITIAL_TITLE
+        }
+        WorkStart::Repo { .. } => ADOPT_TITLE,
+    };
     steps.begin(Step::ConfigWork);
     // The recorded name is the agent-repo's *remote* name, the last
     // segment of its origin URL, which is not `agent.name`: that is the
@@ -1567,19 +1664,43 @@ fn create_dual(
     // `remote-work.agent-session.git` under a project called `tr` shows the
     // two diverging.
     let agent_repo = derive_name(&agent.url)?;
-    write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
+    if let WorkStart::Repo {
+        has_config: true, ..
+    } = plan.work_start
+    {
+        adopt::add_agent_to_config(&plan.project_dir, &agent.dir, &agent_repo)?;
+        write_work_gitignore(&plan.project_dir, &agent.dir)?;
+    } else {
+        write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
+    }
     steps.begin(Step::CommitWork);
-    let work_chid = commit_initial(&plan.project_dir, "work", OchidStrategy::Placeholder)?;
+    let work_chid = commit_initial(
+        &plan.project_dir,
+        "work",
+        work_title,
+        OchidStrategy::Placeholder,
+    )?;
 
     steps.begin(Step::PrepareAgent);
     prepare_local_repo(&agent.path, "agent", agent_template, &agent.name)?;
     steps.begin(Step::ConfigAgent);
     write_bot_config(&agent.path)?;
     steps.begin(Step::CommitAgent);
-    let agent_chid = commit_initial(&agent.path, "agent", OchidStrategy::Placeholder)?;
+    let agent_chid = commit_initial(
+        &agent.path,
+        "agent",
+        INITIAL_TITLE,
+        OchidStrategy::Placeholder,
+    )?;
 
     steps.begin(Step::CrossLink);
-    cross_ref_ochids(&plan.project_dir, &work_chid, &agent.path, &agent_chid)?;
+    cross_ref_ochids(
+        &plan.project_dir,
+        work_title,
+        &work_chid,
+        &agent.path,
+        &agent_chid,
+    )?;
 
     steps.begin(Step::PublishAgent);
     let agent_chid_final = push_repo(
@@ -1592,17 +1713,23 @@ fn create_dual(
         agent.gh_slug.as_deref(),
         agent.bare_path.as_deref(),
     )?;
-    steps.begin(Step::PublishWork);
-    let work_chid_final = push_repo(
-        &plan.project_dir,
-        "work",
-        plan,
-        params,
-        visibility,
-        &plan.work_url,
-        plan.gh_work_slug.as_deref(),
-        plan.work_bare_path.as_deref(),
-    )?;
+    // An adopted repo with an origin publishes nothing: its commit is
+    // the user's to land, as any change of theirs is.
+    let work_chid_final = if plan.work_start.keeps_its_origin() {
+        jj::chid_of(&plan.project_dir, "@-")?
+    } else {
+        steps.begin(Step::PublishWork);
+        push_repo(
+            &plan.project_dir,
+            "work",
+            plan,
+            params,
+            visibility,
+            &plan.work_url,
+            plan.gh_work_slug.as_deref(),
+            plan.work_bare_path.as_deref(),
+        )?
+    };
 
     let sl_opt = if params.create_symlink {
         steps.begin(Step::Symlink);
@@ -1738,14 +1865,67 @@ fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Point a plan at a repo `--adopt` grows.
+///
+/// With an `origin`, that remote is the work repo's, and the agent's
+/// is derived beside it: the provisioner is read off the origin, a
+/// GitHub URL meaning `gh repo create`, a path a bare repo beside it,
+/// anything else an agent remote that must exist already. `--repo`
+/// and `--account` are refused then, since the origin names the
+/// remotes. With no origin, the plan `--repo` resolved stands, and the
+/// work side is created and pushed as a fresh one would be.
+fn plan_existing_repo(
+    plan: &mut InitPlan,
+    params: &InitParams,
+    has_config: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(origin) = jj::remote_url(&plan.project_dir, "origin")? else {
+        plan.work_start = WorkStart::Repo {
+            has_origin: false,
+            has_config,
+        };
+        return Ok(());
+    };
+    for (set, flag) in [
+        (params.repo.is_some(), "--repo"),
+        (params.account.is_some(), "--account"),
+    ] {
+        if set {
+            return Err(format!(
+                "{flag} is meaningless when the adopted repo has an origin ({origin}): the \
+                 agent repo's remote is derived beside it"
+            )
+            .into());
+        }
+    }
+    plan.provisioner = if is_github_url(&origin) {
+        Provisioner::GhCreate
+    } else if !is_remote_url(&origin) {
+        Provisioner::LocalBareInit
+    } else {
+        Provisioner::ExternalPreExisting
+    };
+    plan.work_url = origin;
+    plan.gh_work_slug = None;
+    plan.work_bare_path = None;
+    plan.work_start = WorkStart::Repo {
+        has_origin: true,
+        has_config,
+    };
+    plan.remote_error = None;
+    plan.agent = Some(plan_agent_side(plan, params)?);
+    Ok(())
+}
+
 /// Whether init may go on with a target in `state`.
 ///
 /// A fresh init wants an absent target, and `--adopt` an existing
-/// one it can grow. A dual workspace has nothing to grow, and the
-/// states adopt does not take yet are refused by name.
+/// one it can grow. A dual workspace has nothing to grow.
 ///
 /// - A plain directory is adopted: both repos are created around its
 ///   content, which becomes the work repo's first commit.
+/// - A repo with no workspace config, or a single-repo workspace, is
+///   adopted: the agent side grows beside it, and its history stays.
 fn check_target_state(
     dir: &Path,
     state: &adopt::TargetState,
@@ -1754,7 +1934,10 @@ fn check_target_state(
     use adopt::TargetState;
     let dir = dir.display();
     match (state, adopting) {
-        (TargetState::Absent, false) | (TargetState::PlainDir, true) => Ok(()),
+        (TargetState::Absent, false)
+        | (TargetState::PlainDir, true)
+        | (TargetState::Por, true)
+        | (TargetState::SingleRepo, true) => Ok(()),
         (TargetState::Absent, true) => {
             Err(format!("--adopt: '{dir}' does not exist: drop --adopt to create it").into())
         }
@@ -1765,11 +1948,6 @@ fn check_target_state(
         .into()),
         (_, false) => Err(format!(
             "'{dir}' already exists and is {}: pass --adopt to grow it into a dual workspace",
-            state.describe()
-        )
-        .into()),
-        (_, true) => Err(format!(
-            "--adopt: '{dir}' is {}, which adopt does not take yet",
             state.describe()
         )
         .into()),

@@ -948,6 +948,227 @@ fn steps_por_have_no_gaps() {
     );
 }
 
+// ---------- adopting a repo ----------
+
+/// Adopt the repo at `work`, with no `--repo`, and no symlink.
+fn adopt_repo(work: &Path, repo: Option<RepoSelector>) -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = args_for(&work.to_string_lossy());
+    args.repo.value = repo;
+    args.provision.dry_run.value = false;
+    args.adopt = true;
+    let mut params = InitParams::from(&args);
+    params.create_symlink = false;
+    init(&crate::test_helpers::test_ctx(), &params)
+}
+
+/// A repo with an origin keeps its history, gains one commit that
+/// carries the config, and is not pushed, while the agent repo is
+/// created beside the origin and published.
+#[test]
+fn adopt_repo_with_origin_keeps_history_and_pushes_nothing() {
+    use crate::test_helpers::{FixturePor, chid, description, jj_ok};
+
+    let fx = FixturePor::new_with_config("adopt-por-origin", Some("none".into()));
+    let first = chid(&fx.work, "@-");
+    let origin_main = jj_ok(
+        &fx.work,
+        &["log", "--no-graph", "-r", "main@origin", "-T", "commit_id"],
+    );
+
+    adopt_repo(&fx.work, None).expect("adopt a repo with an origin");
+
+    let desc = description(&fx.work, "@-");
+    assert!(desc.starts_with(ADOPT_TITLE), "{desc}");
+    assert!(desc.contains("ochid: /.agent-session/"), "{desc}");
+    assert_eq!(
+        chid(&fx.work, "@--"),
+        first,
+        "history kept under the adopt commit"
+    );
+    assert_eq!(
+        jj_ok(
+            &fx.work,
+            &["log", "--no-graph", "-r", "main@origin", "-T", "commit_id"]
+        ),
+        origin_main,
+        "the work side pushed nothing"
+    );
+
+    // The agent repo's remote is derived beside the origin.
+    let agent_bare = fx.base.join("remote.agent-session.git");
+    assert!(agent_bare.exists(), "agent bare created beside the origin");
+    assert_eq!(
+        crate::common::configured_agent_repo(&fx.work)
+            .unwrap()
+            .as_deref(),
+        Some("remote.agent-session")
+    );
+    let agent = fx.work.join(".agent-session");
+    let agent_desc = description(&agent, "@-");
+    assert!(
+        agent_desc.contains(&format!("ochid: /{}", chid(&fx.work, "@-"))),
+        "{agent_desc}"
+    );
+}
+
+/// A repo with no origin gets its remotes from `--repo`, as a fresh
+/// init does, and its work side is pushed.
+#[test]
+fn adopt_repo_without_origin_publishes_both() {
+    use crate::test_helpers::jj_ok;
+
+    let base = crate::test_helpers::unique_base("adopt-por-no-origin");
+    let work = base.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    crate::jj::git_init_colocated(&work).unwrap();
+    std::fs::write(work.join("a.txt"), "a\n").unwrap();
+    jj_ok(&work, &["commit", "-m", "first"]);
+
+    adopt_repo(
+        &work,
+        Some(RepoSelector {
+            category: "local".into(),
+            value: Some(base.to_string_lossy().into_owned()),
+        }),
+    )
+    .expect("adopt a repo with no origin");
+
+    assert!(base.join("remote-work.git").exists());
+    assert!(base.join("remote-work.agent-session.git").exists());
+    assert_eq!(
+        crate::test_helpers::description(&work, "@--").trim(),
+        "first",
+        "history kept"
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// Uncommitted work, a git-only repo, and `--repo` against an origin
+/// are refused before anything is written.
+#[test]
+fn adopt_repo_refusals() {
+    use crate::test_helpers::FixturePor;
+
+    let fx = FixturePor::new_with_config("adopt-por-refuse", Some("none".into()));
+    let err = adopt_repo(
+        &fx.work,
+        Some(RepoSelector {
+            category: "local".into(),
+            value: Some(fx.base.to_string_lossy().into_owned()),
+        }),
+    )
+    .expect_err("--repo against an origin")
+    .to_string();
+    assert!(err.contains("--repo is meaningless"), "{err}");
+
+    std::fs::write(fx.work.join("wip.txt"), "wip\n").unwrap();
+    let err = adopt_repo(&fx.work, None).expect_err("dirty").to_string();
+    assert!(err.contains("uncommitted work"), "{err}");
+    assert!(!fx.work.join(".agent-session").exists(), "nothing written");
+
+    let base = crate::test_helpers::unique_base("adopt-git-only");
+    let work = base.join("work");
+    std::fs::create_dir_all(work.join(".git")).unwrap();
+    let err = adopt_repo(&work, None).expect_err("git only").to_string();
+    assert!(err.contains("jj git init --colocate"), "{err}");
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+// ---------- adopting a single-repo workspace ----------
+
+/// The config `init --por` writes gains the two keys, and every line
+/// it had stays, in order.
+#[test]
+fn add_agent_keys_edits_the_por_config_in_place() {
+    use super::adopt::add_agent_keys;
+    let before = render_vc_config(ConfigRole::WorkOnly);
+    let after = add_agent_keys(&before, true, ".agent-session", "proj.agent-session").unwrap();
+
+    let mut kept = after.lines();
+    for line in before.lines() {
+        assert!(kept.any(|l| l == line), "kept in order: {line}");
+    }
+    let path = std::env::temp_dir().join(format!("vcx1-add-agent-keys-{}.md", std::process::id()));
+    std::fs::write(&path, &after).unwrap();
+    let map = crate::config_md::load_file(&path).unwrap();
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(map.get("repos.work").map(String::as_str), Some("."));
+    assert_eq!(
+        map.get("repos.agent").map(String::as_str),
+        Some(".agent-session")
+    );
+    assert_eq!(
+        map.get("remote.agent-repo").map(String::as_str),
+        Some("proj.agent-session")
+    );
+}
+
+/// An existing `[remote]` header takes the key, a plain TOML file is
+/// edited without fences, and a file with no `[repos]` key is refused.
+#[test]
+fn add_agent_keys_shapes() {
+    use super::adopt::add_agent_keys;
+    let toml = "[remote]\n\n[repos]\nwork = \".\"\n";
+    assert_eq!(
+        add_agent_keys(toml, false, ".s", "p.s").unwrap(),
+        "[remote]\nagent-repo = \"p.s\"\n\n[repos]\nwork = \".\"\nagent = \".s\"\n"
+    );
+    let err = add_agent_keys("[family]\nmember = \"x\"\n", false, ".s", "p.s").unwrap_err();
+    assert!(err.contains("[repos]"), "{err}");
+    // A fence's TOML is read, and prose that looks like a table is not.
+    let md = "Prose [repos] here.\n\n```toml\n[repos]\nwork = \".\"\n```\n";
+    let out = add_agent_keys(md, true, ".s", "p.s").unwrap();
+    assert!(out.starts_with("Prose [repos] here.\n"), "{out}");
+    assert!(
+        out.contains("work = \".\"\nagent = \".s\"\n\n[remote]\nagent-repo = \"p.s\"\n```"),
+        "{out}"
+    );
+}
+
+/// The single-repo workspace `init --por` makes is adopted: its config
+/// is edited in place, its history stays, and nothing is pushed on
+/// the work side.
+#[test]
+fn adopt_single_repo_workspace() {
+    use crate::test_helpers::{FixturePor, chid, description, jj_ok};
+
+    let fx = FixturePor::new("adopt-single-repo");
+    let before = std::fs::read_to_string(fx.work.join(".vc-config.md")).unwrap();
+    let first = chid(&fx.work, "@-");
+    let origin_main = jj_ok(
+        &fx.work,
+        &["log", "--no-graph", "-r", "main@origin", "-T", "commit_id"],
+    );
+
+    adopt_repo(&fx.work, None).expect("adopt a single-repo workspace");
+
+    let after = std::fs::read_to_string(fx.work.join(".vc-config.md")).unwrap();
+    let mut kept = after.lines();
+    for line in before.lines() {
+        assert!(kept.any(|l| l == line), "config line kept: {line}");
+    }
+    assert_eq!(
+        crate::common::configured_bot_dir(&fx.work).unwrap(),
+        Some(fx.work.join(".agent-session"))
+    );
+    assert_eq!(
+        crate::common::configured_agent_repo(&fx.work)
+            .unwrap()
+            .as_deref(),
+        Some("remote.agent-session")
+    );
+    assert!(description(&fx.work, "@-").starts_with(ADOPT_TITLE));
+    assert_eq!(chid(&fx.work, "@--"), first, "history kept");
+    assert_eq!(
+        jj_ok(
+            &fx.work,
+            &["log", "--no-graph", "-r", "main@origin", "-T", "commit_id"]
+        ),
+        origin_main
+    );
+    assert!(fx.base.join("remote.agent-session.git").exists());
+}
+
 // ---------- the agent side's names ----------
 
 /// `--agent-dir` names the directory, and the work config records it.

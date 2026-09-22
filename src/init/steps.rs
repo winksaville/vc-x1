@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use log::info;
 
-use super::{AgentPlan, InitParams, InitPlan, Provisioner};
+use super::{AgentPlan, InitParams, InitPlan, Provisioner, WorkStart};
 use crate::options_flags::config::ConfigKind;
 
 /// One step of an init run.
@@ -52,11 +52,26 @@ impl Steps {
         } else {
             format!("Create {work_dir} and init the work repo (jj, colocated)")
         };
-        list.push((
-            Step::PrepareWork,
-            with_template(prepare_work, work_template),
-        ));
+        // An adopted repo is prepared already.
+        if plan.work_start == WorkStart::Fresh {
+            list.push((
+                Step::PrepareWork,
+                with_template(prepare_work, work_template),
+            ));
+        }
         let config_work = match (&plan.agent, &params.config) {
+            (Some(_), _)
+                if matches!(
+                    plan.work_start,
+                    WorkStart::Repo {
+                        has_config: true,
+                        ..
+                    }
+                ) =>
+            {
+                "Add the agent repo to the work repo's config, in place, and to its .gitignore"
+                    .into()
+            }
             (Some(_), _) | (None, None) => {
                 "Write the work repo's .vc-config.md and .gitignore".into()
             }
@@ -69,10 +84,14 @@ impl Steps {
             ),
         };
         list.push((Step::ConfigWork, config_work));
-        list.push((
-            Step::CommitWork,
-            "Commit the work repo's initial commit".into(),
-        ));
+        let commit_work = match plan.work_start {
+            WorkStart::Fresh => "Commit the work repo's initial commit".to_string(),
+            WorkStart::Repo { .. } => format!(
+                "Commit \"{}\" on top of the work repo's history",
+                super::ADOPT_TITLE
+            ),
+        };
+        list.push((Step::CommitWork, commit_work));
 
         if let Some(agent) = &plan.agent {
             let prepare_agent = format!(
@@ -91,19 +110,27 @@ impl Steps {
                 Step::CommitAgent,
                 "Commit the agent repo's initial commit".into(),
             ));
+            let work_commit = match plan.work_start {
+                WorkStart::Fresh => "the work repo's initial commit",
+                WorkStart::Repo { .. } => "the work repo's adopt commit",
+            };
             list.push((
                 Step::CrossLink,
-                "Cross-link the two initial commits with ochid trailers".into(),
+                format!("Cross-link {work_commit} and the agent repo's initial commit with ochid trailers"),
             ));
             list.push((
                 Step::PublishAgent,
                 publish_title(plan, "agent", Some(agent), visibility),
             ));
         }
-        list.push((
-            Step::PublishWork,
-            publish_title(plan, "work", None, visibility),
-        ));
+        // An adopted repo with an origin publishes nothing: its commit
+        // is the user's to land.
+        if !plan.work_start.keeps_its_origin() {
+            list.push((
+                Step::PublishWork,
+                publish_title(plan, "work", None, visibility),
+            ));
+        }
         if plan.agent.is_some() && create_symlink {
             list.push((Step::Symlink, "Create the Claude Code symlink".into()));
         }

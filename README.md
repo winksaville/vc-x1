@@ -1183,6 +1183,17 @@ grows the target into a dual workspace:
   `.gitignore` does not exclude is the work repo's first commit, whatever the file sizes. Files
   over jj's new-file size limit (1MiB by default) are listed, since jj would otherwise leave them
   out. A `.gitignore` it already has is kept and given the agent directory's line.
+- A jj repo colocated with git and with no workspace config: its history stays, and one commit,
+  "Adopt as a dual-repo workspace", goes on top, carrying `.vc-config.md`, the `.gitignore` line,
+  and the `ochid:` trailer to the agent repo's first commit. With an `origin`, the agent repo's
+  remote is derived beside it, `--repo` and `--account` are refused, and the work side pushes
+  nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
+  fresh init, and both are pushed. A working copy with uncommitted work is refused, and a git-only
+  repo is pointed at `jj git init --colocate`.
+- A single-repo workspace, one whose config declares `repos.work` alone, such as `init --por`
+  makes: adopted as the repo above, except that its config is edited in place. `agent =` goes into
+  `[repos]` and `agent-repo =` under `[remote]`, and every other line, prose and comments
+  included, stays as it was.
 - A dual-repo workspace is refused, having nothing to grow.
 
 `--adopt` is refused with `--por` and with `--use-template`, and on a TARGET that does not exist.

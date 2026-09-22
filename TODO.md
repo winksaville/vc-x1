@@ -124,7 +124,7 @@ error, and a workspace whose config carries no `[remote] agent-repo` still clone
 - [feat: init defaults to .agent-session][3] (done)
 - [feat: init adopt detects the target's state][4] (done)
 - [feat: init adopt takes a plain directory][5] (done)
-- [feat: init adopt takes a POR][6]
+- [feat: init adopt takes a POR][6] (done)
 - [test: init adopt on a plain directory][7]
 - [feat: init adopts an existing tree closing][8]
 
@@ -299,6 +299,34 @@ work-repo's first commit.
 
 A repo already carries history, a `.gitignore`, and possibly a single-repo config, none of which the
 create path's unconditional writes may clobber.
+
+* `--adopt` refused a repo as not taken yet.
+  - A jj repo colocated with git and with no workspace config is taken now. Its history stays, and
+    one commit goes on top, titled "Adopt as a dual-repo workspace", carrying `.vc-config.md`, the
+    `.gitignore` line, and the `ochid:` trailer to the agent repo's first commit.
+  - A single-repo workspace, the shape `init --por` makes, is taken too (wink, 2026-09-21): its
+    first run in the field was refused, since every POR vc-x1 makes carries a config. Its config is
+    edited in place, `agent =` into `[repos]` and `agent-repo =` under `[remote]`, a header added
+    when the file has none, every other line kept, and the result read back and restored when it
+    does not declare both keys.
+  - A git-only repo stays refused, pointed at `jj git init --colocate`, and is filed as [init adopt
+    takes a git-only repo](#init-adopt-takes-a-git-only-repo).
+* A repo usually has a remote already, which a fresh init would try to create.
+  - With an `origin`, that is the work repo's remote, and the agent's is derived beside it, the
+    provisioner read off the origin's URL. The work side creates and pushes nothing, its commit the
+    user's to land (wink, 2026-09-21), and `--repo` and `--account` are refused.
+  - With no origin, the remotes come from `--repo` as a fresh init's do, and both are pushed.
+  - Resolving `--repo` needs the user config, which a repo with an origin does not. Under `--adopt`
+    the chain's error is held and raised only when the target has no origin to use.
+* A repo may hold uncommitted work, which adopt's commit would take in.
+  - A working copy with changes or a description is refused before anything is written (wink,
+    2026-09-21).
+* The steps follow the repo's shape: no prepare step, the commit titled as it is and called the
+  adopt commit where the cross-link names it, and no work publish when an origin exists.
+  - A commit's detail line reads "work commit" rather than "work initial commit", which an adopt
+    commit is not.
+  - The preflight's two work-side `unwrap()` calls became `if let`, since an adopted repo's plan
+    has no work slug or bare to check.
 
 ##### test: init adopt on a plain directory
 
@@ -657,6 +685,14 @@ apply, and a command that applies it.
   key it no longer knows rather than renaming it. The same spelling across the family would be
   nice, not required. The candidates are `update-config`, `config --update`, and `config update`
   under **Nest the validate and fix commands**.
+
+### init adopt takes a git-only repo
+
+(wink, 2026-09-21) **feat: init adopt takes a POR** took a jj repo colocated with git, with or
+without a single-repo config, and points a git-only repo, `.git` with no `.jj`, at
+`jj git init --colocate`, which the user runs before adopting. Adopt could run it: the facade's
+colocated init creates a new `.git`, and attaching to an existing one is jj's other init path,
+which the facade lacks.
 
 ### --repo takes a URL, and a separate flag takes the path for local remotes
 

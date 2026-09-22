@@ -90,3 +90,150 @@ pub(crate) fn detect_target_state(dir: &Path) -> Result<TargetState, Box<dyn std
         },
     )
 }
+
+/// Check that a repo adopt is to grow is one it can: colocated with
+/// git, since vc-x1 reads both halves, and with a clean working copy,
+/// since adopt's commit would otherwise take the uncommitted work in.
+///
+/// A git-only repo is pointed at `jj git init --colocate`, which
+/// colocates it without touching its history, and a jj repo whose git
+/// store is internal is refused, having no `.git` for git to use.
+pub(crate) fn check_repo(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let (jj, git) = (dir.join(".jj").exists(), dir.join(".git").exists());
+    if git && !jj {
+        return Err(format!(
+            "--adopt: '{}' is a git repo with no jj, which adopt does not take yet: run \
+             `jj git init --colocate` in it, then adopt it",
+            dir.display()
+        )
+        .into());
+    }
+    if jj && !git {
+        return Err(format!(
+            "--adopt: '{}' is a jj repo not colocated with git: vc-x1 needs a colocated repo",
+            dir.display()
+        )
+        .into());
+    }
+    let clean = crate::jj::is_empty(dir, "@")? && crate::jj::desc_of(dir, "@")?.trim().is_empty();
+    if !clean {
+        return Err(format!(
+            "--adopt: '{}' has uncommitted work in @: commit it first, since adopt adds a \
+             commit of its own on top",
+            dir.display()
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Add the agent side to a single-repo workspace's config, in place.
+///
+/// Only lines are added: `agent = "<agent_dir>"` after the last key of
+/// `[repos]`, and `agent-repo = "<agent_repo>"` under `[remote]`, a
+/// header added after the `agent` line when the file has none. The
+/// prose, the comments, and every other key stay as they are, since
+/// the file is the user's. The result is read back, and a file that
+/// does not then declare both keys is restored and refused.
+pub(crate) fn add_agent_to_config(
+    dir: &Path,
+    agent_dir: &str,
+    agent_repo: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = crate::config_md::vc_config_path(dir)?
+        .ok_or_else(|| format!("'{}' holds no workspace config to edit", dir.display()))?;
+    let original = std::fs::read_to_string(&path)
+        .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
+    let fenced = path.extension().is_some_and(|e| e == "md");
+    let edited = add_agent_keys(&original, fenced, agent_dir, agent_repo)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    crate::common::write_file(&path, &edited)?;
+
+    let map = crate::config_md::load_file(&path)?;
+    let reads = |key: &str| toml_simple::toml_get(&map, key).map(String::as_str);
+    if reads("repos.agent") != Some(agent_dir) || reads("remote.agent-repo") != Some(agent_repo) {
+        crate::common::write_file(&path, &original)?;
+        return Err(format!(
+            "{}: the edited config did not read back with repos.agent and remote.agent-repo, so \
+             it was restored: add them by hand, then adopt",
+            path.display()
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// The lines-only edit behind [`add_agent_to_config`].
+///
+/// `fenced` is a markdown carrier, whose TOML is its ```` ```toml ````
+/// fences read as one document, so a table runs on across fences.
+/// Otherwise the whole text is TOML.
+pub(crate) fn add_agent_keys(
+    text: &str,
+    fenced: bool,
+    agent_dir: &str,
+    agent_repo: &str,
+) -> Result<String, String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut in_toml = vec![!fenced; lines.len()];
+    if fenced {
+        let mut open = false;
+        for (i, line) in lines.iter().enumerate() {
+            let t = line.trim();
+            if !open && t == "```toml" {
+                open = true;
+            } else if open && t.starts_with("```") {
+                open = false;
+            } else {
+                in_toml[i] = open;
+            }
+        }
+    }
+
+    let mut table: Option<&str> = None;
+    let mut repos_last_key = None;
+    let mut remote_header = None;
+    for (i, line) in lines.iter().enumerate() {
+        if !in_toml[i] {
+            continue;
+        }
+        let t = line.trim();
+        if t.starts_with('[') && t.ends_with(']') && !t.starts_with("[[") {
+            let name = t[1..t.len() - 1].trim();
+            if name == "remote" {
+                remote_header = Some(i);
+            }
+            table = Some(name);
+        } else if !t.is_empty() && !t.starts_with('#') && table == Some("repos") {
+            repos_last_key = Some(i);
+        }
+    }
+    let last = repos_last_key.ok_or("no [repos] table with a key under it")?;
+
+    let indent: String = lines[last]
+        .chars()
+        .take_while(|c| c.is_whitespace())
+        .collect();
+    let agent_line = format!("{indent}agent = \"{agent_dir}\"");
+    let repo_line = format!("agent-repo = \"{agent_repo}\"");
+    let mut out: Vec<String> = Vec::with_capacity(lines.len() + 4);
+    for (i, line) in lines.iter().enumerate() {
+        out.push((*line).to_string());
+        if i == last {
+            out.push(agent_line.clone());
+            if remote_header.is_none() {
+                out.push(String::new());
+                out.push("[remote]".to_string());
+                out.push(repo_line.clone());
+            }
+        }
+        if Some(i) == remote_header {
+            out.push(repo_line.clone());
+        }
+    }
+    let mut edited = out.join("\n");
+    if text.ends_with('\n') {
+        edited.push('\n');
+    }
+    Ok(edited)
+}
