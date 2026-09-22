@@ -343,7 +343,7 @@ which it does.
 - the entry shrank when it moved: its `repo.category.<cat>` and `account.*` bullets described keys
   that **The vc-config program: finish the surface, then shrink it** deletes
 - a conventions change, so its own small cycle per AGENTS.md's Changing the agent-files, sequenced
-  after validate-anchors lands and grows the cross-file check, so the ~145-edit sweep is
+  after **validate-anchors resolves a cross-file link** lands, so the ~145-edit sweep is
   machine-verified rather than hand-checked
 
 # References
