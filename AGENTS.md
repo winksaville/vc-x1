@@ -153,8 +153,9 @@ it has pushed.
 A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the cycle-record
 ([why](agent-data/rationale.md#cycle-record)).
 
-- Items: title, problem, solution, acceptance check, ladder, deliberation, and `Ladder details`, all
-  provisional until close-out ([The In Progress block](agent-data/notes.md#the-in-progress-block)).
+- Items: title, problem, solution, acceptance check, deliberation, and the ladder heading its rung
+  subsections, all provisional until close-out ([The In Progress
+  block](agent-data/notes.md#the-in-progress-block)).
 - Life: written at the opening, revised as rungs land, finalized by the closing commit, which moves
   it whole to `## Closed` (a single-step cycle's one commit writes it there directly), deleted by
   the next opening.
@@ -203,8 +204,8 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    `agent-files` proposal cycle.
 3. Work: do the work. On any deviation from the agreed plan, or any question, stop ([Stop and
    ask](#stop-and-ask)).
-4. Ladder details: write what this rung changed, conceptually, into its subsection. The rung stays
-   `(current)` until step 7.
+4. Rung subsection: write what this rung changed, conceptually, into its subsection under the
+   ladder. The rung stays `(current)` until step 7.
 5. Validate: `vc-x1 validate` before every review, doc-only commits included. The full run rewrites
    files (`cargo fmt`), so use `--fast` while a review iterates.
 6. Work review: stop before writing any description and say "please review", as its own message with

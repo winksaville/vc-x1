@@ -49,6 +49,14 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Delete the CLAUDE.md shim
+
+(wink, 2026-09-27) `CLAUDE.md` holds one line, `@AGENTS.md`, so that Claude Code would load the
+agent-files. A session started with it renamed away printed `agents-md: no CLAUDE.md found;
+AGENTS.md loaded`, so Claude Code now loads `AGENTS.md` on its own and the shim is redundant.
+Delete it in a single-step cycle of its own. Nothing live cites it, and the frozen history that
+does stays as written. Going forward the family's repos carry no `CLAUDE.md`.
+
 ### squash-push and status take a SCOPE, and push resolves its own bookmarks
 
 (wink, 2026-09-17) `squash-push -R .agent-session` bakes in a path the config already knows, and
@@ -329,22 +337,6 @@ facets stated answers where problems go, "the name" left its referent a paragrap
 assumed the reader knew `.vc-config.md` and the markdown-as-config carrier, and "this workspace
 records" gave a workspace agency it has not got.
 
-### The ladder heads the rung subsections
-
-(wink, 2026-09-21) The In Progress block puts `#### Ladder` after the Acceptance check and the rung
-subsections under a separate `#### Ladder details` heading, with the whole Deliberation between
-them. The **feat: init adopts an existing tree** block moved the ladder below the Deliberation,
-where it heads the subsections as their index, and dropped the second heading. Carry it into the
-agent-files in one `agent-files` proposal cycle:
-
-- notes.md, The In Progress block: the `Ladder details` area paragraph and the single-step case,
-  which then has no subsections under its `#### Ladder`.
-- cycle-model.md: the specimen's order and headings.
-- AGENTS.md: the Cycle-record items list, and step 4 of The per-rung flow, which names the area.
-- The cost to weigh: the ladder carries `(current)` and now sits past the Deliberation, outside the
-  60-line acquaint read. The Continuation notes name the rung in flight at a restart, which may be
-  enough, or the acquaint read may look for `(current)` instead.
-
 ### repos.agent becomes repos.agent-dir, and a command brings a config up to date
 
 (wink, 2026-09-02, 2026-09-21) Two changes that need each other: a key rename every adopter must
@@ -467,7 +459,7 @@ cycle is pushed.
 
 (wink, 2026-09-04) A closed block's ladder links its rungs as `- [<title>][N]`, and the `[N]:
 #<slug>` definitions live outside the block, in the file's `# References`, pointing at its
-`Ladder details` subsections. The opening's "delete whatever `## Closed` holds" takes the block
+rung subsections. The opening's "delete whatever `## Closed` holds" takes the block
 and leaves the definitions, so every opening since the ladder form arrived left dead definitions
 behind, seven at the `agent-files(adoption): v0.2.0` opening. Nothing said so, because
 `validate-anchors` is not in `.vc-config.md`'s `[validate]` table. Two edits: [The In Progress
@@ -1146,51 +1138,58 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### docs: widen the cross-file anchor Todo entry
+### agent-files(proposal): v0.2.6
 
 #### Problem
 
-The Todo entry **validate-anchors fails a cross-file link whose file is absent** asked for half a
-check, the file half, and left the fragment half sequenced behind the backlog's file-relative sweep
-of the `[N]:` definitions, a records cleanup the check does not depend on. So the check that would
-tell a fresh adopter what its records link stayed parked, and uis-x1's first run reported 132
-cross-file links skipped against 86 checked.
+The In Progress block separates the ladder from the rung subsections it indexes:
+
+- `#### Ladder` sits after the Acceptance check, and the rung subsections sit under a second
+  heading, `#### Ladder details`, at the block's end, with the whole Deliberation between them.
+- The ladder already links each rung to its subsection, so the second heading is a second index
+  of one list.
+
+The **feat: init adopts an existing tree** block put the ladder below the Deliberation, heading its
+subsections, dropped the second heading, and read better for it.
 
 #### Solution
 
-The entry is rewritten as **validate-anchors resolves a cross-file link**, asking for both halves,
-the file and the fragment, with root-absolute paths resolved against the workspace root so the
-sweep is no longer a precondition. The backlog sentence that sequenced the worked-examples entry
-"after validate-anchors grows the cross-file check" now names the entry it waits on.
+That order is carried into the agent-files as a proposal, v0.2.6:
+
+- `cycle-model.md`: the specimen's `#### Ladder` moves below `#### Deliberation` with the rung
+  subsections directly under it, and `#### Ladder details` goes.
+- `notes.md`, The In Progress block: the items list follows the new order, the deliberation
+  deciding "the other five" where it decided "the five above", the area paragraph becomes the
+  ladder heading its rung subsections as their index, and the single-step case has no subsection
+  under its one rung.
+- `AGENTS.md`: the Cycle-record items list, and step 4 of The per-rung flow, renamed "Rung
+  subsection".
+- `prose.md`: the two mentions of a `Ladder details` subsection name the rung's subsection.
 
 #### Acceptance check
 
-`vc-x1 validate-anchors TODO.md notes/todo-backlog.md` reports nothing beyond the known false
-positive at the `push` entry's code-span heading (bugs.md #19), the old title is cited nowhere in
-this repo or `../vc-x1-messages`, and the new title appears once as a heading, cited in bold by
-the backlog and by this block. Pass.
+- `rg -n 'Ladder details' AGENTS.md custom.md agent-data` finds nothing.
+- The specimen in `cycle-model.md` reads Problem, Solution, Acceptance check, Deliberation, Ladder,
+  with the rung subsections under the ladder.
+- `vc-x1 validate` passes.
 
-#### Ladder
-
-- docs: widen the cross-file anchor Todo entry (done)
+Pass.
 
 #### Deliberation
 
-- Single-step: one commit of prose in two files, nothing to ladder.
-- The old title goes rather than staying as the entry's anchor. It described the cheap half only,
-  and a grep of this repo and the messages repo found no citation, so the anchor change costs
-  nothing.
-- Root-absolute paths resolve against the workspace root instead of waiting for the sweep. They
-  are about 161 of the 320 cross-file targets in this repo's records, so a check that skipped them
-  would leave the tally near where it is, and the workspace root is a fact the check already has.
-- The module header of `src/validate_anchors.rs` still names the backlog entry as the step the
-  check waits on. It stays until the cycle that grows the check, which rewrites that header
-  anyway, since a docs cycle touches no source.
-- The reply to iiac-perf's message waits for the working cycle, as the entry says, since the
-  message asks where the check landed and this rewrite lands no check.
+- Single-step: one edit to one specimen and the prose that describes it, nothing to ladder.
+- The cost the Todo entry weighed is accepted, wink's call: the ladder's `(current)` now sits past
+  the Deliberation, outside the 60-line acquaint read.
+- `CLAUDE.md` stays out of this cycle. A session started without it loaded `AGENTS.md` on its own,
+  so the shim is redundant, but deleting it changes no agent-file, so it is the Todo entry **Delete
+  the CLAUDE.md shim**, run as its own cycle.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 - The two `## Continuation notes` questions were put to wink again at acquaint and stay there
   unanswered.
+
+#### Ladder
+
+- agent-files(proposal): v0.2.6 (done)
 
 # References
 
