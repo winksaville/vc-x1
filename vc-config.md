@@ -213,7 +213,7 @@ example = "."
 
 ## repos.agent
 
-The agent repo's path, relative to the config file's directory (e.g. `".claude"` in the work
+The agent repo's path, relative to the config file's directory (e.g. `".agent-session"` in the work
 repo, `"."` in the agent repo). Its presence is what signals dual-repo mode, and a single-repo
 workspace simply omits it.
 
@@ -221,9 +221,9 @@ workspace simply omits it.
 [repos.agent]
 homes = ["workspace-code", "workspace-agent"]
 kind = "str"
-doc = "The agent repo's path, relative to this config file's directory (e.g. \".claude\" in the work repo, \".\" in the agent repo). Presence signals dual-repo mode"
+doc = "The agent repo's path, relative to this config file's directory (e.g. \".agent-session\" in the work repo, \".\" in the agent repo). Presence signals dual-repo mode"
 used-by = "default_scope, scope resolution, ochid prefixes (structural)"
-example = ".claude"
+example = ".agent-session"
 ```
 
 ## remote.agent-repo
@@ -239,8 +239,8 @@ owner's agent-repo. An agent-repo outside the work-repo's namespace cannot be re
 and is named by a flag instead, which is the [clone
 takes --agent](TODO.md#clone-takes---agent-for-the-agent-repos-source) entry's subject.
 
-An absent key means the work repo's name plus `.claude`, which is what every workspace created
-before the key carries.
+An absent key means the work repo's name plus `.agent-session`. A workspace created before the key,
+whose agent-repo is named with `.claude`, records `agent-repo` to be found.
 
 There is no `[remote] work`: clone is handed the work-repo's URL as its argument and git holds it
 after that, so a recorded copy could only disagree with the remote the repo actually has.
@@ -249,7 +249,7 @@ after that, so a recorded copy could only disagree with the remote the repo actu
 [remote.agent-repo]
 homes = ["workspace-code"]
 kind = "str"
-doc = "The agent-repo's name on its remote, the last URL segment only, since the owner and host come from the work-repo's remote. Absent means the work repo's name plus .claude"
+doc = "The agent-repo's name on its remote, the last URL segment only, since the owner and host come from the work-repo's remote. Absent means the work repo's name plus .agent-session"
 used-by = "clone and sync, deriving the agent-repo's URL"
 example = "myproject.agent-session"
 ```

@@ -2,12 +2,12 @@
 //!
 //! - Default (no `--por`): dual-repo layout: clones the work repo,
 //!   takes the agent-repo's name from the cloned config's
-//!   `[remote] agent-repo` (`<source>.claude` when the key is absent,
-//!   which is what a workspace created before the key looks like),
+//!   `[remote] agent-repo` (`<source>.agent-session` when the key is
+//!   absent),
 //!   clones the agent side into the dir the cloned `repos.agent`
 //!   names, creates the Claude Code symlink. Both sides must
 //!   succeed.
-//! - `--por`: single repo into `<target>`. No `.claude/`, no
+//! - `--por`: single repo into `<target>`. No agent repo, no
 //!   symlink.
 //!
 //! TARGET shapes (all routed through `parse_target`): a URL or a

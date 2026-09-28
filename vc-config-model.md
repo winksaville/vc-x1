@@ -23,17 +23,17 @@ col-width = 68
 The `[repos]` table
 - work: The work repo's path, relative to this config file's directory ("." in the work repo, ".."
   in the agent repo). The entry resolving to the config's own directory names the side [[4]]
-- agent: The agent repo's path, relative to this config file's directory (e.g. ".claude" in the work
-  repo, "." in the agent repo). Presence signals dual-repo mode [[5]]
+- agent: The agent repo's path, relative to this config file's directory (e.g. ".agent-session" in
+  the work repo, "." in the agent repo). Presence signals dual-repo mode [[5]]
 ```toml
 [repos]
 work = "."
-agent = ".claude"
+agent = ".agent-session"
 ```
 
 The `[remote]` table
 - agent-repo: The agent-repo's name on its remote, the last URL segment only, since the owner and
-  host come from the work-repo's remote. Absent means the work repo's name plus .claude [[6]]
+  host come from the work-repo's remote. Absent means the work repo's name plus .agent-session [[6]]
 ```toml
 [remote]
 agent-repo = "myproject.agent-session"

@@ -8,6 +8,7 @@
 //! migrate to `parse_target` in 0.41.1-2 (clone) and 0.41.1-3
 //! (init).
 
+use crate::init::DEFAULT_AGENT_SUFFIX;
 use std::path::PathBuf;
 
 /// A parsed positional `<TARGET>` argument to `init` or `clone`.
@@ -137,15 +138,16 @@ pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     Ok(last.to_string())
 }
 
-/// Derive the bot-repo URL from a work-side URL.
+/// Derive the bot-repo URL from a work-side URL, appending
+/// [`DEFAULT_AGENT_SUFFIX`].
 ///
-/// - With trailing `.git`: insert `.claude` before it
-///   (`foo.git` -> `foo.claude.git`).
-/// - Without `.git`: append `.claude` (`foo` -> `foo.claude`).
+/// - With trailing `.git`: insert the suffix before it
+///   (`foo.git` -> `foo.agent-session.git`).
+/// - Without `.git`: append the suffix (`foo` -> `foo.agent-session`).
 pub fn derive_bot_url(work_url: &str) -> String {
     match work_url.strip_suffix(".git") {
-        Some(stem) => format!("{stem}.claude.git"),
-        None => format!("{work_url}.claude"),
+        Some(stem) => format!("{stem}{DEFAULT_AGENT_SUFFIX}.git"),
+        None => format!("{work_url}{DEFAULT_AGENT_SUFFIX}"),
     }
 }
 
@@ -158,10 +160,10 @@ pub fn derive_bot_url(work_url: &str) -> String {
 ///
 /// - `agent_repo` is `[remote] agent-repo`, the name the work-side
 ///   config declares.
-/// - `None` falls back to [`derive_bot_url`], the `.claude` suffix
-///   every workspace created before the key carries. Absence is
-///   what marks such a workspace, so the fallback is read off the
-///   config rather than probed over the network.
+/// - `None` falls back to [`derive_bot_url`], the default
+///   `.agent-session` suffix. A workspace whose agent-repo is named
+///   otherwise, such as one created before the key with a `.claude`
+///   agent-repo, records the name to be found.
 pub fn agent_url(work_url: &str, agent_repo: Option<&str>) -> String {
     let Some(name) = agent_repo else {
         return derive_bot_url(work_url);
@@ -247,17 +249,16 @@ mod tests {
         assert_eq!(agent_url("repo", Some("agent")), "agent");
     }
 
-    /// No recorded name is how a workspace created before the key
-    /// says so, and it reads as the `.claude` suffix.
+    /// No recorded name reads as the default `.agent-session` suffix.
     #[test]
-    fn agent_url_without_a_name_falls_back_to_claude() {
+    fn agent_url_without_a_name_falls_back_to_the_default_suffix() {
         assert_eq!(
             agent_url("https://github.com/owner/repo.git", None),
             derive_bot_url("https://github.com/owner/repo.git")
         );
         assert_eq!(
             agent_url("https://github.com/owner/repo.git", None),
-            "https://github.com/owner/repo.claude.git"
+            "https://github.com/owner/repo.agent-session.git"
         );
     }
 
@@ -267,7 +268,7 @@ mod tests {
     fn bot_url_ssh() {
         assert_eq!(
             derive_bot_url("git@github.com:owner/repo.git"),
-            "git@github.com:owner/repo.claude.git"
+            "git@github.com:owner/repo.agent-session.git"
         );
     }
 
@@ -275,7 +276,7 @@ mod tests {
     fn bot_url_https_with_git() {
         assert_eq!(
             derive_bot_url("https://github.com/owner/repo.git"),
-            "https://github.com/owner/repo.claude.git"
+            "https://github.com/owner/repo.agent-session.git"
         );
     }
 
@@ -283,18 +284,18 @@ mod tests {
     fn bot_url_https_no_suffix() {
         assert_eq!(
             derive_bot_url("https://github.com/owner/repo"),
-            "https://github.com/owner/repo.claude"
+            "https://github.com/owner/repo.agent-session"
         );
     }
 
     #[test]
     fn bot_url_local_bare_with_git() {
-        assert_eq!(derive_bot_url("/tmp/foo.git"), "/tmp/foo.claude.git");
+        assert_eq!(derive_bot_url("/tmp/foo.git"), "/tmp/foo.agent-session.git");
     }
 
     #[test]
     fn bot_url_local_bare_without_git() {
-        assert_eq!(derive_bot_url("/tmp/foo"), "/tmp/foo.claude");
+        assert_eq!(derive_bot_url("/tmp/foo"), "/tmp/foo.agent-session");
     }
 
     // --- parse_target: URL forms -------------------------------------

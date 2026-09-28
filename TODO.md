@@ -1130,45 +1130,50 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### chore: delete the CLAUDE.md shim
+### feat: default to .agent-session
 
 #### Problem
 
-`CLAUDE.md` is a comment and one line, `@AGENTS.md`, so that Claude Code would load the
-agent-files:
-
-- A session started with it renamed away printed `agents-md: no CLAUDE.md found; AGENTS.md
-  loaded`, so Claude Code now loads `AGENTS.md` on its own and the shim is redundant.
-- The agent-repo's `memory/MEMORY.md` points at a `## Memory` section that `CLAUDE.md` no longer
-  has.
+A workspace whose `.vc-config.md` has no `[remote] agent-repo` derives its agent-repo's remote name
+as the work repo's name plus `.claude`, while a new workspace's agent directory and recorded
+agent-repo name both default to `.agent-session`. The two defaults disagree, and this repo's own
+agent-repo, renamed on GitHub from `vc-x1.claude` to `vc-x1.agent-session`, still carried the old
+name in its config.
 
 #### Solution
 
-`CLAUDE.md` is deleted, and `memory/MEMORY.md` points at the agent-files' **No memory directory**
-practice instead. Going forward the family's repos carry no `CLAUDE.md`.
+The fallback appends `DEFAULT_AGENT_SUFFIX`, `.agent-session`, the constant init already uses, so
+the derived name and the default a new workspace records are one value. The comments and the
+`vc-config.md` entries for `repos.agent` and `remote.agent-repo` say `.agent-session`, the model
+file is regenerated from them, and this repo's `.vc-config.md` records `vc-x1.agent-session` with
+`repos.agent` at `.agent-session`. A workspace created before the key with a `.claude` agent-repo
+now records `agent-repo` to be found.
 
 #### Acceptance check
 
-- A session started in this repo loads `AGENTS.md`, its startup line reading `agents-md: no
-  CLAUDE.md found; AGENTS.md loaded`.
-- `rg -n 'CLAUDE' --glob '!notes/chores/**' --glob '!notes/done.md' --glob '!TODO.md'` in the
-  work-repo finds nothing, and `.agent-session/memory/MEMORY.md` cites no `CLAUDE.md`.
+- `agent_url` with no recorded name returns the work URL with `.agent-session` inserted, checked by
+  `agent_url_without_a_name_falls_back_to_the_default_suffix` and the `bot_url_*` tests.
+- `model_file_is_current` passes against the regenerated `vc-config-model.md`.
 - `vc-x1 validate` passes.
-
-Pass, the first check by wink's test that found the shim redundant, run with `CLAUDE.md` renamed
-away, and again by the session that closed the cycle. The search found nothing, and validation
-passed.
 
 #### Deliberation
 
-- Single-step: one file deleted and one pointer fixed, nothing to ladder.
+- Change the code, not the docs: wink's doc edits said the fallback is `.agent-session`, and the
+  code still said `.claude`, so the code follows the docs.
+  - The alternative, reverting the docs to `.claude`, keeps two defaults that disagree.
+  - Cost accepted: a workspace without `[remote] agent-repo` whose agent-repo is named `.claude` no
+    longer resolves until it records the name.
+- One constant: `derive_bot_url` reads `DEFAULT_AGENT_SUFFIX` rather than a second literal, so the
+  fallback and init's default cannot drift apart again.
+- Bookmark name: `default-to-agent-session`, as wink named it, rather than the title's slug.
+- Single-step: one behavior change and its documentation, nothing to ladder.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-- The two `## Continuation notes` questions were put to wink again at acquaint and stay there
-  unanswered.
+- The agent-repo's `origin` URL was pointed at `vc-x1.agent-session` on wink's go, outside the
+  commit.
 
 #### Ladder
 
-- chore: delete the CLAUDE.md shim (done)
+- feat: default to .agent-session (done)
 
 # References
 

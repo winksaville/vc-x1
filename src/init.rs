@@ -225,7 +225,7 @@ pub(crate) const DEFAULT_AGENT_DIR: &str = ".agent-session";
 /// Default suffix the work repo's name takes to name the agent repo
 /// on its remote, `--agent-suffix` its override and `--agent-repo`
 /// its replacement. A workspace's recorded `[remote] agent-repo`
-/// wins over it, and its absence still means `.claude`.
+/// wins over it, and its absence means this suffix too.
 pub(crate) const DEFAULT_AGENT_SUFFIX: &str = ".agent-session";
 
 /// Top-level non-hidden files init writes. Kept here so that if init is
@@ -417,9 +417,8 @@ fn render_workspace_header(role: ConfigRole) -> String {
             // moment they need it there is no agent-repo to ask. It
             // gets a table of its own because `[repos]` registers
             // local paths and this is a remote name. A `None` name
-            // omits the table, which is the shape every workspace
-            // created before the key has, and reads as the work name
-            // plus `.claude`.
+            // omits the table, which reads as the work name plus
+            // `DEFAULT_AGENT_SUFFIX`.
             let remote_table = match agent_repo {
                 Some(name) => format!("\n[remote]\nagent-repo = \"{name}\"\n"),
                 None => String::new(),
