@@ -49,14 +49,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### Delete the CLAUDE.md shim
-
-(wink, 2026-09-27) `CLAUDE.md` holds one line, `@AGENTS.md`, so that Claude Code would load the
-agent-files. A session started with it renamed away printed `agents-md: no CLAUDE.md found;
-AGENTS.md loaded`, so Claude Code now loads `AGENTS.md` on its own and the shim is redundant.
-Delete it in a single-step cycle of its own. Nothing live cites it, and the frozen history that
-does stays as written. Going forward the family's repos carry no `CLAUDE.md`.
-
 ### squash-push and status take a SCOPE, and push resolves its own bookmarks
 
 (wink, 2026-09-17) `squash-push -R .agent-session` bakes in a path the config already knows, and
@@ -1138,58 +1130,45 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.2.6
+### chore: delete the CLAUDE.md shim
 
 #### Problem
 
-The In Progress block separates the ladder from the rung subsections it indexes:
+`CLAUDE.md` is a comment and one line, `@AGENTS.md`, so that Claude Code would load the
+agent-files:
 
-- `#### Ladder` sits after the Acceptance check, and the rung subsections sit under a second
-  heading, `#### Ladder details`, at the block's end, with the whole Deliberation between them.
-- The ladder already links each rung to its subsection, so the second heading is a second index
-  of one list.
-
-The **feat: init adopts an existing tree** block put the ladder below the Deliberation, heading its
-subsections, dropped the second heading, and read better for it.
+- A session started with it renamed away printed `agents-md: no CLAUDE.md found; AGENTS.md
+  loaded`, so Claude Code now loads `AGENTS.md` on its own and the shim is redundant.
+- The agent-repo's `memory/MEMORY.md` points at a `## Memory` section that `CLAUDE.md` no longer
+  has.
 
 #### Solution
 
-That order is carried into the agent-files as a proposal, v0.2.6:
-
-- `cycle-model.md`: the specimen's `#### Ladder` moves below `#### Deliberation` with the rung
-  subsections directly under it, and `#### Ladder details` goes.
-- `notes.md`, The In Progress block: the items list follows the new order, the deliberation
-  deciding "the other five" where it decided "the five above", the area paragraph becomes the
-  ladder heading its rung subsections as their index, and the single-step case has no subsection
-  under its one rung.
-- `AGENTS.md`: the Cycle-record items list, and step 4 of The per-rung flow, renamed "Rung
-  subsection".
-- `prose.md`: the two mentions of a `Ladder details` subsection name the rung's subsection.
+`CLAUDE.md` is deleted, and `memory/MEMORY.md` points at the agent-files' **No memory directory**
+practice instead. Going forward the family's repos carry no `CLAUDE.md`.
 
 #### Acceptance check
 
-- `rg -n 'Ladder details' AGENTS.md custom.md agent-data` finds nothing.
-- The specimen in `cycle-model.md` reads Problem, Solution, Acceptance check, Deliberation, Ladder,
-  with the rung subsections under the ladder.
+- A session started in this repo loads `AGENTS.md`, its startup line reading `agents-md: no
+  CLAUDE.md found; AGENTS.md loaded`.
+- `rg -n 'CLAUDE' --glob '!notes/chores/**' --glob '!notes/done.md' --glob '!TODO.md'` in the
+  work-repo finds nothing, and `.agent-session/memory/MEMORY.md` cites no `CLAUDE.md`.
 - `vc-x1 validate` passes.
 
-Pass.
+Pass, the first check by wink's test that found the shim redundant, run with `CLAUDE.md` renamed
+away, and again by the session that closed the cycle. The search found nothing, and validation
+passed.
 
 #### Deliberation
 
-- Single-step: one edit to one specimen and the prose that describes it, nothing to ladder.
-- The cost the Todo entry weighed is accepted, wink's call: the ladder's `(current)` now sits past
-  the Deliberation, outside the 60-line acquaint read.
-- `CLAUDE.md` stays out of this cycle. A session started without it loaded `AGENTS.md` on its own,
-  so the shim is redundant, but deleting it changes no agent-file, so it is the Todo entry **Delete
-  the CLAUDE.md shim**, run as its own cycle.
+- Single-step: one file deleted and one pointer fixed, nothing to ladder.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 - The two `## Continuation notes` questions were put to wink again at acquaint and stay there
   unanswered.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.6 (done)
+- chore: delete the CLAUDE.md shim (done)
 
 # References
 
