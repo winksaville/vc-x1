@@ -1203,11 +1203,13 @@ Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `-
 ### symlink
 
 Create or verify the Claude Code project symlink. Claude Code stores session data in
-`~/.claude/projects/<encoded-path>/`. This command creates a symlink from that location to the local
-`.claude` directory.
+`~/.claude/projects/<encoded-path>/`. This command creates a symlink from that location to the
+workspace's agent-repo directory. The encoded path is the project's absolute path with every
+character that is not an ASCII letter or digit replaced by `-`, so `/home/me/io_uring.x1` is
+`-home-me-io-uring-x1`.
 
 ```
-# Create symlink for current project (default target: .claude)
+# Create symlink for current project (default target: the directory repos.agent names)
 vc-x1 symlink
 
 # Specify a different target

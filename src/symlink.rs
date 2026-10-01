@@ -37,9 +37,26 @@ pub struct SymLink {
     pub action: SymlinkAction,
 }
 
-/// Encode a path the way Claude Code does: replace `/` and `.` with `-`.
+/// Encode a path the way Claude Code does: every character that is
+/// not an ASCII letter or digit becomes `-`.
+///
+/// - Claude Code's rule is `replace(/[^a-zA-Z0-9]/g, "-")`, which
+///   runs over UTF-16 code units, so a character outside the Basic
+///   Multilingual Plane becomes two dashes.
+/// - Not reproduced: Claude Code cuts a name longer than 200
+///   characters to 200 and appends a hash of the path.
+/// - Source: the installed Claude Code binary, version 2.1.295,
+///   read 2026-10-09.
 pub fn encode_path(path: &str) -> String {
-    path.replace(['/', '.'], "-")
+    let mut name = String::with_capacity(path.len());
+    for c in path.chars() {
+        if c.is_ascii_alphanumeric() {
+            name.push(c);
+        } else {
+            (0..c.len_utf16()).for_each(|_| name.push('-'));
+        }
+    }
+    name
 }
 
 /// Read what exists at a path without following symlinks.
@@ -410,6 +427,25 @@ mod tests {
             encode_path("/home/wink/.config/test"),
             "-home-wink--config-test"
         );
+    }
+
+    /// An underscore is a dash too, the name Claude Code already
+    /// gave this project's directory.
+    #[test]
+    fn encode_path_with_underscore() {
+        assert_eq!(
+            encode_path("/home/wink/data/prgs/rust/io_uring-2-zcr-v4-x1"),
+            "-home-wink-data-prgs-rust-io-uring-2-zcr-v4-x1"
+        );
+    }
+
+    /// Every character that is not an ASCII letter or digit is a
+    /// dash, one per UTF-16 code unit.
+    #[test]
+    fn encode_path_with_other_characters() {
+        assert_eq!(encode_path("/a b+c@d~e"), "-a-b-c-d-e");
+        assert_eq!(encode_path("/caf\u{e9}/X9"), "-caf--X9");
+        assert_eq!(encode_path("/\u{1f600}"), "---");
     }
 
     /// A working directory with `.` or `..` in it names the symlink as

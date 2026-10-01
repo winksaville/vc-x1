@@ -9,15 +9,7 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-- Asked and not answered: whether the flag-name rule gets written down. A settable key's leaf is
-  its flag's long name, in nine pairs (`--account`, `--debug`, `--repo`, `--result-lines`,
-  `--col-width`, `--custom` twice, `--yes`, and the `[DIR]` operand), with no exception among the
-  keys that have a flag. It is written nowhere, which is how `remote.agent-name` came to be proposed
-  and corrected. The candidate home is one line in the "Shape:" prose of `vc-config.md`, in rung 2.
-- Asked three times and not answered: whether to write a `## Todo` entry for using "dual-repo
-  workspace" consistently and defining it in `README.md`. The spellings in the tree today are
-  dual-repo, dual workspace, POR, single-repo workspace, and `is_work_only()`, which `prose.md > One
-  spelling per term` forbids.
+_None._
 
 ## In Progress
 
@@ -48,6 +40,162 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### Acquaint checks that both repos are level with their remotes
+
+(wink + agent, 2026-10-09) [fix: symlink names a project as Claude Code
+does](#fix-symlink-names-a-project-as-claude-code-does) opened in a clone one cycle behind both
+remotes, since the cycle before it was made on another machine and never fetched here. Nothing
+looked at the remotes until the push, which committed and pushed the work-repo and was rejected on
+the agent-repo, and the repair was a rebase and a forced push of the bookmark. A check at acquaint,
+before any bookmark is created, would have caught it.
+
+- The check: fetch both repos and compare each `main` with its remote, behind, ahead, or diverged,
+  and stop on anything but level.
+- Its home is decided at the opening: a step in the agent-files' acquaint, which is convention work
+  and its own cycle, or a verdict `vc-x1` prints, where [status prints a verdict per repo and exits
+  with a bit per side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) already
+  proposes one.
+
+### A bare sync or revert acts on the repo it is run in
+
+(wink, 2026-10-09) No flags means two things today. For `sync` and `revert` it is the workspace's
+default scope, both repos of a dual workspace from anywhere inside it, and for `chid`, `desc`,
+`list`, and `show` it is `.`, the one repo. Wink expected the second of `sync`, had forgotten the
+first, and calls it convenient but unnatural: the habit is to `cd` into a directory, see that it
+worked, and run the command there on a new line, never `cd xxx; command`, which runs the command in
+the wrong place when the `cd` fails. So the directory the command is run in is what it means.
+
+- The default changes: a bare `sync` or `revert` acts on `.`, the one repo, as the four read
+  commands do, and both repos are asked for with `--scope`.
+- The opening decides whether any other command takes the workspace's default scope with no flags
+  and changes with these two, and what the docs, the agent-files included, say where they rely on a
+  bare `sync` reaching both repos.
+- Overlap: [squash-push and status take a SCOPE, and push resolves its own
+  bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks) and [Global
+  -R anchors the workspace for every command](#global--r-anchors-the-workspace-for-every-command)
+  settle what a scope and `-R` resolve against, and neither covers the no-flags default.
+
+### symlink names a path over 200 characters as Claude Code does
+
+(2026-10-09) Claude Code cuts a project name longer than 200 characters to 200 and appends `-` and
+a base-36 hash of the path, and `encode_path` returns the uncut name, so `vc-x1 symlink` makes a
+link Claude Code never reads for such a path. Found in the installed Claude Code (2.1.295) during
+[fix: symlink names a project as Claude Code
+does](#fix-symlink-names-a-project-as-claude-code-does), which left it out: the hash function has
+to be copied exactly, and no path met so far is near 200.
+
+Whether the hash has to match bit for bit is not known, and the opening tests it before any code is
+written. On a scratch project whose full path is over 200 characters, wink starting a fresh Claude
+Code session there for each pass:
+
+- No link: the name Claude Code creates under `~/.claude/projects` is the ground truth, and a test
+  vector for the hash if one is needed.
+- The link as `vc-x1 symlink` makes it today, the uncut name: expected to be ignored, Claude Code
+  creating its own directory beside it as it did for the `io_uring` project, whose link was wrong
+  within the first 200 characters.
+- A link made by hand, the first 200 characters and a made-up suffix: used or ignored, and this
+  pass decides the design.
+  - Used: the fix is the cut and a fixed suffix, with no hash to copy.
+  - Ignored: the hash is reproduced exactly, and the first pass's name is its test.
+
+We think the third pass may be used: Claude Code's hash is recalled, not read this session, as
+differing between its native and Node installs, with a match on the first 200 characters as the
+fallback.
+
+### init refuses a name GitHub would change
+
+(wink + agent, 2026-10-09) GitHub allows letters, digits, `.`, `-`, and `_` in a repo name and
+turns any other character into `-` without saying so. `init` asks for the repo under the name as
+typed and pushes to the URL built from that name, which does not exist when GitHub changed it:
+
+```
+$ vc-x1 init test_underscore=equal+plus-dash__two-unscores
+vc-x1 0.84.18
+...
+Step 8: Set main on the agent repo's initial commit, create GitHub repo winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session --public, and push to https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git
+error: failed after 5 attempts: Git process failed: External git program failed:
+fatal: repository 'https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git/' not found
+```
+
+GitHub had created `test_underscore-equal-plus-dash__two-unscores.agent-session`, so the run left
+an empty public repo there and a local workspace with no remote.
+
+- Preflight refuses such a name when the target provisions a GitHub repo, and says what GitHub
+  would make of it. `github_slug` already refuses a name ending in `.git`, and this check sits
+  beside it.
+- No silent rename: taking GitHub's version of the name would work, and the directory and the
+  remote would then carry different names nobody chose.
+- A local-only name is left alone, since the name is a fine directory.
+- A push that fails with "not found" is not retried, as the five attempts here were.
+- `init` has no undo, so a late failure leaves the earlier steps' work behind. The preflight check
+  avoids this case and not the general one, which is its own entry if it is wanted.
+
+### The docs and the code say .claude where they mean the agent-repo directory
+
+(wink, 2026-10-09) The agent-repo's directory is whatever `repos.agent` names, `.agent-session` by
+default, and `.claude` is still written as if it were the name: 57 mentions in `README.md` and
+about 170 lines in `src/`, counted and not yet read one by one. Surfaced at the review of [fix:
+symlink names a project as Claude Code does](#fix-symlink-names-a-project-as-claude-code-does),
+which fixed only the README's `symlink` paragraph. A multi-step cycle, one rung per group:
+
+- Prose: the README and `vc-config.md` text. `~/.claude/projects` and Claude Code's own `.claude`
+  are correct as written and stay.
+- User-visible strings: help text and log lines, push's `.claude (...)` heading and status's
+  `.claude` label among them, print the configured directory rather than a literal.
+- Fallbacks: `symlink` and `validate-bot` fall back to `.claude` when no config resolves, and
+  whether that becomes `.agent-session` or an error is a decision.
+- The ochid label: trailers are stamped `/.claude/<id>` whatever the directory is called, and
+  every published commit carries that spelling, so changing it is a format change, decided on its
+  own or ruled out at the opening.
+- Tests and fixtures: `.claude` as an arbitrary directory name is harmless and mostly stays.
+- Overlap: [The code says agent where it still says
+  bot](#the-code-says-agent-where-it-still-says-bot) and [repos.agent becomes repos.agent-dir, and
+  a command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date) touch the same
+  lines, so the three are ordered or folded into one program before any opens.
+
+### One spelling for a workspace's two shapes
+
+(wink + agent, 2026-10-09) The tree names a workspace's shape five ways: dual-repo, dual workspace,
+POR, single-repo workspace, and `is_work_only()` in the code, which [One spelling per
+term](agent-data/prose.md#one-spelling-per-term) forbids. "Dual-repo workspace" becomes the one
+spelling for the two-repo shape, defined in `README.md`, and the opening picks its single-repo
+counterpart and decides whether the code's names follow the prose.
+
+### vc-config.md states that a settable key's leaf is its flag's long name
+
+(wink + agent, 2026-10-09) A settable key's leaf is its flag's long name, in nine pairs
+(`--account`, `--debug`, `--repo`, `--result-lines`, `--col-width`, `--custom` twice, `--yes`, and
+the `[DIR]` operand), with no exception among the keys that have a flag. The rule is written
+nowhere, which is how `remote.agent-name` came to be proposed and corrected. One line in the
+"Shape:" prose of `vc-config.md` states it.
+
+### init --use-template takes an existing workspace as the template
+
+(wink, 2026-10-09) Someday an existing work directory should serve as a template. Today
+`--use-template WORK` requires an agent template too, defaulting to the sibling directory
+`<WORK>.claude`, and a workspace has no such sibling: its agent-repo is nested inside it and holds
+session data, which is nothing to copy.
+
+```
+$ vc-x1 init io-uring-2-zcr-v4-x2 --use-template io_uring-2-zcr-v4-x1/
+vc-x1 0.84.15
+Preflight checks...
+error: --use-template: agent template 'io_uring-2-zcr-v4-x1.claude' does not exist
+```
+
+- The agent template becomes optional: the sibling when it exists, otherwise an agent-repo seeded
+  with nothing.
+- The sibling default still ends in `.claude`, and whether it follows the `.agent-session` rename
+  is decided with the template repo, where the short-term fix, updating its `work` and
+  `work.claude`, is being made.
+
+### Add a --rename <name> option to vc-x1 agent-session
+
+This handles .vc-config.{toml|md} repo and local name, jj|git remote and the repo itself.
+I.e. one command that allows our old .claude repos to be converted to .agent-session or any
+other name a user might want.
 
 ### squash-push and status take a SCOPE, and push resolves its own bookmarks
 
@@ -1130,64 +1278,58 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### fix: clone names the agent-repo from repos.agent
+### fix: symlink names a project as Claude Code does
 
 #### Problem
 
-`vc-x1 clone` of a workspace whose `.vc-config.md` has no `[remote] agent-repo` guesses the
-agent-repo's remote name as the work repo's name plus `.agent-session`. A workspace created before
-the key keeps its agent-repo under another name, `iiac-perf.claude` beside
-`repos.agent = ".claude"`, so the guess names a repo that does not exist and the clone fails after
-the work side landed.
+Claude Code names a project's directory under `~/.claude/projects` by replacing every character of
+the working directory's path that is not an ASCII letter or digit with `-`. The symlink code
+replaced only `/` and `.`, so for a path holding any other character, an underscore the one that
+was met, it made a link Claude Code never reads.
 
 #### Solution
 
-With no `[remote] agent-repo`, clone derives the name from the agent dir the same config declares
-in `repos.agent`, by its last path component: a dot-led component is appended to the work repo's
-name (`.claude` gives `iiac-perf.claude`), any other is the whole name (`../iiac-perf-agent` gives
-`iiac-perf-agent`), and a dir with no last component is refused with a pointer at the key. The
-fixed `.agent-session` fallback is gone, so the URL helper always takes a name. The schema entry,
-the model file, the README's table note, the comments, and `validate-config`'s suggestion, which
-still said `.claude`, describe the derivation, and the dry-run names the rule rather than a URL it
-cannot know before the work clone.
+`encode_path` applies Claude Code's rule, one dash per UTF-16 code unit as its regex counts them,
+and the README's `symlink` section states the rule.
 
 #### Acceptance check
 
-Passed:
-
-- `url.rs` tests show a dot-led dir appended to the work name, a plain dir used whole, with and
-  without `.git`, and an unnameable dir refused.
-- `clone_without_remote_agent_repo_names_it_from_the_agent_dir` clones a fixture whose config has
-  `repos.agent = ".claude"` and no `[remote] agent-repo`, beside a `remote-work.claude.git` and no
-  `.agent-session` one, and succeeds.
-- `vc-x1 clone https://github.com/winksaville/iiac-perf`, run into a scratch dir, cloned
-  `iiac-perf.claude` into `iiac-perf/.claude`.
-- `vc-x1 validate` passes.
+- `encode_path("/home/wink/data/prgs/rust/io_uring-2-zcr-v4-x1")` returns
+  `-home-wink-data-prgs-rust-io-uring-2-zcr-v4-x1`, the name of the link Claude Code reads for that
+  project, checked by `encode_path_with_underscore`. Passed.
+- `vc-x1 validate` passes. Passed.
 
 #### Deliberation
 
-- The agent dir, not a fixed suffix: wink's proposal, joining `repos.agent` with the work URL.
-  - It resolves both known workspaces: iiac-perf's `.claude` and vc-x1's `.agent-session`, which
-    init writes as the dir and the recorded name alike, so a new workspace's dir and its derived
-    name agree by construction.
-  - The alternative, trying `.claude` after `.agent-session`, probes the network and hides a
-    config that is silent about its remote.
-- The last component, split on its lead: `repos.agent` is a path, `"../x"` or absolute as well as
-  `.claude`, so "join" is defined only for a dot-led name. A dot-led component is a suffix and any
-  other is a name, one rule for every layout, as agreed with wink.
-- Single-step: one behavior change and its documentation.
-- Waiver: wink granted permission for what the cycle needs, the bookmark's publish and the
-  cycle's one push included, and reviews the work and the description before Land, in place of
-  the per-rung reviews. Land is outside the waiver.
-- Bookmark name: `fix-clone-derives-the-agent-repo-name-from-reposagent`, the slug of a first
-  title published with the bookmark and then shortened to fit the title cap.
-- The suggestion's text is in scope: `validate-config`'s nag for a missing key described the
-  fallback, wrongly since the last cycle, so it changes with the fallback it describes.
+- The general rule, not an underscore case: wink's entry asked for `_` to become `-`, and the
+  installed Claude Code (2.1.295) carries `replace(/[^a-zA-Z0-9]/g,"-")`, so the underscore is one
+  instance.
+  - Adding `_` as a third character leaves a space, `+`, `@`, and every non-ASCII letter as the next
+    bug.
+- Code units, not characters: the regex runs over UTF-16, so a character outside the Basic
+  Multilingual Plane is two dashes, and `encode_path` counts the same way.
+- The long-path hash is left out: Claude Code cuts a name over 200 characters to 200 and appends a
+  hash of the path.
+  - Reproducing it means copying Claude Code's hash function exactly, and no path here is near 200.
+  - It is the entry [symlink names a path over 200 characters as Claude Code
+    does](#symlink-names-a-path-over-200-characters-as-claude-code-does).
+- Stale links stay: a link made under the old rule for a path with an underscore is not removed, and
+  the fix only stops making new ones.
+- Single-step: one rule change, its tests, and its sentence in the README.
+- The `--use-template` entry is rewritten in this commit: wink's call is that its short-term fix is
+  in the template repo, so what remains here is the someday item, an existing workspace as the
+  template.
+- The `.claude` leftovers are their own cycle: wink's review found `.claude` written for the
+  agent-repo directory across the README and the code, and only the README's `symlink` paragraph,
+  which this commit already edits, is fixed here.
+  - The rest is the entry [The docs and the code say .claude where they mean the agent-repo
+    directory](#the-docs-and-the-code-say-claude-where-they-mean-the-agent-repo-directory), since
+    some of it is behavior that needs a decision.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder
 
-- fix: clone names the agent-repo from repos.agent (done)
+- fix: symlink names a project as Claude Code does (done)
 
 # References
 
