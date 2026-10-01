@@ -33,7 +33,8 @@ agent = ".agent-session"
 
 The `[remote]` table
 - agent-repo: The agent-repo's name on its remote, the last URL segment only, since the owner and
-  host come from the work-repo's remote. Absent means the work repo's name plus .agent-session [[6]]
+  host come from the work-repo's remote. Absent means a name derived from repos.agent: a dot-led
+  last component appended to the work repo's name, any other used whole [[6]]
 ```toml
 [remote]
 agent-repo = "myproject.agent-session"

@@ -2,8 +2,8 @@
 //!
 //! - Default (no `--por`): dual-repo layout: clones the work repo,
 //!   takes the agent-repo's name from the cloned config's
-//!   `[remote] agent-repo` (`<source>.agent-session` when the key is
-//!   absent),
+//!   `[remote] agent-repo` (derived from its `repos.agent` when the
+//!   key is absent, see [`derive_agent_repo`]),
 //!   clones the agent side into the dir the cloned `repos.agent`
 //!   names, creates the Claude Code symlink. Both sides must
 //!   succeed.
@@ -30,7 +30,7 @@ use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::por::PorFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
-use crate::url::{Target, agent_url, derive_bot_url, derive_name, parse_target};
+use crate::url::{Target, agent_url, derive_agent_repo, derive_name, parse_target};
 
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
@@ -150,11 +150,12 @@ pub fn clone_repo(_ctx: &Context, params: &CloneParams) -> Result<(), Box<dyn st
         if params.por {
             info!("  1. clone --colocate {source} {name}");
         } else {
-            let bot_source = derive_bot_url(&source);
             info!("  1. clone --colocate {source} {name}");
-            info!("  2. clone --colocate {bot_source} {name}/<repos.agent>");
+            info!("  2. clone --colocate <agent-repo URL> {name}/<repos.agent>");
             info!(
-                "     (the URL's last segment is the cloned [remote] agent-repo, when it has one)"
+                "     (the URL's last segment is the cloned [remote] agent-repo, or, without \
+                 one, the last component of repos.agent, appended to the work name when \
+                 dot-led)"
             );
             info!("  3. Create Claude Code symlink");
         }
@@ -223,11 +224,12 @@ pub(crate) fn clone_dual(
         .into()
     };
     // The agent-repo's remote name comes from the same cloned
-    // config's `[remote] agent-repo`, so the derivation waits for the work
-    // clone too. It is
-    // read only where `configured_bot_dir` accepted the config: the
-    // legacy branch got here because the `[repos]` config was
-    // rejected, and a rejected config has no key to read.
+    // config's `[remote] agent-repo`, so the derivation waits for the
+    // work clone too. It is read only where `configured_bot_dir`
+    // accepted the config: the legacy branch got here because the
+    // `[repos]` config was rejected, and a rejected config has no key
+    // to read. Without the key the name is derived from the bot dir,
+    // which every branch has.
     let (bot_dir, agent_repo) = match crate::common::configured_bot_dir(target_dir) {
         Ok(Some(p)) => (p, crate::common::configured_agent_repo(target_dir)?),
         Ok(None) => return Err(no_agent()),
@@ -245,7 +247,11 @@ pub(crate) fn clone_dual(
             None => return Err(no_agent()),
         },
     };
-    let bot_source = agent_url(work_source, agent_repo.as_deref());
+    let agent_repo = match agent_repo {
+        Some(name) => name,
+        None => derive_agent_repo(work_source, &bot_dir)?,
+    };
+    let bot_source = agent_url(work_source, &agent_repo);
     // A relative local-path TARGET resolves against the process
     // cwd for both sides (the facade absolutizes it before it is
     // stored), which is what the old spawn's explicit `parent_dir`
@@ -341,6 +347,6 @@ mod tests {
         assert_eq!(args.target, "./bare.git");
     }
 
-    // Unit tests for derive_name / resolve_url / derive_bot_url
+    // Unit tests for derive_name / derive_agent_repo / agent_url
     // live in src/url.rs alongside the lifted functions.
 }

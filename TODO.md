@@ -1130,50 +1130,64 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: default to .agent-session
+### fix: clone names the agent-repo from repos.agent
 
 #### Problem
 
-A workspace whose `.vc-config.md` has no `[remote] agent-repo` derives its agent-repo's remote name
-as the work repo's name plus `.claude`, while a new workspace's agent directory and recorded
-agent-repo name both default to `.agent-session`. The two defaults disagree, and this repo's own
-agent-repo, renamed on GitHub from `vc-x1.claude` to `vc-x1.agent-session`, still carried the old
-name in its config.
+`vc-x1 clone` of a workspace whose `.vc-config.md` has no `[remote] agent-repo` guesses the
+agent-repo's remote name as the work repo's name plus `.agent-session`. A workspace created before
+the key keeps its agent-repo under another name, `iiac-perf.claude` beside
+`repos.agent = ".claude"`, so the guess names a repo that does not exist and the clone fails after
+the work side landed.
 
 #### Solution
 
-The fallback appends `DEFAULT_AGENT_SUFFIX`, `.agent-session`, the constant init already uses, so
-the derived name and the default a new workspace records are one value. The comments and the
-`vc-config.md` entries for `repos.agent` and `remote.agent-repo` say `.agent-session`, the model
-file is regenerated from them, and this repo's `.vc-config.md` records `vc-x1.agent-session` with
-`repos.agent` at `.agent-session`. A workspace created before the key with a `.claude` agent-repo
-now records `agent-repo` to be found.
+With no `[remote] agent-repo`, clone derives the name from the agent dir the same config declares
+in `repos.agent`, by its last path component: a dot-led component is appended to the work repo's
+name (`.claude` gives `iiac-perf.claude`), any other is the whole name (`../iiac-perf-agent` gives
+`iiac-perf-agent`), and a dir with no last component is refused with a pointer at the key. The
+fixed `.agent-session` fallback is gone, so the URL helper always takes a name. The schema entry,
+the model file, the README's table note, the comments, and `validate-config`'s suggestion, which
+still said `.claude`, describe the derivation, and the dry-run names the rule rather than a URL it
+cannot know before the work clone.
 
 #### Acceptance check
 
-- `agent_url` with no recorded name returns the work URL with `.agent-session` inserted, checked by
-  `agent_url_without_a_name_falls_back_to_the_default_suffix` and the `bot_url_*` tests.
-- `model_file_is_current` passes against the regenerated `vc-config-model.md`.
+Passed:
+
+- `url.rs` tests show a dot-led dir appended to the work name, a plain dir used whole, with and
+  without `.git`, and an unnameable dir refused.
+- `clone_without_remote_agent_repo_names_it_from_the_agent_dir` clones a fixture whose config has
+  `repos.agent = ".claude"` and no `[remote] agent-repo`, beside a `remote-work.claude.git` and no
+  `.agent-session` one, and succeeds.
+- `vc-x1 clone https://github.com/winksaville/iiac-perf`, run into a scratch dir, cloned
+  `iiac-perf.claude` into `iiac-perf/.claude`.
 - `vc-x1 validate` passes.
 
 #### Deliberation
 
-- Change the code, not the docs: wink's doc edits said the fallback is `.agent-session`, and the
-  code still said `.claude`, so the code follows the docs.
-  - The alternative, reverting the docs to `.claude`, keeps two defaults that disagree.
-  - Cost accepted: a workspace without `[remote] agent-repo` whose agent-repo is named `.claude` no
-    longer resolves until it records the name.
-- One constant: `derive_bot_url` reads `DEFAULT_AGENT_SUFFIX` rather than a second literal, so the
-  fallback and init's default cannot drift apart again.
-- Bookmark name: `default-to-agent-session`, as wink named it, rather than the title's slug.
-- Single-step: one behavior change and its documentation, nothing to ladder.
+- The agent dir, not a fixed suffix: wink's proposal, joining `repos.agent` with the work URL.
+  - It resolves both known workspaces: iiac-perf's `.claude` and vc-x1's `.agent-session`, which
+    init writes as the dir and the recorded name alike, so a new workspace's dir and its derived
+    name agree by construction.
+  - The alternative, trying `.claude` after `.agent-session`, probes the network and hides a
+    config that is silent about its remote.
+- The last component, split on its lead: `repos.agent` is a path, `"../x"` or absolute as well as
+  `.claude`, so "join" is defined only for a dot-led name. A dot-led component is a suffix and any
+  other is a name, one rule for every layout, as agreed with wink.
+- Single-step: one behavior change and its documentation.
+- Waiver: wink granted permission for what the cycle needs, the bookmark's publish and the
+  cycle's one push included, and reviews the work and the description before Land, in place of
+  the per-rung reviews. Land is outside the waiver.
+- Bookmark name: `fix-clone-derives-the-agent-repo-name-from-reposagent`, the slug of a first
+  title published with the bookmark and then shortened to fit the title cap.
+- The suggestion's text is in scope: `validate-config`'s nag for a missing key described the
+  fallback, wrongly since the last cycle, so it changes with the fallback it describes.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-- The agent-repo's `origin` URL was pointed at `vc-x1.agent-session` on wink's go, outside the
-  commit.
 
 #### Ladder
 
-- feat: default to .agent-session (done)
+- fix: clone names the agent-repo from repos.agent (done)
 
 # References
 

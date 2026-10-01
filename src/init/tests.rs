@@ -524,8 +524,8 @@ fn ensure_git_suffix_adds_when_missing() {
     );
 }
 
-// Unit tests for derive_bot_url / derive_name live in
-// src/repo_url.rs alongside the lifted functions.
+// Unit tests for derive_agent_repo / derive_name live in
+// src/url.rs alongside the lifted functions.
 
 #[test]
 fn expand_vars_tilde() {
@@ -1947,7 +1947,7 @@ fn init_records_the_agent_repos_remote_name() {
     // beside the work bare it sits next to.
     let work_url = format!("{}/remote-work.git", fx.base.display());
     assert_eq!(
-        crate::url::agent_url(&work_url, Some(&recorded)),
+        crate::url::agent_url(&work_url, &recorded),
         format!("{}/remote-work.agent-session.git", fx.base.display())
     );
 }

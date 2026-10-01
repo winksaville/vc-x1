@@ -988,8 +988,8 @@ A work-side `.vc-config.md` holds up to six tables:
   agent-repo's name on its remote, which `clone` reads before there is an agent-repo to ask.
   - Only the last URL segment is recorded. The owner and the host come from the work repo's own
     remote, so the two repos are siblings in one namespace.
-  - An absent key means the work repo's name plus `.claude`, the name every workspace created
-    before the key carries.
+  - An absent key means a name derived from `repos.agent`'s last component: a dot-led one is
+    appended to the work repo's name (`.claude` gives `<name>.claude`), any other is used whole.
 - `[family]` (0.80.0): the agent-file family this repo belongs to, which was prose in the project
   layer before.
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer

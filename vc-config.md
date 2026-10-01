@@ -239,8 +239,11 @@ owner's agent-repo. An agent-repo outside the work-repo's namespace cannot be re
 and is named by a flag instead, which is the [clone
 takes --agent](TODO.md#clone-takes---agent-for-the-agent-repos-source) entry's subject.
 
-An absent key means the work repo's name plus `.agent-session`. A workspace created before the key,
-whose agent-repo is named with `.claude`, records `agent-repo` to be found.
+An absent key means a name derived from `repos.agent`, the last component of the agent dir: a
+dot-led one is appended to the work repo's name (`.claude` gives `myproject.claude`), and any other
+is the whole name (`../myproject-agent` gives `myproject-agent`). init records the key, so the
+derivation serves a workspace created before it, whose agent dir and agent-repo name were made
+together.
 
 There is no `[remote] work`: clone is handed the work-repo's URL as its argument and git holds it
 after that, so a recorded copy could only disagree with the remote the repo actually has.
@@ -249,7 +252,7 @@ after that, so a recorded copy could only disagree with the remote the repo actu
 [remote.agent-repo]
 homes = ["workspace-code"]
 kind = "str"
-doc = "The agent-repo's name on its remote, the last URL segment only, since the owner and host come from the work-repo's remote. Absent means the work repo's name plus .agent-session"
+doc = "The agent-repo's name on its remote, the last URL segment only, since the owner and host come from the work-repo's remote. Absent means a name derived from repos.agent: a dot-led last component appended to the work repo's name, any other used whole"
 used-by = "clone and sync, deriving the agent-repo's URL"
 example = "myproject.agent-session"
 ```

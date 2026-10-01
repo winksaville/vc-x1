@@ -927,8 +927,8 @@ pub fn configured_bot_dir(
 /// (`[remote] agent-repo`): a pure config read, no verification.
 ///
 /// `Ok(None)` when the key is absent, which is how a workspace
-/// created before the key says so. The caller then falls back to
-/// the `.claude` suffix (see [`crate::url::agent_url`]). A
+/// created before the key says so. The caller then derives the name
+/// from the agent dir (see [`crate::url::derive_agent_repo`]). A
 /// workspace with no config at all answers the same way, since it
 /// declares nothing either.
 pub fn configured_agent_repo(

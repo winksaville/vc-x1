@@ -269,8 +269,8 @@ fn validate_file(
 /// or `None` when it does not.
 ///
 /// A suggestion rather than a finding, logged at `info!` and left
-/// out of the count: absence is legal and means the work repo's name
-/// plus `.claude` (see [`crate::url::agent_url`]), so a workspace
+/// out of the count: absence is legal and means a name derived from
+/// `repos.agent` (see [`crate::url::derive_agent_repo`]), so a workspace
 /// created before the key still validates clean. The nag is what
 /// spreads the key, and once every workspace carries one the
 /// derivation's fallback can retire.
@@ -289,8 +289,8 @@ fn agent_repo_suggestion(map: &HashMap<String, String>) -> Option<String> {
         return None;
     }
     Some(
-        "no [remote] agent-repo, so the agent-repo's remote name is taken as the work repo's plus \
-         .claude. Add the key to pin it."
+        "no [remote] agent-repo, so the agent-repo's remote name is derived from repos.agent. \
+         Add the key to pin it."
             .to_string(),
     )
 }

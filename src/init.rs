@@ -417,8 +417,8 @@ fn render_workspace_header(role: ConfigRole) -> String {
             // moment they need it there is no agent-repo to ask. It
             // gets a table of its own because `[repos]` registers
             // local paths and this is a remote name. A `None` name
-            // omits the table, which reads as the work name plus
-            // `DEFAULT_AGENT_SUFFIX`.
+            // omits the table, which clone reads as a name derived
+            // from `agent_dir` (see `crate::url::derive_agent_repo`).
             let remote_table = match agent_repo {
                 Some(name) => format!("\n[remote]\nagent-repo = \"{name}\"\n"),
                 None => String::new(),
@@ -1269,7 +1269,7 @@ fn plan_agent_side(
         Some(name) => name.clone(),
         None => format!("{}{suffix}", derive_name(&plan.work_url)?),
     };
-    let url = crate::url::agent_url(&plan.work_url, Some(&remote_name));
+    let url = crate::url::agent_url(&plan.work_url, &remote_name);
     Ok(AgentPlan {
         path: plan.project_dir.join(&agent_dir),
         dir: agent_dir,

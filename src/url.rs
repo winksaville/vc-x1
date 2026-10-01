@@ -8,8 +8,7 @@
 //! migrate to `parse_target` in 0.41.1-2 (clone) and 0.41.1-3
 //! (init).
 
-use crate::init::DEFAULT_AGENT_SUFFIX;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A parsed positional `<TARGET>` argument to `init` or `clone`.
 ///
@@ -138,42 +137,54 @@ pub fn derive_name(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     Ok(last.to_string())
 }
 
-/// Derive the bot-repo URL from a work-side URL, appending
-/// [`DEFAULT_AGENT_SUFFIX`].
+/// Derive the agent-repo's remote name from the agent dir, for a
+/// work-side config that records no `[remote] agent-repo`.
 ///
-/// - With trailing `.git`: insert the suffix before it
-///   (`foo.git` -> `foo.agent-session.git`).
-/// - Without `.git`: append the suffix (`foo` -> `foo.agent-session`).
-pub fn derive_bot_url(work_url: &str) -> String {
-    match work_url.strip_suffix(".git") {
-        Some(stem) => format!("{stem}{DEFAULT_AGENT_SUFFIX}.git"),
-        None => format!("{work_url}{DEFAULT_AGENT_SUFFIX}"),
+/// The dir is the config's `repos.agent`, and its last component
+/// names the repo:
+///
+/// - Dot-led (`.claude`, `.agent-session`): a suffix, appended to the
+///   work repo's name (`repo` + `.claude` -> `repo.claude`). This is
+///   the shape init writes, the dir and the suffix one value.
+/// - Otherwise (`../repo-agent`): the whole name.
+/// - No last component (`..`, `/`), or one that is not UTF-8: an
+///   error, since nothing names the repo.
+pub fn derive_agent_repo(
+    work_url: &str,
+    agent_dir: &Path,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let Some(last) = agent_dir.file_name().and_then(|s| s.to_str()) else {
+        return Err(format!(
+            "cannot derive the agent-repo's name from the agent dir '{}': \
+             record it as [remote] agent-repo",
+            agent_dir.display()
+        )
+        .into());
+    };
+    if last.starts_with('.') {
+        Ok(format!("{}{last}", derive_name(work_url)?))
+    } else {
+        Ok(last.to_string())
     }
 }
 
-/// Derive the agent-repo URL from the work-side URL and the name
-/// the workspace records for it.
+/// Derive the agent-repo URL from the work-side URL and the
+/// agent-repo's remote name.
 ///
 /// The owner and the host come from the work URL, so only the last
 /// segment is replaced and a fork under a different owner resolves
 /// to that owner's agent-repo.
 ///
 /// - `agent_repo` is `[remote] agent-repo`, the name the work-side
-///   config declares.
-/// - `None` falls back to [`derive_bot_url`], the default
-///   `.agent-session` suffix. A workspace whose agent-repo is named
-///   otherwise, such as one created before the key with a `.claude`
-///   agent-repo, records the name to be found.
-pub fn agent_url(work_url: &str, agent_repo: Option<&str>) -> String {
-    let Some(name) = agent_repo else {
-        return derive_bot_url(work_url);
-    };
+///   config declares, or [`derive_agent_repo`]'s name when it
+///   declares none.
+pub fn agent_url(work_url: &str, agent_repo: &str) -> String {
     let (stem, git) = match work_url.strip_suffix(".git") {
         Some(stem) => (stem, ".git"),
         None => (work_url, ""),
     };
     let cut = stem.rfind(['/', ':']).map_or(0, |i| i + 1);
-    format!("{}{name}{git}", &stem[..cut])
+    format!("{}{agent_repo}{git}", &stem[..cut])
 }
 
 #[cfg(test)]
@@ -228,74 +239,75 @@ mod tests {
 
     // --- agent_url -----------------------------------------------
 
-    /// A recorded name replaces the work URL's last segment, so the
-    /// owner and the host still come from the work side.
+    /// The name replaces the work URL's last segment, so the owner
+    /// and the host still come from the work side.
     #[test]
     fn agent_url_swaps_the_last_segment() {
         assert_eq!(
-            agent_url("git@github.com:owner/repo.git", Some("repo.agent-session")),
+            agent_url("git@github.com:owner/repo.git", "repo.agent-session"),
             "git@github.com:owner/repo.agent-session.git"
         );
         assert_eq!(
-            agent_url("https://github.com/owner/repo", Some("elsewhere")),
+            agent_url("https://github.com/owner/repo", "elsewhere"),
             "https://github.com/owner/elsewhere"
         );
         assert_eq!(
-            agent_url("/tmp/foo.git", Some("bar.claude")),
+            agent_url("/tmp/foo.git", "bar.claude"),
             "/tmp/bar.claude.git"
         );
         // A bare name has no separator, so the whole value is the
         // segment being replaced.
-        assert_eq!(agent_url("repo", Some("agent")), "agent");
+        assert_eq!(agent_url("repo", "agent"), "agent");
     }
 
-    /// No recorded name reads as the default `.agent-session` suffix.
+    // --- derive_agent_repo -----------------------------------------
+
+    /// A dot-led dir is a suffix on the work repo's name, with or
+    /// without `.git` on the work URL, and wherever the dir sits.
     #[test]
-    fn agent_url_without_a_name_falls_back_to_the_default_suffix() {
+    fn derive_agent_repo_appends_a_dot_led_dir() {
+        let cases = [
+            ("https://github.com/owner/repo", ".claude", "repo.claude"),
+            (
+                "https://github.com/owner/repo.git",
+                ".claude",
+                "repo.claude",
+            ),
+            (
+                "git@github.com:owner/repo.git",
+                ".agent-session",
+                "repo.agent-session",
+            ),
+            ("/tmp/repo.git", "/ws/repo/.claude", "repo.claude"),
+        ];
+        for (url, dir, want) in cases {
+            assert_eq!(derive_agent_repo(url, Path::new(dir)).unwrap(), want);
+        }
+    }
+
+    /// Any other dir is the whole name.
+    #[test]
+    fn derive_agent_repo_uses_a_plain_dir_whole() {
         assert_eq!(
-            agent_url("https://github.com/owner/repo.git", None),
-            derive_bot_url("https://github.com/owner/repo.git")
+            derive_agent_repo("https://github.com/owner/repo", Path::new("../repo-agent")).unwrap(),
+            "repo-agent"
         );
         assert_eq!(
-            agent_url("https://github.com/owner/repo.git", None),
-            "https://github.com/owner/repo.agent-session.git"
+            derive_agent_repo("/tmp/repo.git", Path::new("/elsewhere/sessions")).unwrap(),
+            "sessions"
         );
     }
 
-    // --- derive_bot_url ------------------------------------------
-
+    /// A dir with no last component names nothing, and the error
+    /// points at the key that would.
     #[test]
-    fn bot_url_ssh() {
-        assert_eq!(
-            derive_bot_url("git@github.com:owner/repo.git"),
-            "git@github.com:owner/repo.agent-session.git"
-        );
-    }
-
-    #[test]
-    fn bot_url_https_with_git() {
-        assert_eq!(
-            derive_bot_url("https://github.com/owner/repo.git"),
-            "https://github.com/owner/repo.agent-session.git"
-        );
-    }
-
-    #[test]
-    fn bot_url_https_no_suffix() {
-        assert_eq!(
-            derive_bot_url("https://github.com/owner/repo"),
-            "https://github.com/owner/repo.agent-session"
-        );
-    }
-
-    #[test]
-    fn bot_url_local_bare_with_git() {
-        assert_eq!(derive_bot_url("/tmp/foo.git"), "/tmp/foo.agent-session.git");
-    }
-
-    #[test]
-    fn bot_url_local_bare_without_git() {
-        assert_eq!(derive_bot_url("/tmp/foo"), "/tmp/foo.agent-session");
+    fn derive_agent_repo_refuses_a_dir_without_a_name() {
+        for dir in ["..", "/", "."] {
+            let err = derive_agent_repo("https://github.com/owner/repo", Path::new(dir))
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("[remote] agent-repo"), "{dir}: {err}");
+        }
     }
 
     // --- parse_target: URL forms -------------------------------------
