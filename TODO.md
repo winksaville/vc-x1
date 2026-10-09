@@ -41,25 +41,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### A bare sync or revert acts on the repo it is run in
-
-(wink, 2026-10-09) No flags means two things today. For `sync` and `revert` it is the workspace's
-default scope, both repos of a dual workspace from anywhere inside it, and for `chid`, `desc`,
-`list`, and `show` it is `.`, the one repo. Wink expected the second of `sync`, had forgotten the
-first, and calls it convenient but unnatural: the habit is to `cd` into a directory, see that it
-worked, and run the command there on a new line, never `cd xxx; command`, which runs the command in
-the wrong place when the `cd` fails. So the directory the command is run in is what it means.
-
-- The default changes: a bare `sync` or `revert` acts on `.`, the one repo, as the four read
-  commands do, and both repos are asked for with `--scope`.
-- The opening decides whether any other command takes the workspace's default scope with no flags
-  and changes with these two, and what the docs, the agent-files included, say where they rely on a
-  bare `sync` reaching both repos.
-- Overlap: [squash-push and status take a SCOPE, and push resolves its own
-  bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks) and [Global
-  -R anchors the workspace for every command](#global--r-anchors-the-workspace-for-every-command)
-  settle what a scope and `-R` resolve against, and neither covers the no-flags default.
-
 ### The cycle-record moves out of TODO.md into a file of its own
 
 (wink, 2026-10-09) The In Progress block's ladder sits at the bottom of the block, below the
@@ -159,6 +140,27 @@ paragraph. A multi-step cycle, one rung per group:
   a command brings a config up to
   date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date) touch the same
   lines, so the three are ordered or folded into one program before any opens.
+
+### Every command finds the repos from the configs, and none assumes nesting
+
+(wink + agent, 2026-10-09) The two roots are meant to be found from a `.vc-config.*` and the paths
+in it, the agent-repo sitting anywhere. The lookup already does that: the walk up takes the nearest
+config's `repos.work` as the work root, `repos.agent` may be relative or absolute, and a directory
+is the agent side when the config resolves to it. Read from the code, and never run against a
+workspace whose agent-repo is outside the work-repo. What still assumes nesting or a name:
+
+- `init` cannot create the layout: `--agent-dir` takes one name inside the project, so a non-nested
+  workspace is made by moving the agent-repo and editing both configs by hand.
+- `symlink` and `validate-bot` fall back to a literal `.claude` when no config resolves, and
+  `validate-anchors` skips a fixed list of directories that holds `.claude` and not what
+  `repos.agent` names. These overlap [The docs and the code say .claude where they mean the
+  agent-repo
+  directory](#the-docs-and-the-code-say-claude-where-they-mean-the-agent-repo-directory).
+- No test runs the commands against a non-nested workspace, so the first rung is a fixture with
+  the agent-repo beside the work-repo and each command run from both roots, which turns "read from
+  the code" into a result and finds what this list missed.
+- `clone` and the generated `.gitignore`, which names the agent directory inside the work-repo,
+  are not yet read for the assumption.
 
 ### One spelling for a workspace's two shapes
 
@@ -1283,69 +1285,62 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### agent-files(proposal): v0.2.7
+### feat: bare sync acts on the repo it is run in
 
 #### Problem
 
-Acquaint is what a session does first, and no agent-file says what it is: the word is used in five
-places and defined in none. Nothing in it looks at a remote, so a cycle can open in a clone that is
-behind, as the cycle "fix: symlink names a project as Claude Code does" did, one cycle behind both
-remotes and found only when its push was rejected on the agent-repo.
+No flags means two things. For `sync` it is the workspace's default scope, both repos of a dual
+workspace from anywhere inside it, and for `chid`, `desc`, `list`, and `show` it is `.`, the one
+repo. Wink expected the second of `sync`, had forgotten the first, and calls it convenient but
+unnatural: the habit is to `cd` into a directory, see that it worked, and run the command there on
+a new line, never `cd xxx; command`, which runs the command in the wrong place when the `cd` fails.
+So the directory the command is run in is what it means.
 
 #### Solution
 
-`AGENTS.md` gains an `## Acquaint` section, four steps in order, the second a repo check with four
-findings: a repo not level with its remote, uncommitted work, work off `main`, and conflicts. Each
-is reported and left as found until the user says how to proceed. The rules index gains its line
-and `rationale.md` its why.
+A bare `sync` acts on `.`, the one repo it is run in, by the resolver the four read commands
+already use, and both repos are asked for with `--scope`. The help text and the README's `sync`
+section say so.
 
 #### Acceptance check
 
-- The repo check, run as `## Acquaint` words it in this workspace, reports what is true of both
-  repos: the work-repo's `main` and the cycle's bookmark level, the agent-repo's `main` one commit
-  ahead of its remote, which is the state the last cycle's rejected push left, the work-repo's `@`
-  holding this cycle's edits, no work off `main`, and no conflicts. Passed.
+- From the workspace root, `vc-x1 sync` reports one repo, and `vc-x1 sync --scope=both` reports
+  two. Passed.
+- From the agent-repo's directory, `vc-x1 sync` reports one repo, the agent-repo. Passed, the
+  verbose log naming `.` as the repo fetched.
+- From `src/`, `vc-x1 sync` fails with "There is no Jujutsu repo in ." and changes nothing. Passed.
 - `vc-x1 validate` passes. Passed.
-- `vc-x1 validate-anchors AGENTS.md agent-data/rationale.md` reports no failure. Passed.
 
 #### Deliberation
 
-- The set's copy, not `custom.md`: the rule is written into `AGENTS.md`.
-  - Any adopter worked on from two machines can open a cycle in a stale clone, so the rule is not
-    this project's alone, and [Changing the agent-files](AGENTS.md#changing-the-agent-files) sends a
-    rule meant for the set to the file it lives in and forbids a holding section in the project
-    layer.
-- Acquaint gets a section of its own: the check had no home to go into.
-  - The section lists what a session already did, `custom.md`, the `TODO.md` slice, the
-    continuation notes, and the report, so those duties are found in one place.
-  - The five existing mentions are left as they are, since each says what its own rule needs.
-- The check comes before the `TODO.md` read: a clone that is behind holds a stale `TODO.md`.
-- "Ahead" stops as "behind" does: an unpushed agent-repo `main` is a commit an `ochid:` trailer
-  names and no one else can reach.
-- The cycle's bookmark is checked with `main`: the repair of the last cycle left the remote
-  bookmark holding a commit from before a rebase, which `main` alone does not show.
-- Three more findings came from wink's review: uncommitted work, work off `main`, and conflicts.
-  - Uncommitted work is the continuation notes' to direct when they account for it, and a finding
-    when they do not, never committed, folded, or discarded on the agent's judgment.
-  - Work off `main` gets a suggested rebase and not a rebase, wink's "at the moment tell the user",
-    since rebasing a pushed bookmark is a remote rewrite at its next push.
-  - Conflicts stop the acquaint and the user is informed.
-- The fetch is not asked for: it moves no local bookmark and changes no file.
-  - The messages protocol asks before its fetch, and that is its own repo's rule.
-- A rule now, a tool later: the agent runs two `jj` commands per repo and reads the result.
-  - [status prints a verdict per repo and exits with a bit per
-    side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) proposes a verdict
-    `vc-x1` prints, and the step's commands become that one when it lands.
-- Single-step: one section, its index line, and its why.
-- Two `## Todo` entries linked the closed block this opening deletes, and now name that cycle by
-  its title, which `git log --grep` finds.
-- The count of bullets in `rationale.md > Rules` read fifteen over sixteen bullets, and reads
-  seventeen with this one.
+- `sync` alone: the entry named `revert` too, and `revert` was removed at 0.78.3.
+  - The entry's title and one doc comment still named it, and the comment goes with the function
+    it sat on.
+- No walk up: `.` is taken as written, wink's call, so a bare `sync` never acts on a directory
+  other than the one it is run in.
+  - From a subdirectory of a repo it fails as the four read commands do, which is the same rule
+    reaching the same answer.
+- One resolver: `sync` drops its own `-R` and `--scope` resolution and calls the shared one.
+  - The two differed only in the no-flags case, which is the case this cycle changes.
+- No other command changes: `status` defaults to the work-repo at the workspace root from any
+  directory, a third meaning of no flags.
+  - It is left to [squash-push and status take a SCOPE, and push resolves its own
+    bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks), which
+    settles what a scope resolves against.
+- A named scope still walks up: `vc-x1 sync --scope=both` from `src/` syncs both repos, unchanged.
+  - The scope names the repos by role, so the walk only locates the workspace, and wink's review
+    kept it.
+  - Refusing it outside a root would change the four read commands with it, the resolver being
+    shared.
+- No agent-file relies on a bare `sync` reaching both repos: none names the command.
+- A breaking change, and a patch: the default of an existing command changes, the body carries the
+  `BREAKING-CHANGE:` trailer, and the version advances by the patch digit since no minor was named.
+- Single-step: one default, its help text, and its README section.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.7 (done)
+- feat: bare sync acts on the repo it is run in (done)
 
 # References
 

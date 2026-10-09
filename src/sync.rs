@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
-use crate::common::{default_scope, find_workspace_root, prompt, scope_to_repos};
+use crate::common::{prompt, resolve_repos};
 use crate::context::Context;
 use crate::jj;
 use crate::options_flags::scope::{Scope, parse_scope};
@@ -43,10 +43,9 @@ use crate::subcommand::SubcommandRunner;
 /// - `-R PATH`: workspace root, or a single repo to sync alone.
 /// - `--scope=work|agent|work,agent`: keyword role selection,
 ///   resolved via the workspace root's `.vc-config.toml`.
-/// - Neither: workspace-default scope:
-///   - dual workspace (`.vc-config.toml` with `agent`) -> `work,agent`
-///   - single-repo workspace (`.vc-config.toml`, no `agent`) -> `work`
-///   - POR (no `.vc-config.toml`) -> cwd
+/// - Neither: `.`, the one repo the command is run in, whichever
+///   side of a workspace that is, with no walk up from a
+///   subdirectory. Both repos are asked for with `--scope=both`.
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Suppress all informational output (exit code signals result)
@@ -89,9 +88,8 @@ pub struct SyncArgs {
     ///   is configured).
     /// - `both` (or `work,agent`): sync both repos.
     ///
-    /// Composes with `-R` as the workspace root. Default depends
-    /// on workspace state: dual workspace -> `work,agent`, and a
-    /// single-repo workspace or POR -> `work`.
+    /// Composes with `-R` as the workspace root. With neither,
+    /// sync acts on `.`, the one repo it is run in.
     #[arg(
         short = 's',
         long,
@@ -113,8 +111,8 @@ pub struct SyncArgs {
 ///   `reposition_work`).
 /// - `repo`: `-R/--repo` path (None => discover the workspace
 ///   root from cwd).
-/// - `scope`: `--scope` parsed (None => resolve via the
-///   workspace-default scope at run time).
+/// - `scope`: `--scope` parsed (None => `.`, unless `repo` names
+///   a path).
 pub struct SyncParams {
     pub quiet: bool,
     pub bookmark: String,
@@ -154,32 +152,6 @@ impl SubcommandRunner for SyncArgs {
     }
 }
 
-/// Resolve a `-R`/`--scope` pair into a concrete repo list.
-///
-/// `-R` and `--scope` compose:
-///
-/// - neither: workspace-default scope against the discovered root.
-/// - `-R PATH` alone: just that repo.
-/// - `-s ROLES` alone: roles against the discovered workspace root.
-/// - `-R PATH -s ROLES`: roles against `PATH` as the workspace root.
-///
-/// `pub(crate)`: shared by `sync` and `revert`, which must resolve
-/// the same invocation shape to the same repos.
-pub(crate) fn resolve_repos(
-    repo: &Option<PathBuf>,
-    scope: &Option<Scope>,
-) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    match (repo, scope) {
-        (None, None) => {
-            let root = find_workspace_root();
-            scope_to_repos(&default_scope(root.as_deref()), root.as_deref())
-        }
-        (Some(p), None) => Ok(vec![p.clone()]),
-        (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
-        (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
-    }
-}
-
 /// Relationship between a local bookmark and its remote counterpart.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum State {
@@ -207,8 +179,8 @@ struct RepoCtx {
 /// CLI entry point for the `sync` subcommand.
 ///
 /// Thin wrapper over `sync_repos` that resolves `--scope` into a
-/// concrete repo list (falling back to the workspace-default
-/// scope) and forwards the rest. Tests call `sync_repos` directly
+/// concrete repo list (`.` with neither flag, by the resolver the
+/// read commands share) and forwards the rest. Tests call `sync_repos` directly
 /// with absolute fixture paths. `ctx` supplies the repo sessions
 /// the fetch and fast-forward verbs run on (`Context::session`).
 ///
@@ -219,7 +191,7 @@ struct RepoCtx {
 /// still surface at `Warn` / `Error` so script callers don't lose
 /// diagnostics.
 pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
-    let repos = resolve_repos(&params.repo, &params.scope)?;
+    let repos = resolve_repos(params.repo.as_deref(), params.scope.as_ref())?;
     if params.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);

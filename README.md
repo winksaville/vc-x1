@@ -140,7 +140,7 @@ vc-x1 config [OPTS]                       # Print / validate settable config key
 vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
-vc-x1 sync [OPTS]                          # Fetch + sync both repos to their remotes
+vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
@@ -1231,9 +1231,9 @@ vc-x1 symlink -l
 ### sync
 
 Fetch and sync a set of repos to their remotes in one atomic operation: fetch, converge the
-bookmark, reposition `@`. Repo set defaults to the dual-repo workspace pair (`.` and `.claude`),
-narrow it with `-s` / `--scope`, or point at a different workspace root or single repo with `-R` /
-`--repo`. There are no modes: verify-then-act happens inside a single invocation against one fetch
+bookmark, reposition `@`. With no flags the repo set is `.`, the one repo `sync` is run in, whichever
+side of a workspace that is. Name a side or both with `-s` / `--scope`, or point at a different
+workspace root or single repo with `-R` / `--repo`. There are no modes: verify-then-act happens inside a single invocation against one fetch
 snapshot (a separate check-then-apply pair of runs would race the remote).
 
 Per repo, `sync` classifies the local bookmark against its remote:
@@ -1280,26 +1280,28 @@ revert would derive its target from the op log and refuse when unrelated operati
 between. Until such a design exists, `jj op log` + `jj op restore` is the recovery.
 
 ```
-vc-x1 sync                            # workspace-default scope
+vc-x1 sync                            # the repo in the current directory
 vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
 vc-x1 sync --scope=work               # only the work repo
-vc-x1 sync --scope=agent                # only the bot repo
-vc-x1 sync --scope=work,bot           # both (explicit form of the dual default)
+vc-x1 sync --scope=agent              # only the agent repo
+vc-x1 sync --scope=both               # both repos of a dual workspace
 vc-x1 sync -R ../other                # sync ../other as a single repo
 vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
 ```
 
 **Repo set resolution.** `-R` and `--scope` compose:
 
-1. Neither: workspace-default scope, `work,agent` if `repos.agent` is non-empty, else `work`. POR (no
-   `.vc-config.md`) -> `work` resolved to cwd.
+1. Neither: `.`, the one repo in the current directory, as `chid`, `desc`, `list`, and `show` take
+   no flags. There is no walk up, so from a subdirectory of a repo `sync` fails with "There is no
+   Jujutsu repo in ." and changes nothing.
 2. `-R PATH` alone: sync just the repo at `PATH`.
 3. `--scope=work|bot|work,bot` alone: workspace roles, resolved via the discovered workspace root's
    `.vc-config.md` (`work` -> root, `agent` -> the root-joined `agent` path).
 4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the workspace root.
 
-Scope is cwd-portable: from `.claude/`, `vc-x1 sync` walks up to the workspace root and resolves
-repos by absolute path.
+A named scope is cwd-portable: from the agent repo's directory, `vc-x1 sync --scope=both` walks up
+to the workspace root and resolves both repos by absolute path. A bare `vc-x1 sync` there syncs the
+agent repo alone.
 
 | Flag | Description |
 |------|-------------|

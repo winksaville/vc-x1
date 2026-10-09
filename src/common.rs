@@ -1103,7 +1103,9 @@ fn resolved_repos_pair(
 ///
 /// The four `CommonArgs` consumers (`chid` / `desc` / `list` / `show`)
 /// call this at the start of their body to translate the clap surface
-/// into the `&[PathBuf]` that `for_each_repo` iterates. Behavior matches
+/// into the `&[PathBuf]` that `for_each_repo` iterates, and `sync`
+/// calls it for the same pair of flags, so no flags means `.` to all
+/// five. Behavior matches
 /// today's defaults plus a composing rule for the new `--scope` flag:
 ///
 /// - neither flag -> `[.]` (today's no-arg default).

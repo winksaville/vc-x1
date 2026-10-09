@@ -369,7 +369,7 @@ pub(crate) enum Commands {
         Repo set is resolved (in order):\n  \
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
           - `--scope=work|agent|work,agent` dual-repo roles via `.vc-config.toml`\n  \
-          - neither             default: `work,agent` when dual, else `work`\n\n\
+          - neither             `.`, the one repo sync is run in\n\n\
         One atomic operation: fetch, then per repo:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
