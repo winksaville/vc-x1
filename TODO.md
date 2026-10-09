@@ -41,27 +41,70 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The cycle-record moves out of TODO.md into a file of its own
+### sync has a look-only mode
 
-(wink, 2026-10-09) The In Progress block's ladder sits at the bottom of the block, below the
-Deliberation, since agent-files v0.2.6. That placement came from a miscommunication and wink does
-not want it there. The larger thought: what is being done is a different thing from what is to be
-done, and one file holds both, the live record at the top of `TODO.md`, the backlog in the middle,
-and `## Closed` at the bottom.
+(wink, 2026-10-09) A `vc-x1 sync` fetches and then acts: a `main` that is behind is fast-forwarded,
+one that diverged is rebased, and `@` is repositioned. [Acquaint](AGENTS.md#acquaint) and
+[Opening](AGENTS.md#opening) run it since agent-files v0.2.8, and both want to report a repo as
+found before anything moves, which today takes a `jj git fetch` and a look.
 
-- A second file, `LADDER.md`, `DOING_LADDER.md`, or `DOING.md`, holds the running cycle's ladder and
-  deliberation, and `TODO.md` is the backlog alone.
-- `## Closed` goes with the record or stays in `TODO.md`, to be decided. With the record, a
-  close-out moves the block within one file and a cycle touches `TODO.md` only to take its entry
-  out.
-- The ladder's place in the block is decided with the file: ahead of the Deliberation, which is the
-  part read only in doubt, and still heading its rung subsections.
-- Whether `## Continuation notes` moves too, so the acquaint read is the whole of a short file in
-  place of the first 60 lines of a long one ([Acquaint](AGENTS.md#acquaint)).
-- An `agent-files` proposal cycle, multi-step: [Cycle-record](AGENTS.md#cycle-record), [Todo
-  format](agent-data/notes.md#todo-format), [The In Progress
-  block](agent-data/notes.md#the-in-progress-block), and the specimen change, every link of the form
-  `TODO.md > ## In Progress` with them, and the `vc-x1` code that reads the block follows.
+- A `--dry-run` flag, as `push`, `clone`, and `init` have: the sync fetches, prints each repo's
+  state and what a sync would do, and moves no bookmark and no `@`.
+- The fetch still runs, since the remote's state is what is being looked at, and it changes only
+  the remote-tracking refs.
+- A one-line `agent-files` change follows it, pointing the two steps at the flag, so "left as
+  found" covers behind and diverged again.
+
+### The cycle-record moves out of TODO.md into zDOING.md
+
+(wink, 2026-10-09) What is being done is a different thing from what is to be done, and one file
+holds both: the live record at the top of `TODO.md`, the backlog in the middle, and `## Closed` at
+the bottom. A new file at the work-repo root, `zDOING.md`, takes the record, and `TODO.md` keeps its
+name, a small step to see how the doing and done notion reads.
+
+- Shape: an `agent-files` proposal and single-step, wink's call. One commit creates the file, moves
+  the sections, and re-points the agent-files that name the old place:
+  [Cycle-record](AGENTS.md#cycle-record), [Todo format](agent-data/notes.md#todo-format), [The In
+  Progress block](agent-data/notes.md#the-in-progress-block), and the specimen.
+- Name: `zDOING.md` is wink's choice over `DOING.md`, `LADDER.md`, and `DOING_LADDER.md`.
+  - The `z` puts it last in every listing. Under `ls` in `en_US.UTF-8`, wink's daily view, that is
+    three entries below `TODO.md`, where `DOING.md` would sit ten above it.
+  - The cost is in byte order, as git, jj, and GitHub sort, where `DOING.md` would sit three
+    entries above `TODO.md` and `zDOING.md` is at the far end of the list from it.
+- Sections that move, settled at the opening: `## In Progress` and `## Closed` were agreed, and
+  `## Continuation notes` with them so the acquaint read is the whole of a short file. Wink's last
+  wording was "deliberation ladder and closed" and "the last sections of `TODO.md`, except for
+  references", which may mean less than that.
+- The ladder's place in the block: ahead of the Deliberation, which goes last as the part read only
+  in doubt, the Ladder still heading its rung subsections. The placement below the Deliberation
+  came from a miscommunication at agent-files v0.2.6. Whether this cycle or one of its own makes the
+  change is settled at the opening.
+- Heading names are open: `## Done` for `## Closed` pairs with the file's name, but `(done)` is
+  already the rung marker and `notes/done.md` the frozen history, and it asks `## Doing` of
+  `## In Progress`, a term the agent-files use throughout.
+- No `vc-x1` code reads the block. A fixture script, `support/fixtures/build-dr-1.py`, and a comment
+  in `src/lookup/blame.rs` name the old place.
+- The template payload's `TODO.md` skeleton is the maintainer's, and this project's diff from it is
+  the proposal.
+
+### TODO.md is renamed zTODO.md
+
+(wink + agent, 2026-10-09) Once [the cycle-record is in
+`zDOING.md`](#the-cycle-record-moves-out-of-todomd-into-zdoingmd), named so it sorts last, the
+backlog is still `TODO.md`. Under `ls` in `en_US.UTF-8` the two are three entries apart, and in byte
+order, as git, jj, and GitHub sort, they are at opposite ends of the root's files.
+
+- With `TODO.md` renamed `zTODO.md` the pair is adjacent and last in both orders. The pair
+  `_DOING.md` and `_TODO.md` is adjacent in byte order only, since that locale ignores the
+  underscore.
+- Every adopter carries a `TODO.md`, so the rename is an `agent-files` proposal the family takes at
+  a re-sync, and the template payload's skeleton is renamed at convergence.
+- About 120 mentions outside `notes/chores/` name the file in this repo, and `TODO_FILE` in
+  `src/todo_helpers.rs` is the default the `validate-todo` and `fix-todo` commands read.
+  - A fallback to `TODO.md` when only that exists keeps an adopter on the new binary working
+    before its re-sync.
+- The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
+- The heading names, `## Doing` and `## Done`, are decided with it.
 
 ### symlink names a path over 200 characters as Claude Code does
 
@@ -1285,62 +1328,69 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: bare sync acts on the repo it is run in
+### agent-files(proposal): v0.2.8
 
 #### Problem
 
-No flags means two things. For `sync` it is the workspace's default scope, both repos of a dual
-workspace from anywhere inside it, and for `chid`, `desc`, `list`, and `show` it is `.`, the one
-repo. Wink expected the second of `sync`, had forgotten the first, and calls it convenient but
-unnatural: the habit is to `cd` into a directory, see that it worked, and run the command there on
-a new line, never `cd xxx; command`, which runs the command in the wrong place when the `cd` fails.
-So the directory the command is run in is what it means.
+Our current instructions for the agent mention fetching only for acquaint or reacquaint, and as a
+`jj git fetch` and a look, which leaves a repo that is behind where it was. But it is equally
+important to sync at the beginning of every cycle or even more often.
 
 #### Solution
 
-A bare `sync` acts on `.`, the one repo it is run in, by the resolver the four read commands
-already use, and both repos are asked for with `--scope`. The help text and the README's `sync`
-section say so.
+[Opening](AGENTS.md#opening) gains a first step: every cycle start syncs both repos with
+`vc-x1 sync --scope=both`, and the repo check of [Acquaint](AGENTS.md#acquaint) syncs the same way
+in place of its fetch.
 
 #### Acceptance check
 
-- From the workspace root, `vc-x1 sync` reports one repo, and `vc-x1 sync --scope=both` reports
-  two. Passed.
-- From the agent-repo's directory, `vc-x1 sync` reports one repo, the agent-repo. Passed, the
-  verbose log naming `.` as the repo fetched.
-- From `src/`, `vc-x1 sync` fails with "There is no Jujutsu repo in ." and changes nothing. Passed.
+- The first step of [Opening](AGENTS.md#opening) names the sync, ahead of the bookmark, and the
+  section's two references to its steps count the new one. Passed.
+- The Not level look of [Acquaint](AGENTS.md#acquaint) names the sync and no `jj git fetch`.
+  Passed.
+- `vc-x1 sync --scope=both` run in this cycle reports both repos up to date. Passed.
 - `vc-x1 validate` passes. Passed.
 
 #### Deliberation
 
-- `sync` alone: the entry named `revert` too, and `revert` was removed at 0.78.3.
-  - The entry's title and one doc comment still named it, and the comment goes with the function
-    it sat on.
-- No walk up: `.` is taken as written, wink's call, so a bare `sync` never acts on a directory
-  other than the one it is run in.
-  - From a subdirectory of a repo it fails as the four read commands do, which is the same rule
-    reaching the same answer.
-- One resolver: `sync` drops its own `-R` and `--scope` resolution and calls the shared one.
-  - The two differed only in the no-flags case, which is the case this cycle changes.
-- No other command changes: `status` defaults to the work-repo at the workspace root from any
-  directory, a third meaning of no flags.
-  - It is left to [squash-push and status take a SCOPE, and push resolves its own
-    bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks), which
-    settles what a scope resolves against.
-- A named scope still walks up: `vc-x1 sync --scope=both` from `src/` syncs both repos, unchanged.
-  - The scope names the repos by role, so the walk only locates the workspace, and wink's review
-    kept it.
-  - Refusing it outside a root would change the four read commands with it, the resolver being
-    shared.
-- No agent-file relies on a bare `sync` reaching both repos: none names the command.
-- A breaking change, and a patch: the default of an existing command changes, the body carries the
-  `BREAKING-CHANGE:` trailer, and the version advances by the patch digit since no minor was named.
-- Single-step: one default, its help text, and its README section.
+- Split from the cycle-record's move: the entry [The cycle-record moves out of TODO.md into
+  zDOING.md](#the-cycle-record-moves-out-of-todomd-into-zdoingmd) was opened here with the fetch as
+  one rung of six, and wink called that too many steps.
+  - The fetch became this cycle, single-step, and the entry went back to `## Todo` rewritten with
+    what the planning settled, to run next as a single-step cycle of its own.
+  - The bookmark was already published and no commit had been pushed, so the shape was still free
+    to change.
+- The command is `vc-x1 sync`, wink's call, where the acquaint named `jj git fetch` and a look.
+  - A sync acts where a fetch looks: a `main` that is behind is fast-forwarded and one that
+    diverged is rebased, so "left as found" no longer covers those two, and both stay findings the
+    report names.
+  - Mid-cycle it is safe: an `@` on a bookmark ahead of `main` is left in place, and so is an `@`
+    that holds changes, the agent having no terminal to answer the rebase prompt.
+  - The cycle's bookmark is still compared by a look, since a rebase of a pushed bookmark is a
+    remote rewrite.
+  - A look-only mode is the entry [sync has a look-only mode](#sync-has-a-look-only-mode), placed
+    first, and the two steps take its `--dry-run` once it lands. Building it first was weighed
+    and left, being two more cycles before this rule lands.
+- The messages repo keeps its name, `vc-x1-messages`: `vc-family-messages` and `family-messages`
+  were floated and left, the name sitting beside `vc-x1-template` and `vc-x1-fixtures`.
+- Cycle starts only: "or when a repo has not been synced in a while" was weighed and left out, "a
+  while" being nothing an agent can check.
+- One step of the repo check, not four: the Not level look is repeated, and the other three
+  findings are what a session inherits and an acquaint has already reported.
+- "Whatever its form": the step binds an opening commit, a lightweight cycle's first commit, and a
+  single-step cycle's one commit, wink's wording.
+- The messages repo's fetch is in `custom.md` and out of the set: the pointer to that repo is this
+  project's, and no agent-file of the set names a messages repo.
+  - It is that README's Fetch action, under its guards, so a clone another member holds is not
+    fetched.
+- A Todo entry was added, [TODO.md is renamed
+  zTODO.md](#todomd-is-renamed-ztodomd), from the naming discussion, placed second on wink's word
+  to add it.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder
 
-- feat: bare sync acts on the repo it is run in (done)
+- agent-files(proposal): v0.2.8 (done)
 
 # References
 

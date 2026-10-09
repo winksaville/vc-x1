@@ -113,11 +113,12 @@ in this order ([why](agent-data/rationale.md#acquaint)):
 1. custom.md: read [custom.md](custom.md), and do what it asks for at acquaint.
 2. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
-   the user says how to proceed.
-   - Not level: fetch, `jj git fetch -R .` and `jj git fetch -R <agent-dir>`, and compare `main`
-     with the remote's, as `jj bookmark list --all-remotes` prints them, and the cycle's bookmark
-     likewise when one is in flight. Behind, ahead, and diverged are each a finding, and a fetch
-     that fails is reported as the check not made.
+   the user says how to proceed, the sync's own acts aside.
+   - Not level: sync, `vc-x1 sync --scope=both`, which fetches both repos and brings each `main`
+     level with the remote's. What it prints is reported: a `main` it fast-forwarded, one it
+     rebased, and one that is ahead, which it leaves, are each a finding, and a sync that fails is
+     reported as the check not made. The cycle's bookmark, when one is in flight, is not synced:
+     it is compared with the remote's as `jj bookmark list --all-remotes` prints them.
    - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
      continuation notes account for, the notes themselves or a rung in flight they describe, is
      theirs to direct at step 3, and any other change is a finding. The agent-repo's `@` holds the
@@ -203,20 +204,23 @@ A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the c
 ### Opening
 
 The cycle's first commit, when it needs setup (a lightweight cycle starts at its first commit, which
-then carries step 1). A single-step cycle does all of it in its one commit, after step 1 ([Cycle
-shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
+then carries steps 1 and 2). A single-step cycle does all of it in its one commit, after steps 1
+and 2 ([Cycle shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
 
-1. Bookmark: create and publish the cycle's bookmark, a push that needs approval.
-2. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
+1. Sync: every cycle start syncs, whatever its form. Run `vc-x1 sync --scope=both` and report
+   what it prints, as the [Acquaint](#acquaint) repo check's Not level look does. A finding is
+   reported before the bookmark is created, and a sync that fails stops the opening.
+2. Bookmark: create and publish the cycle's bookmark, a push that needs approval.
+3. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
    the rank it names.
-3. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
+4. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
    `## In Progress`, shaped as [The In Progress block](agent-data/notes.md#the-in-progress-block)
    says, the specimen in [cycle-model.md](agent-data/cycle-model.md).
-4. Bump: bump the version-of-record to the opening's version ([Suffix
+5. Bump: bump the version-of-record to the opening's version ([Suffix
    scheme](agent-data/versioning.md#suffix-scheme)), and the agent-files version with it when the
    cycle is an `agent-files` proposal ([Agent-files
    version](agent-data/versioning.md#agent-files-version)).
-5. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
+6. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)). Land restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's

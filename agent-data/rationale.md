@@ -76,8 +76,16 @@ version bump, and a forced push of the bookmark.
 The check precedes the `TODO.md` read because a clone that is behind holds a stale `TODO.md`, so
 its continuation notes and its `## Todo` order are the ones another machine has already replaced.
 "Ahead" stops as "behind" does, since an unpushed `main` in the agent-repo is a commit the
-work-repo's `ochid:` trailer names and no one else can reach. The fetch is not asked for: it moves
-no local bookmark and changes no file, and a check the agent must ask to make is one it skips.
+work-repo's `ochid:` trailer names and no one else can reach. The check is not asked for, since a
+check the agent must ask to make is one it skips.
+
+The check is `vc-x1 sync` (wink, 2026-10-09), where it was first a `jj git fetch` and a look. The
+fetch moved no bookmark, so a clone found behind stayed behind until the user said to sync it,
+which is the answer every time. The sync makes that move itself and the report says it did. What
+it costs is the "left as found" of the other findings: a `main` that is behind is fast-forwarded
+and one that diverged is rebased before the user hears of either, which is why both are still
+findings. The cycle's bookmark is left to a look because rebasing a pushed bookmark is a remote
+rewrite at its next push.
 
 The other three findings (wink, 2026-10-09) are what a session inherits besides a stale clone.
 Uncommitted work is the previous session's unfinished act, and only its continuation notes say
@@ -160,6 +168,14 @@ to soon. `tmp/` was considered and rejected because it is gitignored, which is t
 again.
 
 ### Opening
+
+**The sync is the first step** (wink, 2026-10-09) because an acquaint's sync is as old as the
+session, and a cycle opened hours into one, or the second cycle of a session, would create its
+bookmark on a `main` the remote may have moved past. That is the failure the acquaint's repo check
+was written for, reached by a later door. It is worded "whatever its form" so an opening commit, a
+lightweight cycle's first commit, and a single-step cycle's one commit all owe it. The other three
+findings of the repo check are not repeated: they are what a session inherits, and a session that
+has acquainted has already reported them.
 
 `## Waiting` is checked at the opening because that is the moment a choice is being made, and a
 blocked entry cannot hold a place in the order: the first entry means "next", and a blocked entry
