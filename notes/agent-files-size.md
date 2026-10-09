@@ -40,6 +40,7 @@ since its note is prose.
 | 2026-09-11 | agent-files(proposal): v0.2.4 | 10 | 2315 | the messaging pointer in `custom.md` names Pending instead of an inbox, one clause reworded on one line, so the count holds |
 | 2026-09-16 | agent-files(adoption): v0.2.5 | 9 | 1774 | zc-ring-x1's proposal verbatim: a size row only when an agent-file changed, with its why, and `rationale.md` out of the count, so the files drop to 9 and the total loses its 543 lines |
 | 2026-09-27 | agent-files(proposal): v0.2.6 | 9 | 1773 | the In Progress block's ladder moves below the Deliberation and heads the rung subsections, so the `Ladder details` heading goes and the specimen loses two lines |
+| 2026-10-09 | agent-files(proposal): v0.2.7 | 9 | 1802 | `## Acquaint` in AGENTS.md, a session's first steps in order with a repo check of four findings, and its line in the rules index |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -48,16 +49,16 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 brackets, `<543>`, is a file the total leaves out, shown so a reader sees what it costs, and an
 empty cell is a file that was not in the set that landing.
 
-| File | v0.2.6 | v0.2.5 | v0.2.4 |
+| File | v0.2.7 | v0.2.6 | v0.2.5 |
 |---|---:|---:|---:|
-| AGENTS.md | 385 | 384 | 384 |
+| AGENTS.md | 414 | 385 | 384 |
 | custom.md | 12 | 12 | 12 |
 | agent-data/code.md | 94 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
-| agent-data/cycle-model.md | 74 | 76 | 76 |
+| agent-data/cycle-model.md | 74 | 74 | 76 |
 | agent-data/jj.md | 391 | 391 | 391 |
 | agent-data/notes.md | 166 | 166 | 166 |
 | agent-data/prose.md | 405 | 405 | 405 |
-| agent-data/rationale.md | <543> | <543> | 541 |
+| agent-data/rationale.md | <565> | <543> | <543> |
 | agent-data/versioning.md | 204 | 204 | 204 |
-| total | 1773 | 1774 | 2315 |
+| total | 1802 | 1773 | 1774 |

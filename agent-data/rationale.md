@@ -29,7 +29,7 @@ content goes in [custom.md](../custom.md).
 
 ## Rules
 
-The rules are an index, fifteen bullets, each a one-sentence summary and a link to the section
+The rules are an index, seventeen bullets, each a one-sentence summary and a link to the section
 that states the rule, so a rule lives in one place and a citation points there. Until 2026-08-27
 each rule was a numbered heading in AGENTS.md with one line and a link, 82 lines that read as
 spread out rather than as a list, and every rule had a mirror heading here, eleven of them
@@ -63,6 +63,28 @@ config file's own directory by definition, so the walk and the two-sided registr
 mechanism's business and stay in jj.md. `[repos] agent` is the one cell the project chooses, and
 saying it may be a path relative to the root or an absolute one states the freedom the registry
 exists to give, in place of a clause about nesting.
+
+## Acquaint
+
+Written down (2026-10-09) because acquaint was a word used in five places and defined in none, so
+what a session did first was whatever the agent recalled. The repo check is its new step, paid for
+that day: a cycle opened in a clone one cycle behind both remotes, the cycle before it having been
+made on another machine and never fetched, and nothing looked at a remote until the push, which
+published the work-repo and was rejected on the agent-repo. The repair was a rebase, a second
+version bump, and a forced push of the bookmark.
+
+The check precedes the `TODO.md` read because a clone that is behind holds a stale `TODO.md`, so
+its continuation notes and its `## Todo` order are the ones another machine has already replaced.
+"Ahead" stops as "behind" does, since an unpushed `main` in the agent-repo is a commit the
+work-repo's `ochid:` trailer names and no one else can reach. The fetch is not asked for: it moves
+no local bookmark and changes no file, and a check the agent must ask to make is one it skips.
+
+The other three findings (wink, 2026-10-09) are what a session inherits besides a stale clone.
+Uncommitted work is the previous session's unfinished act, and only its continuation notes say
+which act, so a change they do not account for has no owner the agent can name and is the user's
+to place. Work off `main` gets a suggestion and not a rebase because rebasing a pushed bookmark
+is a remote rewrite at its next push, which takes approval like any push. Conflicts stop the
+acquaint because every later step reads files a conflict may have left holding both sides.
 
 ## Cycle protocol
 

@@ -71,6 +71,8 @@ what it does not, so a waiver over a cycle's pushes says whether Land is inside 
 silently.
 
 - Read custom.md first: read [custom.md](custom.md), whose rules override all others.
+- Acquaint before work: a session acquaints first, and what its repo check finds is reported and
+  left as found until the user says how to proceed ([Acquaint](#acquaint)).
 - A session's rules are its own agent-files: the ones it started in, binding in every repo it
   writes, and another repo's rules bind only by delegation ([A session's rules are its own
   agent-files](#a-sessions-rules-are-its-own-agent-files)).
@@ -102,6 +104,33 @@ silently.
   ([Conventional-commit shape](agent-data/prose.md#conventional-commit-shape-ladder--commit)).
 - Alert on unwrap: say so when introducing an `unwrap` / `expect` / `unwrap_or*` site, with its
   `// OK: ...` comment ([`// OK` comments](agent-data/code.md#-ok--comments-on-unwrap-calls-rust)).
+
+## Acquaint
+
+What a session does first, at its start and whenever the user says "acquaint" or "reacquaint",
+in this order ([why](agent-data/rationale.md#acquaint)):
+
+1. custom.md: read [custom.md](custom.md), and do what it asks for at acquaint.
+2. Repo check: look at each repo of the workspace for the four findings below, and report what is
+   found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
+   the user says how to proceed.
+   - Not level: fetch, `jj git fetch -R .` and `jj git fetch -R <agent-dir>`, and compare `main`
+     with the remote's, as `jj bookmark list --all-remotes` prints them, and the cycle's bookmark
+     likewise when one is in flight. Behind, ahead, and diverged are each a finding, and a fetch
+     that fails is reported as the check not made.
+   - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
+     continuation notes account for, the notes themselves or a rung in flight they describe, is
+     theirs to direct at step 3, and any other change is a finding. The agent-repo's `@` holds the
+     session's own data and is never one.
+   - Work off `main`: commits on a bookmark, a cycle's or any other, that do not descend from the
+     remote's `main`. The user is told, and a rebase onto `main` is suggested.
+   - Conflicts: a conflicted commit or working copy, as `jj st` and `jj log -r 'conflicts()'` show
+     them. The acquaint stops there and the user is informed.
+3. TODO.md: read the acquaint slice ([File
+   reads](agent-data/notes.md#file-reads-read-the-slice-you-need)), the continuation notes first,
+   each acted on, filed or kept, and the section reset ([Todo
+   format](agent-data/notes.md#todo-format)).
+4. Report: say where things stand, the cycle in flight or the top of `## Todo`, and wait.
 
 ## Cycle protocol
 

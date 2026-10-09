@@ -41,22 +41,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### Acquaint checks that both repos are level with their remotes
-
-(wink + agent, 2026-10-09) [fix: symlink names a project as Claude Code
-does](#fix-symlink-names-a-project-as-claude-code-does) opened in a clone one cycle behind both
-remotes, since the cycle before it was made on another machine and never fetched here. Nothing
-looked at the remotes until the push, which committed and pushed the work-repo and was rejected on
-the agent-repo, and the repair was a rebase and a forced push of the bookmark. A check at acquaint,
-before any bookmark is created, would have caught it.
-
-- The check: fetch both repos and compare each `main` with its remote, behind, ahead, or diverged,
-  and stop on anything but level.
-- Its home is decided at the opening: a step in the agent-files' acquaint, which is convention work
-  and its own cycle, or a verdict `vc-x1` prints, where [status prints a verdict per repo and exits
-  with a bit per side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) already
-  proposes one.
-
 ### A bare sync or revert acts on the repo it is run in
 
 (wink, 2026-10-09) No flags means two things today. For `sync` and `revert` it is the workspace's
@@ -76,14 +60,35 @@ the wrong place when the `cd` fails. So the directory the command is run in is w
   -R anchors the workspace for every command](#global--r-anchors-the-workspace-for-every-command)
   settle what a scope and `-R` resolve against, and neither covers the no-flags default.
 
+### The cycle-record moves out of TODO.md into a file of its own
+
+(wink, 2026-10-09) The In Progress block's ladder sits at the bottom of the block, below the
+Deliberation, since agent-files v0.2.6. That placement came from a miscommunication and wink does
+not want it there. The larger thought: what is being done is a different thing from what is to be
+done, and one file holds both, the live record at the top of `TODO.md`, the backlog in the middle,
+and `## Closed` at the bottom.
+
+- A second file, `LADDER.md`, `DOING_LADDER.md`, or `DOING.md`, holds the running cycle's ladder and
+  deliberation, and `TODO.md` is the backlog alone.
+- `## Closed` goes with the record or stays in `TODO.md`, to be decided. With the record, a
+  close-out moves the block within one file and a cycle touches `TODO.md` only to take its entry
+  out.
+- The ladder's place in the block is decided with the file: ahead of the Deliberation, which is the
+  part read only in doubt, and still heading its rung subsections.
+- Whether `## Continuation notes` moves too, so the acquaint read is the whole of a short file in
+  place of the first 60 lines of a long one ([Acquaint](AGENTS.md#acquaint)).
+- An `agent-files` proposal cycle, multi-step: [Cycle-record](AGENTS.md#cycle-record), [Todo
+  format](agent-data/notes.md#todo-format), [The In Progress
+  block](agent-data/notes.md#the-in-progress-block), and the specimen change, every link of the form
+  `TODO.md > ## In Progress` with them, and the `vc-x1` code that reads the block follows.
+
 ### symlink names a path over 200 characters as Claude Code does
 
 (2026-10-09) Claude Code cuts a project name longer than 200 characters to 200 and appends `-` and
 a base-36 hash of the path, and `encode_path` returns the uncut name, so `vc-x1 symlink` makes a
 link Claude Code never reads for such a path. Found in the installed Claude Code (2.1.295) during
-[fix: symlink names a project as Claude Code
-does](#fix-symlink-names-a-project-as-claude-code-does), which left it out: the hash function has
-to be copied exactly, and no path met so far is near 200.
+the cycle "fix: symlink names a project as Claude Code does", which left it out: the hash function
+has to be copied exactly, and no path met so far is near 200.
 
 Whether the hash has to match bit for bit is not known, and the opening tests it before any code is
 written. On a scratch project whose full path is over 200 characters, wink starting a fresh Claude
@@ -135,9 +140,9 @@ an empty public repo there and a local workspace with no remote.
 
 (wink, 2026-10-09) The agent-repo's directory is whatever `repos.agent` names, `.agent-session` by
 default, and `.claude` is still written as if it were the name: 57 mentions in `README.md` and
-about 170 lines in `src/`, counted and not yet read one by one. Surfaced at the review of [fix:
-symlink names a project as Claude Code does](#fix-symlink-names-a-project-as-claude-code-does),
-which fixed only the README's `symlink` paragraph. A multi-step cycle, one rung per group:
+about 170 lines in `src/`, counted and not yet read one by one. Surfaced at the review of the cycle
+"fix: symlink names a project as Claude Code does", which fixed only the README's `symlink`
+paragraph. A multi-step cycle, one rung per group:
 
 - Prose: the README and `vc-config.md` text. `~/.claude/projects` and Claude Code's own `.claude`
   are correct as written and stay.
@@ -1278,58 +1283,69 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### fix: symlink names a project as Claude Code does
+### agent-files(proposal): v0.2.7
 
 #### Problem
 
-Claude Code names a project's directory under `~/.claude/projects` by replacing every character of
-the working directory's path that is not an ASCII letter or digit with `-`. The symlink code
-replaced only `/` and `.`, so for a path holding any other character, an underscore the one that
-was met, it made a link Claude Code never reads.
+Acquaint is what a session does first, and no agent-file says what it is: the word is used in five
+places and defined in none. Nothing in it looks at a remote, so a cycle can open in a clone that is
+behind, as the cycle "fix: symlink names a project as Claude Code does" did, one cycle behind both
+remotes and found only when its push was rejected on the agent-repo.
 
 #### Solution
 
-`encode_path` applies Claude Code's rule, one dash per UTF-16 code unit as its regex counts them,
-and the README's `symlink` section states the rule.
+`AGENTS.md` gains an `## Acquaint` section, four steps in order, the second a repo check with four
+findings: a repo not level with its remote, uncommitted work, work off `main`, and conflicts. Each
+is reported and left as found until the user says how to proceed. The rules index gains its line
+and `rationale.md` its why.
 
 #### Acceptance check
 
-- `encode_path("/home/wink/data/prgs/rust/io_uring-2-zcr-v4-x1")` returns
-  `-home-wink-data-prgs-rust-io-uring-2-zcr-v4-x1`, the name of the link Claude Code reads for that
-  project, checked by `encode_path_with_underscore`. Passed.
+- The repo check, run as `## Acquaint` words it in this workspace, reports what is true of both
+  repos: the work-repo's `main` and the cycle's bookmark level, the agent-repo's `main` one commit
+  ahead of its remote, which is the state the last cycle's rejected push left, the work-repo's `@`
+  holding this cycle's edits, no work off `main`, and no conflicts. Passed.
 - `vc-x1 validate` passes. Passed.
+- `vc-x1 validate-anchors AGENTS.md agent-data/rationale.md` reports no failure. Passed.
 
 #### Deliberation
 
-- The general rule, not an underscore case: wink's entry asked for `_` to become `-`, and the
-  installed Claude Code (2.1.295) carries `replace(/[^a-zA-Z0-9]/g,"-")`, so the underscore is one
-  instance.
-  - Adding `_` as a third character leaves a space, `+`, `@`, and every non-ASCII letter as the next
-    bug.
-- Code units, not characters: the regex runs over UTF-16, so a character outside the Basic
-  Multilingual Plane is two dashes, and `encode_path` counts the same way.
-- The long-path hash is left out: Claude Code cuts a name over 200 characters to 200 and appends a
-  hash of the path.
-  - Reproducing it means copying Claude Code's hash function exactly, and no path here is near 200.
-  - It is the entry [symlink names a path over 200 characters as Claude Code
-    does](#symlink-names-a-path-over-200-characters-as-claude-code-does).
-- Stale links stay: a link made under the old rule for a path with an underscore is not removed, and
-  the fix only stops making new ones.
-- Single-step: one rule change, its tests, and its sentence in the README.
-- The `--use-template` entry is rewritten in this commit: wink's call is that its short-term fix is
-  in the template repo, so what remains here is the someday item, an existing workspace as the
-  template.
-- The `.claude` leftovers are their own cycle: wink's review found `.claude` written for the
-  agent-repo directory across the README and the code, and only the README's `symlink` paragraph,
-  which this commit already edits, is fixed here.
-  - The rest is the entry [The docs and the code say .claude where they mean the agent-repo
-    directory](#the-docs-and-the-code-say-claude-where-they-mean-the-agent-repo-directory), since
-    some of it is behavior that needs a decision.
+- The set's copy, not `custom.md`: the rule is written into `AGENTS.md`.
+  - Any adopter worked on from two machines can open a cycle in a stale clone, so the rule is not
+    this project's alone, and [Changing the agent-files](AGENTS.md#changing-the-agent-files) sends a
+    rule meant for the set to the file it lives in and forbids a holding section in the project
+    layer.
+- Acquaint gets a section of its own: the check had no home to go into.
+  - The section lists what a session already did, `custom.md`, the `TODO.md` slice, the
+    continuation notes, and the report, so those duties are found in one place.
+  - The five existing mentions are left as they are, since each says what its own rule needs.
+- The check comes before the `TODO.md` read: a clone that is behind holds a stale `TODO.md`.
+- "Ahead" stops as "behind" does: an unpushed agent-repo `main` is a commit an `ochid:` trailer
+  names and no one else can reach.
+- The cycle's bookmark is checked with `main`: the repair of the last cycle left the remote
+  bookmark holding a commit from before a rebase, which `main` alone does not show.
+- Three more findings came from wink's review: uncommitted work, work off `main`, and conflicts.
+  - Uncommitted work is the continuation notes' to direct when they account for it, and a finding
+    when they do not, never committed, folded, or discarded on the agent's judgment.
+  - Work off `main` gets a suggested rebase and not a rebase, wink's "at the moment tell the user",
+    since rebasing a pushed bookmark is a remote rewrite at its next push.
+  - Conflicts stop the acquaint and the user is informed.
+- The fetch is not asked for: it moves no local bookmark and changes no file.
+  - The messages protocol asks before its fetch, and that is its own repo's rule.
+- A rule now, a tool later: the agent runs two `jj` commands per repo and reads the result.
+  - [status prints a verdict per repo and exits with a bit per
+    side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) proposes a verdict
+    `vc-x1` prints, and the step's commands become that one when it lands.
+- Single-step: one section, its index line, and its why.
+- Two `## Todo` entries linked the closed block this opening deletes, and now name that cycle by
+  its title, which `git log --grep` finds.
+- The count of bullets in `rationale.md > Rules` read fifteen over sixteen bullets, and reads
+  seventeen with this one.
 - The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
 
 #### Ladder
 
-- fix: symlink names a project as Claude Code does (done)
+- agent-files(proposal): v0.2.7 (done)
 
 # References
 
