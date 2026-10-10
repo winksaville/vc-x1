@@ -36,25 +36,25 @@ and `--undo` takes back a sync that went ahead and is regretted.
 #### Acceptance check
 
 - In a scratch clone that is behind its remote and holds no local work, `vc-x1 sync`
-  fast-forwards.
+  fast-forwards. Passed at the first rung.
 - In a scratch clone with an unpushed commit on `main`, `vc-x1 sync` exits non-zero naming the
   repo and does not fetch, `main@origin` staying where it was, and `vc-x1 sync --rebase` rebases
-  it.
+  it. Passed at the first rung.
 - In a scratch clone whose remote rewrote a commit, `vc-x1 sync` follows the rewrite when the repo
   holds no local work, and with an edited file in `@` it does not fetch and leaves the file
-  untouched.
+  untouched. Passed at the first rung.
 - In the same scratch clones, `vc-x1 sync --dry-run` reports behind, diverged, and up to date
   correctly, and no operation is added to any repo's `jj op log` by it.
 - After a `vc-x1 sync --rebase` that rebased, `vc-x1 sync --undo` puts the repo back, and it
   refuses when a commit was made since.
 - In this workspace, `vc-x1 sync --scope=both` reports the agent-repo up to date and holds the
-  work-repo back for its uncommitted changes.
-- `vc-x1 validate` passes.
+  work-repo back for its uncommitted changes. Passed at the first rung, exit 1.
+- `vc-x1 validate` passes. Passed at the first rung.
 
 #### Ladder
 
 - [feat: sync is safe by default opening][1] (done)
-- [feat: sync fetches only a repo with no local work][2]
+- [feat: sync fetches only a repo with no local work][2] (done)
 - [feat: sync --dry-run asks the remote and changes nothing][3]
 - [feat: sync --undo takes back the last sync][4]
 - [feat: sync is safe by default closing][5]
@@ -69,8 +69,28 @@ the trial begins: this file is created, and `TODO.md > ## In Progress` points at
 
 A sync fetches whatever it is pointed at, and a fetch is where the damage is done: it moves a
 bookmark that is behind, conflicts one that diverged, and rebases `@` onto a rewritten remote.
-Sync checks a repo for local work first, wink's three checks, and fetches only a repo that holds
-none.
+
+- The gate is wink's: `@` empty, `@-` a commit on the remote, and every bookmark fast-forward
+  only. Each names one way local work meets a fetch, and with none of them every commit a fetch
+  can touch is the remote's own, so nothing can be lost and the way back is the old commit.
+  - The agent-repo's `@` is not asked to be empty: it holds the running session's writes and
+    never is. What that leaves open is a remote rewrite that touched the same session file, and
+    there the sync stops with the state in place and rewinds nothing.
+  - Local-only commits no bookmark names are left out. The work-repo holds three, the heads of
+    bookmarks deleted this morning, and a check that counted them would hold the repo back for
+    good over commits no sync moves.
+- A held repo is not fetched at all, so there is nothing to restore: its remote-tracking refs are
+  where they were, and the report lists what was found. The other repos still sync, and the run
+  exits non-zero.
+- `--rebase` is the go, widened from "rebase a non-empty `@` without asking" to "sync a repo that
+  holds local work". The prompt on a terminal goes with it: the flag is the one way to say yes.
+- The state is classified from the bookmark as it was before the fetch, since after it a repo
+  that was behind reads as up to date.
+- A fifth state, rewritten: the remote's commit replaced the local one and the fetch followed it,
+  told from diverged by the bookmark already being on the remote's commit.
+- An ahead bookmark is reported, where it was folded into "up to date, nothing to sync".
+- What a held repo's report does not say is whether the remote moved too, sync not having asked
+  it. Asking a remote for its head without fetching would add that, and is left for later.
 
 ##### feat: sync --dry-run asks the remote and changes nothing
 

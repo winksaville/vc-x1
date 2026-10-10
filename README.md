@@ -1233,18 +1233,48 @@ vc-x1 symlink -l
 Fetch and sync a set of repos to their remotes in one atomic operation: fetch, converge the
 bookmark, reposition `@`. With no flags the repo set is `.`, the one repo `sync` is run in, whichever
 side of a workspace that is. Name a side or both with `-s` / `--scope`, or point at a different
-workspace root or single repo with `-R` / `--repo`. There are no modes: verify-then-act happens inside a single invocation against one fetch
-snapshot (a separate check-then-apply pair of runs would race the remote).
+workspace root or single repo with `-R` / `--repo`. There are no modes: verify-then-act happens
+inside a single invocation against one fetch snapshot (a separate check-then-apply pair of runs
+would race the remote).
 
-Per repo, `sync` classifies the local bookmark against its remote:
+Sync is **safe by default**: it fetches a repo only when the repo holds no local work for the
+fetch to collide with. A fetch is not a look. jj's `git fetch`:
+
+- moves a tracked bookmark that is behind to the remote's
+- leaves one that diverged conflicted
+- when the remote rewrote a commit the clone has, as `squash-push` does from another clone,
+  follows the rewrite and rebases `@` onto it, which can leave conflict markers in a file `@`
+  had edited
+
+Every one of those needs local work to do harm, so sync looks for it first. Local work is any of:
+
+| Check | What a fetch could do with it |
+|-------|-------------------------------|
+| `@` has uncommitted changes | rebase them onto a rewritten remote, leaving conflict markers |
+| `@-` is not on the remote | leave `@` on a local-only commit a sync must rebase |
+| a bookmark has commits the remote does not | leave the bookmark conflicted when the remote moved too |
+
+The first is not asked of the agent repo, whose `@` holds the running session's writes and is
+never empty. With none of the three, every commit a fetch can touch is one the remote already
+has: nothing can be lost, and the way back is the old commit.
+
+A repo that holds local work is **not fetched**. Sync prints what it found, syncs the other
+repos, and exits non-zero naming it, so a `--quiet` caller learns it was not synced. Push or
+commit the work, or pass `--rebase`, the go to sync the repo anyway.
+
+Per repo, `sync` classifies the local bookmark, as it was before the fetch, against its remote:
 
 | State | Meaning | Action |
 |------|---------|--------|
 | up-to-date | local == remote | none |
 | behind | local is ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
-| ahead | remote is ancestor of local | none (push is a separate step) |
-| diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
+| rewritten | the remote replaced the local commit (a forced push) | none, the fetch followed it |
+| ahead | remote is ancestor of local | none (push is a separate step). `--rebase` only |
+| diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>`. `--rebase` only |
 | no remote | bookmark has no `@<remote>` counterpart | none, skip |
+
+The bookmark is read before the fetch because afterwards a repo that was behind reads as up to
+date.
 
 `--bookmark` names a **work-repo** bookmark only: the bot repo is a linear journal on `main` by
 design, so its side of every step (tracking preflight, classify, act, reposition) always uses `main`
@@ -1257,9 +1287,8 @@ is the synced `--bookmark`):
 - **Work repo** (the workspace root):
   - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same line -> `jj new <b>` starts a
     fresh `@` on the new tip (the old empty `@` is auto-abandoned).
-  - `@` has changes -> `sync` asks before moving it, and `--rebase` answers yes up front (`jj
-    rebase -b @ -d <b>`). Declining, or not being a TTY with no `--rebase`, leaves `@` in place and
-    says so.
+  - `@` has changes -> only with `--rebase`, which is also what let the repo be fetched: `jj
+    rebase -b @ -d <b>`.
   - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line (diverged / `@` ahead) -> `@` is left
     untouched, with a note why.
 - **Bot repo** (`.claude`): no-op when `@-` is already the `main` tip, so `@` keeps its change id
@@ -1281,7 +1310,7 @@ between. Until such a design exists, `jj op log` + `jj op restore` is the recove
 
 ```
 vc-x1 sync                            # the repo in the current directory
-vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
+vc-x1 sync --rebase                   # sync a repo that holds local work, rebasing as needed
 vc-x1 sync --scope=work               # only the work repo
 vc-x1 sync --scope=agent              # only the agent repo
 vc-x1 sync --scope=both               # both repos of a dual workspace
@@ -1310,7 +1339,7 @@ agent repo alone.
 | `-q, --quiet` | Suppress all output, exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
-| `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (work repo only) |
+| `--rebase` | Sync a repo that holds local work: rebase a diverged bookmark onto its remote, and a non-empty work repo `@` onto the synced bookmark |
 
 **Output shape.** Sync collapses output based on what it finds:
 
@@ -1318,14 +1347,16 @@ agent repo alone.
   else (no-op reposition lines are debug-level). Makes "sprinkle sync everywhere" genuinely cheap.
   Scope is bookmark-vs-remote tracking, `@` may have uncommitted working-copy changes, and sync
   intentionally doesn't speak to that (use `jj st` for working-copy state).
-- **Action needed** (`behind` / `diverged`): per-repo fetch + state lines, then the actions run.
+- **Anything else** (`behind` / `rewritten` / `ahead` / `diverged`): per-repo fetch + state
+  lines, then the actions run.
+- **Held back**: a repo with local work gets its findings listed, and no fetch line.
 - **`--quiet`**: no output at any level, and the exit code is the only signal. Intended for
   scripts that just need success/failure.
 
 **Note on the `behind` case.** jj's `git fetch` already fast-forwards a tracked local bookmark when
-it's a strict ancestor of the incoming remote, so in the common case `sync` reports `up-to-date`
-rather than `behind`. The `behind` branch covers untracked bookmarks and edge configs where
-auto-advance is disabled.
+it's a strict ancestor of the incoming remote. Sync reports `behind` all the same, since it
+classifies from where the bookmark was before the fetch, and its own `bookmark set` then covers
+untracked bookmarks and edge configs where auto-advance is disabled.
 
 ### squash-push
 

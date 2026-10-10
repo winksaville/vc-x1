@@ -370,17 +370,30 @@ pub(crate) enum Commands {
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
           - `--scope=work|agent|work,agent` dual-repo roles via `.vc-config.toml`\n  \
           - neither             `.`, the one repo sync is run in\n\n\
-        One atomic operation: fetch, then per repo:\n  \
+        Safe by default: a repo is fetched only when it holds no local\n\
+        work for the fetch to collide with. Local work is any of:\n  \
+          - uncommitted changes in `@` (not asked of the agent repo,\n  \
+            whose `@` holds the running session)\n  \
+          - an `@-` that is not on the remote\n  \
+          - a bookmark with commits the remote does not have\n\
+        A repo that holds some is not fetched: sync says what it\n\
+        found, syncs the other repos, and exits non-zero naming it.\n\
+        --rebase is the go to sync it anyway.\n\n\
+        One atomic operation: fetch, then per repo, by where its\n\
+        bookmark was before the fetch:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
-          - ahead             nothing to sync (local has unpushed work)\n  \
-          - diverged          rebase local onto remote; fail on conflicts\n  \
+          - rewritten         the remote replaced the local commit;\n  \
+                              the fetch followed it\n  \
+          - ahead             nothing to sync (--rebase only)\n  \
+          - diverged          rebase local onto remote; fail on\n  \
+                              conflicts (--rebase only)\n  \
           - no remote         bookmark has no @<remote> counterpart; skip\n\n\
         After a successful sync, `@` is repositioned onto the synced\n\
-        bookmark: the work repo `jj new`s a clean `@` (or rebases a\n\
-        dirty one with --rebase / a prompt), the `.claude` session\n\
-        repo `jj new main`s when main moved (no-op when `@-` is\n\
-        already the main tip).\n\n\
+        bookmark: the work repo `jj new`s a clean `@` (or with\n\
+        --rebase rebases a dirty one), the `.claude` session repo\n\
+        `jj new main`s when main moved (no-op when `@-` is already\n\
+        the main tip).\n\n\
         On failure sync stops where the failing step stopped: nothing\n\
         is auto-reverted, so the state can be inspected. The failure\n\
         report prints each repo's pre-sync op id; undo explicitly with\n\
@@ -388,7 +401,7 @@ pub(crate) enum Commands {
         invocations.\n\n\
         Output shape:\n  \
           - all-up-to-date: one-line summary (`sync: N repos are {}`)\n  \
-          - action needed:  per-repo fetch + state + actions\n  \
+          - anything else:  per-repo fetch + state + actions\n  \
           - --quiet:        no output; exit code signals success", sync::UP_TO_DATE_MSG))]
     Sync(sync::SyncArgs),
 
