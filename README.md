@@ -1233,18 +1233,88 @@ vc-x1 symlink -l
 Fetch and sync a set of repos to their remotes in one atomic operation: fetch, converge the
 bookmark, reposition `@`. With no flags the repo set is `.`, the one repo `sync` is run in, whichever
 side of a workspace that is. Name a side or both with `-s` / `--scope`, or point at a different
-workspace root or single repo with `-R` / `--repo`. There are no modes: verify-then-act happens inside a single invocation against one fetch
-snapshot (a separate check-then-apply pair of runs would race the remote).
+workspace root or single repo with `-R` / `--repo`. There are no modes: verify-then-act happens
+inside a single invocation against one fetch snapshot (a separate check-then-apply pair of runs
+would race the remote).
 
-Per repo, `sync` classifies the local bookmark against its remote:
+Sync is **safe by default**: before it fetches, it finds out what the fetch would do, and holds a
+repo back only where that would tangle local work. A fetch is not a look. jj's `git fetch`:
+
+- moves a tracked bookmark that is behind to the remote's
+- leaves one that diverged conflicted
+- when the remote rewrote a commit the clone has, as `squash-push` does from another clone,
+  follows the rewrite and rebases `@` onto it, which can leave conflict markers in a file `@`
+  had edited
+
+So sync looks first, and fetches nothing to do it:
+
+1. It asks the remote where each of its bookmarks is (`git ls-remote`) and compares with the
+   last fetch.
+2. For the bookmarks that moved, it downloads their commits into the git store with no ref
+   moved, so jj sees nothing, and tells each move apart by ancestry: a **fast-forward** only
+   added commits, a **rewrite** replaced some.
+3. It checks the repo for **local work**: uncommitted changes in `@` (not asked of the agent
+   repo, whose `@` holds the running session's writes), an `@-` that is not on the remote, or a
+   bookmark with commits the remote does not have.
+
+What it then does:
+
+| The remote | The repo | Sync |
+|------------|----------|------|
+| has not moved | anything | nothing to fetch. Local work is noted and left untouched |
+| only fast-forwarded | anything | fetches. A fast-forward replaces nothing, so local work is untouched |
+| moved a bookmark | that bookmark has local commits of its own | **held back**: a fetch would leave it conflicted |
+| rewrote or deleted a bookmark | holds local work | **held back**: a fetch would rebase the work onto the rewrite |
+| rewrote a bookmark | holds no local work | fetches, and follows the rewrite |
+
+Untouched is not brought up to date: an `@` with changes, or an unpushed bookmark, stays on the
+old commit, and moving it onto the new one is the user's act.
+
+A repo that is held back is **not fetched**. Sync prints why, syncs the other repos, and exits
+non-zero naming it, so a `--quiet` caller learns it was not synced. Commit and push the work, or
+pass `--force`, the go to sync the repo anyway. `--rebase` is the same flag under its earlier
+name.
+
+Per repo, a `sync` that fetches classifies the local bookmark, as it was before the fetch,
+against its remote:
 
 | State | Meaning | Action |
 |------|---------|--------|
 | up-to-date | local == remote | none |
 | behind | local is ancestor of remote | `jj bookmark set <b> -r <b>@<remote>` |
+| rewritten | the remote replaced the local commit (a forced push) | none, the fetch followed it |
 | ahead | remote is ancestor of local | none (push is a separate step) |
-| diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>` |
+| diverged | neither is ancestor | `jj rebase -b <local-head> -d <b>@<remote>`. `--force` only |
 | no remote | bookmark has no `@<remote>` counterpart | none, skip |
+
+The bookmark is read before the fetch because afterwards a repo that was behind reads as up to
+date.
+
+**`--dry-run`** does the same looking and stops there. It reports, per repo, where the synced
+bookmark stands against the remote, the remote's other bookmarks that moved, the local work it
+found, and a verdict, what a sync would do:
+
+```
+$ vc-x1 sync --dry-run
+.: 'main' is behind origin by a fast-forward (local 1f2e8188b7a5, remote 0e62ea2401e5)
+.: holds local work:
+.:   bookmark topic has commits origin does not
+.: a sync would follow origin and leave the local work untouched
+```
+
+| The verdict | When |
+|-------------|------|
+| a sync would have nothing to do | the remote has not moved |
+| a sync would follow `<remote>` | the remote moved, and nothing holds the repo back |
+| ... and leave the local work untouched | the same, where the repo holds local work |
+| a sync would be held back | one of the two held-back rows above, with the reason listed |
+| a sync would rebase `<b>` onto `<remote>` | diverged, with `--force` |
+
+No bookmark, `@`, file, or remote-tracking ref (`<b>@<remote>`) changes, so it is safe in the
+agent repo under a running session. What it does change: it makes the working-copy snapshot any
+jj command makes, and it downloads the moved bookmarks' commits into the git store, where no
+ref names them. They are the commits a fetch would bring. It exits 0 whenever the look itself
+succeeded, whatever it found.
 
 `--bookmark` names a **work-repo** bookmark only: the bot repo is a linear journal on `main` by
 design, so its side of every step (tracking preflight, classify, act, reposition) always uses `main`
@@ -1257,9 +1327,8 @@ is the synced `--bookmark`):
 - **Work repo** (the workspace root):
   - `@` is clean (empty) and `<b>` sits ahead of `@-` on the same line -> `jj new <b>` starts a
     fresh `@` on the new tip (the old empty `@` is auto-abandoned).
-  - `@` has changes -> `sync` asks before moving it, and `--rebase` answers yes up front (`jj
-    rebase -b @ -d <b>`). Declining, or not being a TTY with no `--rebase`, leaves `@` in place and
-    says so.
+  - `@` has changes -> left in place, on the old commit, and sync says so. With `--force` it is
+    rebased: `jj rebase -b @ -d <b>`.
   - `@` already sits on `<b>`, or `<b>` isn't on `@-`'s line (diverged / `@` ahead) -> `@` is left
     untouched, with a note why.
 - **Bot repo** (`.claude`): no-op when `@-` is already the `main` tip, so `@` keeps its change id
@@ -1281,7 +1350,8 @@ between. Until such a design exists, `jj op log` + `jj op restore` is the recove
 
 ```
 vc-x1 sync                            # the repo in the current directory
-vc-x1 sync --rebase                   # rebase a dirty @ onto the bookmark without asking
+vc-x1 sync --dry-run                  # look only: ask the remote, report, change nothing
+vc-x1 sync --force                    # sync a repo sync would hold back, rebasing as needed
 vc-x1 sync --scope=work               # only the work repo
 vc-x1 sync --scope=agent              # only the agent repo
 vc-x1 sync --scope=both               # both repos of a dual workspace
@@ -1310,7 +1380,8 @@ agent repo alone.
 | `-q, --quiet` | Suppress all output, exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
-| `--rebase` | Rebase a non-empty `@` onto the synced bookmark without prompting (work repo only) |
+| `--force` | Sync a repo sync would hold back: rebase a diverged bookmark onto its remote, and a non-empty work repo `@` onto the synced bookmark. `--rebase` is the same flag |
+| `--dry-run` | Look only: report each repo's state, its local work, and what a sync would do, moving no bookmark, `@`, or remote-tracking ref |
 
 **Output shape.** Sync collapses output based on what it finds:
 
@@ -1318,14 +1389,20 @@ agent repo alone.
   else (no-op reposition lines are debug-level). Makes "sprinkle sync everywhere" genuinely cheap.
   Scope is bookmark-vs-remote tracking, `@` may have uncommitted working-copy changes, and sync
   intentionally doesn't speak to that (use `jj st` for working-copy state).
-- **Action needed** (`behind` / `diverged`): per-repo fetch + state lines, then the actions run.
+- **Anything else** (`behind` / `rewritten` / `ahead` / `diverged`): per-repo fetch + state
+  lines, then the actions run.
+- **Held back**: the reasons are listed, and there is no fetch line.
+- **Nothing to fetch, with local work**: one line saying the remote has not moved, and the local
+  work listed as left untouched.
+- **`--dry-run`**: the one-line summary when every repo is level and holds no local work,
+  otherwise per repo its state and the local work found.
 - **`--quiet`**: no output at any level, and the exit code is the only signal. Intended for
   scripts that just need success/failure.
 
 **Note on the `behind` case.** jj's `git fetch` already fast-forwards a tracked local bookmark when
-it's a strict ancestor of the incoming remote, so in the common case `sync` reports `up-to-date`
-rather than `behind`. The `behind` branch covers untracked bookmarks and edge configs where
-auto-advance is disabled.
+it's a strict ancestor of the incoming remote. Sync reports `behind` all the same, since it
+classifies from where the bookmark was before the fetch, and its own `bookmark set` then covers
+untracked bookmarks and edge configs where auto-advance is disabled.
 
 ### squash-push
 
@@ -1827,7 +1904,8 @@ Task tracking and release details: near-term tasks in [TODO.md](TODO.md), per-re
 ### No process spawns
 
 vc-x1 runs jj and git through the jj-lib and gix libraries, never by spawning the `jj` or `git`
-binaries. The ban is enforced, and the exceptions are not: there is no allowlist. What exists is
+binaries, with one temporary exception named below. The ban is enforced, and the exceptions are
+not: there is no allowlist. What exists is
 three things, and it pays to know which is which.
 
 - **The ban is config.** `clippy.toml` lists `std::process::Command::new` under
@@ -1835,11 +1913,14 @@ three things, and it pays to know which is which.
   `cargo clippy`, which `vc-x1 validate` runs.
 - **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
   is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
-  it claims. Nine sites carry one today.
-- **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
+  it claims. Ten sites carry one today.
+- **The register is prose.** The numbered comment at the top of `clippy.toml` names the six
   kinds of spawn that are permitted and why: the `jj -V` version probe, push's `$EDITOR`, init's
-  `gh` calls, the test helpers and the CLI tests' launcher, and validate running the configured
-  commands. Nothing checks the register against the attributes. A site with an attribute and no
+  `gh` calls, the test helpers and the CLI tests' launcher, validate running the configured
+  commands, and sync's remote look, `git ls-remote` and a `git fetch` that moves no ref. The
+  last is the one spawn of `git`, and is temporary: jj-lib has no query for the commits a
+  remote's bookmarks are on, and the entry closes when it offers one. Nothing checks the
+  register against the attributes. A site with an attribute and no
   entry passes the build and is a review finding.
 
 To see every granted site:

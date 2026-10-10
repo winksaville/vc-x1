@@ -9,7 +9,8 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+- The notes are in [zDOING.md](zDOING.md#continuation-notes), by the trial that file is. Read them
+  there first, and reset both that section and this bullet to `_None._` when they are acted on.
 
 ## In Progress
 
@@ -18,6 +19,11 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 [The In Progress block](agent-data/notes.md#the-in-progress-block).
 
 _No cycle currently in progress._
+
+A trial, 2026-10-09: the cycle **feat: sync is safe by default** kept its record
+in [zDOING.md](zDOING.md), ahead of the agent-files saying so, to see how the file reads ([The
+cycle-record moves out of TODO.md into
+zDOING.md](#the-cycle-record-moves-out-of-todomd-into-zdoingmd)).
 
 ## Waiting
 
@@ -33,6 +39,15 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   - Waits on: **`vc-x1 closed "<title>"`** landed, and the session viewer good enough to read
     a cycle's record from the transcript.
   - Place when unblocked: first.
+- **Sync's remote look stops spawning git.** (wink + agent, 2026-10-09) Sync learns where a
+  remote's bookmarks are by spawning `git ls-remote`, and downloads the commits of the ones that
+  moved by spawning a `git fetch` that moves no ref, the sixth entry of the spawn register in
+  `clippy.toml` and the one spawn of `git`. Replace `git_command` and its two callers in
+  `src/jj/session.rs` with jj-lib's query, delete the `#[allow]`, and close the entry.
+  - Waits on: jj-lib's public API offering that query. Neither 0.45.1 nor 0.46.0 has one:
+    `rg -i 'ls.remote' src/` in the jj-lib source prints nothing, and its git subprocess layer is
+    `pub(crate)`. An upstream feature request, once filed or found, is named here.
+  - Place when unblocked: first, being one function.
 
 ## Todo
 
@@ -41,27 +56,166 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The cycle-record moves out of TODO.md into a file of its own
+### agent-files(proposal): v0.2.8
 
-(wink, 2026-10-09) The In Progress block's ladder sits at the bottom of the block, below the
-Deliberation, since agent-files v0.2.6. That placement came from a miscommunication and wink does
-not want it there. The larger thought: what is being done is a different thing from what is to be
-done, and one file holds both, the live record at the top of `TODO.md`, the backlog in the middle,
-and `## Closed` at the bottom.
+Parked 2026-10-09 on its bookmark, `agent-filesproposal-v028`, as one unfinished commit pushed for
+safekeeping. Its block is in that commit's `TODO.md > ## Closed`: every cycle start syncs, and the
+acquaint's repo check with it. It resumes when the cycle in progress lands, to name
+`vc-x1 sync --scope=both --dry-run` for the look in both steps, and its `TODO.md` is reconciled
+with this one then.
 
-- A second file, `LADDER.md`, `DOING_LADDER.md`, or `DOING.md`, holds the running cycle's ladder and
-  deliberation, and `TODO.md` is the backlog alone.
-- `## Closed` goes with the record or stays in `TODO.md`, to be decided. With the record, a
-  close-out moves the block within one file and a cycle touches `TODO.md` only to take its entry
-  out.
-- The ladder's place in the block is decided with the file: ahead of the Deliberation, which is the
-  part read only in doubt, and still heading its rung subsections.
-- Whether `## Continuation notes` moves too, so the acquaint read is the whole of a short file in
-  place of the first 60 lines of a long one ([Acquaint](AGENTS.md#acquaint)).
-- An `agent-files` proposal cycle, multi-step: [Cycle-record](AGENTS.md#cycle-record), [Todo
-  format](agent-data/notes.md#todo-format), [The In Progress
-  block](agent-data/notes.md#the-in-progress-block), and the specimen change, every link of the form
-  `TODO.md > ## In Progress` with them, and the `vc-x1` code that reads the block follows.
+### The cycle-record moves out of TODO.md into zDOING.md
+
+(wink, 2026-10-09) What is being done is a different thing from what is to be done, and one file
+holds both: the live record at the top of `TODO.md`, the backlog in the middle, and `## Closed` at
+the bottom. A new file at the work-repo root, `zDOING.md`, takes the record, and `TODO.md` keeps its
+name, a small step to see how the doing and done notion reads.
+
+- Shape: an `agent-files` proposal and single-step, wink's call. One commit creates the file, moves
+  the sections, and re-points the agent-files that name the old place:
+  [Cycle-record](AGENTS.md#cycle-record), [Todo format](agent-data/notes.md#todo-format), [The In
+  Progress block](agent-data/notes.md#the-in-progress-block), and the specimen.
+- Name: `zDOING.md` is wink's choice over `DOING.md`, `LADDER.md`, and `DOING_LADDER.md`.
+  - The `z` puts it last in every listing. Under `ls` in `en_US.UTF-8`, wink's daily view, that is
+    three entries below `TODO.md`, where `DOING.md` would sit ten above it.
+  - The cost is in byte order, as git, jj, and GitHub sort, where `DOING.md` would sit three
+    entries above `TODO.md` and `zDOING.md` is at the far end of the list from it.
+- Sections that move: `## In Progress` and `## Closed`, each block whole, the planning and the
+  work's documentation, so `TODO.md` is what we might do and nothing else (wink, 2026-10-09).
+  `## Continuation notes` goes with them so the acquaint read is the whole of a short file.
+- Tried by hand first: the cycle **feat: sync is safe by default** kept its record in `zDOING.md`
+  while the agent-files still named `TODO.md`. What the trial showed:
+  - The file holds one cycle, the one being worked on. A `## Next` section for a parked cycle and
+    a planned one was tried for a day and went back to `## Todo`: planned work in two files was
+    easy to lose track of.
+  - The block opens with the Todo as it was picked, and everything about the cycle is written
+    under it.
+  - `## Continuation notes` works in the file, with a pointer left under the same heading in
+    `TODO.md` for as long as [Acquaint](AGENTS.md#acquaint) looks there.
+  - `TODO.md` kept `## Continuation notes`, `## In Progress`, and `## Closed` as headings over a
+    pointer, since a session follows the agent-files as they are. This cycle removes them.
+  - The Deliberation grew to 87 lines, a log of every decision made along the way, and wherever
+    it sat it pushed something far away. A decision that belongs to one rung reads better in
+    that rung's details, which leaves the Deliberation the decisions about the cycle as a whole.
+  - Wink moved the Deliberation ahead of the Solution, it being what is discussed before
+    starting, at the cost of the Ladder far down the file.
+  - The Ladder's list near the top with its details after the Deliberation was weighed and
+    left: in zed a link works in preview mode alone and "back" does not return to the list, so
+    the list has to sit with its details.
+- The ladder's place in the block: ahead of the Deliberation, which goes last as the part read only
+  in doubt, the Ladder still heading its rung subsections. The placement below the Deliberation
+  came from a miscommunication at agent-files v0.2.6. Whether this cycle or one of its own makes the
+  change is settled at the opening.
+- Heading names are open: `## Done` for `## Closed` pairs with the file's name, but `(done)` is
+  already the rung marker and `notes/done.md` the frozen history, and it asks `## Doing` of
+  `## In Progress`, a term the agent-files use throughout.
+- No `vc-x1` code reads the block. A fixture script, `support/fixtures/build-dr-1.py`, and a comment
+  in `src/lookup/blame.rs` name the old place.
+- The template payload's `TODO.md` skeleton is the maintainer's, and this project's diff from it is
+  the proposal.
+
+### TODO.md is renamed zTODO.md
+
+(wink + agent, 2026-10-09) Once [the cycle-record is in
+`zDOING.md`](#the-cycle-record-moves-out-of-todomd-into-zdoingmd), named so it sorts
+last, the backlog is still `TODO.md`. Under `ls` in `en_US.UTF-8` the two are three entries apart,
+and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the root's files.
+
+- With `TODO.md` renamed `zTODO.md` the pair is adjacent and last in both orders. The pair
+  `_DOING.md` and `_TODO.md` is adjacent in byte order only, since that locale ignores the
+  underscore.
+- Every adopter carries a `TODO.md`, so the rename is an `agent-files` proposal the family takes at
+  a re-sync, and the template payload's skeleton is renamed at convergence.
+- About 120 mentions outside `notes/chores/` name the file in this repo, and `TODO_FILE` in
+  `src/todo_helpers.rs` is the default the `validate-todo` and `fix-todo` commands read.
+  - A fallback to `TODO.md` when only that exists keeps an adopter on the new binary working
+    before its re-sync.
+- The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
+- The heading names, `## Doing` and `## Done`, are decided with it.
+
+### sync --undo takes back the last sync
+
+(wink + agent, 2026-10-11) A sync that was forced with `--force` and is regretted, or that stopped
+part-way on a conflict, has no easy way back. `vc-x1 sync --undo` would put a repo back the way
+the last sync found it: its bookmarks, `@`, its files, and what jj believes the remote holds.
+
+Deferred from the cycle **feat: sync is safe by default**, where it was a rung and was dropped
+before any code was written. That cycle made the routine sync safe by itself, so undo serves the
+forced sync alone, and its design turned out to hold more than the cycle had room for.
+
+The complications, the plain version:
+
+- jj's own undo is not enough. `jj op restore` puts jj's records back and leaves git's own note
+  of where the remote is at the new value. jj then believes it has already seen the remote's
+  change and never follows it again, so the repo says "up to date" when it is not.
+  - A real undo puts git's note back as well, so the next sync sees the remote's move and does
+    its work again.
+  - This part is written and was tested: `restore_as_found`, with its tests, in
+    `tmp/rung1-restore-draft/` on wink's machine. `tmp/` is not committed, so it should be
+    brought into the repo, or rewritten from this description, when the entry is picked up.
+- Undo has to know where the last sync began. The plan is for sync to label each jj operation it
+  makes, and for undo to read jj's operation log back to the latest labelled one.
+  - Nothing is saved in a file of our own. A saved snapshot that went stale is what had the old
+    `revert` command removed at 0.78.3.
+  - Every step of a sync then has to run through one place that adds the label. Today moving
+    `@` at the end of a sync does not.
+- Work done after the sync must not be thrown away. If anything but plain saves of the working
+  copy came after it, a commit, a bookmark move, another sync, an earlier undo, then going back
+  would discard that work. Undo refuses and lists what is in the way.
+- The conversation is the hard case. In the agent-repo a running session writes its transcript
+  all the time, and putting files back to an earlier state would wipe the lines written since.
+  - So undo carries later writes forward: it works out what changed since the sync and puts
+    that on top of the restored state.
+  - A file the sync never touched is then not rewritten at all, which is what keeps a live
+    transcript safe.
+  - A file that both the sync and later work changed has no clean answer, and undo refuses
+    before it changes anything.
+- A second undo in a row refuses, the first being work done after the sync.
+
+Not yet decided, wink's to say:
+
+- Whether "only saves of the working copy may follow" is the right rule for refusing, or an
+  `--undo --force` should exist. Past that point `jj op restore` may be the honest tool.
+- Whether later writes are carried forward as above, or undo refuses whenever any file changed
+  since. Refusing is simpler and makes undo nearly unusable in the agent-repo during a session.
+- Whether each repo is undone by itself from its own log, or both repos of one sync run go back
+  together or not at all.
+
+Smaller parts of the design:
+
+- `--undo --dry-run` says what an undo would do, or why it would refuse, and changes nothing.
+- A sync that changed something ends by naming `vc-x1 sync --undo`, and so does the report of one
+  that stopped part-way, in place of the bare `jj op restore` it prints today.
+- The scope is `-R` and `--scope`, as a sync takes them.
+- What jj-lib offers was checked at 0.45.1: attributes on an operation, a marker on a snapshot
+  operation, and a three-way merge of trees.
+
+### A commit body carries a legend for its markers
+
+(wink, 2026-10-09) A commit body's `*` is a problem the commit addresses and each `-` under it a
+solution, by [Commit-body form](agent-data/prose.md#commit-body-form). The rule is in the
+agent-files, which a reader of `git log` or of GitHub never sees, so to them the body is a nested
+list and the pairing goes unread. Noticed reading the body of "feat: sync --dry-run looks and
+changes nothing".
+
+- One line, after the intro paragraph and before the first `*`, a blank line either side:
+  ``Legend: `*` is a problem this commit addresses, `-` is a solution to it.``
+- A bookend body has no list and carries no legend.
+- An `agent-files` proposal: the rule in `prose.md` and the specimen in `commit-model.md` change
+  together, and bodies already published keep the form they shipped with.
+
+### jj-lib moves to 0.46.0
+
+(wink, 2026-10-09) jj-lib 0.46.0 is published and the project builds against 0.45. Found while
+asking whether a newer jj-lib could tell `sync --dry-run` where a remote's bookmark is: it cannot,
+so the move stands on its own.
+
+- The installed `jj` moves with it: the version gate compares the `jj` CLI with the linked
+  jj-lib, and the CLI here is 0.45.1.
+- The `gix` line in `Cargo.toml` follows, 0.87 to 0.88, since it names the gix jj-lib resolves.
+- The facade in `src/jj/` takes whatever the API changed between the two releases.
+- The check `Cargo.toml` asks for at a jj-lib bump is already made for this one: 0.46.0 has no
+  remote-ref query, so the `## Waiting` entry stays.
 
 ### symlink names a path over 200 characters as Claude Code does
 
@@ -204,22 +358,36 @@ This handles .vc-config.{toml|md} repo and local name, jj|git remote and the rep
 I.e. one command that allows our old .claude repos to be converted to .agent-session or any
 other name a user might want.
 
-### squash-push and status take a SCOPE, and push resolves its own bookmarks
+### Scope is a flag on every command, and push resolves its own bookmarks
 
-(wink, 2026-09-17) `squash-push -R .agent-session` bakes in a path the config already knows, and
-the path differs by project, `.agent-session` here and `.claude` historically, so the invocation
-goes stale when it moves. `vc-x1 squash-push agent` is shorter, cannot go stale, and reads as what
-it means. The design, decided in conversation:
+(wink, 2026-09-17, reworked 2026-10-10) `squash-push -R .agent-session` bakes in a path the config
+already knows, and the path differs by project, `.agent-session` here and `.claude` historically,
+so the invocation goes stale when it moves. `vc-x1 squash-push -s agent` cannot go stale and reads
+as what it means. Beyond `squash-push`, the commands disagree on how a scope is given and on what
+none means, and one rule is wanted for all of them.
 
-- `SCOPE` is the positional on `squash-push`, with `--scope` as its flag form, the shape
-  [`status`](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) already has. `BOOKMARK`
-  moves to `-b`/`--bookmark`, since once the default is the line's own bookmark, naming one is the
-  rare override and the rare thing belongs on a flag. This is a breaking CLI change, and the callers
-  are the user and `push`'s stage, which builds params directly and never parses argv.
-- `-R`'s meaning shifts from "the repo to operate on" to "the workspace root to resolve the scope
-  against", which is what `status`'s `-R` already means. A second behavior change in one flag, so it
-  wants saying out loud in the docs.
-- `push` takes no `SCOPE`: it is always both repos, as its own help says, and a flag with one legal
+- Scope is always `-s` / `--scope`, never a positional, on every command that takes one (wink,
+  2026-10-10, reversing this entry's first decision, which made it a positional as `status` has).
+  - A positional cannot be had everywhere. On a command whose positional is a revision, `chid`,
+    `desc`, `list`, `show`, a leading `work`, `agent`, or `both` would have to be a reserved
+    word, and each is a plausible bookmark name, so `vc-x1 list work` would have two readings.
+  - A flag has one reading on every command, and `-s both` is three characters more than `both`.
+  - So `status both` and `lookup`'s scope-then-target form go, each a breaking change, and `sync`,
+    found without the positional at the cycle "feat: sync is safe by default", stays as it is.
+- What no scope means follows what the command is about.
+  - A command about one repo acts on `.`, the repo it is run in: `sync`, `chid`, `desc`, `list`,
+    `show`. `status` joins them, where today it answers for the work-repo from anywhere.
+  - A command about the pair acts on both, one side alone saying little: `validate-desc` and
+    `fix-desc`, which compare the two repos' commits, and `push`, which writes both.
+- A pair command prints a column per side, work and agent, wink's ask of `validate-desc`.
+- On `squash-push`, `BOOKMARK` moves to `-b`/`--bookmark`, since once the default is the line's own
+  bookmark, naming one is the rare override and the rare thing belongs on a flag. This is a
+  breaking CLI change, and the callers are the user and `push`'s stage, which builds params
+  directly and never parses argv.
+- `-R`'s meaning shifts on `squash-push` from "the repo to operate on" to "the workspace root to
+  resolve the scope against", which is what `status`'s `-R` already means. A second behavior change
+  in one flag, so it wants saying out loud in the docs.
+- `push` takes no scope: it is always both repos, as its own help says, and a flag with one legal
   value is documentation pretending to be an option. What `push` loses instead is `[BOOKMARK]`,
   resolving each repo's bookmark the way `squash-push` now does. That collapses its hardcoded
   asymmetry, the work repo's `BOOKMARK` against the agent repo's literal `main`, into one rule, and
@@ -230,8 +398,8 @@ it means. The design, decided in conversation:
   carrying two bookmarks, which today's resolution refuses. Dropping candidates that are `trunk()`
   when others remain reads as "the trunk sitting coincidentally at your commit is not your line", and
   leaves a genuine tie of two topic bookmarks still refused.
-- `both` on `squash-push` raises what `status` never had to answer: with the work side pushed and the
-  agent side failing, what the exit code is and whether anything is undone. The instinct is no
+- `-s both` on `squash-push` raises what `status` never had to answer: with the work side pushed and
+  the agent side failing, what the exit code is and whether anything is undone. The instinct is no
   rollback and a bit per side, the shape the status entry already proposes.
 
 Sequenced with **status prints a verdict per repo and exits with a bit per side**, which is already
@@ -245,8 +413,8 @@ twice. Either one cycle covering both, or two adjacent with status first.
 cycle's opening the topic bookmark sits on `main`'s commit, the resolution refuses the two-bookmark
 tie, and the test fails until the cycle's first push moves the bookmark off `main`. The test should
 resolve against a fixture, or check only the `yes` default without resolving a bookmark. The
-`trunk()` tie-break in [squash-push and status take a
-SCOPE](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks) would also clear
+`trunk()` tie-break in [Scope is a flag on every
+command](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) would also clear
 it, but a test should not depend on the live repo's state either way.
 
 ### Commit titles carry no scope, the declared types aside
@@ -1285,62 +1453,8 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: bare sync acts on the repo it is run in
-
-#### Problem
-
-No flags means two things. For `sync` it is the workspace's default scope, both repos of a dual
-workspace from anywhere inside it, and for `chid`, `desc`, `list`, and `show` it is `.`, the one
-repo. Wink expected the second of `sync`, had forgotten the first, and calls it convenient but
-unnatural: the habit is to `cd` into a directory, see that it worked, and run the command there on
-a new line, never `cd xxx; command`, which runs the command in the wrong place when the `cd` fails.
-So the directory the command is run in is what it means.
-
-#### Solution
-
-A bare `sync` acts on `.`, the one repo it is run in, by the resolver the four read commands
-already use, and both repos are asked for with `--scope`. The help text and the README's `sync`
-section say so.
-
-#### Acceptance check
-
-- From the workspace root, `vc-x1 sync` reports one repo, and `vc-x1 sync --scope=both` reports
-  two. Passed.
-- From the agent-repo's directory, `vc-x1 sync` reports one repo, the agent-repo. Passed, the
-  verbose log naming `.` as the repo fetched.
-- From `src/`, `vc-x1 sync` fails with "There is no Jujutsu repo in ." and changes nothing. Passed.
-- `vc-x1 validate` passes. Passed.
-
-#### Deliberation
-
-- `sync` alone: the entry named `revert` too, and `revert` was removed at 0.78.3.
-  - The entry's title and one doc comment still named it, and the comment goes with the function
-    it sat on.
-- No walk up: `.` is taken as written, wink's call, so a bare `sync` never acts on a directory
-  other than the one it is run in.
-  - From a subdirectory of a repo it fails as the four read commands do, which is the same rule
-    reaching the same answer.
-- One resolver: `sync` drops its own `-R` and `--scope` resolution and calls the shared one.
-  - The two differed only in the no-flags case, which is the case this cycle changes.
-- No other command changes: `status` defaults to the work-repo at the workspace root from any
-  directory, a third meaning of no flags.
-  - It is left to [squash-push and status take a SCOPE, and push resolves its own
-    bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks), which
-    settles what a scope resolves against.
-- A named scope still walks up: `vc-x1 sync --scope=both` from `src/` syncs both repos, unchanged.
-  - The scope names the repos by role, so the walk only locates the workspace, and wink's review
-    kept it.
-  - Refusing it outside a root would change the four read commands with it, the resolver being
-    shared.
-- No agent-file relies on a bare `sync` reaching both repos: none names the command.
-- A breaking change, and a patch: the default of an existing command changes, the body carries the
-  `BREAKING-CHANGE:` trailer, and the version advances by the patch digit since no minor was named.
-- Single-step: one default, its help text, and its README section.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-
-#### Ladder
-
-- feat: bare sync acts on the repo it is run in (done)
+The last cycle's record is in [zDOING.md](zDOING.md), under its `## Closed`, by the trial that
+`## In Progress` above names.
 
 # References
 

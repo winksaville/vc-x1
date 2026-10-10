@@ -16,13 +16,28 @@ fn parse_defaults() {
     }
     let cli = Cli::try_parse_from(["test"]).unwrap();
     assert!(!cli.args.quiet);
-    assert!(!cli.args.rebase);
+    assert!(!cli.args.force);
+    assert!(!cli.args.dry_run);
     assert_eq!(cli.args.bookmark, "main");
     assert_eq!(cli.args.remote, "origin");
     assert!(cli.args.scope.is_none());
 }
 
-/// `--rebase` sets the flag; it flows through to `SyncParams`.
+/// `--force` sets the flag; it flows through to `SyncParams`.
+#[test]
+fn parse_force_flag() {
+    use clap::Parser;
+    #[derive(Parser)]
+    struct Cli {
+        #[command(flatten)]
+        args: SyncArgs,
+    }
+    let cli = Cli::try_parse_from(["test", "--force"]).unwrap();
+    assert!(cli.args.force);
+    assert!(SyncParams::from(&cli.args).force);
+}
+
+/// `--rebase`, the flag's earlier name, is an alias for `--force`.
 #[test]
 fn parse_rebase_flag() {
     use clap::Parser;
@@ -32,8 +47,22 @@ fn parse_rebase_flag() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--rebase"]).unwrap();
-    assert!(cli.args.rebase);
-    assert!(SyncParams::from(&cli.args).rebase);
+    assert!(cli.args.force);
+    assert!(SyncParams::from(&cli.args).force);
+}
+
+/// `--dry-run` sets the flag; it flows through to `SyncParams`.
+#[test]
+fn parse_dry_run_flag() {
+    use clap::Parser;
+    #[derive(Parser)]
+    struct Cli {
+        #[command(flatten)]
+        args: SyncArgs,
+    }
+    let cli = Cli::try_parse_from(["test", "--dry-run"]).unwrap();
+    assert!(cli.args.dry_run);
+    assert!(SyncParams::from(&cli.args).dry_run);
 }
 
 /// `-q` / `--quiet` CLI form is honored.

@@ -10,6 +10,10 @@ cycle from, then both retire in one cycle after a permalink sweep of the links i
 Waiting` entry in [../TODO.md](../TODO.md)). A cycle's live record is [../TODO.md](../TODO.md)'s `##
 In Progress` block, and a closed cycle's is its `## Closed` block in the landmark commit's tree.
 
+On trial since the cycle "feat: sync is safe by default" (2026-10-09), a cycle's record is kept in
+[../zDOING.md](../zDOING.md) instead, the agent-files not yet saying so, and that cycle's landmark
+holds its finished block there.
+
 Tool architecture lives at the repo root in [`../ARCHITECTURE.md`](../ARCHITECTURE.md): the
 CLI-args / `Context`+`Params` split, a generic module map, the subcommand model, and what the
 Context+Params port and the options_flags extraction *are* (the *live status* is in the chores
