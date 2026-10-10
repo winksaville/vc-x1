@@ -19,6 +19,11 @@ shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the ru
 
 _No cycle currently in progress._
 
+A trial, 2026-10-09: the cycle **feat: sync is safe by default** kept its record
+in [zDOING.md](zDOING.md), ahead of the agent-files saying so, to see how the file reads ([The
+cycle-record moves out of TODO.md into
+zDOING.md](zDOING.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd)).
+
 ## Waiting
 
 Important work that cannot start yet. Each entry names what it waits on, in a form that can be
@@ -41,27 +46,24 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The cycle-record moves out of TODO.md into a file of its own
+### TODO.md is renamed zTODO.md
 
-(wink, 2026-10-09) The In Progress block's ladder sits at the bottom of the block, below the
-Deliberation, since agent-files v0.2.6. That placement came from a miscommunication and wink does
-not want it there. The larger thought: what is being done is a different thing from what is to be
-done, and one file holds both, the live record at the top of `TODO.md`, the backlog in the middle,
-and `## Closed` at the bottom.
+(wink + agent, 2026-10-09) Once [the cycle-record is in
+`zDOING.md`](zDOING.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd), named so it sorts
+last, the backlog is still `TODO.md`. Under `ls` in `en_US.UTF-8` the two are three entries apart,
+and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the root's files.
 
-- A second file, `LADDER.md`, `DOING_LADDER.md`, or `DOING.md`, holds the running cycle's ladder and
-  deliberation, and `TODO.md` is the backlog alone.
-- `## Closed` goes with the record or stays in `TODO.md`, to be decided. With the record, a
-  close-out moves the block within one file and a cycle touches `TODO.md` only to take its entry
-  out.
-- The ladder's place in the block is decided with the file: ahead of the Deliberation, which is the
-  part read only in doubt, and still heading its rung subsections.
-- Whether `## Continuation notes` moves too, so the acquaint read is the whole of a short file in
-  place of the first 60 lines of a long one ([Acquaint](AGENTS.md#acquaint)).
-- An `agent-files` proposal cycle, multi-step: [Cycle-record](AGENTS.md#cycle-record), [Todo
-  format](agent-data/notes.md#todo-format), [The In Progress
-  block](agent-data/notes.md#the-in-progress-block), and the specimen change, every link of the form
-  `TODO.md > ## In Progress` with them, and the `vc-x1` code that reads the block follows.
+- With `TODO.md` renamed `zTODO.md` the pair is adjacent and last in both orders. The pair
+  `_DOING.md` and `_TODO.md` is adjacent in byte order only, since that locale ignores the
+  underscore.
+- Every adopter carries a `TODO.md`, so the rename is an `agent-files` proposal the family takes at
+  a re-sync, and the template payload's skeleton is renamed at convergence.
+- About 120 mentions outside `notes/chores/` name the file in this repo, and `TODO_FILE` in
+  `src/todo_helpers.rs` is the default the `validate-todo` and `fix-todo` commands read.
+  - A fallback to `TODO.md` when only that exists keeps an adopter on the new binary working
+    before its re-sync.
+- The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
+- The heading names, `## Doing` and `## Done`, are decided with it.
 
 ### symlink names a path over 200 characters as Claude Code does
 
@@ -1285,62 +1287,8 @@ opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the land
 of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
 [notes/done.md](notes/done.md).
 
-### feat: bare sync acts on the repo it is run in
-
-#### Problem
-
-No flags means two things. For `sync` it is the workspace's default scope, both repos of a dual
-workspace from anywhere inside it, and for `chid`, `desc`, `list`, and `show` it is `.`, the one
-repo. Wink expected the second of `sync`, had forgotten the first, and calls it convenient but
-unnatural: the habit is to `cd` into a directory, see that it worked, and run the command there on
-a new line, never `cd xxx; command`, which runs the command in the wrong place when the `cd` fails.
-So the directory the command is run in is what it means.
-
-#### Solution
-
-A bare `sync` acts on `.`, the one repo it is run in, by the resolver the four read commands
-already use, and both repos are asked for with `--scope`. The help text and the README's `sync`
-section say so.
-
-#### Acceptance check
-
-- From the workspace root, `vc-x1 sync` reports one repo, and `vc-x1 sync --scope=both` reports
-  two. Passed.
-- From the agent-repo's directory, `vc-x1 sync` reports one repo, the agent-repo. Passed, the
-  verbose log naming `.` as the repo fetched.
-- From `src/`, `vc-x1 sync` fails with "There is no Jujutsu repo in ." and changes nothing. Passed.
-- `vc-x1 validate` passes. Passed.
-
-#### Deliberation
-
-- `sync` alone: the entry named `revert` too, and `revert` was removed at 0.78.3.
-  - The entry's title and one doc comment still named it, and the comment goes with the function
-    it sat on.
-- No walk up: `.` is taken as written, wink's call, so a bare `sync` never acts on a directory
-  other than the one it is run in.
-  - From a subdirectory of a repo it fails as the four read commands do, which is the same rule
-    reaching the same answer.
-- One resolver: `sync` drops its own `-R` and `--scope` resolution and calls the shared one.
-  - The two differed only in the no-flags case, which is the case this cycle changes.
-- No other command changes: `status` defaults to the work-repo at the workspace root from any
-  directory, a third meaning of no flags.
-  - It is left to [squash-push and status take a SCOPE, and push resolves its own
-    bookmarks](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks), which
-    settles what a scope resolves against.
-- A named scope still walks up: `vc-x1 sync --scope=both` from `src/` syncs both repos, unchanged.
-  - The scope names the repos by role, so the walk only locates the workspace, and wink's review
-    kept it.
-  - Refusing it outside a root would change the four read commands with it, the resolver being
-    shared.
-- No agent-file relies on a bare `sync` reaching both repos: none names the command.
-- A breaking change, and a patch: the default of an existing command changes, the body carries the
-  `BREAKING-CHANGE:` trailer, and the version advances by the patch digit since no minor was named.
-- Single-step: one default, its help text, and its README section.
-- The `## Waiting` entry's condition is unmet, `vc-x1 closed` not landed, so nothing promotes.
-
-#### Ladder
-
-- feat: bare sync acts on the repo it is run in (done)
+The last cycle's record is in [zDOING.md](zDOING.md), under its `## Closed`, by the trial that
+`## In Progress` above names.
 
 # References
 
