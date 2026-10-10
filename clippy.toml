@@ -27,13 +27,17 @@
 #    whole job. Opened 2026-08-21 by the "empty custom-family into
 #    the pinned set and config" cycle, whose plan put the checklist
 #    commands in config for one subcommand to run.
-# 6. Sync's remote look (src/jj/session.rs, `ls_remote`):
-#    `git ls-remote <remote> refs/heads/<bookmark>`, the commit a
-#    remote's bookmark is on, asked without fetching. `sync --dry-run`
-#    has to change nothing, and a fetch changes the repo. jj-lib has
-#    no such query: it spawns git itself for its network legs and
-#    keeps that layer private, and it builds gix with no network
-#    client, as of 0.45.1 and 0.46.0. Opened 2026-10-09 (wink) by the
+# 6. Sync's remote look (src/jj/session.rs, `git_command`): two
+#    git commands that ask a remote and move no ref. `git ls-remote
+#    --heads <remote>` gives the commit each of the remote's
+#    bookmarks is on, and `git fetch --refmap= --no-tags
+#    --no-write-fetch-head` downloads the commits of the ones that
+#    moved, so a fast-forward can be told from a rewrite before
+#    anything is fetched. Sync has to know what a fetch would do
+#    before it makes one, and a fetch changes the repo. jj-lib has no
+#    such query: it spawns git itself for its network legs and keeps
+#    that layer private, and it builds gix with no network client,
+#    as of 0.45.1 and 0.46.0. Opened 2026-10-09 (wink) by the
 #    "feat: sync is safe by default" cycle, and temporary: the entry
 #    closes when jj-lib offers the query (TODO.md > ## Waiting).
 #

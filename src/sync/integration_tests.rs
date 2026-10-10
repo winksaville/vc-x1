@@ -88,19 +88,19 @@ fn default_params() -> SyncParams {
         quiet: false,
         bookmark: "main".to_string(),
         remote: "origin".to_string(),
-        rebase: false,
+        force: false,
         dry_run: false,
         repo: None,
         scope: None,
     }
 }
 
-/// Default params with `--rebase` set: the go to sync a repo that
-/// holds local work, rebasing a diverged bookmark and the work-repo
-/// non-empty `@`.
+/// Default params with `--force` set (`--rebase` is the same flag):
+/// the go to sync a repo sync would hold back, rebasing a diverged
+/// bookmark and the work-repo non-empty `@`.
 fn rebase_params() -> SyncParams {
     SyncParams {
-        rebase: true,
+        force: true,
         ..default_params()
     }
 }
@@ -345,27 +345,53 @@ fn sync_conflict_stops_and_keeps_state() {
     );
 }
 
-/// Scenario 3: local has commits not yet pushed. That is local work,
-/// so without the go sync holds the repo back and fails naming it,
-/// and with the go it classifies `ahead` and leaves the bookmark
-/// alone.
+/// Scenario 3: local has commits not yet pushed and the remote has
+/// not moved. There is nothing to fetch, so sync leaves the repo as
+/// it is and succeeds, with or without the go.
 #[test]
-fn sync_ahead_is_held_then_a_noop_on_the_go() {
+fn sync_ahead_is_left_alone() {
     let fx = Fixture::new("ahead");
     add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
     let ahead_head = cid(&fx.work, "main");
+
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
+    assert_eq!(cid(&fx.work, "main"), ahead_head);
+
+    sync_repos(&mut test_ctx(), &fx.repos(), &rebase_params()).expect("sync should succeed");
+    assert_eq!(cid(&fx.work, "main"), ahead_head);
+}
+
+/// Scenario 3b: local has commits not yet pushed on `main`, and the
+/// remote's `main` moved too. A fetch would leave `main` conflicted,
+/// so without the go the repo is held back and not fetched: `main`
+/// and `main@origin` are where they were, and the run fails naming
+/// the repo.
+#[test]
+fn sync_diverged_is_held_without_the_go() {
+    let fx = Fixture::new("diverged-held");
+    let remote_work = fx.base.join("remote-work.git");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
+    let local_head = cid(&fx.work, "main");
+    let pre_remote = cid(&fx.work, "main@origin");
+    assert_ne!(pre_remote, remote_head, "the remote should have advanced");
 
     let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
     assert!(
-        err.contains("local work found") && err.contains("--rebase"),
+        err.contains("not synced") && err.contains("--force"),
         "unexpected error: {err}"
     );
-    assert_eq!(cid(&fx.work, "main"), ahead_head);
-
-    sync_repos(&mut test_ctx(), &fx.repos(), &rebase_params()).expect("sync should succeed");
-    assert_eq!(cid(&fx.work, "main"), ahead_head);
+    assert_eq!(cid(&fx.work, "main"), local_head, "main as found");
+    assert_eq!(cid(&fx.work, "main@origin"), pre_remote, "not fetched");
 }
 
 /// Scenario 4: clean divergence: both sides advance main on
@@ -564,14 +590,14 @@ fn sync_work_jj_new_when_behind() {
     );
 }
 
-/// Scenario 7: work repo behind with a non-empty `@` and no
-/// `--rebase`. Uncommitted changes are local work, so the repo is
-/// held back and not fetched at all: `main` and `main@origin` stay
-/// where they were, the changes are untouched, the bot repo still
-/// syncs, and the run fails naming the work repo.
+/// Scenario 7: work repo behind by a fast-forward with a non-empty
+/// `@` and no `--force`. A fast-forward replaces nothing, so the
+/// uncommitted changes are safe and the repo is synced: `main` moves,
+/// and `@` is left in place (off the new main) with its changes
+/// untouched.
 #[test]
-fn sync_work_is_held_with_uncommitted_changes() {
-    let fx = Fixture::new("work-held");
+fn sync_fast_forward_leaves_uncommitted_changes_alone() {
+    let fx = Fixture::new("work-ff-dirty");
     let remote_work = fx.base.join("remote-work.git");
     let pre_main = cid(&fx.work, "main");
     let remote_head = push_from_clone(
@@ -582,23 +608,16 @@ fn sync_work_is_held_with_uncommitted_changes() {
         "remote\n",
         "feat: remote only",
     );
-    assert_ne!(pre_main, remote_head, "the remote should have advanced");
     // Uncommitted changes make @ non-empty.
     fs::write(fx.work.join("wip.txt"), "wip\n").expect("write wip");
-
-    let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
-        .unwrap_err()
-        .to_string();
-    assert!(
-        err.contains("local work found") && err.contains("work"),
-        "unexpected error: {err}"
-    );
-    assert_eq!(cid(&fx.work, "main"), pre_main, "main as found");
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
     assert_eq!(
-        cid(&fx.work, "main@origin"),
-        pre_main,
-        "not fetched: the remote-tracking ref has not moved"
+        cid(&fx.work, "main"),
+        remote_head,
+        "main should ff to remote"
     );
+    // @ left on the old main, changes preserved in place.
+    assert_eq!(cid(&fx.work, "@-"), pre_main, "@ stays on the old main");
     assert_eq!(
         fs::read_to_string(fx.work.join("wip.txt")).unwrap(),
         "wip\n",
@@ -766,10 +785,11 @@ fn rewritten_remote_is_followed_when_there_is_no_local_work() {
 
 /// Scenario 12: the remote rewrote `main`'s tip while `@` here holds
 /// an edit to the same file, the case a fetch turns into conflict
-/// markers. The edit is local work, so the repo is held back and not
-/// fetched: `main`, `@`, and the file are untouched.
+/// markers. A rewrite under local work is what sync holds back for,
+/// so the repo is not fetched: `main`, `@`, and the file are
+/// untouched.
 #[test]
-fn rewritten_remote_under_local_work_is_not_fetched() {
+fn rewritten_remote_under_local_work_is_held() {
     let fx = Fixture::new("rewritten-held");
     let remote_work = fx.base.join("remote-work.git");
     let pre_main = cid(&fx.work, "main");
@@ -785,7 +805,7 @@ fn rewritten_remote_under_local_work_is_not_fetched() {
     let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
         .unwrap_err()
         .to_string();
-    assert!(err.contains("local work found"), "unexpected error: {err}");
+    assert!(err.contains("not synced"), "unexpected error: {err}");
 
     assert_eq!(cid(&fx.work, "main"), pre_main, "main as found");
     assert_eq!(cid(&fx.work, "@-"), pre_main, "@ as found");
@@ -798,21 +818,47 @@ fn rewritten_remote_under_local_work_is_not_fetched() {
     );
 }
 
-/// Scenario 13: a bookmark other than the synced one holds a commit
-/// the remote does not have. That is local work too, so the repo is
-/// held back, and the report's error names it.
-#[test]
-fn an_unpushed_bookmark_holds_the_repo_back() {
-    let fx = Fixture::new("unpushed-bookmark");
+/// Make an unpushed bookmark `topic` in the work repo, one commit on
+/// top of `main`, and put `@` back on `main`. Returns its commit id.
+fn unpushed_topic(fx: &Fixture) -> String {
     fs::write(fx.work.join("topic.txt"), "topic\n").expect("write topic file");
     jj_ok(&fx.work, &["describe", "@", "-m", "feat: topic"]);
     jj_ok(&fx.work, &["bookmark", "set", "topic", "-r", "@"]);
     jj_ok(&fx.work, &["new", "main"]);
+    cid(&fx.work, "topic")
+}
 
-    let err = sync_repos(&mut test_ctx(), &fx.repos(), &default_params())
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("local work found"), "unexpected error: {err}");
+/// Scenario 13: a bookmark other than the synced one holds a commit
+/// the remote does not have, and the remote's `main` fast-forwards.
+/// A fast-forward replaces nothing, so the unpushed bookmark holds
+/// nothing back: `main` follows the remote and `topic` is untouched,
+/// still on the old `main`.
+#[test]
+fn an_unpushed_bookmark_does_not_hold_a_fast_forward() {
+    let fx = Fixture::new("unpushed-bookmark");
+    let remote_work = fx.base.join("remote-work.git");
+    let topic = unpushed_topic(&fx);
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
+
+    assert_eq!(
+        cid(&fx.work, "main"),
+        remote_head,
+        "main follows the remote"
+    );
+    assert_eq!(
+        cid(&fx.work, "topic"),
+        topic,
+        "the unpushed bookmark untouched"
+    );
 }
 
 /// Default params with `--dry-run` set (look only).
@@ -913,20 +959,24 @@ fn dry_run_ahead_then_diverged() {
         "expected diverged, got {:?}",
         l.state
     );
+    assert!(
+        !l.holds.is_empty(),
+        "a diverged bookmark holds the repo back"
+    );
 
     assert_eq!(cid(&fx.work, "main"), local_head, "main as found");
     assert_eq!(cid(&fx.work, "main@origin"), pre_remote, "nothing fetched");
 }
 
-/// Scenario 17: a look at a repo whose remote rewrote `main`'s tip.
-/// The remote's commit is one this repo does not have, and the local
-/// bookmark holds nothing of its own, so it reads as `behind`: a
-/// fetch would follow. An edit in `@` is reported as local work, and
-/// the file is untouched.
+/// Scenario 17: a look at a repo whose remote rewrote `main`'s tip
+/// under an edit in `@`. The remote's commit is downloaded with no
+/// ref moved, so the look tells the rewrite from a fast-forward, says
+/// a sync would be held back and why, and the file is untouched.
 #[test]
-fn dry_run_rewritten_reads_as_behind() {
+fn dry_run_tells_a_rewrite() {
     let fx = Fixture::new("look-rewritten");
     let remote_work = fx.base.join("remote-work.git");
+    let pre_main = cid(&fx.work, "main");
     rewrite_main_from_clone(
         &fx.base,
         &remote_work,
@@ -938,11 +988,20 @@ fn dry_run_rewritten_reads_as_behind() {
 
     let l = look_work(&fx);
     assert!(
-        matches!(l.state, State::Behind { .. }),
-        "expected behind, got {:?}",
+        matches!(l.state, State::Rewritten { .. }),
+        "expected rewritten, got {:?}",
         l.state
     );
+    assert_eq!(l.moves, vec![("main".to_string(), Move::Rewrite)]);
     assert_eq!(l.work, vec!["@ has uncommitted changes".to_string()]);
+    assert!(!l.holds.is_empty(), "a rewrite under local work holds");
+    let held = verdict(&l, &dry_run_params());
+    assert!(
+        held.contains("held back") && held.contains("--force"),
+        "unexpected verdict: {held}"
+    );
+
+    assert_eq!(cid(&fx.work, "main@origin"), pre_main, "no ref moved");
     assert_eq!(
         fs::read_to_string(fx.work.join("shared.txt")).unwrap(),
         "local-version\n",
@@ -950,30 +1009,41 @@ fn dry_run_rewritten_reads_as_behind() {
     );
 }
 
-/// Scenario 18: the look's verdict. A repo whose `main` is up to date
-/// but which holds an unpushed bookmark is not "safe to sync" in the
-/// sense of "it will sync": without the go a sync is held back, and
-/// the verdict says so and names the way past. With the go there is
-/// nothing to do.
+/// Scenario 18: the look's verdict when the repo holds an unpushed
+/// bookmark. With the remote where the last fetch left it there is
+/// nothing to do, "up to date" meaning what it says. Once the remote
+/// fast-forwards, a sync would follow it and leave the local work
+/// untouched. Neither is held back.
 #[test]
-fn dry_run_verdict_names_the_hold() {
+fn dry_run_verdict_with_an_unpushed_bookmark() {
     let fx = Fixture::new("look-verdict");
-    fs::write(fx.work.join("topic.txt"), "topic\n").expect("write topic file");
-    jj_ok(&fx.work, &["describe", "@", "-m", "feat: topic"]);
-    jj_ok(&fx.work, &["bookmark", "set", "topic", "-r", "@"]);
-    jj_ok(&fx.work, &["new", "main"]);
+    let remote_work = fx.base.join("remote-work.git");
+    unpushed_topic(&fx);
 
     let l = look_work(&fx);
     assert_eq!(l.state, State::UpToDate);
     assert_eq!(l.bookmark, "main");
-    let held = verdict(&l, &dry_run_params());
-    assert!(
-        held.contains("held back") && held.contains("--rebase"),
-        "unexpected verdict: {held}"
+    assert!(l.moves.is_empty() && l.holds.is_empty());
+    assert!(!l.work.is_empty(), "the unpushed bookmark is local work");
+    assert_eq!(
+        verdict(&l, &dry_run_params()),
+        "a sync would have nothing to do"
     );
-    let go = SyncParams {
-        rebase: true,
-        ..dry_run_params()
-    };
-    assert_eq!(verdict(&l, &go), "a sync would have nothing to do");
+
+    push_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    let l = look_work(&fx);
+    assert!(matches!(l.state, State::Behind { .. }), "got {:?}", l.state);
+    assert_eq!(l.moves, vec![("main".to_string(), Move::FastForward)]);
+    assert!(l.holds.is_empty(), "a fast-forward holds nothing back");
+    assert_eq!(
+        verdict(&l, &dry_run_params()),
+        "a sync would follow origin and leave the local work untouched"
+    );
 }

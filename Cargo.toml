@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1-dev"
-version = "0.84.21-2"
+version = "0.84.21-3"
 edition = "2024"
 
 # Single-name convention (chores-16, 0.78.3): the package name IS
@@ -26,10 +26,10 @@ futures = "0.3"
 # session's lock-contention downcast needs type identity with the
 # errors jj-lib returns, and init's bare-repo creation reuses it.
 gix = { version = "0.87", default-features = false }
-# When raising jj-lib: check whether it now offers the commit a
-# remote's bookmark is on without fetching. If so, `ls_remote` in
-# src/jj/session.rs takes it and clippy.toml's register entry 6
-# closes (TODO.md > ## Waiting).
+# When raising jj-lib: check whether it now offers the commits a
+# remote's bookmarks are on without fetching. If so, `git_command`
+# in src/jj/session.rs and its two callers take it, and
+# clippy.toml's register entry 6 closes (TODO.md > ## Waiting).
 jj-lib = "0.45"
 log = { version = "0.4", features = ["std"] }
 pollster = "1.0"

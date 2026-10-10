@@ -38,9 +38,10 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   - Waits on: **`vc-x1 closed "<title>"`** landed, and the session viewer good enough to read
     a cycle's record from the transcript.
   - Place when unblocked: first.
-- **Sync's remote look stops spawning git.** (wink + agent, 2026-10-09) `sync --dry-run` learns
-  the commit a remote's bookmark is on by spawning `git ls-remote`, the sixth entry of the
-  spawn register in `clippy.toml` and the one spawn of `git`. Replace the body of `ls_remote` in
+- **Sync's remote look stops spawning git.** (wink + agent, 2026-10-09) Sync learns where a
+  remote's bookmarks are by spawning `git ls-remote`, and downloads the commits of the ones that
+  moved by spawning a `git fetch` that moves no ref, the sixth entry of the spawn register in
+  `clippy.toml` and the one spawn of `git`. Replace `git_command` and its two callers in
   `src/jj/session.rs` with jj-lib's query, delete the `#[allow]`, and close the entry.
   - Waits on: jj-lib's public API offering that query. Neither 0.45.1 nor 0.46.0 has one:
     `rg -i 'ls.remote' src/` in the jj-lib source prints nothing, and its git subprocess layer is
@@ -241,22 +242,36 @@ This handles .vc-config.{toml|md} repo and local name, jj|git remote and the rep
 I.e. one command that allows our old .claude repos to be converted to .agent-session or any
 other name a user might want.
 
-### squash-push and status take a SCOPE, and push resolves its own bookmarks
+### Scope is a flag on every command, and push resolves its own bookmarks
 
-(wink, 2026-09-17) `squash-push -R .agent-session` bakes in a path the config already knows, and
-the path differs by project, `.agent-session` here and `.claude` historically, so the invocation
-goes stale when it moves. `vc-x1 squash-push agent` is shorter, cannot go stale, and reads as what
-it means. The design, decided in conversation:
+(wink, 2026-09-17, reworked 2026-10-10) `squash-push -R .agent-session` bakes in a path the config
+already knows, and the path differs by project, `.agent-session` here and `.claude` historically,
+so the invocation goes stale when it moves. `vc-x1 squash-push -s agent` cannot go stale and reads
+as what it means. Beyond `squash-push`, the commands disagree on how a scope is given and on what
+none means, and one rule is wanted for all of them.
 
-- `SCOPE` is the positional on `squash-push`, with `--scope` as its flag form, the shape
-  [`status`](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) already has. `BOOKMARK`
-  moves to `-b`/`--bookmark`, since once the default is the line's own bookmark, naming one is the
-  rare override and the rare thing belongs on a flag. This is a breaking CLI change, and the callers
-  are the user and `push`'s stage, which builds params directly and never parses argv.
-- `-R`'s meaning shifts from "the repo to operate on" to "the workspace root to resolve the scope
-  against", which is what `status`'s `-R` already means. A second behavior change in one flag, so it
-  wants saying out loud in the docs.
-- `push` takes no `SCOPE`: it is always both repos, as its own help says, and a flag with one legal
+- Scope is always `-s` / `--scope`, never a positional, on every command that takes one (wink,
+  2026-10-10, reversing this entry's first decision, which made it a positional as `status` has).
+  - A positional cannot be had everywhere. On a command whose positional is a revision, `chid`,
+    `desc`, `list`, `show`, a leading `work`, `agent`, or `both` would have to be a reserved
+    word, and each is a plausible bookmark name, so `vc-x1 list work` would have two readings.
+  - A flag has one reading on every command, and `-s both` is three characters more than `both`.
+  - So `status both` and `lookup`'s scope-then-target form go, each a breaking change, and `sync`,
+    found without the positional at the cycle "feat: sync is safe by default", stays as it is.
+- What no scope means follows what the command is about.
+  - A command about one repo acts on `.`, the repo it is run in: `sync`, `chid`, `desc`, `list`,
+    `show`. `status` joins them, where today it answers for the work-repo from anywhere.
+  - A command about the pair acts on both, one side alone saying little: `validate-desc` and
+    `fix-desc`, which compare the two repos' commits, and `push`, which writes both.
+- A pair command prints a column per side, work and agent, wink's ask of `validate-desc`.
+- On `squash-push`, `BOOKMARK` moves to `-b`/`--bookmark`, since once the default is the line's own
+  bookmark, naming one is the rare override and the rare thing belongs on a flag. This is a
+  breaking CLI change, and the callers are the user and `push`'s stage, which builds params
+  directly and never parses argv.
+- `-R`'s meaning shifts on `squash-push` from "the repo to operate on" to "the workspace root to
+  resolve the scope against", which is what `status`'s `-R` already means. A second behavior change
+  in one flag, so it wants saying out loud in the docs.
+- `push` takes no scope: it is always both repos, as its own help says, and a flag with one legal
   value is documentation pretending to be an option. What `push` loses instead is `[BOOKMARK]`,
   resolving each repo's bookmark the way `squash-push` now does. That collapses its hardcoded
   asymmetry, the work repo's `BOOKMARK` against the agent repo's literal `main`, into one rule, and
@@ -267,8 +282,8 @@ it means. The design, decided in conversation:
   carrying two bookmarks, which today's resolution refuses. Dropping candidates that are `trunk()`
   when others remain reads as "the trunk sitting coincidentally at your commit is not your line", and
   leaves a genuine tie of two topic bookmarks still refused.
-- `both` on `squash-push` raises what `status` never had to answer: with the work side pushed and the
-  agent side failing, what the exit code is and whether anything is undone. The instinct is no
+- `-s both` on `squash-push` raises what `status` never had to answer: with the work side pushed and
+  the agent side failing, what the exit code is and whether anything is undone. The instinct is no
   rollback and a bit per side, the shape the status entry already proposes.
 
 Sequenced with **status prints a verdict per repo and exits with a bit per side**, which is already
@@ -282,8 +297,8 @@ twice. Either one cycle covering both, or two adjacent with status first.
 cycle's opening the topic bookmark sits on `main`'s commit, the resolution refuses the two-bookmark
 tie, and the test fails until the cycle's first push moves the bookmark off `main`. The test should
 resolve against a fixture, or check only the `yes` default without resolving a bookmark. The
-`trunk()` tie-break in [squash-push and status take a
-SCOPE](#squash-push-and-status-take-a-scope-and-push-resolves-its-own-bookmarks) would also clear
+`trunk()` tie-break in [Scope is a flag on every
+command](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) would also clear
 it, but a test should not depend on the live repo's state either way.
 
 ### Commit titles carry no scope, the declared types aside

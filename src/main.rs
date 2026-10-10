@@ -370,34 +370,35 @@ pub(crate) enum Commands {
           - `-R` / `--repo`     exact list (back-compat / arbitrary multi-repo)\n  \
           - `--scope=work|agent|work,agent` dual-repo roles via `.vc-config.toml`\n  \
           - neither             `.`, the one repo sync is run in\n\n\
-        Safe by default: a repo is fetched only when it holds no local\n\
-        work for the fetch to collide with. Local work is any of:\n  \
-          - uncommitted changes in `@` (not asked of the agent repo,\n  \
-            whose `@` holds the running session)\n  \
-          - an `@-` that is not on the remote\n  \
-          - a bookmark with commits the remote does not have\n\
-        A repo that holds some is not fetched: sync says what it\n\
-        found, syncs the other repos, and exits non-zero naming it.\n\
-        --rebase is the go to sync it anyway.\n\n\
-        With --dry-run sync only looks and changes nothing. It does\n\
-        not fetch: it asks each remote which commit its bookmark is\n\
-        on, and reports that beside the local work it found, as what\n\
-        a sync would do. A remote that advanced and one that rewrote\n\
-        history both read as behind, their commits not being here to\n\
-        tell apart. It exits 0 whatever it finds.\n\n\
+        Safe by default: before it fetches, sync finds out what the\n\
+        fetch would do. It asks the remote where its bookmarks are,\n\
+        downloads the commits of those that moved without moving a\n\
+        ref, and tells a fast-forward from a rewrite. Then:\n  \
+          - remote has not moved   nothing to fetch\n  \
+          - only fast-forwarded    fetch; local work is left untouched\n  \
+          - would tangle           held back; sync says why, exits non-zero\n\
+        A fetch would tangle local work when a bookmark that moved has\n\
+        local commits of its own, or when the remote rewrote a\n\
+        bookmark and the repo holds local work: uncommitted changes in\n\
+        `@` (not asked of the agent repo, whose `@` holds the running\n\
+        session), an `@-` that is not on the remote, or a bookmark\n\
+        with commits the remote does not have. --force, or --rebase,\n\
+        syncs a repo that would be held back.\n\n\
+        With --dry-run sync does the same finding out and stops: it\n\
+        reports each repo's state, its local work, and what a sync\n\
+        would do, and moves no bookmark, `@`, or remote-tracking ref.\n\
+        It exits 0 whatever it finds.\n\n\
         One atomic operation: fetch, then per repo, by where its\n\
         bookmark was before the fetch:\n  \
           - up-to-date        nothing to do\n  \
           - behind            fast-forward bookmark to remote\n  \
-          - rewritten         the remote replaced the local commit;\n  \
-                              the fetch followed it\n  \
-          - ahead             nothing to sync (--rebase only)\n  \
-          - diverged          rebase local onto remote; fail on\n  \
-                              conflicts (--rebase only)\n  \
+          - rewritten         the remote replaced the commit; fetch followed it\n  \
+          - ahead             nothing to sync\n  \
+          - diverged          --force only: rebase onto remote, fail on conflicts\n  \
           - no remote         bookmark has no @<remote> counterpart; skip\n\n\
         After a successful sync, `@` is repositioned onto the synced\n\
         bookmark: the work repo `jj new`s a clean `@` (or with\n\
-        --rebase rebases a dirty one), the `.claude` session repo\n\
+        --force rebases a dirty one), the `.claude` session repo\n\
         `jj new main`s when main moved (no-op when `@-` is already\n\
         the main tip).\n\n\
         On failure sync stops where the failing step stopped: nothing\n\

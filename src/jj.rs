@@ -139,11 +139,36 @@ pub fn remote_url(repo: &Path, name: &str) -> Result<Option<String>> {
         .map(|u| u.to_bstring().to_string()))
 }
 
-/// One-shot `RepoSession::ls_remote`: the commit `remote` holds
-/// `bookmark` on, asked of the remote without fetching (`git
-/// ls-remote <remote> refs/heads/<bookmark>`).
-pub fn git_ls_remote(repo: &Path, remote: &str, bookmark: &str) -> Result<Option<String>> {
-    session::RepoSession::open(repo)?.ls_remote(remote, bookmark)
+/// One-shot `RepoSession::ls_remote_heads`: the commit each of
+/// `remote`'s bookmarks is on, asked of the remote without fetching
+/// (`git ls-remote --heads <remote>`).
+pub fn git_ls_remote_heads(
+    repo: &Path,
+    remote: &str,
+) -> Result<std::collections::BTreeMap<String, String>> {
+    session::RepoSession::open(repo)?.ls_remote_heads(remote)
+}
+
+/// One-shot `RepoSession::download`: bring the commits `remote`'s
+/// `bookmarks` are on into the git store, moving no ref.
+pub fn git_download(repo: &Path, remote: &str, bookmarks: &[String]) -> Result<()> {
+    session::RepoSession::open(repo)?.download(remote, bookmarks)
+}
+
+/// One-shot `RepoSession::is_ancestor`: whether git commit
+/// `ancestor` is `descendant` or one of its ancestors, by a walk of
+/// the git store.
+pub fn git_is_ancestor(repo: &Path, ancestor: &str, descendant: &str) -> Result<bool> {
+    session::RepoSession::open(repo)?.is_ancestor(ancestor, descendant)
+}
+
+/// One-shot `RepoSession::remote_bookmark_targets`: the commit each
+/// of `remote`'s bookmarks was on at the last fetch, by name.
+pub fn remote_bookmark_targets(
+    repo: &Path,
+    remote: &str,
+) -> Result<std::collections::BTreeMap<String, String>> {
+    Ok(session::RepoSession::open(repo)?.remote_bookmark_targets(remote))
 }
 
 /// One-shot `RepoSession::add_git_remote`: register git remote

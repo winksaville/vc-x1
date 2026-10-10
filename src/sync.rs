@@ -12,26 +12,29 @@
 //! inside one invocation against one fetch snapshot (a separate
 //! check-then-apply pair of runs would race the remote).
 //!
-//! **Safe by default**: a repo is fetched only when it holds no
-//! local work for the fetch to collide with (see `local_work`). A
-//! fetch is not a look: it moves a tracked bookmark that is behind,
-//! conflicts one that diverged, and, when the remote rewrote a
-//! commit the clone has, rebases `@` onto the rewrite and can leave
-//! conflict markers in a file. With no local work none of that can
-//! lose anything, since every commit involved is the remote's own.
-//! A repo that does hold local work is not fetched: sync says what
-//! it found, syncs the other repos, and ends in an error naming it.
-//! `--rebase` is the go to sync such a repo anyway.
+//! **Safe by default**: before it fetches, sync finds out what the
+//! fetch would do, and holds a repo back only where that would
+//! tangle local work (see `look_repos`). A fetch is not a look: it
+//! moves a tracked bookmark that is behind, conflicts one that
+//! diverged, and, when the remote rewrote a commit the clone has,
+//! rebases `@` onto the rewrite and can leave conflict markers in a
+//! file. So sync:
 //!
-//! Each bookmark's position is read before the fetch, and the state
-//! classified from it, since afterwards a repo that was behind reads
-//! as up to date.
+//! - asks the remote where each of its bookmarks is, fetching nothing
+//!   (`jj::git_ls_remote_heads`), and compares with the last fetch.
+//!   A remote that has not moved means nothing to fetch.
+//! - downloads the commits of the bookmarks that moved, with no ref
+//!   moved (`jj::git_download`), and tells each move apart by
+//!   ancestry (`Move`): a fast-forward replaces nothing and so
+//!   cannot touch local work, a rewrite can.
+//! - holds the repo back when a bookmark that moved has local commits
+//!   of its own, or the remote rewrote one and the repo holds local
+//!   work (`local_work`). It says why, syncs the other repos, and
+//!   ends in an error naming it. `--force` syncs it anyway.
 //!
-//! **`--dry-run`** looks and changes nothing (see `look_repos`). It
-//! does not fetch: it asks each remote where its bookmark is
-//! (`jj::git_ls_remote`) and reports that beside the local work it
-//! found. A look that fetched and then restored would put at risk
-//! what the gate exists to protect.
+//! **`--dry-run`** does the same finding out and stops there: it
+//! reports each repo's state, the local work, and what a sync would
+//! do, and moves no bookmark, `@`, or remote-tracking ref.
 //!
 //! **Stop-on-error**: a failure leaves state where the failing step
 //! stopped so the user can inspect it. Each repo's pre-sync op id
@@ -81,28 +84,27 @@ pub struct SyncArgs {
     #[arg(long, default_value = "origin")]
     pub remote: String,
 
-    /// Sync a repo that holds local work, rebasing what the sync
-    /// needs rebased.
+    /// Sync a repo even where sync would hold it back, rebasing what
+    /// the sync needs rebased. `--rebase` is the same flag.
     ///
-    /// Without it sync does not fetch a repo with uncommitted changes
-    /// in `@`, an `@-` that is not on the remote, or a bookmark with
-    /// commits the remote does not have: it reports the work and ends
-    /// in an error. With it the repo is fetched, a diverged bookmark
-    /// is rebased onto its remote, and a work repo `@` that carries
-    /// changes onto the synced bookmark. The bot repo's `@` is never
-    /// rebased (it always `jj new main`).
-    #[arg(long)]
-    pub rebase: bool,
+    /// Sync holds a repo back when what the remote did would tangle
+    /// local work: a bookmark that moved on the remote has local
+    /// commits of its own, or the remote rewrote a bookmark and the
+    /// repo holds local work. With `--force` the repo is fetched all
+    /// the same, a diverged bookmark is rebased onto its remote, and
+    /// a work repo `@` that carries changes onto the synced bookmark.
+    /// The bot repo's `@` is never rebased (it always `jj new main`).
+    #[arg(long, visible_alias = "rebase")]
+    pub force: bool,
 
     /// Look only: report each repo's local work and where it stands
     /// against its remote, and change nothing.
     ///
     /// Nothing is fetched. The remote is asked which commit its
-    /// bookmark is on, and the report says what a sync would do:
-    /// nothing, follow the remote, or need `--rebase`. Without the
-    /// remote's commits a remote that advanced and one that rewrote
-    /// history read the same, as behind. Exits 0 whenever the look
-    /// itself succeeded, whatever it found.
+    /// bookmarks are, the commits of those that moved are downloaded
+    /// with no ref moved, and the report says what a sync would do:
+    /// nothing, follow the remote, or be held back and why. Exits 0
+    /// whenever the look itself succeeded, whatever it found.
     #[arg(long)]
     pub dry_run: bool,
 
@@ -141,8 +143,8 @@ pub struct SyncArgs {
 /// - `bookmark`: bookmark to sync in the work repo (default
 ///   `main`). The bot repo always syncs `main`.
 /// - `remote`: remote to sync against (default `origin`).
-/// - `rebase`: `--rebase`, the go to sync a repo that holds local
-///   work (see `local_work`), rebasing a diverged bookmark (see
+/// - `force`: `--force` / `--rebase`, the go to sync a repo sync
+///   would hold back (see `holds`), rebasing a diverged bookmark (see
 ///   `act_on_state`) and a non-empty work repo `@` (see
 ///   `reposition_work`).
 /// - `dry_run`: `--dry-run`, look only (see `look_repos`).
@@ -154,7 +156,7 @@ pub struct SyncParams {
     pub quiet: bool,
     pub bookmark: String,
     pub remote: String,
-    pub rebase: bool,
+    pub force: bool,
     pub dry_run: bool,
     pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
@@ -168,7 +170,7 @@ impl From<&SyncArgs> for SyncParams {
             quiet: a.quiet,
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
-            rebase: a.rebase,
+            force: a.force,
             dry_run: a.dry_run,
             repo: a.repo.clone(),
             scope: a.scope.clone(),
@@ -249,13 +251,17 @@ pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::e
 /// Sync the given repos against their remotes.
 ///
 /// Orchestrates the full flow: tracking preflight on every repo,
-/// the local-work gate (see `local_work`), snapshot each remaining
-/// repo's current op id in memory, then hand off to `run_plan` for
-/// fetch + classify + act, then reposition `@`.
+/// the look (see `look_repos`), snapshot each repo that is to be
+/// fetched its current op id in memory, then hand off to `run_plan`
+/// for fetch + classify + act, then reposition `@`.
 ///
-/// A repo the gate holds back is not fetched. The others sync, and
-/// the run then ends in an error naming the held ones, so a caller
-/// with only the exit status learns they were not synced.
+/// The look sorts the repos three ways. One it holds back (see
+/// `holds`) is not fetched: the others sync, and the run then ends
+/// in an error naming the held ones, so a caller with only the exit
+/// status learns they were not synced. One whose remote has not
+/// moved and which holds local work is settled as it is, there being
+/// nothing to fetch. The rest are fetched. `--force` skips the look
+/// and fetches every repo.
 ///
 /// **Stop-on-error**: a failure leaves every repo exactly where the
 /// failing step stopped so the user can inspect what happened:
@@ -298,27 +304,45 @@ pub fn sync_repos(
         return Ok(());
     }
 
-    // The gate: a repo that holds local work is not fetched without
-    // the go, since local work is all a fetch can collide with.
+    // The gate: find out what a fetch would do, and hold back the
+    // repos where it would tangle local work. `settled` are the ones
+    // with nothing to fetch.
     let mut held: Vec<PathBuf> = Vec::new();
-    if !params.rebase {
-        for repo in repos {
-            let work = local_work(repo, &params.remote)?;
-            if work.is_empty() {
-                continue;
+    let mut settled: Vec<PathBuf> = Vec::new();
+    if !params.force {
+        for l in look_repos(repos, params)? {
+            let r = l.path.display();
+            if !l.holds.is_empty() {
+                info!("{r}: not synced:");
+                for why in &l.holds {
+                    info!("{r}:   {why}");
+                }
+                held.push(l.path.clone());
+            } else if l.moves.is_empty() && !l.work.is_empty() {
+                info!(
+                    "{r}: {} has not moved, nothing to fetch; local work left untouched:",
+                    params.remote
+                );
+                for item in &l.work {
+                    info!("{r}:   {item}");
+                }
+                settled.push(l.path.clone());
+            } else if !l.work.is_empty() {
+                info!("{r}: holds local work, which this sync leaves untouched:");
+                for item in &l.work {
+                    info!("{r}:   {item}");
+                }
             }
-            info!("{}: not synced, it holds local work:", repo.display());
-            for item in &work {
-                info!("{}:   {item}", repo.display());
-            }
-            held.push(repo.clone());
         }
     }
 
     // In-memory only: the snapshot exists to be printed by this
     // invocation's failure report, never persisted for a later one.
     let mut snapshots: Vec<(PathBuf, String)> = Vec::new();
-    for repo in repos.iter().filter(|r| !held.contains(r)) {
+    for repo in repos
+        .iter()
+        .filter(|r| !held.contains(r) && !settled.contains(r))
+    {
         let op_id = jj::current_op_id(repo)?;
         debug!("{}: op snapshot = {op_id}", repo.display());
         snapshots.push((repo.clone(), op_id));
@@ -351,7 +375,7 @@ pub fn sync_repos(
     if !held.is_empty() {
         let names: Vec<String> = held.iter().map(|r| r.display().to_string()).collect();
         return Err(format!(
-            "not synced, local work found: {}: push or commit it, or rerun with --rebase",
+            "not synced: {}: commit and push the local work, or rerun with --force",
             names.join(", ")
         )
         .into());
@@ -360,7 +384,11 @@ pub fn sync_repos(
 }
 
 /// What `repo` holds that a fetch could collide with, one line per
-/// finding, empty when a fetch is safe.
+/// finding, empty when no fetch can collide with anything.
+///
+/// Local work alone holds nothing back: a remote that has not moved
+/// brings nothing, and one that only fast-forwarded replaces nothing.
+/// It decides when the remote rewrote a bookmark (see `holds`).
 ///
 /// The three checks, each a way local work meets what a fetch does:
 ///
@@ -398,22 +426,64 @@ fn local_work(repo: &Path, remote: &str) -> Result<Vec<String>, Box<dyn std::err
     Ok(work)
 }
 
-/// One repo as a look found it: the local work it holds (see
-/// `local_work`) and where its bookmark stands against the remote's.
+/// How one of the remote's bookmarks moved since the last fetch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Move {
+    /// The remote has a bookmark this repo has not fetched before.
+    New,
+    /// The remote's commit descends from the last-fetched one: it
+    /// only added commits. Nothing is replaced, so no local work can
+    /// be moved by fetching it.
+    FastForward,
+    /// The remote's commit does not descend from the last-fetched
+    /// one: history was rewritten, a forced push. A fetch follows the
+    /// rewrite and rebases whatever sat on what was replaced.
+    Rewrite,
+    /// The remote no longer has the bookmark.
+    Gone,
+}
+
+impl Move {
+    /// The word a report uses for the move.
+    fn word(self) -> &'static str {
+        match self {
+            Move::New => "new",
+            Move::FastForward => "fast-forward",
+            Move::Rewrite => "rewritten",
+            Move::Gone => "deleted",
+        }
+    }
+}
+
+/// One repo as a look found it.
+///
+/// - `bookmark`, `state`: the synced bookmark and where it stands
+///   against the remote's.
+/// - `work`: the local work the repo holds (see `local_work`).
+/// - `moves`: each of the remote's bookmarks that moved since the
+///   last fetch, by name. Empty means a fetch would bring nothing.
+/// - `holds`: why a sync would hold the repo back, empty when it
+///   would not (see `holds`).
 #[derive(Debug)]
 pub struct Looked {
     pub path: PathBuf,
     pub bookmark: String,
-    pub work: Vec<String>,
     pub state: State,
+    pub work: Vec<String>,
+    pub moves: Vec<(String, Move)>,
+    pub holds: Vec<String>,
 }
 
-/// Look at each repo without changing it: no fetch, no bookmark or
-/// `@` moved, no remote-tracking ref updated.
+/// Look at each repo: what a fetch would bring, what local work it
+/// would meet, and so what a sync would do. No bookmark, `@`, or
+/// remote-tracking ref is moved.
 ///
-/// What it does make is the working-copy snapshot any jj command
-/// makes, since "does `@` hold changes" is asked of the files as
-/// they are now.
+/// What a look does change: it makes the working-copy snapshot any
+/// jj command makes, since "does `@` hold changes" is asked of the
+/// files as they are now, and it downloads the commits of the
+/// remote's bookmarks that moved into the git store, where no ref
+/// names them and jj does not see them. They are the commits a fetch
+/// would bring.
 pub fn look_repos(
     repos: &[PathBuf],
     params: &SyncParams,
@@ -421,43 +491,139 @@ pub fn look_repos(
     let mut looked = Vec::new();
     for repo in repos {
         let bookmark = repo_bookmark(repo, &params.bookmark);
+        let remote = &params.remote;
+        let theirs = jj::git_ls_remote_heads(repo, remote)?;
+        let moves = remote_moves(repo, remote, &theirs)?;
+        let work = local_work(repo, remote)?;
+        let holds = holds(repo, remote, &moves, &work)?;
+        let state = look_state(repo, bookmark, remote, theirs.get(bookmark))?;
         looked.push(Looked {
             path: repo.clone(),
             bookmark: bookmark.to_string(),
-            work: local_work(repo, &params.remote)?,
-            state: look_state(repo, bookmark, &params.remote)?,
+            state,
+            work,
+            moves,
+            holds,
         });
     }
     Ok(looked)
 }
 
-/// Where `bookmark` stands against `remote`'s, the remote asked and
-/// nothing fetched.
+/// Each of `remote`'s bookmarks that moved since the last fetch, by
+/// name, with how it moved.
 ///
-/// The remote answers with one commit id, and what can be said of
-/// it depends on whether this repo has that commit:
+/// `theirs` is where the remote's bookmarks are now
+/// (`jj::git_ls_remote_heads`), compared with the remote-tracking
+/// refs. For a bookmark on a different commit than last fetched, the
+/// commit is downloaded with no ref moved and the two are compared
+/// by ancestry in the git store: jj has not imported the remote's
+/// commit, so a revset cannot ask.
+fn remote_moves(
+    repo: &Path,
+    remote: &str,
+    theirs: &std::collections::BTreeMap<String, String>,
+) -> Result<Vec<(String, Move)>, Box<dyn std::error::Error>> {
+    let ours = jj::remote_bookmark_targets(repo, remote)?;
+    let changed: Vec<String> = theirs
+        .iter()
+        .filter(|(name, head)| ours.get(*name).is_some_and(|last| last != *head))
+        .map(|(name, _)| name.clone())
+        .collect();
+    jj::git_download(repo, remote, &changed)?;
+
+    let mut moves = Vec::new();
+    for (name, head) in theirs {
+        match ours.get(name) {
+            None => moves.push((name.clone(), Move::New)),
+            Some(last) if last == head => {}
+            Some(last) if jj::git_is_ancestor(repo, last, head)? => {
+                moves.push((name.clone(), Move::FastForward));
+            }
+            Some(_) => moves.push((name.clone(), Move::Rewrite)),
+        }
+    }
+    for name in ours.keys().filter(|name| !theirs.contains_key(*name)) {
+        moves.push((name.clone(), Move::Gone));
+    }
+    moves.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(moves)
+}
+
+/// Why a sync would hold `repo` back, one line per reason, empty
+/// when it would not.
 ///
-/// - It is the local bookmark's commit: `UpToDate`.
-/// - The repo has it, from an earlier fetch or as its own unpushed
-///   work's ancestor: the two ancestry probes `classify` makes.
-/// - The repo does not have it, so the remote has moved to commits
-///   not yet fetched and ancestry cannot be asked. A local bookmark
-///   that is on the remote holds nothing of its own, so a fetch
-///   would follow: `Behind`, whether the remote advanced or rewrote
-///   history. One that is not holds local commits: `Diverged`.
+/// A fetch tangles local work in two ways, and each is one reason:
 ///
-/// Returns `NoRemote` when the remote has no such bookmark, and never
-/// `Rewritten`, which only a fetch can tell.
+/// - A bookmark that moved on the remote has local commits of its
+///   own. The fetch leaves it conflicted, pointing at both.
+/// - The remote rewrote or deleted a bookmark, and the repo holds
+///   local work (see `local_work`). The fetch rebases what sat on the
+///   replaced commits, and an edit to the same lines becomes conflict
+///   markers. Which commits were replaced is not worked out: any
+///   local work at all is taken as at risk.
+///
+/// A fast-forward and a new bookmark replace nothing, so whatever
+/// local work the repo holds, they hold nothing back.
+fn holds(
+    repo: &Path,
+    remote: &str,
+    moves: &[(String, Move)],
+    work: &[String],
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut why = Vec::new();
+    let mut rewrote = Vec::new();
+    for (name, moved) in moves {
+        if *moved == Move::New {
+            continue;
+        }
+        let own =
+            format!("bookmarks(exact:\"{name}\") ~ ::remote_bookmarks(remote=exact:\"{remote}\")");
+        if jj::matches(repo, &own)? {
+            why.push(format!(
+                "bookmark {name} has commits of its own, and {remote}'s has moved ({})",
+                moved.word()
+            ));
+        }
+        if matches!(moved, Move::Rewrite | Move::Gone) {
+            rewrote.push(format!("{name} ({})", moved.word()));
+        }
+    }
+    if !rewrote.is_empty() && !work.is_empty() {
+        why.push(format!(
+            "{remote} rewrote history under local work: {}",
+            rewrote.join(", ")
+        ));
+        why.extend(work.iter().map(|item| format!("local work: {item}")));
+    }
+    Ok(why)
+}
+
+/// Where `bookmark` stands against `remote`'s, whose commit `theirs`
+/// is, `None` when the remote has no such bookmark.
+///
+/// Asked of the git store by ancestry, the remote's commit having
+/// been downloaded when it moved (see `remote_moves`) and jj not
+/// having imported it:
+///
+/// - The same commit: `UpToDate`.
+/// - The local one is an ancestor of the remote's: `Behind`.
+/// - The remote's is an ancestor of the local one: `Ahead`.
+/// - Neither, and the local bookmark holds no commits of its own:
+///   `Rewritten`, the remote having replaced what was fetched.
+/// - Neither, and it does: `Diverged`.
+///
+/// Returns `NoRemote` when the remote has no such bookmark.
 fn look_state(
     repo: &Path,
     bookmark: &str,
     remote: &str,
+    theirs: Option<&String>,
 ) -> Result<State, Box<dyn std::error::Error>> {
     let heads = local_bookmark_heads(repo, bookmark)?;
-    let Some(head) = jj::git_ls_remote(repo, remote, bookmark)? else {
+    let Some(head) = theirs else {
         return Ok(State::NoRemote);
     };
-    let theirs: String = head.chars().take(12).collect();
+    let remote_short: String = head.chars().take(12).collect();
     let local = match heads.as_slice() {
         [] => {
             return Err(format!("{}: bookmark '{bookmark}' does not exist", repo.display()).into());
@@ -467,77 +633,58 @@ fn look_state(
         _ => {
             return Ok(State::Diverged {
                 local: heads.join(","),
-                remote: theirs,
+                remote: remote_short,
             });
         }
     };
     if head.starts_with(&local) {
         return Ok(State::UpToDate);
     }
-    if jj::rev_exists(repo, &head)? {
-        let local_is_anc = jj::matches(repo, &format!("{local}::{head}"))?;
-        let remote_is_anc = jj::matches(repo, &format!("{head}::{local}"))?;
-        return Ok(match (local_is_anc, remote_is_anc) {
-            (true, _) => State::Behind {
-                local,
-                remote: theirs,
-            },
-            (false, true) => State::Ahead {
-                local,
-                remote: theirs,
-            },
-            (false, false) => State::Diverged {
-                local,
-                remote: theirs,
-            },
-        });
-    }
-    let on_remote = format!("{local} & ::remote_bookmarks(remote=exact:\"{remote}\")");
-    Ok(if jj::matches(repo, &on_remote)? {
-        State::Behind {
-            local,
-            remote: theirs,
-        }
+    let local_full = jj::cid_of(repo, &local)?;
+    let own = format!("{local} ~ ::remote_bookmarks(remote=exact:\"{remote}\")");
+    let remote = remote_short;
+    Ok(if jj::git_is_ancestor(repo, &local_full, head)? {
+        State::Behind { local, remote }
+    } else if jj::git_is_ancestor(repo, head, &local_full)? {
+        State::Ahead { local, remote }
+    } else if jj::matches(repo, &own)? {
+        State::Diverged { local, remote }
     } else {
-        State::Diverged {
-            local,
-            remote: theirs,
-        }
+        State::Rewritten { local, remote }
     })
 }
 
 /// What a sync would do with a repo a look found as `looked`, in a
 /// phrase: the report's last line for the repo, so a reader is not
 /// left to work the answer out from the state and the local work.
-///
-/// Local work decides first: without the go the repo is held back
-/// whatever its state, since the gate runs before any fetch.
 fn verdict(looked: &Looked, params: &SyncParams) -> String {
     let remote = &params.remote;
-    if !looked.work.is_empty() && !params.rebase {
-        return "a sync would be held back: commit and push the local work, or pass --rebase"
+    if !looked.holds.is_empty() && !params.force {
+        return "a sync would be held back: commit and push the local work, or pass --force"
             .to_string();
     }
-    match &looked.state {
-        State::UpToDate | State::Ahead { .. } => "a sync would have nothing to do".to_string(),
-        State::NoRemote => "a sync would skip it".to_string(),
-        State::Behind { .. } | State::Rewritten { .. } => {
-            format!("a sync would follow {remote}")
-        }
-        State::Diverged { .. } => {
-            format!("a sync would rebase '{}' onto {remote}", looked.bookmark)
-        }
+    if looked.moves.is_empty() {
+        return "a sync would have nothing to do".to_string();
+    }
+    if let State::Diverged { .. } = looked.state {
+        return format!("a sync would rebase '{}' onto {remote}", looked.bookmark);
+    }
+    if looked.work.is_empty() || params.force {
+        format!("a sync would follow {remote}")
+    } else {
+        format!("a sync would follow {remote} and leave the local work untouched")
     }
 }
 
 /// Print what a look found: per repo its bookmark's state against
-/// the remote, the local work it holds, and the verdict (see
-/// `verdict`), or the one-line summary when every repo is level and
-/// holds no local work.
+/// the remote, the remote's other bookmarks that moved, the local
+/// work it holds, why a sync would hold it back, and the verdict
+/// (see `verdict`), or the one-line summary when every repo is level
+/// and holds no local work.
 fn report_look(looked: &[Looked], params: &SyncParams) {
     let level = looked
         .iter()
-        .all(|l| l.work.is_empty() && matches!(l.state, State::UpToDate | State::NoRemote));
+        .all(|l| l.work.is_empty() && l.moves.is_empty() && l.state == State::UpToDate);
     if level {
         let n = looked.len();
         let noun = if n == 1 { "repo is" } else { "repos are" };
@@ -560,13 +707,13 @@ fn report_look(looked: &[Looked], params: &SyncParams) {
             State::Behind {
                 local,
                 remote: theirs,
-            }
-            | State::Rewritten {
+            } => info!(
+                "{r}: '{b}' is behind {remote} by a fast-forward (local {local}, remote {theirs})"
+            ),
+            State::Rewritten {
                 local,
                 remote: theirs,
-            } => {
-                info!("{r}: '{b}' is behind {remote} (local {local}, remote {theirs})")
-            }
+            } => info!("{r}: {remote} rewrote '{b}' (local {local}, remote {theirs})"),
             State::Diverged {
                 local,
                 remote: theirs,
@@ -574,10 +721,23 @@ fn report_look(looked: &[Looked], params: &SyncParams) {
                 info!("{r}: '{b}' has diverged from {remote} (local {local} vs remote {theirs})")
             }
         }
+        for (name, moved) in l.moves.iter().filter(|(name, _)| name != b) {
+            info!("{r}: {remote} also moved '{name}' ({})", moved.word());
+        }
         if !l.work.is_empty() {
             info!("{r}: holds local work:");
             for item in &l.work {
                 info!("{r}:   {item}");
+            }
+        }
+        if !l.holds.is_empty() && !params.force {
+            info!("{r}: a sync would hold it back because:");
+            for why in l
+                .holds
+                .iter()
+                .filter(|why| !why.starts_with("local work: "))
+            {
+                info!("{r}:   {why}");
             }
         }
         info!("{r}: {}", verdict(l, params));
@@ -705,7 +865,7 @@ fn reposition_at(
     if is_bot_repo(repo) {
         reposition_bot(repo)
     } else {
-        reposition_work(repo, bookmark, params.rebase)
+        reposition_work(repo, bookmark, params.force)
     }
 }
 
@@ -803,7 +963,7 @@ fn reposition_work(
     // `@` carries changes: rebase only on the go.
     if !rebase {
         info!(
-            "{}: @ has changes; left in place (pass --rebase to rebase onto '{bookmark}')",
+            "{}: @ has changes; left in place (pass --force to rebase onto '{bookmark}')",
             repo.display()
         );
         return Ok(());
@@ -834,7 +994,7 @@ fn at_is_empty(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
 ///   The fetch has usually moved a tracked bookmark there already, and
 ///   the set is what covers the one it did not.
 /// - `Rewritten` -> no-op: the fetch followed the rewrite.
-/// - `Diverged` -> only on the go, `--rebase`: `jj rebase -b <b> -d
+/// - `Diverged` -> only on the go, `--force`: `jj rebase -b <b> -d
 ///   <b>@<remote>`, then probe `conflicts()`. A non-empty result means
 ///   the rebase produced conflicted commits, and the `Err` stops the
 ///   run with that state in place. Without the go the gate has held
@@ -860,9 +1020,9 @@ fn act_on_state(
             Ok(())
         }
         State::Diverged { local, remote } => {
-            if !params.rebase {
+            if !params.force {
                 return Err(format!(
-                    "{}: '{bookmark}' diverged: rerun with --rebase to rebase it onto {remote_rev}",
+                    "{}: '{bookmark}' diverged: rerun with --force to rebase it onto {remote_rev}",
                     repo.display()
                 )
                 .into());

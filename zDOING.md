@@ -36,30 +36,32 @@ and `--undo` takes back a sync that went ahead and is regretted.
 #### Acceptance check
 
 - In a scratch clone that is behind its remote and holds no local work, `vc-x1 sync`
-  fast-forwards. Passed at the first rung.
-- In a scratch clone with an unpushed commit on `main`, `vc-x1 sync` exits non-zero naming the
-  repo and does not fetch, `main@origin` staying where it was, and `vc-x1 sync --rebase` rebases
-  it. Passed at the first rung.
+  fast-forwards. Passed at the first work rung.
+- In a scratch clone with an unpushed commit on `main` whose remote also moved, `vc-x1 sync`
+  exits non-zero naming the repo and does not fetch, `main@origin` staying where it was, and
+  `vc-x1 sync --force` rebases it. Passed at the first work rung as `--rebase`, and again at the
+  third under `--force`.
 - In a scratch clone whose remote rewrote a commit, `vc-x1 sync` follows the rewrite when the repo
   holds no local work, and with an edited file in `@` it does not fetch and leaves the file
-  untouched. Passed at the first rung.
-- In the same scratch clones, `vc-x1 sync --dry-run` reports behind, diverged, and up to date
-  correctly, and no operation is added to any repo's `jj op log` by it. Passed at the second
-  rung, with one correction to the check: a repo whose `@` held an edited file gained one
-  operation, the working-copy snapshot any jj command makes, and no bookmark, `@`, or
-  remote-tracking ref moved in any of the four.
-- After a `vc-x1 sync --rebase` that rebased, `vc-x1 sync --undo` puts the repo back, and it
+  untouched. Passed at the first work rung, and again at the third with the rewrite named.
+- In a scratch clone holding an unpushed bookmark, or uncommitted changes, `vc-x1 sync` succeeds
+  when the remote has not moved, and when it fast-forwarded it moves `main` and leaves the local
+  work where it was. Passed at the third work rung: the first rung held each of these back.
+- In the same scratch clones, `vc-x1 sync --dry-run` reports the state and a verdict that the
+  sync run after it bears out, and moves no bookmark, `@`, or remote-tracking ref. Passed at the
+  second work rung for the states, and at the third for the verdicts, six of six.
+- After a `vc-x1 sync --force` that rebased, `vc-x1 sync --undo` puts the repo back, and it
   refuses when a commit was made since.
-- In this workspace, `vc-x1 sync --scope=both` reports the agent-repo up to date and holds the
-  work-repo back for its uncommitted changes. Passed at the first rung, exit 1.
-- `vc-x1 validate` passes. Passed at the first rung.
+- In this workspace, `vc-x1 sync --scope=both --dry-run` reports both repos up to date with
+  nothing to do, the work-repo's uncommitted changes noted. Passed at the third work rung.
+- `vc-x1 validate` passes. Passed at each rung so far.
 
 #### Ladder
 
 - [feat: sync is safe by default opening][1] (done)
 - [feat: sync fetches only a repo with no local work][2] (done)
 - [feat: sync --dry-run looks and changes nothing][3] (done)
-- [feat: sync tells a fast-forward from a rewrite][4]
+- [feat: sync tells a fast-forward from a rewrite][4] (done)
 - [feat: sync --undo takes back the last sync][5]
 - [feat: sync is safe by default closing][6]
 
@@ -145,26 +147,40 @@ has not moved and the one whose remote only added commits included. One unpushed
 anywhere in a repo then stops every sync of it, wink's case in iiac-perf, and the look's verdict
 there read "held back" over a `main` it had just called up to date.
 
-- Sync asks the remote first, as the look does, for every bookmark the remote has, a fetch
-  bringing all of them. The remote where the last fetch left it means nothing to fetch: sync says
-  so, notes the local work, and exits 0.
-- When the remote moved, its new commits are downloaded with no ref moved, and the move is then
-  classified exactly, by ancestry asked locally.
+- Sync asks the remote where every one of its bookmarks is, a fetch bringing all of them, and
+  compares with the last fetch. The remote where the last fetch left it means nothing to fetch:
+  sync says so, notes the local work, and exits 0.
+- When a bookmark moved, its commits are downloaded with no ref moved, and the move is classified
+  by ancestry: a fast-forward, a rewrite, new, or deleted.
   - Tried in scratch repos, colocated and not: `git fetch --refmap= --no-tags
     --no-write-fetch-head <remote> <ref>` brought the remote's commit into the object store, left
     every git ref as it was, and jj saw nothing, no bookmark, `@`, or remote-tracking ref changed
-    and no operation added, a later jj command included.
+    and no operation added, a later jj command included. `--refmap=` is what does it: without
+    it git moves the remote-tracking ref as a side effect, and jj imports that as a fetch.
   - The ancestry walk is gix's, in-process: `rev_walk` is in the build as it is, where
-    `merge_base` wants a feature jj-lib does not turn on.
-  - It is a second form of the one spawn, under the same register entry.
-- A fast-forward replaces nothing, so no local work can be moved by it: sync proceeds, and says
-  what it left untouched. Untouched is not brought up to date: an `@` with changes, or an
+    `merge_base` wants a feature jj-lib does not turn on. A revset cannot ask, jj not having
+    imported the remote's commit.
+  - It is a second form of the one spawn, under the same register entry, and both go through one
+    function so the `#[allow]` is at one site.
+- A fast-forward replaces nothing, so no local work can be moved by it: sync fetches, and says
+  what it leaves untouched. Untouched is not brought up to date: an `@` with changes, or an
   unpushed bookmark, stays on the old commit, and moving it is the user's act.
-- A rewrite under local work, and a synced bookmark that itself diverged, are what is still held
-  back, each named with its bookmark.
-- The look reports the same classification, so its verdict and the sync's act cannot disagree.
-- `--force` becomes the flag's documented name, wink's call, `--rebase` staying as an alias: past
-  the gate there is often nothing to rebase, and "force a sync" is what the flag is reached for.
+- Two things still hold a repo back, each reported with its bookmark:
+  - A bookmark that moved on the remote has local commits of its own, the fetch leaving it
+    conflicted. This is any bookmark, not the synced one alone.
+  - The remote rewrote or deleted a bookmark and the repo holds local work. Which commits the
+    rewrite replaced is not worked out: any local work is taken as at risk, the check erring
+    toward holding.
+- The look and the sync share the finding out, `look_repos`, so the look's verdict and the sync's
+  act cannot disagree. In the scratch scenarios each verdict was borne out by the sync run after
+  it.
+- A look now downloads, where the second rung's fetched nothing at all: the moved bookmarks'
+  commits land in the git store with no ref naming them. They are the commits a fetch would
+  bring.
+- `--force` is the flag's documented name, wink's call, `--rebase` staying as an alias: past the
+  gate there is often nothing to rebase, and "force a sync" is what the flag is reached for.
+- Every sync now spawns git once to ask, and once more when the remote moved, where the look
+  alone did.
 
 ##### feat: sync --undo takes back the last sync
 
@@ -219,9 +235,10 @@ Closing out the cycle.
     wink's trial of the look in iiac-perf.
   - Two rung titles were shortened before their push, having been written over the 50-character
     cap: "sync --dry-run asks the remote and changes nothing" and the new rung's first wording.
-  - Five commits at the first push, six since. The plan was four with no separate opening, the first work rung carrying the
-    setup, and wink had the opening inserted before the first push: the bookend pair exists, the
-    cycle lands as an ordinary trapezoid, and the first work rung's diff is its work alone.
+  - Five commits at the first push, six since. The plan was four with no separate opening, the
+    first work rung carrying the setup, and wink had the opening inserted before the first push:
+    the bookend pair exists, the cycle lands as an ordinary trapezoid, and the first work rung's
+    diff is its work alone.
 - A fetch is not a look, found by trial in scratch repos.
   - A tracked `main` that is behind is moved to the remote's, and one that diverged is left
     conflicted.
@@ -241,6 +258,19 @@ Closing out the cycle.
 - No dry-run default: the bare command acts only where acting loses nothing. `--dry-run` is
   still wanted, wink's call, for what the gate cannot say: what the remote holds, and what a sync
   would do. It asks the remote and never fetches.
+- The commit of the second work rung carries a legend line the rule does not have,
+  ``Legend: `*` is a problem this commit addresses, `-` is a solution to it.``, on wink's word.
+  - It bends [Commit-body form](agent-data/prose.md#commit-body-form), for that body and the
+    bodies of this cycle's later rungs. The rule and its specimen are unchanged, the bodies
+    pushed before it keep their form, and the change to the rule is the Todo entry [A commit
+    body carries a legend for its markers](TODO.md#a-commit-body-carries-a-legend-for-its-markers).
+  - The commit had been pushed without it, the agent having misread the go, and was
+    re-described in both repos, each `ochid:` trailer kept, and force-pushed.
+- A Todo entry was rewritten at the third work rung, [Scope is a flag on every
+  command](TODO.md#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks): wink
+  tried `sync both` after `status both`, found the two disagree, and chose the flag for every
+  command over the positional the entry had first decided on. Nothing in this cycle changes for
+  it, `sync` taking its scope by `--scope` already.
 - Two entries were added to `TODO.md` at the second rung: under `## Waiting`, the end of the git
   spawn, waiting on jj-lib, and under `## Todo`, [jj-lib moves to
   0.46.0](TODO.md#jj-lib-moves-to-0460), which wink found published while the spawn was weighed.

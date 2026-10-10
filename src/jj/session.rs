@@ -36,6 +36,7 @@
 //! hold `.git/index.lock` at the moment we reset the index, and gix
 //! gives the lock a single attempt (bugs.md #1).
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -885,50 +886,139 @@ impl RepoSession {
         Ok(lines)
     }
 
-    /// The commit git remote `remote` holds its bookmark `bookmark`
-    /// on, asked of the remote itself (`git ls-remote <remote>
-    /// refs/heads/<bookmark>`), `None` when the remote has no such
-    /// bookmark.
+    /// A `git` command on this repo's git store: the executable
+    /// jj's own fetch uses (`git.executable-path`), so it takes the
+    /// same config and credentials, pointed at the store by
+    /// `--git-dir`, which serves a colocated repo and one that keeps
+    /// its store under `.jj` alike. `GIT_TERMINAL_PROMPT=0` makes a
+    /// missing credential an error rather than a prompt nobody
+    /// answers.
     ///
-    /// A look, not a fetch: no object is downloaded and nothing in
-    /// the repo changes, the remote-tracking refs included, and
-    /// there is no snapshot. Spawns the git executable jj's own
-    /// fetch uses (`git.executable-path`), so it takes the same
-    /// config and credentials. jj-lib keeps its git subprocess
+    /// The one spawn of git in vc-x1, the sixth entry of the
+    /// register in `clippy.toml`: jj-lib keeps its git subprocess
     /// layer to itself and builds gix without a network client, so
-    /// the spawn is ours, the sixth entry of the register in
-    /// `clippy.toml`, until jj-lib offers the query.
-    /// `GIT_TERMINAL_PROMPT=0` makes a missing credential an error
-    /// rather than a prompt nobody answers.
-    pub fn ls_remote(&self, remote: &str, bookmark: &str) -> Result<Option<String>> {
+    /// asking a remote without fetching from it has to be ours,
+    /// until jj-lib offers the query. Two callers, `ls_remote_heads`
+    /// and `download`, and neither moves a ref.
+    fn git_command(&self) -> Result<std::process::Command> {
         use jj_lib::git::GitSettings;
         let backend = git::get_git_backend(self.repo.store())?;
         let exe = GitSettings::from_settings(&self.settings)?.executable_path;
-        let refname = format!("refs/heads/{bookmark}");
         // Register entry 6 (clippy.toml): sync's remote look. jj-lib
-        // has no query for the commit a remote's bookmark is on, and
-        // the entry closes when it offers one.
+        // has no query for where a remote's bookmarks are, and the
+        // entry closes when it offers one.
         #[allow(clippy::disallowed_methods)]
-        let output = std::process::Command::new(&exe)
-            .arg("--git-dir")
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.arg("--git-dir")
             .arg(backend.git_repo_path())
-            .args(["ls-remote", "--", remote, &refname])
             .env("GIT_TERMINAL_PROMPT", "0")
-            .stdin(std::process::Stdio::null())
+            .stdin(std::process::Stdio::null());
+        Ok(cmd)
+    }
+
+    /// Run `git_command` with `args`, returning its stdout, or an
+    /// error naming `what` with git's stderr.
+    fn run_git(&self, what: &str, args: &[&str]) -> Result<String> {
+        let output = self
+            .git_command()?
+            .args(args)
             .output()
-            .map_err(|e| format!("{}: {e}", exe.display()))?;
+            .map_err(|e| format!("{what}: could not run git: {e}"))?;
         if !output.status.success() {
             return Err(format!(
-                "git ls-remote {remote} failed: {}",
+                "{what} failed: {}",
                 String::from_utf8_lossy(&output.stderr).trim()
             )
             .into());
         }
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.lines().find_map(|line| {
-            let (id, name) = line.split_once('\t')?;
-            (name == refname).then(|| id.to_string())
-        }))
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// The commit each of git remote `remote`'s bookmarks is on,
+    /// by name, asked of the remote itself (`git ls-remote --heads
+    /// <remote>`).
+    ///
+    /// A look, not a fetch: no object is downloaded and nothing in
+    /// the repo changes, the remote-tracking refs included, and
+    /// there is no snapshot.
+    pub fn ls_remote_heads(&self, remote: &str) -> Result<BTreeMap<String, String>> {
+        const HEADS: &str = "refs/heads/";
+        let what = format!("git ls-remote {remote}");
+        let stdout = self.run_git(&what, &["ls-remote", "--heads", "--", remote])?;
+        Ok(stdout
+            .lines()
+            .filter_map(|line| {
+                let (id, name) = line.split_once('\t')?;
+                Some((name.strip_prefix(HEADS)?.to_string(), id.to_string()))
+            })
+            .collect())
+    }
+
+    /// Download the commits `remote`'s `bookmarks` are on into the
+    /// git store, moving no ref (`git fetch --refmap= --no-tags
+    /// --no-write-fetch-head <remote> refs/heads/<b>...`).
+    ///
+    /// `--refmap=` is what keeps it a download: without it git also
+    /// updates `refs/remotes/<remote>/<b>` as a side effect, and jj
+    /// imports that at its next snapshot as a fetch. With no ref
+    /// moved jj sees nothing, and the objects are the ones a fetch
+    /// would bring anyway. They make ancestry askable (see
+    /// `is_ancestor`).
+    pub fn download(&self, remote: &str, bookmarks: &[String]) -> Result<()> {
+        if bookmarks.is_empty() {
+            return Ok(());
+        }
+        let refs: Vec<String> = bookmarks
+            .iter()
+            .map(|b| format!("refs/heads/{b}"))
+            .collect();
+        let mut args = vec![
+            "fetch",
+            "--quiet",
+            "--refmap=",
+            "--no-tags",
+            "--no-write-fetch-head",
+            "--",
+            remote,
+        ];
+        args.extend(refs.iter().map(String::as_str));
+        self.run_git(&format!("git fetch {remote} (download only)"), &args)?;
+        Ok(())
+    }
+
+    /// True when git commit `ancestor` is `descendant` or one of its
+    /// ancestors, asked of the git store by a history walk (gix's
+    /// `rev_walk`).
+    ///
+    /// For commits jj has not imported, which is what `download`
+    /// brings: jj's index does not hold them, so a revset cannot
+    /// ask. The store is opened afresh so objects a git child just
+    /// wrote are seen.
+    pub fn is_ancestor(&self, ancestor: &str, descendant: &str) -> Result<bool> {
+        let backend = git::get_git_backend(self.repo.store())?;
+        let git_repo = gix::open(backend.git_repo_path())?;
+        let ancestor = gix::ObjectId::from_hex(ancestor.as_bytes())?;
+        let descendant = gix::ObjectId::from_hex(descendant.as_bytes())?;
+        for info in git_repo.rev_walk([descendant]).all()? {
+            if info?.id == ancestor {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// The commit each of `remote`'s bookmarks was on at the last
+    /// fetch, by name: the remote-tracking refs, `<b>@<remote>`. A
+    /// conflicted one is left out.
+    pub fn remote_bookmark_targets(&self, remote: &str) -> BTreeMap<String, String> {
+        self.repo
+            .view()
+            .remote_bookmarks(jj_lib::ref_name::RemoteName::new(remote))
+            .filter_map(|(name, remote_ref)| {
+                let id = remote_ref.target.as_normal()?;
+                Some((name.as_str().to_string(), id.hex()))
+            })
+            .collect()
     }
 
     /// Snapshot, then register git remote `name` at `url`
