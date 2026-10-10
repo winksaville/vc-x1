@@ -89,6 +89,7 @@ fn default_params() -> SyncParams {
         bookmark: "main".to_string(),
         remote: "origin".to_string(),
         rebase: false,
+        dry_run: false,
         repo: None,
         scope: None,
     }
@@ -812,4 +813,167 @@ fn an_unpushed_bookmark_holds_the_repo_back() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("local work found"), "unexpected error: {err}");
+}
+
+/// Default params with `--dry-run` set (look only).
+fn dry_run_params() -> SyncParams {
+    SyncParams {
+        dry_run: true,
+        ..default_params()
+    }
+}
+
+/// The work repo's entry in what a look of `fx` found.
+fn look_work(fx: &Fixture) -> Looked {
+    look_repos(&fx.repos(), &dry_run_params())
+        .expect("a look should succeed")
+        .into_iter()
+        .find(|l| l.path == fx.work)
+        .expect("the work repo is looked at")
+}
+
+/// Scenario 14: a look at a level workspace finds both repos up to
+/// date with no local work, and `sync --dry-run` succeeds.
+#[test]
+fn dry_run_up_to_date() {
+    let fx = Fixture::new("look-up-to-date");
+    let looked = look_repos(&fx.repos(), &dry_run_params()).expect("a look should succeed");
+    assert_eq!(looked.len(), 2);
+    for l in &looked {
+        assert_eq!(l.state, State::UpToDate, "{}", l.path.display());
+        assert!(l.work.is_empty(), "{}: {:?}", l.path.display(), l.work);
+    }
+    sync_repos(&mut test_ctx(), &fx.repos(), &dry_run_params()).expect("a look should succeed");
+}
+
+/// Scenario 15: a look at a repo whose remote advanced reports
+/// `behind` and fetches nothing: `main`, `@`, and `main@origin` are
+/// where they were, and a sync afterwards still fast-forwards.
+#[test]
+fn dry_run_behind_fetches_nothing() {
+    let fx = Fixture::new("look-behind");
+    let remote_work = fx.base.join("remote-work.git");
+    let pre_main = cid(&fx.work, "main");
+    let remote_head = push_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+
+    let l = look_work(&fx);
+    assert!(
+        matches!(l.state, State::Behind { .. }),
+        "expected behind, got {:?}",
+        l.state
+    );
+    assert!(l.work.is_empty(), "no local work: {:?}", l.work);
+    sync_repos(&mut test_ctx(), &fx.repos(), &dry_run_params()).expect("a look should succeed");
+
+    assert_eq!(cid(&fx.work, "main"), pre_main, "main as found");
+    assert_eq!(cid(&fx.work, "@-"), pre_main, "@ as found");
+    assert_eq!(cid(&fx.work, "main@origin"), pre_main, "nothing fetched");
+
+    sync_repos(&mut test_ctx(), &fx.repos(), &default_params()).expect("sync should succeed");
+    assert_eq!(cid(&fx.work, "main"), remote_head, "main ff after the look");
+}
+
+/// Scenario 16: a look at a repo with an unpushed commit. With the
+/// remote unchanged it is `ahead`, and once the remote advances too
+/// it is `diverged`. Both report the local work, and nothing moves.
+#[test]
+fn dry_run_ahead_then_diverged() {
+    let fx = Fixture::new("look-diverged");
+    let remote_work = fx.base.join("remote-work.git");
+    add_local_commit(&fx.work, "local.txt", "local\n", "feat: local only");
+    let local_head = cid(&fx.work, "main");
+    let pre_remote = cid(&fx.work, "main@origin");
+
+    let l = look_work(&fx);
+    assert!(
+        matches!(l.state, State::Ahead { .. }),
+        "expected ahead, got {:?}",
+        l.state
+    );
+    assert!(!l.work.is_empty(), "the unpushed commit is local work");
+
+    push_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "remote.txt",
+        "remote\n",
+        "feat: remote only",
+    );
+    let l = look_work(&fx);
+    assert!(
+        matches!(l.state, State::Diverged { .. }),
+        "expected diverged, got {:?}",
+        l.state
+    );
+
+    assert_eq!(cid(&fx.work, "main"), local_head, "main as found");
+    assert_eq!(cid(&fx.work, "main@origin"), pre_remote, "nothing fetched");
+}
+
+/// Scenario 17: a look at a repo whose remote rewrote `main`'s tip.
+/// The remote's commit is one this repo does not have, and the local
+/// bookmark holds nothing of its own, so it reads as `behind`: a
+/// fetch would follow. An edit in `@` is reported as local work, and
+/// the file is untouched.
+#[test]
+fn dry_run_rewritten_reads_as_behind() {
+    let fx = Fixture::new("look-rewritten");
+    let remote_work = fx.base.join("remote-work.git");
+    rewrite_main_from_clone(
+        &fx.base,
+        &remote_work,
+        "work2",
+        "shared.txt",
+        "remote-version\n",
+    );
+    fs::write(fx.work.join("shared.txt"), "local-version\n").expect("write local edit");
+
+    let l = look_work(&fx);
+    assert!(
+        matches!(l.state, State::Behind { .. }),
+        "expected behind, got {:?}",
+        l.state
+    );
+    assert_eq!(l.work, vec!["@ has uncommitted changes".to_string()]);
+    assert_eq!(
+        fs::read_to_string(fx.work.join("shared.txt")).unwrap(),
+        "local-version\n",
+        "the edited file untouched"
+    );
+}
+
+/// Scenario 18: the look's verdict. A repo whose `main` is up to date
+/// but which holds an unpushed bookmark is not "safe to sync" in the
+/// sense of "it will sync": without the go a sync is held back, and
+/// the verdict says so and names the way past. With the go there is
+/// nothing to do.
+#[test]
+fn dry_run_verdict_names_the_hold() {
+    let fx = Fixture::new("look-verdict");
+    fs::write(fx.work.join("topic.txt"), "topic\n").expect("write topic file");
+    jj_ok(&fx.work, &["describe", "@", "-m", "feat: topic"]);
+    jj_ok(&fx.work, &["bookmark", "set", "topic", "-r", "@"]);
+    jj_ok(&fx.work, &["new", "main"]);
+
+    let l = look_work(&fx);
+    assert_eq!(l.state, State::UpToDate);
+    assert_eq!(l.bookmark, "main");
+    let held = verdict(&l, &dry_run_params());
+    assert!(
+        held.contains("held back") && held.contains("--rebase"),
+        "unexpected verdict: {held}"
+    );
+    let go = SyncParams {
+        rebase: true,
+        ..dry_run_params()
+    };
+    assert_eq!(verdict(&l, &go), "a sync would have nothing to do");
 }

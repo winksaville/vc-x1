@@ -38,6 +38,14 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   - Waits on: **`vc-x1 closed "<title>"`** landed, and the session viewer good enough to read
     a cycle's record from the transcript.
   - Place when unblocked: first.
+- **Sync's remote look stops spawning git.** (wink + agent, 2026-10-09) `sync --dry-run` learns
+  the commit a remote's bookmark is on by spawning `git ls-remote`, the sixth entry of the
+  spawn register in `clippy.toml` and the one spawn of `git`. Replace the body of `ls_remote` in
+  `src/jj/session.rs` with jj-lib's query, delete the `#[allow]`, and close the entry.
+  - Waits on: jj-lib's public API offering that query. Neither 0.45.1 nor 0.46.0 has one:
+    `rg -i 'ls.remote' src/` in the jj-lib source prints nothing, and its git subprocess layer is
+    `pub(crate)`. An upstream feature request, once filed or found, is named here.
+  - Place when unblocked: first, being one function.
 
 ## Todo
 
@@ -64,6 +72,33 @@ and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the
     before its re-sync.
 - The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
 - The heading names, `## Doing` and `## Done`, are decided with it.
+
+### A commit body carries a legend for its markers
+
+(wink, 2026-10-09) A commit body's `*` is a problem the commit addresses and each `-` under it a
+solution, by [Commit-body form](agent-data/prose.md#commit-body-form). The rule is in the
+agent-files, which a reader of `git log` or of GitHub never sees, so to them the body is a nested
+list and the pairing goes unread. Noticed reading the body of "feat: sync --dry-run looks and
+changes nothing".
+
+- One line, after the intro paragraph and before the first `*`, a blank line either side:
+  ``Legend: `*` is a problem this commit addresses, `-` is a solution to it.``
+- A bookend body has no list and carries no legend.
+- An `agent-files` proposal: the rule in `prose.md` and the specimen in `commit-model.md` change
+  together, and bodies already published keep the form they shipped with.
+
+### jj-lib moves to 0.46.0
+
+(wink, 2026-10-09) jj-lib 0.46.0 is published and the project builds against 0.45. Found while
+asking whether a newer jj-lib could tell `sync --dry-run` where a remote's bookmark is: it cannot,
+so the move stands on its own.
+
+- The installed `jj` moves with it: the version gate compares the `jj` CLI with the linked
+  jj-lib, and the CLI here is 0.45.1.
+- The `gix` line in `Cargo.toml` follows, 0.87 to 0.88, since it names the gix jj-lib resolves.
+- The facade in `src/jj/` takes whatever the API changed between the two releases.
+- The check `Cargo.toml` asks for at a jj-lib bump is already made for this one: 0.46.0 has no
+  remote-ref query, so the `## Waiting` entry stays.
 
 ### symlink names a path over 200 characters as Claude Code does
 

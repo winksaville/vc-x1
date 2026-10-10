@@ -4,7 +4,8 @@
 # `Command::new` site needs an entry below and a visible
 # `#[allow(clippy::disallowed_methods)]` naming it.
 #
-# The register, closed (wink, 2026-08-19), reopened once for entry 5:
+# The register, closed (wink, 2026-08-19), reopened for entries 5
+# and 6:
 #
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
@@ -26,6 +27,15 @@
 #    whole job. Opened 2026-08-21 by the "empty custom-family into
 #    the pinned set and config" cycle, whose plan put the checklist
 #    commands in config for one subcommand to run.
+# 6. Sync's remote look (src/jj/session.rs, `ls_remote`):
+#    `git ls-remote <remote> refs/heads/<bookmark>`, the commit a
+#    remote's bookmark is on, asked without fetching. `sync --dry-run`
+#    has to change nothing, and a fetch changes the repo. jj-lib has
+#    no such query: it spawns git itself for its network legs and
+#    keeps that layer private, and it builds gix with no network
+#    client, as of 0.45.1 and 0.46.0. Opened 2026-10-09 (wink) by the
+#    "feat: sync is safe by default" cycle, and temporary: the entry
+#    closes when jj-lib offers the query (TODO.md > ## Waiting).
 #
 # jj-lib's own git children (fetch/push/clone network legs, the
 # default-branch query) are jj-lib's implementation detail, not

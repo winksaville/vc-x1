@@ -885,6 +885,52 @@ impl RepoSession {
         Ok(lines)
     }
 
+    /// The commit git remote `remote` holds its bookmark `bookmark`
+    /// on, asked of the remote itself (`git ls-remote <remote>
+    /// refs/heads/<bookmark>`), `None` when the remote has no such
+    /// bookmark.
+    ///
+    /// A look, not a fetch: no object is downloaded and nothing in
+    /// the repo changes, the remote-tracking refs included, and
+    /// there is no snapshot. Spawns the git executable jj's own
+    /// fetch uses (`git.executable-path`), so it takes the same
+    /// config and credentials. jj-lib keeps its git subprocess
+    /// layer to itself and builds gix without a network client, so
+    /// the spawn is ours, the sixth entry of the register in
+    /// `clippy.toml`, until jj-lib offers the query.
+    /// `GIT_TERMINAL_PROMPT=0` makes a missing credential an error
+    /// rather than a prompt nobody answers.
+    pub fn ls_remote(&self, remote: &str, bookmark: &str) -> Result<Option<String>> {
+        use jj_lib::git::GitSettings;
+        let backend = git::get_git_backend(self.repo.store())?;
+        let exe = GitSettings::from_settings(&self.settings)?.executable_path;
+        let refname = format!("refs/heads/{bookmark}");
+        // Register entry 6 (clippy.toml): sync's remote look. jj-lib
+        // has no query for the commit a remote's bookmark is on, and
+        // the entry closes when it offers one.
+        #[allow(clippy::disallowed_methods)]
+        let output = std::process::Command::new(&exe)
+            .arg("--git-dir")
+            .arg(backend.git_repo_path())
+            .args(["ls-remote", "--", remote, &refname])
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("{}: {e}", exe.display()))?;
+        if !output.status.success() {
+            return Err(format!(
+                "git ls-remote {remote} failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )
+            .into());
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.lines().find_map(|line| {
+            let (id, name) = line.split_once('\t')?;
+            (name == refname).then(|| id.to_string())
+        }))
+    }
+
     /// Snapshot, then register git remote `name` at `url`
     /// (`jj git remote add <name> <url>`).
     ///

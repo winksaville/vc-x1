@@ -379,6 +379,12 @@ pub(crate) enum Commands {
         A repo that holds some is not fetched: sync says what it\n\
         found, syncs the other repos, and exits non-zero naming it.\n\
         --rebase is the go to sync it anyway.\n\n\
+        With --dry-run sync only looks and changes nothing. It does\n\
+        not fetch: it asks each remote which commit its bookmark is\n\
+        on, and reports that beside the local work it found, as what\n\
+        a sync would do. A remote that advanced and one that rewrote\n\
+        history both read as behind, their commits not being here to\n\
+        tell apart. It exits 0 whatever it finds.\n\n\
         One atomic operation: fetch, then per repo, by where its\n\
         bookmark was before the fetch:\n  \
           - up-to-date        nothing to do\n  \

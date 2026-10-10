@@ -1276,6 +1276,35 @@ Per repo, `sync` classifies the local bookmark, as it was before the fetch, agai
 The bookmark is read before the fetch because afterwards a repo that was behind reads as up to
 date.
 
+**`--dry-run`** looks and changes nothing. It does not fetch. It asks each remote which commit its
+bookmark is on (`git ls-remote`, run with the git that jj's own fetch uses) and reports that
+beside the local work it found, worded as what a sync would do:
+
+| It says of the bookmark | Meaning |
+|-------------------------|---------|
+| is up to date with `<remote>` | the remote's bookmark and the local one are on the same commit |
+| is behind `<remote>` | the remote moved, and the local bookmark holds no commits of its own |
+| is ahead of `<remote>` | the local bookmark holds unpushed commits, and the remote has not moved |
+| has diverged from `<remote>` | the local bookmark holds unpushed commits, and the remote moved |
+
+Each repo's report ends with a verdict, what a sync would do: have nothing to do, follow the
+remote, rebase the bookmark (with `--rebase`), or be held back. "Up to date" is about the one
+bookmark being synced and is not the verdict: a repo whose `main` is up to date and which holds
+an unpushed bookmark elsewhere is still held back.
+
+```
+$ vc-x1 sync --dry-run
+.: 'main' is up to date with origin
+.: holds local work:
+.:   bookmark topic has commits origin does not
+.: a sync would be held back: commit and push the local work, or pass --rebase
+```
+
+No bookmark, `@`, file, or remote-tracking ref (`<b>@<remote>`) changes, so it is safe in the
+agent repo under a running session. What it does make is the working-copy snapshot any jj command
+makes. Without the remote's commits it cannot tell a remote that advanced from one that rewrote
+history: both read as behind. It exits 0 whenever the look itself succeeded, whatever it found.
+
 `--bookmark` names a **work-repo** bookmark only: the bot repo is a linear journal on `main` by
 design, so its side of every step (tracking preflight, classify, act, reposition) always uses `main`
 regardless of the flag.
@@ -1310,6 +1339,7 @@ between. Until such a design exists, `jj op log` + `jj op restore` is the recove
 
 ```
 vc-x1 sync                            # the repo in the current directory
+vc-x1 sync --dry-run                  # look only: ask the remote, report, change nothing
 vc-x1 sync --rebase                   # sync a repo that holds local work, rebasing as needed
 vc-x1 sync --scope=work               # only the work repo
 vc-x1 sync --scope=agent              # only the agent repo
@@ -1340,6 +1370,7 @@ agent repo alone.
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
 | `--rebase` | Sync a repo that holds local work: rebase a diverged bookmark onto its remote, and a non-empty work repo `@` onto the synced bookmark |
+| `--dry-run` | Look only: ask the remote where its bookmark is and report, fetching and changing nothing |
 
 **Output shape.** Sync collapses output based on what it finds:
 
@@ -1350,6 +1381,8 @@ agent repo alone.
 - **Anything else** (`behind` / `rewritten` / `ahead` / `diverged`): per-repo fetch + state
   lines, then the actions run.
 - **Held back**: a repo with local work gets its findings listed, and no fetch line.
+- **`--dry-run`**: the one-line summary when every repo is level and holds no local work,
+  otherwise per repo its state and the local work found.
 - **`--quiet`**: no output at any level, and the exit code is the only signal. Intended for
   scripts that just need success/failure.
 
@@ -1858,7 +1891,8 @@ Task tracking and release details: near-term tasks in [TODO.md](TODO.md), per-re
 ### No process spawns
 
 vc-x1 runs jj and git through the jj-lib and gix libraries, never by spawning the `jj` or `git`
-binaries. The ban is enforced, and the exceptions are not: there is no allowlist. What exists is
+binaries, with one temporary exception named below. The ban is enforced, and the exceptions are
+not: there is no allowlist. What exists is
 three things, and it pays to know which is which.
 
 - **The ban is config.** `clippy.toml` lists `std::process::Command::new` under
@@ -1866,11 +1900,13 @@ three things, and it pays to know which is which.
   `cargo clippy`, which `vc-x1 validate` runs.
 - **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
   is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
-  it claims. Nine sites carry one today.
-- **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
+  it claims. Ten sites carry one today.
+- **The register is prose.** The numbered comment at the top of `clippy.toml` names the six
   kinds of spawn that are permitted and why: the `jj -V` version probe, push's `$EDITOR`, init's
-  `gh` calls, the test helpers and the CLI tests' launcher, and validate running the configured
-  commands. Nothing checks the register against the attributes. A site with an attribute and no
+  `gh` calls, the test helpers and the CLI tests' launcher, validate running the configured
+  commands, and sync's remote look, `git ls-remote`. The last is the one spawn of `git`, and is
+  temporary: jj-lib has no query for the commit a remote's bookmark is on, and the entry closes
+  when it offers one. Nothing checks the register against the attributes. A site with an attribute and no
   entry passes the build and is a review finding.
 
 To see every granted site:

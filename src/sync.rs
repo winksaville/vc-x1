@@ -27,6 +27,12 @@
 //! classified from it, since afterwards a repo that was behind reads
 //! as up to date.
 //!
+//! **`--dry-run`** looks and changes nothing (see `look_repos`). It
+//! does not fetch: it asks each remote where its bookmark is
+//! (`jj::git_ls_remote`) and reports that beside the local work it
+//! found. A look that fetched and then restored would put at risk
+//! what the gate exists to protect.
+//!
 //! **Stop-on-error**: a failure leaves state where the failing step
 //! stopped so the user can inspect it. Each repo's pre-sync op id
 //! is captured in memory (`jj::current_op_id`) and the error report
@@ -88,6 +94,18 @@ pub struct SyncArgs {
     #[arg(long)]
     pub rebase: bool,
 
+    /// Look only: report each repo's local work and where it stands
+    /// against its remote, and change nothing.
+    ///
+    /// Nothing is fetched. The remote is asked which commit its
+    /// bookmark is on, and the report says what a sync would do:
+    /// nothing, follow the remote, or need `--rebase`. Without the
+    /// remote's commits a remote that advanced and one that rewrote
+    /// history read the same, as behind. Exits 0 whenever the look
+    /// itself succeeded, whatever it found.
+    #[arg(long)]
+    pub dry_run: bool,
+
     /// Workspace root, or a single jj repo to sync on its own.
     ///
     /// - `-R PATH` alone: sync just the repo at PATH.
@@ -127,6 +145,7 @@ pub struct SyncArgs {
 ///   work (see `local_work`), rebasing a diverged bookmark (see
 ///   `act_on_state`) and a non-empty work repo `@` (see
 ///   `reposition_work`).
+/// - `dry_run`: `--dry-run`, look only (see `look_repos`).
 /// - `repo`: `-R/--repo` path (None => discover the workspace
 ///   root from cwd).
 /// - `scope`: `--scope` parsed (None => `.`, unless `repo` names
@@ -136,6 +155,7 @@ pub struct SyncParams {
     pub bookmark: String,
     pub remote: String,
     pub rebase: bool,
+    pub dry_run: bool,
     pub repo: Option<PathBuf>,
     pub scope: Option<Scope>,
 }
@@ -149,6 +169,7 @@ impl From<&SyncArgs> for SyncParams {
             bookmark: a.bookmark.clone(),
             remote: a.remote.clone(),
             rebase: a.rebase,
+            dry_run: a.dry_run,
             repo: a.repo.clone(),
             scope: a.scope.clone(),
         }
@@ -271,6 +292,12 @@ pub fn sync_repos(
         crate::common::verify_tracking(repo, bookmark)?;
     }
 
+    if params.dry_run {
+        report_look(&look_repos(repos, params)?, params);
+        debug!("sync: exit");
+        return Ok(());
+    }
+
     // The gate: a repo that holds local work is not fetched without
     // the go, since local work is all a fetch can collide with.
     let mut held: Vec<PathBuf> = Vec::new();
@@ -369,6 +396,192 @@ fn local_work(repo: &Path, remote: &str) -> Result<Vec<String>, Box<dyn std::err
         ));
     }
     Ok(work)
+}
+
+/// One repo as a look found it: the local work it holds (see
+/// `local_work`) and where its bookmark stands against the remote's.
+#[derive(Debug)]
+pub struct Looked {
+    pub path: PathBuf,
+    pub bookmark: String,
+    pub work: Vec<String>,
+    pub state: State,
+}
+
+/// Look at each repo without changing it: no fetch, no bookmark or
+/// `@` moved, no remote-tracking ref updated.
+///
+/// What it does make is the working-copy snapshot any jj command
+/// makes, since "does `@` hold changes" is asked of the files as
+/// they are now.
+pub fn look_repos(
+    repos: &[PathBuf],
+    params: &SyncParams,
+) -> Result<Vec<Looked>, Box<dyn std::error::Error>> {
+    let mut looked = Vec::new();
+    for repo in repos {
+        let bookmark = repo_bookmark(repo, &params.bookmark);
+        looked.push(Looked {
+            path: repo.clone(),
+            bookmark: bookmark.to_string(),
+            work: local_work(repo, &params.remote)?,
+            state: look_state(repo, bookmark, &params.remote)?,
+        });
+    }
+    Ok(looked)
+}
+
+/// Where `bookmark` stands against `remote`'s, the remote asked and
+/// nothing fetched.
+///
+/// The remote answers with one commit id, and what can be said of
+/// it depends on whether this repo has that commit:
+///
+/// - It is the local bookmark's commit: `UpToDate`.
+/// - The repo has it, from an earlier fetch or as its own unpushed
+///   work's ancestor: the two ancestry probes `classify` makes.
+/// - The repo does not have it, so the remote has moved to commits
+///   not yet fetched and ancestry cannot be asked. A local bookmark
+///   that is on the remote holds nothing of its own, so a fetch
+///   would follow: `Behind`, whether the remote advanced or rewrote
+///   history. One that is not holds local commits: `Diverged`.
+///
+/// Returns `NoRemote` when the remote has no such bookmark, and never
+/// `Rewritten`, which only a fetch can tell.
+fn look_state(
+    repo: &Path,
+    bookmark: &str,
+    remote: &str,
+) -> Result<State, Box<dyn std::error::Error>> {
+    let heads = local_bookmark_heads(repo, bookmark)?;
+    let Some(head) = jj::git_ls_remote(repo, remote, bookmark)? else {
+        return Ok(State::NoRemote);
+    };
+    let theirs: String = head.chars().take(12).collect();
+    let local = match heads.as_slice() {
+        [] => {
+            return Err(format!("{}: bookmark '{bookmark}' does not exist", repo.display()).into());
+        }
+        [local] => local.clone(),
+        // Conflicted: an earlier fetch's divergence.
+        _ => {
+            return Ok(State::Diverged {
+                local: heads.join(","),
+                remote: theirs,
+            });
+        }
+    };
+    if head.starts_with(&local) {
+        return Ok(State::UpToDate);
+    }
+    if jj::rev_exists(repo, &head)? {
+        let local_is_anc = jj::matches(repo, &format!("{local}::{head}"))?;
+        let remote_is_anc = jj::matches(repo, &format!("{head}::{local}"))?;
+        return Ok(match (local_is_anc, remote_is_anc) {
+            (true, _) => State::Behind {
+                local,
+                remote: theirs,
+            },
+            (false, true) => State::Ahead {
+                local,
+                remote: theirs,
+            },
+            (false, false) => State::Diverged {
+                local,
+                remote: theirs,
+            },
+        });
+    }
+    let on_remote = format!("{local} & ::remote_bookmarks(remote=exact:\"{remote}\")");
+    Ok(if jj::matches(repo, &on_remote)? {
+        State::Behind {
+            local,
+            remote: theirs,
+        }
+    } else {
+        State::Diverged {
+            local,
+            remote: theirs,
+        }
+    })
+}
+
+/// What a sync would do with a repo a look found as `looked`, in a
+/// phrase: the report's last line for the repo, so a reader is not
+/// left to work the answer out from the state and the local work.
+///
+/// Local work decides first: without the go the repo is held back
+/// whatever its state, since the gate runs before any fetch.
+fn verdict(looked: &Looked, params: &SyncParams) -> String {
+    let remote = &params.remote;
+    if !looked.work.is_empty() && !params.rebase {
+        return "a sync would be held back: commit and push the local work, or pass --rebase"
+            .to_string();
+    }
+    match &looked.state {
+        State::UpToDate | State::Ahead { .. } => "a sync would have nothing to do".to_string(),
+        State::NoRemote => "a sync would skip it".to_string(),
+        State::Behind { .. } | State::Rewritten { .. } => {
+            format!("a sync would follow {remote}")
+        }
+        State::Diverged { .. } => {
+            format!("a sync would rebase '{}' onto {remote}", looked.bookmark)
+        }
+    }
+}
+
+/// Print what a look found: per repo its bookmark's state against
+/// the remote, the local work it holds, and the verdict (see
+/// `verdict`), or the one-line summary when every repo is level and
+/// holds no local work.
+fn report_look(looked: &[Looked], params: &SyncParams) {
+    let level = looked
+        .iter()
+        .all(|l| l.work.is_empty() && matches!(l.state, State::UpToDate | State::NoRemote));
+    if level {
+        let n = looked.len();
+        let noun = if n == 1 { "repo is" } else { "repos are" };
+        info!("sync: {n} {noun} {UP_TO_DATE_MSG}");
+        return;
+    }
+    let remote = &params.remote;
+    for l in looked {
+        let r = l.path.display();
+        let b = &l.bookmark;
+        match &l.state {
+            State::UpToDate => info!("{r}: '{b}' is up to date with {remote}"),
+            State::NoRemote => info!("{r}: '{b}' is not on {remote}"),
+            State::Ahead {
+                local,
+                remote: theirs,
+            } => {
+                info!("{r}: '{b}' is ahead of {remote} (local {local} > remote {theirs})")
+            }
+            State::Behind {
+                local,
+                remote: theirs,
+            }
+            | State::Rewritten {
+                local,
+                remote: theirs,
+            } => {
+                info!("{r}: '{b}' is behind {remote} (local {local}, remote {theirs})")
+            }
+            State::Diverged {
+                local,
+                remote: theirs,
+            } => {
+                info!("{r}: '{b}' has diverged from {remote} (local {local} vs remote {theirs})")
+            }
+        }
+        if !l.work.is_empty() {
+            info!("{r}: holds local work:");
+            for item in &l.work {
+                info!("{r}:   {item}");
+            }
+        }
+        info!("{r}: {}", verdict(l, params));
+    }
 }
 
 /// Clean-case summary tail ("<N> repo(s) ..." prefixed at the emit

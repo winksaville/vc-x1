@@ -139,6 +139,13 @@ pub fn remote_url(repo: &Path, name: &str) -> Result<Option<String>> {
         .map(|u| u.to_bstring().to_string()))
 }
 
+/// One-shot `RepoSession::ls_remote`: the commit `remote` holds
+/// `bookmark` on, asked of the remote without fetching (`git
+/// ls-remote <remote> refs/heads/<bookmark>`).
+pub fn git_ls_remote(repo: &Path, remote: &str, bookmark: &str) -> Result<Option<String>> {
+    session::RepoSession::open(repo)?.ls_remote(remote, bookmark)
+}
+
 /// One-shot `RepoSession::add_git_remote`: register git remote
 /// `name` at `url` (`jj git remote add <name> <url>`).
 pub fn git_remote_add(repo: &Path, name: &str, url: &str) -> Result<()> {
