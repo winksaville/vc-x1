@@ -432,4 +432,16 @@ insert / delete / reorder.
     - **Fix direction:** return the report from every snapshot and warn with the paths and sizes,
       as jj's CLI does, or refuse a push that would leave a new file out.
 
+21. **A test that sets `HOME` fails another that signs a commit.** `init::tests::expand_vars_tilde`
+    sets `HOME` to `/h` for the whole test process and puts it back, and a test that commits while
+    it is set has git look for the signing key under `/h`. Found 2026-10-11 by the cycle **docs:
+    update single-step cycle add zCLOSED.md**:
+    `init::tests::adopt_repo_without_origin_publishes_both` failed once with "Couldn't load public
+    key /h/.ssh/..." and passed on every run after it, nothing having changed.
+    - **Cost:** a validation fails now and then for no reason in the change under it, and is run
+      again. Seen once in about a dozen runs that day.
+    - The test's own comment names the race and says to run single-threaded if it shows.
+    - **Fix direction:** have `expand_vars` take the home directory as an argument in its tests,
+      so no test writes the process's environment.
+
 # References
