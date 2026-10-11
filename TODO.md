@@ -55,6 +55,67 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+#### The lock a running agent holds
+
+The file is `.agent-running` at the workspace root, in `.gitignore`. It is a mutex a running agent
+holds, one session per workspace, and a second session that finds it held refuses to work.
+
+- Wink's first design: the file holds a counter, a session adds one and takes one away, and the
+  file is deleted at 0.
+  - The update is a read, change, and write that two sessions starting together can interleave,
+    so it wants a guard.
+  - A session that dies never takes its one away, and a number does not say which holder is dead.
+- Linux's advisory lock, `flock`, answers both: the kernel releases it when its holder exits or
+  dies. The file then has no contents and is never deleted.
+  - The first form was shared: each session held it shared, and rename and delete asked for it
+    exclusive without waiting. A second session then started as freely as the first.
+  - Wink's call, 2026-10-11: one session per workspace. The session holds it exclusive and asks
+    without waiting, so a second session's request fails at once instead of queueing.
+  - It is advisory: it binds the processes that ask. Claude Code itself still starts, and the
+    refusal is the agent's, by the `custom.md` line.
+  - The lock lasts as long as the process holding it, and an agent's commands each exit at once,
+    so a session needs one process that lives exactly as long as it does.
+- The first experiment: the agent takes the lock at acquaint, by a line in this project's
+  `custom.md`, which [Acquaint](AGENTS.md#acquaint) already reads and acts on. It is an edit of
+  our own `custom.md` and no `agent-files` proposal, wink's call, still its own commit.
+  - The holder is a background command the agent starts, `flock -xn .agent-running sleep
+    infinity`, so there is no release for the agent to forget.
+  - A foreground probe comes first, `flock -xn .agent-running true`, since a background command
+    reports its failure seconds later, after the session has moved on. The first run without it
+    fetched both repos before it learned it was refused, and the second went looking for its
+    holder with `pgrep`, which sees only its own sandbox.
+  - A refusal is one fixed sentence, so the session offers no way around the lock.
+  - The check is `flock -xn .agent-running true` from another terminal: it fails while a session
+    is open and succeeds after.
+- What the experiment finds out:
+  - Whether the holder dies with the session, on a clean exit, a crash, and a closed terminal. One
+    that outlives its session blocks as a stale counter would. We think Claude Code kills its
+    background commands at exit, not verified, and the sandbox may change it.
+  - What a resumed session does, having made no fresh acquaint and so holding no lock.
+  - What a reacquaint does in a session that no longer remembers its holder: its second request
+    collides with its own first and reads as another session.
+  - How an edit to the line reaches a session already open: two trial sessions reacquainted
+    without reading `custom.md` again and acted on the wording they had.
+  - How rename and delete check, since the session running them holds the lock and their own
+    exclusive request would be refused.
+- A second lock, `.vc-x1-running`, wink's thought, 2026-10-11: `vc-x1` takes it itself, exclusive
+  and without waiting, for as long as one run lasts, so two runs in one workspace cannot overlap,
+  whoever started them, a user's two terminals included.
+  - The process that asks is the process that holds, so a session's own `vc-x1` commands never
+    collide with the session's holder, which answers the rename and delete question above.
+  - It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
+    and a push takes the working copy whole, so one agent's edits land in the other's commit
+    even when they touch different files. That is what `.agent-running` is for.
+  - So both, we think: `.vc-x1-running` for the run, `.agent-running` for the session, one agent
+    per workspace, and a second agent gets a second clone.
+  - Every invocation takes it, wink's call, 2026-10-11, the simplest rule. Letting the ones that
+    only read run beside another is a bridge crossed when it is wanted.
+  - To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
+    lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
+- A `vc-x1` command that takes and releases the session lock, for a session hook to call, is where
+  that one goes if the experiment holds.
+- Open: whether the lock is the counter, the `flock`, or the counter guarded by one.
+
 ### push --amend folds a stage into the pushed work commit
 
 (wink + agent, 2026-10-11) A cycle's closing wants to add to the work commit already pushed, not
@@ -305,38 +366,6 @@ an empty public repo there and a local workspace with no remote.
   - A half-made workspace, a repo with no remote at all, as an `init` that failed before
     publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
 - We think the two warnings are delete's alone: such commits move with the directory in a rename.
-
-#### The lock a running agent holds
-
-The file is `.agent.running` at the workspace root, in `.gitignore`. It is a mutex a running agent
-holds, and the command that finds it held refuses.
-
-- Wink's first design: the file holds a counter, a session adds one and takes one away, and the
-  file is deleted at 0.
-  - The update is a read, change, and write that two sessions starting together can interleave,
-    so it wants a guard.
-  - A session that dies never takes its one away, and a number does not say which holder is dead.
-- Linux's advisory lock, `flock`, answers both: the kernel releases it when its holder exits or
-  dies, and it counts the holders. Each session holds it shared, and rename and delete ask for it
-  exclusive without waiting. The file then has no contents and is never deleted.
-  - It is advisory: it binds the processes that ask.
-  - The lock lasts as long as the process holding it, and an agent's commands each exit at once,
-    so a session needs one process that lives exactly as long as it does.
-- The first experiment: the agent takes the lock at acquaint, by a line in this project's
-  `custom.md`, which [Acquaint](AGENTS.md#acquaint) already reads and acts on. It is an edit of
-  our own `custom.md` and no `agent-files` proposal, wink's call, still its own commit.
-  - The holder is a background command the agent starts, `flock -s .agent.running sleep
-    infinity`, so there is no release for the agent to forget.
-  - The check, until rename exists, is `flock -xn .agent.running true` from another terminal: it
-    fails while a session is open and succeeds after.
-- What the experiment finds out:
-  - Whether the holder dies with the session, on a clean exit, a crash, and a closed terminal. One
-    that outlives its session blocks as a stale counter would. We think Claude Code kills its
-    background commands at exit, not verified, and the sandbox may change it.
-  - What a resumed session does, having made no fresh acquaint and so holding no lock.
-- A `vc-x1` command that takes and releases the lock, for a session hook to call, is where this
-  goes if the experiment holds.
-- Open: whether the lock is the counter, the `flock`, or the counter guarded by one.
 
 ### agent-files(proposal): v0.2.8
 
