@@ -42,24 +42,25 @@ since its note is prose.
 | 2026-09-27 | agent-files(proposal): v0.2.6 | 9 | 1773 | the In Progress block's ladder moves below the Deliberation and heads the rung subsections, so the `Ladder details` heading goes and the specimen loses two lines |
 | 2026-10-09 | agent-files(proposal): v0.2.7 | 9 | 1802 | `## Acquaint` in AGENTS.md, a session's first steps in order with a repo check of four findings, and its line in the rules index |
 | 2026-10-11 | docs: a session takes the workspace lock at acquaint | 9 | 1810 | the lock line in `custom.md`, first in its list, eight lines and no change to the set |
+| 2026-10-11 | docs: the session lock is settled as flock | 9 | 1811 | the lock line in `custom.md` loses its link and gains the resumed session's case, one line more and no change to the set |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
 landings before the set was versioned relative to the first version (`- v0.1.0` one before it,
-`-- v0.1.0` two before), and a landed local change carries a `-trailer` version. A cell in angle
-brackets, `<543>`, is a file the total leaves out, shown so a reader sees what it costs, and an
-empty cell is a file that was not in the set that landing.
+`-- v0.1.0` two before), and a landed local change updates the newest column in place and has
+its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
+reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | v0.2.7-lock | v0.2.7 | v0.2.6 |
+| File | v0.2.7 | v0.2.6 | v0.2.5 |
 |---|---:|---:|---:|
-| AGENTS.md | 414 | 414 | 385 |
-| custom.md | 20 | 12 | 12 |
+| AGENTS.md | 414 | 385 | 384 |
+| custom.md | 21 | 12 | 12 |
 | agent-data/code.md | 94 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
-| agent-data/cycle-model.md | 74 | 74 | 74 |
+| agent-data/cycle-model.md | 74 | 74 | 76 |
 | agent-data/jj.md | 391 | 391 | 391 |
 | agent-data/notes.md | 166 | 166 | 166 |
 | agent-data/prose.md | 405 | 405 | 405 |
-| agent-data/rationale.md | <565> | <565> | <543> |
+| agent-data/rationale.md | <565> | <543> | <543> |
 | agent-data/versioning.md | 204 | 204 | 204 |
-| total | 1810 | 1802 | 1773 |
+| total | 1811 | 1773 | 1774 |

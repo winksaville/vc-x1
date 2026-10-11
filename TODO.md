@@ -55,66 +55,41 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-#### The lock a running agent holds
+### vc-x1 takes a lock of its own for every run
 
-The file is `.agent-running` at the workspace root, in `.gitignore`. It is a mutex a running agent
-holds, one session per workspace, and a second session that finds it held refuses to work.
+(wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals
+included, and nothing serializes them. The session lock, `.agent-running`, keeps a second agent
+session out of a workspace and says nothing about a run a user starts beside one.
 
-- Wink's first design: the file holds a counter, a session adds one and takes one away, and the
-  file is deleted at 0.
-  - The update is a read, change, and write that two sessions starting together can interleave,
-    so it wants a guard.
-  - A session that dies never takes its one away, and a number does not say which holder is dead.
-- Linux's advisory lock, `flock`, answers both: the kernel releases it when its holder exits or
-  dies. The file then has no contents and is never deleted.
-  - The first form was shared: each session held it shared, and rename and delete asked for it
-    exclusive without waiting. A second session then started as freely as the first.
-  - Wink's call, 2026-10-11: one session per workspace. The session holds it exclusive and asks
-    without waiting, so a second session's request fails at once instead of queueing.
-  - It is advisory: it binds the processes that ask. Claude Code itself still starts, and the
-    refusal is the agent's, by the `custom.md` line.
-  - The lock lasts as long as the process holding it, and an agent's commands each exit at once,
-    so a session needs one process that lives exactly as long as it does.
-- The first experiment: the agent takes the lock at acquaint, by a line in this project's
-  `custom.md`, which [Acquaint](AGENTS.md#acquaint) already reads and acts on. It is an edit of
-  our own `custom.md` and no `agent-files` proposal, wink's call, still its own commit.
-  - The holder is a background command the agent starts, `flock -xn .agent-running sleep
-    infinity`, so there is no release for the agent to forget.
-  - A foreground probe comes first, `flock -xn .agent-running true`, since a background command
-    reports its failure seconds later, after the session has moved on. The first run without it
-    fetched both repos before it learned it was refused, and the second went looking for its
-    holder with `pgrep`, which sees only its own sandbox.
-  - A refusal is one fixed sentence, so the session offers no way around the lock.
-  - The check is `flock -xn .agent-running true` from another terminal: it fails while a session
-    is open and succeeds after.
-- What the experiment finds out:
-  - Whether the holder dies with the session, on a clean exit, a crash, and a closed terminal. One
-    that outlives its session blocks as a stale counter would. We think Claude Code kills its
-    background commands at exit, not verified, and the sandbox may change it.
-  - What a resumed session does, having made no fresh acquaint and so holding no lock.
-  - What a reacquaint does in a session that no longer remembers its holder: its second request
-    collides with its own first and reads as another session.
-  - How an edit to the line reaches a session already open: two trial sessions reacquainted
-    without reading `custom.md` again and acted on the wording they had.
-  - How rename and delete check, since the session running them holds the lock and their own
-    exclusive request would be refused.
-- A second lock, `.vc-x1-running`, wink's thought, 2026-10-11: `vc-x1` takes it itself, exclusive
-  and without waiting, for as long as one run lasts, so two runs in one workspace cannot overlap,
-  whoever started them, a user's two terminals included.
+- The lock is `.vc-x1-running` at the workspace root, wink's thought: `vc-x1` takes it itself,
+  exclusive and without waiting, for as long as one run lasts, so two runs in one workspace
+  cannot overlap, whoever started them.
   - The process that asks is the process that holds, so a session's own `vc-x1` commands never
-    collide with the session's holder, which answers the rename and delete question above.
-  - It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
-    and a push takes the working copy whole, so one agent's edits land in the other's commit
-    even when they touch different files. That is what `.agent-running` is for.
-  - So both, we think: `.vc-x1-running` for the run, `.agent-running` for the session, one agent
-    per workspace, and a second agent gets a second clone.
-  - Every invocation takes it, wink's call, 2026-10-11, the simplest rule. Letting the ones that
-    only read run beside another is a bridge crossed when it is wanted.
-  - To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
-    lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
-- A `vc-x1` command that takes and releases the session lock, for a session hook to call, is where
-  that one goes if the experiment holds.
-- Open: whether the lock is the counter, the `flock`, or the counter guarded by one.
+    collide with the session's holder.
+  - That answers how rename and delete check: they take this lock and never ask for the
+    session's, which the session running them already holds.
+- It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
+  and a push takes the working copy whole, so one agent's edits land in the other's commit
+  even when they touch different files. That is what `.agent-running` is for.
+- So both, we think: `.vc-x1-running` for the run, `.agent-running` for the session, one agent
+  per workspace, and a second agent gets a second clone.
+- Every invocation takes it, wink's call, 2026-10-11, the simplest rule. Letting the ones that
+  only read run beside another is a bridge crossed when it is wanted.
+- To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
+  lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
+- Left by the session lock, whose record is the landmark `docs: the session lock is settled as
+  flock`:
+  - A `vc-x1` command that takes and releases the session lock, for a session hook to call, so
+    the lock no longer rests on a line the agent reads.
+  - A reacquaint in a session that no longer remembers its holder probes, collides with its own
+    holder, and reads that as another session.
+  - A reacquaint does not always read `custom.md` again, so an edit to the lock line reaches a
+    fresh session alone.
+  - The lock line's resumed case is untested as written: a session that met the line cold is
+    closed, resumed, and sent one message, and its first two commands are to be the probe and
+    the holder. That cycle closed without the run, wink's call.
+  - The session lock is proposed for the set by this entry's cycle, we think, `flock` being a
+    Linux tool and the line being this project's.
 
 ### push --amend folds a stage into the pushed work commit
 
@@ -134,6 +109,26 @@ with a trailer written by hand, and then the push.
 - It is a rewrite of a published commit, so it takes the approval any push takes, and it is
   refused on a bookmark that has landed.
 - First, wink's order, ahead of the `validate-anchors` entries.
+
+### A validation failure is investigated before it is run again
+
+(wink + agent, 2026-10-11) A full validation failed once in the closing of the cycle **docs: the
+session lock is settled as flock**, with no code changed, and the agent ran it again, saw it
+pass, and reported that. A pass on the second run says nothing of why the first failed, and wink
+wants the failure looked into first.
+
+- The failure: `init::tests::adopt_keeps_a_gitignore_that_has_the_line` and
+  `fix_desc::tests::por_workspace_noops` each died making a commit, on "Couldn't load public key
+  /h/.ssh/git-commits-wink@saville.com.pub". The runs before and after passed all 650.
+- The cause, we think: a test in `src/init/tests.rs` sets `HOME` to `/h` for the whole test
+  process while it checks `expand_vars`, and puts it back. A test running beside it that signs
+  a commit in that moment looks for the signing key under `/h`.
+  - The fix is that test taking its home as an argument, or the tests that read `HOME` running
+    one at a time, settled in the cycle.
+- The rule is an `agent-files` proposal, in [The per-rung flow](AGENTS.md#the-per-rung-flow)'s
+  Validate step: a failure is read and its cause named before a second run, and a failure that
+  does not repeat is a finding, reported and given a Todo entry.
+- Third, the agent's placing: a validation that fails by chance is one nobody trusts.
 
 ### validate-desc and fix-desc read every ochid trailer
 
@@ -375,8 +370,24 @@ acquaint's repo check with it.
 
 - It stays parked (wink, 2026-10-11): whether `zDOING.md` and `zTODO.md` are the right files is
   not settled.
-- The cycle it waited on, **feat: sync is safe by default**, has landed, so its rule can name
-  `vc-x1 sync --scope=both --dry-run` for the look in both steps.
+- The cycle it waited on, **feat: sync is safe by default**, has landed, and there are three
+  steps, each its own, wink's call, 2026-10-11, on a review of the parked commit:
+  - [Acquaint](AGENTS.md#acquaint) looks, `vc-x1 sync --scope=both --dry-run`, so "left as found"
+    holds with no exception for the sync's own acts.
+  - [Opening](AGENTS.md#opening) syncs, `vc-x1 sync --scope=both`, since the bookmark is created
+    on a `main` that is level.
+  - Land syncs the same way, as its first step and before the reshape, the third step and new
+    to the parked commit. A cycle's other pushes go to its own bookmark, and `main` is the one
+    target someone else can reach first.
+    - A `main` the sync moved stops the Land and the user is asked: the tree that would land is
+      no longer the one reviewed and validated, the version-of-record was bumped from a `main`
+      since passed, and the record files every cycle edits will conflict.
+    - How to recover is left to the first time it happens. We think a trapezoid takes the moved
+      `main` as its merge's first parent with no rung rewritten, and a single-step commit needs
+      a rebase, which rewrites a published bookmark.
+  - The commit's wording is of the sync before that cycle, which rebased a `main` that diverged.
+    Today's holds such a repo back and exits non-zero, so the text and its rationale's "what it
+    costs" paragraph are rewritten, not carried.
 - When it resumes, the commit is rebased onto `main`, which it sits before, and its `TODO.md` is
   reconciled with this one.
 - It takes the rule of [A commit body is an intro and a pointer to the
