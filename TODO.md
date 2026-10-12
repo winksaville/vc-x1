@@ -9,7 +9,8 @@ Where the agent was, for the agent that comes next: working copy state, the step
 open question. Ephemeral, never a record. Written before a restart or when a session is about to
 lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
 
-_None._
+(agent, 2026-10-12) The notes are in [zDOING.md](zDOING.md#continuation-notes): a cycle is in
+flight and a parked bookmark waits on it.
 
 ## In Progress
 
@@ -55,6 +56,27 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### The session lock is proposed to the set, and its instruction has two faults
+
+(wink + agent, 2026-10-12) The session lock, `.agent-running`, is an instruction in this project's
+`custom.md` and nowhere else. What it is, and what two sessions do without it, is in
+[session-lock.md](notes/session-lock.md).
+
+- Propose the lock to the set, convention work and so a cycle of its own. `flock` is a Linux
+  tool and the instruction is this project's, and both want an answer first.
+  - macOS has the `flock` call and does not ship the tool, and Windows has neither.
+  - We think the answer is a small `vc-x1` command that takes the lock and holds it, through
+    Rust's `File::try_lock`: `flock` on Linux and macOS, `LockFileEx` on Windows, and each
+    system drops the lock when the holder dies.
+  - That is code in `vc-x1` for the session lock, which the cycle that tested two sessions
+    decided against. It weighed races and not other systems.
+- The instruction has two faults, and neither has a fix planned:
+  - A session that has forgotten it holds the lock probes again at a reacquaint, fails against
+    its own holder, and stops as if another session held it.
+  - An edit to the instruction reaches only the sessions started after it.
+- A hook that takes the lock in the agent's place was designed and not built, wink's call, the
+  same file saying why.
+
 ### vc-x1 takes a lock of its own for every run
 
 (wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals
@@ -77,19 +99,25 @@ session out of a workspace and says nothing about a run a user starts beside one
   only read run beside another is a bridge crossed when it is wanted.
 - To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
   lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
-- Left by the session lock, whose record is the landmark `docs: the session lock is settled as
-  flock`:
-  - A `vc-x1` command that takes and releases the session lock, for a session hook to call, so
-    the lock no longer rests on a line the agent reads.
-  - A reacquaint in a session that no longer remembers its holder probes, collides with its own
-    holder, and reads that as another session.
-  - A reacquaint does not always read `custom.md` again, so an edit to the lock line reaches a
-    fresh session alone.
-  - The lock line's resumed case is untested as written: a session that met the line cold is
-    closed, resumed, and sent one message, and its first two commands are to be the probe and
-    the holder. That cycle closed without the run, wink's call.
-  - The session lock is proposed for the set by this entry's cycle, we think, `flock` being a
-    Linux tool and the line being this project's.
+- Seen, 2026-10-12: two pushes started in the same second in one workspace. One died with
+  `error: Concurrent checkout` partway, and the other took the first's agent-repo commit as its
+  partner, so two work commits name one ([session-lock.md](notes/session-lock.md)).
+
+### init writes the agent sandbox's names into .gitignore
+
+(wink + agent, 2026-10-12) Claude Code's sandbox puts empty files at a workspace's root while an
+agent's command runs, `.bashrc`, `.gitconfig`, `.mcp.json`, `.claude/settings.json`, and some
+twenty more. A snapshot taken from outside that sandbox at that moment sees them as new files,
+and a push commits them: 23 went into a commit in the two-session tests
+([session-lock.md](notes/session-lock.md)).
+
+- This repo's `.gitignore` names them, added by hand, and the one `init` writes has four lines
+  and none of them.
+- `init` writes the names, and a workspace made before it does gets them by hand or by a command
+  that brings a workspace up to date.
+- The list is Claude Code's and can change with a release, so where it is kept, and how it is
+  checked against what the sandbox does, is settled in the cycle.
+- We think a user's own `jj st` beside a running agent command sees the files too. Not tested.
 
 ### push --amend folds a stage into the pushed work commit
 
@@ -1625,6 +1653,21 @@ force-published: the heaviest rewrite the work-to-transcript lookup can meet.
 Items not yet solid enough for `## Todo` (or surfaced during close-out / end-of-day before they are
 fully formed). Triaged at the next opening: promote to `## Todo` / `notes/todo-backlog.md`, fold
 into a picked-up cycle, or drop.
+
+### Several agents work in one workspace
+
+(wink, 2026-10-12) More than one agent session working together in one workspace, which the
+session lock, `.agent-running`, refuses today. It could be useful where the sessions work on
+separate projects that share a workspace.
+
+- A first try, the same day, two sessions in a scratch workspace with no lock: nothing either
+  wrote was lost, and the record came out wrong, titles, trailers, and one failed push
+  ([session-lock.md](notes/session-lock.md)).
+- The sessions share one `@` and a push takes the working copy whole, so one session's edits
+  land in the other's commit. We think it wants a jj workspace for each session, or a push that
+  takes the paths it is given.
+- Until then the session lock stays, one session per workspace, and a second agent gets a
+  second clone.
 
 ### Tool-results land in the agent-repo, tmp/ for the non-durable
 
