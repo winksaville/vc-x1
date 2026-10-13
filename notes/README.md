@@ -22,7 +22,7 @@ files).
 Multi-cycle programs too big for a TODO.md entry get their own dated plan file, e.g.
 [refactor-20260716.md](refactor-20260716.md) (typed jj facade -> jj-lib in-process): one `##`
 section per stage, so chores and todo entries can reference a stage by anchor. The plan file owns
-the forward design; chores still records each shipped cycle.
+the forward design, and chores still records each shipped cycle.
 
 A rule that governs what the tool does, rather than a record of what was done, gets its own topic
 file so it can be found without knowing which cycle produced it, e.g.
@@ -36,7 +36,8 @@ that file's per-file window.
 
 The session lock, `.agent-running`, and what two agent sessions in one workspace do without it,
 are in [session-lock.md](session-lock.md): what Claude Code's hooks could do in the agent's place,
-three tests of two sessions with no lock, and what was decided.
+three tests of two sessions with no lock, and what was decided. The lock is off, and the file
+keeps the instruction that took it and what turning it on again would want settled.
 
 How a change to a line in any work-repo file is connected to its discussion in the agent-repo,
 the partner commit, its time-window, and the transcript write, is in

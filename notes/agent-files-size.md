@@ -43,6 +43,7 @@ since its note is prose.
 | 2026-10-09 | agent-files(proposal): v0.2.7 | 9 | 1802 | `## Acquaint` in AGENTS.md, a session's first steps in order with a repo check of four findings, and its line in the rules index |
 | 2026-10-11 | docs: a session takes the workspace lock at acquaint | 9 | 1810 | the lock line in `custom.md`, first in its list, eight lines and no change to the set |
 | 2026-10-11 | docs: the session lock is settled as flock | 9 | 1811 | the lock line in `custom.md` loses its link and gains the resumed session's case, one line more and no change to the set |
+| 2026-10-13 | docs: turn off the session lock | 9 | 1804 | the lock line in `custom.md` becomes an entry saying the lock is off and where the instruction is kept, seven lines fewer and no change to the set |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -54,7 +55,7 @@ reader sees what it costs, and an empty cell is a file that was not in the set t
 | File | v0.2.7 | v0.2.6 | v0.2.5 |
 |---|---:|---:|---:|
 | AGENTS.md | 414 | 385 | 384 |
-| custom.md | 21 | 12 | 12 |
+| custom.md | 14 | 12 | 12 |
 | agent-data/code.md | 94 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 74 | 74 | 76 |
@@ -63,4 +64,4 @@ reader sees what it costs, and an empty cell is a file that was not in the set t
 | agent-data/prose.md | 405 | 405 | 405 |
 | agent-data/rationale.md | <565> | <543> | <543> |
 | agent-data/versioning.md | 204 | 204 | 204 |
-| total | 1811 | 1773 | 1774 |
+| total | 1804 | 1773 | 1774 |

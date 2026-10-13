@@ -60,28 +60,12 @@ lock** landed.
   - an ochid carrying no path, and the config's version field.
 - First, the agent's placing: the draft is written, and it goes stale as `TODO.md` changes.
 
-### The session lock is proposed to the set, and its instruction has two faults
+### The scratch the session lock's tests left is deleted
 
-(wink + agent, 2026-10-12) The session lock, `.agent-running`, is an instruction in this project's
-`custom.md` and nowhere else. What it is, and what two sessions do without it, is in
-[session-lock.md](notes/session-lock.md).
-
-- Propose the lock to the set, convention work and so a cycle of its own. `flock` is a Linux
-  tool and the instruction is this project's, and both want an answer first.
-  - macOS has the `flock` call and does not ship the tool, and Windows has neither.
-  - We think the answer is a small `vc-x1` command that takes the lock and holds it, through
-    Rust's `File::try_lock`: `flock` on Linux and macOS, `LockFileEx` on Windows, and each
-    system drops the lock when the holder dies.
-  - That is code in `vc-x1` for the session lock, which the cycle that tested two sessions
-    decided against. It weighed races and not other systems.
-- The instruction has two faults, and neither has a fix planned:
-  - A session that has forgotten it holds the lock probes again at a reacquaint, fails against
-    its own holder, and stops as if another session held it.
-  - An edit to the instruction reaches only the sessions started after it.
-- A hook that takes the lock in the agent's place was designed and not built, wink's call, the
-  same file saying why.
-- Scratch the tests left, wink's to delete: `/tmp/hook-probe`, `/tmp/vc-x1-two-sessions`, and the
-  workspace `../agent-tests`.
+(wink + agent, 2026-10-12) The tests of two sessions in one workspace left scratch behind, wink's
+to delete: `/tmp/hook-probe`, `/tmp/vc-x1-two-sessions`, and the workspace `../agent-tests`. What
+the tests found is in [session-lock.md](notes/session-lock.md), and the lock itself is off since
+2026-10-13.
 
 ### vc-x1 takes a lock of its own for every run
 
@@ -1688,9 +1672,9 @@ into a picked-up cycle, or drop.
 
 ### Several agents work in one workspace
 
-(wink, 2026-10-12) More than one agent session working together in one workspace, which the
-session lock, `.agent-running`, refuses today. It could be useful where the sessions work on
-separate projects that share a workspace.
+(wink, 2026-10-12) More than one agent session working together in one workspace. Nothing refuses
+it since the session lock, `.agent-running`, was turned off 2026-10-13, and nothing makes it work
+either. It could be useful where the sessions work on separate projects that share a workspace.
 
 - A first try, the same day, two sessions in a scratch workspace with no lock: nothing either
   wrote was lost, and the record came out wrong, titles, trailers, and one failed push
@@ -1698,8 +1682,8 @@ separate projects that share a workspace.
 - The sessions share one `@` and a push takes the working copy whole, so one session's edits
   land in the other's commit. We think it wants a jj workspace for each session, or a push that
   takes the paths it is given.
-- Until then the session lock stays, one session per workspace, and a second agent gets a
-  second clone.
+- Until then one session per workspace is the user's to keep, and a second agent gets a second
+  clone.
 
 ### Tool-results land in the agent-repo, tmp/ for the non-durable
 

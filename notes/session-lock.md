@@ -1,15 +1,17 @@
 # The session lock, and what two sessions in one workspace do
 
 The session lock is the exclusive `flock` on `.agent-running` that an agent session holds for as
-long as it runs, taken because an instruction in `custom.md` tells the agent to take it. This file
-holds what was found out about it on 2026-10-12: what Claude Code's hooks could do in the agent's
-place, and what happens when two sessions work in one workspace with no lock at all. The lock's
-own tests, of 2026-10-11, are in the landmark `docs: the session lock is settled as flock`.
+long as it runs, taken because an instruction in `custom.md` tells the agent to take it. It is
+off since 2026-10-13 ([Turned off](#turned-off)), and the instruction is kept here ([The
+instruction, as it was](#the-instruction-as-it-was)). This file also holds what was found out
+about the lock on 2026-10-12: what Claude Code's hooks could do in the agent's place, and what
+happens when two sessions work in one workspace with no lock at all. The lock's own tests, of
+2026-10-11, are in the landmark `docs: the session lock is settled as flock`.
 
-The short of it: two sessions lose no data and leave a wrong record, the instruction is kept, and
-no hook is built.
+The short of it: two sessions lose no data and leave a wrong record, no hook is built, and the
+instruction, kept on 2026-10-12, was taken out of `custom.md` the day after.
 
-## What the lock is today
+## What the lock is when it is on
 
 - The agent takes it by hand: `flock -xn .agent-running true` as a probe, then
   `flock -xn .agent-running sleep infinity` as a background command. `vc-x1` has no code that
@@ -88,6 +90,9 @@ operation log.
 
 ## What was decided
 
+What 2026-10-12 decided. The first bullet was reversed the day after ([Turned off](#turned-off)),
+and the others stand.
+
 - The lock stays as the instruction in `custom.md`. It costs a line and it prevents all of the
   above.
 - No hook, and no code in `vc-x1` for the session lock.
@@ -100,3 +105,54 @@ operation log.
 - Not tested: which branch a resume of a forked transcript takes, what `vc-x1 lookup` makes of
   one, and whether a user's own `jj st` beside a running agent command picks up the sandbox's
   files as the second session's snapshot did. We think it does.
+
+## Turned off
+
+The lock is off since 2026-10-13, wink's call: what it costs is more than what it prevents here.
+
+- The cost was paid by every session: a probe and a background command at each acquaint, a
+  sentence to say, and a holder to keep alive for as long as the session ran.
+- What it prevented is two sessions in one workspace, and this workspace has one user who runs one
+  session at a time.
+- The instruction had two faults, below, and the first stops a session that is alone.
+- What is given up: nothing keeps a second session out. Two sessions lose no data and leave a
+  wrong record, as [What two sessions do with no lock](#what-two-sessions-do-with-no-lock) found,
+  and one session per workspace is the user's to keep.
+- What stays: this file, and the `/.agent-running` line in `.gitignore`.
+
+## The instruction, as it was
+
+The entry in `custom.md > ## Project conventions and overrides`, first in its list, word for word
+as it stood from 2026-10-11 until it was taken out:
+
+```
+- Lock: at acquaint, before anything else, a session runs `flock -xn .agent-running true` at the
+  workspace root, alone. If it fails, the session responds with the one sentence "Another session
+  holds `.agent-running`, stopping." and runs no further command, not even to find the holder. If
+  it succeeds, the session starts `flock -xn .agent-running sleep infinity` as a background
+  command, leaves it running, and says "Lock taken." If that command exits while the session
+  runs, the same sentence and the same stop. A session that already holds one does neither. A
+  resumed session is told its holder was stopped with the earlier process, and it runs both
+  again before anything else, as at acquaint. This keeps a second session from working in the
+  workspace, so two cannot push or amend at once.
+```
+
+## Turning it on again
+
+Turning the lock on is putting the entry above back into `custom.md`, in place of the entry that
+says the lock is off. What was known and left unsettled when it was turned off:
+
+- The instruction has two faults, and neither had a fix planned:
+  - A session that has forgotten it holds the lock probes again at a reacquaint, fails against
+    its own holder, and stops as if another session held it.
+  - An edit to the instruction reaches only the sessions started after it.
+- The lock was to be proposed to the set, and was not. `flock` is a Linux tool and the instruction
+  was this project's, and both wanted an answer first.
+  - macOS has the `flock` call and does not ship the tool, and Windows has neither.
+  - We think the answer is a small `vc-x1` command that takes the lock and holds it, through
+    Rust's `File::try_lock`: `flock` on Linux and macOS, `LockFileEx` on Windows, and each system
+    drops the lock when the holder dies.
+  - That is code in `vc-x1` for the session lock, which the decision of 2026-10-12 was against.
+    It weighed races and not other systems.
+- The hook that takes the lock in the agent's place is designed and not built ([What a hook
+  could do](#what-a-hook-could-do)).
