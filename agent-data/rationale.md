@@ -76,8 +76,8 @@ version bump, and a forced push of the bookmark.
 The check precedes the `TODO.md` read because a clone that is behind holds a stale `TODO.md`, so
 its continuation notes and its `## Todo` order are the ones another machine has already replaced.
 "Ahead" stops as "behind" does, since an unpushed `main` in the agent-repo is a commit the
-work-repo's `ochid:` trailer names and no one else can reach. The fetch is not asked for: it moves
-no local bookmark and changes no file, and a check the agent must ask to make is one it skips.
+work-repo's `ochid:` trailer names and no one else can reach. The look is not asked for: it moves
+nothing, and a check the agent must ask to make is one it skips.
 
 The other three findings (wink, 2026-10-09) are what a session inherits besides a stale clone.
 Uncommitted work is the previous session's unfinished act, and only its continuation notes say
@@ -85,6 +85,32 @@ which act, so a change they do not account for has no owner the agent can name a
 to place. Work off `main` gets a suggestion and not a rebase because rebasing a pushed bookmark
 is a remote rewrite at its next push, which takes approval like any push. Conflicts stop the
 acquaint because every later step reads files a conflict may have left holding both sides.
+
+## Sync
+
+One section holds the command (wink, 2026-10-13) because it is run at three steps, and a command
+written three times is changed in two. The steps are the three that depend on `main`: an acquaint
+reads the records a stale `main` holds, an opening creates the cycle's bookmark on it, and Land
+moves it.
+
+- Acquaint looks and does not sync so that "left as found" has no exception: the user hears of a
+  repo that is behind before anything moves. The first form was a `jj git fetch` and a look, and
+  the look-only sync replaced it since it reports what a sync would do.
+- Opening syncs because an acquaint's look is as old as the session. A cycle opened hours into
+  one, or the second cycle of a session, would create its bookmark on a `main` the remote may
+  have moved past, the failure the acquaint's check was written for, reached by a later door.
+  "Whatever the cycle's form" is there so a lightweight cycle's first commit and a single-step
+  cycle's one commit owe it too.
+- Land syncs because `main` is the one target someone else can reach first, a cycle's other
+  pushes going to its own bookmark. A `main` that moved stops the Land because the tree that
+  would land is no longer the one reviewed and validated, and its version-of-record was bumped
+  from a `main` since passed. How to recover is left to the first time it happens.
+- The flags `--force` and `--rebase` are the user's because sync holds a repo back exactly when
+  following the remote would tangle local work, and overriding that is a rewrite.
+- Cycle starts and no oftener: "when a repo has not been synced in a while" was weighed and left
+  out, "a while" being nothing an agent can check.
+- The cycle's bookmark is looked at and never synced because a rebase of a pushed bookmark is a
+  remote rewrite at its next push.
 
 ## Cycle protocol
 
@@ -555,6 +581,13 @@ taken from a draft bookmark needs to say on its face.
 **Proposals bump and adoptions copy** because a proposal is the diff, and the bump is part of it,
 while an adoption takes a text that already has its number: the same title in two repos then reads
 as the copy and its origin.
+
+**An adoption copies `custom.md` and ends on a diff** (wink, 2026-10-13) because the family's
+members hold the same `custom.md`, so a line added to it, the messages repo's fetch being the
+case that raised this, reaches an adopter only if the copy takes the file. The diff is the proof
+that the copy is whole, and it fails on a file an adopter edited after copying. The `-c` is
+dropped by an adopter that disagrees with a line, since `custom.md` is still a project's own
+layer.
 
 **Patch by default, with digit limits** (wink, 2026-09-07) because the earlier rule, patch for a
 correction and minor for a rule change, would have moved the minor at nearly every proposal: a set

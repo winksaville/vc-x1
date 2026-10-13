@@ -141,7 +141,10 @@ as it stood from 2026-10-11 until it was taken out:
 ## Turning it on again
 
 Turning the lock on is putting the entry above back into `custom.md`, in place of the entry that
-says the lock is off. What was known and left unsettled when it was turned off:
+says the lock is off. Since 2026-10-13 the entry is also in
+[agent-data/session-lock.md](../agent-data/session-lock.md#the-instruction), the copy the
+agent-files carry to every adopter, and `custom.md` points there. What was known and left
+unsettled when it was turned off:
 
 - The instruction has two faults, and neither had a fix planned:
   - A session that has forgotten it holds the lock probes again at a reacquaint, fails against

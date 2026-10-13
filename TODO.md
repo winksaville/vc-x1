@@ -356,37 +356,6 @@ an empty public repo there and a local workspace with no remote.
     publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
 - We think the two warnings are delete's alone: such commits move with the directory in a rename.
 
-### agent-files(proposal): v0.2.8
-
-Parked 2026-10-09 on its bookmark, `agent-filesproposal-v028`, as one unfinished commit pushed for
-safekeeping. Its block is in that commit's `TODO.md > ## Closed`: every cycle start syncs, and the
-acquaint's repo check with it.
-
-- It stays parked (wink, 2026-10-11): whether `zDOING.md` and `zTODO.md` are the right files is
-  not settled.
-- The cycle it waited on, **feat: sync is safe by default**, has landed, and there are three
-  steps, each its own, wink's call, 2026-10-11, on a review of the parked commit:
-  - [Acquaint](AGENTS.md#acquaint) looks, `vc-x1 sync --scope=both --dry-run`, so "left as found"
-    holds with no exception for the sync's own acts.
-  - [Opening](AGENTS.md#opening) syncs, `vc-x1 sync --scope=both`, since the bookmark is created
-    on a `main` that is level.
-  - Land syncs the same way, as its first step and before the reshape, the third step and new
-    to the parked commit. A cycle's other pushes go to its own bookmark, and `main` is the one
-    target someone else can reach first.
-    - A `main` the sync moved stops the Land and the user is asked: the tree that would land is
-      no longer the one reviewed and validated, the version-of-record was bumped from a `main`
-      since passed, and the record files every cycle edits will conflict.
-    - How to recover is left to the first time it happens. We think a trapezoid takes the moved
-      `main` as its merge's first parent with no rung rewritten, and a single-step commit needs
-      a rebase, which rewrites a published bookmark.
-  - The commit's wording is of the sync before that cycle, which rebased a `main` that diverged.
-    Today's holds such a repo back and exits non-zero, so the text and its rationale's "what it
-    costs" paragraph are rewritten, not carried.
-- When it resumes, the commit is rebased onto `main`, which it sits before, and its `TODO.md` is
-  reconciled with this one.
-- It takes the rule of [A commit body is an intro and a pointer to the
-  record](#a-commit-body-is-an-intro-and-a-pointer-to-the-record) (wink, 2026-10-11).
-
 ### The cycle-record moves out of TODO.md into zDOING.md
 
 (wink, 2026-10-09) What is being done is a different thing from what is to be done, and one file
@@ -569,8 +538,10 @@ and the specimen of that rung's subsection are nearly the same text. The body fo
 - A bookend's body is this form already.
 - The cost: the log alone no longer explains a commit, and the record has to hold everything the
   body did.
-- It is part of `agent-files(proposal): v0.2.8`, wink's call: the rule in `prose.md` and the
-  specimen in `commit-model.md` change together, and bodies already published keep their form.
+- An `agent-files` proposal of its own: the rule in `prose.md` and the specimen in
+  `commit-model.md` change together, and bodies already published keep their form. It was to be
+  part of `agent-files(proposal): v0.2.8` (wink, 2026-10-11), which landed as the sync rules
+  alone (2026-10-13).
 
 ### A commit body carries a legend for its markers
 

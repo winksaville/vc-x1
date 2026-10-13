@@ -7,68 +7,98 @@ commit's copy of the record.
 
 ## Closed
 
-### docs: vc-x1 takes no lock for a run
+### agent-files(proposal): v0.2.8
 
-(wink + agent, 2026-10-13) Two `vc-x1` runs in one workspace can overlap, and a Todo entry planned
-a lock, `.vc-x1-running`, that `vc-x1` would take for every run. Every run would pay for it, and
-what it prevents does not come up with one user running one session at a time. The Todo entry
-picked is "vc-x1 takes a lock of its own for every run". The entry "The parked planning of
-2026-10-12 is run as a cycle" is ended by this cycle too.
+(wink + agent, 2026-10-13) The agent-files name a fetch at an acquaint only, as a `jj git fetch`
+and a look, and it is as important that a repo is up to date at the start of every cycle and
+when a cycle lands. The Todo entry picked is "agent-files(proposal): v0.2.8", parked since
+2026-10-09 as one unfinished commit on this cycle's bookmark. Wink asked for the sync rules
+clean, "as simple as possible but no simpler".
 
 #### Deliberation
 
-- The lock is not added, wink's call.
-  - Its cost is more than its worth, the reason the session lock was turned off.
-  - The one overlap seen was made on purpose, two pushes started in the same second in the tests
-    of 2026-10-12, and it lost no data.
-- The entry moves to the backlog and is not deleted, wink's call, so the design is not lost.
-  - Its text is the parked commit's, where the entry had already been moved to the backlog,
-    brought up to date: the decision, what would reopen it, and the session lock being off.
-  - The continuation notes had it written fresh and the parked text not taken. Wink reversed
-    that at the opening.
-- The bookmark `parked-planning-change-20261012` is deleted at Land, locally and on `origin`,
-  wink's call. The backlog entry is what was wanted from it.
-  - Dropped with it, drafts that were no cycle's rung:
-    - `symlink` taking `create` or `remove`, and no `vc-x1 delete`
-    - the Ideas entry for a shared work-repo's config, with `clone` taking the agent-repo's
-      directory
-    - an ochid carrying no path
-    - the config's version field.
-  - Its commit is `85f87d76`, change `wkytxkqo`, findable by that id in a clone that fetched it
-    and nowhere on the remote once the bookmark is gone.
-- Two lines of the entry "Improve init and add rename and delete subcommands" leaned on a lock
-  and are brought up to date, the agent's placing: what stops delete and rename asks for no
-  lock, and the lock's experiment with fresh sessions is gone.
-- The third acceptance check of **docs: turn off the session lock** is recorded here, as that
-  cycle's record said it would be.
-- The commit body is its intro paragraph alone, wink's call at the description review, where
-  [Commit-body form](agent-data/prose.md#commit-body-form) asks for the facets and their
-  solutions under it. The exception covers this commit's body and nothing else.
-- A single-step cycle, with a bare version and no `-dev` name, the cycle being documents alone.
+- The rule is one section, [Sync](AGENTS.md#sync), the agent's shape for "as simple as possible":
+  the command is written once and the three steps that run it point there.
+  - Acquaint looks with `--dry-run`, and Opening and Land sync, each as its first step, wink's
+    call, 2026-10-11, on a review of the parked commit.
+  - The cycle's bookmark is looked at with `--bookmark` and never synced. The earlier look,
+    `jj bookmark list --all-remotes`, read remote refs the fetch had just moved, and a look-only
+    sync moves none, so the list would be stale.
+  - Land's sync is a clause of the Land paragraph in `jj.md` and not a numbered step, so the
+    trapezoid recipe's "Land step 2" keeps its number.
+- A sync that fails or holds a repo back stops the step, and `--force` and `--rebase` are the
+  user's to ask for, the agent's addition. Sync holds a repo back since **feat: sync is safe by
+  default**, and the parked commit was written before it.
+- Started over and not rebased, wink leaving the choice to whichever was simpler.
+  - The parked commit's wording was of the sync that rebased a `main` that diverged, and its
+    Todo entry had already written it off.
+  - Its reasoning is kept in `rationale.md`: why Opening syncs, cycle starts and no oftener,
+    "whatever its form", and the bookmark left to a look.
+  - The bookmark `agent-filesproposal-v028` was moved to `main` and force-pushed at the opening,
+    wink's go, so the parked commit, `2b14ec7e`, change `psuuzqlv`, is findable by that id in a
+    clone that fetched it and nowhere on the remote.
+- The messages repo's fetch is a line in `custom.md`. Wink's standing permission is the parked
+  commit's, dated 2026-10-09, and it takes effect with this cycle.
+- An adoption copies `custom.md` and ends on a diff, wink's call: `agent-files copy -c`, then
+  `agent-files diff -c` as its last act, in [Agent-files
+  version](agent-data/versioning.md#agent-files-version).
+  - The family's three copies of `custom.md` are the one messaging line, so the file is shared
+    in practice, and a copy without `-c` would leave the fetch line behind.
+  - An adopter that disagrees with a line drops the `-c`, its prerogative.
+  - The other members carry v0.2.5, so their next adoption takes v0.2.6, v0.2.7, and this one in
+    one copy, and the versions are not combined here.
+- The line saying the session lock is off stays in `custom.md`, wink's call, so every member has
+  the option of turning it on. The agent had proposed removing it.
+  - The instruction moves into the set, [session-lock.md](agent-data/session-lock.md), wink's
+    call, so the family decides on it. A `notes/` directory is every project's and its contents
+    are the project's own, so the line's link to `notes/session-lock.md` would be dead in every
+    other member's copy.
+  - The new file holds the instruction, how to turn it on and off, and what is known of it, and
+    names no project. What the tests found stays in `notes/session-lock.md`.
+- The rule of the Todo entry "A commit body is an intro and a pointer to the record" is left for
+  a proposal of its own, the agent's proposal at the opening, so this one is the sync rules
+  alone. The entry said it was part of v0.2.8, and now says what happened.
+- The entry's bullet "It stays parked", waiting on whether `zDOING.md` and `zTODO.md` are the
+  right files, is lifted by wink's go.
+- How a Land recovers from a `main` that moved is left to the first time it happens. We think a
+  trapezoid takes the moved `main` as its merge's first parent with no rung rewritten, and a
+  single-step commit needs a rebase, which rewrites a published bookmark.
+- A cycle first opened this session as "docs: delete stale agent-files proposal v0.2.8", on a
+  bookmark of its own, was dropped before any commit when wink chose to complete the proposal.
+  Its bookmark was deleted locally and on `origin`.
+- The commit body is its intro paragraph and a pointer to this record, wink's call at the
+  description review, where [Commit-body form](agent-data/prose.md#commit-body-form) asks for the
+  facets and their solutions under it. The exception covers this commit's body and nothing else.
+- A single-step cycle, with a bare version, a bare agent-files version, and no `-dev` name, the
+  cycle being documents alone.
+- The `## Waiting` conditions are unmet, so nothing promotes: `vc-x1 closed` is not a command,
+  and the project builds against jj-lib 0.45.
 
 #### Solution
 
-The lock `vc-x1` was to take for a run is recorded as considered and not added, and the planning
-parked on 2026-10-12 is ended.
+The agent-files gain a section, [Sync](AGENTS.md#sync): both repos are brought up to date by
+`vc-x1 sync --scope=both` at the three moments a cycle depends on `main`.
 
-- The backlog holds the entry, [vc-x1 takes a lock of its own for a run that
-  writes](notes/todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes), with the
-  decision and what would reopen it.
-- The two Todo entries are removed, and [session-lock.md](notes/session-lock.md#what-was-decided)
-  points at the backlog entry.
+- An acquaint's repo check looks, with `--dry-run`, in place of its `jj git fetch`.
+- An opening syncs as its first step, before the bookmark.
+- Land syncs as its first step, and a `main` that moved stops it.
+- The why of each is in [rationale.md](agent-data/rationale.md#sync).
+- The family's `custom.md` adds the messages repo's fetch at an acquaint and at a cycle start.
+- An adoption is `vc-x1 agent-files copy -c` and ends on `vc-x1 agent-files diff -c`.
+- The session lock's instruction is in the set, off, for the family to decide on.
 
 #### Acceptance check
 
-- `vc-x1 validate` passes.
-- `rg 'vc-x1-running|takes-a-lock-of-its-own-for-every-run|parked-planning' TODO.md notes/`
-  finds `.vc-x1-running` in the backlog entry and nothing else.
-- The session lock is off, the check **docs: turn off the session lock** left as not run. Passed:
-  the session that ran this cycle started after that Land, acquainted without running `flock`,
-  and did not say "Lock taken." The probe from another terminal was not run, wink having removed
-  `.agent-running`, so there is no file to hold a lock on.
+- [Sync](AGENTS.md#sync) names the command once, and [Acquaint](AGENTS.md#acquaint),
+  [Opening](AGENTS.md#opening), and [Close-out](AGENTS.md#close-out)'s Land step each point at
+  it. Passed.
+- `rg 'jj git fetch' AGENTS.md custom.md agent-data/` finds only the why of the look in
+  `rationale.md`, which names the earlier form. Passed.
+- `vc-x1 sync --scope=both` run in this cycle reports both repos up to date. Passed.
+- `vc-x1 validate` passes. Passed.
 
 #### Ladder
 
-- docs: vc-x1 takes no lock for a run (done)
+- agent-files(proposal): v0.2.8 (done)
 
 # References

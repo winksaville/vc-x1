@@ -73,6 +73,8 @@ silently.
 - Read custom.md first: read [custom.md](custom.md), whose rules override all others.
 - Acquaint before work: a session acquaints first, and what its repo check finds is reported and
   left as found until the user says how to proceed ([Acquaint](#acquaint)).
+- Sync where `main` matters: a look at acquaint and a sync at the opening and at Land, each
+  reported, and a repo held back stops the step ([Sync](#sync)).
 - A session's rules are its own agent-files: the ones it started in, binding in every repo it
   writes, and another repo's rules bind only by delegation ([A session's rules are its own
   agent-files](#a-sessions-rules-are-its-own-agent-files)).
@@ -114,10 +116,9 @@ in this order ([why](agent-data/rationale.md#acquaint)):
 2. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
    the user says how to proceed.
-   - Not level: fetch, `jj git fetch -R .` and `jj git fetch -R <agent-dir>`, and compare `main`
-     with the remote's, as `jj bookmark list --all-remotes` prints them, and the cycle's bookmark
-     likewise when one is in flight. Behind, ahead, and diverged are each a finding, and a fetch
-     that fails is reported as the check not made.
+   - Not up to date: a repo whose `main` is behind, ahead of, or diverged from its remote's, as
+     the look reports it ([Sync](#sync)), run again with `--bookmark <bookmark>` when a cycle is
+     in flight. A look that fails is reported as the check not made.
    - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
      continuation notes account for, the notes themselves or a rung in flight they describe, is
      theirs to direct at step 3, and any other change is a finding. The agent-repo's `@` holds the
@@ -131,6 +132,19 @@ in this order ([why](agent-data/rationale.md#acquaint)):
    each acted on, filed or kept, and the section reset ([Todo
    format](agent-data/notes.md#todo-format)).
 4. Report: say where things stand, the cycle in flight or the top of `## Todo`, and wait.
+
+## Sync
+
+One command, `vc-x1 sync --scope=both`, brings both repos up to date, each `main` at the commit
+its remote's `main` is at. It runs at the three moments a cycle depends on `main`, and what it
+prints is reported ([why](agent-data/rationale.md#sync)):
+
+- Acquaint looks: with `--dry-run`, which moves nothing, so each repo is reported as found.
+- Opening syncs: as its first step, so the cycle's bookmark is created on an up-to-date `main`.
+- Land syncs: as its first step, and a `main` the sync moved stops the Land.
+
+A sync that fails or holds a repo back stops the step until the user says how to proceed, and
+`--force` and `--rebase` are the user's to ask for.
 
 ## Cycle protocol
 
@@ -203,20 +217,21 @@ A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the c
 ### Opening
 
 The cycle's first commit, when it needs setup (a lightweight cycle starts at its first commit, which
-then carries step 1). A single-step cycle does all of it in its one commit, after step 1 ([Cycle
-shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
+then carries steps 1 and 2). A single-step cycle does all of it in its one commit, after steps 1
+and 2 ([Cycle shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
 
-1. Bookmark: create and publish the cycle's bookmark, a push that needs approval.
-2. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
+1. Sync: sync both repos ([Sync](#sync)), whatever the cycle's form.
+2. Bookmark: create and publish the cycle's bookmark, a push that needs approval.
+3. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
    the rank it names.
-3. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
+4. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
    `## In Progress`, shaped as [The In Progress block](agent-data/notes.md#the-in-progress-block)
    says, the specimen in [cycle-model.md](agent-data/cycle-model.md).
-4. Bump: bump the version-of-record to the opening's version ([Suffix
+5. Bump: bump the version-of-record to the opening's version ([Suffix
    scheme](agent-data/versioning.md#suffix-scheme)), and the agent-files version with it when the
    cycle is an `agent-files` proposal ([Agent-files
    version](agent-data/versioning.md#agent-files-version)).
-5. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
+6. Rename: when the built artifact has consumers, rename `<name>` to `<name>-dev` ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)). Land restores it.
 
 Rungs are named, not numbered ([Steps are named, not numbered][snn]), and a multi-step cycle's
@@ -315,9 +330,10 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    - choose with the user: trapezoid (the default) or keep separate
    - record the choice in the closing rung's subsection
    - reshape nothing yet, Land does.
-6. Land: on the user's go, restore the plain name, reshape per the choice, fast-forward `main`,
-   install the artifact, delete the bookmark locally and remotely ([Bookmark per
-   cycle](#cycles-run-on-a-bookmark), [Land](agent-data/jj.md#cycle-bookmarks-create-and-land)).
+6. Land: on the user's go, sync ([Sync](#sync)), restore the plain name, reshape per the choice,
+   fast-forward `main`, install the artifact, delete the bookmark locally and remotely ([Bookmark
+   per cycle](#cycles-run-on-a-bookmark),
+   [Land](agent-data/jj.md#cycle-bookmarks-create-and-land)).
 7. Restart: the user restarts the agent, and before the exit anything the next agent needs is
    written into `TODO.md > ## Continuation notes`, the first section, which the next acquaint reads
    first, files or keeps, and resets ([Todo format](agent-data/notes.md#todo-format)).
