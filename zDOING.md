@@ -12,17 +12,19 @@ TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoing
 ## Continuation notes
 
 Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
-on, and reset to `_None._` by the reader. Kept here by the trial, with a pointer to it under the
-same heading in `TODO.md`, where [Acquaint](AGENTS.md#acquaint) still looks.
+on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
+where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-(agent, 2026-10-12) The session ended with the cycle below one rung short of closed.
+(agent, 2026-10-13) The cycle below is one rung short of closed.
 
 - The cycle `docs: the session lock` is in flight on the bookmark `docs-the-session-lock`, its
-  third rung pushed. The next step is the closing rung, at version 0.84.26.
+  fourth rung pushed. The next step is the closing rung, at version 0.84.27.
   - The closing replaces the record in `zCLOSED.md` with the block below.
   - Its Land is a trapezoid, wink's call, on a go of its own: the closing gets two parents,
-    `docs: update single-step cycle add zCLOSED.md` first and the third rung second, and `main`
+    `docs: update single-step cycle add zCLOSED.md` first and the fourth rung second, and `main`
     moves forward onto it.
+  - The first parent is an ancestor of the second, so whether jj makes that merge is found out
+    at Land.
 - The bookmark `parked-planning-change-20261012` is published and is one commit on
   `docs: the session lock is settled as flock`, a draft of `TODO.md` planning and no cycle's
   rung. It is to be rebased after Land and run as a cycle of its own. It holds:
@@ -78,9 +80,18 @@ those two with what was found today into one ladder and closes it as a trapezoid
   - It is an exception to [Cycle shape](AGENTS.md#cycle-shape), where a single-step cycle
     lands as it is. It covers these two commits and the versions below, and Land takes its
     own go.
-- Every rung has a bare version, 0.84.25 for the rung made today and 0.84.26 for the closing.
+- Every rung has a bare version, 0.84.25 and 0.84.26 for the two rungs made in the cycle and
+  0.84.27 for the closing.
   - The first two landed bare, 0.84.23 and 0.84.24, and are published.
   - A suffixed version wants the `-dev` name beside it, and the cycle is documents alone.
+- A fourth rung is inserted ahead of the closing, wink's call, 2026-10-13
+  ([Unplanned work](AGENTS.md#unplanned-work)).
+  - The closing's review grew Todo planning that is no bookkeeping: `TODO.md` lost the headings
+    the record left behind, and two entries were reworked.
+  - The closing's own edits were set aside while the rung was made, so each commit has its own
+    change alone.
+  - It is outside the cycle's subject and is a rung all the same, the edits being made and
+    reviewed, and a cycle of its own costing an opening, a closing, and a Land.
 
 #### Solution
 
@@ -102,6 +113,7 @@ the trapezoid around the lock's commits.
 - [docs: a session takes the workspace lock at acquaint][1] (done)
 - [docs: the session lock is settled as flock][2] (done)
 - [docs: two sessions in one workspace, tested][3] (done)
+- [docs: TODO.md is the todo list, its split completed][5] (done)
 - [docs: the session lock closing][4]
 
 ##### docs: a session takes the workspace lock at acquaint
@@ -130,6 +142,27 @@ agent has to follow. Both were looked into, and the lock is kept as it is.
   having committed 23 empty files the sandbox put on disk.
 - The Ideas entry for several agents in one workspace has the tests as its first try.
 
+##### docs: TODO.md is the todo list, its split completed
+
+`TODO.md` still had the headings of the records that moved out of it, each over a pointer, and
+its `validate-anchors` and `push --amend` entries had grown hard to read. The headings go and the
+entries are reworked.
+
+- `TODO.md` is what we might do and nothing else: its intro, `## Waiting`, `## Todo`, and
+  `## Ideas`.
+  - `## Continuation notes`, `## In Progress`, `## Closed`, and `## Bugs` are removed, and the
+    intro names `zDOING.md`, `zCLOSED.md`, and `bugs.md` in their place.
+  - The split is completed for the file and not for the agent-files, which still name
+    `TODO.md` for all four. That is left to the entry for the record's move.
+- The three `validate-anchors` entries are one, a bullet for each known issue.
+  - A fourth issue is new: a code span that wraps onto a second line hides a citation after it.
+    Two of the three failures of a whole-repo run are that, and both are false.
+  - A heading in `TODO.md` lost its backticks, which stepped around the code-span slug fault
+    and fixed nothing.
+- The `push --amend` entry is grouped by side: what the work-repo commit keeps and takes, what
+  the new agent-repo commit is, and the approval.
+  - The title and body are optional, and the new trailer goes at the bottom of the list.
+
 ##### docs: the session lock closing
 
 Closing out the cycle.
@@ -140,3 +173,4 @@ Closing out the cycle.
 [2]: #docs-the-session-lock-is-settled-as-flock
 [3]: #docs-two-sessions-in-one-workspace-tested
 [4]: #docs-the-session-lock-closing
+[5]: #docs-todomd-is-the-todo-list-its-split-completed
