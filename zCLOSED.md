@@ -7,98 +7,66 @@ commit's copy of the record.
 
 ## Closed
 
-### agent-files(proposal): v0.2.8
+### chore: jj-lib moves to 0.46.0
 
-(wink + agent, 2026-10-13) The agent-files name a fetch at an acquaint only, as a `jj git fetch`
-and a look, and it is as important that a repo is up to date at the start of every cycle and
-when a cycle lands. The Todo entry picked is "agent-files(proposal): v0.2.8", parked since
-2026-10-09 as one unfinished commit on this cycle's bookmark. Wink asked for the sync rules
-clean, "as simple as possible but no simpler".
+(wink, 2026-10-09, picked 2026-10-13) jj-lib 0.46.0 is published and the project builds against
+0.45. The installed `jj` is 0.46.0, so the version gate, which compares the `jj` CLI with the
+linked jj-lib, refuses every run of the installed `vc-x1`. The Todo entry picked is "jj-lib moves
+to 0.46.0":
+
+- The `gix` line in `Cargo.toml` follows, 0.87 to 0.88, since it names the gix jj-lib resolves.
+- The facade in `src/jj/` takes whatever the API changed between the two releases.
+- The check `Cargo.toml` asks for at a jj-lib bump is already made for this one: 0.46.0 has no
+  remote-ref query, so the `## Waiting` entry stays.
 
 #### Deliberation
 
-- The rule is one section, [Sync](AGENTS.md#sync), the agent's shape for "as simple as possible":
-  the command is written once and the three steps that run it point there.
-  - Acquaint looks with `--dry-run`, and Opening and Land sync, each as its first step, wink's
-    call, 2026-10-11, on a review of the parked commit.
-  - The cycle's bookmark is looked at with `--bookmark` and never synced. The earlier look,
-    `jj bookmark list --all-remotes`, read remote refs the fetch had just moved, and a look-only
-    sync moves none, so the list would be stale.
-  - Land's sync is a clause of the Land paragraph in `jj.md` and not a numbered step, so the
-    trapezoid recipe's "Land step 2" keeps its number.
-- A sync that fails or holds a repo back stops the step, and `--force` and `--rebase` are the
-  user's to ask for, the agent's addition. Sync holds a repo back since **feat: sync is safe by
-  default**, and the parked commit was written before it.
-- Started over and not rebased, wink leaving the choice to whichever was simpler.
-  - The parked commit's wording was of the sync that rebased a `main` that diverged, and its
-    Todo entry had already written it off.
-  - Its reasoning is kept in `rationale.md`: why Opening syncs, cycle starts and no oftener,
-    "whatever its form", and the bookmark left to a look.
-  - The bookmark `agent-filesproposal-v028` was moved to `main` and force-pushed at the opening,
-    wink's go, so the parked commit, `2b14ec7e`, change `psuuzqlv`, is findable by that id in a
-    clone that fetched it and nowhere on the remote.
-- The messages repo's fetch is a line in `custom.md`. Wink's standing permission is the parked
-  commit's, dated 2026-10-09, and it takes effect with this cycle.
-- An adoption copies `custom.md` and ends on a diff, wink's call: `agent-files copy -c`, then
-  `agent-files diff -c` as its last act, in [Agent-files
-  version](agent-data/versioning.md#agent-files-version).
-  - The family's three copies of `custom.md` are the one messaging line, so the file is shared
-    in practice, and a copy without `-c` would leave the fetch line behind.
-  - An adopter that disagrees with a line drops the `-c`, its prerogative.
-  - The other members carry v0.2.5, so their next adoption takes v0.2.6, v0.2.7, and this one in
-    one copy, and the versions are not combined here.
-- The line saying the session lock is off stays in `custom.md`, wink's call, so every member has
-  the option of turning it on. The agent had proposed removing it.
-  - The instruction moves into the set, [session-lock.md](agent-data/session-lock.md), wink's
-    call, so the family decides on it. A `notes/` directory is every project's and its contents
-    are the project's own, so the line's link to `notes/session-lock.md` would be dead in every
-    other member's copy.
-  - The new file holds the instruction, how to turn it on and off, and what is known of it, and
-    names no project. What the tests found stays in `notes/session-lock.md`.
-- The rule of the Todo entry "A commit body is an intro and a pointer to the record" is left for
-  a proposal of its own, the agent's proposal at the opening, so this one is the sync rules
-  alone. The entry said it was part of v0.2.8, and now says what happened.
-- The entry's bullet "It stays parked", waiting on whether `zDOING.md` and `zTODO.md` are the
-  right files, is lifted by wink's go.
-- How a Land recovers from a `main` that moved is left to the first time it happens. We think a
-  trapezoid takes the moved `main` as its merge's first parent with no rung rewritten, and a
-  single-step commit needs a rebase, which rewrites a published bookmark.
-- A cycle first opened this session as "docs: delete stale agent-files proposal v0.2.8", on a
-  bookmark of its own, was dropped before any commit when wink chose to complete the proposal.
-  Its bookmark was deleted locally and on `origin`.
-- The commit body is its intro paragraph and a pointer to this record, wink's call at the
-  description review, where [Commit-body form](agent-data/prose.md#commit-body-form) asks for the
-  facets and their solutions under it. The exception covers this commit's body and nothing else.
-- A single-step cycle, with a bare version, a bare agent-files version, and no `-dev` name, the
-  cycle being documents alone.
+- A single-step cycle, the agent's recommendation and wink's go: a build against 0.46 with gix
+  0.88 fails at 19 sites in six groups, five of them a mechanical follow-up of an API that moved.
+- The version gate is waived for this cycle, wink's go, 2026-10-13: the `vc-x1` runs of the cycle
+  pass `--allow-jj-mismatch` until Land installs a binary linked against 0.46. The waiver covers
+  sync, validate, and push, and it is no approval of a push.
+  - The alternative, putting `jj` back to 0.45.1 until the cycle lands, was offered and not taken.
+- The package is `vc-x1-dev` until Land, wink's correction. The agent had kept the plain name on
+  the precedent of the single-step cycles before this one, which were documents alone: this one
+  changes code, and validation's `cargo install` would have replaced the installed `vc-x1` with
+  an unreviewed build.
+- Lock contention is told by classification and I/O kind, wink's choice of the narrow form. gix
+  0.88 has no `gix::lock::acquire::Error` to downcast to: a held lockfile is an untyped error
+  classified retryable over an `io::Error` of kind `AlreadyExists`.
+  - The broad form, any error gix classifies retryable, was offered and not taken, since gix
+    marks transport and pack errors retryable too.
+  - The classification is on the gix error itself, and jj-lib holds that error in
+    `#[error(transparent)]` variants whose `source()` skips it. So the classifier names the two
+    jj-lib errors the retried writes return, `GitResetHeadError` and `GitExportError`, and asks
+    the payload of their `Git` variant. A retried write returning a third error type would need
+    naming there, and the test of a held `.git/index.lock` is what would say so.
 - The `## Waiting` conditions are unmet, so nothing promotes: `vc-x1 closed` is not a command,
-  and the project builds against jj-lib 0.45.
+  and jj-lib 0.46.0 has no remote-ref query.
 
 #### Solution
 
-The agent-files gain a section, [Sync](AGENTS.md#sync): both repos are brought up to date by
-`vc-x1 sync --scope=both` at the three moments a cycle depends on `main`.
+The project builds against jj-lib 0.46 and gix 0.88, and the call sites take the APIs that
+changed.
 
-- An acquaint's repo check looks, with `--dry-run`, in place of its `jj git fetch`.
-- An opening syncs as its first step, before the bookmark.
-- Land syncs as its first step, and a `main` that moved stops it.
-- The why of each is in [rationale.md](agent-data/rationale.md#sync).
-- The family's `custom.md` adds the messages repo's fetch at an acquaint and at a cycle start.
-- An adoption is `vc-x1 agent-files copy -c` and ends on `vc-x1 agent-files diff -c`.
-- The session lock's instruction is in the set, off, for the family to decide on.
+- A `UserSettings` is built with the home directory, which jj-lib now takes from its caller to
+  expand a leading `~/` in a config path. One function, `home_dir`, reads `HOME` for all of them.
+- A ref target is a plain merge of commit ids, so its ids are read with `adds().flatten()`.
+- A revset is evaluated through jj-lib's `ResolvedRevset`, which carries what an `at_operation()`
+  brings into context. Blame's domain still takes the bare expression.
+- A gix error that `?` no longer converts goes through `gix::Exn::into_error`.
+- Lock contention is told by gix's classification and the I/O kind, asked of the gix error inside
+  jj-lib's `Git` variants.
+- The semicolons in the comments of `src/show.rs` are paid, the file being touched.
 
 #### Acceptance check
 
-- [Sync](AGENTS.md#sync) names the command once, and [Acquaint](AGENTS.md#acquaint),
-  [Opening](AGENTS.md#opening), and [Close-out](AGENTS.md#close-out)'s Land step each point at
-  it. Passed.
-- `rg 'jj git fetch' AGENTS.md custom.md agent-data/` finds only the why of the look in
-  `rationale.md`, which names the earlier form. Passed.
-- `vc-x1 sync --scope=both` run in this cycle reports both repos up to date. Passed.
-- `vc-x1 validate` passes. Passed.
+- `vc-x1-dev sync --scope=both --dry-run` runs with no `--allow-jj-mismatch` beside `jj` 0.46.0,
+  so the version gate finds the linked jj-lib and the CLI agree. Passed.
+- `vc-x1 validate` passes. Passed, run by the installed `vc-x1` under the waiver.
 
 #### Ladder
 
-- agent-files(proposal): v0.2.8 (done)
+- chore: jj-lib moves to 0.46.0 (done)
 
 # References

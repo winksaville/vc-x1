@@ -560,19 +560,6 @@ changes nothing".
   record](#a-commit-body-is-an-intro-and-a-pointer-to-the-record) is adopted: a body with no
   markers needs no legend.
 
-### jj-lib moves to 0.46.0
-
-(wink, 2026-10-09) jj-lib 0.46.0 is published and the project builds against 0.45. Found while
-asking whether a newer jj-lib could tell `sync --dry-run` where a remote's bookmark is: it cannot,
-so the move stands on its own.
-
-- The installed `jj` moves with it: the version gate compares the `jj` CLI with the linked
-  jj-lib, and the CLI here is 0.45.1.
-- The `gix` line in `Cargo.toml` follows, 0.87 to 0.88, since it names the gix jj-lib resolves.
-- The facade in `src/jj/` takes whatever the API changed between the two releases.
-- The check `Cargo.toml` asks for at a jj-lib bump is already made for this one: 0.46.0 has no
-  remote-ref query, so the `## Waiting` entry stays.
-
 ### The docs and the code say .claude where they mean the agent-repo directory
 
 (wink, 2026-10-09) The agent-repo's directory is whatever `repos.agent` names, `.agent-session` by

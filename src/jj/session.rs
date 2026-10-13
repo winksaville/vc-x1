@@ -80,6 +80,13 @@ pub struct RepoSession {
     pub colocated: bool,
 }
 
+/// The user's home directory, from `HOME`: what a leading `~/` in a
+/// config path expands to. jj-lib takes it from its caller, so every
+/// `UserSettings` is built with this one.
+pub(crate) fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
 /// Load the user's jj configuration the way the jj CLI does.
 ///
 /// Layers, lowest to highest: jj-lib defaults, `/etc/jj` (unix),
@@ -120,7 +127,7 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
             }
         }
     } else {
-        let home = std::env::var_os("HOME").map(PathBuf::from);
+        let home = home_dir();
         let config_dir = match std::env::var_os("XDG_CONFIG_HOME") {
             Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
             _ => home.as_ref().map(|h| h.join(".config")),
@@ -221,7 +228,7 @@ impl RepoSession {
     /// git side never tracks the jj store, then reopens through
     /// `open` for the standard two-phase settings load.
     pub fn init_colocated(path: &Path) -> Result<Self> {
-        let settings = UserSettings::from_config(stacked_config(None)?)?;
+        let settings = UserSettings::from_config_and_home_dir(stacked_config(None)?, home_dir())?;
         let (workspace, _repo) =
             Workspace::init_colocated_git(&settings, path, object_hash_from(&settings))
                 .block_on()?;
@@ -238,12 +245,15 @@ impl RepoSession {
     pub fn open(path: &Path) -> Result<Self> {
         // Two-phase settings: the repo config layer lives under
         // `.jj/repo`, whose location the loaded workspace knows.
-        let settings = UserSettings::from_config(stacked_config(None)?)?;
+        let settings = UserSettings::from_config_and_home_dir(stacked_config(None)?, home_dir())?;
         let store_factories = default_backend_factories();
         let working_copy_factories = default_working_copy_factories();
         let workspace =
             Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
-        let settings = UserSettings::from_config(stacked_config(Some(workspace.repo_path()))?)?;
+        let settings = UserSettings::from_config_and_home_dir(
+            stacked_config(Some(workspace.repo_path()))?,
+            home_dir(),
+        )?;
         let workspace =
             Workspace::load(&settings, path, &store_factories, &working_copy_factories)?;
         let repo = workspace.repo_loader().load_at_head().block_on()?;
@@ -487,15 +497,16 @@ impl RepoSession {
         let git_repo = backend.git_repo();
         let excludes = {
             let config = git_repo.config_snapshot();
+            let home = home_dir();
             match config.string("core.excludesFile") {
                 Some(value) => str::from_utf8(&value)
                     .ok()
-                    .map(jj_lib::file_util::expand_home_path)
+                    .map(|s| jj_lib::file_util::expand_home_path(s, home.as_deref()))
                     .map(|p| self.workspace.workspace_root().join(p)),
                 None => {
                     let config_dir = match std::env::var_os("XDG_CONFIG_HOME") {
                         Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
-                        _ => std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")),
+                        _ => home.map(|h| h.join(".config")),
                     };
                     config_dir.map(|d| d.join("git").join("ignore"))
                 }
@@ -997,8 +1008,10 @@ impl RepoSession {
     pub fn is_ancestor(&self, ancestor: &str, descendant: &str) -> Result<bool> {
         let backend = git::get_git_backend(self.repo.store())?;
         let git_repo = gix::open(backend.git_repo_path())?;
-        let ancestor = gix::ObjectId::from_hex(ancestor.as_bytes())?;
-        let descendant = gix::ObjectId::from_hex(descendant.as_bytes())?;
+        let ancestor =
+            gix::ObjectId::from_hex(ancestor.as_bytes()).map_err(gix::Exn::into_error)?;
+        let descendant =
+            gix::ObjectId::from_hex(descendant.as_bytes()).map_err(gix::Exn::into_error)?;
         for info in git_repo.rev_walk([descendant]).all()? {
             if info?.id == ancestor {
                 return Ok(true);
@@ -1105,26 +1118,64 @@ const LOCK_RETRY_ATTEMPTS: u32 = 5;
 const LOCK_RETRY_START: Duration = Duration::from_millis(25);
 
 /// True when `e` is, or wraps anywhere in its source chain, a git
-/// lockfile-acquisition failure (`gix::lock::acquire::Error`): the
-/// transient "could not acquire lock for '.git/index'" class of
-/// bugs.md #1.
+/// lockfile-acquisition failure: the transient "could not acquire
+/// lock for '.git/index'" class of bugs.md #1.
 ///
-/// Classification is by type, never by message substring. The
-/// narrow downcast is the point: it can only be produced by a local
-/// lockfile grab, so never-retryable failures (a missing git binary
-/// via `GitSubprocessError::SpawnInPath`, an old git via
+/// gix reports a held lockfile as an error it classifies retryable
+/// over the `io::Error` of kind `AlreadyExists` that creating the
+/// lockfile returned, and both are asked for. Classification is by
+/// class and I/O kind, never by message substring. The narrow pair
+/// is the point: it can only be produced by a local lockfile grab,
+/// so never-retryable failures (a missing git binary via
+/// `GitSubprocessError::SpawnInPath`, an old git via
 /// `UnsupportedGitOption`, a remote rejection) classify false
-/// without being named, where a broader "retry git errors" rule
-/// would loop on them forever.
+/// without being named, and so does what else gix calls retryable
+/// (a transport or pack error), where a broader "retry git errors"
+/// rule would retry them too.
+///
+/// The classification lives on the gix error itself, which a walk
+/// of `source()` does not always reach (see `git_payload`), so each
+/// error of the chain is asked for the gix error it holds.
 fn is_lock_contention(e: &(dyn std::error::Error + 'static)) -> bool {
     let mut cur = Some(e);
     while let Some(err) = cur {
-        if err.downcast_ref::<gix::lock::acquire::Error>().is_some() {
+        if git_payload(err).is_some_and(is_held_lockfile) {
             return true;
         }
         cur = err.source();
     }
-    false
+    is_held_lockfile(e)
+}
+
+/// The git error a jj-lib error of the retried writes holds in its
+/// `Git` variant: `reset_head` and `update_intent_to_add` return
+/// `GitResetHeadError`, `export_refs` returns `GitExportError`.
+///
+/// Those variants are `#[error(transparent)]`, so their `source()`
+/// is the payload's own source and skips the payload, and the
+/// payload is the gix error that carries the classification.
+fn git_payload<'a>(
+    err: &'a (dyn std::error::Error + 'static),
+) -> Option<&'a (dyn std::error::Error + 'static)> {
+    if let Some(git::GitResetHeadError::Git(payload)) = err.downcast_ref() {
+        return Some(payload.as_ref());
+    }
+    if let Some(git::GitExportError::Git(payload)) = err.downcast_ref() {
+        return Some(payload.as_ref());
+    }
+    None
+}
+
+/// True when gix classifies `e`, or an error under it, retryable
+/// over an `io::Error` of kind `AlreadyExists`.
+fn is_held_lockfile(e: &(dyn std::error::Error + 'static)) -> bool {
+    gix::error::classify(e).any(|c| {
+        c.class() == gix::error::Class::Retryable
+            && c.error()
+                .source()
+                .and_then(|s| s.downcast_ref::<std::io::Error>())
+                .is_some_and(|io| io.kind() == std::io::ErrorKind::AlreadyExists)
+    })
 }
 
 /// Run `f`, retrying on git lockfile contention with a short
@@ -1198,14 +1249,24 @@ impl git::GitSubprocessCallback for DebugCallback {
 mod tests {
     use super::*;
 
-    /// A `PermanentlyLocked` gix lock error, the shape the index
-    /// write produces when another process holds `.git/index.lock`.
-    fn lock_error() -> gix::lock::acquire::Error {
-        gix::lock::acquire::Error::PermanentlyLocked {
-            resource_path: "/tmp/x/.git/index".into(),
-            mode: gix::lock::acquire::Fail::Immediately,
-            attempts: 1,
-        }
+    /// A gix error classified `class` over an `io::Error` of `kind`,
+    /// under a message, built the way gix-lock builds its own.
+    fn classified(class: gix::error::Class, kind: std::io::ErrorKind) -> gix::Error {
+        use gix::error::{ClassificationMarker, ErrorExt, message};
+        ClassificationMarker::with_source(class, std::io::Error::from(kind))
+            .and_raise(message(
+                "The lock for resource '/tmp/x/.git/index' could not be obtained",
+            ))
+            .into_error()
+    }
+
+    /// The gix lock error, the shape the index write produces when
+    /// another process holds `.git/index.lock`.
+    fn lock_error() -> gix::Error {
+        classified(
+            gix::error::Class::Retryable,
+            std::io::ErrorKind::AlreadyExists,
+        )
     }
 
     /// Test wrapper whose `source()` exposes the wrapped error, the
@@ -1213,7 +1274,7 @@ mod tests {
     /// here: its `source()` skips the custom payload and forwards
     /// the payload's own source.)
     #[derive(Debug)]
-    struct Wrap(gix::lock::acquire::Error);
+    struct Wrap(gix::Error);
 
     impl std::fmt::Display for Wrap {
         /// Outer-context stand-in message.
@@ -1244,6 +1305,44 @@ mod tests {
         let plain: Box<dyn std::error::Error> = "no lock involved".into();
         assert!(!is_lock_contention(plain.as_ref()));
         let io = std::io::Error::new(std::io::ErrorKind::NotFound, "no git binary");
+        assert!(!is_lock_contention(&io));
+    }
+
+    /// A lockfile gix-lock itself finds held classifies as
+    /// contention, so `lock_error` cannot drift from the real shape
+    /// unnoticed.
+    #[test]
+    fn held_gix_lock_is_lock_contention() {
+        let dir = std::env::temp_dir().join(format!("vc-x1-lock-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let resource = dir.join("index");
+        let fail = gix::lock::acquire::Fail::Immediately;
+        let held = gix::lock::File::acquire_to_update_resource(&resource, fail, None);
+        assert!(held.is_ok());
+        let Err(err) = gix::lock::File::acquire_to_update_resource(&resource, fail, None) else {
+            panic!("a held lockfile was acquired twice");
+        };
+        assert!(is_lock_contention(&err.into_error()));
+        drop(held);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Neither half alone is contention: an error gix calls
+    /// retryable for another reason, and an `AlreadyExists` it does
+    /// not call retryable.
+    #[test]
+    fn half_a_lock_error_is_not_lock_contention() {
+        use gix::error::Class;
+        use std::io::ErrorKind;
+        assert!(!is_lock_contention(&classified(
+            Class::Retryable,
+            ErrorKind::ConnectionReset
+        )));
+        assert!(!is_lock_contention(&classified(
+            Class::Validation,
+            ErrorKind::AlreadyExists
+        )));
+        let io = std::io::Error::from(ErrorKind::AlreadyExists);
         assert!(!is_lock_contention(&io));
     }
 

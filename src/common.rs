@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::desc_helpers::VC_CONFIG_FILE;
+use crate::jj::session::home_dir;
 use crate::options_flags::common_args::CommonArgs;
 use crate::options_flags::scope::{Scope, Side};
 use crate::toml_simple;
@@ -18,8 +19,8 @@ use jj_lib::hex_util::encode_reverse_hex;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::revset::{
-    ResolvedRevsetExpression, RevsetAliasesMap, RevsetDiagnostics, RevsetExtensions,
-    RevsetParseContext, RevsetWorkspaceContext, SymbolResolver,
+    ResolvedRevset, ResolvedRevsetExpression, RevsetAliasesMap, RevsetDiagnostics,
+    RevsetExtensions, RevsetParseContext, RevsetWorkspaceContext, SymbolResolver,
 };
 use jj_lib::settings::UserSettings;
 use jj_lib::ui_path::RepoPathUiConverter;
@@ -485,7 +486,7 @@ pub fn load_repo(
     path: &Path,
 ) -> Result<(Workspace, Arc<ReadonlyRepo>), Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
-    let settings = UserSettings::from_config(config)?;
+    let settings = UserSettings::from_config_and_home_dir(config, home_dir())?;
     let store_factories = default_backend_factories();
     let working_copy_factories = default_working_copy_factories();
 
@@ -501,8 +502,8 @@ pub fn resolve_revset(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
-    let resolved = resolve_expression(workspace, repo, revset_str)?;
-    let revset = resolved.evaluate(repo.as_ref())?;
+    let resolved = resolve(workspace, repo, revset_str)?;
+    let revset = resolved.evaluate()?;
 
     let mut commit_ids = Vec::new();
     let mut stream = revset.commit_change_ids();
@@ -515,11 +516,24 @@ pub fn resolve_revset(
 
 /// Parse and resolve a revset string to its expression, the form an
 /// annotator takes as its domain, without evaluating it.
+///
+/// The expression alone drops the repos an `at_operation()` brings
+/// into context, so it is for a revset that names none.
 pub fn resolve_expression(
     workspace: &Workspace,
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Arc<ResolvedRevsetExpression>, Box<dyn std::error::Error>> {
+    Ok(resolve(workspace, repo, revset_str)?.into_inner().0)
+}
+
+/// Parse and resolve a revset string against `repo`, ready to
+/// evaluate.
+fn resolve<'a>(
+    workspace: &Workspace,
+    repo: &'a Arc<ReadonlyRepo>,
+    revset_str: &str,
+) -> Result<ResolvedRevset<'a>, Box<dyn std::error::Error>> {
     let aliases_map = RevsetAliasesMap::new();
     let fileset_aliases_map = FilesetAliasesMap::new();
     let extensions = RevsetExtensions::default();

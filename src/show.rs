@@ -2,12 +2,12 @@
 //! author / committer / ids / parents / children / branches /
 //! follows / precedes / description body / a changed-files summary.
 //!
-//! - `ShowArgs`: clap surface; flattens
+//! - `ShowArgs`: the clap surface. It flattens
 //!   `options_flags::common_args::CommonArgs` plus a `-f`/`--files`
-//!   cap (raw `String`; parsed at the boundary into [`FileLimit`]).
-//! - `ShowParams`: clap-free; embeds `common::CommonParams` and the
-//!   parsed `FileLimit`. Built via `TryFrom<&ShowArgs>` at the
-//!   binary edge.
+//!   cap (a raw `String`, parsed at the boundary into [`FileLimit`]).
+//! - `ShowParams`: clap-free. It embeds `common::CommonParams` and
+//!   the parsed `FileLimit`, and is built via `TryFrom<&ShowArgs>`
+//!   at the binary edge.
 //! - `show(&Context, &ShowParams)`: the op, `for_each_repo`, one
 //!   `show_one_commit` per commit.
 
@@ -68,7 +68,7 @@ pub struct ShowArgs {
     pub files: String,
 }
 
-/// Clap-free params for `show`; embeds `CommonParams` plus the parsed
+/// Clap-free params for `show`: `CommonParams` plus the parsed
 /// `FileLimit`.
 #[derive(Debug)]
 pub struct ShowParams {
@@ -82,8 +82,8 @@ impl TryFrom<&ShowArgs> for ShowParams {
     /// Resolve clap `ShowArgs` into `ShowParams`: delegate to
     /// `CommonParams::try_from` for the shared fields and parse
     /// `--files` into `FileLimit` at the boundary. Fallible for two
-    /// reasons (`resolve_repos` or `FileLimit::parse`); both errors
-    /// surface as `String` for uniform handling in `main`.
+    /// reasons (`resolve_repos` or `FileLimit::parse`), and both
+    /// errors surface as `String` for uniform handling in `main`.
     fn try_from(a: &ShowArgs) -> Result<Self, String> {
         Ok(ShowParams {
             common: CommonParams::try_from(&a.common)?,
@@ -109,8 +109,8 @@ impl SubcommandRunner for ShowArgs {
 /// Print full details + a changed-files summary for each commit in
 /// the resolved range.
 ///
-/// `_ctx` is unused (show has no user-config or `--log` consumer);
-/// it's present for the uniform subcommand-layer signature.
+/// `_ctx` is unused (show has no user-config or `--log` consumer).
+/// It is present for the uniform subcommand-layer signature.
 pub fn show(_ctx: &Context, params: &ShowParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("show: enter");
     let c = &params.common;
@@ -242,7 +242,12 @@ fn find_nearest_tag(
     let tag_id = &tag_ids[0];
     let view = repo.view();
     for (name, local_remote) in view.tags() {
-        if local_remote.local_target.added_ids().any(|id| id == tag_id) {
+        if local_remote
+            .local_target
+            .adds()
+            .flatten()
+            .any(|id| id == tag_id)
+        {
             return Ok(Some(name.as_str().to_string()));
         }
     }
@@ -260,7 +265,7 @@ fn format_branches(
     let mut names: Vec<String> = Vec::new();
 
     for (name, local_remote) in view.bookmarks() {
-        for bookmark_id in local_remote.local_target.added_ids() {
+        for bookmark_id in local_remote.local_target.adds().flatten() {
             let revset_str = format!("{} & ::{}", commit_hex, bookmark_id.hex());
             let results = common::resolve_revset(workspace, repo, &revset_str)?;
             if !results.is_empty() {
@@ -273,7 +278,7 @@ fn format_branches(
             if remote_name.as_str() == "git" {
                 continue;
             }
-            for bookmark_id in remote_ref.target.added_ids() {
+            for bookmark_id in remote_ref.target.adds().flatten() {
                 let revset_str = format!("{} & ::{}", commit_hex, bookmark_id.hex());
                 let results = common::resolve_revset(workspace, repo, &revset_str)?;
                 if !results.is_empty() {

@@ -191,8 +191,9 @@ pub fn git_clone_colocated(source: &str, target: &Path) -> Result<()> {
     // `absolute_git_url`): later fetches resolve the stored URL
     // against the repo dir, not the cwd the user typed it in
     // (bugs.md #2's class). URL forms pass through.
-    let mut url = gix::url::parse(source)?;
-    url.canonicalize(&std::env::current_dir()?)?;
+    let mut url = gix::url::parse(source).map_err(gix::Exn::into_error)?;
+    url.canonicalize(&std::env::current_dir()?)
+        .map_err(gix::Exn::into_error)?;
     let source = match String::from_utf8(url.to_bstring().into()) {
         Ok(s) => s,
         Err(_) => source.to_string(), // non-utf8 path: keep the given form
@@ -394,7 +395,7 @@ pub fn local_bookmarks_at(repo: &Path, revset: &str) -> Result<Vec<String>> {
     let mut names: Vec<String> = repo_at_head
         .view()
         .local_bookmarks()
-        .filter(|(_, target)| target.added_ids().any(|id| ids.contains(id)))
+        .filter(|(_, target)| target.adds().flatten().any(|id| ids.contains(id)))
         .map(|(name, _)| name.as_str().to_string())
         .collect();
     names.sort();

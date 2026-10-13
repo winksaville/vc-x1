@@ -27,6 +27,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 
 use crate::common;
+use crate::jj::session::home_dir;
 
 /// The jj-lib version this binary links against.
 pub fn jj_lib_version() -> &'static str {
@@ -180,7 +181,7 @@ impl DataVersion {
 /// a version must not mutate the repo it reports on.
 pub fn data_version(path: &Path) -> Result<DataVersion, Box<dyn std::error::Error>> {
     let config = StackedConfig::with_defaults();
-    let settings = UserSettings::from_config(config)?;
+    let settings = UserSettings::from_config_and_home_dir(config, home_dir())?;
     let store_factories = default_backend_factories();
     let working_copy_factories = default_working_copy_factories();
 
