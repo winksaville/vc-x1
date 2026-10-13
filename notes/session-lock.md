@@ -97,8 +97,9 @@ and the others stand.
   above.
 - No hook, and no code in `vc-x1` for the session lock.
 - The failed push and the wrong partner are two `vc-x1` runs overlapping, which is what the lock
-  `vc-x1` takes for a run is for ([vc-x1 takes a lock of its own for every
-  run](../TODO.md#vc-x1-takes-a-lock-of-its-own-for-every-run)).
+  `vc-x1` takes for a run is for. That lock was considered and is not added, 2026-10-13, and its
+  design is kept in the backlog ([vc-x1 takes a lock of its own for a run that
+  writes](todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes)).
 - The empty files are a fault of the `.gitignore` that `init` writes ([init writes the agent
   sandbox's names into
   .gitignore](../TODO.md#init-writes-the-agent-sandboxs-names-into-gitignore)).

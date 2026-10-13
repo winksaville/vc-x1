@@ -42,56 +42,12 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The parked planning of 2026-10-12 is run as a cycle
-
-(agent, 2026-10-13) The bookmark `parked-planning-change-20261012` is published and holds one
-commit, a draft of planning in `TODO.md` and the backlog that was no cycle's rung. It sits on
-`docs: the session lock is settled as flock`, behind `main` since the cycle **docs: the session
-lock** landed.
-
-- Rebase it onto `main` and run it as a cycle of its own. Its `TODO.md` is reconciled with this
-  one, which that cycle's last two rungs reworked.
-- It holds:
-  - the run lock moved to the backlog, which the agent now advises against, the same-second
-    test being that lock's case
-  - `symlink` taking `create` or `remove`, and what stops rename
-  - the Ideas entry for a shared work-repo's config, with `clone` taking the agent-repo's
-    directory
-  - an ochid carrying no path, and the config's version field.
-- First, the agent's placing: the draft is written, and it goes stale as `TODO.md` changes.
-
 ### The scratch the session lock's tests left is deleted
 
 (wink + agent, 2026-10-12) The tests of two sessions in one workspace left scratch behind, wink's
 to delete: `/tmp/hook-probe`, `/tmp/vc-x1-two-sessions`, and the workspace `../agent-tests`. What
 the tests found is in [session-lock.md](notes/session-lock.md), and the lock itself is off since
 2026-10-13.
-
-### vc-x1 takes a lock of its own for every run
-
-(wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals
-included, and nothing serializes them. The session lock, `.agent-running`, keeps a second agent
-session out of a workspace and says nothing about a run a user starts beside one.
-
-- The lock is `.vc-x1-running` at the workspace root, wink's thought: `vc-x1` takes it itself,
-  exclusive and without waiting, for as long as one run lasts, so two runs in one workspace
-  cannot overlap, whoever started them.
-  - The process that asks is the process that holds, so a session's own `vc-x1` commands never
-    collide with the session's holder.
-  - That answers how rename and delete check: they take this lock and never ask for the
-    session's, which the session running them already holds.
-- It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
-  and a push takes the working copy whole, so one agent's edits land in the other's commit
-  even when they touch different files. That is what `.agent-running` is for.
-- So both, we think: `.vc-x1-running` for the run, `.agent-running` for the session, one agent
-  per workspace, and a second agent gets a second clone.
-- Every invocation takes it, wink's call, 2026-10-11, the simplest rule. Letting the ones that
-  only read run beside another is a bridge crossed when it is wanted.
-- To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
-  lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
-- Seen, 2026-10-12: two pushes started in the same second in one workspace. One died with
-  `error: Concurrent checkout` partway, and the other took the first's agent-repo commit as its
-  partner, so two work commits name one ([session-lock.md](notes/session-lock.md)).
 
 ### init writes the agent sandbox's names into .gitignore
 
@@ -279,8 +235,7 @@ Claude Code does not find.
   side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side), and [status reports the
   commits no bookmark reaches](#status-reports-the-commits-no-bookmark-reaches). Whether they move
   up ahead of it, or delete's cycle builds the verdict as its first rung, is open.
-- Two experiments want wink starting fresh Claude Code sessions, the symlink's below and the
-  lock's, and can share a sitting.
+- One experiment wants wink starting a fresh Claude Code session, the symlink's below.
 
 #### init --use-template takes an existing workspace as the template
 
@@ -388,7 +343,9 @@ an empty public repo there and a local workspace with no remote.
 
 #### What stops delete and rename
 
-- An agent running in the workspace refuses, by the lock below.
+- An agent running in the workspace is not looked for. No lock is asked for, the session's being
+  off and the one `vc-x1` was to take for a run not added ([vc-x1 takes a lock of its own for a
+  run that writes](notes/todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes)).
 - Uncommitted work, or unpushed work on a bookmark, refuses. This is the status verdict, called
   and not written again. The agent-repo's `@` is clean only after the session exits and a
   `squash-push`.

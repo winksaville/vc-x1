@@ -7,63 +7,68 @@ commit's copy of the record.
 
 ## Closed
 
-### docs: turn off the session lock
+### docs: vc-x1 takes no lock for a run
 
-(wink, 2026-10-13) The session lock, `.agent-running`, is an instruction in `custom.md` that every
-session follows at acquaint: a probe, a background holder, and a sentence. It guards against two
-sessions in one workspace, which one user with one session at a time does not have, so the cost
-is paid at every acquaint for a case that does not come up. No Todo entry was picked. The entry
-nearest it, the proposal of the lock to the set with the instruction's two faults, is ended by
-this cycle.
+(wink + agent, 2026-10-13) Two `vc-x1` runs in one workspace can overlap, and a Todo entry planned
+a lock, `.vc-x1-running`, that `vc-x1` would take for every run. Every run would pay for it, and
+what it prevents does not come up with one user running one session at a time. The Todo entry
+picked is "vc-x1 takes a lock of its own for every run". The entry "The parked planning of
+2026-10-12 is run as a cycle" is ended by this cycle too.
 
 #### Deliberation
 
-- The lock is turned off and not deleted, wink's call.
-  - The instruction is kept word for word in [session-lock.md](notes/session-lock.md), and
-    `custom.md` keeps an entry that says the lock is off and where the instruction is, so turning
-    it on is moving the text back.
-  - The entry says off in its first words. Acquaint has a session do what `custom.md` asks, and
-    a bare pointer at an instruction could be read as the instruction.
-  - `.gitignore` keeps its `/.agent-running` line, so a lock turned on again needs no second edit,
-    and the file a session left on disk stays ignored.
-- The cost accepted: nothing keeps a second session out of the workspace.
-  - Two sessions lose no data and leave a wrong record, a title that does not say what its commit
-    holds and a trailer that names the wrong session, as the tests of 2026-10-12 showed.
-  - One session per workspace is then the user's habit and no longer a check.
-- The proposal of the lock to the set is dropped, and what it had worked out is kept beside the
-  instruction: `flock` being a Linux tool, the thought of a small `vc-x1` command in its place,
-  and the instruction's two faults.
-  - The faults no longer bite, there being no instruction to forget or to edit.
-- The session that makes this cycle keeps the holder it took at its acquaint.
-  - The edit reaches the sessions started after it, which is one of the two faults, and here it
-    is what is wanted: stopping the holder by hand shows that an agent did as it was told and
-    nothing about the instruction.
-- The Todo entry for the lock `vc-x1` takes for a run still says the session lock keeps a second
-  agent out. It is left as it is, the agent's placing, since the next cycle removes the entry.
+- The lock is not added, wink's call.
+  - Its cost is more than its worth, the reason the session lock was turned off.
+  - The one overlap seen was made on purpose, two pushes started in the same second in the tests
+    of 2026-10-12, and it lost no data.
+- The entry moves to the backlog and is not deleted, wink's call, so the design is not lost.
+  - Its text is the parked commit's, where the entry had already been moved to the backlog,
+    brought up to date: the decision, what would reopen it, and the session lock being off.
+  - The continuation notes had it written fresh and the parked text not taken. Wink reversed
+    that at the opening.
+- The bookmark `parked-planning-change-20261012` is deleted at Land, locally and on `origin`,
+  wink's call. The backlog entry is what was wanted from it.
+  - Dropped with it, drafts that were no cycle's rung:
+    - `symlink` taking `create` or `remove`, and no `vc-x1 delete`
+    - the Ideas entry for a shared work-repo's config, with `clone` taking the agent-repo's
+      directory
+    - an ochid carrying no path
+    - the config's version field.
+  - Its commit is `85f87d76`, change `wkytxkqo`, findable by that id in a clone that fetched it
+    and nowhere on the remote once the bookmark is gone.
+- Two lines of the entry "Improve init and add rename and delete subcommands" leaned on a lock
+  and are brought up to date, the agent's placing: what stops delete and rename asks for no
+  lock, and the lock's experiment with fresh sessions is gone.
+- The third acceptance check of **docs: turn off the session lock** is recorded here, as that
+  cycle's record said it would be.
+- The commit body is its intro paragraph alone, wink's call at the description review, where
+  [Commit-body form](agent-data/prose.md#commit-body-form) asks for the facets and their
+  solutions under it. The exception covers this commit's body and nothing else.
 - A single-step cycle, with a bare version and no `-dev` name, the cycle being documents alone.
 
 #### Solution
 
-The instruction moves out of `custom.md` into [session-lock.md](notes/session-lock.md), and
-`custom.md` says the lock is off and points there.
+The lock `vc-x1` was to take for a run is recorded as considered and not added, and the planning
+parked on 2026-10-12 is ended.
 
-- The notes file says the lock is off, holds the instruction as it was, and says what turning it
-  on again would want settled.
-- The Todo entry for the proposal to the set is removed. The scratch its tests left is an entry
-  of its own, wink's to delete.
-- The Ideas entry for several agents in one workspace no longer says the lock refuses them.
+- The backlog holds the entry, [vc-x1 takes a lock of its own for a run that
+  writes](notes/todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes), with the
+  decision and what would reopen it.
+- The two Todo entries are removed, and [session-lock.md](notes/session-lock.md#what-was-decided)
+  points at the backlog entry.
 
 #### Acceptance check
 
-- `vc-x1 validate` passes. Passed.
-- `grep -c flock custom.md` prints 0. Passed.
-- A session started after Land acquaints without running `flock` and without saying "Lock
-  taken.", and `flock -xn .agent-running true` run from another terminal while that session works
-  exits 0. Not run: it wants a session started after Land, and the next cycle, which that
-  session runs, records it.
+- `vc-x1 validate` passes.
+- `rg 'vc-x1-running|takes-a-lock-of-its-own-for-every-run|parked-planning' TODO.md notes/`
+  finds `.vc-x1-running` in the backlog entry and nothing else.
+- The session lock is off, the check **docs: turn off the session lock** left as not run. Passed:
+  the session that ran this cycle started after that Land, acquainted without running `flock`,
+  and did not say "Lock taken." The probe from another terminal was not run, wink having removed
+  `.agent-running`, so there is no file to hold a lock on.
 
 #### Ladder
 
-- docs: turn off the session lock (done)
+- docs: vc-x1 takes no lock for a run (done)
 
 # References

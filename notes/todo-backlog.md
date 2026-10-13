@@ -7,6 +7,42 @@ Same shape as `TODO.md > ## Todo`, [Todo format](../agent-data/notes.md#todo-for
 
 ## Todo
 
+### vc-x1 takes a lock of its own for a run that writes
+
+(wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals
+included, and nothing serializes them. A lock for it was considered and is not added, wink's call,
+2026-10-13: what it costs is more than what it prevents here, the reason the session lock was
+turned off ([session-lock.md](session-lock.md#turned-off)). The design is kept for the day the
+overlap is met in real use.
+
+- What would reopen it: two runs overlapping outside a test. The one overlap seen was made on
+  purpose, two pushes started in the same second in the tests of 2026-10-12. One died with
+  `error: Concurrent checkout` partway, and the other took the first's agent-repo commit as its
+  partner, so two work commits name one ([What two sessions do with no
+  lock](session-lock.md#what-two-sessions-do-with-no-lock)).
+- What jj covers: two jj commands run at once do not corrupt a repo. We think each records an
+  operation and the next command merges the two, from what we know of jj and not from a test.
+- What jj does not cover: a sequence. A `vc-x1 push` is a commit in each repo, the trailers that
+  pair them, and two pushes to the remotes, and jj serializes each of those and not the run.
+- The overlap that is left: a user's run started beside the agent's, two of the user's own, or two
+  sessions' runs, the session lock being off. [At
+  rest](../AGENTS.md#at-rest-push-stop-squash-push) has the agent stop before the user
+  squash-pushes, which keeps the first of them rare.
+- The lock is `.vc-x1-running` at the workspace root, wink's thought: `vc-x1` takes it itself,
+  exclusive and without waiting, for as long as one run lasts, so two runs in one workspace
+  cannot overlap, whoever started them.
+  - The process that asks is the process that holds, so a session's own `vc-x1` commands never
+    collide with one another.
+  - It was to be how rename and delete check for a running agent. They now ask for no lock ([What
+    stops delete and rename](../TODO.md#what-stops-delete-and-rename)).
+- It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
+  and a push takes the working copy whole, so one agent's edits land in the other's commit
+  even when they touch different files. No lock guards that, the session lock being off.
+- The commands that write take it, `push`, `squash-push`, and `sync`, narrowed 2026-10-12. Every
+  invocation taking it was wink's call of 2026-10-11, the simplest rule.
+- To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
+  lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
+
 ### `validate`: fail on an unfilled `[[N]]` on `main`
 
 (wink, 2026-08-21) Backfill was missed at two consecutive openings because nothing checked it. The
