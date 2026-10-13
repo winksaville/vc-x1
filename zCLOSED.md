@@ -7,148 +7,159 @@ commit's copy of the record.
 
 ## Closed
 
-### docs: update single-step cycle add zCLOSED.md
+### docs: the session lock
 
-(wink + agent, 2026-10-11) A session of planning left `TODO.md` holding a day of decisions as
-uncommitted edits, with no cycle to carry them: what `vc-x1 delete` and `vc-x1 rename` are to do,
-the order `init` is fixed in, and two faults the day turned up, commits no command reports and a
-checker that reports a working link as broken. Carrying them became a trial of how a single-step
-cycle runs and of where the last record is kept, and the trial is what the cycle is named for.
+(wink + agent, 2026-10-12) No Todo entry was picked for managing a session lock. The first entry
+held two plans, the lock `vc-x1` takes for a run and what the session lock, `.agent-running`,
+left undone, and the cycle began as a rewrite of the second. The rewrite asked for a hook that
+takes the lock in the agent's place, and a day of looking into that ended in a decision not to
+build one.
+
+The session lock was added as two single-step cycles, each landing on `main`. This cycle gathers
+those two with what was found today into one ladder and closes it as a trapezoid.
 
 #### Deliberation
 
-- The cycle is single-step, wink's call: the edits were made in conversation, entry by entry.
-- The cycle is a trial of a new shape for a single-step cycle, wink's call at the work review of
-  the one-commit form, before any `vc-x1 push`: two stages, the work and the closing, each
-  validated, reviewed, and pushed, so a single-step cycle and a multi-step one run alike.
-  - The first stage carries the opening's duties and the work, under the dev name at the `-1`
-    suffix, the record in `## In Progress`.
-  - The closing runs the acceptance check against the pushed work, sets the bare version, and
-    moves the block to this file.
-  - The work-repo carries one commit and the agent-repo two, wink's call at the closing's
-    review. The closing is folded into the pushed work commit, which keeps its change id, and
-    the second agent-repo commit's trailer names that same commit.
-    - The work commit carries two `ochid:` trailers, one for each agent-repo commit.
-    - Two work commits squashed at Land would have left one agent-repo commit naming a change id
-      that no longer exists, the reason a ladder is never squashed.
-    - It was done by hand: a `jj squash`, a `jj describe` that kept the first trailer and added
-      the second, written by hand, and then `vc-x1 push`, which skips an empty work side and
-      stamps the agent-repo commit with the existing work commit's id.
-    - It is a re-describe of a published commit, coordinated with wink, and it bends [No
-      hand-written trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers) for the one
-      trailer.
-    - `vc-x1 validate-desc` and `fix-desc` read the last trailer alone. Both, and a `push
-      --amend` that does the fold, are Todo entries written by this closing.
-  - The cycle was renamed at the closing, wink's call: it opened as "docs: Todo plans init,
-    delete, and rename", which names the occasion and not what was done.
-    - The work commit is re-titled with the fold. The first agent-repo commit keeps the old
-      title, that repo being a journal of what was said at the time, and the bookmark keeps the
-      old name until Land deletes it.
-  - The last cycle's record stays readable until this one's closing replaces it, wink's call at
-    the second work review, where the opening would have deleted it. There is then always a
-    finished record, and the opening's diff is its own cycle alone. Wink means it for a
-    multi-step cycle too.
-    - It was first tried as two blocks in `zDOING.md`, the old one left under `## Closed`. They
-      shared the file's reference definitions, so the new block's had to number on from the
-      old one's, and they repeated the item headings, Deliberation, Solution, Acceptance check,
-      and Ladder, which `vc-x1 validate-anchors` reported as four duplicate anchors.
-    - A list of references inside each block was weighed and left: a definition is the file's
-      wherever it is written, so two blocks cannot both number from 1. A rung's title as its
-      label would have answered that and not the headings.
-    - A file of its own, wink's idea, answers both: `zCLOSED.md` holds the last record and its
-      references, each file numbers from 1, and the closing replaces that file's block whole.
-      Its cost is a third file beside `zDOING.md` and `TODO.md`.
-    - The duplicate reports brought the Todo entry [validate-anchors warns on a duplicate anchor
-      only when a link names
-      it](TODO.md#validate-anchors-warns-on-a-duplicate-anchor-only-when-a-link-names-it), which
-      stays as a fix to the checker with its case gone.
-  - Land restores the plain name, as a multi-step cycle's does. Restoring it in the closing was
-    weighed and left: the closing's validation would install the stable binary before `main`
-    carries it.
-  - The one commit lands as it is, with no merge commit, and `main` is pushed once.
-  - The bookmark's create and publish needs no approval, wink's call. The two pushes and the
-    Land keep theirs.
-  - It bends [Cycle shape](AGENTS.md#cycle-shape), [Cycle-record](AGENTS.md#cycle-record),
-    [Opening](AGENTS.md#opening), [Close-out](AGENTS.md#close-out), and [Before any
-    push](AGENTS.md#before-any-push), for this cycle alone and as far as the bullets above say.
-    Whether it becomes the rule is an `agent-files` proposal's to settle.
-  - The ladder is one unlinked rung with the bare title, as a single-step cycle's is today, there
-    being one work commit, and no title carries " closing". What the closing taught is under a
-    `#### Closing` heading of its own, a rung subsection headed by the bare title colliding with
-    the title heading's anchor.
-- The record was kept in `zDOING.md`, continuing the trial the last cycle began, wink's call at
-  the opening.
-  - It bends [Cycle-record](AGENTS.md#cycle-record) as that cycle's did: where the block is
-    written and its order, and nothing else.
-  - Whether that file and `zTODO.md` are the right ones is not settled, which is why
-    `agent-files(proposal): v0.2.8` stays parked.
-- The commit's body is one paragraph, the problem, what the commit does, and a pointer to this
-  record, wink's call at the description review, where the first draft ran to 34 lines.
-  - It bends [Commit-body form](agent-data/prose.md#commit-body-form), for this cycle's body
-    alone. The rule is the Todo entry [A commit body is an intro and a pointer to the
-    record](TODO.md#a-commit-body-is-an-intro-and-a-pointer-to-the-record), part of the parked
-    proposal.
-- No `## Todo` entry was picked up, so the block opens with the problem, where an entry's text
-  would be.
-- The order of `## Todo` is wink's: the `validate-anchors` entries first, then `init`, delete,
-  and rename, with the parked proposal after them.
-- The checker's false failure is left standing and is the first entry's to fix. Taking the
-  backticks out of the heading it trips on would pass the check today and lose the heading's
-  mark of a command.
-- The lock a running agent holds is planned as an experiment in this project's `custom.md`, with
-  no `agent-files` proposal, wink's call. Nothing of it is in this cycle.
-- The restore written for `sync --undo` was a draft under `tmp/` and is gone, wink having cleared
-  `tmp/`. Its entry now says it is rewritten from the description.
-- The `## Waiting` conditions are unmet, `vc-x1 closed` not landed and jj-lib offering no remote
-  query, so nothing promotes.
+- The lock stays as the instruction in `custom.md`, wink's call.
+  - Two sessions were tested with no lock, wink's thought, to see what the lock is worth:
+    pushes minutes apart, pushes in the same second, and one session resumed in two terminals.
+  - Nothing either session wrote was lost, and every transcript line parses, but the commit
+    title and bodies might be missing if they happened at the same time with the first one
+    committing all the work that both did.
+  - One line of instruction prevents that. What was found is in
+    [session-lock.md](notes/session-lock.md), not here.
+- The agent keeps taking the lock itself. Two other takers were considered, a Claude Code hook
+  and `vc-x1`, and neither is built, wink's call.
+  - A hook is a command Claude Code runs on its own when a session starts, so the lock would
+    not depend on an agent reading the instruction and following it. A trial showed a hook can
+    take the lock and hold it for as long as the session runs.
+  - The hook is not built because it needs `CLAUDE_PID`, the id of the Claude Code process, to
+    know when the session has ended. Claude Code's documents do not name that variable, so any
+    release could drop it.
+  - `vc-x1` taking the lock was thought to close a gap between the agent's probe and its hold.
+    It closes none, wink's point: one asker wins a `flock`, whichever program asks.
+- The current top two commits on main are being converted from being single-step
+  cycles into a multi-step trapezoid, because in retrospect it should have been multi-step
+  from the start, wink's call 2026-10-12.
+  - Nothing published is rewritten. The two keep their ids, titles, and trailers, and the
+    closing descends from both, so `main` moves forward onto it.
+  - It is an exception to [Cycle shape](AGENTS.md#cycle-shape), where a single-step cycle
+    lands as it is. It covers these two commits and the versions below, and Land takes its
+    own go.
+- Every rung has a bare version, 0.84.25 and 0.84.26 for the two rungs made in the cycle and
+  0.84.27 for the closing.
+  - The first two landed bare, 0.84.23 and 0.84.24, and are published.
+  - A suffixed version wants the `-dev` name beside it, and the cycle is documents alone.
+- A fourth rung is inserted ahead of the closing, wink's call, 2026-10-13
+  ([Unplanned work](AGENTS.md#unplanned-work)).
+  - The closing's review grew Todo planning that is no bookkeeping: `TODO.md` lost the headings
+    the record left behind, and two entries were reworked.
+  - The closing's own edits were set aside while the rung was made, so each commit has its own
+    change alone.
+  - It is outside the cycle's subject and is a rung all the same, the edits being made and
+    reviewed, and a cycle of its own costing an opening, a closing, and a Land.
 
 #### Solution
 
-`TODO.md` took the day's planning in the first stage, and this closing was folded into its
-commit.
+The session lock stayed as it was, an instruction in `custom.md` that the agent follows.
 
-- Three `validate-anchors` entries head `## Todo`: a new one for the slug of a heading holding a
-  code span, the cross-file check, moved up, and a new one for duplicate anchors no link names.
-- The entry for `init`, delete, and rename follows, in the order they are to be done, with what
-  stops the two commands and the lock a running agent holds.
-- A new entry has `vc-x1 status` report the commits no bookmark reaches.
-- The parked proposal's entry says why it stays parked, and the `sync --undo` entry that its
-  draft is gone.
-- The continuation notes are reset in both files, each fact acted on or filed.
-- The last cycle's record has a file of its own, `zCLOSED.md`, and this block replaced it there.
+- What a hook could do and what two sessions do without a lock are in
+  [session-lock.md](notes/session-lock.md).
+- Three Todo entries carry what is left: the proposal of the lock to the set with the
+  instruction's two faults, the lock `vc-x1` takes for a run, and `init` writing the agent
+  sandbox's names into `.gitignore`.
+- `TODO.md` is the todo list alone, by a rung the closing's review grew.
+- The lock's two landed commits and the three made in this cycle are one ladder, and the closing
+  is the merge that draws the trapezoid around them at Land.
 
 #### Acceptance check
 
-- `vc-x1 validate` passes. Passed, on the pushed work.
-- `vc-x1 validate-anchors TODO.md` reports one failure, the false one on the link to
-  `#support-por-workspaces-in-push`, and no other. Passed.
+- `vc-x1 validate` passes. Passed, on the closing.
+- `custom.md` is unchanged, and no file under `src/` is changed. Failed for `custom.md` and
+  passed for `src/`, compared with the trapezoid's first parent,
+  `docs: update single-step cycle add zCLOSED.md`.
+  - `custom.md` gained the lock line, nine lines, which the first rung added and the second
+    reworded.
+  - Why it failed: the check was written for the work of 2026-10-12, before the first two rungs
+    were counted as this cycle's, and as a trapezoid the cycle is everything since its first
+    parent. The line is the cycle's subject, so the change is the intended one and the check
+    was wrong.
+- [session-lock.md](notes/session-lock.md) holds the probe's findings and the three tests, and
+  each of the three Todo entries links it. Passed: the findings are under "What a hook could do",
+  the tests under "What two sessions do with no lock", and the three entries, the second to
+  the fourth of `## Todo`, each link the file.
+- After Land, `main` is a merge of two parents, `docs: update single-step cycle add zCLOSED.md`
+  first and this cycle's third rung second, and `jj log -r 'main@origin..main'` prints nothing.
+  Not run: Land comes after this commit, on a go of its own, and the check is made then. The
+  second parent is the fourth rung, one having been inserted after the check was written.
 
 #### Ladder
 
-- docs: update single-step cycle add zCLOSED.md (done)
+- [docs: a session takes the workspace lock at acquaint][1] (done)
+- [docs: the session lock is settled as flock][2] (done)
+- [docs: two sessions in one workspace, tested][3] (done)
+- [docs: TODO.md is the todo list, its split completed][5] (done)
+- [docs: the session lock closing][4] (done)
 
-#### Closing
+##### docs: a session takes the workspace lock at acquaint
 
-Close-out shape: one commit, the closing folded into the work commit.
+Landed 2026-10-11 as a single-step cycle. A line in `custom.md` has a session probe the lock at
+acquaint and hold it with a background command, or refuse in one fixed sentence.
 
-- The shape of the cycle changed five times at its two work reviews, each time by looking at
-  what would land.
-  - One commit became two, the last record was kept, the last record moved to a file of its
-    own, the two commits became one, and the cycle took a new name. None was in the plan the
-    opening was approved on.
-  - What is to become of the trial is the Todo entry [A single-step cycle is two stages and one
-    commit, and the last record has a file of its
-    own](TODO.md#a-single-step-cycle-is-two-stages-and-one-commit-and-the-last-record-has-a-file-of-its-own).
-- A cycle that only describes what is wanted changes nothing, wink's remark at the closing.
-  - The trial changed how this cycle ran, and the agent-files still describe the old shape, so
-    the next session runs the old shape unless it is told.
-  - We think an override in `custom.md` is the next step, short of a proposal to the set.
-- A review that iterates on markdown pays for a whole validation at each turn.
-  - A dozen runs of clippy, the tests, and an install were made for edits to three markdown
-    files, the rule being that validation passes after the last edit.
-  - We think a change that touches no source wants a check of its own, the anchors and the prose
-    rules, and this is not yet an entry.
-- One validation failed on a test that was not this cycle's, and passed when run again.
-  - It is bug 21 in [bugs.md](notes/bugs.md), written by this closing.
+##### docs: the session lock is settled as flock
+
+Landed 2026-10-11 as a single-step cycle, and its record is that commit's copy of `zCLOSED.md`,
+which this cycle's closing replaced. Every way a session ends releases the lock, so it is the `flock`
+alone, and a resumed session takes it again.
+
+##### docs: two sessions in one workspace, tested
+
+The lock rested on a guess that two sessions in one workspace do harm, and on an instruction an
+agent has to follow. Both were looked into, and the lock is kept as it is.
+
+- A notes file holds what a hook could do in the agent's place and what three tests of two
+  sessions with no lock showed.
+- The first Todo entry, which held two plans, is two entries.
+  - The session lock's is first: the proposal to the set, and the instruction's two faults.
+  - The run lock's is second, with the push that died as its first evidence. Two `vc-x1` runs
+    in the same second is that lock's case and not the session lock's.
+- A third entry is new: `init` writes the agent sandbox's names into `.gitignore`, a test
+  having committed 23 empty files the sandbox put on disk.
+- The Ideas entry for several agents in one workspace has the tests as its first try.
+
+##### docs: TODO.md is the todo list, its split completed
+
+`TODO.md` still had the headings of the records that moved out of it, each over a pointer, and
+its `validate-anchors` and `push --amend` entries had grown hard to read. The headings go and the
+entries are reworked.
+
+- `TODO.md` is what we might do and nothing else: its intro, `## Waiting`, `## Todo`, and
+  `## Ideas`.
+  - `## Continuation notes`, `## In Progress`, `## Closed`, and `## Bugs` are removed, and the
+    intro names `zDOING.md`, `zCLOSED.md`, and `bugs.md` in their place.
+  - The split is completed for the file and not for the agent-files, which still name
+    `TODO.md` for all four. That is left to the entry for the record's move.
+- The three `validate-anchors` entries are one, a bullet for each known issue.
+  - A fourth issue is new: a code span that wraps onto a second line hides a citation after it.
+    Two of the three failures of a whole-repo run are that, and both are false.
+  - A heading in `TODO.md` lost its backticks, which stepped around the code-span slug fault
+    and fixed nothing.
+- The `push --amend` entry is grouped by side: what the work-repo commit keeps and takes, what
+  the new agent-repo commit is, and the approval.
+  - The title and body are optional, and the new trailer goes at the bottom of the list.
+
+##### docs: the session lock closing
+
+The trapezoid is created, wink's call for the close-out shape, and `vc-x1 validate` passed.
+
+- This commit is the trapezoid's merge. Land gives it its two parents,
+  `docs: update single-step cycle add zCLOSED.md` first and the fourth rung second, and moves
+  `main` forward onto it.
 
 # References
+
+[1]: #docs-a-session-takes-the-workspace-lock-at-acquaint
+[2]: #docs-the-session-lock-is-settled-as-flock
+[3]: #docs-two-sessions-in-one-workspace-tested
+[4]: #docs-the-session-lock-closing
+[5]: #docs-todomd-is-the-todo-list-its-split-completed

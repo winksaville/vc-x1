@@ -1,6 +1,7 @@
 /target
 /.claude
 /.agent-session
+/.agent-running
 /.git
 /.jj
 /tmp

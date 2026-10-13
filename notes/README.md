@@ -34,6 +34,10 @@ The agent-files' line count over time is in [agent-files-size.md](agent-files-si
 per landing, smaller being the quasi-goal. `vc-x1 agent-files size` takes the count and slides
 that file's per-file window.
 
+The session lock, `.agent-running`, and what two agent sessions in one workspace do without it,
+are in [session-lock.md](session-lock.md): what Claude Code's hooks could do in the agent's place,
+three tests of two sessions with no lock, and what was decided.
+
 How a change to a line in any work-repo file is connected to its discussion in the agent-repo,
 the partner commit, its time-window, and the transcript write, is in
 [transcript-write.md](transcript-write.md). It carries the objective and the terms, the by-hand

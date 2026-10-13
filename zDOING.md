@@ -12,8 +12,8 @@ TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoing
 ## Continuation notes
 
 Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
-on, and reset to `_None._` by the reader. Kept here by the trial, with a pointer to it under the
-same heading in `TODO.md`, where [Acquaint](AGENTS.md#acquaint) still looks.
+on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
+where [Acquaint](AGENTS.md#acquaint) still says to look.
 
 _None._
 

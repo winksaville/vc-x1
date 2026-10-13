@@ -1,28 +1,15 @@
-# Todo and cycle record
+# Todo list
 
 This file contains near term tasks with a short description and reference links to more details.
 Its shape is [Todo format](agent-data/notes.md#todo-format).
 
-## Continuation notes
+The other files:
 
-Where the agent was, for the agent that comes next: working copy state, the step in flight, an
-open question. Ephemeral, never a record. Written before a restart or when a session is about to
-lose context, read first at acquaint, acted on, and reset to `_None._` by the reader.
-
-_None._
-
-## In Progress
-
-A cycle's record has one home at a time, and while the cycle runs this is it. The block's
-shape is the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in
-[The In Progress block](agent-data/notes.md#the-in-progress-block).
-
-_No cycle currently in progress._
-
-A trial, 2026-10-09: the cycle **feat: sync is safe by default** kept its record
-in [zDOING.md](zDOING.md), ahead of the agent-files saying so, to see how the file reads ([The
-cycle-record moves out of TODO.md into
-zDOING.md](#the-cycle-record-moves-out-of-todomd-into-zdoingmd)). This cycle continues it.
+- [BUGS.md](BUGS.md): List of vc-x1 bugs that should be addressed 
+- [zDOING.md](zDOING.md): the cycle being worked on, its planning and its work's documentation,
+  and the continuation notes a session leaves for the next.
+- [zCLOSED.md](zCLOSED.md): the last finished cycle's record, kept until the next one closes.
+- [bugs.md](notes/bugs.md): the bugs.
 
 ## Waiting
 
@@ -55,24 +42,129 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### The parked planning of 2026-10-12 is run as a cycle
+
+(agent, 2026-10-13) The bookmark `parked-planning-change-20261012` is published and holds one
+commit, a draft of planning in `TODO.md` and the backlog that was no cycle's rung. It sits on
+`docs: the session lock is settled as flock`, behind `main` since the cycle **docs: the session
+lock** landed.
+
+- Rebase it onto `main` and run it as a cycle of its own. Its `TODO.md` is reconciled with this
+  one, which that cycle's last two rungs reworked.
+- It holds:
+  - the run lock moved to the backlog, which the agent now advises against, the same-second
+    test being that lock's case
+  - `symlink` taking `create` or `remove`, and what stops rename
+  - the Ideas entry for a shared work-repo's config, with `clone` taking the agent-repo's
+    directory
+  - an ochid carrying no path, and the config's version field.
+- First, the agent's placing: the draft is written, and it goes stale as `TODO.md` changes.
+
+### The session lock is proposed to the set, and its instruction has two faults
+
+(wink + agent, 2026-10-12) The session lock, `.agent-running`, is an instruction in this project's
+`custom.md` and nowhere else. What it is, and what two sessions do without it, is in
+[session-lock.md](notes/session-lock.md).
+
+- Propose the lock to the set, convention work and so a cycle of its own. `flock` is a Linux
+  tool and the instruction is this project's, and both want an answer first.
+  - macOS has the `flock` call and does not ship the tool, and Windows has neither.
+  - We think the answer is a small `vc-x1` command that takes the lock and holds it, through
+    Rust's `File::try_lock`: `flock` on Linux and macOS, `LockFileEx` on Windows, and each
+    system drops the lock when the holder dies.
+  - That is code in `vc-x1` for the session lock, which the cycle that tested two sessions
+    decided against. It weighed races and not other systems.
+- The instruction has two faults, and neither has a fix planned:
+  - A session that has forgotten it holds the lock probes again at a reacquaint, fails against
+    its own holder, and stops as if another session held it.
+  - An edit to the instruction reaches only the sessions started after it.
+- A hook that takes the lock in the agent's place was designed and not built, wink's call, the
+  same file saying why.
+- Scratch the tests left, wink's to delete: `/tmp/hook-probe`, `/tmp/vc-x1-two-sessions`, and the
+  workspace `../agent-tests`.
+
+### vc-x1 takes a lock of its own for every run
+
+(wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals
+included, and nothing serializes them. The session lock, `.agent-running`, keeps a second agent
+session out of a workspace and says nothing about a run a user starts beside one.
+
+- The lock is `.vc-x1-running` at the workspace root, wink's thought: `vc-x1` takes it itself,
+  exclusive and without waiting, for as long as one run lasts, so two runs in one workspace
+  cannot overlap, whoever started them.
+  - The process that asks is the process that holds, so a session's own `vc-x1` commands never
+    collide with the session's holder.
+  - That answers how rename and delete check: they take this lock and never ask for the
+    session's, which the session running them already holds.
+- It guards a run and nothing between runs. Two agents editing one working copy share one `@`,
+  and a push takes the working copy whole, so one agent's edits land in the other's commit
+  even when they touch different files. That is what `.agent-running` is for.
+- So both, we think: `.vc-x1-running` for the run, `.agent-running` for the session, one agent
+  per workspace, and a second agent gets a second clone.
+- Every invocation takes it, wink's call, 2026-10-11, the simplest rule. Letting the ones that
+  only read run beside another is a bridge crossed when it is wanted.
+- To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
+  lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
+- Seen, 2026-10-12: two pushes started in the same second in one workspace. One died with
+  `error: Concurrent checkout` partway, and the other took the first's agent-repo commit as its
+  partner, so two work commits name one ([session-lock.md](notes/session-lock.md)).
+
+### init writes the agent sandbox's names into .gitignore
+
+(wink + agent, 2026-10-12) Claude Code's sandbox puts empty files at a workspace's root while an
+agent's command runs, `.bashrc`, `.gitconfig`, `.mcp.json`, `.claude/settings.json`, and some
+twenty more. A snapshot taken from outside that sandbox at that moment sees them as new files,
+and a push commits them: 23 went into a commit in the two-session tests
+([session-lock.md](notes/session-lock.md)).
+
+- This repo's `.gitignore` names them, added by hand, and the one `init` writes has four lines
+  and none of them.
+- `init` writes the names, and a workspace made before it does gets them by hand or by a command
+  that brings a workspace up to date.
+- The list is Claude Code's and can change with a release, so where it is kept, and how it is
+  checked against what the sandbox does, is settled in the cycle.
+- We think a user's own `jj st` beside a running agent command sees the files too. Not tested.
+
 ### push --amend folds a stage into the pushed work commit
 
-(wink + agent, 2026-10-11) A cycle's closing wants to add to the work commit already pushed, not
-to make a second one, and `vc-x1 push` can only make a new commit on each side. The cycle
-**docs: update single-step cycle add zCLOSED.md** did it by hand: a `jj squash`, a `jj describe`
-with a trailer written by hand, and then the push.
+(wink + agent, 2026-10-11) A later stage of a cycle, its closing most often, adds to the work
+commit already pushed, and `vc-x1 push` can only make a new commit on each side. So the one
+work-repo commit needs to reference several agent-repo commits. Today that is done by hand:
+a `jj squash`, a `jj describe` with a trailer written by hand, and then the push.
 
-- With `--amend` the work side is folded into the top commit of the bookmark, which keeps its
-  change id, and the rewritten bookmark is pushed.
-- The title and body given replace that commit's, and every `ochid:` trailer it carries is kept.
-- The agent-repo side is a new commit as now, its trailer naming the work commit's change id,
-  and the work commit gains a trailer for it. One work commit then names every agent-repo commit
-  made for it.
-- What exists already: a push with an empty work side skips the work commit and stamps the
-  agent-repo commit with the existing one's id, and the jj layer has the fold and the describe.
-- It is a rewrite of a published commit, so it takes the approval any push takes, and it is
+- The work-repo side: `push --amend` squashes the working copy into the target commit, the top
+  commit of the bookmark, where a plain push would make a new commit of it.
+  - The target keeps its change id and gets a new commit id, so the bookmark is rewritten and
+    pushed.
+  - The title and body are optional. Given, they replace the target's, if left out the target
+    keeps its own.
+  - The target's current `ochid:` trailers are kept as is and the new one is added at the bottom
+    of the list, so the list is oldest first.
+- The agent-repo side: a new commit with the same title and body as the work-repo commit. Its
+  `ochid:` trailer names the work-repo commit, and its own change id is the last `ochid:` on
+  that commit.
+- Approval: it rewrites a published commit, so it takes the approval any push takes and is
   refused on a bookmark that has landed.
-- First, wink's order, ahead of the `validate-anchors` entries.
+
+### A validation failure is investigated before it is run again
+
+(wink + agent, 2026-10-11) A full validation failed once in the closing of the cycle **docs: the
+session lock is settled as flock**, with no code changed, and the agent ran it again, saw it
+pass, and reported that. A pass on the second run says nothing of why the first failed, and wink
+wants the failure looked into first.
+
+- The failure: `init::tests::adopt_keeps_a_gitignore_that_has_the_line` and
+  `fix_desc::tests::por_workspace_noops` each died making a commit, on "Couldn't load public key
+  /h/.ssh/git-commits-wink@saville.com.pub". The runs before and after passed all 650.
+- The cause, we think: a test in `src/init/tests.rs` sets `HOME` to `/h` for the whole test
+  process while it checks `expand_vars`, and puts it back. A test running beside it that signs
+  a commit in that moment looks for the signing key under `/h`.
+  - The fix is that test taking its home as an argument, or the tests that read `HOME` running
+    one at a time, settled in the cycle.
+- The rule is an `agent-files` proposal, in [The per-rung flow](AGENTS.md#the-per-rung-flow)'s
+  Validate step: a failure is read and its cause named before a second run, and a failure that
+  does not repeat is a finding, reported and given a Todo entry.
+- Third, the agent's placing: a validation that fails by chance is one nobody trusts.
 
 ### validate-desc and fix-desc read every ochid trailer
 
@@ -92,77 +184,94 @@ trailers, and the two checkers read the last one alone, read from the code on th
 - It overlaps [vc-x1 push: record uncovered work commits (N:1
   work<->agent)](#vc-x1-push-record-uncovered-work-commits-n1-work-agent).
 
-### validate-anchors keeps a heading's code-span text when it slugs
+### validate-anchors has four known issues
 
-(wink + agent, 2026-10-11) A heading holding a code span is slugged as though the span's text
-were absent, so a correct link to it is reported as broken and the "did you mean" line offers the
-slug that breaks it. The live case is this file's link to `#support-por-workspaces-in-push`, the
-anchor GitHub gives the heading, which the command computes as `#support-por-workspaces-in`. It is
-bugs 15 and 19 in [bugs.md](notes/bugs.md).
+(wink + agent, 2026-10-13) `vc-x1 validate-anchors` over the whole work-repo exits 1 on three
+problems, two of them false, and it skips every cross-file link, so it is not in
+`.vc-config.md`'s `[validate]` table and a rung's broken link fails nothing. The issues are one
+entry, each a bullet, and we think each a rung of one cycle that ends with the command in the
+table.
 
-- The fix is bug 19's: strip the backticks and keep the span's text.
-- Bugs 15 and 19 are one fault found twice, and one retires into the other.
-- With it `vc-x1 validate-anchors TODO.md` runs to zero and is a check a cycle can lean on: on
-  2026-10-11 its one failure was this link.
-- We think the next entry, the same command's, is a second rung of the same cycle.
-
-### validate-anchors resolves a cross-file link
-
-(iiac-perf, 2026-09-02, widened wink + agent, 2026-09-22) A cross-file markdown link is never
-checked. `validate-anchors` recognizes a `](other.md#slug)` target and a `[N]: path#slug`
-definition, counts them, and skips them, so a link to a file that is not there, or to a heading
-that file does not have, passes. `validate-config` resolves one target, a `vc-config.md#<anchor>`
-fragment, against the schema, and nothing else does more. The concrete case: zc-ring-x1's
-`.vc-config.md` links `vc-config.md` and `vc-config-test.md`, neither in that repo, and
-`validate-config` (0.82.0) on a copy reports six problems with neither missing file among them. A
-fresh adopter sees the gap as the report's tally: uis-x1 today, 86 links checked and 132 cross-file
-skipped, so most of what its records link is unverified.
-
-Resolve the target instead of skipping it. The file half is a path relative to the file holding
-the link, and the fragment half is a heading in that file, slugged by the same rule the same-file
-check already applies, so the check needs no new machinery, only the other file's headings.
-
-- File: fail a target whose file does not exist, with the path as the linking file resolved it.
-- Fragment: fail a target whose file exists and has no heading slugging to the fragment, naming the
-  nearest heading as the same-file check does.
-- Root-absolute paths, the `/notes/<file>.md` form most of this repo's `[N]:` definitions still
-  carry, resolve against the workspace root, the directory holding `.vc-config.md`, which is how
-  GitHub reads them. The tally stays honest: a target the check could not place is still counted
-  as skipped, and the summary says so.
-- A target outside the workspace, `../vc-x1-messages/...` from a sibling, resolves when the
-  file is there and counts as skipped when it is not, since a sibling's presence is the machine's,
-  not the record's.
-- Only `.md` targets are resolved. A URL, an `.rs` path, or a `.txt` stays skipped.
-- `validate-config` keeps its schema lookup for `vc-config.md#<anchor>`, since the schema is the
-  authority on those anchors and the file may not be in the adopter's tree.
-- The report's cross-file tally becomes two numbers, resolved and skipped, so a pass says what it
-  covered.
-
-This unblocks **Reference defs: go file-relative, with anchors** in the backlog rather than waiting
-on it: the sweep to file-relative paths becomes a change the check verifies, and the backlog entry
-loses its "after validate-anchors grows the cross-file check" sequencing. Reported by iiac-perf's
-message **2026-09-02T17:26:18.543Z Cross-file links go unchecked** in `../vc-x1-messages`, which
-asks for a reply naming it and linking where this landed, so the reply goes out once this entry's
-cycle is pushed.
-
-### validate-anchors warns on a duplicate anchor only when a link names it
-
-(wink + agent, 2026-10-11) Two headings that slug alike are reported as a duplicate anchor whether
-or not anything links to either, and a duplicate is a fault only for a link, which reaches the
-first heading alone. With two cycle blocks in one file, the running one and the last closed one,
-each block's Deliberation, Solution, Acceptance check, and Ladder headings repeat, and
-`vc-x1 validate-anchors zDOING.md` reported four duplicates that no link names. That layout was
-tried on 2026-10-11 and left for a file per block, so the case is gone and the fault
-is not.
-
-- A duplicated anchor is reported when a link in the checked files names it, and the report says
-  which heading the link reaches.
-- An unlinked duplicate is counted in the summary and not reported as a problem.
-- Weighed and left: making a block's item headings bold labels, which have no anchor, and which
-  an editor's outline then no longer shows.
-- No link names those four anchors today, searched 2026-10-11 in the work-repo's `.md` and `.rs`
-  files. The family's other repos were not searched.
-- It is the same command as the two entries above, and we think a rung of their cycle.
+- The whole-repo run at 0.84.26, 47 files, 260 links checked, 275 cross-file skipped, 3 failed:
+  - `notes/design-cli/por-dual-parity-audit.md:489`, a duplicate `#summary` that no link names,
+    the third issue below
+  - `notes/design-cli/por-dual-parity-audit.md:1194`, `[1]` defined but never cited, the second
+    issue below
+  - `vc-config-model.md:121`, `[17]` defined but never cited, the second issue below.
+- **validate-anchors keeps a heading's code-span text when it slugs.** (wink + agent, 2026-10-11)
+  A heading holding a code span is slugged as though the span's text were absent, so a correct
+  link to it is reported as broken and the "did you mean" line offers the slug that breaks it. It
+  is bugs 15 and 19 in [bugs.md](notes/bugs.md).
+  - The case: ``### Support POR workspaces in `push` `` is `#support-por-workspaces-in-push` on
+    GitHub, and the command computes `#support-por-workspaces-in`.
+    - It was live in this file until 2026-10-13, when the heading lost its backticks, wink's
+      edit, and the link was changed to match. That stepped around the fault and fixed nothing.
+    - A scratch file with that heading and its link still fails at 0.84.26, as does ``## A in
+      `mid` word`` with `#a-in-mid-word`.
+  - The fix is bug 19's: strip the backticks and keep the span's text.
+  - Bugs 15 and 19 are one fault found twice, and one retires into the other.
+  - `vc-x1 validate-anchors TODO.md` runs to zero today because no link here names a heading
+    holding a code span, eleven headings having one.
+- **validate-anchors finds a citation that follows a wrapped code span.** (wink + agent,
+  2026-10-13) A code span that wraps onto a second line hides a `[[N]]` citation after it on that
+  line, so the definition is reported as defined but never cited.
+  - The live cases are the two in the run above: `vc-config-model.md:97` cites `[[17]]` after
+    the tail of a span opened on line 96, and `por-dual-parity-audit.md:9` cites `[[1]]` the
+    same way.
+  - A scratch file fails at 0.84.26 with the span wrapped and passes with it on one line.
+  - The cause, we think, not read from the code: backticks are paired one line at a time, so the
+    wrapped span's closing backtick reads as an opening one and the rest of the line is taken
+    for code.
+  - `vc-config-model.md` is generated, so until the fix its wrap is the generator's to avoid.
+- **validate-anchors warns on a duplicate anchor only when a link names it.** (wink + agent,
+  2026-10-11) Two headings that slug alike are reported as a duplicate anchor whether or not
+  anything links to either, and a duplicate is a fault only for a link, which reaches the first
+  heading alone.
+  - A duplicated anchor is reported when a link in the checked files names it, and the report
+    says which heading the link reaches.
+  - An unlinked duplicate is counted in the summary and not reported as a problem.
+  - The live case is the `#summary` in the run above. An earlier one, four duplicates in
+    `zDOING.md` with two cycle blocks in one file, went when that layout was left for a file per
+    block on 2026-10-11.
+  - Weighed and left: making a block's item headings bold labels, which have no anchor, and
+    which an editor's outline then no longer shows.
+- **validate-anchors resolves a cross-file link.** (iiac-perf, 2026-09-02, widened wink + agent,
+  2026-09-22) A cross-file markdown link is never checked. The command recognizes a
+  `](other.md#slug)` target and a `[N]: path#slug` definition, counts them, and skips them, so a
+  link to a file that is not there, or to a heading that file does not have, passes.
+  - `validate-config` resolves one target, a `vc-config.md#<anchor>` fragment, against the
+    schema, and nothing else does more.
+  - The concrete case: zc-ring-x1's `.vc-config.md` links `vc-config.md` and
+    `vc-config-test.md`, neither in that repo, and `validate-config` (0.82.0) on a copy reports
+    six problems with neither missing file among them.
+  - A fresh adopter sees the gap as the report's tally: uis-x1, 86 links checked and 132
+    cross-file skipped, so most of what its records link is unverified.
+  - The fix resolves the target instead of skipping it. The file half is a path relative to the
+    file holding the link, and the fragment half is a heading in that file, slugged by the rule
+    the same-file check already applies, so it needs no new machinery, only the other file's
+    headings.
+    - File: fail a target whose file does not exist, with the path as the linking file resolved
+      it.
+    - Fragment: fail a target whose file exists and has no heading slugging to the fragment,
+      naming the nearest heading as the same-file check does.
+    - Root-absolute paths, the `/notes/<file>.md` form most of this repo's `[N]:` definitions
+      still carry, resolve against the workspace root, the directory holding `.vc-config.md`,
+      which is how GitHub reads them. A target the check could not place is still counted as
+      skipped, and the summary says so.
+    - A target outside the workspace, `../vc-x1-messages/...` from a sibling, resolves when the
+      file is there and counts as skipped when it is not, since a sibling's presence is the
+      machine's, not the record's.
+    - Only `.md` targets are resolved. A URL, an `.rs` path, or a `.txt` stays skipped.
+    - `validate-config` keeps its schema lookup for `vc-config.md#<anchor>`, since the schema is
+      the authority on those anchors and the file may not be in the adopter's tree.
+    - The report's cross-file tally becomes two numbers, resolved and skipped, so a pass says
+      what it covered.
+  - It unblocks **Reference defs: go file-relative, with anchors** in the backlog rather than
+    waiting on it: the sweep to file-relative paths becomes a change the check verifies, and the
+    backlog entry loses its "after validate-anchors grows the cross-file check" sequencing.
+  - Reported by iiac-perf's message **2026-09-02T17:26:18.543Z Cross-file links go unchecked** in
+    `../vc-x1-messages`, which asks for a reply naming it and linking where this landed, so the
+    reply goes out once this entry's cycle is pushed.
 
 ### Improve init and add rename and delete subcommands
 
@@ -306,38 +415,6 @@ an empty public repo there and a local workspace with no remote.
     publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
 - We think the two warnings are delete's alone: such commits move with the directory in a rename.
 
-#### The lock a running agent holds
-
-The file is `.agent.running` at the workspace root, in `.gitignore`. It is a mutex a running agent
-holds, and the command that finds it held refuses.
-
-- Wink's first design: the file holds a counter, a session adds one and takes one away, and the
-  file is deleted at 0.
-  - The update is a read, change, and write that two sessions starting together can interleave,
-    so it wants a guard.
-  - A session that dies never takes its one away, and a number does not say which holder is dead.
-- Linux's advisory lock, `flock`, answers both: the kernel releases it when its holder exits or
-  dies, and it counts the holders. Each session holds it shared, and rename and delete ask for it
-  exclusive without waiting. The file then has no contents and is never deleted.
-  - It is advisory: it binds the processes that ask.
-  - The lock lasts as long as the process holding it, and an agent's commands each exit at once,
-    so a session needs one process that lives exactly as long as it does.
-- The first experiment: the agent takes the lock at acquaint, by a line in this project's
-  `custom.md`, which [Acquaint](AGENTS.md#acquaint) already reads and acts on. It is an edit of
-  our own `custom.md` and no `agent-files` proposal, wink's call, still its own commit.
-  - The holder is a background command the agent starts, `flock -s .agent.running sleep
-    infinity`, so there is no release for the agent to forget.
-  - The check, until rename exists, is `flock -xn .agent.running true` from another terminal: it
-    fails while a session is open and succeeds after.
-- What the experiment finds out:
-  - Whether the holder dies with the session, on a clean exit, a crash, and a closed terminal. One
-    that outlives its session blocks as a stale counter would. We think Claude Code kills its
-    background commands at exit, not verified, and the sandbox may change it.
-  - What a resumed session does, having made no fresh acquaint and so holding no lock.
-- A `vc-x1` command that takes and releases the lock, for a session hook to call, is where this
-  goes if the experiment holds.
-- Open: whether the lock is the counter, the `flock`, or the counter guarded by one.
-
 ### agent-files(proposal): v0.2.8
 
 Parked 2026-10-09 on its bookmark, `agent-filesproposal-v028`, as one unfinished commit pushed for
@@ -346,8 +423,24 @@ acquaint's repo check with it.
 
 - It stays parked (wink, 2026-10-11): whether `zDOING.md` and `zTODO.md` are the right files is
   not settled.
-- The cycle it waited on, **feat: sync is safe by default**, has landed, so its rule can name
-  `vc-x1 sync --scope=both --dry-run` for the look in both steps.
+- The cycle it waited on, **feat: sync is safe by default**, has landed, and there are three
+  steps, each its own, wink's call, 2026-10-11, on a review of the parked commit:
+  - [Acquaint](AGENTS.md#acquaint) looks, `vc-x1 sync --scope=both --dry-run`, so "left as found"
+    holds with no exception for the sync's own acts.
+  - [Opening](AGENTS.md#opening) syncs, `vc-x1 sync --scope=both`, since the bookmark is created
+    on a `main` that is level.
+  - Land syncs the same way, as its first step and before the reshape, the third step and new
+    to the parked commit. A cycle's other pushes go to its own bookmark, and `main` is the one
+    target someone else can reach first.
+    - A `main` the sync moved stops the Land and the user is asked: the tree that would land is
+      no longer the one reviewed and validated, the version-of-record was bumped from a `main`
+      since passed, and the record files every cycle edits will conflict.
+    - How to recover is left to the first time it happens. We think a trapezoid takes the moved
+      `main` as its merge's first parent with no rung rewritten, and a single-step commit needs
+      a rebase, which rewrites a published bookmark.
+  - The commit's wording is of the sync before that cycle, which rebased a `main` that diverged.
+    Today's holds such a repo back and exits non-zero, so the text and its rationale's "what it
+    costs" paragraph are rewritten, not carried.
 - When it resumes, the commit is rebased onto `main`, which it sits before, and its `TODO.md` is
   reconciled with this one.
 - It takes the rule of [A commit body is an intro and a pointer to the
@@ -382,7 +475,14 @@ name, a small step to see how the doing and done notion reads.
   - `## Continuation notes` works in the file, with a pointer left under the same heading in
     `TODO.md` for as long as [Acquaint](AGENTS.md#acquaint) looks there.
   - `TODO.md` kept `## Continuation notes`, `## In Progress`, and `## Closed` as headings over a
-    pointer, since a session follows the agent-files as they are. This cycle removes them.
+    pointer, since a session follows the agent-files as they are.
+    - All three were removed early, with `## Bugs`, also a pointer, by a rung of the cycle
+      **docs: the session lock**, wink's call, 2026-10-13. The file's intro names `zDOING.md`,
+      `zCLOSED.md`, and `bugs.md` in their place.
+    - Left for this cycle: the agent-files, which still name `TODO.md` for all four in
+      [Todo format](agent-data/notes.md#todo-format), [Acquaint](AGENTS.md#acquaint), and
+      [Close-out](AGENTS.md#close-out), and the help of `validate-todo` and `fix-todo`, which
+      names a `## Bugs` section.
   - The Deliberation grew to 87 lines, a log of every decision made along the way, and wherever
     it sat it pushed something far away. A decision that belongs to one rung reads better in
     that rung's details, which leaves the Deliberation the decisions about the cycle as a whole.
@@ -1024,7 +1124,7 @@ namespace asking for `validate {bot|desc|config|anchors|todo}` and `fix {desc|to
 `validate` staying the full run. The flat names stay as hidden aliases for a while, the validate
 table and typing habits using them, and retire in a later cycle.
 
-### Support POR workspaces in `push`
+### Support POR workspaces in vc-x1 push
 
 (2026-08-31) `vc-x1 push` refuses a POR workspace at its first stage (`require_bot_dir`: "this
 operation requires a dual workspace"), confirmed by probe at 0.80.7, and the July audit records it
@@ -1042,7 +1142,7 @@ For instance `vc-x1 validate-desc` should have a default that is both repos
 and their locations are in vc-config::repos.*. This is also a way to determine
 if a repo is a dual repo or not.
 
-- Overlaps [Support POR workspaces in `push`](#support-por-workspaces-in-push): `bot_repo_path()`
+- Overlaps [Support POR workspaces in `vc-x1 push`](#support-por-workspaces-in-vc-x1-push): `bot_repo_path()`
   reading `repos.agent` is the same dual-or-POR signal that entry names.
 
 ### status prints a verdict per repo and exits with a bit per side
@@ -1586,6 +1686,21 @@ Items not yet solid enough for `## Todo` (or surfaced during close-out / end-of-
 fully formed). Triaged at the next opening: promote to `## Todo` / `notes/todo-backlog.md`, fold
 into a picked-up cycle, or drop.
 
+### Several agents work in one workspace
+
+(wink, 2026-10-12) More than one agent session working together in one workspace, which the
+session lock, `.agent-running`, refuses today. It could be useful where the sessions work on
+separate projects that share a workspace.
+
+- A first try, the same day, two sessions in a scratch workspace with no lock: nothing either
+  wrote was lost, and the record came out wrong, titles, trailers, and one failed push
+  ([session-lock.md](notes/session-lock.md)).
+- The sessions share one `@` and a push takes the working copy whole, so one session's edits
+  land in the other's commit. We think it wants a jj workspace for each session, or a push that
+  takes the paths it is given.
+- Until then the session lock stays, one session per workspace, and a second agent gets a
+  second clone.
+
 ### Tool-results land in the agent-repo, tmp/ for the non-durable
 
 (wink, 2026-08-31) The harness persists oversized command output to
@@ -1683,20 +1798,6 @@ reader holds no checkout of, which is what a family member reading another membe
 needs. Surfaced at the **agent-files(proposal): v0.2.2** close-out, from wink's direction that it
 is coming soon, and that cycle's wording was kept side-based rather than path-based so it does not
 have to be undone when it arrives.
-
-## Bugs
-
-_See [bugs.md](notes/bugs.md)._
-
-## Closed
-
-The last cycle's finished record, moved here whole by its closing commit and deleted by the next
-opening ([Cycle-record](AGENTS.md#cycle-record)). Earlier cycles are in the landmark commit's copy
-of this section, and the cycles before the rule in the frozen [notes/chores/](notes/chores) and
-[notes/done.md](notes/done.md).
-
-The last cycle's record is in [zCLOSED.md](zCLOSED.md), by the trial that `## In Progress` above
-names.
 
 # References
 
