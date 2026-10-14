@@ -42,28 +42,14 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The scratch the session lock's tests left is deleted
+### The set's session-lock file says a killed holder leaves files behind
 
-(wink + agent, 2026-10-12) The tests of two sessions in one workspace left scratch behind, wink's
-to delete: `/tmp/hook-probe`, `/tmp/vc-x1-two-sessions`, and the workspace `../agent-tests`. What
-the tests found is in [session-lock.md](notes/session-lock.md), and the lock itself is off since
-2026-10-13.
-
-### init writes the agent sandbox's names into .gitignore
-
-(wink + agent, 2026-10-12) Claude Code's sandbox puts empty files at a workspace's root while an
-agent's command runs, `.bashrc`, `.gitconfig`, `.mcp.json`, `.claude/settings.json`, and some
-twenty more. A snapshot taken from outside that sandbox at that moment sees them as new files,
-and a push commits them: 23 went into a commit in the two-session tests
-([session-lock.md](notes/session-lock.md)).
-
-- This repo's `.gitignore` names them, added by hand, and the one `init` writes has four lines
-  and none of them.
-- `init` writes the names, and a workspace made before it does gets them by hand or by a command
-  that brings a workspace up to date.
-- The list is Claude Code's and can change with a release, so where it is kept, and how it is
-  checked against what the sandbox does, is settled in the cycle.
-- We think a user's own `jj st` beside a running agent command sees the files too. Not tested.
+(wink + agent, 2026-10-14) [agent-data/session-lock.md](agent-data/session-lock.md#what-is-known)
+says the session's background commands end when the session does, and so the lock is never
+stale. What it does not say: a holder ended that way skips the sandbox's cleanup, and leaves an
+empty read-only file on disk for every path the sandbox protects, `.git/config.lock` among them
+([session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files)). An adopter turning the
+lock on should know. An `agent-files` proposal cycle, being a change to the set.
 
 ### push --amend folds a stage into the pushed work commit
 

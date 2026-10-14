@@ -73,7 +73,7 @@ operation log.
     commit, taking B's as its partner, so two work commits named one agent-repo commit.
   - B's commit also held 23 empty files, `.bashrc`, `.gitconfig`, `.claude/settings.json`, and
     the rest: the names the agent sandbox puts on disk while a command of A's ran. A's commit
-    deleted them.
+    deleted them ([The sandbox's placeholder files](#the-sandboxs-placeholder-files)).
   - jj recorded "reconcile divergent operations" twice, with no conflict and no divergent
     change. Both remotes ended with everything and the tree was right.
 - One session resumed in two terminals, `claude --resume <id>` in each.
@@ -100,12 +100,57 @@ and the others stand.
   `vc-x1` takes for a run is for. That lock was considered and is not added, 2026-10-13, and its
   design is kept in the backlog ([vc-x1 takes a lock of its own for a run that
   writes](todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes)).
-- The empty files are a fault of the `.gitignore` that `init` writes ([init writes the agent
-  sandbox's names into
-  .gitignore](../TODO.md#init-writes-the-agent-sandboxs-names-into-gitignore)).
-- Not tested: which branch a resume of a forked transcript takes, what `vc-x1 lookup` makes of
-  one, and whether a user's own `jj st` beside a running agent command picks up the sandbox's
-  files as the second session's snapshot did. We think it does.
+- The empty files were taken for a fault of the `.gitignore` that `init` writes. They are not,
+  and no `.gitignore` names them, 2026-10-14 ([The sandbox's placeholder
+  files](#the-sandboxs-placeholder-files)).
+- Not tested: which branch a resume of a forked transcript takes, and what `vc-x1 lookup` makes
+  of one. A user's own view beside a running agent command does see the sandbox's files, seen
+  2026-10-14 ([The sandbox's placeholder files](#the-sandboxs-placeholder-files)).
+
+## The sandbox's placeholder files
+
+What the empty files are, found 2026-10-14 in the cycle `chore: the sandbox's names leave
+.gitignore`. The sandbox protects a list of paths for the life of each command it runs: the
+dotfiles at the workspace root, a dozen names under `.claude`, and `.git/config.lock` among them.
+
+- A protected path that exists is mounted read-only over itself. One that does not exist gets an
+  empty file made on disk to mount over, with `/dev/null` mounted on it, and the file is removed
+  when the command ends.
+- Seen directly in the sandbox's arguments, 2026-10-14. The sandbox is `bwrap`, which `claude`
+  starts in place of the shell, and it carries a `--ro-bind /dev/null <path>` for each protected
+  path that does not exist: 23 in this workspace, `.bashrc`, `.git/config.lock`, and
+  `.claude/skills` among them. `bwrap` makes every mount before it starts the bash that runs the
+  command, so no shell or program inside the command bears on the files.
+- Inside the command the missing paths read as character devices, and jj snapshots no device. An
+  in-sandbox `jj st` with none of the names ignored listed nothing of them.
+- Outside the command the empty files are on disk while it runs, and only then. That is what the
+  second session's snapshot caught in [What two sessions do with no
+  lock](#what-two-sessions-do-with-no-lock), and what wink's editor showed on 2026-10-14: the
+  names in Zed's list of changes for some seconds while an agent command ran, gone when it ended.
+- Tested the same day, wink watching Zed: an agent command that wrote a file under `tmp/` and
+  slept 20 seconds showed the eleven root names for those seconds and no longer. The same work done
+  by Python showed them the same. The same command with the sandbox turned off showed none, the
+  same shell starting it, so it is the sandbox around a command and not the shell or the program.
+- So the agent alone never commits them. A snapshot taken from outside while an agent command
+  runs records them, and the agent's next snapshot drops them again. A commit made from outside
+  in that window keeps them.
+- So no `.gitignore` names them, in a project or a user's global one. An ignored name hides a
+  file a user makes there: it is never committed, and nothing says so until a clone comes up
+  without it. The list is also Claude Code's and changes with a release, and some of its names,
+  `.vscode` or `.mcp.json`, are files a project may track.
+- A command that is killed rather than ended keeps them. The lock's holder, started at
+  2026-10-11T21:09:22Z under the lock's tests, left 24 files in this workspace, every one empty,
+  mode 0444, and born that second: eleven at the root, twelve under `.claude`, and
+  `.git/config.lock`. The tests ended sessions by Ctrl+C, `kill -9`, the close button, and
+  unplugging, and we think one of them killed the holder before its cleanup ran.
+  - Left on disk they are real files, which every snapshot sees, in the sandbox or out.
+    `.git/config.lock` fails every `git config` write, and an empty `.claude/skills` keeps the
+    directory from being made.
+  - Nobody saw them for three days: the eleven at the root were in the hand-written ignore of
+    2026-08-27, and the rest are under `.claude` or `.git`. The ignore came out, and they showed.
+  - Found from outside a session by `find . -type f -size 0 -perm 0444`, and deleted from there.
+    Inside a session they are read-only mounts and cannot be.
+- Not tested: whether a background command that ends by itself removes its files.
 
 ## Turned off
 
@@ -119,7 +164,12 @@ The lock is off since 2026-10-13, wink's call: what it costs is more than what i
 - What is given up: nothing keeps a second session out. Two sessions lose no data and leave a
   wrong record, as [What two sessions do with no lock](#what-two-sessions-do-with-no-lock) found,
   and one session per workspace is the user's to keep.
-- What stays: this file, and the `/.agent-running` line in `.gitignore`.
+- What stays: this file. The `/.agent-running` line in `.gitignore` stayed too, until
+  2026-10-14, when wink took it out: turning the lock on puts it back, as [the set's
+  instruction](../agent-data/session-lock.md#the-instruction) says.
+- Found after, 2026-10-14: the holder, a background command for the session's life, is the kind
+  that leaves the sandbox's files on disk when its session ends badly ([The sandbox's placeholder
+  files](#the-sandboxs-placeholder-files)).
 
 ## The instruction, as it was
 
