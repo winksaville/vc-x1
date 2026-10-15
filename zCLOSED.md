@@ -7,78 +7,108 @@ commit's copy of the record.
 
 ## Closed
 
-### chore: the sandbox's names leave .gitignore
+### feat: every repo ignores Claude Code's settings.local.json
 
-(wink + agent, 2026-10-12, picked 2026-10-14) Claude Code's sandbox puts empty files at a
-workspace's root while an agent's command runs, `.bashrc`, `.gitconfig`, `.mcp.json`,
-`.claude/settings.json`, and some twenty more. A snapshot taken from outside that sandbox at that
-moment sees them as new files, and a push commits them: 23 went into a commit in the two-session
-tests ([session-lock.md](notes/session-lock.md)). The Todo entry picked is "init writes the agent
-sandbox's names into .gitignore":
+(wink + agent, 2026-10-14, picked 2026-10-15) Claude Code writes `.claude/settings.local.json` in
+the project directory, its local project settings, one user's for this project: `/sandbox`
+writes it there on its first toggle, and we think a permission prompt's "don't ask again" adds to
+it. Its content belongs to one user and one history, the sandbox's on or off among it, so it is
+never committed. iiac-perf's
+agent-repo is `.claude`, and there the file is tracked and pushed. The shared `settings.json`
+beside it stays visible. One line in each repo covers every layout, nested, external, or single:
 
-- This repo's `.gitignore` names them, added by hand, and the one `init` writes has four lines
-  and none of them.
-- `init` writes the names, and a workspace made before it does gets them by hand or by a command
-  that brings a workspace up to date.
-- The list is Claude Code's and can change with a release, so where it is kept, and how it is
-  checked against what the sandbox does, is settled in the cycle.
-- We think a user's own `jj st` beside a running agent command sees the files too. Not tested.
+- Work-repo, and a single-repo workspace: `/.claude/settings.local.json`. `init` writes neither
+  today (`render_work_gitignore` and `GITIGNORE_APP_ONLY` in `src/init.rs`), and vc-x1's own
+  `.gitignore` drops its whole-directory `/.claude` for it, so anything else Claude Code writes
+  there shows in `jj st` and is reviewed.
+- Agent-repo: `/settings.local.json`, which matters only when the agent dir is `.claude`, and
+  harms nothing otherwise. `init` writes it into `GITIGNORE_SESSION`, and vc-x1's
+  `.agent-session/.gitignore` takes it.
+- Decide at the opening: whether `.cc-writes/`, the empty mode-700 directory the sandbox's first
+  command makes beside it, gets the same pair (`/.claude/.cc-writes/`, `/.cc-writes/`).
+- Record the findings in [session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files):
+  `.claude/` is made on demand, not at launch, `.cc-writes/` by the sandbox's first Bash
+  command and `settings.local.json` by `/sandbox`, both tested 2026-10-14 in fresh empty
+  directories.
+- Later, not this cycle: a warning, at acquaint or in `validate`, when the file exists.
+- Not this cycle: a repo that already tracks the file also needs `jj file untrack`. For iiac-perf
+  that is a message to its agent.
 
 #### Deliberation
 
-- The names are ignored nowhere, wink's lean and the cycle's finding: an ordinary command leaves
-  nothing jj records.
-  - Inside the sandbox a protected name that does not exist is `/dev/null` mounted for the life of
-    the command, a character device, and jj snapshots no device. A `jj st` run there with the
-    names unignored listed only the cycle's edits.
-  - Tested with wink watching Zed: a sandboxed command held for 20 seconds showed the eleven root
-    names for exactly that long, and the same command unsandboxed showed none.
-  - Seen in the sandbox's own arguments: `bwrap` mounts `/dev/null` over each missing protected
-    path by name, before it starts the shell.
-  - What the ignore hid in this repo were real files: 24 left on disk at 2026-10-11T21:09:22Z by
-    the session lock's holder, a background command ended with its session, so the cleanup an
-    ordinary command gets did not run. wink deleted them, 2026-10-14.
-  - The cost accepted: a snapshot or commit made outside the sandbox while an agent command runs
-    sees the files. wink's editor listed them for some seconds, twice, during the cycle's edits.
-  - The cost avoided, wink's reason: an ignored name hides a file a user makes there. It is never
-    committed, and nothing says so until a clone comes up without it. The flicker is surprising
-    and visible, the loss is silent.
-  - Weighed and not taken: `init` writing the list, and the list in each user's global git ignore.
-    The list is Claude Code's, changes with a release, and names files a project may track.
-- The direction was reversed twice before it settled. A probe with the leftovers still on disk
-  showed all eleven root names in an in-sandbox `jj st`, which argued for the ignore. The
-  leftovers' birth times then showed they were not the sandbox's per-command files at all.
-- `init` is unchanged: it never wrote the names, so the entry's code half is dropped.
-- Cargo's comments go too, wink's call: noise, with `/target` already the file's first line.
-- So does `/.agent-running`, wink's call: the lock is off, and turning it on puts the line back.
-- The set's copy of the lock instruction learns of the leak in a cycle of its own, being an
-  agent-file change: filed as a Todo.
-- zc-ring-x1 carries the same list and an older leftover, `.bashrc` of 2026-08-27, and is told
-  after Land.
-- Single-step, a config edit and its notes.
+- The rules bend by wink's waiver of 2026-10-15: "permission granted to complete the change and
+  commits and ready it for landing on main".
+  - It covers the work review, the description review, and the approval of each push, the
+    bookmark's included, through the close-out.
+  - Land is not inside it, and waits for wink's go.
+- The cycle carries `next-time`'s commit, which held the Todo entry and the continuation note,
+  wink's call: the bookmark is renamed to this cycle's, and the commit stays under it.
+  - The commit was published, and its pair on the agent-repo's `main` carries a trailer naming
+    it. Carrying it keeps the pair, where redoing its two edits here would leave that trailer
+    naming an abandoned commit.
+  - The cost accepted: the bookmark holds two commits, and the fast-forward at Land takes both.
+  - Folding it into the cycle's commit, for one rung, was tried and undone, wink's call: the
+    trailer naming it would have named nothing.
+- The file was first called per-machine here, from the Todo's wording. It is Claude Code's local
+  project settings, one user's for this project, and the text says so.
+- Single-step: config lines, the `init` renderers with their tests, and the notes, one solution.
+- `.cc-writes/` is ignored nowhere: jj and git record files, never directories, and it holds none.
+  Should Claude Code ever write a file into it, the file shows in `jj st` and is reviewed, which
+  is why the work-repo's ignore narrows to one file.
+- The agent-repo's tracked `settings.local.json` is deleted, wink's call. Claude Code reads
+  project settings from the project's `.claude/` only, and the agent dir left that name on
+  2026-09-28. The file's last change was 2026-08-28, its rules name `.claude` as the agent-repo,
+  and no code or agent-file reads it.
+- `.agent-session/.claude/`, an empty `.cc-writes/` of 2026-10-09 and nothing else, was deleted
+  at acquaint, wink's go. Untracked, so no commit carries it.
+- The second continuation note was stale at acquaint: `.claude/` is writable again and its
+  `settings.local.json` turns the sandbox on, so its restore steps are moot. Reset with the first.
+
+- An adopted directory's `.gitignore` gets the settings line too, beside the agent directory's,
+  each added only when missing: an adopted workspace is the likeliest to hold the file already.
+- The placeholders the sandbox mounts under `.claude/` while a command runs are no longer hidden
+  from a snapshot taken outside it, the cost the cycle `chore: the sandbox's names leave
+  .gitignore` accepted for the root names, accepted here for the same reason. Inside the sandbox
+  they are devices jj never records, and the work-repo's `jj st` listed none.
+- The warning when the file exists, deferred by the entry, is filed in the backlog as "A warning
+  when a repo tracks Claude Code's settings.local.json". iiac-perf's untrack stays a message for
+  wink to send or have sent.
+- The agent-repo's `settings.local.json` was gone from disk before the cycle's `rm` ran, by a
+  hand other than the agent's. The deletion recorded is the intended one.
 
 #### Solution
 
-The sandbox's names are ignored nowhere, and the record says why.
+The project's own repos and every workspace `init` makes ignore `settings.local.json` by one line
+each, and the work-repo stops ignoring the rest of `.claude/`.
 
-- The project's `.gitignore` loses the eleven names, cargo's comments, and the lock's
-  `/.agent-running`, keeping the six entries for the build, the scratch, and the repos.
-- [session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files) records what the
-  sandbox's placeholder files are, why one session never meets them, what a killed holder leaves
-  on disk, and how to find and delete it. Its decision that blamed the `.gitignore` is corrected,
-  and the section on turning the lock off names the holder as the kind of command that leaks.
-- The set's copy of the lock instruction is a Todo entry, "The set's session-lock file says a
-  killed holder leaves files behind".
+- The work-repo's `/.claude` narrows to `/.claude/settings.local.json`, and the file, already
+  snapshotted into the working copy, is untracked.
+- The agent-repo's `.gitignore` takes `/settings.local.json`, and its tracked copy, unread since
+  the agent dir was renamed, is deleted.
+- `init` writes `/.claude/settings.local.json` into a dual workspace's work-repo and a single-repo
+  workspace's `.gitignore`, `/settings.local.json` into the agent-repo's, and adds the settings
+  line to an adopted directory's `.gitignore` that lacks it. The tests cover each.
+- The README's `init` passages and layout, the `init` notes, and
+  [session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files) record the lines and
+  what `.claude/` holds.
 
 #### Acceptance check
 
-- An in-sandbox `jj st`, the names unignored, lists only the cycle's edits. Passed.
-- wink's own `jj st`, outside the sandbox, lists only the cycle's edits. Passed, run once the
-  leftovers were deleted.
-- `vc-x1 validate` passes.
+- The work-repo's `jj st` does not list `.claude/settings.local.json`, the file on disk, and the
+  commit's tree has no path under `.claude/`. Passed.
+- The agent-repo's commit has no `settings.local.json`, and its `.gitignore` names it. Passed.
+- A fresh `init` in `tmp/`, dual and single-repo, writes the lines, checked by the `init` tests
+  and by reading the files. Passed: in the dual workspace a new `.claude/settings.local.json` and
+  `.agent-session/settings.local.json` were ignored and a `.claude/other.json` was listed. The
+  dual `init` stopped at its last step, the `~/.claude/projects` symlink, which the sandbox
+  refuses, after its files were written and pushed.
+- `vc-x1 validate` passes. Passed.
 
 #### Ladder
 
-- chore: the sandbox's names leave .gitignore (done)
+- feat: every repo ignores Claude Code's settings.local.json (done)
+
+Close-out shape: trapezoid, wink's call at Land. The cycle is single-step, but the bookmark holds
+the carried `next-time` commit beneath it, so the merge keeps the two as one landing on `main`.
 
 # References

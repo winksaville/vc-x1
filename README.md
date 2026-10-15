@@ -1182,9 +1182,10 @@ grows the target into a dual workspace:
 - A plain directory, no repo: both repos are created around it, and everything in it that its
   `.gitignore` does not exclude is the work repo's first commit, whatever the file sizes. Files
   over jj's new-file size limit (1MiB by default) are listed, since jj would otherwise leave them
-  out. A `.gitignore` it already has is kept and given the agent directory's line.
+  out. A `.gitignore` it already has is kept and given the lines it lacks, the agent directory's
+  and `/.claude/settings.local.json`.
 - A jj repo colocated with git and with no workspace config: its history stays, and one commit,
-  "Adopt as a dual-repo workspace", goes on top, carrying `.vc-config.md`, the `.gitignore` line,
+  "Adopt as a dual-repo workspace", goes on top, carrying `.vc-config.md`, the `.gitignore` lines,
   and the `ochid:` trailer to the agent repo's first commit. With an `origin`, the agent repo's
   remote is derived beside it, `--repo` and `--account` are refused, and the work side pushes
   nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
@@ -1580,10 +1581,10 @@ writes and push in one shot.
   remote-bot.git/   bare git remote for the .claude bot repo
   <NAME>/              work repo (jj colocated, main tracks origin)
     .vc-config.md      work=".", agent=".claude"
-    .gitignore         /.claude /.git /.jj /target
+    .gitignore         /target /.claude /.git /.jj /.claude/settings.local.json
     .claude/           bot repo (jj colocated, main tracks origin)
       .vc-config.md    work="..", agent="."
-      .gitignore       .git .jj
+      .gitignore       .git .jj /settings.local.json
 ```
 
 ```bash

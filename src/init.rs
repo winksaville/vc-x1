@@ -562,14 +562,24 @@ pub(crate) fn render_vc_config(role: ConfigRole) -> String {
     format!("{CONFIG_MD_INTRO}```toml\n{toml}```\n")
 }
 
+/// Claude Code's local project settings file, as a work repo's
+/// `.gitignore` names it. It holds one user's choices for the
+/// project, the sandbox's on or off among them, so it is never
+/// committed, while the rest of `.claude/` stays visible to `jj st`.
+const CLAUDE_SETTINGS_LOCAL: &str = "/.claude/settings.local.json";
+
 /// Gitignore for a dual workspace's work repo: the agent repo's
 /// directory is ignored, since it is a repo of its own.
 pub(crate) fn render_work_gitignore(agent_dir: &str) -> String {
-    format!("/target\n/{agent_dir}\n/.git\n/.jj\n")
+    format!("/target\n/{agent_dir}\n/.git\n/.jj\n{CLAUDE_SETTINGS_LOCAL}\n")
 }
 
+/// Gitignore for a dual workspace's agent repo. Its
+/// `/settings.local.json` is Claude Code's local project settings when the
+/// agent directory is `.claude`, and names nothing otherwise.
 const GITIGNORE_SESSION: &str = ".git
 .jj
+/settings.local.json
 ";
 
 /// Gitignore for a single-repo workspace.
@@ -579,6 +589,7 @@ const GITIGNORE_SESSION: &str = ".git
 pub(crate) const GITIGNORE_APP_ONLY: &str = "/target
 /.git
 /.jj
+/.claude/settings.local.json
 ";
 
 /// Write the POR (single-repo) canned `.vc-config.md` into `dir`.
@@ -643,10 +654,11 @@ fn write_work_config(
 }
 
 /// Write the work repo's `.gitignore`, or keep the one an adopted
-/// directory already has and give it the agent directory's line.
+/// directory already has and give it the lines it lacks: the agent
+/// directory's and Claude Code's local project settings file's.
 ///
-/// The line is what keeps the agent repo, a repo of its own inside
-/// the work tree, out of the work repo's commits.
+/// The agent line is what keeps the agent repo, a repo of its own
+/// inside the work tree, out of the work repo's commits.
 fn write_work_gitignore(dir: &Path, agent_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
     let path = dir.join(".gitignore");
     let existing = match std::fs::read_to_string(&path) {
@@ -656,8 +668,12 @@ fn write_work_gitignore(dir: &Path, agent_dir: &str) -> Result<(), Box<dyn std::
         }
         Err(e) => return Err(format!("cannot read '{}': {e}", path.display()).into()),
     };
-    let line = format!("/{agent_dir}");
-    if existing.lines().any(|l| l.trim() == line) {
+    let agent_line = format!("/{agent_dir}");
+    let missing: Vec<&str> = [agent_line.as_str(), CLAUDE_SETTINGS_LOCAL]
+        .into_iter()
+        .filter(|line| !existing.lines().any(|l| l.trim() == *line))
+        .collect();
+    if missing.is_empty() {
         return Ok(());
     }
     let sep = if existing.is_empty() || existing.ends_with('\n') {
@@ -665,7 +681,8 @@ fn write_work_gitignore(dir: &Path, agent_dir: &str) -> Result<(), Box<dyn std::
     } else {
         "\n"
     };
-    write_file(&path, &format!("{existing}{sep}{line}\n"))
+    let lines: String = missing.iter().map(|l| format!("{l}\n")).collect();
+    write_file(&path, &format!("{existing}{sep}{lines}"))
 }
 
 /// Write the dual-mode agent-side `.vc-config.md` and

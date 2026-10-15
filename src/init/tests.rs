@@ -203,6 +203,13 @@ fn gitignore_work_excludes_bot() {
     assert!(gitignore.lines().any(|l| l == "/.agent-session"));
     assert!(gitignore.lines().any(|l| l == "/.git"));
     assert!(gitignore.lines().any(|l| l == "/.jj"));
+    assert!(
+        gitignore
+            .lines()
+            .any(|l| l == "/.claude/settings.local.json")
+    );
+    // Only the settings file: the rest of `.claude/` stays visible.
+    assert!(!gitignore.lines().any(|l| l == "/.claude"));
     // No state dir: nothing of vc-x1's persists in a workspace.
     assert!(!gitignore.contains("/.vc-x1"));
 }
@@ -211,6 +218,11 @@ fn gitignore_work_excludes_bot() {
 fn gitignore_bot_excludes_git() {
     assert!(GITIGNORE_SESSION.contains(".git"));
     assert!(GITIGNORE_SESSION.contains(".jj"));
+    assert!(
+        GITIGNORE_SESSION
+            .lines()
+            .any(|l| l == "/settings.local.json")
+    );
 }
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -836,8 +848,8 @@ fn adopt_plain_directory_commits_its_content() {
 
     let gitignore = std::fs::read_to_string(work.join(".gitignore")).unwrap();
     assert_eq!(
-        gitignore, "*.log\n/.agent-session\n",
-        "kept, and given the line"
+        gitignore, "*.log\n/.agent-session\n/.claude/settings.local.json\n",
+        "kept, and given the lines"
     );
 
     let agent = work.join(".agent-session");
@@ -857,18 +869,35 @@ fn adopt_plain_directory_commits_its_content() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-/// An adopted `.gitignore` that already names the agent directory is
-/// left as it is.
+/// An adopted `.gitignore` that already names the agent directory and
+/// the settings file is left as it is.
 #[test]
-fn adopt_keeps_a_gitignore_that_has_the_line() {
+fn adopt_keeps_a_gitignore_that_has_the_lines() {
     let base = crate::test_helpers::unique_base("adopt-gitignore");
     let work = base.join("work");
     std::fs::create_dir_all(&work).unwrap();
-    std::fs::write(work.join(".gitignore"), "/.agent-session\n/target\n").unwrap();
+    let content = "/.agent-session\n/target\n/.claude/settings.local.json\n";
+    std::fs::write(work.join(".gitignore"), content).unwrap();
     adopt_plain(&base).expect("adopt");
     assert_eq!(
         std::fs::read_to_string(work.join(".gitignore")).unwrap(),
-        "/.agent-session\n/target\n"
+        content
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// An adopted `.gitignore` that names the agent directory alone is
+/// given the settings file's line, and only that.
+#[test]
+fn adopt_adds_only_the_missing_gitignore_line() {
+    let base = crate::test_helpers::unique_base("adopt-gitignore-partial");
+    let work = base.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    std::fs::write(work.join(".gitignore"), "/.agent-session\n/target").unwrap();
+    adopt_plain(&base).expect("adopt");
+    assert_eq!(
+        std::fs::read_to_string(work.join(".gitignore")).unwrap(),
+        "/.agent-session\n/target\n/.claude/settings.local.json\n"
     );
     let _ = std::fs::remove_dir_all(&base);
 }
@@ -1669,6 +1698,11 @@ fn gitignore_work_only_omits_bot() {
     assert!(!GITIGNORE_APP_ONLY.contains("/.agent-session"));
     assert!(GITIGNORE_APP_ONLY.contains("/.git"));
     assert!(GITIGNORE_APP_ONLY.contains("/.jj"));
+    assert!(
+        GITIGNORE_APP_ONLY
+            .lines()
+            .any(|l| l == "/.claude/settings.local.json")
+    );
     assert!(!GITIGNORE_APP_ONLY.contains("/.vc-x1"));
 }
 
@@ -1724,6 +1758,10 @@ fn por_fixture_writes_work_only_config_files() {
     );
     assert!(gi.contains("/.git"), "expected /.git entry");
     assert!(gi.contains("/.jj"), "expected /.jj entry");
+    assert!(
+        gi.lines().any(|l| l == "/.claude/settings.local.json"),
+        "expected the settings file's entry"
+    );
 }
 
 /// POR fixture has a `main` bookmark tracking `origin/main`:
@@ -1892,6 +1930,16 @@ fn dual_fixture_writes_work_and_bot_config_files() {
     assert!(
         work_gi.contains("/.agent-session"),
         "work .gitignore excludes /.agent-session"
+    );
+    assert!(
+        work_gi.lines().any(|l| l == "/.claude/settings.local.json"),
+        "work .gitignore excludes the settings file"
+    );
+
+    let bot_gi = std::fs::read_to_string(fx.bot.join(".gitignore")).expect("read agent .gitignore");
+    assert!(
+        bot_gi.lines().any(|l| l == "/settings.local.json"),
+        "agent .gitignore excludes the settings file"
     );
 }
 

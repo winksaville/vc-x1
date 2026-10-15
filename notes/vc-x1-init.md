@@ -243,7 +243,7 @@ The decisions behind it:
   points a git-only one at `jj git init --colocate`. A working copy with uncommitted work is
   refused, since adopt's commit would take it in.
 - An adopted repo's commit, "Adopt as a dual-repo workspace", carries `.vc-config.md`, the
-  `.gitignore` line, and the `ochid:` trailer, and goes on top of its history. With an `origin`,
+  `.gitignore` lines, and the `ochid:` trailer, and goes on top of its history. With an `origin`,
   the work side pushes nothing, that commit being the user's to land, and the agent repo's remote
   is derived beside the origin, the provisioner read off its URL. With no origin, the remotes come
   from `--repo` as a fresh init's do.
@@ -252,7 +252,8 @@ The decisions behind it:
 - A single-repo workspace's config is edited by adding lines only, `agent =` after the last key of
   `[repos]` and `agent-repo =` under `[remote]`, with prose, comments, and other keys untouched.
   The file is read back and restored when it does not declare both keys.
-- An adopted directory's `.gitignore` is kept and given the agent directory's line.
+- An adopted directory's `.gitignore` is kept and given the lines it lacks, the agent directory's
+  and `/.claude/settings.local.json`, Claude Code's local project settings file.
 - The first commit tracks every file whatever its size, since jj leaves a new file over
   `snapshot.max-new-file-size` untracked, and names the ones over the limit.
 - `--use-template` is refused with `--adopt`, since a template would overwrite files of the same

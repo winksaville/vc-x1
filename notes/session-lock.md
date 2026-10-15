@@ -151,6 +151,14 @@ dotfiles at the workspace root, a dozen names under `.claude`, and `.git/config.
   - Found from outside a session by `find . -type f -size 0 -perm 0444`, and deleted from there.
     Inside a session they are read-only mounts and cannot be.
 - Not tested: whether a background command that ends by itself removes its files.
+- `.claude/` itself is made on demand, not when Claude Code starts, and two things in it are not
+  placeholders and stay. Tested 2026-10-14 in fresh empty directories:
+  - `.cc-writes/`, an empty mode-0700 directory, comes with the sandbox's first Bash command. It
+    holds no file, and jj and git record files, never directories, so no ignore names it.
+  - `settings.local.json` comes with `/sandbox`'s first toggle, Claude Code's local project
+    settings, one user's for this project. Every repo ignores it by name, the work-repo's `/.claude/settings.local.json` and
+    the agent-repo's `/settings.local.json`, since the cycle `feat: every repo ignores Claude
+    Code's settings.local.json`, and the rest of `.claude/` is visible to `jj st`.
 
 ## Turned off
 

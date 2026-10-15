@@ -43,6 +43,14 @@ overlap is met in real use.
 - To settle in its cycle: a run with no workspace yet (`init`, `clone`, `--help`) has no root to
   lock, and a `vc-x1` that starts another `vc-x1` in the same workspace would refuse itself.
 
+### A warning when a repo tracks Claude Code's settings.local.json
+
+(wink + agent, 2026-10-14, filed 2026-10-15) Every repo `init` makes ignores Claude Code's
+local project settings file since the cycle `feat: every repo ignores Claude Code's
+settings.local.json`, but an ignore line does not untrack a file a repo already tracks, and a
+repo made before it lacks the line. A warning, at acquaint or in `validate`, when the file is
+tracked or not ignored, would name the fix, `jj file untrack` and the line.
+
 ### `validate`: fail on an unfilled `[[N]]` on `main`
 
 (wink, 2026-08-21) Backfill was missed at two consecutive openings because nothing checked it. The
