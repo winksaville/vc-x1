@@ -51,6 +51,12 @@ empty read-only file on disk for every path the sandbox protects, `.git/config.l
 ([session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files)). An adopter turning the
 lock on should know. An `agent-files` proposal cycle, being a change to the set.
 
+- The same cycle fixes [The instruction](agent-data/session-lock.md#the-instruction)'s on and off
+  steps (wink + agent, 2026-10-15). Turning on replaces "the entry that says the lock is off",
+  and turning off puts that entry back, but an adopter need not carry the entry, and vc-x1 has not
+  since the cycle `docs: the session lock moves to the README`. Turning on is adding the entry,
+  and off is taking it out.
+
 ### push --amend folds a stage into the pushed work commit
 
 (wink + agent, 2026-10-11) A later stage of a cycle, its closing most often, adds to the work
@@ -449,6 +455,23 @@ and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the
     before its re-sync.
 - The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
 - The heading names, `## Doing` and `## Done`, are decided with it.
+
+### sync fetches the messages repo too
+
+(wink + agent, 2026-10-15) `custom.md`'s messaging entry has a session fetch `../vc-x1-messages`
+by hand, at an acquaint and at every cycle start, because `vc-x1 sync` knows only the workspace's
+two repos. Those are exactly the moments [Sync](AGENTS.md#sync) already runs, and the workspace
+config names the repo, `[family] messages`, so `sync` could fetch it beside the two.
+
+- `sync` fetches the `[family] messages` repo when the config names one, and reports it like the
+  others. `--dry-run` fetches too, since a fetch moves no local bookmark, so the acquaint look
+  stays read-only.
+  - The messages repo is a jj repo colocated with git, so the fetch is
+    `jj git fetch --ignore-working-copy`, the form its README's Fetch action names, since a bare
+    jj command snapshots the working copy, and that is a write.
+- `custom.md`'s Fetch sub-bullet shrinks to reading what is pending, the fetch being `sync`'s, a
+  change to the project layer in the same cycle.
+- The README's guards stay the session's: `sync` only fetches, and a fetch takes no ownership.
 
 ### sync --undo takes back the last sync
 

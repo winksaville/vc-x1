@@ -37,7 +37,8 @@ that file's per-file window.
 The session lock, `.agent-running`, and what two agent sessions in one workspace do without it,
 are in [session-lock.md](session-lock.md): what Claude Code's hooks could do in the agent's place,
 three tests of two sessions with no lock, and what was decided. The lock is off, and the file
-keeps the instruction that took it and what turning it on again would want settled.
+keeps the instruction that took it and what turning it on again would want settled. How to turn
+it on and check it is in the [README](../README.md#the-session-lock).
 
 How a change to a line in any work-repo file is connected to its discussion in the agent-repo,
 the partner commit, its time-window, and the transcript write, is in

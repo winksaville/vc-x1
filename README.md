@@ -26,6 +26,7 @@
   - [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)
 - [Cross-repo Linking with Git Trailers](#cross-repo-linking-with-git-trailers)
 - [jj Tips for Git Users](#jj-tips-for-git-users)
+- [The session lock](#the-session-lock)
 - [Thoughts for the future](#thoughts-for-the-future)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1719,6 +1720,51 @@ repeats:
 - [Read a change in gitk at full context](agent-data/jj.md#read-a-change-in-gitk-at-full-context):
   what gitk's New version, Old version and Diff views each show once the context is raised past
   the longest file, and how to read a whole range that way.
+
+## The session lock
+
+An optional agent-files rule, off in this workspace since 2026-10-13: while an agent session runs
+it holds an exclusive `flock` on `.agent-running` at the workspace root, so a second session
+started in the same workspace stops at its acquaint instead of working beside the first. Without
+it, two sessions in one workspace lose no data but leave a wrong record, and keeping to one
+session per workspace is the user's job ([What two sessions do with no
+lock](notes/session-lock.md#what-two-sessions-do-with-no-lock)). It needs Linux's `flock` tool:
+macOS does not ship it and Windows has neither the tool nor the call.
+
+The instruction an agent follows is the entry in
+[agent-data/session-lock.md](agent-data/session-lock.md#the-instruction), the set's copy, and the
+design, the tests, and why it was turned off are in [notes/session-lock.md](notes/session-lock.md).
+
+### Turning it on
+
+1. Copy the entry in [The instruction](agent-data/session-lock.md#the-instruction) into
+   `custom.md > ## Project conventions and overrides`, first in its list.
+2. Add `/.agent-running` to the work-repo's `.gitignore`.
+3. Start a new agent session. An edit to the instruction reaches only the sessions started after
+   it, so a running session goes on without the lock.
+
+Turning it off is undoing both edits, and the next session starts without it.
+
+### Checking that it works
+
+- The session's acquaint begins with `flock -xn .agent-running true`, run alone, and the session
+  says "Lock taken." once it has started its holder, `flock -xn .agent-running sleep infinity`,
+  as a background command.
+- From a shell at the workspace root while the session runs, `flock -xn .agent-running true;
+  echo $?` prints `1`, the lock held, and `fuser -v .agent-running` names the holder, a `flock`
+  and its `sleep`. With no session running the same probe prints `0`.
+- A second session started in the workspace and told "acquaint" responds "Another session holds
+  `.agent-running`, stopping." and runs no further command.
+- When the first session exits, its holder exits with it, and the probe prints `0` again.
+
+Two known faults, neither fixed ([Turning it on
+again](notes/session-lock.md#turning-it-on-again)):
+
+- A session that has forgotten it holds the lock probes again at a reacquaint, fails against its
+  own holder, and stops as if another session held it.
+- A session that is killed rather than ended can leave the sandbox's empty placeholder files on
+  disk, the holder being a background command ([The sandbox's placeholder
+  files](notes/session-lock.md#the-sandboxs-placeholder-files)).
 
 ## Testing
 

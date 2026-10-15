@@ -156,9 +156,10 @@ dotfiles at the workspace root, a dozen names under `.claude`, and `.git/config.
   - `.cc-writes/`, an empty mode-0700 directory, comes with the sandbox's first Bash command. It
     holds no file, and jj and git record files, never directories, so no ignore names it.
   - `settings.local.json` comes with `/sandbox`'s first toggle, Claude Code's local project
-    settings, one user's for this project. Every repo ignores it by name, the work-repo's `/.claude/settings.local.json` and
-    the agent-repo's `/settings.local.json`, since the cycle `feat: every repo ignores Claude
-    Code's settings.local.json`, and the rest of `.claude/` is visible to `jj st`.
+    settings, one user's for this project. Every repo ignores it by name, the work-repo's
+    `/.claude/settings.local.json` and the agent-repo's `/settings.local.json`, since the cycle
+    `feat: every repo ignores Claude Code's settings.local.json`, and the rest of `.claude/` is
+    visible to `jj st`.
 
 ## Turned off
 
@@ -198,11 +199,12 @@ as it stood from 2026-10-11 until it was taken out:
 
 ## Turning it on again
 
-Turning the lock on is putting the entry above back into `custom.md`, in place of the entry that
-says the lock is off. Since 2026-10-13 the entry is also in
-[agent-data/session-lock.md](../agent-data/session-lock.md#the-instruction), the copy the
-agent-files carry to every adopter, and `custom.md` points there. What was known and left
-unsettled when it was turned off:
+Turning the lock on is putting the entry above back into `custom.md`. Since 2026-10-13 the entry
+is also in [agent-data/session-lock.md](../agent-data/session-lock.md#the-instruction), the copy
+the agent-files carry to every adopter. `custom.md` pointed there until 2026-10-15, when its
+entry saying the lock is off was dropped, and the [README](../README.md#the-session-lock) took
+over: how to turn the lock on and how to tell it works. What was known and left unsettled when
+it was turned off:
 
 - The instruction has two faults, and neither had a fix planned:
   - A session that has forgotten it holds the lock probes again at a reacquaint, fails against
