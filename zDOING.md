@@ -15,7 +15,16 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-_None._
+- Start with the Todo [Every repo ignores Claude Code's
+  settings.local.json](TODO.md#every-repo-ignores-claude-codes-settingslocaljson), the top entry,
+  as its own cycle. This commit is on the bookmark `next-time`, off `main`, and carries only the
+  entry and this note: land it, or carry the two edits into that cycle's opening, the user's call.
+- The work-repo's `.claude/` is read-only (`dr-xr-xr-x`), set 2026-10-14 to test which setting
+  wins, and holds a `settings.local.json` that turns the sandbox off for this project. The local
+  file beat the global `enabled: true`. With `.claude/` read-only, `/sandbox` fails with EACCES,
+  and a sandboxed command cannot remove its placeholder files, so they leak. To restore, outside
+  the sandbox: `chmod u+w .claude`, then `rm .claude/settings.local.json`, and the global
+  settings govern again. Ask the user before either.
 
 ## In Progress
 

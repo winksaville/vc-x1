@@ -42,6 +42,32 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Every repo ignores Claude Code's settings.local.json
+
+(wink + agent, 2026-10-14) Claude Code writes `.claude/settings.local.json` in the project
+directory, the per-machine file: `/sandbox` writes it there on its first toggle, and we think a
+permission prompt's "don't ask again" adds to it. Its content belongs to one machine and one
+history, the sandbox's on or off among it, so it is never committed. iiac-perf's agent-repo is
+`.claude`, and there the file is tracked and pushed. The shared `settings.json` beside it stays
+visible. One line in each repo covers every layout, nested, external, or single:
+
+- Work-repo, and a single-repo workspace: `/.claude/settings.local.json`. `init` writes neither
+  today (`render_work_gitignore` and `GITIGNORE_APP_ONLY` in `src/init.rs`), and vc-x1's own
+  `.gitignore` drops its whole-directory `/.claude` for it, so anything else Claude Code writes
+  there shows in `jj st` and is reviewed.
+- Agent-repo: `/settings.local.json`, which matters only when the agent dir is `.claude`, and
+  harms nothing otherwise. `init` writes it into `GITIGNORE_SESSION`, and vc-x1's
+  `.agent-session/.gitignore` takes it.
+- Decide at the opening: whether `.cc-writes/`, the empty mode-700 directory the sandbox's first
+  command makes beside it, gets the same pair (`/.claude/.cc-writes/`, `/.cc-writes/`).
+- Record the findings in [session-lock.md](notes/session-lock.md#the-sandboxs-placeholder-files):
+  `.claude/` is made on demand, not at launch, `.cc-writes/` by the sandbox's first Bash
+  command and `settings.local.json` by `/sandbox`, both tested 2026-10-14 in fresh empty
+  directories.
+- Later, not this cycle: a warning, at acquaint or in `validate`, when the file exists.
+- Not this cycle: a repo that already tracks the file also needs `jj file untrack`. For iiac-perf
+  that is a message to its agent.
+
 ### The set's session-lock file says a killed holder leaves files behind
 
 (wink + agent, 2026-10-14) [agent-data/session-lock.md](agent-data/session-lock.md#what-is-known)
