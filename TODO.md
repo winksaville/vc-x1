@@ -78,26 +78,6 @@ a `jj squash`, a `jj describe` with a trailer written by hand, and then the push
 - Approval: it rewrites a published commit, so it takes the approval any push takes and is
   refused on a bookmark that has landed.
 
-### A validation failure is investigated before it is run again
-
-(wink + agent, 2026-10-11) A full validation failed once in the closing of the cycle **docs: the
-session lock is settled as flock**, with no code changed, and the agent ran it again, saw it
-pass, and reported that. A pass on the second run says nothing of why the first failed, and wink
-wants the failure looked into first.
-
-- The failure: `init::tests::adopt_keeps_a_gitignore_that_has_the_line` and
-  `fix_desc::tests::por_workspace_noops` each died making a commit, on "Couldn't load public key
-  /h/.ssh/git-commits-wink@saville.com.pub". The runs before and after passed all 650.
-- The cause, we think: a test in `src/init/tests.rs` sets `HOME` to `/h` for the whole test
-  process while it checks `expand_vars`, and puts it back. A test running beside it that signs
-  a commit in that moment looks for the signing key under `/h`.
-  - The fix is that test taking its home as an argument, or the tests that read `HOME` running
-    one at a time, settled in the cycle.
-- The rule is an `agent-files` proposal, in [The per-rung flow](AGENTS.md#the-per-rung-flow)'s
-  Validate step: a failure is read and its cause named before a second run, and a failure that
-  does not repeat is a finding, reported and given a Todo entry.
-- Third, the agent's placing: a validation that fails by chance is one nobody trusts.
-
 ### validate-desc and fix-desc read every ochid trailer
 
 (wink + agent, 2026-10-11) A work commit that names two agent-repo commits carries two `ochid:`
