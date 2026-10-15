@@ -44,6 +44,24 @@
 # jj-lib's own git children (fetch/push/clone network legs, the
 # default-branch query) are jj-lib's implementation detail, not
 # vc-x1 spawn sites, and no lint here sees them.
+#
+# Environment-write ban, since 0.84.35 (bug 21 in notes/bugs.md).
+# Tests run as threads of one process, so a write to its environment
+# is seen by every test running beside it: `HOME` set to `/h` by one
+# test had git look for the signing key under `/h` in another, and
+# the jj children the sync tests spawn find no config. A new
+# `set_var` / `remove_var` site needs an entry below and a visible
+# `#[allow(clippy::disallowed_methods)]` naming it.
+#
+# The register:
+#
+# 1. `init::tests::expand_vars_envvar` (src/init/tests.rs): sets
+#    and removes `VC_X1_TEST_EXPAND_VAR`, which no other test reads.
+# 2. `keep_env_preserves_fixture_across_drop` (tests/cli_keep.rs):
+#    sets and removes `VC_X1_TEST_KEEP`, the only test in its own
+#    test binary, so no other test shares its process.
 disallowed-methods = [
     { path = "std::process::Command::new", reason = "vc-x1 runs jj and git through jj-lib and gix, never by spawning their binaries: a new spawn site needs an entry in the register comment at the top of clippy.toml and a visible #[allow] at the site (README: No process spawns)" },
+    { path = "std::env::set_var", reason = "a write to the process environment is seen by every test running beside it (bug 21): pass the value in instead, or add an entry to the environment-write register in clippy.toml and a visible #[allow] at the site" },
+    { path = "std::env::remove_var", reason = "a write to the process environment is seen by every test running beside it (bug 21): pass the value in instead, or add an entry to the environment-write register in clippy.toml and a visible #[allow] at the site" },
 ]

@@ -23,6 +23,8 @@ fn keep_env_preserves_fixture_across_drop() {
     // concurrently. Other test binaries run as separate processes
     // and don't share env state.
     unsafe {
+        // Register entry 2 (clippy.toml, environment writes).
+        #[allow(clippy::disallowed_methods)]
         std::env::set_var("VC_X1_TEST_KEEP", "1");
     }
 
@@ -52,6 +54,8 @@ fn keep_env_preserves_fixture_across_drop() {
 
     // Restore env state. SAFETY: same as above, single-test binary.
     unsafe {
+        // Register entry 2 (clippy.toml, environment writes).
+        #[allow(clippy::disallowed_methods)]
         std::env::remove_var("VC_X1_TEST_KEEP");
     }
 }

@@ -703,10 +703,21 @@ fn write_bot_config(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 ///   would mask typos).
 /// - Bare `$` with no identifier after stays literal.
 pub(crate) fn expand_vars(s: &str) -> Result<String, Box<dyn std::error::Error>> {
+    expand_vars_with_home(s, std::env::var("HOME").ok().as_deref())
+}
+
+/// [`expand_vars`] with the home directory passed in, `None` when
+/// `HOME` is unset, so a test of `~` need not write the process's
+/// `HOME`, which every test running beside it reads.
+fn expand_vars_with_home(
+    s: &str,
+    home: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
     let home_expanded = if s == "~" {
-        std::env::var("HOME").map_err(|_| "HOME is not set; cannot expand '~'")?
+        home.ok_or("HOME is not set; cannot expand '~'")?
+            .to_string()
     } else if let Some(rest) = s.strip_prefix("~/") {
-        let home = std::env::var("HOME").map_err(|_| "HOME is not set; cannot expand '~/'")?;
+        let home = home.ok_or("HOME is not set; cannot expand '~/'")?;
         format!("{home}/{rest}")
     } else {
         s.to_string()

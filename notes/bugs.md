@@ -443,5 +443,15 @@ insert / delete / reorder.
     - The test's own comment names the race and says to run single-threaded if it shows.
     - **Fix direction:** have `expand_vars` take the home directory as an argument in its tests,
       so no test writes the process's environment.
+    - Seen again 2026-10-15, `init::tests::dual_fixture_writes_work_and_bot_config_files` the
+      victim, the same message.
+    - **Fixed** by "fix: no test sets HOME": `expand_vars` hands `HOME` to
+      `expand_vars_with_home`, which the test calls with `/h`, so no test writes `HOME`. The
+      test `no_test_writes_home` fails on any write of `HOME` in `src/` or `tests/`, and clippy
+      bans `set_var` and `remove_var` but for the sites its register names.
+    - Reproduced by the same cycle: a three-second sleep inside the old test's window failed 18
+      sync integration tests, their spawned `jj` finding no config under `/h` ("Failed to
+      determine the secure config for a repo"), and the fixed test with the same sleep failed
+      none.
 
 # References

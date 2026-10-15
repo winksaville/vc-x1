@@ -541,37 +541,36 @@ fn ensure_git_suffix_adds_when_missing() {
 
 #[test]
 fn expand_vars_tilde() {
-    let prev = std::env::var("HOME").ok();
-    // SAFETY: env-var manipulation is genuinely racy with parallel
-    // test runners. Tests touching $VAR and $HOME live in this
-    // module. If flakiness emerges, run with --test-threads=1.
-    unsafe {
-        std::env::set_var("HOME", "/h");
-    }
-    assert_eq!(expand_vars("~/foo").unwrap(), "/h/foo");
-    assert_eq!(expand_vars("~").unwrap(), "/h");
-    // SAFETY: see above.
-    unsafe {
-        match prev {
-            Some(v) => std::env::set_var("HOME", v),
-            None => std::env::remove_var("HOME"),
-        }
-    }
+    // The home directory is passed in, never written to `HOME`: a
+    // test that signs a commit while `HOME` is changed looks for the
+    // signing key under the wrong directory (bug 21).
+    assert_eq!(
+        expand_vars_with_home("~/foo", Some("/h")).unwrap(),
+        "/h/foo"
+    );
+    assert_eq!(expand_vars_with_home("~", Some("/h")).unwrap(), "/h");
+    assert!(expand_vars_with_home("~/foo", None).is_err());
+    assert!(expand_vars_with_home("~", None).is_err());
 }
 
 #[test]
 fn expand_vars_envvar() {
     let key = "VC_X1_TEST_EXPAND_VAR";
-    // SAFETY: see expand_vars_tilde test.
+    // SAFETY: env-var manipulation is racy with parallel test
+    // runners. This variable is read by this test alone.
     unsafe {
+        // Register entry 1 (clippy.toml, environment writes).
+        #[allow(clippy::disallowed_methods)]
         std::env::set_var(key, "VAL");
     }
     assert_eq!(expand_vars("$VC_X1_TEST_EXPAND_VAR/x").unwrap(), "VAL/x");
     assert_eq!(expand_vars("a${VC_X1_TEST_EXPAND_VAR}b").unwrap(), "aVALb");
     assert_eq!(expand_vars("$/no-name").unwrap(), "$/no-name");
     assert!(expand_vars("$VC_X1_TEST_DEFINITELY_UNSET_xyz").is_err());
-    // SAFETY: see expand_vars_tilde test.
+    // SAFETY: see above.
     unsafe {
+        // Register entry 1 (clippy.toml, environment writes).
+        #[allow(clippy::disallowed_methods)]
         std::env::remove_var(key);
     }
 }
