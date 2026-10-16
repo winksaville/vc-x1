@@ -113,7 +113,7 @@ repo's own config, which the user chooses.
 
 - [fix: a snapshot failing is reported to the user and in Result opening][1] (done)
 - [fix: vc-x1 reads jj's per-repo config][2] (done)
-- [fix: snapshot fails on a file the size limit refused][3]
+- [fix: snapshot fails on a file the size limit refused][3] (done)
 - [fix: a snapshot failing is reported to the user and in Result closing][4]
 
 ##### fix: a snapshot failing is reported to the user and in Result opening
@@ -142,6 +142,27 @@ every per-repo setting is lost to it. It reads it through jj-lib's `SecureConfig
 
 `snapshot` drops the list of files the limit refused, so every verb proceeds without them and
 push commits without a word. It returns a typed error naming them instead, with the remedies.
+
+- `FilesTooLarge` carries the repo, the refused files with their sizes, the limit, and whether
+  the repo is an agent-repo, so a caller can match on it, and its message is jj's hint adapted:
+  a `.gitignore` entry, or `jj -R <repo> config set --repo snapshot.max-new-file-size
+  <largest>`, the command that now reaches vc-x1 by the rung before. An agent-repo's adds `... 0`.
+- Push stops at its first stage, the change check, before committing either repo, since the
+  check snapshots, and squash-push, sync, and every other verb stop the same way.
+- The limit's read is one function, `max_new_file_size`, its 0 read as no limit, shared by the
+  snapshot and the error.
+- The session tests set a 1 KiB limit in-process, on a `CommandArg` layer as `jj --config` sets
+  one, and read trees with `--ignore-working-copy`, so the `jj` command's own limit takes no part.
+- Push's test is a CLI test, `tests/cli_push.rs`: the binary runs in a `CliFixture` whose
+  isolated home holds the jj config, the 1 KiB limit included, so the test owns its limit and its
+  per-repo entries die with the fixture. It asserts no rollback ran in either repo, so push
+  stopped before its first commit, and it fails with the old `snapshot`, checked by hand.
+  - Weighed first and left: an in-crate test writing a sparse file one byte over the user's own
+    limit, which skipped at no limit, could not tell a stop from a rolled-back commit, and tied
+    the file's size to the user's config. Then a test-only thread-local config layer, needless
+    once the CLI fixture was seen to hold the config.
+  - The fixture's children also get `XDG_CONFIG_HOME` set and `JJ_CONFIG` removed, either of
+    which, set in the environment, would carry jj's config reads past the isolated home.
 
 ##### fix: a snapshot failing is reported to the user and in Result closing
 
