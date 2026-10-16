@@ -46,6 +46,7 @@ since its note is prose.
 | 2026-10-13 | docs: turn off the session lock | 9 | 1804 | the lock line in `custom.md` becomes an entry saying the lock is off and where the instruction is kept, seven lines fewer and no change to the set |
 | 2026-10-13 | agent-files(proposal): v0.2.8 | 10 | 1873 | `## Sync` in AGENTS.md, one command at acquaint, opening, and Land, with its line in the rules index and a first step in Opening, an adoption as a copy and a check in `versioning.md`, the messages repo's fetch in `custom.md`, and a tenth file, `session-lock.md`, the lock's instruction for the family to decide on, 45 lines |
 | 2026-10-15 | docs: the session lock moves to the README | 10 | 1871 | the entry saying the lock is off leaves `custom.md`, the README pointing at the set's instruction instead, two lines fewer and no change to the set |
+| 2026-10-15 | agent-files(proposal): v0.2.9 | 10 | 1879 | the per-rung flow gains a step 0 sync, required at the opening and the closing, and the Validate step's rule that a failure is read before validation runs again, with Sync's moments and the rules index line to match, 8 lines |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -54,17 +55,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | v0.2.8 | v0.2.7 | v0.2.6 |
+| File | v0.2.9 | v0.2.8 | v0.2.7 |
 |---|---:|---:|---:|
-| AGENTS.md | 430 | 414 | 385 |
-| custom.md | 15 | 14 | 12 |
+| AGENTS.md | 438 | 430 | 414 |
+| custom.md | 15 | 15 | 14 |
 | agent-data/code.md | 94 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 74 | 74 | 74 |
-| agent-data/jj.md | 392 | 391 | 391 |
+| agent-data/jj.md | 392 | 392 | 391 |
 | agent-data/notes.md | 166 | 166 | 166 |
 | agent-data/prose.md | 405 | 405 | 405 |
-| agent-data/rationale.md | <598> | <565> | <543> |
-| agent-data/session-lock.md | 45 |  |  |
-| agent-data/versioning.md | 208 | 204 | 204 |
-| total | 1871 | 1804 | 1773 |
+| agent-data/rationale.md | <620> | <598> | <565> |
+| agent-data/session-lock.md | 45 | 45 |  |
+| agent-data/versioning.md | 208 | 208 | 204 |
+| total | 1879 | 1871 | 1804 |
