@@ -42,6 +42,21 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Tests leave a per-repo config entry under the user's config dir
+
+(wink + agent, 2026-10-15) jj keeps a repo's config under the user's config dir,
+`~/.config/jj/repos/<config-id>/`, and creates the entry the first time a command touches the
+repo, so every test fixture repo a `jj` child or `vc-x1 init` touches leaves one behind, never
+removed. A full `vc-x1 validate` adds 19, and 16,965 had built up by 2026-10-15, removed then at
+wink's go. Found in the cycle `fix: a snapshot failing is reported to the user and in Result`.
+
+- The fix: tests give jj a config dir under the test's temporary root, on the spawned child's
+  environment and in the in-process sessions alike, never the test process's own environment,
+  per `fix: no test sets HOME`.
+- The measure: the entry count under `~/.config/jj/repos` is unchanged by a full validation.
+- Until it lands, `jj config gc` removes the entries for repos that are gone, asking first
+  ([Garbage collection](https://docs.jj-vcs.dev/latest/design/secure-config/#garbage-collection)).
+
 ### The set's session-lock file says a killed holder leaves files behind
 
 (wink + agent, 2026-10-14) [agent-data/session-lock.md](agent-data/session-lock.md#what-is-known)

@@ -127,9 +127,12 @@ impl CliFixture {
 
     /// Build a `vc-x1` `Command` with `HOME` pointed at the
     /// fixture's isolated home dir, so user config can't leak.
+    /// `XDG_CONFIG_HOME` and `JJ_CONFIG` are set and cleared on the
+    /// child too, either of which would otherwise send jj's config
+    /// reads, and its per-repo entries, past the fixture's home.
     pub fn cmd(&self) -> Command {
         let mut c = vc_x1();
-        c.env("HOME", &self.home);
+        isolate_config(&mut c, &self.home);
         c
     }
 
@@ -152,6 +155,15 @@ impl Drop for CliFixture {
     }
 }
 
+/// Point a child's config at `home`: `HOME` and `XDG_CONFIG_HOME`
+/// set to it, and `JJ_CONFIG`, which overrides both, removed. Set on
+/// the child alone, never on the test process.
+fn isolate_config(cmd: &mut Command, home: &Path) {
+    cmd.env("HOME", home)
+        .env("XDG_CONFIG_HOME", home.join(".config"))
+        .env_remove("JJ_CONFIG");
+}
+
 /// Run `jj <args>` in `dir` (inspection only) with `HOME` pointed
 /// at the fixture's isolated home, asserting success and returning
 /// trimmed stdout.
@@ -164,12 +176,9 @@ pub fn jj(home: &Path, dir: &Path, args: &[&str]) -> String {
     // Register entry 4 (clippy.toml): test-helper jj inspection
     // under the fixture's isolated home.
     #[allow(clippy::disallowed_methods)]
-    let out = Command::new("jj")
-        .args(args)
-        .env("HOME", home)
-        .current_dir(dir)
-        .output()
-        .expect("spawn jj");
+    let mut cmd = Command::new("jj");
+    isolate_config(&mut cmd, home);
+    let out = cmd.args(args).current_dir(dir).output().expect("spawn jj");
     assert!(
         out.status.success(),
         "jj {args:?} failed in {}: {}",

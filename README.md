@@ -179,6 +179,26 @@ vc-x1 list -r ..@.. -n 3     # 1 descendant, @, 1 ancestor (3 commits)
 vc-x1 list -r ..@.. -n 4     # 1 descendant, @, 2 ancestors (4 commits)
 ```
 
+### jj config and the new-file size limit
+
+vc-x1 reads jj's config as `jj` does: the defaults, the user's (`~/.config/jj/config.toml`, or
+`$JJ_CONFIG`), and the repo's own, which jj keeps under the user's config dir and `jj config set
+--repo` writes.
+
+A snapshot takes no new file over `snapshot.max-new-file-size`, 1 MiB by default. `jj` warns and
+goes on without it, but in vc-x1 that is an error, at every subcommand that snapshots, push
+included, before either repo commits, so nothing is committed without a word. The error
+names each refused file and its size, and the fixes:
+
+- add the file to `.gitignore`
+- raise the limit for that repository only, `jj -R <repo> config set --repo
+  snapshot.max-new-file-size <size>`
+- in an agent-repo, whose files are its session transcripts, lift the limit there, `jj -R
+  <agent-repo> config set --repo snapshot.max-new-file-size 0`, 0 meaning no limit
+
+vc-x1 never sets the limit itself, since a repo's value overrides the one the user chose. A file
+the limit refused stays out until one of these is done, and then the command is run again.
+
 ### Shell completion
 
 vc-x1 provides tab completion for all subcommands and flags using claps

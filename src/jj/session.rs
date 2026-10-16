@@ -55,13 +55,15 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::RepoPath;
+use jj_lib::secure_config::SecureConfig;
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::{SnapshotOptions, UntrackedReason, WorkingCopyFreshness};
 use jj_lib::workspace::Workspace;
-use log::debug;
+use log::{debug, warn};
 use pollster::FutureExt;
+use rand_chacha::ChaCha20Rng;
 
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -80,6 +82,59 @@ pub struct RepoSession {
     pub colocated: bool,
 }
 
+/// A snapshot left new files untracked for being over
+/// `snapshot.max-new-file-size`, the case the `jj` command reports
+/// as "Refused to snapshot some files". The files under the limit
+/// were snapshotted.
+#[derive(Debug)]
+pub struct FilesTooLarge {
+    /// The workspace root of the repo the snapshot ran in.
+    pub repo: PathBuf,
+    /// The refused files, repo-relative, with their sizes in bytes.
+    pub files: Vec<(String, u64)>,
+    /// The limit the files were over, in bytes.
+    pub limit: u64,
+    /// True when `repo` is a workspace's agent-repo, whose files are
+    /// its session transcripts, which adds the remedy of no limit.
+    pub agent_repo: bool,
+}
+
+impl std::fmt::Display for FilesTooLarge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let repo = self.repo.display();
+        let largest = self.files.iter().map(|(_, size)| *size).fold(0, u64::max);
+        writeln!(
+            f,
+            "{repo}: refused to snapshot {} new file(s) over snapshot.max-new-file-size ({}), \
+             which are not in the working-copy commit. The files under the limit were \
+             snapshotted.",
+            self.files.len(),
+            HumanByteSize(self.limit)
+        )?;
+        for (path, size) in &self.files {
+            writeln!(f, "  {path}: {}", HumanByteSize(*size))?;
+        }
+        writeln!(f, "To fix this, then run the command again:")?;
+        writeln!(f, "  * Add the file(s) to `.gitignore`")?;
+        write!(
+            f,
+            "  * Run `jj -R {repo} config set --repo snapshot.max-new-file-size {largest}`\n    \
+             This raises the limit for this repository only."
+        )?;
+        if self.agent_repo {
+            write!(
+                f,
+                "\n  * Run `jj -R {repo} config set --repo snapshot.max-new-file-size 0`\n    \
+                 This lifts the limit for this agent-repo only, whose files are its \
+                 session transcripts."
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for FilesTooLarge {}
+
 /// The user's home directory, from `HOME`: what a leading `~/` in a
 /// config path expands to. jj-lib takes it from its caller, so every
 /// `UserSettings` is built with this one.
@@ -87,15 +142,25 @@ pub(crate) fn home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
 }
 
+/// The user's config dir, `$XDG_CONFIG_HOME` or `~/.config`: where
+/// jj keeps the user's config and every repo's.
+fn user_config_dir() -> Option<PathBuf> {
+    match std::env::var_os("XDG_CONFIG_HOME") {
+        Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
+        _ => home_dir().map(|h| h.join(".config")),
+    }
+}
+
 /// Load the user's jj configuration the way the jj CLI does.
 ///
 /// Layers, lowest to highest: jj-lib defaults, `/etc/jj` (unix),
 /// `$JJ_CONFIG` (overrides system and user paths) or the user files
 /// (`~/.jjconfig.toml`, `<config dir>/jj/config.toml` + `conf.d`),
-/// the repo config (`.jj/repo/config.toml`), then `JJ_USER` /
-/// `JJ_EMAIL` overrides. Deviation from the CLI: no command-line
-/// layer and no `EnvBase` layer (debug / color / pager knobs that
-/// only affect CLI presentation).
+/// the repo config (`<config dir>/jj/repos/<config-id>/config.toml`,
+/// named by `.jj/repo/config-id`), then `JJ_USER` / `JJ_EMAIL`
+/// overrides. Deviation from the CLI: no command-line layer, no
+/// workspace layer, and no `EnvBase` layer (debug / color / pager
+/// knobs that only affect CLI presentation).
 fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
     let mut config = StackedConfig::with_defaults();
     // Keys the engine reads whose defaults ship with the jj CLI's
@@ -127,26 +192,19 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
             }
         }
     } else {
-        let home = home_dir();
-        let config_dir = match std::env::var_os("XDG_CONFIG_HOME") {
-            Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
-            _ => home.as_ref().map(|h| h.join(".config")),
-        };
-        if let Some(home) = &home {
+        if let Some(home) = &home_dir() {
             load_file_if_exists(&mut config, ConfigSource::User, home.join(".jjconfig.toml"))?;
         }
-        if let Some(dir) = &config_dir {
+        if let Some(dir) = &user_config_dir() {
             load_file_if_exists(&mut config, ConfigSource::User, dir.join("jj/config.toml"))?;
             load_dir_if_exists(&mut config, ConfigSource::User, dir.join("jj/conf.d"))?;
         }
     }
 
-    if let Some(repo_path) = repo_config_path {
-        load_file_if_exists(
-            &mut config,
-            ConfigSource::Repo,
-            repo_path.join("config.toml"),
-        )?;
+    if let Some(repo_path) = repo_config_path
+        && let Some(dir) = user_config_dir()
+    {
+        load_repo_config(&mut config, repo_path, &dir)?;
     }
 
     let mut env = ConfigLayer::empty(ConfigSource::EnvOverrides);
@@ -160,6 +218,28 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
         config.add_layer(env);
     }
     Ok(config)
+}
+
+/// Add the config of the repo at `repo_path` (its `.jj/repo`) as the
+/// repo layer, from under `config_dir`, the user's config dir.
+///
+/// jj keeps a repo's config there since 0.37, at
+/// `jj/repos/<config-id>/config.toml`, so `jj config set --repo`
+/// never writes the repo's own `.jj/repo/config.toml`.
+/// `maybe_load_config` finds it the way jj does, creating nothing
+/// for a repo without a `config-id`, and migrates an old-style
+/// `.jj/repo/config.toml` as jj would.
+fn load_repo_config(config: &mut StackedConfig, repo_path: &Path, config_dir: &Path) -> Result<()> {
+    let mut rng: ChaCha20Rng = rand::make_rng();
+    let loaded = SecureConfig::new_repo(repo_path.to_path_buf())
+        .maybe_load_config(&mut rng, &config_dir.join("jj/repos"))?;
+    for warning in &loaded.warnings {
+        warn!("{}: {warning}", repo_path.display());
+    }
+    if let Some(file) = loaded.config_file {
+        load_file_if_exists(config, ConfigSource::Repo, file)?;
+    }
+    Ok(())
 }
 
 /// Add one config file as a layer when it exists.
@@ -278,8 +358,33 @@ impl RepoSession {
 
     /// The CLI's `maybe_snapshot`: import git HEAD, snapshot the
     /// working copy, import git refs, each its own operation.
+    ///
+    /// Deviation from the CLI: a new file over
+    /// `snapshot.max-new-file-size` is a [`FilesTooLarge`] error,
+    /// where the `jj` command warns and goes on. A verb that went
+    /// on would work on a working copy missing the file, and push
+    /// would commit without it.
     pub fn snapshot(&mut self) -> Result<()> {
-        self.snapshot_with(None).map(|_| ())
+        let files = self.snapshot_with(None)?;
+        if files.is_empty() {
+            return Ok(());
+        }
+        let repo = self.workspace.workspace_root().to_path_buf();
+        Err(Box::new(FilesTooLarge {
+            agent_repo: crate::common::is_bot_dir(&repo),
+            limit: self.max_new_file_size()?,
+            repo,
+            files,
+        }))
+    }
+
+    /// `snapshot.max-new-file-size` in bytes, its 0 read as no
+    /// limit, as the CLI reads it.
+    fn max_new_file_size(&self) -> Result<u64> {
+        let HumanByteSize(max) = self
+            .settings
+            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
+        Ok(if max == 0 { u64::MAX } else { max })
     }
 
     /// `snapshot`, with the new-file size limit overridden when
@@ -363,15 +468,10 @@ impl RepoSession {
         };
         let auto_track =
             fileset::parse(&mut diagnostics, &auto_track_pattern, &fileset_ctx)?.to_matcher();
-        let HumanByteSize(mut max_new_file_size) = self
-            .settings
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
-        }
-        if let Some(max) = max_override {
-            max_new_file_size = max;
-        }
+        let max_new_file_size = match max_override {
+            Some(max) => max,
+            None => self.max_new_file_size()?,
+        };
         let options = SnapshotOptions {
             base_ignores: self.base_ignores()?,
             progress: None,
@@ -1387,5 +1487,130 @@ mod tests {
         });
         assert!(got.is_err());
         assert_eq!(calls, LOCK_RETRY_ATTEMPTS);
+    }
+
+    /// A temp dir holding a stand-in `.jj/repo` and a user config dir,
+    /// so the repo config's lookup never touches the user's.
+    fn repo_and_config_dir(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let base = crate::test_helpers::unique_base(tag);
+        let repo = base.join("repo/.jj/repo");
+        std::fs::create_dir_all(&repo).expect("create the stand-in .jj/repo");
+        (base.clone(), repo, base.join("config"))
+    }
+
+    #[test]
+    fn repo_config_is_read_where_jj_keeps_it() {
+        let (base, repo, config_dir) = repo_and_config_dir("repo-config");
+        // What `jj config set --repo` does: mint the repo's entry
+        // under the user's config dir and write its config.toml.
+        let mut rng: ChaCha20Rng = rand::make_rng();
+        let file = SecureConfig::new_repo(repo.clone())
+            .load_config(&mut rng, &config_dir.join("jj/repos"))
+            .expect("mint the repo's entry")
+            .config_file
+            .expect("the entry's config file");
+        std::fs::write(&file, "[snapshot]\nmax-new-file-size = \"1KiB\"\n").expect("write it");
+
+        let mut config = StackedConfig::with_defaults();
+        load_repo_config(&mut config, &repo, &config_dir).expect("load the repo config");
+        let settings = UserSettings::from_config_and_home_dir(config, None).expect("settings");
+        let HumanByteSize(max) = settings
+            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)
+            .expect("the repo's limit");
+        assert_eq!(max, 1024);
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn repo_config_lookup_creates_nothing_for_a_repo_without_one() {
+        let (base, repo, config_dir) = repo_and_config_dir("repo-config-none");
+        let mut config = StackedConfig::with_defaults();
+        load_repo_config(&mut config, &repo, &config_dir).expect("load the repo config");
+        assert!(!repo.join("config-id").exists(), "a config-id was minted");
+        assert!(!config_dir.exists(), "the user's config dir was written");
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    /// `repo` opened with `snapshot.max-new-file-size` at 1 KiB, set
+    /// in-process at the top layer, as `jj --config` sets one, so the
+    /// user's own limit has no say and no config file is written. Its
+    /// working copy gets a new 2 KiB `big.bin` beside a small file.
+    fn session_with_a_file_over_the_limit(repo: &Path) -> RepoSession {
+        std::fs::write(repo.join("big.bin"), vec![0u8; 2048]).expect("write big.bin");
+        std::fs::write(repo.join("small.txt"), "fits").expect("write small.txt");
+        let mut ses = RepoSession::open(repo).expect("open the repo");
+        let mut config = ses.settings.config().clone();
+        config.add_layer(
+            ConfigLayer::parse(
+                ConfigSource::CommandArg,
+                "snapshot.max-new-file-size = \"1KiB\"",
+            )
+            .expect("parse the limit"),
+        );
+        ses.settings =
+            UserSettings::from_config_and_home_dir(config, home_dir()).expect("settings");
+        ses
+    }
+
+    /// The files in `rev`'s tree, read without snapshotting, so the
+    /// `jj` command's own limit leaves the working copy alone.
+    fn files_at(repo: &Path, rev: &str) -> String {
+        crate::test_helpers::jj_ok(repo, &["file", "list", "-r", rev, "--ignore-working-copy"])
+    }
+
+    #[test]
+    fn snapshot_fails_on_a_new_file_over_the_limit() {
+        let fx = crate::test_helpers::Fixture::new("snapshot-too-large");
+        let mut ses = session_with_a_file_over_the_limit(&fx.work);
+
+        let err = ses
+            .snapshot()
+            .expect_err("a refused file fails the snapshot");
+        let too_large = err
+            .downcast_ref::<FilesTooLarge>()
+            .expect("a FilesTooLarge");
+        assert_eq!(too_large.files, vec![("big.bin".to_string(), 2048)]);
+        assert_eq!(too_large.limit, 1024);
+        assert!(!too_large.agent_repo);
+        let msg = err.to_string();
+        assert!(msg.contains("  big.bin: 2.0KiB"), "{msg}");
+        assert!(msg.contains("snapshot.max-new-file-size 2048"), "{msg}");
+        assert!(!msg.contains("snapshot.max-new-file-size 0"), "{msg}");
+
+        // The file under the limit was snapshotted, and the refused
+        // one is refused again by the next snapshot.
+        let listed = files_at(&fx.work, "@");
+        assert!(listed.contains("small.txt"), "{listed}");
+        assert!(!listed.contains("big.bin"), "{listed}");
+        assert!(ses.snapshot().is_err(), "the next snapshot fails again");
+    }
+
+    #[test]
+    fn snapshot_in_an_agent_repo_names_no_limit_as_a_remedy() {
+        let fx = crate::test_helpers::Fixture::new("snapshot-too-large-agent");
+        let mut ses = session_with_a_file_over_the_limit(&fx.bot);
+
+        let err = ses
+            .snapshot()
+            .expect_err("a refused file fails the snapshot");
+        let too_large = err
+            .downcast_ref::<FilesTooLarge>()
+            .expect("a FilesTooLarge");
+        assert!(too_large.agent_repo);
+        let msg = err.to_string();
+        assert!(msg.contains("snapshot.max-new-file-size 0"), "{msg}");
+    }
+
+    #[test]
+    fn commit_any_size_still_takes_a_file_over_the_limit() {
+        let fx = crate::test_helpers::Fixture::new("snapshot-any-size");
+        let mut ses = session_with_a_file_over_the_limit(&fx.work);
+
+        let let_in = ses
+            .commit_any_size("adopt")
+            .expect("commit_any_size succeeds");
+        assert_eq!(let_in, vec![("big.bin".to_string(), 2048)]);
+        let listed = files_at(&fx.work, "@-");
+        assert!(listed.contains("big.bin"), "{listed}");
     }
 }
