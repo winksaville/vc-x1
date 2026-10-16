@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1-dev"
-version = "0.85.1-0"
+version = "0.85.1-1"
 edition = "2024"
 
 # Single-name convention (chores-16, 0.78.3): the package name IS
@@ -33,6 +33,11 @@ gix = { version = "0.88", default-features = false }
 jj-lib = "0.46"
 log = { version = "0.4", features = ["std"] }
 pollster = "1.0"
+# The rng jj-lib's `SecureConfig` takes to mint a repo's config id,
+# at jj-lib 0.46's versions so the types are its own, seeded the way
+# jj-cli seeds it (src/jj/session.rs `load_repo_config`).
+rand = "0.10"
+rand_chacha = "0.10"
 serde_json = "1"
 
 [target.'cfg(unix)'.dependencies]

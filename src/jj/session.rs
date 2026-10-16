@@ -55,13 +55,15 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::RepoPath;
+use jj_lib::secure_config::SecureConfig;
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::working_copy::{SnapshotOptions, UntrackedReason, WorkingCopyFreshness};
 use jj_lib::workspace::Workspace;
-use log::debug;
+use log::{debug, warn};
 use pollster::FutureExt;
+use rand_chacha::ChaCha20Rng;
 
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -87,15 +89,25 @@ pub(crate) fn home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
 }
 
+/// The user's config dir, `$XDG_CONFIG_HOME` or `~/.config`: where
+/// jj keeps the user's config and every repo's.
+fn user_config_dir() -> Option<PathBuf> {
+    match std::env::var_os("XDG_CONFIG_HOME") {
+        Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
+        _ => home_dir().map(|h| h.join(".config")),
+    }
+}
+
 /// Load the user's jj configuration the way the jj CLI does.
 ///
 /// Layers, lowest to highest: jj-lib defaults, `/etc/jj` (unix),
 /// `$JJ_CONFIG` (overrides system and user paths) or the user files
 /// (`~/.jjconfig.toml`, `<config dir>/jj/config.toml` + `conf.d`),
-/// the repo config (`.jj/repo/config.toml`), then `JJ_USER` /
-/// `JJ_EMAIL` overrides. Deviation from the CLI: no command-line
-/// layer and no `EnvBase` layer (debug / color / pager knobs that
-/// only affect CLI presentation).
+/// the repo config (`<config dir>/jj/repos/<config-id>/config.toml`,
+/// named by `.jj/repo/config-id`), then `JJ_USER` / `JJ_EMAIL`
+/// overrides. Deviation from the CLI: no command-line layer, no
+/// workspace layer, and no `EnvBase` layer (debug / color / pager
+/// knobs that only affect CLI presentation).
 fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
     let mut config = StackedConfig::with_defaults();
     // Keys the engine reads whose defaults ship with the jj CLI's
@@ -127,26 +139,19 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
             }
         }
     } else {
-        let home = home_dir();
-        let config_dir = match std::env::var_os("XDG_CONFIG_HOME") {
-            Some(x) if !x.is_empty() => Some(PathBuf::from(x)),
-            _ => home.as_ref().map(|h| h.join(".config")),
-        };
-        if let Some(home) = &home {
+        if let Some(home) = &home_dir() {
             load_file_if_exists(&mut config, ConfigSource::User, home.join(".jjconfig.toml"))?;
         }
-        if let Some(dir) = &config_dir {
+        if let Some(dir) = &user_config_dir() {
             load_file_if_exists(&mut config, ConfigSource::User, dir.join("jj/config.toml"))?;
             load_dir_if_exists(&mut config, ConfigSource::User, dir.join("jj/conf.d"))?;
         }
     }
 
-    if let Some(repo_path) = repo_config_path {
-        load_file_if_exists(
-            &mut config,
-            ConfigSource::Repo,
-            repo_path.join("config.toml"),
-        )?;
+    if let Some(repo_path) = repo_config_path
+        && let Some(dir) = user_config_dir()
+    {
+        load_repo_config(&mut config, repo_path, &dir)?;
     }
 
     let mut env = ConfigLayer::empty(ConfigSource::EnvOverrides);
@@ -160,6 +165,28 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
         config.add_layer(env);
     }
     Ok(config)
+}
+
+/// Add the config of the repo at `repo_path` (its `.jj/repo`) as the
+/// repo layer, from under `config_dir`, the user's config dir.
+///
+/// jj keeps a repo's config there since 0.37, at
+/// `jj/repos/<config-id>/config.toml`, so `jj config set --repo`
+/// never writes the repo's own `.jj/repo/config.toml`.
+/// `maybe_load_config` finds it the way jj does, creating nothing
+/// for a repo without a `config-id`, and migrates an old-style
+/// `.jj/repo/config.toml` as jj would.
+fn load_repo_config(config: &mut StackedConfig, repo_path: &Path, config_dir: &Path) -> Result<()> {
+    let mut rng: ChaCha20Rng = rand::make_rng();
+    let loaded = SecureConfig::new_repo(repo_path.to_path_buf())
+        .maybe_load_config(&mut rng, &config_dir.join("jj/repos"))?;
+    for warning in &loaded.warnings {
+        warn!("{}: {warning}", repo_path.display());
+    }
+    if let Some(file) = loaded.config_file {
+        load_file_if_exists(config, ConfigSource::Repo, file)?;
+    }
+    Ok(())
 }
 
 /// Add one config file as a layer when it exists.
@@ -1387,5 +1414,47 @@ mod tests {
         });
         assert!(got.is_err());
         assert_eq!(calls, LOCK_RETRY_ATTEMPTS);
+    }
+
+    /// A temp dir holding a stand-in `.jj/repo` and a user config dir,
+    /// so the repo config's lookup never touches the user's.
+    fn repo_and_config_dir(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let base = crate::test_helpers::unique_base(tag);
+        let repo = base.join("repo/.jj/repo");
+        std::fs::create_dir_all(&repo).expect("create the stand-in .jj/repo");
+        (base.clone(), repo, base.join("config"))
+    }
+
+    #[test]
+    fn repo_config_is_read_where_jj_keeps_it() {
+        let (base, repo, config_dir) = repo_and_config_dir("repo-config");
+        // What `jj config set --repo` does: mint the repo's entry
+        // under the user's config dir and write its config.toml.
+        let mut rng: ChaCha20Rng = rand::make_rng();
+        let file = SecureConfig::new_repo(repo.clone())
+            .load_config(&mut rng, &config_dir.join("jj/repos"))
+            .expect("mint the repo's entry")
+            .config_file
+            .expect("the entry's config file");
+        std::fs::write(&file, "[snapshot]\nmax-new-file-size = \"1KiB\"\n").expect("write it");
+
+        let mut config = StackedConfig::with_defaults();
+        load_repo_config(&mut config, &repo, &config_dir).expect("load the repo config");
+        let settings = UserSettings::from_config_and_home_dir(config, None).expect("settings");
+        let HumanByteSize(max) = settings
+            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)
+            .expect("the repo's limit");
+        assert_eq!(max, 1024);
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn repo_config_lookup_creates_nothing_for_a_repo_without_one() {
+        let (base, repo, config_dir) = repo_and_config_dir("repo-config-none");
+        let mut config = StackedConfig::with_defaults();
+        load_repo_config(&mut config, &repo, &config_dir).expect("load the repo config");
+        assert!(!repo.join("config-id").exists(), "a config-id was minted");
+        assert!(!config_dir.exists(), "the user's config dir was written");
+        std::fs::remove_dir_all(&base).ok();
     }
 }

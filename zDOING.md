@@ -112,7 +112,7 @@ repo's own config, which the user chooses.
 #### Ladder
 
 - [fix: a snapshot failing is reported to the user and in Result opening][1] (done)
-- [fix: vc-x1 reads jj's per-repo config][2]
+- [fix: vc-x1 reads jj's per-repo config][2] (done)
 - [fix: snapshot fails on a file the size limit refused][3]
 - [fix: a snapshot failing is reported to the user and in Result closing][4]
 
@@ -125,6 +125,18 @@ version-of-record, and rename the package to its dev name.
 
 vc-x1 reads a repo's config from `.jj/repo/config.toml`, where jj has not kept it since 0.37, so
 every per-repo setting is lost to it. It reads it through jj-lib's `SecureConfig`, as jj does.
+
+- The repo layer is its own function, given the user's config dir, so a test points it at a temp
+  dir and the user's is never written. `stacked_config` passes `$XDG_CONFIG_HOME` or
+  `~/.config`, the dir it already read the user's own config from.
+- `maybe_load_config`, never `load_config`: a read mints no `config-id` and no entry for a repo
+  without one. It does migrate an old-style `.jj/repo/config.toml` on first read, as jj does, and
+  jj's warnings, the migration's among them, are logged as warnings.
+- The rng `SecureConfig` takes, to mint an id when migrating, comes from `rand` and
+  `rand_chacha` at jj-lib's versions, seeded from the OS as jj-cli seeds it. jj-cli's
+  `JJ_RANDOMNESS_SEED` override is left out, being a test hook of its own.
+- The workspace layer, `.jj/workspace-config-id`, stays out, named as a deviation beside the
+  command-line and `EnvBase` layers. No vc-x1 setting is per-workspace.
 
 ##### fix: snapshot fails on a file the size limit refused
 
