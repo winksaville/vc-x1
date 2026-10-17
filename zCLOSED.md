@@ -7,175 +7,50 @@ commit's copy of the record.
 
 ## Closed
 
-### fix: a snapshot failing is reported to the user and in Result
+### chore: custom.md is untracked and gitignored
 
-(wink + agent, 2026-10-15) From iiac-perf's `m-10-0` in the messages repo: `vc-x1 push`
-committed and pushed both repos without a session's transcript, and said nothing. The transcript
-was a new file over `snapshot.max-new-file-size` at its first snapshot, and the `jj` command
-reports that case as `Refused to snapshot some files`, where vc-x1 is silent.
-
-- `RepoSession::snapshot` discards the list `snapshot_with` returns, the new files the limit left
-  untracked with their sizes, so no caller of `snapshot` sees it. Only `commit_any_size`, used by
-  an adoption, does.
-- Push decides whether the agent-repo has changes with `jj::is_empty(bot, "@")`, which snapshots
-  through `snapshot`, so a refused transcript leaves `@` empty and push skips the agent-repo's
-  commit. squash-push snapshots the same way.
-- The limit vc-x1 ships is jj's default, 1 MiB, and a session's transcript passes it within
-  hours, so an adopter without a raised limit in their user config loses every transcript that
-  outgrows it before the session's first push. Our agent-repo holds transcripts of 6 to 12.5 MB.
-- A refused file stays untracked, so jj-lib reports it again at every snapshot until it is
-  ignored or the limit raised, which is what lets an error raised there keep firing.
-- Found at the work (2026-10-15): vc-x1 reads none of jj's per-repo config. Since jj 0.37 a
-  repo's config is `<user config dir>/jj/repos/<config-id>/config.toml`, named by the repo's
-  `.jj/repo/config-id`, and `jj config set --repo` writes there, but `stacked_config` still reads
-  the old `.jj/repo/config.toml`. So the remedy jj's own hint and this cycle's error name, `jj
-  config set --repo snapshot.max-new-file-size`, would not reach vc-x1, nor any other per-repo
-  setting.
+(wink + agent, 2026-10-17) This is a public repo, meant to be cloned by anyone, and they will not
+be members of the vc-x1 family. A committed `custom.md` hands every clone one machine's layer: the
+family's sibling paths and the session's standing permissions.
 
 #### Deliberation
 
-- vc-x1 reads jj's per-repo config the way the `jj` command does, through jj-lib's
-  `secure_config::SecureConfig`, in place of the old `.jj/repo/config.toml`.
-  - In this cycle (wink, 2026-10-15), since the error's remedy is a per-repo setting and would
-    not reach vc-x1 without it. Its own rung, being a fix of its own.
-  - The read is `maybe_load_config`, which creates no entry for a repo without a `config-id`,
-    where `load_config` would. It may migrate an old-style `.jj/repo/config.toml`, as the `jj`
-    command would.
-- `snapshot` returns a typed error naming the refused paths and sizes, with jj's two remedies, a
-  `.gitignore` entry or a larger `snapshot.max-new-file-size`, iiac-perf's proposal.
-  - Every caller fails with it, the read-only ones included. The `jj` command only warns, and a
-    warning is what was missed. The cost accepted: a work-repo holding an unignored large file
-    stops every vc-x1 verb until it is dealt with, and an acquaint's `sync --dry-run` reports it
-    as a finding.
-  - `commit_any_size` keeps calling `snapshot_with` directly, and keeps letting a file of any size
-    in.
-  - The files that fit are already snapshotted when the error returns, since
-    `snapshot_working_copy` commits the snapshot operation first, and the message says so.
-- The agent-repo's remedy is the user's to choose, never written by vc-x1 (wink, 2026-10-15).
-  When a refused file is in an agent-repo, the error adds a third remedy: `jj config set --repo
-  snapshot.max-new-file-size 0` in the agent-repo, 0 meaning no limit to vc-x1 and the `jj`
-  command alike, or a larger value.
-  - vc-x1 reads the limit through jj-lib's layered config, defaults, then the user's, then the
-    repo's, so a repo's value overrides whatever the user's config sets, wink's being 20 MiB, in
-    that repo alone. That is why it is not written unasked: it overrides a limit the user chose.
-  - Weighed and left: `vc-x1 init` and `vc-x1 clone` writing it, first silently and then on a
-    prompt or a flag. Push has already stopped when the error is seen, so nothing is lost while
-    the user decides.
-  - Weighed and left: push lifting the limit for the agent-repo itself. squash-push does not know
-    which repo is the agent-repo, and the `jj` command would keep refusing.
-- The tests set a limit in-process, never through `jj config set --repo`, which writes an entry
-  under the user's config dir for every test repo.
-  - Found at the work: the user's `~/.config/jj/repos` held 17,228 entries, 16,965 of them for
-    test fixture repos long gone, each holding only the `trunk()` alias jj writes at a repo's
-    creation, or this cycle's first test runs' 1 KiB limit. Removed at wink's go, 2026-10-15.
-  - The push test writes a file just over whatever limit the user's config resolves to, and
-    skips when there is none.
-- iiac-perf's proposed check under Before any push, that the review shows the agent-repo carrying
-  the session's transcript, is declined (wink, 2026-10-15), `m-10-2`: the error makes the refusal
-  seen, at a push and at every other snapshot.
-- A ladder (wink, 2026-10-15). It opened as one, became single-step when the agent-repo's limit
-  was left to the user, and is one again with the per-repo config's rung, nothing having pushed
-  but the bookmark.
-- The cycle is titled for what the user and a caller get, wink's title at the opening's
-  description review, in place of "fix: a snapshot no longer drops files the size limit refused".
-  The bookmark keeps the first title's slug, being published and deleted at Land.
+- The family is local, and no repo assumes one, wink's call. `custom.md` stops being committed,
+  and the family's shared layer lives in `../vc-x1-family`.
+- This cycle untracks `custom.md` and nothing else, and what follows from it is in `TODO.md`, the
+  Todo entry that held the untracking and the agent-files' wording split in two (2026-10-18).
+- `custom.md` stays on disk here and leaves the tree from this commit on. Earlier commits keep it,
+  holding nothing private. A clone that pulls this commit has its `custom.md` deleted, and we
+  think this machine holds the only one.
+- A copy of the tree without `custom.md` passed `cargo test` once made a jj repo, and failed three
+  `cli_smoke` tests as a plain git repo, a finding older than this cycle, filed as [The CLI smoke
+  tests need no jj repo](TODO.md#the-cli-smoke-tests-need-no-jj-repo).
 
 #### Solution
 
-vc-x1 reads a repo's own jj config where jj has kept it since 0.37, through jj-lib's
-`SecureConfig`. A snapshot that refuses a new file over `snapshot.max-new-file-size` returns a
-`FilesTooLarge` error naming the files, their sizes, and the remedies, so every verb stops on it,
-push before either repo commits. A refused file in an agent-repo adds the remedy of no limit in
-that repo's own config, left for the user to choose.
+`custom.md` is gitignored and untracked, and the work that follows from it is in `TODO.md > ##
+Todo`.
 
 #### Acceptance check
 
-- A value set by `jj config set --repo` is what `RepoSession` reads, in a test. Passed,
-  `repo_config_is_read_where_jj_keeps_it`.
-- A new file over the limit makes `RepoSession::snapshot` return the typed error, naming the file
-  and its size, and a refused file in an agent-repo adds the `jj config set --repo` remedy, in
-  tests. Passed, `snapshot_fails_on_a_new_file_over_the_limit` and
-  `snapshot_in_an_agent_repo_names_no_limit_as_a_remedy`.
-- `vc-x1 push` with a new file over the limit in either repo fails before committing either repo,
-  naming the file, in a test. Passed, `cli_push_stops_on_a_file_the_size_limit_refused`, which
-  fails with the old `snapshot`.
-- `vc-x1 validate` passes. Passed.
+- `jj file list custom.md` prints nothing, `.gitignore` holds `/custom.md`, and `custom.md` is
+  still on disk.
+- `vc-x1 validate-anchors TODO.md zCLOSED.md` passes.
+- A `jj git clone` of the commit's tree holds no `custom.md`, and `cargo install --path . --locked
+  --root <scratch>` there installs a `vc-x1` that runs, `~/.cargo/bin` untouched.
+- After the push and before Land, a `vc-x1 clone` of the remote, on the bookmark by `jj new
+  <bookmark>@origin`, holds no `custom.md` and installs the same way. Its result is reported, not
+  recorded, since the commit carrying this record is the one it checks.
+- Result: pass. `jj file list custom.md` prints nothing, `.gitignore` holds `/custom.md`, and the
+  file is on disk. The anchors check clean. The `jj git clone`, of this repo at a local bookmark
+  on the working copy, held no `custom.md` and installed `vc-x1 0.85.2 (agent-files v0.2.9)`.
+  - `vc-x1 clone` of the same local path failed, the source's git `HEAD` being detached, so the
+    clone tracks no `main`. Filed as [vc-x1 clone of a local jj workspace tracks no
+    main](TODO.md#vc-x1-clone-of-a-local-jj-workspace-tracks-no-main), and the remote clone
+    after the push stands in for it.
 
 #### Ladder
 
-- [fix: a snapshot failing is reported to the user and in Result opening][1] (done)
-- [fix: vc-x1 reads jj's per-repo config][2] (done)
-- [fix: snapshot fails on a file the size limit refused][3] (done)
-- [fix: a snapshot failing is reported to the user and in Result closing][4] (done)
-
-##### fix: a snapshot failing is reported to the user and in Result opening
-
-The cycle's setup commit: create and publish the bookmark, write this block, bump the
-version-of-record, and rename the package to its dev name.
-
-##### fix: vc-x1 reads jj's per-repo config
-
-vc-x1 reads a repo's config from `.jj/repo/config.toml`, where jj has not kept it since 0.37, so
-every per-repo setting is lost to it. It reads it through jj-lib's `SecureConfig`, as jj does.
-
-- The repo layer is its own function, given the user's config dir, so a test points it at a temp
-  dir and the user's is never written. `stacked_config` passes `$XDG_CONFIG_HOME` or
-  `~/.config`, the dir it already read the user's own config from.
-- `maybe_load_config`, never `load_config`: a read mints no `config-id` and no entry for a repo
-  without one. It does migrate an old-style `.jj/repo/config.toml` on first read, as jj does, and
-  jj's warnings, the migration's among them, are logged as warnings.
-- The rng `SecureConfig` takes, to mint an id when migrating, comes from `rand` and
-  `rand_chacha` at jj-lib's versions, seeded from the OS as jj-cli seeds it. jj-cli's
-  `JJ_RANDOMNESS_SEED` override is left out, being a test hook of its own.
-- The workspace layer, `.jj/workspace-config-id`, stays out, named as a deviation beside the
-  command-line and `EnvBase` layers. No vc-x1 setting is per-workspace.
-
-##### fix: snapshot fails on a file the size limit refused
-
-`snapshot` drops the list of files the limit refused, so every verb proceeds without them and
-push commits without a word. It returns a typed error naming them instead, with the remedies.
-
-- `FilesTooLarge` carries the repo, the refused files with their sizes, the limit, and whether
-  the repo is an agent-repo, so a caller can match on it, and its message is jj's hint adapted:
-  a `.gitignore` entry, or `jj -R <repo> config set --repo snapshot.max-new-file-size
-  <largest>`, the command that now reaches vc-x1 by the rung before. An agent-repo's adds `... 0`.
-- Push stops at its first stage, the change check, before committing either repo, since the
-  check snapshots, and squash-push, sync, and every other verb stop the same way.
-- The limit's read is one function, `max_new_file_size`, its 0 read as no limit, shared by the
-  snapshot and the error.
-- The session tests set a 1 KiB limit in-process, on a `CommandArg` layer as `jj --config` sets
-  one, and read trees with `--ignore-working-copy`, so the `jj` command's own limit takes no part.
-- Push's test is a CLI test, `tests/cli_push.rs`: the binary runs in a `CliFixture` whose
-  isolated home holds the jj config, the 1 KiB limit included, so the test owns its limit and its
-  per-repo entries die with the fixture. It asserts no rollback ran in either repo, so push
-  stopped before its first commit, and it fails with the old `snapshot`, checked by hand.
-  - Weighed first and left: an in-crate test writing a sparse file one byte over the user's own
-    limit, which skipped at no limit, could not tell a stop from a rolled-back commit, and tied
-    the file's size to the user's config. Then a test-only thread-local config layer, needless
-    once the CLI fixture was seen to hold the config.
-  - The fixture's children also get `XDG_CONFIG_HOME` set and `JJ_CONFIG` removed, either of
-    which, set in the environment, would carry jj's config reads past the isolated home.
-
-##### fix: a snapshot failing is reported to the user and in Result closing
-
-Closing out the cycle.
-
-- The agent masked exit status all cycle: validations and pushes ran as `cmd | tail; echo
-  rc=...`, so every call reported success to the harness whatever the command did, and a push ran
-  behind an `rm` joined by `;`, against [Working practices](AGENTS.md#working-practices). wink
-  caught it reading the calls. From the closing on, every `vc-x1` command runs alone and bare.
-- The agent judged `m-9` incomplete from a search for the lines naming vc-x1, which hid the two
-  `done` lines naming no one. Whether a thread is complete is read from the whole file.
-- What outlives the cycle: the behavior, in the README's new section "jj config and the new-file
-  size limit", wink's choice over a `notes/` topic file, the `snapshot` doc comment carrying the
-  deviation from the `jj` command.
-
-Close-out shape: trapezoid, wink's choice. Land merges the ladder onto `main` under one merge
-commit.
+- chore: custom.md is untracked and gitignored (done)
 
 # References
-
-[1]: #fix-a-snapshot-failing-is-reported-to-the-user-and-in-result-opening
-[2]: #fix-vc-x1-reads-jjs-per-repo-config
-[3]: #fix-snapshot-fails-on-a-file-the-size-limit-refused
-[4]: #fix-a-snapshot-failing-is-reported-to-the-user-and-in-result-closing

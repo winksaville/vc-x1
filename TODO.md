@@ -42,6 +42,121 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### The agent-files drop the family, and custom.md is optional
+
+(wink + agent, 2026-10-17, split 2026-10-18) The cycle **chore: custom.md is untracked and
+gitignored** took `custom.md` out of the tree, so anyone can clone this public repo without
+inheriting one machine's layer. The agent-files still read as if every project has a `custom.md`
+and belongs to a family: the rule **Read custom.md first**, [Acquaint](AGENTS.md#acquaint)'s first
+step, [custom.md](AGENTS.md#custommd), and the family's terms across `agent-data/`.
+
+- Every mention of the family or of `custom.md` leaves the agent-files but one: when a `custom.md`
+  exists it is read first, and it overrides anything in the agent-files.
+- The sweep covers `AGENTS.md` and `agent-data/*`, `rationale.md` included, about 40 mentions in
+  9 files at the split.
+- A project convention that must be committed goes into the agent-file it belongs to, its diff
+  from the payload the proposal, as [Changing the agent-files](AGENTS.md#changing-the-agent-files)
+  already allows.
+- Open: whether the payload ships no `custom.md` or an example under another name.
+- An `agent-files(proposal): v0.3.0` cycle, ahead of the code entries below, which follow from it.
+
+### The family leaves the committed config
+
+(wink + agent, 2026-10-17) `.vc-config.md`'s `[family]` table names this repo's member name and two
+sibling paths, `template` and `messages`, which hold only where the repos sit on this machine, and
+`agent-files diff` and `copy` fall back to `family.template`. With the family local, its shared
+`custom.md` layer tells the agent where the template and the messages repo are, and the tool needs
+no family at all.
+
+- `[family]` leaves `.vc-config.md`, `vc-config.md`, and the schema, and the code reading it goes,
+  `agent-files diff` and `copy` taking their directory from the argument or `[agent-files.*] dir`.
+- The entries that find the messages repo through `[family] messages`, [sync fetches the messages
+  repo too](#sync-fetches-the-messages-repo-too) and [feat: vc-x1 msg, the messages protocol as
+  code](#feat-vc-x1-msg-the-messages-protocol-as-code), are revisited, since that key goes.
+- The family itself moves to `../vc-x1-family`, its own repo beside the members, outside this one.
+- The cycle **feat: the family directory** (2026-10-16) moved the family into vc-x1 as `family/`,
+  the opposite direction, and its bookmark was abandoned unlanded (2026-10-17). Its two unrelated
+  changes, the touched files' prose losing its semicolons and `[validate] fast` becoming
+  `cargo test --bins`, are redone when wanted.
+
+### init and clone take --custom
+
+(wink + agent, 2026-10-17) With `custom.md` uncommitted, a fresh `init` or `clone` has none, and its
+first session starts without the family's layer.
+
+- `--custom <path>` copies the file at `<path>` into the new workspace as `custom.md`.
+- We think a member's `custom.md` is mostly a pointer into the family's shared layer, so a copy
+  rarely drifts, and an `update` subcommand that copies it again waits for a case that needs it.
+- Follows [The agent-files drop the family, and custom.md is
+  optional](#the-agent-files-drop-the-family-and-custommd-is-optional).
+
+### A missing fixture fails instead of passing
+
+(wink + agent, 2026-10-17) `test_helpers::fixture` returns `None` when the fixture's directory is
+absent, so its tests return early and pass, the notice on stderr hidden, since `cargo test` shows a
+passing test's output only under `--nocapture`. With `../vc-x1-fixtures` renamed to
+`../vc-x1-fixtures-xxx`, a `cargo clean` and `cargo test` passed, and the `dr1_*` tests in
+`src/lookup.rs` checked nothing.
+
+- Fixture tests are `#[ignore = "needs fixture <name>"]`, so a bare clone's `cargo test` passes and
+  reports them as ignored, never as passed.
+- `[validate] full` runs `cargo test -- --include-ignored`, and there an absent fixture panics,
+  naming how to get it.
+- Ahead of [Fixtures are named by their source](#fixtures-are-named-by-their-source), being small
+  and closing the silent pass on its own.
+
+### The CLI smoke tests need no jj repo
+
+(wink + agent, 2026-10-18) Three tests in `tests/cli_smoke.rs`,
+`cli_version_gate_stops_every_subcommand`, `cli_vv_reports_then_runs_the_subcommand`, and
+`cli_ambient_banner_is_stderr_only`, run `vc-x1` in the source tree, so they need it to be a jj
+repo. A plain `git clone` and `cargo test` fails them with `There is no Jujutsu repo in .`, found
+by the cycle **chore: custom.md is untracked and gitignored** in a copy of the tree.
+
+- The tests run `vc-x1` in a jj repo of their own, a temporary one, never the source tree.
+- Beside [A missing fixture fails instead of passing](#a-missing-fixture-fails-instead-of-passing),
+  both making a stranger's `cargo test` true.
+
+### vc-x1 clone of a local jj workspace tracks no main
+
+(wink + agent, 2026-10-18) `vc-x1 clone /path/to/vc-x1 <name>` fails with `bookmark 'main' has
+non-tracking remote 'main@origin'`, found by the cycle **chore: custom.md is untracked and
+gitignored**. The source is a colocated jj workspace, whose git `HEAD` is detached, so the clone
+has no default branch and jj tracks none of the remote bookmarks. `clone_one` in `src/clone.rs`
+then fails `verify_tracking(target_dir, "main")`. The help lists local paths as sources.
+
+- A clone tracks `main@origin` when the source has a `main`, whatever its `HEAD`.
+- The half-made clone is left behind, `.git` and `.jj` alone, and a rerun refuses since the
+  directory exists. The fix decides whether a failed clone removes it.
+
+### init, clone, and the others take --bookmark
+
+(wink + agent, 2026-10-18) `vc-x1 clone` always lands on `main`, so checking a cycle's bookmark
+from a fresh clone takes a `jj new <bookmark>@origin` after it, and `init` has the same `main`
+built in.
+
+- `clone --bookmark <name>` tracks `<name>@origin` and puts the working copy on it.
+- `init --bookmark <name>` names the bookmark the new workspace starts on.
+- The other subcommands that assume `main` are surveyed, and those that would take a bookmark
+  name it the same way, `--bookmark`, as `sync` already does.
+- We think the agent-repo stays on its `main`, having no cycle bookmark.
+
+### Fixtures are named by their source
+
+(wink + agent, 2026-10-17) `[test] fixtures` names a directory on this machine,
+`../vc-x1-fixtures`, in a committed file. The `dr-1` fixture is built reproducibly by
+`support/fixtures/build-dr-1.py` and published as `vc-x1-fixtures-dr-1-work` and `-agent` on
+GitHub, so where it comes from is the portable fact, and where it sits is not.
+
+- The committed config names each fixture by its source, a name and a clone URL, pinned to a
+  commit.
+- A fixture is fetched into a fixed, gitignored directory in the workspace, `.fixtures/<name>` say,
+  set by convention, never by config.
+- A `vc-x1 fixtures` subcommand clones the listed fixtures there, as `vc-x1 clone` lays a dual
+  workspace out, so any repo can declare fixtures and vc-x1 fetches them.
+- Built for vc-x1's need first, the config's shape general enough for another repo to use
+  unchanged.
+
 ### Tests leave a per-repo config entry under the user's config dir
 
 (wink + agent, 2026-10-15) jj keeps a repo's config under the user's config dir,

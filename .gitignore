@@ -1,6 +1,7 @@
 /target
+/custom.md
+/tmp
 /.claude/settings.local.json
 /.agent-session
 /.git
 /.jj
-/tmp
