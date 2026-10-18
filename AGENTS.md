@@ -10,20 +10,19 @@ section's why is in [rationale.md](agent-data/rationale.md) under the mirrored h
 Repos: the two repos of [the dual-repo model](#the-dual-repo-model), "work-repo" and "agent-repo",
 always hyphenated.
 
-Agent-files: the instruction set an agent reads: `AGENTS.md`, `custom.md`, `agent-data/*`, and
-anything `custom.md` points at. `TODO.md` is not one, since its content is the project's record,
-but the agent-files require that there is one, of the shape in [Todo
-format](agent-data/notes.md#todo-format).
+Agent-files: the instruction set an agent reads, `AGENTS.md` and `agent-data/*`. `TODO.md` is not
+one, since its content is the project's record, but the agent-files require that there is one, of
+the shape in [Todo format](agent-data/notes.md#todo-format).
 
 Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
 adoptions ([Agent-files version](agent-data/versioning.md#agent-files-version)).
 
-Project layer: the project's own agent-files, `custom.md` and what it points at.
-
 Set: the agent-files as the template repository's payload carries them, the copy every adopter
-starts from and re-syncs to. Adopter: a project carrying a copy of the set. Maintainer: whoever
-owns the template repository and decides what the payload takes.
+starts from. Adopter: a project carrying a copy of the set. Proposer: the adopter a proposal comes
+from. There is no maintainer, only adopters and proposers. We think the template repository is
+still to come, and until it exists the copy a proposal starts from is whichever adopter's the
+proposer took.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
 `vc-x1 push` ([Cycle protocol](#cycle-protocol)). Single-step when the problem statement has one
@@ -70,7 +69,9 @@ the path), and the exception is recorded in the cycle's records, naming what the
 what it does not, so a waiver over a cycle's pushes says whether Land is inside it. No rule bends
 silently.
 
-- Read custom.md first: read [custom.md](custom.md), whose rules override all others.
+- Read custom.md first: when a `custom.md` exists, the agent must read it first, it overrides
+  anything in the agent-files, and it holds what is local to the workspace
+  ([custom.md](#custommd)).
 - Acquaint before work: a session acquaints first, and what its repo check finds is reported and
   left as found until the user says how to proceed ([Acquaint](#acquaint)).
 - Sync where `main` matters: a look at acquaint and a sync at the opening, the closing, and Land,
@@ -92,9 +93,9 @@ silently.
   unless an explicit waiver ([At rest](#at-rest-push-stop-squash-push)).
 - Stop and ask: on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes
   on a simple task has produced no progress ([Stop and ask](#stop-and-ask)).
-- Changing the agent-files: an agent-file change is its own commit and convention work its own
-  cycle, and intent picks the file, the set's copy for the set, `custom.md` for this project
-  only ([Changing the agent-files](#changing-the-agent-files)).
+- Changing the agent-files: a change to the rules is tried in the local copy, then proposed as one
+  set of diffs, which an adopter accepts as is, negotiates, or declines ([Changing the
+  agent-files](#changing-the-agent-files)).
 - jj, not git: version-control operations use jj ([jj basics](agent-data/jj.md#jj-basics)).
 - No hand-written trailers: `vc-x1 push` stamps `ochid:` trailers, never write one by hand
   ([ochid trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
@@ -112,7 +113,8 @@ silently.
 What a session does first, at its start and whenever the user says "acquaint" or "reacquaint",
 in this order ([why](agent-data/rationale.md#acquaint)):
 
-1. custom.md: read [custom.md](custom.md), and do what it asks for at acquaint.
+1. custom.md: when there is one, read it, and do what it asks for at acquaint
+   ([custom.md](#custommd)).
 2. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
    the user says how to proceed.
@@ -383,8 +385,8 @@ the machine and collapses into the rung before the cycle continues, each validat
 
 ### A session's rules are its own agent-files
 
-A session's rules are the agent-files of the project it started in, and rules living in any other
-repo are ignored unless these files or the user direct otherwise
+A session's rules are the agent-files of the project it started in, and its `custom.md`, and rules
+living in any other repo are ignored unless these files or the user direct otherwise
 ([why](agent-data/rationale.md#a-sessions-rules-are-its-own-agent-files)). So another repo's own
 protocol (a shared store's README, another project's agent-files) governs a write to it only as
 far as the delegation reaches, and this file's conduct rules, the step reads, the reviews, the
@@ -398,41 +400,24 @@ simple task has produced no progress ([why](agent-data/rationale.md#stop-and-ask
 
 ## Changing the agent-files
 
-The official copies are the template repository's payload, and every adopter carries its own
-copy ([why](agent-data/rationale.md#changing-the-agent-files)).
+The template repository's payload is the copy adopters start from, and every adopter carries its
+own copy ([why](agent-data/rationale.md#changing-the-agent-files)).
 
-- Payload read-only: only a *correction* (a factual error, a typo, a stale cross-reference) goes
-  straight in.
-- Intent picks the file: a rule change meant for the set goes into the local copy of the agent-file
-  it lives in, reviewed at convergence on the diff. One meant for this project only goes to
-  `custom.md` and says why.
-- Diff is the proposal: the diff between an adopter and the payload *is* its open proposal set.
-- Own commit, own cycle: an agent-file change is its own commit, and convention work is its own
-  cycle. A convention itch mid-feature becomes a backlog entry, never an inserted rung.
-- Local experiments: a local agent-file may hold an unagreed experiment. Diff against the payload
-  when that matters.
-- Convergence: the maintainer reviews the adopters' diffs, folds what it accepts into the payload,
-  and every adopter re-syncs.
+- Local experiments: a local agent-file may hold an unagreed experiment, diffed against the payload
+  while the rules are being tried. After the experiment there may be a proposal.
+- Proposing: a proposal is one set of diffs, to the rules or beyond them, that an adopter may or
+  may not accept as is.
+- Convergence: the adopter reviews the diff between the proposal and its files and accepts it as is
+  or proposes changes. It is a negotiation whose goal is everyone accepting the same thing, and
+  that goal is not a requirement.
+- Acceptance: the adopter and the proposer agree on the contents, identical or not.
 - Retirement: a resolved experiment retires like a finished Todo, adopted and rejected alike: the
   cycle that resolved it is its record.
-- Adopted ahead: a rule adopted ahead of its convention cycle lives in the agent-file it belongs
-  to, never in a holding section of the project layer.
 
 ## custom.md
 
-[custom.md](custom.md) is the project's own layer and is never universal
-([why](agent-data/rationale.md#custommd)). It ships holding only its own shape, and a project adds
-what it needs. Anyone may change any agent-file. custom.md is provided so an adopter can experiment
-with, or override, a rule in one file when that is practical, and keep its other agent-files
-identical to the payload's, so a re-sync is a copy:
-
-- Overriding: a rule the adopter cannot keep as written goes under `## Project conventions and
-  overrides`, naming the section it supersedes.
-- Editing instead: an adopter with reasons custom.md cannot serve edits the agent-files directly,
-  and its diff from the payload is its proposal ([Changing the
-  agent-files](#changing-the-agent-files)). Defining what the set itself is, as its first adopters
-  are doing, is one such reason. Such an adopter's custom.md holds pointers to project files and
-  nothing else, and `## Project conventions and overrides` stays `_None._`.
-- Pointer entries: an entry that only points at a further file owes no justification, and an
-  agent-file asking for something "in custom.md" is answered by following the pointer.
-- Precedence: custom.md is loaded last and wins conflicts with the other agent-files.
+When a `custom.md` exists at the workspace root, the agent must read it first, and it overrides
+anything in the agent-files ([why](agent-data/rationale.md#custommd)). It is the place for what is
+local to the workspace, one machine's paths and permissions, since a change every clone needs is a
+cycle on the agent-file it belongs in. The session lock,
+[session-lock.md](agent-data/session-lock.md), is an experiment it may carry.

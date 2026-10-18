@@ -4,10 +4,6 @@ How version control is driven on this project (jj, never raw git) and how the tw
 point at each other (the `ochid:` trailer). Read this before any jj operation beyond `st` / `log` /
 `diff`, and always before touching a commit description.
 
-Universal file, shared with the template repository. A proposed change is edited here and converges
-at the template ([Changing the agent-files](../AGENTS.md#changing-the-agent-files)). Project-local
-content goes in [custom.md](../custom.md).
-
 ## jj Basics
 
 **Use jj, not git, for version-control operations** (status, log, diff, commit, push, history

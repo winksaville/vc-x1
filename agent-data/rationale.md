@@ -2,12 +2,8 @@
 
 The why behind the agent-files, one entry per rule that has one. AGENTS.md holds the rule and its
 boundaries, and a session needs only that. The argument is for whoever would change a rule, and for
-the maintainer at convergence, and it is kept so a rule is not simplified away by an editor who
-does not know its cost.
-
-Universal file, shared with the template repository. A proposed change is edited here and converges
-at the template ([Changing the agent-files](../AGENTS.md#changing-the-agent-files)). Project-local
-content goes in [custom.md](../custom.md).
+whoever reviews a proposal, and it is kept so a rule is not simplified away by an editor who does
+not know its cost.
 
 ## How to read this file
 
@@ -50,8 +46,9 @@ differently next time.
 ## Terminology
 
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`. "Instruction
-files", which named the agent-files back when `custom.md` was the only editable one. "Ladder
-(sub-cycle)" for a local ladder, under [Local ladders](#local-ladders).
+files", an earlier name for the agent-files. "Ladder (sub-cycle)" for a local ladder, under [Local
+ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-files, retired when
+the one file it named became local ([custom.md](#custommd)).
 
 ## The dual-repo model
 
@@ -382,42 +379,57 @@ _None recorded._
 
 ## Changing the agent-files
 
-An adopter's diff against the template repository's payload is what that adopter has proposed, so
-drift is a diff, not a mystery: the proposal set needs no maintenance and cannot go stale.
+An adopter's diff against the copy it started from, the template repository's payload once there
+is one, is what a proposal is made of and what its review reads, so drift is a diff, not a mystery:
+the review's input needs no maintenance and cannot go stale. The adopter's own changes live in
+that copy too, each a cycle like any other (wink, 2026-10-18), so a change every clone needs is
+committed where the rule lives and nothing marks it as the project's.
 
-**A correction goes straight into the payload** because a wrong fact has no second opinion to
-gather, and leaving it in place misleads every adopter on first read.
+**An experiment comes before a proposal** because a rule is argued best by having been run, and
+the diff against the payload keeps the trial visible while it runs.
 
-**An agent-file change is its own commit** so `git log -- AGENTS.md agent-data/` reads as a list of
-rule changes rather than unrelated feature titles, and the commit's `ochid:` trailer links the
-agent-repo session that reasoned it out. The diff says what differs now. The history says when, by
-whom, and why.
+**A proposal is one set of diffs, to the rules or beyond them** (wink, 2026-10-18) because a set
+of files and a diff are what two repos can compare without talking, and because a proposal is not
+limited to the set: what one adopter asks of another may be anything.
 
-**Convention work runs as its own cycle** because rung by rung, rule changes bury a feature cycle's
-records under work its title never promised.
+**Acceptance is negotiated, never owed** (wink, 2026-10-18) because the adopters are peers who
+chose the set, and there is no maintainer above them. A no that carries its why, or the change that
+would turn it, teaches the proposer something either way, so the goal is everyone accepting the
+same thing and the requirement is only that each says where it stands. An adopter that keeps its
+own way is a diff the review already tolerates, one that leaves takes its copy with it, and a rule
+that said otherwise would be the one absolute in a set whose rules all bend
+([Rules](../AGENTS.md#rules)).
 
-**A rule adopted ahead lives in the agent-file, never a holding section**, because an adopter that
-collects adopted-ahead rules in `custom.md` hides them from the one review that decides them, and a
-session that skips the project layer misses binding behavior. Both measured, 2026-08-19 to
-2026-08-21, when one member's project layer (`custom-family.md`) held the family's messaging rules
-and the validation commands, retired by the 0.80.0 cycle, chores-17's [docs: empty custom-family
-into the pinned set and
-config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config).
+**No agent-file carries a banner saying it is shared** (wink, 2026-10-18) because `AGENTS.md` is
+read first, and this section covers every agent-file, so a banner atop each `agent-data/` file
+restated it seven times, and the two files without one never missed it.
+
+Until v0.3.0 this section also made a correction a direct edit of the payload, an agent-file change
+its own commit, convention work its own cycle, and a rule adopted ahead a resident of its agent-file
+rather than a holding file (measured 2026-08-19 to 2026-08-21, chores-17's [docs: empty
+custom-family into the pinned set and
+config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config)).
+The cycle **agent-files(proposal): v0.3.0** retired them, the proposal bullet covering what they
+guarded (wink, 2026-10-18).
 
 ## custom.md
 
-It ships holding nothing but its own shape so a project that changes nothing still has a valid one.
-Overriding and editing are both named (wink, 2026-08-27) because the earlier text read as if every
-adopter put its changes here, when custom.md alone is not always capable enough: while the set
-itself is being defined, its first adopters edit the agent-files directly, and the diff against the
-payload is the review that decides each change, which an override here would hide from exactly
-that review. An adopter with no such reason overrides here, its honest record of where it departs,
-and keeping its other agent-files identical to the payload's is what lets it re-sync by copying.
-No agent-file is special: anyone can change any of them, and custom.md is only a convention that
-makes overriding simpler than editing, and one file the place to distribute a project's changes
-when that is practical. A pointer entry owes no
-justification because it supersedes nothing, and holding a wider context behind one pointer keeps
-the rest of the file identical to the payload's.
+**custom.md is local and optional** (wink, 2026-10-18) because a committed one hands every clone of
+a public repo one machine's layer, its sibling paths and its standing permissions, and whoever
+clones it shares neither. So it is untracked, and the agent reads it when there is one.
+
+**It is read first and overrides** because it is the workspace's own word, and **it holds what is
+local to the workspace** because a change every clone needs is a cycle on the agent-file it belongs
+in, so what is left is one machine's: its paths, its permissions, a lock switch. The session lock is
+named there as an experiment, not an example (wink, 2026-10-18), since the intention was real, and
+because nothing else in the set linked `session-lock.md` once `custom.md` stopped pointing at it.
+
+**The rule is stated once**, in `AGENTS.md`, because a line in each `agent-data/` file's
+boilerplate restated it and added nothing.
+
+Until v0.3.0 `custom.md` was committed, the project's layer: it shipped holding its own shape, took
+overrides and pointers, and kept the other agent-files identical to the payload's so a re-sync was
+a copy. The cycle **agent-files(proposal): v0.3.0** retired that.
 
 ## code.md
 
@@ -533,11 +545,11 @@ renumber of published versions turns every prose mention, transcript and pasted 
 that needs a decoder to read. A renumber cannot touch a title.
 
 **The `agent-files` title is the exception** (wink, 2026-09-01) because the agent-files version is
-not a build stamp: it names an agreed text, the family converging on that number is the point, and a
-renumber is the failure the version exists to prevent, not a thing history is free to do. The title
-needed a unique token, the member-list-and-date grammar ran past the title cap (59 and 61 characters
-against 50, reported by an adopter) and repeated the message record's fields, and the version is
-unique by the discipline the artifact version already keeps, one bump per cycle.
+not a build stamp: it names an agreed text, the adopters converging on that number is the point,
+and a renumber is the failure the version exists to prevent, not a thing history is free to do. The
+title needed a unique token, the member-list-and-date grammar ran past the title cap (59 and 61
+characters against 50, reported by an adopter) and repeated the message record's fields, and the
+version is unique by the discipline the artifact version already keeps, one bump per cycle.
 
 ### Agent-files name no project
 
@@ -604,12 +616,17 @@ taken from a draft bookmark needs to say on its face.
 while an adoption takes a text that already has its number: the same title in two repos then reads
 as the copy and its origin.
 
-**An adoption copies `custom.md` and ends on a diff** (wink, 2026-10-13) because the family's
-members hold the same `custom.md`, so a line added to it, the messages repo's fetch being the
-case that raised this, reaches an adopter only if the copy takes the file. The diff is the proof
-that the copy is whole, and it fails on a file an adopter edited after copying. The `-c` is
-dropped by an adopter that disagrees with a line, since `custom.md` is still a project's own
-layer.
+**An adoption is a copy and ends on a diff** (wink, 2026-10-13) because the diff is the proof that
+the copy is whole, and it fails on a file an adopter edited after copying. Until v0.3.0 the copy
+took the adopters' shared project layer too, under `-c`, and it stopped when that layer became local
+([custom.md](#custommd)). Since v0.3.0 the diff may be non-empty and still pass the adoption,
+printing the differences, because acceptance may differ from the proposal ([Changing the
+agent-files](../AGENTS.md#changing-the-agent-files)).
+
+**A version names the text as proposed** (wink, 2026-10-18) because a number that named what each
+adopter agreed to would name a different text in each repo once acceptance may differ from the
+proposal. So the number says what was offered, the adopter's diff says what it kept, and the
+version is read from a listing while the differences are read from the diff.
 
 **Patch by default, with digit limits** (wink, 2026-09-07) because the earlier rule, patch for a
 correction and minor for a rule change, would have moved the minor at nearly every proposal: a set

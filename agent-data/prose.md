@@ -4,10 +4,6 @@ How long-lived text is written on this project: the prose shape, the punctuation
 commit-title identity. Read this before writing durable text (notes files, commit messages, doc
 comments, the cycle-record).
 
-Universal file, shared with the template repository. A proposed change is edited here and converges
-at the template ([Changing the agent-files](../AGENTS.md#changing-the-agent-files)). Project-local
-content goes in [custom.md](../custom.md).
-
 ## Prose form
 
 ([why](rationale.md#prose-form))
@@ -185,7 +181,7 @@ explicitly instead:
 The code allowance is why a bare byte scan cannot enforce the rule: a checker blanks the code first,
 then expects zero.
 
-The agent-files (`AGENTS.md`, `custom*`, `agent-data/*`) carry no historical exemption and are swept
+The agent-files (`AGENTS.md`, `agent-data/*`) carry no historical exemption and are swept
 to zero. Any other historical file keeps its existing semicolons only until it is touched: a commit
 that edits a file makes that whole file's prose semicolons owed, code spans exempt, and the cycle
 pays them in a penultimate rung of its own, or in its one commit when single-step, using the joins
@@ -316,8 +312,8 @@ declaration's vocabulary instead ([Project-declared types](#project-declared-typ
 Beyond the common types, a project may declare its own when a recurring kind of work deserves one
 searchable token. The declaration names the type, its scope vocabulary, and its description
 grammar, so a reader can parse the titles and a title check can admit them by name, and the scope
-slot then carries what the declaration says rather than a component. A project's own declarations
-live in its `custom.md`, and the set declares for itself:
+slot then carries what the declaration says rather than a component. A project declares its own
+here, in its own copy of this file, and the set declares for itself:
 
 - `agent-files`, the set's own lifecycle: `agent-files(<scope>): vX.Y.Z`, the description being the
   agent-files version in its `v` spelling ([Agent-files

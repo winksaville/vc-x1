@@ -55,17 +55,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | v0.2.9 | v0.2.8 | v0.2.7 |
+| File | v0.3.0 | v0.2.9 | v0.2.8 |
 |---|---:|---:|---:|
-| AGENTS.md | 438 | 430 | 414 |
-| custom.md | 15 | 15 | 14 |
-| agent-data/code.md | 94 | 94 | 94 |
+| AGENTS.md | 423 | 438 | 430 |
+| custom.md | 15 | 15 | 15 |
+| agent-data/code.md | 90 | 94 | 94 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 74 | 74 | 74 |
-| agent-data/jj.md | 392 | 392 | 391 |
-| agent-data/notes.md | 166 | 166 | 166 |
-| agent-data/prose.md | 405 | 405 | 405 |
-| agent-data/rationale.md | <620> | <598> | <565> |
-| agent-data/session-lock.md | 45 | 45 |  |
-| agent-data/versioning.md | 208 | 208 | 204 |
-| total | 1879 | 1871 | 1804 |
+| agent-data/jj.md | 388 | 392 | 392 |
+| agent-data/notes.md | 162 | 166 | 166 |
+| agent-data/prose.md | 401 | 405 | 405 |
+| agent-data/rationale.md | <637> | <620> | <598> |
+| agent-data/session-lock.md | 43 | 45 | 45 |
+| agent-data/versioning.md | 203 | 208 | 208 |
+| total | 1841 | 1879 | 1871 |

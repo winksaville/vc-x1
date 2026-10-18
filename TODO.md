@@ -42,24 +42,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### The agent-files drop the family, and custom.md is optional
-
-(wink + agent, 2026-10-17, split 2026-10-18) The cycle **chore: custom.md is untracked and
-gitignored** took `custom.md` out of the tree, so anyone can clone this public repo without
-inheriting one machine's layer. The agent-files still read as if every project has a `custom.md`
-and belongs to a family: the rule **Read custom.md first**, [Acquaint](AGENTS.md#acquaint)'s first
-step, [custom.md](AGENTS.md#custommd), and the family's terms across `agent-data/`.
-
-- Every mention of the family or of `custom.md` leaves the agent-files but one: when a `custom.md`
-  exists it is read first, and it overrides anything in the agent-files.
-- The sweep covers `AGENTS.md` and `agent-data/*`, `rationale.md` included, about 40 mentions in
-  9 files at the split.
-- A project convention that must be committed goes into the agent-file it belongs to, its diff
-  from the payload the proposal, as [Changing the agent-files](AGENTS.md#changing-the-agent-files)
-  already allows.
-- Open: whether the payload ships no `custom.md` or an example under another name.
-- An `agent-files(proposal): v0.3.0` cycle, ahead of the code entries below, which follow from it.
-
 ### The family leaves the committed config
 
 (wink + agent, 2026-10-17) `.vc-config.md`'s `[family]` table names this repo's member name and two
@@ -70,6 +52,9 @@ no family at all.
 
 - `[family]` leaves `.vc-config.md`, `vc-config.md`, and the schema, and the code reading it goes,
   `agent-files diff` and `copy` taking their directory from the argument or `[agent-files.*] dir`.
+- `vc-x1 agent-files` stops treating `custom.md` as part of the set, as v0.3.0's text does: `size`
+  counts it when present, a local file in the set's total, and `diff` and `copy` compare and copy
+  it under `-c` and `agent-files.diff.custom`.
 - The entries that find the messages repo through `[family] messages`, [sync fetches the messages
   repo too](#sync-fetches-the-messages-repo-too) and [feat: vc-x1 msg, the messages protocol as
   code](#feat-vc-x1-msg-the-messages-protocol-as-code), are revisited, since that key goes.
@@ -87,8 +72,7 @@ first session starts without the family's layer.
 - `--custom <path>` copies the file at `<path>` into the new workspace as `custom.md`.
 - We think a member's `custom.md` is mostly a pointer into the family's shared layer, so a copy
   rarely drifts, and an `update` subcommand that copies it again waits for a case that needs it.
-- Follows [The agent-files drop the family, and custom.md is
-  optional](#the-agent-files-drop-the-family-and-custommd-is-optional).
+- Follows the cycle **agent-files(proposal): v0.3.0**, which made `custom.md` optional.
 
 ### A missing fixture fails instead of passing
 

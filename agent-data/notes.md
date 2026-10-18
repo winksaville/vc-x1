@@ -5,10 +5,6 @@ Conventions the agent follows when reading and writing notes files (`TODO.md`,
 `notes/done.md`, [Frozen history](#frozen-history-chores-and-done)). One source of truth lives here,
 and [`notes/README.md`](../notes/README.md) points back. Read this before editing a notes file.
 
-Universal file, shared with the template repository. A proposed change is edited here and converges
-at the template ([Changing the agent-files](../AGENTS.md#changing-the-agent-files)). Project-local
-content goes in [custom.md](../custom.md).
-
 ## File reads: read the slice you need
 
 Long notes files are appended to over time. Read only the slice your task needs. Grep or read
