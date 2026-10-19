@@ -363,3 +363,12 @@ impl Drop for FixturePor {
         }
     }
 }
+
+/// An absent fixture is a panic that names the path it looked at, so a
+/// test that needs one can never pass on nothing. Needs no fixture
+/// itself, so a bare clone runs it.
+#[test]
+#[should_panic(expected = "absent at")]
+fn fixture_absent_panics_naming_the_path() {
+    let _ = fixture("no-such-fixture");
+}

@@ -207,6 +207,7 @@ mod tests {
     /// Every push's work commit has a region adding each line the
     /// fixture records as first arriving in it.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_hunks_carry_each_arriving_line() {
         let (root, rel) = dr1();
         let (ws, repo) = common::load_repo(&root).unwrap();

@@ -73,7 +73,7 @@ With the directory restored: both pass.
 - [docs: plan the fixture change][1] (done)
 - [feat: the fixture lives in the workspace][2] (done)
 - [fix: an absent fixture panics naming how to get it][3] (done)
-- [test: fixture tests are ignored without the fixture][4]
+- [test: fixture tests are ignored without the fixture][4] (done)
 - [fix: a missing fixture fails instead of passing closing][5]
 
 ##### fix: a missing fixture fails instead of passing opening
@@ -167,8 +167,31 @@ caller returned early and passed.
 
 ##### test: fixture tests are ignored without the fixture
 
-The `dr1_*` tests take `#[ignore = "needs fixture dr-1"]`, `[validate] full` runs
-`cargo test -- --include-ignored`, and the acceptance check is run both ways.
+After the fix rung a bare clone's `cargo test` fails fourteen tests, which is honest and not what a
+stranger's `cargo test` should do.
+
+* A bare clone must pass and say what it skipped.
+  - The fourteen `dr-1` tests take `#[ignore = "needs fixture dr-1"]`, placed by the callers of
+    `dr1()` rather than by name, so `cargo test` lists them as ignored with the reason.
+  - `fixture_absent_panics_naming_the_path` asks for a fixture that does not exist and expects the
+    panic's "absent at", so the failure path runs on every machine.
+* The full validation must run what a bare clone skips.
+  - `[validate] full` runs `cargo test -- --include-ignored` and `fast` keeps `cargo test`, the
+    config's prose saying which is which, so a rung's fast run needs no fixture and the full run
+    before a push fails loudly without one.
+* Acceptance, run at this rung both ways, through the symlink and without it, for the closing to
+  record.
+  - Absent: `cargo test` passed, 645 passed and 14 ignored, each `dr1_*` line reading "ignored,
+    needs fixture dr-1", and the should-panic test passed. `cargo test -- --include-ignored` failed
+    the fourteen, each with "fixture dr-1 absent at .../vc-x1/../vc-x1-fixtures/dr-1: `[test]
+    fixtures` in .vc-config.md names the directory, and the fixture is built by
+    support/fixtures/build-dr-1.py and published on GitHub as vc-x1-fixtures-dr-1-work and
+    -agent".
+  - Present: the full validation passed, its `cargo test -- --include-ignored` reporting 659
+    passed and 0 ignored, and the fast list's `cargo test` passes with the fourteen ignored either
+    way.
+  - The symlink `../vc-x1-fixtures -> vc-x1-fixtures-xxx` is removed after this rung's push, so
+    the machine is as wink left it, the directory renamed.
 
 ##### fix: a missing fixture fails instead of passing closing
 

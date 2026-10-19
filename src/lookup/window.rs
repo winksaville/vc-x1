@@ -302,6 +302,7 @@ mod tests {
     /// Every push's window, read from its agent commit's diff, is the
     /// window the fixture build read with jj.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_windows_match_the_record() {
         let (root, rel) = dr1();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
@@ -328,6 +329,7 @@ mod tests {
     /// The timeline puts the restart's second session after the first,
     /// and a window spanning both ends in the second.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_timeline_orders_sessions_and_spans_a_restart() {
         let (root, rel) = dr1();
         let t = Timeline::load(&root.join(".claude")).unwrap();
