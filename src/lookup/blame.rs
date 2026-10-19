@@ -156,8 +156,9 @@ mod tests {
     /// first carried it, and a line that really moved blames to the
     /// closing that moved it.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_blame_reaches_back_to_the_commit_that_first_carried_the_line() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ws, repo) = common::load_repo(&root).unwrap();
         let pushes = rel["pushes"].as_array().unwrap();
         let mut checked = 0;
@@ -197,8 +198,9 @@ mod tests {
     /// From main's tree, every line still on main blames to the commit
     /// jj's own annotate names, recorded by the fixture's build.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_blame_on_main_matches_jj_annotate() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ws, repo) = common::load_repo(&root).unwrap();
         let main = by_chid(&ws, &repo, "main");
         for w in rel["writes"].as_array().unwrap() {

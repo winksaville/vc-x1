@@ -870,21 +870,22 @@ mod tests {
         assert!(err.to_string().contains("3 line(s)"), "{err}");
     }
 
-    /// The dr-1 fixture's root and its relationships, or `None` when
-    /// the fixture is absent.
-    pub(super) fn dr1() -> Option<(PathBuf, serde_json::Value)> {
-        let root = crate::test_helpers::fixture("dr-1")?;
+    /// The dr-1 fixture's root and its relationships. An absent
+    /// fixture panics in `fixture`, naming how to get it.
+    pub(super) fn dr1() -> (PathBuf, serde_json::Value) {
+        let root = crate::test_helpers::fixture("dr-1");
         let text = std::fs::read_to_string(root.join("relationships.json")).unwrap();
-        Some((root, serde_json::from_str(&text).unwrap()))
+        (root, serde_json::from_str(&text).unwrap())
     }
 
     /// Every push's two change ids resolve to one commit each, the
     /// work commit carries the push's title, and each side's trailer
     /// names the other, except the pair made by hand.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_pushes_are_cross_linked() {
         use jj_lib::repo::Repo;
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ww, wr) = common::load_repo(&root).unwrap();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         for p in rel["pushes"].as_array().unwrap() {
@@ -923,9 +924,10 @@ mod tests {
     /// a tool call of the named tool on the named file at the named
     /// line.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_writes_are_where_the_record_says() {
         use crate::transcript::{ContentBlock, EntryKind, parse_str};
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let agent = root.join(".claude");
         let session = |sid: &str| {
             let text = std::fs::read_to_string(agent.join(format!("{sid}.jsonl"))).unwrap();
@@ -965,10 +967,11 @@ mod tests {
     /// recorded, the set-aside line's before its window and the
     /// no-trailer line's through the candidate window.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_every_committed_line_finds_its_transcript_write() {
         use crate::lookup::blame::lines_at;
         use crate::lookup::partner::tests::by_chid;
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ws, repo) = common::load_repo(&root).unwrap();
         let agent_root = root.join(".claude");
         let pushes = rel["pushes"].as_array().unwrap();
@@ -1010,9 +1013,10 @@ mod tests {
     /// commit is where the line arrived, the window is narrowed to the
     /// line's file and adds the line.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_every_write_resolves_to_its_work_window() {
         use crate::lookup::partner::{chid, tests::by_chid};
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let agent_root = root.join(".claude");
         let (aw, ar) = common::load_repo(&agent_root).unwrap();
         let main = by_chid(&aw, &ar, "main");
@@ -1050,9 +1054,10 @@ mod tests {
 
     /// A discussion line takes its work commit's diff whole.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_discussion_takes_the_whole_diff() {
         use crate::lookup::partner::{chid, tests::by_chid};
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let agent_root = root.join(".claude");
         let (aw, ar) = common::load_repo(&agent_root).unwrap();
         let main = by_chid(&aw, &ar, "main");

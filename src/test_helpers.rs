@@ -28,8 +28,12 @@ use crate::options_flags::use_template::UseTemplateOption;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// A named acceptance fixture under the workspace's `[test]
-/// fixtures` directory, or `None` with a notice on stderr when it is
-/// absent, so a bare clone's `cargo test` passes.
+/// fixtures` directory. An absent fixture panics, naming the path it
+/// looked at and where the fixture comes from, so a test that needs
+/// one fails rather than passing on nothing. The tests that call this
+/// are `#[ignore]`, so a bare clone's `cargo test` skips them with
+/// the reason and the full validation runs them with
+/// `--include-ignored`.
 ///
 /// - The directory comes from this crate's own `.vc-config.md`,
 ///   resolved relative to the manifest dir, never from the current
@@ -37,22 +41,24 @@ use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 /// - A fixture is a dual workspace laid out as `vc-x1 clone` lays
 ///   one out, its README listing the relationships its tests assert
 ///   and `relationships.json` carrying them.
-pub fn fixture(name: &str) -> Option<PathBuf> {
+pub fn fixture(name: &str) -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let cfg = crate::config_md::load(root)
         .expect("load this crate's own config")
         .expect("this crate has a .vc-config.md");
     let Some(dir) = crate::toml_simple::toml_get(&cfg.map, "test.fixtures") else {
-        eprintln!("fixture {name}: no [test] fixtures key in .vc-config.md: skipping");
-        return None;
+        panic!("fixture {name}: no [test] fixtures key in .vc-config.md names the directory");
     };
     let path = crate::common::resolve_repo_path(root, dir).join(name);
-    if path.join(".jj").is_dir() {
-        Some(path)
-    } else {
-        eprintln!("fixture {name} absent at {}: skipping", path.display());
-        None
+    if !path.join(".jj").is_dir() {
+        panic!(
+            "fixture {name} absent at {}: `[test] fixtures` in .vc-config.md names the \
+             directory, and `python3 support/fixtures/build-{name}.py {dir} --local` builds \
+             the fixture there",
+            path.display()
+        );
     }
+    path
 }
 
 /// Per-process counter so same-nanosecond tempdir collisions yield
@@ -356,4 +362,13 @@ impl Drop for FixturePor {
             let _ = fs::remove_dir_all(&self.base);
         }
     }
+}
+
+/// An absent fixture is a panic that names the path it looked at, so a
+/// test that needs one can never pass on nothing. Needs no fixture
+/// itself, so a bare clone runs it.
+#[test]
+#[should_panic(expected = "absent at")]
+fn fixture_absent_panics_naming_the_path() {
+    let _ = fixture("no-such-fixture");
 }

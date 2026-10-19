@@ -189,8 +189,9 @@ pub(crate) mod tests {
     /// The trailer finds the current partner in both directions for
     /// every push, the reshaped closing and the amended rung included.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_trailer_finds_every_partner_both_ways() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ww, wr) = common::load_repo(&root).unwrap();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         for p in rel["pushes"].as_array().unwrap() {
@@ -217,8 +218,9 @@ pub(crate) mod tests {
     /// since the fixture committed the agent side twenty seconds after
     /// the work side.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_no_trailer_gives_candidates_by_time() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ww, wr) = common::load_repo(&root).unwrap();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         let p = rel["pushes"]
@@ -242,8 +244,9 @@ pub(crate) mod tests {
     /// A trailer that names nothing on the other side is an error
     /// naming the trailer, never an empty answer.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_dangling_trailer_is_an_error() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ww, wr) = common::load_repo(&root).unwrap();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         let p = &rel["pushes"][0];
@@ -258,8 +261,9 @@ pub(crate) mod tests {
     /// predecessor, the version the first push published, and a rung
     /// pushed once has none.
     #[test]
+    #[ignore = "needs fixture dr-1"]
     fn dr1_amended_rung_has_a_pushed_predecessor_on_both_sides() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ww, wr) = common::load_repo(&root).unwrap();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         for p in rel["pushes"].as_array().unwrap() {

@@ -428,7 +428,15 @@ def main():
 
     # The workspace, made as vc-x1 init makes one, with local bare
     # remotes that are re-pointed at GitHub unless --local.
-    jj.run([VC, "init", str(fix), "--repo", f"local={remotes}"], fixtures, check=False)
+    # An absolute path, since a slashed relative one reads as the retired
+    # owner/name shorthand and is refused, and the agent repo named, since
+    # init's default moved from `.claude` to `.agent-session` after this
+    # fixture was designed.
+    jj.run(
+        [VC, "init", str(fix.resolve()), "--repo", f"local={remotes.resolve()}", "--agent-dir", ".claude"],
+        fixtures,
+        check=False,
+    )
     work, agent = fix, fix / ".claude"
     if not (agent / ".jj").is_dir():
         sys.exit("init did not produce the dual layout")

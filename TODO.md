@@ -42,6 +42,76 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### lookup is tested on a reordered ladder
+
+(wink + agent, 2026-10-18) The cycle **fix: a missing fixture fails instead of passing** inserted
+a rung between its plan rung and its pushed fix and tests rungs by moving the bookmark back and
+rebasing the two onto the new rung, then amended their `Cargo.toml` versions. The agent-repo's
+history stays linear in time while the work-repo's ladder is out of time order, so three
+hypotheses to test soon, on this ladder, before it lands and the specimen is gone:
+
+- The `ochid:` pairing holds, since the trailers are change ids and a rebase keeps them, so
+  `lookup` pairs each rung with its agent-repo commit as it did before. A rebased rung is a
+  rewritten partner with a predecessor, the shape dr-1's amend case covers, and the two amended
+  rungs have two predecessors each, which it does not.
+- Timestamps split: jj keeps the author time across a rebase and resets the committer time, so
+  the new rung, a parent, is authored after its children. Author time still matches the agent-repo
+  and the transcript writes. Whichever of author time, committer time, and topological order
+  `lookup` leans on when it builds windows and candidates is what the dr-1 window tests, run
+  against this workspace, will show. We think author time holds and a parent-before-child
+  assumption breaks.
+- A line changed by the version amendments has no transcript write, since the rewrite happened
+  outside a push, so `lookup` should report it as such and not attribute it to a neighbor.
+
+Before the reorder, in UTC, each work-repo rung then its agent-repo pair, as
+`change commit author/committer`:
+
+- opening: `lzvovkulykur ebefe3b22dd4 04:29:53/04:31:17`, pair `nlkoltkttsqo 1fbb8b1e2d1d 04:28:39`
+- plan: `stqtnqmlpnws 422abade5eed 04:33:27/04:33:28`, pair `qltllyttorvo d89842b60354 04:33:28`
+- fix: `oskrwppmyouv 46e59c49aebb 04:35:44/04:35:44`, pair `nwyysysuknzr 7bf5994495a0 04:35:44`
+- tests: `tqspunzumpru 58f3bbe9ebd4 04:38:16/04:38:16`, pair `qqoupsuztovt 88b87b336121 04:38:16`
+- all on 2026-10-19 UTC, the evening of 2026-10-18 local.
+
+After the reorder, the same form, `author/committer` both 2026-10-19 UTC:
+
+- opening: `lzvovkulykur ebefe3b22dd4 04:29:53/04:31:17`, unchanged
+- plan: `stqtnqmlpnws 422abade5eed 04:33:27/04:33:28`, unchanged
+- fixture workspace, the inserted `-2`: `sznlvtzvxsvt 86a51e4eeb4e 05:49:42/05:57:28`, pair
+  `umkkskkrtstp 056959ed929a 05:44:33`, the pair authored before the work commit, since the
+  session's writes began before the rung's push
+- fix, now `-3`: `oskrwppmyouv d9e0159de298 04:35:44/05:58:33`, same change id, the pair unchanged
+- tests, now `-4`: `tqspunzumpru e80abb4352c0 04:38:16/05:58:53`, same change id, the pair unchanged
+- So the inserted parent is authored after both children, the rebased two keep their author times
+  and carry committer times from the rebase, and each was rewritten twice, the rebase and the
+  version amendment, so each has two predecessors.
+- Acceptance: the `dr1_*` tests, pointed at this workspace and its `.claude` as the fixture, with
+  a relationships file written from the pairs above, pass or fail per hypothesis, and each result
+  is recorded.
+
+### agent-files(proposal): v0.3.1
+
+(wink + agent, 2026-10-18) What the first cycle run under v0.3.0, **fix: a missing fixture fails
+instead of passing**, learned by running the set rather than reading it. Nothing here stops
+v0.3.0, and the part the set is about, "Changing the agent-files" between adopters, waits for a
+proposal to another adopter.
+
+- The record's home: `AGENTS.md` names `TODO.md > ## In Progress` while every rung wrote to
+  `zDOING.md` under the trial, and each rung noted the gap. The Todo **The cycle-record moves out
+  of TODO.md into zDOING.md** is the fix, folded in here or run first.
+- The dev rename is unconditional: Opening step 6 renames "when the built artifact has
+  consumers", and the build guard made it mandatory the moment the version took a suffix. The
+  single-name variant says so for every multi-step cycle.
+- Reordering a draft ladder: Unplanned work allows an inserted rung and says nothing about one
+  inserted before pushed rungs. `jj.md` gets the recipe beside the local ladder, bookmark back,
+  rebase, versions amended, change ids and `ochid:` pairs kept, and the cost, the work-repo's
+  ladder leaving time order while the agent-repo's keeps it, once **lookup is tested on a
+  reordered ladder** has its results.
+- Zero-based labels: the ladder's reference labels start at `[0]` so each equals its rung's
+  version suffix, since a rung is only inserted at the current position. `notes.md` and the
+  `cycle-model.md` specimen start at `[1]`.
+- A rung may run the acceptance check: Close-out step 1 owns it, and the tests rung was the only
+  place it could run both ways. A sentence lets a rung run it and the closing record it.
+
 ### The family leaves the committed config
 
 (wink + agent, 2026-10-17) `.vc-config.md`'s `[family]` table names this repo's member name and two
@@ -74,21 +144,6 @@ first session starts without the family's layer.
   rarely drifts, and an `update` subcommand that copies it again waits for a case that needs it.
 - Follows the cycle **agent-files(proposal): v0.3.0**, which made `custom.md` optional.
 
-### A missing fixture fails instead of passing
-
-(wink + agent, 2026-10-17) `test_helpers::fixture` returns `None` when the fixture's directory is
-absent, so its tests return early and pass, the notice on stderr hidden, since `cargo test` shows a
-passing test's output only under `--nocapture`. With `../vc-x1-fixtures` renamed to
-`../vc-x1-fixtures-xxx`, a `cargo clean` and `cargo test` passed, and the `dr1_*` tests in
-`src/lookup.rs` checked nothing.
-
-- Fixture tests are `#[ignore = "needs fixture <name>"]`, so a bare clone's `cargo test` passes and
-  reports them as ignored, never as passed.
-- `[validate] full` runs `cargo test -- --include-ignored`, and there an absent fixture panics,
-  naming how to get it.
-- Ahead of [Fixtures are named by their source](#fixtures-are-named-by-their-source), being small
-  and closing the silent pass on its own.
-
 ### The CLI smoke tests need no jj repo
 
 (wink + agent, 2026-10-18) Three tests in `tests/cli_smoke.rs`,
@@ -98,8 +153,8 @@ repo. A plain `git clone` and `cargo test` fails them with `There is no Jujutsu 
 by the cycle **chore: custom.md is untracked and gitignored** in a copy of the tree.
 
 - The tests run `vc-x1` in a jj repo of their own, a temporary one, never the source tree.
-- Beside [A missing fixture fails instead of passing](#a-missing-fixture-fails-instead-of-passing),
-  both making a stranger's `cargo test` true.
+- Beside the cycle **fix: a missing fixture fails instead of passing**, both making a stranger's
+  `cargo test` true.
 
 ### vc-x1 clone of a local jj workspace tracks no main
 
@@ -135,7 +190,9 @@ GitHub, so where it comes from is the portable fact, and where it sits is not.
 - The committed config names each fixture by its source, a name and a clone URL, pinned to a
   commit.
 - A fixture is fetched into a fixed, gitignored directory in the workspace, `.fixtures/<name>` say,
-  set by convention, never by config.
+  set by convention, never by config. The cycle **fix: a missing fixture fails instead of passing**
+  made `.fixtures/` that directory, still named by `[test] fixtures` until the source-named config
+  replaces the key.
 - A `vc-x1 fixtures` subcommand clones the listed fixtures there, as `vc-x1 clone` lays a dual
   workspace out, so any repo can declare fixtures and vc-x1 fetches them.
 - Built for vc-x1's need first, the config's shape general enough for another repo to use
