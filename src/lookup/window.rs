@@ -303,7 +303,7 @@ mod tests {
     /// window the fixture build read with jj.
     #[test]
     fn dr1_windows_match_the_record() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (aw, ar) = common::load_repo(&root.join(".claude")).unwrap();
         for p in rel["pushes"].as_array().unwrap() {
             let agent = by_chid(&aw, &ar, p["agent"].as_str().unwrap());
@@ -329,7 +329,7 @@ mod tests {
     /// and a window spanning both ends in the second.
     #[test]
     fn dr1_timeline_orders_sessions_and_spans_a_restart() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let t = Timeline::load(&root.join(".claude")).unwrap();
         let s1 = PathBuf::from(format!("{}.jsonl", rel["sessions"]["s1"].as_str().unwrap()));
         let s2 = PathBuf::from(format!("{}.jsonl", rel["sessions"]["s2"].as_str().unwrap()));

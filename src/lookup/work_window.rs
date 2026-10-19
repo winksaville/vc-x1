@@ -208,7 +208,7 @@ mod tests {
     /// fixture records as first arriving in it.
     #[test]
     fn dr1_hunks_carry_each_arriving_line() {
-        let Some((root, rel)) = dr1() else { return };
+        let (root, rel) = dr1();
         let (ws, repo) = common::load_repo(&root).unwrap();
         let pushes = rel["pushes"].as_array().unwrap();
         let mut checked = 0;

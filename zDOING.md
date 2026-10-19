@@ -72,7 +72,7 @@ With the directory restored: both pass.
 - [fix: a missing fixture fails instead of passing opening][0] (done)
 - [docs: plan the fixture change][1] (done)
 - [feat: the fixture lives in the workspace][2] (done)
-- [fix: an absent fixture panics naming how to get it][3]
+- [fix: an absent fixture panics naming how to get it][3] (done)
 - [test: fixture tests are ignored without the fixture][4]
 - [fix: a missing fixture fails instead of passing closing][5]
 
@@ -149,9 +149,21 @@ get one.
 
 ##### fix: an absent fixture panics naming how to get it
 
-`test_helpers::fixture` returns a path or panics, the message naming the `[test] fixtures` key, the
-path it looked at, and what a fixture is, and `dr1()` in `src/lookup.rs` returns its tuple rather
-than an `Option`.
+`test_helpers::fixture` returned `None` with a line on stderr when the fixture was absent, and every
+caller returned early and passed.
+
+* The helper's `Option` made absence a normal return.
+  - It returns `PathBuf` and panics on a missing `[test] fixtures` key or a `<name>/.jj` that is not
+    there. The message names the fixture, the path, the key, and where the fixture comes from, the
+    `build-<name>.py` script and the two GitHub repos, so the message serves the next fixture too.
+  - `dr1()` returns its tuple, and its callers lose their early return, so a test either runs its
+    checks or fails in the helper, and the stderr notice that `cargo test` hid is gone. The plan
+    counted five callers, the ones in `src/lookup.rs`, and the compiler found fourteen, the rest in
+    `src/lookup/{blame,partner,window}.rs`, so the silent pass was wider than the Todo measured.
+* Until the tests rung marks them `#[ignore]`, the fourteen tests fail wherever the fixture is
+  absent, this machine included.
+  - The symlink the plan gave the tests rung is made at this rung instead, since this rung's
+    validation needs it first. It stays through the tests rung and goes after it.
 
 ##### test: fixture tests are ignored without the fixture
 
