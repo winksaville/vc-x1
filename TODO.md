@@ -74,21 +74,6 @@ first session starts without the family's layer.
   rarely drifts, and an `update` subcommand that copies it again waits for a case that needs it.
 - Follows the cycle **agent-files(proposal): v0.3.0**, which made `custom.md` optional.
 
-### A missing fixture fails instead of passing
-
-(wink + agent, 2026-10-17) `test_helpers::fixture` returns `None` when the fixture's directory is
-absent, so its tests return early and pass, the notice on stderr hidden, since `cargo test` shows a
-passing test's output only under `--nocapture`. With `../vc-x1-fixtures` renamed to
-`../vc-x1-fixtures-xxx`, a `cargo clean` and `cargo test` passed, and the `dr1_*` tests in
-`src/lookup.rs` checked nothing.
-
-- Fixture tests are `#[ignore = "needs fixture <name>"]`, so a bare clone's `cargo test` passes and
-  reports them as ignored, never as passed.
-- `[validate] full` runs `cargo test -- --include-ignored`, and there an absent fixture panics,
-  naming how to get it.
-- Ahead of [Fixtures are named by their source](#fixtures-are-named-by-their-source), being small
-  and closing the silent pass on its own.
-
 ### The CLI smoke tests need no jj repo
 
 (wink + agent, 2026-10-18) Three tests in `tests/cli_smoke.rs`,
@@ -98,8 +83,8 @@ repo. A plain `git clone` and `cargo test` fails them with `There is no Jujutsu 
 by the cycle **chore: custom.md is untracked and gitignored** in a copy of the tree.
 
 - The tests run `vc-x1` in a jj repo of their own, a temporary one, never the source tree.
-- Beside [A missing fixture fails instead of passing](#a-missing-fixture-fails-instead-of-passing),
-  both making a stranger's `cargo test` true.
+- Beside the cycle **fix: a missing fixture fails instead of passing**, both making a stranger's
+  `cargo test` true.
 
 ### vc-x1 clone of a local jj workspace tracks no main
 
