@@ -7,228 +7,170 @@ commit's copy of the record.
 
 ## Closed
 
-### fix: a missing fixture fails instead of passing
+### test: the tests build the dr-1 fixture
 
-(wink + agent, 2026-10-17, opened 2026-10-18) `test_helpers::fixture` returns `None` when the
-fixture's directory is absent, so its tests return early and pass, the notice on stderr hidden,
-since `cargo test` shows a passing test's output only under `--nocapture`. With `../vc-x1-fixtures`
-renamed to `../vc-x1-fixtures-xxx`, a `cargo clean` and `cargo test` passed, and the `dr1_*` tests
-in `src/lookup.rs` checked nothing.
+(wink + agent, 2026-10-19, opened 2026-10-19, closed as a dead end 2026-10-20) A fresh clone's
+full test run fails all 14 `dr1_*` tests, each with the same panic, and the remedy needs Python.
+The noise hides the one cause, and Python is a dependency the project does not otherwise have, nor
+one Windows and macOS can be assumed to have.
 
 #### Problem
 
-A test whose fixture is missing passes, so a bare clone's `cargo test` reports five checks it never
-made, and the only sign is a line on stderr that `cargo test` hides.
+The `dr-1` fixture is built only by `support/fixtures/build-dr-1.py`, which needs `python3` and
+drives whatever `vc-x1` is on the PATH rather than the code under test. A clone without it fails
+the fourteen `dr1_*` tests one by one with the same panic, and cargo's rerun hint after them, so
+the one cause is buried under fourteen copies of it.
 
 #### Solution
 
-- `test_helpers::fixture` returns the path or panics, naming the fixture, the path it looked at,
-  the `[test] fixtures` key, and the build command that puts one there, and `dr1()` returns its
-  tuple, so the fourteen `dr1_*` tests, five in `src/lookup.rs` and nine in its submodules, either
-  run their checks or fail in the helper.
-- The fourteen take `#[ignore = "needs fixture dr-1"]`, a should-panic test covers the helper's
-  failure path on every machine, `[validate] full` runs `cargo test -- --include-ignored`, and
-  `fast` keeps `cargo test`.
-- The fixture lives in the workspace: `[test] fixtures` is `.fixtures`, gitignored, and
-  `build-dr-1.py`, repaired for today's `init`, builds it there in one run.
-- The ladder was reordered to put that rung before the fix and tests, and the Todo **lookup is
-  tested on a reordered ladder** holds the before and after state and the hypotheses to test.
+A dead end, abandoned at the plan rung's review before any of the port began.
+
+- Tried: the plan as filed, below, as one cycle of nine rungs: a plan rung mapping the port of
+  the Python builder piece by piece, four port rungs by layer, the tests building their fixture,
+  and the Python builder's retirement.
+- Stopped: the plan rung's map read only through the Python builder, and the nine rungs were too
+  much to hold at once. The plan rung was never pushed, so it leaves the ladder.
+- Replaced by the `## Todo` entry **dr-1 is built in Rust**, at the top, its plan the layers
+  as suggestions, run as rungs of one cycle or as cycles of their own, decided when it opens.
+- Kept: [notes/fixture-dr-1.md](notes/fixture-dr-1.md), what the fixture holds and the case each
+  of its cycles exists for, with no reference to how it is built, and a pointer to it from
+  `notes/README.md`. Also what the cycle raised in `## Todo`: **push checks the description's
+  widths**, and the dead-end item of **agent-files(proposal): v0.3.1**.
+- Reverted: nothing. The opening changed only this record, the version, and the package name,
+  and Land restores the name as for any cycle.
+
+The plan as filed, which **dr-1 is built in Rust** inherits:
+
+- Port `support/fixtures/build-dr-1.py` to Rust as test-only code, compiled under `#[cfg(test)]`,
+  so it never ships. It drives the crate's own init and push code in-process and jj-lib directly,
+  with commit times pinned, so no `python3`, `jj`, `git`, or installed `vc-x1` is involved, and the
+  fixture is built by the code under test. The script's `git apply` becomes a file write.
+- `fixture` in `src/test_helpers.rs` builds the fixture once per test process into a fresh temp
+  dir, its result held in a `OnceLock`. Every test that needs `dr-1` asks through it, so whichever
+  asks first builds it, and no test has to be named to sort first. The rest park until the build
+  ends, then run in parallel.
+- The builder returns its failure as a value, never a panic, since a panic leaves the `OnceLock`
+  empty and the next waiter builds again.
+- A failed build stops the run: one banner written straight to the stderr handle, which bypasses
+  the harness's output capture, then `std::process::exit`, so the cause is the last thing before
+  cargo's two lines.
+- The `#[ignore]`s go, so `cargo test` runs the 14 tests, and the fast and full `[validate]`
+  lists differ only in what remains, their comment in `.vc-config.md` rewritten.
+- The temp dir records no absolute path that must survive a move, and the fixture makes no
+  symlink and goes through no checkout, so `core.autocrlf` cannot rewrite its lines.
+- `VC_X1_TEST_KEEP` keeps the built fixture for a look by hand.
+- Delete the Python script, and with it the `[test] fixtures` key and the gitignored `.fixtures/`.
+  The two empty GitHub fixture repos are wink's to remove.
+- README.md's "Acceptance fixtures" section is rewritten. It is already stale: it names
+  `../vc-x1-fixtures` and says a test skips when its fixture is absent.
 
 #### Acceptance check
 
-With the fixture absent: `cargo test` passes and reports the `dr1_*` tests as ignored, and
-`cargo test -- --include-ignored` fails with the panic naming the path it looked at. With the
-fixture present: both pass. Stated for `../vc-x1-fixtures` at the opening, run against
-`.fixtures/` at the close, the location having moved mid-cycle.
+In a fresh `vc-x1 clone` at the bookmark's tip, with `python3` off the PATH, `cargo test` runs the
+fourteen `dr1_*` tests, none ignored, and they pass. With the builder forced to fail, the run
+prints the banner once and stops, with no per-test failure list.
 
-- Result: pass. Absent, `.fixtures` set aside: `cargo test` 645 passed, 14 ignored, each line
-  "ignored, needs fixture dr-1", and the include-ignored run failed with "fixture dr-1 absent at
-  .../vc-x1/.fixtures/dr-1: `[test] fixtures` in .vc-config.md names the directory, and `python3
-  support/fixtures/build-dr-1.py .fixtures --local` builds the fixture there". Present: full
-  validation at the ladder's tip, 659 passed, 0 ignored. The tests rung ran the same check at the
-  old location through a symlink, with the same results.
+- Result: not run. The cycle stopped before any of the work the check covers, and the check passes
+  to **dr-1 is built in Rust**, the Todo replacing this cycle.
 
 #### Deliberation
 
-- Multi-step, five rungs, a trapezoid at the close, wink's vote: opening, a plan rung, the fix,
-  the tests, closing. The work is small enough for one commit, and the point of this cycle is the
-  ladder itself. It grew to six when the fixture's home became a rung of its own.
-  - This cycle is the first run under the agent-files v0.3.0, an experiment on the unlanded
-    proposal, wink's framing. Its bookmark starts from the proposal commit, not from `main`, so the
-    session works under the v0.3.0 files on disk, and the commit lands behind the proposal when
-    that lands. An experiment of the set, not a bend of a rule.
-- The plan rung writes the plan into this record before any code changes, so the fix and the tests
-  are reviewed against something written down.
-- Ahead of **Fixtures are named by their source**, being small and closing the silent pass on its
-  own.
-- The record is kept here, in `zDOING.md`, per the trial this file describes, while the agent-files
-  still name `TODO.md > ## In Progress`.
-- Where a fresh clone gets a fixture, wink's question after the tests rung: the fixture moves into
-  the workspace, `.fixtures/`, as its own rung, inserted before the pushed fix and tests rungs by
-  moving the bookmark back and rebasing them, wink's call over appending it. The cost, the
-  work-repo's ladder leaving time order while the agent-repo's keeps it, is the Todo **lookup is
-  tested on a reordered ladder**, with the ids and times to test it on this ladder before it lands.
-- The ladder's labels start at `[0]` so each equals its rung's version suffix, wink's suggestion,
-  a local experiment under v0.3.0's "Local experiments": a rung is only inserted at the current
-  position, so the Nth label is always the `-N` commit.
-- What running under v0.3.0 taught is the Todo **agent-files(proposal): v0.3.1**, five lines, none
-  of them stopping v0.3.0: the record's home, the unconditional dev rename, the reorder recipe and
-  its cost, zero-based labels, and a rung running the acceptance check.
-- Waiver (wink, 2026-10-18, "Permission to complete through -3 I'll be back to review"): the
-  bookmark push and the pushes of the opening, the plan rung, the fix rung, and the tests rung are
-  approved in advance, their work and description reviews with them, since the user is away. The
-  closing rung's reviews and push, the close-out shape, and Land are outside it.
-  - Extended (wink, 2026-10-18, "permission to complete the ladder through the new [4]") after
-    the review of the fixture-workspace rung: its push, the rebase of the fix and tests rungs onto
-    it with their version amendments, and the bookmark's re-push. The closing stays outside.
+- Multi-step, nine rungs, a trapezoid the default: opening, a plan rung, the port in four rungs,
+  the tests building their fixture, the retirement of the Python builder, closing. Six at the
+  bookmark, the agent's proposal and wink's go, then the port split in four at the plan rung's
+  review.
+  - The port is split by layer, wink's question and the agent's proposal: the transcript writer,
+    the jj plumbing, the agent with its first cycle, then the other cycles and the record, each
+    a rung tested before the next starts. The first plan mapped the whole Python builder in one
+    piece and was hard to read for anyone who had not read the Python.
+  - A port one function at a time with the rest left in Python was weighed and set aside: the
+    functions share the clock, the transcript counters, and the record in memory, so each step
+    would pass that state across the language boundary through files, and the Rust side is
+    test-only code Python cannot call. All of it would be thrown away at the end.
+  - A separate cycle for the port was weighed and set aside: the ladder already gives each layer
+    its own review, the rungs past the opening were unpushed so the reshape cost nothing, and the
+    cycle's title stays true.
+  - While the Python builder is in the tree, each port rung compares its layer's output with the
+    Python one's, ids, absolute paths, and key order aside, a throwaway check recorded in the
+    rung, since a committed test cannot need Python.
+- Closed as a dead end at the plan rung's review, wink's call (2026-10-20): even split by layer,
+  the plan read only through the Python builder. The work returns to `## Todo` as one entry, the
+  goal, with the layers its suggested plan, each designed when it starts.
+  - Five entries, one per layer, were weighed and set aside, wink's call: they are steps of one
+    goal, none stating a problem of its own, and each opened one would leave the others citing an
+    entry that is gone.
+  - The opening was pushed and its agent-repo commit's `ochid:` trailer names it, so the cycle
+    closes and lands rather than being dropped with its bookmark, the case the dead-end item of
+    **agent-files(proposal): v0.3.1** was filed for.
+  - Re-describing the opening as the first layer's was weighed and set aside: the agent-repo's
+    opening would keep the old title, an exception to record, where a dead end bends nothing.
+- Rust, not Python, wink's call: no dependency the project does not otherwise have, and Windows
+  and macOS in view.
+  - The Windows and macOS points are design intent until a CI run on them checks it: line
+    endings, symlinks, path shapes, case-insensitive filesystems.
+- Built by the tests, not by `build.rs`: a build script cannot tell `cargo test` from
+  `cargo install`, runs before the crate it would need is compiled, and sees only
+  build-dependencies.
+- A fresh temp dir per test run, not a cached `.fixtures/dr-1`: the build is deterministic and
+  took about two seconds under Python, so caching buys little and costs a version stamp, a
+  build-then-rename, and a race between concurrent runs.
+- Every user asks, no gate test, wink's point: a gate named to sort first is fragile, and every
+  `dr1_*` test already asks through `dr1()`, so whichever asks first builds. What is given up is
+  only an earlier stop.
+- The failure stops the run, wink's ask: fail fast, front and center.
+  - Prototyped 2026-10-19 in a scratch crate: the banner showed through the output capture, a
+    running test was cut off, and a filtered run that needs no fixture was untouched.
+  - The `ctor` crate's before-main hook was weighed and set aside: a new dependency, jj-lib run
+    before the runtime is fully set up, and a build even for filtered runs.
+- Fixtures that cannot be generated, such as the real-history ladder **lookup is tested on a
+  reordered ladder** wants, stay with **Fixtures are named by their source**: fetched, and an
+  absent one a loud stop with the remedy.
+- Unseeded, decided at the plan rung: change ids differ per build, which the generated
+  relationships file absorbs, and byte-reproducibility is out of reach anyway, since the
+  transcripts carry the build directory's absolute paths.
+- The jj CLI stays for the builder's repo operations, a deviation from the solution as filed,
+  which said no `jj` or `git` would be involved. The record is the truth the lookup tests check
+  lookup against, and lookup is built on jj-lib, so the record is read with the CLI. The tests
+  already need it, and git runs only as jj's own push subprocess, which jj-lib needs too. What goes
+  is `python3` and the installed `vc-x1`.
+- The in-process calls get their chosen time and committer, and no signing, from a test-only
+  override of one thread's jj settings, since a test may not write the process's environment and
+  in-process jj-lib otherwise reads the developer's jj config, signing key included. Found at the
+  plan rung's review, when a sandbox hid the key and a test's in-process `init` failed to sign.
+- The record is kept in `zDOING.md` per the trial that file describes, and the ladder's labels
+  start at `[0]`, continuing the local experiment the last cycle began.
 
 #### Ladder
 
-- [fix: a missing fixture fails instead of passing opening][0] (done)
-- [docs: plan the fixture change][1] (done)
-- [feat: the fixture lives in the workspace][2] (done)
-- [fix: an absent fixture panics naming how to get it][3] (done)
-- [test: fixture tests are ignored without the fixture][4] (done)
-- [fix: a missing fixture fails instead of passing closing][5] (done)
+- [test: the tests build the dr-1 fixture opening][0] (done)
+- [test: the tests build the dr-1 fixture dead-end closing][1] (done)
 
-##### fix: a missing fixture fails instead of passing opening
+##### test: the tests build the dr-1 fixture opening
 
-The cycle's setup commit: create and publish the bookmark from the proposal commit, move the Todo
-entry into this block, and bump the version-of-record.
+The cycle's setup commit: create and publish the bookmark at `main`, move the Todo entry into this
+block, bump the version-of-record, and rename the package to `vc-x1-dev`.
 
-##### docs: plan the fixture change
+##### test: the tests build the dr-1 fixture dead-end closing
 
-The plan, written into this record before any code changes, so the fix and the tests are reviewed
-against something written down.
+Closing out the cycle as a dead end, the first under the dead-end item of
+**agent-files(proposal): v0.3.1**. What closing taught:
 
-* `test_helpers::fixture` keeps a missing fixture quiet.
-  - It returns `PathBuf` and panics when `[test] fixtures` is missing from `.vc-config.md` or the
-    directory it names has no `<name>/.jj`. The message names the fixture, the path it looked at,
-    the `[test] fixtures` key that set it, and where the fixture comes from: built by
-    `support/fixtures/build-dr-1.py`, published on GitHub as `vc-x1-fixtures-dr-1-work` and
-    `-agent`. It is test-only code, so the panic is the failure it should always have been.
-  - `dr1()` in `src/lookup.rs` returns `(PathBuf, Value)`, and its five callers drop their
-    `let Some(..) = dr1() else { return }`.
-* A bare clone's `cargo test` must still pass, and say what it skipped.
-  - The five `dr1_*` tests take `#[ignore = "needs fixture dr-1"]`, so `cargo test` reports them
-    as ignored, with the reason, and never as passed.
-  - A test of the helper itself, `fixture("no-such-fixture")`, is `#[should_panic]` on the message's
-    "absent at", so the failure path is exercised without any fixture.
-* The full validation must run them.
-  - `.vc-config.md` `[validate] full` runs `cargo test -- --include-ignored` in place of
-    `cargo test`, and `fast` keeps `cargo test`, so a rung's fast run needs no fixture and the full
-    run before a push does. The ignored tests are run, and an absent fixture fails the run with the
-    message above.
-* On this machine the fixtures directory is renamed, `../vc-x1-fixtures-xxx`, the Todo's own
-  experiment, so the tests rung would fail its full validation as the Todo intends.
-  - The tests rung makes `../vc-x1-fixtures` a symlink to the renamed directory for its validation
-    and the acceptance check's second half, removes it after, and says so. Whether the directory
-    is renamed back is wink's call at the review, as is whether the symlink should have been a
-    rename.
-
-Rungs after this one: the fix rung is the first two facets' code, the tests rung is the third and
-fourth, with the acceptance check run both ways and recorded at the closing.
-
-##### feat: the fixture lives in the workspace
-
-A fresh clone has no fixture, and the committed config named a sibling directory on one machine,
-`../vc-x1-fixtures`, so where a fixture sits was a fact about wink's disk and nothing said how to
-get one.
-
-* The config named a path outside the workspace.
-  - `[test] fixtures` is `.fixtures`, inside the workspace and gitignored, so any clone builds or
-    fetches its own there and the committed file names no machine. The source-named config the Todo
-    **Fixtures are named by their source** describes replaces the key later and keeps the place.
-* The build script could not run against today's `vc-x1`.
-  - `build-dr-1.py` passed `init` a slashed relative path, which init now refuses as the retired
-    owner/name shorthand, and relied on the agent repo being `.claude`, which init's default moved
-    away from. It passes an absolute path and `--agent-dir .claude`, and `build-dr-1.py .fixtures
-    --local` built the fixture here in one run, the `vc-x1 0.85.3` on this machine driving it.
-  - The build is reproducible in shape, not in ids: its change ids differ from the September
-    copy's, and its `relationships.json` carries its own, so the fourteen `dr1_*` tests pass
-    against it as they did against the old one. The published pair, once pushed, is the one with
-    fixed ids.
-* The helper's message still names the old place.
-  - The fix rung's panic message, when it is rebased onto this rung, says to build into `.fixtures`
-    with the script, or clone the published pair, and stops claiming the pair is on GitHub until it
-    is: the two repos exist there and are empty (checked 2026-10-18).
-* Inserting this rung reorders a pushed ladder, wink's call.
-  - The bookmark moved back to the plan commit, this rung is `-2`, and the fix and tests rungs are
-    rebased onto it as `-3` and `-4`, their change ids and so their `ochid:` pairs kept, their
-    `Cargo.toml` versions amended. The cost is that the work-repo's ladder is no longer in time
-    order while the agent-repo's history is, and the Todo **lookup is tested on a reordered ladder**
-    records the before state and the hypotheses to test on this ladder before it lands.
-  - The ladder's reference labels start at `[0]` so each equals its rung's version suffix, a local
-    experiment under v0.3.0's "Local experiments", since a rung is only ever inserted at the current
-    position and so the Nth label is always the `-N` commit. The set's specimen starts at `[1]`.
-
-##### fix: an absent fixture panics naming how to get it
-
-`test_helpers::fixture` returned `None` with a line on stderr when the fixture was absent, and every
-caller returned early and passed.
-
-* The helper's `Option` made absence a normal return.
-  - It returns `PathBuf` and panics on a missing `[test] fixtures` key or a `<name>/.jj` that is not
-    there. The message names the fixture, the path, the key, and where the fixture comes from, the
-    `build-<name>.py` script and the two GitHub repos, so the message serves the next fixture too.
-  - `dr1()` returns its tuple, and its callers lose their early return, so a test either runs its
-    checks or fails in the helper, and the stderr notice that `cargo test` hid is gone. The plan
-    counted five callers, the ones in `src/lookup.rs`, and the compiler found fourteen, the rest in
-    `src/lookup/{blame,partner,window}.rs`, so the silent pass was wider than the Todo measured.
-* Until the tests rung marks them `#[ignore]`, the fourteen tests fail wherever the fixture is
-  absent, this machine included.
-  - The symlink the plan gave the tests rung is made at this rung instead, since this rung's
-    validation needs it first. It stays through the tests rung and goes after it.
-
-##### test: fixture tests are ignored without the fixture
-
-After the fix rung a bare clone's `cargo test` fails fourteen tests, which is honest and not what a
-stranger's `cargo test` should do.
-
-* A bare clone must pass and say what it skipped.
-  - The fourteen `dr-1` tests take `#[ignore = "needs fixture dr-1"]`, placed by the callers of
-    `dr1()` rather than by name, so `cargo test` lists them as ignored with the reason.
-  - `fixture_absent_panics_naming_the_path` asks for a fixture that does not exist and expects the
-    panic's "absent at", so the failure path runs on every machine.
-* The full validation must run what a bare clone skips.
-  - `[validate] full` runs `cargo test -- --include-ignored` and `fast` keeps `cargo test`, the
-    config's prose saying which is which, so a rung's fast run needs no fixture and the full run
-    before a push fails loudly without one.
-* Acceptance, run at this rung both ways, through the symlink and without it, for the closing to
-  record.
-  - Absent: `cargo test` passed, 645 passed and 14 ignored, each `dr1_*` line reading "ignored,
-    needs fixture dr-1", and the should-panic test passed. `cargo test -- --include-ignored` failed
-    the fourteen, each with "fixture dr-1 absent at .../vc-x1/../vc-x1-fixtures/dr-1: `[test]
-    fixtures` in .vc-config.md names the directory, and the fixture is built by
-    support/fixtures/build-dr-1.py and published on GitHub as vc-x1-fixtures-dr-1-work and
-    -agent".
-  - Present: the full validation passed, its `cargo test -- --include-ignored` reporting 659
-    passed and 0 ignored, and the fast list's `cargo test` passes with the fourteen ignored either
-    way.
-  - The symlink `../vc-x1-fixtures -> vc-x1-fixtures-xxx` is removed after this rung's push, so
-    the machine is as wink left it, the directory renamed.
-
-##### fix: a missing fixture fails instead of passing closing
-
-Closing out the cycle. What closing taught:
-
-* The acceptance check was stated for a location the cycle then moved.
-  - It was run at the tests rung against the old location through a symlink, and again at the
-    close against `.fixtures/`, both passing, so the record names both and the Todo
-    **agent-files(proposal): v0.3.1** asks the set to let a rung run the check the closing records.
-* The reorder left nothing to resolve but the record itself.
-  - Only `zDOING.md` conflicted, the ladder lines, and the version amendments were two lines each.
-    The after state, with each rung's author and committer time and its agent-repo pair, went into
-    the lookup Todo rather than here, since it outlives the cycle.
-* Close-out shape: trapezoid, wink's vote at the opening, reshaped at Land. Nothing lands yet, the
-  cycle being an experiment on the unlanded v0.3.0, and the bookmark stays a draft behind the
-  proposal's.
+* A dead end's title says so.
+  - The closing is the cycle title plus " dead-end closing", wink's rule for
+    **agent-files(proposal): v0.3.1**, run here ahead of it. By the same rule the title cap does
+    not bind the suffix, so this title's 55 characters stand.
+* The plan rung leaves no commit.
+  - It was never pushed, so the ladder is the opening and this closing. Its one lasting product,
+    `notes/fixture-dr-1.md`, lands here, and its subsection, the port mapped against the Python
+    builder, survives only in the agent-repo's transcript.
+* Version: the closing carries `0.85.5`, and Land releases it, since `main` gains the note and the
+  Todo entries. Whether a dead end should release nothing stays open in **agent-files(proposal):
+  v0.3.1**.
+* Close-out shape: trapezoid, the dead-end form, reshaped at Land. The closing becomes the merge
+  on `main`, so the opening stays reachable through its second parent and its agent-repo trailer
+  resolves.
 
 # References
 
-[0]: #fix-a-missing-fixture-fails-instead-of-passing-opening
-[1]: #docs-plan-the-fixture-change
-[2]: #feat-the-fixture-lives-in-the-workspace
-[3]: #fix-an-absent-fixture-panics-naming-how-to-get-it
-[4]: #test-fixture-tests-are-ignored-without-the-fixture
-[5]: #fix-a-missing-fixture-fails-instead-of-passing-closing
+[0]: #test-the-tests-build-the-dr-1-fixture-opening
+[1]: #test-the-tests-build-the-dr-1-fixture-dead-end-closing

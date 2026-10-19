@@ -42,6 +42,45 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### dr-1 is built in Rust
+
+(wink + agent, 2026-10-20) A fresh clone's full test run fails all fourteen `dr1_*` tests, each
+with the same panic, because the `dr-1` fixture ([fixture-dr-1.md](notes/fixture-dr-1.md)) is
+built only by `support/fixtures/build-dr-1.py`. That needs `python3`, a dependency the project does
+not otherwise have, and drives the installed `vc-x1` rather than the code under test. The fix:
+the tests build the fixture in Rust, and the Python builder goes.
+
+- Useful history: **test: the tests build the dr-1 fixture** tried this as one cycle and closed as
+  a dead end. Its dead-end closing commit, the landmark on `main`, holds the record in
+  `zCLOSED.md`: the problem, the plan as filed, and the deliberation behind it, among them the jj
+  CLI kept for the record, a test-only jj settings override per thread, an unseeded build, and a
+  failed build stopping the run with one banner. The agent-repo's transcript of that cycle holds
+  its unpushed plan rung, the port mapped against the Python builder.
+- Suggested plan, bottom-up, each layer tested before the next starts, as rungs of one cycle or as
+  cycles of their own, decided when this opens:
+  - The transcript writer: the fixture's clock and session-file writer, the user, assistant,
+    tool-call, and tool-result lines in the transcripts' shape, as test-only code under
+    `#[cfg(test)]`. Checked by a test that writes one line of each kind, and by a throwaway
+    comparison with a session file from the Python builder.
+  - jj settings pinned per thread in tests: a test-only override of one thread's jj settings, and
+    a `jj_ok` that sets a spawned jj's environment, so a commit made in-process or by the CLI
+    takes a chosen time and committer and is not signed. A test may not write the process's
+    environment, and in-process jj-lib otherwise reads the developer's jj config, signing key
+    included. Checked by a test of each that reads the commit back.
+  - The agent runs its first cycle: the scripted agent, its writes, edits, Bash lines, and pushes
+    with their windows, and the fast-forward land, run through the fixture's first cycle alone,
+    calling the crate's own init and push in-process. Checked against the same cycle from the
+    Python builder.
+  - The whole fixture: the other cycles and the record. A test checks it is whole: both repos
+    load, the nine pushes are in `relationships.json`, and each push's two change ids resolve.
+  - The tests build their fixture: the fixture helper builds it once per test process and stops
+    the run with one banner when the build fails, the fourteen `dr1_*` tests lose their
+    `#[ignore]`, and the Python builder goes, with the `[test] fixtures` key, `.fixtures/`, and the
+    README's stale fixture section.
+- Acceptance: in a fresh `vc-x1 clone` with `python3` off the PATH, `cargo test` runs the
+  fourteen `dr1_*` tests, none ignored, and they pass, and a forced build failure prints the
+  banner once and stops.
+
 ### lookup is tested on a reordered ladder
 
 (wink + agent, 2026-10-18) The cycle **fix: a missing fixture fails instead of passing** inserted
@@ -90,27 +129,32 @@ After the reorder, the same form, `author/committer` both 2026-10-19 UTC:
 
 ### agent-files(proposal): v0.3.1
 
-(wink + agent, 2026-10-18) What the first cycle run under v0.3.0, **fix: a missing fixture fails
-instead of passing**, learned by running the set rather than reading it. Nothing here stops
-v0.3.0, and the part the set is about, "Changing the agent-files" between adopters, waits for a
-proposal to another adopter.
+(wink + agent, 2026-10-18, simplified 2026-10-20) Small rule fixes learned by running v0.3.0, each
+a sentence or two in an agent-file, and dead-end cycles defined. Each item is the change, then
+why.
 
-- The record's home: `AGENTS.md` names `TODO.md > ## In Progress` while every rung wrote to
-  `zDOING.md` under the trial, and each rung noted the gap. The Todo **The cycle-record moves out
-  of TODO.md into zDOING.md** is the fix, folded in here or run first.
-- The dev rename is unconditional: Opening step 6 renames "when the built artifact has
-  consumers", and the build guard made it mandatory the moment the version took a suffix. The
-  single-name variant says so for every multi-step cycle.
-- Reordering a draft ladder: Unplanned work allows an inserted rung and says nothing about one
-  inserted before pushed rungs. `jj.md` gets the recipe beside the local ladder, bookmark back,
-  rebase, versions amended, change ids and `ochid:` pairs kept, and the cost, the work-repo's
-  ladder leaving time order while the agent-repo's keeps it, once **lookup is tested on a
-  reordered ladder** has its results.
-- Zero-based labels: the ladder's reference labels start at `[0]` so each equals its rung's
-  version suffix, since a rung is only inserted at the current position. `notes.md` and the
-  `cycle-model.md` specimen start at `[1]`.
-- A rung may run the acceptance check: Close-out step 1 owns it, and the tests rung was the only
-  place it could run both ways. A sentence lets a rung run it and the closing record it.
+- The dev rename always: Opening step 6 drops "when the built artifact has consumers". Why: the
+  build guard rejects a suffixed version under the plain name, so every multi-step cycle renames
+  already.
+- Ladder labels from `[0]`: `notes.md` and the `cycle-model.md` specimen number the ladder's
+  reference labels from `[0]`. Why: each label then equals its rung's version suffix.
+- A rung may run the acceptance check: Close-out step 1 says a rung may run it and the closing
+  records the result. Why: some checks run only mid-ladder, as in **fix: a missing fixture fails
+  instead of passing**.
+- Dead-end cycles defined: a cycle abandoned after its opening pushed still closes and lands. Its
+  closing, titled with the cycle title plus " dead-end closing", keeps what is worth keeping,
+  reverts the rest, and records what was tried, why it stopped, and what replaces it, then lands
+  as a trapezoid like any closing. The title cap does not bind the suffix (wink, 2026-10-20). In
+  `AGENTS.md` Close-out, `jj.md` Close-out shapes, and `prose.md`'s bookend titles. Why: the
+  cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs, so
+  dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+  - Open: whether a dead end's Land releases its bare version or reverts to the last release.
+  - First run: **test: the tests build the dr-1 fixture**, closed 2026-10-20.
+- Not in it, each run on its own:
+  - The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record
+    moves out of TODO.md into zDOING.md**.
+  - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
+    ladder** has its results.
 
 ### The family leaves the committed config
 
@@ -1738,6 +1782,21 @@ force-published: the heaviest rewrite the work-to-transcript lookup can meet.
 - If it runs, it wants a cycle whose ladder is expendable, not a cycle about to land. Re-describing
   pushed commits, renaming a bookmark, and force-publishing just before Land was judged the wrong
   risk for a confirmation.
+
+### push checks the description's widths
+
+(wink + agent, 2026-10-19) `vc-x1 push` takes `--title` and `--body` as given, so a description
+that skipped the description review ships whatever it holds. **chore: next time starts with the
+settings.local.json Todo** (`qwsqmksw`, on `main` through `vprsqqml`) carries an unwrapped body,
+each paragraph one line, and a 57-character title, past the 50-character cap. It is published, an
+agent-repo trailer names it, and it stays as it is.
+
+- The proposal: `push` refuses a title over the cap and a body line over the body width, both
+  from [Line widths](agent-data/prose.md#line-widths), naming the line and its width.
+- A long line that reads better long, an URL or a literal report row, needs a way through, a flag
+  or an allowance for lines without spaces.
+- The widths live in prose.md, their one home, so the check reads them from there or the two
+  copies must be kept in step.
 
 ## Ideas
 

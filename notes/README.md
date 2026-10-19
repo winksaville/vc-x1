@@ -47,7 +47,8 @@ procedure, the two decisions the probes settled, the `vc-x1 lookup` command's re
 their one home, what building the command found, and the probes themselves, three cycles of them.
 `vc-x1 lookup` does the procedure in both directions, and the fixture it is tested over is built
 by `support/fixtures/build-dr-1.py` into the workspace's gitignored `.fixtures/`, which
-`[test] fixtures` names, so a fresh clone builds its own.
+`[test] fixtures` names, so a fresh clone builds its own. What the fixture holds, and the case
+each of its cycles exists for, is in [fixture-dr-1.md](fixture-dr-1.md).
 
 In the future I expect we may want to create a "notes" database to better manage the information,
 TBD.
