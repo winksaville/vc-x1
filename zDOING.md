@@ -63,11 +63,15 @@ With the directory restored: both pass.
   bookmark push and the pushes of the opening, the plan rung, the fix rung, and the tests rung are
   approved in advance, their work and description reviews with them, since the user is away. The
   closing rung's reviews and push, the close-out shape, and Land are outside it.
+  - Extended (wink, 2026-10-18, "permission to complete the ladder through the new [4]") after
+    the review of the fixture-workspace rung: its push, the rebase of the fix and tests rungs onto
+    it with their version amendments, and the bookmark's re-push. The closing stays outside.
 
 #### Ladder
 
-- [fix: a missing fixture fails instead of passing opening][1] (done)
-- [docs: plan the fixture change][2] (done)
+- [fix: a missing fixture fails instead of passing opening][0] (done)
+- [docs: plan the fixture change][1] (done)
+- [feat: the fixture lives in the workspace][2] (done)
 - [fix: an absent fixture panics naming how to get it][3]
 - [test: fixture tests are ignored without the fixture][4]
 - [fix: a missing fixture fails instead of passing closing][5]
@@ -110,6 +114,39 @@ against something written down.
 Rungs after this one: the fix rung is the first two facets' code, the tests rung is the third and
 fourth, with the acceptance check run both ways and recorded at the closing.
 
+##### feat: the fixture lives in the workspace
+
+A fresh clone has no fixture, and the committed config named a sibling directory on one machine,
+`../vc-x1-fixtures`, so where a fixture sits was a fact about wink's disk and nothing said how to
+get one.
+
+* The config named a path outside the workspace.
+  - `[test] fixtures` is `.fixtures`, inside the workspace and gitignored, so any clone builds or
+    fetches its own there and the committed file names no machine. The source-named config the Todo
+    **Fixtures are named by their source** describes replaces the key later and keeps the place.
+* The build script could not run against today's `vc-x1`.
+  - `build-dr-1.py` passed `init` a slashed relative path, which init now refuses as the retired
+    owner/name shorthand, and relied on the agent repo being `.claude`, which init's default moved
+    away from. It passes an absolute path and `--agent-dir .claude`, and `build-dr-1.py .fixtures
+    --local` built the fixture here in one run, the `vc-x1 0.85.3` on this machine driving it.
+  - The build is reproducible in shape, not in ids: its change ids differ from the September
+    copy's, and its `relationships.json` carries its own, so the fourteen `dr1_*` tests pass
+    against it as they did against the old one. The published pair, once pushed, is the one with
+    fixed ids.
+* The helper's message still names the old place.
+  - The fix rung's panic message, when it is rebased onto this rung, says to build into `.fixtures`
+    with the script, or clone the published pair, and stops claiming the pair is on GitHub until it
+    is: the two repos exist there and are empty (checked 2026-10-18).
+* Inserting this rung reorders a pushed ladder, wink's call.
+  - The bookmark moved back to the plan commit, this rung is `-2`, and the fix and tests rungs are
+    rebased onto it as `-3` and `-4`, their change ids and so their `ochid:` pairs kept, their
+    `Cargo.toml` versions amended. The cost is that the work-repo's ladder is no longer in time
+    order while the agent-repo's history is, and the Todo **lookup is tested on a reordered ladder**
+    records the before state and the hypotheses to test on this ladder before it lands.
+  - The ladder's reference labels start at `[0]` so each equals its rung's version suffix, a local
+    experiment under v0.3.0's "Local experiments", since a rung is only ever inserted at the current
+    position and so the Nth label is always the `-N` commit. The set's specimen starts at `[1]`.
+
 ##### fix: an absent fixture panics naming how to get it
 
 `test_helpers::fixture` returns a path or panics, the message naming the `[test] fixtures` key, the
@@ -127,8 +164,9 @@ Closing out the cycle.
 
 # References
 
-[1]: #fix-a-missing-fixture-fails-instead-of-passing-opening
-[2]: #docs-plan-the-fixture-change
+[0]: #fix-a-missing-fixture-fails-instead-of-passing-opening
+[1]: #docs-plan-the-fixture-change
+[2]: #feat-the-fixture-lives-in-the-workspace
 [3]: #fix-an-absent-fixture-panics-naming-how-to-get-it
 [4]: #test-fixture-tests-are-ignored-without-the-fixture
 [5]: #fix-a-missing-fixture-fails-instead-of-passing-closing

@@ -42,6 +42,40 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### lookup is tested on a reordered ladder
+
+(wink + agent, 2026-10-18) The cycle **fix: a missing fixture fails instead of passing** inserted
+a rung between its plan rung and its pushed fix and tests rungs by moving the bookmark back and
+rebasing the two onto the new rung, then amended their `Cargo.toml` versions. The agent-repo's
+history stays linear in time while the work-repo's ladder is out of time order, so three
+hypotheses to test soon, on this ladder, before it lands and the specimen is gone:
+
+- The `ochid:` pairing holds, since the trailers are change ids and a rebase keeps them, so
+  `lookup` pairs each rung with its agent-repo commit as it did before. A rebased rung is a
+  rewritten partner with a predecessor, the shape dr-1's amend case covers, and the two amended
+  rungs have two predecessors each, which it does not.
+- Timestamps split: jj keeps the author time across a rebase and resets the committer time, so
+  the new rung, a parent, is authored after its children. Author time still matches the agent-repo
+  and the transcript writes. Whichever of author time, committer time, and topological order
+  `lookup` leans on when it builds windows and candidates is what the dr-1 window tests, run
+  against this workspace, will show. We think author time holds and a parent-before-child
+  assumption breaks.
+- A line changed by the version amendments has no transcript write, since the rewrite happened
+  outside a push, so `lookup` should report it as such and not attribute it to a neighbor.
+
+Before the reorder, in UTC, each work-repo rung then its agent-repo pair, as
+`change commit author/committer`:
+
+- opening: `lzvovkulykur ebefe3b22dd4 04:29:53/04:31:17`, pair `nlkoltkttsqo 1fbb8b1e2d1d 04:28:39`
+- plan: `stqtnqmlpnws 422abade5eed 04:33:27/04:33:28`, pair `qltllyttorvo d89842b60354 04:33:28`
+- fix: `oskrwppmyouv 46e59c49aebb 04:35:44/04:35:44`, pair `nwyysysuknzr 7bf5994495a0 04:35:44`
+- tests: `tqspunzumpru 58f3bbe9ebd4 04:38:16/04:38:16`, pair `qqoupsuztovt 88b87b336121 04:38:16`
+- all on 2026-10-19 UTC, the evening of 2026-10-18 local. The after state is recorded by the
+  cycle's closing, with the new rung and the rebased commit ids.
+- Acceptance: the `dr1_*` tests, pointed at this workspace and its `.claude` as the fixture, with
+  a relationships file written from the pairs above, pass or fail per hypothesis, and each result
+  is recorded.
+
 ### The family leaves the committed config
 
 (wink + agent, 2026-10-17) `.vc-config.md`'s `[family]` table names this repo's member name and two
@@ -120,7 +154,9 @@ GitHub, so where it comes from is the portable fact, and where it sits is not.
 - The committed config names each fixture by its source, a name and a clone URL, pinned to a
   commit.
 - A fixture is fetched into a fixed, gitignored directory in the workspace, `.fixtures/<name>` say,
-  set by convention, never by config.
+  set by convention, never by config. The cycle **fix: a missing fixture fails instead of passing**
+  made `.fixtures/` that directory, still named by `[test] fixtures` until the source-named config
+  replaces the key.
 - A `vc-x1 fixtures` subcommand clones the listed fixtures there, as `vc-x1 clone` lays a dual
   workspace out, so any repo can declare fixtures and vc-x1 fetches them.
 - Built for vc-x1's need first, the config's shape general enough for another repo to use
