@@ -67,7 +67,7 @@ With the directory restored: both pass.
 #### Ladder
 
 - [fix: a missing fixture fails instead of passing opening][1] (done)
-- [docs: plan the fixture change][2]
+- [docs: plan the fixture change][2] (done)
 - [fix: an absent fixture panics naming how to get it][3]
 - [test: fixture tests are ignored without the fixture][4]
 - [fix: a missing fixture fails instead of passing closing][5]
@@ -79,8 +79,36 @@ entry into this block, and bump the version-of-record.
 
 ##### docs: plan the fixture change
 
-The plan, written into this record: what `fixture` returns and says when the directory is absent,
-which tests take `#[ignore]` and with what reason, and what each `[validate]` list runs.
+The plan, written into this record before any code changes, so the fix and the tests are reviewed
+against something written down.
+
+* `test_helpers::fixture` keeps a missing fixture quiet.
+  - It returns `PathBuf` and panics when `[test] fixtures` is missing from `.vc-config.md` or the
+    directory it names has no `<name>/.jj`. The message names the fixture, the path it looked at,
+    the `[test] fixtures` key that set it, and where the fixture comes from: built by
+    `support/fixtures/build-dr-1.py`, published on GitHub as `vc-x1-fixtures-dr-1-work` and
+    `-agent`. It is test-only code, so the panic is the failure it should always have been.
+  - `dr1()` in `src/lookup.rs` returns `(PathBuf, Value)`, and its five callers drop their
+    `let Some(..) = dr1() else { return }`.
+* A bare clone's `cargo test` must still pass, and say what it skipped.
+  - The five `dr1_*` tests take `#[ignore = "needs fixture dr-1"]`, so `cargo test` reports them
+    as ignored, with the reason, and never as passed.
+  - A test of the helper itself, `fixture("no-such-fixture")`, is `#[should_panic]` on the message's
+    "absent at", so the failure path is exercised without any fixture.
+* The full validation must run them.
+  - `.vc-config.md` `[validate] full` runs `cargo test -- --include-ignored` in place of
+    `cargo test`, and `fast` keeps `cargo test`, so a rung's fast run needs no fixture and the full
+    run before a push does. The ignored tests are run, and an absent fixture fails the run with the
+    message above.
+* On this machine the fixtures directory is renamed, `../vc-x1-fixtures-xxx`, the Todo's own
+  experiment, so the tests rung would fail its full validation as the Todo intends.
+  - The tests rung makes `../vc-x1-fixtures` a symlink to the renamed directory for its validation
+    and the acceptance check's second half, removes it after, and says so. Whether the directory
+    is renamed back is wink's call at the review, as is whether the symlink should have been a
+    rename.
+
+Rungs after this one: the fix rung is the first two facets' code, the tests rung is the third and
+fourth, with the acceptance check run both ways and recorded at the closing.
 
 ##### fix: an absent fixture panics naming how to get it
 
