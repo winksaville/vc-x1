@@ -123,7 +123,7 @@ workspace, two full `validate` runs at different versions leave one binary under
 #### Ladder
 
 - [feat: vc-x1 commit, install, and run-dev opening][0] (done)
-- [feat: an install table in the config][1]
+- [feat: an install table in the config][1] (done)
 - [feat: vc-x1 commit makes the rung's local commit][2]
 - [feat: push publishes the local commit][3]
 - [feat: vc-x1 commit --closing makes the trapezoid][4]
@@ -141,9 +141,24 @@ opening: the code entry cut from **agent-files(proposal): v0.3.1** and placed fi
 
 ##### feat: an install table in the config
 
-The config gains `[install] release` and `dev-bin`, the schema's stale examples are fixed and the
-model regenerated, `README.md`'s single-name section becomes the dev root's, and two validate
-runs show one binary left under `tmp/dev`.
+The config gains `[install] release`, `dev`, and `dev-bin`, the schema's stale examples are fixed
+and the model regenerated, `README.md`'s single-name section becomes the dev root's, and two
+validate runs show one binary left under `tmp/dev`.
+
+* Nothing reads the new keys yet.
+  - The schema names the subcommands that will, `install`, `install --dev`, and `run-dev`, so its
+    prose is ahead of the binary until their rungs land. On this rung's tree the keys are valid
+    config and nothing more: the dev binary's `validate-config` finds no problem, since its schema
+    is built from the same file, while the installed `0.85.5` reports the three keys and their
+    links as unknown until Land.
+* The two-run check passed on the cycle's own rungs.
+  - The opening's full run installed `0.85.6-0` under `tmp/dev`, this rung's installed `0.85.6-1`,
+    and after it `tmp/dev/bin` holds one `vc-x1`, its `-V` the second version, with
+    `.crates.toml` and `.crates2.json` rewritten to name it alone. Nothing was deleted between.
+* The README still described the guard and the old fixture path.
+  - Its Build and install section now says the name never changes and where a cycle's builds go,
+    and its Acceptance fixtures section says `.fixtures`, that the tests are ignored without
+    `--include-ignored`, and that an absent fixture panics naming the build command.
 
 ##### feat: vc-x1 commit makes the rung's local commit
 

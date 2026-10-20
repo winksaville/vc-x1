@@ -80,43 +80,20 @@ A plain Rust crate: `cargo build`, `cargo test`, and
 cargo install --path . --locked
 ```
 
-installs one binary named by the manifest's `[package].name`. That name is deliberate, the
-**single-name convention** (adopted 0.78.3, design record in
-`notes/chores/chores-16.md`):
+installs one binary, `vc-x1`, named by the manifest's `[package].name`, which never changes. That
+install is the promotion, run from `main` at a cycle's Land, and the `[install]` table in
+`.vc-config.md` holds it as `release`. A cycle's own builds never touch it:
 
-- On `main` the name is `vc-x1`: installing from a main-positioned tree gives you the stable
-  binary, and that is the whole promotion ceremony.
-- A development line renames `[package].name` to its own name (e.g. `vc-x1-dev`,
-  `vc-x1-<topic>`) at cycle open and back to `vc-x1` at close-out, next to the version bump
-  those steps already make. Each line's install then produces its own binary, and concurrent
-  lines coexist on `PATH` under their own names.
-- The guard is mechanical, not memory: `build.rs` refuses to build a tree whose version
-  carries a dev suffix (`0.79.1-2`) while the manifest still says `vc-x1`. A build script
-  runs on **every** cargo verb, `cargo install` included (a test would not: `cargo install`
-  never runs tests), so a forgotten rename fails before any binary exists to clobber your
-  stable one. The full matrix (verified 2026-08-06):
-
-  | `[package].name` | `version` | any cargo build/test/install |
-  |---|---|---|
-  | `vc-x1` | `0.78.3-1` | **fails**: a dev rung wearing the stable name |
-  | `vc-x1-exper1` | `0.78.3-1` | passes: a normal dev rung |
-  | `vc-x1-exper1` | `0.78.3` | passes: installs `vc-x1-exper1`, stable untouched (a merge-landing close-out renames in its merge commit) |
-  | `vc-x1` | `0.78.3` | passes: a close-out or stable tree |
-
-  The failing quadrant reads (via `cargo::error` directives: terse fact-then-refusal lines,
-  fenced by empty directives, rather than a build-script panic dump. The remedy is the rename
-  at cycle open):
-
-  ```
-  error: vc-x1@0.78.3-1: 
-  error: vc-x1@0.78.3-1: A suffixed version is used with the stable package name, `vc-x1`
-  error: vc-x1@0.78.3-1: so refusing to build `vc-x1` as it is the stable binary name.
-  error: vc-x1@0.78.3-1: 
-  error: build script logged errors
-  ```
-- The binary banners the name it was invoked as (`argv[0]`), so a renamed manifest, a copy,
-  or a symlink all self-report truthfully, and the version in the banner identifies the exact
-  commit either way.
+- `[validate] full` ends with the dev install, `[install] dev`,
+  `cargo install --path . --locked --root tmp/dev`, so every full validation leaves the rung's
+  binary at `tmp/dev/bin/vc-x1`, gitignored, and the `vc-x1` on the PATH stays the released one.
+- `tmp/dev/bin/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
+  suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
+  or a symlink self-reports truthfully.
+- Before 2026-10-20 a cycle renamed the package to `vc-x1-dev` instead, guarded by `build.rs`
+  (the single-name convention, 0.78.3, design record in `notes/chores/chores-16.md`). The rename
+  and the guard are gone: a build script cannot see an install's root, and the dev root makes
+  the rename unnecessary.
 
 vc-x1 links jj-lib and refuses to run when the installed `jj`'s version disagrees with it
 (override per invocation with `--allow-jj-mismatch`, and see `vc-x1 version`).
@@ -1811,18 +1788,20 @@ cargo test --test cli_init # one integration test crate
 ### Acceptance fixtures
 
 The lookup's tests run over pre-created dual workspaces with documented relationships, one per
-name under the directory the work side's `[test] fixtures` key names, `../vc-x1-fixtures` here.
-A test picks a fixture by name and skips with a notice when the path is absent, so `cargo test`
-passes on a bare clone, and runs the fixture's cases when it is there.
+name under the directory the work side's `[test] fixtures` key names, `.fixtures` here, inside
+the workspace and gitignored. The fixture tests are `#[ignore]`, so `cargo test` passes on a bare
+clone and `cargo test -- --include-ignored`, the full validation, runs them. A test whose fixture
+is absent panics, naming the directory and the command that builds the fixture there, so a missing
+fixture fails rather than passes.
 
 - `dr-1`, `dr` for dual repo, is the simple one-to-one shape: a work repo and its agent repo at
   `.claude`, laid out as `vc-x1 clone` lays a dual workspace out, run through four cycles by
   the scripted agent in `support/fixtures/build-dr-1.py`. Its README lists every relationship
   and `relationships.json` beside it carries them for the tests. Its remotes are
   `github.com/winksaville/vc-x1-fixtures-dr-1-work` and `vc-x1-fixtures-dr-1-agent`.
-- To get it: `git clone` the work remote as `../vc-x1-fixtures/dr-1` and the agent remote as
-  its `.claude`, then `jj git init --colocate` in each. To rebuild it from nothing: the script
-  with `--local`, then `--publish` once the result reads right.
+- To build it: `python3 support/fixtures/build-dr-1.py .fixtures --local`, the command the
+  panic names. `git clone` of the two remotes, then `jj git init --colocate` in each, is the
+  other way. **dr-1 is built in Rust** in `TODO.md` retires the script.
 - A one-work-to-many-agents fixture is a numbered sibling, `dr-2`.
 
 ### Test tempdir location

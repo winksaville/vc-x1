@@ -392,7 +392,7 @@ homes = ["workspace-code"]
 kind = "str-list"
 doc = "Full validation, in order, one invocation per element, run by `vc-x1 validate`"
 used-by = "vc-x1 validate"
-example = ["cargo fmt", "cargo clippy --all-targets -- -D warnings", "cargo test", "cargo install --path . --locked"]
+example = ["cargo fmt", "cargo clippy --all-targets -- -D warnings", "cargo test -- --include-ignored", "cargo install --path . --locked --root tmp/dev"]
 ```
 
 ## validate.fast
@@ -409,12 +409,61 @@ used-by = "vc-x1 validate --fast"
 example = ["cargo test --bins"]
 ```
 
+## install.release
+
+The promotion: the commands that install the artifact from `main` for its consumers, in order,
+each element one invocation whose exit status is checked. `vc-x1 install` runs it at a cycle's
+Land, after checking that the tree is pushed `main` at a bare version. Owned by the work side
+because it installs the artifact.
+
+```toml
+[install.release]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "The promotion, in order, one invocation per element, run by `vc-x1 install` from `main`"
+used-by = "vc-x1 install"
+example = ["cargo install --path . --locked"]
+```
+
+## install.dev
+
+The dev install: the commands that install a cycle's build under its own root, same shape as
+[install.release](#installrelease), so nothing on the PATH is replaced while the cycle runs.
+`vc-x1 install --dev` runs it on demand, and [validate.full](#validatefull) carries the same
+command as its last entry, so every full validation leaves the rung's binary there.
+
+```toml
+[install.dev]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "The dev install, in order, one invocation per element, run by `vc-x1 install --dev`"
+used-by = "vc-x1 install --dev"
+example = ["cargo install --path . --locked --root tmp/dev"]
+```
+
+## install.dev-bin
+
+The binary the dev install leaves, relative to the config file's directory. `vc-x1 run-dev` runs
+it with the arguments given, and warns when its `-V` is not the manifest's version, which is what
+a failed install leaves behind.
+
+```toml
+[install.dev-bin]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The dev install's binary, run by `vc-x1 run-dev`"
+used-by = "vc-x1 run-dev"
+example = "tmp/dev/bin/vc-x1"
+```
+
 ## test.fixtures
 
 The directory holding the acceptance-test fixtures, pre-created workspaces with documented
 relationships, one dual workspace per name, relative to the config file's directory. A test picks a
-fixture by name under it and skips with a notice when the path is absent, so `cargo test` passes on
-a bare clone. Owned by the work side because the tests are the artifact's.
+fixture by name under it and panics when the path is absent, naming the directory and the command
+that builds the fixture there, so a missing fixture fails rather than passes. The fixture tests are
+`#[ignore]`, run by `cargo test -- --include-ignored`, so a bare clone's `cargo test` passes.
+Owned by the work side because the tests are the artifact's.
 
 ```toml
 [test.fixtures]
@@ -422,5 +471,5 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo test`"
 used-by = "cargo test"
-example = "../vc-x1-fixtures"
+example = ".fixtures"
 ```
