@@ -743,7 +743,12 @@ fn resolve_scoped_repos_por_refuses_a_side_and_takes_a_plain_repo() {
         "{err}"
     );
 
-    for d in [&other, &plain] {
+    // A single-repo workspace, a work config with no agent, is a
+    // plain repo for `p`, as `FixturePor` lays one out.
+    let solo = base.join("solo");
+    std::fs::create_dir_all(&solo).unwrap();
+    std::fs::write(solo.join(VC_CONFIG_FILE), WORK_ONLY).unwrap();
+    for d in [&other, &plain, &solo] {
         let repos = resolve_scoped_repos(&RepoScope::Por, Some(d)).unwrap();
         assert_eq!(repos, vec![d.canonicalize().unwrap()], "{d:?}");
     }

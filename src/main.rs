@@ -2,6 +2,7 @@ mod agent_files;
 mod bot_session;
 mod chid;
 mod clone;
+mod commit;
 mod common;
 mod config;
 mod config_cmd;
@@ -490,6 +491,22 @@ pub(crate) enum Commands {
         Non-interactive use: pass both --title and --body plus --yes\n\
         to skip both gates.")]
     Push(push::PushArgs),
+
+    /// Commit the working copies as a rung's pair, with -s and a title and body
+    #[command(long_about = "\
+        Commit the working copies as a rung's pair, one commit per repo of a\n\
+        dual workspace, each stamped with the other's change id, before\n\
+        anything is pushed.\n\n\
+        The pair is what the per-rung flow reviews, description and diff\n\
+        together, by `jj show @-` in either repo. A fix after the review folds\n\
+        into the pair, never a remote rewrite, and `vc-x1 push` publishes what\n\
+        was reviewed.\n\n\
+        -s is required: `b` makes both commits now, `w` the work half with\n\
+        the agent half left to push, `p` commits a plain repo with no\n\
+        trailer, and `a` is refused, an agent commit made first being\n\
+        unpaired. -R is optional and says where. --body is the text, or\n\
+        @PATH to read it from a file.")]
+    Commit(commit::CommitArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -702,6 +719,7 @@ fn main() -> ExitCode {
         Commands::SquashPush(args) => args.dispatch(&mut ctx),
         Commands::Config(args) => args.dispatch(&mut ctx),
         Commands::Push(args) => args.dispatch(&mut ctx),
+        Commands::Commit(args) => args.dispatch(&mut ctx),
     }
 }
 

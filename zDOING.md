@@ -161,8 +161,20 @@ workspace, two full `validate` runs at different versions leave one binary under
   (2026-10-20): `validate-desc -s b` shows the resolver working, with nothing published if the
   resolution is wrong, and it is a check that would be run anyway. The write rung, already
   written, was split by path into the resolver half, which the validate-desc rung builds on, and
-  the `sync` and `squash-push` half, a local commit on `wip-sync-squash-push` that follows as the
-  next rung. The resolver lost its `write` name on the way.
+  the `sync` and `squash-push` half, a local commit on `wip-sync-squash-push` that follows later.
+  The resolver lost its `write` name on the way.
+- `-s w` is the pair in two steps, wink's thought at the commit rung's review (2026-10-20): the
+  refusal of `w` as "unpaired" was wrong, since the agent `@`'s id is known at that moment just as
+  for `b`, so the work commit's trailer is stamped either way and the agent half is only deferred
+  to push. Today's push already completes it, the bugs.md #4 path, and push's rung gains a case
+  rather than a rewrite: fold the journal when the agent `@-` names the work commit, else commit
+  it as the partner. `-s a` alone stays refused, the one direction where unpaired is real.
+- The pair's commands come before the stash, wink's vote after the validate-desc push
+  (2026-10-20), `commit`, then `squash`, then `squash-push`, with `push` moved between the first
+  two on the agent's reason: handed a pair, today's push publishes the work half as-is but commits
+  the agent journal as a second agent commit naming the same work commit, so the first rung made
+  by `commit -s b` cannot go out cleanly until push folds the journal into the pair. With push
+  fixed next, every later rung is dogfooded end to end, squash's own included.
 - The closing is made as the merge at commit time: the merge's tree is the closing's tree, since
   the fork point is an ancestor of the last rung, so only the parents differ from a linear commit,
   and the reviewed merge is what lands. The flag, not the title, decides: a title is transcribed
@@ -175,10 +187,10 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: vc-x1 commit, install, and run-dev opening][0] (done)
 - [feat: an install table in the config][1] (done)
 - [feat: validate-desc takes -s, the first scope][2] (done)
-- [feat: sync and squash-push take -s, required][3]
-- [feat: vc-x1 commit makes the rung's commit pair][4]
+- [feat: vc-x1 commit makes the rung's commit pair][3] (done)
+- [feat: vc-x1 push only publishes the pair][4]
 - [feat: vc-x1 squash folds work into the pair][5]
-- [feat: vc-x1 push only publishes the pair][6]
+- [feat: sync and squash-push take -s, required][6]
 - [feat: vc-x1 commit --closing makes the trapezoid][7]
 - [feat: vc-x1 install promotes main][8]
 - [feat: vc-x1 run-dev runs the dev binary][9]
@@ -238,29 +250,58 @@ where.
   - One impurity of the path split: `common.rs` carries the two messages that now say
     `squash-push -s a`, one rung before squash-push takes it.
 
-##### feat: sync and squash-push take -s, required
-
-The two write commands this cycle changes rather than builds take the resolver: `-s` required,
-`-R` optional, `squash-push` acting on each resolved repo, work before agent, and the README and
-the messages saying `-s a`. Written before the validate-desc rung and held on
-`wip-sync-squash-push` until it.
-
 ##### feat: vc-x1 commit makes the rung's commit pair
 
 A rung becomes a pair of local commits, one per repo, each stamped with the other's change id,
 before any push, so the description review is of the commit itself and the lookup works on an
 unpushed rung.
 
+* The pair's two ids were going to be one known and one predicted.
+  - Both are read from the working copies before either commit is made, since a jj commit keeps
+    `@`'s change id, so the work commit's trailer names the agent `@` and the agent commit's the
+    work `@`, each written once. A test checks the ids survive the commits and that validate-desc
+    passes the pair in both directions with nothing pushed.
+* The pair can be made in two steps.
+  - `-s w` makes the work commit now, its trailer naming the agent `@` all the same, and leaves
+    the agent half to push, which commits the journal as the partner, wink's thought at this
+    rung's review: it works with the installed push today, and the review's own transcript lands
+    in the rung's agent commit. `-s b` makes both now, `-s p` a plain repo's commit, and only
+    `-s a` is refused, an agent commit made first being the one unpaired case. `--title` and
+    `--body` are required and may not be blank, `--body @PATH` reads a file, and the editor path
+    push has is left out until it is asked for.
+* The work `@` is a decision, the agent `@` a journal.
+  - An empty work `@` is nothing to commit and refuses before anything is touched, while the agent
+    `@` is committed as it stands. A failure after the first commit restores both repos from `jj
+    op` snapshots, push's rule inside its mutation window.
+* The resolver called a single-repo workspace a side.
+  - `FixturePor` lays out a work config with no agent, and `-s p` on it was refused as "the work
+    side of the dual workspace". A side is one only when the config declares an agent, so a
+    single-repo workspace is plain for `p`, with the resolver's test covering it.
+* This rung is the first made by its own command.
+  - `tmp/dev/bin/vc-x1 commit -s w` made it, the body from `tmp/body.md`, and the installed
+    `vc-x1 0.85.5 push` published it, committing the agent journal as the partner, since its work
+    half was already there. `-s b` waits for the push rung: handed both commits, today's push
+    makes the journal a second agent commit.
+
+##### feat: vc-x1 push only publishes the pair
+
+Push carries no description: its agent half folds the journal into the pair's agent commit when
+`@-` already names the work commit, else commits the journal as the partner with the work
+commit's description, its work half refuses unsquashed work, and it publishes the pair as
+reviewed. The transcript's push lines keep being recognized by the lookup in both the old form
+and the new.
+
 ##### feat: vc-x1 squash folds work into the pair
 
 A review's fix folds into the pair in both repos at once, refusing a published side, and a
 description fix goes the same way with the trailers restamped.
 
-##### feat: vc-x1 push only publishes the pair
+##### feat: sync and squash-push take -s, required
 
-Push carries no description: it folds the agent journal, refuses unsquashed work, and publishes
-the pair as reviewed. The transcript's push lines keep being recognized by the lookup in both the
-old form and the new.
+The two write commands this cycle changes rather than builds take the resolver: `-s` required,
+`-R` optional, `squash-push` acting on each resolved repo, work before agent, and the README and
+the messages saying `-s a`. Written before the validate-desc rung and held on
+`wip-sync-squash-push` until it.
 
 ##### feat: vc-x1 commit --closing makes the trapezoid
 
@@ -287,10 +328,10 @@ Closing out the cycle.
 [0]: #feat-vc-x1-commit-install-and-run-dev-opening
 [1]: #feat-an-install-table-in-the-config
 [2]: #feat-validate-desc-takes--s-the-first-scope
-[3]: #feat-sync-and-squash-push-take--s-required
-[4]: #feat-vc-x1-commit-makes-the-rungs-commit-pair
+[3]: #feat-vc-x1-commit-makes-the-rungs-commit-pair
+[4]: #feat-vc-x1-push-only-publishes-the-pair
 [5]: #feat-vc-x1-squash-folds-work-into-the-pair
-[6]: #feat-vc-x1-push-only-publishes-the-pair
+[6]: #feat-sync-and-squash-push-take--s-required
 [7]: #feat-vc-x1-commit---closing-makes-the-trapezoid
 [8]: #feat-vc-x1-install-promotes-main
 [9]: #feat-vc-x1-run-dev-runs-the-dev-binary

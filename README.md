@@ -120,6 +120,7 @@ vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
+vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
 vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
@@ -1516,6 +1517,37 @@ Behavior notes:
 See [inline session push + squash-push
 (0.69.0)](./notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690) for design
 details.
+
+### commit
+
+Commit the working copies as a rung's pair: one commit per repo of a dual workspace, each stamped
+with the other's change id, before anything is pushed. The pair is what the per-rung flow reviews,
+description and diff together, by `jj show @-` in either repo, so a fix after the review folds into
+the pair and never rewrites a remote, and `push` publishes what was reviewed. Both change ids are
+known before either commit is made, since a jj commit keeps the working copy's change id, so each
+trailer is written once.
+
+```
+# The work half now, the body from a file, the agent half at push
+vc-x1 commit -s w --title "feat: a rung" --body @tmp/body.md
+
+# Both commits now, from anywhere in the workspace
+vc-x1 commit -s b --title "feat: a rung" --body "The problem.
+
+* A facet.
+  - Its solution."
+
+# A plain repo, the description with no trailer
+vc-x1 commit -s p -R ../other --title "..." --body "..."
+```
+
+`-s` is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
+the agent `@` all the same, and leaves the agent half to `push`, which commits the journal as the
+partner, `p` commits a plain repo, and `a` is refused, an agent commit made first being unpaired.
+`-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
+body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
+must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
+stands. A failure after the first commit restores both repos from `jj op` snapshots.
 
 ### push
 

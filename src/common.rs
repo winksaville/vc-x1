@@ -1198,10 +1198,15 @@ pub fn resolve_scoped_repos(
         RepoScope::Por => {
             if let Some(root) = find_workspace_root_from(&start) {
                 reject_legacy_config(&root)?;
-                let is_bot = configured_bot_dir(&root)?
+                // A side only when the config declares an agent: a
+                // single-repo workspace, a work config with no
+                // `repos.agent`, is a plain repo for `p`.
+                let bot = configured_bot_dir(&root)?;
+                let is_bot = bot
+                    .as_ref()
                     .and_then(|b| b.canonicalize().ok())
                     .is_some_and(|b| b == start);
-                let side = if start == root {
+                let side = if start == root && bot.is_some() {
                     Some(("work", "w"))
                 } else if is_bot {
                     Some(("agent", "a"))
