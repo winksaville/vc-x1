@@ -281,7 +281,7 @@ pub(crate) enum Commands {
         publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
         steps); also verifies main's remote refs are tracked. Exits\n\
         non-zero on any finding and fixes nothing: resolve with\n\
-        `vc-x1 squash-push -R <bot-repo>`."
+        `vc-x1 squash-push -s a`."
     )]
     ValidateBot(validate_bot::ValidateBotArgs),
 

@@ -10,7 +10,7 @@
 //! panicking test still removes its tempdir.
 
 use super::*;
-use crate::options_flags::scope::Side;
+use crate::options_flags::scope::{RepoScope, Scope, Side};
 use crate::test_helpers::{Fixture, cid, jj_ok, test_ctx};
 use std::fs;
 
@@ -91,7 +91,7 @@ fn default_params() -> SyncParams {
         force: false,
         dry_run: false,
         repo: None,
-        scope: None,
+        scope: RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
     }
 }
 

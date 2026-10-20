@@ -131,21 +131,31 @@ fn assert_trb_synced(p: &PeerPush) {
     );
 }
 
-/// Plain `vc-x1 sync` (the invocation a user reaches for): trB
+/// `vc-x1 sync -s b` (the invocation a user reaches for): trB
 /// must end fully synced: main at trA's pushed head, `@`
 /// repositioned in both repos. Encodes the t1A/t1B transcript
 /// (2026-07-02) where the pre-0.67.0 check-mode default left `@-`
 /// on the pre-fetch tip; red until 0.67.0-2 made sync single-mode.
 #[test]
-fn cli_sync_default_moves_main_and_at_after_peer_push() {
+fn cli_sync_both_moves_main_and_at_after_peer_push() {
     let p = setup_peer_push("sync-default-peer-push");
     run_ok(
         p.fx.cmd()
             .current_dir(&p.tr_b)
             .env("PATH", test_path())
-            .arg("sync"),
+            .args(["sync", "-s", "b"]),
     );
     assert_trb_synced(&p);
+}
+
+/// A bare `vc-x1 sync` is refused: `-s` is required, and the
+/// error names it.
+#[test]
+fn cli_sync_without_scope_is_refused() {
+    let fx = CliFixture::new("sync-no-scope");
+    let out = run_err(fx.cmd().current_dir(&fx.base).arg("sync"));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("--scope"), "got: {stderr}");
 }
 
 /// `--check` and `--no-check` are gone: a stale script invocation

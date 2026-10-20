@@ -197,7 +197,7 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: vc-x1 push only publishes the pair][4] (done)
 - [feat: vc-x1 squash folds work into the pair][5] (done)
 - [fix: push runs the agent half, then the work half][6] (done)
-- [feat: sync and squash-push take -s, required][7]
+- [feat: sync and squash-push take -s, required][7] (done)
 - [feat: vc-x1 commit --closing makes the trapezoid][8]
 - [feat: vc-x1 install promotes main][9]
 - [feat: vc-x1 run-dev runs the dev binary][10]
@@ -402,6 +402,27 @@ The two write commands this cycle changes rather than builds take the resolver: 
 `-R` optional, `squash-push` acting on each resolved repo, work before agent, and the README and
 the messages saying `-s a`. Written before the validate-desc rung and held on
 `wip-sync-squash-push` until it.
+
+* Sync and squash-push guessed which repos they acted on.
+  - Both take `-s`, required, and `-R`, optional, by `resolve_scoped_repos`. A bare `sync` was
+    the repo it ran in, and a bare `squash-push` the cwd's repo, so the workspace's other repo was
+    silently left out. `squash-push` acts on each resolved repo, work before agent, so `-s b` is
+    the fold-and-publish of both that asks nothing, and `-s a` is wink's daily
+    `squash-push -R .agent-session/`.
+* The README, three messages, and the support script named `-R <bot-repo>`.
+  - They say `-s a`, the README's sync section states the rule once for every scoped command,
+    and its squash-push examples carry the scope.
+* The stash was written against the resolver's first name.
+  - Brought onto the pushed tip by a rebase and a squash into `@`, with no conflict, its two uses
+    of `resolve_write_repos` renamed, and its bookmark deleted once empty.
+* After Land, wink's `squash-push -R .agent-session/` and the agent-files' `sync --scope=both`
+  are the old forms.
+  - The first fails naming `--scope`, the second still parses, and both are v0.3.1's text to
+    change, its "The scope flags in the rules" item.
+* `-s p` on a side is refused for sync and squash-push too.
+  - On those two it would act as the side's own scope, but on commit, push, and squash it would
+    bypass the pair, so the one rule stays, wink's call at this rung's review (2026-10-20): `p`
+    is a repo with no partner, and the error names the side's scope.
 
 ##### feat: vc-x1 commit --closing makes the trapezoid
 

@@ -796,7 +796,7 @@ Check the agent repo is in its expected at-rest state: `main` matching `main@ori
 refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
 `squash-push` run, which publishes it in the same invocation, so a mismatch means an earlier publish
 was lost. Read-only and cheap (two `jj` lookups, no build steps), and exits non-zero on any
-finding and fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
+finding and fixes nothing. Resolve with `vc-x1 squash-push -s a`.
 
 ```
 # Check ./.claude (run from the project root)
@@ -1353,34 +1353,33 @@ revert would derive its target from the op log and refuse when unrelated operati
 between. Until such a design exists, `jj op log` + `jj op restore` is the recovery.
 
 ```
-vc-x1 sync                            # the repo in the current directory
-vc-x1 sync --dry-run                  # look only: ask the remote, report, change nothing
-vc-x1 sync --force                    # sync a repo sync would hold back, rebasing as needed
-vc-x1 sync --scope=work               # only the work repo
-vc-x1 sync --scope=agent              # only the agent repo
-vc-x1 sync --scope=both               # both repos of a dual workspace
-vc-x1 sync -R ../other                # sync ../other as a single repo
-vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
+vc-x1 sync -s b                       # both repos of the dual workspace the cwd is in
+vc-x1 sync -s b --dry-run             # look only: ask the remote, report, change nothing
+vc-x1 sync -s b --force               # sync a repo sync would hold back, rebasing as needed
+vc-x1 sync -s w                       # only the work repo
+vc-x1 sync -s a                       # only the agent repo
+vc-x1 sync -s p -R ../other           # ../other, a plain repo with no pair
+vc-x1 sync -s b -R ../other           # the dual workspace ../other is in
 ```
 
-**Repo set resolution.** `-R` and `--scope` compose:
+**Repo set resolution.** `-s` says which repos and is required, `-R` says where and is optional,
+the rule every write command follows, so a sync never guesses:
 
-1. Neither: `.`, the one repo in the current directory, as `chid`, `desc`, `list`, and `show` take
-   no flags. There is no walk up, so from a subdirectory of a repo `sync` fails with "There is no
-   Jujutsu repo in ." and changes nothing.
-2. `-R PATH` alone: sync just the repo at `PATH`.
-3. `--scope=work|bot|work,bot` alone: workspace roles, resolved via the discovered workspace root's
-   `.vc-config.md` (`work` -> root, `agent` -> the root-joined `agent` path).
-4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the workspace root.
+1. `-s w|a|b`: the sides of a dual workspace, resolved from the workspace `-R`, or the cwd, is in,
+   by its root or either repo, through the root's `.vc-config.md` (`w` -> root, `a` -> the
+   root-joined `agent` path, `b` -> both, work first). Outside a workspace it is an error naming
+   `-s p`.
+2. `-s p`: the repo `-R`, or the cwd, names, as itself. On either side of a dual workspace it is
+   an error naming the side and its scope, since a plain operation on a side is half a workspace.
+3. No `-s`: an error naming the four.
 
-A named scope is cwd-portable: from the agent repo's directory, `vc-x1 sync --scope=both` walks up
-to the workspace root and resolves both repos by absolute path. A bare `vc-x1 sync` there syncs the
-agent repo alone.
+A named scope is cwd-portable: from the agent repo's directory, `vc-x1 sync -s b` walks up to the
+workspace root and resolves both repos by absolute path.
 
 | Flag | Description |
 |------|-------------|
-| `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
-| `--scope <SCOPE>` | `work|bot|work,bot`: workspace roles to sync. Composes with `-R` |
+| `-s, --scope <SCOPE>` | Required: `w|work`, `a|agent`, `b|both` of a dual workspace, or `p|por`, a plain repo |
+| `-R, --repo <PATH>` | Where: a path in the workspace, or the plain repo [default: the cwd] |
 | `-q, --quiet` | Suppress all output, exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
@@ -1433,18 +1432,25 @@ acts without asking, which is what `squash-push.yes` defaults to, and `--ask` tu
 prompt on. The details of each are in the behavior notes below.
 
 ```
-# In .claude: squash @ -> @-, advance main, push
-vc-x1 squash-push -R .claude
+# The agent repo: squash @ -> @-, advance main, push, from anywhere in the workspace
+vc-x1 squash-push -s a
 
-# Bare invocation: same, in the current directory's repo
-vc-x1 squash-push
+# Both repos, work first: the fold-and-publish that asks nothing
+vc-x1 squash-push -s b
 
-# Name the bookmark explicitly, with a custom squash pair
-vc-x1 squash-push feature -R . --squash @,@--
+# A plain repo with no pair, the current directory's
+vc-x1 squash-push -s p
+
+# Name the bookmark explicitly, with a custom squash pair, on the work repo
+vc-x1 squash-push feature -s w --squash @,@--
 
 # Confirm before acting, overriding a configured squash-push.yes
-vc-x1 squash-push -R .claude --ask
+vc-x1 squash-push -s a --ask
 ```
+
+`-s` is required and `-R` optional, as for every write command: `-s` says which repos, `-R` says
+where, a path anywhere in the workspace for `w|a|b` or the plain repo itself for `p`, and the cwd
+without it. See [Repo set resolution](#sync) under `sync`.
 
 ```
 .claude: dirty: @ has changes. squash-push? [y/N] y
@@ -1457,7 +1463,7 @@ squash-push: done
 
 ```
 # Nothing to do: no squash, no push, nothing touched
-vc-x1 squash-push -R .claude
+vc-x1 squash-push -s a
 .claude: clean
 ```
 
@@ -1657,7 +1663,7 @@ jj git push -R "$work"
 
 # 2. bot repo: trailing writes -> squash-push (fold into @-, push)
 echo notes > "$bot/notes.md"
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # 3. cleanup when done (init also created a symlink under
 #    ~/.claude/projects/ pointing at the fixture, remove it too)
@@ -1671,7 +1677,7 @@ writes into that commit just before pushing, so one atomic state goes upstream.
 
 The run is synchronous, no background child, so what you see is the whole flow:
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 squash-push: squashing @ -> @-...
 squash-push: setting bookmark 'main' to @-...
 squash-push: pushing 'main' to origin...
@@ -1704,12 +1710,12 @@ echo b >> "$bot/notes.md"
 jj describe -R "$bot" -m 'new journal
 
 ochid: /abc123abc123'
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # example 2, normal case: clear the description; the squash
 # proceeds and the run pushes
 jj describe -R "$bot" -m ''
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # cleanup (also remove the fixture's ~/.claude/projects symlink)
 rm -rf "$parent"
@@ -1720,7 +1726,7 @@ Output captured from a real run, and these transcripts are regenerated with
 exit 1:
 
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 error: refusing squash @ -> @-: the squash would drop ochid: trailers
 the destination's message lacks:
   /abc123abc123
@@ -1731,7 +1737,7 @@ the source's description, then retry
 Example 2 with the description cleared squashes and pushes, exit 0:
 
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 squash-push: squashing @ -> @-...
 squash-push: setting bookmark 'main' to @-...
 squash-push: pushing 'main' to origin...
