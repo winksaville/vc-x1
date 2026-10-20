@@ -275,9 +275,8 @@ fn push_needs_the_bookmark_named_when_the_line_is_ambiguous() {
 /// Build a `Run` carrying the ids a completed push would have.
 fn completion_run(work_chid: String, agent_chid: String) -> Run {
     Run {
-        bookmark: "main".to_string(),
-        work_chid,
-        agent: Some((AgentPlan::Fold, agent_chid)),
+        work: Some(("main".to_string(), work_chid)),
+        partner: Some(agent_chid),
     }
 }
 
@@ -288,7 +287,7 @@ fn completion_sanity_pass() {
     make_pair(&fx, "feat: pass", true);
     push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
     let run = completion_run(chid(&fx.work, "main"), chid(&fx.bot, "main"));
-    verify_completion(&fx.work, &both(), &run).expect("passes");
+    verify_completion(&pair(&fx), &run).expect("passes");
 }
 
 /// Each check fails on its own discrepancy: the work bookmark
@@ -302,7 +301,7 @@ fn completion_sanity_fails_on_each_discrepancy() {
     let agent_chid = chid(&fx.bot, "main");
 
     let run = completion_run("zzzzzzzzzzzz".to_string(), agent_chid.clone());
-    let msg = verify_completion(&fx.work, &both(), &run)
+    let msg = verify_completion(&pair(&fx), &run)
         .expect_err("work mismatch")
         .to_string();
     assert!(
@@ -311,7 +310,7 @@ fn completion_sanity_fails_on_each_discrepancy() {
     );
 
     let run = completion_run(work_chid.clone(), "zzzzzzzzzzzz".to_string());
-    let msg = verify_completion(&fx.work, &both(), &run)
+    let msg = verify_completion(&pair(&fx), &run)
         .expect_err("agent mismatch")
         .to_string();
     assert!(
@@ -321,7 +320,7 @@ fn completion_sanity_fails_on_each_discrepancy() {
 
     fs::write(fx.work.join("dirty.txt"), "uncommitted").expect("write dirty");
     let run = completion_run(work_chid, agent_chid);
-    let msg = verify_completion(&fx.work, &both(), &run)
+    let msg = verify_completion(&pair(&fx), &run)
         .expect_err("dirty")
         .to_string();
     assert!(msg.contains("uncommitted changes"), "{msg}");
@@ -379,6 +378,48 @@ fn push_halves_publish_one_side_each() {
     .expect("agent half");
     assert_eq!(chid(&fx.bot, "main"), agent_at);
     assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
+}
+
+/// The halves in the order the pair is completed: `-s a` after
+/// `commit -s w` commits the journal as the partner and publishes
+/// `main`, mirroring the commit before it, and `-s w` then publishes
+/// the work commit, its trailer already naming the partner.
+#[test]
+fn push_agent_half_then_work_half() {
+    let fx = Fixture::new("push-agent-first");
+    let (work_at, agent_at) = make_pair(&fx, "feat: agent first", false);
+    let work_main_before = cid(&fx.work, "main");
+    let work_desc_before = description(&fx.work, "@-");
+
+    push_in(
+        &mut test_ctx(),
+        &pair(&fx),
+        &Scope(vec![Side::Bot]),
+        &test_params(),
+    )
+    .expect("agent half");
+    assert_eq!(chid(&fx.bot, "main"), agent_at);
+    assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
+    assert_eq!(
+        cid(&fx.work, "main"),
+        work_main_before,
+        "the work repo is untouched"
+    );
+
+    push_in(
+        &mut test_ctx(),
+        &pair(&fx),
+        &Scope(vec![Side::Work]),
+        &test_params(),
+    )
+    .expect("work half");
+    assert_eq!(chid(&fx.work, "main"), work_at);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert_eq!(
+        description(&fx.work, "main"),
+        work_desc_before,
+        "no restamp: the trailer already names the partner"
+    );
 }
 
 /// A dry run plans and prints, and moves nothing.

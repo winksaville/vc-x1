@@ -118,6 +118,43 @@ pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::e
     })
 }
 
+/// One repo's `jj op` id, captured before a half's first mutation,
+/// to restore that repo alone if a stage fails before its remote
+/// leg. A half restores only the repo it touched, since the other
+/// may have moved on, a session journal writing to it.
+#[derive(Debug)]
+pub struct Snapshot {
+    repo: PathBuf,
+    op: String,
+}
+
+impl Snapshot {
+    /// Capture the repo's current op id.
+    pub fn take(repo: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
+            repo: repo.to_path_buf(),
+            op: current_op_id(repo)?,
+        })
+    }
+
+    /// Restore the repo to the snapshot, best-effort, as
+    /// [`Snapshots::restore`] does for both.
+    pub fn restore(&self, who: &str, original: &dyn std::error::Error) {
+        warn!(
+            "{who}: rolling back '{}' after: {original}",
+            self.repo.display()
+        );
+        match op_restore(&self.repo, &self.op) {
+            Ok(()) => info!(
+                "{who}: restored '{}' to op {}",
+                self.repo.display(),
+                self.op
+            ),
+            Err(e) => warn!("{who}: restore of '{}' failed: {e}", self.repo.display()),
+        }
+    }
+}
+
 /// `jj op` ids of both repos, captured immediately before a
 /// command's first mutation, to restore both from if a stage fails
 /// before anything reaches a remote.

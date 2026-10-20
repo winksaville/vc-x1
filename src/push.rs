@@ -4,35 +4,32 @@
 //!
 //! `vc-x1 commit` makes the pair, the work commit and the agent
 //! commit, each naming the other, or the work half alone with its
-//! trailer naming the agent `@`. Push then:
+//! trailer naming the agent `@`. Each trailer is fixed before push
+//! runs, so the two halves are independent, and `push -s b` is
+//! `push -s a` then `push -s w`, the order the pair is completed in:
 //!
-//! - refuses a work `@` that is not empty: unsquashed work is a fix
-//!   to fold or the next rung, the user's call, never push's;
-//! - refuses a work `@-` with no `ochid:` trailer: not a pair's
-//!   commit, so it is made with `commit` first;
-//! - completes the agent half, by the state it finds: the agent
-//!   `@-` already names the work commit (`commit -s b`), so the
-//!   journal in `@` is folded into it, else the agent `@` is the
-//!   change the work commit names (`commit -s w`), so the journal
-//!   is committed as the partner with the work commit's own
-//!   description, else the agent repo changed since the commit,
-//!   and the unpublished work commit is restamped with the agent
-//!   `@`'s id, said out loud, and the journal committed;
-//! - advances the work bookmark, the one `@-` sits on or the one
-//!   named, and the agent `main`, pushes the bookmark, and
-//!   squash-pushes `main`.
+//! - the agent half completes the agent commit by the state it
+//!   finds, folding the journal into a committed partner (`commit
+//!   -s b`), or committing it as the partner with the work commit's
+//!   own text when the agent `@` is the change the work commit names
+//!   (`commit -s w`) or the agent repo changed since, then sets and
+//!   pushes `main`;
+//! - the work half checks its trailer names the partner, restamping
+//!   the unpublished work commit when it does not, said out loud,
+//!   then sets and pushes the bookmark `@-` sits on, or the one
+//!   named.
 //!
-//! The run is a straight line with no saved state, and rerunning is
-//! always safe: every stage checks its precondition and no-ops when
-//! its work is done. Failures before the remote is reached restore
-//! both repos from `jj op` snapshots taken moments earlier. From
-//! `push-work` on the remote boundary is crossed, and putting the
-//! repos right is the user's call.
+//! Before either: a work `@` that is not empty is refused, being a
+//! fix to fold or the next rung, the user's call, and so is a work
+//! `@-` with no `ochid:` trailer, which is not a pair's commit. Each
+//! half restores the repo it touched from a `jj op` snapshot when a
+//! stage fails before its own push, and from a push on the remote
+//! boundary is crossed. Rerunning is always safe: a half whose work
+//! is done finds nothing to do.
 //!
-//! `-s` is required: `b` publishes the pair, `w` the work half only,
-//! `a` the agent half only, the by-hand remainder of a run that
-//! stopped after `push-work`, and `p` a plain repo's `@-` on its
-//! bookmark, no trailer asked for.
+//! `-s` is required: `b` both halves, `a` the agent half, `w` the
+//! work half, and `p` a plain repo's `@-` on its bookmark, no
+//! trailer asked for.
 
 use std::path::{Path, PathBuf};
 
@@ -41,11 +38,11 @@ use log::{debug, info, warn};
 
 use crate::common::prompt;
 use crate::context::Context;
-use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc, with_trailer};
+use crate::desc_helpers::with_trailer;
 use crate::jj;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, parse_repo_scope};
 use crate::options_flags::squash::SquashSpec;
-use crate::pair::{Pair, Partner, Snapshots, resolve_pair};
+use crate::pair::{Pair, Partner, Snapshot, WorkCommit, is_published, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
 /// Bookmark the agent repo always advances and pushes. The agent
@@ -108,28 +105,13 @@ pub struct PushParams {
     pub yes: bool,
 }
 
-/// What the agent half has to do, decided from the state the pair
-/// is found in before anything is touched.
-#[derive(Debug, PartialEq, Eq)]
-enum AgentPlan {
-    /// The agent `@-` names the work commit: fold the journal into it.
-    Fold,
-    /// The agent `@` is the change the work commit names, or the work
-    /// commit is restamped to name it: commit the journal as the
-    /// partner with the work commit's description.
-    Commit,
-}
-
-/// What the stages consume: the bookmark, the work commit's id,
-/// and the agent half's plan with the id the agent `main` ends at.
-/// Lives for one run in one process.
+/// What a run published, for the completion check: the work
+/// bookmark with the work commit's change id, and the partner the
+/// agent `main` ends at, each `None` when the scope left its half
+/// out.
 struct Run {
-    bookmark: String,
-    /// The work `@-`'s change id, the commit being published.
-    work_chid: String,
-    /// The agent side: its plan and the change id `main` ends at,
-    /// `None` when the scope leaves the agent half out.
-    agent: Option<(AgentPlan, String)>,
+    work: Option<(String, String)>,
+    partner: Option<String>,
 }
 
 impl From<&PushArgs> for PushParams {
@@ -190,57 +172,65 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
 /// sides to publish. CLI dispatch resolves these from `-s` and `-R`,
 /// and integration tests pass a fixture's pair.
 ///
-/// The stages run in a straight line. The mutation window, the
-/// agent commit or restamp and both bookmark sets, is wrapped so a
-/// failure inside it restores both repos from snapshots taken just
-/// before it. After `push-work` the remote boundary is crossed and a
-/// failure simply propagates.
+/// The checks every half needs run first, then the agent half, then
+/// the work half, each restoring its own repo on a local failure.
 pub(crate) fn push_in(
     ctx: &mut Context,
     pair: &Pair,
     sides: &Scope,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let workspace_root = pair.work.as_path();
     if params.dry_run {
         info!("push: DRY-RUN: no side effects (no commits, no pushes)");
     }
-    let run = stage_plan(workspace_root, sides, params)?;
-    step_gate(params, "plan", "commit-agent")?;
-
-    // Snapshot both repos before the first mutation. Dry-runs
-    // mutate nothing, so they need no rollback target.
-    let snapshots = if params.dry_run {
-        None
+    // The dual-mode preflight: both repos' recorded topology agrees.
+    crate::common::require_bot_dir(&pair.work)?;
+    if sides.has_work() && !jj::is_empty(&pair.work, "@")? {
+        return Err(
+            "push: the work repo's @ holds unsquashed work. Fold it into the pair with \
+                    `vc-x1 squash -s b`, or leave it as the next rung and push after \
+                    `vc-x1 commit`"
+                .into(),
+        );
+    }
+    let Some(work) = crate::pair::work_commit(pair)? else {
+        return Err(
+            "push: the work repo's @- carries no `ochid:` trailer, so it is not a \
+                    pair's commit. Make the pair with `vc-x1 commit -s b` or `-s w` first"
+                .into(),
+        );
+    };
+    // The bookmark first, so a run whose work half cannot publish
+    // stops before the agent half publishes anything.
+    let bookmark = if sides.has_work() {
+        Some(resolve_bookmark(&pair.work, params)?)
     } else {
-        Some(Snapshots::take(pair)?)
+        None
     };
 
-    if let Err(e) = mutate(ctx, workspace_root, sides, &run, params) {
-        if let Some(snapshots) = &snapshots {
-            snapshots.restore(pair, "push", e.as_ref());
+    let partner = if sides.has_bot() {
+        Some(agent_half(ctx, pair, &work, params)?)
+    } else {
+        None
+    };
+    if let Some(bookmark) = &bookmark {
+        if sides.has_bot() {
+            step_gate(params, "the agent half", "the work half")?;
         }
-        return Err(e);
-    }
-
-    if sides.has_work() {
-        stage_push_work(ctx, workspace_root, &run.bookmark, params)?;
-    }
-    if sides.has_bot() {
-        step_gate(params, "push-work", "squash-push-agent")?;
-        stage_squash_push_bot(ctx, workspace_root, params)?;
+        work_half(ctx, pair, &work, bookmark, params)?;
     }
 
     if params.dry_run {
         info!("push: DRY-RUN complete: no changes written");
         return Ok(());
     }
-
-    // Honest completion: confirm the world matches what the stages
-    // claim to have done. Warning-only: work has crossed the remote
-    // boundary by now, so rollback isn't sound and the user needs to
-    // investigate.
-    match verify_completion(workspace_root, sides, &run) {
+    // Honest completion, warning-only: the remote boundary is crossed
+    // by now, so the user investigates rather than a rollback.
+    let run = Run {
+        work: bookmark.map(|b| (b, work.chid.clone())),
+        partner,
+    };
+    match verify_completion(pair, &run) {
         Ok(()) => info!("push: completed all stages (verified)"),
         Err(e) => {
             warn!("push: completed stages but post-completion verification failed:");
@@ -251,38 +241,13 @@ pub(crate) fn push_in(
     Ok(())
 }
 
-/// Plan: read the pair's state and decide every stage's input before
-/// anything is touched. The refusals live here, so a run that cannot
-/// complete stops with both repos as they were.
-fn stage_plan(
+/// The work bookmark: the one named, which must be among the nearest
+/// bookmarks below the work `@-`, else the line's own.
+fn resolve_bookmark(
     root: &Path,
-    sides: &Scope,
     params: &PushParams,
-) -> Result<Run, Box<dyn std::error::Error>> {
-    let bot = bot_path(root)?;
-    // The work `@` is a decision: a fix to fold, or the next rung.
-    if !jj::is_empty(root, "@")? {
-        return Err(
-            "push: the work repo's @ holds unsquashed work. Fold it into the pair with \
-                    `vc-x1 squash -s b`, or leave it as the next rung and push after \
-                    `vc-x1 commit`"
-                .into(),
-        );
-    }
-    let pair = Pair {
-        work: root.to_path_buf(),
-        agent: bot.clone(),
-    };
-    let Some(work) = crate::pair::work_commit(&pair)? else {
-        return Err(
-            "push: the work repo's @- carries no `ochid:` trailer, so it is not a pair's \
-             commit. Make the pair with `vc-x1 commit -s b` or `-s w` first"
-                .into(),
-        );
-    };
-    let work_chid = work.chid.clone();
-
-    let bookmark = match &params.bookmark {
+) -> Result<String, Box<dyn std::error::Error>> {
+    match &params.bookmark {
         Some(b) => {
             if !jj::local_bookmark_exists(root, b)? {
                 return Err(format!("push: bookmark '{b}' does not exist in the work repo").into());
@@ -296,115 +261,152 @@ fn stage_plan(
                 )
                 .into());
             }
-            b.clone()
+            Ok(b.clone())
         }
-        None => crate::squash_push::current_bookmark(root, "@-")?,
-    };
-
-    // One plan line: what is published, and what the agent half does
-    // and why, the restamp a warning.
-    let publish = format!("push plan: publish {work_chid} on {bookmark}");
-    let agent = if sides.has_bot() {
-        match crate::pair::partner(&pair, &work)? {
-            Partner::Committed(partner) => {
-                info!(
-                    "{publish}, and fold the journal into the partner at @- {partner}, which names \
-                     the work commit"
-                );
-                Some((AgentPlan::Fold, partner))
-            }
-            Partner::Pending(agent_at) => {
-                info!(
-                    "{publish}, and commit the agent @ {agent_at} as the partner, the change the \
-                     work commit names"
-                );
-                Some((AgentPlan::Commit, agent_at))
-            }
-            Partner::Changed { stamped, agent_at } => {
-                if jj::matches(root, &format!("@- & ::{bookmark}@origin"))? {
-                    return Err("push: the work @- is already published, so it cannot be \
-                                restamped. Put the agent repo back at the change it names, or \
-                                make a new pair"
-                        .into());
-                }
-                warn!(
-                    "{publish}, and restamp the work commit to name the agent @ {agent_at}: it \
-                     names {stamped}, which is neither the agent @ nor the partner at @-, so the \
-                     agent repo changed since the commit"
-                );
-                Some((AgentPlan::Commit, agent_at))
-            }
-        }
-    } else {
-        info!("{publish}, the agent half left out by the scope");
-        None
-    };
-
-    Ok(Run {
-        bookmark,
-        work_chid,
-        agent,
-    })
+        None => crate::squash_push::current_bookmark(root, "@-"),
+    }
 }
 
-/// The rollback-eligible window: everything that mutates a repo
-/// before anything reaches a remote.
-fn mutate(
+/// The agent half: complete the partner by the state found, then set
+/// and push `main`. Returns the partner's change id, where `main`
+/// ends.
+fn agent_half(
     ctx: &mut Context,
-    root: &Path,
-    sides: &Scope,
-    run: &Run,
+    pair: &Pair,
+    work: &WorkCommit,
     params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some((plan, agent_chid)) = &run.agent {
-        stage_commit_agent(ctx, root, plan, agent_chid, run, params)?;
-        step_gate(params, "commit-agent", "bookmark-set")?;
-    }
-    stage_bookmark_set(ctx, root, sides, &run.bookmark, params)?;
-    step_gate(params, "bookmark-set", "push-work")?;
-    Ok(())
-}
-
-/// Commit the agent journal as the partner when the plan says so,
-/// restamping the work commit first when its trailer names another
-/// change. A `Fold` plan has nothing to do here: the squash-push
-/// stage folds the journal.
-fn stage_commit_agent(
-    ctx: &mut Context,
-    root: &Path,
-    plan: &AgentPlan,
-    agent_chid: &str,
-    run: &Run,
-    params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if *plan == AgentPlan::Fold {
-        info!("push commit-agent: skip (the journal folds into the partner at squash-push)");
-        return Ok(());
-    }
-    let bot = bot_path(root)?;
-    let bot_arg = bot.to_string_lossy();
-    let work_desc = jj::desc_of(root, "@-")?;
-    let text = without_trailers(&work_desc);
-    let agent_desc = with_trailer(&text, &format!("/{}", run.work_chid));
-    let stamped = extract_ochid_from_desc(&work_desc)
-        .map(|o| extract_bare_id(&o).to_string())
-        .unwrap_or_default();
-    let restamp = stamped != agent_chid;
+) -> Result<String, Box<dyn std::error::Error>> {
+    // The intent lines carry the dry-run tag too, or they read as done.
+    let dry = if params.dry_run { "[dry-run] " } else { "" };
+    let (partner, commit_journal) = match crate::pair::partner(pair, work)? {
+        Partner::Committed(partner) => {
+            info!(
+                "push agent: {dry}fold the journal into the partner at @- {partner}, which names the \
+                 work commit, and publish {BOT_BOOKMARK}"
+            );
+            (partner, false)
+        }
+        Partner::Pending(agent_at) => {
+            info!(
+                "push agent: {dry}commit the agent @ {agent_at} as the partner, the change the work \
+                 commit names, and publish {BOT_BOOKMARK}"
+            );
+            (agent_at, true)
+        }
+        Partner::Changed { stamped, agent_at } => {
+            // The work half will restamp, which a published work
+            // commit cannot take, so stop before anything moves.
+            if is_published(&pair.work, "@-")? {
+                return Err(
+                    "push: the work @- is published and names an agent change that is \
+                            no longer the partner, so it cannot be restamped. Put the agent repo \
+                            back at the change it names, or make a new pair"
+                        .into(),
+                );
+            }
+            warn!(
+                "push agent: {dry}the work commit names {stamped}, which is neither the agent @ nor \
+                 the partner at @-, so the agent repo changed since the commit. Commit the agent \
+                 @ {agent_at} as the partner and publish {BOT_BOOKMARK}, and the work half \
+                 restamps the work commit to name it"
+            );
+            (agent_at, true)
+        }
+    };
+    let agent_arg = pair.agent.to_string_lossy();
     if params.dry_run {
-        if restamp {
-            info!("push commit-agent: [dry-run] would restamp the work @- to name {agent_chid}");
+        if commit_journal {
+            info!("push agent: [dry-run] would run jj commit -R {agent_arg} -m <work text+ochid>");
         }
-        info!("push commit-agent: [dry-run] would run jj commit -R {bot_arg} -m <work desc+ochid>");
+        info!("push agent: [dry-run] would squash @ -> @- and push {BOT_BOOKMARK} -R {agent_arg}");
+        return Ok(partner);
+    }
+    if commit_journal {
+        let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
+        let desc = with_trailer(&text, &format!("/{}", work.chid));
+        let snapshot = Snapshot::take(&pair.agent)?;
+        info!("push agent: commit -R {agent_arg}");
+        if let Err(e) = ctx.session(&pair.agent)?.commit(&desc) {
+            snapshot.restore("push agent", e.as_ref());
+            return Err(e);
+        }
+        step_gate(params, "the agent commit", "the agent publish")?;
+    }
+    info!("push agent: squash @ -> @- + push {BOT_BOOKMARK} -R {agent_arg}");
+    let sp = crate::squash_push::SquashPushParams {
+        repo: pair.agent.clone(),
+        squash: SquashSpec {
+            source: "@".to_string(),
+            target: "@-".to_string(),
+        },
+        bookmark: BOT_BOOKMARK.to_string(),
+        // Mid-push the mismatch is the normal state, since this stage
+        // is what publishes main: don't report a lost publish.
+        at_rest: false,
+        yes: true,
+    };
+    crate::squash_push::squash_push(ctx, &sp)?;
+    Ok(partner)
+}
+
+/// The work half: restamp the unpublished work commit when its
+/// trailer does not name the partner, then set and push the bookmark.
+fn work_half(
+    ctx: &mut Context,
+    pair: &Pair,
+    work: &WorkCommit,
+    bookmark: &str,
+    params: &PushParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let target = match crate::pair::partner(pair, work)? {
+        Partner::Committed(partner) => partner,
+        Partner::Pending(agent_at) | Partner::Changed { agent_at, .. } => agent_at,
+    };
+    let restamp = work.stamped != target;
+    let dry = if params.dry_run { "[dry-run] " } else { "" };
+    if restamp {
+        if is_published(&pair.work, "@-")? {
+            return Err(format!(
+                "push: the work @- is published and names {}, not the partner {target}, so it \
+                 cannot be restamped",
+                work.stamped
+            )
+            .into());
+        }
+        warn!(
+            "push work: {dry}publish {} on {bookmark}, restamping its trailer to name the partner {target}",
+            work.chid
+        );
+    } else {
+        info!("push work: {dry}publish {} on {bookmark}", work.chid);
+    }
+    let work_arg = pair.work.to_string_lossy();
+    if params.dry_run {
+        info!("push work: [dry-run] would run jj bookmark set {bookmark} -r @- -R {work_arg}");
+        info!("push work: [dry-run] would run jj git push --bookmark {bookmark} -R {work_arg}");
         return Ok(());
     }
-    if restamp {
-        let prefix = crate::desc_helpers::ochid_prefix_for(&bot)?;
-        let restamped = with_trailer(&text, &format!("{prefix}{agent_chid}"));
-        info!("push commit-agent: restamp work @- to name {agent_chid}");
-        ctx.session(root)?.describe("@-", &restamped)?;
+    let snapshot = Snapshot::take(&pair.work)?;
+    let local = (|| -> Result<(), Box<dyn std::error::Error>> {
+        if restamp {
+            let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
+            let prefix = crate::desc_helpers::ochid_prefix_for(&pair.agent)?;
+            info!("push work: restamp @- to name {target}");
+            ctx.session(&pair.work)?
+                .describe("@-", &with_trailer(&text, &format!("{prefix}{target}")))?;
+        }
+        info!("push work: bookmark set {bookmark} -r @- -R {work_arg}");
+        ctx.session(&pair.work)?.bookmark_set(bookmark, "@-")?;
+        Ok(())
+    })();
+    if let Err(e) = local {
+        snapshot.restore("push work", e.as_ref());
+        return Err(e);
     }
-    info!("push commit-agent: commit -R {bot_arg}");
-    ctx.session(&bot)?.commit(&agent_desc)?;
+    step_gate(params, "the work bookmark", "the work push")?;
+    crate::common::verify_tracking(&pair.work, bookmark)?;
+    info!("push work: git push --bookmark {bookmark} -R {work_arg}");
+    ctx.session(&pair.work)?.git_push_bookmark(bookmark)?;
     Ok(())
 }
 
@@ -417,91 +419,6 @@ fn without_trailers(desc: &str) -> String {
         .join("\n")
         .trim_end()
         .to_string()
-}
-
-/// Advance each scoped repo's bookmark to its `@-`: the work repo
-/// advances `bookmark`, the agent repo always `main`.
-fn stage_bookmark_set(
-    ctx: &mut Context,
-    root: &Path,
-    sides: &Scope,
-    bookmark: &str,
-    params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let work_arg = root.to_string_lossy();
-    let bot = bot_path(root)?;
-    let bot_arg = bot.to_string_lossy();
-    if params.dry_run {
-        info!(
-            "push bookmark-set: [dry-run] would run jj bookmark set {bookmark} -r @- -R {work_arg} \
-             / {BOT_BOOKMARK} -r @- -R {bot_arg}"
-        );
-        return Ok(());
-    }
-    if sides.has_work() {
-        info!("push bookmark-set: bookmark set {bookmark} -r @- -R {work_arg}");
-        ctx.session(root)?.bookmark_set(bookmark, "@-")?;
-    }
-    if sides.has_bot() {
-        info!("push bookmark-set: bookmark set {BOT_BOOKMARK} -r @- -R {bot_arg}");
-        ctx.session(&bot)?.bookmark_set(BOT_BOOKMARK, "@-")?;
-    }
-    Ok(())
-}
-
-/// Push the work repo's bookmark to origin, after checking every
-/// remote ref for it is tracked. Rerunning is safe: `jj git push` on
-/// an already-published bookmark reports nothing to do.
-fn stage_push_work(
-    ctx: &mut Context,
-    root: &Path,
-    bookmark: &str,
-    params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let work_arg = root.to_string_lossy();
-    if params.dry_run {
-        info!(
-            "push push-work: [dry-run] would run jj git push --bookmark {bookmark} -R {work_arg}"
-        );
-        return Ok(());
-    }
-    crate::common::verify_tracking(root, bookmark)?;
-    info!("push push-work: git push --bookmark {bookmark} -R {work_arg}");
-    ctx.session(root)?.git_push_bookmark(bookmark)?;
-    Ok(())
-}
-
-/// Squash-push the agent repo, always `main`: the journal in `@`
-/// folds into `@-`, the partner, and `main` is pushed, via
-/// `squash_push::squash_push` so the ochid-drop guard applies.
-fn stage_squash_push_bot(
-    ctx: &mut Context,
-    root: &Path,
-    params: &PushParams,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let bot = bot_path(root)?;
-    let bot_arg = bot.to_string_lossy();
-    if params.dry_run {
-        info!(
-            "push squash-push-agent: [dry-run] would squash @ -> @- and push {BOT_BOOKMARK} in {bot_arg}"
-        );
-        return Ok(());
-    }
-    info!("push squash-push-agent: squash @ -> @- + push {BOT_BOOKMARK} -R {bot_arg}");
-    let sp = crate::squash_push::SquashPushParams {
-        repo: bot.clone(),
-        squash: SquashSpec {
-            source: "@".to_string(),
-            target: "@-".to_string(),
-        },
-        bookmark: BOT_BOOKMARK.to_string(),
-        // Mid-push the mismatch is the normal state (bookmark-set
-        // just moved main and this stage publishes it): don't report
-        // a lost publish.
-        at_rest: false,
-        yes: true,
-    };
-    crate::squash_push::squash_push(ctx, &sp)
 }
 
 /// `--step`: pause between stages so the user can inspect the repos
@@ -534,46 +451,34 @@ fn step_gate(
     Ok(())
 }
 
-/// Full path of the agent repo for a workspace root, resolved from
-/// the config's `repos.agent`. Also the dual-mode entry preflight:
-/// resolution verifies both repos' recorded topology agrees.
-fn bot_path(workspace_root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    crate::common::require_bot_dir(workspace_root)
-}
-
-/// Verify the world matches what the stages claim: the work bookmark
-/// at the run's work commit, the work `@` empty, and the agent `main`
-/// at the partner. The agent `@` may hold new session writes that
-/// landed after the squash, so it is not checked.
-fn verify_completion(
-    root: &Path,
-    sides: &Scope,
-    run: &Run,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if sides.has_work() {
-        let actual = jj::chid_of(root, &run.bookmark)?;
-        if actual != run.work_chid {
+/// Verify the world matches what the halves claim: the work
+/// bookmark at the work commit and the work `@` empty, and the agent
+/// `main` at the partner. The agent `@` may hold new session writes
+/// that landed after the squash, so it is not checked.
+fn verify_completion(pair: &Pair, run: &Run) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some((bookmark, work_chid)) = &run.work {
+        let actual = jj::chid_of(&pair.work, bookmark)?;
+        if actual != *work_chid {
             return Err(format!(
-                "completion sanity: work bookmark '{}' is at chid '{actual}' but this run \
-                 published '{}'.",
-                run.bookmark, run.work_chid
+                "completion sanity: work bookmark '{bookmark}' is at chid '{actual}' but this \
+                 run published '{work_chid}'."
             )
             .into());
         }
-        if !jj::is_empty(root, "@")? {
-            let wc_diff = jj::diff_stat(root)?;
+        if !jj::is_empty(&pair.work, "@")? {
+            let wc_diff = jj::diff_stat(&pair.work)?;
             return Err(format!(
                 "completion sanity: work working copy has uncommitted changes. Diff stat:\n{wc_diff}"
             )
             .into());
         }
     }
-    if let Some((_, agent_chid)) = &run.agent {
-        let actual = jj::chid_of(&bot_path(root)?, BOT_BOOKMARK)?;
-        if actual != *agent_chid {
+    if let Some(partner) = &run.partner {
+        let actual = jj::chid_of(&pair.agent, BOT_BOOKMARK)?;
+        if actual != *partner {
             return Err(format!(
                 "completion sanity: agent bookmark '{BOT_BOOKMARK}' is at chid '{actual}' but \
-                 this run published '{agent_chid}'."
+                 this run published '{partner}'."
             )
             .into());
         }

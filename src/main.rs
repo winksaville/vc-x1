@@ -468,26 +468,22 @@ pub(crate) enum Commands {
         work @ that is not empty, unsquashed work being a fix to fold\n\
         or the next rung, and a work @- with no `ochid:` trailer, which\n\
         is not a pair's commit.\n\n\
-        Stages, in order:\n\
-        \x20 - plan               read the pair's state: the agent @-\n\
-        \x20                      names the work commit, so the journal\n\
-        \x20                      folds into it; or the agent @ is the\n\
-        \x20                      change the work commit names, so the\n\
-        \x20                      journal is committed as the partner;\n\
-        \x20                      or the agent repo changed, and the\n\
-        \x20                      unpublished work commit is restamped\n\
-        \x20 - commit-agent       commit the journal when the plan says\n\
-        \x20 - bookmark-set       work repo -> <bookmark>, agent -> main\n\
-        \x20 - push-work          publish <bookmark> to origin\n\
-        \x20 - squash-push-agent  fold the journal into the partner and\n\
-        \x20                      push main\n\n\
-        -s is required: `b` the pair, `w` the work half, `a` the agent\n\
+        The halves are independent, each trailer being fixed before\n\
+        push runs, so -s b is -s a then -s w, the order the pair is\n\
+        completed in:\n\
+        \x20 - agent  complete the partner by the state found: fold the\n\
+        \x20          journal into a committed one, or commit it as the\n\
+        \x20          partner when pending or the agent repo changed;\n\
+        \x20          then squash-push main\n\
+        \x20 - work   restamp the unpublished work commit if its trailer\n\
+        \x20          does not name the partner, then set and push\n\
+        \x20          <bookmark>\n\n\
+        -s is required: `b` both halves, `a` the agent half, `w` the work\n\
         half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
         says where. The bookmark is the line's unless named as a check.\n\n\
-        Rerunning is always safe: each stage does nothing when its\n\
-        work is already done. Failures in commit-agent / bookmark-set\n\
-        roll both repos back via `jj op restore`. Once push-work\n\
-        succeeds the work is published."
+        Rerunning is always safe: a half whose work is done finds nothing\n\
+        to do. A half that fails before its own push restores the repo it\n\
+        touched via `jj op restore`."
     )]
     Push(push::PushArgs),
 

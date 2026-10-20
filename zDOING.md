@@ -90,9 +90,10 @@ workspace, two full `validate` runs at different versions leave one binary under
 #### Deliberation
 
 - Multi-step, a trapezoid the default, the agent's proposal and wink's go at the bookmark, eight
-  rungs then, eleven since the pair and the read-first scope (2026-10-20): opening, the install
-  table, validate-desc with the resolver, sync and squash-push, the commit pair, squash, push
-  publishing only, the closing as the merge, install, run-dev, closing.
+  rungs then, twelve since the pair, the read-first scope, and push's halves (2026-10-20):
+  opening, the install table, validate-desc with the resolver, the commit pair, push publishing
+  only, squash, push's halves, sync and squash-push, the closing as the merge, install, run-dev,
+  closing.
   - The install table is first, so every later rung's validation installs under `tmp/dev`.
   - The resolver is ahead of the commands that take it, and the commit rungs come before install
     and run-dev, being the larger change. The closing as the merge is its own rung, so the plain
@@ -169,6 +170,11 @@ workspace, two full `validate` runs at different versions leave one binary under
   to push. Today's push already completes it, the bugs.md #4 path, and push's rung gains a case
   rather than a rewrite: fold the journal when the agent `@-` names the work commit, else commit
   it as the partner. `-s a` alone stays refused, the one direction where unpaired is real.
+- Push's halves are a rung of their own, wink's reading of the squash rung's push dry run
+  (2026-10-20): the halves are independent, since each trailer is fixed before push runs, so
+  `push -s b` is `push -s a`, mirroring the `commit -s w` before it, then `push -s w`. Its own
+  rung rather than a fold into the squash rung, since it rewrites push's structure and the squash
+  rung was reviewed, and the squash rung went out by the old push.
 - The pair's commands come before the stash, wink's vote after the validate-desc push
   (2026-10-20), `commit`, then `squash`, then `squash-push`, with `push` moved between the first
   two on the agent's reason: handed a pair, today's push publishes the work half as-is but commits
@@ -190,11 +196,12 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: vc-x1 commit makes the rung's commit pair][3] (done)
 - [feat: vc-x1 push only publishes the pair][4] (done)
 - [feat: vc-x1 squash folds work into the pair][5] (done)
-- [feat: sync and squash-push take -s, required][6]
-- [feat: vc-x1 commit --closing makes the trapezoid][7]
-- [feat: vc-x1 install promotes main][8]
-- [feat: vc-x1 run-dev runs the dev binary][9]
-- [feat: vc-x1 commit, install, and run-dev closing][10]
+- [fix: push runs the agent half, then the work half][6] (done)
+- [feat: sync and squash-push take -s, required][7]
+- [feat: vc-x1 commit --closing makes the trapezoid][8]
+- [feat: vc-x1 install promotes main][9]
+- [feat: vc-x1 run-dev runs the dev binary][10]
+- [feat: vc-x1 commit, install, and run-dev closing][11]
 
 ##### feat: vc-x1 commit, install, and run-dev opening
 
@@ -367,6 +374,28 @@ account its body points at.
     `squash --dry-run` prints what it would fold and re-describe. A test of each checks nothing
     moved.
 
+##### fix: push runs the agent half, then the work half
+
+Push bundled its two halves into one mutation window and logged them out of order, though each
+commit's trailer is fixed before push runs, so neither half needs the other. `push -s b` is now
+`push -s a` then `push -s w`, each with its own rollback, in the order the pair is completed.
+
+* The halves shared one mutation window and one rollback.
+  - The agent half completes the partner by the state found, then squash-pushes `main`. The work
+    half restamps if its trailer does not name the partner, then sets and pushes the bookmark.
+    Each takes a one-repo `pair::Snapshot` of the repo it touches and restores only that one, since
+    the other may have moved on, a journal writing to it.
+* The restamp was decided from the agent side, before the agent half ran.
+  - It is the work half's question, "does my trailer name the partner?", asked after the agent
+    half, so it holds for every order, `-s a` then `-s w` included, which a test now covers. A
+    published work commit that would need it is refused before the agent half publishes.
+* The plan was a stage of its own with a line of its own.
+  - Each half's first line says what it does and why, `push agent:` then `push work:`, in the
+    order they run, and the work bookmark is resolved first, so a run that cannot publish the work
+    half stops before the agent half publishes anything.
+  - In a dry run the intent lines carry `[dry-run]` like the step lines, wink's catch at this
+    rung's push dry run, where "push work: publish ..." read as done. Folded in by `squash -s b`.
+
 ##### feat: sync and squash-push take -s, required
 
 The two write commands this cycle changes rather than builds take the resolver: `-s` required,
@@ -402,8 +431,9 @@ Closing out the cycle.
 [3]: #feat-vc-x1-commit-makes-the-rungs-commit-pair
 [4]: #feat-vc-x1-push-only-publishes-the-pair
 [5]: #feat-vc-x1-squash-folds-work-into-the-pair
-[6]: #feat-sync-and-squash-push-take--s-required
-[7]: #feat-vc-x1-commit---closing-makes-the-trapezoid
-[8]: #feat-vc-x1-install-promotes-main
-[9]: #feat-vc-x1-run-dev-runs-the-dev-binary
-[10]: #feat-vc-x1-commit-install-and-run-dev-closing
+[6]: #fix-push-runs-the-agent-half-then-the-work-half
+[7]: #feat-sync-and-squash-push-take--s-required
+[8]: #feat-vc-x1-commit---closing-makes-the-trapezoid
+[9]: #feat-vc-x1-install-promotes-main
+[10]: #feat-vc-x1-run-dev-runs-the-dev-binary
+[11]: #feat-vc-x1-commit-install-and-run-dev-closing

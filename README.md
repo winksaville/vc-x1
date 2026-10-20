@@ -1592,21 +1592,19 @@ What push refuses, with both repos as they were:
 - a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
 - a named bookmark that is not on the line `@-` is on, or two bookmarks on the line and none named
 
-Stages, top to bottom:
+The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
+`push -s a` then `push -s w`, the order the pair is completed in:
 
-| Stage | What it does |
-|-------|--------------|
-| `plan` | Read the pair's state and decide every stage's input. The agent half by what it finds: the agent `@-` already names the work commit (`commit -s b`), so the journal in `@` folds into it, else the agent `@` is the change the work commit names (`commit -s w`), so the journal is committed as the partner, else the agent repo changed since the commit, and the unpublished work commit is restamped to name the agent `@`, said out loud |
-| `commit-agent` | `jj commit` the journal as the partner, with the work commit's description and a trailer naming it, when the plan says so |
-| `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R <agent>` |
-| `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
-| `squash-push-agent` | Fold the journal into the partner and push `main` (see [squash-push](#squash-push)) |
+| Half | What it does |
+|------|--------------|
+| agent | Complete the partner by the state found: the agent `@-` names the work commit (`commit -s b`), so the journal folds into it; or the agent `@` is the change the work commit names (`commit -s w`), or the agent repo changed since, so the journal is committed as the partner with the work commit's own text. Then squash-push `main` (see [squash-push](#squash-push)) |
+| work | Check the work trailer names the partner, restamping the unpublished work commit when it does not, said out loud. Then `jj bookmark set <bookmark> -r @-`, verify its remote refs are tracked, and `jj git push --bookmark <bookmark>` |
 
 **Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
 precondition and does nothing when its work is already done, so re-running after a failure is simply
-running. If a run fails, push stops and reports. Failures in `commit-agent` and `bookmark-set` roll
-both repos back via `jj op restore` to a snapshot taken moments earlier in the same process. Once
-`push-work` succeeds the work is published: from there a change is either a new pair on top, or an
+running. If a run fails, push stops and reports. A half that fails before its own push restores the
+repo it touched via `jj op restore` to a snapshot taken moments earlier in the same process. Once a
+half's push succeeds that half is published: from there a change is either a new pair on top, or an
 amend of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last
 commit and force-updates the remote. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
