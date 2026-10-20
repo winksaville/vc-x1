@@ -4,8 +4,14 @@
 //!
 //! Read-only diagnostic; exits non-zero if any commit has issues.
 //! The bot's "did the ochid wiring stay consistent?" check.
+//!
+//! The first command under the scope rule: `-s` is required and
+//! says whose commits are checked, `w`, `a`, or `b` for both
+//! directions, one table per side under its label, and `-R` is
+//! optional and says where. `-s p` is refused, since a plain repo
+//! has no other repo to check against.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Args;
 use jj_lib::object_id::ObjectId;
@@ -19,6 +25,7 @@ use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, extract_bare_id, find_matching_commit, ochid_prefix_for,
     validate_ochid,
 };
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope, side_keyword};
 use crate::subcommand::SubcommandRunner;
 
 #[derive(Args, Debug)]
@@ -39,12 +46,27 @@ pub struct ValidateDescArgs {
     #[arg(short = 'n', long = "commits", value_name = "COMMITS")]
     pub limit: Option<usize>,
 
-    /// Path to jj repo
-    #[arg(short = 'R', long, default_value = ".")]
-    pub repo: PathBuf,
+    /// Where: a path in the workspace, its root or either repo
+    /// [default: the current directory]
+    #[arg(short = 'R', long, value_name = "PATH")]
+    pub repo: Option<PathBuf>,
 
-    /// Path to the other repo [default: from .vc-config.toml]
-    #[arg(long = "other-repo")]
+    /// Whose commits are checked, required: `w|work`, `a|agent`, or
+    /// `b|both`, each side against the other. `p|por` is refused,
+    /// a plain repo having no other repo
+    #[arg(
+        short = 's',
+        long,
+        value_name = "SCOPE",
+        value_parser = parse_repo_scope,
+        required = true,
+        help = format!("Whose commits are checked, required: {REPO_SCOPE_FORMS}, `p` refused")
+    )]
+    pub scope: RepoScope,
+
+    /// Path to the other repo, for one side [default: the workspace's
+    /// other side]
+    #[arg(long = "other-repo", value_name = "PATH")]
     pub other_repo: Option<PathBuf>,
 
     /// Expected changeID length
@@ -56,30 +78,54 @@ pub struct ValidateDescArgs {
 ///
 /// Mirrors `ValidateDescArgs`: positional `REVISION` / `COMMITS`
 /// (`pos_rev` / `pos_count`), `--revision` / `--commits`
-/// (`revision` / `limit`), `--repo`, `--other-repo`, `--id-len`.
+/// (`revision` / `limit`), `--other-repo`, `--id-len`, and `-s`
+/// with `-R` resolved into `repos`, each side's label and path in
+/// scope order.
+#[derive(Debug)]
 pub struct ValidateDescParams {
     pub pos_rev: Option<String>,
     pub pos_count: Option<usize>,
     pub revision: String,
     pub limit: Option<usize>,
-    pub repo: PathBuf,
+    pub repos: Vec<(String, PathBuf)>,
     pub other_repo: Option<PathBuf>,
     pub id_len: usize,
 }
 
-impl From<&ValidateDescArgs> for ValidateDescParams {
-    /// Convert clap-derived `ValidateDescArgs` into the flat
-    /// `ValidateDescParams` (total, every field copies straight over).
-    fn from(a: &ValidateDescArgs) -> Self {
-        Self {
+impl TryFrom<&ValidateDescArgs> for ValidateDescParams {
+    type Error = String;
+
+    /// Resolve `-s` and `-R` into the sides to check, labeled by
+    /// their keywords, and copy the rest over. `-s p` is refused
+    /// here, before anything is read.
+    fn try_from(a: &ValidateDescArgs) -> Result<Self, String> {
+        let sides = match &a.scope {
+            RepoScope::Sides(s) => s,
+            RepoScope::Por => {
+                return Err(
+                    "-s p: a plain repo has no other repo to check its descriptions \
+                            against. validate-desc takes `-s w|a|b` in a dual workspace"
+                        .to_string(),
+                );
+            }
+        };
+        let paths = crate::common::resolve_scoped_repos(&a.scope, a.repo.as_deref())
+            .map_err(|e| e.to_string())?;
+        let repos = sides
+            .0
+            .iter()
+            .zip(paths)
+            .map(|(side, path)| (side_keyword(*side).to_string(), path))
+            .collect();
+        Ok(Self {
             pos_rev: a.pos_rev.clone(),
             pos_count: a.pos_count,
             revision: a.revision.clone(),
             limit: a.limit,
-            repo: a.repo.clone(),
+            repos,
             other_repo: a.other_repo.clone(),
             id_len: a.id_len,
-        }
+        })
     }
 }
 
@@ -98,10 +144,9 @@ enum CommitStatus {
 impl SubcommandRunner for ValidateDescArgs {
     type Params = ValidateDescParams;
 
-    /// Delegate to the existing `From<&ValidateDescArgs>` impl
-    /// above (total, never fails).
+    /// Delegate to the `TryFrom<&ValidateDescArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
-        Ok(ValidateDescParams::from(self))
+        ValidateDescParams::try_from(self)
     }
 
     /// Run the existing `validate_desc` op.
@@ -110,9 +155,10 @@ impl SubcommandRunner for ValidateDescArgs {
     }
 }
 
-/// Run the `validate-desc` subcommand: scan the resolved revision
-/// range and report each commit's ochid status against the other
-/// repo; errors if any commit has issues.
+/// Run the `validate-desc` subcommand: for each scoped side, scan
+/// the resolved revision range and report each commit's ochid status
+/// against the other repo, under the side's label when there is
+/// more than one. Errors if any commit on any side has issues.
 ///
 /// `ctx` is unused today (validate-desc reads `.vc-config.toml`,
 /// not the user config, and doesn't touch the `--log` path); it's
@@ -122,7 +168,35 @@ pub fn validate_desc(
     params: &ValidateDescParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("validate-desc: enter");
-    let (workspace, repo) = common::load_repo(&params.repo)?;
+    let labeled = params.repos.len() > 1;
+    let mut issues_total = 0;
+    for (label, repo) in &params.repos {
+        if labeled {
+            info!("{label} ({}):", repo.display());
+        }
+        issues_total += validate_side(params, repo)?;
+        if labeled {
+            info!("");
+        }
+    }
+    if issues_total > 0 {
+        debug!("validate-desc: exit with issues");
+        Err(format!("{issues_total} commit(s) have issues").into())
+    } else {
+        debug!("validate-desc: exit");
+        Ok(())
+    }
+}
+
+/// Scan one side's revision range against its other repo and print
+/// the table, returning how many commits have issues. A side with
+/// no other repo, a single-repo workspace, prints a notice and
+/// counts nothing.
+fn validate_side(
+    params: &ValidateDescParams,
+    repo_path: &Path,
+) -> Result<usize, Box<dyn std::error::Error>> {
+    let (workspace, repo) = common::load_repo(repo_path)?;
 
     // Resolve other repo: --other-repo flag, or side-aware
     // resolution from the workspace config (the work repo pairs
@@ -132,11 +206,11 @@ pub fn validate_desc(
     // topology from the workspace config, not a flag).
     let other_repo_path = match &params.other_repo {
         Some(p) => p.clone(),
-        None => match common::other_repo_path(&params.repo)? {
+        None => match common::other_repo_path(repo_path)? {
             Some(p) => p,
             None => {
                 info!("validate-desc: single-repo workspace (no bot side), nothing to validate");
-                return Ok(());
+                return Ok(0);
             }
         },
     };
@@ -268,35 +342,60 @@ pub fn validate_desc(
          (of {} total)",
         ids.len()
     );
-    if issues_count > 0 {
-        debug!("validate-desc: exit with issues");
-        Err(format!("{issues_count} commit(s) have issues").into())
-    } else {
-        debug!("validate-desc: exit");
-        Ok(())
-    }
+    Ok(issues_count)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::FixturePor;
+    use crate::options_flags::scope::{Scope, Side};
+    use crate::test_helpers::{Fixture, FixturePor};
+    use crate::{Cli, Commands};
+    use clap::Parser;
 
-    /// A POR workspace has no bot side: validate-desc no-ops with
-    /// `Ok(())` instead of erroring (por equalization).
+    fn parse(args: &[&str]) -> Result<ValidateDescArgs, String> {
+        match Cli::try_parse_from(args) {
+            Ok(Cli {
+                command: Some(Commands::ValidateDesc(a)),
+                ..
+            }) => Ok(a),
+            Ok(_) => panic!("expected ValidateDesc"),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// `-s` is required, and `-s p` is refused at params time with
+    /// the reason: a plain repo has nothing to check against.
     #[test]
-    fn por_workspace_noops() {
-        let fx = FixturePor::new("vdesc-por-noop");
+    fn scope_is_required_and_por_is_refused() {
+        let err = parse(&["vc-x1", "validate-desc"]).unwrap_err();
+        assert!(err.contains("--scope"), "{err}");
+        let fx = FixturePor::new("vdesc-por-refused");
+        let mut a = parse(&["vc-x1", "validate-desc", "-s", "p"]).expect("parses");
+        a.repo = Some(fx.work.clone());
+        let err = ValidateDescParams::try_from(&a).unwrap_err();
+        assert!(err.starts_with("-s p:"), "{err}");
+        assert!(err.contains("`-s w|a|b`"), "{err}");
+    }
+
+    /// `-s b` from either repo is both sides in work-then-agent
+    /// order, labeled by their keywords, and `-s a` the agent side
+    /// alone. A fresh workspace's commits pass in both directions.
+    #[test]
+    fn both_sides_are_labeled_and_a_fresh_workspace_passes() {
+        let fx = Fixture::new("vdesc-both");
         let ctx = Context::load().expect("load user config");
-        let params = ValidateDescParams {
-            pos_rev: None,
-            pos_count: None,
-            revision: "@".to_string(),
-            limit: None,
-            repo: fx.work.clone(),
-            other_repo: None,
-            id_len: DEFAULT_ID_LEN,
-        };
-        validate_desc(&ctx, &params).expect("por workspace should no-op, not error");
+        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@-", "-s", "b"]).expect("parses");
+        a.repo = Some(fx.bot.clone());
+        let params = ValidateDescParams::try_from(&a).expect("params");
+        let labels: Vec<&str> = params.repos.iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, ["work", "agent"]);
+        assert_eq!(params.repos[1].1, fx.bot.canonicalize().expect("canonical"));
+        validate_desc(&ctx, &params).expect("a fresh workspace's trailers are valid");
+
+        a.scope = RepoScope::Sides(Scope(vec![Side::Bot]));
+        let params = ValidateDescParams::try_from(&a).expect("params");
+        assert_eq!(params.repos.len(), 1);
+        assert_eq!(params.repos[0].0, "agent");
     }
 }

@@ -46,14 +46,27 @@ Provisional, the Todo's plan as filed:
   with the keys, fast's `["cargo test --bins"]`, full's `cargo test` without
   `-- --include-ignored`, and `test.fixtures`' `"../vc-x1-fixtures"` with its "skips with a notice"
   prose, and `vc-config-model.md` is regenerated.
-- `vc-x1 commit` commits the work-repo's `@` with the given title and body and stamps its `ochid:`
-  with the agent-repo `@`'s change id, which the agent-repo commit keeps when push commits it.
-- `vc-x1 push` takes the title and body for the agent-repo commit from the work-repo's `@-`, so
-  `--title` and `--body` go, compares the stamped `ochid:` with the agent-repo `@`'s change id,
-  and on a mismatch restamps the unpublished commit and says so.
-- `vc-x1 commit --closing` makes the commit as the trapezoid merge, its first parent the fork point
-  of the bookmark and `main`, its second the last rung. The " closing" and " dead-end closing"
-  title suffixes are checked against the flag, never its trigger.
+- A scope resolver shared by `commit`, `squash`, `push`, `squash-push`, and `sync`: `-s`, required,
+  one of `work|w`, `agent|a`, `both|b`, or `por|p`, a plain repo with no pair, and `-R` optional,
+  the workspace by its root or either repo for `w|a|b`, the repo itself for `p`, the cwd without
+  it. No `-s` is an error naming the four. `-s p` on a repo that is one side of a dual workspace is
+  an error naming the side, and `-s w|a|b` on a directory with no workspace config is one.
+- `vc-x1 commit -s b` makes the rung's commit pair from the two working copies, each stamped with
+  the other's change id, with the given title and body. `-s w` and `-s a` are errors in a dual
+  workspace, since a half is an unpaired commit, and `-s p` commits a plain repo with no trailer.
+- `vc-x1 squash` folds each scoped working copy into its side of the pair, the review's fix into
+  the work commit and the review's transcript into the agent commit, and refuses a side whose
+  commit is published. With `--title` and `--body` it rewrites both descriptions and restamps the
+  trailers, the one sanctioned re-describe of a trailer-carrying commit.
+- `vc-x1 push` only publishes: the work bookmark `@-` sits on, and the agent-repo's `main`. Its
+  agent half folds the agent `@` first, the journal's last lines, and its work half refuses a
+  non-empty `@`, which is a `squash` or the next rung, the user's call. `--title`, `--body`, and the
+  bookmark argument go, the bookmark inferred from `@-` and named only as a check.
+- `vc-x1 squash-push` stays, wink's most-used command, `squash-push -s a` the agent half of a push
+  on its own, and `-s w|b` the fold-and-publish that asks nothing.
+- `vc-x1 commit -s b --closing` makes the work commit as the trapezoid merge, its first parent the
+  fork point of the bookmark and `main`, its second the last rung. The " closing" and " dead-end
+  closing" title suffixes are checked against the flag, never its trigger.
 - `vc-x1 install` runs `[install] release` after checking that `@-` is `main` at `main@origin`,
   `@` is empty, and the version is bare, and `vc-x1 install --dev` runs `[install] dev` with no
   check, the mid-cycle refresh of the dev binary.
@@ -62,10 +75,13 @@ Provisional, the Todo's plan as filed:
 
 #### Acceptance check
 
-In a scratch dual workspace made by the dev binary's `init`: `commit` makes a work-repo commit
-whose `ochid:` names the agent-repo's `@`, and `push` publishes that commit unchanged, the
-agent-repo commit's trailer naming it back. `commit --closing` on a bookmark of two rungs makes a
-merge whose parents are the fork point and the second rung, and a `jj squash` into it keeps both.
+In a scratch dual workspace made by the dev binary's `init`: `commit -s b` makes a pair whose
+trailers name each other, a `squash -s b` after a further edit in each repo folds both and leaves
+the trailers valid, `push -s b` publishes the pair unchanged and refuses while the work `@` holds
+an edit, and each of the five commands without `-s` exits non-zero naming the four scopes.
+`commit -s b --closing` on a bookmark of two rungs makes a merge whose parents are the fork point
+and the second rung, and a `squash -s b` into it keeps both. On a plain jj repo, `commit -s p` and
+`push -s p` commit and publish with no trailer.
 `install` refuses, or warns, when `@-` is not `main` at `main@origin`, and `install --dev` leaves
 `tmp/dev/bin/vc-x1` at the manifest's version. `run-dev -V` prints the manifest's version. In this
 workspace, two full `validate` runs at different versions leave one binary under `tmp/dev`, its
@@ -73,12 +89,14 @@ workspace, two full `validate` runs at different versions leave one binary under
 
 #### Deliberation
 
-- Multi-step, eight rungs, a trapezoid the default, the agent's proposal and wink's go at the
-  bookmark: opening, the install table, the local commit, push publishing it, the closing as the
-  merge, install, run-dev, closing.
+- Multi-step, a trapezoid the default, the agent's proposal and wink's go at the bookmark, eight
+  rungs then, eleven since the pair and the read-first scope (2026-10-20): opening, the install
+  table, validate-desc with the resolver, sync and squash-push, the commit pair, squash, push
+  publishing only, the closing as the merge, install, run-dev, closing.
   - The install table is first, so every later rung's validation installs under `tmp/dev`.
-  - The commit rungs come before install and run-dev, being the larger change, and the closing as
-    the merge is its own rung, so the plain commit is reviewed before the merge builds on it.
+  - The resolver is ahead of the commands that take it, and the commit rungs come before install
+    and run-dev, being the larger change. The closing as the merge is its own rung, so the plain
+    pair is reviewed before the merge builds on it.
 - No rename, a bend of Opening step 6 and Land step 1, wink's say at the opening's review
   (2026-10-20): the cycle dogfoods its own change, so the opening keeps the name `vc-x1`, moves
   the two validate lines to `--root tmp/dev`, and removes the `build.rs` guard, which would refuse
@@ -107,12 +125,44 @@ workspace, two full `validate` runs at different versions leave one binary under
   from the promotion, while `vc-x1 install` sees the bookmark, the remote, and the version.
   - A hand-typed `cargo install --path .` stays unguarded, a slip the sanctioned path never makes.
   - Open: whether a failed check refuses or warns.
-- The description is written once, by `commit`: push reads it from `@-` for the agent-repo
-  commit, so the reviewed text cannot be replaced by a mistyped `--body` at the push.
-- The trailer is stamped at commit time from the agent-repo `@`'s change id, which a jj commit
-  keeps, and push checks it: a mismatch comes from anything that commits or abandons the
-  agent-repo's `@` between commit and push, `vc-x1 squash-push -R <agent-dir>` among them, and the
-  restamp of an unpublished commit is allowed and announced.
+- `commit` makes both repos' commits, wink's direction (2026-10-20) that every rung be local like
+  the closing, taken one step further: the plan had commit make the work commit and push make the
+  agent commit, with the trailer stamped from a predicted change id and checked at push. With the
+  pair made together both ids are known, nothing is predicted, and push carries no description at
+  all, so the reviewed text cannot be replaced on the way out.
+  - The review's transcript is in the agent `@` when push runs, so push's agent half folds it into
+    the pair's agent commit first, a squash into an unpublished commit, which keeps its change id.
+    A `squash-push -s a` between commit and push publishes the agent half early, and push finds it
+    done.
+- `squash` exists because a rung is continued, wink's point: a review's fix must fold into the
+  pair, and `jj squash` by hand does one repo and knows nothing of the other. It refuses a
+  published side, and when the agent half went out early it folds the work side alone and says
+  the transcript goes with the next rung, where it would land today.
+  - A description fix is a re-describe, which the rule forbids by hand on a trailer-carrying
+    commit, and the pair carries trailers from the start. `squash --title --body` is the way, so
+    the rule's text becomes never by hand and never on a published commit, v0.3.1's to write.
+- The two working copies mean different things, which is where push and squash-push part: the
+  agent `@` is a journal, never empty while a session runs, and folding it is never a decision, so
+  push's agent half always folds it. The work `@` is a decision, a fix or the next rung, so push
+  refuses it and `squash-push -s w|b` is the user saying fold it and go.
+- `-s` is required and `-R` optional, wink's rule (2026-10-20), after `--por` was weighed as the
+  alternative for a plain repo and retired into the scope `p`: a write command never guesses which
+  repos it acts on, `sync`'s "neither flag means the repo I am in" being fine for a look and not
+  for a commit, where a silent half is an unpaired commit. `-R` is then only ever where, and `-s`
+  which. The short names `a`, `w`, `b`, `p` are wink's, `squash-push -s a` replacing today's
+  `squash-push -R .agent-session/`.
+  - The same rule for every command that touches a repo, the read commands' defaults, the validate
+    family, and clone's and init's `--por`, is the sweep **every repo command takes -s, required**
+    in `TODO.md`, kept out of this cycle so the ladder stays on its subject.
+  - To check at the push rung: the lookup recognizes push invocations in transcripts by their
+    command text, and the fixture's recorded lines are the old form, so the new form must be
+    recognized without the old one being lost.
+- A read-only command takes the scope first, wink's suggestion at the write rung's review
+  (2026-10-20): `validate-desc -s b` shows the resolver working, with nothing published if the
+  resolution is wrong, and it is a check that would be run anyway. The write rung, already
+  written, was split by path into the resolver half, which the validate-desc rung builds on, and
+  the `sync` and `squash-push` half, a local commit on `wip-sync-squash-push` that follows as the
+  next rung. The resolver lost its `write` name on the way.
 - The closing is made as the merge at commit time: the merge's tree is the closing's tree, since
   the fork point is an ancestor of the last rung, so only the parents differ from a linear commit,
   and the reviewed merge is what lands. The flag, not the title, decides: a title is transcribed
@@ -124,12 +174,15 @@ workspace, two full `validate` runs at different versions leave one binary under
 
 - [feat: vc-x1 commit, install, and run-dev opening][0] (done)
 - [feat: an install table in the config][1] (done)
-- [feat: vc-x1 commit makes the rung's local commit][2]
-- [feat: push publishes the local commit][3]
-- [feat: vc-x1 commit --closing makes the trapezoid][4]
-- [feat: vc-x1 install promotes main][5]
-- [feat: vc-x1 run-dev runs the dev binary][6]
-- [feat: vc-x1 commit, install, and run-dev closing][7]
+- [feat: validate-desc takes -s, the first scope][2] (done)
+- [feat: sync and squash-push take -s, required][3]
+- [feat: vc-x1 commit makes the rung's commit pair][4]
+- [feat: vc-x1 squash folds work into the pair][5]
+- [feat: vc-x1 push only publishes the pair][6]
+- [feat: vc-x1 commit --closing makes the trapezoid][7]
+- [feat: vc-x1 install promotes main][8]
+- [feat: vc-x1 run-dev runs the dev binary][9]
+- [feat: vc-x1 commit, install, and run-dev closing][10]
 
 ##### feat: vc-x1 commit, install, and run-dev opening
 
@@ -160,15 +213,54 @@ validate runs show one binary left under `tmp/dev`.
     and its Acceptance fixtures section says `.fixtures`, that the tests are ignored without
     `--include-ignored`, and that an absent fixture panics naming the build command.
 
-##### feat: vc-x1 commit makes the rung's local commit
+##### feat: validate-desc takes -s, the first scope
 
-A rung becomes a local commit with the written title, body, and `ochid:` trailer before any push,
-so the description review is of the commit itself.
+The scope leaf and the resolver, and their first user, a read-only command: `-s w|a|b` required,
+whose commits are checked, one table per side under its label, `-s p` refused, and `-R` optional,
+where.
 
-##### feat: push publishes the local commit
+* The scope leaf knew sides, not a plain repo.
+  - `RepoScope` is a `Scope` or `Por`, parsed from the four forms long or short, and `parse_scope`
+    learned the short forms too, so the read commands accept `-s a` ahead of the sweep. The comma
+    forms stay with `parse_scope`, for the read commands that predate `both`.
+* Nothing resolved "which repos" for a required scope.
+  - `resolve_scoped_repos` is that: the sides from the workspace the start is in, by its root or
+    either repo, and for `p` the start itself, refused when it is a side. A repo under a
+    workspace's tree that is neither side is plain, so a scratch repo in `tmp/` is reachable.
+* `validate-desc` checked one repo, `-R`'s, against its partner.
+  - It checks each scoped side against its other side, `b` being both directions, and refuses
+    `p` at params time with the reason. The init test that ran it once per side runs `-s b` once
+    per workspace.
+* The rule was tried where a wrong resolution costs nothing.
+  - The write half, `sync` and `squash-push` on the same resolver, was written first and set
+    aside on the local bookmark `wip-sync-squash-push`, the next rung, so this one publishes
+    nothing by the new rule before the rule has been seen working on a read.
+  - One impurity of the path split: `common.rs` carries the two messages that now say
+    `squash-push -s a`, one rung before squash-push takes it.
 
-Push takes the description from the local commit, checks its trailer against the agent-repo's `@`,
-and publishes it as reviewed.
+##### feat: sync and squash-push take -s, required
+
+The two write commands this cycle changes rather than builds take the resolver: `-s` required,
+`-R` optional, `squash-push` acting on each resolved repo, work before agent, and the README and
+the messages saying `-s a`. Written before the validate-desc rung and held on
+`wip-sync-squash-push` until it.
+
+##### feat: vc-x1 commit makes the rung's commit pair
+
+A rung becomes a pair of local commits, one per repo, each stamped with the other's change id,
+before any push, so the description review is of the commit itself and the lookup works on an
+unpushed rung.
+
+##### feat: vc-x1 squash folds work into the pair
+
+A review's fix folds into the pair in both repos at once, refusing a published side, and a
+description fix goes the same way with the trailers restamped.
+
+##### feat: vc-x1 push only publishes the pair
+
+Push carries no description: it folds the agent journal, refuses unsquashed work, and publishes
+the pair as reviewed. The transcript's push lines keep being recognized by the lookup in both the
+old form and the new.
 
 ##### feat: vc-x1 commit --closing makes the trapezoid
 
@@ -194,9 +286,12 @@ Closing out the cycle.
 
 [0]: #feat-vc-x1-commit-install-and-run-dev-opening
 [1]: #feat-an-install-table-in-the-config
-[2]: #feat-vc-x1-commit-makes-the-rungs-local-commit
-[3]: #feat-push-publishes-the-local-commit
-[4]: #feat-vc-x1-commit---closing-makes-the-trapezoid
-[5]: #feat-vc-x1-install-promotes-main
-[6]: #feat-vc-x1-run-dev-runs-the-dev-binary
-[7]: #feat-vc-x1-commit-install-and-run-dev-closing
+[2]: #feat-validate-desc-takes--s-the-first-scope
+[3]: #feat-sync-and-squash-push-take--s-required
+[4]: #feat-vc-x1-commit-makes-the-rungs-commit-pair
+[5]: #feat-vc-x1-squash-folds-work-into-the-pair
+[6]: #feat-vc-x1-push-only-publishes-the-pair
+[7]: #feat-vc-x1-commit---closing-makes-the-trapezoid
+[8]: #feat-vc-x1-install-promotes-main
+[9]: #feat-vc-x1-run-dev-runs-the-dev-binary
+[10]: #feat-vc-x1-commit-install-and-run-dev-closing

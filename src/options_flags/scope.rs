@@ -5,10 +5,14 @@
 //! - `Side` is the role enum: `Work` or `Bot`. The CLI
 //!   keywords that name them are `work` and `agent`.
 //! - `Scope` is a newtype over `Vec<Side>`: the parsed role
-//!   set (`work`, `agent`, `both`, and the spelled-out
-//!   `work,agent` / `agent,work`).
-//! - Path-based single-repo operation lives on `-R/--repo`,
-//!   not in `--scope`. `Scope` carries role information only.
+//!   set (`work`, `agent`, `both`, their short forms `w`, `a`,
+//!   `b`, and the spelled-out `work,agent` / `agent,work`).
+//! - `RepoScope` is the write commands' scope: a `Scope`, or
+//!   `Por`, a plain repo with no pair, spelled `por` or `p`. It
+//!   is required where it is taken, so a write command never
+//!   guesses which repos it acts on. `-R/--repo` beside it is
+//!   only ever where: the workspace for a `Scope`, the repo
+//!   itself for `Por`.
 
 use clap::ValueEnum;
 
@@ -40,9 +44,9 @@ pub struct Scope(pub Vec<Side>);
 /// operation uses `-R/--repo`, not `--scope`.
 pub fn parse_scope(s: &str) -> Result<Scope, String> {
     match s {
-        "work" => Ok(Scope(vec![Side::Work])),
-        "agent" => Ok(Scope(vec![Side::Bot])),
-        "both" | "work,agent" => Ok(Scope(vec![Side::Work, Side::Bot])),
+        "work" | "w" => Ok(Scope(vec![Side::Work])),
+        "agent" | "a" => Ok(Scope(vec![Side::Bot])),
+        "both" | "b" | "work,agent" => Ok(Scope(vec![Side::Work, Side::Bot])),
         "agent,work" => Ok(Scope(vec![Side::Bot, Side::Work])),
         "" => Err("--scope: value is empty".into()),
         "bot" | "work,bot" | "bot,work" => Err(format!(
@@ -52,8 +56,44 @@ pub fn parse_scope(s: &str) -> Result<Scope, String> {
         )),
         other => Err(format!(
             "--scope: '{other}' is not a recognized form. \
-             Expected one of `work`, `agent`, `both`, `work,agent`, `agent,work`. \
+             Expected one of `work`, `agent`, `both` (or `w`, `a`, `b`), \
+             `work,agent`, `agent,work`. \
              For single-repo operation by path, use `-R/--repo`."
+        )),
+    }
+}
+
+/// The scope a write command acts on: one or both sides of a dual
+/// workspace, or a plain repo with no pair.
+///
+/// Required where it is taken, so the command never guesses. The
+/// resolver behind it is
+/// [`resolve_scoped_repos`](crate::common::resolve_scoped_repos).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RepoScope {
+    /// One or both sides of a dual workspace, `w`, `a`, or `b`.
+    Sides(Scope),
+    /// A plain old repo, `p`: the repo `-R` names, or the cwd's,
+    /// which is no side of any workspace.
+    Por,
+}
+
+/// The four scopes as the help and the errors list them.
+pub const REPO_SCOPE_FORMS: &str = "`w|work`, `a|agent`, `b|both`, or `p|por`";
+
+/// Parse a write command's `-s` value: the four scopes, long or
+/// short, and nothing else. The spelled-out `work,agent` forms are
+/// `parse_scope`'s, for the read commands that predate `both`.
+pub fn parse_repo_scope(s: &str) -> Result<RepoScope, String> {
+    match s {
+        "work" | "w" => Ok(RepoScope::Sides(Scope(vec![Side::Work]))),
+        "agent" | "a" => Ok(RepoScope::Sides(Scope(vec![Side::Bot]))),
+        "both" | "b" => Ok(RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]))),
+        "por" | "p" => Ok(RepoScope::Por),
+        "" => Err("-s: value is empty".into()),
+        "bot" => Err("-s: 'bot' is the pre-0.80.0 spelling. The agent side is `a|agent`.".into()),
+        other => Err(format!(
+            "-s: '{other}' is not a scope. Expected one of {REPO_SCOPE_FORMS}."
         )),
     }
 }
@@ -183,6 +223,40 @@ mod tests {
     #[test]
     fn parse_keyword_work() {
         assert_eq!(parse_scope("work").unwrap(), Scope(vec![Side::Work]));
+    }
+
+    /// The short forms are the long ones' equals, the user's
+    /// spelling for the command typed most.
+    #[test]
+    fn parse_short_forms() {
+        assert_eq!(parse_scope("w").unwrap(), parse_scope("work").unwrap());
+        assert_eq!(parse_scope("a").unwrap(), parse_scope("agent").unwrap());
+        assert_eq!(parse_scope("b").unwrap(), parse_scope("both").unwrap());
+    }
+
+    /// The write commands' scope: the four forms, long and short,
+    /// `p` being the plain repo, and the comma forms refused.
+    #[test]
+    fn parse_repo_scope_forms() {
+        let both = RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]));
+        assert_eq!(
+            parse_repo_scope("w").unwrap(),
+            RepoScope::Sides(Scope(vec![Side::Work]))
+        );
+        assert_eq!(
+            parse_repo_scope("agent").unwrap(),
+            RepoScope::Sides(Scope(vec![Side::Bot]))
+        );
+        assert_eq!(parse_repo_scope("b").unwrap(), both);
+        assert_eq!(parse_repo_scope("both").unwrap(), both);
+        assert_eq!(parse_repo_scope("p").unwrap(), RepoScope::Por);
+        assert_eq!(parse_repo_scope("por").unwrap(), RepoScope::Por);
+        for bad in ["", "work,agent", "bot", "x"] {
+            let err = parse_repo_scope(bad).unwrap_err();
+            assert!(err.starts_with("-s:"), "{bad:?}: {err}");
+        }
+        let err = parse_repo_scope("x").unwrap_err();
+        assert!(err.contains("`p|por`"), "{err}");
     }
 
     #[test]

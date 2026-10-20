@@ -207,20 +207,35 @@ why.
 The rename's restore at Land changes the closing after its review, by a squash into a pushed
 commit, and Land step 4 names no command.
 
-#### A local commit before every push
+#### A local commit pair before every push
 
-- Per-rung flow step 8 becomes `vc-x1 commit`, and the description review is of the commit it
-  makes, description and diff together, by `jj show @-` or gitk. A fix is a `jj squash` into it.
-- Step 9's `vc-x1 push` publishes it.
+- Per-rung flow step 8 becomes `vc-x1 commit -s b`, and the description review is of the commit
+  it makes, description and diff together, by `jj show @-` or gitk. A fix is edited and folded by
+  `vc-x1 squash -s b`, a description fix by `squash -s b --title --body`.
+- Step 9's `vc-x1 push -s b` publishes the pair.
 - Step 6's work review stays ahead of it.
-- Committing vs pushing is rewritten, `vc-x1 commit` committing and `vc-x1 push` publishing, and
-  `jj.md`'s vc-x1 push section follows, the trailer stamped at commit and checked at push.
+- Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
+  a rung, and `vc-x1 push` publishing, and `jj.md`'s vc-x1 push section follows.
+- Re-describing: the rule becomes never by hand and never on a published commit, since the pair
+  carries trailers from the start and `squash --title --body` is the sanctioned re-describe.
 
-##### Why: a local commit
+##### Why: a local commit pair
 
 The last closing's review came after its push, so a change meant a remote rewrite and a
-squash-push in both repos. The work review stays first so a description is not rewritten while the
-work still moves.
+squash-push in both repos. Made as a pair, both trailers are known at commit and push carries no
+description, so the reviewed commit is the published one. The work review stays first so a
+description is not rewritten while the work still moves.
+
+#### The scope flags in the rules
+
+- Every `vc-x1` invocation in the agent-files carries its scope: `sync -s b` at the sync points,
+  `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
+  user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
+
+##### Why: the scope flags
+
+`-s` is required on the write commands and `sync` once **feat: vc-x1 commit, install, and run-dev**
+lands, so the rules' invocations must carry it or fail.
 
 #### The closing is the trapezoid
 
@@ -273,6 +288,57 @@ Each run on its own:
   out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
+
+### every repo command takes -s, required
+
+(wink + agent, 2026-10-20) **feat: vc-x1 commit, install, and run-dev** gives the write commands
+and `sync` one resolver, `-s w|a|b|p` required and `-R` optional, and the rest of the commands
+still guess: the read commands default to `work`, the validate family takes a target or a path
+each in its own way, and `clone` and `init` take `--por`. The sweep applies the rule to every
+command that touches a repo, with the commands that touch none, `version`, `config`,
+`agent-session` on a file, `validate-anchors`, `validate-todo`, and `fix-todo` on a file, exempt.
+
+#### The read commands
+
+- `status`, `lookup`, `show`, `list`, `desc`, `chid` lose their default scope. `status` is the
+  one with a cost today: a `status` reporting one repo while the other has unpushed work is the
+  miss the acquaint check exists to catch.
+
+#### The validate family
+
+- `validate -s w|a|b` runs each scoped side's `[validate]` table. `validate.full` and
+  `validate.fast` gain `workspace-agent` in their homes, so the agent-repo's `.vc-config.md`
+  carries its own table, and `validate -s b` is the whole workspace in one command.
+- `validate-config -s` replaces its `TARGET`, and `b` runs the cross-side check.
+- `validate-desc -s` is whose commits are checked against the other repo, `b` both directions.
+- `validate-anchors`, `validate-todo`, and `fix-todo` take `-s` as the tree their files are in,
+  and with no file the tree to sweep, so `validate-todo -s w TODO.md` works from anywhere.
+- `validate-agent` retires: its check, `main` at `main@origin` with tracked refs, stays as the
+  function push's preflight calls, and its verdict moves to `status`, which the entry [status
+  prints a verdict per repo and exits with a bit per
+  side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side) gives an exit status.
+  The agent side's table is then `full = ["vc-x1 status -s a"]`, so every per-rung validation
+  catches a lost publish. The exit bit lands first, then the retirement, so nothing is without a
+  check between. The README's section and the pre-0.80.0 name's rejection go with it.
+
+#### clone and init
+
+- `-s b` makes a dual workspace and `-s p` a plain repo, the scope naming the layout made rather
+  than touched. `-s w|a` are errors, since neither makes half a workspace. `--por` and `PorFlag`
+  retire.
+
+#### What the sweep touches
+
+- The `tests/cli_*.rs` subprocess tests, the fixture's recorded command lines, every `vc-x1`
+  invocation in the README and the agent-files, and the lookup's recognition of push lines in
+  transcripts, which must keep reading the old form.
+
+##### Why: one rule
+
+A command never guesses which repos it acts on, `-s` says which and `-R` says where, and one rule
+with a short exemption list is easier to hold than a list of defaults. The ceremony of `-s w` on
+`validate` is accepted for the uniformity, and the error on `validate -s a` without a table teaches
+the model.
 
 ### dr-1 is built in Rust
 

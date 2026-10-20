@@ -1,6 +1,7 @@
 //! Unit tests for the common module.
 
 use super::*;
+use crate::options_flags::scope::RepoScope;
 
 #[test]
 fn parse_dot_rev_bare() {
@@ -657,6 +658,99 @@ fn scope_to_repos_work_only() {
     std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
     let repos = scope_to_repos(&Scope(vec![Side::Work]), Some(&root)).unwrap();
     assert_eq!(repos, vec![root.clone()]);
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// The write resolver's `Sides`: from the root or from the agent
+/// repo, `-s b` is the pair in work-then-agent order, and `-s a`
+/// the agent repo alone.
+#[test]
+fn resolve_scoped_repos_sides_from_either_repo() {
+    let base = ws_tempdir("write-sides");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    std::fs::create_dir_all(&bot).unwrap();
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"..\"\nagent = \".\"\n",
+    )
+    .unwrap();
+    let croot = root.canonicalize().unwrap();
+    let both = RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]));
+    for start in [&root, &bot] {
+        let repos = resolve_scoped_repos(&both, Some(start)).unwrap();
+        assert_eq!(
+            repos,
+            vec![croot.clone(), croot.join(".claude")],
+            "from {start:?}"
+        );
+    }
+    let agent = RepoScope::Sides(Scope(vec![Side::Bot]));
+    let repos = resolve_scoped_repos(&agent, Some(&bot)).unwrap();
+    assert_eq!(repos, vec![croot.join(".claude")]);
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// The write resolver's `Sides` outside any workspace is an error
+/// naming `-s p`, never a silent single repo.
+#[test]
+fn resolve_scoped_repos_sides_outside_a_workspace_errors() {
+    let base = ws_tempdir("write-sides-por");
+    let dir = base.join("plain");
+    std::fs::create_dir_all(&dir).unwrap();
+    let work = RepoScope::Sides(Scope(vec![Side::Work]));
+    let err = resolve_scoped_repos(&work, Some(&dir))
+        .unwrap_err()
+        .to_string();
+    assert!(err.starts_with("-s w:"), "{err}");
+    assert!(err.contains("`-s p`"), "{err}");
+    std::fs::remove_dir_all(&base).ok();
+}
+
+/// The write resolver's `Por` refuses either side of a dual
+/// workspace, naming the side and its scope, and takes a plain
+/// repo, under a workspace's tree or not, as itself.
+#[test]
+fn resolve_scoped_repos_por_refuses_a_side_and_takes_a_plain_repo() {
+    let base = ws_tempdir("write-por");
+    let root = base.join("ws");
+    let bot = root.join(".claude");
+    let other = root.join("tmp").join("other");
+    let plain = base.join("plain");
+    for d in [&bot, &other, &plain] {
+        std::fs::create_dir_all(d).unwrap();
+    }
+    std::fs::write(root.join(VC_CONFIG_FILE), WORK_DUAL).unwrap();
+    std::fs::write(
+        bot.join(VC_CONFIG_FILE),
+        "[repos]\nwork = \"..\"\nagent = \".\"\n",
+    )
+    .unwrap();
+
+    let err = resolve_scoped_repos(&RepoScope::Por, Some(&root))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("the work side") && err.contains("`-s w`"),
+        "{err}"
+    );
+    let err = resolve_scoped_repos(&RepoScope::Por, Some(&bot))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("the agent side") && err.contains("`-s a`"),
+        "{err}"
+    );
+
+    for d in [&other, &plain] {
+        let repos = resolve_scoped_repos(&RepoScope::Por, Some(d)).unwrap();
+        assert_eq!(repos, vec![d.canonicalize().unwrap()], "{d:?}");
+    }
+    let err = resolve_scoped_repos(&RepoScope::Por, Some(&base.join("missing")))
+        .unwrap_err()
+        .to_string();
+    assert!(err.starts_with("-R "), "{err}");
     std::fs::remove_dir_all(&base).ok();
 }
 

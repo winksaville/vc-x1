@@ -619,20 +619,23 @@ vc-x1 agent-session --per-line --lines 40,5 FILE
 
 ### validate-desc
 
-Read-only scan of commit descriptions against the other repo. The other repo is read from
-`.vc-config.md` (`repos.agent`) by default, or overridden with `--other-repo`. Reports status per
-commit: `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or
-`miss` (no ochid trailer).
+Read-only scan of commit descriptions against the other repo. `-s` is required and says whose
+commits are checked: `w` the work repo's against the agent repo, `a` the reverse, `b` both
+directions, one table per side under its label. `-R` is optional and says where, a path anywhere in
+the workspace, the cwd without it. `-s p` is refused, a plain repo having no other repo. The other
+repo is the workspace's other side, or `--other-repo` for one side. Reports status per commit:
+`ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or `miss`
+(no ochid trailer).
 
 ```
-# Validate all ancestors of @ (reads other repo from .vc-config.md)
-vc-x1 validate-desc @..
+# Both directions, all ancestors of @ on each side
+vc-x1 validate-desc -s b @..
 
-# Validate with explicit other repo
-vc-x1 validate-desc --other-repo .claude @..
+# The work repo's commits against an explicit other repo
+vc-x1 validate-desc -s w --other-repo .claude @..
 
-# Validate specific range
-vc-x1 validate-desc -r @.. -n 20
+# The agent repo's commits, a specific range
+vc-x1 validate-desc -s a -r @.. -n 20
 ```
 
 Use `--help` for the full status label legend.

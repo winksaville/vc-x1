@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::jj::session::home_dir;
 use crate::options_flags::common_args::CommonArgs;
-use crate::options_flags::scope::{Scope, Side};
+use crate::options_flags::scope::{RepoScope, Scope, Side};
 use crate::toml_simple;
 use futures::stream::StreamExt;
 use jj_lib::backend::CommitId;
@@ -639,13 +639,13 @@ pub fn verify_bot_published(
         PublishState::InSync => Ok(()),
         PublishState::NeverPushed => Err(format!(
             "bot repo '{repo_str}': bookmark '{bookmark}' has never been pushed to origin, \
-             publish it with `vc-x1 squash-push -R {repo_str}`"
+             publish it with `vc-x1 squash-push -s a -R {repo_str}`"
         )
         .into()),
         PublishState::Mismatch { local, remote } => Err(format!(
             "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): \
              an earlier publish was likely lost; publish it with \
-             `vc-x1 squash-push -R {repo_str}`, then retry",
+             `vc-x1 squash-push -s a -R {repo_str}`, then retry",
             &local[..local.len().min(12)],
             &remote[..remote.len().min(12)]
         )
@@ -1143,6 +1143,83 @@ pub fn resolve_repos(
         (Some(p), None) => Ok(vec![p.to_path_buf()]),
         (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
         (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
+    }
+}
+
+/// The short scope letter a `Scope` is spelled by in the write
+/// commands' errors, `w`, `a`, or `b`.
+fn scope_letter(scope: &Scope) -> &'static str {
+    if scope.is_both() {
+        "b"
+    } else if scope.has_bot() {
+        "a"
+    } else {
+        "w"
+    }
+}
+
+/// Resolve a command's required `-s` and optional `-R` into the
+/// repos it acts on, in scope order ([`RepoScope`]). `-R` is only
+/// ever where, and the cwd without it. The write commands' resolver,
+/// and every repo command's once the sweep reaches it.
+///
+/// - `Sides`: the start is anywhere in a dual workspace, its root
+///   or either repo, and the sides come from the root's config as
+///   [`scope_to_repos`] resolves them. Outside a workspace it is an
+///   error naming `-s p`.
+/// - `Por`: the start is the repo itself, which must be no side of
+///   a dual workspace: a plain commit on a side is an unpaired
+///   commit, which is what the required `-s` exists to prevent, so
+///   the error names the side and the scope to use. A repo under a
+///   workspace's tree that is neither side is plain.
+pub fn resolve_scoped_repos(
+    scope: &RepoScope,
+    repo: Option<&Path>,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let start = match repo {
+        Some(p) => p
+            .canonicalize()
+            .map_err(|e| format!("-R '{}': {e}", p.display()))?,
+        None => std::env::current_dir()?,
+    };
+    match scope {
+        RepoScope::Sides(sides) => {
+            let root = find_workspace_root_from(&start).ok_or_else(|| {
+                format!(
+                    "-s {}: '{}' is not in a vc-x1 workspace (no {} with a [repos] registry \
+                     up the tree). A plain repo is `-s p`",
+                    scope_letter(sides),
+                    start.display(),
+                    crate::config_md::VC_CONFIG_MD
+                )
+            })?;
+            scope_to_repos(sides, Some(&root))
+        }
+        RepoScope::Por => {
+            if let Some(root) = find_workspace_root_from(&start) {
+                reject_legacy_config(&root)?;
+                let is_bot = configured_bot_dir(&root)?
+                    .and_then(|b| b.canonicalize().ok())
+                    .is_some_and(|b| b == start);
+                let side = if start == root {
+                    Some(("work", "w"))
+                } else if is_bot {
+                    Some(("agent", "a"))
+                } else {
+                    None
+                };
+                if let Some((side, letter)) = side {
+                    return Err(format!(
+                        "-s p: '{}' is the {side} side of the dual workspace at '{}': \
+                         use `-s {letter}`, or `-s b` for both sides",
+                        start.display(),
+                        root.display()
+                    )
+                    .into());
+                }
+            }
+            Ok(vec![start])
+        }
     }
 }
 

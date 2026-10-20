@@ -266,12 +266,10 @@ fn cli_init_trailers_pass_validate_desc() {
     );
 
     for work in [&fresh, &adopted] {
-        for repo in [work.clone(), work.join(".sess")] {
-            run_ok(
-                fx.cmd()
-                    .args(["validate-desc", "-r", "@-", "-R"])
-                    .arg(&repo),
-            );
-        }
+        run_ok(
+            fx.cmd()
+                .args(["validate-desc", "-r", "@-", "-s", "b", "-R"])
+                .arg(work),
+        );
     }
 }
