@@ -121,7 +121,7 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
+vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
 vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
@@ -1551,50 +1551,53 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 ### push
 
-Commit both repos, push the work repo's BOOKMARK, and squash-push the bot repo's `main`: one command
-with two interactive approval gates. Replaces the old multi-step manual choreography (`jj commit` ×
-2 -> `jj bookmark set` × 2 -> `jj git push` -> squash-push) with a single invocation.
+Publish a rung's pair. Push carries no description and writes none, so what was reviewed is what
+goes out: `commit` makes the pair, the work commit and the agent commit each naming the other, or
+the work half alone with its trailer naming the agent `@`, and push completes and publishes it.
 
 ```bash
-vc-x1 push main                                     # interactive
-vc-x1 push main --title "..." --body "..."          # skip $EDITOR
-vc-x1 push main --yes --title "..." --body "..."    # full non-interactive
-vc-x1 push main --dry-run                           # preview
+vc-x1 push -s b                  # the pair, on the bookmark the work @- sits on
+vc-x1 push -s b feature          # the same, the bookmark named as a check
+vc-x1 push -s w                  # the work half only
+vc-x1 push -s a                  # the agent half only, the remainder of a run that stopped
+vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer asked for
+vc-x1 push -s b --dry-run        # plan and print, move nothing
 ```
+
+What push refuses, with both repos as they were:
+
+- a work `@` that is not empty: unsquashed work is a fix to fold or the next rung, the user's call
+- a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
+- a named bookmark that is not on the line `@-` is on, or two bookmarks on the line and none named
 
 Stages, top to bottom:
 
 | Stage | What it does |
 |-------|--------------|
-| `review` | Print `jj diff --stat` for both repos, then prompt `[y/N]` (first approval gate) |
-| `message` | Compose title+body from `--title`/`--body` or an `$EDITOR` template, then the second approval gate. Skipped when neither repo has pending changes, since a publish-only run needs no message |
-| `commit-work` | `jj commit` work repo with ochid trailer pointing at `.claude` (skipped when `@` is empty) |
-| `commit-bot` | `jj commit` `.claude` with ochid trailer pointing at the work repo (skipped if `.claude` is clean) |
-| `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
+| `plan` | Read the pair's state and decide every stage's input. The agent half by what it finds: the agent `@-` already names the work commit (`commit -s b`), so the journal in `@` folds into it, else the agent `@` is the change the work commit names (`commit -s w`), so the journal is committed as the partner, else the agent repo changed since the commit, and the unpublished work commit is restamped to name the agent `@`, said out loud |
+| `commit-agent` | `jj commit` the journal as the partner, with the work commit's description and a trailer naming it, when the plan says so |
+| `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R <agent>` |
 | `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
-| `squash-push-bot` | Synchronous squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
+| `squash-push-agent` | Fold the journal into the partner and push `main` (see [squash-push](#squash-push)) |
 
 **Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
 precondition and does nothing when its work is already done, so re-running after a failure is simply
-running. A recorded position would describe a world that may have changed for reasons push cannot
-know. If a run fails, push stops and reports. Please fix and try again.
-
-Failures in `commit-work` / `commit-bot` / `bookmark-set` roll both repos back via `jj op restore`
-to a snapshot taken moments earlier in the same process. Once `push-work` succeeds the work is
-published: from there a change is either a new commit appended on top by the next push, or an amend
-of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last commit
-and force-updates the remote. See the protocol's
+running. If a run fails, push stops and reports. Failures in `commit-agent` and `bookmark-set` roll
+both repos back via `jj op restore` to a snapshot taken moments earlier in the same process. Once
+`push-work` succeeds the work is published: from there a change is either a new pair on top, or an
+amend of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last
+commit and force-updates the remote. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Work-repo bookmark to advance (the bot repo always advances `main`), the positional form of `--bookmark` |
+| `-s, --scope <SCOPE>` | Required: `b|both` the pair, `w|work` the work half, `a|agent` the agent half, `p|por` a plain repo |
+| `-R, --repo <PATH>` | Where: a path in the workspace, or the plain repo [default: the cwd] |
+| `[BOOKMARK]` | Work-repo bookmark to advance, a check against the line `@-` is on [default: that line's bookmark], the positional form of `--bookmark` |
 | `--bookmark <NAME>` | Same as positional (mutually exclusive) |
-| `-y, --yes` | Auto-approve both gates (non-interactive use) |
-| `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |
-| `--dry-run` | Print what would run, no side effects |
+| `--dry-run` | Plan and print what would run, no side effects |
 | `--step` | Pause after every stage for an extra continue-prompt |
-| `--no-squash-push` | Stop before `squash-push-bot` (run it manually) |
+| `-y, --yes` | Pass the `--step` gates without asking |
 
 See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370) for the
 full design and [per-step record](./notes/chores/chores-05.md#per-step-record) for what each
@@ -1995,8 +1998,8 @@ three things, and it pays to know which is which.
 - **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
   is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
   it claims. Ten sites carry one today.
-- **The register is prose.** The numbered comment at the top of `clippy.toml` names the six
-  kinds of spawn that are permitted and why: the `jj -V` version probe, push's `$EDITOR`, init's
+- **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
+  kinds of spawn that are permitted and why: the `jj -V` version probe, init's
   `gh` calls, the test helpers and the CLI tests' launcher, validate running the configured
   commands, and sync's remote look, `git ls-remote` and a `git fetch` that moves no ref. The
   last is the one spawn of `git`, and is temporary: jj-lib has no query for the commits a

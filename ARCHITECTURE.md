@@ -121,9 +121,9 @@ per-subcommand refactor status):
   repositioning, op restore, squash, and the
   init/clone provisioning). The only process spawns
   left are the sites clippy.toml's register names (the
-  version gate's `jj -V`, push's `$EDITOR`, init's gh
-  provisioning, test helpers, validate's configured
-  commands), each under an explicit `#[allow]` of its
+  version gate's `jj -V`, init's gh provisioning, test
+  helpers, validate's configured commands), each under
+  an explicit `#[allow]` of its
   `disallowed-methods` ban on `Command::new`
   (README's [No process spawns](README.md#no-process-spawns)).
 

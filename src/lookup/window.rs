@@ -183,21 +183,18 @@ fn names_file(file_path: Option<&str>, rel: &Path) -> bool {
     file_path.is_some_and(|p| Path::new(p).ends_with(rel))
 }
 
-/// True when the command runs a push, which quotes a commit body and
-/// never writes a work file.
+/// True when the command runs a push or a commit, which quotes a
+/// commit body and never writes a work file.
 ///
-/// A push runs where a shell segment starts with it, after `&&`,
-/// `||`, `;`, `|`, or a newline and past any `NAME=value`
-/// assignments. A mention elsewhere, a heredoc's prose naming the
-/// command, is not a run, and the probes' writes include such
-/// heredocs.
+/// Such a run is where a shell segment starts with the binary,
+/// after `&&`, `||`, `;`, `|`, or a newline and past any
+/// `NAME=value` assignments. The binary is `vc-x1` or `vc-x1-dev`
+/// by name, or by any path ending in one, since a cycle's own rungs
+/// run the dev build from `tmp/dev/bin`. A mention elsewhere, a
+/// heredoc's prose naming the command, is not a run, and the
+/// probes' writes include such heredocs.
 fn is_push_call(command: &str) -> bool {
-    const PUSHES: [&str; 4] = [
-        "vc-x1 push",
-        "vc-x1-dev push",
-        "vc-x1 squash-push",
-        "vc-x1-dev squash-push",
-    ];
+    const VERBS: [&str; 3] = ["push", "squash-push", "commit"];
     command
         .split(['\n', ';', '|', '&'])
         .map(|segment| {
@@ -210,7 +207,18 @@ fn is_push_call(command: &str) -> bool {
             }
             rest
         })
-        .any(|segment| PUSHES.iter().any(|p| segment.starts_with(p)))
+        .any(|segment| {
+            let Some((binary, tail)) = segment.split_once(' ') else {
+                return false;
+            };
+            let name = binary.rsplit('/').next().unwrap_or(binary); // OK: rsplit yields at least one
+            (name == "vc-x1" || name == "vc-x1-dev")
+                && VERBS.iter().any(|v| {
+                    tail.trim_start()
+                        .strip_prefix(v)
+                        .is_some_and(|r| r.is_empty() || r.starts_with(' '))
+                })
+        })
 }
 
 /// True when one input writes `text` into `rel`.
@@ -415,6 +423,22 @@ mod tests {
             &tool(
                 "Bash",
                 serde_json::json!({"command": "cd /w && VC=1 vc-x1-dev push b --body \"notes.md: A line to find.\""})
+            ),
+            rel,
+            text
+        ));
+        assert!(!writes_line(
+            &tool(
+                "Bash",
+                serde_json::json!({"command": "tmp/dev/bin/vc-x1 commit -s w --title t --body \"notes.md: A line to find.\""})
+            ),
+            rel,
+            text
+        ));
+        assert!(!writes_line(
+            &tool(
+                "Bash",
+                serde_json::json!({"command": "cd /w && ./tmp/dev/bin/vc-x1-dev push -s b --body \"notes.md: A line to find.\""})
             ),
             rel,
             text

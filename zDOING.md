@@ -188,7 +188,7 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: an install table in the config][1] (done)
 - [feat: validate-desc takes -s, the first scope][2] (done)
 - [feat: vc-x1 commit makes the rung's commit pair][3] (done)
-- [feat: vc-x1 push only publishes the pair][4]
+- [feat: vc-x1 push only publishes the pair][4] (done)
 - [feat: vc-x1 squash folds work into the pair][5]
 - [feat: sync and squash-push take -s, required][6]
 - [feat: vc-x1 commit --closing makes the trapezoid][7]
@@ -290,6 +290,43 @@ Push carries no description: its agent half folds the journal into the pair's ag
 commit's description, its work half refuses unsquashed work, and it publishes the pair as
 reviewed. The transcript's push lines keep being recognized by the lookup in both the old form
 and the new.
+
+* Push wrote descriptions and ran gates of its own.
+  - The review gate, the message stage, the editor, `--title`, `--body`, and `--no-squash-push`
+    are gone, and the retired flags are errors naming themselves. What remains is `-s`, `-R`, the
+    bookmark as a check, `--dry-run`, and `--step` with `--yes` for its gates. A rerun stays safe,
+    since every stage still checks its precondition.
+* The pair can arrive in three states.
+  - A `plan` stage reads them before anything is touched: the agent `@-` names the work commit
+    (`commit -s b`) and the journal folds into it at squash-push, the agent `@` is the change the
+    work commit names (`commit -s w`) and the journal is committed as the partner with the work
+    commit's own text, or the agent repo changed since the commit and the unpublished work commit
+    is restamped to name the agent `@`, said out loud, a published one refusing. Each state has a
+    test, the restamp's keeping the work change id.
+* The refusals had to come before any mutation.
+  - Reading the agent `@` snapshots it, so a journal file the size limit refuses stops the plan
+    with the file named and no rollback, the m-10-0 case now a CLI test of `commit -s b` for
+    either side and of `push -s b` for the journal.
+* The halves and the plain repo.
+  - `-s w` publishes the work commit alone, `-s a` completes the agent half after it, the by-hand
+    remainder of a run that stopped past push-work, and `-s p` publishes a plain repo's `@-` on
+    its bookmark with no trailer asked for. The bookmark is the line's unless named, and a name
+    that is not among the nearest bookmarks below `@-` is refused naming them.
+* The lookup knew push lines by two fixed prefixes.
+  - It knows `commit` as a third verb, since the body now rides on it, and the binary by its
+    basename after any path, since this cycle's rungs run `tmp/dev/bin/vc-x1`. The fixture's
+    recorded lines still read as before.
+* The pair's two paths and the two-repo snapshots were written twice.
+  - `pair.rs` holds `Pair`, `resolve_pair`, and `Snapshots` with `take` and `restore`, the pieces
+    `commit` and `push` both had, wink's question at this rung's review. The description helper
+    went to `desc_helpers`, where the trailer's shape lives, and the one-off pieces, the body's
+    `@PATH`, the partner check, the preflights, stay where they are until a third copy appears.
+* Two tests and a script still spoke the old push.
+  - The sync CLI test's peer push is `commit -s w` then `push -s w`, and `with_trailer` in
+    `desc_helpers` is the one place a trailer is appended, fixing the double blank line commit
+    left. `support/fixtures/build-dr-1.py` still drives `push --title --body` and is the
+    **dr-1 is built in Rust** cycle's to retire, so a rebuild of the fixture after Land needs it
+    changed first.
 
 ##### feat: vc-x1 squash folds work into the pair
 

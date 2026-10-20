@@ -51,12 +51,11 @@ struct PeerPush {
 }
 
 /// Shared setup: `vc-x1 init` with local bare remotes, `vc-x1
-/// clone` trB then trA, change + `vc-x1 push` on trA.
+/// clone` trB then trA, a change on trA made by `commit -s w` and
+/// published by `push -s w`.
 ///
-/// Push notes: `--no-squash-push` stops before squash-push-bot
-/// (out of scope); PATH carries the binary under test. Preflight
-/// is gone as of 0.77.0-3, so no stage-skipping flag is needed,
-/// which is what removing the `sync --check` self-spawn bought.
+/// Push notes: `-s w` publishes the work half only, the agent half
+/// being out of scope; PATH carries the binary under test.
 fn setup_peer_push(tag: &str) -> PeerPush {
     let fx = CliFixture::new(tag);
 
@@ -89,15 +88,20 @@ fn setup_peer_push(tag: &str) -> PeerPush {
 
     fs::write(tr_a.join("from-a.txt"), "from clone A\n").expect("write trA change");
     run_ok(fx.cmd().current_dir(&tr_a).env("PATH", test_path()).args([
-        "push",
-        "main",
+        "commit",
+        "-s",
+        "w",
         "--title",
         "feat: from clone A",
         "--body",
         "add from-a.txt",
-        "--yes",
-        "--no-squash-push",
     ]));
+    run_ok(
+        fx.cmd()
+            .current_dir(&tr_a)
+            .env("PATH", test_path())
+            .args(["push", "-s", "w", "main"]),
+    );
     let pushed = cid(&fx.home, &tr_a, "main");
     assert_ne!(pre_main, pushed, "trA's push should advance the remote");
 

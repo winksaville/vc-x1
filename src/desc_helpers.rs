@@ -38,6 +38,14 @@ pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::e
     }
 }
 
+/// A description with its `ochid:` trailer: the text, trailing
+/// blank lines trimmed, a blank line, then `ochid: <value>`, so a
+/// body read from a file ending in a newline gets one blank line
+/// before the trailer, not two.
+pub fn with_trailer(text: &str, value: &str) -> String {
+    format!("{}\n\nochid: {value}", text.trim_end())
+}
+
 /// Problems found with an ochid trailer, with details for reporting.
 #[derive(Debug)]
 pub struct OchidIssues {

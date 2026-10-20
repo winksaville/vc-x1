@@ -36,13 +36,13 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info, warn};
+use log::{debug, info};
 
 use crate::context::Context;
-use crate::desc_helpers::ochid_prefix_for;
+use crate::desc_helpers::{ochid_prefix_for, with_trailer};
 use crate::jj;
-use crate::jj::{current_op_id, op_restore};
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, Side, parse_repo_scope};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
+use crate::pair::{Pair, Snapshots, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
 /// Commit the working copies as a rung's pair, or a plain repo's
@@ -104,11 +104,7 @@ pub enum Target {
     /// `agent_now` the agent commit is made too, else it is left to
     /// push, the work commit's trailer naming the agent `@` either
     /// way.
-    Pair {
-        work: PathBuf,
-        agent: PathBuf,
-        agent_now: bool,
-    },
+    Pair { pair: Pair, agent_now: bool },
     /// A plain repo with no partner.
     Por(PathBuf),
 }
@@ -151,21 +147,10 @@ impl TryFrom<&CommitArgs> for CommitParams {
             RepoScope::Sides(sides) => {
                 // Both paths whatever the side, since `w` needs the
                 // agent @'s change id for its trailer.
-                let both = RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]));
-                let repos = crate::common::resolve_scoped_repos(&both, a.repo.as_deref())
-                    .map_err(|e| e.to_string())?;
-                match repos.as_slice() {
-                    [work, agent] => Target::Pair {
-                        work: work.clone(),
-                        agent: agent.clone(),
-                        agent_now: sides.is_both(),
-                    },
-                    other => {
-                        return Err(format!(
-                            "commit -s b: expected two repos, got {}",
-                            other.len()
-                        ));
-                    }
+                let pair = resolve_pair(a.repo.as_deref()).map_err(|e| e.to_string())?;
+                Target::Pair {
+                    pair,
+                    agent_now: sides.is_both(),
                 }
             }
         };
@@ -195,11 +180,7 @@ impl SubcommandRunner for CommitArgs {
 pub fn commit(ctx: &mut Context, params: &CommitParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("commit: enter {params:?}");
     match &params.target {
-        Target::Pair {
-            work,
-            agent,
-            agent_now,
-        } => commit_pair(ctx, work, agent, *agent_now, params),
+        Target::Pair { pair, agent_now } => commit_pair(ctx, pair, *agent_now, params),
         Target::Por(repo) => commit_por(ctx, repo, params),
     }
 }
@@ -237,23 +218,21 @@ fn preflight(
 /// the partner, its id already in the work commit's trailer.
 fn commit_pair(
     ctx: &mut Context,
-    work: &Path,
-    agent: &Path,
+    pair: &Pair,
     agent_now: bool,
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     preflight(work, "work", true)?;
     preflight(agent, "agent", false)?;
     let work_chid = jj::chid_of(work, "@")?;
     let agent_chid = jj::chid_of(agent, "@")?;
     let agent_prefix = ochid_prefix_for(agent)?;
-    let work_desc = format!(
-        "{}\n\n{}\n\nochid: {agent_prefix}{agent_chid}",
-        params.title, params.body
-    );
-    let agent_desc = format!("{}\n\n{}\n\nochid: /{work_chid}", params.title, params.body);
+    let text = format!("{}\n\n{}", params.title, params.body);
+    let work_desc = with_trailer(&text, &format!("{agent_prefix}{agent_chid}"));
+    let agent_desc = with_trailer(&text, &format!("/{work_chid}"));
 
-    let snapshots = (current_op_id(work)?, current_op_id(agent)?);
+    let snapshots = Snapshots::take(pair)?;
     info!("commit work: {} -> @- {work_chid}", work.display());
     ctx.session(work)?.commit(&work_desc)?;
     if !agent_now {
@@ -266,13 +245,7 @@ fn commit_pair(
     }
     info!("commit agent: {} -> @- {agent_chid}", agent.display());
     if let Err(e) = ctx.session(agent)?.commit(&agent_desc) {
-        warn!("commit: restoring both repos after: {e}");
-        if let Err(r) = op_restore(agent, &snapshots.1) {
-            warn!("commit: agent repo restore failed: {r}");
-        }
-        if let Err(r) = op_restore(work, &snapshots.0) {
-            warn!("commit: work repo restore failed: {r}");
-        }
+        snapshots.restore(pair, "commit", e.as_ref());
         return Err(e);
     }
     info!(

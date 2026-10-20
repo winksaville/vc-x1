@@ -10,8 +10,11 @@
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
 #    CLI spawn is its subject matter.
-# 2. Push's `$EDITOR` launch (src/push.rs): interactive message
-#    editing is a spawn by definition.
+# 2. Closed 2026-10-20 by the "feat: vc-x1 commit, install, and
+#    run-dev" cycle: push's `$EDITOR` launch (src/push.rs) went with
+#    push's message stage, since `commit` carries the description
+#    and push publishes what was reviewed. The number stays so the
+#    later entries keep theirs.
 # 3. Init's gh provisioning (src/init.rs): `gh auth status`,
 #    `gh repo view`, `gh repo create`. Creating a repo on GitHub is
 #    the forge's REST API, not a version-control operation, and no jj or

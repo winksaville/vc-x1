@@ -1,12 +1,8 @@
-//! Unit tests for the push module.
-//!
-//! Flag parsing and message parsing only: the state-file and
-//! stage-ordering unit tests went with the state machine at
-//! 0.77.0-3. What replaced them is behavioral and lives in
-//! `integration_tests`: each stage no-ops when its work is already
-//! done, so a rerun is safe.
+//! Unit tests for the push module: flag parsing. The behavior is in
+//! `integration_tests`, against real fixtures.
 
 use super::*;
+use crate::options_flags::scope::Side;
 use clap::Parser;
 
 #[derive(Parser)]
@@ -15,118 +11,82 @@ struct Cli {
     args: PushArgs,
 }
 
-/// Bare `push` with no flags leaves every optional field at its default.
-#[test]
-fn parse_defaults() {
-    let cli = Cli::try_parse_from(["test"]).unwrap();
-    assert!(cli.args.bookmark.is_none());
-    assert!(cli.args.bookmark_pos.is_none());
-    assert!(!cli.args.step);
-    assert!(!cli.args.no_squash_push);
-    assert!(!cli.args.dry_run);
-    assert!(cli.args.title.is_none());
-    assert!(cli.args.body.is_none());
-}
-
-/// Positional bookmark form: `vc-x1 push main`.
-#[test]
-fn parse_bookmark_positional() {
-    let cli = Cli::try_parse_from(["test", "main"]).unwrap();
-    assert_eq!(cli.args.bookmark_pos.as_deref(), Some("main"));
-    assert!(cli.args.bookmark.is_none());
-}
-
-/// Flag bookmark form: `vc-x1 push --bookmark main`.
-#[test]
-fn parse_bookmark_flag() {
-    let cli = Cli::try_parse_from(["test", "--bookmark", "dev"]).unwrap();
-    assert_eq!(cli.args.bookmark.as_deref(), Some("dev"));
-    assert!(cli.args.bookmark_pos.is_none());
-}
-
-/// Positional + flag together is rejected by clap (conflicts_with).
-#[test]
-fn parse_bookmark_both_conflicts() {
-    let result = Cli::try_parse_from(["test", "main", "--bookmark", "dev"]);
-    assert!(result.is_err());
-}
-
-/// Boolean flags all honored when set.
-#[test]
-fn parse_bool_flags() {
-    let cli =
-        Cli::try_parse_from(["test", "--step", "--no-squash-push", "--dry-run", "--yes"]).unwrap();
-    assert!(cli.args.step);
-    assert!(cli.args.no_squash_push);
-    assert!(cli.args.dry_run);
-    assert!(cli.args.yes);
-}
-
-/// The retired resume flags are gone from the CLI surface.
-#[test]
-fn parse_rejects_retired_resume_flags() {
-    for flag in ["--restart", "--status", "--recheck"] {
-        assert!(
-            Cli::try_parse_from(["test", flag]).is_err(),
-            "{flag} should no longer parse"
-        );
+fn parse(args: &[&str]) -> Result<PushArgs, String> {
+    match Cli::try_parse_from(args) {
+        Ok(cli) => Ok(cli.args),
+        Err(e) => Err(e.to_string()),
     }
-    assert!(
-        Cli::try_parse_from(["test", "--from", "message"]).is_err(),
-        "--from should no longer parse"
-    );
 }
 
-/// `--bookmark`, `--title`, `--body` parse their values.
+/// `-s` is required and the other flags default off.
 #[test]
-fn parse_string_flags() {
-    let cli = Cli::try_parse_from([
-        "test",
-        "--bookmark",
-        "main",
+fn parse_defaults_and_scope_required() {
+    let a = parse(&["test", "-s", "b"]).unwrap();
+    assert!(a.bookmark.is_none());
+    assert!(a.bookmark_pos.is_none());
+    assert!(a.repo.is_none());
+    assert_eq!(
+        a.scope,
+        RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]))
+    );
+    assert!(!a.step);
+    assert!(!a.dry_run);
+    assert!(!a.yes);
+    let err = parse(&["test"]).unwrap_err();
+    assert!(err.contains("--scope"), "{err}");
+}
+
+/// The bookmark's two spellings, exclusive, collapse into one param.
+#[test]
+fn parse_bookmark_forms() {
+    let a = parse(&["test", "main", "-s", "w"]).unwrap();
+    assert_eq!(PushParams::from(&a).bookmark.as_deref(), Some("main"));
+    let a = parse(&["test", "--bookmark", "dev", "-s", "a"]).unwrap();
+    assert_eq!(PushParams::from(&a).bookmark.as_deref(), Some("dev"));
+    assert!(parse(&["test", "main", "--bookmark", "dev", "-s", "b"]).is_err());
+}
+
+/// The description flags and the stage switch retired with the
+/// pair are refused, as are the older resume flags.
+#[test]
+fn parse_rejects_retired_flags() {
+    for flag in [
         "--title",
-        "feat: x",
         "--body",
-        "details here",
+        "--no-squash-push",
+        "--restart",
+        "--status",
+        "--recheck",
+        "--from",
+    ] {
+        let err = parse(&["test", "-s", "b", flag, "x"]).unwrap_err();
+        assert!(err.contains(flag), "{flag}: {err}");
+    }
+}
+
+/// `--step`, `--dry-run`, `--yes`, and `-R` parse.
+#[test]
+fn parse_switches_and_repo() {
+    let a = parse(&[
+        "test",
+        "-s",
+        "p",
+        "-R",
+        "../other",
+        "--step",
+        "--dry-run",
+        "--yes",
     ])
     .unwrap();
-    assert_eq!(cli.args.bookmark.as_deref(), Some("main"));
-    assert_eq!(cli.args.title.as_deref(), Some("feat: x"));
-    assert_eq!(cli.args.body.as_deref(), Some("details here"));
+    assert_eq!(a.scope, RepoScope::Por);
+    assert_eq!(a.repo, Some(PathBuf::from("../other")));
+    assert!(a.step && a.dry_run && a.yes);
 }
 
-/// `parse_message` extracts title + body, strips `#` comments,
-/// and rejects all-comments / empty input.
+/// The partner's text is the work description without its trailer.
 #[test]
-fn parse_message_cases() {
-    // Title + body separated by blank line.
-    let (t, b) = parse_message("feat: x\n\nBody here.\nSecond line.\n").unwrap();
-    assert_eq!(t, "feat: x");
-    assert_eq!(b, "Body here.\nSecond line.");
-
-    // Title + body with no blank line: first line is title, rest is body.
-    let (t, b) = parse_message("feat: x\nBody here.\nSecond line.\n").unwrap();
-    assert_eq!(t, "feat: x");
-    assert_eq!(b, "Body here.\nSecond line.");
-
-    // Body with internal blank lines preserved.
-    let (t, b) = parse_message("feat: x\npara 1\n\npara 2\n").unwrap();
-    assert_eq!(t, "feat: x");
-    assert_eq!(b, "para 1\n\npara 2");
-
-    // Comments stripped.
-    let (t, b) =
-        parse_message("# comment\nfeat: y\n# mid-comment\n\nbody\n# tail-comment\n").unwrap();
-    assert_eq!(t, "feat: y");
-    assert_eq!(b, "body");
-
-    // Title only (no body).
-    let (t, b) = parse_message("feat: z\n").unwrap();
-    assert_eq!(t, "feat: z");
-    assert_eq!(b, "");
-
-    // All comments -> None (caller aborts).
-    assert!(parse_message("# only comments\n# and more\n").is_none());
-    // All blank -> None.
-    assert!(parse_message("   \n\n").is_none());
+fn without_trailers_strips_the_ochid_lines() {
+    let desc = "feat: x\n\nBody.\n\nochid: /.claude/abc\n";
+    assert_eq!(without_trailers(desc), "feat: x\n\nBody.");
+    assert_eq!(without_trailers("feat: y\n"), "feat: y");
 }

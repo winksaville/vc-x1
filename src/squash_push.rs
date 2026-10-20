@@ -317,7 +317,10 @@ fn check_squash_keeps_ochids(
 /// Two cases are decided by the caller rather than guessed, since a
 /// wrong guess here publishes something: several candidates, and
 /// none.
-fn current_bookmark(repo: &Path, target: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn current_bookmark(
+    repo: &Path,
+    target: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
     let nearest = format!("heads(::({target}) & bookmarks())");
     let mut found = jj::local_bookmarks_at(repo, &nearest)?;
     match found.len() {

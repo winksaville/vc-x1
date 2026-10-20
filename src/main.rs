@@ -21,6 +21,7 @@ mod logging;
 mod lookup;
 mod md_fence;
 mod options_flags;
+mod pair;
 mod push;
 mod repo_utils;
 mod show;
@@ -456,40 +457,37 @@ pub(crate) enum Commands {
     /// Print settable config keys and their defaults
     Config(config_cmd::ConfigArgs),
 
-    /// Commit both repos, push the work repo, squash-push the bot repo
-    #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
-        squash-push the bot repo's `main`: one command.\n\n\
-        Collapses the manual commit-push-publish ceremony into a\n\
-        single subcommand with two interactive approval gates.\n\n\
+    /// Publish a rung's pair, made by `commit`, with -s
+    #[command(
+        long_about = "Publish a rung's pair: the work commit on its bookmark and the\n\
+        agent commit on `main`. Push carries no description and writes\n\
+        none, so what was reviewed is what goes out.\n\n\
+        `commit` makes the pair, both commits now (-s b) or the work\n\
+        half with its trailer naming the agent @ (-s w). Push refuses a\n\
+        work @ that is not empty, unsquashed work being a fix to fold\n\
+        or the next rung, and a work @- with no `ochid:` trailer, which\n\
+        is not a pair's commit.\n\n\
         Stages, in order:\n\
-        \x20 - review           approve the diff (first gate)\n\
-        \x20 - message          $EDITOR, or --title/--body; approve\n\
-        \x20                    the text (second gate). Skipped when\n\
-        \x20                    neither repo has pending changes\n\
-        \x20 - commit-work      commit the work repo. Skipped when\n\
-        \x20                    `@` is empty\n\
-        \x20 - commit-bot       commit `.claude`. Skipped when it is\n\
-        \x20                    clean\n\
-        \x20 - bookmark-set     work repo -> <bookmark>, bot -> main\n\
-        \x20 - push-work        publish <bookmark> to origin\n\
-        \x20 - squash-push-bot  fold `.claude`'s trailing writes\n\
-        \x20                    into its commit and push main\n\n\
+        \x20 - plan               read the pair's state: the agent @-\n\
+        \x20                      names the work commit, so the journal\n\
+        \x20                      folds into it; or the agent @ is the\n\
+        \x20                      change the work commit names, so the\n\
+        \x20                      journal is committed as the partner;\n\
+        \x20                      or the agent repo changed, and the\n\
+        \x20                      unpublished work commit is restamped\n\
+        \x20 - commit-agent       commit the journal when the plan says\n\
+        \x20 - bookmark-set       work repo -> <bookmark>, agent -> main\n\
+        \x20 - push-work          publish <bookmark> to origin\n\
+        \x20 - squash-push-agent  fold the journal into the partner and\n\
+        \x20                      push main\n\n\
+        -s is required: `b` the pair, `w` the work half, `a` the agent\n\
+        half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
+        says where. The bookmark is the line's unless named as a check.\n\n\
         Rerunning is always safe: each stage does nothing when its\n\
-        work is already done, so a failed run is re-run rather than\n\
-        resumed. There is no saved state: vc-x1 cannot know why a\n\
-        run failed, so it stops and reports. Please fix and try\n\
-        again.\n\n\
-        Failures in commit-work / commit-bot / bookmark-set roll both\n\
-        repos back via `jj op restore` to a snapshot taken moments\n\
-        earlier. Once push-work succeeds the work is published: from\n\
-        there a change is either a new commit appended on top by the\n\
-        next push, or an amend of what was pushed: `vc-x1\n\
-        squash-push` folds the working copy into the last commit and\n\
-        force-updates the remote.\n\n\
-        vc-x1 runs no build or test steps: run your project's checks\n\
-        yourself before pushing.\n\n\
-        Non-interactive use: pass both --title and --body plus --yes\n\
-        to skip both gates.")]
+        work is already done. Failures in commit-agent / bookmark-set\n\
+        roll both repos back via `jj op restore`. Once push-work\n\
+        succeeds the work is published."
+    )]
     Push(push::PushArgs),
 
     /// Commit the working copies as a rung's pair, with -s and a title and body
