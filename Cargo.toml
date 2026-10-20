@@ -1,14 +1,15 @@
 [package]
 name = "vc-x1"
-version = "0.85.5"
+version = "0.85.6-0"
 edition = "2024"
 
-# Single-name convention (chores-16, 0.78.3): the package name IS
-# the installed binary's name, `vc-x1` on main and a per-line dev
-# name on a branch (renamed at cycle open, back at close-out, next
-# to the version bump). The guard against a forgotten open-rename
-# is build.rs, which refuses to build a suffixed version under the
-# stable name on every cargo verb, `cargo install` included.
+# The package name is the installed binary's name and never
+# changes: a cycle's validation installs under its own root,
+# `--root tmp/dev` in `.vc-config.md`'s `[validate]` lists, so a
+# dev build (a suffixed version) never replaces the stable
+# `vc-x1` on the PATH. The promotion is the plain `cargo install`
+# from `main`. Before 2026-10-20 a cycle renamed the package to
+# `vc-x1-dev` instead, guarded by build.rs (chores-16, 0.78.3).
 
 [lints.clippy]
 # The process-spawn ban: `Command::new` is disallowed via

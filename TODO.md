@@ -42,6 +42,238 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### Improve init and add rename and delete subcommands
+
+(wink + agent, 2026-10-11) A workspace's name is written into six places, and nothing renames or
+removes them together: the work-repo's directory, the agent-repo's directory when it is not
+nested, the two repos on the remote, each repo's `origin` URL, the `.vc-config.{toml|md}` of both
+sides, and the Claude Code symlink. And `init` makes a workspace it cannot always finish, or that
+Claude Code does not find.
+
+- The order is wink's: `init` is fixed first, then `vc-x1 delete`, then `vc-x1 rename`. Each is a
+  cycle of its own.
+- The `init` work is more than one cycle, wink's order: the agent template `--use-template` looks
+  for first, then the path over 200 characters, then the name GitHub would change, the order the
+  three parts below are in.
+- Delete is ahead of rename: its "find every part of a workspace from its config" is what rename
+  reuses, and it gives `init` the cleanup it lacks.
+- The parts are `####` headings, where [Todo format](agent-data/notes.md#todo-format) asks for
+  bullets with a bold title, since a heading is an anchor a link can name.
+- Delete leans on two entries far down this list: the clean verdict of [status prints a verdict
+  per repo and exits with a bit per
+  side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side), and [status reports the
+  commits no bookmark reaches](#status-reports-the-commits-no-bookmark-reaches). Whether they move
+  up ahead of it, or delete's cycle builds the verdict as its first rung, is open.
+- One experiment wants wink starting a fresh Claude Code session, the symlink's below.
+
+#### init --use-template takes an existing workspace as the template
+
+(wink, 2026-10-09) Someday an existing work directory should serve as a template. Today
+`--use-template WORK` requires an agent template too, defaulting to the sibling directory
+`<WORK>.claude`, and a workspace has no such sibling: its agent-repo is nested inside it and holds
+session data, which is nothing to copy.
+
+```
+$ vc-x1 init io-uring-2-zcr-v4-x2 --use-template io_uring-2-zcr-v4-x1/
+vc-x1 0.84.15
+Preflight checks...
+error: --use-template: agent template 'io_uring-2-zcr-v4-x1.claude' does not exist
+```
+
+Met again 2026-10-11 at 0.84.21, the same command and the same error, the template a workspace
+whose agent-repo is the nested `.agent-session`.
+
+- The agent template becomes optional: the sibling when it exists, otherwise an agent-repo seeded
+  with nothing.
+- The sibling default still ends in `.claude`, and whether it follows the `.agent-session` rename
+  is decided with the template repo, where the short-term fix, updating its `work` and
+  `work.claude`, is being made.
+
+#### symlink names a path over 200 characters as Claude Code does
+
+(2026-10-09) Claude Code cuts a project name longer than 200 characters to 200 and appends `-` and
+a base-36 hash of the path, and `encode_path` returns the uncut name, so `vc-x1 symlink` makes a
+link Claude Code never reads for such a path. Found in the installed Claude Code (2.1.295) during
+the cycle "fix: symlink names a project as Claude Code does", which left it out: the hash function
+has to be copied exactly, and no path met so far is near 200.
+
+Whether the hash has to match bit for bit is not known, and the opening tests it before any code is
+written. On a scratch project whose full path is over 200 characters, wink starting a fresh Claude
+Code session there for each pass:
+
+- No link: the name Claude Code creates under `~/.claude/projects` is the ground truth, and a test
+  vector for the hash if one is needed.
+- The link as `vc-x1 symlink` makes it today, the uncut name: expected to be ignored, Claude Code
+  creating its own directory beside it as it did for the `io_uring` project, whose link was wrong
+  within the first 200 characters.
+- A link made by hand, the first 200 characters and a made-up suffix: used or ignored, and this
+  pass decides the design.
+  - Used: the fix is the cut and a fixed suffix, with no hash to copy.
+  - Ignored: the hash is reproduced exactly, and the first pass's name is its test.
+
+We think the third pass may be used: Claude Code's hash is recalled, not read this session, as
+differing between its native and Node installs, with a match on the first 200 characters as the
+fallback.
+
+#### init refuses a name GitHub would change
+
+(wink + agent, 2026-10-09) GitHub allows letters, digits, `.`, `-`, and `_` in a repo name and
+turns any other character into `-` without saying so. `init` asks for the repo under the name as
+typed and pushes to the URL built from that name, which does not exist when GitHub changed it:
+
+```
+$ vc-x1 init test_underscore=equal+plus-dash__two-unscores
+vc-x1 0.84.18
+...
+Step 8: Set main on the agent repo's initial commit, create GitHub repo winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session --public, and push to https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git
+error: failed after 5 attempts: Git process failed: External git program failed:
+fatal: repository 'https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git/' not found
+```
+
+GitHub had created `test_underscore-equal-plus-dash__two-unscores.agent-session`, so the run left
+an empty public repo there and a local workspace with no remote.
+
+- Preflight refuses such a name when the target provisions a GitHub repo, and says what GitHub
+  would make of it. `github_slug` already refuses a name ending in `.git`, and this check sits
+  beside it.
+- No silent rename: taking GitHub's version of the name would work, and the directory and the
+  remote would then carry different names nobody chose.
+- A local-only name is left alone, since the name is a fine directory.
+- A push that fails with "not found" is not retried, as the five attempts here were.
+- `init` has no undo, so a late failure leaves the earlier steps' work behind. The preflight check
+  avoids this case and not the general one, which is its own entry if it is wanted.
+
+#### delete removes a workspace from this machine
+
+- It removes the directories and the symlink, and leaves the remote alone. A repo on the remote
+  is deleted by hand.
+- Its prompt lists what goes and the commits that are nowhere else.
+- What stops it is below.
+
+#### rename renames a workspace, its remote included
+
+- It renames the repos on the remote too. The remote cannot be lost by it: the remote's rename
+  happens or is refused, so the repo is under the old name or the new one.
+- The remote goes first, so a refusal (the name taken, no permission) leaves the local side as it
+  was. The order after it: both `origin` URLs, the configs, a commit and push in both repos, the
+  directory, the symlink.
+- The new name is checked as [init refuses a name GitHub would
+  change](#init-refuses-a-name-github-would-change) checks one, so the URL written is the name
+  the remote took.
+- A run that stopped between the two repos is run again: it finds which repo has the new name
+  and goes on from there.
+- A workspace with no remote skips the remote steps. A remote that is not GitHub's is refused.
+- Left out, and listed by the command: the name as the family's other repos hold it, the
+  template, the messages, and the other members' configs.
+- Open: whether it takes the workspace whole or one side at a time. One side alone overlaps
+  [repos.agent becomes repos.agent-dir, and a command brings a config up to
+  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date).
+- Open: whether `.vc-config.toml` is still a form the commands handle.
+
+#### What stops delete and rename
+
+- An agent running in the workspace is not looked for. No lock is asked for, the session's being
+  off and the one `vc-x1` was to take for a run not added ([vc-x1 takes a lock of its own for a
+  run that writes](notes/todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes)).
+- Uncommitted work, or unpushed work on a bookmark, refuses. This is the status verdict, called
+  and not written again. The agent-repo's `@` is clean only after the session exits and a
+  `squash-push`.
+- Two findings warn and need a yes, `--yes` on the command line or `Y` at the prompt, an agent
+  with no terminal using the flag as it does for push:
+  - Commits no bookmark reaches.
+  - A half-made workspace, a repo with no remote at all, as an `init` that failed before
+    publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
+- We think the two warnings are delete's alone: such commits move with the directory in a rename.
+
+### agent-files(proposal): v0.3.1
+
+(wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
+dead-end cycles defined, and the end of every rung and of Land reshaped, so that what the user
+reviews is what is published. Follows **feat: vc-x1 commit, install, and run-dev**, whose commands
+the rules below name. Each change is a `####` heading holding what is done, and its `#####` holds
+why.
+
+#### Never rename
+
+- The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
+  `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
+- Land step 4 becomes `vc-x1 install`.
+- Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
+  identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
+  then.
+
+##### Why: never rename
+
+The rename's restore at Land changes the closing after its review, by a squash into a pushed
+commit, and Land step 4 names no command.
+
+#### A local commit before every push
+
+- Per-rung flow step 8 becomes `vc-x1 commit`, and the description review is of the commit it
+  makes, description and diff together, by `jj show @-` or gitk. A fix is a `jj squash` into it.
+- Step 9's `vc-x1 push` publishes it.
+- Step 6's work review stays ahead of it.
+- Committing vs pushing is rewritten, `vc-x1 commit` committing and `vc-x1 push` publishing, and
+  `jj.md`'s vc-x1 push section follows, the trailer stamped at commit and checked at push.
+
+##### Why: a local commit
+
+The last closing's review came after its push, so a change meant a remote rewrite and a
+squash-push in both repos. The work review stays first so a description is not rewritten while the
+work still moves.
+
+#### The closing is the trapezoid
+
+- A multi-step cycle always closes as a trapezoid, and keep separate goes.
+- The closing is made by `vc-x1 commit --closing`, so Land is sync, fast-forward, install, and the
+  bookmark's deletion. The trapezoid recipe and Close-out step 5 go, and `jj.md` Close-out shapes
+  keeps the trapezoid and why squash is not a shape.
+
+##### Why: the trapezoid always
+
+The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape
+at Land is a change made after review.
+
+#### Ladder labels from `[0]`
+
+- `notes.md` and the `cycle-model.md` specimen number the ladder's reference labels from `[0]`.
+
+##### Why: labels from zero
+
+Each label then equals its rung's version suffix.
+
+#### A rung may run the acceptance check
+
+- Close-out step 1 says a rung may run it and the closing records the result.
+
+##### Why: a rung may run it
+
+Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of passing**.
+
+#### Dead-end cycles defined
+
+- A cycle abandoned after its opening pushed still closes and lands. Its closing, titled with the
+  cycle title plus " dead-end closing", keeps what is worth keeping, reverts the rest, and records
+  what was tried, why it stopped, and what replaces it, then lands as a trapezoid like any closing.
+- The title cap does not bind the suffix (wink, 2026-10-20).
+- In `AGENTS.md` Close-out, `jj.md` Close-out shapes, and `prose.md`'s bookend titles.
+- Open: whether a dead end's Land releases its bare version or reverts to the last release.
+- First run: **test: the tests build the dr-1 fixture**, closed 2026-10-20.
+
+##### Why: dead ends land
+
+The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
+so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+
+#### Not in it
+
+Each run on its own:
+
+- The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record moves
+  out of TODO.md into zDOING.md**.
+- A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
+  ladder** has its results.
+
 ### dr-1 is built in Rust
 
 (wink + agent, 2026-10-20) A fresh clone's full test run fails all fourteen `dr1_*` tests, each
@@ -126,35 +358,6 @@ After the reorder, the same form, `author/committer` both 2026-10-19 UTC:
 - Acceptance: the `dr1_*` tests, pointed at this workspace and its `.claude` as the fixture, with
   a relationships file written from the pairs above, pass or fail per hypothesis, and each result
   is recorded.
-
-### agent-files(proposal): v0.3.1
-
-(wink + agent, 2026-10-18, simplified 2026-10-20) Small rule fixes learned by running v0.3.0, each
-a sentence or two in an agent-file, and dead-end cycles defined. Each item is the change, then
-why.
-
-- The dev rename always: Opening step 6 drops "when the built artifact has consumers". Why: the
-  build guard rejects a suffixed version under the plain name, so every multi-step cycle renames
-  already.
-- Ladder labels from `[0]`: `notes.md` and the `cycle-model.md` specimen number the ladder's
-  reference labels from `[0]`. Why: each label then equals its rung's version suffix.
-- A rung may run the acceptance check: Close-out step 1 says a rung may run it and the closing
-  records the result. Why: some checks run only mid-ladder, as in **fix: a missing fixture fails
-  instead of passing**.
-- Dead-end cycles defined: a cycle abandoned after its opening pushed still closes and lands. Its
-  closing, titled with the cycle title plus " dead-end closing", keeps what is worth keeping,
-  reverts the rest, and records what was tried, why it stopped, and what replaces it, then lands
-  as a trapezoid like any closing. The title cap does not bind the suffix (wink, 2026-10-20). In
-  `AGENTS.md` Close-out, `jj.md` Close-out shapes, and `prose.md`'s bookend titles. Why: the
-  cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs, so
-  dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
-  - Open: whether a dead end's Land releases its bare version or reverts to the last release.
-  - First run: **test: the tests build the dr-1 fixture**, closed 2026-10-20.
-- Not in it, each run on its own:
-  - The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record
-    moves out of TODO.md into zDOING.md**.
-  - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
-    ladder** has its results.
 
 ### The family leaves the committed config
 
@@ -399,149 +602,6 @@ table.
   - Reported by iiac-perf's message **2026-09-02T17:26:18.543Z Cross-file links go unchecked** in
     `../vc-x1-messages`, which asks for a reply naming it and linking where this landed, so the
     reply goes out once this entry's cycle is pushed.
-
-### Improve init and add rename and delete subcommands
-
-(wink + agent, 2026-10-11) A workspace's name is written into six places, and nothing renames or
-removes them together: the work-repo's directory, the agent-repo's directory when it is not
-nested, the two repos on the remote, each repo's `origin` URL, the `.vc-config.{toml|md}` of both
-sides, and the Claude Code symlink. And `init` makes a workspace it cannot always finish, or that
-Claude Code does not find.
-
-- The order is wink's: `init` is fixed first, then `vc-x1 delete`, then `vc-x1 rename`. Each is a
-  cycle of its own.
-- The `init` work is more than one cycle, wink's order: the agent template `--use-template` looks
-  for first, then the path over 200 characters, then the name GitHub would change, the order the
-  three parts below are in.
-- Delete is ahead of rename: its "find every part of a workspace from its config" is what rename
-  reuses, and it gives `init` the cleanup it lacks.
-- The parts are `####` headings, where [Todo format](agent-data/notes.md#todo-format) asks for
-  bullets with a bold title, since a heading is an anchor a link can name.
-- Delete leans on two entries far down this list: the clean verdict of [status prints a verdict
-  per repo and exits with a bit per
-  side](#status-prints-a-verdict-per-repo-and-exits-with-a-bit-per-side), and [status reports the
-  commits no bookmark reaches](#status-reports-the-commits-no-bookmark-reaches). Whether they move
-  up ahead of it, or delete's cycle builds the verdict as its first rung, is open.
-- One experiment wants wink starting a fresh Claude Code session, the symlink's below.
-
-#### init --use-template takes an existing workspace as the template
-
-(wink, 2026-10-09) Someday an existing work directory should serve as a template. Today
-`--use-template WORK` requires an agent template too, defaulting to the sibling directory
-`<WORK>.claude`, and a workspace has no such sibling: its agent-repo is nested inside it and holds
-session data, which is nothing to copy.
-
-```
-$ vc-x1 init io-uring-2-zcr-v4-x2 --use-template io_uring-2-zcr-v4-x1/
-vc-x1 0.84.15
-Preflight checks...
-error: --use-template: agent template 'io_uring-2-zcr-v4-x1.claude' does not exist
-```
-
-Met again 2026-10-11 at 0.84.21, the same command and the same error, the template a workspace
-whose agent-repo is the nested `.agent-session`.
-
-- The agent template becomes optional: the sibling when it exists, otherwise an agent-repo seeded
-  with nothing.
-- The sibling default still ends in `.claude`, and whether it follows the `.agent-session` rename
-  is decided with the template repo, where the short-term fix, updating its `work` and
-  `work.claude`, is being made.
-
-#### symlink names a path over 200 characters as Claude Code does
-
-(2026-10-09) Claude Code cuts a project name longer than 200 characters to 200 and appends `-` and
-a base-36 hash of the path, and `encode_path` returns the uncut name, so `vc-x1 symlink` makes a
-link Claude Code never reads for such a path. Found in the installed Claude Code (2.1.295) during
-the cycle "fix: symlink names a project as Claude Code does", which left it out: the hash function
-has to be copied exactly, and no path met so far is near 200.
-
-Whether the hash has to match bit for bit is not known, and the opening tests it before any code is
-written. On a scratch project whose full path is over 200 characters, wink starting a fresh Claude
-Code session there for each pass:
-
-- No link: the name Claude Code creates under `~/.claude/projects` is the ground truth, and a test
-  vector for the hash if one is needed.
-- The link as `vc-x1 symlink` makes it today, the uncut name: expected to be ignored, Claude Code
-  creating its own directory beside it as it did for the `io_uring` project, whose link was wrong
-  within the first 200 characters.
-- A link made by hand, the first 200 characters and a made-up suffix: used or ignored, and this
-  pass decides the design.
-  - Used: the fix is the cut and a fixed suffix, with no hash to copy.
-  - Ignored: the hash is reproduced exactly, and the first pass's name is its test.
-
-We think the third pass may be used: Claude Code's hash is recalled, not read this session, as
-differing between its native and Node installs, with a match on the first 200 characters as the
-fallback.
-
-#### init refuses a name GitHub would change
-
-(wink + agent, 2026-10-09) GitHub allows letters, digits, `.`, `-`, and `_` in a repo name and
-turns any other character into `-` without saying so. `init` asks for the repo under the name as
-typed and pushes to the URL built from that name, which does not exist when GitHub changed it:
-
-```
-$ vc-x1 init test_underscore=equal+plus-dash__two-unscores
-vc-x1 0.84.18
-...
-Step 8: Set main on the agent repo's initial commit, create GitHub repo winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session --public, and push to https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git
-error: failed after 5 attempts: Git process failed: External git program failed:
-fatal: repository 'https://github.com/winksaville/test_underscore=equal+plus-dash__two-unscores.agent-session.git/' not found
-```
-
-GitHub had created `test_underscore-equal-plus-dash__two-unscores.agent-session`, so the run left
-an empty public repo there and a local workspace with no remote.
-
-- Preflight refuses such a name when the target provisions a GitHub repo, and says what GitHub
-  would make of it. `github_slug` already refuses a name ending in `.git`, and this check sits
-  beside it.
-- No silent rename: taking GitHub's version of the name would work, and the directory and the
-  remote would then carry different names nobody chose.
-- A local-only name is left alone, since the name is a fine directory.
-- A push that fails with "not found" is not retried, as the five attempts here were.
-- `init` has no undo, so a late failure leaves the earlier steps' work behind. The preflight check
-  avoids this case and not the general one, which is its own entry if it is wanted.
-
-#### delete removes a workspace from this machine
-
-- It removes the directories and the symlink, and leaves the remote alone. A repo on the remote
-  is deleted by hand.
-- Its prompt lists what goes and the commits that are nowhere else.
-- What stops it is below.
-
-#### rename renames a workspace, its remote included
-
-- It renames the repos on the remote too. The remote cannot be lost by it: the remote's rename
-  happens or is refused, so the repo is under the old name or the new one.
-- The remote goes first, so a refusal (the name taken, no permission) leaves the local side as it
-  was. The order after it: both `origin` URLs, the configs, a commit and push in both repos, the
-  directory, the symlink.
-- The new name is checked as [init refuses a name GitHub would
-  change](#init-refuses-a-name-github-would-change) checks one, so the URL written is the name
-  the remote took.
-- A run that stopped between the two repos is run again: it finds which repo has the new name
-  and goes on from there.
-- A workspace with no remote skips the remote steps. A remote that is not GitHub's is refused.
-- Left out, and listed by the command: the name as the family's other repos hold it, the
-  template, the messages, and the other members' configs.
-- Open: whether it takes the workspace whole or one side at a time. One side alone overlaps
-  [repos.agent becomes repos.agent-dir, and a command brings a config up to
-  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date).
-- Open: whether `.vc-config.toml` is still a form the commands handle.
-
-#### What stops delete and rename
-
-- An agent running in the workspace is not looked for. No lock is asked for, the session's being
-  off and the one `vc-x1` was to take for a run not added ([vc-x1 takes a lock of its own for a
-  run that writes](notes/todo-backlog.md#vc-x1-takes-a-lock-of-its-own-for-a-run-that-writes)).
-- Uncommitted work, or unpushed work on a bookmark, refuses. This is the status verdict, called
-  and not written again. The agent-repo's `@` is clean only after the session exits and a
-  `squash-push`.
-- Two findings warn and need a yes, `--yes` on the command line or `Y` at the prompt, an agent
-  with no terminal using the flag as it does for push:
-  - Commits no bookmark reaches.
-  - A half-made workspace, a repo with no remote at all, as an `init` that failed before
-    publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
-- We think the two warnings are delete's alone: such commits move with the directory in a rename.
 
 ### The cycle-record moves out of TODO.md into zDOING.md
 
