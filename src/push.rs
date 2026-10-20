@@ -344,6 +344,7 @@ fn agent_half(
         // is what publishes main: don't report a lost publish.
         at_rest: false,
         yes: true,
+        dry_run: false,
     };
     crate::squash_push::squash_push(ctx, &sp)?;
     Ok(partner)

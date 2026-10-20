@@ -90,6 +90,11 @@ pub struct SquashPushArgs {
     /// Ask before acting, overriding a configured squash-push.yes
     #[arg(long = "ask")]
     pub ask: bool,
+
+    /// Print what it found and what it would do in each repo, and
+    /// change nothing
+    #[command(flatten)]
+    pub dry_run: crate::options_flags::dry_run::DryRunFlag,
 }
 
 /// Per-invocation squash-push inputs: the clap-free shape the op
@@ -123,6 +128,9 @@ pub struct SquashPushParams {
     /// opt-in. Resolved from `--yes`, then `--ask`, then the repo's
     /// `squash-push.yes`, then the built-in.
     pub yes: bool,
+    /// Print what the precheck found and the steps it would take,
+    /// and change nothing.
+    pub dry_run: bool,
 }
 
 /// The `yes` choice: the flags, then the config key, then the
@@ -186,6 +194,7 @@ fn params_for(a: &SquashPushArgs, repo: PathBuf) -> Result<SquashPushParams, Str
             bookmark,
             at_rest: true,
             yes,
+            dry_run: a.dry_run.value,
         })
     }
 }
@@ -532,6 +541,28 @@ pub fn squash_push(
         return Ok(());
     }
 
+    // A dry run stops after the precheck, which has already said what
+    // it found, naming each step it would take.
+    if params.dry_run {
+        if rev_is_empty_undescribed(&params.repo, &sq.source)? {
+            info!(
+                "squash-push: [dry-run] {} is empty, would skip the squash",
+                sq.source
+            );
+        } else {
+            info!(
+                "squash-push: [dry-run] would squash {} -> {}",
+                sq.source, sq.target
+            );
+        }
+        info!(
+            "squash-push: [dry-run] would set bookmark '{bookmark}' to {}",
+            sq.target
+        );
+        info!("squash-push: [dry-run] would push '{bookmark}' to origin");
+        return Ok(());
+    }
+
     // The prompt sits between the precheck and the work, so it is
     // asked only when there is something to decline, and it names
     // what the precheck found.
@@ -699,6 +730,7 @@ mod tests {
             squash: crate::options_flags::squash::SquashOption { value: None },
             yes: false,
             ask: false,
+            dry_run: Default::default(),
         };
         let all = params_for_args(&args).expect("params");
         let [params] = all.as_slice() else {
@@ -811,6 +843,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("squash-push should publish the lost commit");
@@ -838,6 +871,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         assert!(state.nothing_to_do(), "{state:?}");
@@ -873,6 +907,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         // `@` is empty and undescribed and `main` matches origin, so
@@ -914,6 +949,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let before = read_state(&params).expect("read state");
         assert_eq!(before.line("bot"), "bot: dirty: @ has changes");
@@ -989,6 +1025,29 @@ mod tests {
         assert_eq!(config_yes(&fx.bot).expect("read"), None);
     }
 
+    /// A dry run reads the state, says what it found and would do,
+    /// and changes nothing: the tail stays in `@` and `main` stays
+    /// where it was.
+    #[test]
+    fn a_dry_run_changes_nothing() {
+        use crate::test_helpers::{Fixture, cid};
+
+        let fx = Fixture::new("sp-dry-run");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+        let main_before = cid(&fx.bot, "main");
+        let mut args = parse(&["vc-x1", "squash-push", "-s", "a", "--dry-run"]);
+        args.repo = Some(fx.work.clone());
+        assert!(args.dry_run.value);
+        let all = params_for_args(&args).expect("params");
+        squash_push(&mut crate::test_helpers::test_ctx(), &all[0]).expect("dry run");
+        assert_eq!(cid(&fx.bot, "main"), main_before, "main did not move");
+        assert_eq!(
+            crate::test_helpers::jj_ok(&fx.bot, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+            "false",
+            "the tail is still in @"
+        );
+    }
+
     /// With asking on and no tty, the run errors rather than
     /// hanging on `read_line`, the rule push's step gate follows.
     #[test]
@@ -1003,6 +1062,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: false,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         // The test states no tty rather than inheriting `cargo
@@ -1034,6 +1094,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: false,
+            dry_run: false,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("nothing to decline, so nothing is asked");
@@ -1054,6 +1115,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: false,
             yes: false,
+            dry_run: false,
         };
         let state = read_state(&stage).expect("read state");
         confirm(&stage, &state, "bot", false).expect("push's stage does not ask");
@@ -1087,6 +1149,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: false,
             yes: true,
+            dry_run: false,
         };
         assert!(read_state(&stage).expect("state").nothing_to_do());
 

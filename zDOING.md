@@ -90,10 +90,10 @@ workspace, two full `validate` runs at different versions leave one binary under
 #### Deliberation
 
 - Multi-step, a trapezoid the default, the agent's proposal and wink's go at the bookmark, eight
-  rungs then, twelve since the pair, the read-first scope, and push's halves (2026-10-20):
-  opening, the install table, validate-desc with the resolver, the commit pair, push publishing
-  only, squash, push's halves, sync and squash-push, the closing as the merge, install, run-dev,
-  closing.
+  rungs then, thirteen since the pair, the read-first scope, push's halves, and squash-push's
+  dry run (2026-10-20): opening, the install table, validate-desc with the resolver, the commit
+  pair, push publishing only, squash, push's halves, sync and squash-push, squash-push's dry run,
+  the closing as the merge, install, run-dev, closing.
   - The install table is first, so every later rung's validation installs under `tmp/dev`.
   - The resolver is ahead of the commands that take it, and the commit rungs come before install
     and run-dev, being the larger change. The closing as the merge is its own rung, so the plain
@@ -175,6 +175,12 @@ workspace, two full `validate` runs at different versions leave one binary under
   `push -s b` is `push -s a`, mirroring the `commit -s w` before it, then `push -s w`. Its own
   rung rather than a fold into the squash rung, since it rewrites push's structure and the squash
   rung was reviewed, and the squash rung went out by the old push.
+- `squash-push --dry-run` is a rung inserted after the stash, wink's pick (2026-10-20), when
+  `squash-push --dry-run -s a` was refused as an unknown flag: the other write commands all had
+  one by then.
+  - Its work and description reviews are waived, wink's delegation at the insert: the rung runs
+    through `commit -s w` without stopping, and the push still takes its own approval. The
+    waiver covers this rung and nothing else.
 - The pair's commands come before the stash, wink's vote after the validate-desc push
   (2026-10-20), `commit`, then `squash`, then `squash-push`, with `push` moved between the first
   two on the agent's reason: handed a pair, today's push publishes the work half as-is but commits
@@ -198,10 +204,11 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: vc-x1 squash folds work into the pair][5] (done)
 - [fix: push runs the agent half, then the work half][6] (done)
 - [feat: sync and squash-push take -s, required][7] (done)
-- [feat: vc-x1 commit --closing makes the trapezoid][8]
-- [feat: vc-x1 install promotes main][9]
-- [feat: vc-x1 run-dev runs the dev binary][10]
-- [feat: vc-x1 commit, install, and run-dev closing][11]
+- [feat: squash-push takes --dry-run][8] (done)
+- [feat: vc-x1 commit --closing makes the trapezoid][9]
+- [feat: vc-x1 install promotes main][10]
+- [feat: vc-x1 run-dev runs the dev binary][11]
+- [feat: vc-x1 commit, install, and run-dev closing][12]
 
 ##### feat: vc-x1 commit, install, and run-dev opening
 
@@ -424,6 +431,19 @@ the messages saying `-s a`. Written before the validate-desc rung and held on
     bypass the pair, so the one rule stays, wink's call at this rung's review (2026-10-20): `p`
     is a repo with no partner, and the error names the side's scope.
 
+##### feat: squash-push takes --dry-run
+
+Squash-push was the one write command with no preview: `--dry-run` prints what it found and what
+it would do in each resolved repo, and changes nothing.
+
+* `squash-push --dry-run -s a` was refused as an unknown flag.
+  - It takes the shared `DryRunFlag` leaf and stops after its precheck, which has already printed
+    the verdict line, naming each step it would take: the squash, or that the source is empty and
+    it would skip it, the bookmark set, and the push. With `-s b` it says so for each repo, work
+    first. A test checks the tail stays in `@` and `main` does not move.
+* Push's agent half builds squash-push's params directly.
+  - It passes `dry_run: false`, since push's own dry run stops before it.
+
 ##### feat: vc-x1 commit --closing makes the trapezoid
 
 The closing is made as the merge of the trunk and the ladder when it is committed, so no reshape
@@ -454,7 +474,8 @@ Closing out the cycle.
 [5]: #feat-vc-x1-squash-folds-work-into-the-pair
 [6]: #fix-push-runs-the-agent-half-then-the-work-half
 [7]: #feat-sync-and-squash-push-take--s-required
-[8]: #feat-vc-x1-commit---closing-makes-the-trapezoid
-[9]: #feat-vc-x1-install-promotes-main
-[10]: #feat-vc-x1-run-dev-runs-the-dev-binary
-[11]: #feat-vc-x1-commit-install-and-run-dev-closing
+[8]: #feat-squash-push-takes---dry-run
+[9]: #feat-vc-x1-commit---closing-makes-the-trapezoid
+[10]: #feat-vc-x1-install-promotes-main
+[11]: #feat-vc-x1-run-dev-runs-the-dev-binary
+[12]: #feat-vc-x1-commit-install-and-run-dev-closing

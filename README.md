@@ -1446,6 +1446,9 @@ vc-x1 squash-push feature -s w --squash @,@--
 
 # Confirm before acting, overriding a configured squash-push.yes
 vc-x1 squash-push -s a --ask
+
+# Say what it found and what it would do, and change nothing
+vc-x1 squash-push -s a --dry-run
 ```
 
 `-s` is required and `-R` optional, as for every write command: `-s` says which repos, `-R` says
