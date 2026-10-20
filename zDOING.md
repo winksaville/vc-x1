@@ -189,7 +189,7 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: validate-desc takes -s, the first scope][2] (done)
 - [feat: vc-x1 commit makes the rung's commit pair][3] (done)
 - [feat: vc-x1 push only publishes the pair][4] (done)
-- [feat: vc-x1 squash folds work into the pair][5]
+- [feat: vc-x1 squash folds work into the pair][5] (done)
 - [feat: sync and squash-push take -s, required][6]
 - [feat: vc-x1 commit --closing makes the trapezoid][7]
 - [feat: vc-x1 install promotes main][8]
@@ -332,6 +332,40 @@ and the new.
 
 A review's fix folds into the pair in both repos at once, refusing a published side, and a
 description fix goes the same way with the trailers restamped.
+
+The first rung under the two-paragraph body, wink's (2026-10-20), so this subsection is the full
+account its body points at.
+
+* A rung could not be continued once committed.
+  - `vc-x1 squash -s b` folds the work `@` into the work commit and the journal into the agent
+    commit, each keeping its change id, so both trailers stay right untouched. `-s w` and `-s a`
+    fold one side, `-s p` a plain repo's `@` into its `@-`.
+* The agent side can be committed, pending, or changed.
+  - A partner committed by `commit -s b` takes the journal. A pending one, after `commit -s w`,
+    is the journal already, push's to commit with the work commit's text, so squash leaves it,
+    and a changed one is push's to restamp. A test covers the first two.
+* A description fix was a re-describe the rules forbid by hand.
+  - `--title` with `--body` rewrites the descriptions and keeps each trailer, the sanctioned
+    re-describe, never of a published commit. A test checks the pair still validates in both
+    directions.
+* A published side is a remote rewrite.
+  - It is refused before anything moves, as is a work `@-` with no trailer. A failure after the
+    first mutation restores both repos from the shared snapshots.
+* The pair's state was read by push alone.
+  - `pair.rs` gained `work_commit`, `partner`, `refuse_conflicts`, and `is_published`, which push
+    and squash share, and `desc_helpers::read_body` is the `@PATH` reading commit and squash
+    share. The third copy of the conflict check, squash's, is what moved it.
+* The lookup did not know squash.
+  - `squash` is a verb beside `commit`, `push`, and `squash-push`, since it carries a body.
+* Push's plan said the agent half twice, wink's question at this rung's push dry run.
+  - The decision line and the summary line are one: what is published, then what the agent half
+    does and why, the restamp still a warning. Folded into this rung by its own `squash -s b`,
+    the first real fold, after the commit.
+* Commit and squash mutated with no preview, wink's point at this rung's review.
+  - Both take the shared `--dry-run` leaf: `commit --dry-run` prints the descriptions it would
+    write, trailers included, so a description is reviewed before anything is committed, and
+    `squash --dry-run` prints what it would fold and re-describe. A test of each checks nothing
+    moved.
 
 ##### feat: sync and squash-push take -s, required
 

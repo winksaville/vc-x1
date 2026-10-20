@@ -25,6 +25,7 @@ mod pair;
 mod push;
 mod repo_utils;
 mod show;
+mod squash;
 mod squash_push;
 mod status;
 mod subcommand;
@@ -505,6 +506,19 @@ pub(crate) enum Commands {
         unpaired. -R is optional and says where. --body is the text, or\n\
         @PATH to read it from a file.")]
     Commit(commit::CommitArgs),
+
+    /// Fold the working copies into the pair before it is pushed, with -s
+    #[command(long_about = "\
+        Continue a rung: fold the working copies into the pair `commit`\n\
+        made, before it is pushed. A review's fix in the work @ folds into\n\
+        the work commit, and the journal into the agent commit, each\n\
+        keeping its change id, so both trailers stay right.\n\n\
+        -s is required: `b` both sides, `w` the work side, `a` the agent\n\
+        side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
+        `commit -s w`, is left for push. A published side is refused.\n\
+        --title with --body rewrites the descriptions, keeping each trailer.\n\
+        -R is optional and says where.")]
+    Squash(squash::SquashArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -718,6 +732,7 @@ fn main() -> ExitCode {
         Commands::Config(args) => args.dispatch(&mut ctx),
         Commands::Push(args) => args.dispatch(&mut ctx),
         Commands::Commit(args) => args.dispatch(&mut ctx),
+        Commands::Squash(args) => args.dispatch(&mut ctx),
     }
 }
 

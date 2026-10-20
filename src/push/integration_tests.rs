@@ -74,6 +74,7 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         },
         title: title.to_string(),
         body: "The problem.\n\n* A facet.\n  - Its solution.\n".to_string(),
+        dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
     (work_at, agent_at)
@@ -406,6 +407,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         target: Target::Por(fx.work.clone()),
         title: "feat: plain".to_string(),
         body: "A body.".to_string(),
+        dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
 

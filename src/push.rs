@@ -45,7 +45,7 @@ use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc, with_trailer
 use crate::jj;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, parse_repo_scope};
 use crate::options_flags::squash::SquashSpec;
-use crate::pair::{Pair, Snapshots, resolve_pair};
+use crate::pair::{Pair, Partner, Snapshots, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
 /// Bookmark the agent repo always advances and pushes. The agent
@@ -264,21 +264,23 @@ fn stage_plan(
     if !jj::is_empty(root, "@")? {
         return Err(
             "push: the work repo's @ holds unsquashed work. Fold it into the pair with \
-                    `vc-x1 squash -s b` (or `jj squash` until it exists), or leave it as the next \
-                    rung and push after `vc-x1 commit`"
+                    `vc-x1 squash -s b`, or leave it as the next rung and push after \
+                    `vc-x1 commit`"
                 .into(),
         );
     }
-    let work_desc = jj::desc_of(root, "@-")?;
-    let Some(stamped) = extract_ochid_from_desc(&work_desc) else {
+    let pair = Pair {
+        work: root.to_path_buf(),
+        agent: bot.clone(),
+    };
+    let Some(work) = crate::pair::work_commit(&pair)? else {
         return Err(
             "push: the work repo's @- carries no `ochid:` trailer, so it is not a pair's \
-                    commit. Make the pair with `vc-x1 commit -s b` or `-s w` first"
+             commit. Make the pair with `vc-x1 commit -s b` or `-s w` first"
                 .into(),
         );
     };
-    let stamped = extract_bare_id(&stamped).to_string();
-    let work_chid = jj::chid_of(root, "@-")?;
+    let work_chid = work.chid.clone();
 
     let bookmark = match &params.bookmark {
         Some(b) => {
@@ -299,51 +301,45 @@ fn stage_plan(
         None => crate::squash_push::current_bookmark(root, "@-")?,
     };
 
+    // One plan line: what is published, and what the agent half does
+    // and why, the restamp a warning.
+    let publish = format!("push plan: publish {work_chid} on {bookmark}");
     let agent = if sides.has_bot() {
-        // Reading the agent @ snapshots it, so a file the size limit
-        // refuses stops the run here, before any mutation.
-        let agent_at = jj::chid_of(&bot, "@")?;
-        let agent_at_minus = jj::desc_of(&bot, "@-")?;
-        let at_minus_names_work = extract_ochid_from_desc(&agent_at_minus)
-            .map(|o| extract_bare_id(&o) == work_chid)
-            .unwrap_or(false);
-        if at_minus_names_work {
-            let partner = jj::chid_of(&bot, "@-")?;
-            info!(
-                "push plan: the agent @- {partner} names the work commit, the journal folds into it"
-            );
-            Some((AgentPlan::Fold, partner))
-        } else if agent_at == stamped {
-            info!(
-                "push plan: the agent @ {agent_at} is the change the work commit names, the journal is committed as the partner"
-            );
-            Some((AgentPlan::Commit, agent_at))
-        } else {
-            warn!(
-                "push plan: the work commit names the agent change {stamped}, which is neither the \
-                 agent @ ({agent_at}) nor the partner at @-: the agent repo changed since the commit. \
-                 The unpublished work commit is restamped to name {agent_at}"
-            );
-            if jj::matches(root, &format!("@- & ::{bookmark}@origin"))? {
-                return Err(
-                    "push: the work @- is already published, so it cannot be restamped. \
-                            Put the agent repo back at the change it names, or make a new pair"
-                        .into(),
+        match crate::pair::partner(&pair, &work)? {
+            Partner::Committed(partner) => {
+                info!(
+                    "{publish}, and fold the journal into the partner at @- {partner}, which names \
+                     the work commit"
                 );
+                Some((AgentPlan::Fold, partner))
             }
-            Some((AgentPlan::Commit, agent_at))
+            Partner::Pending(agent_at) => {
+                info!(
+                    "{publish}, and commit the agent @ {agent_at} as the partner, the change the \
+                     work commit names"
+                );
+                Some((AgentPlan::Commit, agent_at))
+            }
+            Partner::Changed { stamped, agent_at } => {
+                if jj::matches(root, &format!("@- & ::{bookmark}@origin"))? {
+                    return Err("push: the work @- is already published, so it cannot be \
+                                restamped. Put the agent repo back at the change it names, or \
+                                make a new pair"
+                        .into());
+                }
+                warn!(
+                    "{publish}, and restamp the work commit to name the agent @ {agent_at}: it \
+                     names {stamped}, which is neither the agent @ nor the partner at @-, so the \
+                     agent repo changed since the commit"
+                );
+                Some((AgentPlan::Commit, agent_at))
+            }
         }
     } else {
+        info!("{publish}, the agent half left out by the scope");
         None
     };
 
-    info!(
-        "push plan: bookmark={bookmark}, work_chid={work_chid}, agent={}",
-        agent
-            .as_ref()
-            .map(|(p, c)| format!("{p:?} {c}"))
-            .unwrap_or_else(|| "skipped".to_string())
-    );
     Ok(Run {
         bookmark,
         work_chid,

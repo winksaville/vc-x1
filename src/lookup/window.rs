@@ -183,8 +183,8 @@ fn names_file(file_path: Option<&str>, rel: &Path) -> bool {
     file_path.is_some_and(|p| Path::new(p).ends_with(rel))
 }
 
-/// True when the command runs a push or a commit, which quotes a
-/// commit body and never writes a work file.
+/// True when the command runs a push, a commit, or a squash, which
+/// quotes a commit body and never writes a work file.
 ///
 /// Such a run is where a shell segment starts with the binary,
 /// after `&&`, `||`, `;`, `|`, or a newline and past any
@@ -194,7 +194,7 @@ fn names_file(file_path: Option<&str>, rel: &Path) -> bool {
 /// heredoc's prose naming the command, is not a run, and the
 /// probes' writes include such heredocs.
 fn is_push_call(command: &str) -> bool {
-    const VERBS: [&str; 3] = ["push", "squash-push", "commit"];
+    const VERBS: [&str; 4] = ["push", "squash-push", "commit", "squash"];
     command
         .split(['\n', ';', '|', '&'])
         .map(|segment| {

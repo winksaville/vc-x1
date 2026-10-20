@@ -41,6 +41,7 @@ use log::{debug, info};
 use crate::context::Context;
 use crate::desc_helpers::{ochid_prefix_for, with_trailer};
 use crate::jj;
+use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
 use crate::pair::{Pair, Snapshots, resolve_pair};
 use crate::subcommand::SubcommandRunner;
@@ -76,15 +77,11 @@ pub struct CommitArgs {
     /// it from a file
     #[arg(long, value_name = "STR|@PATH", required = true)]
     pub body: String,
-}
 
-/// The body as given, or read from the file an `@PATH` names.
-fn body_text(body: &str) -> Result<String, String> {
-    match body.strip_prefix('@') {
-        Some(path) if !path.is_empty() => std::fs::read_to_string(path)
-            .map_err(|e| format!("commit: --body @{path}: cannot read the file: {e}")),
-        _ => Ok(body.to_string()),
-    }
+    /// Print the descriptions it would write, trailers included, and
+    /// commit nothing
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
 }
 
 /// Inputs to the commit op, flat, owned, clap-free: the repos `-s`
@@ -95,6 +92,8 @@ pub struct CommitParams {
     pub target: Target,
     pub title: String,
     pub body: String,
+    /// Print the descriptions and commit nothing.
+    pub dry_run: bool,
 }
 
 /// What `-s` resolved to.
@@ -116,7 +115,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// alone, read the body when it names a file, and check the
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
-        let body = body_text(&a.body)?;
+        let body = crate::desc_helpers::read_body(&a.body, "commit")?;
         if a.title.trim().is_empty() || body.trim().is_empty() {
             return Err("commit: --title and --body must both be non-empty".into());
         }
@@ -158,6 +157,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             target,
             title: a.title.clone(),
             body,
+            dry_run: a.dry_run.value,
         })
     }
 }
@@ -194,13 +194,7 @@ fn preflight(
     label: &str,
     must_change: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if jj::matches(repo, "conflicts()")? {
-        return Err(format!(
-            "commit: the {label} repo '{}' has conflicts: resolve them first",
-            repo.display()
-        )
-        .into());
-    }
+    crate::pair::refuse_conflicts(repo, "commit", label)?;
     if must_change && jj::is_empty(repo, "@")? {
         return Err(format!(
             "commit: nothing to commit, the {label} repo's @ is empty ('{}')",
@@ -232,6 +226,23 @@ fn commit_pair(
     let work_desc = with_trailer(&text, &format!("{agent_prefix}{agent_chid}"));
     let agent_desc = with_trailer(&text, &format!("/{work_chid}"));
 
+    if params.dry_run {
+        info!(
+            "commit: [dry-run] the work commit {work_chid}, in {}:\n{work_desc}",
+            work.display()
+        );
+        if agent_now {
+            info!(
+                "commit: [dry-run] the agent commit {agent_chid}, in {}:\n{agent_desc}",
+                agent.display()
+            );
+        } else {
+            info!(
+                "commit: [dry-run] the agent @ {agent_chid} is left for push to commit as the partner"
+            );
+        }
+        return Ok(());
+    }
     let snapshots = Snapshots::take(pair)?;
     info!("commit work: {} -> @- {work_chid}", work.display());
     ctx.session(work)?.commit(&work_desc)?;
@@ -264,9 +275,16 @@ fn commit_por(
 ) -> Result<(), Box<dyn std::error::Error>> {
     preflight(repo, "plain", true)?;
     let chid = jj::chid_of(repo, "@")?;
+    let desc = format!("{}\n\n{}", params.title, params.body);
+    if params.dry_run {
+        info!(
+            "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
+            repo.display()
+        );
+        return Ok(());
+    }
     info!("commit: {} -> @- {chid}", repo.display());
-    ctx.session(repo)?
-        .commit(&format!("{}\n\n{}", params.title, params.body))?;
+    ctx.session(repo)?.commit(&desc)?;
     Ok(())
 }
 
@@ -439,6 +457,33 @@ mod tests {
         a.body = format!("@{}", fx.base.join("missing.md").display());
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("cannot read the file"), "{err}");
+    }
+
+    /// A dry run reads and prints, and commits nothing in either repo.
+    #[test]
+    fn a_dry_run_commits_nothing() {
+        let fx = Fixture::new("commit-dry-run");
+        fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
+        let (work_at, agent_at) = (chid(&fx.work, "@"), chid(&fx.bot, "@"));
+        let mut a = args("b", &fx.work);
+        a.dry_run.value = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("dry run");
+        assert_eq!(
+            chid(&fx.work, "@"),
+            work_at,
+            "the work @ is still the change"
+        );
+        assert_eq!(
+            chid(&fx.bot, "@"),
+            agent_at,
+            "the agent @ is still the change"
+        );
+        assert_eq!(
+            jj_ok(&fx.work, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+            "false"
+        );
     }
 
     /// An empty work `@` is nothing to commit, and the agent repo is

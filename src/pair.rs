@@ -1,17 +1,21 @@
 //! The pair: a dual workspace's two repos as the commands that act
 //! on both see them, and the two-repo moves those commands share.
 //!
-//! `commit` and `push` resolve the same two paths from `-s` and
-//! `-R`, whatever side the scope names, since a half still needs the
-//! other repo to find or name its partner, and both take the same
+//! `commit`, `push`, and `squash` resolve the same two paths from
+//! `-s` and `-R`, whatever side the scope names, since a half still
+//! needs the other repo to find or name its partner, take the same
 //! `jj op` snapshots before their mutation window and restore both
-//! repos from them on a failure inside it. `squash` will too. The
-//! description helpers they share are in `desc_helpers`.
+//! repos from them on a failure inside it, and read the pair's
+//! state the same way: the work commit's trailer, and where its
+//! partner stands. The description helpers they share are in
+//! `desc_helpers`.
 
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 
+use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc};
+use crate::jj;
 use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::scope::{RepoScope, Scope, Side};
 
@@ -34,6 +38,84 @@ pub fn resolve_pair(repo: Option<&Path>) -> Result<Pair, Box<dyn std::error::Err
         }),
         other => Err(format!("expected the pair's two repos, got {}", other.len()).into()),
     }
+}
+
+/// Refuse a conflicted repo, naming it by `label` under `who`.
+pub fn refuse_conflicts(
+    repo: &Path,
+    who: &str,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if jj::matches(repo, "conflicts()")? {
+        return Err(format!(
+            "{who}: the {label} repo '{}' has conflicts: resolve them first",
+            repo.display()
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Whether `rev` is published: an ancestor of some remote bookmark,
+/// so rewriting it is a remote rewrite.
+pub fn is_published(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    jj::matches(repo, &format!("({rev}) & ::remote_bookmarks()"))
+}
+
+/// The work commit of a pair: the work `@-`, its change id, and the
+/// trailer it carries, the full value and the bare change id it
+/// names. `None` when `@-` carries no trailer, so is not a pair's.
+#[derive(Debug, Clone)]
+pub struct WorkCommit {
+    pub chid: String,
+    pub trailer: String,
+    pub stamped: String,
+}
+
+/// Read the work commit of the pair, `None` when it has no trailer.
+pub fn work_commit(pair: &Pair) -> Result<Option<WorkCommit>, Box<dyn std::error::Error>> {
+    let desc = jj::desc_of(&pair.work, "@-")?;
+    let Some(trailer) = extract_ochid_from_desc(&desc) else {
+        return Ok(None);
+    };
+    Ok(Some(WorkCommit {
+        chid: jj::chid_of(&pair.work, "@-")?,
+        stamped: extract_bare_id(&trailer).to_string(),
+        trailer,
+    }))
+}
+
+/// Where the agent half of a pair stands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Partner {
+    /// The agent `@-` names the work commit, the pair made at once
+    /// (`commit -s b`): the journal in `@` folds into it. Its id.
+    Committed(String),
+    /// The agent `@` is the change the work commit names (`commit
+    /// -s w`): the journal is the partner, for push to commit. Its id.
+    Pending(String),
+    /// Neither: the agent repo changed since the commit, so the work
+    /// commit names a change that is no longer the partner.
+    Changed { stamped: String, agent_at: String },
+}
+
+/// Read where the agent half stands for `work`. Reading the agent
+/// `@` snapshots it, so a file the size limit refuses stops the
+/// caller here, before any mutation.
+pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::error::Error>> {
+    let agent_at = jj::chid_of(&pair.agent, "@")?;
+    let names_work = extract_ochid_from_desc(&jj::desc_of(&pair.agent, "@-")?)
+        .is_some_and(|o| extract_bare_id(&o) == work.chid);
+    Ok(if names_work {
+        Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
+    } else if agent_at == work.stamped {
+        Partner::Pending(agent_at)
+    } else {
+        Partner::Changed {
+            stamped: work.stamped.clone(),
+            agent_at,
+        }
+    })
 }
 
 /// `jj op` ids of both repos, captured immediately before a

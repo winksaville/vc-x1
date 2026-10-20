@@ -121,6 +121,7 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
+vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
 vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
@@ -1541,13 +1542,34 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 ```
 
-`-s` is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
+`--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
+is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
 the agent `@` all the same, and leaves the agent half to `push`, which commits the journal as the
 partner, `p` commits a plain repo, and `a` is refused, an agent commit made first being unpaired.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
 stands. A failure after the first commit restores both repos from `jj op` snapshots.
+
+### squash
+
+Continue a rung: fold the working copies into the pair `commit` made, before it is pushed. A
+review's fix in the work `@` folds into the work commit, and the journal into the agent commit,
+each keeping its change id, so both trailers stay right without being touched.
+
+```
+vc-x1 squash -s b                                    # both sides
+vc-x1 squash -s w                                    # the work side only
+vc-x1 squash -s b --title "feat: ..." --body @tmp/body.md   # and rewrite the descriptions
+vc-x1 squash -s p -R ../other                        # a plain repo's @ into its @-
+```
+
+`-s` is required and `-R` optional. The agent side goes by where the partner stands: committed by
+`commit -s b`, so the journal folds into it, or pending after `commit -s w`, so the journal already
+is the partner and push commits it. A published side is refused, since folding into it is a remote
+rewrite, and a work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the
+descriptions and keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit.
+`--dry-run` prints what it would fold and re-describe, and changes nothing.
 
 ### push
 

@@ -249,6 +249,17 @@ lands, so the rules' invocations must carry it or fail.
 The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape
 at Land is a change made after review.
 
+#### A commit body is two plain paragraphs
+
+- The problem, then the solution opening "Solution:", ending with the pointer to the record, no
+  bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
+  pointer to the record** in `## Todo`, its rule, specimens, and subsection change.
+
+##### Why: two paragraphs
+
+A `git log` reader gets what was wrong and what was done in two sentences, and the breakdown is
+written once, in the record, rather than twice.
+
 #### Ladder labels from `[0]`
 
 - `notes.md` and the `cycle-model.md` specimen number the ladder's reference labels from `[0]`.
@@ -859,19 +870,26 @@ problem and solution breakdown the cycle-record already holds: the specimen body
 and the specimen of that rung's subsection are nearly the same text. The body for the cycle
 **docs: update single-step cycle add zCLOSED.md** was drafted at 34 lines and pushed at six.
 
-- The body is one paragraph, in the present tense: the problem, a sentence of what the commit
-  does about it, and a pointer to the record and the changed files.
+- The body is two plain paragraphs, wink's sharpening (2026-10-20): the first the problem, the
+  second the solution, opening "Solution:", each a sentence or two, and no `*` or `-` bullets.
+  The solution paragraph ends with the pointer. First used by the rung **feat: vc-x1 squash
+  folds work into the pair** of **feat: vc-x1 commit, install, and run-dev**, ahead of the rule.
 - The `*` and `-` breakdown stays where it is already written, the record, and leaves the body.
-- The pointer names the record as of the commit, "See zCLOSED.md as of this commit", since the
-  file is replaced at the next closing. A rung between names the running record and its
-  subsection.
+- The pointer names the record as of the commit, since `zCLOSED.md` is replaced at every closing
+  and at `HEAD` usually describes another cycle. One fixed sentence, so it is greppable: "Details
+  in the cycle's record, zCLOSED.md at its closing commit, under this title." The rung's
+  subsection is headed by the commit's exact title.
+- The rung subsection becomes the full account: the facets and their solutions in `*` and `-`
+  form, which [The In Progress block](agent-data/notes.md#the-in-progress-block) says is never a
+  restatement of the body, now that the body carries none. **A commit body carries a legend for
+  its markers** then applies to the record, not the log, and may retire.
 - A bookend's body is this form already.
 - The cost: the log alone no longer explains a commit, and the record has to hold everything the
   body did.
-- An `agent-files` proposal of its own: the rule in `prose.md` and the specimen in
-  `commit-model.md` change together, and bodies already published keep their form. It was to be
-  part of `agent-files(proposal): v0.2.8` (wink, 2026-10-11), which landed as the sync rules
-  alone (2026-10-13).
+- In **agent-files(proposal): v0.3.1**: the rule in `prose.md`, the specimens in
+  `commit-model.md`, and the rung subsection in `notes.md` change together, and bodies already
+  published keep their form. It was to be part of `agent-files(proposal): v0.2.8` (wink,
+  2026-10-11), which landed as the sync rules alone (2026-10-13).
 
 ### A commit body carries a legend for its markers
 
