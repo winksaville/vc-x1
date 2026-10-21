@@ -123,6 +123,7 @@ vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmar
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
+vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
 vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
@@ -1615,6 +1616,31 @@ refuses it. A rung pushed to its cycle bookmark is mutable to jj, and the push a
 takes approval like any other. Reported and allowed: a conflicted result, left as jj leaves it
 with `jj resolve --list` named. A source that is an ancestor of another, `main` below the last
 rung, is the no-fast-forward shape a closing is, so it is neither refused nor reported.
+
+### move-bookmark
+
+Point one existing local bookmark at one commit, `jj bookmark set <bookmark> -r <target>`, the
+repositioning a bookmark needs before it is pushed, since `push` only sets the line's bookmark to
+`@-`. Nothing is pushed.
+
+```
+vc-x1 move-bookmark -s w --bookmark feature --target @-       # forward to the last commit
+vc-x1 move-bookmark -s w --bookmark main --target feature     # main to where feature is
+vc-x1 move-bookmark -s w --bookmark feature --target X --allow-backwards  # off its line
+vc-x1 move-bookmark -s w --bookmark feature --target @- --dry-run         # say what it would do
+vc-x1 move-bookmark -s b --bookmark main --target @- --yes                # main in both repos
+vc-x1 move-bookmark -s p -R ../other --bookmark main --target @-          # any repo, unchecked
+```
+
+`-s`, `--bookmark`, and `--target` are required. `-s w` moves the work repo's bookmark. `-s a`, the
+agent repo, and `-s b`, both, take `--yes`, since the agent repo's `main` is otherwise set by push's
+agent half: the same name in each, the target resolved in each, and every repo checked before any
+moves. `-s p` takes the repo from `-R`, required, as it is, with none of the workspace's checks, so
+it moves a bookmark in either side of a dual workspace or any jj repo, and careful use is yours.
+The bookmark must already exist, none being created, and the target is a revset of exactly one
+commit, a bookmark or a rev. A move backward or sideways, leaving
+commits off the bookmark's line, is refused unless `--allow-backwards`, as `jj` refuses it, and a
+bookmark already at the target is left as it is.
 
 ### push
 

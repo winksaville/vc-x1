@@ -21,6 +21,7 @@ mod logging;
 mod lookup;
 mod md_fence;
 mod merge;
+mod move_bookmark;
 mod options_flags;
 mod pair;
 mod push;
@@ -534,6 +535,22 @@ pub(crate) enum Commands {
         and a target in jj's immutable(), unless --ignore-immutable.\n\
         Reported: a conflicted result.")]
     Merge(merge::MergeArgs),
+
+    /// Point an existing bookmark at one commit, locally, with -s
+    #[command(long_about = "\
+        Point one existing local bookmark at one commit, `jj bookmark set\n\
+        <bookmark> -r <target>`, the repositioning a bookmark needs before\n\
+        it is pushed, since push only sets the line's bookmark to @-.\n\
+        Nothing is pushed.\n\n\
+        --bookmark names a bookmark that must exist, none being created, and\n\
+        --target a revset of exactly one commit, a bookmark or a rev. A move\n\
+        backward or sideways is refused unless --allow-backwards, as jj\n\
+        refuses it, and a bookmark already at the target is left alone.\n\n\
+        -s is required: `w` the work repo, `a` the agent repo or `b` both with\n\
+        --yes, the same name in each and the target resolved in each, every\n\
+        repo checked before any moves. `p` takes the repo from -R, required,\n\
+        as it is, with no workspace checks, so careful use is yours.")]
+    MoveBookmark(move_bookmark::MoveBookmarkArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -749,6 +766,7 @@ fn main() -> ExitCode {
         Commands::Commit(args) => args.dispatch(&mut ctx),
         Commands::Squash(args) => args.dispatch(&mut ctx),
         Commands::Merge(args) => args.dispatch(&mut ctx),
+        Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
     }
 }
 

@@ -70,6 +70,9 @@ Provisional, the Todo's plan as filed:
   the closing as the merge close-out, its first parent the current `main`, its second the last
   rung. The " closing" and " dead-end closing" title suffixes are checked against the flag, never
   its trigger.
+- `vc-x1 move-bookmark -s w --bookmark NAME --target REV` moves an existing bookmark to one
+  commit, locally, and never pushes, `-s a|b` with `--yes`, and `-s p` in the `-R` repo with no
+  workspace checks. Push is unchanged.
 - `vc-x1 install` runs `[install] release` after checking that `@-` is `main` at `main@origin`,
   `@` is empty, and the version is bare, and `vc-x1 install --dev` runs `[install] dev` with no
   check, the mid-cycle refresh of the dev binary.
@@ -93,10 +96,10 @@ workspace, two full `validate` runs at different versions leave one binary under
 #### Deliberation
 
 - Multi-step, a trapezoid the default, the agent's proposal and wink's go at the bookmark, eight
-  rungs then, thirteen since the pair, the read-first scope, push's halves, and squash-push's
-  dry run (2026-10-20): opening, the install table, validate-desc with the resolver, the commit
-  pair, push publishing only, squash, push's halves, sync and squash-push, squash-push's dry run,
-  the closing as the merge, install, run-dev, closing.
+  rungs then, fourteen since the pair, the read-first scope, push's halves, squash-push's dry
+  run, and move-bookmark (2026-10-20): opening, the install table, validate-desc with the
+  resolver, the commit pair, push publishing only, squash, push's halves, sync and squash-push,
+  squash-push's dry run, the closing as the merge, move-bookmark, install, run-dev, closing.
   - The install table is first, so every later rung's validation installs under `tmp/dev`.
   - The resolver is ahead of the commands that take it, and the commit rungs come before install
     and run-dev, being the larger change. The closing as the merge is its own rung, so the plain
@@ -194,6 +197,12 @@ workspace, two full `validate` runs at different versions leave one binary under
   the fork point is an ancestor of the last rung, so only the parents differ from a linear commit,
   and the reviewed merge is what lands. The flag, not the title, decides: a title is transcribed
   text, and the suffix check catches a mismatch.
+- `move-bookmark` is a rung inserted after the merge rung, wink's call at that rung's push
+  (2026-10-20): asked how push names its target, the answer was that it cannot, push setting the
+  line's bookmark to `@-` and its BOOKMARK argument only a check, so a bookmark is put in
+  position by its own verb first. Its flags are wink's, `--bookmark NAME --target REV --scope
+  SCOPE`, all three required and the bookmark already existing, and push keeps its form, the new
+  verb being only repositioning.
 - The record is kept here, in `zDOING.md`, per the trial this file describes, and the ladder's
   labels start at `[0]`, continuing the local experiment the last cycles began.
 
@@ -209,9 +218,10 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [feat: sync and squash-push take -s, required][7] (done)
 - [feat: squash-push takes --dry-run][8] (done)
 - [feat: vc-x1 merge, and commit --closing on it][9] (done)
-- [feat: vc-x1 install promotes main][10]
-- [feat: vc-x1 run-dev runs the dev binary][11]
-- [feat: vc-x1 commit, install, and run-dev closing][12]
+- [feat: vc-x1 move-bookmark repositions a bookmark][10] (done)
+- [feat: vc-x1 install promotes main][11]
+- [feat: vc-x1 run-dev runs the dev binary][12]
+- [feat: vc-x1 commit, install, and run-dev closing][13]
 
 ##### feat: vc-x1 commit, install, and run-dev opening
 
@@ -501,6 +511,39 @@ follows its review, by a primitive that adds any sources to any mutable commit's
   - `commit --closing --dry-run` says which commits the closing would join, and `merge
     --dry-run` the sources it would add and the parents that would make.
 
+##### feat: vc-x1 move-bookmark repositions a bookmark
+
+A bookmark is put in position before it is pushed, by a command of its own, since push only ever
+sets the line's bookmark to `@-`.
+
+* Push cannot name its target, the question that raised the rung, wink's (2026-10-20).
+  - Push's work half sets the line's bookmark to the work `@-`, and its BOOKMARK argument is only
+    a check, a name that must be among the nearest bookmarks below `@-`. Its agent half sets the
+    agent-repo's `main` to the partner. Both ends are pinned, so a bookmark anywhere else is put
+    there first, by a verb that only repositions, and push keeps its form.
+* `vc-x1 move-bookmark -s w --bookmark NAME --target REV` is `jj bookmark set NAME -r REV`.
+  - All three flags are required, wink's. The bookmark must already exist, none being created,
+    and the target is a revset of exactly one commit, a bookmark or a rev, the form `merge`'s
+    `--target` has. A bookmark already at the target is left alone.
+  - Nothing is pushed, so every remote change still goes through push and its approval.
+* The checks vc-x1 adds to jj's.
+  - A move backward or sideways, leaving commits off the bookmark's line, is refused unless
+    `--allow-backwards`, the flag and the refusal `jj bookmark set` has. Forward means every
+    commit the bookmark points at, a conflicted bookmark's several included, is an ancestor of
+    the target.
+  - `-s a` and `-s b` take `--yes`, wink's at review, the first form having refused them, since
+    the agent-repo's `main` is otherwise push's agent half's to set. Each repo of the scope moves
+    the same name, the target resolved in it, `@-` in each, and every repo is checked before any
+    moves, so a bookmark or a target missing from one stops both, which a test checks. A failure
+    of a later move restores the repos already moved from their snapshots.
+  - `-s p` takes the repo from `-R`, required, as it is, wink's at review: none of the
+    workspace's checks, so it moves a bookmark in either side of a dual workspace or any jj repo,
+    and careful use is the user's. The bookmark, target, and direction checks stay, wink's pick.
+  - No trailer is asked of the target, and no immutability, since a bookmark's move rewrites no
+    commit: `main` moved to the closing merge at Land is the case it serves next.
+* Dry run.
+  - `--dry-run` says where the bookmark would move from and to, and moves nothing.
+
 ##### feat: vc-x1 install promotes main
 
 The promotion is a subcommand that checks it is installing pushed `main` at a bare version, the
@@ -528,6 +571,7 @@ Closing out the cycle.
 [7]: #feat-sync-and-squash-push-take--s-required
 [8]: #feat-squash-push-takes---dry-run
 [9]: #feat-vc-x1-merge-and-commit---closing-on-it
-[10]: #feat-vc-x1-install-promotes-main
-[11]: #feat-vc-x1-run-dev-runs-the-dev-binary
-[12]: #feat-vc-x1-commit-install-and-run-dev-closing
+[10]: #feat-vc-x1-move-bookmark-repositions-a-bookmark
+[11]: #feat-vc-x1-install-promotes-main
+[12]: #feat-vc-x1-run-dev-runs-the-dev-binary
+[13]: #feat-vc-x1-commit-install-and-run-dev-closing
