@@ -122,6 +122,7 @@ vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to it
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
+vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
@@ -1549,7 +1550,16 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 
 # A plain repo, the description with no trailer
 vc-x1 commit -s p -R ../other --title "..." --body "..."
+
+# The cycle's closing, made as the merge of the trunk and the ladder
+vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
 ```
+
+`--closing` first merges `main` and the last rung into `@`, as `merge --target @ --from main
+--from @-` does, then commits, which keeps those parents. `main` is wherever it is now, so one
+that moved during the cycle is joined by the merge rather than needing a rebase. The title's
+" closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
+single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
 
 `--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
 is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
@@ -1579,6 +1589,32 @@ is the partner and push commits it. A published side is refused, since folding i
 rewrite, and a work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the
 descriptions and keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit.
 `--dry-run` prints what it would fold and re-describe, and changes nothing.
+
+### merge
+
+Add the sources named to one target commit's parents, after the ones it has, keeping the target's
+own change, description, and change id, so its trailer stays right. The target's tree becomes the
+merge of all its parents with its own change applied, `jj rebase -r <target> -o <p1> ... -o <s1>
+...`. One target, empty or not, and N sources, with no assumption about where either lives: each
+`--from` is a revset of one or more commits, a bookmark, `main`, a change id, an earlier merge, a
+root, added oldest first. Merging sources one at a time and all at once give the same tree.
+
+```
+vc-x1 merge -s w --target @ --from A --from B          # two lines of work into @
+vc-x1 merge -s w --target @ --from C                   # one more, after A and B
+vc-x1 merge -s w --target X --from 'bookmarks(glob:"f-*")'  # every bookmark matching, at once
+vc-x1 merge -s w --target @ --from main --dry-run      # say what it would do
+```
+
+`-s`, `--target`, and `--from` are required, `-s` being `w` or `p`, since the agent repo never
+holds a merge. A source that is already a parent is skipped, and a merge adding nothing changes
+nothing. Removing a parent is not a merge: `jj undo` takes back the last one, and `jj rebase -r
+<target> -o ...` sets any parents. Refused: a source that is the target or below it, a cycle, and
+a target in jj's `immutable()`, under jj's aliases and yours, unless `--ignore-immutable`, as `jj`
+refuses it. A rung pushed to its cycle bookmark is mutable to jj, and the push after its rewrite
+takes approval like any other. Reported and allowed: a conflicted result, left as jj leaves it
+with `jj resolve --list` named. A source that is an ancestor of another, `main` below the last
+rung, is the no-fast-forward shape a closing is, so it is neither refused nor reported.
 
 ### push
 

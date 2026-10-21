@@ -399,6 +399,7 @@ mod tests {
             },
             title: "feat: a rung".to_string(),
             body: "The problem.".to_string(),
+            closing: false,
             dry_run: false,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

@@ -244,6 +244,11 @@ lands, so the rules' invocations must carry it or fail.
   bookmark's deletion. The trapezoid recipe and Close-out step 5 go, and `jj.md` Close-out shapes
   keeps the trapezoid and why squash is not a shape.
 
+- The shape's name: with one rung the figure is a triangle, wink's observation (2026-10-20), so
+  "trapezoid" names one case. The tool calls the operation `merge` and the result the merge
+  close-out, and the rules' text could follow. `commit --closing` merges into the current `main`,
+  so a `main` that moved during the cycle no longer stops Land for a rebase.
+
 ##### Why: the trapezoid always
 
 The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape

@@ -64,9 +64,12 @@ Provisional, the Todo's plan as filed:
   bookmark argument go, the bookmark inferred from `@-` and named only as a check.
 - `vc-x1 squash-push` stays, wink's most-used command, `squash-push -s a` the agent half of a push
   on its own, and `-s w|b` the fold-and-publish that asks nothing.
-- `vc-x1 commit -s b --closing` makes the work commit as the trapezoid merge, its first parent the
-  fork point of the bookmark and `main`, its second the last rung. The " closing" and " dead-end
-  closing" title suffixes are checked against the flag, never its trigger.
+- `vc-x1 merge -s w --target <rev> --from <revset>...` adds the sources to one target's parents,
+  with jj's rebase meaning, refusing a target in jj's `immutable()` unless `--ignore-immutable`.
+  `vc-x1 commit -s b --closing` sets `@`'s parents to `main` and the last rung and then commits:
+  the closing as the merge close-out, its first parent the current `main`, its second the last
+  rung. The " closing" and " dead-end closing" title suffixes are checked against the flag, never
+  its trigger.
 - `vc-x1 install` runs `[install] release` after checking that `@-` is `main` at `main@origin`,
   `@` is empty, and the version is bare, and `vc-x1 install --dev` runs `[install] dev` with no
   check, the mid-cycle refresh of the dev binary.
@@ -205,7 +208,7 @@ workspace, two full `validate` runs at different versions leave one binary under
 - [fix: push runs the agent half, then the work half][6] (done)
 - [feat: sync and squash-push take -s, required][7] (done)
 - [feat: squash-push takes --dry-run][8] (done)
-- [feat: vc-x1 commit --closing makes the trapezoid][9]
+- [feat: vc-x1 merge, and commit --closing on it][9] (done)
 - [feat: vc-x1 install promotes main][10]
 - [feat: vc-x1 run-dev runs the dev binary][11]
 - [feat: vc-x1 commit, install, and run-dev closing][12]
@@ -444,10 +447,59 @@ it would do in each resolved repo, and changes nothing.
 * Push's agent half builds squash-push's params directly.
   - It passes `dry_run: false`, since push's own dry run stops before it.
 
-##### feat: vc-x1 commit --closing makes the trapezoid
+##### feat: vc-x1 merge, and commit --closing on it
 
 The closing is made as the merge of the trunk and the ladder when it is committed, so no reshape
-follows its review.
+follows its review, by a primitive that adds any sources to any mutable commit's parents.
+
+* Making a commit and giving it several parents are separate operations, wink's point at this
+  rung's review.
+  - `vc-x1 merge -s w --target <rev> --from <revset>...` adds the sources to one target's
+    parents, after the ones it has, keeping its change, description, and change id. One target,
+    empty or not, and N sources, no assumption about where either lives, wink's model
+    (2026-10-20): two lines of work merged into one commit, ten commits on one bookmark or many
+    merged into it one at a time, a root as a source. All three flags are required.
+  - Merge is an implied add, and each `--from` a revset of one or more commits, wink's call at
+    review. The first form replaced the parent list, so the second of ten merged one at a time
+    had to repeat the first. Each revset's commits are added oldest first, a source already a
+    parent is skipped, and a merge adding nothing changes nothing. jj-lib's `rebase_commit` takes
+    the whole parent list, so all the sources go in one call and one jj op, the same tree a loop
+    of one-at-a-time merges gives. Removing a parent is not a merge, and `jj undo` or `jj rebase
+    -r` does it.
+* Keeping the target's tree and swapping its parents is right for one ladder only.
+  - The first version did that, and with several sources the merge would have silently reverted
+    all but one. The verb has jj's rebase meaning, the new tree the merge of the sources with the
+    target's own change, which a test of two sources checks.
+* Limits that are not artificial.
+  - Refused: a source at or below the target, a cycle, a revset naming no commit, and a target in
+    jj's `immutable()` unless `--ignore-immutable`, as `jj` refuses it, wink's call at review.
+    The first form refused a published target, `::remote_bookmarks()`, which counts a rung pushed
+    to its cycle bookmark, though jj counts it mutable and the push after its rewrite takes
+    approval anyway. vc-x1 evaluates revsets in-process, so the session config now carries the
+    jj CLI's revset aliases, `trunk()` and `immutable()` among them, and every layer's
+    `[revset-aliases]`, the user's `immutable_heads()` included, override them as in `jj`.
+  - The git backend holds no merge with the root as a parent, jj's own refusal, so merging into
+    a commit that sits on the root fails and the snapshot restores the repo.
+  - Reported and allowed: a conflicted result, left conflicted as jj leaves it, push refusing a
+    conflicted repo anyway. A source that is an ancestor of another was going to be warned about
+    as redundant, until the dogfood dry run of a closing warned: `main` below the last rung is
+    the no-fast-forward shape a closing is, so it is unremarked.
+    `-s a` and `-s b` are refused, the agent repo never holding a merge.
+* The name, wink's: "reparent" read as an operation on one commit's parent, and "trapezoid" names
+  only some results, a closing on one rung being a triangle. `merge` names the result.
+* `commit --closing` sets `@`'s parents to `main` and the last rung, then commits.
+  - It sets them by the primitive `merge` uses, not by `merge`'s append, which would put the
+    trunk second. It merges before committing, so `@`'s parents are set and the commit keeps
+    them, and `main`
+    is the current one, not the fork point, so a `main` that moved during the cycle is joined by
+    the merge rather than needing a rebase first, which a test checks. The title's " closing"
+    suffix is checked against the flag both ways, and with no ladder, a single-step cycle, a
+    " closing" title is just a title and `--closing` is refused.
+  - A test makes the closing on a ladder of two rungs and folds a review fix into it with
+    `squash`, which keeps both parents.
+* Dry runs.
+  - `commit --closing --dry-run` says which commits the closing would join, and `merge
+    --dry-run` the sources it would add and the parents that would make.
 
 ##### feat: vc-x1 install promotes main
 
@@ -475,7 +527,7 @@ Closing out the cycle.
 [6]: #fix-push-runs-the-agent-half-then-the-work-half
 [7]: #feat-sync-and-squash-push-take--s-required
 [8]: #feat-squash-push-takes---dry-run
-[9]: #feat-vc-x1-commit---closing-makes-the-trapezoid
+[9]: #feat-vc-x1-merge-and-commit---closing-on-it
 [10]: #feat-vc-x1-install-promotes-main
 [11]: #feat-vc-x1-run-dev-runs-the-dev-binary
 [12]: #feat-vc-x1-commit-install-and-run-dev-closing

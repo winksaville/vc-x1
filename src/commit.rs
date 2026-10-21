@@ -29,6 +29,15 @@
 //! - The work side's `@` must hold a change, since a rung changes
 //!   the work repo. The agent side's `@` is the session's journal
 //!   and is committed as it stands.
+//! - `--closing` makes the work commit the cycle's merge close-out:
+//!   `@`, the closing's edits, is first given `main` and the last
+//!   rung as its parents, in that order, the trunk first, by the
+//!   primitive `vc-x1 merge` uses, then committed, which keeps
+//!   them. `main` is
+//!   wherever it is now, so one that moved during the cycle is
+//!   joined by the merge rather than needing a rebase.
+//!   The title's " closing" or " dead-end closing" suffix is checked
+//!   against the flag both ways, never its trigger.
 //! - A failure after the first commit restores both repos from the
 //!   `jj op` snapshots taken just before it, as push does inside its
 //!   mutation window.
@@ -78,10 +87,37 @@ pub struct CommitArgs {
     #[arg(long, value_name = "STR|@PATH", required = true)]
     pub body: String,
 
+    /// Make the work commit the cycle's closing, the merge of the
+    /// trunk and the ladder; the title must end " closing"
+    #[arg(long)]
+    pub closing: bool,
+
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
     #[command(flatten)]
     pub dry_run: DryRunFlag,
+}
+
+/// Refuse a title whose closing suffix disagrees with `--closing`:
+/// the flag decides, and the title is transcribed text the check
+/// catches a slip in. A " closing" title without the flag is a slip
+/// only when there is a ladder to close: with the work `@-` on
+/// `main`, a single-step cycle's, it is just a title.
+fn check_closing_title(title: &str, closing: bool, has_ladder: bool) -> Result<(), String> {
+    let says_closing = title.trim_end().ends_with(" closing");
+    if closing && !says_closing {
+        return Err(format!(
+            "commit --closing: the title '{title}' does not end \" closing\" or \" dead-end \
+             closing\", the cycle's closing bookend"
+        ));
+    }
+    if !closing && says_closing && has_ladder {
+        return Err(format!(
+            "commit: the title '{title}' ends \" closing\", so it is the cycle's closing \
+             bookend: pass --closing to make it the merge of the trunk and the ladder"
+        ));
+    }
+    Ok(())
 }
 
 /// Inputs to the commit op, flat, owned, clap-free: the repos `-s`
@@ -92,6 +128,8 @@ pub struct CommitParams {
     pub target: Target,
     pub title: String,
     pub body: String,
+    /// Make the work commit the merge close-out.
+    pub closing: bool,
     /// Print the descriptions and commit nothing.
     pub dry_run: bool,
 }
@@ -157,6 +195,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             target,
             title: a.title.clone(),
             body,
+            closing: a.closing,
             dry_run: a.dry_run.value,
         })
     }
@@ -219,14 +258,25 @@ fn commit_pair(
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     preflight(work, "work", true)?;
     preflight(agent, "agent", false)?;
+    check_closing(params, work)?;
     let work_chid = jj::chid_of(work, "@")?;
     let agent_chid = jj::chid_of(agent, "@")?;
     let agent_prefix = ochid_prefix_for(agent)?;
     let text = format!("{}\n\n{}", params.title, params.body);
     let work_desc = with_trailer(&text, &format!("{agent_prefix}{agent_chid}"));
     let agent_desc = with_trailer(&text, &format!("/{work_chid}"));
+    let merge = if params.closing {
+        Some(closing_parents(work)?)
+    } else {
+        None
+    };
 
     if params.dry_run {
+        if let Some((base, tip)) = &merge {
+            info!(
+                "commit: [dry-run] the work commit is the merge of the fork point {base} and the last rung {tip}"
+            );
+        }
         info!(
             "commit: [dry-run] the work commit {work_chid}, in {}:\n{work_desc}",
             work.display()
@@ -244,8 +294,17 @@ fn commit_pair(
         return Ok(());
     }
     let snapshots = Snapshots::take(pair)?;
+    if let Some((base, tip)) = &merge
+        && let Err(e) = make_closing_merge(ctx, work, base, tip)
+    {
+        snapshots.restore(pair, "commit", e.as_ref());
+        return Err(e);
+    }
     info!("commit work: {} -> @- {work_chid}", work.display());
-    ctx.session(work)?.commit(&work_desc)?;
+    if let Err(e) = ctx.session(work)?.commit(&work_desc) {
+        snapshots.restore(pair, "commit", e.as_ref());
+        return Err(e);
+    }
     if !agent_now {
         info!(
             "commit: the work half is made, its trailer naming the agent @ {agent_chid}, which \
@@ -267,6 +326,59 @@ fn commit_pair(
     Ok(())
 }
 
+/// The closing check, asked only when the flag or the title names a
+/// closing, since the ladder question needs a `main`, which a plain
+/// repo need not have.
+fn check_closing(params: &CommitParams, repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if params.closing || params.title.trim_end().ends_with(" closing") {
+        check_closing_title(&params.title, params.closing, has_ladder(repo)?)?;
+    }
+    Ok(())
+}
+
+/// Whether the work `@-` is a ladder above `main`, one a closing
+/// closes: not `main` and not contained in it.
+fn has_ladder(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+    Ok(!jj::matches(repo, "@- & ::main")?)
+}
+
+/// The closing's two sources, as commit ids read before anything
+/// moves: `main` first, wherever it is now, so a `main` that moved
+/// during the cycle is joined by the merge rather than needing a
+/// rebase, and the last rung, the work `@-`, second. Refused when
+/// there is no ladder, the last rung being in `main` already.
+fn closing_parents(repo: &Path) -> Result<(String, String), Box<dyn std::error::Error>> {
+    if !has_ladder(repo)? {
+        return Err(
+            "commit --closing: the work @- is in `main`, so there is no ladder to close. \
+                    A closing is made on the cycle's last rung"
+                .into(),
+        );
+    }
+    Ok((jj::cid_of(repo, "main")?, jj::cid_of(repo, "@-")?))
+}
+
+/// Merge `main` and the last rung into `@`, the closing's edits,
+/// setting them as `@`'s parents in that order, the trunk first,
+/// which `vc-x1 merge`'s append would not, before the commit, which
+/// keeps `@`'s parents.
+fn make_closing_merge(
+    ctx: &mut Context,
+    repo: &Path,
+    base: &str,
+    tip: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    info!("commit work: the closing merges {base} and {tip} into @");
+    crate::merge::set_parents(
+        ctx,
+        repo,
+        "@",
+        &[base.to_string(), tip.to_string()],
+        "commit",
+    )?;
+    Ok(())
+}
+
 /// Commit a plain repo with the description and no trailer.
 fn commit_por(
     ctx: &mut Context,
@@ -274,17 +386,36 @@ fn commit_por(
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     preflight(repo, "plain", true)?;
+    check_closing(params, repo)?;
     let chid = jj::chid_of(repo, "@")?;
     let desc = format!("{}\n\n{}", params.title, params.body);
+    let merge = if params.closing {
+        Some(closing_parents(repo)?)
+    } else {
+        None
+    };
     if params.dry_run {
+        if let Some((base, tip)) = &merge {
+            info!("commit: [dry-run] the merge of the fork point {base} and the last rung {tip}");
+        }
         info!(
             "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
             repo.display()
         );
         return Ok(());
     }
+    let snapshot = crate::pair::Snapshot::take(repo)?;
+    if let Some((base, tip)) = &merge
+        && let Err(e) = make_closing_merge(ctx, repo, base, tip)
+    {
+        snapshot.restore("commit", e.as_ref());
+        return Err(e);
+    }
     info!("commit: {} -> @- {chid}", repo.display());
-    ctx.session(repo)?.commit(&desc)?;
+    if let Err(e) = ctx.session(repo)?.commit(&desc) {
+        snapshot.restore("commit", e.as_ref());
+        return Err(e);
+    }
     Ok(())
 }
 
@@ -484,6 +615,165 @@ mod tests {
             jj_ok(&fx.work, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
             "false"
         );
+    }
+
+    /// The title's closing suffix and `--closing` agree, or the commit
+    /// is refused, in both directions.
+    #[test]
+    fn the_closing_suffix_is_checked_against_the_flag() {
+        for ladder in [true, false] {
+            assert!(check_closing_title("feat: x closing", true, ladder).is_ok());
+            assert!(check_closing_title("feat: x dead-end closing", true, ladder).is_ok());
+            assert!(check_closing_title("feat: x", false, ladder).is_ok());
+            let err = check_closing_title("feat: x", true, ladder).unwrap_err();
+            assert!(err.contains("does not end"), "{err}");
+        }
+        let err = check_closing_title("feat: x closing", false, true).unwrap_err();
+        assert!(err.contains("pass --closing"), "{err}");
+        // A single-step cycle's title that happens to end " closing"
+        // is no bookend, since there is no ladder.
+        assert!(check_closing_title("fix: the door stops closing", false, false).is_ok());
+    }
+
+    /// The commit ids of a revision's parents, in order.
+    fn parents(repo: &Path, rev: &str) -> Vec<String> {
+        jj_ok(
+            repo,
+            &[
+                "log",
+                "-r",
+                rev,
+                "--no-graph",
+                "-T",
+                "parents.map(|p| p.commit_id()).join(\" \")",
+            ],
+        )
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+    }
+
+    fn commit_id(repo: &Path, rev: &str) -> String {
+        jj_ok(repo, &["log", "-r", rev, "--no-graph", "-T", "commit_id"])
+    }
+
+    /// `--closing` on a ladder of two rungs makes the work commit the
+    /// merge of the fork point and the last rung, its tree the
+    /// ladder's plus the closing's, and a review fix folded in by
+    /// `squash` keeps both parents.
+    #[test]
+    fn closing_makes_the_merge_and_a_squash_keeps_it() {
+        let fx = Fixture::new("commit-closing");
+        let base = commit_id(&fx.work, "main");
+        for rung in ["one", "two"] {
+            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
+            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
+        }
+        let tip = commit_id(&fx.work, "@-");
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
+        let work_at = chid(&fx.work, "@");
+        let agent_at = chid(&fx.bot, "@");
+
+        let mut a = args("b", &fx.work);
+        a.title = "feat: a cycle closing".to_string();
+        a.closing = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the closing is made");
+
+        assert_eq!(parents(&fx.work, "@-"), [base.clone(), tip.clone()]);
+        assert_eq!(
+            chid(&fx.work, "@-"),
+            work_at,
+            "the merge keeps @'s change id"
+        );
+        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
+        for f in ["one.txt", "two.txt", "closing.txt"] {
+            assert!(files.contains(f), "{f} missing:\n{files}");
+        }
+        assert!(
+            description(&fx.work, "@-")
+                .trim_end()
+                .ends_with(&format!("ochid: /.claude/{agent_at}"))
+        );
+        assert_eq!(
+            parents(&fx.work, "@"),
+            [commit_id(&fx.work, "@-")],
+            "@ sits on the merge"
+        );
+
+        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
+        let fold = crate::squash::SquashParams {
+            target: crate::squash::Target::Pair {
+                pair: Pair {
+                    work: fx.work.clone(),
+                    agent: fx.bot.clone(),
+                },
+                sides: crate::options_flags::scope::Scope(vec![
+                    crate::options_flags::scope::Side::Work,
+                    crate::options_flags::scope::Side::Bot,
+                ]),
+            },
+            text: None,
+            dry_run: false,
+        };
+        crate::squash::squash(&mut test_ctx(), &fold).expect("the fix folds");
+        assert_eq!(
+            parents(&fx.work, "@-"),
+            [base, tip],
+            "the squash kept both parents"
+        );
+        assert!(jj_ok(&fx.work, &["file", "list", "-r", "@-"]).contains("fix.txt"));
+    }
+
+    /// A `main` that moved during the cycle is joined by the closing:
+    /// its first parent is `main` as it is now, and its tree carries
+    /// what `main` gained, with no rebase of the ladder first.
+    #[test]
+    fn closing_joins_a_main_that_moved() {
+        let fx = Fixture::new("commit-closing-moved");
+        for rung in ["one", "two"] {
+            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
+            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
+        }
+        let tip = commit_id(&fx.work, "@-");
+        jj_ok(&fx.work, &["new", "main"]);
+        fs::write(fx.work.join("landed.txt"), "another cycle\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "feat: another cycle landed"]);
+        jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
+        let moved = commit_id(&fx.work, "main");
+        jj_ok(&fx.work, &["new", &tip]);
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+
+        let mut a = args("w", &fx.work);
+        a.title = "feat: a cycle closing".to_string();
+        a.closing = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the closing is made");
+
+        assert_eq!(parents(&fx.work, "@-"), [moved, tip]);
+        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
+        for f in ["one.txt", "two.txt", "landed.txt", "closing.txt"] {
+            assert!(files.contains(f), "{f} missing:\n{files}");
+        }
+    }
+
+    /// `--closing` with no ladder, the work `@-` on `main`, is refused
+    /// before anything is committed.
+    #[test]
+    fn closing_with_no_ladder_is_refused() {
+        let fx = Fixture::new("commit-closing-none");
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        let work_at = chid(&fx.work, "@");
+        let mut a = args("b", &fx.work);
+        a.title = "feat: a cycle closing".to_string();
+        a.closing = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params)
+            .expect_err("no ladder")
+            .to_string();
+        assert!(err.contains("no ladder"), "{err}");
+        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
     }
 
     /// An empty work `@` is nothing to commit, and the agent repo is

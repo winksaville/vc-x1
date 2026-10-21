@@ -55,6 +55,7 @@ use jj_lib::matchers::NothingMatcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::{ReadonlyRepo, Repo};
 use jj_lib::repo_path::RepoPath;
+use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::secure_config::SecureConfig;
 use jj_lib::settings::{HumanByteSize, UserSettings};
 use jj_lib::transaction::Transaction;
@@ -151,6 +152,56 @@ fn user_config_dir() -> Option<PathBuf> {
     }
 }
 
+/// The revset aliases the jj CLI ships, from jj 0.46's
+/// `config/revsets.toml`, so `immutable()` and `trunk()` mean here
+/// what they mean to `jj`, and a user's `immutable_heads()` or
+/// `trunk()` overrides them from a higher layer.
+const CLI_REVSET_ALIASES: &str = r#"
+[revset-aliases]
+'trunk()' = '''
+latest(
+  remote_bookmarks(exact:"main", exact:"origin") |
+  remote_bookmarks(exact:"master", exact:"origin") |
+  remote_bookmarks(exact:"trunk", exact:"origin") |
+  remote_bookmarks(exact:"main", exact:"upstream") |
+  remote_bookmarks(exact:"master", exact:"upstream") |
+  remote_bookmarks(exact:"trunk", exact:"upstream") |
+  root()
+)
+'''
+'builtin_immutable_heads()' = '''
+trunk() | tags() | untracked_remote_bookmarks() | untracked_remote_tags()
+'''
+'immutable_heads()' = 'builtin_immutable_heads()'
+'immutable()' = '::(immutable_heads() | root())'
+'mutable()' = '~immutable()'
+"#;
+
+/// The revset aliases of `config`, every layer's `[revset-aliases]`
+/// in precedence order, as the CLI's `load_revset_aliases` builds
+/// them, so a user's definition replaces a default one.
+fn revset_aliases(config: &StackedConfig) -> Result<RevsetAliasesMap> {
+    let mut aliases = RevsetAliasesMap::new();
+    for layer in config.layers() {
+        let table = match layer.look_up_table("revset-aliases") {
+            Ok(Some(table)) => table,
+            Ok(None) => continue,
+            Err(_) => return Err("config: `revset-aliases` is not a table".into()),
+        };
+        for (decl, item) in table.iter() {
+            let definition = match item.as_table_like() {
+                Some(t) => t.get("definition").and_then(|i| i.as_str()),
+                None => item.as_str(),
+            };
+            let Some(definition) = definition else {
+                return Err(format!("config: revset alias {decl:?} is not a string").into());
+            };
+            aliases.insert(decl, definition, None)?;
+        }
+    }
+    Ok(aliases)
+}
+
 /// Load the user's jj configuration the way the jj CLI does.
 ///
 /// Layers, lowest to highest: jj-lib defaults, `/etc/jj` (unix),
@@ -175,6 +226,10 @@ fn stacked_config(repo_config_path: Option<&Path>) -> Result<StackedConfig> {
         auto-local-bookmark = false
         track-default-bookmark-on-clone = true
         "#,
+    )?);
+    config.add_layer(ConfigLayer::parse(
+        ConfigSource::Default,
+        CLI_REVSET_ALIASES,
     )?);
     let jj_config = std::env::var("JJ_CONFIG").ok();
 
@@ -690,6 +745,20 @@ impl RepoSession {
 
     /// Resolve `rev` against this session's view to exactly one
     /// commit.
+    /// True when any commit of `rev` is in jj's `immutable()`, under
+    /// the CLI's aliases and the user's and repo's overrides, the
+    /// set `jj` refuses to rewrite without `--ignore-immutable`.
+    pub fn is_immutable(&self, rev: &str) -> Result<bool> {
+        let aliases = revset_aliases(self.settings.config())?;
+        let ids = crate::common::resolve_revset_with(
+            &self.workspace,
+            &self.repo,
+            &format!("({rev}) & immutable()"),
+            &aliases,
+        )?;
+        Ok(!ids.is_empty())
+    }
+
     fn one_commit(&self, rev: &str) -> Result<Commit> {
         let ids = crate::common::resolve_revset(&self.workspace, &self.repo, rev)?;
         match ids.as_slice() {
@@ -874,6 +943,29 @@ impl RepoSession {
                 target_commit.id().hex()
             ),
         )
+    }
+
+    /// Snapshot, then give `rev` the `parents`, in order, keeping its
+    /// own change, description, and change id, and rebase its
+    /// descendants (`jj rebase -r <rev> -o <p1> -o <p2> ...`). The new
+    /// tree is the merge of the new parents with `rev`'s own diff
+    /// applied, so a commit given several ladders' tips carries every
+    /// ladder's changes, and one given a single parent takes its own
+    /// change there. Returns `rev`'s new commit id.
+    pub fn reparent(&mut self, rev: &str, parents: &[&str]) -> Result<String> {
+        self.snapshot()?;
+        let commit = self.one_commit(rev)?;
+        let mut ids = Vec::with_capacity(parents.len());
+        for p in parents {
+            ids.push(self.one_commit(p)?.id().clone());
+        }
+        let mut tx = self.start_tx();
+        let rebased =
+            jj_lib::rewrite::rebase_commit(tx.repo_mut(), commit.clone(), ids).block_on()?;
+        tx.repo_mut().rebase_descendants().block_on()?;
+        let new_id = rebased.id().hex();
+        self.finish_tx(tx, &format!("reparent commit {}", commit.id().hex()))?;
+        Ok(new_id)
     }
 
     /// Snapshot, then point local bookmark `name` at `rev`

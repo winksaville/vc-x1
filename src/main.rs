@@ -20,6 +20,7 @@ mod list;
 mod logging;
 mod lookup;
 mod md_fence;
+mod merge;
 mod options_flags;
 mod pair;
 mod push;
@@ -515,6 +516,24 @@ pub(crate) enum Commands {
         --title with --body rewrites the descriptions, keeping each trailer.\n\
         -R is optional and says where.")]
     Squash(squash::SquashArgs),
+
+    /// Add sources to a target commit's parents, keeping its change, with -s
+    #[command(long_about = "\
+        Add the sources named to one target commit's parents, after the ones\n\
+        it has, keeping the target's own change, description, and change id,\n\
+        so its trailer stays right. The target's tree becomes the merge of\n\
+        all its parents with its own change applied, `jj rebase -r <target>\n\
+        -o <p1> ... -o <s1> ...`.\n\n\
+        One target, empty or not, and N sources, each --from a revset of one\n\
+        or more commits, added oldest first: a bookmark, main, a change id,\n\
+        an earlier merge, a root. A source already a parent is skipped, and\n\
+        merging one at a time or all at once gives the same tree. `jj undo`\n\
+        takes a merge back.\n\n\
+        -s is required: `w` the work repo or `p` a plain repo, the agent\n\
+        repo never holding a merge. Refused: a source at or below the target\n\
+        and a target in jj's immutable(), unless --ignore-immutable.\n\
+        Reported: a conflicted result.")]
+    Merge(merge::MergeArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -729,6 +748,7 @@ fn main() -> ExitCode {
         Commands::Push(args) => args.dispatch(&mut ctx),
         Commands::Commit(args) => args.dispatch(&mut ctx),
         Commands::Squash(args) => args.dispatch(&mut ctx),
+        Commands::Merge(args) => args.dispatch(&mut ctx),
     }
 }
 

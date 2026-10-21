@@ -502,7 +502,18 @@ pub fn resolve_revset(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
-    let resolved = resolve(workspace, repo, revset_str)?;
+    resolve_revset_with(workspace, repo, revset_str, &RevsetAliasesMap::new())
+}
+
+/// `resolve_revset` with `aliases` defined, for a revset that names
+/// one of jj's aliases, such as `immutable()`.
+pub fn resolve_revset_with(
+    workspace: &Workspace,
+    repo: &Arc<ReadonlyRepo>,
+    revset_str: &str,
+    aliases: &RevsetAliasesMap,
+) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
+    let resolved = resolve(workspace, repo, revset_str, aliases)?;
     let revset = resolved.evaluate()?;
 
     let mut commit_ids = Vec::new();
@@ -524,17 +535,21 @@ pub fn resolve_expression(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Arc<ResolvedRevsetExpression>, Box<dyn std::error::Error>> {
-    Ok(resolve(workspace, repo, revset_str)?.into_inner().0)
+    Ok(
+        resolve(workspace, repo, revset_str, &RevsetAliasesMap::new())?
+            .into_inner()
+            .0,
+    )
 }
 
-/// Parse and resolve a revset string against `repo`, ready to
-/// evaluate.
+/// Parse and resolve a revset string against `repo`, with
+/// `aliases_map` defined, ready to evaluate.
 fn resolve<'a>(
     workspace: &Workspace,
     repo: &'a Arc<ReadonlyRepo>,
     revset_str: &str,
+    aliases_map: &RevsetAliasesMap,
 ) -> Result<ResolvedRevset<'a>, Box<dyn std::error::Error>> {
-    let aliases_map = RevsetAliasesMap::new();
     let fileset_aliases_map = FilesetAliasesMap::new();
     let extensions = RevsetExtensions::default();
     let workspace_root = workspace.workspace_root().to_path_buf();
@@ -548,7 +563,7 @@ fn resolve<'a>(
         workspace_name,
     };
     let context = RevsetParseContext {
-        aliases_map: &aliases_map,
+        aliases_map,
         local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),

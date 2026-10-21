@@ -328,6 +328,36 @@ pub fn cid_of(repo: &Path, rev: &str) -> Result<String> {
         .collect())
 }
 
+/// The full commit ids of every commit `revset` resolves to, oldest
+/// first, the order `jj log --reversed` lists them.
+pub fn cids_of(repo: &Path, revset: &str) -> Result<Vec<String>> {
+    let mut ids: Vec<String> = commits_of(repo, revset)?
+        .iter()
+        .map(|c| c.id().hex())
+        .collect();
+    ids.reverse();
+    Ok(ids)
+}
+
+/// The full commit ids of `rev`'s parents, in parent order, `rev`
+/// being exactly one commit.
+pub fn parent_cids_of(repo: &Path, rev: &str) -> Result<Vec<String>> {
+    match commits_of(repo, rev)?.as_slice() {
+        [commit] => Ok(commit.parent_ids().iter().map(|id| id.hex()).collect()),
+        other => Err(format!(
+            "expected exactly one commit for {rev:?}, got {}",
+            other.len()
+        )
+        .into()),
+    }
+}
+
+/// True when any commit of `rev` is in jj's `immutable()`, as `jj`
+/// evaluates it with the user's and the repo's config.
+pub fn is_immutable(repo: &Path, rev: &str) -> Result<bool> {
+    session::RepoSession::open(repo)?.is_immutable(rev)
+}
+
 /// The 12-character commit id of `rev`.
 pub fn cid_short_of(repo: &Path, rev: &str) -> Result<String> {
     Ok(cids_short_of(repo, rev)?.concat())
