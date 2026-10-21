@@ -3,7 +3,12 @@
 //!
 //! They answer different questions and have different sources:
 //!
-//! - ours: `CARGO_PKG_VERSION`, compile time.
+//! - ours: `CARGO_PKG_VERSION`, compile time, and the commit the
+//!   build was made from with the state of its source, `VC_X1_COMMIT`
+//!   and `VC_X1_STATE` from `build.rs`, shown as semver build
+//!   metadata, `0.85.7+d70cf9ecdfd9`. `.dirty` follows for a build
+//!   with edits, and `.unknown` for one whose edits were not checked,
+//!   a hand-typed cargo build, whose commit comes from git's `HEAD`.
 //! - jj-lib's: `JJ_LIB_VERSION`, resolved from `Cargo.lock` by
 //!   `build.rs`, because jj-lib exports no version constant. It is
 //!   what writes ops, so it is compile-time by nature, not by
@@ -28,6 +33,97 @@ use jj_lib::workspace::Workspace;
 
 use crate::common;
 use crate::jj::session::home_dir;
+
+/// The full commit id this binary was built from, `None` for a build
+/// with no git checkout to read, a source package's.
+///
+/// `build.rs` takes it from `VC_X1_BUILD_COMMIT`, which `vc-x1 build`,
+/// `build-dev`, and `validate` pass, else from git's `HEAD`, and
+/// reruns when either changes.
+pub fn build_commit() -> Option<&'static str> {
+    option_env!("VC_X1_COMMIT").filter(|c| !c.is_empty())
+}
+
+/// `state`: the state of the source code that was compiled, relative to
+/// the commit the build names. Clean when the work repo's `@` was
+/// empty, so the compiled code is exactly that commit, dirty when `@`
+/// held edits that were compiled too, unknown when no one checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceState {
+    /// `@` was empty, so the build is exactly its commit's tree.
+    Clean,
+    /// `@` held edits, so the build is its commit plus them.
+    Dirty,
+    /// Not checked: the commit came from git's `HEAD`, and whether
+    /// `@` held edits is a jj question a build script cannot ask.
+    Unknown,
+}
+
+impl SourceState {
+    /// The state's word, as the variables, the stamp, and the banner
+    /// spell it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SourceState::Clean => "clean",
+            SourceState::Dirty => "dirty",
+            SourceState::Unknown => "unknown",
+        }
+    }
+
+    /// The state a word names, `None` for any other word.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "clean" => Some(SourceState::Clean),
+            "dirty" => Some(SourceState::Dirty),
+            "unknown" => Some(SourceState::Unknown),
+            _ => None,
+        }
+    }
+}
+
+/// The state of the source code compiled into this binary, from
+/// `VC_X1_STATE`, `None` for a build with no commit.
+pub fn build_state() -> Option<SourceState> {
+    option_env!("VC_X1_STATE").and_then(SourceState::parse)
+}
+
+/// The banner's build metadata: `+<12-char commit>`, then `.dirty` or
+/// `.unknown` for a source that was not clean, or empty for a build
+/// with no commit.
+pub fn build_metadata() -> String {
+    render_build_metadata(build_commit(), build_state())
+}
+
+/// [`build_metadata`] over explicit facts, for the tests. A commit with
+/// no state reads as unknown.
+fn render_build_metadata(commit: Option<&str>, state: Option<SourceState>) -> String {
+    match commit {
+        None => String::new(),
+        Some(c) => {
+            let short = &c[..c.len().min(12)];
+            match state.unwrap_or(SourceState::Unknown) {
+                SourceState::Clean => format!("+{short}"),
+                other => format!("+{short}.{}", other.as_str()),
+            }
+        }
+    }
+}
+
+/// The `vc-x1 version` line for the build's provenance.
+fn build_line(commit: Option<&str>, state: Option<SourceState>) -> String {
+    match commit {
+        None => "build none: no git checkout to read the commit from".to_string(),
+        Some(c) => match state.unwrap_or(SourceState::Unknown) {
+            SourceState::Clean => format!("build {c}, state clean, `@` empty"),
+            SourceState::Dirty => {
+                format!("build {c}, state dirty, `@` held edits, so not exactly that commit")
+            }
+            SourceState::Unknown => {
+                format!("build {c}, state unknown, `@` not checked, a build vc-x1 did not make")
+            }
+        },
+    }
+}
 
 /// The jj-lib version this binary links against.
 pub fn jj_lib_version() -> &'static str {
@@ -215,6 +311,7 @@ pub fn report(banner: &str) -> Vec<String> {
     let root = common::find_workspace_root();
     let mut lines = vec![
         banner.to_string(),
+        build_line(build_commit(), build_state()),
         crate::agent_files::report_line(root.as_deref()),
         format!("jj-lib {}", jj_lib_version()),
     ];
@@ -288,14 +385,63 @@ mod tests {
         }
     }
 
-    /// The banner, then the set version, then jj-lib: the two
-    /// versions that describe the run come before the tool it links.
+    /// The banner, the build, then the set version, then jj-lib: what
+    /// describes the binary and the run comes before the tool it
+    /// links.
     #[test]
-    fn report_starts_with_banner_set_version_and_jj_lib() {
+    fn report_starts_with_banner_build_set_version_and_jj_lib() {
         let lines = report("vc-x1-dev 0.0.0");
         assert_eq!(lines[0], "vc-x1-dev 0.0.0");
-        assert!(lines[1].starts_with("agent-files "), "got: {}", lines[1]);
-        assert_eq!(lines[2], format!("jj-lib {}", jj_lib_version()));
+        assert!(lines[1].starts_with("build "), "got: {}", lines[1]);
+        assert!(lines[2].starts_with("agent-files "), "got: {}", lines[2]);
+        assert_eq!(lines[3], format!("jj-lib {}", jj_lib_version()));
+    }
+
+    /// The metadata is empty without a commit, `+` and twelve hex
+    /// with one, then `.dirty` or `.unknown` for a source that was not
+    /// clean, a commit with no state reading as unknown.
+    #[test]
+    fn build_metadata_forms() {
+        use SourceState::*;
+        let c = "d70cf9ecdfd9aaaabbbbccccddddeeeeffff0000";
+        assert_eq!(render_build_metadata(None, None), "");
+        assert_eq!(render_build_metadata(Some(c), Some(Clean)), "+d70cf9ecdfd9");
+        assert_eq!(
+            render_build_metadata(Some(c), Some(Dirty)),
+            "+d70cf9ecdfd9.dirty"
+        );
+        assert_eq!(
+            render_build_metadata(Some(c), Some(Unknown)),
+            "+d70cf9ecdfd9.unknown"
+        );
+        assert_eq!(
+            render_build_metadata(Some(c), None),
+            "+d70cf9ecdfd9.unknown"
+        );
+    }
+
+    /// The report's build line names the full commit and the state, or
+    /// says there was no commit to read.
+    #[test]
+    fn build_line_forms() {
+        use SourceState::*;
+        let c = "d70cf9ecdfd9aaaabbbbccccddddeeeeffff0000";
+        assert!(build_line(None, None).starts_with("build none: "));
+        assert_eq!(
+            build_line(Some(c), Some(Clean)),
+            format!("build {c}, state clean, `@` empty")
+        );
+        assert!(build_line(Some(c), Some(Dirty)).contains("state dirty"));
+        assert!(build_line(Some(c), Some(Unknown)).contains("state unknown"));
+    }
+
+    /// Each state's word parses back to it, and no other word does.
+    #[test]
+    fn source_state_words_round_trip() {
+        for st in [SourceState::Clean, SourceState::Dirty, SourceState::Unknown] {
+            assert_eq!(SourceState::parse(st.as_str()), Some(st));
+        }
+        assert_eq!(SourceState::parse("true"), None);
     }
 
     #[test]

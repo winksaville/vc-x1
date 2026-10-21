@@ -74,19 +74,37 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 
 ## Build and install
 
-A plain Rust crate: `cargo build`, `cargo test`, and
+A plain Rust crate: `cargo build`, `cargo test`, and `cargo install` of one binary, `vc-x1`, named
+by the manifest's `[package].name`, which never changes. The `[build]` table in `.vc-config.md`
+holds two builds, each under a root of its own, so nothing a cycle builds replaces the `vc-x1` on
+the PATH until the cycle lands:
 
-```
-cargo install --path . --locked
-```
+- Dev: `vc-x1 build-dev` runs `[build] dev`,
+  `cargo install --debug --path . --locked --root tmp/dev`, leaving the rung's debug binary at
+  `tmp/dev/bin/vc-x1`, gitignored. After a validation it reuses the test build, so it costs under
+  a second, and `vc-x1 run-dev` runs it first, so what runs is always the current code.
+- Release: `vc-x1 build` runs `[build] release`,
+  `cargo install --path . --locked --root tmp/rel`, staging the release build at
+  `tmp/rel/bin/vc-x1` with a stamp beside it naming the commit it was built from
+  ([build](#build)).
+- Install: at a cycle's Land, `vc-x1 install` deploys the staged release onto the PATH after
+  checking its stamp names pushed `main`. It is the one command that touches the PATH.
 
-installs one binary, `vc-x1`, named by the manifest's `[package].name`, which never changes. That
-install is the promotion, run from `main` at a cycle's Land, and the `[install]` table in
-`.vc-config.md` holds it as `release`. A cycle's own builds never touch it:
+The commands in the order a cycle uses them, a rung's loop first and Land after:
 
-- `[validate] full` ends with the dev install, `[install] dev`,
-  `cargo install --path . --locked --root tmp/dev`, so every full validation leaves the rung's
-  binary at `tmp/dev/bin/vc-x1`, gitignored, and the `vc-x1` on the PATH stays the released one.
+| Command | What it does | When |
+|---|---|---|
+| `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
+| `vc-x1 validate --fast` | the unit tests only | while iterating |
+| `vc-x1 build-dev` | the dev build, into `tmp/dev` | to build without running |
+| `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
+| `vc-x1 build` | the release, into `tmp/rel`, with its stamp | at Land, or to try the release profile |
+| `vc-x1 run` | runs the staged release | the smoke check before install |
+| `vc-x1 install` | copies the staged release onto the PATH, guarded | at Land |
+
+`validate` checks the source and makes no build of either kind. `run` builds nothing first: it
+runs exactly what is staged, the binary the stamp vouches for and `install` deploys.
+
 - `tmp/dev/bin/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
   suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
   or a symlink self-reports truthfully.
@@ -323,9 +341,9 @@ and one `Parent commit (@-)` line per parent. One verdict line ends the output:
 - `status: dirty: <label> @ has changes, ...` naming each repo that is not, and why: `@ has
   changes` or `@ is described`, since an empty described `@` is an intent nothing has published
 
-The scope is a positional `SCOPE` or `-s`/`--scope`, one of `work`, `agent`, or `both`, `work`
-by default. `both` is the At rest check, both repos' `@` empty. Tab completion offers the three
-keywords. The exit status is success either way; the verdict is the line, not the code.
+The scope is a positional `SCOPE` or `-s`/`--scope`, one of `work`, `agent`, or `both`, or their
+short forms `w`, `a`, and `b`, `work` by default. `both` is the At rest check, both repos' `@`
+empty. Tab completion offers the three long keywords. The exit status is success either way; the verdict is the line, not the code.
 
 The workspace is `-R`/`--repo` when given, else found from the current directory. A plain jj repo
 with no vc-x1 config answers for `work` as itself, and `agent` there is an error naming the
@@ -792,6 +810,66 @@ error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
 | `--fast` | Run the `validate.fast` table instead of `validate.full` |
 | `-R, --repo <DIR>` | Workspace to validate [default: the one containing the current directory] |
 
+### build
+
+Build the workspace's release into its staging root with `build`, or its dev build with
+`build-dev`, by the work side's `[build]` table (see [Workspace config
+tables](#workspace-config-tables)). The lists run as [validate](#validate)'s do: each element one
+command, split on whitespace with no shell in between, run in order from the work repo root, the
+first failure stopping the run. Neither touches the PATH, which is `vc-x1 install`'s.
+
+- `vc-x1 build` runs `[build] release`, which builds the release under its own root, and then
+  writes a stamp beside `[build] release-bin`, the binary's path with `.stamp` appended. The
+  stamp holds the full commit id of `@-` the build was made from, `state`, the state of the source
+  code that was compiled, `clean` when `@` was empty so the code is exactly that commit and
+  `dirty` when `@` held edits that were compiled too, and the binary's size and modification
+  time, which `vc-x1 install` checks before it deploys, so a binary rebuilt or replaced after
+  staging is told from the one staged.
+- `vc-x1 build-dev` runs `[build] dev`, the dev build, and writes no stamp, since it is never
+  deployed. A command per build, named with the `-dev` suffix as `run` and `run-dev` are.
+- Both commands run their lists with two variables added to the environment,
+  `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
+  so an artifact that compiles them in can say what it was built from wherever it is copied.
+  `validate` passes the same two, so the test build it leaves has the same values and
+  `build-dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
+  in its banner, and as a `build` line in `vc-x1 version`:
+
+  ```
+  $ tmp/rel/bin/vc-x1 -V
+  vc-x1 0.85.7+d70cf9ecdfd9 (agent-files v0.3.0)
+  ```
+
+  `.dirty` follows the commit when `@` was not empty. A build none of the three made, a
+  hand-typed `cargo build` or `cargo install`, takes the commit from git's `HEAD`, which in a jj
+  colocated repo is `@-`, and follows it with `.unknown`, since whether `@` held edits is a jj
+  question its build script cannot ask. A build with no `.git` to read, a source package's,
+  carries no metadata.
+- Nothing is checked first, so a release may be staged from a cycle's bookmark to try the release
+  profile. The stamp is removed before the build and written once it passes, so a failed build
+  leaves no stamp beside the binary it failed to replace.
+
+```
+# Build the release into its staging root, from the workspace containing the current directory
+vc-x1 build
+
+# Build the dev build without running it
+vc-x1 build-dev
+```
+
+The stamp, `tmp/rel/bin/vc-x1.stamp` here:
+
+```
+# vc-x1 build stamp: the commit the binary beside it was built from
+commit = "d70cf9ecdfd9..."
+state = "clean"
+size = 21394336
+mtime-ns = 1761064259123456789
+```
+
+| Option | Description |
+|--------|-------------|
+| `-R, --repo <DIR>` | Workspace to build from, for both commands [default: the one containing the current directory] |
+
 ### validate-agent
 
 Check the agent repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
@@ -985,7 +1063,7 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to six tables:
+A work-side `.vc-config.md` holds up to seven tables:
 
 - `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
   carries too.
@@ -999,6 +1077,9 @@ A work-side `.vc-config.md` holds up to six tables:
   layer before.
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
+- `[build]` (0.85.7): the dev and release builds, each under its own root, and the binaries
+  they leave, read by `build`, `build-dev`, `run`, and `run-dev` ([Build and
+  install](#build-and-install)).
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1030,9 +1111,16 @@ full = [                          # the per-commit validation, in order, one com
   "cargo fmt",
   "cargo clippy --all-targets -- -D warnings",
   "cargo test",
-  "cargo install --path . --locked",
 ]
 fast = ["cargo test --bins"]      # the subset a ladder rung runs
+```
+
+```toml
+[build]
+release = ["cargo install --path . --locked --root tmp/rel"]   # the release, staged
+release-bin = "tmp/rel/bin/vc-x1"  # the staged binary, its stamp beside it
+dev = ["cargo install --debug --path . --locked --root tmp/dev"]  # the dev build
+dev-bin = "tmp/dev/bin/vc-x1"     # the dev binary, run by run-dev
 ```
 
 ```toml
@@ -2091,8 +2179,8 @@ three things, and it pays to know which is which.
   it claims. Ten sites carry one today.
 - **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
   kinds of spawn that are permitted and why: the `jj -V` version probe, init's
-  `gh` calls, the test helpers and the CLI tests' launcher, validate running the configured
-  commands, and sync's remote look, `git ls-remote` and a `git fetch` that moves no ref. The
+  `gh` calls, the test helpers and the CLI tests' launcher, validate and build running the
+  configured commands, and sync's remote look, `git ls-remote` and a `git fetch` that moves no ref. The
   last is the one spawn of `git`, and is temporary: jj-lib has no query for the commits a
   remote's bookmarks are on, and the entry closes when it offers one. Nothing checks the
   register against the attributes. A site with an attribute and no

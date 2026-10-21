@@ -1,7 +1,9 @@
 mod agent_files;
 mod bot_session;
+mod build_cmd;
 mod chid;
 mod clone;
+mod command_list;
 mod commit;
 mod common;
 mod config;
@@ -13,6 +15,8 @@ mod desc;
 mod desc_helpers;
 mod fix_desc;
 mod fix_todo;
+#[cfg(test)]
+mod git_head;
 mod init;
 mod jj;
 mod legacy_vc_config;
@@ -75,10 +79,18 @@ fn invoked_name() -> String {
 
 /// Banner string emitted as the first line of every run (stderr,
 /// or stdout when `-V` asked for it), and shown at the top of
-/// subcommand `--help` output: `<invoked name> <version>`.
+/// subcommand `--help` output: `<invoked name> <version>`, the
+/// version carrying `+<commit>` when `vc-x1 install` made the build.
 fn banner() -> &'static str {
     static BANNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    BANNER.get_or_init(|| format!("{} {}", invoked_name(), env!("CARGO_PKG_VERSION")))
+    BANNER.get_or_init(|| {
+        format!(
+            "{} {}{}",
+            invoked_name(),
+            env!("CARGO_PKG_VERSION"),
+            version::build_metadata()
+        )
+    })
 }
 
 /// The banner a run prints: the plain banner plus the workspace's
@@ -272,6 +284,36 @@ pub(crate) enum Commands {
         table is an error, not a pass. See `vc-x1 config work` for the\n\
         table's shape.")]
     Validate(validate::ValidateArgs),
+
+    /// Build the release into its staging root
+    #[command(long_about = "Build the release into its staging root.\n\n\
+        Runs `[build] release` from the work repo root, the release built\n\
+        under its own root so nothing on the PATH is replaced, and writes a\n\
+        stamp beside `[build] release-bin` naming the commit `@-` it was\n\
+        built from, the state of the source code that was compiled, clean\n\
+        when `@` was empty and dirty when not, and the binary's size and\n\
+        time. The commands see the commit and state as VC_X1_BUILD_COMMIT\n\
+        and VC_X1_BUILD_STATE, as validate's and build-dev's do, so vc-x1's\n\
+        own banner carries the commit. The staged release is run by\n\
+        `vc-x1 run` and deployed onto the PATH by `vc-x1 install`, which\n\
+        checks the stamp.\n\n\
+        Nothing is checked first: a release may be staged from a cycle's\n\
+        bookmark to try the release profile. The list runs as `validate`'s\n\
+        does, each element one command, the first failure stopping the run.\n\
+        See `vc-x1 config work` for the table's keys.")]
+    Build(build_cmd::BuildArgs),
+
+    /// Build the dev build into its own root
+    #[command(long_about = "Build the dev build into its own root.\n\n\
+        Runs `[build] dev` from the work repo root, the dev build under its\n\
+        own root so nothing on the PATH is replaced, with the commit and the\n\
+        state of the source code as VC_X1_BUILD_COMMIT and\n\
+        VC_X1_BUILD_STATE, as build's and validate's commands get them. No\n\
+        stamp is written, since the dev build is never deployed. After a\n\
+        validation it reuses the test build, so it takes under a second.\n\
+        `vc-x1 run-dev` runs it first. See `vc-x1 config work` for the\n\
+        table's keys.")]
+    BuildDev(build_cmd::BuildDevArgs),
 
     /// Check the agent repo is published (main matches main@origin)
     #[command(
@@ -742,6 +784,8 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         Commands::Validate(args) => args.dispatch(&mut ctx),
+        Commands::Build(args) => args.dispatch(&mut ctx),
+        Commands::BuildDev(args) => args.dispatch(&mut ctx),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
         Commands::ValidateBotOld { .. } => {
             error!(

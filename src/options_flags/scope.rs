@@ -100,12 +100,19 @@ pub fn parse_repo_scope(s: &str) -> Result<RepoScope, String> {
 
 /// The scope keywords as a parser that declares them, so shell
 /// completion offers `work`, `agent`, and `both` where a bare
-/// function parser offers nothing. The spelled-out `work,agent`
-/// forms stay with `parse_scope` for the flags that predate `both`.
+/// function parser offers nothing, and accepts the short forms `w`,
+/// `a`, and `b` as hidden aliases, so completion still offers the
+/// long names alone. The spelled-out `work,agent` forms stay with
+/// `parse_scope` for the flags that predate `both`.
 pub fn scope_keywords() -> impl clap::builder::TypedValueParser<Value = Scope> {
+    use clap::builder::PossibleValue;
     use clap::builder::TypedValueParser as _;
-    clap::builder::PossibleValuesParser::new(["work", "agent", "both"])
-        .try_map(|s: String| parse_scope(&s))
+    clap::builder::PossibleValuesParser::new([
+        PossibleValue::new("work").alias("w"),
+        PossibleValue::new("agent").alias("a"),
+        PossibleValue::new("both").alias("b"),
+    ])
+    .try_map(|s: String| parse_scope(&s))
 }
 
 /// The one-side keywords as a parser that declares them, `work`

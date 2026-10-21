@@ -5,20 +5,20 @@
 //!   (`validate.full`, or `validate.fast` with `--fast`), each
 //!   element one invocation, so the pinned checklists can name one
 //!   command for every medium instead of pointing at prose.
-//! - Each command is printed before it runs, inherits the terminal,
-//!   and runs from the work repo root.
-//! - The first non-zero exit stops the run, naming the command and
-//!   its status, and the subcommand exits non-zero.
-//! - An empty or missing table is an error, not a silent pass: a
-//!   validator that finds nothing to run has validated nothing.
-//! - Elements are split on whitespace into a program and its
-//!   arguments, with no shell in between, so a command's exit
-//!   status is exactly the status the run sees.
+//! - How a list is read and run, printed, stopped at the first
+//!   failure, refused when empty, and split with no shell, is
+//!   [`crate::command_list`]'s, which `build` and `build-dev` share.
+//! - The commands run with the build's provenance in their
+//!   environment, as `build`'s and `build-dev`'s do, so the test
+//!   build compiles with the same commit and state as the dev build
+//!   that follows it, which then reuses it rather than recompiling.
+//! - Validation checks the source and makes no build of either kind:
+//!   the dev build is `build-dev`'s, which `run-dev` runs first.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
-use log::{debug, info};
+use log::debug;
 
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
@@ -50,6 +50,9 @@ pub struct ValidateParams {
     pub commands: Vec<String>,
     /// The work repo root the commands run from.
     pub root: PathBuf,
+    /// The build's provenance, best effort: the commands run without
+    /// it when it cannot be read.
+    pub provenance: Option<crate::build_cmd::Provenance>,
 }
 
 impl TryFrom<&ValidateArgs> for ValidateParams {
@@ -72,40 +75,15 @@ impl TryFrom<&ValidateArgs> for ValidateParams {
                 "validate: not in a vc-x1 workspace (no config found)".to_string()
             })?,
         };
-        let commands = load_commands(&root, key)?;
+        let commands = crate::command_list::load(&root, key, "validate")?;
+        let provenance = crate::build_cmd::Provenance::read_or_warn(&root, "validate");
         Ok(ValidateParams {
             key,
             commands,
             root,
+            provenance,
         })
     }
-}
-
-/// Read `key`'s command list from the work side's config at `root`.
-///
-/// Errors, each naming the key, when the config is missing or
-/// unloadable, the key is absent, the value is not a proper array,
-/// or the array is empty.
-fn load_commands(root: &Path, key: &str) -> Result<Vec<String>, String> {
-    let cfg = crate::config_md::load(root)
-        .map_err(|e| format!("validate: {e}"))?
-        .ok_or_else(|| format!("validate: no config in '{}'", root.display()))?;
-    let commands = crate::toml_simple::toml_get_list(&cfg.map, key)
-        .map_err(|e| format!("validate: {}: {e}", cfg.path.display()))?
-        .ok_or_else(|| {
-            format!(
-                "validate: {}: no `{key}` table. Add one, a TOML array with one command per \
-                 element (see `vc-x1 config work`)",
-                cfg.path.display()
-            )
-        })?;
-    if commands.is_empty() {
-        return Err(format!(
-            "validate: {}: `{key}` is empty, nothing to run is not a pass",
-            cfg.path.display()
-        ));
-    }
-    Ok(commands)
 }
 
 impl SubcommandRunner for ValidateArgs {
@@ -127,54 +105,8 @@ impl SubcommandRunner for ValidateArgs {
 /// it runs, stopping at the first failure.
 pub fn validate(params: &ValidateParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("validate: entry params={params:?}");
-    let n = params.commands.len();
-    for (i, command) in params.commands.iter().enumerate() {
-        info!("validate: [{}/{n}] {command}", i + 1);
-        let status = run_one(&params.root, command)?;
-        if !status.success() {
-            return Err(format!(
-                "validate: `{command}` failed ({}), stopping at {}/{n} of {}",
-                describe_status(status),
-                i + 1,
-                params.key
-            )
-            .into());
-        }
-    }
-    info!("validate: {n} command(s) passed ({})", params.key);
-    Ok(())
-}
-
-/// Run one command line from `root`, inheriting stdio, and return
-/// its exit status. The line is split on whitespace, the first
-/// word the program, so no shell sits between vc-x1 and the
-/// command's own status.
-fn run_one(root: &Path, command: &str) -> Result<std::process::ExitStatus, String> {
-    let mut words = command.split_whitespace();
-    let Some(program) = words.next() else {
-        return Err("validate: an empty command element".to_string());
-    };
-    // Register entry 5 (clippy.toml): the validate subcommand runs
-    // the workspace's configured validation commands, which is its
-    // whole job, and each runs as the user would type it.
-    #[allow(clippy::disallowed_methods)]
-    let mut cmd = std::process::Command::new(program);
-    cmd.args(words).current_dir(root);
-    cmd.status().map_err(|e| {
-        format!(
-            "validate: cannot run `{command}` from '{}': {e}",
-            root.display()
-        )
-    })
-}
-
-/// Render an exit status for the failure message: the code when
-/// there is one, else the raw status (a signal on Unix).
-fn describe_status(status: std::process::ExitStatus) -> String {
-    match status.code() {
-        Some(code) => format!("exit {code}"),
-        None => format!("{status}"),
-    }
+    let env = crate::build_cmd::build_env(params.provenance.as_ref());
+    crate::command_list::run(&params.root, params.key, &params.commands, &env, "validate")
 }
 
 #[cfg(test)]
@@ -212,23 +144,6 @@ mod tests {
         assert_eq!(a.repo, Some(PathBuf::from("x")));
     }
 
-    /// A missing table and an empty table are errors naming the
-    /// key, not silent passes.
-    #[test]
-    fn missing_or_empty_table_errors() {
-        let root = workspace("missing", "```toml\n[repos]\nwork = \".\"\n```\n");
-        let e = load_commands(&root, "validate.full").unwrap_err();
-        assert!(e.contains("no `validate.full` table"), "{e}");
-        let root2 = workspace(
-            "empty",
-            "```toml\n[repos]\nwork = \".\"\n[validate]\nfast = []\n```\n",
-        );
-        let e = load_commands(&root2, "validate.fast").unwrap_err();
-        assert!(e.contains("`validate.fast` is empty"), "{e}");
-        std::fs::remove_dir_all(&root).ok();
-        std::fs::remove_dir_all(&root2).ok();
-    }
-
     /// Commands run in order and the first failure stops the run,
     /// naming the command and its exit status.
     #[test]
@@ -242,6 +157,7 @@ mod tests {
                 "touch never.txt".to_string(),
             ],
             root: root.clone(),
+            provenance: None,
         };
         let e = validate(&params).unwrap_err().to_string();
         assert!(e.contains("failed (exit 1)"), "{e}");
@@ -258,18 +174,10 @@ mod tests {
             key: "validate.full",
             commands: vec!["touch ran.txt".to_string(), "true".to_string()],
             root: root.clone(),
+            provenance: None,
         };
         validate(&params).unwrap();
         assert!(root.join("ran.txt").exists());
-        std::fs::remove_dir_all(&root).ok();
-    }
-
-    /// An unrunnable program is an error naming the command.
-    #[test]
-    fn unrunnable_program_errors() {
-        let root = workspace("norun", "```toml\n[repos]\nwork = \".\"\n```\n");
-        let e = run_one(&root, "no-such-program-xyz --flag").unwrap_err();
-        assert!(e.contains("cannot run `no-such-program-xyz --flag`"), "{e}");
         std::fs::remove_dir_all(&root).ok();
     }
 }

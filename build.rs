@@ -23,6 +23,11 @@ mod md_fence;
 
 use md_fence::md_to_toml;
 
+// The `HEAD` reader, also compiled by the crate for its tests, so the
+// fallback commit's parsing is tested where cargo runs tests.
+#[path = "src/git_head.rs"]
+mod git_head;
+
 /// Extract `jj-lib`'s resolved version from `Cargo.lock` text.
 ///
 /// Scans for the `[[package]]` block whose `name` is `jj-lib` and
@@ -394,14 +399,67 @@ fn generate_config_schema(manifest_dir: &str) {
     }
 }
 
+/// Emit `VC_X1_COMMIT` and `VC_X1_STATE`, the commit this build is
+/// made from and the state of the source code being compiled relative
+/// to it, `clean`, `dirty`, or `unknown`, which `src/version.rs`
+/// compiles in.
+///
+/// - From `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` when set, which
+///   `vc-x1 build`, `build-dev`, and `validate` pass with the facts read
+///   through jj.
+/// - Else from git's `HEAD`, which in a jj colocated repo is `@-`, so
+///   a hand-typed `cargo build` or `cargo install` carries the commit
+///   too, with `VC_X1_STATE=unknown`: whether `@` holds edits is a jj
+///   question a build script cannot ask.
+/// - Else nothing, as for a source package, which has no `.git`, and
+///   the binary prints the plain version.
+///
+/// Cargo is told to rerun on each variable and on each git file read,
+/// so the compiled-in commit follows `HEAD`. A file that does not
+/// exist is never named, since cargo would rerun on every build.
+fn emit_build_commit(manifest_dir: &str) {
+    println!("cargo::rerun-if-env-changed=VC_X1_BUILD_COMMIT");
+    println!("cargo::rerun-if-env-changed=VC_X1_BUILD_STATE");
+    let passed = std::env::var("VC_X1_BUILD_COMMIT")
+        .ok()
+        .filter(|c| git_head::is_commit_id(c));
+    let (commit, state) = match passed {
+        Some(commit) => {
+            let state = match std::env::var("VC_X1_BUILD_STATE").as_deref() {
+                Ok("clean") => "clean",
+                Ok("dirty") => "dirty",
+                _ => "unknown",
+            };
+            (commit, state)
+        }
+        None => {
+            let Some(git) = git_head::git_dir(Path::new(manifest_dir)) else {
+                return;
+            };
+            let (commit, read) = git_head::head_commit(&git);
+            for path in read.iter().filter(|p| p.exists()) {
+                println!("cargo::rerun-if-changed={}", path.display());
+            }
+            match commit {
+                Some(commit) => (commit, "unknown"),
+                None => return,
+            }
+        }
+    };
+    println!("cargo::rustc-env=VC_X1_COMMIT={commit}");
+    println!("cargo::rustc-env=VC_X1_STATE={state}");
+}
+
 /// Read the lock beside `Cargo.toml` and emit the version env var,
-/// then generate the config schema from the prototype.
+/// emit the build's commit, then generate the config schema from the
+/// prototype.
 fn main() {
     let manifest_dir = match std::env::var("CARGO_MANIFEST_DIR") {
         Ok(dir) => dir,
         Err(e) => panic!("CARGO_MANIFEST_DIR unset: {e}"),
     };
     generate_config_schema(&manifest_dir);
+    emit_build_commit(&manifest_dir);
 
     let lock_path = Path::new(&manifest_dir).join("Cargo.lock");
     println!("cargo::rerun-if-changed={}", lock_path.display());

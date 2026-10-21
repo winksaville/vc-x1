@@ -372,13 +372,13 @@ mod tests {
         }
     }
 
-    /// The install table is work-side only: the two command lists
-    /// typed `str-list` like validate's, and the binary a `str`, each
+    /// The build table is work-side only: the two command lists typed
+    /// `str-list` like validate's, and the two binaries `str`s, each
     /// with an example.
     #[test]
-    fn install_table() {
+    fn build_table() {
         let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
-        for p in ["install.release", "install.dev"] {
+        for p in ["build.release", "build.dev"] {
             let k = find(p);
             assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
             assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
@@ -388,10 +388,19 @@ mod tests {
                 "{p} example: {ex}"
             );
         }
-        let k = find("install.dev-bin");
-        assert_eq!(k.homes, &[Home::WorkspaceCode], "dev-bin homes");
-        assert_eq!(k.kind, ValueKind::Str, "dev-bin kind");
-        assert_eq!(k.example, Some("tmp/dev/bin/vc-x1"), "dev-bin example");
+        for (p, ex) in [
+            ("build.release-bin", "tmp/rel/bin/vc-x1"),
+            ("build.dev-bin", "tmp/dev/bin/vc-x1"),
+        ] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+            assert_eq!(k.example, Some(ex), "{p} example");
+        }
+        assert!(
+            schema().iter().all(|k| !k.path.starts_with("install.")),
+            "the builds' keys moved to [build]"
+        );
     }
 
     /// The agent-files tables are work-side only: each command's

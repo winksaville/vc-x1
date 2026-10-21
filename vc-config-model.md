@@ -87,26 +87,27 @@ full = [
   "cargo fmt",
   "cargo clippy --all-targets -- -D warnings",
   "cargo test -- --include-ignored",
-  "cargo install --path . --locked --root tmp/dev",
 ]
 fast = ["cargo test --bins"]
 ```
 
-The `[install]` table
-- release: The promotion, in order, one invocation per element, run by `vc-x1 install` from `main`
+The `[build]` table
+- release: The release build, staged, in order, one invocation per element, run by `vc-x1 build`
   [[17]]
-- dev: The dev install, in order, one invocation per element, run by `vc-x1 install --dev` [[18]]
-- dev-bin: The dev install's binary, run by `vc-x1 run-dev` [[19]]
+- release-bin: The release build's binary, beside which `vc-x1 build` writes its stamp [[18]]
+- dev: The dev build, in order, one invocation per element, run by `vc-x1 build-dev` [[19]]
+- dev-bin: The dev build's binary, run by `vc-x1 run-dev` [[20]]
 ```toml
-[install]
-release = ["cargo install --path . --locked"]
+[build]
+release = ["cargo install --path . --locked --root tmp/rel"]
+release-bin = "tmp/rel/bin/vc-x1"
 dev = ["cargo install --path . --locked --root tmp/dev"]
 dev-bin = "tmp/dev/bin/vc-x1"
 ```
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[20]]
+  test` [[21]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -130,7 +131,8 @@ fixtures = ".fixtures"
 [14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
 [15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
 [16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease
-[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev
-[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-bin
-[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease
+[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease-bin
+[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev
+[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev-bin
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

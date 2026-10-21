@@ -203,7 +203,7 @@ sequence, with the review between its commit and its pushes, filed at the first 
   5. `push -s b <to>`: the agent half commits the journal as the partner, the work half publishes
      `--to`. The closing never reaches `--from`'s remote, so the two pushes of the by-hand Land
      are one.
-  6. `install`, a `run -V` smoke check, and `install-global`, once **feat: vc-x1 install
+  6. `build`, a `run -V` smoke check, and `install`, once **feat: vc-x1 install
      stages, deploys, and runs builds** lands, since they stage and deploy what `--to` now
      carries. Until then the command stops before them and says so.
   7. Delete `--from` locally and remotely, once `vc-x1` owns bookmark deletion. Until then it
@@ -270,7 +270,7 @@ why.
 
 - The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
   `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
-- Land step 4 becomes `vc-x1 install`, a `vc-x1 run -V` smoke check, and `vc-x1 install-global`.
+- Land step 4 becomes `vc-x1 build`, a `vc-x1 run -V` smoke check, and `vc-x1 install`.
 - Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
   identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
   then.
@@ -329,8 +329,8 @@ at Land is a change made after review.
 
 #### A commit body is two plain paragraphs
 
-- The problem, then the solution opening "Solution:", ending with the pointer to the record, no
-  bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
+- The problem, then the solution opening "Solution:", ending with the pointer to the record, "See
+  details in zCLOSED.md.", no bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
   pointer to the record** in `## Todo`, its rule, specimens, and subsection change.
 
 ##### Why: two paragraphs
@@ -381,11 +381,15 @@ Each run on its own:
 ### status takes the write commands' scope
 
 (wink + agent, 2026-10-21) `vc-x1 st -s b` fails with "invalid value 'b'", and `-s a` and `-s w`
-the same, where every write command takes them. Status's `scope_keywords` puts a list of the long
+the same, where every write command takes them. Status's `scope_keywords` put a list of the long
 names, `work`, `agent`, `both`, in front of `parse_scope`, so shell completion offers them, and the
 list refuses `b` before the parser, which has known it since the cycle "feat: validate-desc takes
 -s, the first scope", ever sees it. Status never took the short forms. Found at the close-out of
 **feat: vc-x1 commit, install, and run-dev**.
+
+The stopgap landed in **feat: vc-x1 install stages, deploys, and runs builds**, wink's ask
+(2026-10-21): the list declares `w`, `a`, and `b` as hidden aliases of the long names, so
+`st -s w` works and completion still offers the long names alone. What remains is the fix below.
 
 - The fix: status's `-s` takes `parse_repo_scope`, the write commands' parser, so every `-s` takes
   the same four forms, `w|work`, `a|agent`, `b|both`, and `p|por`, the plain repo `p` naming the
@@ -977,10 +981,14 @@ and the specimen of that rung's subsection are nearly the same text. The body fo
   The solution paragraph ends with the pointer. First used by the rung **feat: vc-x1 squash
   folds work into the pair** of **feat: vc-x1 commit, install, and run-dev**, ahead of the rule.
 - The `*` and `-` breakdown stays where it is already written, the record, and leaves the body.
-- The pointer names the record as of the commit, since `zCLOSED.md` is replaced at every closing
-  and at `HEAD` usually describes another cycle. One fixed sentence, so it is greppable: "Details
-  in the cycle's record, zCLOSED.md at its closing commit, under this title." The rung's
+- The pointer is one fixed sentence ending the solution paragraph, so it is greppable: "See
+  details in zCLOSED.md.", wink's wording (2026-10-21), replacing the longer "Details in the
+  cycle's record, zCLOSED.md at its closing commit, under this title." `zCLOSED.md` is replaced
+  at every closing and at `HEAD` usually describes another cycle, so the sentence means the file
+  at the cycle's closing commit, which `git log --grep` on the title finds. The rung's
   subsection is headed by the commit's exact title.
+- In use ahead of the rule from the build rung of **feat: vc-x1 install stages, deploys, and runs
+  builds** on, a bend of Commit-body form recorded in that cycle's deliberation.
 - The rung subsection becomes the full account: the facets and their solutions in `*` and `-`
   form, which [The In Progress block](agent-data/notes.md#the-in-progress-block) says is never a
   restatement of the body, now that the body carries none. **A commit body carries a legend for

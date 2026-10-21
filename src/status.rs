@@ -306,6 +306,22 @@ mod tests {
         assert!(T::try_parse_from(["t", "everything"]).is_err());
     }
 
+    /// The short forms are the long ones' equals, in both places a
+    /// scope is given, as on the write commands' `-s`.
+    #[test]
+    fn scope_short_forms() {
+        for (short, long) in [("w", "work"), ("a", "agent"), ("b", "both")] {
+            assert_eq!(
+                parse(&["t", "-s", short]).scope,
+                parse(&["t", "-s", long]).scope
+            );
+            assert_eq!(
+                parse(&["t", short]).pos_scope,
+                parse(&["t", long]).pos_scope
+            );
+        }
+    }
+
     /// A plain repo answers for `work` as itself and has no agent
     /// side to resolve.
     #[test]
