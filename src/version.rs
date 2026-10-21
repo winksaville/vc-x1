@@ -101,6 +101,7 @@ fn render_build_metadata(commit: Option<&str>, state: Option<SourceState>) -> St
         None => String::new(),
         Some(c) => {
             let short = &c[..c.len().min(12)];
+            // OK: a commit with no state was not checked, which is unknown
             match state.unwrap_or(SourceState::Unknown) {
                 SourceState::Clean => format!("+{short}"),
                 other => format!("+{short}.{}", other.as_str()),
@@ -113,6 +114,7 @@ fn render_build_metadata(commit: Option<&str>, state: Option<SourceState>) -> St
 fn build_line(commit: Option<&str>, state: Option<SourceState>) -> String {
     match commit {
         None => "build none: no git checkout to read the commit from".to_string(),
+        // OK: a commit with no state was not checked, which is unknown
         Some(c) => match state.unwrap_or(SourceState::Unknown) {
             SourceState::Clean => format!("build {c}, state clean, `@` empty"),
             SourceState::Dirty => {

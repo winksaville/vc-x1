@@ -15,7 +15,56 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-_None._
+- 2026-10-22, the install rung **feat: vc-x1 install copies the release build** is `(done)` at
+  0.85.7-3, reviewed as one rung, wink's call (2026-10-22), and pushed or about to be. wink's
+  build-system question is answered in the Deliberation, and the stamp's removal is the inserted
+  rung after it, its code edits in `tmp/stamp-removal.patch`, reapplied once this rung pushes.
+- After the stamp rung, as planned: the inserted rung for **Every repo's .gitignore ignores
+  .claude, and settings stay out of agent-repos**, then the run rung, then the closing. The
+  closing's README guidance gains the first install by `cargo run --locked -- install`, and again
+  whenever the installed `vc-x1` is too old for the workspace.
+- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, dirty, from this bookmark,
+  and may still print a `wink:` line. `cargo run --locked -- <command>` rebuilds
+  `target/debug/vc-x1` when it is missing.
+
+## In Progress` as the
+record's home, and the cycle that makes this file the rule is [The cycle-record moves out of
+TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd).
+
+## Continuation notes
+
+Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
+on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
+where [Acquaint](AGENTS.md#acquaint) still says to look.
+
+- 2026-10-21, late, wink stopping for the night. Rung **feat: vc-x1 install copies the release
+  build** is `(current)` at 0.85.7-3, its work in the uncommitted `@` over the status rung's
+  commit, 14 files. The last full validation passed, and the fast one passed after the last edit.
+  "please review" was said, and wink has not said continue.
+- wink's last words: "I'm not sure we're headed in the right direction to have vc-x1 be a build
+  system." Start there, before any flip or description. The rung's review grew `install` into
+  running `[build] release` first, `run` was planned to build first too, and `build` now says
+  `built` or `up to date`. Whether vc-x1 should run builds at all, or only name and copy what
+  cargo built, is open, and the answer may shrink this rung and reshape the run rung.
+- What the review changed, all in `@` and in the rung's subsection and the Deliberation:
+  - `[build]` is plain `cargo build`, `--release --locked` and `--locked`, the binaries in
+    `target/release/vc-x1` and `target/debug/vc-x1`, no `--root`, "staged" gone from every doc.
+  - `install` reports what it copies and refuses only a wrong copy, wink reversing the earlier
+    refuse-on-failure say. It builds the release first, a no-op when nothing changed.
+  - `-V` is read at its first version-shaped line, after wink's test `println!` was read as
+    version `hi` and copied. The `println!` is removed.
+  - The rung was retitled from "install deploys the staged release", the anchor with it.
+  - Todo entries added: **A config file says what and its constraints, and the why is in the cycle
+    record** and **The release stamp is reconsidered now that install builds**, both placed before
+    **dr-1 is built in Rust**.
+- After this rung, as planned: the inserted rung for **Every repo's .gitignore ignores .claude,
+  and settings stay out of agent-repos**, then the run rung, then the closing. The closing's
+  README guidance gains the first install by `cargo run --locked -- install`, and again whenever
+  the installed `vc-x1` is too old for the workspace.
+- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, dirty, from this bookmark,
+  and may still print a `wink:` line. `tmp/dev` and `tmp/rel` are gone, wink's deletes.
+  `target/` was cleaned more than once tonight, so `target/debug/vc-x1` may be missing, and
+  `cargo run --locked -- <command>` rebuilds it.
 
 ## In Progress
 
@@ -44,39 +93,42 @@ Provisional, the plan as the install rung left it:
 |---|---|---|
 | `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build-dev` | the dev build, into `tmp/dev` | to build without running |
+| `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
 | `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
-| `vc-x1 build` | the release, into `tmp/rel`, with its stamp | at Land, or to try the release profile |
-| `vc-x1 run` | runs the staged release | the smoke check before install |
-| `vc-x1 install` | copies the staged release onto the PATH, guarded | at Land |
+| `vc-x1 build` | the release, into `target/release`, with its stamp | at Land, or to try the release profile |
+| `vc-x1 run` | `build`, then runs it | the smoke check before install |
+| `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-- `vc-x1 build` runs `[build] release`, `--root tmp/rel`, from any commit, and writes a stamp
-  beside `[build] release-bin` naming the commit it was built from, the state of the source code
-  that was compiled, and the binary's size and modification time. `vc-x1 build-dev` runs
-  `[build] dev`. Neither checks anything, and neither touches the PATH.
-- `vc-x1 install` deploys the staged release by running `[install]`'s command list, which copies
-  `[build] release-bin` to its destination, so the binary deployed is the binary tested. It
-  refuses unless `@-` is `main` at `main@origin`, `@` is empty, the version is bare, the stamp
-  names `main@origin`'s commit with state `clean`, the binary's size and modification time are
-  the stamp's, and the staged binary's `-V` is the manifest's version and, when it reports one,
-  the stamp's commit.
-- `vc-x1 run` runs `[build] release-bin` as staged, building nothing first, and `vc-x1 run-dev`
-  runs `build-dev` and then `[build] dev-bin`, each with the given arguments from any directory of
-  the workspace, and each warning when the binary's `-V` is not the manifest's version.
+- `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, from any commit, and
+  writes a stamp beside `[build] release-bin` naming the commit it was built from, the state of
+  the source code that was compiled, and the binary's size and modification time.
+  `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`. Neither checks anything, and
+  neither touches the PATH.
+- `vc-x1 install` runs `[build] release` as `build` does, a no-op when nothing changed, then copies
+  `[build] release-bin` into `[install] dir`, `~` expanded, as a temporary file renamed into place,
+  so the binary installed is the binary tested. It first reports what it copies: the version and
+  commit the binary's `-V` shows, whether that commit is `main` and `main@origin`, its state, a
+  suffixed version, and whether the stamp still matches the binary. It refuses only a copy that
+  would be wrong: no binary, a binary whose `-V` will not run, or a missing install directory.
+- `vc-x1 run` runs `build` and then `[build] release-bin`, and `vc-x1 run-dev` runs `build-dev`
+  and then `[build] dev-bin`, as `cargo run` builds before it runs, each with the given arguments
+  from any directory of the workspace, and each warning when the binary's `-V` is not the
+  manifest's version.
 - `vc-x1 validate` checks the source and makes no build: `[validate] full` loses the dev build's
   line.
 - The schema's `[build]` table holds `release`, `release-bin`, `dev`, and `dev-bin`, and
-  `[install]` the deploy key, named at its rung. `vc-config-model.md` is regenerated, and this
+  `[install]` holds `dir`. `vc-config-model.md` is regenerated, and this
   workspace's `.vc-config.md` carries the values.
 
 #### Acceptance check
 
-`build` leaves `tmp/rel/bin/vc-x1` and its stamp, `run -V` prints the manifest's version,
-`build-dev` leaves `tmp/dev/bin/vc-x1` at the manifest's version, and `run-dev -V` prints it.
-`install` refuses on the cycle's bookmark, refuses a stamp from any commit but `main@origin`'s,
-and refuses a staged binary rebuilt after its stamp. This cycle's own Land stages by the dev
-binary's `build`, smoke-tests by its `run -V`, and deploys by its `install`, the first deployment
-the command makes.
+`build` leaves `target/release/vc-x1` and its stamp, `run -V` prints the manifest's version,
+`build-dev` leaves `target/debug/vc-x1` at the manifest's version, and `run-dev -V` prints it.
+`install --dry-run` with nothing built builds the release, and on the cycle's bookmark reports the
+suffixed version, the commit off `main`, the dirty state, and a stamp that matches. This cycle's own
+Land builds by the dev binary's `build`, smoke-tests by its `run -V`, and installs by its `install`,
+the first install the command makes, its report showing `main` and `main@origin`, clean, and a bare
+version.
 
 #### Deliberation
 
@@ -112,14 +164,37 @@ the command makes.
   `tmp/dev` and the staged release in `tmp/rel` only from a deliberate `build` until it is
   installed, so no stale release sits beside the dev build to be run by mistake. wink removed the
   build rung's `tmp/rel` at the status rung, and Land's `build` stages a fresh one.
+  - The builds moved to `target/` at the install rung, below, so a release build stays in
+    `target/release` until `cargo clean`, and `run`'s version warning is what flags a stale one.
+- Guidance on the nuances in one place, wink's ask at the status rung (2026-10-21): the closing
+  rung's README update, close-out step 3, gathers one build in `tmp/` during development, the
+  attached value forms `-sb` and `-s=b`, and the completion setup until the shim of **Shell
+  completion installs itself and asks the binary typed** lands.
 - The guard sits in the step consumers see, `install`, so `build` stages a release-profile build
-  from a cycle's bookmark too, the check for a release-only failure mid-cycle.
+  from a cycle's bookmark too, the check for a release-only failure mid-cycle. Superseded at the
+  install rung, below: `install` reports and refuses only a wrong copy, and the guard is Land's.
 - `install` copies rather than rebuilds: a second `cargo install` would deploy a fresh build, not
   the one tested. The cost is cargo's install tracking, which no longer knows the binary, so
   `cargo install --list` omits it and `cargo uninstall` does not remove it.
-  - The deploy is a command list like the others, so a workspace picks its destination,
-    `~/.cargo/bin` or `~/bin`, and its method, and an adopter with nothing to deploy, a library
-    crate, leaves it out, where `install` says so and stops.
+  - `install` builds first after all, wink's call at the install rung (2026-10-21), after an
+    `install` with nothing built refused for want of a binary: as a Makefile's install depends on
+    its build. Not the rebuild set aside above, since `cargo build` rebuilds only what changed,
+    so with nothing changed the binary tested is the binary copied, same file, size, and time,
+    and only a stale one is rebuilt, which is the one that should not be copied as it was.
+  - `run` builds first too, the same call, as `cargo run --release` does, so `run` and `run-dev`
+    have one shape, build if needed and run. The plan's `run` built nothing so the smoke check
+    ran exactly what `install` copies, and `install` building the same way keeps that.
+  - The stamp's main job, catching a change between `build` and `install`, shrinks with nothing
+    left between them, and **The release stamp is reconsidered now that install builds** asks
+    whether it stays.
+  - The deploy is a directory, not a command list, wink's say at the install rung (2026-10-21),
+    changing the plan's command list: the config is committed and the destination is per
+    machine, so `[install] dir = "~/.cargo/bin"` with vc-x1 expanding `~` fits every clone where a
+    `cp` line would commit one home path, commands running with no shell to expand it. And the
+    PATH binary replaces itself in later cycles, which `cp` onto a running executable fails at,
+    "Text file busy", where a temporary file renamed into place works, as `cargo install` does.
+    vc-x1 copies in process, so the copy spawns nothing. An adopter with nothing to deploy, a
+    library crate, leaves the key out, where `install` says so and stops.
 - The provenance is a stamp file beside the staged binary, written by `build`, not a commit id
   compiled in: the closing carries the bare version before it lands, so the version alone cannot
   tell a release staged from the unlanded closing from one staged from `main`, and a stamp works
@@ -143,7 +218,7 @@ the command makes.
       every command of its list, so the test build and the dev build compile with the same
       values and `build-dev` reuses the test build, 0.37 s measured, rather than each recompiling
       the crate for the other.
-  - The stamp: `<release-bin>.stamp`, `tmp/rel/bin/vc-x1.stamp` here, keys `toml_simple` reads
+  - The stamp: `<release-bin>.stamp`, `target/release/vc-x1.stamp` here, keys `toml_simple` reads
     back, `commit`, the full id of `@-`, and `state`, `clean` when `@` was empty and `dirty` when
     not, so a build with uncommitted edits is stamped as such rather than refused. No version,
     which `install` reads from the binary.
@@ -185,10 +260,53 @@ the command makes.
 - `build` and `build-dev` take `-R` and no `-s`, as `validate` does: they build the work side's
   artifact and write no repo, and the `-s` sweep, **every repo command takes -s, required**,
   decides all three together.
-- A failed check refuses, the agent's lean, `install`'s: it is the step consumers see, and a
-  warning scrolls past. Open until wink's say at its rung.
+- A failed check refuses, wink's say at the install rung (2026-10-21), the agent's lean: it is the
+  step consumers see, and a warning scrolls past. Every check runs first and every failure is
+  listed at once, so one run says everything to fix.
+  - Reversed at the rung's review, wink's call (2026-10-21), after `install -h` read as jargon and
+    a run on the bookmark refused it for being off `main`: too strict, since some release
+    processes release from a branch or a tag, and a `strict` mode cannot say which. Which builds
+    may be installed is the release process's decision, so `install` reports and the user
+    judges, and it refuses only a copy that would be wrong: no binary, a `-V` that will not run,
+    or a missing install directory. Here Land is the guard: it runs `install` on `main` after the
+    sync and the push, and reads the report.
+  - Gathered but no longer judged: `@-` and whether `@` is empty, facts about the working copy
+    rather than the binary, are dropped. The binary's own `-V` is the report's first source, and
+    the stamp speaks for it only while its size and time still match.
+  - A configured list, `[install] require`, turning chosen report lines into refusals for a
+    project that wants the tool to enforce its policy, weighed and set aside until one asks.
+- The builds are plain `cargo build`, wink's call at the install rung (2026-10-21), not
+  `cargo install --root`: `cargo install` without `--root` writes into `~/.cargo/bin`, so a
+  `[build]` line built on it is one dropped flag from doing what `build` promises not to. `--root`
+  is only the install prefix, the binary copied to `<root>/bin` with cargo's `.crates.toml` and
+  `.crates2.json` beside it, and the compile was always in `target/`, so `tmp/rel` and `tmp/dev`
+  held copies. The binaries are now `target/release/vc-x1` and `target/debug/vc-x1`, and
+  "staged" leaves the vocabulary.
+  - The cost: `cargo clean` removes the release build and its stamp, and a hand
+    `cargo build --release` replaces it, which the report's stamp line names.
+  - `cargo build --artifact-dir`, a copy out of `target/` with no install, is unstable, so not
+    used.
+  - Both builds `--locked`, wink's call, so the two compile the same dependencies, the ones
+    `Cargo.lock` commits. A version bump updates the lock with the manifest, so it never trips.
+  - Where a build leaves its binary is the config's to say, `release-bin` and `dev-bin`: vc-x1
+    never works it out from cargo or the package's name.
+- vc-x1 runs the builds but does not track them, wink's question and the agent's proposal at the
+  install rung's review (2026-10-22), after wink's "I'm not sure we're headed in the right
+  direction to have vc-x1 be a build system":
+  - The builds stay in vc-x1 because a hand-run Land sequence is where the agent's recorded
+    failure recurs, a result not read: [Never mask a command's exit
+    status](agent-data/rationale.md#working-practices) (2026-08-05) and [A failure is read before
+    validation runs again](agent-data/rationale.md#the-per-rung-flow) (2026-10-15). A switch from
+    shell to Python does not retire it, a `subprocess.run` without `check=True` being the same
+    miss, and a command written once, reviewed, and tested does, as `validate` did for the
+    validation. Running a configured list and checking what it left is not a build system, since
+    cargo still does the building.
+  - What would be one goes: the stamp and `build`'s `built` or `up to date` re-track staleness,
+    which cargo already tracks, and the commit compiled into the binary, read from its `-V`, says
+    what it was built from. Run as the inserted rung **feat: the release stamp goes, cargo tracks
+    staleness**, so the install rung's commit stays the work reviewed.
 - No rename, a bend of Opening step 6 and Land step 1, as the last cycle ran, wink's say
-  (2026-10-21): the package keeps its plain name, the dev build lands under `tmp/dev`, and the
+  (2026-10-21): the package keeps its plain name, the dev build lands off the PATH, and the
   `build.rs` guard is already gone. The bend covers this cycle's pushes and its Land, which
   restores no name, and nothing else.
 - The dev build is a debug build, wink's call (2026-10-21), made in the opening so every rung's
@@ -197,8 +315,7 @@ the command makes.
   debug binary runs three to five times slower, sub-second for most commands and 1.4 s for
   `agent-session` on a 31 MB transcript, and its overflow checks and `debug_assert!` suit a build
   that exists to be tested.
-  - The release profile is then built only by `build`, which the staged release makes cheap to
-    run mid-cycle.
+  - The release profile is then built only by `build`, which makes it cheap to run mid-cycle.
   - Per workspace: iiac-perf, a latency harness, keeps a release dev build, and `vc-config.md`'s
     example stays the release form, the general case.
 - `run` and `run-dev` are about the workspace's artifact, not vc-x1 itself: in another adopter
@@ -214,7 +331,7 @@ the command makes.
     completed by the `vc-x1` typed, which knows `run-dev` but not the dev build's own arguments,
     so `run-dev`'s and `run`'s completer hands the words after the subcommand to the binary it
     would run, in completion mode, and returns what it answers. Completion of those words is then
-    the dev build's or the staged release's, as running them would be. A binary that does not
+    the dev build's or the release build's, as running them would be. A binary that does not
     speak clap's completion protocol answers nothing, and the forward offers nothing rather than
     failing.
     - The binary is the config's of the workspace the shell is in, so in iiac-perf the answer is
@@ -233,8 +350,8 @@ the command makes.
       forwards them with the cursor index shifted, leaving every other completion to clap. The
       spawn is the one the rung already registers to run the artifact.
 - `vc-x1 run` was first set aside, the release being on the PATH under its own name, and the
-  staged release reverses that: `run` is how the release is run before it is deployed. The two
-  names stay, a dropped `--dev` flag being a silent run of the wrong build.
+  release built off the PATH reverses that: `run` is how the release is built and run before it
+  is installed. The two names stay, a dropped `--dev` flag being a silent run of the wrong build.
 - The order, wink's call (2026-10-21), reversing the last closing's: this cycle and **feat: vc-x1
   land closes a cycle and lands it** run before **agent-files(proposal): v0.3.1**, so v0.3.1 is
   written once against the commands Land will use. The land entry moves above v0.3.1 in
@@ -248,8 +365,9 @@ the command makes.
   last one's later rungs did.
 - Open: whether a missing `-s` names the four scopes in the error, as the parent's plan said,
   rather than clap's required-argument error, `--scope` with the four in `--help`.
-- Land's three steps, `build`, `run -V`, and `install`, run the dev binary, `tmp/dev/bin/vc-x1`,
-  since the installed `vc-x1 0.85.6` has none of the commands.
+- Land's three steps, `build`, `run -V`, and `install`, the last two building nothing new, run the
+  dev binary, `target/debug/vc-x1`,
+  since the installed `vc-x1`, wink's hand build of 0.85.7-1, predates `install` and `run`.
 - The opening also carries two Todo additions made the same day before it: **status takes the
   write commands' scope**, and the land entry's **Two commands, and their undos**.
 
@@ -258,9 +376,10 @@ the command makes.
 - [feat: vc-x1 install stages, deploys, and runs builds opening][0] (done)
 - [feat: vc-x1 build stages the release][1] (done)
 - [feat: status takes the write commands' scope][2] (done)
-- [feat: vc-x1 install deploys the staged release][3]
-- [feat: vc-x1 run and run-dev run the builds][4]
-- [feat: vc-x1 install stages, deploys, and runs builds closing][5]
+- [feat: vc-x1 install copies the release build][3] (done)
+- [feat: the release stamp goes, cargo tracks staleness][4]
+- [feat: vc-x1 run and run-dev run the builds][5]
+- [feat: vc-x1 install stages, deploys, and runs builds closing][6]
 
 ##### feat: vc-x1 install stages, deploys, and runs builds opening
 
@@ -314,15 +433,53 @@ and status's own positional and comma forms go.
   gone, and status's old keyword parser with them, the stopgap aliases included.
 - The README's status section and synopsis describe the four scopes, and its examples use `-s`.
 
-##### feat: vc-x1 install deploys the staged release
+##### feat: vc-x1 install copies the release build
 
-The staged binary, the one tested, is copied to where consumers run it, after a check that it was
-built from pushed `main` at a bare version and is still the binary its stamp describes.
+The release build, the one tested, is copied to where consumers run it, after a report of what it
+is, for the user and the release process to judge.
+
+- `vc-x1 install` copies `[build] release-bin` into the new `[install] dir`, `~` expanded, as a
+  temporary file beside the destination renamed into place, the file name kept. `$PATH` is not
+  searched.
+- It runs the release build first through `build`'s own code, the stamp included, a no-op for
+  cargo when nothing changed, and checks `[install] dir` before it, so a workspace with nothing
+  to install builds nothing.
+- `build` says whether the release binary was `built` or `up to date`, from its size and time
+  before and after the list, so a no-op build shows that the binary tested is the one copied.
+- It then gathers the facts, `main`, `main@origin`, the manifest's version, the stamp, the
+  binary's size and time, and what its `-V` reports, and reports the version, the commit placed
+  against `main` and `main@origin`, the state, and whether the stamp matches the binary, and
+  refuses only a missing binary, a `-V` that will not run, or a missing install directory, listing
+  every reason. `--dry-run` builds and reports, and copies nothing.
+- Running the binary's `-V` is clippy's spawn register entry 7. Its output is read at the first
+  line whose second word starts with a digit, so a line printed before the version is passed
+  over, and output with no such line is unreadable and refused, found when wink's test
+  `println!` ahead of the banner was read as the version `hi` and copied.
+- `[build]` becomes plain `cargo build`, `--release --locked` and `--locked`, the binaries in
+  `target/release` and `target/debug`, and "staged" leaves the help, the docs, and the messages.
+- Every `unwrap_or*` the cycle added carries its `// OK:` comment, five of them in this rung and
+  three the build rung pushed without one, `build_env`'s and two in the banner's state, a miss
+  caught here.
+- The schema gains `install.dir`, the build keys' examples follow the new lists, the model is
+  regenerated, and the README's overview, `build` section, and config tables follow, with a new
+  `install` section.
+- Three Todo entries arrive with the rung's review: **Every repo's .gitignore ignores .claude, and
+  settings stay out of agent-repos**, to run as the next rung, **A config file says what and its
+  constraints, and the why is in the cycle record**, and **The release stamp is reconsidered now
+  that install builds**.
+
+##### feat: the release stamp goes, cargo tracks staleness
+
+Inserted after the install rung, wink's call (2026-10-22), and the Todo entry **The release
+stamp is reconsidered now that install builds** with it: the stamp, `build`'s `built` or
+`up to date`, and the binary's size and time go, and `install` reports from the binary's `-V`
+alone. Its code edits were made during the install rung's review and set aside as
+`tmp/stamp-removal.patch`, `src/build_cmd.rs` and `src/install_cmd.rs`, the docs still to follow.
 
 ##### feat: vc-x1 run and run-dev run the builds
 
-The staged release and the dev build, both off the PATH, are run through the config from anywhere
-in the workspace, `run-dev` building first, with a warning when either is not the manifest's
+The release build and the dev build, both off the PATH, are run through the config from anywhere
+in the workspace, each built first, with a warning when either is not the manifest's
 version, and the words after either subcommand are completed by the binary it would run.
 
 ##### feat: vc-x1 install stages, deploys, and runs builds closing
@@ -334,6 +491,7 @@ Closing out the cycle.
 [0]: #feat-vc-x1-install-stages-deploys-and-runs-builds-opening
 [1]: #feat-vc-x1-build-stages-the-release
 [2]: #feat-status-takes-the-write-commands-scope
-[3]: #feat-vc-x1-install-deploys-the-staged-release
-[4]: #feat-vc-x1-run-and-run-dev-run-the-builds
-[5]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing
+[3]: #feat-vc-x1-install-copies-the-release-build
+[4]: #feat-the-release-stamp-goes-cargo-tracks-staleness
+[5]: #feat-vc-x1-run-and-run-dev-run-the-builds
+[6]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing

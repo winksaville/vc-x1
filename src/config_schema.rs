@@ -384,21 +384,27 @@ mod tests {
             assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
             let ex = k.example.expect("example");
             assert!(
-                ex.starts_with("[\"cargo install --path . --locked"),
+                ex.starts_with("[\"cargo build ") && ex.contains("--locked"),
                 "{p} example: {ex}"
             );
         }
         for (p, ex) in [
-            ("build.release-bin", "tmp/rel/bin/vc-x1"),
-            ("build.dev-bin", "tmp/dev/bin/vc-x1"),
+            ("build.release-bin", "target/release/vc-x1"),
+            ("build.dev-bin", "target/debug/vc-x1"),
         ] {
             let k = find(p);
             assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
             assert_eq!(k.kind, ValueKind::Str, "{p} kind");
             assert_eq!(k.example, Some(ex), "{p} example");
         }
-        assert!(
-            schema().iter().all(|k| !k.path.starts_with("install.")),
+        let install: Vec<&str> = schema()
+            .iter()
+            .map(|k| k.path)
+            .filter(|p| p.starts_with("install."))
+            .collect();
+        assert_eq!(
+            install,
+            ["install.dir"],
             "the builds' keys moved to [build]"
         );
     }

@@ -4,8 +4,8 @@
 # `Command::new` site needs an entry below and a visible
 # `#[allow(clippy::disallowed_methods)]` naming it.
 #
-# The register, closed (wink, 2026-08-19), reopened for entries 5
-# and 6:
+# The register, closed (wink, 2026-08-19), reopened for entries 5,
+# 6, and 7:
 #
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
@@ -47,6 +47,11 @@
 #    as of 0.45.1 and 0.46.0. Opened 2026-10-09 (wink) by the
 #    "feat: sync is safe by default" cycle, and temporary: the entry
 #    closes when jj-lib offers the query (TODO.md > ## Waiting).
+# 7. The workspace's release build (src/install_cmd.rs): install
+#    runs the binary it is about to copy, `-V` alone, to report the
+#    version and commit it shows beside the manifest and the stamp. Opened 2026-10-21 by "feat: vc-x1 install stages,
+#    deploys, and runs builds", whose run rung runs the same
+#    artifacts.
 #
 # jj-lib's own git children (fetch/push/clone network legs, the
 # default-branch query) are jj-lib's implementation detail, not

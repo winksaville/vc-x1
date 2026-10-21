@@ -74,21 +74,24 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 
 ## Build and install
 
-A plain Rust crate: `cargo build`, `cargo test`, and `cargo install` of one binary, `vc-x1`, named
-by the manifest's `[package].name`, which never changes. The `[build]` table in `.vc-config.md`
-holds two builds, each under a root of its own, so nothing a cycle builds replaces the `vc-x1` on
-the PATH until the cycle lands:
+A plain Rust crate: `cargo build` and `cargo test` of one binary, `vc-x1`, named by the
+manifest's `[package].name`, which never changes. The `[build]` table in `.vc-config.md` holds two
+builds, each a plain `cargo build` leaving its binary in `target/`, off the PATH, so nothing a
+cycle builds replaces the `vc-x1` on the PATH until the cycle lands. Both are `--locked`, so they
+compile the same dependencies, the ones `Cargo.lock` commits:
 
-- Dev: `vc-x1 build-dev` runs `[build] dev`,
-  `cargo install --debug --path . --locked --root tmp/dev`, leaving the rung's debug binary at
-  `tmp/dev/bin/vc-x1`, gitignored. After a validation it reuses the test build, so it costs under
-  a second, and `vc-x1 run-dev` runs it first, so what runs is always the current code.
-- Release: `vc-x1 build` runs `[build] release`,
-  `cargo install --path . --locked --root tmp/rel`, staging the release build at
-  `tmp/rel/bin/vc-x1` with a stamp beside it naming the commit it was built from
-  ([build](#build)).
-- Install: at a cycle's Land, `vc-x1 install` deploys the staged release onto the PATH after
-  checking its stamp names pushed `main`. It is the one command that touches the PATH.
+- Dev: `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
+  binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs under a
+  second, and `vc-x1 run-dev` runs it first, so what runs is always the current code.
+- Release: `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, leaving the
+  release build at `target/release/vc-x1` with a stamp beside it naming the commit it was built
+  from ([build](#build)).
+- Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
+  nothing changed, then copies it into `~/.cargo/bin`, the `[install] dir`, after reporting what it
+  is copying ([install](#install)). It is the one command that touches the PATH.
+
+Where each build leaves its binary is the config's to say, `[build] release-bin` and `dev-bin`:
+vc-x1 never works it out from cargo or the package's name.
 
 The commands in the order a cycle uses them, a rung's loop first and Land after:
 
@@ -96,22 +99,23 @@ The commands in the order a cycle uses them, a rung's loop first and Land after:
 |---|---|---|
 | `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build-dev` | the dev build, into `tmp/dev` | to build without running |
+| `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
 | `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
-| `vc-x1 build` | the release, into `tmp/rel`, with its stamp | at Land, or to try the release profile |
-| `vc-x1 run` | runs the staged release | the smoke check before install |
-| `vc-x1 install` | copies the staged release onto the PATH, guarded | at Land |
+| `vc-x1 build` | the release, into `target/release`, with its stamp | at Land, or to try the release profile |
+| `vc-x1 run` | `build`, then runs it | the smoke check before install |
+| `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-`validate` checks the source and makes no build of either kind. `run` builds nothing first: it
-runs exactly what is staged, the binary the stamp vouches for and `install` deploys.
+`validate` checks the source and makes no build of either kind. `run`, `run-dev`, and `install`
+build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary `run`
+smoke-tests is the one `install` copies.
 
-- `tmp/dev/bin/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
+- `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
   suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
   or a symlink self-reports truthfully.
 - Before 2026-10-20 a cycle renamed the package to `vc-x1-dev` instead, guarded by `build.rs`
   (the single-name convention, 0.78.3, design record in `notes/chores/chores-16.md`). The rename
-  and the guard are gone: a build script cannot see an install's root, and the dev root makes
-  the rename unnecessary.
+  and the guard are gone: a build script cannot see an install's root, and building off the PATH
+  makes the rename unnecessary.
 
 vc-x1 links jj-lib and refuses to run when the installed `jj`'s version disagrees with it
 (override per invocation with `--allow-jj-mismatch`, and see `vc-x1 version`).
@@ -816,21 +820,21 @@ error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
 
 ### build
 
-Build the workspace's release into its staging root with `build`, or its dev build with
-`build-dev`, by the work side's `[build]` table (see [Workspace config
-tables](#workspace-config-tables)). The lists run as [validate](#validate)'s do: each element one
-command, split on whitespace with no shell in between, run in order from the work repo root, the
-first failure stopping the run. Neither touches the PATH, which is `vc-x1 install`'s.
+Build the workspace's release with `build`, or its dev build with `build-dev`, by the work side's
+`[build]` table (see [Workspace config tables](#workspace-config-tables)). The lists run as
+[validate](#validate)'s do: each element one command, split on whitespace with no shell in between,
+run in order from the work repo root, the first failure stopping the run. Neither touches the PATH,
+which is `vc-x1 install`'s.
 
-- `vc-x1 build` runs `[build] release`, which builds the release under its own root, and then
-  writes a stamp beside `[build] release-bin`, the binary's path with `.stamp` appended. The
+- `vc-x1 build` runs `[build] release`, which builds the release, and then writes a stamp beside
+  `[build] release-bin`, the binary's path with `.stamp` appended. The
   stamp holds the full commit id of `@-` the build was made from, `state`, the state of the source
   code that was compiled, `clean` when `@` was empty so the code is exactly that commit and
   `dirty` when `@` held edits that were compiled too, and the binary's size and modification
-  time, which `vc-x1 install` checks before it deploys, so a binary rebuilt or replaced after
-  staging is told from the one staged.
+  time, which `vc-x1 install` compares before it copies, so a binary rebuilt by hand or replaced
+  after `vc-x1 build` is told from the one it made.
 - `vc-x1 build-dev` runs `[build] dev`, the dev build, and writes no stamp, since it is never
-  deployed. A command per build, named with the `-dev` suffix as `run` and `run-dev` are.
+  installed. A command per build, named with the `-dev` suffix as `run` and `run-dev` are.
 - Both commands run their lists with two variables added to the environment,
   `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
   so an artifact that compiles them in can say what it was built from wherever it is copied.
@@ -839,7 +843,7 @@ first failure stopping the run. Neither touches the PATH, which is `vc-x1 instal
   in its banner, and as a `build` line in `vc-x1 version`:
 
   ```
-  $ tmp/rel/bin/vc-x1 -V
+  $ target/release/vc-x1 -V
   vc-x1 0.85.7+d70cf9ecdfd9 (agent-files v0.3.0)
   ```
 
@@ -848,19 +852,19 @@ first failure stopping the run. Neither touches the PATH, which is `vc-x1 instal
   colocated repo is `@-`, and follows it with `.unknown`, since whether `@` held edits is a jj
   question its build script cannot ask. A build with no `.git` to read, a source package's,
   carries no metadata.
-- Nothing is checked first, so a release may be staged from a cycle's bookmark to try the release
+- Nothing is checked first, so a release may be built from a cycle's bookmark to try the release
   profile. The stamp is removed before the build and written once it passes, so a failed build
   leaves no stamp beside the binary it failed to replace.
 
 ```
-# Build the release into its staging root, from the workspace containing the current directory
+# Build the release, from the workspace containing the current directory
 vc-x1 build
 
 # Build the dev build without running it
 vc-x1 build-dev
 ```
 
-The stamp, `tmp/rel/bin/vc-x1.stamp` here:
+The stamp, `target/release/vc-x1.stamp` here, removed with the binary by `cargo clean`:
 
 ```
 # vc-x1 build stamp: the commit the binary beside it was built from
@@ -873,6 +877,60 @@ mtime-ns = 1761064259123456789
 | Option | Description |
 |--------|-------------|
 | `-R, --repo <DIR>` | Workspace to build from, for both commands [default: the one containing the current directory] |
+
+### install
+
+Build the release if it is out of date, then copy it into the install directory, the one command
+that touches the PATH, at a cycle's Land. It first runs `[build] release` exactly as
+[build](#build) does, the stamp included. Cargo rebuilds only what changed, so with nothing changed
+the binary already tested is the one copied, and a missing or stale one is built rather than
+refused. It then copies `[build] release-bin`, `target/release/vc-x1` here, into the one directory
+`[install] dir` names, `~/.cargo/bin` here, under the same file name. `$PATH` is not searched: the
+directory being on it is what puts the copy on the PATH. `~` in the directory expands against your
+home, so the committed value fits every machine. The copy is a temporary file renamed into place,
+so a running copy of the old binary is undisturbed and a failed copy leaves it as it was.
+
+It first reports what it is copying, from the binary's own `-V` and the stamp beside it:
+
+- the version, noting a suffixed (pre-release) one and a manifest version that differs
+- the commit, and whether it is `main` and `main@origin`
+- the state, `clean`, `dirty`, or `unknown`
+- whether the stamp still matches the binary, so one rebuilt by hand or replaced after
+  `vc-x1 build` is named
+
+The report refuses nothing. Which builds may be installed is the release process's call, not the
+tool's: here a cycle's Land runs `install` on `main` after the push, and a project releasing from
+a branch or a tag makes it differently. `install` refuses only when the copy itself would be
+wrong, listing every reason: no binary at `release-bin` after the build, a binary whose `-V` will
+not run, or a missing install directory.
+
+`--dry-run` builds and reports, and copies nothing. A workspace with no `[install] dir` has
+nothing to install, and `install` says so before building anything.
+
+```
+# At Land, on main after the push: build and smoke-test, then install, its build a no-op
+vc-x1 build
+target/release/vc-x1 -V
+vc-x1 install
+```
+
+The report, run on a cycle's bookmark with edits in `@`:
+
+```
+install: '/home/me/proj/target/release/vc-x1' -> '/home/me/.cargo/bin/vc-x1'
+install:   version 0.85.7-3, a suffixed (pre-release) version
+install:   commit 38a446f041da, not `main`
+install:   state dirty
+install:   the stamp matches the binary
+install: [dry-run] copied nothing
+```
+
+The build's own lines, `build: [1/1] cargo build --release --locked` and the rest, come first.
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Build and report, and copy nothing |
+| `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
 ### validate-agent
 
@@ -1067,7 +1125,7 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to seven tables:
+A work-side `.vc-config.md` holds up to eight tables:
 
 - `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
   carries too.
@@ -1081,9 +1139,9 @@ A work-side `.vc-config.md` holds up to seven tables:
   layer before.
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
-- `[build]` (0.85.7): the dev and release builds, each under its own root, and the binaries
-  they leave, read by `build`, `build-dev`, `run`, and `run-dev` ([Build and
-  install](#build-and-install)).
+- `[build]` (0.85.7): the dev and release builds, and the binaries they leave, read by `build`,
+  `build-dev`, `run`, and `run-dev` ([Build and install](#build-and-install)).
+- `[install]` (0.85.7): `dir`, where `install` copies the release build, `~` expanded.
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1121,10 +1179,15 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 
 ```toml
 [build]
-release = ["cargo install --path . --locked --root tmp/rel"]   # the release, staged
-release-bin = "tmp/rel/bin/vc-x1"  # the staged binary, its stamp beside it
-dev = ["cargo install --debug --path . --locked --root tmp/dev"]  # the dev build
-dev-bin = "tmp/dev/bin/vc-x1"     # the dev binary, run by run-dev
+release = ["cargo build --release --locked"]  # the release build
+release-bin = "target/release/vc-x1"  # its binary, the stamp beside it
+dev = ["cargo build --locked"]    # the dev build
+dev-bin = "target/debug/vc-x1"    # its binary, run by run-dev
+```
+
+```toml
+[install]
+dir = "~/.cargo/bin"              # where install copies the release build
 ```
 
 ```toml

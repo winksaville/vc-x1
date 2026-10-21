@@ -1,18 +1,23 @@
 //! The `build` and `build-dev` subcommands: build the workspace's
-//! release into its staging root, or its dev build into its own, each
-//! by its configured command list. A command per build, named with the
-//! `-dev` suffix as `run` and `run-dev` are, so each names the build it
-//! makes and no dropped flag makes the other. Neither touches the
-//! PATH: that is `vc-x1 install`'s, which deploys the staged release.
+//! release or its dev build, each by its configured command list. A
+//! command per build, named with the `-dev` suffix as `run` and
+//! `run-dev` are, so each names the build it makes and no dropped flag
+//! makes the other. Neither touches the PATH: that is
+//! `vc-x1 install`'s, which copies the release build there.
 //!
-//! - `vc-x1 build` runs `[build] release`, which builds the
-//!   release under its own root (`tmp/rel` here), and writes a stamp
-//!   beside `[build] release-bin` naming the commit `@-` the build
-//!   was made from and the state of the source. Nothing on the PATH is
-//!   replaced: the staged binary is run by `vc-x1 run` and deployed
-//!   by `vc-x1 install`, which reads the stamp.
-//! - `vc-x1 build-dev` runs `[build] dev`, the dev build under
-//!   its own root, and writes no stamp, since it is never deployed.
+//! - `vc-x1 build` runs `[build] release`, here
+//!   `cargo build --release --locked`, and writes a stamp beside
+//!   `[build] release-bin` naming the commit `@-` the build was made
+//!   from and the state of the source. The lists leave the binaries in
+//!   `target/`, off the PATH, so nothing there is replaced: the
+//!   release build is run by `vc-x1 run` and copied by
+//!   `vc-x1 install`, which runs this same build first, through
+//!   [`build_params`] and [`build`], and reports what the stamp says.
+//! - `vc-x1 build-dev` runs `[build] dev`, the dev build, and writes
+//!   no stamp, since it is never installed.
+//! - Where a build leaves its binary is the config's to say,
+//!   `release-bin` and `dev-bin`: vc-x1 never works it out from cargo
+//!   or the package's name.
 //! - Both run their commands with the build's [`Provenance`] in the
 //!   environment, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, as
 //!   `validate` does, so every build of a run sees the same values
@@ -20,16 +25,14 @@
 //!   in can say what it was built from wherever it is copied. vc-x1
 //!   does, as semver build metadata in its banner,
 //!   `0.85.7+d70cf9ecdfd9`, `.dirty` for a build with edits.
-//! - Neither checks the repo's state: a release may be staged from a
-//!   cycle's bookmark, to try the release profile mid-cycle. The
-//!   check that a release is pushed `main` belongs to the step
-//!   consumers see, the deployment.
+//! - Neither checks the repo's state: a release may be built from a
+//!   cycle's bookmark, to try the release profile mid-cycle.
 //! - The stamp is removed before the build and written after it
 //!   passes, so a failed build never leaves a stamp describing the
 //!   binary it failed to replace.
 //! - The stamp also records the binary's size and modification time,
-//!   its [`BinaryId`], so `install` can tell the staged binary
-//!   from one rebuilt or replaced after staging, for any artifact,
+//!   its [`BinaryId`], so `install` can tell the binary `build` made
+//!   from one rebuilt by hand or replaced since, for any artifact,
 //!   whether or not it reports its commit.
 //! - The lists are run by [`crate::command_list`], as `validate`'s
 //!   are.
@@ -53,7 +56,7 @@ pub const BUILD_COMMIT_VAR: &str = "VC_X1_BUILD_COMMIT";
 /// compiled, `clean` or `dirty`.
 pub const BUILD_STATE_VAR: &str = "VC_X1_BUILD_STATE";
 
-/// Build the release into its staging root.
+/// Build the release.
 #[derive(Args, Debug)]
 pub struct BuildArgs {
     /// Workspace to build from [default: the workspace containing
@@ -62,7 +65,7 @@ pub struct BuildArgs {
     pub repo: Option<PathBuf>,
 }
 
-/// Build the dev build into its own root.
+/// Build the dev build.
 #[derive(Args, Debug)]
 pub struct BuildDevArgs {
     /// Workspace to build from [default: the workspace containing
@@ -121,7 +124,7 @@ impl Provenance {
     }
 }
 
-/// The staged binary's identity as the stamp records it: its size in
+/// The release binary's identity as the stamp records it: its size in
 /// bytes and its modification time, nanoseconds since the Unix epoch.
 /// A rebuild or a copy over it changes the time, and almost always
 /// the size.
@@ -153,6 +156,7 @@ impl BinaryId {
 
 /// The variables for `provenance`, none when it is absent.
 pub fn build_env(provenance: Option<&Provenance>) -> Vec<(&'static str, &str)> {
+    // OK: no provenance is no variables, the build carrying no commit
     provenance.map(|p| p.env().to_vec()).unwrap_or_default()
 }
 
@@ -207,7 +211,7 @@ impl TryFrom<&BuildDevArgs> for BuildParams {
 /// list, read the provenance, and for a release resolve `release-bin`.
 /// A release's every miss is an error here, before anything runs, and
 /// the dev build's provenance is best effort.
-fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, String> {
+pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, String> {
     let (label, key) = if dev {
         ("build-dev", "build.dev")
     } else {
@@ -312,11 +316,27 @@ impl SubcommandRunner for BuildDevArgs {
     }
 }
 
+/// What a release build did to its binary, from its identity before
+/// and after the list ran: `up to date` when the list left it as it
+/// was, as cargo does when nothing changed, `built` otherwise.
+pub fn outcome(before: Option<BinaryId>, after: BinaryId) -> &'static str {
+    if before == Some(after) {
+        "up to date"
+    } else {
+        "built"
+    }
+}
+
 /// Run the list from the root with the provenance in its
 /// environment, and for a release remove the old stamp first and
-/// write the new one once the list passes.
+/// write the new one once the list passes, saying whether the binary
+/// was built or already up to date.
 pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("{}: entry params={params:?}", params.label);
+    let before = params
+        .stamp
+        .as_ref()
+        .and_then(|stamp| BinaryId::of(&stamp.bin).ok());
     if let Some(stamp) = &params.stamp {
         match std::fs::remove_file(&stamp.path) {
             Ok(()) => debug!("build: removed the old stamp {}", stamp.path.display()),
@@ -363,8 +383,9 @@ pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
         _ => "state dirty, `@` held edits, so the build is not exactly that commit",
     };
     info!(
-        "build: staged {}, built from {short}, {state}",
-        stamp.bin.display()
+        "build: {} {}, from {short}, {state}",
+        stamp.bin.display(),
+        outcome(before, id)
     );
     Ok(())
 }
@@ -541,21 +562,38 @@ mod tests {
         std::fs::remove_dir_all(&root).ok();
     }
 
-    /// A binary rewritten after staging no longer has the identity
+    /// A binary rewritten after the build no longer has the identity
     /// its stamp recorded.
     #[test]
     fn a_rebuilt_binary_has_another_identity() {
         let root = workspace("rebuilt", "");
         let bin = root.join("app");
-        std::fs::write(&bin, "the staged build").unwrap();
-        let staged = BinaryId::of(&bin).unwrap();
-        assert_eq!(BinaryId::of(&bin).unwrap(), staged);
+        std::fs::write(&bin, "the release build").unwrap();
+        let built = BinaryId::of(&bin).unwrap();
+        assert_eq!(BinaryId::of(&bin).unwrap(), built);
         std::thread::sleep(std::time::Duration::from_millis(10));
         std::fs::write(&bin, "a build made by hand afterward").unwrap();
         let rebuilt = BinaryId::of(&bin).unwrap();
-        assert_ne!(rebuilt.size, staged.size);
-        assert_ne!(rebuilt.mtime_ns, staged.mtime_ns);
+        assert_ne!(rebuilt.size, built.size);
+        assert_ne!(rebuilt.mtime_ns, built.mtime_ns);
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// The binary is up to date when the list left its identity as it
+    /// was, and built when it changed or was not there before.
+    #[test]
+    fn outcome_tells_up_to_date_from_built() {
+        let id = BinaryId {
+            size: 10,
+            mtime_ns: 20,
+        };
+        let other = BinaryId {
+            size: 10,
+            mtime_ns: 21,
+        };
+        assert_eq!(outcome(Some(id), id), "up to date");
+        assert_eq!(outcome(Some(other), id), "built");
+        assert_eq!(outcome(None, id), "built");
     }
 
     /// A missing binary has no identity, an error naming the path.

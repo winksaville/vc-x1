@@ -378,6 +378,56 @@ Each run on its own:
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
 
+### Every repo's .gitignore ignores .claude, and settings stay out of agent-repos
+
+(wink + agent, 2026-10-21) The sandbox Claude Code runs commands in blocks writes to the project's
+`.claude/settings.json`, `skills`, `hooks`, and more by mounting `/dev/null` over each, and for a
+name that does not exist it first creates an empty read-only file on the host to mount over, seen
+from outside as files that come and go during a sandboxed command. jj inside the sandbox skips
+them as devices, but a `jj` run outside meanwhile, or after a sandboxed command died, would
+snapshot them as new files. vc-x1 shows them since its work repo ignores only
+`/.claude/settings.local.json`, narrowed when the agent-repo moved to `.agent-session`, where
+`/.claude` had been ignored whole. `.agent-session/.claude` exists too, made by a session run from
+inside the agent-repo, with `.cc-writes`.
+
+The rule, wink's calls (2026-10-21):
+
+- Every repo has a `.gitignore` with `/.claude`, the work repo, the agent-repo, a single repo.
+  Nothing under vc-x1's `.claude/` is tracked, so nothing is lost, and `!/.claude/settings.json`
+  restores one shared file if ever wanted. It reverses init's narrow ignore, whose comment kept
+  the rest of `.claude/` visible to `jj st`, since the placeholders make that a hazard.
+- An agent-repo also ignores the four names whose meaning is stable, `/settings.json`,
+  `/settings.local.json`, `/.cc-writes`, and `/.claude`, which matter when the agent-repo is itself
+  named `.claude` and Claude Code's settings sit at its root, and match nothing otherwise.
+  - Not the sandbox's other protected names, `agents`, `hooks`, `skills`, and the rest: they are
+    not ours to list and changed on 2026-10-21, so their placeholders may still show briefly.
+  - Not an allowlist of session data: Anthropic can rename a session directory at any time, and
+    an allowlist would then drop the session data silently, where an ignore list fails toward a
+    visible extra file.
+- `.git` and `.jj` leave every template: tested 2026-10-21 with a scratch jj repo and no ignore
+  file, jj skips `.git` and `.jj` at any depth and a nested jj repo, and git never tracks its own
+  `.git` while a colocated `.jj/` carries its own `.gitignore`. The agent-repo's directory stays in
+  the work repo's, `/.agent-session`, since git lists a nested repo and `git add -A` would add it
+  as an embedded repo.
+- A project `settings.json` is not kept: wink's user settings, `~/.claude/settings.json`, carry the
+  common grants, and the sandbox's auto-allow and auto mode cover the rest, so a project-specific
+  grant goes in that project's `settings.local.json`.
+- The agent-repo's name stays free, `.claude` included: iiac-perf and zc-ring-x1 keep theirs as the
+  live test of that layout, no rename.
+
+The work:
+
+- In vc-x1: `/.claude` in the work repo's `.gitignore` replacing `/.claude/settings.local.json`,
+  the four names in `.agent-session/.gitignore`, and `.git` and `.jj` dropped from both.
+- In `vc-x1 init`: the work-repo, agent-repo, and single-repo templates the same, with tests,
+  one of them an agent-repo named `.claude`.
+- A message to iiac-perf and zc-ring-x1 once vc-x1 lands it: add `/.claude` and the four names to
+  their agent-repo's `.gitignore`, iiac-perf's being new, delete the tracked `settings.json`, and
+  untrack `settings.local.json`, both pushed with the session history today. Their own agents do
+  it, a repo with a live agent not being this session's to write.
+- Place: a rung of **feat: vc-x1 install stages, deploys, and runs builds** after its install rung,
+  and the message after that cycle lands.
+
 ### Shell completion installs itself and asks the binary typed
 
 (wink + agent, 2026-10-21) Completion takes a line in the shell's startup file today,
@@ -467,6 +517,57 @@ A command never guesses which repos it acts on, `-s` says which and `-R` says wh
 with a short exemption list is easier to hold than a list of defaults. The ceremony of `-s w` on
 `validate` is accepted for the uniformity, and the error on `validate -s a` without a table teaches
 the model.
+
+### A config file says what and its constraints, and the why is in the cycle record
+
+(wink + agent, 2026-10-21) `.vc-config.md`'s prose around each table carries history: who decided
+and when, measurements, and earlier trials, as `[validate] fast`'s "wink's call 2026-10-20" with
+its 8 s timings and the 2026-09-21 trial, `[validate] full`'s "wink's call 2026-10-21", and
+`[build] dev`'s timings and the case for a debug build. Each cycle adds its own, so the file grows
+without end and the facts a reader comes for get harder to find. Found at the install rung of
+**feat: vc-x1 install stages, deploys, and runs builds**.
+
+The rule, wink's call (2026-10-21):
+
+- A config file states what each key does and its constraints. A constraint stated with its
+  reason stays, such as "owned by the work side because it builds the artifact", since the reason
+  is what tells a reader the limit is real.
+- The constraints that make things fail when broken matter most, and belong beside the key:
+  `[build] release-bin` and `dev-bin` must name where the build's commands leave the binary,
+  since vc-x1 never works it out. A wrong `release-bin` fails `build` when nothing is there, and
+  when a stale binary is there `build` stamps it and `install` copies it. A wrong `dev-bin` has
+  `run-dev` run a stale binary or none.
+- The why, who decided, when, the measurements and the trials, is in the cycle record,
+  `zDOING.md` while the cycle runs and `zCLOSED.md` and the landmark's tree after.
+
+The work:
+
+- `.vc-config.md`: drop the history from the three places above, keeping what and the
+  constraints, and add the `release-bin` and `dev-bin` constraint. Each dropped fact is first
+  checked to be in its cycle's record, cited there by the landmark, and one that is not is
+  written into a `notes/` file rather than lost.
+- `vc-config.md`, the key reference, and the `.vc-config.md` that `vc-x1 init` writes, read the
+  same way.
+- A sentence in the agent-files saying a config file carries what and constraints and the why
+  lives in the cycle record, tried in the local copy and proposed. It may fold into
+  **agent-files(proposal): v0.3.1**.
+
+### The release stamp is reconsidered now that install builds
+
+(wink + agent, 2026-10-21) `vc-x1 build` writes `<release-bin>.stamp` naming the commit, the
+state, and the binary's size and time, so `install` could tell the binary `build` made from one
+rebuilt or replaced before the copy. Since the install rung of **feat: vc-x1 install stages,
+deploys, and runs builds**, `install` runs the release build itself, and `run` will too, so
+nothing sits between the build and the copy for the stamp to catch. vc-x1's own `-V` carries the
+commit and state, which the report reads first.
+
+- What the stamp still does: speaks for an artifact that reports no commit in its `-V`, another
+  adopter's binary, and names a hand rebuild between `install`'s build and a later `run`.
+- Decide whether it stays, shrinks to that case, or goes. Going removes the stamp code in
+  `build_cmd`, `read_stamp` and the report's stamp line in `install_cmd`, the `release-bin`
+  docs' stamp text, and the README's stamp example.
+- Run after the cycle lands, when a few installs have shown whether the stamp line ever says
+  anything the `-V` line does not.
 
 ### dr-1 is built in Rust
 

@@ -412,48 +412,50 @@ example = ["cargo test --bins"]
 
 ## build.release
 
-The release build: the commands that stage the artifact under its own root, in order, each
-element one invocation whose exit status is checked, so the release can be run before anything
-on the PATH is replaced. `vc-x1 build` runs it from any commit, and writes a stamp beside
-[build.release-bin](#buildrelease-bin) naming the commit it was built from, which `vc-x1 install`
-checks before it deploys the staged binary at a cycle's Land. Its commands run with
-`VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` in their environment, the same facts, for an
-artifact that compiles them in, as [build.dev](#builddev)'s and the `[validate]` lists' do.
-Owned by the work side because it builds the artifact.
+The release build: the commands that build the artifact, in order, each element one invocation whose
+exit status is checked, leaving the binary where it can be run before anything on the PATH is
+replaced, `target/release` for a plain `cargo build --release`. `vc-x1 build` runs it from any
+commit, and writes a stamp beside [build.release-bin](#buildrelease-bin) naming the commit it was
+built from. `vc-x1 install` runs it too, before it copies the binary at a cycle's Land. Its commands
+run with `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` in their environment, the same facts, for an
+artifact that compiles them in, as [build.dev](#builddev)'s and the `[validate]` lists' do. Owned by
+the work side because it builds the artifact.
 
 ```toml
 [build.release]
 homes = ["workspace-code"]
 kind = "str-list"
-doc = "The release build, staged, in order, one invocation per element, run by `vc-x1 build`"
-used-by = "vc-x1 build"
-example = ["cargo install --path . --locked --root tmp/rel"]
+doc = "The release build, in order, one invocation per element, run by `vc-x1 build`"
+used-by = "vc-x1 build and vc-x1 install"
+example = ["cargo build --release --locked"]
 ```
 
 ## build.release-bin
 
 The binary the release build leaves, relative to the config file's directory, or as is when
-absolute. `vc-x1 build` writes its stamp beside it, the path with `.stamp` appended, holding the
-full commit id of `@-` the build was made from, `state`, the state of the source code that was
-compiled, `clean` when `@` was empty so the code is exactly that commit and `dirty` when `@` held
-edits that were compiled too, and the binary's size and modification time, so a binary rebuilt
-after staging is told from the one staged. Required by `vc-x1 build`.
+absolute. vc-x1 never works it out, from cargo or from the package's name: the release build's
+commands decide where the binary goes, so the config says. `vc-x1 build` writes its stamp beside it,
+the path with `.stamp` appended, holding the full commit id of `@-` the build was made from,
+`state`, the state of the source code that was compiled, `clean` when `@` was empty so the code is
+exactly that commit and `dirty` when `@` held edits that were compiled too, and the binary's size
+and modification time, so a binary rebuilt by hand after `vc-x1 build` is told from the one it made.
+Required by `vc-x1 build` and `vc-x1 install`.
 
 ```toml
 [build.release-bin]
 homes = ["workspace-code"]
 kind = "str"
 doc = "The release build's binary, beside which `vc-x1 build` writes its stamp"
-used-by = "vc-x1 build"
-example = "tmp/rel/bin/vc-x1"
+used-by = "vc-x1 build and vc-x1 install"
+example = "target/release/vc-x1"
 ```
 
 ## build.dev
 
-The dev build: the commands that build a cycle's binary under its own root, same shape as
-[build.release](#buildrelease), so nothing on the PATH is replaced while the cycle runs.
-`vc-x1 build-dev` runs it, and `vc-x1 run-dev` runs it first, so what runs is always the current
-code.
+The dev build: the commands that build a cycle's binary, same shape as
+[build.release](#buildrelease), leaving it off the PATH, `target/debug` for a plain `cargo build`,
+so nothing on the PATH is replaced while the cycle runs. `vc-x1 build-dev` runs it, and
+`vc-x1 run-dev` runs it first, so what runs is always the current code.
 
 ```toml
 [build.dev]
@@ -461,14 +463,14 @@ homes = ["workspace-code"]
 kind = "str-list"
 doc = "The dev build, in order, one invocation per element, run by `vc-x1 build-dev`"
 used-by = "vc-x1 build-dev"
-example = ["cargo install --path . --locked --root tmp/dev"]
+example = ["cargo build --locked"]
 ```
 
 ## build.dev-bin
 
-The binary the dev build leaves, relative to the config file's directory. `vc-x1 run-dev` runs
-it with the arguments given, after the dev build, and warns when its `-V` is not the manifest's
-version.
+The binary the dev build leaves, relative to the config file's directory, stated in the config as
+[build.release-bin](#buildrelease-bin) is. `vc-x1 run-dev` runs it with the arguments given, after
+the dev build, and warns when its `-V` is not the manifest's version.
 
 ```toml
 [build.dev-bin]
@@ -476,7 +478,26 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "The dev build's binary, run by `vc-x1 run-dev`"
 used-by = "vc-x1 run-dev"
-example = "tmp/dev/bin/vc-x1"
+example = "target/debug/vc-x1"
+```
+
+## install.dir
+
+The one directory `vc-x1 install` copies the release build into, the binary keeping the file
+name [build.release-bin](#buildrelease-bin) gives it. `$PATH` is not searched: a directory on it,
+such as `~/.cargo/bin`, is what puts the copy on the PATH. `~` and `~/...` expand against the home
+directory, so the committed value fits every machine, another relative value is against the config
+file's directory, and an absolute one is as is. The copy is a temporary file renamed into place,
+so a running copy of the old binary is undisturbed. A workspace without the key has nothing to
+install, and `vc-x1 install` says so. Owned by the work side because it deploys the artifact.
+
+```toml
+[install.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The directory `vc-x1 install` copies the release build into, `~` expanded"
+used-by = "vc-x1 install"
+example = "~/.cargo/bin"
 ```
 
 ## test.fixtures

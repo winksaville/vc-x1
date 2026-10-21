@@ -92,22 +92,28 @@ fast = ["cargo test --bins"]
 ```
 
 The `[build]` table
-- release: The release build, staged, in order, one invocation per element, run by `vc-x1 build`
-  [[17]]
+- release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
 - release-bin: The release build's binary, beside which `vc-x1 build` writes its stamp [[18]]
 - dev: The dev build, in order, one invocation per element, run by `vc-x1 build-dev` [[19]]
 - dev-bin: The dev build's binary, run by `vc-x1 run-dev` [[20]]
 ```toml
 [build]
-release = ["cargo install --path . --locked --root tmp/rel"]
-release-bin = "tmp/rel/bin/vc-x1"
-dev = ["cargo install --path . --locked --root tmp/dev"]
-dev-bin = "tmp/dev/bin/vc-x1"
+release = ["cargo build --release --locked"]
+release-bin = "target/release/vc-x1"
+dev = ["cargo build --locked"]
+dev-bin = "target/debug/vc-x1"
+```
+
+The `[install]` table
+- dir: The directory `vc-x1 install` copies the release build into, `~` expanded [[21]]
+```toml
+[install]
+dir = "~/.cargo/bin"
 ```
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[21]]
+  test` [[22]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -135,4 +141,5 @@ fixtures = ".fixtures"
 [18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease-bin
 [19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev
 [20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev-bin
-[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
+[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
