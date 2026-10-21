@@ -80,43 +80,20 @@ A plain Rust crate: `cargo build`, `cargo test`, and
 cargo install --path . --locked
 ```
 
-installs one binary named by the manifest's `[package].name`. That name is deliberate, the
-**single-name convention** (adopted 0.78.3, design record in
-`notes/chores/chores-16.md`):
+installs one binary, `vc-x1`, named by the manifest's `[package].name`, which never changes. That
+install is the promotion, run from `main` at a cycle's Land, and the `[install]` table in
+`.vc-config.md` holds it as `release`. A cycle's own builds never touch it:
 
-- On `main` the name is `vc-x1`: installing from a main-positioned tree gives you the stable
-  binary, and that is the whole promotion ceremony.
-- A development line renames `[package].name` to its own name (e.g. `vc-x1-dev`,
-  `vc-x1-<topic>`) at cycle open and back to `vc-x1` at close-out, next to the version bump
-  those steps already make. Each line's install then produces its own binary, and concurrent
-  lines coexist on `PATH` under their own names.
-- The guard is mechanical, not memory: `build.rs` refuses to build a tree whose version
-  carries a dev suffix (`0.79.1-2`) while the manifest still says `vc-x1`. A build script
-  runs on **every** cargo verb, `cargo install` included (a test would not: `cargo install`
-  never runs tests), so a forgotten rename fails before any binary exists to clobber your
-  stable one. The full matrix (verified 2026-08-06):
-
-  | `[package].name` | `version` | any cargo build/test/install |
-  |---|---|---|
-  | `vc-x1` | `0.78.3-1` | **fails**: a dev rung wearing the stable name |
-  | `vc-x1-exper1` | `0.78.3-1` | passes: a normal dev rung |
-  | `vc-x1-exper1` | `0.78.3` | passes: installs `vc-x1-exper1`, stable untouched (a merge-landing close-out renames in its merge commit) |
-  | `vc-x1` | `0.78.3` | passes: a close-out or stable tree |
-
-  The failing quadrant reads (via `cargo::error` directives: terse fact-then-refusal lines,
-  fenced by empty directives, rather than a build-script panic dump. The remedy is the rename
-  at cycle open):
-
-  ```
-  error: vc-x1@0.78.3-1: 
-  error: vc-x1@0.78.3-1: A suffixed version is used with the stable package name, `vc-x1`
-  error: vc-x1@0.78.3-1: so refusing to build `vc-x1` as it is the stable binary name.
-  error: vc-x1@0.78.3-1: 
-  error: build script logged errors
-  ```
-- The binary banners the name it was invoked as (`argv[0]`), so a renamed manifest, a copy,
-  or a symlink all self-report truthfully, and the version in the banner identifies the exact
-  commit either way.
+- `[validate] full` ends with the dev install, `[install] dev`,
+  `cargo install --path . --locked --root tmp/dev`, so every full validation leaves the rung's
+  binary at `tmp/dev/bin/vc-x1`, gitignored, and the `vc-x1` on the PATH stays the released one.
+- `tmp/dev/bin/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
+  suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
+  or a symlink self-reports truthfully.
+- Before 2026-10-20 a cycle renamed the package to `vc-x1-dev` instead, guarded by `build.rs`
+  (the single-name convention, 0.78.3, design record in `notes/chores/chores-16.md`). The rename
+  and the guard are gone: a build script cannot see an install's root, and the dev root makes
+  the rename unnecessary.
 
 vc-x1 links jj-lib and refuses to run when the installed `jj`'s version disagrees with it
 (override per invocation with `--allow-jj-mismatch`, and see `vc-x1 version`).
@@ -143,7 +120,11 @@ vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
-vc-x1 push [BOOKMARK] [OPTS]               # Commit both repos, push work, squash-push bot
+vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
+vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
+vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
+vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
+vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
 vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
@@ -642,20 +623,23 @@ vc-x1 agent-session --per-line --lines 40,5 FILE
 
 ### validate-desc
 
-Read-only scan of commit descriptions against the other repo. The other repo is read from
-`.vc-config.md` (`repos.agent`) by default, or overridden with `--other-repo`. Reports status per
-commit: `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or
-`miss` (no ochid trailer).
+Read-only scan of commit descriptions against the other repo. `-s` is required and says whose
+commits are checked: `w` the work repo's against the agent repo, `a` the reverse, `b` both
+directions, one table per side under its label. `-R` is optional and says where, a path anywhere in
+the workspace, the cwd without it. `-s p` is refused, a plain repo having no other repo. The other
+repo is the workspace's other side, or `--other-repo` for one side. Reports status per commit:
+`ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or `miss`
+(no ochid trailer).
 
 ```
-# Validate all ancestors of @ (reads other repo from .vc-config.md)
-vc-x1 validate-desc @..
+# Both directions, all ancestors of @ on each side
+vc-x1 validate-desc -s b @..
 
-# Validate with explicit other repo
-vc-x1 validate-desc --other-repo .claude @..
+# The work repo's commits against an explicit other repo
+vc-x1 validate-desc -s w --other-repo .claude @..
 
-# Validate specific range
-vc-x1 validate-desc -r @.. -n 20
+# The agent repo's commits, a specific range
+vc-x1 validate-desc -s a -r @.. -n 20
 ```
 
 Use `--help` for the full status label legend.
@@ -814,7 +798,7 @@ Check the agent repo is in its expected at-rest state: `main` matching `main@ori
 refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
 `squash-push` run, which publishes it in the same invocation, so a mismatch means an earlier publish
 was lost. Read-only and cheap (two `jj` lookups, no build steps), and exits non-zero on any
-finding and fixes nothing. Resolve with `vc-x1 squash-push -R <bot-repo>`.
+finding and fixes nothing. Resolve with `vc-x1 squash-push -s a`.
 
 ```
 # Check ./.claude (run from the project root)
@@ -1371,34 +1355,33 @@ revert would derive its target from the op log and refuse when unrelated operati
 between. Until such a design exists, `jj op log` + `jj op restore` is the recovery.
 
 ```
-vc-x1 sync                            # the repo in the current directory
-vc-x1 sync --dry-run                  # look only: ask the remote, report, change nothing
-vc-x1 sync --force                    # sync a repo sync would hold back, rebasing as needed
-vc-x1 sync --scope=work               # only the work repo
-vc-x1 sync --scope=agent              # only the agent repo
-vc-x1 sync --scope=both               # both repos of a dual workspace
-vc-x1 sync -R ../other                # sync ../other as a single repo
-vc-x1 sync -R ../other --scope=work,bot   # ../other as workspace root
+vc-x1 sync -s b                       # both repos of the dual workspace the cwd is in
+vc-x1 sync -s b --dry-run             # look only: ask the remote, report, change nothing
+vc-x1 sync -s b --force               # sync a repo sync would hold back, rebasing as needed
+vc-x1 sync -s w                       # only the work repo
+vc-x1 sync -s a                       # only the agent repo
+vc-x1 sync -s p -R ../other           # ../other, a plain repo with no pair
+vc-x1 sync -s b -R ../other           # the dual workspace ../other is in
 ```
 
-**Repo set resolution.** `-R` and `--scope` compose:
+**Repo set resolution.** `-s` says which repos and is required, `-R` says where and is optional,
+the rule every write command follows, so a sync never guesses:
 
-1. Neither: `.`, the one repo in the current directory, as `chid`, `desc`, `list`, and `show` take
-   no flags. There is no walk up, so from a subdirectory of a repo `sync` fails with "There is no
-   Jujutsu repo in ." and changes nothing.
-2. `-R PATH` alone: sync just the repo at `PATH`.
-3. `--scope=work|bot|work,bot` alone: workspace roles, resolved via the discovered workspace root's
-   `.vc-config.md` (`work` -> root, `agent` -> the root-joined `agent` path).
-4. `-R PATH --scope=ROLES`: roles resolved against `PATH` as the workspace root.
+1. `-s w|a|b`: the sides of a dual workspace, resolved from the workspace `-R`, or the cwd, is in,
+   by its root or either repo, through the root's `.vc-config.md` (`w` -> root, `a` -> the
+   root-joined `agent` path, `b` -> both, work first). Outside a workspace it is an error naming
+   `-s p`.
+2. `-s p`: the repo `-R`, or the cwd, names, as itself. On either side of a dual workspace it is
+   an error naming the side and its scope, since a plain operation on a side is half a workspace.
+3. No `-s`: an error naming the four.
 
-A named scope is cwd-portable: from the agent repo's directory, `vc-x1 sync --scope=both` walks up
-to the workspace root and resolves both repos by absolute path. A bare `vc-x1 sync` there syncs the
-agent repo alone.
+A named scope is cwd-portable: from the agent repo's directory, `vc-x1 sync -s b` walks up to the
+workspace root and resolves both repos by absolute path.
 
 | Flag | Description |
 |------|-------------|
-| `-R, --repo <PATH>` | Workspace root, or a single repo to sync alone. Composes with `--scope` |
-| `--scope <SCOPE>` | `work|bot|work,bot`: workspace roles to sync. Composes with `-R` |
+| `-s, --scope <SCOPE>` | Required: `w|work`, `a|agent`, `b|both` of a dual workspace, or `p|por`, a plain repo |
+| `-R, --repo <PATH>` | Where: a path in the workspace, or the plain repo [default: the cwd] |
 | `-q, --quiet` | Suppress all output, exit code signals result (for scripts) |
 | `--bookmark <NAME>` | Bookmark to sync in the work repo (bot repo always syncs `main`) [default: main] |
 | `--remote <NAME>` | Remote to sync against [default: origin] |
@@ -1451,18 +1434,28 @@ acts without asking, which is what `squash-push.yes` defaults to, and `--ask` tu
 prompt on. The details of each are in the behavior notes below.
 
 ```
-# In .claude: squash @ -> @-, advance main, push
-vc-x1 squash-push -R .claude
+# The agent repo: squash @ -> @-, advance main, push, from anywhere in the workspace
+vc-x1 squash-push -s a
 
-# Bare invocation: same, in the current directory's repo
-vc-x1 squash-push
+# Both repos, work first: the fold-and-publish that asks nothing
+vc-x1 squash-push -s b
 
-# Name the bookmark explicitly, with a custom squash pair
-vc-x1 squash-push feature -R . --squash @,@--
+# A plain repo with no pair, the current directory's
+vc-x1 squash-push -s p
+
+# Name the bookmark explicitly, with a custom squash pair, on the work repo
+vc-x1 squash-push feature -s w --squash @,@--
 
 # Confirm before acting, overriding a configured squash-push.yes
-vc-x1 squash-push -R .claude --ask
+vc-x1 squash-push -s a --ask
+
+# Say what it found and what it would do, and change nothing
+vc-x1 squash-push -s a --dry-run
 ```
+
+`-s` is required and `-R` optional, as for every write command: `-s` says which repos, `-R` says
+where, a path anywhere in the workspace for `w|a|b` or the plain repo itself for `p`, and the cwd
+without it. See [Repo set resolution](#sync) under `sync`.
 
 ```
 .claude: dirty: @ has changes. squash-push? [y/N] y
@@ -1475,7 +1468,7 @@ squash-push: done
 
 ```
 # Nothing to do: no squash, no push, nothing touched
-vc-x1 squash-push -R .claude
+vc-x1 squash-push -s a
 .claude: clean
 ```
 
@@ -1537,52 +1530,165 @@ See [inline session push + squash-push
 (0.69.0)](./notes/chores/chores-13.md#feat-inline-session-push--squash-push-0690) for design
 details.
 
-### push
+### commit
 
-Commit both repos, push the work repo's BOOKMARK, and squash-push the bot repo's `main`: one command
-with two interactive approval gates. Replaces the old multi-step manual choreography (`jj commit` ×
-2 -> `jj bookmark set` × 2 -> `jj git push` -> squash-push) with a single invocation.
+Commit the working copies as a rung's pair: one commit per repo of a dual workspace, each stamped
+with the other's change id, before anything is pushed. The pair is what the per-rung flow reviews,
+description and diff together, by `jj show @-` in either repo, so a fix after the review folds into
+the pair and never rewrites a remote, and `push` publishes what was reviewed. Both change ids are
+known before either commit is made, since a jj commit keeps the working copy's change id, so each
+trailer is written once.
 
-```bash
-vc-x1 push main                                     # interactive
-vc-x1 push main --title "..." --body "..."          # skip $EDITOR
-vc-x1 push main --yes --title "..." --body "..."    # full non-interactive
-vc-x1 push main --dry-run                           # preview
+```
+# The work half now, the body from a file, the agent half at push
+vc-x1 commit -s w --title "feat: a rung" --body @tmp/body.md
+
+# Both commits now, from anywhere in the workspace
+vc-x1 commit -s b --title "feat: a rung" --body "The problem.
+
+* A facet.
+  - Its solution."
+
+# A plain repo, the description with no trailer
+vc-x1 commit -s p -R ../other --title "..." --body "..."
+
+# The cycle's closing, made as the merge of the trunk and the ladder
+vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
 ```
 
-Stages, top to bottom:
+`--closing` first merges `main` and the last rung into `@`, as `merge --target @ --from main
+--from @-` does, then commits, which keeps those parents. `main` is wherever it is now, so one
+that moved during the cycle is joined by the merge rather than needing a rebase. The title's
+" closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
+single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
 
-| Stage | What it does |
-|-------|--------------|
-| `review` | Print `jj diff --stat` for both repos, then prompt `[y/N]` (first approval gate) |
-| `message` | Compose title+body from `--title`/`--body` or an `$EDITOR` template, then the second approval gate. Skipped when neither repo has pending changes, since a publish-only run needs no message |
-| `commit-work` | `jj commit` work repo with ochid trailer pointing at `.claude` (skipped when `@` is empty) |
-| `commit-bot` | `jj commit` `.claude` with ochid trailer pointing at the work repo (skipped if `.claude` is clean) |
-| `bookmark-set` | `jj bookmark set <bookmark> -r @- -R .` and `jj bookmark set main -r @- -R .claude` |
-| `push-work` | Verify the bookmark's remote refs are tracked, then `jj git push --bookmark <bookmark> -R .` |
-| `squash-push-bot` | Synchronous squash of `.claude`'s trailing session writes + push `main` (see [squash-push](#squash-push)) |
+`--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
+is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
+the agent `@` all the same, and leaves the agent half to `push`, which commits the journal as the
+partner, `p` commits a plain repo, and `a` is refused, an agent commit made first being unpaired.
+`-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
+body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
+must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
+stands. A failure after the first commit restores both repos from `jj op` snapshots.
+
+### squash
+
+Continue a rung: fold the working copies into the pair `commit` made, before it is pushed. A
+review's fix in the work `@` folds into the work commit, and the journal into the agent commit,
+each keeping its change id, so both trailers stay right without being touched.
+
+```
+vc-x1 squash -s b                                    # both sides
+vc-x1 squash -s w                                    # the work side only
+vc-x1 squash -s b --title "feat: ..." --body @tmp/body.md   # and rewrite the descriptions
+vc-x1 squash -s p -R ../other                        # a plain repo's @ into its @-
+```
+
+`-s` is required and `-R` optional. The agent side goes by where the partner stands: committed by
+`commit -s b`, so the journal folds into it, or pending after `commit -s w`, so the journal already
+is the partner and push commits it. A published side is refused, since folding into it is a remote
+rewrite, and a work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the
+descriptions and keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit.
+`--dry-run` prints what it would fold and re-describe, and changes nothing.
+
+### merge
+
+Add the sources named to one target commit's parents, after the ones it has, keeping the target's
+own change, description, and change id, so its trailer stays right. The target's tree becomes the
+merge of all its parents with its own change applied, `jj rebase -r <target> -o <p1> ... -o <s1>
+...`. One target, empty or not, and N sources, with no assumption about where either lives: each
+`--from` is a revset of one or more commits, a bookmark, `main`, a change id, an earlier merge, a
+root, added oldest first. Merging sources one at a time and all at once give the same tree.
+
+```
+vc-x1 merge -s w --target @ --from A --from B          # two lines of work into @
+vc-x1 merge -s w --target @ --from C                   # one more, after A and B
+vc-x1 merge -s w --target X --from 'bookmarks(glob:"f-*")'  # every bookmark matching, at once
+vc-x1 merge -s w --target @ --from main --dry-run      # say what it would do
+```
+
+`-s`, `--target`, and `--from` are required, `-s` being `w` or `p`, since the agent repo never
+holds a merge. A source that is already a parent is skipped, and a merge adding nothing changes
+nothing. Removing a parent is not a merge: `jj undo` takes back the last one, and `jj rebase -r
+<target> -o ...` sets any parents. Refused: a source that is the target or below it, a cycle, and
+a target in jj's `immutable()`, under jj's aliases and yours, unless `--ignore-immutable`, as `jj`
+refuses it. A rung pushed to its cycle bookmark is mutable to jj, and the push after its rewrite
+takes approval like any other. Reported and allowed: a conflicted result, left as jj leaves it
+with `jj resolve --list` named. A source that is an ancestor of another, `main` below the last
+rung, is the no-fast-forward shape a closing is, so it is neither refused nor reported.
+
+### move-bookmark
+
+Point one existing local bookmark at one commit, `jj bookmark set <bookmark> -r <target>`, the
+repositioning a bookmark needs before it is pushed, since `push` only sets the line's bookmark to
+`@-`. Nothing is pushed.
+
+```
+vc-x1 move-bookmark -s w --bookmark feature --target @-       # forward to the last commit
+vc-x1 move-bookmark -s w --bookmark main --target feature     # main to where feature is
+vc-x1 move-bookmark -s w --bookmark feature --target X --allow-backwards  # off its line
+vc-x1 move-bookmark -s w --bookmark feature --target @- --dry-run         # say what it would do
+vc-x1 move-bookmark -s b --bookmark main --target @- --yes                # main in both repos
+vc-x1 move-bookmark -s p -R ../other --bookmark main --target @-          # any repo, unchecked
+```
+
+`-s`, `--bookmark`, and `--target` are required. `-s w` moves the work repo's bookmark. `-s a`, the
+agent repo, and `-s b`, both, take `--yes`, since the agent repo's `main` is otherwise set by push's
+agent half: the same name in each, the target resolved in each, and every repo checked before any
+moves. `-s p` takes the repo from `-R`, required, as it is, with none of the workspace's checks, so
+it moves a bookmark in either side of a dual workspace or any jj repo, and careful use is yours.
+The bookmark must already exist, none being created, and the target is a revset of exactly one
+commit, a bookmark or a rev. A move backward or sideways, leaving
+commits off the bookmark's line, is refused unless `--allow-backwards`, as `jj` refuses it, and a
+bookmark already at the target is left as it is.
+
+### push
+
+Publish a rung's pair. Push carries no description and writes none, so what was reviewed is what
+goes out: `commit` makes the pair, the work commit and the agent commit each naming the other, or
+the work half alone with its trailer naming the agent `@`, and push completes and publishes it.
+
+```bash
+vc-x1 push -s b                  # the pair, on the bookmark the work @- sits on
+vc-x1 push -s b feature          # the same, the bookmark named as a check
+vc-x1 push -s w                  # the work half only
+vc-x1 push -s a                  # the agent half only, the remainder of a run that stopped
+vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer asked for
+vc-x1 push -s b --dry-run        # plan and print, move nothing
+```
+
+What push refuses, with both repos as they were:
+
+- a work `@` that is not empty: unsquashed work is a fix to fold or the next rung, the user's call
+- a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
+- a named bookmark that is not on the line `@-` is on, or two bookmarks on the line and none named
+
+The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
+`push -s a` then `push -s w`, the order the pair is completed in:
+
+| Half | What it does |
+|------|--------------|
+| agent | Complete the partner by the state found: the agent `@-` names the work commit (`commit -s b`), so the journal folds into it; or the agent `@` is the change the work commit names (`commit -s w`), or the agent repo changed since, so the journal is committed as the partner with the work commit's own text. Then squash-push `main` (see [squash-push](#squash-push)) |
+| work | Check the work trailer names the partner, restamping the unpublished work commit when it does not, said out loud. Then `jj bookmark set <bookmark> -r @-`, verify its remote refs are tracked, and `jj git push --bookmark <bookmark>` |
 
 **Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
 precondition and does nothing when its work is already done, so re-running after a failure is simply
-running. A recorded position would describe a world that may have changed for reasons push cannot
-know. If a run fails, push stops and reports. Please fix and try again.
-
-Failures in `commit-work` / `commit-bot` / `bookmark-set` roll both repos back via `jj op restore`
-to a snapshot taken moments earlier in the same process. Once `push-work` succeeds the work is
-published: from there a change is either a new commit appended on top by the next push, or an amend
-of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last commit
-and force-updates the remote. See the protocol's
+running. If a run fails, push stops and reports. A half that fails before its own push restores the
+repo it touched via `jj op restore` to a snapshot taken moments earlier in the same process. Once a
+half's push succeeds that half is published: from there a change is either a new pair on top, or an
+amend of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last
+commit and force-updates the remote. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Work-repo bookmark to advance (the bot repo always advances `main`), the positional form of `--bookmark` |
+| `-s, --scope <SCOPE>` | Required: `b|both` the pair, `w|work` the work half, `a|agent` the agent half, `p|por` a plain repo |
+| `-R, --repo <PATH>` | Where: a path in the workspace, or the plain repo [default: the cwd] |
+| `[BOOKMARK]` | Work-repo bookmark to advance, a check against the line `@-` is on [default: that line's bookmark], the positional form of `--bookmark` |
 | `--bookmark <NAME>` | Same as positional (mutually exclusive) |
-| `-y, --yes` | Auto-approve both gates (non-interactive use) |
-| `--title <STR>` / `--body <STR>` | Skip `$EDITOR` for the message stage |
-| `--dry-run` | Print what would run, no side effects |
+| `--dry-run` | Plan and print what would run, no side effects |
 | `--step` | Pause after every stage for an extra continue-prompt |
-| `--no-squash-push` | Stop before `squash-push-bot` (run it manually) |
+| `-y, --yes` | Pass the `--step` gates without asking |
 
 See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370) for the
 full design and [per-step record](./notes/chores/chores-05.md#per-step-record) for what each
@@ -1622,7 +1728,7 @@ jj git push -R "$work"
 
 # 2. bot repo: trailing writes -> squash-push (fold into @-, push)
 echo notes > "$bot/notes.md"
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # 3. cleanup when done (init also created a symlink under
 #    ~/.claude/projects/ pointing at the fixture, remove it too)
@@ -1636,7 +1742,7 @@ writes into that commit just before pushing, so one atomic state goes upstream.
 
 The run is synchronous, no background child, so what you see is the whole flow:
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 squash-push: squashing @ -> @-...
 squash-push: setting bookmark 'main' to @-...
 squash-push: pushing 'main' to origin...
@@ -1669,12 +1775,12 @@ echo b >> "$bot/notes.md"
 jj describe -R "$bot" -m 'new journal
 
 ochid: /abc123abc123'
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # example 2, normal case: clear the description; the squash
 # proceeds and the run pushes
 jj describe -R "$bot" -m ''
-vc-x1 squash-push -R "$bot"
+vc-x1 squash-push -s a -R "$bot"
 
 # cleanup (also remove the fixture's ~/.claude/projects symlink)
 rm -rf "$parent"
@@ -1685,7 +1791,7 @@ Output captured from a real run, and these transcripts are regenerated with
 exit 1:
 
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 error: refusing squash @ -> @-: the squash would drop ochid: trailers
 the destination's message lacks:
   /abc123abc123
@@ -1696,7 +1802,7 @@ the source's description, then retry
 Example 2 with the description cleared squashes and pushes, exit 0:
 
 ```
-$ vc-x1 squash-push -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot"
 squash-push: squashing @ -> @-...
 squash-push: setting bookmark 'main' to @-...
 squash-push: pushing 'main' to origin...
@@ -1811,18 +1917,20 @@ cargo test --test cli_init # one integration test crate
 ### Acceptance fixtures
 
 The lookup's tests run over pre-created dual workspaces with documented relationships, one per
-name under the directory the work side's `[test] fixtures` key names, `../vc-x1-fixtures` here.
-A test picks a fixture by name and skips with a notice when the path is absent, so `cargo test`
-passes on a bare clone, and runs the fixture's cases when it is there.
+name under the directory the work side's `[test] fixtures` key names, `.fixtures` here, inside
+the workspace and gitignored. The fixture tests are `#[ignore]`, so `cargo test` passes on a bare
+clone and `cargo test -- --include-ignored`, the full validation, runs them. A test whose fixture
+is absent panics, naming the directory and the command that builds the fixture there, so a missing
+fixture fails rather than passes.
 
 - `dr-1`, `dr` for dual repo, is the simple one-to-one shape: a work repo and its agent repo at
   `.claude`, laid out as `vc-x1 clone` lays a dual workspace out, run through four cycles by
   the scripted agent in `support/fixtures/build-dr-1.py`. Its README lists every relationship
   and `relationships.json` beside it carries them for the tests. Its remotes are
   `github.com/winksaville/vc-x1-fixtures-dr-1-work` and `vc-x1-fixtures-dr-1-agent`.
-- To get it: `git clone` the work remote as `../vc-x1-fixtures/dr-1` and the agent remote as
-  its `.claude`, then `jj git init --colocate` in each. To rebuild it from nothing: the script
-  with `--local`, then `--publish` once the result reads right.
+- To build it: `python3 support/fixtures/build-dr-1.py .fixtures --local`, the command the
+  panic names. `git clone` of the two remotes, then `jj git init --colocate` in each, is the
+  other way. **dr-1 is built in Rust** in `TODO.md` retires the script.
 - A one-work-to-many-agents fixture is a numbered sibling, `dr-2`.
 
 ### Test tempdir location
@@ -1981,8 +2089,8 @@ three things, and it pays to know which is which.
 - **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
   is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
   it claims. Ten sites carry one today.
-- **The register is prose.** The numbered comment at the top of `clippy.toml` names the six
-  kinds of spawn that are permitted and why: the `jj -V` version probe, push's `$EDITOR`, init's
+- **The register is prose.** The numbered comment at the top of `clippy.toml` names the five
+  kinds of spawn that are permitted and why: the `jj -V` version probe, init's
   `gh` calls, the test helpers and the CLI tests' launcher, validate running the configured
   commands, and sync's remote look, `git ls-remote` and a `git fetch` that moves no ref. The
   last is the one spawn of `git`, and is temporary: jj-lib has no query for the commits a

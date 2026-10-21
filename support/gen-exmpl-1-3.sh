@@ -31,16 +31,16 @@ echo b >> "$bot/notes.md"
 jj describe -R "$bot" -m 'new journal
 
 ochid: /abc123abc123'
-printf '$ vc-x1 squash-push -R "%s"\n' "$bot"
+printf '$ vc-x1 squash-push -s a -R "%s"\n' "$bot"
 rc=0
-vc-x1 squash-push -R "$bot" || rc=$?
+vc-x1 squash-push -s a -R "$bot" || rc=$?
 echo "exit=$rc"
 
 hr "example 2 — cleared description squashes and pushes (expect exit 0)"
 jj describe -R "$bot" -m ''
-printf '$ vc-x1 squash-push -R "%s"\n' "$bot"
+printf '$ vc-x1 squash-push -s a -R "%s"\n' "$bot"
 rc=0
-vc-x1 squash-push -R "$bot" || rc=$?
+vc-x1 squash-push -s a -R "$bot" || rc=$?
 echo "exit=$rc"
 
 hr "done (fixture removed on exit)"

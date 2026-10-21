@@ -49,10 +49,10 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{LevelFilter, debug, info, warn};
 
-use crate::common::resolve_repos;
+use crate::common::resolve_scoped_repos;
 use crate::context::Context;
 use crate::jj;
-use crate::options_flags::scope::{Scope, parse_scope};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
 use crate::subcommand::SubcommandRunner;
 
 /// Fetch and sync a set of repos to their remotes.
@@ -61,14 +61,13 @@ use crate::subcommand::SubcommandRunner;
 /// bookmark as needed, then reposition `@` onto it. On any failure
 /// the starting state of every repo is restored via `jj op restore`.
 ///
-/// Repo set is resolved from `-R/--repo` + `--scope`:
+/// Repo set is resolved from `-s`, required, and `-R`, optional,
+/// by the resolver every scoped command shares:
 ///
-/// - `-R PATH`: workspace root, or a single repo to sync alone.
-/// - `--scope=work|agent|work,agent`: keyword role selection,
-///   resolved via the workspace root's `.vc-config.toml`.
-/// - Neither: `.`, the one repo the command is run in, whichever
-///   side of a workspace that is, with no walk up from a
-///   subdirectory. Both repos are asked for with `--scope=both`.
+/// - `-s w|a|b`: the sides of the dual workspace `-R`, or the cwd,
+///   is in, by its root or either repo.
+/// - `-s p`: the plain repo `-R`, or the cwd, names, refused when it
+///   is a side of a dual workspace.
 #[derive(Args, Debug)]
 pub struct SyncArgs {
     /// Suppress all informational output (exit code signals result)
@@ -108,33 +107,23 @@ pub struct SyncArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Workspace root, or a single jj repo to sync on its own.
-    ///
-    /// - `-R PATH` alone: sync just the repo at PATH.
-    /// - `-R PATH -s ROLES`: use PATH as the workspace root and
-    ///   sync the named side(s).
-    #[arg(short = 'R', long = "repo", value_name = "PATH", verbatim_doc_comment)]
+    /// Where: a path in the workspace for `-s w|a|b`, its root or
+    /// either repo, or the repo itself for `-s p` [default: the
+    /// current directory]
+    #[arg(short = 'R', long = "repo", value_name = "PATH")]
     pub repo: Option<PathBuf>,
 
-    /// Which repo(s) of the workspace to sync.
-    ///
-    /// `SCOPE=work|agent|both`:
-    ///
-    /// - `work`: sync only the work repo.
-    /// - `agent`: sync only the bot repo (errors if no bot repo
-    ///   is configured).
-    /// - `both` (or `work,agent`): sync both repos.
-    ///
-    /// Composes with `-R` as the workspace root. With neither,
-    /// sync acts on `.`, the one repo it is run in.
+    /// Which repo(s) to sync, required: `w|work`, `a|agent`,
+    /// `b|both` of a dual workspace, or `p|por`, a plain repo.
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_scope,
-        verbatim_doc_comment
+        value_parser = parse_repo_scope,
+        required = true,
+        help = format!("Which repo(s) to sync, required: {REPO_SCOPE_FORMS}")
     )]
-    pub scope: Option<Scope>,
+    pub scope: RepoScope,
 }
 
 /// Inputs to the sync op, flat, owned, clap-free.
@@ -148,10 +137,9 @@ pub struct SyncArgs {
 ///   `act_on_state`) and a non-empty work repo `@` (see
 ///   `reposition_work`).
 /// - `dry_run`: `--dry-run`, look only (see `look_repos`).
-/// - `repo`: `-R/--repo` path (None => discover the workspace
-///   root from cwd).
-/// - `scope`: `--scope` parsed (None => `.`, unless `repo` names
-///   a path).
+/// - `repo`: `-R/--repo`, where (None => the cwd).
+/// - `scope`: `-s`, which repos, required
+///   ([`resolve_scoped_repos`]).
 pub struct SyncParams {
     pub quiet: bool,
     pub bookmark: String,
@@ -159,7 +147,7 @@ pub struct SyncParams {
     pub force: bool,
     pub dry_run: bool,
     pub repo: Option<PathBuf>,
-    pub scope: Option<Scope>,
+    pub scope: RepoScope,
 }
 
 impl From<&SyncArgs> for SyncParams {
@@ -223,9 +211,9 @@ struct RepoCtx {
 
 /// CLI entry point for the `sync` subcommand.
 ///
-/// Thin wrapper over `sync_repos` that resolves `--scope` into a
-/// concrete repo list (`.` with neither flag, by the resolver the
-/// read commands share) and forwards the rest. Tests call `sync_repos` directly
+/// Thin wrapper over `sync_repos` that resolves `-s` and `-R` into
+/// a concrete repo list, by the resolver the write commands share,
+/// and forwards the rest. Tests call `sync_repos` directly
 /// with absolute fixture paths. `ctx` supplies the repo sessions
 /// the fetch and fast-forward verbs run on (`Context::session`).
 ///
@@ -236,7 +224,7 @@ struct RepoCtx {
 /// still surface at `Warn` / `Error` so script callers don't lose
 /// diagnostics.
 pub fn sync(ctx: &mut Context, params: &SyncParams) -> Result<(), Box<dyn std::error::Error>> {
-    let repos = resolve_repos(params.repo.as_deref(), params.scope.as_ref())?;
+    let repos = resolve_scoped_repos(&params.scope, params.repo.as_deref())?;
     if params.quiet {
         let prev = log::max_level();
         log::set_max_level(LevelFilter::Warn);

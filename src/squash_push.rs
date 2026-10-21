@@ -42,16 +42,19 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
 use crate::options_flags::squash::{SquashOption, SquashSpec};
 use crate::status;
 use crate::subcommand::SubcommandRunner;
 
-/// Squash `@` into `@-`, advance BOOKMARK, and push.
+/// Squash `@` into `@-`, advance BOOKMARK, and push, in each
+/// scoped repo.
 ///
 /// Captures a repo's trailing working-copy writes into the last
 /// commit and publishes it: rewriting an already-pushed commit is
-/// a forced update. Zero-ceremony default: bare `vc-x1 squash-push`
-/// squashes `@ -> @-` and pushes `main` in `.`.
+/// a forced update. `-s` is required: `squash-push -s a` is the
+/// agent repo's session tail folded and pushed, `-s w` or `-s b`
+/// the fold-and-publish that asks nothing, and `-s p` a plain repo.
 #[derive(Args, Debug)]
 pub struct SquashPushArgs {
     /// Bookmark to advance and push [default: the bookmark of the
@@ -60,9 +63,22 @@ pub struct SquashPushArgs {
     #[arg(value_name = "BOOKMARK")]
     pub bookmark: Option<String>,
 
-    /// Path to jj repo
-    #[arg(short = 'R', long, default_value = ".")]
-    pub repo: PathBuf,
+    /// Where: a path in the workspace for `-s w|a|b`, its root or
+    /// either repo, or the repo itself for `-s p` [default: the
+    /// current directory]
+    #[arg(short = 'R', long, value_name = "PATH")]
+    pub repo: Option<PathBuf>,
+
+    /// Which repo(s), required
+    #[arg(
+        short = 's',
+        long,
+        value_name = "SCOPE",
+        value_parser = parse_repo_scope,
+        required = true,
+        help = format!("Which repo(s), required: {REPO_SCOPE_FORMS}")
+    )]
+    pub scope: RepoScope,
 
     #[command(flatten)]
     pub squash: SquashOption,
@@ -74,6 +90,11 @@ pub struct SquashPushArgs {
     /// Ask before acting, overriding a configured squash-push.yes
     #[arg(long = "ask")]
     pub ask: bool,
+
+    /// Print what it found and what it would do in each repo, and
+    /// change nothing
+    #[command(flatten)]
+    pub dry_run: crate::options_flags::dry_run::DryRunFlag,
 }
 
 /// Per-invocation squash-push inputs: the clap-free shape the op
@@ -107,6 +128,9 @@ pub struct SquashPushParams {
     /// opt-in. Resolved from `--yes`, then `--ask`, then the repo's
     /// `squash-push.yes`, then the built-in.
     pub yes: bool,
+    /// Print what the precheck found and the steps it would take,
+    /// and change nothing.
+    pub dry_run: bool,
 }
 
 /// The `yes` choice: the flags, then the config key, then the
@@ -145,14 +169,11 @@ fn config_yes(repo: &Path) -> Result<Option<bool>, Box<dyn std::error::Error>> {
     }
 }
 
-impl TryFrom<&SquashPushArgs> for SquashPushParams {
-    type Error = String;
-
-    /// Canonicalize `--repo` (early, visible failure on a bad path)
-    /// and fill the `--squash` default. BOOKMARK maps straight over.
-    fn try_from(a: &SquashPushArgs) -> Result<Self, String> {
-        let repo = std::fs::canonicalize(&a.repo)
-            .map_err(|e| format!("cannot resolve repo path '{}': {e}", a.repo.display()))?;
+/// The params for one resolved repo: the `--squash` default filled
+/// and BOOKMARK mapped straight over, or read from the repo when
+/// absent. `repo` is already canonical, the resolver's.
+fn params_for(a: &SquashPushArgs, repo: PathBuf) -> Result<SquashPushParams, String> {
+    {
         let yes = resolve_yes(
             a.yes,
             a.ask,
@@ -173,21 +194,36 @@ impl TryFrom<&SquashPushArgs> for SquashPushParams {
             bookmark,
             at_rest: true,
             yes,
+            dry_run: a.dry_run.value,
         })
     }
 }
 
-impl SubcommandRunner for SquashPushArgs {
-    type Params = SquashPushParams;
+/// One `SquashPushParams` per repo `-s` and `-R` resolve to, in
+/// scope order, work before agent.
+fn params_for_args(a: &SquashPushArgs) -> Result<Vec<SquashPushParams>, String> {
+    crate::common::resolve_scoped_repos(&a.scope, a.repo.as_deref())
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|repo| params_for(a, repo))
+        .collect()
+}
 
-    /// Delegate to the `TryFrom<&SquashPushArgs>` impl above.
+impl SubcommandRunner for SquashPushArgs {
+    type Params = Vec<SquashPushParams>;
+
+    /// Resolve the scope into repos and build each repo's params.
     fn to_params(&self) -> Result<Self::Params, String> {
-        SquashPushParams::try_from(self)
+        params_for_args(self)
     }
 
-    /// Run the `squash-push` op.
+    /// Run the `squash-push` op on each repo, stopping at the first
+    /// failure.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        squash_push(ctx, params)
+        for p in params {
+            squash_push(ctx, p)?;
+        }
+        Ok(())
     }
 }
 
@@ -317,7 +353,10 @@ fn check_squash_keeps_ochids(
 /// Two cases are decided by the caller rather than guessed, since a
 /// wrong guess here publishes something: several candidates, and
 /// none.
-fn current_bookmark(repo: &Path, target: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn current_bookmark(
+    repo: &Path,
+    target: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
     let nearest = format!("heads(::({target}) & bookmarks())");
     let mut found = jj::local_bookmarks_at(repo, &nearest)?;
     match found.len() {
@@ -502,6 +541,28 @@ pub fn squash_push(
         return Ok(());
     }
 
+    // A dry run stops after the precheck, which has already said what
+    // it found, naming each step it would take.
+    if params.dry_run {
+        if rev_is_empty_undescribed(&params.repo, &sq.source)? {
+            info!(
+                "squash-push: [dry-run] {} is empty, would skip the squash",
+                sq.source
+            );
+        } else {
+            info!(
+                "squash-push: [dry-run] would squash {} -> {}",
+                sq.source, sq.target
+            );
+        }
+        info!(
+            "squash-push: [dry-run] would set bookmark '{bookmark}' to {}",
+            sq.target
+        );
+        info!("squash-push: [dry-run] would push '{bookmark}' to origin");
+        return Ok(());
+    }
+
     // The prompt sits between the precheck and the work, so it is
     // asked only when there is something to decline, and it names
     // what the precheck found.
@@ -547,6 +608,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::options_flags::scope::{Scope, Side};
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -570,20 +632,31 @@ mod tests {
     }
 
     /// No bookmark given parses as none, the resolution being the
-    /// repo's own answer rather than a literal clap can supply.
+    /// repo's own answer rather than a literal clap can supply, and
+    /// no `-R` is the cwd.
     #[test]
     fn no_args_defaults() {
-        let args = parse(&["vc-x1", "squash-push"]);
+        let args = parse(&["vc-x1", "squash-push", "-s", "a"]);
         assert_eq!(args.bookmark, None);
-        assert_eq!(args.repo, PathBuf::from("."));
+        assert_eq!(args.repo, None);
         assert!(args.squash.value.is_none());
+        assert_eq!(args.scope, RepoScope::Sides(Scope(vec![Side::Bot])));
+    }
+
+    /// `-s` is required: a bare invocation is refused, naming it.
+    #[test]
+    fn without_scope_errors() {
+        let err = parse_err(&["vc-x1", "squash-push"]);
+        assert!(err.contains("--scope"), "got: {err}");
+        let err = parse_err(&["vc-x1", "squash-push", "-R", ".claude"]);
+        assert!(err.contains("--scope"), "got: {err}");
     }
 
     #[test]
     fn bookmark_positional() {
-        let args = parse(&["vc-x1", "squash-push", "dev-0.14.0"]);
+        let args = parse(&["vc-x1", "squash-push", "dev-0.14.0", "-s", "w"]);
         assert_eq!(args.bookmark.as_deref(), Some("dev-0.14.0"));
-        assert_eq!(args.repo, PathBuf::from("."));
+        assert_eq!(args.repo, None);
     }
 
     #[test]
@@ -596,6 +669,8 @@ mod tests {
             "dev-0.14.0",
             "-R",
             ".claude",
+            "-s",
+            "p",
             "--squash",
             "@,@-",
         ])
@@ -603,7 +678,8 @@ mod tests {
         assert_eq!(cli.log, Some(PathBuf::from("/tmp/test.log")));
         if let Some(Commands::SquashPush(args)) = cli.command {
             assert_eq!(args.bookmark.as_deref(), Some("dev-0.14.0"));
-            assert_eq!(args.repo, PathBuf::from(".claude"));
+            assert_eq!(args.repo, Some(PathBuf::from(".claude")));
+            assert_eq!(args.scope, RepoScope::Por);
             assert_eq!(args.squash.value, Some(squash_at()));
         } else {
             panic!("expected SquashPush");
@@ -612,33 +688,33 @@ mod tests {
 
     #[test]
     fn long_repo_flag() {
-        let args = parse(&["vc-x1", "squash-push", "--repo", ".claude"]);
-        assert_eq!(args.repo, PathBuf::from(".claude"));
+        let args = parse(&["vc-x1", "squash-push", "--repo", ".claude", "-s", "a"]);
+        assert_eq!(args.repo, Some(PathBuf::from(".claude")));
     }
 
     #[test]
     fn bare_squash() {
-        let args = parse(&["vc-x1", "squash-push", "--squash"]);
+        let args = parse(&["vc-x1", "squash-push", "--squash", "-s", "a"]);
         assert_eq!(args.squash.value, Some(squash_at()));
     }
 
     #[test]
     fn bad_squash() {
-        let err = parse_err(&["vc-x1", "squash-push", "--squash", "@"]);
+        let err = parse_err(&["vc-x1", "squash-push", "--squash", "@", "-s", "a"]);
         assert!(err.contains("expected SOURCE,TARGET"), "got: {err}");
     }
 
     #[test]
     fn retired_flags_rejected() {
         for flag in ["--detach", "--delay", "--exec", "--push"] {
-            let err = parse_err(&["vc-x1", "squash-push", flag]);
+            let err = parse_err(&["vc-x1", "squash-push", flag, "-s", "a"]);
             assert!(err.contains(flag), "flag {flag}: {err}");
         }
     }
 
     #[test]
     fn unknown_opt() {
-        let err = parse_err(&["vc-x1", "squash-push", "--bogus"]);
+        let err = parse_err(&["vc-x1", "squash-push", "--bogus", "-s", "a"]);
         assert!(err.contains("--bogus"));
     }
 
@@ -649,12 +725,17 @@ mod tests {
         let fx = Fixture::new("sp-try-from");
         let args = SquashPushArgs {
             bookmark: None,
-            repo: fx.bot.clone(),
+            repo: Some(fx.work.clone()),
+            scope: RepoScope::Sides(Scope(vec![Side::Bot])),
             squash: crate::options_flags::squash::SquashOption { value: None },
             yes: false,
             ask: false,
+            dry_run: Default::default(),
         };
-        let params = SquashPushParams::try_from(&args).expect("params");
+        let all = params_for_args(&args).expect("params");
+        let [params] = all.as_slice() else {
+            panic!("-s a is one repo, got {}", all.len());
+        };
         assert_eq!(
             params.repo,
             std::fs::canonicalize(&fx.bot).expect("canonical")
@@ -665,6 +746,33 @@ mod tests {
         // bookmark is `main` and the old literal default's answer is
         // reached by reading the repo instead of assuming it.
         assert_eq!(params.bookmark, "main");
+    }
+
+    /// `-s b` from the work repo is both repos, work first, and
+    /// `-s p` on either side is refused naming the side, so a
+    /// squash-push never acts on half a workspace by accident.
+    #[test]
+    fn the_scope_resolves_the_pair_and_refuses_por_on_a_side() {
+        use crate::test_helpers::Fixture;
+
+        let fx = Fixture::new("sp-scope");
+        let mut args = parse(&["vc-x1", "squash-push", "-s", "b"]);
+        args.repo = Some(fx.work.clone());
+        let repos: Vec<PathBuf> = params_for_args(&args)
+            .expect("params")
+            .into_iter()
+            .map(|p| p.repo)
+            .collect();
+        let canon = |p: &PathBuf| p.canonicalize().expect("canonical");
+        assert_eq!(repos, vec![canon(&fx.work), canon(&fx.bot)]);
+
+        args.scope = RepoScope::Por;
+        args.repo = Some(fx.bot.clone());
+        let err = params_for_args(&args).expect_err("por on the agent side");
+        assert!(
+            err.contains("the agent side") && err.contains("`-s a`"),
+            "{err}"
+        );
     }
 
     /// The default bookmark is the line's, not a literal: on a work
@@ -735,6 +843,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("squash-push should publish the lost commit");
@@ -762,6 +871,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         assert!(state.nothing_to_do(), "{state:?}");
@@ -797,6 +907,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         // `@` is empty and undescribed and `main` matches origin, so
@@ -838,6 +949,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: true,
+            dry_run: false,
         };
         let before = read_state(&params).expect("read state");
         assert_eq!(before.line("bot"), "bot: dirty: @ has changes");
@@ -863,10 +975,10 @@ mod tests {
         assert!(!resolve_yes(false, false, Some(false), true));
         assert!(resolve_yes(false, false, None, true));
         assert!(!resolve_yes(false, false, None, false));
-        assert!(Cli::try_parse_from(["vc-x1", "squash-push", "-y", "--ask"]).is_err());
-        let a = parse(&["vc-x1", "squash-push", "--yes"]);
+        assert!(Cli::try_parse_from(["vc-x1", "squash-push", "-y", "--ask", "-s", "a"]).is_err());
+        let a = parse(&["vc-x1", "squash-push", "--yes", "-s", "a"]);
         assert!(a.yes && !a.ask);
-        let a = parse(&["vc-x1", "squash-push", "--ask"]);
+        let a = parse(&["vc-x1", "squash-push", "--ask", "-s", "a"]);
         assert!(a.ask && !a.yes);
     }
 
@@ -885,9 +997,8 @@ mod tests {
         use crate::test_helpers::Fixture;
 
         let fx = Fixture::new("sp-default-yes");
-        let mut args = parse(&["vc-x1", "squash-push"]);
-        args.repo = fx.bot.clone();
-        let params = SquashPushParams::try_from(&args).expect("params");
+        let args = parse(&["vc-x1", "squash-push", "-s", "a"]);
+        let params = params_for(&args, fx.bot.canonicalize().expect("canonical")).expect("params");
         assert!(params.yes, "a bare run does not prompt");
     }
 
@@ -914,6 +1025,29 @@ mod tests {
         assert_eq!(config_yes(&fx.bot).expect("read"), None);
     }
 
+    /// A dry run reads the state, says what it found and would do,
+    /// and changes nothing: the tail stays in `@` and `main` stays
+    /// where it was.
+    #[test]
+    fn a_dry_run_changes_nothing() {
+        use crate::test_helpers::{Fixture, cid};
+
+        let fx = Fixture::new("sp-dry-run");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+        let main_before = cid(&fx.bot, "main");
+        let mut args = parse(&["vc-x1", "squash-push", "-s", "a", "--dry-run"]);
+        args.repo = Some(fx.work.clone());
+        assert!(args.dry_run.value);
+        let all = params_for_args(&args).expect("params");
+        squash_push(&mut crate::test_helpers::test_ctx(), &all[0]).expect("dry run");
+        assert_eq!(cid(&fx.bot, "main"), main_before, "main did not move");
+        assert_eq!(
+            crate::test_helpers::jj_ok(&fx.bot, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+            "false",
+            "the tail is still in @"
+        );
+    }
+
     /// With asking on and no tty, the run errors rather than
     /// hanging on `read_line`, the rule push's step gate follows.
     #[test]
@@ -928,6 +1062,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: false,
+            dry_run: false,
         };
         let state = read_state(&params).expect("read state");
         // The test states no tty rather than inheriting `cargo
@@ -959,6 +1094,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: true,
             yes: false,
+            dry_run: false,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("nothing to decline, so nothing is asked");
@@ -979,6 +1115,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: false,
             yes: false,
+            dry_run: false,
         };
         let state = read_state(&stage).expect("read state");
         confirm(&stage, &state, "bot", false).expect("push's stage does not ask");
@@ -1012,6 +1149,7 @@ mod tests {
             bookmark: "main".to_string(),
             at_rest: false,
             yes: true,
+            dry_run: false,
         };
         assert!(read_state(&stage).expect("state").nothing_to_do());
 

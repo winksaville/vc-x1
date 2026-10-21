@@ -38,6 +38,25 @@ pub fn ochid_prefix_for(repo: &std::path::Path) -> Result<String, Box<dyn std::e
     }
 }
 
+/// A `--body` value: the text as given, or the file an `@PATH`
+/// names, since a body in commit-body form has markers and blank
+/// lines a shell quote mangles. `who` prefixes the error.
+pub fn read_body(body: &str, who: &str) -> Result<String, String> {
+    match body.strip_prefix('@') {
+        Some(path) if !path.is_empty() => std::fs::read_to_string(path)
+            .map_err(|e| format!("{who}: --body @{path}: cannot read the file: {e}")),
+        _ => Ok(body.to_string()),
+    }
+}
+
+/// A description with its `ochid:` trailer: the text, trailing
+/// blank lines trimmed, a blank line, then `ochid: <value>`, so a
+/// body read from a file ending in a newline gets one blank line
+/// before the trailer, not two.
+pub fn with_trailer(text: &str, value: &str) -> String {
+    format!("{}\n\nochid: {value}", text.trim_end())
+}
+
 /// Problems found with an ochid trailer, with details for reporting.
 #[derive(Debug)]
 pub struct OchidIssues {

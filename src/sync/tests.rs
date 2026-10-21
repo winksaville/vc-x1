@@ -1,11 +1,10 @@
 //! Unit tests for the sync module.
 
 use super::*;
-use crate::options_flags::scope::Side;
+use crate::options_flags::scope::{RepoScope, Scope, Side};
 
-/// Default flags: bookmark "main", remote "origin", no `-R` and no
-/// `--scope` (caller will resolve via the workspace-default scope),
-/// `--quiet` off.
+/// Default flags: bookmark "main", remote "origin", no `-R`,
+/// `--quiet` off. `-s` has no default: it is required.
 #[test]
 fn parse_defaults() {
     use clap::Parser;
@@ -14,13 +13,35 @@ fn parse_defaults() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "-s", "w"]).unwrap();
     assert!(!cli.args.quiet);
     assert!(!cli.args.force);
     assert!(!cli.args.dry_run);
     assert_eq!(cli.args.bookmark, "main");
     assert_eq!(cli.args.remote, "origin");
-    assert!(cli.args.scope.is_none());
+    assert_eq!(cli.args.scope, RepoScope::Sides(Scope(vec![Side::Work])));
+}
+
+/// Without `-s` the parse fails: sync never guesses which repos it
+/// acts on, and the error names the four scopes.
+#[test]
+fn parse_without_scope_errors() {
+    use clap::Parser;
+    #[derive(Parser)]
+    struct Cli {
+        #[command(flatten)]
+        args: SyncArgs,
+    }
+    let err = match Cli::try_parse_from(["test"]) {
+        Ok(_) => panic!("a bare sync parsed"),
+        Err(e) => e.to_string(),
+    };
+    assert!(err.contains("--scope"), "{err}");
+    let err = match Cli::try_parse_from(["test", "-s", "x"]) {
+        Ok(_) => panic!("-s x parsed"),
+        Err(e) => e.to_string(),
+    };
+    assert!(err.contains("`p|por`"), "{err}");
 }
 
 /// `--force` sets the flag; it flows through to `SyncParams`.
@@ -32,7 +53,7 @@ fn parse_force_flag() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--force"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "--force", "-s", "w"]).unwrap();
     assert!(cli.args.force);
     assert!(SyncParams::from(&cli.args).force);
 }
@@ -46,7 +67,7 @@ fn parse_rebase_flag() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--rebase"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "--rebase", "-s", "w"]).unwrap();
     assert!(cli.args.force);
     assert!(SyncParams::from(&cli.args).force);
 }
@@ -60,7 +81,7 @@ fn parse_dry_run_flag() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--dry-run"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "--dry-run", "-s", "w"]).unwrap();
     assert!(cli.args.dry_run);
     assert!(SyncParams::from(&cli.args).dry_run);
 }
@@ -74,9 +95,9 @@ fn parse_quiet_flag() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--quiet"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "--quiet", "-s", "w"]).unwrap();
     assert!(cli.args.quiet);
-    let cli_short = Cli::try_parse_from(["test", "-q"]).unwrap();
+    let cli_short = Cli::try_parse_from(["test", "-q", "-s", "w"]).unwrap();
     assert!(cli_short.args.quiet);
 }
 
@@ -89,10 +110,19 @@ fn parse_overrides() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--bookmark", "dev", "--remote", "upstream"]).unwrap();
+    let cli = Cli::try_parse_from([
+        "test",
+        "--bookmark",
+        "dev",
+        "--remote",
+        "upstream",
+        "-s",
+        "w",
+    ])
+    .unwrap();
     assert_eq!(cli.args.bookmark, "dev");
     assert_eq!(cli.args.remote, "upstream");
-    assert!(cli.args.scope.is_none());
+    assert_eq!(cli.args.scope, RepoScope::Sides(Scope(vec![Side::Work])));
 }
 
 /// `--check` and `--no-check` are gone: a stale script invocation
@@ -105,11 +135,11 @@ fn parse_check_flags_rejected() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    assert!(Cli::try_parse_from(["test", "--check"]).is_err());
-    assert!(Cli::try_parse_from(["test", "--no-check"]).is_err());
+    assert!(Cli::try_parse_from(["test", "--check", "-s", "w"]).is_err());
+    assert!(Cli::try_parse_from(["test", "--no-check", "-s", "w"]).is_err());
 }
 
-/// `--scope=work` parses into `Scope([Work])`.
+/// `--scope=work` parses into the work side.
 #[test]
 fn parse_scope_work() {
     use clap::Parser;
@@ -119,23 +149,26 @@ fn parse_scope_work() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "--scope", "work"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work])));
+    assert_eq!(cli.args.scope, RepoScope::Sides(Scope(vec![Side::Work])));
 }
 
-/// `--scope=work,bot` parses into `Scope([Work, Bot])`.
+/// `-s b` parses into both sides, work first.
 #[test]
-fn parse_scope_work_bot() {
+fn parse_scope_both() {
     use clap::Parser;
     #[derive(Parser)]
     struct Cli {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "--scope", "work,agent"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work, Side::Bot])));
+    let cli = Cli::try_parse_from(["test", "-s", "b"]).unwrap();
+    assert_eq!(
+        cli.args.scope,
+        RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]))
+    );
 }
 
-/// `-R PATH` parses into the `repo` field; `--scope` stays None.
+/// `-R PATH` parses into the `repo` field, beside `-s p`.
 #[test]
 fn parse_repo_flag() {
     use clap::Parser;
@@ -144,9 +177,9 @@ fn parse_repo_flag() {
         #[command(flatten)]
         args: SyncArgs,
     }
-    let cli = Cli::try_parse_from(["test", "-R", "./solo"]).unwrap();
+    let cli = Cli::try_parse_from(["test", "-R", "./solo", "-s", "p"]).unwrap();
     assert_eq!(cli.args.repo, Some(PathBuf::from("./solo")));
-    assert!(cli.args.scope.is_none());
+    assert_eq!(cli.args.scope, RepoScope::Por);
 }
 
 /// `-s` is the short form of `--scope`.
@@ -159,5 +192,5 @@ fn parse_scope_short_form() {
         args: SyncArgs,
     }
     let cli = Cli::try_parse_from(["test", "-s", "work"]).unwrap();
-    assert_eq!(cli.args.scope, Some(Scope(vec![Side::Work])));
+    assert_eq!(cli.args.scope, RepoScope::Sides(Scope(vec![Side::Work])));
 }

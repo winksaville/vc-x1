@@ -9,7 +9,7 @@
 //! - Also verifies `main`'s remote refs are tracked.
 //! - Exits non-zero on any finding and fixes nothing (decided
 //!   2026-07-15: no automatic fixing), resolve with
-//!   `vc-x1 squash-push -R <bot-repo>`.
+//!   `vc-x1 squash-push -s a`.
 //! - Cheap: two `jj` lookups, no cargo steps, cheap enough for
 //!   routine use (reacquaint, timers, scripts).
 
@@ -29,7 +29,7 @@ const BOT_BOOKMARK: &str = "main";
 /// origin (matches `main@origin`) and its remote refs tracked.
 ///
 /// Read-only. Exits non-zero on a mismatch. Fixes nothing, resolve
-/// with `vc-x1 squash-push -R <bot-repo>`.
+/// with `vc-x1 squash-push -s a`.
 #[derive(Args, Debug)]
 pub struct ValidateBotArgs {
     /// Path to the bot repo [default: from repos.agent, else .claude]

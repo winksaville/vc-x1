@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::jj::session::home_dir;
 use crate::options_flags::common_args::CommonArgs;
-use crate::options_flags::scope::{Scope, Side};
+use crate::options_flags::scope::{RepoScope, Scope, Side};
 use crate::toml_simple;
 use futures::stream::StreamExt;
 use jj_lib::backend::CommitId;
@@ -502,7 +502,18 @@ pub fn resolve_revset(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
-    let resolved = resolve(workspace, repo, revset_str)?;
+    resolve_revset_with(workspace, repo, revset_str, &RevsetAliasesMap::new())
+}
+
+/// `resolve_revset` with `aliases` defined, for a revset that names
+/// one of jj's aliases, such as `immutable()`.
+pub fn resolve_revset_with(
+    workspace: &Workspace,
+    repo: &Arc<ReadonlyRepo>,
+    revset_str: &str,
+    aliases: &RevsetAliasesMap,
+) -> Result<Vec<CommitId>, Box<dyn std::error::Error>> {
+    let resolved = resolve(workspace, repo, revset_str, aliases)?;
     let revset = resolved.evaluate()?;
 
     let mut commit_ids = Vec::new();
@@ -524,17 +535,21 @@ pub fn resolve_expression(
     repo: &Arc<ReadonlyRepo>,
     revset_str: &str,
 ) -> Result<Arc<ResolvedRevsetExpression>, Box<dyn std::error::Error>> {
-    Ok(resolve(workspace, repo, revset_str)?.into_inner().0)
+    Ok(
+        resolve(workspace, repo, revset_str, &RevsetAliasesMap::new())?
+            .into_inner()
+            .0,
+    )
 }
 
-/// Parse and resolve a revset string against `repo`, ready to
-/// evaluate.
+/// Parse and resolve a revset string against `repo`, with
+/// `aliases_map` defined, ready to evaluate.
 fn resolve<'a>(
     workspace: &Workspace,
     repo: &'a Arc<ReadonlyRepo>,
     revset_str: &str,
+    aliases_map: &RevsetAliasesMap,
 ) -> Result<ResolvedRevset<'a>, Box<dyn std::error::Error>> {
-    let aliases_map = RevsetAliasesMap::new();
     let fileset_aliases_map = FilesetAliasesMap::new();
     let extensions = RevsetExtensions::default();
     let workspace_root = workspace.workspace_root().to_path_buf();
@@ -548,7 +563,7 @@ fn resolve<'a>(
         workspace_name,
     };
     let context = RevsetParseContext {
-        aliases_map: &aliases_map,
+        aliases_map,
         local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
@@ -639,13 +654,13 @@ pub fn verify_bot_published(
         PublishState::InSync => Ok(()),
         PublishState::NeverPushed => Err(format!(
             "bot repo '{repo_str}': bookmark '{bookmark}' has never been pushed to origin, \
-             publish it with `vc-x1 squash-push -R {repo_str}`"
+             publish it with `vc-x1 squash-push -s a -R {repo_str}`"
         )
         .into()),
         PublishState::Mismatch { local, remote } => Err(format!(
             "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): \
              an earlier publish was likely lost; publish it with \
-             `vc-x1 squash-push -R {repo_str}`, then retry",
+             `vc-x1 squash-push -s a -R {repo_str}`, then retry",
             &local[..local.len().min(12)],
             &remote[..remote.len().min(12)]
         )
@@ -1143,6 +1158,88 @@ pub fn resolve_repos(
         (Some(p), None) => Ok(vec![p.to_path_buf()]),
         (Some(p), Some(s)) => scope_to_repos(s, Some(p)),
         (None, Some(s)) => scope_to_repos(s, find_workspace_root().as_deref()),
+    }
+}
+
+/// The short scope letter a `Scope` is spelled by in the write
+/// commands' errors, `w`, `a`, or `b`.
+fn scope_letter(scope: &Scope) -> &'static str {
+    if scope.is_both() {
+        "b"
+    } else if scope.has_bot() {
+        "a"
+    } else {
+        "w"
+    }
+}
+
+/// Resolve a command's required `-s` and optional `-R` into the
+/// repos it acts on, in scope order ([`RepoScope`]). `-R` is only
+/// ever where, and the cwd without it. The write commands' resolver,
+/// and every repo command's once the sweep reaches it.
+///
+/// - `Sides`: the start is anywhere in a dual workspace, its root
+///   or either repo, and the sides come from the root's config as
+///   [`scope_to_repos`] resolves them. Outside a workspace it is an
+///   error naming `-s p`.
+/// - `Por`: the start is the repo itself, which must be no side of
+///   a dual workspace: a plain commit on a side is an unpaired
+///   commit, which is what the required `-s` exists to prevent, so
+///   the error names the side and the scope to use. A repo under a
+///   workspace's tree that is neither side is plain.
+pub fn resolve_scoped_repos(
+    scope: &RepoScope,
+    repo: Option<&Path>,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let start = match repo {
+        Some(p) => p
+            .canonicalize()
+            .map_err(|e| format!("-R '{}': {e}", p.display()))?,
+        None => std::env::current_dir()?,
+    };
+    match scope {
+        RepoScope::Sides(sides) => {
+            let root = find_workspace_root_from(&start).ok_or_else(|| {
+                format!(
+                    "-s {}: '{}' is not in a vc-x1 workspace (no {} with a [repos] registry \
+                     up the tree). A plain repo is `-s p`",
+                    scope_letter(sides),
+                    start.display(),
+                    crate::config_md::VC_CONFIG_MD
+                )
+            })?;
+            scope_to_repos(sides, Some(&root))
+        }
+        RepoScope::Por => {
+            if let Some(root) = find_workspace_root_from(&start) {
+                reject_legacy_config(&root)?;
+                // A side only when the config declares an agent: a
+                // single-repo workspace, a work config with no
+                // `repos.agent`, is a plain repo for `p`.
+                let bot = configured_bot_dir(&root)?;
+                let is_bot = bot
+                    .as_ref()
+                    .and_then(|b| b.canonicalize().ok())
+                    .is_some_and(|b| b == start);
+                let side = if start == root && bot.is_some() {
+                    Some(("work", "w"))
+                } else if is_bot {
+                    Some(("agent", "a"))
+                } else {
+                    None
+                };
+                if let Some((side, letter)) = side {
+                    return Err(format!(
+                        "-s p: '{}' is the {side} side of the dual workspace at '{}': \
+                         use `-s {letter}`, or `-s b` for both sides",
+                        start.display(),
+                        root.display()
+                    )
+                    .into());
+                }
+            }
+            Ok(vec![start])
+        }
     }
 }
 

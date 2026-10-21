@@ -372,6 +372,28 @@ mod tests {
         }
     }
 
+    /// The install table is work-side only: the two command lists
+    /// typed `str-list` like validate's, and the binary a `str`, each
+    /// with an example.
+    #[test]
+    fn install_table() {
+        let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
+        for p in ["install.release", "install.dev"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
+            let ex = k.example.expect("example");
+            assert!(
+                ex.starts_with("[\"cargo install --path . --locked"),
+                "{p} example: {ex}"
+            );
+        }
+        let k = find("install.dev-bin");
+        assert_eq!(k.homes, &[Home::WorkspaceCode], "dev-bin homes");
+        assert_eq!(k.kind, ValueKind::Str, "dev-bin kind");
+        assert_eq!(k.example, Some("tmp/dev/bin/vc-x1"), "dev-bin example");
+    }
+
     /// The agent-files tables are work-side only: each command's
     /// `dir` a `str` with an example, its `custom` a `bool`
     /// defaulting to false, and the generated constants carry

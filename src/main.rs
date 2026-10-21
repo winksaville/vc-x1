@@ -2,6 +2,7 @@ mod agent_files;
 mod bot_session;
 mod chid;
 mod clone;
+mod commit;
 mod common;
 mod config;
 mod config_cmd;
@@ -19,10 +20,14 @@ mod list;
 mod logging;
 mod lookup;
 mod md_fence;
+mod merge;
+mod move_bookmark;
 mod options_flags;
+mod pair;
 mod push;
 mod repo_utils;
 mod show;
+mod squash;
 mod squash_push;
 mod status;
 mod subcommand;
@@ -278,7 +283,7 @@ pub(crate) enum Commands {
         publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
         steps); also verifies main's remote refs are tracked. Exits\n\
         non-zero on any finding and fixes nothing: resolve with\n\
-        `vc-x1 squash-push -R <bot-repo>`."
+        `vc-x1 squash-push -s a`."
     )]
     ValidateBot(validate_bot::ValidateBotArgs),
 
@@ -455,41 +460,97 @@ pub(crate) enum Commands {
     /// Print settable config keys and their defaults
     Config(config_cmd::ConfigArgs),
 
-    /// Commit both repos, push the work repo, squash-push the bot repo
-    #[command(long_about = "Commit both repos, push the work repo's BOOKMARK, and\n\
-        squash-push the bot repo's `main`: one command.\n\n\
-        Collapses the manual commit-push-publish ceremony into a\n\
-        single subcommand with two interactive approval gates.\n\n\
-        Stages, in order:\n\
-        \x20 - review           approve the diff (first gate)\n\
-        \x20 - message          $EDITOR, or --title/--body; approve\n\
-        \x20                    the text (second gate). Skipped when\n\
-        \x20                    neither repo has pending changes\n\
-        \x20 - commit-work      commit the work repo. Skipped when\n\
-        \x20                    `@` is empty\n\
-        \x20 - commit-bot       commit `.claude`. Skipped when it is\n\
-        \x20                    clean\n\
-        \x20 - bookmark-set     work repo -> <bookmark>, bot -> main\n\
-        \x20 - push-work        publish <bookmark> to origin\n\
-        \x20 - squash-push-bot  fold `.claude`'s trailing writes\n\
-        \x20                    into its commit and push main\n\n\
-        Rerunning is always safe: each stage does nothing when its\n\
-        work is already done, so a failed run is re-run rather than\n\
-        resumed. There is no saved state: vc-x1 cannot know why a\n\
-        run failed, so it stops and reports. Please fix and try\n\
-        again.\n\n\
-        Failures in commit-work / commit-bot / bookmark-set roll both\n\
-        repos back via `jj op restore` to a snapshot taken moments\n\
-        earlier. Once push-work succeeds the work is published: from\n\
-        there a change is either a new commit appended on top by the\n\
-        next push, or an amend of what was pushed: `vc-x1\n\
-        squash-push` folds the working copy into the last commit and\n\
-        force-updates the remote.\n\n\
-        vc-x1 runs no build or test steps: run your project's checks\n\
-        yourself before pushing.\n\n\
-        Non-interactive use: pass both --title and --body plus --yes\n\
-        to skip both gates.")]
+    /// Publish a rung's pair, made by `commit`, with -s
+    #[command(
+        long_about = "Publish a rung's pair: the work commit on its bookmark and the\n\
+        agent commit on `main`. Push carries no description and writes\n\
+        none, so what was reviewed is what goes out.\n\n\
+        `commit` makes the pair, both commits now (-s b) or the work\n\
+        half with its trailer naming the agent @ (-s w). Push refuses a\n\
+        work @ that is not empty, unsquashed work being a fix to fold\n\
+        or the next rung, and a work @- with no `ochid:` trailer, which\n\
+        is not a pair's commit.\n\n\
+        The halves are independent, each trailer being fixed before\n\
+        push runs, so -s b is -s a then -s w, the order the pair is\n\
+        completed in:\n\
+        \x20 - agent  complete the partner by the state found: fold the\n\
+        \x20          journal into a committed one, or commit it as the\n\
+        \x20          partner when pending or the agent repo changed;\n\
+        \x20          then squash-push main\n\
+        \x20 - work   restamp the unpublished work commit if its trailer\n\
+        \x20          does not name the partner, then set and push\n\
+        \x20          <bookmark>\n\n\
+        -s is required: `b` both halves, `a` the agent half, `w` the work\n\
+        half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
+        says where. The bookmark is the line's unless named as a check.\n\n\
+        Rerunning is always safe: a half whose work is done finds nothing\n\
+        to do. A half that fails before its own push restores the repo it\n\
+        touched via `jj op restore`."
+    )]
     Push(push::PushArgs),
+
+    /// Commit the working copies as a rung's pair, with -s and a title and body
+    #[command(long_about = "\
+        Commit the working copies as a rung's pair, one commit per repo of a\n\
+        dual workspace, each stamped with the other's change id, before\n\
+        anything is pushed.\n\n\
+        The pair is what the per-rung flow reviews, description and diff\n\
+        together, by `jj show @-` in either repo. A fix after the review folds\n\
+        into the pair, never a remote rewrite, and `vc-x1 push` publishes what\n\
+        was reviewed.\n\n\
+        -s is required: `b` makes both commits now, `w` the work half with\n\
+        the agent half left to push, `p` commits a plain repo with no\n\
+        trailer, and `a` is refused, an agent commit made first being\n\
+        unpaired. -R is optional and says where. --body is the text, or\n\
+        @PATH to read it from a file.")]
+    Commit(commit::CommitArgs),
+
+    /// Fold the working copies into the pair before it is pushed, with -s
+    #[command(long_about = "\
+        Continue a rung: fold the working copies into the pair `commit`\n\
+        made, before it is pushed. A review's fix in the work @ folds into\n\
+        the work commit, and the journal into the agent commit, each\n\
+        keeping its change id, so both trailers stay right.\n\n\
+        -s is required: `b` both sides, `w` the work side, `a` the agent\n\
+        side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
+        `commit -s w`, is left for push. A published side is refused.\n\
+        --title with --body rewrites the descriptions, keeping each trailer.\n\
+        -R is optional and says where.")]
+    Squash(squash::SquashArgs),
+
+    /// Add sources to a target commit's parents, keeping its change, with -s
+    #[command(long_about = "\
+        Add the sources named to one target commit's parents, after the ones\n\
+        it has, keeping the target's own change, description, and change id,\n\
+        so its trailer stays right. The target's tree becomes the merge of\n\
+        all its parents with its own change applied, `jj rebase -r <target>\n\
+        -o <p1> ... -o <s1> ...`.\n\n\
+        One target, empty or not, and N sources, each --from a revset of one\n\
+        or more commits, added oldest first: a bookmark, main, a change id,\n\
+        an earlier merge, a root. A source already a parent is skipped, and\n\
+        merging one at a time or all at once gives the same tree. `jj undo`\n\
+        takes a merge back.\n\n\
+        -s is required: `w` the work repo or `p` a plain repo, the agent\n\
+        repo never holding a merge. Refused: a source at or below the target\n\
+        and a target in jj's immutable(), unless --ignore-immutable.\n\
+        Reported: a conflicted result.")]
+    Merge(merge::MergeArgs),
+
+    /// Point an existing bookmark at one commit, locally, with -s
+    #[command(long_about = "\
+        Point one existing local bookmark at one commit, `jj bookmark set\n\
+        <bookmark> -r <target>`, the repositioning a bookmark needs before\n\
+        it is pushed, since push only sets the line's bookmark to @-.\n\
+        Nothing is pushed.\n\n\
+        --bookmark names a bookmark that must exist, none being created, and\n\
+        --target a revset of exactly one commit, a bookmark or a rev. A move\n\
+        backward or sideways is refused unless --allow-backwards, as jj\n\
+        refuses it, and a bookmark already at the target is left alone.\n\n\
+        -s is required: `w` the work repo, `a` the agent repo or `b` both with\n\
+        --yes, the same name in each and the target resolved in each, every\n\
+        repo checked before any moves. `p` takes the repo from -R, required,\n\
+        as it is, with no workspace checks, so careful use is yours.")]
+    MoveBookmark(move_bookmark::MoveBookmarkArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -702,6 +763,10 @@ fn main() -> ExitCode {
         Commands::SquashPush(args) => args.dispatch(&mut ctx),
         Commands::Config(args) => args.dispatch(&mut ctx),
         Commands::Push(args) => args.dispatch(&mut ctx),
+        Commands::Commit(args) => args.dispatch(&mut ctx),
+        Commands::Squash(args) => args.dispatch(&mut ctx),
+        Commands::Merge(args) => args.dispatch(&mut ctx),
+        Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
     }
 }
 
