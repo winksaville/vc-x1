@@ -31,7 +31,9 @@ use crate::context::Context;
 use crate::desc_helpers::{read_body, with_trailer};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, parse_repo_scope};
+use crate::options_flags::scope::{
+    ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, Scope, repo_scope_parser,
+};
 use crate::pair::{
     Pair, Partner, Snapshots, WorkCommit, is_published, partner, refuse_conflicts, resolve_pair,
     work_commit,
@@ -54,7 +56,7 @@ pub struct SquashArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(ALL_REPO_SCOPES),
         required = true,
         help = format!("Which sides, required: {REPO_SCOPE_FORMS}")
     )]

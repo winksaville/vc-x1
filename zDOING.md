@@ -108,6 +108,10 @@ the command makes.
     release validation, if one comes, is named beside it.
   - The cycle's title and its bookends keep the pushed name, "install stages, deploys, and runs
     builds", the opening being published, and the rungs not yet pushed take the new names.
+- One build in `tmp/` during development, wink's practice (2026-10-21): the dev build lives in
+  `tmp/dev` and the staged release in `tmp/rel` only from a deliberate `build` until it is
+  installed, so no stale release sits beside the dev build to be run by mistake. wink removed the
+  build rung's `tmp/rel` at the status rung, and Land's `build` stages a fresh one.
 - The guard sits in the step consumers see, `install`, so `build` stages a release-profile build
   from a cycle's bookmark too, the check for a release-only failure mid-cycle.
 - `install` copies rather than rebuilds: a second `cargo install` would deploy a fresh build, not
@@ -161,6 +165,23 @@ the command makes.
   hidden aliases on status's keyword list, the smaller fix **status takes the write commands'
   scope** set aside, as a stopgap until that entry's fix runs. Unplanned work run in the current
   rung rather than inserted as its own, wink's say, so its edits share the rung's commit.
+- Status's scope fixed properly as its own rung, inserted after the build rung, wink's call
+  (2026-10-21): the Todo entry **status takes the write commands' scope**, planned for its own
+  cycle, run now since the cycle is adding subcommands. The working copy was empty after the build
+  rung's push, so nothing was set aside. The entry leaves `## Todo`, this block its record.
+  - `-s` stays defaulted to `work` rather than required, the agent's choice at the rung, left for
+    wink's review: requiring it is **every repo command takes -s, required**, which decides every
+    read command together.
+  - A parser per command, built by one function from the scopes the command offers, wink's call
+    at the rung (2026-10-21), after `sync -s <tab>` offered nothing: the write commands took
+    `parse_repo_scope` as a bare function, which gives completion no values. `commit` offers
+    work, both, and por, `merge` work and por, `validate-desc` work, agent, and both, and the
+    rest all four.
+    - A scope a command does not offer is declared hidden rather than left out, so it still
+      parses and reaches the command's own refusal, which says why, and completion and clap's
+      listed values show only what is offered. `bot` is hidden the same way, keeping its fix-it.
+    - The help's `REPO_SCOPE_FORMS` text, with its "`a` refused" notes, stays beside clap's own
+      list of the offered values.
 - `build` and `build-dev` take `-R` and no `-s`, as `validate` does: they build the work side's
   artifact and write no repo, and the `-s` sweep, **every repo command takes -s, required**,
   decides all three together.
@@ -189,6 +210,28 @@ the command makes.
     build's flags.
   - The staleness check comparing the version alone, the name being `<name>-dev` under the rename
     style, and skipping quietly when `-V`'s output does not parse.
+  - Completion forwarded, wink's ask at the status rung (2026-10-21): `vc-x1 run-dev <args>` is
+    completed by the `vc-x1` typed, which knows `run-dev` but not the dev build's own arguments,
+    so `run-dev`'s and `run`'s completer hands the words after the subcommand to the binary it
+    would run, in completion mode, and returns what it answers. Completion of those words is then
+    the dev build's or the staged release's, as running them would be. A binary that does not
+    speak clap's completion protocol answers nothing, and the forward offers nothing rather than
+    failing.
+    - The binary is the config's of the workspace the shell is in, so in iiac-perf the answer is
+      iiac-perf's: its binaries speak the same protocol, clap_complete 4.6.7's to vc-x1's 4.6.9,
+      and asked directly `iiac-perf-dev run <tab>` lists its benches (2026-10-21). The forward
+      waits only on iiac-perf's `[build]` table naming its dev binary.
+    - Completion never builds: `run-dev` builds before it runs, but a tab press must not, so the
+      forward asks the dev binary as it stands and offers nothing when there is none.
+    - The shell knows none of it: it runs `COMPLETE=bash vc-x1 -- vc-x1 run-dev run zcr` as for
+      any command and shows what prints, and vc-x1 runs the target in completion mode with the
+      words after the subcommand, `COMPLETE=bash iiac-perf-dev -- iiac-perf-dev run zcr`, and
+      prints its answer.
+    - Done in `main` before `CompleteEnv`, not as a clap completer: clap's value completers are
+      given only the word being completed, and the forward needs every word after the
+      subcommand. `main` sees completion mode, finds `run` or `run-dev` among the words, and
+      forwards them with the cursor index shifted, leaving every other completion to clap. The
+      spawn is the one the rung already registers to run the artifact.
 - `vc-x1 run` was first set aside, the release being on the PATH under its own name, and the
   staged release reverses that: `run` is how the release is run before it is deployed. The two
   names stay, a dropped `--dev` flag being a silent run of the wrong build.
@@ -214,9 +257,10 @@ the command makes.
 
 - [feat: vc-x1 install stages, deploys, and runs builds opening][0] (done)
 - [feat: vc-x1 build stages the release][1] (done)
-- [feat: vc-x1 install deploys the staged release][2]
-- [feat: vc-x1 run and run-dev run the builds][3]
-- [feat: vc-x1 install stages, deploys, and runs builds closing][4]
+- [feat: status takes the write commands' scope][2] (done)
+- [feat: vc-x1 install deploys the staged release][3]
+- [feat: vc-x1 run and run-dev run the builds][4]
+- [feat: vc-x1 install stages, deploys, and runs builds closing][5]
 
 ##### feat: vc-x1 install stages, deploys, and runs builds opening
 
@@ -254,6 +298,22 @@ run before anything on the PATH is replaced, and `build-dev` is the dev build on
   describes the stages and the commands in a cycle's order, gains a `build` section, and lists
   `[build]` among the config tables.
 
+##### feat: status takes the write commands' scope
+
+Status's `-s` takes the same four scopes as every write command, so one parser serves them all,
+and status's own positional and comma forms go.
+
+- Status's `-s` takes `w|work`, `a|agent`, `b|both`, and `p|por`, absent `work`.
+- Every `-s` taking a `RepoScope`, status's and the eight write commands', is a parser made by one
+  builder from the scopes the command offers: the long names declared for completion, the short
+  ones as hidden aliases, the scopes not offered and `bot` declared hidden so they still reach the
+  command's refusal or the fix-it, and the value handed to `parse_repo_scope`.
+- `p` reports the repo `-R` names or the cwd's as itself, labeled `por`, resolved by the write
+  commands' resolver, so it is refused on a side of a workspace with the same error they give.
+- The positional scope, `status both`, and the comma forms `work,agent` and `agent,work` are
+  gone, and status's old keyword parser with them, the stopgap aliases included.
+- The README's status section and synopsis describe the four scopes, and its examples use `-s`.
+
 ##### feat: vc-x1 install deploys the staged release
 
 The staged binary, the one tested, is copied to where consumers run it, after a check that it was
@@ -263,7 +323,7 @@ built from pushed `main` at a bare version and is still the binary its stamp des
 
 The staged release and the dev build, both off the PATH, are run through the config from anywhere
 in the workspace, `run-dev` building first, with a warning when either is not the manifest's
-version.
+version, and the words after either subcommand are completed by the binary it would run.
 
 ##### feat: vc-x1 install stages, deploys, and runs builds closing
 
@@ -273,6 +333,7 @@ Closing out the cycle.
 
 [0]: #feat-vc-x1-install-stages-deploys-and-runs-builds-opening
 [1]: #feat-vc-x1-build-stages-the-release
-[2]: #feat-vc-x1-install-deploys-the-staged-release
-[3]: #feat-vc-x1-run-and-run-dev-run-the-builds
-[4]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing
+[2]: #feat-status-takes-the-write-commands-scope
+[3]: #feat-vc-x1-install-deploys-the-staged-release
+[4]: #feat-vc-x1-run-and-run-dev-run-the-builds
+[5]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing

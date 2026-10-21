@@ -1,8 +1,8 @@
 //! `status` subcommand, alias `st`: the scoped repos' working-copy
 //! state in one call, and the verdict At rest's "clean" asks for.
 //!
-//! - `StatusArgs`: clap surface, a `SCOPE` positional or `-s`, and
-//!   a `-R` workspace root.
+//! - `StatusArgs`: clap surface, `-s` with the write commands' four
+//!   scopes, `work` by default, and a `-R` workspace root or repo.
 //! - `StatusParams`: clap-free, the labeled repos to report.
 //! - `status(&Context, &StatusParams)`: the op. Prints each repo
 //!   under its label, `work` and the agent dir's name, with the
@@ -23,19 +23,16 @@ use log::info;
 use crate::common;
 use crate::context::Context;
 use crate::jj;
-use crate::options_flags::scope::{Scope, Side, scope_keywords};
+use crate::options_flags::scope::{ALL_REPO_SCOPES, RepoScope, Scope, Side, repo_scope_parser};
 use crate::subcommand::SubcommandRunner;
 
 /// CLI args for `status`.
 #[derive(Args, Debug)]
 pub struct StatusArgs {
-    /// Side(s) to report [default: work]
-    #[arg(value_name = "SCOPE", value_parser = scope_keywords(), conflicts_with = "scope")]
-    pub pos_scope: Option<Scope>,
-
-    /// Side(s) to report, the positional's flag form
-    #[arg(short = 's', long = "scope", value_name = "SCOPE", value_parser = scope_keywords())]
-    pub scope: Option<Scope>,
+    /// Repos to report: `w|work`, `a|agent`, `b|both`, or `p|por`, a
+    /// plain repo, as on the write commands [default: work]
+    #[arg(short = 's', long = "scope", value_name = "SCOPE", value_parser = repo_scope_parser(ALL_REPO_SCOPES))]
+    pub scope: Option<RepoScope>,
 
     /// Workspace root or single jj repo path [default: the workspace
     /// around the current directory, else .]
@@ -53,16 +50,23 @@ pub struct StatusParams {
 impl TryFrom<&StatusArgs> for StatusParams {
     type Error = String;
 
-    /// The scope from the positional or `-s`, `work` when neither;
-    /// the root from `-R`, else the workspace around the current
+    /// The scope from `-s`, `work` when absent. For the sides, the
+    /// root from `-R`, else the workspace around the current
     /// directory, else none, which is the plain-repo case where
     /// `work` is `.` and the other scopes have nothing to resolve.
+    /// For `p`, the repo `-R` names or the cwd's, resolved as the
+    /// write commands resolve it, labeled `por`.
     fn try_from(a: &StatusArgs) -> Result<Self, String> {
-        let scope = a
-            .pos_scope
-            .clone()
-            .or_else(|| a.scope.clone())
-            .unwrap_or(Scope(vec![Side::Work]));
+        let scope = match &a.scope {
+            None => Scope(vec![Side::Work]),
+            Some(RepoScope::Sides(sides)) => sides.clone(),
+            Some(RepoScope::Por) => {
+                let paths = common::resolve_scoped_repos(&RepoScope::Por, a.repo.as_deref())
+                    .map_err(|e| e.to_string())?;
+                let repos = paths.into_iter().map(|p| ("por".to_string(), p)).collect();
+                return Ok(StatusParams { repos });
+            }
+        };
         let root = match &a.repo {
             Some(p) => Some(
                 p.canonicalize()
@@ -288,38 +292,54 @@ mod tests {
         T::try_parse_from(args).expect("parse").a
     }
 
-    /// The positional and `-s` name the same scope, `both` reads
-    /// as `work,agent`, neither means `work`, and the two forms
-    /// together are refused.
+    /// `-s` takes the write commands' four scopes, long or short, and
+    /// none means `work` by default. The positional and the comma
+    /// forms are refused.
     #[test]
-    fn scope_positional_and_flag() {
-        let both = Scope(vec![Side::Work, Side::Bot]);
-        assert_eq!(parse(&["t", "both"]).pos_scope, Some(both.clone()));
-        assert_eq!(parse(&["t", "-s", "both"]).scope, Some(both));
+    fn scope_flag_forms() {
+        let both = RepoScope::Sides(Scope(vec![Side::Work, Side::Bot]));
+        assert_eq!(parse(&["t", "-s", "both"]).scope, Some(both.clone()));
+        assert_eq!(parse(&["t", "-s", "b"]).scope, Some(both));
         assert_eq!(
-            parse(&["t", "agent"]).pos_scope,
-            Some(Scope(vec![Side::Bot]))
+            parse(&["t", "-s", "agent"]).scope,
+            Some(RepoScope::Sides(Scope(vec![Side::Bot])))
         );
-        let none = parse(&["t"]);
-        assert!(none.pos_scope.is_none() && none.scope.is_none());
-        assert!(T::try_parse_from(["t", "work", "-s", "agent"]).is_err());
-        assert!(T::try_parse_from(["t", "everything"]).is_err());
+        assert_eq!(parse(&["t", "-s", "p"]).scope, Some(RepoScope::Por));
+        assert_eq!(parse(&["t", "-s", "por"]).scope, Some(RepoScope::Por));
+        assert!(parse(&["t"]).scope.is_none());
+        for bad in [
+            &["t", "both"][..],
+            &["t", "-s", "work,agent"],
+            &["t", "-s", "agent,work"],
+            &["t", "-s", "everything"],
+        ] {
+            assert!(T::try_parse_from(bad).is_err(), "{bad:?}");
+        }
     }
 
-    /// The short forms are the long ones' equals, in both places a
-    /// scope is given, as on the write commands' `-s`.
+    /// The short forms are the long ones' equals.
     #[test]
     fn scope_short_forms() {
-        for (short, long) in [("w", "work"), ("a", "agent"), ("b", "both")] {
+        for (short, long) in [("w", "work"), ("a", "agent"), ("b", "both"), ("p", "por")] {
             assert_eq!(
                 parse(&["t", "-s", short]).scope,
                 parse(&["t", "-s", long]).scope
             );
-            assert_eq!(
-                parse(&["t", short]).pos_scope,
-                parse(&["t", long]).pos_scope
-            );
         }
+    }
+
+    /// `-s p` reports the plain repo as itself, labeled `por`.
+    #[test]
+    fn por_scope_reports_the_plain_repo() {
+        let fx = FixturePor::new("status-por-scope");
+        let params = StatusParams::try_from(&StatusArgs {
+            scope: Some(RepoScope::Por),
+            repo: Some(fx.work.clone()),
+        })
+        .unwrap();
+        assert_eq!(params.repos.len(), 1);
+        assert_eq!(params.repos[0].0, "por");
+        assert_eq!(params.repos[0].1, fx.work.canonicalize().unwrap());
     }
 
     /// A plain repo answers for `work` as itself and has no agent

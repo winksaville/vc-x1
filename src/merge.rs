@@ -40,7 +40,7 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser};
 use crate::pair::{Snapshot, refuse_conflicts, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
@@ -72,7 +72,7 @@ pub struct MergeArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(&["work", "por"]),
         required = true,
         help = format!("Which repo, required: {REPO_SCOPE_FORMS}, `a` and `b` refused")
     )]

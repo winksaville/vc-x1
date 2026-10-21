@@ -51,7 +51,7 @@ use crate::context::Context;
 use crate::desc_helpers::{ochid_prefix_for, with_trailer};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser};
 use crate::pair::{Pair, Snapshots, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
@@ -72,7 +72,7 @@ pub struct CommitArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(&["work", "both", "por"]),
         required = true,
         help = format!("Which repos, required: {REPO_SCOPE_FORMS}, `a` refused")
     )]

@@ -378,33 +378,44 @@ Each run on its own:
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
 
-### status takes the write commands' scope
+### Shell completion installs itself and asks the binary typed
 
-(wink + agent, 2026-10-21) `vc-x1 st -s b` fails with "invalid value 'b'", and `-s a` and `-s w`
-the same, where every write command takes them. Status's `scope_keywords` put a list of the long
-names, `work`, `agent`, `both`, in front of `parse_scope`, so shell completion offers them, and the
-list refuses `b` before the parser, which has known it since the cycle "feat: validate-desc takes
--s, the first scope", ever sees it. Status never took the short forms. Found at the close-out of
-**feat: vc-x1 commit, install, and run-dev**.
+(wink + agent, 2026-10-21) Completion takes a line in the shell's startup file today,
+`source <(COMPLETE=bash vc-x1)`, which the README asks for, and the script that line sources
+asks one fixed binary, the one named when it was generated. So a second copy cannot answer for
+itself: wink's `~/.bashrc` sourced the script for `vc-x1`, `tmp/dev/bin/vc-x1`, and
+`tmp/rel/bin/vc-x1`, each binding the same function to the same name, the last winning, so
+`./tmp/dev/bin/vc-x1 commit -s <tab>` was answered by the staged release, built before the
+command's parser, and completed nothing. Found at the status rung of **feat: vc-x1 install
+stages, deploys, and runs builds**. The relative paths also worked only in a shell started in the
+workspace. Needing to edit a startup file at all is the larger fault, in wink's words a terrible
+story.
 
-The stopgap landed in **feat: vc-x1 install stages, deploys, and runs builds**, wink's ask
-(2026-10-21): the list declares `w`, `a`, and `b` as hidden aliases of the long names, so
-`st -s w` works and completion still offers the long names alone. What remains is the fix below.
-
-- The fix: status's `-s` takes `parse_repo_scope`, the write commands' parser, so every `-s` takes
-  the same four forms, `w|work`, `a|agent`, `b|both`, and `p|por`, the plain repo `p` naming the
-  case status already handles outside a workspace. Hidden aliases on the list would also accept
-  `b`, and were set aside as the smaller fix that leaves status with a parser of its own (wink).
-- The positional `SCOPE` and the comma forms `work,agent` and `agent,work` go with it, a breaking
-  change [Scope is a flag on every command, and push resolves its own
-  bookmarks](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) already
-  decided.
-- Completion: `parse_repo_scope` is a bare function, which offers nothing to complete, the loss
-  `scope_keywords` was made to avoid. A parser declaring the four long names with the short ones
-  as hidden aliases, over `parse_repo_scope`, keeps both, and would serve every write command.
-- Whether `-s` becomes required here or stays defaulted to `work` until [every repo command takes
-  -s, required](#every-repo-command-takes--s-required) is decided at the opening. This entry is
-  that sweep's status piece, run ahead of it.
+- The script asks the binary typed: where it runs `"vc-x1" -- "${words[@]}"`, it runs
+  `"${words[0]}"`, the command word as typed, so `./tmp/dev/bin/vc-x1` asks the dev build,
+  `tmp/rel/bin/vc-x1` the staged release, and `vc-x1` the one on the PATH. Bash already finds the
+  binding for any path ending in `vc-x1`, so one binding covers every copy. The workaround in use
+  meanwhile is that edit made by `sed` on the sourced script, tested by a simulated completion.
+- No startup-file edit: bash-completion loads a command's completion on first use from
+  `~/.local/share/bash-completion/completions/<name>`, where this machine already keeps `rustup`'s
+  and `copilot`'s, so vc-x1 writes its script there. zsh has its `fpath` directories and fish
+  `~/.config/fish/completions/vc-x1.fish`, the same idea per shell.
+  - Written by `vc-x1 install`, the deploy at Land, beside the binary it puts on the PATH, and by
+    a command of its own for a hand install, a name to choose then, `vc-x1 completions` or a flag
+    on `install`.
+  - Since the script asks the binary typed and generates nothing itself, it never goes stale, and
+    rewriting it at each install is only for a script whose form changes.
+- The README's Shell completion section follows: the startup-file line becomes the fallback for a
+  shell without bash-completion.
+- vc-x1 prints its own script: clap_complete 4.6.9's `CompleteEnv::completer` overrides the
+  binary the script calls but shell-quotes the value, so `${words[0]}` would be written literal
+  and never expand, and its default is `args_os()[0]` when the script was generated, the baked-in
+  binary. Cobra's scripts, `kubectl` and `gh` among them, call the command word typed, so the
+  design is common and only clap's default differs. The binary still answers every completion,
+  the script being only the shell's call into it, which is what makes per-copy answers right.
+- No mainstream shell asks the binary typed without a per-command registration: bash, zsh, fish,
+  and elvish bind completion by command name, and nushell's one global external completer could
+  call the typed binary for any command speaking a protocol, at the price of a shell change.
 
 ### every repo command takes -s, required
 

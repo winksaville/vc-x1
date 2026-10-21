@@ -42,7 +42,9 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
+use crate::options_flags::scope::{
+    ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, repo_scope_parser,
+};
 use crate::options_flags::squash::{SquashOption, SquashSpec};
 use crate::status;
 use crate::subcommand::SubcommandRunner;
@@ -74,7 +76,7 @@ pub struct SquashPushArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(ALL_REPO_SCOPES),
         required = true,
         help = format!("Which repo(s), required: {REPO_SCOPE_FORMS}")
     )]

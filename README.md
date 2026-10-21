@@ -123,7 +123,7 @@ vc-x1 list [-r REVISION] [-n COMMITS]  # List commits in a jj repo
 vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
-vc-x1 status [SCOPE] [-R PATH]             # Working-copy status by scope, work|agent|both, and the clean verdict (alias st)
+vc-x1 status [-s SCOPE] [-R PATH]          # Working-copy status by scope, w|a|b|p, and the clean verdict (alias st)
 vc-x1 lookup [SCOPE] FILE:LINE           # The other repo's window for a line in this one
 vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
@@ -341,9 +341,12 @@ and one `Parent commit (@-)` line per parent. One verdict line ends the output:
 - `status: dirty: <label> @ has changes, ...` naming each repo that is not, and why: `@ has
   changes` or `@ is described`, since an empty described `@` is an intent nothing has published
 
-The scope is a positional `SCOPE` or `-s`/`--scope`, one of `work`, `agent`, or `both`, or their
-short forms `w`, `a`, and `b`, `work` by default. `both` is the At rest check, both repos' `@`
-empty. Tab completion offers the three long keywords. The exit status is success either way; the verdict is the line, not the code.
+The scope is `-s`/`--scope`, the write commands' four, `w|work`, `a|agent`, `b|both`, or `p|por`,
+`work` by default. `both` is the At rest check, both repos' `@` empty. `por` reports a plain repo
+as itself, labeled `por`, resolved as the write commands resolve it, so it is refused on either
+side of a workspace. Tab completion offers the four long names. The exit status is success either
+way: the verdict is the line, not the code. The positional scope, `status both`, and the comma
+forms `work,agent` and `agent,work` went in 0.85.7, so a scope reads the same on every command.
 
 The workspace is `-R`/`--repo` when given, else found from the current directory. A plain jj repo
 with no vc-x1 config answers for `work` as itself, and `agent` there is an error naming the
@@ -353,9 +356,10 @@ running from inside the agent repo still means the workspace.
 
 ```
 vc-x1 status                    # the work repo, the default scope
-vc-x1 st both                   # both repos and the At rest verdict
-vc-x1 st agent                  # the agent repo alone
-vc-x1 st -s both -R ../other    # ../other's workspace
+vc-x1 st -s b                   # both repos and the At rest verdict
+vc-x1 st -s a                   # the agent repo alone
+vc-x1 st -s p -R ../scratch     # a plain repo, as itself
+vc-x1 st -s b -R ../other       # ../other's workspace
 ```
 
 ```

@@ -7,10 +7,10 @@
 //! - `Scope` is a newtype over `Vec<Side>`: the parsed role
 //!   set (`work`, `agent`, `both`, their short forms `w`, `a`,
 //!   `b`, and the spelled-out `work,agent` / `agent,work`).
-//! - `RepoScope` is the write commands' scope: a `Scope`, or
-//!   `Por`, a plain repo with no pair, spelled `por` or `p`. It
-//!   is required where it is taken, so a write command never
-//!   guesses which repos it acts on. `-R/--repo` beside it is
+//! - `RepoScope` is the write commands' scope, and status's: a
+//!   `Scope`, or `Por`, a plain repo with no pair, spelled `por` or
+//!   `p`. It is required where a write command takes it, so a write
+//!   command never guesses which repos it acts on. `-R/--repo` beside it is
 //!   only ever where: the workspace for a `Scope`, the repo
 //!   itself for `Por`.
 
@@ -98,21 +98,47 @@ pub fn parse_repo_scope(s: &str) -> Result<RepoScope, String> {
     }
 }
 
-/// The scope keywords as a parser that declares them, so shell
-/// completion offers `work`, `agent`, and `both` where a bare
-/// function parser offers nothing, and accepts the short forms `w`,
-/// `a`, and `b` as hidden aliases, so completion still offers the
-/// long names alone. The spelled-out `work,agent` forms stay with
-/// `parse_scope` for the flags that predate `both`.
-pub fn scope_keywords() -> impl clap::builder::TypedValueParser<Value = Scope> {
+/// Every scope a [`RepoScope`] can name, by its long name, for a
+/// command that offers all four.
+pub const ALL_REPO_SCOPES: &[&str] = &["work", "agent", "both", "por"];
+
+/// The four scopes' long and short names, in the order help lists them.
+const REPO_SCOPE_NAMES: [(&str, &str); 4] =
+    [("work", "w"), ("agent", "a"), ("both", "b"), ("por", "p")];
+
+/// A command's `-s` parser: the four scopes declared to clap, so shell
+/// completion offers the long names `offered` lists, where a bare
+/// function parser offers nothing. Each command passes the scopes it
+/// takes, and this one builder makes every command's parser.
+///
+/// - The short forms `w`, `a`, `b`, `p` are hidden aliases, so
+///   completion offers the long names alone.
+/// - A scope `offered` leaves out is declared hidden, not dropped: it
+///   still parses, and reaches the command's own refusal, which says
+///   why, as commit's says an agent commit made first is unpaired.
+///   Completion and the listed values show only what is offered.
+/// - `bot`, the pre-0.80.0 spelling, is hidden too, so typing it still
+///   reaches `parse_repo_scope`'s fix-it naming `a|agent`.
+/// - Any other value is clap's error listing the offered scopes.
+pub fn repo_scope_parser(
+    offered: &'static [&'static str],
+) -> impl clap::builder::TypedValueParser<Value = RepoScope> {
     use clap::builder::PossibleValue;
     use clap::builder::TypedValueParser as _;
-    clap::builder::PossibleValuesParser::new([
-        PossibleValue::new("work").alias("w"),
-        PossibleValue::new("agent").alias("a"),
-        PossibleValue::new("both").alias("b"),
-    ])
-    .try_map(|s: String| parse_scope(&s))
+    debug_assert!(
+        offered.iter().all(|o| ALL_REPO_SCOPES.contains(o)),
+        "repo_scope_parser: {offered:?} names a scope outside {ALL_REPO_SCOPES:?}"
+    );
+    let mut values: Vec<PossibleValue> = REPO_SCOPE_NAMES
+        .iter()
+        .map(|(long, short)| {
+            PossibleValue::new(*long)
+                .alias(*short)
+                .hide(!offered.contains(long))
+        })
+        .collect();
+    values.push(PossibleValue::new("bot").hide(true));
+    clap::builder::PossibleValuesParser::new(values).try_map(|s: String| parse_repo_scope(&s))
 }
 
 /// The one-side keywords as a parser that declares them, `work`
@@ -264,6 +290,46 @@ mod tests {
         }
         let err = parse_repo_scope("x").unwrap_err();
         assert!(err.contains("`p|por`"), "{err}");
+    }
+
+    /// The parser takes the four scopes, long and short, as
+    /// `parse_repo_scope` does, hides `bot` but still answers it with
+    /// the fix-it, and refuses anything else, listing what is offered.
+    /// A scope left out of `offered` still parses, for the command's
+    /// own refusal, and is missing from the listed values.
+    #[test]
+    fn repo_scope_parser_forms() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct All {
+            #[arg(short = 's', value_parser = repo_scope_parser(ALL_REPO_SCOPES))]
+            s: RepoScope,
+        }
+        #[derive(Parser)]
+        struct WorkOrPor {
+            #[arg(short = 's', value_parser = repo_scope_parser(&["work", "por"]))]
+            s: RepoScope,
+        }
+        let all = |v: &str| All::try_parse_from(["t", "-s", v]).map(|t| t.s);
+        for (short, long) in [("w", "work"), ("a", "agent"), ("b", "both"), ("p", "por")] {
+            assert_eq!(all(short).unwrap(), parse_repo_scope(long).unwrap());
+            assert_eq!(all(long).unwrap(), parse_repo_scope(long).unwrap());
+        }
+        let bot = all("bot").unwrap_err().to_string();
+        assert!(bot.contains("pre-0.80.0"), "{bot}");
+        let other = all("work,agent").unwrap_err().to_string();
+        assert!(
+            other.contains("[possible values: work, agent, both, por]"),
+            "{other}"
+        );
+        let some = |v: &str| WorkOrPor::try_parse_from(["t", "-s", v]).map(|t| t.s);
+        assert_eq!(
+            some("a").unwrap(),
+            RepoScope::Sides(Scope(vec![Side::Bot])),
+            "a scope not offered still parses, for the command to refuse"
+        );
+        let other = some("x").unwrap_err().to_string();
+        assert!(other.contains("[possible values: work, por]"), "{other}");
     }
 
     #[test]

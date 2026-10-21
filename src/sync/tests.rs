@@ -23,7 +23,7 @@ fn parse_defaults() {
 }
 
 /// Without `-s` the parse fails: sync never guesses which repos it
-/// acts on, and the error names the four scopes.
+/// acts on, and a bad value lists the four scopes.
 #[test]
 fn parse_without_scope_errors() {
     use clap::Parser;
@@ -41,7 +41,10 @@ fn parse_without_scope_errors() {
         Ok(_) => panic!("-s x parsed"),
         Err(e) => e.to_string(),
     };
-    assert!(err.contains("`p|por`"), "{err}");
+    assert!(
+        err.contains("[possible values: work, agent, both, por]"),
+        "{err}"
+    );
 }
 
 /// `--force` sets the flag; it flows through to `SyncParams`.

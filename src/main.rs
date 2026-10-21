@@ -222,13 +222,14 @@ pub(crate) enum Commands {
     #[command(
         name = "status",
         alias = "st",
-        long_about = "Print the working-copy status of the scoped repos, `work`\n\
-        by default, `agent`, or `both`, each under its label with the\n\
-        changed paths and the @ and @- lines as `jj st` prints them,\n\
-        then one verdict line: `clean` when every scoped @ is empty\n\
-        and undescribed, At rest's meaning of the word for `both`,\n\
-        else `dirty` naming each repo and why. A plain jj repo with\n\
-        no vc-x1 config answers for `work`."
+        long_about = "Print the working-copy status of the scoped repos, each\n\
+        under its label with the changed paths and the @ and @- lines as\n\
+        `jj st` prints them, then one verdict line: `clean` when every\n\
+        scoped @ is empty and undescribed, At rest's meaning of the word\n\
+        for `both`, else `dirty` naming each repo and why.\n\n\
+        -s takes the write commands' four scopes, `w|work`, `a|agent`,\n\
+        `b|both`, or `p|por` for a plain repo, and is `work` when absent.\n\
+        A plain jj repo with no vc-x1 config also answers for `work`."
     )]
     Status(status::StatusArgs),
 
