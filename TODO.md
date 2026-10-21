@@ -185,6 +185,79 @@ an empty public repo there and a local workspace with no remote.
     publishing leaves. Everything in it is unpushed, and it is the cleanup delete is wanted for.
 - We think the two warnings are delete's alone: such commits move with the directory in a rename.
 
+### feat: vc-x1 land closes a cycle and lands it
+
+(wink + agent, 2026-10-21) The close-out and Land are five commands typed in order, and each is
+a place to skip the sync, move the wrong bookmark, or push before the review. One command runs the
+sequence, with the review between its commit and its pushes, filed at the first closing made by
+`commit --closing`.
+
+- `vc-x1 land -s b [--from BOOKMARK] [--to BOOKMARK] [--title STR --body STR|@PATH]`, `--from`
+  the cycle's bookmark, the line `@-` is on by default, and `--to` the trunk, `main` by default.
+- The sequence, each step today's command:
+  1. `sync -s b`: `--to` local equals its remote, or stop, since a moved trunk is the Land rule's
+     stop.
+  2. `commit -s w --closing --title --body`: the merge of `--to` and `--from`'s tip.
+  3. The review: `jj show @-`, and the command waits for the go, or `--yes` under a waiver.
+  4. `move-bookmark -s w --bookmark <to> --target @-`: the fast-forward, no `--allow-backwards`.
+  5. `push -s b <to>`: the agent half commits the journal as the partner, the work half publishes
+     `--to`. The closing never reaches `--from`'s remote, so the two pushes of the by-hand Land
+     are one.
+  6. `install`, a `run -V` smoke check, and `install-global`, once **feat: vc-x1 install
+     stages, deploys, and runs builds** lands, since they stage and deploy what `--to` now
+     carries. Until then the command stops before them and says so.
+  7. Delete `--from` locally and remotely, once `vc-x1` owns bookmark deletion. Until then it
+     prints the two `jj` lines.
+- Interactive: with no `--title` and `--body` it opens `$EDITOR`, as `jj describe` and `git gui`
+  do, on a buffer pre-filled with the bookend's text, the title from the In Progress block's and
+  the body `Closes the cycle "<title>". Its record is the Closed block in zCLOSED.md.`, so the
+  common case is save and quit. This is the editor path `commit` left out until asked for.
+- `--dry-run` prints the seven steps with what each would do, and does nothing.
+- Not `commit -s b`: the journal of the command's own review is what the push commits as the
+  partner.
+- Wants **feat: vc-x1 install stages, deploys, and runs builds** first for step 6, and bookmark
+  deletion in `vc-x1` for step 7, each of which may land as its own cycle before this one.
+
+#### Two commands, and their undos
+
+(wink + agent, 2026-10-21) The sequence above splits in two at the review, the names placeholders
+until the opening:
+
+- `vc-x1 close-out-commit --bookmark <x>`, `<x>` the current bookmark by default: the closing
+  merge, made locally, and reviewed like any rung's commit, by `jj show @-` or gitk.
+- `vc-x1 land-it --from <x> --to <y>`, `<x>` the current bookmark and `<y>` `main` by default:
+  what follows the go, sync, the fast-forward, the push, the install, and the bookmark's deletion.
+- So the review leaves the command. The agent's shell cannot answer a prompt, so a wait inside
+  `land` would need `--yes` on every agent run, and the editor path goes with it. The split also
+  matches v0.3.1's local commit pair before every push.
+- Bookmark deletion is a rung of this cycle, a subcommand or a flag on `move-bookmark`, rather
+  than a cycle of its own, since nothing else waits on it.
+
+Defaults invite mistakes, and the two undos differ:
+
+- **close-out-commit's undo is local and wanted now.** The closing never reaches the bookmark's
+  remote, so undoing it rewrites nothing anyone has seen. jj's own undo is one repo's operation
+  log and the command writes two, so the undo's worth is doing both sides together. The agent side
+  is uncommitted, its content moved back into `@`, never restored to an earlier operation, which
+  would roll back the session transcript and drop the lines written since. We think the operation
+  restore is safe on the work side alone.
+- **land-it is guarded rather than undone.** Its push moves `main@origin`, and undoing that is a
+  force-move of the trunk backward, so a revert commit is the undo and moving `main` back sits
+  behind an explicit flag. The deletion is undone by recreating the bookmark at the commit
+  land-it printed, and the install by reinstalling from the previous `main`, which it also prints.
+  A run stopped partway wants a resume, or an undo of the local steps not yet pushed, more than a
+  finished land wants an undo.
+- **Current** is the nearest bookmark on `@-`'s ancestry that is not the trunk. With `@` on `main`
+  and no topic bookmark it would resolve to `main`, so both commands refuse that, and land-it
+  refuses `--from` equal to `--to`.
+- **land-it lands only a close-out**: the commit it lands must be a merge whose parents are `--to`
+  and `--from`'s tip, the shape close-out-commit makes, so a cycle not closed out, or closed onto
+  the wrong trunk, is refused.
+- Both print what their defaults resolved to before acting, and `--dry-run` prints only that.
+  land-it stops before its push with the plan printed, the last point where its undo is local.
+- The lean: close-out-commit's undo in this cycle, as a flag or a sibling command. land-it's true
+  undo, after the push, waits until a real mistake asks for it.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -197,7 +270,7 @@ why.
 
 - The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
   `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
-- Land step 4 becomes `vc-x1 install`.
+- Land step 4 becomes `vc-x1 install`, a `vc-x1 run -V` smoke check, and `vc-x1 install-global`.
 - Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
   identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
   then.
@@ -305,66 +378,29 @@ Each run on its own:
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
 
-### feat: vc-x1 install and run-dev
+### status takes the write commands' scope
 
-(wink + agent, 2026-10-21) The last two work rungs of **feat: vc-x1 commit, install, and run-dev**,
-deferred at its closing so that **agent-files(proposal): v0.3.1** runs first, their subsections as
-that ladder held them. Their keys, `[install] release`, `dev`, and `dev-bin`, landed with that
-cycle and nothing reads them yet, so `vc-config.md`'s prose names these subcommands ahead of the
-binary until this cycle lands.
+(wink + agent, 2026-10-21) `vc-x1 st -s b` fails with "invalid value 'b'", and `-s a` and `-s w`
+the same, where every write command takes them. Status's `scope_keywords` puts a list of the long
+names, `work`, `agent`, `both`, in front of `parse_scope`, so shell completion offers them, and the
+list refuses `b` before the parser, which has known it since the cycle "feat: validate-desc takes
+-s, the first scope", ever sees it. Status never took the short forms. Found at the close-out of
+**feat: vc-x1 commit, install, and run-dev**.
 
-- **feat: vc-x1 install promotes main**: the promotion is a subcommand that checks it is
-  installing pushed `main` at a bare version, the check the `build.rs` guard the parent's opening
-  removed could not make, and `--dev` is the dev install on demand. `vc-x1 install` runs
-  `[install] release` after checking that `@-` is `main` at `main@origin`, `@` is empty, and the
-  version is bare, and `vc-x1 install --dev` runs `[install] dev` with no check, the mid-cycle
-  refresh of the dev binary.
-  - Open: whether a failed check refuses or warns.
-- **feat: vc-x1 run-dev runs the dev binary**: the dev binary, off the PATH, is run through the
-  config, with a warning when it is not the manifest's version. `vc-x1 run-dev` runs
-  `[install] dev-bin` with the given arguments from any directory of the workspace.
-  - Open: the warning's text when the binary's `-V` is not the manifest's version.
-- Acceptance, the parent's clauses for these two: `install` refuses, or warns, when `@-` is not
-  `main` at `main@origin`, `install --dev` leaves `tmp/dev/bin/vc-x1` at the manifest's version,
-  and `run-dev -V` prints the manifest's version.
-- Also to decide here: whether a missing `-s` names the four scopes in the error, as the parent's
-  plan said, rather than `--scope` with the four in `--help`, which is clap's required-argument
-  error as it stands.
-- Order: v0.3.1's Never rename item makes Land step 4 `vc-x1 install`, which this cycle brings, so
-  either v0.3.1 names the command ahead of the binary, as `vc-config.md` does, or this cycle runs
-  first after all. Wink's call at v0.3.1's opening.
-
-### feat: vc-x1 land closes a cycle and lands it
-
-(wink + agent, 2026-10-21) The close-out and Land are five commands typed in order, and each is
-a place to skip the sync, move the wrong bookmark, or push before the review. One command runs the
-sequence, with the review between its commit and its pushes, filed at the first closing made by
-`commit --closing`.
-
-- `vc-x1 land -s b [--from BOOKMARK] [--to BOOKMARK] [--title STR --body STR|@PATH]`, `--from`
-  the cycle's bookmark, the line `@-` is on by default, and `--to` the trunk, `main` by default.
-- The sequence, each step today's command:
-  1. `sync -s b`: `--to` local equals its remote, or stop, since a moved trunk is the Land rule's
-     stop.
-  2. `commit -s w --closing --title --body`: the merge of `--to` and `--from`'s tip.
-  3. The review: `jj show @-`, and the command waits for the go, or `--yes` under a waiver.
-  4. `move-bookmark -s w --bookmark <to> --target @-`: the fast-forward, no `--allow-backwards`.
-  5. `push -s b <to>`: the agent half commits the journal as the partner, the work half publishes
-     `--to`. The closing never reaches `--from`'s remote, so the two pushes of the by-hand Land
-     are one.
-  6. `install`, once **feat: vc-x1 install and run-dev** lands, since it promotes what `--to`
-     now carries. Until then the command stops before it and says so.
-  7. Delete `--from` locally and remotely, once `vc-x1` owns bookmark deletion. Until then it
-     prints the two `jj` lines.
-- Interactive: with no `--title` and `--body` it opens `$EDITOR`, as `jj describe` and `git gui`
-  do, on a buffer pre-filled with the bookend's text, the title from the In Progress block's and
-  the body `Closes the cycle "<title>". Its record is the Closed block in zCLOSED.md.`, so the
-  common case is save and quit. This is the editor path `commit` left out until asked for.
-- `--dry-run` prints the seven steps with what each would do, and does nothing.
-- Not `commit -s b`: the journal of the command's own review is what the push commits as the
-  partner.
-- Wants **feat: vc-x1 install and run-dev** first for step 6, and bookmark deletion in `vc-x1`
-  for step 7, each of which may land as its own cycle before this one.
+- The fix: status's `-s` takes `parse_repo_scope`, the write commands' parser, so every `-s` takes
+  the same four forms, `w|work`, `a|agent`, `b|both`, and `p|por`, the plain repo `p` naming the
+  case status already handles outside a workspace. Hidden aliases on the list would also accept
+  `b`, and were set aside as the smaller fix that leaves status with a parser of its own (wink).
+- The positional `SCOPE` and the comma forms `work,agent` and `agent,work` go with it, a breaking
+  change [Scope is a flag on every command, and push resolves its own
+  bookmarks](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) already
+  decided.
+- Completion: `parse_repo_scope` is a bare function, which offers nothing to complete, the loss
+  `scope_keywords` was made to avoid. A parser declaring the four long names with the short ones
+  as hidden aliases, over `parse_repo_scope`, keeps both, and would serve every write command.
+- Whether `-s` becomes required here or stays defaulted to `work` until [every repo command takes
+  -s, required](#every-repo-command-takes--s-required) is decided at the opening. This entry is
+  that sweep's status piece, run ahead of it.
 
 ### every repo command takes -s, required
 
