@@ -415,8 +415,8 @@ example = ["cargo test --bins"]
 The release build: the commands that build the artifact, in order, each element one invocation whose
 exit status is checked, leaving the binary where it can be run before anything on the PATH is
 replaced, `target/release` for a plain `cargo build --release`. `vc-x1 build` runs it from any
-commit, and checks it left [build.release-bin](#buildrelease-bin). `vc-x1 install` runs it too,
-before it copies the binary at a cycle's Land. Its commands
+commit, and checks it left [build.release-bin](#buildrelease-bin). `vc-x1 run` runs it before it
+runs the binary, and `vc-x1 install` before it copies the binary at a cycle's Land. Its commands
 run with `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` in their environment, the same facts, for an
 artifact that compiles them in, as [build.dev](#builddev)'s and the `[validate]` lists' do. Owned by
 the work side because it builds the artifact.
@@ -426,7 +426,7 @@ the work side because it builds the artifact.
 homes = ["workspace-code"]
 kind = "str-list"
 doc = "The release build, in order, one invocation per element, run by `vc-x1 build`"
-used-by = "vc-x1 build and vc-x1 install"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install"
 example = ["cargo build --release --locked"]
 ```
 
@@ -435,15 +435,16 @@ example = ["cargo build --release --locked"]
 The binary the release build leaves, relative to the config file's directory, or as is when
 absolute. vc-x1 never works it out, from cargo or from the package's name: the release build's
 commands decide where the binary goes, so the config says. `vc-x1 build` checks the build left it,
-and `vc-x1 install` copies it and reports what its `-V` says. Required by `vc-x1 build` and
-`vc-x1 install`.
+`vc-x1 run` runs it with the arguments given and warns when its `-V` is not the manifest's version,
+and `vc-x1 install` copies it and reports what its `-V` says. Required by `vc-x1 build`, `vc-x1
+run`, and `vc-x1 install`.
 
 ```toml
 [build.release-bin]
 homes = ["workspace-code"]
 kind = "str"
-doc = "The release build's binary, which `vc-x1 install` copies"
-used-by = "vc-x1 build and vc-x1 install"
+doc = "The release build's binary, run by `vc-x1 run` and copied by `vc-x1 install`"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install"
 example = "target/release/vc-x1"
 ```
 
@@ -452,14 +453,14 @@ example = "target/release/vc-x1"
 The dev build: the commands that build a cycle's binary, same shape as
 [build.release](#buildrelease), leaving it off the PATH, `target/debug` for a plain `cargo build`,
 so nothing on the PATH is replaced while the cycle runs. `vc-x1 build-dev` runs it, and
-`vc-x1 run-dev` runs it first, so what runs is always the current code.
+`vc-x1 run-dev` and `vc-x1 install-dev` run it first, so what runs is always the current code.
 
 ```toml
 [build.dev]
 homes = ["workspace-code"]
 kind = "str-list"
 doc = "The dev build, in order, one invocation per element, run by `vc-x1 build-dev`"
-used-by = "vc-x1 build-dev"
+used-by = "vc-x1 build-dev, vc-x1 run-dev, and vc-x1 install-dev"
 example = ["cargo build --locked"]
 ```
 

@@ -863,10 +863,14 @@ vc-x1 build
 
 # Build the dev build without running it
 vc-x1 build-dev
+
+# Print the release build's list, and run nothing
+vc-x1 build --dry-run
 ```
 
 | Option | Description |
 |--------|-------------|
+| `--dry-run` | Print the list, and run nothing |
 | `-R, --repo <DIR>` | Workspace to build from, for both commands [default: the one containing the current directory] |
 
 ### install
@@ -929,7 +933,7 @@ anything.
 ```
 # At Land, on main after the push: build and smoke-test, then install, its build a no-op
 vc-x1 build
-target/release/vc-x1 -V
+vc-x1 run -- -V
 vc-x1 install
 
 # Testing install itself: the copy goes to tmp/bin, and ~/.cargo/bin is untouched
@@ -991,6 +995,46 @@ vc-x1-dev status
 | `--dry-run` | Build and report, and copy nothing |
 | `--dir <DIR>` | Copy into `DIR` instead of `[install] dev-dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
+
+### run and run-dev
+
+Build, then run the build's binary with the given arguments, as `cargo run` builds before it runs.
+`vc-x1 run` runs `[build] release` exactly as [build](#build) does, then `[build] release-bin`,
+and `vc-x1 run-dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
+code. Neither touches the PATH, so a build is tried before [install](#install) or
+[install-dev](#install-dev) copies it.
+
+- The arguments go to the binary untouched. One that starts with `-` comes after `--`, as with
+  `cargo run`, since vc-x1's own flags are read first: `vc-x1 run -V` prints vc-x1's banner,
+  and `vc-x1 run -- -V` runs the release's `-V`.
+- The binary runs in the current directory, with the terminal, and its exit code is vc-x1's, so
+  a failing run fails the same way.
+- Before it runs, its `-V` is read, and a version other than the manifest's is a warning naming
+  the key: the build passed but left an older binary where the config says. A binary whose `-V`
+  prints no version, another project's, is run without the check.
+- `--dry-run` prints the build's list and the command, and runs nothing.
+- Completion is the binary's own: `vc-x1 run-dev <words><TAB>` asks the dev build, in clap's
+  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run-dev run <TAB>` offers its
+  benches. The binary is asked as it stands, never built, and one that is not there, or answers
+  nothing, offers nothing. A binary built with clap's dynamic completion answers; another offers
+  nothing.
+
+```
+# The smoke check before install: build the release and print its version
+vc-x1 run -- -V
+
+# Try the rung's code: build the dev build and run its status
+vc-x1 run-dev status -s b
+
+# See what would run
+vc-x1 run-dev --dry-run status -s b
+```
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Print the build's list and the command, and run nothing |
+| `-R, --repo <DIR>` | Workspace to run from [default: the one containing the current directory] |
+| `[ARGS]...` | Arguments for the binary, after `--` when the first starts with `-` |
 
 ### validate-agent
 

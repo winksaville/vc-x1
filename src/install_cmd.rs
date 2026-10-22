@@ -393,7 +393,7 @@ pub fn manifest_version(root: &Path) -> Result<String, String> {
 
 /// Run `bin -V` and return what it prints, `None` when it cannot be
 /// run or fails.
-fn run_version(bin: &Path) -> Option<String> {
+pub(crate) fn run_version(bin: &Path) -> Option<String> {
     // Register entry 7 (clippy.toml): install runs the binary it is
     // about to copy, `-V` alone, to report it.
     #[allow(clippy::disallowed_methods)]
@@ -688,6 +688,7 @@ mod tests {
                 root: PathBuf::from("."),
                 provenance: None,
                 bin: None,
+                dry_run: false,
             },
             bin: bin.to_path_buf(),
             dest: dest.to_path_buf(),

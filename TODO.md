@@ -88,7 +88,7 @@ why.
 
 - The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
   `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
-- Land step 4 becomes `vc-x1 build`, a `vc-x1 run -V` smoke check, and `vc-x1 install`.
+- Land step 4 becomes `vc-x1 build`, a `vc-x1 run -- -V` smoke check, and `vc-x1 install`.
 - Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
   identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
   then.
@@ -384,7 +384,7 @@ sequence, with the review between its commit and its pushes, filed at the first 
   5. `push -s b <to>`: the agent half commits the journal as the partner, the work half publishes
      `--to`. The closing never reaches `--from`'s remote, so the two pushes of the by-hand Land
      are one.
-  6. `build`, a `run -V` smoke check, and `install`, once **feat: vc-x1 install
+  6. `build`, a `run -- -V` smoke check, and `install`, once **feat: vc-x1 install
      stages, deploys, and runs builds** lands, since they stage and deploy what `--to` now
      carries. Until then the command stops before them and says so.
   7. Delete `--from` locally and remotely, once `vc-x1` owns bookmark deletion. Until then it

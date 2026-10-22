@@ -15,13 +15,13 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-- 2026-10-22, the rung **feat: vc-x1 install-dev puts the dev build on the PATH** is pushed at
-  0.85.7-6, after the `--dir` rung. A test of `install` or `install-dev` goes to a scratch
-  directory by `--dir tmp/bin`.
-- Next: the run rung, then the closing. The `.gitignore` rung planned after the install rung left
-  the ladder, its Todo entry run as a cycle of its own. The closing's README guidance
-  gains the first install by `cargo run --locked -- install`, and again whenever the installed
-  `vc-x1` is too old for the workspace.
+- 2026-10-22, the rung **feat: vc-x1 run and run-dev run the builds** is pushed at 0.85.7-7, after
+  the `install-dev` rung. A test of `install` or `install-dev` goes to a scratch directory by
+  `--dir tmp/bin`, and the smoke check is `vc-x1 run -- -V`.
+- Next: the closing. The `.gitignore` rung planned after the install rung left the ladder, its
+  Todo entry run as a cycle of its own. The closing's README guidance gains the first install by
+  `cargo run --locked -- install`, and again whenever the installed `vc-x1` is too old for the
+  workspace.
 - Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-6, at the `--dir` rung's
   commit with this rung's edits, its state `unknown` (2026-10-22, 15:03), after test installs of
   0.85.7-5 at 11:08 and 0.85.7-3 that morning. There is no `~/.cargo/bin/vc-x1-dev` yet. The landed version comes back with this
@@ -84,13 +84,12 @@ Provisional, the plan as the install rung left it:
 
 #### Acceptance check
 
-`build` leaves `target/release/vc-x1`, `run -V` prints the manifest's version,
-`build-dev` leaves `target/debug/vc-x1` at the manifest's version, and `run-dev -V` prints it.
-`install --dry-run` with nothing built builds the release, and on the cycle's bookmark reports the
-suffixed version, the commit off `main`, and the dirty state. This cycle's own
-Land builds by the dev binary's `build`, smoke-tests by its `run -V`, and installs by its `install`,
-the first install the command makes, its report showing `main` and `main@origin`, clean, and a bare
-version.
+`build` leaves `target/release/vc-x1`, `run -- -V` prints the manifest's version, `build-dev` leaves
+`target/debug/vc-x1` at the manifest's version, and `run-dev -- -V` prints it. `install --dry-run`
+with nothing built builds the release, and on the cycle's bookmark reports the suffixed version, the
+commit off `main`, and the dirty state. This cycle's own Land builds by the dev binary's `build`,
+smoke-tests by its `run -- -V`, and installs by its `install`, the first install the command makes,
+its report showing `main` and `main@origin`, clean, and a bare version.
 
 #### Deliberation
 
@@ -328,9 +327,9 @@ version.
   last one's later rungs did.
 - Open: whether a missing `-s` names the four scopes in the error, as the parent's plan said,
   rather than clap's required-argument error, `--scope` with the four in `--help`.
-- Land's three steps, `build`, `run -V`, and `install`, the last two building nothing new, run the
-  dev binary, `target/debug/vc-x1`,
-  since the installed `vc-x1`, wink's hand build of 0.85.7-1, predates `install` and `run`.
+- Land's three steps, `build`, `run -- -V`, and `install`, the last two building nothing new, run
+  the dev binary, `target/debug/vc-x1`, since the installed `vc-x1`, wink's hand build of 0.85.7-1,
+  predates `install` and `run`.
 - The opening also carries two Todo additions made the same day before it: **status takes the
   write commands' scope**, and the land entry's **Two commands, and their undos**.
 
@@ -343,7 +342,7 @@ version.
 - [feat: the release stamp goes, cargo tracks staleness][4] (done)
 - [feat: install takes --dir][5] (done)
 - [feat: vc-x1 install-dev puts the dev build on the PATH][6] (done)
-- [feat: vc-x1 run and run-dev run the builds][7]
+- [feat: vc-x1 run and run-dev run the builds][7] (done)
 - [feat: vc-x1 install stages, deploys, and runs builds closing][8]
 
 ##### feat: vc-x1 install stages, deploys, and runs builds opening
@@ -558,13 +557,42 @@ version, and the words after either subcommand are completed by the binary it wo
   builds and the runs it prints what would be run and runs nothing. `install`'s keeps building,
   since its report is of the binary that would be copied. `--dir` stays `install`'s, the one
   command with a destination.
+- `run` and `run-dev` build through `build`'s own code, then run `release-bin` or `dev-bin` in the
+  current directory with the arguments untouched, and vc-x1 exits with the binary's code, so a
+  failing run fails the same way. They dispatch outside `SubcommandRunner`, whose `run` returns no
+  code.
+- An argument starting with `-` comes after `--`, as with `cargo run`: vc-x1's global flags, `-V`
+  among them, are read before any trailing argument, so `vc-x1 run -V` prints vc-x1's banner, a
+  parse test holds it, and the smoke check is `vc-x1 run -- -V`. The acceptance check, the
+  cycle's deliberation, the land entry's step 6, and v0.3.1's Land step 4 say so.
+- A bare `-bin` name looked up on the PATH, planned for the rename style's `iiac-perf-dev`, is
+  dropped, wink's call (2026-10-22): under never-rename the config names the binary by path, and a
+  PATH lookup would have `build`'s check and `install`'s copy act on whatever is on the PATH. The
+  version check compares the version alone, the name being the build's own, and a `-V` with no
+  version skips it.
+- The completion forward, in `main` ahead of clap's `CompleteEnv`: a request whose words are
+  `run`'s or `run-dev`'s arguments is answered by the binary it would run, asked with `COMPLETE`
+  and the shell's variables inherited and `_CLAP_COMPLETE_INDEX` shifted, so it answers in the
+  protocol the shell reads. The subcommand's own options, `--dry-run`, `-R`, and `--repo`, are
+  skipped, `--` ends them, and the cursor on the subcommand, its options, or a flag before any
+  argument stays clap's. The binary is never built, and none, or one that answers nothing, offers
+  nothing. Planning is a pure function, so its cases are tested without a shell.
+- Clippy's register entry 7 widens to `src/run_cmd.rs`, the run and the forward each a spawn of the
+  workspace's build.
+- Tried: `run-dev -- -V` and `run -- -V` printed 0.85.7-7, dirty, `run-dev --dry-run status -s b`
+  printed the list and the command, a failing `run-dev -- no-such-subcommand` exited 2, and the
+  forward, driven as bash drives it, completed `run-dev sta` to `status` and `run-dev status -s`
+  to the four scopes, while `run` alone stayed clap's, `run` and `run-dev`.
+- The help for the four commands, the README's new `run and run-dev` section and its `build`
+  options, the Land example's `vc-x1 run -- -V`, `vc-config.md`'s `build.release`,
+  `build.release-bin`, and `build.dev`, and the regenerated model follow.
 
 ##### feat: vc-x1 install stages, deploys, and runs builds closing
 
 Closing out the cycle.
 
 - The Todo entry **feat: vc-x1 land closes a cycle and lands it** waits on this cycle for its step
-  6, `build`, a `run -V` smoke check, and `install`, and says the command stops before them until
+  6, `build`, a `run -- -V` smoke check, and `install`, and says the command stops before them until
   this cycle lands. The closing rewrites that bullet, the commands being there. Kept a separate
   cycle, wink's call (2026-10-22).
 

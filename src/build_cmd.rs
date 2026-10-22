@@ -31,6 +31,8 @@
 //!   rebuilding only what changed, so vc-x1 runs the list every time.
 //! - The lists are run by [`crate::command_list`], as `validate`'s
 //!   are.
+//! - `--dry-run` prints the list and runs nothing, as `run` and
+//!   `run-dev` print the build they would run first.
 
 use std::path::{Path, PathBuf};
 
@@ -38,6 +40,7 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
+use crate::options_flags::dry_run::DryRunFlag;
 use crate::subcommand::SubcommandRunner;
 use crate::version::SourceState;
 
@@ -51,6 +54,9 @@ pub const BUILD_STATE_VAR: &str = "VC_X1_BUILD_STATE";
 /// Build the release.
 #[derive(Args, Debug)]
 pub struct BuildArgs {
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
+
     /// Workspace to build from [default: the workspace containing
     /// the current directory]
     #[arg(short = 'R', long, value_name = "DIR")]
@@ -60,6 +66,9 @@ pub struct BuildArgs {
 /// Build the dev build.
 #[derive(Args, Debug)]
 pub struct BuildDevArgs {
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
+
     /// Workspace to build from [default: the workspace containing
     /// the current directory]
     #[arg(short = 'R', long, value_name = "DIR")]
@@ -141,6 +150,8 @@ pub struct BuildParams {
     /// The binary a release leaves, `[build] release-bin`, `None` for
     /// the dev build.
     pub bin: Option<PathBuf>,
+    /// Print the list and run nothing.
+    pub dry_run: bool,
 }
 
 impl TryFrom<&BuildArgs> for BuildParams {
@@ -148,7 +159,9 @@ impl TryFrom<&BuildArgs> for BuildParams {
 
     /// The release: see [`build_params`].
     fn try_from(a: &BuildArgs) -> Result<Self, String> {
-        build_params(false, a.repo.as_deref())
+        let mut params = build_params(false, a.repo.as_deref())?;
+        params.dry_run = a.dry_run.value;
+        Ok(params)
     }
 }
 
@@ -157,7 +170,9 @@ impl TryFrom<&BuildDevArgs> for BuildParams {
 
     /// The dev build: see [`build_params`].
     fn try_from(a: &BuildDevArgs) -> Result<Self, String> {
-        build_params(true, a.repo.as_deref())
+        let mut params = build_params(true, a.repo.as_deref())?;
+        params.dry_run = a.dry_run.value;
+        Ok(params)
     }
 }
 
@@ -191,6 +206,7 @@ pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, Strin
         root,
         provenance,
         bin,
+        dry_run: false,
     })
 }
 
@@ -262,9 +278,18 @@ impl SubcommandRunner for BuildDevArgs {
 }
 
 /// Run the list from the root with the provenance in its
-/// environment, and for a release check it left its binary.
+/// environment, and for a release check it left its binary. A dry
+/// run prints the list and runs nothing.
 pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("{}: entry params={params:?}", params.label);
+    if params.dry_run {
+        let n = params.commands.len();
+        for (i, command) in params.commands.iter().enumerate() {
+            info!("{}: [dry-run] [{}/{n}] {command}", params.label, i + 1);
+        }
+        info!("{}: [dry-run] ran nothing ({})", params.label, params.key);
+        return Ok(());
+    }
     let env = build_env(params.provenance.as_ref());
     crate::command_list::run(
         &params.root,
@@ -345,6 +370,7 @@ mod tests {
             root: root.to_path_buf(),
             provenance: Some(prov(SourceState::Clean)),
             bin: Some(root.join("rel/bin/app")),
+            dry_run: false,
         }
     }
 
@@ -448,6 +474,7 @@ mod tests {
             root: root.clone(),
             provenance: Some(prov(SourceState::Clean)),
             bin: None,
+            dry_run: false,
         };
         build(&dev).unwrap();
         std::fs::remove_dir_all(&root).ok();
@@ -485,6 +512,27 @@ mod tests {
         std::fs::remove_dir_all(&root).ok();
     }
 
+    /// A dry run prints the list and runs nothing, so a failing
+    /// command passes and a command that writes leaves nothing.
+    #[test]
+    fn a_dry_run_runs_nothing() {
+        let root = workspace("dry", "");
+        let mut params = release(&root, vec!["touch ran".to_string(), "false".to_string()]);
+        params.dry_run = true;
+        build(&params).unwrap();
+        assert!(!root.join("ran").exists(), "a dry run ran the list");
+        assert!(
+            parse(&["vc-x1", "build", "--dry-run"]).dry_run.value,
+            "build takes --dry-run"
+        );
+        assert!(
+            parse_dev(&["vc-x1", "build-dev", "--dry-run"])
+                .dry_run
+                .value
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
     /// The dev build runs its list and checks no binary.
     #[test]
     fn dev_runs_its_list() {
@@ -496,6 +544,7 @@ mod tests {
             root: root.clone(),
             provenance: None,
             bin: None,
+            dry_run: false,
         };
         build(&params).unwrap();
         assert!(root.join("dev-ran").exists());
