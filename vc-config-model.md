@@ -95,7 +95,7 @@ The `[build]` table
 - release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
 - release-bin: The release build's binary, which `vc-x1 install` copies [[18]]
 - dev: The dev build, in order, one invocation per element, run by `vc-x1 build-dev` [[19]]
-- dev-bin: The dev build's binary, run by `vc-x1 run-dev` [[20]]
+- dev-bin: The dev build's binary, run by `vc-x1 run-dev` and copied by `vc-x1 install-dev` [[20]]
 ```toml
 [build]
 release = ["cargo build --release --locked"]
@@ -105,15 +105,29 @@ dev-bin = "target/debug/vc-x1"
 ```
 
 The `[install]` table
-- dir: The directory `vc-x1 install` copies the release build into, `~` expanded [[21]]
+- release: Optional, the release install run by `vc-x1 install` in place of its own copy [[21]]
+- release-dir: Where `vc-x1 install` copies the release build, `~` expanded [[22]]
+- dev: Optional, the dev install run by `vc-x1 install-dev` in place of its own copy [[23]]
+- dev-dir: Where `vc-x1 install-dev` copies the dev build, `~` expanded [[24]]
+- dev-suffix: Appended to the dev build's file name by `vc-x1 install-dev` [[25]]
 ```toml
 [install]
-dir = "~/.cargo/bin"
+release = [
+  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
+  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+]
+release-dir = "~/.cargo/bin"
+dev = [
+  "cp {build.dev-bin} {install.dev-dir}/vc-x1{install.dev-suffix}.new",
+  "mv {install.dev-dir}/vc-x1{install.dev-suffix}.new {install.dev-dir}/vc-x1{install.dev-suffix}",
+]
+dev-dir = "~/.cargo/bin"
+dev-suffix = "-dev"
 ```
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[22]]
+  test` [[26]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -141,5 +155,9 @@ fixtures = ".fixtures"
 [18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease-bin
 [19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev
 [20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev-bin
-[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
-[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease
+[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease-dir
+[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev
+[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-dir
+[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-suffix
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

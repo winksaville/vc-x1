@@ -404,9 +404,30 @@ mod tests {
             .collect();
         assert_eq!(
             install,
-            ["install.dir"],
-            "the builds' keys moved to [build]"
+            [
+                "install.release",
+                "install.release-dir",
+                "install.dev",
+                "install.dev-dir",
+                "install.dev-suffix"
+            ],
+            "[install] mirrors [build]'s order, the dev suffix last"
         );
+        let k = find("install.dev-suffix");
+        assert_eq!(k.kind, ValueKind::Str, "dev-suffix kind");
+        assert_eq!(k.default, Some("-dev"), "dev-suffix default");
+        assert_eq!(INSTALL_DEV_SUFFIX_DEFAULT, "-dev");
+        for p in ["install.release", "install.dev"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
+        }
+        for p in ["install.release-dir", "install.dev-dir"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+            assert_eq!(k.example, Some("~/.cargo/bin"), "{p} example");
+        }
     }
 
     /// The agent-files tables are work-side only: each command's

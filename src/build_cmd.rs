@@ -3,7 +3,8 @@
 //! command per build, named with the `-dev` suffix as `run` and
 //! `run-dev` are, so each names the build it makes and no dropped flag
 //! makes the other. Neither touches the PATH: that is
-//! `vc-x1 install`'s, which copies the release build there.
+//! `vc-x1 install`'s and `vc-x1 install-dev`'s, which copy the builds
+//! there.
 //!
 //! - `vc-x1 build` runs `[build] release`, here
 //!   `cargo build --release --locked`, and checks it left its binary
@@ -12,7 +13,8 @@
 //!   release build is run by `vc-x1 run` and copied by
 //!   `vc-x1 install`, which runs this same build first, through
 //!   [`build_params`] and [`build`].
-//! - `vc-x1 build-dev` runs `[build] dev`, the dev build.
+//! - `vc-x1 build-dev` runs `[build] dev`, the dev build, which
+//!   `vc-x1 install-dev` runs first and copies.
 //! - Where a build leaves its binary is the config's to say,
 //!   `release-bin` and `dev-bin`: vc-x1 never works it out from cargo
 //!   or the package's name.
@@ -192,17 +194,36 @@ pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, Strin
     })
 }
 
-/// `[build] release-bin` at `root`, resolved against the config
-/// file's directory, or as is when absolute. Required for a release,
-/// whose build is checked for it and which `install` copies.
+/// `[build] release-bin` at `root`: see [`bin_at`]. Required for a
+/// release, whose build is checked for it and which `install` copies.
 pub fn release_bin(root: &Path) -> Result<PathBuf, String> {
+    bin_at(
+        root,
+        "build.release-bin",
+        "the binary `build.release` leaves, which `install` copies",
+    )
+}
+
+/// `[build] dev-bin` at `root`: see [`bin_at`]. Required by
+/// `install-dev`, which copies it.
+pub fn dev_bin(root: &Path) -> Result<PathBuf, String> {
+    bin_at(
+        root,
+        "build.dev-bin",
+        "the binary `build.dev` leaves, which `install-dev` copies",
+    )
+}
+
+/// The binary `key` names at `root`, resolved against the config
+/// file's directory, or as is when absolute, `what` saying in its
+/// absence what the key is for.
+fn bin_at(root: &Path, key: &str, what: &str) -> Result<PathBuf, String> {
     let cfg = crate::config_md::load(root)
         .map_err(|e| format!("build: {e}"))?
         .ok_or_else(|| format!("build: no config in '{}'", root.display()))?;
-    let value = crate::toml_simple::toml_get(&cfg.map, "build.release-bin").ok_or_else(|| {
+    let value = crate::toml_simple::toml_get(&cfg.map, key).ok_or_else(|| {
         format!(
-            "build: {}: no `build.release-bin`, the binary `build.release` leaves, \
-             which `install` copies (see `vc-x1 config work`)",
+            "build: {}: no `{key}`, {what} (see `vc-x1 config work`)",
             cfg.path.display()
         )
     })?;
@@ -250,6 +271,7 @@ pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
         params.key,
         &params.commands,
         &env,
+        &[],
         params.label,
     )?;
     let (Some(bin), Some(provenance)) = (&params.bin, &params.provenance) else {
@@ -378,6 +400,24 @@ mod tests {
             "```toml\n[repos]\nwork = \".\"\n[build]\nrelease-bin = \"/opt/app\"\n```\n",
         );
         assert_eq!(release_bin(&root2).unwrap(), PathBuf::from("/opt/app"));
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&root2).ok();
+    }
+
+    /// `dev-bin` resolves as `release-bin` does, and its absence names
+    /// the key.
+    #[test]
+    fn dev_bin_resolves_against_the_config() {
+        let root = workspace(
+            "devbin",
+            "```toml\n[repos]\nwork = \".\"\n[build]\ndev-bin = \"dbg/app\"\n```\n",
+        );
+        assert_eq!(dev_bin(&root).unwrap(), root.join("dbg/app"));
+        let e = release_bin(&root).unwrap_err();
+        assert!(e.contains("no `build.release-bin`"), "{e}");
+        let root2 = workspace("nodevbin", "```toml\n[repos]\nwork = \".\"\n```\n");
+        let e = dev_bin(&root2).unwrap_err();
+        assert!(e.contains("no `build.dev-bin`"), "{e}");
         std::fs::remove_dir_all(&root).ok();
         std::fs::remove_dir_all(&root2).ok();
     }

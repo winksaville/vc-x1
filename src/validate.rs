@@ -106,7 +106,14 @@ impl SubcommandRunner for ValidateArgs {
 pub fn validate(params: &ValidateParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("validate: entry params={params:?}");
     let env = crate::build_cmd::build_env(params.provenance.as_ref());
-    crate::command_list::run(&params.root, params.key, &params.commands, &env, "validate")
+    crate::command_list::run(
+        &params.root,
+        params.key,
+        &params.commands,
+        &env,
+        &[],
+        "validate",
+    )
 }
 
 #[cfg(test)]

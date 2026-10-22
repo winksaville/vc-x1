@@ -87,8 +87,12 @@ compile the same dependencies, the ones `Cargo.lock` commits:
   release build at `target/release/vc-x1`, its `-V` naming the commit it was built from
   ([build](#build)).
 - Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
-  nothing changed, then copies it into `~/.cargo/bin`, the `[install] dir`, after reporting what it
-  is copying ([install](#install)). It is the one command that touches the PATH.
+  nothing changed, then copies it into `~/.cargo/bin`, the `[install] release-dir`, after
+  reporting what it is copying ([install](#install)).
+- Install-dev: mid-cycle, `vc-x1 install-dev` runs the dev build, then copies it into
+  `~/.cargo/bin`, the `[install] dev-dir`, as `vc-x1-dev`, beside the landed `vc-x1`, so the
+  cycle's code can be tried from any directory ([install-dev](#install-dev)). With `install`, the
+  two commands that touch the PATH.
 
 Where each build leaves its binary is the config's to say, `[build] release-bin` and `dev-bin`:
 vc-x1 never works it out from cargo or the package's name.
@@ -101,13 +105,14 @@ The commands in the order a cycle uses them, a rung's loop first and Land after:
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
 | `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
 | `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
+| `vc-x1 install-dev` | `build-dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
 | `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
 | `vc-x1 run` | `build`, then runs it | the smoke check before install |
 | `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-`validate` checks the source and makes no build of either kind. `run`, `run-dev`, and `install`
-build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary `run`
-smoke-tests is the one `install` copies.
+`validate` checks the source and makes no build of either kind. `run`, `run-dev`, `install`, and
+`install-dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
+`run` smoke-tests is the one `install` copies.
 
 - `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
   suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
@@ -866,15 +871,39 @@ vc-x1 build-dev
 
 ### install
 
-Build the release if it is out of date, then copy it into the install directory, the one command
-that touches the PATH, at a cycle's Land. It first runs `[build] release` exactly as
-[build](#build) does. Cargo rebuilds only what changed, so with nothing changed
-the binary already tested is the one copied, and a missing or stale one is built rather than
-refused. It then copies `[build] release-bin`, `target/release/vc-x1` here, into the one directory
-`[install] dir` names, `~/.cargo/bin` here, under the same file name. `$PATH` is not searched: the
-directory being on it is what puts the copy on the PATH. `~` in the directory expands against your
-home, so the committed value fits every machine. The copy is a temporary file renamed into place,
-so a running copy of the old binary is undisturbed and a failed copy leaves it as it was.
+Build the release if it is out of date, then copy it into the install directory, at a cycle's Land.
+It first runs `[build] release` exactly as [build](#build) does. Cargo rebuilds only what changed,
+so with nothing changed the binary already tested is the one copied, and a missing or stale one is
+built rather than refused. It then copies `[build] release-bin`, `target/release/vc-x1` here, into
+the one directory `[install] release-dir` names, `~/.cargo/bin` here, under the same file name.
+`$PATH` is not searched: the directory being on it is what puts the copy on the PATH. `~` in the
+directory expands against your home, so the committed value fits every machine. The copy is a
+temporary file renamed into place, so a running copy of the old binary is undisturbed and a failed
+copy leaves it as it was.
+
+`[install] release`, a command list in `[build] release`'s shape, runs in place of the copy when
+present, after the same build, report, and refusals, so a project that installs some other way, a
+signed copy or one to another machine, says how. The elements run with no shell, each split on
+whitespace, and then each word's placeholders are filled: `{build.release-bin}` and
+`{install.release-dir}`, the values of the keys `install` reads, resolved for the run, `~`
+expanded and `--dir` applied. A value with spaces stays one word, and any other `{name}` is an
+error before anything runs. The list names every path it writes, the file name included, and a
+script takes the values as arguments, `sh scripts/sign.sh {build.release-bin}
+{install.release-dir}`. This workspace's list is the copy written out, so the config says what
+`install` does:
+
+```toml
+[install]
+release = [
+  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
+  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+]
+release-dir = "~/.cargo/bin"
+```
+
+The rename is what makes it safe over a running binary, since a `cp` onto a running executable
+fails. A failed `cp` leaves the `.new` file behind, which the next install overwrites, where the
+built-in copy removes its own. The log shows each command with its placeholders filled.
 
 It first reports what it is copying, from the binary's own `-V`:
 
@@ -891,10 +920,11 @@ a branch or a tag makes it differently. `install` refuses only when the copy its
 wrong, listing every reason: no binary at `release-bin` after the build, a binary whose `-V` will
 not run, or a missing install directory.
 
-`--dry-run` builds and reports, and copies nothing. `--dir <DIR>` copies into `DIR` instead of
-`[install] dir` for the one run, so a test of `install` leaves the PATH alone, a relative `DIR`
-taken against the current directory. A workspace with no `[install] dir`, and no `--dir`, has
-nothing to install, and `install` says so before building anything.
+`--dry-run` builds and reports, and copies nothing, and runs no list. `--dir <DIR>` copies into
+`DIR` instead of `[install] release-dir` for the one run, so a test of `install` leaves the PATH
+alone, a relative `DIR` taken against the current directory. A workspace with no `[install]
+release-dir`, and no `--dir`, has nothing to install, and `install` says so before building
+anything.
 
 ```
 # At Land, on main after the push: build and smoke-test, then install, its build a no-op
@@ -907,22 +937,59 @@ mkdir -p tmp/bin
 cargo run --locked -- install --dir tmp/bin
 ```
 
-The report, run on a cycle's bookmark with edits in `@`:
+The report, run on a cycle's bookmark with edits in `@`, then the list:
 
 ```
-install: '/home/me/proj/target/release/vc-x1' -> '/home/me/.cargo/bin/vc-x1'
-install:   version 0.85.7-3, a suffixed (pre-release) version
-install:   commit 38a446f041da, not `main`
+install: '/home/me/proj/target/release/vc-x1' -> list `install.release`
+install:   version 0.85.7-6, a suffixed (pre-release) version
+install:   commit 82e97636b7f6, not `main`
 install:   state dirty
-install: [dry-run] copied nothing
+install: [1/2] cp /home/me/proj/target/release/vc-x1 /home/me/.cargo/bin/vc-x1.new
+install: [2/2] mv /home/me/.cargo/bin/vc-x1.new /home/me/.cargo/bin/vc-x1
+install: 2 command(s) passed (install.release)
 ```
 
 The build's own lines, `build: [1/1] cargo build --release --locked` and the rest, come first.
+Without a list the first line names the destination, `-> '/home/me/.cargo/bin/vc-x1'`, and the
+copy ends `install: copied`. A dry run stops after the report and says so, running and copying
+nothing.
 
 | Option | Description |
 |--------|-------------|
 | `--dry-run` | Build and report, and copy nothing |
-| `--dir <DIR>` | Copy into `DIR` instead of `[install] dir`, for this run |
+| `--dir <DIR>` | Copy into `DIR` instead of `[install] release-dir`, for this run |
+| `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
+
+### install-dev
+
+Build the dev build, then copy it into the install directory with `[install] dev-suffix`, `-dev`
+when absent, appended to its file name. It first runs `[build] dev` exactly as [build-dev](#build)
+does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
+dev-dir` or `--dir` names, as `vc-x1-dev`. The landed `vc-x1` and the cycle's `vc-x1-dev` then sit
+side by side on the PATH, so the dev build can be tried from any directory, another project's
+included, where `vc-x1 run-dev` would run that project's dev build instead. The suffix is what lets
+`dev-dir` be `release-dir`'s own directory, the dev build beside the release without replacing it,
+and without a list `install-dev` refuses before the build when its destination would be the
+release's, as an empty suffix in that directory or a `--dir` onto it would make it. A list writes
+where it says, so it names the suffix itself, `{install.dev-suffix}`, as this workspace's does.
+
+The report, the refusals, the copy, `--dry-run`, and `--dir` are [install](#install)'s, the binary
+being the dev build's, and an `[install] dev` list runs in place of the copy as `[install] release`
+does for `install`, its placeholders `{build.dev-bin}` and `{install.dev-dir}`. With a list the
+`-dev` name is the list's to write, as this workspace's does: a list that left it off would write
+the release's name and, with `dev-dir` the release's own directory, replace the release.
+
+```
+# Mid-cycle: put the rung's code on the PATH as vc-x1-dev, and try it in another project
+vc-x1 install-dev
+cd ../other-project
+vc-x1-dev status
+```
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Build and report, and copy nothing |
+| `--dir <DIR>` | Copy into `DIR` instead of `[install] dev-dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
 ### validate-agent
@@ -1133,8 +1200,11 @@ A work-side `.vc-config.md` holds up to eight tables:
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
 - `[build]` (0.85.7): the dev and release builds, and the binaries they leave, read by `build`,
-  `build-dev`, `run`, and `run-dev` ([Build and install](#build-and-install)).
-- `[install]` (0.85.7): `dir`, where `install` copies the release build, `~` expanded.
+  `build-dev`, `run`, `run-dev`, `install`, and `install-dev` ([Build and
+  install](#build-and-install)).
+- `[install]` (0.85.7): in `[build]`'s order, `release` and `dev`, optional lists run in place of
+  the copy, and `release-dir` and `dev-dir`, where `install` copies the release build and
+  `install-dev` the dev build, `~` expanded.
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1175,12 +1245,21 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 release = ["cargo build --release --locked"]  # the release build
 release-bin = "target/release/vc-x1"  # its binary, copied by install
 dev = ["cargo build --locked"]    # the dev build
-dev-bin = "target/debug/vc-x1"    # its binary, run by run-dev
+dev-bin = "target/debug/vc-x1"    # its binary, run by run-dev, copied by install-dev
 ```
 
 ```toml
 [install]
-dir = "~/.cargo/bin"              # where install copies the release build
+release = [                       # the release install, the copy written out
+  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
+  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+]
+release-dir = "~/.cargo/bin"      # where install copies the release build
+dev = [                           # the dev install, as vc-x1-dev
+  "cp {build.dev-bin} {install.dev-dir}/vc-x1-dev.new",
+  "mv {install.dev-dir}/vc-x1-dev.new {install.dev-dir}/vc-x1-dev",
+]
+dev-dir = "~/.cargo/bin"          # where install-dev copies the dev build
 ```
 
 ```toml

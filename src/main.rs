@@ -322,11 +322,15 @@ pub(crate) enum Commands {
         Cargo rebuilds only what changed, so with nothing changed\n\
         the binary already tested is the one copied. The build leaves the\n\
         release at `[build] release-bin` (here `target/release/vc-x1`), and\n\
-        `install` copies it into the one directory `[install] dir` names\n\
-        (here `~/.cargo/bin`, `~` expanded), under the same file name. It\n\
-        does not search $PATH. The copy goes to a temporary file renamed into\n\
-        place, so a running copy of the old binary is undisturbed and a\n\
-        failed copy leaves the old one.\n\n\
+        `install` copies it into the one directory `[install] release-dir`\n\
+        names (here `~/.cargo/bin`, `~` expanded), under the same file name.\n\
+        It does not search $PATH. The copy goes to a temporary file renamed\n\
+        into place, so a running copy of the old binary is undisturbed and a\n\
+        failed copy leaves the old one. An `[install] release` list, when\n\
+        present, runs in place of the copy, each word's {build.release-bin}\n\
+        and {install.release-dir} filled with the values resolved for the\n\
+        run, --dir applied, so the list names every path it writes. This\n\
+        workspace's list is the copy written out.\n\n\
         Before copying it reports what it is copying: the version and commit\n\
         the binary's -V shows, whether that commit is `main` and\n\
         `main@origin`, clean or dirty, and a version with a cycle's suffix.\n\
@@ -336,12 +340,33 @@ pub(crate) enum Commands {
         only when the copy itself would be wrong: no binary at `release-bin`\n\
         after the build, a binary whose -V will not run, or a missing install\n\
         directory. --dry-run builds and reports, and copies nothing.\n\
-        --dir DIR copies into DIR instead of `[install] dir` for this run,\n\
-        so a test of install leaves the PATH alone, a relative DIR taken\n\
-        against the current directory. A workspace with no `[install] dir`\n\
-        and no --dir has nothing to install, and builds nothing."
+        --dir DIR copies into DIR instead of `[install] release-dir` for this\n\
+        run, so a test of install leaves the PATH alone, a relative DIR taken\n\
+        against the current directory. A workspace with no\n\
+        `[install] release-dir` and no --dir has nothing to install, and\n\
+        builds nothing."
     )]
     Install(install_cmd::InstallArgs),
+
+    /// Build the dev build, then copy it into the install directory as <name>-dev
+    #[command(
+        long_about = "Build the dev build, then copy it into the install directory as <name>-dev.\n\n\
+        It first runs `[build] dev`, exactly as `vc-x1 build-dev` does, then\n\
+        copies `[build] dev-bin` (here `target/debug/vc-x1`) into the\n\
+        directory `[install] dev-dir` names, or --dir, with\n\
+        `[install] dev-suffix`, `-dev` when absent, appended to its file name\n\
+        (here `~/.cargo/bin/vc-x1-dev`). A copy that would land on the\n\
+        release's own destination is refused before the build. The landed binary\n\
+        and the cycle's dev build then sit side by side on the PATH, so the\n\
+        dev build can be tried from any directory, another project's\n\
+        included, where `vc-x1 run-dev` would find that project's dev build\n\
+        instead.\n\n\
+        The report, the refusals, the copy, --dry-run, and --dir are\n\
+        `vc-x1 install`'s, the binary being the dev build's, and an\n\
+        `[install] dev` list runs in place of the copy as `[install] release`\n\
+        does for install."
+    )]
+    InstallDev(install_cmd::InstallDevArgs),
 
     /// Check the agent repo is published (main matches main@origin)
     #[command(
@@ -815,6 +840,7 @@ fn main() -> ExitCode {
         Commands::Build(args) => args.dispatch(&mut ctx),
         Commands::BuildDev(args) => args.dispatch(&mut ctx),
         Commands::Install(args) => args.dispatch(&mut ctx),
+        Commands::InstallDev(args) => args.dispatch(&mut ctx),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
         Commands::ValidateBotOld { .. } => {
             error!(

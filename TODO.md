@@ -42,6 +42,187 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### The help lists the subcommands in alphabetical order
+
+(wink, 2026-10-22) `vc-x1 --help` lists the subcommands in the order of the `Commands` enum in
+`src/main.rs`, which is the order they were added: `agent-files`, `version`, `chid`, ... `config`
+after `squash-push`, `commit` after `push`. A reader looking for one scans the whole list.
+
+- Alphabetical order keeps the pairs together, `build` and `build-dev`, `install` and
+  `install-dev`, the `validate-*` commands, and `fix-desc` beside `fix-todo`, and parts the cycle's
+  `commit`, `push`, and `squash`.
+- The alternative is groups by purpose, reading, checking, building, the cycle's commands, which
+  clap draws only with a heading per group.
+- We think clap sorts subcommands alphabetically with `next_display_order = None` on the `Cli`
+  command, which leaves the enum's order alone.
+
+### Error messages fit the terminal
+
+(wink, 2026-10-22) An error is one line however long it is, so a terminal wraps it wherever it
+runs out, mid-word and mid-path. Found by `vc-x1 build` in iiac-perf, which has no `[build]`
+table, at 0.85.7-6:
+
+```text
+error: build: /home/wink/data/prgs/rust/iiac-perf/.vc-config.md: no `build.release` table. Add one, a TOML array with one command per element (see `vc-x1 config work`)
+```
+
+That line is 167 characters. It is a general problem: errors across the code are built by
+`format!` as one sentence, the file, the fault, and the remedy together.
+
+- A shape: the fault on the first line, and the file, the remedy, and the reference each on an
+  indented line below it, so the first line says what went wrong and fits.
+- Or the logger wraps an error at the terminal's width, indenting the continuation, which fixes
+  every message at once and changes none. The two compose.
+- The tests that match an error's text, `contains` on a phrase, keep passing under either, since
+  neither changes the words.
+
+### agent-files(proposal): v0.3.1
+
+(wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
+dead-end cycles defined, and the end of every rung and of Land reshaped, so that what the user
+reviews is what is published. Follows **feat: vc-x1 commit, install, and run-dev**, whose commands
+the rules below name. Each change is a `####` heading holding what is done, and its `#####` holds
+why.
+
+#### Never rename
+
+- The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
+  `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
+- Land step 4 becomes `vc-x1 build`, a `vc-x1 run -V` smoke check, and `vc-x1 install`.
+- Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
+  identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
+  then.
+
+##### Why: never rename
+
+The rename's restore at Land changes the closing after its review, by a squash into a pushed
+commit, and Land step 4 names no command.
+
+#### A local commit pair before every push
+
+- Per-rung flow step 8 becomes `vc-x1 commit -s b`, and the description review is of the commit
+  it makes, description and diff together, by `jj show @-` or gitk. A fix is edited and folded by
+  `vc-x1 squash -s b`, a description fix by `squash -s b --title --body`.
+- Step 9's `vc-x1 push -s b` publishes the pair.
+- Step 6's work review stays ahead of it.
+- Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
+  a rung, and `vc-x1 push` publishing, and `jj.md`'s vc-x1 push section follows.
+- Re-describing: the rule becomes never by hand and never on a published commit, since the pair
+  carries trailers from the start and `squash --title --body` is the sanctioned re-describe.
+
+##### Why: a local commit pair
+
+The last closing's review came after its push, so a change meant a remote rewrite and a
+squash-push in both repos. Made as a pair, both trailers are known at commit and push carries no
+description, so the reviewed commit is the published one. The work review stays first so a
+description is not rewritten while the work still moves.
+
+#### The scope flags in the rules
+
+- Every `vc-x1` invocation in the agent-files carries its scope: `sync -s b` at the sync points,
+  `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
+  user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
+
+##### Why: the scope flags
+
+`-s` is required on the write commands and `sync` once **feat: vc-x1 commit, install, and run-dev**
+lands, so the rules' invocations must carry it or fail.
+
+#### The closing is the trapezoid
+
+- A multi-step cycle always closes as a trapezoid, and keep separate goes.
+- The closing is made by `vc-x1 commit --closing`, so Land is sync, fast-forward, install, and the
+  bookmark's deletion. The trapezoid recipe and Close-out step 5 go, and `jj.md` Close-out shapes
+  keeps the trapezoid and why squash is not a shape.
+
+- The shape's name: with one rung the figure is a triangle, wink's observation (2026-10-20), so
+  "trapezoid" names one case. The tool calls the operation `merge` and the result the merge
+  close-out, and the rules' text could follow. `commit --closing` merges into the current `main`,
+  so a `main` that moved during the cycle no longer stops Land for a rebase.
+
+##### Why: the trapezoid always
+
+The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape
+at Land is a change made after review.
+
+#### A commit body is two plain paragraphs
+
+- The problem, then the solution opening "Solution:", ending with the pointer to the record, "See
+  details in zCLOSED.md.", no bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
+  pointer to the record** in `## Todo`, its rule, specimens, and subsection change.
+
+##### Why: two paragraphs
+
+A `git log` reader gets what was wrong and what was done in two sentences, and the breakdown is
+written once, in the record, rather than twice.
+
+#### Ladder labels from `[0]`
+
+- `notes.md` and the `cycle-model.md` specimen number the ladder's reference labels from `[0]`.
+
+##### Why: labels from zero
+
+Each label then equals its rung's version suffix.
+
+#### A rung may run the acceptance check
+
+- Close-out step 1 says a rung may run it and the closing records the result.
+
+##### Why: a rung may run it
+
+Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of passing**.
+
+#### Dead-end cycles defined
+
+- A cycle abandoned after its opening pushed still closes and lands. Its closing, titled with the
+  cycle title plus " dead-end closing", keeps what is worth keeping, reverts the rest, and records
+  what was tried, why it stopped, and what replaces it, then lands as a trapezoid like any closing.
+- The title cap does not bind the suffix (wink, 2026-10-20).
+- In `AGENTS.md` Close-out, `jj.md` Close-out shapes, and `prose.md`'s bookend titles.
+- Open: whether a dead end's Land releases its bare version or reverts to the last release.
+- First run: **test: the tests build the dr-1 fixture**, closed 2026-10-20.
+
+##### Why: dead ends land
+
+The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
+so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+
+#### Not in it
+
+Each run on its own:
+
+- The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record moves
+  out of TODO.md into zDOING.md**.
+- A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
+  ladder** has its results.
+
+### Any config string references any key
+
+(wink + agent, 2026-10-22) The install lists take `{build.release-bin}` and
+`{install.release-dir}`, or the `dev` pair, filled with the values resolved for the run, and no
+other string in the config takes a placeholder. Raised at the review of the rung **feat: vc-x1
+install-dev puts the dev build on the PATH**, in the cycle **feat: vc-x1 install stages, deploys,
+and runs builds**: if some strings may reference keys, any string should, and any key should be
+referable, so `[repos]`, `[remote]`, and `[family]` are not left out. The install lists are a
+subset of the rule, so nothing written for them changes.
+
+- One meaning everywhere: a `{key}` is the key's resolved value, a path absolute and `~` expanded,
+  any other value its own text. A resolved path is a valid value for a path key, so
+  `dev-dir = "{install.release-dir}"` works, and resolving it again changes nothing.
+- A flag is an override of its key: `install --dir tmp/bin` sets `install.release-dir` for the run
+  before references are filled, so a list and a plain value naming the key see the same value.
+- Which keys are paths: a `path` kind in the schema, so the loader knows what to resolve. Each
+  reader resolves its own today.
+- One pass in the loader: references are filled once at load, so every command reads finished
+  values. A cycle (`a = "{b}"`, `b = "{a}"`) and an unknown name are errors naming the keys, and a
+  brace that is not a placeholder, `{}` or `{a b}`, stays literal, as in the install lists.
+- Scope: a reference stays inside its own file, the workspace config or the user config, which
+  keep separate homes for their keys.
+- Every reader sees filled values at once, `repos`, `family`, and `agent-session` among them, so
+  it is a change to config loading and wants its own cycle.
+- With it, the schema could mark the command lists `kind = "command-list"` beside `path`, so
+  `config --validate` checks a list's placeholders without running it.
+
 ### Improve init and add rename and delete subcommands
 
 (wink + agent, 2026-10-11) A workspace's name is written into six places, and nothing renames or
@@ -217,6 +398,13 @@ sequence, with the review between its commit and its pushes, filed at the first 
   partner.
 - Wants **feat: vc-x1 install stages, deploys, and runs builds** first for step 6, and bookmark
   deletion in `vc-x1` for step 7, each of which may land as its own cycle before this one.
+- A single-step cycle skips steps 2 and 3: its one commit is on `main` already, titled with the
+  bare cycle title, so there is no ladder to merge and `commit --closing` refuses one, by design
+  and its test `closing_with_no_ladder_is_refused`. Its Land is the sync, the fast-forward of
+  `--to` to the commit, the push, the install, and the deletion, so the command tells the two
+  shapes apart, by the commits between `--to` and `--from`'s tip, one for a single-step cycle and
+  at least two for a ladder, its opening and a rung, and says which it ran. (wink + agent,
+  2026-10-22)
 
 #### Two commands, and their undos
 
@@ -257,126 +445,6 @@ Defaults invite mistakes, and the two undos differ:
   land-it stops before its push with the plan printed, the last point where its undo is local.
 - The lean: close-out-commit's undo in this cycle, as a flag or a sibling command. land-it's true
   undo, after the push, waits until a real mistake asks for it.
-
-### agent-files(proposal): v0.3.1
-
-(wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
-dead-end cycles defined, and the end of every rung and of Land reshaped, so that what the user
-reviews is what is published. Follows **feat: vc-x1 commit, install, and run-dev**, whose commands
-the rules below name. Each change is a `####` heading holding what is done, and its `#####` holds
-why.
-
-#### Never rename
-
-- The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
-  `versioning.md` Dev artifact name is rewritten around the `[install]` table and the dev root.
-- Land step 4 becomes `vc-x1 build`, a `vc-x1 run -V` smoke check, and `vc-x1 install`.
-- Fast and full then differ only by `-- --include-ignored`, the fourteen `dr1_*` tests, and are
-  identical once **dr-1 is built in Rust** drops their `#[ignore]`. What fast becomes is decided
-  then.
-
-##### Why: never rename
-
-The rename's restore at Land changes the closing after its review, by a squash into a pushed
-commit, and Land step 4 names no command.
-
-#### A local commit pair before every push
-
-- Per-rung flow step 8 becomes `vc-x1 commit -s b`, and the description review is of the commit
-  it makes, description and diff together, by `jj show @-` or gitk. A fix is edited and folded by
-  `vc-x1 squash -s b`, a description fix by `squash -s b --title --body`.
-- Step 9's `vc-x1 push -s b` publishes the pair.
-- Step 6's work review stays ahead of it.
-- Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
-  a rung, and `vc-x1 push` publishing, and `jj.md`'s vc-x1 push section follows.
-- Re-describing: the rule becomes never by hand and never on a published commit, since the pair
-  carries trailers from the start and `squash --title --body` is the sanctioned re-describe.
-
-##### Why: a local commit pair
-
-The last closing's review came after its push, so a change meant a remote rewrite and a
-squash-push in both repos. Made as a pair, both trailers are known at commit and push carries no
-description, so the reviewed commit is the published one. The work review stays first so a
-description is not rewritten while the work still moves.
-
-#### The scope flags in the rules
-
-- Every `vc-x1` invocation in the agent-files carries its scope: `sync -s b` at the sync points,
-  `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
-  user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
-
-##### Why: the scope flags
-
-`-s` is required on the write commands and `sync` once **feat: vc-x1 commit, install, and run-dev**
-lands, so the rules' invocations must carry it or fail.
-
-#### The closing is the trapezoid
-
-- A multi-step cycle always closes as a trapezoid, and keep separate goes.
-- The closing is made by `vc-x1 commit --closing`, so Land is sync, fast-forward, install, and the
-  bookmark's deletion. The trapezoid recipe and Close-out step 5 go, and `jj.md` Close-out shapes
-  keeps the trapezoid and why squash is not a shape.
-
-- The shape's name: with one rung the figure is a triangle, wink's observation (2026-10-20), so
-  "trapezoid" names one case. The tool calls the operation `merge` and the result the merge
-  close-out, and the rules' text could follow. `commit --closing` merges into the current `main`,
-  so a `main` that moved during the cycle no longer stops Land for a rebase.
-
-##### Why: the trapezoid always
-
-The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape
-at Land is a change made after review.
-
-#### A commit body is two plain paragraphs
-
-- The problem, then the solution opening "Solution:", ending with the pointer to the record, "See
-  details in zCLOSED.md.", no bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
-  pointer to the record** in `## Todo`, its rule, specimens, and subsection change.
-
-##### Why: two paragraphs
-
-A `git log` reader gets what was wrong and what was done in two sentences, and the breakdown is
-written once, in the record, rather than twice.
-
-#### Ladder labels from `[0]`
-
-- `notes.md` and the `cycle-model.md` specimen number the ladder's reference labels from `[0]`.
-
-##### Why: labels from zero
-
-Each label then equals its rung's version suffix.
-
-#### A rung may run the acceptance check
-
-- Close-out step 1 says a rung may run it and the closing records the result.
-
-##### Why: a rung may run it
-
-Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of passing**.
-
-#### Dead-end cycles defined
-
-- A cycle abandoned after its opening pushed still closes and lands. Its closing, titled with the
-  cycle title plus " dead-end closing", keeps what is worth keeping, reverts the rest, and records
-  what was tried, why it stopped, and what replaces it, then lands as a trapezoid like any closing.
-- The title cap does not bind the suffix (wink, 2026-10-20).
-- In `AGENTS.md` Close-out, `jj.md` Close-out shapes, and `prose.md`'s bookend titles.
-- Open: whether a dead end's Land releases its bare version or reverts to the last release.
-- First run: **test: the tests build the dr-1 fixture**, closed 2026-10-20.
-
-##### Why: dead ends land
-
-The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
-so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
-
-#### Not in it
-
-Each run on its own:
-
-- The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record moves
-  out of TODO.md into zDOING.md**.
-- A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
-  ladder** has its results.
 
 ### Every repo's .gitignore ignores .claude, and settings stay out of agent-repos
 
@@ -425,8 +493,9 @@ The work:
   their agent-repo's `.gitignore`, iiac-perf's being new, delete the tracked `settings.json`, and
   untrack `settings.local.json`, both pushed with the session history today. Their own agents do
   it, a repo with a live agent not being this session's to write.
-- Place: a rung of **feat: vc-x1 install stages, deploys, and runs builds** after its install rung,
-  and the message after that cycle lands.
+- Place: a cycle of its own, and the message after it lands. It was planned as a rung of **feat:
+  vc-x1 install stages, deploys, and runs builds** and left that ladder at the review of its
+  `install-dev` rung, wink's call (2026-10-22).
 
 ### Shell completion installs itself and asks the binary typed
 
@@ -2146,6 +2215,57 @@ agent-repo trailer names it, and it stays as it is.
   or an allowance for lines without spaces.
 - The widths live in prose.md, their one home, so the check reads them from there or the two
   copies must be kept in step.
+
+### vc-x1 runs on Windows
+
+(wink + agent, 2026-10-22) vc-x1 builds and runs on Linux and macOS only. Weighed at the review
+of the rung **feat: vc-x1 install-dev puts the dev build on the PATH**, in the cycle **feat: vc-x1
+install stages, deploys, and runs builds**, when the install lists were written with `cp` and
+`mv`. On Windows the binary is `vc-x1.exe`, run as `vc-x1`, and what follows from that is
+unwritten.
+
+- The binaries: cargo leaves `target/release/vc-x1.exe`, so `[build] release-bin` and `dev-bin`
+  name the `.exe`, or vc-x1 adds `std::env::consts::EXE_SUFFIX` itself, a decision.
+- The `-dev` name goes before the extension, `vc-x1-dev.exe`. `dest_name` in
+  `src/install_cmd.rs` appends it to the whole file name, `vc-x1.exe-dev`, which Windows will not
+  run.
+- The built-in copy: a running `.exe` cannot be replaced in place, even by a rename over it, so
+  the copy renames the running one aside and moves the new one in.
+- The install lists: `cp` and `mv` exist on Windows only where something installed them, Git for
+  Windows or MSYS2, and `copy` and `move` are `cmd.exe` builtins, not programs a list can run. A
+  portable form, a `{cp}` placeholder, would be additive, since an unknown placeholder is an error
+  today, and it resolves to a real program, perhaps vc-x1's own copy.
+- The code: `symlink` is `#[cfg(unix)]`, and `install_cmd`'s tests use `std::os::unix`
+  unconditionally, so the crate's tests do not build on Windows.
+
+### vc-x1 config and init write a simple config
+
+(wink + agent, 2026-10-22) `vc-x1 config work` names the workspace's file and then prints the
+schema, every key commented at its default or example, so it never shows what the file says, and
+its form is the old TOML carrier's, `#` lines under bare `[table]` headers, which a `.vc-config.md`
+cannot take without a fence around it. Each key is six lines, its doc, `used by`, `default`, its
+reference url, the line itself, and a blank, 187 lines at 0.85.7-6, most of them `default:
+(none)` and urls. `vc-x1 init` writes `[repos]` and `[remote]` and only the keys with a default,
+commented, so a new workspace has no `[validate]`, `[build]`, or `[install]` to start from.
+Found at the review of the rung **feat: vc-x1 install-dev puts the dev build on the PATH**, in
+the cycle **feat: vc-x1 install stages, deploys, and runs builds**.
+
+- The simple form is iiac-perf's `.vc-config.md`: a short intro, then per table one line of prose
+  saying what it is for and a `toml` fence holding its values, no per-key bullets, defaults lines,
+  or urls. The documentation stays in `vc-config.md`, where the schema keeps it.
+- `vc-x1 config work` prints the workspace's config in effect in that form: the tables and the
+  values the file sets, a key at its default marked so, and a key a command needs but the file
+  lacks named with the command, `build.release` needed by `build`.
+- `vc-x1 config --model` prints every table in the same form with its default or example, for
+  copying from. `vc-config-model.md` is the same text, so its generator, `#[cfg(test)] mod model`
+  in `src/config_md.rs` today, ships with the binary.
+- `--toml` prints either in pure TOML, for a `.vc-config.toml`: the same tables and values, each
+  table's line of prose as a `#` comment above it.
+- `vc-x1 init` writes the simple form, from the same renderer, with `[repos]` and `[remote]` active
+  and the tables it cannot fill, `[validate]`, `[build]`, and `[install]` among them, shown with
+  their examples to edit. Whether those are commented or left out with a pointer to `config
+  --model` is a decision, since a commented table in a fence reads as configuration.
+- The current output, the six lines per key, goes. `config --validate` is unchanged.
 
 ## Ideas
 

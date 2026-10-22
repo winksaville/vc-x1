@@ -26,14 +26,15 @@
 #    tests' launcher spawning the built vc-x1 binary is this entry
 #    too: spawning the binary is what a CLI test is.
 # 5. A configured command list (src/command_list.rs): runs the
-#    workspace's `[validate]` commands for validate and its
-#    `[build]` commands for build and build-dev, which is each
-#    command's whole job. Opened 2026-08-21 by the "empty
-#    custom-family into the pinned set and config" cycle, whose plan
-#    put the checklist commands in config for one subcommand to run,
-#    and widened to the build lists by "feat: vc-x1 install stages,
-#    deploys, and runs builds", the one site moved out of
-#    src/validate.rs so all three share it.
+#    workspace's `[validate]` commands for validate, its `[build]`
+#    commands for build and build-dev, and its optional `[install]`
+#    lists for install and install-dev, which is each list's whole
+#    job. Opened 2026-08-21 by the "empty custom-family into the
+#    pinned set and config" cycle, whose plan put the checklist
+#    commands in config for one subcommand to run, and widened to the
+#    build and install lists by "feat: vc-x1 install stages, deploys,
+#    and runs builds", the one site moved out of src/validate.rs so
+#    they all share it.
 # 6. Sync's remote look (src/jj/session.rs, `git_command`): two
 #    git commands that ask a remote and move no ref. `git ls-remote
 #    --heads <remote>` gives the commit each of the remote's

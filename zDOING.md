@@ -15,14 +15,16 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-- 2026-10-22, the rung **feat: install takes --dir** is pushed at 0.85.7-5, after the stamp rung.
-  A test of `install` now goes to a scratch directory by `--dir tmp/bin`.
-- Next, as planned: **feat: vc-x1 install-dev puts the dev build on the PATH**, then the inserted
-  rung for **Every repo's .gitignore ignores .claude, and settings stay out of agent-repos**, then
-  the run rung, then the closing. The closing's README guidance gains the first install by `cargo
-  run --locked -- install`, and again whenever the installed `vc-x1` is too old for the workspace.
-- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, clean at `ba76874d`, the
-  install rung, by `cargo run install` (2026-10-22). The landed version comes back with this
+- 2026-10-22, the rung **feat: vc-x1 install-dev puts the dev build on the PATH** is pushed at
+  0.85.7-6, after the `--dir` rung. A test of `install` or `install-dev` goes to a scratch
+  directory by `--dir tmp/bin`.
+- Next: the run rung, then the closing. The `.gitignore` rung planned after the install rung left
+  the ladder, its Todo entry run as a cycle of its own. The closing's README guidance
+  gains the first install by `cargo run --locked -- install`, and again whenever the installed
+  `vc-x1` is too old for the workspace.
+- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-6, at the `--dir` rung's
+  commit with this rung's edits, its state `unknown` (2026-10-22, 15:03), after test installs of
+  0.85.7-5 at 11:08 and 0.85.7-3 that morning. There is no `~/.cargo/bin/vc-x1-dev` yet. The landed version comes back with this
   cycle's Land, or a build of `main` installed. `cargo run --locked -- <command>` rebuilds
   `target/debug/vc-x1` when it is missing.
 
@@ -340,7 +342,7 @@ version.
 - [feat: vc-x1 install copies the release build][3] (done)
 - [feat: the release stamp goes, cargo tracks staleness][4] (done)
 - [feat: install takes --dir][5] (done)
-- [feat: vc-x1 install-dev puts the dev build on the PATH][6]
+- [feat: vc-x1 install-dev puts the dev build on the PATH][6] (done)
 - [feat: vc-x1 run and run-dev run the builds][7]
 - [feat: vc-x1 install stages, deploys, and runs builds closing][8]
 
@@ -477,7 +479,7 @@ sees.
 ##### feat: vc-x1 install-dev puts the dev build on the PATH
 
 Inserted after the `--dir` rung, wink's call (2026-10-22): `install-dev` runs `build-dev`, then
-copies `[build] dev-bin` into `[install] dir` under its file name with `-dev` appended,
+copies `[build] dev-bin` into `[install] dev-dir` under its file name with `-dev` appended,
 `~/.cargo/bin/vc-x1-dev` here, by `install`'s report and copy, and takes `--dir` too. The landed
 `vc-x1` and the cycle's `vc-x1-dev` sit side by side on the PATH, what the `-dev` rename gave,
 with nothing renamed and nothing for Land to restore.
@@ -485,11 +487,65 @@ with nothing renamed and nothing for Land to restore.
 - `run-dev` is not enough: it finds its binary by the config of the workspace it runs in, so in
   another project it runs that project's dev build, and only a dev binary on the PATH under its
   own name tries a cycle's vc-x1 there.
-- The suffix is fixed, wink's call: the `-dev` suffix always means the dev build, as in
-  `build-dev` and `run-dev`, so there is no key, and a project wanting another name adds one when
-  it asks.
+- The suffix began fixed, wink's call, with no key, and became `[install] dev-suffix` at the
+  review, wink's call (2026-10-22), `-dev` when absent, a key in the table that uses it, not
+  `[build]`, since the build leaves no suffixed name. The built-in copy appends it, the `dev` list
+  takes it as `{install.dev-suffix}`, and a suffix holding a path separator is an error.
+- The guard the fixed suffix gave returns as a check: without a list, `install-dev` refuses before
+  the build when its destination is the release's, `install.release-dir` and the release's file
+  name, the directories compared canonical, so an empty suffix or a `--dir` onto the release's
+  directory cannot replace the release. A list writes where it says, out of the check's reach.
 - The name the build rung set aside, "install-dev" for a build that reached no PATH, fits now,
   since this one does.
+- `install-dev` is `install` with the dev build's list and binary: one params builder takes
+  `dev`, as `build_params` does, the label, `install` or `install-dev`, prefixing every message,
+  and a refusal for a missing binary names the key to check, `build.release-bin` or
+  `build.dev-bin`, since the build ran just before and a binary missing after it is a wrong key.
+- `[build] dev-bin`, in the schema since the build rung, gets its first reader, sharing
+  `release-bin`'s code.
+- `[install]` mirrors `[build]`, widened at the review, wink's call (2026-10-22): `release`,
+  `release-dir`, `dev`, and `dev-dir`, in `[build]`'s order. `dir` becomes `release-dir`, unlanded
+  so free to rename, and `dev-dir` is `install-dev`'s, required as the bin keys are, with no
+  fallback to `release-dir`. Here both name `~/.cargo/bin`, the suffix keeping the two apart.
+- `[install] release` and `dev` make the install scriptable as the build is: optional command
+  lists that, when present, run in place of the built-in copy, after the same build, report, and
+  refusals. Optional, not required as the build lists are, since the built-in copy is a default
+  that needs no list. A dry run runs no list.
+- The list's inputs are placeholders named by key, wink's call: `{build.release-bin}` and
+  `{install.release-dir}`, or the `dev` pair, filled in each word after the whitespace split, so a
+  value with spaces stays one word and no shell is added. Each is the value resolved for the run,
+  `~` expanded and `--dir` applied, `--dir` made absolute, since otherwise `install --dir tmp/bin`
+  would still write to the PATH. A `{name}` the command does not read is an error before the
+  build. The first form, three `VC_X1_INSTALL_*` variables, needed a script for any use, since a
+  list has no shell, and went.
+- Weighed and set aside: a derived `{dest}`, the file name only vc-x1 knows, since with key-named
+  placeholders the list names every path it writes and the user has the control, the `-dev` name
+  included. The cost, accepted: a `dev` list that writes the release's name into a shared
+  directory replaces the release, and vc-x1 cannot see it.
+- This workspace sets both lists, wink's call, each the built-in copy written out, `cp` to a
+  `.new` file and `mv` into place, safe over a running binary, so the config says what `install`
+  does and the list path runs at every Land. The model's example is the same list, so a copied
+  table works. `cp` and `mv` are not portable, and a `{cp}` placeholder would be additive later,
+  in the new Todo entry **vc-x1 runs on Windows**.
+- The rung planned for **Every repo's .gitignore ignores .claude, and settings stay out of
+  agent-repos** leaves the ladder, wink's call (2026-10-22), its Todo entry run as a cycle of its
+  own, so the run rung follows this one and the closing that.
+- Placeholders stay in the install lists, two keys each, for this rung, wink's call. The general
+  rule, any config string referencing any key by its resolved value, a flag overriding its key, is
+  the new Todo entry **Any config string references any key**, of which the install lists are a
+  subset.
+- `command_list` gains `load_optional`, an absent key `None`, and placeholders offered by the
+  caller, none for `validate` and `build`, whose lists are taken as written. The log shows each
+  command with its placeholders filled, so it names the paths used. Clippy's register entry 5
+  widens to the install lists.
+- With a list the report's first line says `-> list` and the key, since vc-x1 no longer knows the
+  destination, and a dry run says it ran nothing.
+- The help, the README's overview, table, config notes, the `install` section's list paragraph,
+  and a new `install-dev` section, `vc-config.md`'s `build.dev-bin` and the four `install.*`
+  sections in place of `install.dir`, `.vc-config.md`, and the regenerated model follow.
+- Tried by `cargo run --locked -- install-dev --dir tmp/bin`, through the `dev` list: the log
+  showed `cp` and `mv` with the absolute paths, `tmp/bin/vc-x1-dev -V` reported 0.85.7-6, dirty,
+  and nothing on the PATH changed. `install --dry-run` read the `release` list and ran nothing.
 
 ##### feat: vc-x1 run and run-dev run the builds
 
@@ -497,9 +553,20 @@ The release build and the dev build, both off the PATH, are run through the conf
 in the workspace, each built first, with a warning when either is not the manifest's
 version, and the words after either subcommand are completed by the binary it would run.
 
+- Added at the `install-dev` review, wink's call (2026-10-22): `build`, `build-dev`, `run`, and
+  `run-dev` take `--dry-run`, as `install` and `install-dev` do, so every pair takes it. For the
+  builds and the runs it prints what would be run and runs nothing. `install`'s keeps building,
+  since its report is of the binary that would be copied. `--dir` stays `install`'s, the one
+  command with a destination.
+
 ##### feat: vc-x1 install stages, deploys, and runs builds closing
 
 Closing out the cycle.
+
+- The Todo entry **feat: vc-x1 land closes a cycle and lands it** waits on this cycle for its step
+  6, `build`, a `run -V` smoke check, and `install`, and says the command stops before them until
+  this cycle lands. The closing rewrites that bullet, the commands being there. Kept a separate
+  cycle, wink's call (2026-10-22).
 
 # References
 
