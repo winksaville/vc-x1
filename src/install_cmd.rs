@@ -25,6 +25,10 @@
 //!   of the old one is undisturbed, and a failed copy leaves the old
 //!   one.
 //! - `--dry-run` builds and reports, and copies nothing.
+//! - `--dir <DIR>` copies into `DIR` instead of `[install] dir`, for
+//!   one run, so a test of install leaves the PATH alone. A relative
+//!   `DIR` is taken against the current directory, as any path argument
+//!   is, and the workspace needs no `[install] dir` for it.
 //! - A workspace with no `[install] dir` has nothing to install, and
 //!   install says so before building anything.
 
@@ -51,6 +55,10 @@ pub struct InstallArgs {
     /// the current directory]
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
+
+    /// Copy into DIR instead of `[install] dir`, for this run
+    #[arg(long, value_name = "DIR")]
+    pub dir: Option<PathBuf>,
 }
 
 /// What the release binary's `-V` says: its version and, from the
@@ -94,7 +102,8 @@ pub struct InstallParams {
     pub release: BuildParams,
     /// The release binary, `[build] release-bin`.
     pub bin: PathBuf,
-    /// The destination, `[install] dir` joined with the binary's name.
+    /// The destination, `--dir` or `[install] dir` joined with the
+    /// binary's name.
     pub dest: PathBuf,
     /// Build and report, and copy nothing.
     pub dry_run: bool,
@@ -103,9 +112,10 @@ pub struct InstallParams {
 impl TryFrom<&InstallArgs> for InstallParams {
     type Error = String;
 
-    /// Resolve the workspace, the install directory, and the release
-    /// build. A missing config key is an error here, before the build
-    /// runs, and every fact about the binary is gathered after it.
+    /// Resolve the workspace, the install directory, `--dir` before
+    /// `[install] dir`, and the release build. A missing config key is
+    /// an error here, before the build runs, and every fact about the
+    /// binary is gathered after it.
     fn try_from(a: &InstallArgs) -> Result<Self, String> {
         let root = match &a.repo {
             Some(p) => crate::common::find_workspace_root_from(p)
@@ -113,7 +123,7 @@ impl TryFrom<&InstallArgs> for InstallParams {
             None => crate::common::find_workspace_root()
                 .ok_or_else(|| "install: not in a vc-x1 workspace (no config found)".to_string())?,
         };
-        let dest_dir = install_dir(&root)?;
+        let dest_dir = dest_dir(&root, a.dir.as_deref())?;
         let release = build_params(false, Some(&root))?;
         let bin = release_bin(&root)?;
         let name = bin
@@ -141,6 +151,15 @@ pub fn gather(root: &Path, bin: &Path, dest: &Path) -> Result<Facts, String> {
         reported: run_version(bin).as_deref().and_then(parse_reported),
         dest_dir_exists: dest.parent().is_some_and(Path::is_dir),
     })
+}
+
+/// The directory the copy goes to: `dir`, the `--dir` value, when
+/// given, else `[install] dir` at `root`.
+fn dest_dir(root: &Path, dir: Option<&Path>) -> Result<PathBuf, String> {
+    match dir {
+        Some(d) => Ok(d.to_path_buf()),
+        None => install_dir(root),
+    }
 }
 
 /// `[install] dir` at `root`: `~` and `~/...` against the home
@@ -293,7 +312,7 @@ pub fn refusals(f: &Facts, bin: &Path, dest: &Path) -> Vec<String> {
         // OK: dest is a directory joined with a file name, so it has a parent
         let dir = dest.parent().unwrap_or(dest);
         out.push(format!(
-            "the `install.dir` directory '{}' does not exist",
+            "the install directory '{}' does not exist",
             dir.display()
         ));
     }
@@ -440,7 +459,13 @@ mod tests {
             Some(Commands::Install(a)) => {
                 assert!(a.dry_run.value);
                 assert_eq!(a.repo, Some(PathBuf::from("x")));
+                assert_eq!(a.dir, None);
             }
+            _ => panic!("expected Install"),
+        }
+        let cli = Cli::try_parse_from(["vc-x1", "install", "--dir", "tmp/bin"]).unwrap();
+        match cli.command {
+            Some(Commands::Install(a)) => assert_eq!(a.dir, Some(PathBuf::from("tmp/bin"))),
             _ => panic!("expected Install"),
         }
     }
@@ -660,9 +685,31 @@ mod tests {
         let args = InstallArgs {
             dry_run: DryRunFlag { value: true },
             repo: Some(dir.clone()),
+            dir: None,
         };
         let e = InstallParams::try_from(&args).unwrap_err();
         assert!(e.contains("nothing to install"), "{e}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// `--dir` replaces `[install] dir` for the run, and needs no
+    /// `[install] dir` to do it.
+    #[test]
+    fn dir_overrides_the_install_dir() {
+        let dir = tempdir("dirflag");
+        let cfg = "```toml\n[repos]\nwork = \".\"\n";
+        std::fs::write(dir.join(".vc-config.md"), format!("{cfg}```\n")).unwrap();
+        let flag = Path::new("/scratch/bin");
+        assert_eq!(dest_dir(&dir, Some(flag)).unwrap(), flag);
+        let e = dest_dir(&dir, None).unwrap_err();
+        assert!(e.contains("nothing to install"), "{e}");
+        std::fs::write(
+            dir.join(".vc-config.md"),
+            format!("{cfg}[install]\ndir = \"/opt/bin\"\n```\n"),
+        )
+        .unwrap();
+        assert_eq!(dest_dir(&dir, Some(flag)).unwrap(), flag, "--dir wins");
+        assert_eq!(dest_dir(&dir, None).unwrap(), PathBuf::from("/opt/bin"));
         std::fs::remove_dir_all(&dir).ok();
     }
 

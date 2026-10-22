@@ -891,7 +891,9 @@ a branch or a tag makes it differently. `install` refuses only when the copy its
 wrong, listing every reason: no binary at `release-bin` after the build, a binary whose `-V` will
 not run, or a missing install directory.
 
-`--dry-run` builds and reports, and copies nothing. A workspace with no `[install] dir` has
+`--dry-run` builds and reports, and copies nothing. `--dir <DIR>` copies into `DIR` instead of
+`[install] dir` for the one run, so a test of `install` leaves the PATH alone, a relative `DIR`
+taken against the current directory. A workspace with no `[install] dir`, and no `--dir`, has
 nothing to install, and `install` says so before building anything.
 
 ```
@@ -899,6 +901,10 @@ nothing to install, and `install` says so before building anything.
 vc-x1 build
 target/release/vc-x1 -V
 vc-x1 install
+
+# Testing install itself: the copy goes to tmp/bin, and ~/.cargo/bin is untouched
+mkdir -p tmp/bin
+cargo run --locked -- install --dir tmp/bin
 ```
 
 The report, run on a cycle's bookmark with edits in `@`:
@@ -916,6 +922,7 @@ The build's own lines, `build: [1/1] cargo build --release --locked` and the res
 | Option | Description |
 |--------|-------------|
 | `--dry-run` | Build and report, and copy nothing |
+| `--dir <DIR>` | Copy into `DIR` instead of `[install] dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
 ### validate-agent

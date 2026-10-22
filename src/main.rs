@@ -335,9 +335,11 @@ pub(crate) enum Commands {
         installed is the release process's call, not the tool's. It refuses\n\
         only when the copy itself would be wrong: no binary at `release-bin`\n\
         after the build, a binary whose -V will not run, or a missing install\n\
-        directory. --dry-run builds and reports, and copies nothing. A\n\
-        workspace with no `[install] dir` has nothing to install, and builds\n\
-        nothing."
+        directory. --dry-run builds and reports, and copies nothing.\n\
+        --dir DIR copies into DIR instead of `[install] dir` for this run,\n\
+        so a test of install leaves the PATH alone, a relative DIR taken\n\
+        against the current directory. A workspace with no `[install] dir`\n\
+        and no --dir has nothing to install, and builds nothing."
     )]
     Install(install_cmd::InstallArgs),
 

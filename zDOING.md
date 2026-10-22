@@ -15,13 +15,12 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-- 2026-10-22, the stamp rung **feat: the release stamp goes, cargo tracks staleness** is pushed
-  at 0.85.7-4, after the install rung.
-- Next, as planned: **feat: install takes --dir**, **feat: vc-x1 install-dev puts the dev build on
-  the PATH**, then the inserted rung for **Every repo's .gitignore ignores .claude, and settings
-  stay out of agent-repos**, then the run rung, then the closing. The closing's README guidance
-  gains the first install by `cargo run --locked -- install`, and again whenever the installed
-  `vc-x1` is too old for the workspace.
+- 2026-10-22, the rung **feat: install takes --dir** is pushed at 0.85.7-5, after the stamp rung.
+  A test of `install` now goes to a scratch directory by `--dir tmp/bin`.
+- Next, as planned: **feat: vc-x1 install-dev puts the dev build on the PATH**, then the inserted
+  rung for **Every repo's .gitignore ignores .claude, and settings stay out of agent-repos**, then
+  the run rung, then the closing. The closing's README guidance gains the first install by `cargo
+  run --locked -- install`, and again whenever the installed `vc-x1` is too old for the workspace.
 - Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, clean at `ba76874d`, the
   install rung, by `cargo run install` (2026-10-22). The landed version comes back with this
   cycle's Land, or a build of `main` installed. `cargo run --locked -- <command>` rebuilds
@@ -340,7 +339,7 @@ version.
 - [feat: status takes the write commands' scope][2] (done)
 - [feat: vc-x1 install copies the release build][3] (done)
 - [feat: the release stamp goes, cargo tracks staleness][4] (done)
-- [feat: install takes --dir][5]
+- [feat: install takes --dir][5] (done)
 - [feat: vc-x1 install-dev puts the dev build on the PATH][6]
 - [feat: vc-x1 run and run-dev run the builds][7]
 - [feat: vc-x1 install stages, deploys, and runs builds closing][8]
@@ -464,6 +463,16 @@ one run, so a test copies into a scratch directory and the PATH binary is untouc
 set aside: the `-dev` rename mid-cycle, which reaches the binary's name everywhere and Land's
 restore, and `HOME=` for a test run, which is easy to forget and changes what the rest of the run
 sees.
+
+- `--dir` takes the place of `[install] dir` before the config is read for it, so a workspace with
+  no `[install] dir` installs with `--dir`, and the refusal for a missing directory names "the
+  install directory" rather than the key, since the flag may have named it.
+- A relative `--dir` is taken against the current directory, as any path argument is, unlike
+  `[install] dir`, which is taken against the config file's directory, and it gets no `~`
+  expansion of its own, the shell's being enough. The README's example tests `install` into
+  `tmp/bin`.
+- Tried by `cargo run --locked -- install --dir tmp/bin`: the release copy went into `tmp/bin`, and
+  `~/.cargo/bin/vc-x1` kept its time, the 0.85.7-3 test install.
 
 ##### feat: vc-x1 install-dev puts the dev build on the PATH
 
