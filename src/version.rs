@@ -60,8 +60,7 @@ pub enum SourceState {
 }
 
 impl SourceState {
-    /// The state's word, as the variables, the stamp, and the banner
-    /// spell it.
+    /// The state's word, as the variables and the banner spell it.
     pub fn as_str(self) -> &'static str {
         match self {
             SourceState::Clean => "clean",

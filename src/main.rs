@@ -290,16 +290,15 @@ pub(crate) enum Commands {
     /// Build the release, off the PATH
     #[command(long_about = "Build the release, off the PATH.\n\n\
         Runs `[build] release` from the work repo root, here\n\
-        `cargo build --release --locked`, and writes a stamp beside\n\
-        `[build] release-bin`, the binary the config says the build leaves,\n\
-        naming the commit `@-` it was built from, the state of the source\n\
-        code that was compiled, clean when `@` was empty and dirty when not,\n\
-        and the binary's size and time. The commands see the commit and\n\
-        state as VC_X1_BUILD_COMMIT and VC_X1_BUILD_STATE, as validate's and\n\
-        build-dev's do, so vc-x1's own banner carries the commit. The release\n\
-        build is run by `vc-x1 run` and copied into the install directory by\n\
-        `vc-x1 install`, which runs this same build first and reports what\n\
-        the stamp says.\n\n\
+        `cargo build --release --locked`, and checks it left\n\
+        `[build] release-bin`, the binary the config says the build leaves.\n\
+        The commands see the commit `@-` and the state of the source code,\n\
+        clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
+        and VC_X1_BUILD_STATE, as validate's and build-dev's do, so vc-x1's\n\
+        own banner carries the commit. Cargo decides what to rebuild, so a\n\
+        build with nothing changed is quick. The release build is run by\n\
+        `vc-x1 run` and copied into the install directory by `vc-x1 install`,\n\
+        which runs this same build first.\n\n\
         Nothing is checked first: a release may be built from a cycle's\n\
         bookmark to try the release profile. The list runs as `validate`'s\n\
         does, each element one command, the first failure stopping the run.\n\
@@ -311,8 +310,7 @@ pub(crate) enum Commands {
         Runs `[build] dev` from the work repo root, here `cargo build --locked`,\n\
         leaving `[build] dev-bin`, with the commit and the state of the\n\
         source code as VC_X1_BUILD_COMMIT and VC_X1_BUILD_STATE, as build's\n\
-        and validate's commands get them. No stamp is written, since the dev\n\
-        build is never installed. After a validation it reuses the test\n\
+        and validate's commands get them. After a validation it reuses the test\n\
         build, so it takes under a second. `vc-x1 run-dev` runs it first.\n\
         See `vc-x1 config work` for the table's keys.")]
     BuildDev(build_cmd::BuildDevArgs),
@@ -320,8 +318,8 @@ pub(crate) enum Commands {
     /// Build the release if out of date, then copy it into the install directory
     #[command(
         long_about = "Build the release if out of date, then copy it into the install directory.\n\n\
-        It first runs `[build] release`, exactly as `vc-x1 build` does, stamp\n\
-        included. Cargo rebuilds only what changed, so with nothing changed\n\
+        It first runs `[build] release`, exactly as `vc-x1 build` does.\n\
+        Cargo rebuilds only what changed, so with nothing changed\n\
         the binary already tested is the one copied. The build leaves the\n\
         release at `[build] release-bin` (here `target/release/vc-x1`), and\n\
         `install` copies it into the one directory `[install] dir` names\n\
@@ -331,14 +329,15 @@ pub(crate) enum Commands {
         failed copy leaves the old one.\n\n\
         Before copying it reports what it is copying: the version and commit\n\
         the binary's -V shows, whether that commit is `main` and\n\
-        `main@origin`, clean or dirty, a version with a cycle's suffix, and\n\
-        whether the stamp still matches the binary. The report is for you to\n\
-        judge, and refuses nothing: which builds may be installed is the\n\
-        release process's call, not the tool's. It refuses only when the copy\n\
-        itself would be wrong: no binary at `release-bin` after the build, a\n\
-        binary whose -V will not run, or a missing install directory.\n\
-        --dry-run builds and reports, and copies nothing. A workspace with no\n\
-        `[install] dir` has nothing to install, and builds nothing."
+        `main@origin`, clean or dirty, and a version with a cycle's suffix.\n\
+        A binary whose -V carries no commit is reported as unknown. The\n\
+        report is for you to judge, and refuses nothing: which builds may be\n\
+        installed is the release process's call, not the tool's. It refuses\n\
+        only when the copy itself would be wrong: no binary at `release-bin`\n\
+        after the build, a binary whose -V will not run, or a missing install\n\
+        directory. --dry-run builds and reports, and copies nothing. A\n\
+        workspace with no `[install] dir` has nothing to install, and builds\n\
+        nothing."
     )]
     Install(install_cmd::InstallArgs),
 

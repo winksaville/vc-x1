@@ -535,7 +535,7 @@ The rule, wink's call (2026-10-21):
 - The constraints that make things fail when broken matter most, and belong beside the key:
   `[build] release-bin` and `dev-bin` must name where the build's commands leave the binary,
   since vc-x1 never works it out. A wrong `release-bin` fails `build` when nothing is there, and
-  when a stale binary is there `build` stamps it and `install` copies it. A wrong `dev-bin` has
+  when a stale binary is there `install` copies it. A wrong `dev-bin` has
   `run-dev` run a stale binary or none.
 - The why, who decided, when, the measurements and the trials, is in the cycle record,
   `zDOING.md` while the cycle runs and `zCLOSED.md` and the landmark's tree after.
@@ -551,23 +551,6 @@ The work:
 - A sentence in the agent-files saying a config file carries what and constraints and the why
   lives in the cycle record, tried in the local copy and proposed. It may fold into
   **agent-files(proposal): v0.3.1**.
-
-### The release stamp is reconsidered now that install builds
-
-(wink + agent, 2026-10-21) `vc-x1 build` writes `<release-bin>.stamp` naming the commit, the
-state, and the binary's size and time, so `install` could tell the binary `build` made from one
-rebuilt or replaced before the copy. Since the install rung of **feat: vc-x1 install stages,
-deploys, and runs builds**, `install` runs the release build itself, and `run` will too, so
-nothing sits between the build and the copy for the stamp to catch. vc-x1's own `-V` carries the
-commit and state, which the report reads first.
-
-- What the stamp still does: speaks for an artifact that reports no commit in its `-V`, another
-  adopter's binary, and names a hand rebuild between `install`'s build and a later `run`.
-- Decide whether it stays, shrinks to that case, or goes. Going removes the stamp code in
-  `build_cmd`, `read_stamp` and the report's stamp line in `install_cmd`, the `release-bin`
-  docs' stamp text, and the README's stamp example.
-- Run after the cycle lands, when a few installs have shown whether the stamp line ever says
-  anything the `-V` line does not.
 
 ### dr-1 is built in Rust
 

@@ -93,7 +93,7 @@ fast = ["cargo test --bins"]
 
 The `[build]` table
 - release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
-- release-bin: The release build's binary, beside which `vc-x1 build` writes its stamp [[18]]
+- release-bin: The release build's binary, which `vc-x1 install` copies [[18]]
 - dev: The dev build, in order, one invocation per element, run by `vc-x1 build-dev` [[19]]
 - dev-bin: The dev build's binary, run by `vc-x1 run-dev` [[20]]
 ```toml

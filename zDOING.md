@@ -15,56 +15,17 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-- 2026-10-22, the install rung **feat: vc-x1 install copies the release build** is `(done)` at
-  0.85.7-3, reviewed as one rung, wink's call (2026-10-22), and pushed or about to be. wink's
-  build-system question is answered in the Deliberation, and the stamp's removal is the inserted
-  rung after it, its code edits in `tmp/stamp-removal.patch`, reapplied once this rung pushes.
-- After the stamp rung, as planned: the inserted rung for **Every repo's .gitignore ignores
-  .claude, and settings stay out of agent-repos**, then the run rung, then the closing. The
-  closing's README guidance gains the first install by `cargo run --locked -- install`, and again
-  whenever the installed `vc-x1` is too old for the workspace.
-- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, dirty, from this bookmark,
-  and may still print a `wink:` line. `cargo run --locked -- <command>` rebuilds
+- 2026-10-22, the stamp rung **feat: the release stamp goes, cargo tracks staleness** is pushed
+  at 0.85.7-4, after the install rung.
+- Next, as planned: **feat: install takes --dir**, **feat: vc-x1 install-dev puts the dev build on
+  the PATH**, then the inserted rung for **Every repo's .gitignore ignores .claude, and settings
+  stay out of agent-repos**, then the run rung, then the closing. The closing's README guidance
+  gains the first install by `cargo run --locked -- install`, and again whenever the installed
+  `vc-x1` is too old for the workspace.
+- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, clean at `ba76874d`, the
+  install rung, by `cargo run install` (2026-10-22). The landed version comes back with this
+  cycle's Land, or a build of `main` installed. `cargo run --locked -- <command>` rebuilds
   `target/debug/vc-x1` when it is missing.
-
-## In Progress` as the
-record's home, and the cycle that makes this file the rule is [The cycle-record moves out of
-TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd).
-
-## Continuation notes
-
-Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
-on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
-where [Acquaint](AGENTS.md#acquaint) still says to look.
-
-- 2026-10-21, late, wink stopping for the night. Rung **feat: vc-x1 install copies the release
-  build** is `(current)` at 0.85.7-3, its work in the uncommitted `@` over the status rung's
-  commit, 14 files. The last full validation passed, and the fast one passed after the last edit.
-  "please review" was said, and wink has not said continue.
-- wink's last words: "I'm not sure we're headed in the right direction to have vc-x1 be a build
-  system." Start there, before any flip or description. The rung's review grew `install` into
-  running `[build] release` first, `run` was planned to build first too, and `build` now says
-  `built` or `up to date`. Whether vc-x1 should run builds at all, or only name and copy what
-  cargo built, is open, and the answer may shrink this rung and reshape the run rung.
-- What the review changed, all in `@` and in the rung's subsection and the Deliberation:
-  - `[build]` is plain `cargo build`, `--release --locked` and `--locked`, the binaries in
-    `target/release/vc-x1` and `target/debug/vc-x1`, no `--root`, "staged" gone from every doc.
-  - `install` reports what it copies and refuses only a wrong copy, wink reversing the earlier
-    refuse-on-failure say. It builds the release first, a no-op when nothing changed.
-  - `-V` is read at its first version-shaped line, after wink's test `println!` was read as
-    version `hi` and copied. The `println!` is removed.
-  - The rung was retitled from "install deploys the staged release", the anchor with it.
-  - Todo entries added: **A config file says what and its constraints, and the why is in the cycle
-    record** and **The release stamp is reconsidered now that install builds**, both placed before
-    **dr-1 is built in Rust**.
-- After this rung, as planned: the inserted rung for **Every repo's .gitignore ignores .claude,
-  and settings stay out of agent-repos**, then the run rung, then the closing. The closing's
-  README guidance gains the first install by `cargo run --locked -- install`, and again whenever
-  the installed `vc-x1` is too old for the workspace.
-- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-3, dirty, from this bookmark,
-  and may still print a `wink:` line. `tmp/dev` and `tmp/rel` are gone, wink's deletes.
-  `target/` was cleaned more than once tonight, so `target/debug/vc-x1` may be missing, and
-  `cargo run --locked -- <command>` rebuilds it.
 
 ## In Progress
 
@@ -95,20 +56,20 @@ Provisional, the plan as the install rung left it:
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
 | `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
 | `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
-| `vc-x1 build` | the release, into `target/release`, with its stamp | at Land, or to try the release profile |
+| `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
 | `vc-x1 run` | `build`, then runs it | the smoke check before install |
 | `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
 - `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, from any commit, and
-  writes a stamp beside `[build] release-bin` naming the commit it was built from, the state of
-  the source code that was compiled, and the binary's size and modification time.
-  `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`. Neither checks anything, and
-  neither touches the PATH.
+  checks it left `[build] release-bin`, the binary's `-V` naming the commit it was built from and
+  the state of the source code that was compiled. Cargo decides what to rebuild, and vc-x1 tracks
+  nothing of it. `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`. Neither checks the
+  repo's state, and neither touches the PATH.
 - `vc-x1 install` runs `[build] release` as `build` does, a no-op when nothing changed, then copies
   `[build] release-bin` into `[install] dir`, `~` expanded, as a temporary file renamed into place,
   so the binary installed is the binary tested. It first reports what it copies: the version and
-  commit the binary's `-V` shows, whether that commit is `main` and `main@origin`, its state, a
-  suffixed version, and whether the stamp still matches the binary. It refuses only a copy that
+  commit the binary's `-V` shows, whether that commit is `main` and `main@origin`, its state, and
+  a suffixed version, a binary reporting no commit shown as unknown. It refuses only a copy that
   would be wrong: no binary, a binary whose `-V` will not run, or a missing install directory.
 - `vc-x1 run` runs `build` and then `[build] release-bin`, and `vc-x1 run-dev` runs `build-dev`
   and then `[build] dev-bin`, as `cargo run` builds before it runs, each with the given arguments
@@ -122,10 +83,10 @@ Provisional, the plan as the install rung left it:
 
 #### Acceptance check
 
-`build` leaves `target/release/vc-x1` and its stamp, `run -V` prints the manifest's version,
+`build` leaves `target/release/vc-x1`, `run -V` prints the manifest's version,
 `build-dev` leaves `target/debug/vc-x1` at the manifest's version, and `run-dev -V` prints it.
 `install --dry-run` with nothing built builds the release, and on the cycle's bookmark reports the
-suffixed version, the commit off `main`, the dirty state, and a stamp that matches. This cycle's own
+suffixed version, the commit off `main`, and the dirty state. This cycle's own
 Land builds by the dev binary's `build`, smoke-tests by its `run -V`, and installs by its `install`,
 the first install the command makes, its report showing `main` and `main@origin`, clean, and a bare
 version.
@@ -186,7 +147,7 @@ version.
     ran exactly what `install` copies, and `install` building the same way keeps that.
   - The stamp's main job, catching a change between `build` and `install`, shrinks with nothing
     left between them, and **The release stamp is reconsidered now that install builds** asks
-    whether it stays.
+    whether it stays. It goes, at the stamp rung, below.
   - The deploy is a directory, not a command list, wink's say at the install rung (2026-10-21),
     changing the plan's command list: the config is committed and the destination is per
     machine, so `[install] dir = "~/.cargo/bin"` with vc-x1 expanding `~` fits every clone where a
@@ -196,7 +157,8 @@ version.
     vc-x1 copies in process, so the copy spawns nothing. An adopter with nothing to deploy, a
     library crate, leaves the key out, where `install` says so and stops.
 - The provenance is a stamp file beside the staged binary, written by `build`, not a commit id
-  compiled in: the closing carries the bare version before it lands, so the version alone cannot
+  compiled in, superseded at the stamp rung (2026-10-22), where the stamp goes and the commit
+  compiled in is the provenance: the closing carries the bare version before it lands, so the version alone cannot
   tell a release staged from the unlanded closing from one staged from `main`, and a stamp works
   for any adopter's artifact, where a compiled-in id works only for binaries that print it.
   - The commit compiled in as well, wink's call at the build rung (2026-10-21): `build` gives its
@@ -377,9 +339,11 @@ version.
 - [feat: vc-x1 build stages the release][1] (done)
 - [feat: status takes the write commands' scope][2] (done)
 - [feat: vc-x1 install copies the release build][3] (done)
-- [feat: the release stamp goes, cargo tracks staleness][4]
-- [feat: vc-x1 run and run-dev run the builds][5]
-- [feat: vc-x1 install stages, deploys, and runs builds closing][6]
+- [feat: the release stamp goes, cargo tracks staleness][4] (done)
+- [feat: install takes --dir][5]
+- [feat: vc-x1 install-dev puts the dev build on the PATH][6]
+- [feat: vc-x1 run and run-dev run the builds][7]
+- [feat: vc-x1 install stages, deploys, and runs builds closing][8]
 
 ##### feat: vc-x1 install stages, deploys, and runs builds opening
 
@@ -470,11 +434,53 @@ is, for the user and the release process to judge.
 
 ##### feat: the release stamp goes, cargo tracks staleness
 
-Inserted after the install rung, wink's call (2026-10-22), and the Todo entry **The release
-stamp is reconsidered now that install builds** with it: the stamp, `build`'s `built` or
-`up to date`, and the binary's size and time go, and `install` reports from the binary's `-V`
-alone. Its code edits were made during the install rung's review and set aside as
-`tmp/stamp-removal.patch`, `src/build_cmd.rs` and `src/install_cmd.rs`, the docs still to follow.
+The release build is described by the commit compiled into it, and cargo alone decides what to
+rebuild, so vc-x1 runs the builds without tracking them.
+
+- Inserted after the install rung, wink's call (2026-10-22), with the Todo entry **The release
+  stamp is reconsidered now that install builds**, which leaves `## Todo`, this block its record.
+  Its code edits were made during the install rung's review and set aside as a patch, so that
+  rung's commit stayed the work reviewed.
+- `build` writes no stamp and no longer says `built` or `up to date`: the stamp file, the binary's
+  size and time, and the comparison before and after the list go. A release still checks the
+  list left `[build] release-bin`, and names the commit and state it was built from.
+- `install` reports from the binary's `-V` alone, its version, commit, and state. A binary whose
+  `-V` carries no commit, another adopter's, is reported as `commit unknown` and `state unknown`,
+  the case the stamp covered, accepted as the cost.
+- The help for `build`, `build-dev`, and `install`, the README's overview, `build`, and `install`
+  sections and its config example, `vc-config.md`'s `build.release` and `build.release-bin`, the
+  regenerated model, `.vc-config.md`, and clippy's register entry 7 drop the stamp.
+- A 39-line duplicate in this file goes: the install rung's commit carried a second copy of the
+  header's tail and the continuation notes of 2026-10-21, left by an agent edit that found the
+  notes' end at the first `## In Progress`, the one inside the header's prose, and missed in that
+  rung's review.
+
+##### feat: install takes --dir
+
+Inserted after the stamp rung, wink's call (2026-10-22), after a test of `vc-x1 install` by
+`cargo run install` replaced `~/.cargo/bin/vc-x1` with the cycle's 0.85.7-3: testing `install`
+copies onto the PATH, since `[install] dir` names it. `--dir <DIR>` overrides `[install] dir` for
+one run, so a test copies into a scratch directory and the PATH binary is untouched. Weighed and
+set aside: the `-dev` rename mid-cycle, which reaches the binary's name everywhere and Land's
+restore, and `HOME=` for a test run, which is easy to forget and changes what the rest of the run
+sees.
+
+##### feat: vc-x1 install-dev puts the dev build on the PATH
+
+Inserted after the `--dir` rung, wink's call (2026-10-22): `install-dev` runs `build-dev`, then
+copies `[build] dev-bin` into `[install] dir` under its file name with `-dev` appended,
+`~/.cargo/bin/vc-x1-dev` here, by `install`'s report and copy, and takes `--dir` too. The landed
+`vc-x1` and the cycle's `vc-x1-dev` sit side by side on the PATH, what the `-dev` rename gave,
+with nothing renamed and nothing for Land to restore.
+
+- `run-dev` is not enough: it finds its binary by the config of the workspace it runs in, so in
+  another project it runs that project's dev build, and only a dev binary on the PATH under its
+  own name tries a cycle's vc-x1 there.
+- The suffix is fixed, wink's call: the `-dev` suffix always means the dev build, as in
+  `build-dev` and `run-dev`, so there is no key, and a project wanting another name adds one when
+  it asks.
+- The name the build rung set aside, "install-dev" for a build that reached no PATH, fits now,
+  since this one does.
 
 ##### feat: vc-x1 run and run-dev run the builds
 
@@ -493,5 +499,7 @@ Closing out the cycle.
 [2]: #feat-status-takes-the-write-commands-scope
 [3]: #feat-vc-x1-install-copies-the-release-build
 [4]: #feat-the-release-stamp-goes-cargo-tracks-staleness
-[5]: #feat-vc-x1-run-and-run-dev-run-the-builds
-[6]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing
+[5]: #feat-install-takes---dir
+[6]: #feat-vc-x1-install-dev-puts-the-dev-build-on-the-path
+[7]: #feat-vc-x1-run-and-run-dev-run-the-builds
+[8]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing

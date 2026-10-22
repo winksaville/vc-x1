@@ -6,15 +6,13 @@
 //! `vc-x1 install`'s, which copies the release build there.
 //!
 //! - `vc-x1 build` runs `[build] release`, here
-//!   `cargo build --release --locked`, and writes a stamp beside
-//!   `[build] release-bin` naming the commit `@-` the build was made
-//!   from and the state of the source. The lists leave the binaries in
+//!   `cargo build --release --locked`, and checks it left its binary
+//!   at `[build] release-bin`. The lists leave the binaries in
 //!   `target/`, off the PATH, so nothing there is replaced: the
 //!   release build is run by `vc-x1 run` and copied by
 //!   `vc-x1 install`, which runs this same build first, through
-//!   [`build_params`] and [`build`], and reports what the stamp says.
-//! - `vc-x1 build-dev` runs `[build] dev`, the dev build, and writes
-//!   no stamp, since it is never installed.
+//!   [`build_params`] and [`build`].
+//! - `vc-x1 build-dev` runs `[build] dev`, the dev build.
 //! - Where a build leaves its binary is the config's to say,
 //!   `release-bin` and `dev-bin`: vc-x1 never works it out from cargo
 //!   or the package's name.
@@ -27,13 +25,8 @@
 //!   `0.85.7+d70cf9ecdfd9`, `.dirty` for a build with edits.
 //! - Neither checks the repo's state: a release may be built from a
 //!   cycle's bookmark, to try the release profile mid-cycle.
-//! - The stamp is removed before the build and written after it
-//!   passes, so a failed build never leaves a stamp describing the
-//!   binary it failed to replace.
-//! - The stamp also records the binary's size and modification time,
-//!   its [`BinaryId`], so `install` can tell the binary `build` made
-//!   from one rebuilt by hand or replaced since, for any artifact,
-//!   whether or not it reports its commit.
+//! - Neither tracks whether its binary is out of date: cargo does,
+//!   rebuilding only what changed, so vc-x1 runs the list every time.
 //! - The lists are run by [`crate::command_list`], as `validate`'s
 //!   are.
 
@@ -45,9 +38,6 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 use crate::version::SourceState;
-
-/// The stamp's suffix, appended to the release binary's path.
-pub const STAMP_SUFFIX: &str = ".stamp";
 
 /// The variable carrying the build's commit to its commands.
 pub const BUILD_COMMIT_VAR: &str = "VC_X1_BUILD_COMMIT";
@@ -124,54 +114,15 @@ impl Provenance {
     }
 }
 
-/// The release binary's identity as the stamp records it: its size in
-/// bytes and its modification time, nanoseconds since the Unix epoch.
-/// A rebuild or a copy over it changes the time, and almost always
-/// the size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BinaryId {
-    /// The file's length in bytes.
-    pub size: u64,
-    /// The file's modification time, nanoseconds since the epoch.
-    pub mtime_ns: u128,
-}
-
-impl BinaryId {
-    /// Read the identity of the file at `bin`.
-    pub fn of(bin: &Path) -> Result<Self, String> {
-        let meta = std::fs::metadata(bin)
-            .map_err(|e| format!("build: cannot read '{}': {e}", bin.display()))?;
-        let mtime_ns = meta
-            .modified()
-            .map_err(|e| format!("build: no modification time for '{}': {e}", bin.display()))?
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| format!("build: '{}' is dated before 1970: {e}", bin.display()))?
-            .as_nanos();
-        Ok(BinaryId {
-            size: meta.len(),
-            mtime_ns,
-        })
-    }
-}
-
 /// The variables for `provenance`, none when it is absent.
 pub fn build_env(provenance: Option<&Provenance>) -> Vec<(&'static str, &str)> {
     // OK: no provenance is no variables, the build carrying no commit
     provenance.map(|p| p.env().to_vec()).unwrap_or_default()
 }
 
-/// Where a release's stamp goes and the binary it describes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Stamp {
-    /// The stamp file, `[build] release-bin` plus [`STAMP_SUFFIX`].
-    pub path: PathBuf,
-    /// The binary the stamp describes, `[build] release-bin`.
-    pub bin: PathBuf,
-}
-
 /// Per-invocation build inputs: the command's label, the list's key,
 /// its commands, the directory to run them from, the build's
-/// provenance, and the stamp a release writes.
+/// provenance, and the binary a release leaves.
 #[derive(Debug)]
 pub struct BuildParams {
     /// `build` or `build-dev`, prefixing the run's messages.
@@ -185,8 +136,9 @@ pub struct BuildParams {
     /// The build's provenance, required for a release, best effort
     /// for the dev build.
     pub provenance: Option<Provenance>,
-    /// The release's stamp, `None` for the dev build.
-    pub stamp: Option<Stamp>,
+    /// The binary a release leaves, `[build] release-bin`, `None` for
+    /// the dev build.
+    pub bin: Option<PathBuf>,
 }
 
 impl TryFrom<&BuildArgs> for BuildParams {
@@ -224,16 +176,11 @@ pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, Strin
             .ok_or_else(|| format!("{label}: not in a vc-x1 workspace (no config found)"))?,
     };
     let commands = crate::command_list::load(&root, key, label)?;
-    let (provenance, stamp) = if dev {
+    let (provenance, bin) = if dev {
         (Provenance::read_or_warn(&root, label), None)
     } else {
         let bin = release_bin(&root)?;
-        let provenance = Provenance::read(&root, label)?;
-        let stamp = Stamp {
-            path: stamp_path(&bin),
-            bin,
-        };
-        (Some(provenance), Some(stamp))
+        (Some(Provenance::read(&root, label)?), Some(bin))
     };
     Ok(BuildParams {
         label,
@@ -241,13 +188,13 @@ pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, Strin
         commands,
         root,
         provenance,
-        stamp,
+        bin,
     })
 }
 
 /// `[build] release-bin` at `root`, resolved against the config
 /// file's directory, or as is when absolute. Required for a release,
-/// since the stamp sits beside it.
+/// whose build is checked for it and which `install` copies.
 pub fn release_bin(root: &Path) -> Result<PathBuf, String> {
     let cfg = crate::config_md::load(root)
         .map_err(|e| format!("build: {e}"))?
@@ -255,36 +202,13 @@ pub fn release_bin(root: &Path) -> Result<PathBuf, String> {
     let value = crate::toml_simple::toml_get(&cfg.map, "build.release-bin").ok_or_else(|| {
         format!(
             "build: {}: no `build.release-bin`, the binary `build.release` leaves, \
-             which the stamp is written beside (see `vc-x1 config work`)",
+             which `install` copies (see `vc-x1 config work`)",
             cfg.path.display()
         )
     })?;
     // OK: a loaded config's path is a file, so it has a parent
     let cfg_dir = cfg.path.parent().unwrap_or(root);
     Ok(crate::common::resolve_repo_path(cfg_dir, value))
-}
-
-/// The stamp file for the binary at `bin`.
-pub fn stamp_path(bin: &Path) -> PathBuf {
-    let mut s = bin.as_os_str().to_os_string();
-    s.push(STAMP_SUFFIX);
-    PathBuf::from(s)
-}
-
-/// The stamp's text: a comment saying what it is, then `commit`,
-/// `state`, `size`, and `mtime-ns`, keys `toml_simple` reads back.
-pub fn render_stamp(provenance: &Provenance, id: BinaryId) -> String {
-    format!(
-        "# vc-x1 build stamp: the commit the binary beside it was built from\n\
-         commit = \"{}\"\n\
-         state = \"{}\"\n\
-         size = {}\n\
-         mtime-ns = {}\n",
-        provenance.commit,
-        provenance.state.as_str(),
-        id.size,
-        id.mtime_ns
-    )
 }
 
 impl SubcommandRunner for BuildArgs {
@@ -316,40 +240,10 @@ impl SubcommandRunner for BuildDevArgs {
     }
 }
 
-/// What a release build did to its binary, from its identity before
-/// and after the list ran: `up to date` when the list left it as it
-/// was, as cargo does when nothing changed, `built` otherwise.
-pub fn outcome(before: Option<BinaryId>, after: BinaryId) -> &'static str {
-    if before == Some(after) {
-        "up to date"
-    } else {
-        "built"
-    }
-}
-
 /// Run the list from the root with the provenance in its
-/// environment, and for a release remove the old stamp first and
-/// write the new one once the list passes, saying whether the binary
-/// was built or already up to date.
+/// environment, and for a release check it left its binary.
 pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("{}: entry params={params:?}", params.label);
-    let before = params
-        .stamp
-        .as_ref()
-        .and_then(|stamp| BinaryId::of(&stamp.bin).ok());
-    if let Some(stamp) = &params.stamp {
-        match std::fs::remove_file(&stamp.path) {
-            Ok(()) => debug!("build: removed the old stamp {}", stamp.path.display()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => {
-                return Err(format!(
-                    "build: cannot remove the old stamp '{}': {e}",
-                    stamp.path.display()
-                )
-                .into());
-            }
-        }
-    }
     let env = build_env(params.provenance.as_ref());
     crate::command_list::run(
         &params.root,
@@ -358,35 +252,23 @@ pub fn build(params: &BuildParams) -> Result<(), Box<dyn std::error::Error>> {
         &env,
         params.label,
     )?;
-    let (Some(stamp), Some(provenance)) = (&params.stamp, &params.provenance) else {
+    let (Some(bin), Some(provenance)) = (&params.bin, &params.provenance) else {
         return Ok(());
     };
-    if !stamp.bin.is_file() {
+    if !bin.is_file() {
         return Err(format!(
-            "build: `{}` passed but left no binary at '{}', so no stamp is written: \
-             check `build.release-bin`",
+            "build: `{}` passed but left no binary at '{}': check `build.release-bin`",
             params.key,
-            stamp.bin.display()
+            bin.display()
         )
         .into());
     }
-    let id = BinaryId::of(&stamp.bin)?;
-    std::fs::write(&stamp.path, render_stamp(provenance, id)).map_err(|e| {
-        format!(
-            "build: cannot write the stamp '{}': {e}",
-            stamp.path.display()
-        )
-    })?;
     let short = &provenance.commit[..provenance.commit.len().min(12)];
     let state = match provenance.state {
         SourceState::Clean => "state clean, `@` empty",
         _ => "state dirty, `@` held edits, so the build is not exactly that commit",
     };
-    info!(
-        "build: {} {}, from {short}, {state}",
-        stamp.bin.display(),
-        outcome(before, id)
-    );
+    info!("build: {}, from {short}, {state}", bin.display());
     Ok(())
 }
 
@@ -433,14 +315,6 @@ mod tests {
         }
     }
 
-    fn stamp_in(root: &Path) -> Stamp {
-        let bin = root.join("rel/bin/app");
-        Stamp {
-            path: stamp_path(&bin),
-            bin,
-        }
-    }
-
     fn release(root: &Path, commands: Vec<String>) -> BuildParams {
         BuildParams {
             label: "build",
@@ -448,7 +322,7 @@ mod tests {
             commands,
             root: root.to_path_buf(),
             provenance: Some(prov(SourceState::Clean)),
-            stamp: Some(stamp_in(root)),
+            bin: Some(root.join("rel/bin/app")),
         }
     }
 
@@ -464,42 +338,6 @@ mod tests {
             Some(PathBuf::from("x"))
         );
         assert!(Cli::try_parse_from(["vc-x1", "build", "--dev"]).is_err());
-    }
-
-    /// The stamp sits beside the binary, the suffix appended.
-    #[test]
-    fn stamp_path_appends_the_suffix() {
-        assert_eq!(
-            stamp_path(Path::new("tmp/rel/bin/vc-x1")),
-            PathBuf::from("tmp/rel/bin/vc-x1.stamp")
-        );
-    }
-
-    /// The stamp's keys read back through toml_simple, the reader
-    /// `install` uses.
-    #[test]
-    fn stamp_reads_back() {
-        let id = BinaryId {
-            size: 21394336,
-            mtime_ns: 1_761_064_259_123_456_789,
-        };
-        let map = crate::toml_simple::toml_parse(&render_stamp(&prov(SourceState::Dirty), id));
-        assert_eq!(
-            crate::toml_simple::toml_get(&map, "size").map(String::as_str),
-            Some("21394336")
-        );
-        assert_eq!(
-            crate::toml_simple::toml_get(&map, "mtime-ns").map(String::as_str),
-            Some("1761064259123456789")
-        );
-        assert_eq!(
-            crate::toml_simple::toml_get(&map, "commit").map(String::as_str),
-            Some(COMMIT)
-        );
-        assert_eq!(
-            crate::toml_simple::toml_get(&map, "state").map(String::as_str),
-            Some("dirty")
-        );
     }
 
     /// The variables carry the commit and the state's word, and none
@@ -544,65 +382,6 @@ mod tests {
         std::fs::remove_dir_all(&root2).ok();
     }
 
-    /// A passing release writes the stamp beside the binary it left,
-    /// replacing an old one.
-    #[test]
-    fn release_writes_the_stamp() {
-        let root = workspace("stamp", "");
-        let params = release(&root, vec!["touch rel/bin/app".to_string()]);
-        let stamp = params.stamp.clone().unwrap();
-        std::fs::create_dir_all(stamp.bin.parent().unwrap()).unwrap();
-        std::fs::write(&stamp.path, "old").unwrap();
-        build(&params).unwrap();
-        let id = BinaryId::of(&stamp.bin).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(&stamp.path).unwrap(),
-            render_stamp(&prov(SourceState::Clean), id)
-        );
-        std::fs::remove_dir_all(&root).ok();
-    }
-
-    /// A binary rewritten after the build no longer has the identity
-    /// its stamp recorded.
-    #[test]
-    fn a_rebuilt_binary_has_another_identity() {
-        let root = workspace("rebuilt", "");
-        let bin = root.join("app");
-        std::fs::write(&bin, "the release build").unwrap();
-        let built = BinaryId::of(&bin).unwrap();
-        assert_eq!(BinaryId::of(&bin).unwrap(), built);
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        std::fs::write(&bin, "a build made by hand afterward").unwrap();
-        let rebuilt = BinaryId::of(&bin).unwrap();
-        assert_ne!(rebuilt.size, built.size);
-        assert_ne!(rebuilt.mtime_ns, built.mtime_ns);
-        std::fs::remove_dir_all(&root).ok();
-    }
-
-    /// The binary is up to date when the list left its identity as it
-    /// was, and built when it changed or was not there before.
-    #[test]
-    fn outcome_tells_up_to_date_from_built() {
-        let id = BinaryId {
-            size: 10,
-            mtime_ns: 20,
-        };
-        let other = BinaryId {
-            size: 10,
-            mtime_ns: 21,
-        };
-        assert_eq!(outcome(Some(id), id), "up to date");
-        assert_eq!(outcome(Some(other), id), "built");
-        assert_eq!(outcome(None, id), "built");
-    }
-
-    /// A missing binary has no identity, an error naming the path.
-    #[test]
-    fn a_missing_binary_has_no_identity() {
-        let e = BinaryId::of(Path::new("/nonexistent/vc-x1-test-bin")).unwrap_err();
-        assert!(e.contains("/nonexistent/vc-x1-test-bin"), "{e}");
-    }
-
     /// The commands see the provenance's values. Checked by value, by
     /// a script, so a variable inherited from a surrounding run (a
     /// `validate` that sets the same names) cannot pass for it.
@@ -628,47 +407,47 @@ mod tests {
             commands: vec!["sh check.sh".to_string()],
             root: root.clone(),
             provenance: Some(prov(SourceState::Clean)),
-            stamp: None,
+            bin: None,
         };
         build(&dev).unwrap();
         std::fs::remove_dir_all(&root).ok();
     }
 
-    /// A failed release removes the old stamp and writes none, so no
-    /// stamp describes the binary the build failed to replace.
+    /// A passing release that left its binary passes.
     #[test]
-    fn failed_release_leaves_no_stamp() {
+    fn release_leaves_its_binary() {
+        let root = workspace("pass", "");
+        std::fs::create_dir_all(root.join("rel/bin")).unwrap();
+        build(&release(&root, vec!["touch rel/bin/app".to_string()])).unwrap();
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A failed release is an error naming the command.
+    #[test]
+    fn failed_release_errors() {
         let root = workspace("fail", "");
-        let params = release(&root, vec!["false".to_string()]);
-        let stamp = params.stamp.clone().unwrap();
-        std::fs::create_dir_all(stamp.bin.parent().unwrap()).unwrap();
-        std::fs::write(&stamp.bin, "the previous build").unwrap();
-        std::fs::write(&stamp.path, "old").unwrap();
-        let e = build(&params).unwrap_err().to_string();
+        let e = build(&release(&root, vec!["false".to_string()]))
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("`false` failed"), "{e}");
-        assert!(
-            !stamp.path.exists(),
-            "the old stamp survived a failed build"
-        );
         std::fs::remove_dir_all(&root).ok();
     }
 
     /// A release whose list passes but leaves no binary at
-    /// `release-bin` is an error, and no stamp is written.
+    /// `release-bin` is an error.
     #[test]
     fn release_without_its_binary_errors() {
         let root = workspace("nobinary", "");
-        let params = release(&root, vec!["true".to_string()]);
-        let stamp = params.stamp.clone().unwrap();
-        let e = build(&params).unwrap_err().to_string();
+        let e = build(&release(&root, vec!["true".to_string()]))
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("left no binary"), "{e}");
-        assert!(!stamp.path.exists());
         std::fs::remove_dir_all(&root).ok();
     }
 
-    /// The dev build runs its list and writes no stamp.
+    /// The dev build runs its list and checks no binary.
     #[test]
-    fn dev_writes_no_stamp() {
+    fn dev_runs_its_list() {
         let root = workspace("dev", "");
         let params = BuildParams {
             label: "build-dev",
@@ -676,16 +455,10 @@ mod tests {
             commands: vec!["touch dev-ran".to_string()],
             root: root.clone(),
             provenance: None,
-            stamp: None,
+            bin: None,
         };
         build(&params).unwrap();
         assert!(root.join("dev-ran").exists());
-        let stamps: Vec<_> = std::fs::read_dir(&root)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_name().to_string_lossy().ends_with(STAMP_SUFFIX))
-            .collect();
-        assert!(stamps.is_empty());
         std::fs::remove_dir_all(&root).ok();
     }
 }

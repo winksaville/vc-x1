@@ -2,18 +2,18 @@
 //! date, then copy it into the install directory, the one command that
 //! touches the PATH, after reporting what it is copying.
 //!
-//! - It runs `[build] release` first, exactly as `vc-x1 build` does,
-//!   the stamp included. Cargo rebuilds only what changed, so with
+//! - It runs `[build] release` first, exactly as `vc-x1 build` does.
+//!   Cargo rebuilds only what changed, so with
 //!   nothing changed the binary already tested is the one copied, and
 //!   a missing or stale one is built rather than refused.
-//! - The binary is `[build] release-bin`, with its stamp beside it.
-//!   The destination is the one directory `[install] dir` names, `~`
+//! - The binary is `[build] release-bin`. The destination is the one directory `[install] dir` names, `~`
 //!   expanded, so the committed value fits every machine, and the
 //!   binary keeps its file name there. `$PATH` is not searched.
 //! - The report says what is being copied: the version and commit the
 //!   binary's `-V` shows, whether that commit is `main` and
-//!   `main@origin`, its state, a suffixed version, and whether the
-//!   stamp still matches the binary. It refuses nothing: which builds
+//!   `main@origin`, its state, and a suffixed version. A binary whose
+//!   `-V` carries no commit is reported as unknown. It refuses
+//!   nothing: which builds
 //!   may be installed is the release process's call, a cycle's Land
 //!   here, and a project releasing from a branch or a tag makes it
 //!   differently.
@@ -33,11 +33,10 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info};
 
-use crate::build_cmd::{BinaryId, BuildParams, build_params, release_bin, stamp_path};
+use crate::build_cmd::{BuildParams, build_params, release_bin};
 use crate::context::Context;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::subcommand::SubcommandRunner;
-use crate::version::SourceState;
 
 /// The trunk the report compares the binary's commit with.
 const TRUNK: &str = "main";
@@ -52,17 +51,6 @@ pub struct InstallArgs {
     /// the current directory]
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
-}
-
-/// What the stamp beside the release binary records, as read back.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StampRecord {
-    /// The commit the release was built from.
-    pub commit: String,
-    /// The state of the source code that was compiled.
-    pub state: Option<SourceState>,
-    /// The binary's identity when it was stamped.
-    pub id: Option<BinaryId>,
 }
 
 /// What the release binary's `-V` says: its version and, from the
@@ -87,10 +75,8 @@ pub struct Facts {
     pub trunk_origin: Option<String>,
     /// The manifest's version.
     pub version: String,
-    /// The stamp, `None` when there is none.
-    pub stamp: Option<StampRecord>,
-    /// The release binary's identity, `None` when it is missing.
-    pub bin_id: Option<BinaryId>,
+    /// True when the release binary is there.
+    pub bin_exists: bool,
     /// What the release binary's `-V` said, `None` when it could not be
     /// run or read.
     pub reported: Option<Reported>,
@@ -151,8 +137,7 @@ pub fn gather(root: &Path, bin: &Path, dest: &Path) -> Result<Facts, String> {
         trunk: crate::jj::cid_of(root, TRUNK).ok(),
         trunk_origin: crate::jj::cid_of(root, &format!("{TRUNK}@origin")).ok(),
         version: manifest_version(root)?,
-        stamp: read_stamp(&stamp_path(bin)),
-        bin_id: BinaryId::of(bin).ok(),
+        bin_exists: bin.is_file(),
         reported: run_version(bin).as_deref().and_then(parse_reported),
         dest_dir_exists: dest.parent().is_some_and(Path::is_dir),
     })
@@ -206,25 +191,6 @@ pub fn manifest_version(root: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("install: '{}' has no `[package] version`", path.display()))
 }
 
-/// The stamp at `path` read back, `None` when there is none or it
-/// names no commit.
-pub fn read_stamp(path: &Path) -> Option<StampRecord> {
-    let map = crate::toml_simple::toml_load(path).ok()?;
-    let get = |k: &str| crate::toml_simple::toml_get(&map, k);
-    let commit = get("commit")?.clone();
-    let size = get("size").and_then(|v| v.parse().ok());
-    let mtime_ns = get("mtime-ns").and_then(|v| v.parse().ok());
-    let id = match (size, mtime_ns) {
-        (Some(size), Some(mtime_ns)) => Some(BinaryId { size, mtime_ns }),
-        _ => None,
-    };
-    Some(StampRecord {
-        commit,
-        state: get("state").and_then(|v| SourceState::parse(v)),
-        id,
-    })
-}
-
 /// Run `bin -V` and return what it prints, `None` when it cannot be
 /// run or fails.
 fn run_version(bin: &Path) -> Option<String> {
@@ -266,11 +232,6 @@ pub fn parse_reported(output: &str) -> Option<Reported> {
     })
 }
 
-/// The 12-character form of a commit id, for messages.
-fn short(id: &str) -> &str {
-    &id[..id.len().min(12)]
-}
-
 /// True when the commit prefix `c` names the commit id `id`.
 fn names(c: &str, id: Option<&String>) -> bool {
     id.is_some_and(|id| id.starts_with(c))
@@ -291,18 +252,11 @@ pub fn report(f: &Facts) -> Vec<String> {
         version.push_str(&format!(", the manifest's is {}", f.version));
     }
     out.push(version);
-    // The stamp speaks for the binary only while it still matches it.
-    let stamp = f
-        .stamp
-        .as_ref()
-        .filter(|st| st.id.is_some() && st.id == f.bin_id);
-    // The binary's own word first, the stamp's when it reports none.
-    let commit = r
-        .commit
-        .clone()
-        .or_else(|| stamp.map(|st| short(&st.commit).to_string()));
-    match &commit {
-        None => out.push("commit unknown: the binary reports none and no stamp matches it".into()),
+    match &r.commit {
+        None => {
+            out.push("commit unknown: the binary reports none".to_string());
+            out.push("state unknown".to_string());
+        }
         Some(c) => {
             let on_trunk = names(c, f.trunk.as_ref());
             let on_origin = names(c, f.trunk_origin.as_ref());
@@ -313,38 +267,12 @@ pub fn report(f: &Facts) -> Vec<String> {
                 (false, false) => format!("not `{TRUNK}`"),
             };
             out.push(format!("commit {c}, {where_}"));
-        }
-    }
-    let state = match (&r.commit, &r.state, stamp) {
-        (Some(_), Some(s), _) => s.clone(),
-        (Some(_), None, _) => "clean".to_string(),
-        // OK: a stamp with no readable state reports as unknown
-        (None, _, Some(st)) => st
-            .state
-            .map(SourceState::as_str)
-            .unwrap_or("unknown")
-            .into(),
-        (None, _, None) => "unknown".to_string(),
-    };
-    out.push(format!("state {state}"));
-    match (&f.stamp, stamp) {
-        (None, _) => out.push("no stamp: `vc-x1 build` did not make this binary".to_string()),
-        (Some(_), None) => out.push(
-            "the stamp does not match the binary: it was rebuilt by hand or replaced after \
-             `vc-x1 build`"
-                .to_string(),
-        ),
-        (Some(_), Some(st)) => {
-            if let Some(c) = &r.commit
-                && !st.commit.starts_with(c.as_str())
-            {
-                out.push(format!(
-                    "the stamp names commit {}, the binary reports {c}",
-                    short(&st.commit)
-                ));
-            } else {
-                out.push("the stamp matches the binary".to_string());
-            }
+            // A commit with no state after it is a clean build.
+            let state = match &r.state {
+                Some(s) => s.as_str(),
+                None => "clean",
+            };
+            out.push(format!("state {state}"));
         }
     }
     out
@@ -353,7 +281,7 @@ pub fn report(f: &Facts) -> Vec<String> {
 /// Every reason the copy itself would be wrong, empty when it may go.
 pub fn refusals(f: &Facts, bin: &Path, dest: &Path) -> Vec<String> {
     let mut out = Vec::new();
-    if f.bin_id.is_none() {
+    if !f.bin_exists {
         out.push(format!(
             "no binary at '{}': build it with `vc-x1 build`",
             bin.display()
@@ -464,23 +392,14 @@ mod tests {
     use clap::Parser;
 
     const C: &str = "0123456789abcdef0123456789abcdef01234567";
-    const ID: BinaryId = BinaryId {
-        size: 10,
-        mtime_ns: 20,
-    };
 
-    /// Facts for a clean build of a pushed `main`, matching its stamp.
+    /// Facts for a clean build of a pushed `main`.
     fn good() -> Facts {
         Facts {
             trunk: Some(C.to_string()),
             trunk_origin: Some(C.to_string()),
             version: "0.85.7".to_string(),
-            stamp: Some(StampRecord {
-                commit: C.to_string(),
-                state: Some(SourceState::Clean),
-                id: Some(ID),
-            }),
-            bin_id: Some(ID),
+            bin_exists: true,
             reported: Some(Reported {
                 version: "0.85.7".to_string(),
                 commit: Some(C[..12].to_string()),
@@ -534,8 +453,7 @@ mod tests {
             reported(&f),
             "version 0.85.7\n\
              commit 0123456789ab, `main` and `main@origin`\n\
-             state clean\n\
-             the stamp matches the binary"
+             state clean"
         );
         assert_eq!(refused(&f), "");
     }
@@ -552,7 +470,6 @@ mod tests {
         let r = f.reported.as_mut().unwrap();
         r.version = "0.85.7-3".to_string();
         r.state = Some("dirty".to_string());
-        f.stamp.as_mut().unwrap().state = Some(SourceState::Dirty);
         let rep = reported(&f);
         assert!(rep.contains("a suffixed (pre-release) version"), "{rep}");
         assert!(rep.contains("commit 0123456789ab, not `main`"), "{rep}");
@@ -584,62 +501,19 @@ mod tests {
         assert!(reported(&f).contains("version 0.85.7, the manifest's is 0.85.8"));
     }
 
-    /// A binary rebuilt by hand over the one `build` made no longer
-    /// matches its stamp, which then speaks for nothing.
+    /// A binary whose `-V` carries no commit, another adopter's, is
+    /// reported as unknown, and is not refused.
     #[test]
-    fn a_hand_rebuild_is_reported() {
-        let mut f = good();
-        f.bin_id = Some(BinaryId {
-            size: 11,
-            mtime_ns: 20,
-        });
-        f.reported.as_mut().unwrap().commit = None;
-        let rep = reported(&f);
-        assert!(rep.contains("rebuilt by hand or replaced"), "{rep}");
-        assert!(
-            rep.contains("commit unknown"),
-            "the stamp is not used: {rep}"
-        );
-        assert!(rep.contains("state unknown"), "{rep}");
-        let mut f = good();
-        f.stamp.as_mut().unwrap().id = None;
-        assert!(
-            reported(&f).contains("rebuilt by hand or replaced"),
-            "an old stamp has no id"
-        );
-        assert_eq!(refused(&f), "");
-    }
-
-    /// A missing stamp, or one naming another commit than the binary,
-    /// is reported.
-    #[test]
-    fn the_stamp_is_reported() {
-        let mut f = good();
-        f.stamp = None;
-        let rep = reported(&f);
-        assert!(rep.contains("no stamp"), "{rep}");
-        assert!(
-            rep.contains("commit 0123456789ab"),
-            "the binary's own word: {rep}"
-        );
-        let mut f = good();
-        f.reported.as_mut().unwrap().commit = Some("ffffffffffff".to_string());
-        let rep = reported(&f);
-        assert!(rep.contains("the stamp names commit 0123456789ab"), "{rep}");
-        assert!(rep.contains("commit ffffffffffff, not `main`"), "{rep}");
-    }
-
-    /// A binary that reports no commit is placed by a matching stamp.
-    #[test]
-    fn a_matching_stamp_speaks_for_a_silent_binary() {
+    fn a_binary_reporting_no_commit_is_unknown() {
         let mut f = good();
         f.reported.as_mut().unwrap().commit = None;
         let rep = reported(&f);
         assert!(
-            rep.contains("commit 0123456789ab, `main` and `main@origin`"),
+            rep.contains("commit unknown: the binary reports none"),
             "{rep}"
         );
-        assert!(rep.contains("state clean"), "{rep}");
+        assert!(rep.contains("state unknown"), "{rep}");
+        assert_eq!(refused(&f), "");
     }
 
     /// The copy is refused only when it would be wrong: no binary, a
@@ -652,7 +526,7 @@ mod tests {
         assert!(refused(&f).contains("-V could not be run"));
         assert_eq!(reported(&f), "", "nothing to report without -V");
         let mut f = good();
-        f.bin_id = None;
+        f.bin_exists = false;
         f.reported = None;
         let r = refused(&f);
         assert!(r.contains("no binary at 'target/release/vc-x1'"), "{r}");
@@ -719,31 +593,6 @@ mod tests {
         );
     }
 
-    /// A stamp written by build reads back whole, and a file with no
-    /// commit is no stamp.
-    #[test]
-    fn read_stamp_reads_builds_stamp() {
-        let dir = tempdir("stamp");
-        let path = dir.join("app.stamp");
-        let prov = crate::build_cmd::Provenance {
-            commit: C.to_string(),
-            state: SourceState::Clean,
-        };
-        std::fs::write(&path, crate::build_cmd::render_stamp(&prov, ID)).unwrap();
-        assert_eq!(
-            read_stamp(&path),
-            Some(StampRecord {
-                commit: C.to_string(),
-                state: Some(SourceState::Clean),
-                id: Some(ID),
-            })
-        );
-        std::fs::write(&path, "state = \"clean\"\n").unwrap();
-        assert_eq!(read_stamp(&path), None);
-        assert_eq!(read_stamp(&dir.join("absent")), None);
-        std::fs::remove_dir_all(&dir).ok();
-    }
-
     /// The deploy replaces the destination whole and leaves no
     /// temporary file, keeping the binary's permissions.
     #[test]
@@ -778,7 +627,6 @@ mod tests {
         let dest = dir.join("bin/app");
         let mut facts = good();
         facts.version = "0.85.7-3".to_string();
-        facts.stamp = None;
         copy_reported(&bin, &dest, &facts, true).unwrap();
         assert!(!dest.exists(), "a dry run copied");
         copy_reported(&bin, &dest, &facts, false).unwrap();

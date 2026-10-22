@@ -415,8 +415,8 @@ example = ["cargo test --bins"]
 The release build: the commands that build the artifact, in order, each element one invocation whose
 exit status is checked, leaving the binary where it can be run before anything on the PATH is
 replaced, `target/release` for a plain `cargo build --release`. `vc-x1 build` runs it from any
-commit, and writes a stamp beside [build.release-bin](#buildrelease-bin) naming the commit it was
-built from. `vc-x1 install` runs it too, before it copies the binary at a cycle's Land. Its commands
+commit, and checks it left [build.release-bin](#buildrelease-bin). `vc-x1 install` runs it too,
+before it copies the binary at a cycle's Land. Its commands
 run with `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` in their environment, the same facts, for an
 artifact that compiles them in, as [build.dev](#builddev)'s and the `[validate]` lists' do. Owned by
 the work side because it builds the artifact.
@@ -434,18 +434,15 @@ example = ["cargo build --release --locked"]
 
 The binary the release build leaves, relative to the config file's directory, or as is when
 absolute. vc-x1 never works it out, from cargo or from the package's name: the release build's
-commands decide where the binary goes, so the config says. `vc-x1 build` writes its stamp beside it,
-the path with `.stamp` appended, holding the full commit id of `@-` the build was made from,
-`state`, the state of the source code that was compiled, `clean` when `@` was empty so the code is
-exactly that commit and `dirty` when `@` held edits that were compiled too, and the binary's size
-and modification time, so a binary rebuilt by hand after `vc-x1 build` is told from the one it made.
-Required by `vc-x1 build` and `vc-x1 install`.
+commands decide where the binary goes, so the config says. `vc-x1 build` checks the build left it,
+and `vc-x1 install` copies it and reports what its `-V` says. Required by `vc-x1 build` and
+`vc-x1 install`.
 
 ```toml
 [build.release-bin]
 homes = ["workspace-code"]
 kind = "str"
-doc = "The release build's binary, beside which `vc-x1 build` writes its stamp"
+doc = "The release build's binary, which `vc-x1 install` copies"
 used-by = "vc-x1 build and vc-x1 install"
 example = "target/release/vc-x1"
 ```
