@@ -61,7 +61,8 @@ fn test_params() -> PushParams {
 /// Make a rung's pair in the fixture the way `commit` does: a work
 /// file and a session line, then `commit -s b` (`agent_now`) or
 /// `-s w`. Returns the work and agent `@` change ids read before
-/// the commit, which the commits keep.
+/// the commit, which the commits keep. No bookmark is advanced, so
+/// the line stays as the test arranged it for push to resolve.
 fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
     fs::write(fx.work.join(format!("{}.txt", title.len())), title).expect("write work file");
     fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
@@ -75,6 +76,8 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         title: title.to_string(),
         body: "The problem.\n\n* A facet.\n  - Its solution.\n".to_string(),
         closing: false,
+        opening: None,
+        advance: crate::commit::Advance::Off,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -450,6 +453,8 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         title: "feat: plain".to_string(),
         body: "A body.".to_string(),
         closing: false,
+        opening: None,
+        advance: crate::commit::Advance::Line,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");

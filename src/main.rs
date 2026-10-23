@@ -621,7 +621,7 @@ pub(crate) enum Commands {
         dual workspace, each stamped with the other's change id, before\n\
         anything is pushed.\n\n\
         The pair is what the per-rung flow reviews, description and diff\n\
-        together, by `jj show @-` in either repo. A fix after the review folds\n\
+        together, by `vc-x1 show -s both @-`. A fix after the review folds\n\
         into the pair, never a remote rewrite, and `vc-x1 push` publishes what\n\
         was reviewed.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\

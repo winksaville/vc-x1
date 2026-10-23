@@ -1815,7 +1815,7 @@ details.
 
 Commit the working copies as a rung's pair: one commit per repo of a dual workspace, each stamped
 with the other's change id, before anything is pushed. The pair is what the per-rung flow reviews,
-description and diff together, by `jj show @-` in either repo, so a fix after the review folds into
+description and diff together, by `vc-x1 show -s both @-`, so a fix after the review folds into
 the pair and never rewrites a remote, and `push` publishes what was reviewed. Both change ids are
 known before either commit is made, since a jj commit keeps the working copy's change id, so each
 trailer is written once.
@@ -1833,6 +1833,9 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 # A plain repo, the description with no trailer
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 
+# The cycle's opening, " opening" appended, its bookmark created at @- and pushed
+vc-x1 commit -s b --opening feat-a-cycle --title "feat: a cycle" --body @tmp/body.md
+
 # The cycle's closing, made as the merge of the trunk and the ladder
 vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
 ```
@@ -1842,6 +1845,20 @@ vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
 that moved during the cycle is joined by the merge rather than needing a rebase. The title's
 " closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
 single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
+
+`--opening <BOOKMARK>` makes the cycle's opening: `--title` is the bare cycle title and " opening"
+is appended, a title carrying it already refused. The bookmark is created at the work `@-`, where
+the cycle's branch starts, and pushed to `origin`, a name for a commit already public, so nothing
+unreviewed goes out, and the opening itself stays local until the push after its review. `--skip
+local` takes a bookmark already at `@-` and pushes it, `--skip remote` creates it and pushes
+nothing, and `--skip both` only checks it. Every check runs before the commit: a bookmark to create
+must not exist, a push must not move one published elsewhere, and `@-` must already be on a remote.
+
+The line's bookmark advances to the work commit, locally: the nearest bookmark below the work
+`@-`, as `push` resolves it, the one `--bookmark` names, or `--opening`'s. jj moves a bookmark with
+its commit through a later squash or amend, so the advance holds through the review's fixes, and
+the remote moves only at `push`. `--no-advance` leaves the bookmark where it is, and a line with no
+bookmark or several is refused before anything is made. The agent repo's `main` is push's to set.
 
 `--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
 is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming

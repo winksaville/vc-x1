@@ -94,22 +94,37 @@ description is not rewritten while the work still moves.
 `-s` is required on the write commands and `sync` once **feat: vc-x1 commit, install, and run-dev**
 lands, so the rules' invocations must carry it or fail.
 
-#### The closing is the trapezoid
+#### The closing is a trapezoid or linear, and converts
 
-- A multi-step cycle always closes as a trapezoid, and keep separate goes.
-- The closing is made by `vc-x1 commit --closing`, so Land is sync, fast-forward, install, and the
-  bookmark's deletion. The trapezoid recipe and Close-out step 5 go, and `jj.md` Close-out shapes
-  keeps the trapezoid and why squash is not a shape.
+- A multi-step cycle closes as a trapezoid by default or as linear on request, the closing commit
+  carrying the shape, so nothing is reshaped at Land.
+  - `vc-x1 commit --closing <REV>`, `REV` the revision the cycle closes onto, `main` by name in the
+    common case, makes the closing in the shape `--shape <trapezoid|linear>` names, else the
+    `.vc-config.md` key `[cycle] closing-shape`, else trapezoid, and prints which decided.
+  - Trapezoid is the merge of `REV` and the ladder's tip. Linear is a plain commit on the ladder,
+    so the trunk carries one commit per rung, the shape the rules called keep separate, renamed.
+  - The key is the project's preference, so each adopter sets its own, and one that sets nothing
+    keeps the trapezoid.
+  - Either converts to the other while the closing is a draft, before Land, by re-parenting the
+    same closing: its change id, trailer, and, with the trunk unmoved, its tree are kept.
+- Land is sync, fast-forward, install, and the bookmark's deletion. The trapezoid recipe goes,
+  Close-out step 5 keeps the user's choice, the key its default, and carries it out by the flag,
+  and `jj.md` Close-out shapes names the two shapes and why squash is not a shape.
 
 - The shape's name: with one rung the figure is a triangle, wink's observation (2026-10-20), so
   "trapezoid" names one case. The tool calls the operation `merge` and the result the merge
-  close-out, and the rules' text could follow. `commit --closing` merges into the current `main`,
-  so a `main` that moved during the cycle no longer stops Land for a rebase.
+  close-out, and the rules' text could follow. `commit --closing <REV>` merges into `REV` as it is
+  now, a bookmark read where it points, so a `main` that moved during the cycle no longer stops Land
+  for a rebase. A linear closing cannot join a moved trunk without rewriting the reviewed ladder, so
+  its Land refuses one.
 
-##### Why: the trapezoid always
+##### Why: a trapezoid by default, linear on request
 
-The trapezoid keeps every rung reachable, so keep separate adds only a linear log, and a reshape
-at Land is a change made after review.
+The trapezoid keeps every rung reachable while `git log --first-parent` reads one commit per cycle,
+and it joins a moved trunk. Some prefer a straight history, which linear gives, and the choice is
+made at the closing, so the shape is in the commit that was reviewed rather than a reshape at Land
+made after it. Converting is cheap while the closing is a draft, so the choice is never final
+before Land.
 
 #### A commit body is two plain paragraphs
 

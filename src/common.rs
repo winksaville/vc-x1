@@ -562,12 +562,18 @@ fn resolve<'a>(
         path_converter: &path_converter,
         workspace_name,
     };
+    // A colocated repo's `@git` refs mirror the local bookmarks, so
+    // `remote_bookmarks()` leaves them out, as the jj CLI's does:
+    // counted, a bookmark moved only locally reads as published.
+    let default_ignored_remote = jj_lib::git::get_git_backend(repo.store())
+        .is_ok()
+        .then_some(jj_lib::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
     let context = RevsetParseContext {
         aliases_map,
         local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
-        default_ignored_remote: None,
+        default_ignored_remote,
         fileset_aliases_map: &fileset_aliases_map,
         extensions: &extensions,
         workspace: Some(workspace_ctx),

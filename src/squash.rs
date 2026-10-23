@@ -272,7 +272,7 @@ fn squash_pair(
         return Err(e);
     }
     info!(
-        "squash: done, review it with `jj show @- -R {}`",
+        "squash: done, review it with `vc-x1 show -s both @- -R {}`",
         pair.work.display()
     );
     Ok(())
@@ -402,6 +402,8 @@ mod tests {
             title: "feat: a rung".to_string(),
             body: "The problem.".to_string(),
             closing: false,
+            opening: None,
+            advance: crate::commit::Advance::Line,
             dry_run: false,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");
