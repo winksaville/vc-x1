@@ -42,6 +42,82 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### feat: vc-x1 repairs and reshapes without jj
+
+(wink + agent, 2026-10-23) Cut from **feat: vc-x1 closing and land** at its closing rung's review,
+the ladder having grown to sixteen rungs: that cycle keeps the path from opening to Land with no
+`jj` typed, and the repairs and alternative paths it planned are this cycle, each a step the
+agent-files still do with raw `jj`. Each was a rung there, named and with its intent, and its
+deliberation moved here whole.
+
+- **feat: commit --closing takes a shape, from the flag or the config**: The closing is always the
+  trapezoid, a merge of `REV` and the ladder's tip, so `--shape <trapezoid|linear>` chooses it,
+  linear a plain commit on the ladder, the shape the agent-files call keep separate, `[cycle]
+  closing-shape` sets the project's default, trapezoid when absent, and either shape converts to the
+  other while the closing is a draft.
+- **feat: the closing can be taken back**: A closing made without `--land` and found wrong is undone
+  by hand in two repos, so one invocation takes it back, the work side by its operation and the
+  agent side's content moved back into `@`.
+- **feat: vc-x1 reshapes a draft bookmark**: Reshaping a cycle's bookmark while it is a draft is an
+  amend and a force-push typed by hand, so `vc-x1` does both, refusing a bookmark already landed or
+  one another branch is stacked on.
+- **feat: vc-x1 reparent edits a commit's parents**: A commit's parents are edited by `merge`, which
+  only adds, and by a raw `jj rebase -r` to remove or replace one, so `vc-x1 reparent --target
+  <REV>` takes `--add`, `--remove`, or `--set`, on any committed node, its description, change id,
+  and trailer kept.
+- **feat: vc-x1 re-describes a pair and keeps its trailers**: A coordinated re-describe, as a
+  single-step cycle turning multi-step needs, is a `jj describe` in each repo that must keep the
+  `ochid:` trailer, so `vc-x1` re-describes both commits of a pair at once and keeps their trailers.
+- **feat: vc-x1 runs a local ladder**: A local ladder is `jj commit` for each intermediate and a
+  hand collapse into the rung, so `vc-x1` makes the intermediates and collapses them, validating
+  each with `validate --fast`.
+- **feat: vc-x1 sets a rung's edits aside**: A rung inserted while the working copy holds the next
+  rung's edits sets them aside as a patch by hand and restores them after its push, so `vc-x1` sets
+  them aside and brings them back.
+
+#### Deliberation carried over
+
+- The closing's shape, trapezoid or linear, wink's calls (2026-10-23): for those who prefer a
+  straight history, a linear closing is a plain commit on the ladder, and `--land` fast-forwards
+  `REV` to it, the agent-files' keep separate under a clearer name.
+  - `--shape <trapezoid|linear>` chooses it, one valued flag rather than `--linear` and
+    `--trapezoid`, which could both be given, or abbreviations such as `--clse-lin`, which read as
+    typos. The flag's word and the config key's are the same.
+  - `[cycle] closing-shape`, `"trapezoid"` or `"linear"`, is the project's default, a preference
+    that belongs in the committed `.vc-config.md` with `[validate]` and `[build]`, since adopters
+    choose differently. Absent, it is trapezoid, so an adopter who sets nothing sees no change.
+  - The flag, then the key, then trapezoid, and `commit` prints which decided. Close-out step 5
+    still has the user choose, the key only making the usual answer the default, and a stated
+    preference is not the assumption about the current branch that `--closing <REV>` removed.
+  - Either converts to the other while the closing is a draft, before Land, by re-parenting the
+    same closing, which keeps its change id and trailer, and with the trunk unmoved its tree too,
+    `REV` being in the ladder's ancestry. After Land a conversion would rewrite the trunk, so it is
+    refused.
+  - A linear closing cannot join a trunk that moved: the ladder would need a rebase, a rewrite of
+    published commits into a tree no validation saw. `--land` already refuses a moved trunk, so
+    the refusal is the whole answer, and the way out is the reshape rung's command, then a
+    validation, then the closing. A rebase inside a linear closing would be the hidden multi-step
+    operation the cycle removes.
+  - The v0.3.1 proposal said keep separate goes, and its section **The closing is a trapezoid or
+    linear, and converts** now keeps it as the linear shape and names the flag and the key, edited
+    at the closing rung's review when this rung was added, so the proposal leads the flag by one
+    rung.
+  - Its own rung after the closing's shapes, since `--land` lands both.
+- `vc-x1 reparent`, wink's call at the closing rung's review (2026-10-23): parent fix-ups get their
+  own command, since `merge` is the wrong verb for removing one.
+  - `--target <REV>`, any committed node, with `--add`, `--remove`, or `--set`, one jj-lib rebase
+    of it onto its new parent list, its descendants rebased, the list printed before and after,
+    and a failure restored from a snapshot. `merge`'s guards carry over: no cycle, no parent at or
+    below the target, `--ignore-immutable` for a jj-immutable one.
+  - `--remove` changes the tree: the target keeps its own diff, and what the removed parent brought
+    is gone from it, so it prints what was dropped. The last parent is never removed, `--set`
+    being the way to replace it, and a conflicted result is reported and left.
+  - `merge` stays as the short form of `--add`, its tests and `commit --closing`'s use of its
+    primitive unchanged, and may retire into `reparent` later.
+- The closing's undo, the Todo's lean, for a closing made without `--land`, a flag
+  or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
+
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -125,6 +201,25 @@ and it joins a moved trunk. Some prefer a straight history, which linear gives, 
 made at the closing, so the shape is in the commit that was reviewed rather than a reshape at Land
 made after it. Converting is cheap while the closing is a draft, so the choice is never final
 before Land.
+
+#### A cycle's shape is its branch's commit count
+
+- [Cycle shape](AGENTS.md#cycle-shape)'s "A ladder that shrinks to one rung still closes as a
+  ladder" goes: a branch with one commit above the trunk, the opening alone, is a single-step cycle,
+  and a bare `commit --closing` finalizes that commit in place, the bare cycle title replacing the
+  opening's, since a single-step closing has no parent to name. A multi-step closing names its
+  parent, `commit --closing <REV>`, and makes the closing commit, the opening alone above `REV`
+  being refused unless `--dead-end`.
+- A parent wrong after the fact is fixed with `vc-x1 reparent`, never by closing again.
+- Every cycle starts with `commit --opening`, a single-step cycle included: its bookmark is created
+  and pushed at the trunk, and its one commit begins as the opening, the work squashed into it.
+- The closing's title and body may be left out: the cycle title is read from the opening, and the
+  body comes from `.vc-config.md`'s `[closing] body`.
+
+##### Why: the commit count
+
+The tool tells the shapes apart by counting, with no title to read, and a cycle need not decide its
+shape before its first commit: it is single-step until a second commit makes it a ladder.
 
 #### A commit body is two plain paragraphs
 

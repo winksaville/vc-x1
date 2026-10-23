@@ -1836,15 +1836,31 @@ vc-x1 commit -s p -R ../other --title "..." --body "..."
 # The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
 vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
 
-# The cycle's closing, made as the merge of the trunk and the ladder
-vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
+# A single-step cycle's closing, its opening finalized in place
+vc-x1 commit -s b --closing
+
+# A multi-step cycle's closing commit onto main, its title and body from the opening and the config
+vc-x1 commit -s b --closing main
 ```
 
-`--closing` first merges `main` and the last rung into `@`, as `merge --target @ --from main
---from @-` does, then commits, which keeps those parents. `main` is wherever it is now, so one
-that moved during the cycle is joined by the merge rather than needing a rebase. The title's
-" closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
-single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
+`--closing [REV]` closes the cycle, nothing assumed about the branch it is on:
+
+- Bare: a single-step cycle, which has no parent to name. `@-`, its opening, is finalized in place
+  with no new commit: `@` is folded into it and it takes the bare cycle title, its body and trailer
+  kept, so its change id and its partner stand, and the agent `@` is left for `push`. The line's
+  bookmark follows the rewrite. A rung at `@-` is refused, unless `--title` is given.
+- With `REV`, any one commit, a bookmark, a change id, a commit id, or an `@` form: a multi-step
+  cycle's closing commit, `REV` and the last rung merged into `@`, as `merge --target @ --from REV
+  --from @-` does, then committed, which keeps those parents. A bookmark is read where it is now,
+  so one that moved during the cycle is joined by the merge rather than needing a rebase. The
+  opening alone above `REV` is refused, pointing at the bare form, unless `--dead-end`.
+
+`--title` and `--body` are optional with `--closing`. The cycle title is read from the opening, its
+" opening" removed, and " closing" is appended for a closing commit, " dead-end closing" with
+`--dead-end`, which needs a `REV`. A given `--title` is the bare cycle title. The closing commit's
+body defaults to `[closing] body` in `.vc-config.md`, its `{title}` the cycle title, and a
+finalized commit keeps the opening's. Without `--closing` a title ending " closing" is warned
+about, since it may be a closing not asked for.
 
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
 is appended, a title carrying it already refused. The bookmark is the one named, else the bare

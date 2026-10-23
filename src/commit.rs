@@ -29,15 +29,26 @@
 //! - The work side's `@` must hold a change, since a rung changes
 //!   the work repo. The agent side's `@` is the session's journal
 //!   and is committed as it stands.
-//! - `--closing` makes the work commit the cycle's merge close-out:
-//!   `@`, the closing's edits, is first given `main` and the last
-//!   rung as its parents, in that order, the trunk first, by the
-//!   primitive `vc-x1 merge` uses, then committed, which keeps
-//!   them. `main` is
-//!   wherever it is now, so one that moved during the cycle is
-//!   joined by the merge rather than needing a rebase.
-//!   The title's " closing" or " dead-end closing" suffix is checked
-//!   against the flag both ways, never its trigger.
+//! - `--closing [REV]` closes the cycle, nothing assumed about the
+//!   branch:
+//!   - Bare: a single-step cycle, which has no parent to name. `@-`,
+//!     its opening, is finalized in place, no new commit: `@` folds
+//!     into it and it takes the bare cycle title, its body and
+//!     trailer kept, and the agent `@` is left for push, since the
+//!     commit's partner is the opening's.
+//!   - With `REV`, any one commit, a bookmark, a change id, a commit
+//!     id, or an `@` form: a multi-step cycle's closing commit, `@`
+//!     given `REV` and the last rung as its parents, in that order,
+//!     by the primitive `vc-x1 merge` uses, then committed. A bookmark
+//!     is read where it is now, so one that moved during the cycle is
+//!     joined by the merge. The opening alone above `REV` is refused,
+//!     pointing at the bare form, unless `--dead-end`.
+//!   - `--title` is the bare cycle title, read from the opening, the
+//!     first commit above `REV`, when left out, and " closing" is
+//!     appended, " dead-end closing" with `--dead-end`, which always
+//!     makes a closing commit. `--body` defaults to `[closing] body`,
+//!     its `{title}` the cycle title, and a finalized commit keeps
+//!     the opening's.
 //! - `--opening <BOOKMARK>` makes the work commit the cycle's
 //!   opening: `--title` is the bare cycle title and " opening" is
 //!   appended. The bookmark is created at the work `@-`, where the
@@ -62,7 +73,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::context::Context;
 use crate::desc_helpers::{ochid_prefix_for, with_trailer};
@@ -95,19 +106,28 @@ pub struct CommitArgs {
     )]
     pub scope: RepoScope,
 
-    /// Commit title, the Conventional Commit line
-    #[arg(long, value_name = "STR", required = true)]
-    pub title: String,
+    /// Commit title, the Conventional Commit line; with `--opening`
+    /// or `--closing` the bare cycle title [default with `--closing`:
+    /// read from the opening]
+    #[arg(long, value_name = "STR", required_unless_present = "closing")]
+    pub title: Option<String>,
 
     /// Commit body, the problem and its solutions, or @PATH to read
-    /// it from a file
-    #[arg(long, value_name = "STR|@PATH", required = true)]
-    pub body: String,
+    /// it from a file [default with `--closing`: `[closing] body`, or
+    /// the opening's for a single-step cycle]
+    #[arg(long, value_name = "STR|@PATH", required_unless_present = "closing")]
+    pub body: Option<String>,
 
-    /// Make the work commit the cycle's closing, the merge of the
-    /// trunk and the ladder; the title must end " closing"
-    #[arg(long, conflicts_with = "opening")]
-    pub closing: bool,
+    /// Close the cycle: bare, a single-step cycle's opening at `@-`
+    /// finalized in place; with REV, any one commit, the closing
+    /// commit, the merge of REV and the last rung
+    #[arg(long, value_name = "REV", conflicts_with = "opening")]
+    pub closing: Option<Option<String>>,
+
+    /// With `--closing`, close the cycle as a dead end: the title ends
+    /// " dead-end closing", always on a closing commit
+    #[arg(long, requires = "closing")]
+    pub dead_end: bool,
 
     /// Make the work commit the cycle's opening: " opening" is
     /// appended to the bare cycle title, and BOOKMARK is created at
@@ -185,14 +205,8 @@ impl Opening {
 /// appended, refused when it carries the suffix already, so it is
 /// never doubled.
 fn opening_title(title: &str) -> Result<String, String> {
-    let title = title.trim_end();
-    if title.ends_with(" opening") {
-        return Err(format!(
-            "commit --opening: the title '{title}' ends \" opening\" already: pass the bare \
-             cycle title, and --opening appends it"
-        ));
-    }
-    Ok(format!("{title} opening"))
+    refuse_suffixed(title, "--opening")?;
+    Ok(format!("{} opening", title.trim_end()))
 }
 
 /// The opening's bookmark: the one named, else the bare cycle title's
@@ -213,24 +227,24 @@ fn opening_bookmark(named: Option<&str>, title: &str) -> Result<String, String> 
     Ok(slug)
 }
 
-/// Refuse a title whose closing suffix disagrees with `--closing`:
-/// the flag decides, and the title is transcribed text the check
-/// catches a slip in. A " closing" title without the flag is a slip
-/// only when there is a ladder to close: with the work `@-` on
-/// `main`, a single-step cycle's, it is just a title.
-fn check_closing_title(title: &str, closing: bool, has_ladder: bool) -> Result<(), String> {
-    let says_closing = title.trim_end().ends_with(" closing");
-    if closing && !says_closing {
-        return Err(format!(
-            "commit --closing: the title '{title}' does not end \" closing\" or \" dead-end \
-             closing\", the cycle's closing bookend"
-        ));
-    }
-    if !closing && says_closing && has_ladder {
-        return Err(format!(
-            "commit: the title '{title}' ends \" closing\", so it is the cycle's closing \
-             bookend: pass --closing to make it the merge of the trunk and the ladder"
-        ));
+/// `--closing`'s revision, none for a single-step cycle, and how the
+/// cycle closes.
+#[derive(Debug)]
+pub struct Closing {
+    pub rev: Option<String>,
+    pub dead_end: bool,
+}
+
+/// Refuse a bare cycle title that carries a bookend's suffix, since
+/// `--opening` and `--closing` append it and it is never doubled.
+fn refuse_suffixed(title: &str, flag: &str) -> Result<(), String> {
+    for suffix in [" opening", " closing"] {
+        if title.trim_end().ends_with(suffix) {
+            return Err(format!(
+                "commit {flag}: the title '{title}' ends \"{suffix}\" already: pass the bare \
+                 cycle title, and {flag} appends the bookend's"
+            ));
+        }
     }
     Ok(())
 }
@@ -241,10 +255,13 @@ fn check_closing_title(title: &str, closing: bool, has_ladder: bool) -> Result<(
 pub struct CommitParams {
     /// The pair, work then agent, or the one plain repo.
     pub target: Target,
-    pub title: String,
-    pub body: String,
-    /// Make the work commit the merge close-out.
-    pub closing: bool,
+    /// The title, the opening's with " opening" appended, and the
+    /// body. Either is None only with `--closing`, which derives it.
+    pub title: Option<String>,
+    pub body: Option<String>,
+    /// Close the cycle, finalizing its one commit or making the
+    /// closing commit.
+    pub closing: Option<Closing>,
     /// Make the work commit the cycle's opening, with its bookmark.
     pub opening: Option<Opening>,
     /// The local bookmark advanced to the work commit.
@@ -272,8 +289,13 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// alone, read the body when it names a file, and check the
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
-        let body = crate::desc_helpers::read_body(&a.body, "commit")?;
-        if a.title.trim().is_empty() || body.trim().is_empty() {
+        let body = match &a.body {
+            Some(b) => Some(crate::desc_helpers::read_body(b, "commit")?),
+            None => None,
+        };
+        if a.title.as_deref().is_some_and(|t| t.trim().is_empty())
+            || body.as_deref().is_some_and(|b| b.trim().is_empty())
+        {
             return Err("commit: --title and --body must both be non-empty".into());
         }
         if let RepoScope::Sides(sides) = &a.scope
@@ -310,22 +332,30 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 }
             }
         };
-        let title = match &a.opening {
-            Some(_) => opening_title(&a.title)?,
-            None => a.title.clone(),
+        let (title, opening) = match (&a.opening, &a.title) {
+            (Some(named), Some(t)) => (
+                Some(opening_title(t)?),
+                Some(Opening {
+                    bookmark: opening_bookmark(named.as_deref(), t)?,
+                    skip: a.skip,
+                }),
+            ),
+            (Some(_), None) => return Err("commit --opening: --title is required".into()),
+            (None, t) => (t.clone(), None),
         };
-        let opening = match &a.opening {
-            Some(named) => Some(Opening {
-                bookmark: opening_bookmark(named.as_deref(), &a.title)?,
-                skip: a.skip,
-            }),
-            None => None,
-        };
+        if a.closing.is_some()
+            && let Some(t) = &title
+        {
+            refuse_suffixed(t, "--closing")?;
+        }
         Ok(CommitParams {
             target,
             title,
             body,
-            closing: a.closing,
+            closing: a.closing.as_ref().map(|rev| Closing {
+                rev: rev.clone(),
+                dead_end: a.dead_end,
+            }),
             opening,
             advance: match (&a.bookmark, a.no_advance) {
                 (_, true) => Advance::Off,
@@ -392,26 +422,32 @@ fn commit_pair(
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
+    let closing = plan_closing(work, params)?;
+    if let Some(ClosingPlan::Finalize { title, body }) = &closing {
+        return finalize(
+            ctx,
+            work,
+            Some(pair),
+            title,
+            body.as_deref(),
+            params.dry_run,
+        );
+    }
     preflight(work, "work", true)?;
     preflight(agent, "agent", false)?;
-    check_closing(params, work)?;
+    warn_unflagged_closing(params);
+    let (text, merge) = description(params, closing)?;
     let plan = plan_bookmarks(work, params)?;
     let work_chid = jj::chid_of(work, "@")?;
     let agent_chid = jj::chid_of(agent, "@")?;
     let agent_prefix = ochid_prefix_for(agent)?;
-    let text = format!("{}\n\n{}", params.title, params.body);
     let work_desc = with_trailer(&text, &format!("{agent_prefix}{agent_chid}"));
     let agent_desc = with_trailer(&text, &format!("/{work_chid}"));
-    let merge = if params.closing {
-        Some(closing_parents(work)?)
-    } else {
-        None
-    };
 
     if params.dry_run {
         if let Some((base, tip)) = &merge {
             info!(
-                "commit: [dry-run] the work commit is the merge of the fork point {base} and the last rung {tip}"
+                "commit: [dry-run] the work commit is the merge of {base} and the last rung {tip}"
             );
         }
         dry_run_bookmarks(params, &plan);
@@ -465,13 +501,296 @@ fn commit_pair(
     Ok(())
 }
 
-/// The closing check, asked only when the flag or the title names a
-/// closing, since the ladder question needs a `main`, which a plain
-/// repo need not have.
-fn check_closing(params: &CommitParams, repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    if params.closing || params.title.trim_end().ends_with(" closing") {
-        check_closing_title(&params.title, params.closing, has_ladder(repo)?)?;
+/// What `--closing` does, decided before anything is made.
+#[derive(Debug)]
+enum ClosingPlan {
+    /// A branch of one commit above `REV`, the opening: a single-step
+    /// cycle, its one commit finalized in place under the bare cycle
+    /// title, with the body given or else the opening's own.
+    Finalize { title: String, body: Option<String> },
+    /// A longer branch: the closing commit, the merge of `base` and
+    /// the last rung `tip`.
+    Merge {
+        base: String,
+        tip: String,
+        title: String,
+        body: String,
+    },
+}
+
+/// Plan `--closing`, refusing before anything is made. A bare
+/// `--closing` is a single-step cycle, which has no parent to name:
+/// `@-` is finalized in place, and it must be an opening, unless
+/// `--title` is given. `--closing <REV>` is a multi-step cycle's
+/// closing commit, `REV` naming exactly one commit, its first parent,
+/// with more above it than the opening alone, unless `--dead-end`,
+/// whose closing keeps the opening as it was. The count checks what
+/// was typed rather than choosing the shape.
+fn plan_closing(
+    repo: &Path,
+    params: &CommitParams,
+) -> Result<Option<ClosingPlan>, Box<dyn std::error::Error>> {
+    let Some(c) = &params.closing else {
+        return Ok(None);
+    };
+    let Some(rev) = &c.rev else {
+        if c.dead_end {
+            return Err(
+                "commit --closing --dead-end: a dead end gets a closing commit, so name \
+                        the revision it merges onto, --closing <REV>"
+                    .into(),
+            );
+        }
+        let title = match &params.title {
+            Some(t) => t.trim_end().to_string(),
+            None => {
+                let desc = jj::desc_of(repo, "@-")?;
+                let first = desc.lines().next().unwrap_or_default().trim_end();
+                match first.strip_suffix(" opening") {
+                    Some(cycle) => cycle.to_string(),
+                    None => {
+                        return Err(format!(
+                            "commit --closing: a bare --closing finalizes a single-step cycle's \
+                             opening, and the work @- is '{first}': a multi-step closing names \
+                             its parent, --closing <REV>, or pass --title"
+                        )
+                        .into());
+                    }
+                }
+            }
+        };
+        info!(
+            "commit --closing: a single-step cycle, its one commit finalized in place as '{title}'"
+        );
+        return Ok(Some(ClosingPlan::Finalize {
+            title,
+            body: params.body.clone(),
+        }));
+    };
+    let base = resolve_closing(repo, rev)?;
+    info!("commit --closing: '{rev}' is {base}");
+    let nodes = jj::cids_of(repo, &format!("{base}..@-"))?;
+    if nodes.is_empty() {
+        return Err(format!(
+            "commit --closing: nothing above '{rev}' to close, the work @- being in ::{rev}: a \
+             cycle starts with `commit --opening`"
+        )
+        .into());
     }
+    let cycle = match &params.title {
+        Some(t) => t.trim_end().to_string(),
+        None => cycle_title(repo, &base, rev)?,
+    };
+    if nodes.len() == 1 && !c.dead_end {
+        return Err(format!(
+            "commit --closing: only the opening is above '{rev}', a single-step cycle, which has \
+             no parent to name: a bare --closing finalizes it"
+        )
+        .into());
+    }
+    let suffix = if c.dead_end {
+        " dead-end closing"
+    } else {
+        " closing"
+    };
+    let body = match &params.body {
+        Some(b) => b.clone(),
+        None => default_body(repo, &cycle)?,
+    };
+    info!(
+        "commit --closing: {} commits above '{rev}', so the closing commit merges it and the \
+         last rung",
+        nodes.len()
+    );
+    Ok(Some(ClosingPlan::Merge {
+        base,
+        tip: jj::cid_of(repo, "@-")?,
+        title: format!("{cycle}{suffix}"),
+        body,
+    }))
+}
+
+/// `--closing`'s revision as one commit id, refused unless it names
+/// exactly one commit.
+fn resolve_closing(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let cids = jj::cids_of(repo, rev).map_err(|e| {
+        format!(
+            "commit --closing: '{rev}' does not resolve in {}: {e}",
+            repo.display()
+        )
+    })?;
+    match cids.as_slice() {
+        [one] => Ok(one.clone()),
+        other => Err(format!(
+            "commit --closing: '{rev}' names {} commits in {}, and a cycle closes onto exactly \
+             one",
+            other.len(),
+            repo.display()
+        )
+        .into()),
+    }
+}
+
+/// The cycle title read from the opening, the first commit above
+/// `base`, its " opening" removed. Refused when the branch has no one
+/// first commit or it is not an opening, asking for `--title`.
+fn cycle_title(repo: &Path, base: &str, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let roots = jj::cids_of(repo, &format!("roots({base}..@-)"))?;
+    let [root] = roots.as_slice() else {
+        return Err(format!(
+            "commit --closing: the branch above '{rev}' has {} first commits, so there is no \
+             one opening to read the cycle title from: pass --title",
+            roots.len()
+        )
+        .into());
+    };
+    let desc = jj::desc_of(repo, root)?;
+    let first = desc.lines().next().unwrap_or_default().trim_end();
+    match first.strip_suffix(" opening") {
+        Some(cycle) => {
+            info!("commit --closing: the cycle is '{cycle}', read from the opening");
+            Ok(cycle.to_string())
+        }
+        None => Err(format!(
+            "commit --closing: the first commit above '{rev}', '{first}', is not an opening, \
+             so the cycle title cannot be read from it: pass --title"
+        )
+        .into()),
+    }
+}
+
+/// The closing commit's default body, `[closing] body` with its
+/// `{title}` the cycle title, refused when the key is absent.
+fn default_body(repo: &Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let body = crate::config_md::load(repo)?
+        .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "closing.body").cloned());
+    match body {
+        Some(b) => Ok(b.replace("{title}", cycle)),
+        None => Err(
+            "commit --closing: no --body, and no `[closing] body` in the config to default it from"
+                .into(),
+        ),
+    }
+}
+
+/// The closing merge's two sources, `REV` then the last rung.
+type MergeSources = (String, String);
+
+/// The description of a commit that is not finalized in place, with
+/// the closing merge's sources when it is the closing commit.
+fn description(
+    params: &CommitParams,
+    closing: Option<ClosingPlan>,
+) -> Result<(String, Option<MergeSources>), Box<dyn std::error::Error>> {
+    match closing {
+        Some(ClosingPlan::Merge {
+            base,
+            tip,
+            title,
+            body,
+        }) => Ok((format!("{title}\n\n{body}"), Some((base, tip)))),
+        _ => match (&params.title, &params.body) {
+            (Some(title), Some(body)) => Ok((format!("{title}\n\n{body}"), None)),
+            _ => Err("commit: --title and --body are required without --closing".into()),
+        },
+    }
+}
+
+/// Without `--closing` a title ending " closing" may be a closing
+/// meant and not asked for, so it is warned about, never refused, a
+/// title like "fix: the door stops closing" being just a title.
+fn warn_unflagged_closing(params: &CommitParams) {
+    if params.closing.is_none()
+        && let Some(t) = &params.title
+        && t.trim_end().ends_with(" closing")
+    {
+        warn!(
+            "commit: the title '{t}' ends \" closing\": if it closes the cycle, pass \
+             --closing <REV> with the bare cycle title"
+        );
+    }
+}
+
+/// The opening's body: its description less the title line and the
+/// `ochid:` trailers.
+fn opening_body(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let desc = jj::desc_of(repo, "@-")?;
+    Ok(desc
+        .lines()
+        .skip(1)
+        .filter(|l| !l.starts_with("ochid:"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string())
+}
+
+/// Finalize a single-step cycle's one commit in place: fold the work
+/// `@` into it and give it the bare cycle title, its body the one
+/// given or else its own, its trailer kept, so its change id and its
+/// partner stand. The agent `@` is left for push, which commits or
+/// folds it as the partner. The line's bookmark follows the rewrite.
+fn finalize(
+    ctx: &mut Context,
+    repo: &Path,
+    pair: Option<&Pair>,
+    title: &str,
+    body: Option<&str>,
+    dry_run: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    preflight(repo, "work", false)?;
+    let trailer = match pair {
+        Some(pair) => match crate::pair::work_commit(pair)? {
+            Some(wc) => Some(wc.trailer),
+            None => {
+                return Err(
+                    "commit --closing: the work @- carries no `ochid:` trailer, so it \
+                            is not a pair's commit to finalize"
+                        .into(),
+                );
+            }
+        },
+        None => None,
+    };
+    let body = match body {
+        Some(b) => b.to_string(),
+        None => opening_body(repo)?,
+    };
+    let text = format!("{title}\n\n{body}");
+    let desc = match &trailer {
+        Some(t) => with_trailer(&text, t),
+        None => text,
+    };
+    let fold = !jj::is_empty(repo, "@")?;
+    let chid = jj::chid_of(repo, "@-")?;
+    if dry_run {
+        if fold {
+            info!("commit: [dry-run] fold the work @ into @- {chid}");
+        }
+        info!(
+            "commit: [dry-run] finalize @- {chid}, in {}:\n{desc}",
+            repo.display()
+        );
+        return Ok(());
+    }
+    let snapshot = crate::pair::Snapshot::take(repo)?;
+    let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+        if fold {
+            info!("commit work: @ -> @- {chid}");
+            ctx.session(repo)?.squash_into("@", "@-")?;
+        }
+        info!("commit work: finalize @- {chid} as '{title}', its trailer kept");
+        ctx.session(repo)?.describe("@-", &desc)
+    })();
+    if let Err(e) = result {
+        snapshot.restore("commit", e.as_ref());
+        return Err(e);
+    }
+    info!(
+        "commit: the single-step cycle's one commit is finalized, the agent @ left for push. \
+         Review it with `vc-x1 show -s work @- -R {}`",
+        repo.display()
+    );
     Ok(())
 }
 
@@ -635,30 +954,8 @@ fn make_opening_bookmark(
     Ok(())
 }
 
-/// Whether the work `@-` is a ladder above `main`, one a closing
-/// closes: not `main` and not contained in it.
-fn has_ladder(repo: &Path) -> Result<bool, Box<dyn std::error::Error>> {
-    Ok(!jj::matches(repo, "@- & ::main")?)
-}
-
-/// The closing's two sources, as commit ids read before anything
-/// moves: `main` first, wherever it is now, so a `main` that moved
-/// during the cycle is joined by the merge rather than needing a
-/// rebase, and the last rung, the work `@-`, second. Refused when
-/// there is no ladder, the last rung being in `main` already.
-fn closing_parents(repo: &Path) -> Result<(String, String), Box<dyn std::error::Error>> {
-    if !has_ladder(repo)? {
-        return Err(
-            "commit --closing: the work @- is in `main`, so there is no ladder to close. \
-                    A closing is made on the cycle's last rung"
-                .into(),
-        );
-    }
-    Ok((jj::cid_of(repo, "main")?, jj::cid_of(repo, "@-")?))
-}
-
-/// Merge `main` and the last rung into `@`, the closing's edits,
-/// setting them as `@`'s parents in that order, the trunk first,
+/// Merge the closing's revision and the last rung into `@`, the
+/// closing's edits, setting them as `@`'s parents in that order,
 /// which `vc-x1 merge`'s append would not, before the commit, which
 /// keeps `@`'s parents.
 fn make_closing_merge(
@@ -684,19 +981,18 @@ fn commit_por(
     repo: &Path,
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let closing = plan_closing(repo, params)?;
+    if let Some(ClosingPlan::Finalize { title, body }) = &closing {
+        return finalize(ctx, repo, None, title, body.as_deref(), params.dry_run);
+    }
     preflight(repo, "plain", true)?;
-    check_closing(params, repo)?;
+    warn_unflagged_closing(params);
+    let (desc, merge) = description(params, closing)?;
     let plan = plan_bookmarks(repo, params)?;
     let chid = jj::chid_of(repo, "@")?;
-    let desc = format!("{}\n\n{}", params.title, params.body);
-    let merge = if params.closing {
-        Some(closing_parents(repo)?)
-    } else {
-        None
-    };
     if params.dry_run {
         if let Some((base, tip)) = &merge {
-            info!("commit: [dry-run] the merge of the fork point {base} and the last rung {tip}");
+            info!("commit: [dry-run] the merge of {base} and the last rung {tip}");
         }
         dry_run_bookmarks(params, &plan);
         info!(
@@ -765,7 +1061,7 @@ mod tests {
         assert!(err.contains("--title"), "{err}");
         let fx = Fixture::new("commit-blank");
         let mut a = args("b", &fx.work);
-        a.body = "  \n".to_string();
+        a.body = Some("  \n".to_string());
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("non-empty"), "{err}");
     }
@@ -865,9 +1161,9 @@ mod tests {
         let agent_at = chid(&fx.bot, "@");
 
         let mut a = args("w", &fx.work);
-        a.body = format!("@{}", body_path.display());
+        a.body = Some(format!("@{}", body_path.display()));
         let params = CommitParams::try_from(&a).expect("params");
-        assert_eq!(params.body, body);
+        assert_eq!(params.body.as_deref(), Some(body));
         commit(&mut test_ctx(), &params).expect("the work half is made");
 
         assert_eq!(chid(&fx.work, "@-"), work_at);
@@ -888,7 +1184,7 @@ mod tests {
             "false"
         );
 
-        a.body = format!("@{}", fx.base.join("missing.md").display());
+        a.body = Some(format!("@{}", fx.base.join("missing.md").display()));
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("cannot read the file"), "{err}");
     }
@@ -920,22 +1216,47 @@ mod tests {
         );
     }
 
-    /// The title's closing suffix and `--closing` agree, or the commit
-    /// is refused, in both directions.
+    /// A bookend flag takes the bare cycle title and refuses one that
+    /// carries a bookend's suffix already, so a suffix is never
+    /// doubled, while a plain commit's title is just a title.
     #[test]
-    fn the_closing_suffix_is_checked_against_the_flag() {
-        for ladder in [true, false] {
-            assert!(check_closing_title("feat: x closing", true, ladder).is_ok());
-            assert!(check_closing_title("feat: x dead-end closing", true, ladder).is_ok());
-            assert!(check_closing_title("feat: x", false, ladder).is_ok());
-            let err = check_closing_title("feat: x", true, ladder).unwrap_err();
-            assert!(err.contains("does not end"), "{err}");
+    fn a_bookend_takes_the_bare_title() {
+        assert!(refuse_suffixed("feat: x", "--closing").is_ok());
+        for t in [
+            "feat: x opening",
+            "feat: x closing",
+            "feat: x dead-end closing",
+        ] {
+            let err = refuse_suffixed(t, "--closing").unwrap_err();
+            assert!(err.contains("bare cycle title"), "{t}: {err}");
         }
-        let err = check_closing_title("feat: x closing", false, true).unwrap_err();
-        assert!(err.contains("pass --closing"), "{err}");
-        // A single-step cycle's title that happens to end " closing"
-        // is no bookend, since there is no ladder.
-        assert!(check_closing_title("fix: the door stops closing", false, false).is_ok());
+        let mut a = parse(&[
+            "vc-x1",
+            "commit",
+            "-s",
+            "w",
+            "--title",
+            "feat: x closing",
+            "--body",
+            "b",
+            "--closing",
+            "main",
+        ])
+        .expect("parses");
+        a.repo = None;
+        assert!(a.closing.is_some() && a.title.as_deref() == Some("feat: x closing"));
+        let a = parse(&[
+            "vc-x1",
+            "commit",
+            "-s",
+            "w",
+            "--title",
+            "fix: the door stops closing",
+            "--body",
+            "b",
+        ])
+        .expect("a plain commit's title is just a title");
+        assert!(a.closing.is_none());
     }
 
     /// The commit ids of a revision's parents, in order.
@@ -979,8 +1300,8 @@ mod tests {
         let agent_at = chid(&fx.bot, "@");
 
         let mut a = args("b", &fx.work);
-        a.title = "feat: a cycle closing".to_string();
-        a.closing = true;
+        a.title = Some("feat: a cycle".to_string());
+        a.closing = Some(Some("main".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the closing is made");
 
@@ -1050,8 +1371,8 @@ mod tests {
         fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
 
         let mut a = args("w", &fx.work);
-        a.title = "feat: a cycle closing".to_string();
-        a.closing = true;
+        a.title = Some("feat: a cycle".to_string());
+        a.closing = Some(Some("main".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the closing is made");
 
@@ -1075,13 +1396,13 @@ mod tests {
         fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
         let work_at = chid(&fx.work, "@");
         let mut a = args("b", &fx.work);
-        a.title = "feat: a cycle closing".to_string();
-        a.closing = true;
+        a.title = Some("feat: a cycle".to_string());
+        a.closing = Some(Some("main".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("no ladder")
             .to_string();
-        assert!(err.contains("no ladder"), "{err}");
+        assert!(err.contains("nothing above"), "{err}");
         assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
     }
 
@@ -1123,7 +1444,7 @@ mod tests {
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let mut a = args("b", &fx.work);
-        a.title = "feat: a cycle".to_string();
+        a.title = Some("feat: a cycle".to_string());
         a.opening = Some(Some("feat-a-cycle".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
@@ -1161,13 +1482,13 @@ mod tests {
         ])
         .expect("parses");
         assert_eq!(a.opening, Some(None));
-        assert_eq!(a.title, "feat: vc-x1 single-step commit");
+        assert_eq!(a.title.as_deref(), Some("feat: vc-x1 single-step commit"));
 
         let fx = Fixture::new("commit-opening-slug");
         let start = commit_id(&fx.work, "@-");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("w", &fx.work);
-        a.title = "feat: vc-x1 single-step commit".to_string();
+        a.title = Some("feat: vc-x1 single-step commit".to_string());
         a.opening = Some(None);
         let params = CommitParams::try_from(&a).expect("params");
         assert_eq!(
@@ -1180,7 +1501,7 @@ mod tests {
             (Some(commit_id(&fx.work, "@-")), Some(start))
         );
 
-        a.title = "?!".to_string();
+        a.title = Some("?!".to_string());
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("no letters or digits"), "{err}");
     }
@@ -1236,17 +1557,18 @@ mod tests {
             "--opening",
             "x",
             "--closing",
+            "main",
         ])
         .unwrap_err();
         assert!(err.contains("cannot be used with"), "{err}");
 
         let fx = Fixture::new("commit-opening-refused");
         let mut a = args("w", &fx.work);
-        a.title = "feat: x opening".to_string();
+        a.title = Some("feat: x opening".to_string());
         a.opening = Some(Some("feat-x".to_string()));
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("already"), "{err}");
-        a.title = "feat: x".to_string();
+        a.title = Some("feat: x".to_string());
 
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let work_at = chid(&fx.work, "@");
@@ -1407,6 +1729,218 @@ mod tests {
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("dry run");
         assert_eq!(bookmark_state(&fx.work, "feat-x"), (None, None));
+    }
+
+    /// Open a cycle titled "feat: a cycle" with `--opening`, the pair
+    /// made at once, returning the opening's change id.
+    fn open_cycle(fx: &Fixture) -> String {
+        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        let mut a = args("b", &fx.work);
+        a.title = Some("feat: a cycle".to_string());
+        a.body = Some("Why the cycle.".to_string());
+        a.opening = Some(None);
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the opening is made");
+        chid(&fx.work, "@-")
+    }
+
+    /// `commit --closing [REV]` with the title and body left out.
+    fn closing_args(fx: &Fixture, scope: &str, rev: Option<&str>) -> CommitArgs {
+        let mut a = args(scope, &fx.work);
+        a.title = None;
+        a.body = None;
+        a.closing = Some(rev.map(str::to_string));
+        a
+    }
+
+    /// Set the work config's `[closing] body`.
+    fn set_closing_body(fx: &Fixture) {
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[closing]\nbody = 'Closes the cycle \"{title}\".'\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+    }
+
+    /// A branch of one commit above `REV`, the opening, is a
+    /// single-step cycle: `--closing` folds `@` into it and gives it
+    /// the bare cycle title read from it, its body and trailer kept,
+    /// no new commit, the agent `@` left for push, and the bookmark
+    /// following the rewrite.
+    #[test]
+    fn a_one_commit_branch_is_finalized_in_place() {
+        let fx = Fixture::new("commit-finalize");
+        let base = commit_id(&fx.work, "main");
+        let opening = open_cycle(&fx);
+        let trailer = description(&fx.work, "@-")
+            .lines()
+            .last()
+            .expect("trailer")
+            .to_string();
+        fs::write(fx.work.join("fix.txt"), "fix\n").expect("write");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":2}\n").expect("write");
+        let agent_at = chid(&fx.bot, "@");
+
+        let params = CommitParams::try_from(&closing_args(&fx, "b", None)).expect("params");
+        commit(&mut test_ctx(), &params).expect("finalized");
+
+        assert_eq!(
+            chid(&fx.work, "@-"),
+            opening,
+            "the same change, no new commit"
+        );
+        assert_eq!(parents(&fx.work, "@-"), [base]);
+        let desc = description(&fx.work, "@-");
+        assert!(
+            desc.starts_with("feat: a cycle\n\nWhy the cycle.\n"),
+            "{desc}"
+        );
+        assert_eq!(desc.trim_end().lines().last(), Some(trailer.as_str()));
+        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
+        assert!(
+            files.contains("fix.txt") && files.contains("opening.txt"),
+            "{files}"
+        );
+        assert_eq!(chid(&fx.bot, "@"), agent_at, "the agent @ is left for push");
+        assert_eq!(
+            chid(&fx.work, "feat-a-cycle"),
+            opening,
+            "the bookmark followed"
+        );
+    }
+
+    /// A branch of two or three commits gets the closing commit, its
+    /// title the cycle's read from the opening with " closing", its
+    /// body `[closing] body` filled with it, and the line's bookmark
+    /// advanced to it. Without the key, `--body` is required.
+    #[test]
+    fn a_longer_branch_gets_the_closing_commit_titled_from_the_opening() {
+        for rungs in 1..=2 {
+            let fx = Fixture::new(&format!("commit-closing-derived-{rungs}"));
+            let base = commit_id(&fx.work, "main");
+            open_cycle(&fx);
+            for n in 0..rungs {
+                fs::write(fx.work.join(format!("rung{n}.txt")), "rung\n").expect("write");
+                jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {n}")]);
+            }
+            let tip = commit_id(&fx.work, "@-");
+            fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+
+            let params =
+                CommitParams::try_from(&closing_args(&fx, "w", Some("main"))).expect("params");
+            let err = commit(&mut test_ctx(), &params)
+                .expect_err("no body")
+                .to_string();
+            assert!(err.contains("[closing] body"), "{err}");
+
+            set_closing_body(&fx);
+            commit(&mut test_ctx(), &params).expect("the closing is made");
+            assert_eq!(parents(&fx.work, "@-"), [base, tip], "{rungs} rungs");
+            let desc = description(&fx.work, "@-");
+            assert!(
+                desc.starts_with("feat: a cycle closing\n\nCloses the cycle \"feat: a cycle\".\n"),
+                "{desc}"
+            );
+            assert_eq!(
+                commit_id(&fx.work, "feat-a-cycle"),
+                commit_id(&fx.work, "@-")
+            );
+        }
+    }
+
+    /// A single-step closing names no parent and a multi-step one
+    /// names one: a `REV` with only the opening above it, a bare
+    /// `--closing` on a rung, and `--dead-end` with no `REV` are each
+    /// refused before anything is committed.
+    #[test]
+    fn the_closing_form_matches_the_shape() {
+        let fx = Fixture::new("commit-closing-form");
+        open_cycle(&fx);
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        let work_at = chid(&fx.work, "@");
+        let refused = |a: &CommitArgs, why: &str| {
+            let params = CommitParams::try_from(a).expect("params");
+            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
+            assert!(err.contains(why), "{why}: {err}");
+            assert_eq!(chid(&fx.work, "@"), work_at, "{why}: nothing was committed");
+        };
+        refused(
+            &closing_args(&fx, "w", Some("main")),
+            "a bare --closing finalizes it",
+        );
+        let mut a = closing_args(&fx, "w", None);
+        a.dead_end = true;
+        refused(&a, "--closing <REV>");
+
+        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
+        fs::write(fx.work.join("closing.txt"), "closing again\n").expect("write");
+        let params = CommitParams::try_from(&closing_args(&fx, "w", None)).expect("params");
+        let err = commit(&mut test_ctx(), &params)
+            .expect_err("a rung at @-")
+            .to_string();
+        assert!(
+            err.contains("a multi-step closing names its parent"),
+            "{err}"
+        );
+    }
+
+    /// `--dead-end` always makes the closing commit, a branch of the
+    /// opening alone included, titled " dead-end closing".
+    #[test]
+    fn a_dead_end_always_gets_the_closing_commit() {
+        let fx = Fixture::new("commit-closing-dead-end");
+        open_cycle(&fx);
+        let opening = commit_id(&fx.work, "@-");
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        let mut a = closing_args(&fx, "w", Some("main"));
+        a.body = Some("Why it stopped.".to_string());
+        a.dead_end = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the closing is made");
+        assert_eq!(
+            parents(&fx.work, "@-"),
+            [commit_id(&fx.work, "main"), opening]
+        );
+        assert!(description(&fx.work, "@-").starts_with("feat: a cycle dead-end closing\n\n"));
+    }
+
+    /// `--closing` takes any one revision: a change id closes onto that
+    /// commit as a bookmark would, and a revision naming no commit, or
+    /// several, or a branch whose first commit is not an opening with
+    /// no `--title`, is refused before anything is committed.
+    #[test]
+    fn closing_takes_any_one_revision() {
+        let fx = Fixture::new("commit-closing-rev");
+        let base = commit_id(&fx.work, "main");
+        let base_chid = chid(&fx.work, "main");
+        for rung in ["one", "two"] {
+            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
+            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
+        }
+        jj_ok(&fx.work, &["bookmark", "create", "topic", "-r", "@-"]);
+        let tip = commit_id(&fx.work, "@-");
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        let work_at = chid(&fx.work, "@");
+
+        let mut a = closing_args(&fx, "w", Some("main"));
+        a.body = Some("b".to_string());
+        for (rev, why) in [
+            ("nosuch", "does not resolve"),
+            ("main::@-", "names 3 commits"),
+            ("main", "is not an opening"),
+        ] {
+            a.closing = Some(Some(rev.to_string()));
+            let params = CommitParams::try_from(&a).expect("params");
+            let err = commit(&mut test_ctx(), &params).expect_err(rev).to_string();
+            assert!(err.contains(why), "{rev}: {err}");
+            assert_eq!(chid(&fx.work, "@"), work_at, "{rev}: nothing was committed");
+        }
+
+        a.closing = Some(Some(base_chid));
+        a.title = Some("feat: a cycle".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the closing is made");
+        assert_eq!(parents(&fx.work, "@-"), [base, tip]);
+        assert!(description(&fx.work, "@-").starts_with("feat: a cycle closing\n"));
     }
 
     /// `-s p` commits a plain repo with the description and no
