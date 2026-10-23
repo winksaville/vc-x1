@@ -186,6 +186,8 @@ Defaults invite mistakes, and the two undos differ:
     publishes a name for a commit already public, so nothing unreviewed goes out, which is what
     Opening step 2 does by hand. This replaces the first call, the bookmark created on the opening
     for the next push, since wink wants the bookmark pushed by `--opening`.
+  - The bookmark's name defaults to the bare title's slug, the rules' own name for it, wink's call
+    (2026-10-23), a rung inserted after a live test left it off.
   - The line's bookmark advances to each work commit, locally, wink's call at the opening rung
     (2026-10-23), the remote moving only at `push`, resolved as `push` resolves it, `--bookmark`
     naming it and `--no-advance` leaving it.
@@ -241,7 +243,7 @@ Defaults invite mistakes, and the two undos differ:
 - The closing's undo is in this cycle, the Todo's lean, for a closing made without `--land`, a flag
   or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
 - Bookmark deletion is a rung of this cycle, not its own cycle, since `--land` and `--skip` use it.
-- Multi-step, ten work rungs between the bookends, the closing and landing path first, since each
+- Multi-step, eleven work rungs between the bookends, the closing and landing path first, since each
   of its rungs is used by the next, then the four steps the widening added.
 
 #### Problem
@@ -297,16 +299,17 @@ installed `vc-x1 -V` a bare 0.85.8.
 
 - [feat: vc-x1 closing and land opening][0] (done)
 - [feat: commit --opening makes the opening and its bookmark][1] (done)
-- [feat: commit --closing closes every cycle shape][2]
-- [feat: commit --closing takes a shape, from the flag or the config][3]
-- [feat: the closing can be taken back][4]
-- [feat: vc-x1 deletes a bookmark][5]
-- [feat: commit --closing --land lands the cycle][6]
-- [feat: vc-x1 reshapes a draft bookmark][7]
-- [feat: vc-x1 re-describes a pair and keeps its trailers][8]
-- [feat: vc-x1 runs a local ladder][9]
-- [feat: vc-x1 sets a rung's edits aside][10]
-- [feat: vc-x1 closing and land closing][11]
+- [feat: commit --opening names the bookmark from the title][2] (done)
+- [feat: commit --closing closes every cycle shape][3]
+- [feat: commit --closing takes a shape, from the flag or the config][4]
+- [feat: the closing can be taken back][5]
+- [feat: vc-x1 deletes a bookmark][6]
+- [feat: commit --closing --land lands the cycle][7]
+- [feat: vc-x1 reshapes a draft bookmark][8]
+- [feat: vc-x1 re-describes a pair and keeps its trailers][9]
+- [feat: vc-x1 runs a local ladder][10]
+- [feat: vc-x1 sets a rung's edits aside][11]
+- [feat: vc-x1 closing and land closing][12]
 
 ##### feat: vc-x1 closing and land opening
 
@@ -355,6 +358,19 @@ appending " opening" to the bare cycle title.
   rid of it, found when wink first ran `--opening` (2026-10-23).
   - They print `vc-x1 show -s both @- -R <work>` for a pair, and `-s work` for a work half, whose
     agent half push commits later, so `-s both` would show the agent's previous commit.
+
+##### feat: commit --opening names the bookmark from the title
+
+`--opening` takes the bookmark's name as a value, though the rules name it by the cycle title's slug,
+so the value becomes optional and a bookmark left unnamed is the slug of the bare `--title`.
+
+* The bookmark's name was typed a second time, though the title determines it, found when wink
+  left it off in a live test (2026-10-23).
+  - `--opening [BOOKMARK]` takes the name or none, and none is the bare title's slug by
+    `validate_anchors::anchor_slug`, the algorithm [Cycle
+    bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land) names, printed since it is a
+    default. A `--title` right after `--opening` is the next flag, not its value.
+  - A title with nothing to slug is refused, asking for the name.
 
 ##### feat: commit --closing closes every cycle shape
 
@@ -441,13 +457,14 @@ Closing out the cycle.
 
 [0]: #feat-vc-x1-closing-and-land-opening
 [1]: #feat-commit---opening-makes-the-opening-and-its-bookmark
-[2]: #feat-commit---closing-closes-every-cycle-shape
-[3]: #feat-commit---closing-takes-a-shape-from-the-flag-or-the-config
-[4]: #feat-the-closing-can-be-taken-back
-[5]: #feat-vc-x1-deletes-a-bookmark
-[6]: #feat-commit---closing---land-lands-the-cycle
-[7]: #feat-vc-x1-reshapes-a-draft-bookmark
-[8]: #feat-vc-x1-re-describes-a-pair-and-keeps-its-trailers
-[9]: #feat-vc-x1-runs-a-local-ladder
-[10]: #feat-vc-x1-sets-a-rungs-edits-aside
-[11]: #feat-vc-x1-closing-and-land-closing
+[2]: #feat-commit---opening-names-the-bookmark-from-the-title
+[3]: #feat-commit---closing-closes-every-cycle-shape
+[4]: #feat-commit---closing-takes-a-shape-from-the-flag-or-the-config
+[5]: #feat-the-closing-can-be-taken-back
+[6]: #feat-vc-x1-deletes-a-bookmark
+[7]: #feat-commit---closing---land-lands-the-cycle
+[8]: #feat-vc-x1-reshapes-a-draft-bookmark
+[9]: #feat-vc-x1-re-describes-a-pair-and-keeps-its-trailers
+[10]: #feat-vc-x1-runs-a-local-ladder
+[11]: #feat-vc-x1-sets-a-rungs-edits-aside
+[12]: #feat-vc-x1-closing-and-land-closing

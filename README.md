@@ -1833,8 +1833,8 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 # A plain repo, the description with no trailer
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 
-# The cycle's opening, " opening" appended, its bookmark created at @- and pushed
-vc-x1 commit -s b --opening feat-a-cycle --title "feat: a cycle" --body @tmp/body.md
+# The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
+vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
 
 # The cycle's closing, made as the merge of the trunk and the ladder
 vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
@@ -1846,8 +1846,9 @@ that moved during the cycle is joined by the merge rather than needing a rebase.
 " closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
 single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
 
-`--opening <BOOKMARK>` makes the cycle's opening: `--title` is the bare cycle title and " opening"
-is appended, a title carrying it already refused. The bookmark is created at the work `@-`, where
+`--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
+is appended, a title carrying it already refused. The bookmark is the one named, else the bare
+title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where
 the cycle's branch starts, and pushed to `origin`, a name for a commit already public, so nothing
 unreviewed goes out, and the opening itself stays local until the push after its review. `--skip
 local` takes a bookmark already at `@-` and pushes it, `--skip remote` creates it and pushes

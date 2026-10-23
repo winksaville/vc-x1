@@ -111,9 +111,10 @@ pub struct CommitArgs {
 
     /// Make the work commit the cycle's opening: " opening" is
     /// appended to the bare cycle title, and BOOKMARK is created at
-    /// the work `@-` and pushed to `origin`
+    /// the work `@-` and pushed to `origin` [default: the bare
+    /// title's slug]
     #[arg(long, value_name = "BOOKMARK")]
-    pub opening: Option<String>,
+    pub opening: Option<Option<String>>,
 
     /// What `--opening` leaves out: `local`, the bookmark is already
     /// at the work `@-` and is pushed; `remote`, it is created and
@@ -192,6 +193,24 @@ fn opening_title(title: &str) -> Result<String, String> {
         ));
     }
     Ok(format!("{title} opening"))
+}
+
+/// The opening's bookmark: the one named, else the bare cycle title's
+/// slug, the rules' name for a cycle's bookmark, the anchor algorithm
+/// a heading of the title gets, printed since it is a default.
+fn opening_bookmark(named: Option<&str>, title: &str) -> Result<String, String> {
+    if let Some(name) = named {
+        return Ok(name.to_string());
+    }
+    let slug = crate::validate_anchors::anchor_slug(title.trim_end());
+    if slug.trim_matches(['-', '_']).is_empty() {
+        return Err(format!(
+            "commit --opening: the title '{title}' has no letters or digits to name the \
+             bookmark: name it, --opening <BOOKMARK>"
+        ));
+    }
+    info!("commit --opening: the bookmark is '{slug}', the title's slug");
+    Ok(slug)
 }
 
 /// Refuse a title whose closing suffix disagrees with `--closing`:
@@ -295,15 +314,19 @@ impl TryFrom<&CommitArgs> for CommitParams {
             Some(_) => opening_title(&a.title)?,
             None => a.title.clone(),
         };
+        let opening = match &a.opening {
+            Some(named) => Some(Opening {
+                bookmark: opening_bookmark(named.as_deref(), &a.title)?,
+                skip: a.skip,
+            }),
+            None => None,
+        };
         Ok(CommitParams {
             target,
             title,
             body,
             closing: a.closing,
-            opening: a.opening.as_ref().map(|bookmark| Opening {
-                bookmark: bookmark.clone(),
-                skip: a.skip,
-            }),
+            opening,
             advance: match (&a.bookmark, a.no_advance) {
                 (_, true) => Advance::Off,
                 (Some(b), false) => Advance::Named(b.clone()),
@@ -1101,7 +1124,7 @@ mod tests {
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let mut a = args("b", &fx.work);
         a.title = "feat: a cycle".to_string();
-        a.opening = Some("feat-a-cycle".to_string());
+        a.opening = Some(Some("feat-a-cycle".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
 
@@ -1117,6 +1140,49 @@ mod tests {
             !jj::matches(&fx.work, "@- & ::remote_bookmarks()").expect("matches"),
             "the opening is not published"
         );
+    }
+
+    /// `--opening` with no value names the bookmark by the bare
+    /// title's slug, the rules' name for a cycle's bookmark, and a
+    /// `--title` right after it is not taken for its value. A title
+    /// with nothing to slug is refused.
+    #[test]
+    fn opening_names_the_bookmark_from_the_title() {
+        let a = parse(&[
+            "vc-x1",
+            "commit",
+            "-s",
+            "w",
+            "--opening",
+            "--title",
+            "feat: vc-x1 single-step commit",
+            "--body",
+            "b",
+        ])
+        .expect("parses");
+        assert_eq!(a.opening, Some(None));
+        assert_eq!(a.title, "feat: vc-x1 single-step commit");
+
+        let fx = Fixture::new("commit-opening-slug");
+        let start = commit_id(&fx.work, "@-");
+        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        let mut a = args("w", &fx.work);
+        a.title = "feat: vc-x1 single-step commit".to_string();
+        a.opening = Some(None);
+        let params = CommitParams::try_from(&a).expect("params");
+        assert_eq!(
+            params.opening.as_ref().map(|o| o.bookmark.as_str()),
+            Some("feat-vc-x1-single-step-commit")
+        );
+        commit(&mut test_ctx(), &params).expect("the opening is made");
+        assert_eq!(
+            bookmark_state(&fx.work, "feat-vc-x1-single-step-commit"),
+            (Some(commit_id(&fx.work, "@-")), Some(start))
+        );
+
+        a.title = "?!".to_string();
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("no letters or digits"), "{err}");
     }
 
     /// `--skip` leaves out what it names: `remote` creates the
@@ -1136,7 +1202,7 @@ mod tests {
             }
             fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
             let mut a = args("w", &fx.work);
-            a.opening = Some("feat-x".to_string());
+            a.opening = Some(Some("feat-x".to_string()));
             a.skip = Some(skip);
             let params = CommitParams::try_from(&a).expect("params");
             commit(&mut test_ctx(), &params).expect("the opening is made");
@@ -1177,7 +1243,7 @@ mod tests {
         let fx = Fixture::new("commit-opening-refused");
         let mut a = args("w", &fx.work);
         a.title = "feat: x opening".to_string();
-        a.opening = Some("feat-x".to_string());
+        a.opening = Some(Some("feat-x".to_string()));
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("already"), "{err}");
         a.title = "feat: x".to_string();
@@ -1193,7 +1259,7 @@ mod tests {
 
         jj_ok(&fx.work, &["bookmark", "set", "feat-x", "-r", "@-"]);
         refused(&a, "exists");
-        a.opening = Some("feat-y".to_string());
+        a.opening = Some(Some("feat-y".to_string()));
         a.skip = Some(Skip::Both);
         refused(&a, "is not at the work @-");
         a.skip = None;
@@ -1222,7 +1288,7 @@ mod tests {
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let work_at = chid(&fx.work, "@");
         let mut a = args("w", &fx.work);
-        a.opening = Some("feat-x".to_string());
+        a.opening = Some(Some("feat-x".to_string()));
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("published elsewhere")
@@ -1320,7 +1386,7 @@ mod tests {
         let start = commit_id(&fx.work, "@-");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("w", &fx.work);
-        a.opening = Some("feat-x".to_string());
+        a.opening = Some(Some("feat-x".to_string()));
         a.no_advance = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
@@ -1336,7 +1402,7 @@ mod tests {
         let fx = Fixture::new("commit-opening-dry-run");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("w", &fx.work);
-        a.opening = Some("feat-x".to_string());
+        a.opening = Some(Some("feat-x".to_string()));
         a.dry_run.value = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("dry run");
