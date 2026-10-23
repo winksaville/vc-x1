@@ -25,7 +25,7 @@ use crate::desc_helpers::{
     DEFAULT_ID_LEN, TitleMatch, extract_bare_id, find_matching_commit, ochid_prefix_for,
     validate_ochid,
 };
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope, side_keyword};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser, side_keyword};
 use crate::subcommand::SubcommandRunner;
 
 #[derive(Args, Debug)]
@@ -58,7 +58,7 @@ pub struct ValidateDescArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(&["work", "agent", "both"]),
         required = true,
         help = format!("Whose commits are checked, required: {REPO_SCOPE_FORMS}, `p` refused")
     )]

@@ -7,567 +7,611 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: vc-x1 commit, install, and run-dev
+### feat: vc-x1 install stages, deploys, and runs builds
 
-(wink + agent, 2026-10-20, opened 2026-10-20) The code **agent-files(proposal): v0.3.1** names: a
-rung is committed locally before it is pushed, the closing is made as its trapezoid, the dev build
-installs under its own root, and the promotion is a subcommand.
+(wink + agent, 2026-10-21, opened 2026-10-21) The last two work rungs of **feat: vc-x1 commit,
+install, and run-dev**, deferred at its closing, run as their own cycle and widened at the opening
+into three stages, dev, release, and the PATH, each with its command. The keys that cycle landed
+as `[install] release`, `dev`, and `dev-bin` were read by nothing, and become `[build]`'s here.
 
 #### Problem
 
-What the user reviews is not what is published. A rung's commit exists only once `vc-x1 push` has
-made and published it, so a fix after the review of its description is a remote rewrite and a
-squash-push in both repos. The closing is changed twice more after its review, at Land: the
-package's plain name is squashed back into it, and the trapezoid recipe reshapes it into the merge.
-The rename exists because a mid-cycle `cargo install` would otherwise replace the consumers'
-binary, and Land's promotion itself names no command.
+Land's promotion is a hand-typed `cargo install --path .`, which checks nothing: it installs
+whatever the working copy holds, pushed or not, at a suffixed version or a bare one, and it
+replaces the PATH binary in the same step that builds the release, so the release is first run
+when it is already the one consumers get. The `build.rs` guard that once refused a suffixed
+version under the plain name is gone, and could never see the bookmark or the remote. The dev
+binary lives off the PATH under `tmp/dev`, reached only by typing its path, and nothing says when
+it is stale. The table that names the builds is read by nothing.
 
 #### Solution
 
-Eleven rungs of the fourteen planned, the install and run-dev rungs deferred to **feat: vc-x1
-install and run-dev** in `TODO.md`, wink's call at the closing (the deliberation's last bullet):
+What was done. vc-x1 is not a build system: the config says what the steps are, and vc-x1 runs
+them in order and checks their results, building before it runs or installs, reporting what it
+is about to copy, refusing only a copy that would be wrong, and never letting the dev build
+replace the release. Cargo decides what to rebuild.
 
-- An `[install]` table in the config: `release`, `dev`, and `dev-bin`, with `[validate] full`
-  ending in the dev install's line, the schema's stale examples fixed, and the model regenerated.
-  Nothing in the binary reads the keys yet: the schema's prose names the subcommands the follow-on
-  cycle brings.
-- A scope resolver shared by `commit`, `squash`, `push`, `squash-push`, and `sync`: `-s`,
-  required, one of `work|w`, `agent|a`, `both|b`, or `por|p`, and `-R` optional. No `-s` is
-  clap's required-argument error naming `--scope`, the four spelled out by `--help`. `-s p` on a
-  side of a dual workspace is refused naming the side. `validate-desc` took the resolver first,
-  as the read-only trial.
-- `vc-x1 commit -s b` makes the rung's commit pair from the two working copies, each stamped with
-  the other's change id, `-s w` the work commit now with the agent half left to push, `-s p` a
-  plain repo's commit with no trailer, and `-s a` refused. `--closing` sets `@`'s parents to the
-  current `main` and the last rung before committing, so the closing is the merge at commit
-  time, and `--dry-run` previews the descriptions.
-- `vc-x1 squash` folds each scoped working copy into its side of the pair, refusing a published
-  side, and `--title` with `--body` is the sanctioned re-describe, trailers restamped.
-- `vc-x1 push` only publishes, carrying no description: its agent half folds the journal into
-  the pair's agent commit, or commits it as the partner, then its work half refuses a non-empty
-  `@` and publishes the bookmark, each half with its own rollback.
-- `vc-x1 squash-push -s a|w|b` stays, acting on each resolved repo, work before agent, with
-  `--dry-run`.
-- `vc-x1 merge -s w --target <rev> --from <revset>...` adds sources to one target's parents with
-  jj's rebase meaning, refusing an immutable target unless `--ignore-immutable`.
-- `vc-x1 move-bookmark -s w --bookmark NAME --target REV` repositions an existing bookmark
-  locally, refusing a backward move unless `--allow-backwards`, `-s a|b` with `--yes`, and `-s p`
-  in the `-R` repo unchecked.
-- Not done: `vc-x1 install` and `vc-x1 run-dev`, the plan's last two bullets, carried whole into
-  the follow-on entry.
+| Command | What it does | When |
+|---|---|---|
+| `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
+| `vc-x1 validate --fast` | the unit tests only | while iterating |
+| `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
+| `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
+| `vc-x1 install-dev` | `build-dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
+| `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
+| `vc-x1 run` | `build`, then runs it, `run -- -V` the smoke check | before install |
+| `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
+
+- `build` and `build-dev` run `[build] release` and `dev`, plain `cargo build --release --locked`
+  and `cargo build --locked`, with the commit and state of the source in the commands'
+  environment, so vc-x1's banner carries the commit wherever the binary is copied. A release
+  checks it left `[build] release-bin`. Neither tracks staleness, which is cargo's: the stamp the
+  build rung wrote went at the stamp rung.
+- `install` and `install-dev` build first, report the binary from its `-V`, its version, its
+  commit against `main` and `main@origin`, and its state, and refuse only a missing binary, a `-V`
+  that will not run, or a missing directory. They copy `release-bin` into `[install] release-dir`
+  and `dev-bin` into `dev-dir` with `dev-suffix`, `-dev` by default, appended, each as a temporary
+  file renamed into place, safe over a running binary. `install-dev` refuses before the build a
+  copy that would land on the release. `--dir` replaces the directory for one run, and
+  `--dry-run` builds and reports and copies nothing.
+- `[install] release` and `dev`, optional command lists, run in place of the built-in copy, their
+  placeholders, `{build.release-bin}` and `{install.release-dir}` or the `dev` three, filled with
+  the values resolved for the run. This workspace's lists write the copy out, so its config says
+  what `install` does.
+- `run` and `run-dev` build first, then run the binary in the current directory with the
+  arguments untouched, after a warning when its `-V` is not the manifest's version, and exit with
+  its code. An argument starting with `-` comes after `--`, as with `cargo run`. The words after
+  either are completed by the binary it would run, asked in clap's completion mode and never
+  built. All four build and run commands take `--dry-run`.
+- `status` takes the write commands' four scopes, `w`, `a`, `b`, and `p`, through the one parser
+  every `-s` uses.
+- The schema's `[build]` holds `release`, `release-bin`, `dev`, and `dev-bin`, and `[install]`
+  holds `release`, `release-dir`, `dev`, `dev-dir`, and `dev-suffix`, in `[build]`'s order. The
+  model is regenerated, and this workspace's `.vc-config.md` carries the values. `[validate] full`
+  no longer builds the dev binary.
 
 #### Acceptance check
 
-In a scratch dual workspace made by the dev binary's `init`: `commit -s b` makes a pair whose
-trailers name each other, a `squash -s b` after a further edit in each repo folds both and leaves
-the trailers valid, `push -s b` publishes the pair unchanged and refuses while the work `@` holds
-an edit, and each of the five commands without `-s` exits non-zero naming the four scopes.
-`commit -s b --closing` on a bookmark of two rungs makes a merge whose parents are the fork point
-and the second rung, and a `squash -s b` into it keeps both. On a plain jj repo, `commit -s p` and
-`push -s p` commit and publish with no trailer.
-`install` refuses, or warns, when `@-` is not `main` at `main@origin`, and `install --dev` leaves
-`tmp/dev/bin/vc-x1` at the manifest's version. `run-dev -V` prints the manifest's version. In this
-workspace, two full `validate` runs at different versions leave one binary under `tmp/dev`, its
-`-V` the second version, and `tmp/dev/.crates2.json` naming it.
-
-Result, at the closing (2026-10-21): pass on every clause this cycle delivered, with the two
-qualifications in the closing rung's subsection.
+`build` leaves `target/release/vc-x1`, `run -- -V` prints the manifest's version, `build-dev` leaves
+`target/debug/vc-x1` at the manifest's version, and `run-dev -- -V` prints it. `install --dry-run`
+with nothing built builds the release, and on the cycle's bookmark reports the suffixed version, the
+commit off `main`, and the dirty state. This cycle's own Land builds by the dev binary's `build`,
+smoke-tests by its `run -- -V`, and installs by its `install`, the first install the command makes,
+its report showing `main` and `main@origin`, clean, and a bare version.
 
 #### Deliberation
 
-- Multi-step, a trapezoid the default, the agent's proposal and wink's go at the bookmark, eight
-  rungs then, fourteen since the pair, the read-first scope, push's halves, squash-push's dry
-  run, and move-bookmark (2026-10-20): opening, the install table, validate-desc with the
-  resolver, the commit pair, push publishing only, squash, push's halves, sync and squash-push,
-  squash-push's dry run, the closing as the merge, move-bookmark, install, run-dev, closing.
-  - The install table is first, so every later rung's validation installs under `tmp/dev`.
-  - The resolver is ahead of the commands that take it, and the commit rungs come before install
-    and run-dev, being the larger change. The closing as the merge is its own rung, so the plain
-    pair is reviewed before the merge builds on it.
-- No rename, a bend of Opening step 6 and Land step 1, wink's say at the opening's review
-  (2026-10-20): the cycle dogfoods its own change, so the opening keeps the name `vc-x1`, moves
-  the two validate lines to `--root tmp/dev`, and removes the `build.rs` guard, which would refuse
-  the suffixed version under the plain name on every cargo verb. The bend covers this cycle's
-  pushes and its Land, which restores no name, and nothing else: the rule's text is v0.3.1's to
-  change.
-  - What the opening's validate run left behind before the bend, a `vc-x1-dev 0.85.6-0` in
-    `~/.cargo/bin`, is wink's to remove.
-  - `README.md`'s single-name section describes the guard that is gone, and the install table
-    rung rewrites it with the `[install]` keys it describes.
-- The code runs ahead of the rules, as its own cycle: the rule text names commands, so the
-  commands exist before the rules do. This cycle's own rungs are pushed by the installed
-  `vc-x1 0.85.5`, with `--title` and `--body`, and the next cycle runs on what this one lands.
-- One dev root, `tmp/dev`, not one per version, wink's suggestion weighed and set aside: the
-  version is in the binary, `cargo install --path` always rebuilds and overwrites, and a directory
-  per rung is the litter `versioning.md` Dev artifact name warns of.
-  - The one stale case is a failed install leaving the previous rung's binary, which `run-dev`'s
-    `-V` check names.
-- `install --dev` exists from the start, wink's vote (2026-10-20): fast is `cargo test --bins`
-  alone, so only a full run refreshes `tmp/dev`, and a refresh on demand needs no full run.
-  - The dev install's line is written twice, in `[install] dev` and at the end of `[validate]
-    full`, until the installed `vc-x1` has the subcommand and full's last entry can be
-    `vc-x1 install --dev`.
-- The guard moves from `build.rs` into `vc-x1 install`: a build script sees every cargo verb but
-  not an install's root, so once the dev build carries the plain name it cannot tell a dev install
-  from the promotion, while `vc-x1 install` sees the bookmark, the remote, and the version.
-  - A hand-typed `cargo install --path .` stays unguarded, a slip the sanctioned path never makes.
-  - Open: whether a failed check refuses or warns.
-- `commit` makes both repos' commits, wink's direction (2026-10-20) that every rung be local like
-  the closing, taken one step further: the plan had commit make the work commit and push make the
-  agent commit, with the trailer stamped from a predicted change id and checked at push. With the
-  pair made together both ids are known, nothing is predicted, and push carries no description at
-  all, so the reviewed text cannot be replaced on the way out.
-  - The review's transcript is in the agent `@` when push runs, so push's agent half folds it into
-    the pair's agent commit first, a squash into an unpublished commit, which keeps its change id.
-    A `squash-push -s a` between commit and push publishes the agent half early, and push finds it
-    done.
-- `squash` exists because a rung is continued, wink's point: a review's fix must fold into the
-  pair, and `jj squash` by hand does one repo and knows nothing of the other. It refuses a
-  published side, and when the agent half went out early it folds the work side alone and says
-  the transcript goes with the next rung, where it would land today.
-  - A description fix is a re-describe, which the rule forbids by hand on a trailer-carrying
-    commit, and the pair carries trailers from the start. `squash --title --body` is the way, so
-    the rule's text becomes never by hand and never on a published commit, v0.3.1's to write.
-- The two working copies mean different things, which is where push and squash-push part: the
-  agent `@` is a journal, never empty while a session runs, and folding it is never a decision, so
-  push's agent half always folds it. The work `@` is a decision, a fix or the next rung, so push
-  refuses it and `squash-push -s w|b` is the user saying fold it and go.
-- `-s` is required and `-R` optional, wink's rule (2026-10-20), after `--por` was weighed as the
-  alternative for a plain repo and retired into the scope `p`: a write command never guesses which
-  repos it acts on, `sync`'s "neither flag means the repo I am in" being fine for a look and not
-  for a commit, where a silent half is an unpaired commit. `-R` is then only ever where, and `-s`
-  which. The short names `a`, `w`, `b`, `p` are wink's, `squash-push -s a` replacing today's
-  `squash-push -R .agent-session/`.
-  - The same rule for every command that touches a repo, the read commands' defaults, the validate
-    family, and clone's and init's `--por`, is the sweep **every repo command takes -s, required**
-    in `TODO.md`, kept out of this cycle so the ladder stays on its subject.
-  - To check at the push rung: the lookup recognizes push invocations in transcripts by their
-    command text, and the fixture's recorded lines are the old form, so the new form must be
-    recognized without the old one being lost.
-- A read-only command takes the scope first, wink's suggestion at the write rung's review
-  (2026-10-20): `validate-desc -s b` shows the resolver working, with nothing published if the
-  resolution is wrong, and it is a check that would be run anyway. The write rung, already
-  written, was split by path into the resolver half, which the validate-desc rung builds on, and
-  the `sync` and `squash-push` half, a local commit on `wip-sync-squash-push` that follows later.
-  The resolver lost its `write` name on the way.
-- `-s w` is the pair in two steps, wink's thought at the commit rung's review (2026-10-20): the
-  refusal of `w` as "unpaired" was wrong, since the agent `@`'s id is known at that moment just as
-  for `b`, so the work commit's trailer is stamped either way and the agent half is only deferred
-  to push. Today's push already completes it, the bugs.md #4 path, and push's rung gains a case
-  rather than a rewrite: fold the journal when the agent `@-` names the work commit, else commit
-  it as the partner. `-s a` alone stays refused, the one direction where unpaired is real.
-- Push's halves are a rung of their own, wink's reading of the squash rung's push dry run
-  (2026-10-20): the halves are independent, since each trailer is fixed before push runs, so
-  `push -s b` is `push -s a`, mirroring the `commit -s w` before it, then `push -s w`. Its own
-  rung rather than a fold into the squash rung, since it rewrites push's structure and the squash
-  rung was reviewed, and the squash rung went out by the old push.
-- `squash-push --dry-run` is a rung inserted after the stash, wink's pick (2026-10-20), when
-  `squash-push --dry-run -s a` was refused as an unknown flag: the other write commands all had
-  one by then.
-  - Its work and description reviews are waived, wink's delegation at the insert: the rung runs
-    through `commit -s w` without stopping, and the push still takes its own approval. The
-    waiver covers this rung and nothing else.
-- The pair's commands come before the stash, wink's vote after the validate-desc push
-  (2026-10-20), `commit`, then `squash`, then `squash-push`, with `push` moved between the first
-  two on the agent's reason: handed a pair, today's push publishes the work half as-is but commits
-  the agent journal as a second agent commit naming the same work commit, so the first rung made
-  by `commit -s b` cannot go out cleanly until push folds the journal into the pair. With push
-  fixed next, every later rung is dogfooded end to end, squash's own included.
-- The closing is made as the merge at commit time: the merge's tree is the closing's tree, since
-  the fork point is an ancestor of the last rung, so only the parents differ from a linear commit,
-  and the reviewed merge is what lands. The flag, not the title, decides: a title is transcribed
-  text, and the suffix check catches a mismatch.
-- `move-bookmark` is a rung inserted after the merge rung, wink's call at that rung's push
-  (2026-10-20): asked how push names its target, the answer was that it cannot, push setting the
-  line's bookmark to `@-` and its BOOKMARK argument only a check, so a bookmark is put in
-  position by its own verb first. Its flags are wink's, `--bookmark NAME --target REV --scope
-  SCOPE`, all three required and the bookmark already existing, and push keeps its form, the new
-  verb being only repositioning.
-- The record is kept here, in `zDOING.md`, per the trial this file describes, and the ladder's
-  labels start at `[0]`, continuing the local experiment the last cycles began.
-- Closed at eleven rungs, install and run-dev deferred, wink's call at the closing (2026-10-21):
-  **agent-files(proposal): v0.3.1** goes next, on the commands this cycle lands, and the two rungs
-  run as their own cycle after it, from a `## Todo` entry that carries their subsections and open
-  questions whole.
-  - A parked bookmark holding the untrimmed record, rebased onto `main` after v0.3.1, was weighed
-    and set aside: the record at the last rung is already pushed, so the bookmark would preserve
-    nothing, and the rebase would conflict in `zDOING.md` and `Cargo.toml`, which both closings
-    rewrite, and be a remote rewrite besides, while a second block beside the live one is what the
-    record rule rules out.
-  - A ladder that shrinks still closes as a ladder, and the title and the bookend pair keep their
-    names, so `install` and `run-dev` stay in the title of a cycle that did not deliver them.
+- Multi-step, five rungs, a trapezoid the default, the agent's proposal: opening, build stages the
+  release, install deploys it, run and run-dev, closing.
+  - Build first, since install reads its stamp and run reads its binary.
+  - run and run-dev are one rung, sharing the binary's resolution, the pass-through, and the
+    staleness check.
+- Widened at the opening, wink's call (2026-10-21): a release staged under `tmp/rel` before it
+  replaces anything on the PATH, `vc-x1 run` to run it, and a separate step onto the PATH. Folded
+  in rather than filed, since it moves the guard, so building the release alone first would be
+  rework. Retitled from "feat: vc-x1 install and run-dev" before the opening commit pushed, the
+  bookmark renamed with it.
+- The names, settled at the build rung (2026-10-21), wink's calls, in three steps:
+  - `install --dev` became its own command, so each build has one, named with the `-dev` suffix
+    as `run` and `run-dev` are: one rule, the suffix always meaning the dev build, and no dropped
+    flag giving the other.
+  - The private builds are `build` and `build-dev`, and `install` is the one step that touches
+    the PATH, as `cargo install` means. They were `install`, `install-dev`, and `install-global`,
+    where "install" for a build that reaches no PATH was the confusion. The table follows,
+    `[build]` for the builds and `[install]` for the deploy.
+  - `validate` checks the source and makes no build of either kind: `[validate] full` lost its
+    dev build line, and `run-dev` builds first, as `cargo run` does. What runs is always the
+    current code, after a fast validation too, which the line at the end of full could not
+    promise, and the dev build has one definition, `[build] dev`. A dev binary run by its path
+    can still be stale, which `run-dev` is the remedy for.
+  - `validate` keeps its name, not `validate-dev`: it acts on the source, not a build, has no
+    plain counterpart to tell apart, and the agent-files name it, so a rename is a proposal. A
+    release validation, if one comes, is named beside it.
+  - The cycle's title and its bookends keep the pushed name, "install stages, deploys, and runs
+    builds", the opening being published, and the rungs not yet pushed take the new names.
+- One build in `tmp/` during development, wink's practice (2026-10-21): the dev build lives in
+  `tmp/dev` and the staged release in `tmp/rel` only from a deliberate `build` until it is
+  installed, so no stale release sits beside the dev build to be run by mistake. wink removed the
+  build rung's `tmp/rel` at the status rung, and Land's `build` stages a fresh one.
+  - The builds moved to `target/` at the install rung, below, so a release build stays in
+    `target/release` until `cargo clean`, and `run`'s version warning is what flags a stale one.
+- Guidance on the nuances in one place, wink's ask at the status rung (2026-10-21): the closing
+  rung's README update, close-out step 3, gathers one build in `tmp/` during development, the
+  attached value forms `-sb` and `-s=b`, and the completion setup until the shim of **Shell
+  completion installs itself and asks the binary typed** lands.
+- The guard sits in the step consumers see, `install`, so `build` stages a release-profile build
+  from a cycle's bookmark too, the check for a release-only failure mid-cycle. Superseded at the
+  install rung, below: `install` reports and refuses only a wrong copy, and the guard is Land's.
+- `install` copies rather than rebuilds: a second `cargo install` would deploy a fresh build, not
+  the one tested. The cost is cargo's install tracking, which no longer knows the binary, so
+  `cargo install --list` omits it and `cargo uninstall` does not remove it.
+  - `install` builds first after all, wink's call at the install rung (2026-10-21), after an
+    `install` with nothing built refused for want of a binary: as a Makefile's install depends on
+    its build. Not the rebuild set aside above, since `cargo build` rebuilds only what changed,
+    so with nothing changed the binary tested is the binary copied, same file, size, and time,
+    and only a stale one is rebuilt, which is the one that should not be copied as it was.
+  - `run` builds first too, the same call, as `cargo run --release` does, so `run` and `run-dev`
+    have one shape, build if needed and run. The plan's `run` built nothing so the smoke check
+    ran exactly what `install` copies, and `install` building the same way keeps that.
+  - The stamp's main job, catching a change between `build` and `install`, shrinks with nothing
+    left between them, and **The release stamp is reconsidered now that install builds** asks
+    whether it stays. It goes, at the stamp rung, below.
+  - The deploy is a directory, not a command list, wink's say at the install rung (2026-10-21),
+    changing the plan's command list: the config is committed and the destination is per
+    machine, so `[install] dir = "~/.cargo/bin"` with vc-x1 expanding `~` fits every clone where a
+    `cp` line would commit one home path, commands running with no shell to expand it. And the
+    PATH binary replaces itself in later cycles, which `cp` onto a running executable fails at,
+    "Text file busy", where a temporary file renamed into place works, as `cargo install` does.
+    vc-x1 copies in process, so the copy spawns nothing. An adopter with nothing to deploy, a
+    library crate, leaves the key out, where `install` says so and stops.
+- The provenance is a stamp file beside the staged binary, written by `build`, not a commit id
+  compiled in, superseded at the stamp rung (2026-10-22), where the stamp goes and the commit
+  compiled in is the provenance: the closing carries the bare version before it lands, so the version alone cannot
+  tell a release staged from the unlanded closing from one staged from `main`, and a stamp works
+  for any adopter's artifact, where a compiled-in id works only for binaries that print it.
+  - The commit compiled in as well, wink's call at the build rung (2026-10-21): `build` gives its
+    commands `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, and vc-x1 shows them as semver build
+    metadata, `0.85.7+d70cf9ecdfd9`, `.dirty` for a build with edits, so a deployed binary says
+    what it was built from. The stamp stays, the check that works for any adopter's artifact,
+    and `install` also compares the binary's own commit with the stamp when the binary reports
+    one.
+    - The commit id, not the change id: a change keeps its id when amended, so a fix squashed
+      into the closing after staging would leave a binary claiming to be the landed closing.
+    - A hand-typed cargo build carries the commit too, wink's call (2026-10-21): `build.rs`
+      takes the two variables when vc-x1 passed them, else reads git's `HEAD`, `@-` in a jj
+      colocated repo, from the files with no spawn, and marks the build `.unknown`, since
+      whether `@` held edits is a jj question a build script cannot ask without compiling
+      jj-lib again. A source package has no `.git` and carries nothing.
+      - Not yet: `.cargo_vcs_info.json`, the commit cargo itself writes into a package, which
+        `build.rs` could read as a third source once vc-x1 is published.
+    - The dev build carries them too, wink's call (2026-10-21), and `validate` passes them to
+      every command of its list, so the test build and the dev build compile with the same
+      values and `build-dev` reuses the test build, 0.37 s measured, rather than each recompiling
+      the crate for the other.
+  - The stamp: `<release-bin>.stamp`, `target/release/vc-x1.stamp` here, keys `toml_simple` reads
+    back, `commit`, the full id of `@-`, and `state`, `clean` when `@` was empty and `dirty` when
+    not, so a build with uncommitted edits is stamped as such rather than refused. No version,
+    which `install` reads from the binary.
+  - The second field is `state`, the state of the source code that was compiled, relative to the
+    commit the build names, wink's naming and definition at the build rung (2026-10-21),
+    replacing a `clean` flag once `unknown` made it three-valued: `clean`, `dirty`, or `unknown`,
+    spelled the same in the variables, the stamp, and the banner, where `clean` is left out so a
+    clean build reads `+fcc7f222a774`.
+  - The binary's size and modification time in the stamp too, `size` and `mtime-ns`, wink's call
+    at the build rung (2026-10-21), after a hand `cargo install --root tmp/rel` replaced the
+    staged binary and left its stamp vouching for it: `install` compares them with the binary,
+    catching a rebuild for any artifact, where the commit in `-V` catches it only for one that
+    reports it.
+    - A build-time `-V` check, recording whether the binary reports the commit, weighed and set
+      aside: `install` runs `-V` anyway for the version and compares the commit there, so `build`
+      spawns nothing. A hash, stronger, needs a dependency and reads the whole binary, and size
+      with time catches every case met.
+- Status's short scope forms, `st -s w`, folded into the build rung, wink's ask (2026-10-21):
+  hidden aliases on status's keyword list, the smaller fix **status takes the write commands'
+  scope** set aside, as a stopgap until that entry's fix runs. Unplanned work run in the current
+  rung rather than inserted as its own, wink's say, so its edits share the rung's commit.
+- Status's scope fixed properly as its own rung, inserted after the build rung, wink's call
+  (2026-10-21): the Todo entry **status takes the write commands' scope**, planned for its own
+  cycle, run now since the cycle is adding subcommands. The working copy was empty after the build
+  rung's push, so nothing was set aside. The entry leaves `## Todo`, this block its record.
+  - `-s` stays defaulted to `work` rather than required, the agent's choice at the rung, left for
+    wink's review: requiring it is **every repo command takes -s, required**, which decides every
+    read command together.
+  - A parser per command, built by one function from the scopes the command offers, wink's call
+    at the rung (2026-10-21), after `sync -s <tab>` offered nothing: the write commands took
+    `parse_repo_scope` as a bare function, which gives completion no values. `commit` offers
+    work, both, and por, `merge` work and por, `validate-desc` work, agent, and both, and the
+    rest all four.
+    - A scope a command does not offer is declared hidden rather than left out, so it still
+      parses and reaches the command's own refusal, which says why, and completion and clap's
+      listed values show only what is offered. `bot` is hidden the same way, keeping its fix-it.
+    - The help's `REPO_SCOPE_FORMS` text, with its "`a` refused" notes, stays beside clap's own
+      list of the offered values.
+- `build` and `build-dev` take `-R` and no `-s`, as `validate` does: they build the work side's
+  artifact and write no repo, and the `-s` sweep, **every repo command takes -s, required**,
+  decides all three together.
+- A failed check refuses, wink's say at the install rung (2026-10-21), the agent's lean: it is the
+  step consumers see, and a warning scrolls past. Every check runs first and every failure is
+  listed at once, so one run says everything to fix.
+  - Reversed at the rung's review, wink's call (2026-10-21), after `install -h` read as jargon and
+    a run on the bookmark refused it for being off `main`: too strict, since some release
+    processes release from a branch or a tag, and a `strict` mode cannot say which. Which builds
+    may be installed is the release process's decision, so `install` reports and the user
+    judges, and it refuses only a copy that would be wrong: no binary, a `-V` that will not run,
+    or a missing install directory. Here Land is the guard: it runs `install` on `main` after the
+    sync and the push, and reads the report.
+  - Gathered but no longer judged: `@-` and whether `@` is empty, facts about the working copy
+    rather than the binary, are dropped. The binary's own `-V` is the report's first source, and
+    the stamp speaks for it only while its size and time still match.
+  - A configured list, `[install] require`, turning chosen report lines into refusals for a
+    project that wants the tool to enforce its policy, weighed and set aside until one asks.
+- The builds are plain `cargo build`, wink's call at the install rung (2026-10-21), not
+  `cargo install --root`: `cargo install` without `--root` writes into `~/.cargo/bin`, so a
+  `[build]` line built on it is one dropped flag from doing what `build` promises not to. `--root`
+  is only the install prefix, the binary copied to `<root>/bin` with cargo's `.crates.toml` and
+  `.crates2.json` beside it, and the compile was always in `target/`, so `tmp/rel` and `tmp/dev`
+  held copies. The binaries are now `target/release/vc-x1` and `target/debug/vc-x1`, and
+  "staged" leaves the vocabulary.
+  - The cost: `cargo clean` removes the release build and its stamp, and a hand
+    `cargo build --release` replaces it, which the report's stamp line names.
+  - `cargo build --artifact-dir`, a copy out of `target/` with no install, is unstable, so not
+    used.
+  - Both builds `--locked`, wink's call, so the two compile the same dependencies, the ones
+    `Cargo.lock` commits. A version bump updates the lock with the manifest, so it never trips.
+  - Where a build leaves its binary is the config's to say, `release-bin` and `dev-bin`: vc-x1
+    never works it out from cargo or the package's name.
+- vc-x1 runs the builds but does not track them, wink's question and the agent's proposal at the
+  install rung's review (2026-10-22), after wink's "I'm not sure we're headed in the right
+  direction to have vc-x1 be a build system":
+  - The builds stay in vc-x1 because a hand-run Land sequence is where the agent's recorded
+    failure recurs, a result not read: [Never mask a command's exit
+    status](agent-data/rationale.md#working-practices) (2026-08-05) and [A failure is read before
+    validation runs again](agent-data/rationale.md#the-per-rung-flow) (2026-10-15). A switch from
+    shell to Python does not retire it, a `subprocess.run` without `check=True` being the same
+    miss, and a command written once, reviewed, and tested does, as `validate` did for the
+    validation. Running a configured list and checking what it left is not a build system, since
+    cargo still does the building.
+  - What would be one goes: the stamp and `build`'s `built` or `up to date` re-track staleness,
+    which cargo already tracks, and the commit compiled into the binary, read from its `-V`, says
+    what it was built from. Run as the inserted rung **feat: the release stamp goes, cargo tracks
+    staleness**, so the install rung's commit stays the work reviewed.
+- No rename, a bend of Opening step 6 and Land step 1, as the last cycle ran, wink's say
+  (2026-10-21): the package keeps its plain name, the dev build lands off the PATH, and the
+  `build.rs` guard is already gone. The bend covers this cycle's pushes and its Land, which
+  restores no name, and nothing else.
+- The dev build is a debug build, wink's call (2026-10-21), made in the opening so every rung's
+  validation had it: `cargo install --debug` in the dev build's line. Measured here, it reuses the
+  test build and takes 0.7 s against a release build's 9.7 s, and 10.5 s against 40 s cold. The
+  debug binary runs three to five times slower, sub-second for most commands and 1.4 s for
+  `agent-session` on a 31 MB transcript, and its overflow checks and `debug_assert!` suit a build
+  that exists to be tested.
+  - The release profile is then built only by `build`, which makes it cheap to run mid-cycle.
+  - Per workspace: iiac-perf, a latency harness, keeps a release dev build, and `vc-config.md`'s
+    example stays the release form, the general case.
+- `run` and `run-dev` are about the workspace's artifact, not vc-x1 itself: in another adopter
+  they run that project's builds, `vc-x1 run-dev run <bench>` in iiac-perf. So their rung adds:
+  - A `-bin` value resolved as a shell does: one with a slash against the config file's
+    directory, or as is when absolute, and a bare name looked up on the PATH, so the rename style,
+    `dev-bin = "iiac-perf-dev"`, works too.
+  - The arguments passed through untouched, so the previous release parses none of the new
+    build's flags.
+  - The staleness check comparing the version alone, the name being `<name>-dev` under the rename
+    style, and skipping quietly when `-V`'s output does not parse.
+  - Completion forwarded, wink's ask at the status rung (2026-10-21): `vc-x1 run-dev <args>` is
+    completed by the `vc-x1` typed, which knows `run-dev` but not the dev build's own arguments,
+    so `run-dev`'s and `run`'s completer hands the words after the subcommand to the binary it
+    would run, in completion mode, and returns what it answers. Completion of those words is then
+    the dev build's or the release build's, as running them would be. A binary that does not
+    speak clap's completion protocol answers nothing, and the forward offers nothing rather than
+    failing.
+    - The binary is the config's of the workspace the shell is in, so in iiac-perf the answer is
+      iiac-perf's: its binaries speak the same protocol, clap_complete 4.6.7's to vc-x1's 4.6.9,
+      and asked directly `iiac-perf-dev run <tab>` lists its benches (2026-10-21). The forward
+      waits only on iiac-perf's `[build]` table naming its dev binary.
+    - Completion never builds: `run-dev` builds before it runs, but a tab press must not, so the
+      forward asks the dev binary as it stands and offers nothing when there is none.
+    - The shell knows none of it: it runs `COMPLETE=bash vc-x1 -- vc-x1 run-dev run zcr` as for
+      any command and shows what prints, and vc-x1 runs the target in completion mode with the
+      words after the subcommand, `COMPLETE=bash iiac-perf-dev -- iiac-perf-dev run zcr`, and
+      prints its answer.
+    - Done in `main` before `CompleteEnv`, not as a clap completer: clap's value completers are
+      given only the word being completed, and the forward needs every word after the
+      subcommand. `main` sees completion mode, finds `run` or `run-dev` among the words, and
+      forwards them with the cursor index shifted, leaving every other completion to clap. The
+      spawn is the one the rung already registers to run the artifact.
+- `vc-x1 run` was first set aside, the release being on the PATH under its own name, and the
+  release built off the PATH reverses that: `run` is how the release is built and run before it
+  is installed. The two names stay, a dropped `--dev` flag being a silent run of the wrong build.
+- The order, wink's call (2026-10-21), reversing the last closing's: this cycle and **feat: vc-x1
+  land closes a cycle and lands it** run before **agent-files(proposal): v0.3.1**, so v0.3.1 is
+  written once against the commands Land will use. The land entry moves above v0.3.1 in
+  `## Todo` with it.
+- Commit bodies in the two-paragraph form from the build rung on, wink's say (2026-10-21), ahead
+  of **agent-files(proposal): v0.3.1**: the problem, then a paragraph opening "Solution:" and
+  ending "See details in zCLOSED.md.", no bullets. A bend of Commit-body form covering this
+  cycle's remaining commits, the bookends' pointer bodies unchanged, and nothing beyond the cycle.
+- The rules lag the tool until v0.3.1: `vc-x1 push` publishes a pair `vc-x1 commit` made and
+  takes no `--title` or `--body`, and squash-push takes `-s`. This cycle follows the tool, as the
+  last one's later rungs did.
+- Open: whether a missing `-s` names the four scopes in the error, as the parent's plan said,
+  rather than clap's required-argument error, `--scope` with the four in `--help`.
+- Land's three steps, `build`, `run -- -V`, and `install`, the last two building nothing new, run
+  the dev binary, `target/debug/vc-x1`, since the installed `vc-x1`, wink's hand build of 0.85.7-1,
+  predates `install` and `run`.
+- The opening also carries two Todo additions made the same day before it: **status takes the
+  write commands' scope**, and the land entry's **Two commands, and their undos**.
 
 #### Ladder
 
-- [feat: vc-x1 commit, install, and run-dev opening][0] (done)
-- [feat: an install table in the config][1] (done)
-- [feat: validate-desc takes -s, the first scope][2] (done)
-- [feat: vc-x1 commit makes the rung's commit pair][3] (done)
-- [feat: vc-x1 push only publishes the pair][4] (done)
-- [feat: vc-x1 squash folds work into the pair][5] (done)
-- [fix: push runs the agent half, then the work half][6] (done)
-- [feat: sync and squash-push take -s, required][7] (done)
-- [feat: squash-push takes --dry-run][8] (done)
-- [feat: vc-x1 merge, and commit --closing on it][9] (done)
-- [feat: vc-x1 move-bookmark repositions a bookmark][10] (done)
-- [feat: vc-x1 commit, install, and run-dev closing][11] (done)
+- [feat: vc-x1 install stages, deploys, and runs builds opening][0] (done)
+- [feat: vc-x1 build stages the release][1] (done)
+- [feat: status takes the write commands' scope][2] (done)
+- [feat: vc-x1 install copies the release build][3] (done)
+- [feat: the release stamp goes, cargo tracks staleness][4] (done)
+- [feat: install takes --dir][5] (done)
+- [feat: vc-x1 install-dev puts the dev build on the PATH][6] (done)
+- [feat: vc-x1 run and run-dev run the builds][7] (done)
+- [feat: vc-x1 install stages, deploys, and runs builds closing][8] (done)
 
-##### feat: vc-x1 commit, install, and run-dev opening
+##### feat: vc-x1 install stages, deploys, and runs builds opening
 
 The cycle's setup commit: create and publish the bookmark at `main`, move the Todo entry into this
-block, and bump the version-of-record. Under the bend above it keeps the package name, installs
-under `--root tmp/dev` from both validate lists, and removes the `build.rs` guard, so the cycle
-runs on the convention it introduces. It also carries the Todo's own split, made before the
-opening: the code entry cut from **agent-files(proposal): v0.3.1** and placed first.
+block, widened to three stages, and bump the version-of-record. Under the bend above it renames
+nothing, and it makes the dev build a debug build, so the cycle's validations run on it.
 
-##### feat: an install table in the config
+##### feat: vc-x1 build stages the release
 
-The config gains `[install] release`, `dev`, and `dev-bin`, the schema's stale examples are fixed
-and the model regenerated, `README.md`'s single-name section becomes the dev root's, and two
-validate runs show one binary left under `tmp/dev`.
+The release is built under its own root with a stamp naming the commit it came from, so it can be
+run before anything on the PATH is replaced, and `build-dev` is the dev build on demand.
 
-* Nothing reads the new keys yet.
-  - The schema names the subcommands that will, `install`, `install --dev`, and `run-dev`, so its
-    prose is ahead of the binary until their rungs land. On this rung's tree the keys are valid
-    config and nothing more: the dev binary's `validate-config` finds no problem, since its schema
-    is built from the same file, while the installed `0.85.5` reports the three keys and their
-    links as unknown until Land.
-* The two-run check passed on the cycle's own rungs.
-  - The opening's full run installed `0.85.6-0` under `tmp/dev`, this rung's installed `0.85.6-1`,
-    and after it `tmp/dev/bin` holds one `vc-x1`, its `-V` the second version, with
-    `.crates.toml` and `.crates2.json` rewritten to name it alone. Nothing was deleted between.
-* The README still described the guard and the old fixture path.
-  - Its Build and install section now says the name never changes and where a cycle's builds go,
-    and its Acceptance fixtures section says `.fixtures`, that the tests are ignored without
-    `--include-ignored`, and that an absent fixture panics naming the build command.
+- `vc-x1 build` runs `[build] release`, now `--root tmp/rel`, and writes the stamp beside the new
+  `[build] release-bin`, recording the commit, the state of the source code that was compiled,
+  and the binary's size and modification time. The old stamp is removed before the build and the
+  new one written only once it passes and the binary is there, so no stamp outlives a failed
+  build.
+- `vc-x1 build-dev` runs `[build] dev` and writes no stamp.
+- Both builds' commands, and `validate`'s, get the commit and the state in their environment, and
+  vc-x1 compiles them in, so its banner carries the commit as build metadata and `vc-x1 version`
+  a `build` line, wherever the binary is copied.
+- `build.rs` falls back to git's `HEAD` when no variables are passed, so a hand-typed cargo build
+  reports its commit too, marked `.unknown`. The `HEAD` reader is its own file, compiled by
+  `build.rs` and by the crate's tests.
+- The names: the rung began as `install` with `--dev`, the dev build became `install-dev`, and
+  both became `build` and `build-dev`, `install` kept for the step onto the PATH. The table is
+  `[build]`, its keys the ones the last cycle landed under `[install]`.
+- `[validate] full` no longer builds the dev binary, which `run-dev` will build first.
+- Running a configured command list moved out of `validate` into a module the three share, so the
+  one spawn site serves them, and clippy's register entry 5 is widened to say so.
+- Status takes `w`, `a`, and `b` for its scope, hidden aliases of the long names, the stopgap for
+  **status takes the write commands' scope**.
+- The schema's `install.*` keys become `build.*`, with `build.release-bin` new and the release
+  reworded as the staged build, and the model is regenerated. The README's build section
+  describes the stages and the commands in a cycle's order, gains a `build` section, and lists
+  `[build]` among the config tables.
 
-##### feat: validate-desc takes -s, the first scope
+##### feat: status takes the write commands' scope
 
-The scope leaf and the resolver, and their first user, a read-only command: `-s w|a|b` required,
-whose commits are checked, one table per side under its label, `-s p` refused, and `-R` optional,
-where.
+Status's `-s` takes the same four scopes as every write command, so one parser serves them all,
+and status's own positional and comma forms go.
 
-* The scope leaf knew sides, not a plain repo.
-  - `RepoScope` is a `Scope` or `Por`, parsed from the four forms long or short, and `parse_scope`
-    learned the short forms too, so the read commands accept `-s a` ahead of the sweep. The comma
-    forms stay with `parse_scope`, for the read commands that predate `both`.
-* Nothing resolved "which repos" for a required scope.
-  - `resolve_scoped_repos` is that: the sides from the workspace the start is in, by its root or
-    either repo, and for `p` the start itself, refused when it is a side. A repo under a
-    workspace's tree that is neither side is plain, so a scratch repo in `tmp/` is reachable.
-* `validate-desc` checked one repo, `-R`'s, against its partner.
-  - It checks each scoped side against its other side, `b` being both directions, and refuses
-    `p` at params time with the reason. The init test that ran it once per side runs `-s b` once
-    per workspace.
-* The rule was tried where a wrong resolution costs nothing.
-  - The write half, `sync` and `squash-push` on the same resolver, was written first and set
-    aside on the local bookmark `wip-sync-squash-push`, the next rung, so this one publishes
-    nothing by the new rule before the rule has been seen working on a read.
-  - One impurity of the path split: `common.rs` carries the two messages that now say
-    `squash-push -s a`, one rung before squash-push takes it.
+- Status's `-s` takes `w|work`, `a|agent`, `b|both`, and `p|por`, absent `work`.
+- Every `-s` taking a `RepoScope`, status's and the eight write commands', is a parser made by one
+  builder from the scopes the command offers: the long names declared for completion, the short
+  ones as hidden aliases, the scopes not offered and `bot` declared hidden so they still reach the
+  command's refusal or the fix-it, and the value handed to `parse_repo_scope`.
+- `p` reports the repo `-R` names or the cwd's as itself, labeled `por`, resolved by the write
+  commands' resolver, so it is refused on a side of a workspace with the same error they give.
+- The positional scope, `status both`, and the comma forms `work,agent` and `agent,work` are
+  gone, and status's old keyword parser with them, the stopgap aliases included.
+- The README's status section and synopsis describe the four scopes, and its examples use `-s`.
 
-##### feat: vc-x1 commit makes the rung's commit pair
+##### feat: vc-x1 install copies the release build
 
-A rung becomes a pair of local commits, one per repo, each stamped with the other's change id,
-before any push, so the description review is of the commit itself and the lookup works on an
-unpushed rung.
+The release build, the one tested, is copied to where consumers run it, after a report of what it
+is, for the user and the release process to judge.
 
-* The pair's two ids were going to be one known and one predicted.
-  - Both are read from the working copies before either commit is made, since a jj commit keeps
-    `@`'s change id, so the work commit's trailer names the agent `@` and the agent commit's the
-    work `@`, each written once. A test checks the ids survive the commits and that validate-desc
-    passes the pair in both directions with nothing pushed.
-* The pair can be made in two steps.
-  - `-s w` makes the work commit now, its trailer naming the agent `@` all the same, and leaves
-    the agent half to push, which commits the journal as the partner, wink's thought at this
-    rung's review: it works with the installed push today, and the review's own transcript lands
-    in the rung's agent commit. `-s b` makes both now, `-s p` a plain repo's commit, and only
-    `-s a` is refused, an agent commit made first being the one unpaired case. `--title` and
-    `--body` are required and may not be blank, `--body @PATH` reads a file, and the editor path
-    push has is left out until it is asked for.
-* The work `@` is a decision, the agent `@` a journal.
-  - An empty work `@` is nothing to commit and refuses before anything is touched, while the agent
-    `@` is committed as it stands. A failure after the first commit restores both repos from `jj
-    op` snapshots, push's rule inside its mutation window.
-* The resolver called a single-repo workspace a side.
-  - `FixturePor` lays out a work config with no agent, and `-s p` on it was refused as "the work
-    side of the dual workspace". A side is one only when the config declares an agent, so a
-    single-repo workspace is plain for `p`, with the resolver's test covering it.
-* This rung is the first made by its own command.
-  - `tmp/dev/bin/vc-x1 commit -s w` made it, the body from `tmp/body.md`, and the installed
-    `vc-x1 0.85.5 push` published it, committing the agent journal as the partner, since its work
-    half was already there. `-s b` waits for the push rung: handed both commits, today's push
-    makes the journal a second agent commit.
+- `vc-x1 install` copies `[build] release-bin` into the new `[install] dir`, `~` expanded, as a
+  temporary file beside the destination renamed into place, the file name kept. `$PATH` is not
+  searched.
+- It runs the release build first through `build`'s own code, the stamp included, a no-op for
+  cargo when nothing changed, and checks `[install] dir` before it, so a workspace with nothing
+  to install builds nothing.
+- `build` says whether the release binary was `built` or `up to date`, from its size and time
+  before and after the list, so a no-op build shows that the binary tested is the one copied.
+- It then gathers the facts, `main`, `main@origin`, the manifest's version, the stamp, the
+  binary's size and time, and what its `-V` reports, and reports the version, the commit placed
+  against `main` and `main@origin`, the state, and whether the stamp matches the binary, and
+  refuses only a missing binary, a `-V` that will not run, or a missing install directory, listing
+  every reason. `--dry-run` builds and reports, and copies nothing.
+- Running the binary's `-V` is clippy's spawn register entry 7. Its output is read at the first
+  line whose second word starts with a digit, so a line printed before the version is passed
+  over, and output with no such line is unreadable and refused, found when wink's test
+  `println!` ahead of the banner was read as the version `hi` and copied.
+- `[build]` becomes plain `cargo build`, `--release --locked` and `--locked`, the binaries in
+  `target/release` and `target/debug`, and "staged" leaves the help, the docs, and the messages.
+- Every `unwrap_or*` the cycle added carries its `// OK:` comment, five of them in this rung and
+  three the build rung pushed without one, `build_env`'s and two in the banner's state, a miss
+  caught here.
+- The schema gains `install.dir`, the build keys' examples follow the new lists, the model is
+  regenerated, and the README's overview, `build` section, and config tables follow, with a new
+  `install` section.
+- Three Todo entries arrive with the rung's review: **Every repo's .gitignore ignores .claude, and
+  settings stay out of agent-repos**, to run as the next rung, **A config file says what and its
+  constraints, and the why is in the cycle record**, and **The release stamp is reconsidered now
+  that install builds**.
 
-##### feat: vc-x1 push only publishes the pair
+##### feat: the release stamp goes, cargo tracks staleness
 
-Push carries no description: its agent half folds the journal into the pair's agent commit when
-`@-` already names the work commit, else commits the journal as the partner with the work
-commit's description, its work half refuses unsquashed work, and it publishes the pair as
-reviewed. The transcript's push lines keep being recognized by the lookup in both the old form
-and the new.
+The release build is described by the commit compiled into it, and cargo alone decides what to
+rebuild, so vc-x1 runs the builds without tracking them.
 
-* Push wrote descriptions and ran gates of its own.
-  - The review gate, the message stage, the editor, `--title`, `--body`, and `--no-squash-push`
-    are gone, and the retired flags are errors naming themselves. What remains is `-s`, `-R`, the
-    bookmark as a check, `--dry-run`, and `--step` with `--yes` for its gates. A rerun stays safe,
-    since every stage still checks its precondition.
-* The pair can arrive in three states.
-  - A `plan` stage reads them before anything is touched: the agent `@-` names the work commit
-    (`commit -s b`) and the journal folds into it at squash-push, the agent `@` is the change the
-    work commit names (`commit -s w`) and the journal is committed as the partner with the work
-    commit's own text, or the agent repo changed since the commit and the unpublished work commit
-    is restamped to name the agent `@`, said out loud, a published one refusing. Each state has a
-    test, the restamp's keeping the work change id.
-* The refusals had to come before any mutation.
-  - Reading the agent `@` snapshots it, so a journal file the size limit refuses stops the plan
-    with the file named and no rollback, the m-10-0 case now a CLI test of `commit -s b` for
-    either side and of `push -s b` for the journal.
-* The halves and the plain repo.
-  - `-s w` publishes the work commit alone, `-s a` completes the agent half after it, the by-hand
-    remainder of a run that stopped past push-work, and `-s p` publishes a plain repo's `@-` on
-    its bookmark with no trailer asked for. The bookmark is the line's unless named, and a name
-    that is not among the nearest bookmarks below `@-` is refused naming them.
-* The lookup knew push lines by two fixed prefixes.
-  - It knows `commit` as a third verb, since the body now rides on it, and the binary by its
-    basename after any path, since this cycle's rungs run `tmp/dev/bin/vc-x1`. The fixture's
-    recorded lines still read as before.
-* The pair's two paths and the two-repo snapshots were written twice.
-  - `pair.rs` holds `Pair`, `resolve_pair`, and `Snapshots` with `take` and `restore`, the pieces
-    `commit` and `push` both had, wink's question at this rung's review. The description helper
-    went to `desc_helpers`, where the trailer's shape lives, and the one-off pieces, the body's
-    `@PATH`, the partner check, the preflights, stay where they are until a third copy appears.
-* Two tests and a script still spoke the old push.
-  - The sync CLI test's peer push is `commit -s w` then `push -s w`, and `with_trailer` in
-    `desc_helpers` is the one place a trailer is appended, fixing the double blank line commit
-    left. `support/fixtures/build-dr-1.py` still drives `push --title --body` and is the
-    **dr-1 is built in Rust** cycle's to retire, so a rebuild of the fixture after Land needs it
-    changed first.
-
-##### feat: vc-x1 squash folds work into the pair
-
-A review's fix folds into the pair in both repos at once, refusing a published side, and a
-description fix goes the same way with the trailers restamped.
-
-The first rung under the two-paragraph body, wink's (2026-10-20), so this subsection is the full
-account its body points at.
-
-* A rung could not be continued once committed.
-  - `vc-x1 squash -s b` folds the work `@` into the work commit and the journal into the agent
-    commit, each keeping its change id, so both trailers stay right untouched. `-s w` and `-s a`
-    fold one side, `-s p` a plain repo's `@` into its `@-`.
-* The agent side can be committed, pending, or changed.
-  - A partner committed by `commit -s b` takes the journal. A pending one, after `commit -s w`,
-    is the journal already, push's to commit with the work commit's text, so squash leaves it,
-    and a changed one is push's to restamp. A test covers the first two.
-* A description fix was a re-describe the rules forbid by hand.
-  - `--title` with `--body` rewrites the descriptions and keeps each trailer, the sanctioned
-    re-describe, never of a published commit. A test checks the pair still validates in both
-    directions.
-* A published side is a remote rewrite.
-  - It is refused before anything moves, as is a work `@-` with no trailer. A failure after the
-    first mutation restores both repos from the shared snapshots.
-* The pair's state was read by push alone.
-  - `pair.rs` gained `work_commit`, `partner`, `refuse_conflicts`, and `is_published`, which push
-    and squash share, and `desc_helpers::read_body` is the `@PATH` reading commit and squash
-    share. The third copy of the conflict check, squash's, is what moved it.
-* The lookup did not know squash.
-  - `squash` is a verb beside `commit`, `push`, and `squash-push`, since it carries a body.
-* Push's plan said the agent half twice, wink's question at this rung's push dry run.
-  - The decision line and the summary line are one: what is published, then what the agent half
-    does and why, the restamp still a warning. Folded into this rung by its own `squash -s b`,
-    the first real fold, after the commit.
-* Commit and squash mutated with no preview, wink's point at this rung's review.
-  - Both take the shared `--dry-run` leaf: `commit --dry-run` prints the descriptions it would
-    write, trailers included, so a description is reviewed before anything is committed, and
-    `squash --dry-run` prints what it would fold and re-describe. A test of each checks nothing
-    moved.
-
-##### fix: push runs the agent half, then the work half
-
-Push bundled its two halves into one mutation window and logged them out of order, though each
-commit's trailer is fixed before push runs, so neither half needs the other. `push -s b` is now
-`push -s a` then `push -s w`, each with its own rollback, in the order the pair is completed.
-
-* The halves shared one mutation window and one rollback.
-  - The agent half completes the partner by the state found, then squash-pushes `main`. The work
-    half restamps if its trailer does not name the partner, then sets and pushes the bookmark.
-    Each takes a one-repo `pair::Snapshot` of the repo it touches and restores only that one, since
-    the other may have moved on, a journal writing to it.
-* The restamp was decided from the agent side, before the agent half ran.
-  - It is the work half's question, "does my trailer name the partner?", asked after the agent
-    half, so it holds for every order, `-s a` then `-s w` included, which a test now covers. A
-    published work commit that would need it is refused before the agent half publishes.
-* The plan was a stage of its own with a line of its own.
-  - Each half's first line says what it does and why, `push agent:` then `push work:`, in the
-    order they run, and the work bookmark is resolved first, so a run that cannot publish the work
-    half stops before the agent half publishes anything.
-  - In a dry run the intent lines carry `[dry-run]` like the step lines, wink's catch at this
-    rung's push dry run, where "push work: publish ..." read as done. Folded in by `squash -s b`.
-
-##### feat: sync and squash-push take -s, required
-
-The two write commands this cycle changes rather than builds take the resolver: `-s` required,
-`-R` optional, `squash-push` acting on each resolved repo, work before agent, and the README and
-the messages saying `-s a`. Written before the validate-desc rung and held on
-`wip-sync-squash-push` until it.
-
-* Sync and squash-push guessed which repos they acted on.
-  - Both take `-s`, required, and `-R`, optional, by `resolve_scoped_repos`. A bare `sync` was
-    the repo it ran in, and a bare `squash-push` the cwd's repo, so the workspace's other repo was
-    silently left out. `squash-push` acts on each resolved repo, work before agent, so `-s b` is
-    the fold-and-publish of both that asks nothing, and `-s a` is wink's daily
-    `squash-push -R .agent-session/`.
-* The README, three messages, and the support script named `-R <bot-repo>`.
-  - They say `-s a`, the README's sync section states the rule once for every scoped command,
-    and its squash-push examples carry the scope.
-* The stash was written against the resolver's first name.
-  - Brought onto the pushed tip by a rebase and a squash into `@`, with no conflict, its two uses
-    of `resolve_write_repos` renamed, and its bookmark deleted once empty.
-* After Land, wink's `squash-push -R .agent-session/` and the agent-files' `sync --scope=both`
-  are the old forms.
-  - The first fails naming `--scope`, the second still parses, and both are v0.3.1's text to
-    change, its "The scope flags in the rules" item.
-* `-s p` on a side is refused for sync and squash-push too.
-  - On those two it would act as the side's own scope, but on commit, push, and squash it would
-    bypass the pair, so the one rule stays, wink's call at this rung's review (2026-10-20): `p`
-    is a repo with no partner, and the error names the side's scope.
-
-##### feat: squash-push takes --dry-run
-
-Squash-push was the one write command with no preview: `--dry-run` prints what it found and what
-it would do in each resolved repo, and changes nothing.
-
-* `squash-push --dry-run -s a` was refused as an unknown flag.
-  - It takes the shared `DryRunFlag` leaf and stops after its precheck, which has already printed
-    the verdict line, naming each step it would take: the squash, or that the source is empty and
-    it would skip it, the bookmark set, and the push. With `-s b` it says so for each repo, work
-    first. A test checks the tail stays in `@` and `main` does not move.
-* Push's agent half builds squash-push's params directly.
-  - It passes `dry_run: false`, since push's own dry run stops before it.
-
-##### feat: vc-x1 merge, and commit --closing on it
-
-The closing is made as the merge of the trunk and the ladder when it is committed, so no reshape
-follows its review, by a primitive that adds any sources to any mutable commit's parents.
-
-* Making a commit and giving it several parents are separate operations, wink's point at this
+- Inserted after the install rung, wink's call (2026-10-22), with the Todo entry **The release
+  stamp is reconsidered now that install builds**, which leaves `## Todo`, this block its record.
+  Its code edits were made during the install rung's review and set aside as a patch, so that
+  rung's commit stayed the work reviewed.
+- `build` writes no stamp and no longer says `built` or `up to date`: the stamp file, the binary's
+  size and time, and the comparison before and after the list go. A release still checks the
+  list left `[build] release-bin`, and names the commit and state it was built from.
+- `install` reports from the binary's `-V` alone, its version, commit, and state. A binary whose
+  `-V` carries no commit, another adopter's, is reported as `commit unknown` and `state unknown`,
+  the case the stamp covered, accepted as the cost.
+- The help for `build`, `build-dev`, and `install`, the README's overview, `build`, and `install`
+  sections and its config example, `vc-config.md`'s `build.release` and `build.release-bin`, the
+  regenerated model, `.vc-config.md`, and clippy's register entry 7 drop the stamp.
+- A 39-line duplicate in this file goes: the install rung's commit carried a second copy of the
+  header's tail and the continuation notes of 2026-10-21, left by an agent edit that found the
+  notes' end at the first `## In Progress`, the one inside the header's prose, and missed in that
   rung's review.
-  - `vc-x1 merge -s w --target <rev> --from <revset>...` adds the sources to one target's
-    parents, after the ones it has, keeping its change, description, and change id. One target,
-    empty or not, and N sources, no assumption about where either lives, wink's model
-    (2026-10-20): two lines of work merged into one commit, ten commits on one bookmark or many
-    merged into it one at a time, a root as a source. All three flags are required.
-  - Merge is an implied add, and each `--from` a revset of one or more commits, wink's call at
-    review. The first form replaced the parent list, so the second of ten merged one at a time
-    had to repeat the first. Each revset's commits are added oldest first, a source already a
-    parent is skipped, and a merge adding nothing changes nothing. jj-lib's `rebase_commit` takes
-    the whole parent list, so all the sources go in one call and one jj op, the same tree a loop
-    of one-at-a-time merges gives. Removing a parent is not a merge, and `jj undo` or `jj rebase
-    -r` does it.
-* Keeping the target's tree and swapping its parents is right for one ladder only.
-  - The first version did that, and with several sources the merge would have silently reverted
-    all but one. The verb has jj's rebase meaning, the new tree the merge of the sources with the
-    target's own change, which a test of two sources checks.
-* Limits that are not artificial.
-  - Refused: a source at or below the target, a cycle, a revset naming no commit, and a target in
-    jj's `immutable()` unless `--ignore-immutable`, as `jj` refuses it, wink's call at review.
-    The first form refused a published target, `::remote_bookmarks()`, which counts a rung pushed
-    to its cycle bookmark, though jj counts it mutable and the push after its rewrite takes
-    approval anyway. vc-x1 evaluates revsets in-process, so the session config now carries the
-    jj CLI's revset aliases, `trunk()` and `immutable()` among them, and every layer's
-    `[revset-aliases]`, the user's `immutable_heads()` included, override them as in `jj`.
-  - The git backend holds no merge with the root as a parent, jj's own refusal, so merging into
-    a commit that sits on the root fails and the snapshot restores the repo.
-  - Reported and allowed: a conflicted result, left conflicted as jj leaves it, push refusing a
-    conflicted repo anyway. A source that is an ancestor of another was going to be warned about
-    as redundant, until the dogfood dry run of a closing warned: `main` below the last rung is
-    the no-fast-forward shape a closing is, so it is unremarked.
-    `-s a` and `-s b` are refused, the agent repo never holding a merge.
-* The name, wink's: "reparent" read as an operation on one commit's parent, and "trapezoid" names
-  only some results, a closing on one rung being a triangle. `merge` names the result.
-* `commit --closing` sets `@`'s parents to `main` and the last rung, then commits.
-  - It sets them by the primitive `merge` uses, not by `merge`'s append, which would put the
-    trunk second. It merges before committing, so `@`'s parents are set and the commit keeps
-    them, and `main`
-    is the current one, not the fork point, so a `main` that moved during the cycle is joined by
-    the merge rather than needing a rebase first, which a test checks. The title's " closing"
-    suffix is checked against the flag both ways, and with no ladder, a single-step cycle, a
-    " closing" title is just a title and `--closing` is refused.
-  - A test makes the closing on a ladder of two rungs and folds a review fix into it with
-    `squash`, which keeps both parents.
-* Dry runs.
-  - `commit --closing --dry-run` says which commits the closing would join, and `merge
-    --dry-run` the sources it would add and the parents that would make.
 
-##### feat: vc-x1 move-bookmark repositions a bookmark
+##### feat: install takes --dir
 
-A bookmark is put in position before it is pushed, by a command of its own, since push only ever
-sets the line's bookmark to `@-`.
+Inserted after the stamp rung, wink's call (2026-10-22), after a test of `vc-x1 install` by
+`cargo run install` replaced `~/.cargo/bin/vc-x1` with the cycle's 0.85.7-3: testing `install`
+copies onto the PATH, since `[install] dir` names it. `--dir <DIR>` overrides `[install] dir` for
+one run, so a test copies into a scratch directory and the PATH binary is untouched. Weighed and
+set aside: the `-dev` rename mid-cycle, which reaches the binary's name everywhere and Land's
+restore, and `HOME=` for a test run, which is easy to forget and changes what the rest of the run
+sees.
 
-* Push cannot name its target, the question that raised the rung, wink's (2026-10-20).
-  - Push's work half sets the line's bookmark to the work `@-`, and its BOOKMARK argument is only
-    a check, a name that must be among the nearest bookmarks below `@-`. Its agent half sets the
-    agent-repo's `main` to the partner. Both ends are pinned, so a bookmark anywhere else is put
-    there first, by a verb that only repositions, and push keeps its form.
-* `vc-x1 move-bookmark -s w --bookmark NAME --target REV` is `jj bookmark set NAME -r REV`.
-  - All three flags are required, wink's. The bookmark must already exist, none being created,
-    and the target is a revset of exactly one commit, a bookmark or a rev, the form `merge`'s
-    `--target` has. A bookmark already at the target is left alone.
-  - Nothing is pushed, so every remote change still goes through push and its approval.
-* The checks vc-x1 adds to jj's.
-  - A move backward or sideways, leaving commits off the bookmark's line, is refused unless
-    `--allow-backwards`, the flag and the refusal `jj bookmark set` has. Forward means every
-    commit the bookmark points at, a conflicted bookmark's several included, is an ancestor of
-    the target.
-  - `-s a` and `-s b` take `--yes`, wink's at review, the first form having refused them, since
-    the agent-repo's `main` is otherwise push's agent half's to set. Each repo of the scope moves
-    the same name, the target resolved in it, `@-` in each, and every repo is checked before any
-    moves, so a bookmark or a target missing from one stops both, which a test checks. A failure
-    of a later move restores the repos already moved from their snapshots.
-  - `-s p` takes the repo from `-R`, required, as it is, wink's at review: none of the
-    workspace's checks, so it moves a bookmark in either side of a dual workspace or any jj repo,
-    and careful use is the user's. The bookmark, target, and direction checks stay, wink's pick.
-  - No trailer is asked of the target, and no immutability, since a bookmark's move rewrites no
-    commit: `main` moved to the closing merge at Land is the case it serves next.
-* Dry run.
-  - `--dry-run` says where the bookmark would move from and to, and moves nothing.
+- `--dir` takes the place of `[install] dir` before the config is read for it, so a workspace with
+  no `[install] dir` installs with `--dir`, and the refusal for a missing directory names "the
+  install directory" rather than the key, since the flag may have named it.
+- A relative `--dir` is taken against the current directory, as any path argument is, unlike
+  `[install] dir`, which is taken against the config file's directory, and it gets no `~`
+  expansion of its own, the shell's being enough. The README's example tests `install` into
+  `tmp/bin`.
+- Tried by `cargo run --locked -- install --dir tmp/bin`: the release copy went into `tmp/bin`, and
+  `~/.cargo/bin/vc-x1` kept its time, the 0.85.7-3 test install.
 
-##### feat: vc-x1 commit, install, and run-dev closing
+##### feat: vc-x1 install-dev puts the dev build on the PATH
 
-Closing out the cycle, the first closing made by `commit --closing`. What closing taught:
+Inserted after the `--dir` rung, wink's call (2026-10-22): `install-dev` runs `build-dev`, then
+copies `[build] dev-bin` into `[install] dev-dir` under its file name with `-dev` appended,
+`~/.cargo/bin/vc-x1-dev` here, by `install`'s report and copy, and takes `--dir` too. The landed
+`vc-x1` and the cycle's `vc-x1-dev` sit side by side on the PATH, what the `-dev` rename gave,
+with nothing renamed and nothing for Land to restore.
 
-* Acceptance check: pass, with two qualifications.
-  - Run 2026-10-21 by a script under `tmp/accept`, 38 clauses, against `tmp/dev/bin/vc-x1
-    0.85.6-10` in a scratch dual workspace its `init` made with local bare remotes, and a plain jj
-    repo beside it. The pair's trailers, the squash keeping both change ids, push's refusal of
-    unsquashed work and its unchanged publication, the closing merge's parents and their survival
-    of a squash, and the plain repo's trailer-free commit and push all held.
-  - "Naming the four scopes" is met by `--help`, not by the error: a missing `-s` is clap's
-    required-argument error, which names `--scope`, and the four spellings are in the flag's
-    help, which is what the CLI test asserts. Whether the error should name them is the follow-on
-    cycle's to decide, noted in its entry.
-  - The `install`, `install --dev`, and `run-dev` clauses are the deferred rungs', not run, and
-    the two-run `tmp/dev` clause was checked at the install table rung.
-* The closing is the merge from the start.
-  - Made by `tmp/dev/bin/vc-x1 commit -s w --closing` on the ladder's tip, its parents `main` and
-    the move-bookmark rung, so Land reshapes nothing and the reviewed commit is the one that
-    lands.
-* Version: the closing carries `0.85.6`, bare, and Land releases it, the first release with the
-  pair's commands.
-* Close-out shape: trapezoid, the merge `commit --closing` makes, chosen with wink at the closing.
+- `run-dev` is not enough: it finds its binary by the config of the workspace it runs in, so in
+  another project it runs that project's dev build, and only a dev binary on the PATH under its
+  own name tries a cycle's vc-x1 there.
+- The suffix began fixed, wink's call, with no key, and became `[install] dev-suffix` at the
+  review, wink's call (2026-10-22), `-dev` when absent, a key in the table that uses it, not
+  `[build]`, since the build leaves no suffixed name. The built-in copy appends it, the `dev` list
+  takes it as `{install.dev-suffix}`, and a suffix holding a path separator is an error.
+- The guard the fixed suffix gave returns as a check: without a list, `install-dev` refuses before
+  the build when its destination is the release's, `install.release-dir` and the release's file
+  name, the directories compared canonical, so an empty suffix or a `--dir` onto the release's
+  directory cannot replace the release. A list writes where it says, out of the check's reach.
+- The name the build rung set aside, "install-dev" for a build that reached no PATH, fits now,
+  since this one does.
+- `install-dev` is `install` with the dev build's list and binary: one params builder takes
+  `dev`, as `build_params` does, the label, `install` or `install-dev`, prefixing every message,
+  and a refusal for a missing binary names the key to check, `build.release-bin` or
+  `build.dev-bin`, since the build ran just before and a binary missing after it is a wrong key.
+- `[build] dev-bin`, in the schema since the build rung, gets its first reader, sharing
+  `release-bin`'s code.
+- `[install]` mirrors `[build]`, widened at the review, wink's call (2026-10-22): `release`,
+  `release-dir`, `dev`, and `dev-dir`, in `[build]`'s order. `dir` becomes `release-dir`, unlanded
+  so free to rename, and `dev-dir` is `install-dev`'s, required as the bin keys are, with no
+  fallback to `release-dir`. Here both name `~/.cargo/bin`, the suffix keeping the two apart.
+- `[install] release` and `dev` make the install scriptable as the build is: optional command
+  lists that, when present, run in place of the built-in copy, after the same build, report, and
+  refusals. Optional, not required as the build lists are, since the built-in copy is a default
+  that needs no list. A dry run runs no list.
+- The list's inputs are placeholders named by key, wink's call: `{build.release-bin}` and
+  `{install.release-dir}`, or the `dev` pair, filled in each word after the whitespace split, so a
+  value with spaces stays one word and no shell is added. Each is the value resolved for the run,
+  `~` expanded and `--dir` applied, `--dir` made absolute, since otherwise `install --dir tmp/bin`
+  would still write to the PATH. A `{name}` the command does not read is an error before the
+  build. The first form, three `VC_X1_INSTALL_*` variables, needed a script for any use, since a
+  list has no shell, and went.
+- Weighed and set aside: a derived `{dest}`, the file name only vc-x1 knows, since with key-named
+  placeholders the list names every path it writes and the user has the control, the `-dev` name
+  included. The cost, accepted: a `dev` list that writes the release's name into a shared
+  directory replaces the release, and vc-x1 cannot see it.
+- This workspace sets both lists, wink's call, each the built-in copy written out, `cp` to a
+  `.new` file and `mv` into place, safe over a running binary, so the config says what `install`
+  does and the list path runs at every Land. The model's example is the same list, so a copied
+  table works. `cp` and `mv` are not portable, and a `{cp}` placeholder would be additive later,
+  in the new Todo entry **vc-x1 runs on Windows**.
+- The rung planned for **Every repo's .gitignore ignores .claude, and settings stay out of
+  agent-repos** leaves the ladder, wink's call (2026-10-22), its Todo entry run as a cycle of its
+  own, so the run rung follows this one and the closing that.
+- Placeholders stay in the install lists, two keys each, for this rung, wink's call. The general
+  rule, any config string referencing any key by its resolved value, a flag overriding its key, is
+  the new Todo entry **Any config string references any key**, of which the install lists are a
+  subset.
+- `command_list` gains `load_optional`, an absent key `None`, and placeholders offered by the
+  caller, none for `validate` and `build`, whose lists are taken as written. The log shows each
+  command with its placeholders filled, so it names the paths used. Clippy's register entry 5
+  widens to the install lists.
+- With a list the report's first line says `-> list` and the key, since vc-x1 no longer knows the
+  destination, and a dry run says it ran nothing.
+- The help, the README's overview, table, config notes, the `install` section's list paragraph,
+  and a new `install-dev` section, `vc-config.md`'s `build.dev-bin` and the four `install.*`
+  sections in place of `install.dir`, `.vc-config.md`, and the regenerated model follow.
+- Tried by `cargo run --locked -- install-dev --dir tmp/bin`, through the `dev` list: the log
+  showed `cp` and `mv` with the absolute paths, `tmp/bin/vc-x1-dev -V` reported 0.85.7-6, dirty,
+  and nothing on the PATH changed. `install --dry-run` read the `release` list and ran nothing.
+
+##### feat: vc-x1 run and run-dev run the builds
+
+The release build and the dev build, both off the PATH, are run through the config from anywhere
+in the workspace, each built first, with a warning when either is not the manifest's
+version, and the words after either subcommand are completed by the binary it would run.
+
+- Added at the `install-dev` review, wink's call (2026-10-22): `build`, `build-dev`, `run`, and
+  `run-dev` take `--dry-run`, as `install` and `install-dev` do, so every pair takes it. For the
+  builds and the runs it prints what would be run and runs nothing. `install`'s keeps building,
+  since its report is of the binary that would be copied. `--dir` stays `install`'s, the one
+  command with a destination.
+- `run` and `run-dev` build through `build`'s own code, then run `release-bin` or `dev-bin` in the
+  current directory with the arguments untouched, and vc-x1 exits with the binary's code, so a
+  failing run fails the same way. They dispatch outside `SubcommandRunner`, whose `run` returns no
+  code.
+- An argument starting with `-` comes after `--`, as with `cargo run`: vc-x1's global flags, `-V`
+  among them, are read before any trailing argument, so `vc-x1 run -V` prints vc-x1's banner, a
+  parse test holds it, and the smoke check is `vc-x1 run -- -V`. The acceptance check, the
+  cycle's deliberation, the land entry's step 6, and v0.3.1's Land step 4 say so.
+- A bare `-bin` name looked up on the PATH, planned for the rename style's `iiac-perf-dev`, is
+  dropped, wink's call (2026-10-22): under never-rename the config names the binary by path, and a
+  PATH lookup would have `build`'s check and `install`'s copy act on whatever is on the PATH. The
+  version check compares the version alone, the name being the build's own, and a `-V` with no
+  version skips it.
+- The completion forward, in `main` ahead of clap's `CompleteEnv`: a request whose words are
+  `run`'s or `run-dev`'s arguments is answered by the binary it would run, asked with `COMPLETE`
+  and the shell's variables inherited and `_CLAP_COMPLETE_INDEX` shifted, so it answers in the
+  protocol the shell reads. The subcommand's own options, `--dry-run`, `-R`, and `--repo`, are
+  skipped, `--` ends them, and the cursor on the subcommand, its options, or a flag before any
+  argument stays clap's. The binary is never built, and none, or one that answers nothing, offers
+  nothing. Planning is a pure function, so its cases are tested without a shell.
+- Clippy's register entry 7 widens to `src/run_cmd.rs`, the run and the forward each a spawn of the
+  workspace's build.
+- Tried: `run-dev -- -V` and `run -- -V` printed 0.85.7-7, dirty, `run-dev --dry-run status -s b`
+  printed the list and the command, a failing `run-dev -- no-such-subcommand` exited 2, and the
+  forward, driven as bash drives it, completed `run-dev sta` to `status` and `run-dev status -s`
+  to the four scopes, while `run` alone stayed clap's, `run` and `run-dev`.
+- The help for the four commands, the README's new `run and run-dev` section and its `build`
+  options, the Land example's `vc-x1 run -- -V`, `vc-config.md`'s `build.release`,
+  `build.release-bin`, and `build.dev`, and the regenerated model follow.
+
+##### feat: vc-x1 install stages, deploys, and runs builds closing
+
+Closing out the cycle, its closing made by `vc-x1 commit -s b --closing`, the merge of `main` and
+the run rung. What closing taught:
+
+- Acceptance check: pass, as far as the closing can run it, Land's part at Land.
+  - Run 2026-10-22 by the dev binary at 0.85.7: `build-dev` left `target/debug/vc-x1` and
+    `run-dev -- -V` printed `vc-x1 0.85.7+e38b9fd5112a.dirty`. `cargo clean --release` removed
+    `target/release`, and `install --dry-run` built the release in 14.4 s and reported `version
+    0.85.7`, `commit e38b9fd5112a, not main`, and `state dirty`, running nothing of its list.
+    `run -- -V` printed the same version.
+  - The suffixed-version clause cannot hold at the bare closing version, and its report was seen
+    mid-cycle, at the stamp rung's dry run at 0.85.7-4 and the `install-dev` rung's at -6.
+  - Land's part, the dev binary's `build`, `run -- -V`, and `install` on `main`, the report
+    showing `main` and `main@origin`, clean, and a bare version, is checked at Land.
+- The Todo entry **feat: vc-x1 land closes a cycle and lands it** waited on this cycle for its step
+  6, `build`, a `run -- -V` smoke check, and `install`, and its step and dependency bullets now say
+  the commands are there. Kept a separate cycle, wink's call (2026-10-22).
+- What outlives the cycle: the line the deliberation drew, vc-x1 runs the steps and checks their
+  results and the config says what they are, opens the README's Build and install section, where
+  the people it is for read it, chosen over a `notes/` topic file, which nothing would reference,
+  wink's call. The README also gains the first install, `cargo run --locked -- install`.
+- The `.gitignore` rung planned after the install rung left the ladder, its entry a cycle of its
+  own.
+- Version: the closing carries `0.85.7`, bare, and Land releases it, under the bend that renames
+  nothing, so Land restores no name.
+- No agent-file changed, so `notes/agent-files-size.md` gains no row.
+- Close-out shape: trapezoid, the merge `commit --closing` makes, wink's call at the closing.
 
 # References
 
-[0]: #feat-vc-x1-commit-install-and-run-dev-opening
-[1]: #feat-an-install-table-in-the-config
-[2]: #feat-validate-desc-takes--s-the-first-scope
-[3]: #feat-vc-x1-commit-makes-the-rungs-commit-pair
-[4]: #feat-vc-x1-push-only-publishes-the-pair
-[5]: #feat-vc-x1-squash-folds-work-into-the-pair
-[6]: #fix-push-runs-the-agent-half-then-the-work-half
-[7]: #feat-sync-and-squash-push-take--s-required
-[8]: #feat-squash-push-takes---dry-run
-[9]: #feat-vc-x1-merge-and-commit---closing-on-it
-[10]: #feat-vc-x1-move-bookmark-repositions-a-bookmark
-[11]: #feat-vc-x1-commit-install-and-run-dev-closing
+[0]: #feat-vc-x1-install-stages-deploys-and-runs-builds-opening
+[1]: #feat-vc-x1-build-stages-the-release
+[2]: #feat-status-takes-the-write-commands-scope
+[3]: #feat-vc-x1-install-copies-the-release-build
+[4]: #feat-the-release-stamp-goes-cargo-tracks-staleness
+[5]: #feat-install-takes---dir
+[6]: #feat-vc-x1-install-dev-puts-the-dev-build-on-the-path
+[7]: #feat-vc-x1-run-and-run-dev-run-the-builds
+[8]: #feat-vc-x1-install-stages-deploys-and-runs-builds-closing

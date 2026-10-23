@@ -1,7 +1,9 @@
 mod agent_files;
 mod bot_session;
+mod build_cmd;
 mod chid;
 mod clone;
+mod command_list;
 mod commit;
 mod common;
 mod config;
@@ -13,7 +15,10 @@ mod desc;
 mod desc_helpers;
 mod fix_desc;
 mod fix_todo;
+#[cfg(test)]
+mod git_head;
 mod init;
+mod install_cmd;
 mod jj;
 mod legacy_vc_config;
 mod list;
@@ -26,6 +31,7 @@ mod options_flags;
 mod pair;
 mod push;
 mod repo_utils;
+mod run_cmd;
 mod show;
 mod squash;
 mod squash_push;
@@ -75,10 +81,18 @@ fn invoked_name() -> String {
 
 /// Banner string emitted as the first line of every run (stderr,
 /// or stdout when `-V` asked for it), and shown at the top of
-/// subcommand `--help` output: `<invoked name> <version>`.
+/// subcommand `--help` output: `<invoked name> <version>`, the
+/// version carrying `+<commit>` when the build knew its commit.
 fn banner() -> &'static str {
     static BANNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    BANNER.get_or_init(|| format!("{} {}", invoked_name(), env!("CARGO_PKG_VERSION")))
+    BANNER.get_or_init(|| {
+        format!(
+            "{} {}{}",
+            invoked_name(),
+            env!("CARGO_PKG_VERSION"),
+            version::build_metadata()
+        )
+    })
 }
 
 /// The banner a run prints: the plain banner plus the workspace's
@@ -210,13 +224,14 @@ pub(crate) enum Commands {
     #[command(
         name = "status",
         alias = "st",
-        long_about = "Print the working-copy status of the scoped repos, `work`\n\
-        by default, `agent`, or `both`, each under its label with the\n\
-        changed paths and the @ and @- lines as `jj st` prints them,\n\
-        then one verdict line: `clean` when every scoped @ is empty\n\
-        and undescribed, At rest's meaning of the word for `both`,\n\
-        else `dirty` naming each repo and why. A plain jj repo with\n\
-        no vc-x1 config answers for `work`."
+        long_about = "Print the working-copy status of the scoped repos, each\n\
+        under its label with the changed paths and the @ and @- lines as\n\
+        `jj st` prints them, then one verdict line: `clean` when every\n\
+        scoped @ is empty and undescribed, At rest's meaning of the word\n\
+        for `both`, else `dirty` naming each repo and why.\n\n\
+        -s takes the write commands' four scopes, `w|work`, `a|agent`,\n\
+        `b|both`, or `p|por` for a plain repo, and is `work` when absent.\n\
+        A plain jj repo with no vc-x1 config also answers for `work`."
     )]
     Status(status::StatusArgs),
 
@@ -272,6 +287,117 @@ pub(crate) enum Commands {
         table is an error, not a pass. See `vc-x1 config work` for the\n\
         table's shape.")]
     Validate(validate::ValidateArgs),
+
+    /// Build the release, off the PATH
+    #[command(long_about = "Build the release, off the PATH.\n\n\
+        Runs `[build] release` from the work repo root, here\n\
+        `cargo build --release --locked`, and checks it left\n\
+        `[build] release-bin`, the binary the config says the build leaves.\n\
+        The commands see the commit `@-` and the state of the source code,\n\
+        clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
+        and VC_X1_BUILD_STATE, as validate's and build-dev's do, so vc-x1's\n\
+        own banner carries the commit. Cargo decides what to rebuild, so a\n\
+        build with nothing changed is quick. The release build is run by\n\
+        `vc-x1 run` and copied into the install directory by `vc-x1 install`,\n\
+        which runs this same build first.\n\n\
+        Nothing is checked first: a release may be built from a cycle's\n\
+        bookmark to try the release profile. The list runs as `validate`'s\n\
+        does, each element one command, the first failure stopping the run.\n\
+        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
+        for the table's keys.")]
+    Build(build_cmd::BuildArgs),
+
+    /// Build the dev build, off the PATH
+    #[command(long_about = "Build the dev build, off the PATH.\n\n\
+        Runs `[build] dev` from the work repo root, here `cargo build --locked`,\n\
+        leaving `[build] dev-bin`, with the commit and the state of the\n\
+        source code as VC_X1_BUILD_COMMIT and VC_X1_BUILD_STATE, as build's\n\
+        and validate's commands get them. After a validation it reuses the test\n\
+        build, so it takes under a second. `vc-x1 run-dev` runs it first.\n\
+        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
+        for the table's keys.")]
+    BuildDev(build_cmd::BuildDevArgs),
+
+    /// Build the release if out of date, then copy it into the install directory
+    #[command(
+        long_about = "Build the release if out of date, then copy it into the install directory.\n\n\
+        It first runs `[build] release`, exactly as `vc-x1 build` does.\n\
+        Cargo rebuilds only what changed, so with nothing changed\n\
+        the binary already tested is the one copied. The build leaves the\n\
+        release at `[build] release-bin` (here `target/release/vc-x1`), and\n\
+        `install` copies it into the one directory `[install] release-dir`\n\
+        names (here `~/.cargo/bin`, `~` expanded), under the same file name.\n\
+        It does not search $PATH. The copy goes to a temporary file renamed\n\
+        into place, so a running copy of the old binary is undisturbed and a\n\
+        failed copy leaves the old one. An `[install] release` list, when\n\
+        present, runs in place of the copy, each word's {build.release-bin}\n\
+        and {install.release-dir} filled with the values resolved for the\n\
+        run, --dir applied, so the list names every path it writes. This\n\
+        workspace's list is the copy written out.\n\n\
+        Before copying it reports what it is copying: the version and commit\n\
+        the binary's -V shows, whether that commit is `main` and\n\
+        `main@origin`, clean or dirty, and a version with a cycle's suffix.\n\
+        A binary whose -V carries no commit is reported as unknown. The\n\
+        report is for you to judge, and refuses nothing: which builds may be\n\
+        installed is the release process's call, not the tool's. It refuses\n\
+        only when the copy itself would be wrong: no binary at `release-bin`\n\
+        after the build, a binary whose -V will not run, or a missing install\n\
+        directory. --dry-run builds and reports, and copies nothing.\n\
+        --dir DIR copies into DIR instead of `[install] release-dir` for this\n\
+        run, so a test of install leaves the PATH alone, a relative DIR taken\n\
+        against the current directory. A workspace with no\n\
+        `[install] release-dir` and no --dir has nothing to install, and\n\
+        builds nothing."
+    )]
+    Install(install_cmd::InstallArgs),
+
+    /// Build the dev build, then copy it into the install directory as <name>-dev
+    #[command(
+        long_about = "Build the dev build, then copy it into the install directory as <name>-dev.\n\n\
+        It first runs `[build] dev`, exactly as `vc-x1 build-dev` does, then\n\
+        copies `[build] dev-bin` (here `target/debug/vc-x1`) into the\n\
+        directory `[install] dev-dir` names, or --dir, with\n\
+        `[install] dev-suffix`, `-dev` when absent, appended to its file name\n\
+        (here `~/.cargo/bin/vc-x1-dev`). A copy that would land on the\n\
+        release's own destination is refused before the build. The landed binary\n\
+        and the cycle's dev build then sit side by side on the PATH, so the\n\
+        dev build can be tried from any directory, another project's\n\
+        included, where `vc-x1 run-dev` would find that project's dev build\n\
+        instead.\n\n\
+        The report, the refusals, the copy, --dry-run, and --dir are\n\
+        `vc-x1 install`'s, the binary being the dev build's, and an\n\
+        `[install] dev` list runs in place of the copy as `[install] release`\n\
+        does for install."
+    )]
+    InstallDev(install_cmd::InstallDevArgs),
+
+    /// Build the release, then run it with the given arguments
+    #[command(
+        long_about = "Build the release, then run it with the given arguments.\n\n\
+        It first runs `[build] release`, exactly as `vc-x1 build` does, then\n\
+        runs `[build] release-bin` (here `target/release/vc-x1`) in the\n\
+        current directory, as `cargo run` builds before it runs, so what\n\
+        runs is always the current code. The arguments go to the binary\n\
+        untouched. One that starts with `-` comes after --, as with cargo\n\
+        run, since vc-x1's own flags are read first: `vc-x1 run -- -V` is\n\
+        the smoke check before install. The binary's exit code is vc-x1's.\n\n\
+        Its -V is read first, and a version other than the manifest's is a\n\
+        warning naming `build.release-bin`. --dry-run prints the build's list\n\
+        and the command, and runs nothing. Completion of the arguments is\n\
+        the binary's own, asked in clap's completion mode and never built."
+    )]
+    Run(run_cmd::RunArgs),
+
+    /// Build the dev build, then run it with the given arguments
+    #[command(
+        long_about = "Build the dev build, then run it with the given arguments.\n\n\
+        It first runs `[build] dev`, exactly as `vc-x1 build-dev` does, then\n\
+        runs `[build] dev-bin` (here `target/debug/vc-x1`) in the current\n\
+        directory, so what runs is always the rung's code. The arguments,\n\
+        the version warning, --dry-run, the exit code, and the completion\n\
+        are `vc-x1 run`'s, the binary being the dev build's."
+    )]
+    RunDev(run_cmd::RunDevArgs),
 
     /// Check the agent repo is published (main matches main@origin)
     #[command(
@@ -618,6 +744,7 @@ fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, Strin
 }
 
 fn main() -> ExitCode {
+    run_cmd::forward_completion();
     CompleteEnv::with_factory(cli_with_banner).complete();
     let matches = cli_with_banner().get_matches();
     let cli = match Cli::from_arg_matches(&matches) {
@@ -742,6 +869,12 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         Commands::Validate(args) => args.dispatch(&mut ctx),
+        Commands::Build(args) => args.dispatch(&mut ctx),
+        Commands::BuildDev(args) => args.dispatch(&mut ctx),
+        Commands::Install(args) => args.dispatch(&mut ctx),
+        Commands::InstallDev(args) => args.dispatch(&mut ctx),
+        Commands::Run(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
+        Commands::RunDev(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
         Commands::ValidateBot(args) => args.dispatch(&mut ctx),
         Commands::ValidateBotOld { .. } => {
             error!(

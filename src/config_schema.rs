@@ -372,26 +372,62 @@ mod tests {
         }
     }
 
-    /// The install table is work-side only: the two command lists
-    /// typed `str-list` like validate's, and the binary a `str`, each
+    /// The build table is work-side only: the two command lists typed
+    /// `str-list` like validate's, and the two binaries `str`s, each
     /// with an example.
     #[test]
-    fn install_table() {
+    fn build_table() {
         let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
-        for p in ["install.release", "install.dev"] {
+        for p in ["build.release", "build.dev"] {
             let k = find(p);
             assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
             assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
             let ex = k.example.expect("example");
             assert!(
-                ex.starts_with("[\"cargo install --path . --locked"),
+                ex.starts_with("[\"cargo build ") && ex.contains("--locked"),
                 "{p} example: {ex}"
             );
         }
-        let k = find("install.dev-bin");
-        assert_eq!(k.homes, &[Home::WorkspaceCode], "dev-bin homes");
-        assert_eq!(k.kind, ValueKind::Str, "dev-bin kind");
-        assert_eq!(k.example, Some("tmp/dev/bin/vc-x1"), "dev-bin example");
+        for (p, ex) in [
+            ("build.release-bin", "target/release/vc-x1"),
+            ("build.dev-bin", "target/debug/vc-x1"),
+        ] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+            assert_eq!(k.example, Some(ex), "{p} example");
+        }
+        let install: Vec<&str> = schema()
+            .iter()
+            .map(|k| k.path)
+            .filter(|p| p.starts_with("install."))
+            .collect();
+        assert_eq!(
+            install,
+            [
+                "install.release",
+                "install.release-dir",
+                "install.dev",
+                "install.dev-dir",
+                "install.dev-suffix"
+            ],
+            "[install] mirrors [build]'s order, the dev suffix last"
+        );
+        let k = find("install.dev-suffix");
+        assert_eq!(k.kind, ValueKind::Str, "dev-suffix kind");
+        assert_eq!(k.default, Some("-dev"), "dev-suffix default");
+        assert_eq!(INSTALL_DEV_SUFFIX_DEFAULT, "-dev");
+        for p in ["install.release", "install.dev"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::StrList, "{p} kind");
+        }
+        for p in ["install.release-dir", "install.dev-dir"] {
+            let k = find(p);
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+            assert_eq!(k.kind, ValueKind::Str, "{p} kind");
+            assert_eq!(k.example, Some("~/.cargo/bin"), "{p} example");
+        }
     }
 
     /// The agent-files tables are work-side only: each command's

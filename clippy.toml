@@ -4,8 +4,8 @@
 # `Command::new` site needs an entry below and a visible
 # `#[allow(clippy::disallowed_methods)]` naming it.
 #
-# The register, closed (wink, 2026-08-19), reopened for entries 5
-# and 6:
+# The register, closed (wink, 2026-08-19), reopened for entries 5,
+# 6, and 7:
 #
 # 1. Version gate: the `jj -V` probe (src/version.rs). The gate
 #    exists to compare the user's jj CLI against our jj-lib, so the
@@ -25,11 +25,16 @@
 #    substitute for asserting our jj-lib paths directly. The CLI
 #    tests' launcher spawning the built vc-x1 binary is this entry
 #    too: spawning the binary is what a CLI test is.
-# 5. The validate subcommand (src/validate.rs): runs the
-#    workspace's configured `[validate]` commands, which is its
-#    whole job. Opened 2026-08-21 by the "empty custom-family into
-#    the pinned set and config" cycle, whose plan put the checklist
-#    commands in config for one subcommand to run.
+# 5. A configured command list (src/command_list.rs): runs the
+#    workspace's `[validate]` commands for validate, its `[build]`
+#    commands for build and build-dev, and its optional `[install]`
+#    lists for install and install-dev, which is each list's whole
+#    job. Opened 2026-08-21 by the "empty custom-family into the
+#    pinned set and config" cycle, whose plan put the checklist
+#    commands in config for one subcommand to run, and widened to the
+#    build and install lists by "feat: vc-x1 install stages, deploys,
+#    and runs builds", the one site moved out of src/validate.rs so
+#    they all share it.
 # 6. Sync's remote look (src/jj/session.rs, `git_command`): two
 #    git commands that ask a remote and move no ref. `git ls-remote
 #    --heads <remote>` gives the commit each of the remote's
@@ -43,6 +48,15 @@
 #    as of 0.45.1 and 0.46.0. Opened 2026-10-09 (wink) by the
 #    "feat: sync is safe by default" cycle, and temporary: the entry
 #    closes when jj-lib offers the query (TODO.md > ## Waiting).
+# 7. The workspace's builds (src/install_cmd.rs, src/run_cmd.rs):
+#    install and install-dev run the binary they are about to copy,
+#    `-V` alone, to report the version and commit it shows beside the
+#    manifest, run and run-dev run the build with the arguments given,
+#    which is each command's whole job, and the completion forward
+#    asks the build, in clap's completion mode, for its own words.
+#    Opened 2026-10-21 by "feat: vc-x1 install stages, deploys, and
+#    runs builds", and widened to run, run-dev, and the forward by its
+#    run rung.
 #
 # jj-lib's own git children (fetch/push/clone network legs, the
 # default-branch query) are jj-lib's implementation detail, not

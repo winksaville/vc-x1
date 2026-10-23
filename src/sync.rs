@@ -52,7 +52,9 @@ use log::{LevelFilter, debug, info, warn};
 use crate::common::resolve_scoped_repos;
 use crate::context::Context;
 use crate::jj;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, parse_repo_scope};
+use crate::options_flags::scope::{
+    ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, repo_scope_parser,
+};
 use crate::subcommand::SubcommandRunner;
 
 /// Fetch and sync a set of repos to their remotes.
@@ -119,7 +121,7 @@ pub struct SyncArgs {
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = parse_repo_scope,
+        value_parser = repo_scope_parser(ALL_REPO_SCOPES),
         required = true,
         help = format!("Which repo(s) to sync, required: {REPO_SCOPE_FORMS}")
     )]
