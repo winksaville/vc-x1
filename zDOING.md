@@ -325,7 +325,7 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit pushes what it commits][4] (done)
 - [feat: commit --closing moves the record][5] (done)
 - [feat: vc-x1 deletes a bookmark][6] (done)
-- [feat: commit --closing --land lands the cycle][7]
+- [feat: commit --closing --land lands the cycle][7] (done)
 - [feat: vc-x1 closing and land closing][8]
 
 ##### feat: vc-x1 closing and land opening
@@ -504,6 +504,21 @@ Land is typed by hand after the closing, so `--land` makes the closing and lands
 invocation: it refuses a moved trunk, a conflict, or a revision that is not a bookmark, then
 fast-forwards `REV`, pushes it with the agent journal as its partner, and deletes the topic
 bookmark, for both cycle shapes, told apart by the branch's node count.
+
+* Land was the sync, the fast-forward, the push, and the deletion typed after the closing.
+  - `--land [TRUNK]`, with `--closing`, lands in the same invocation: the closing made, the trunk
+    fast-forwarded to it and pushed by `push -s b <trunk>`, the agent half its partner, and the
+    cycle's bookmark deleted by `delete-bookmark`'s code, `--skip local|remote|both` keeping what it
+    names. The trunk is `--land`'s value, or the closing's `REV` when that is a bookmark.
+  - Every check runs before anything is made: the trunk a local bookmark at its `origin`
+    position, the sync's test, the closing merging onto it, and the branch descending from it, so
+    the tree landed is the reviewed one. The cycle's bookmark is the one nearest below `@-` other
+    than the trunk, several refused.
+  - A conflicted closing is made and not landed, the error naming the commands that land it after
+    a resolve. The closing's own push to the cycle's bookmark is skipped, that bookmark being
+    deleted.
+  - The install is not joined, being no `jj` step, and stays `vc-x1 install` after, which the
+    message says. `--skip` now takes `--opening` or `--land`, checked when the params are made.
 
 ##### feat: vc-x1 closing and land closing
 

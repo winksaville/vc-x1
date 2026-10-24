@@ -79,6 +79,8 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         opening: None,
         advance: crate::commit::Advance::Off,
         push: Some(false),
+        land: None,
+        skip: None,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -491,6 +493,8 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         opening: None,
         advance: crate::commit::Advance::Line,
         push: Some(false),
+        land: None,
+        skip: None,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");

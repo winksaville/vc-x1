@@ -625,6 +625,10 @@ pub(crate) enum Commands {
         push publishes what was reviewed. --no-push keeps the commit local,\n\
         for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
         `[commit] push = false` makes that the default, --push overriding it.\n\n\
+        --closing [REV] closes the cycle, bare finalizing a single-step cycle's\n\
+        opening, with REV making the closing commit onto it, and --land [TRUNK]\n\
+        lands it: the trunk fast-forwarded and pushed and the cycle's bookmark\n\
+        deleted, every check first.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\

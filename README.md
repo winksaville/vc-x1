@@ -1869,6 +1869,22 @@ closed file's `## Closed` block and references, and the doing file's `## In Prog
 <closed>.". The move is planned and checked before anything is made, so nothing in progress, or a
 missing heading, is refused with both files as they were.
 
+`--land [TRUNK]` lands the cycle in the same invocation: the closing is made, the trunk is
+fast-forwarded to it and pushed with the agent half as its partner, and the cycle's bookmark is
+deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
+`--land`'s value, or the closing's `REV` when that is a bookmark, so a ladder lands with `commit
+--closing main --land` and a single-step cycle with `commit --closing --land main`. The closing's own
+push to the cycle's bookmark is skipped, the bookmark being deleted. Every check runs first, so a
+refusal leaves everything as it was: the trunk must be a local bookmark at its `origin` position,
+since a trunk that moved stops a Land, the closing must merge onto it, and the branch must descend
+from it, so the tree landed is the one reviewed. A conflicted closing is made but not landed. The
+install stays `vc-x1 install`, after.
+
+```bash
+vc-x1 commit -s b --closing --land main      # a single-step cycle, finalized and landed on main
+vc-x1 commit -s b --closing main --land      # a ladder's closing commit, landed on main
+```
+
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
 is appended, a title carrying it already refused. The bookmark is the one named, else the bare
 title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where
