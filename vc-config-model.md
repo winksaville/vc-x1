@@ -132,8 +132,17 @@ The `[commit]` table
 push = true
 ```
 
+The `[record]` table
+- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[27]]
+- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[28]]
+```toml
+[record]
+doing = "zDOING.md"
+closed = "zCLOSED.md"
+```
+
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[27]]
+- body: The closing commit's default body, `{title}` the cycle title [[29]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in zCLOSED.md."
@@ -141,7 +150,7 @@ body = "Closes the cycle {title}. See details in zCLOSED.md."
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[28]]
+  test` [[30]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -175,5 +184,7 @@ fixtures = ".fixtures"
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-dir
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-suffix
 [26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

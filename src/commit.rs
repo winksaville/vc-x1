@@ -451,18 +451,23 @@ fn commit_pair(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     let closing = plan_closing(work, params)?;
+    let record = match &closing {
+        Some(_) => RecordMove::plan(work)?,
+        None => None,
+    };
     if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        finalize(
-            ctx,
+        let body = finalized_body(
             work,
-            Some(pair),
-            title,
             body.as_deref(),
-            params.dry_run,
+            record.as_ref().map(|r| r.name.as_str()),
         )?;
+        if let Some(r) = &record {
+            r.write(params.dry_run)?;
+        }
+        finalize(ctx, work, Some(pair), title, Some(&body), params.dry_run)?;
         return push_after(ctx, work, Publish::Pair, None, params, params.dry_run);
     }
-    preflight(work, "work", true)?;
+    preflight(work, "work", record.is_none())?;
     preflight(agent, "agent", false)?;
     warn_unflagged_closing(params);
     let (text, merge) = description(params, closing)?;
@@ -480,6 +485,9 @@ fn commit_pair(
             );
         }
         dry_run_bookmarks(params, &plan);
+        if let Some(r) = &record {
+            r.write(true)?;
+        }
         info!(
             "commit: [dry-run] the work commit {work_chid}, in {}:\n{work_desc}",
             work.display()
@@ -502,6 +510,9 @@ fn commit_pair(
             params,
             true,
         );
+    }
+    if let Some(r) = &record {
+        r.write(false)?;
     }
     let snapshots = Snapshots::take(pair)?;
     if let Some((base, tip)) = &merge
@@ -549,6 +560,106 @@ fn commit_pair(
         params,
         false,
     )
+}
+
+/// The doing file, the closed file, and the closed file's name as
+/// written.
+type RecordFiles = (PathBuf, PathBuf, String);
+
+/// The record's two files, `[record] doing` and `closed`, joined to
+/// the config's directory, when both are set, with the closed file's
+/// name as written for the pointer.
+fn record_files(repo: &Path) -> Result<Option<RecordFiles>, Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(repo)? else {
+        return Ok(None);
+    };
+    let get = |k: &str| crate::toml_simple::toml_get(&cfg.map, k).cloned();
+    let (Some(doing), Some(closed)) = (get("record.doing"), get("record.closed")) else {
+        return Ok(None);
+    };
+    let dir = cfg.path.parent().unwrap_or(repo); // OK: a config file always has a parent dir
+    Ok(Some((dir.join(&doing), dir.join(&closed), closed)))
+}
+
+/// The record moved, as text: the doing file's `## In Progress` block
+/// and its `# References` into the closed file's `## Closed` and
+/// `# References`, replacing what they held, and the doing file's
+/// `## In Progress` reset, its references gone. Refused when a
+/// heading is missing or nothing is in progress.
+fn moved_record(doing: &str, closed: &str) -> Result<(String, String), String> {
+    const EMPTY: &str = "_No cycle currently in progress._";
+    let split = |text: &str, heading: &str, file: &str| -> Result<(usize, usize, usize), String> {
+        let at = text
+            .find(&format!("\n{heading}\n"))
+            .map(|i| i + 1)
+            .ok_or_else(|| format!("commit --closing: the {file} file has no `{heading}`"))?;
+        let body = at + heading.len() + 1;
+        let refs = text[body..].find("\n# References\n").map(|i| body + i + 1);
+        Ok((at, body, refs.unwrap_or(text.len())))
+    };
+    let (_, d_body, d_refs) = split(doing, "## In Progress", "doing")?;
+    let block = doing[d_body..d_refs].trim();
+    if block.is_empty() || block == EMPTY {
+        return Err("commit --closing: nothing is in progress in the doing file to move".into());
+    }
+    let refs = doing[d_refs..]
+        .strip_prefix("# References\n")
+        .unwrap_or("")
+        .trim();
+    let new_doing = format!("{}\n{EMPTY}\n", &doing[..d_body]);
+    let (_, c_body, _) = split(closed, "## Closed", "closed")?;
+    let mut new_closed = format!("{}\n{block}\n", &closed[..c_body]);
+    if !refs.is_empty() {
+        new_closed.push_str(&format!("\n# References\n\n{refs}\n"));
+    }
+    Ok((new_doing, new_closed))
+}
+
+/// A record move planned before anything is made: the two files and
+/// their new text, and the closed file's name for a finalized body's
+/// pointer.
+#[derive(Debug)]
+struct RecordMove {
+    doing: PathBuf,
+    closed: PathBuf,
+    new_doing: String,
+    new_closed: String,
+    name: String,
+}
+
+impl RecordMove {
+    /// Plan the move when `[record]` names both files, reading and
+    /// checking them, so a refusal comes before anything is written.
+    fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+        let Some((doing, closed, name)) = record_files(repo)? else {
+            return Ok(None);
+        };
+        let (new_doing, new_closed) = moved_record(
+            &std::fs::read_to_string(&doing)?,
+            &std::fs::read_to_string(&closed)?,
+        )?;
+        Ok(Some(Self {
+            doing,
+            closed,
+            new_doing,
+            new_closed,
+            name,
+        }))
+    }
+
+    /// Write the move into the working copy, so the commit carries it,
+    /// or with `dry_run` say what would move.
+    fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+        let (doing, closed) = (self.doing.display(), self.closed.display());
+        if dry_run {
+            info!("commit: [dry-run] move the In Progress block of {doing} into {closed}");
+            return Ok(());
+        }
+        info!("commit --closing: move the In Progress block of {doing} into {closed}");
+        std::fs::write(&self.doing, &self.new_doing)?;
+        std::fs::write(&self.closed, &self.new_closed)?;
+        Ok(())
+    }
 }
 
 /// Which push publishes a commit.
@@ -879,6 +990,26 @@ fn warn_unflagged_closing(params: &CommitParams) {
     }
 }
 
+/// A finalized commit's body: the one given, else the opening's own,
+/// with the record's pointer, "See details in <closed>.", added when
+/// the record moved and the kept body does not say it already.
+fn finalized_body(
+    repo: &Path,
+    given: Option<&str>,
+    pointer: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    if let Some(b) = given {
+        return Ok(b.to_string());
+    }
+    let body = opening_body(repo)?;
+    Ok(match pointer {
+        Some(closed) if !body.contains(&format!("See details in {closed}")) => {
+            format!("{body}\n\nSee details in {closed}.")
+        }
+        _ => body,
+    })
+}
+
 /// The opening's body: its description less the title line and the
 /// `ochid:` trailers.
 fn opening_body(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
@@ -1150,11 +1281,23 @@ fn commit_por(
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let closing = plan_closing(repo, params)?;
+    let record = match &closing {
+        Some(_) => RecordMove::plan(repo)?,
+        None => None,
+    };
     if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        finalize(ctx, repo, None, title, body.as_deref(), params.dry_run)?;
+        let body = finalized_body(
+            repo,
+            body.as_deref(),
+            record.as_ref().map(|r| r.name.as_str()),
+        )?;
+        if let Some(r) = &record {
+            r.write(params.dry_run)?;
+        }
+        finalize(ctx, repo, None, title, Some(&body), params.dry_run)?;
         return push_after(ctx, repo, Publish::Por, None, params, params.dry_run);
     }
-    preflight(repo, "plain", true)?;
+    preflight(repo, "plain", record.is_none())?;
     warn_unflagged_closing(params);
     let (desc, merge) = description(params, closing)?;
     let plan = plan_bookmarks(repo, params)?;
@@ -1164,6 +1307,9 @@ fn commit_por(
             info!("commit: [dry-run] the merge of {base} and the last rung {tip}");
         }
         dry_run_bookmarks(params, &plan);
+        if let Some(r) = &record {
+            r.write(true)?;
+        }
         info!(
             "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
             repo.display()
@@ -1176,6 +1322,9 @@ fn commit_por(
             params,
             true,
         );
+    }
+    if let Some(r) = &record {
+        r.write(false)?;
     }
     let snapshot = crate::pair::Snapshot::take(repo)?;
     if let Some((base, tip)) = &merge
@@ -2210,6 +2359,88 @@ mod tests {
         commit(&mut test_ctx(), &params).expect("the closing is made");
         assert_eq!(parents(&fx.work, "@-"), [base, tip]);
         assert!(description(&fx.work, "@-").starts_with("feat: a cycle closing\n"));
+    }
+
+    const DOING: &str = "# Doing\n\nIntro.\n\n## Continuation notes\n\n_None._\n\n\
+                         ## In Progress\n\n### feat: a cycle\n\nThe record.\n\n- [r][0]\n\n\
+                         # References\n\n[0]: #r\n";
+    const CLOSED: &str = "# Closed\n\nIntro.\n\n## Closed\n\n### feat: an older cycle\n\nOld.\n\n# References\n\n[9]: #old\n";
+
+    /// The move takes the In Progress block and its references into the
+    /// closed file, replacing its block and references, and resets the
+    /// doing file, its references gone. Nothing in progress, or a
+    /// missing heading, is refused.
+    #[test]
+    fn the_record_moves_as_text() {
+        let (doing, closed) = moved_record(DOING, CLOSED).expect("moved");
+        assert_eq!(
+            doing,
+            "# Doing\n\nIntro.\n\n## Continuation notes\n\n_None._\n\n## In Progress\n\n\
+             _No cycle currently in progress._\n"
+        );
+        assert_eq!(
+            closed,
+            "# Closed\n\nIntro.\n\n## Closed\n\n### feat: a cycle\n\nThe record.\n\n- [r][0]\n\n\
+             # References\n\n[0]: #r\n"
+        );
+        let err = moved_record(&doing, &closed).unwrap_err();
+        assert!(err.contains("nothing is in progress"), "{err}");
+        let err = moved_record(DOING, "# Closed\n").unwrap_err();
+        assert!(err.contains("no `## Closed`"), "{err}");
+    }
+
+    /// Give the fixture's work repo the record files and `[record]`.
+    fn set_record(fx: &Fixture) {
+        fs::write(fx.work.join("zDOING.md"), DOING).expect("write");
+        fs::write(fx.work.join("zCLOSED.md"), CLOSED).expect("write");
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[record]\ndoing = \"zDOING.md\"\nclosed = \"zCLOSED.md\"\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+    }
+
+    /// The commit's copy of a file.
+    fn file_at(repo: &Path, rev: &str, file: &str) -> String {
+        jj_ok(repo, &["file", "show", "-r", rev, &format!("root:{file}")])
+    }
+
+    /// With `[record]` set, a closing commit carries the record moved,
+    /// and a finalized commit too, its kept body gaining the pointer.
+    #[test]
+    fn a_closing_carries_the_record_moved() {
+        for multi in [false, true] {
+            let fx = Fixture::new(&format!("commit-record-{multi}"));
+            open_cycle(&fx);
+            if multi {
+                fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
+                jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
+            }
+            set_record(&fx);
+            let mut a = closing_args(&fx, "w", multi.then_some("main"));
+            a.body = multi.then(|| "Closing.".to_string());
+            let params = CommitParams::try_from(&a).expect("params");
+            commit(&mut test_ctx(), &params).expect("closed");
+
+            assert!(
+                file_at(&fx.work, "@-", "zDOING.md").ends_with("_No cycle currently in progress._"),
+                "multi {multi}"
+            );
+            assert!(file_at(&fx.work, "@-", "zCLOSED.md").contains("### feat: a cycle"));
+            let desc = description(&fx.work, "@-");
+            if multi {
+                assert!(
+                    desc.starts_with("feat: a cycle closing\n\nClosing.\n"),
+                    "{desc}"
+                );
+            } else {
+                assert!(
+                    desc.starts_with(
+                        "feat: a cycle\n\nWhy the cycle.\n\nSee details in zCLOSED.md.\n"
+                    ),
+                    "{desc}"
+                );
+            }
+        }
     }
 
     /// `-s p` commits a plain repo with the description and no

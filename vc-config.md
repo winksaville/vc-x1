@@ -600,6 +600,39 @@ used-by = "vc-x1 commit --push / --no-push"
 default = true
 ```
 
+## record.doing
+
+The file holding the running cycle's record, its `## In Progress` block, relative to the config
+file's directory. With [record.closed](#recordclosed) set too, `vc-x1 commit --closing` moves the
+block and its references into the closed file and resets `## In Progress` to "_No cycle currently
+in progress._". Absent, nothing moves. Owned by the work side because the record is the work repo's.
+
+```toml
+[record.doing]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The file whose `## In Progress` block `commit --closing` moves to record.closed"
+used-by = "vc-x1 commit --closing"
+example = "zDOING.md"
+```
+
+## record.closed
+
+The file holding the last finished cycle's record, its `## Closed` block, relative to the config
+file's directory, which `vc-x1 commit --closing` replaces with the block from
+[record.doing](#recorddoing), its references with the block's. A single-step cycle's finalized
+commit, keeping the opening's body, gains the pointer "See details in <closed>.". Owned by the
+work side because the record is the work repo's.
+
+```toml
+[record.closed]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The file whose `## Closed` block `commit --closing` replaces with record.doing's"
+used-by = "vc-x1 commit --closing"
+example = "zCLOSED.md"
+```
+
 ## closing.body
 
 The body `vc-x1 commit --closing` writes on a cycle's closing commit when `--body` is left out,

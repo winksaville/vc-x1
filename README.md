@@ -1862,6 +1862,13 @@ body defaults to `[closing] body` in `.vc-config.md`, its `{title}` the cycle ti
 finalized commit keeps the opening's. Without `--closing` a title ending " closing" is warned
 about, since it may be a closing not asked for.
 
+With `[record] doing` and `closed` set, a closing moves the cycle's record before it commits, so the
+commit carries it: the doing file's `## In Progress` block and its `# References` replace the
+closed file's `## Closed` block and references, and the doing file's `## In Progress` is reset to
+"_No cycle currently in progress._". A finalized commit's kept body gains "See details in
+<closed>.". The move is planned and checked before anything is made, so nothing in progress, or a
+missing heading, is refused with both files as they were.
+
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
 is appended, a title carrying it already refused. The bookmark is the one named, else the bare
 title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where

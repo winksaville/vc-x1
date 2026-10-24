@@ -323,7 +323,7 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit --opening names the bookmark from the title][2] (done)
 - [feat: commit --closing closes every cycle shape][3] (done)
 - [feat: commit pushes what it commits][4] (done)
-- [feat: commit --closing moves the record][5]
+- [feat: commit --closing moves the record][5] (done)
 - [feat: vc-x1 deletes a bookmark][6]
 - [feat: commit --closing --land lands the cycle][7]
 - [feat: vc-x1 closing and land closing][8]
@@ -464,6 +464,23 @@ A closing's record is moved from `zDOING.md` into `zCLOSED.md` by hand, so `--cl
 Progress block and its references into the closed file's `## Closed` and resets `## In Progress`,
 when `[record] doing` and `closed` name the two files, and a finalized commit's body gains the
 pointer.
+
+* A closing's record was moved from the doing file into the closed file by hand.
+  - `[record] doing` and `closed`, two new keys, name the files, and with both set `--closing`
+    moves the doing file's `## In Progress` block and its `# References` into the closed file,
+    replacing its `## Closed` block and references, and resets `## In Progress` to "_No cycle
+    currently in progress._", the references gone. This workspace sets `zDOING.md` and
+    `zCLOSED.md`.
+  - The move is planned, both files read and the new text made, before anything is made, so a
+    refusal, nothing in progress or a missing heading, leaves both files as they were. It is
+    written into the working copy just before the commit, so the commit carries it, the closing
+    commit and a finalized one alike, and a dry run says what would move.
+  - A finalized commit keeping the opening's body gains "See details in <closed>." when the body
+    does not say it already. A closing commit's body is `--body` or `[closing] body`.
+  - A closing whose only change is the record move is not refused as empty, the move being its
+    change.
+  - The move is text, `moved_record`, tested on its own, and the closing's file copies at `@-`
+    tested in both shapes.
 
 ##### feat: vc-x1 deletes a bookmark
 
