@@ -158,7 +158,7 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
+vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
 vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
@@ -1920,23 +1920,30 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 ### squash
 
-Continue a rung: fold the working copies into the pair `commit` made, before it is pushed. A
-review's fix in the work `@` folds into the work commit, and the journal into the agent commit,
-each keeping its change id, so both trailers stay right without being touched.
+Continue a rung: fold the working copies into the pair `commit` made. A review's fix in the work
+`@` folds into the work commit, and the journal into the agent commit, each keeping its change id,
+so both trailers stay right without being touched.
 
 ```
 vc-x1 squash -s b                                    # both sides
-vc-x1 squash -s w                                    # the work side only
+vc-x1 squash -s w                                    # the work side only, a draft too
+vc-x1 squash -s w --yes                              # a commit already on main's remote
 vc-x1 squash -s b --title "feat: ..." --body @tmp/body.md   # and rewrite the descriptions
 vc-x1 squash -s p -R ../other                        # a plain repo's @ into its @-
 ```
 
 `-s` is required and `-R` optional. The agent side goes by where the partner stands: committed by
 `commit -s b`, so the journal folds into it, or pending after `commit -s w`, so the journal already
-is the partner and push commits it. A published side is refused, since folding into it is a remote
-rewrite, and a work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the
-descriptions and keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit.
-`--dry-run` prints what it would fold and re-describe, and changes nothing.
+is the partner and push commits it. A published side goes by where it was published:
+
+- a draft, published on a topic bookmark only, is rewritten with a warning, since the cycle is not
+  landed and the next push only moves its bookmark
+- a commit on `main`'s remote is history others have, refused without `--yes`
+- a published partner with only the journal to fold is left for push, whose agent half folds it
+
+A work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the descriptions and
+keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit, warned or refused
+as a fold is. `--dry-run` prints what it would fold and re-describe, and changes nothing.
 
 ### merge
 

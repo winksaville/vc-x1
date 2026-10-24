@@ -637,13 +637,16 @@ pub(crate) enum Commands {
     /// Fold the working copies into the pair before it is pushed, with -s
     #[command(long_about = "\
         Continue a rung: fold the working copies into the pair `commit`\n\
-        made, before it is pushed. A review's fix in the work @ folds into\n\
+        made. A review's fix in the work @ folds into\n\
         the work commit, and the journal into the agent commit, each\n\
         keeping its change id, so both trailers stay right.\n\n\
         -s is required: `b` both sides, `w` the work side, `a` the agent\n\
         side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
-        `commit -s w`, is left for push. A published side is refused.\n\
-        --title with --body rewrites the descriptions, keeping each trailer.\n\
+        `commit -s w`, is left for push, as is a published partner's\n\
+        journal. A draft, a commit published on a topic bookmark only, is\n\
+        rewritten with a warning, and a commit on main's remote is refused\n\
+        without --yes. --title with --body rewrites the descriptions,\n\
+        keeping each trailer.\n\
         -R is optional and says where.")]
     Squash(squash::SquashArgs),
 

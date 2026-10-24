@@ -161,6 +161,7 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
             let [repo] = repos.as_slice() else {
                 return Err(format!("push -s p: expected one repo, got {}", repos.len()).into());
             };
+            refuse_a_revision(repo, params)?;
             if publish_name(ctx, repo, params)? {
                 return Ok(());
             }
@@ -170,12 +171,30 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
             // Both paths whatever the side: a half still needs the
             // other repo to find or name its partner.
             let pair = resolve_pair(params.repo.as_deref())?;
+            refuse_a_revision(&pair.work, params)?;
             if sides.has_work() && publish_name(ctx, &pair.work, params)? {
                 return Ok(());
             }
             push_in(ctx, &pair, sides, params)
         }
     }
+}
+
+/// Refuse a named bookmark that is no bookmark but a revision, such
+/// as `@-`: push publishes `@-` on the bookmark it sits on, found when
+/// none is named, so a revision is never what the name means.
+fn refuse_a_revision(repo: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(name) = &params.bookmark else {
+        return Ok(());
+    };
+    if jj::local_bookmark_exists(repo, name)? || !jj::rev_exists(repo, name)? {
+        return Ok(());
+    }
+    Err(format!(
+        "push: '{name}' is a revision, not a bookmark. Push publishes @- on the bookmark it \
+         sits on, found when none is named, so leave it out or name the bookmark"
+    )
+    .into())
 }
 
 /// A named bookmark off the work `@-`'s line, on a commit already

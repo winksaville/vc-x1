@@ -117,6 +117,29 @@ deliberation moved here whole.
 - The closing's undo, the Todo's lean, for a closing made without `--land`, a flag
   or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
 
+### push takes a revision, and the remote's name for it
+
+(wink + agent, 2026-10-24) `push`'s positional is a bookmark, so `push -s b @-` is refused, though
+git needs only a name on the remote: `git push origin HEAD:refs/heads/<name>` publishes any commit
+under a new name, and `jj git push --named <name>=<REV>` does the same and creates the local
+bookmark that tracks it. Filed from the live testing of **feat: vc-x1 closing and land**, whose
+`[9]` made the refusal say to leave the revision out.
+
+- `push -s b [REV] [--bookmark NAME]`: REV the commit to publish, `@-` by default, and NAME the
+  remote's name for it, the bookmark at or nearest below REV by default.
+- With no bookmark there, NAME is required and created at REV, as `--named` does, so jj tracks it.
+- A REV off the pair's line is today's `publish_name` case, a commit already made, and a name
+  that is both a bookmark and a revision is the bookmark, as in jj's own resolution.
+- The pair's checks assume `@-` throughout, the trailer and the partner, so a REV other than `@-`
+  for `-s b` needs them parameterized or refused.
+
+### squash takes paths
+
+(wink + agent, 2026-10-24) `squash -s w` folds all of the work `@` into `@-`, so folding one file's
+change while `@` holds the next rung's edits means `jj squash <path>` typed, or the edits parked
+first. Filed from the live testing of **feat: vc-x1 closing and land**.
+
+- `squash -s w [PATHS]`, the paths folded and the rest left in `@`, as `jj squash <paths>` does.
 
 ### agent-files(proposal): v0.3.1
 

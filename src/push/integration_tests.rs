@@ -188,6 +188,30 @@ fn push_leaves_new_work_in_at() {
     assert!(!pushed.contains("more.txt"), "@ went out:\n{pushed}");
 }
 
+/// A revision named as the bookmark, `@-`, is refused before anything
+/// moves, the error saying push finds the bookmark itself.
+#[test]
+fn push_refuses_a_revision_as_the_bookmark() {
+    let fx = Fixture::new("push-revision");
+    make_pair(&fx, "feat: by revision", true);
+    let work_main = cid(&fx.work, "main");
+    let mut params = test_params();
+    params.bookmark = Some("@-".to_string());
+
+    let err = push(
+        &mut test_ctx(),
+        &PushParams {
+            repo: Some(fx.work.clone()),
+            ..params
+        },
+    )
+    .expect_err("refused")
+    .to_string();
+    assert!(err.contains("is a revision, not a bookmark"), "{err}");
+    assert!(err.contains("leave it out"), "{err}");
+    assert_eq!(cid(&fx.work, "main"), work_main);
+}
+
 /// A work `@-` with no trailer is not a pair's commit, and the error
 /// names the command that makes one.
 #[test]

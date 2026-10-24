@@ -1973,6 +1973,7 @@ mod tests {
             },
             text: None,
             dry_run: false,
+            yes: false,
         };
         crate::squash::squash(&mut test_ctx(), &fold).expect("the fix folds");
         assert_eq!(

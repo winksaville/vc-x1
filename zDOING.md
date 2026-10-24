@@ -260,12 +260,21 @@ Defaults invite mistakes, and the two undos differ:
 - A waiver, wink's (2026-10-23): "Permission granted to complete this cycle up to but not including
   the closing." It covers rungs `[3]` through `[7]`, their work reviews, description reviews, and
   per-push approvals, so each rung is validated, described, committed, and pushed without a stop.
-  It does not cover the closing, `[9]`, or Land, which take their reviews and goes as usual, and the
+  It does not cover the closing, `[10]`, or Land, which take their reviews and goes as usual, and the
   live testing comes before the closing.
 - A rung inserted from the live testing, wink's call (2026-10-24): push refused a work `@` holding
   new work, so publishing a finished rung after starting the next needed `jj` typed. Pushing
   earlier work after starting new work is ordinary, so the refusal goes with no warning, an info
   line saying `@` is left as it is. The waiver predates the rung and does not cover it.
+- A second rung inserted, wink's call (2026-10-24): `prompt.txt`, a draft prompt written at the
+  workspace root during `[8]`'s review, went into `[8]`'s commit and its push. Removing it from
+  `[8]` with `vc-x1` needs `squash` to fold into a published commit, which it refused.
+  - A draft, a commit published on a topic bookmark and not in `::main@origin`, is folded into with
+    a warning, its rewrite only moving the bookmark at the next push. The trunk takes `--yes`, since
+    rewriting it changes history others have.
+  - `[9]`'s edits are set aside as a parked change, a bookmark on `@` and a fresh `@` on `[8]`, not
+    a patch, while the dev build folds the deletion into `[8]`. jj rebases the parked change onto
+    the rewritten `[8]`, and the bookmark is deleted on return, or `commit` would advance it.
 - Bookmark deletion is a rung of this cycle, not its own cycle, since `--land` and `--skip` use it.
 - The closing's shape stays the trapezoid in this cycle, `--shape` and the linear closing moving to
   the Todo with the rest, though the v0.3.1 proposal already names them.
@@ -331,7 +340,8 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: vc-x1 deletes a bookmark][6] (done)
 - [feat: commit --closing --land lands the cycle][7] (done)
 - [feat: push publishes the commit below new work][8] (done)
-- [feat: vc-x1 closing and land closing][9]
+- [feat: squash folds into a draft commit][9] (done)
+- [feat: vc-x1 closing and land closing][10]
 
 ##### feat: vc-x1 closing and land opening
 
@@ -536,6 +546,30 @@ was started, `jj` typed around it. Push publishes `@-`, so new work in `@` is le
   - The completion check asks for an empty work `@` only when it was empty as the run began.
   - A restamp of `@-` rebases `@` above it, which keeps its change and its work, tested.
 
+##### feat: squash folds into a draft commit
+
+`squash` refused any published side, so a fix to a rung already pushed on the cycle's bookmark
+needed `jj` typed, though the cycle is still a draft until Land. `squash` now tells a draft from the
+trunk: a draft is folded into with a warning, and a commit on the trunk's remote takes `--yes`.
+
+* A published commit is a draft or history others have, and the refusal treated both as the second.
+  - A draft, published on a topic bookmark and not in `::main@origin`, is rewritten with a warning,
+    the change id and trailer kept, so the next push only moves the bookmark.
+  - The warning comes after the rewrite and names what a push moves, wink's call at the review:
+    each remote bookmark at or above `@-`, from the commit published to the rewrite's, and the
+    push as pushing that bookmark, since the next push from elsewhere publishes another.
+  - A commit on `main`'s remote is refused, naming `--yes`, which rewrites it with a warning.
+  - The same check covers a re-describe and `-s p`.
+* The agent's partner is on agent `main` once pushed, so the trunk check would refuse every agent
+  fold after a push.
+  - A published partner with only the journal to fold is left for push, whose agent half folds it,
+    so `-s b` after a push folds the work side and leaves the agent side.
+* `push -s b @-`, tried in the live testing, said bookmark '@-' does not exist, true and no help.
+  - A name that is no bookmark but a revision is refused, saying push publishes `@-` on the
+    bookmark it sits on, found when none is named. A revision as push's positional is the Todo
+    **push takes a revision, and the remote's name for it**, and paths for `squash` the Todo
+    **squash takes paths**.
+
 ##### feat: vc-x1 closing and land closing
 
 Closing out the cycle.
@@ -551,4 +585,5 @@ Closing out the cycle.
 [6]: #feat-vc-x1-deletes-a-bookmark
 [7]: #feat-commit---closing---land-lands-the-cycle
 [8]: #feat-push-publishes-the-commit-below-new-work
-[9]: #feat-vc-x1-closing-and-land-closing
+[9]: #feat-squash-folds-into-a-draft-commit
+[10]: #feat-vc-x1-closing-and-land-closing
