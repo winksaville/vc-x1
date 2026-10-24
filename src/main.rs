@@ -11,6 +11,7 @@ mod config_cmd;
 mod config_md;
 mod config_schema;
 mod context;
+mod delete_bookmark;
 mod desc;
 mod desc_helpers;
 mod fix_desc;
@@ -676,6 +677,18 @@ pub(crate) enum Commands {
         repo checked before any moves. `p` takes the repo from -R, required,\n\
         as it is, with no workspace checks, so careful use is yours.")]
     MoveBookmark(move_bookmark::MoveBookmarkArgs),
+
+    /// Delete a bookmark locally and on origin, with -s
+    #[command(long_about = "\
+        Delete one bookmark locally and on `origin`, the disposal a cycle's\n\
+        bookmark gets at Land, `jj bookmark delete` and its push in one\n\
+        invocation. The remote goes first, so a failed push leaves the local\n\
+        bookmark, and a side already gone is no error, so a rerun finishes\n\
+        the job. The commits stay, and the commit it was at is printed.\n\n\
+        --skip local deletes only the remote, --skip remote only the local.\n\
+        -s is required: `w` the work repo, `a` the agent repo, `b` both, and\n\
+        `p` the repo -R names, as it is.")]
+    DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -899,6 +912,7 @@ fn main() -> ExitCode {
         Commands::Squash(args) => args.dispatch(&mut ctx),
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
+        Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
     }
 }
 

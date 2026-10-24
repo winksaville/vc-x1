@@ -1973,6 +1973,23 @@ commit, a bookmark or a rev. A move backward or sideways, leaving
 commits off the bookmark's line, is refused unless `--allow-backwards`, as `jj` refuses it, and a
 bookmark already at the target is left as it is.
 
+### delete-bookmark
+
+Delete one bookmark locally and on `origin`, the disposal a cycle's bookmark gets at Land, `jj
+bookmark delete` and its push in one invocation. The remote goes first, so a failed push leaves the
+local bookmark, and a side already gone is no error, so a rerun finishes the job. The commits stay,
+and the commit the bookmark was at is printed so it can be recreated.
+
+```bash
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle                # local and on origin
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle --skip local   # origin only
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle --skip remote  # local only
+vc-x1 delete-bookmark -s p -R ../other --bookmark old --dry-run   # print, delete nothing
+```
+
+`-s` is required: `w` the work repo, `a` the agent repo, `b` both, and `p` the repo `-R` names, as
+it is.
+
 ### push
 
 Publish a rung's pair, or a bookmark on a commit already made. Push carries no description and

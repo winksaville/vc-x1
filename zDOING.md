@@ -324,7 +324,7 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit --closing closes every cycle shape][3] (done)
 - [feat: commit pushes what it commits][4] (done)
 - [feat: commit --closing moves the record][5] (done)
-- [feat: vc-x1 deletes a bookmark][6]
+- [feat: vc-x1 deletes a bookmark][6] (done)
 - [feat: commit --closing --land lands the cycle][7]
 - [feat: vc-x1 closing and land closing][8]
 
@@ -486,6 +486,17 @@ pointer.
 
 Deleting a cycle's bookmark is two `jj` lines, so `vc-x1` deletes one locally and remotely,
 `--skip` keeping either side, a subcommand or a `move-bookmark` flag settled at the rung.
+
+* Deleting a cycle's bookmark was `jj bookmark delete` and a `jj git push`.
+  - `vc-x1 delete-bookmark --bookmark NAME`, a subcommand of its own rather than a `move-bookmark`
+    flag, since a deletion has no target, with `-s w|a|b|p` as `move-bookmark` takes them.
+  - The remote goes first, a push of the bookmark's absence with a lease, then the local, so a
+    failed push leaves the local bookmark, and a side already gone is no error, so a rerun finishes
+    the job. `--skip local` keeps the local and `--skip remote` the remote.
+  - The commits stay, jj keeping a commit visible after its bookmark goes, and the commit it was at
+    is printed, so the undo is recreating it there.
+  - Two jj-lib session operations do it, `bookmark_delete` and `git_push_delete_bookmark`, which
+    `--land` calls.
 
 ##### feat: commit --closing --land lands the cycle
 

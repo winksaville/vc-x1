@@ -983,6 +983,70 @@ impl RepoSession {
         )
     }
 
+    /// Snapshot, then delete local bookmark `name`
+    /// (`jj bookmark delete <name>`), its remote refs left as they
+    /// are. Absent already is no error.
+    pub fn bookmark_delete(&mut self, name: &str) -> Result<()> {
+        use jj_lib::op_store::RefTarget;
+        self.snapshot()?;
+        let mut tx = self.start_tx();
+        tx.repo_mut()
+            .set_local_bookmark_target(name.as_ref(), RefTarget::absent());
+        self.finish_tx(tx, &format!("delete bookmark {name}"))
+    }
+
+    /// Snapshot, then delete bookmark `name` on `origin`, a push of
+    /// its absence with a lease against the last-seen remote position
+    /// (`jj git push --bookmark <name>` after a local delete). A
+    /// bookmark absent on `origin` already is no error.
+    pub fn git_push_delete_bookmark(&mut self, name: &str) -> Result<()> {
+        use jj_lib::git::{GitPushOptions, GitPushRefTargets, GitSettings};
+        use jj_lib::merge::Diff;
+        use jj_lib::ref_name::{RefNameBuf, RemoteName};
+
+        self.snapshot()?;
+        let remote = RemoteName::new("origin");
+        let ref_name: RefNameBuf = name.into();
+        let before = self
+            .repo
+            .view()
+            .get_remote_bookmark(ref_name.to_remote_symbol(remote))
+            .target
+            .as_normal()
+            .cloned();
+        if before.is_none() {
+            return Ok(()); // Absent on origin already.
+        }
+        let ref_updates = GitPushRefTargets {
+            bookmarks: vec![(
+                ref_name.clone(),
+                Diff {
+                    before,
+                    after: None,
+                },
+            )],
+            tags: vec![],
+        };
+        let git_settings = GitSettings::from_settings(&self.settings)?;
+        let mut tx = self.start_tx();
+        let stats = git::push_refs(
+            tx.repo_mut(),
+            git_settings.to_subprocess_options(),
+            remote,
+            &ref_updates,
+            &mut DebugCallback,
+            &GitPushOptions::default(),
+        )?;
+        if !stats.all_ok() {
+            return Err(format!(
+                "git push deleting bookmark '{name}' failed: rejected {:?}, remote rejected {:?}",
+                stats.rejected, stats.remote_rejected
+            )
+            .into());
+        }
+        self.finish_tx(tx, &format!("delete bookmark {name} on git remote origin"))
+    }
+
     /// Snapshot, then push local bookmark `name` to `origin`
     /// (`jj git push --bookmark <name>`), force-with-lease against
     /// the last-seen remote position.
