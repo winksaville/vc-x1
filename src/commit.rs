@@ -17,9 +17,18 @@
 //!   commits the journal as the partner. The pair is then made in
 //!   two steps, and the review's own transcript lands in the rung's
 //!   agent commit.
-//! - `-s a` is refused: an agent commit made first names a work `@`
-//!   that push would then commit with a trailer of its own, so that
-//!   direction is where an unpaired commit is real.
+//! - `-s a` commits the agent repo alone, an unpaired commit with the
+//!   given title and body and no trailer, since it belongs to no
+//!   rung. An agent `@` that is a work commit's pending partner keeps
+//!   its change id when committed, so the work commit's trailer still
+//!   resolves, and a warning says the back-trailer is missing.
+//! - The commit is pushed in the same invocation, as `vc-x1 push`
+//!   would after it: a pair by `push -s b`, its agent half completed
+//!   as the partner and its bookmark published, a plain repo by
+//!   `push -s p`, and an agent commit by publishing the agent `main`.
+//!   `--no-push` keeps it local, and `--push` pushes it over
+//!   `[commit] push = false`, true when absent. A commit with
+//!   `--no-advance` pushes only with `--push`.
 //! - `-s p` commits a plain repo with the title and body and no
 //!   trailer, the same description discipline on a repo with no
 //!   partner.
@@ -79,7 +88,7 @@ use crate::context::Context;
 use crate::desc_helpers::{ochid_prefix_for, with_trailer};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser};
+use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, Side, repo_scope_parser};
 use crate::pair::{Pair, Snapshots, resolve_pair};
 use crate::subcommand::SubcommandRunner;
 
@@ -95,14 +104,15 @@ pub struct CommitArgs {
 
     /// Which repos, required: `b|both` makes both commits now,
     /// `w|work` the work half with the agent half left to push,
-    /// `p|por` a plain repo's commit, and `a` is refused
+    /// `a|agent` the agent repo alone, unpaired, and `p|por` a plain
+    /// repo's commit
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["work", "both", "por"]),
+        value_parser = repo_scope_parser(&["work", "agent", "both", "por"]),
         required = true,
-        help = format!("Which repos, required: {REPO_SCOPE_FORMS}, `a` refused")
+        help = format!("Which repos, required: {REPO_SCOPE_FORMS}")
     )]
     pub scope: RepoScope,
 
@@ -152,6 +162,14 @@ pub struct CommitArgs {
     /// to the work commit
     #[arg(long)]
     pub no_advance: bool,
+
+    /// Push what was committed, over `[commit] push = false`
+    #[arg(long, conflicts_with = "no_push")]
+    pub push: bool,
+
+    /// Keep the commit local, over `[commit] push`, true when absent
+    #[arg(long)]
+    pub no_push: bool,
 
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
@@ -266,6 +284,8 @@ pub struct CommitParams {
     pub opening: Option<Opening>,
     /// The local bookmark advanced to the work commit.
     pub advance: Advance,
+    /// Push what was committed: the flag given, else `[commit] push`.
+    pub push: Option<bool>,
     /// Print the descriptions and commit nothing.
     pub dry_run: bool,
 }
@@ -280,6 +300,9 @@ pub enum Target {
     Pair { pair: Pair, agent_now: bool },
     /// A plain repo with no partner.
     Por(PathBuf),
+    /// The agent repo alone, an unpaired commit, the pair kept to
+    /// tell whether its `@` is a work commit's pending partner.
+    Agent(Pair),
 }
 
 impl TryFrom<&CommitArgs> for CommitParams {
@@ -297,16 +320,6 @@ impl TryFrom<&CommitArgs> for CommitParams {
             || body.as_deref().is_some_and(|b| b.trim().is_empty())
         {
             return Err("commit: --title and --body must both be non-empty".into());
-        }
-        if let RepoScope::Sides(sides) = &a.scope
-            && sides.is_bot_only()
-        {
-            return Err(
-                "commit -s a: the agent half alone is an unpaired commit, since push \
-                        would commit the work @ with a trailer of its own. Use `-s w` for the \
-                        work half now and the agent half at push, or `-s b` for both now"
-                    .into(),
-            );
         }
         let target = match &a.scope {
             RepoScope::Por => {
@@ -326,9 +339,18 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 // Both paths whatever the side, since `w` needs the
                 // agent @'s change id for its trailer.
                 let pair = resolve_pair(a.repo.as_deref()).map_err(|e| e.to_string())?;
-                Target::Pair {
-                    pair,
-                    agent_now: sides.is_both(),
+                if sides.is_bot_only() {
+                    if a.opening.is_some() || a.closing.is_some() {
+                        return Err("commit -s a: a bookend is the work repo's, so `--opening` \
+                                    and `--closing` take `-s b` or `-s w`"
+                            .into());
+                    }
+                    Target::Agent(pair)
+                } else {
+                    Target::Pair {
+                        pair,
+                        agent_now: sides.is_both(),
+                    }
                 }
             }
         };
@@ -362,6 +384,11 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 (Some(b), false) => Advance::Named(b.clone()),
                 (None, false) => Advance::Line,
             },
+            push: match (a.push, a.no_push) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
             dry_run: a.dry_run.value,
         })
     }
@@ -387,6 +414,7 @@ pub fn commit(ctx: &mut Context, params: &CommitParams) -> Result<(), Box<dyn st
     match &params.target {
         Target::Pair { pair, agent_now } => commit_pair(ctx, pair, *agent_now, params),
         Target::Por(repo) => commit_por(ctx, repo, params),
+        Target::Agent(pair) => commit_agent(ctx, pair, params),
     }
 }
 
@@ -424,14 +452,15 @@ fn commit_pair(
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     let closing = plan_closing(work, params)?;
     if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        return finalize(
+        finalize(
             ctx,
             work,
             Some(pair),
             title,
             body.as_deref(),
             params.dry_run,
-        );
+        )?;
+        return push_after(ctx, work, Publish::Pair, None, params, params.dry_run);
     }
     preflight(work, "work", true)?;
     preflight(agent, "agent", false)?;
@@ -465,7 +494,14 @@ fn commit_pair(
                 "commit: [dry-run] the agent @ {agent_chid} is left for push to commit as the partner"
             );
         }
-        return Ok(());
+        return push_after(
+            ctx,
+            work,
+            Publish::Pair,
+            plan.advance.as_deref(),
+            params,
+            true,
+        );
     }
     let snapshots = Snapshots::take(pair)?;
     if let Some((base, tip)) = &merge
@@ -486,7 +522,14 @@ fn commit_pair(
              push commits as the partner. Review it with `vc-x1 show -s work @- -R {}`",
             work.display()
         );
-        return Ok(());
+        return push_after(
+            ctx,
+            work,
+            Publish::Pair,
+            plan.advance.as_deref(),
+            params,
+            false,
+        );
     }
     info!("commit agent: {} -> @- {agent_chid}", agent.display());
     if let Err(e) = ctx.session(agent)?.commit(&agent_desc) {
@@ -498,7 +541,132 @@ fn commit_pair(
         "commit: the pair is made, review it with `vc-x1 show -s both @- -R {}`",
         work.display()
     );
-    Ok(())
+    push_after(
+        ctx,
+        work,
+        Publish::Pair,
+        plan.advance.as_deref(),
+        params,
+        false,
+    )
+}
+
+/// Which push publishes a commit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Publish {
+    /// A pair, `push -s b`: the agent half completed as the partner,
+    /// the work bookmark published.
+    Pair,
+    /// A plain repo, `push -s p`.
+    Por,
+}
+
+/// Whether to push what was committed: the flag given, else the
+/// repo's `[commit] push`, else true. A commit that left its bookmark
+/// where it was, `--no-advance`, pushes only when `--push` asks, since
+/// a push would move that bookmark.
+fn wants_push(repo: &Path, params: &CommitParams) -> Result<bool, Box<dyn std::error::Error>> {
+    if let Some(push) = params.push {
+        return Ok(push);
+    }
+    if params.advance == Advance::Off {
+        return Ok(false);
+    }
+    let Some(cfg) = crate::config_md::load(repo)? else {
+        return Ok(crate::config_schema::COMMIT_PUSH_DEFAULT);
+    };
+    match crate::toml_simple::toml_get(&cfg.map, "commit.push").map(String::as_str) {
+        None => Ok(crate::config_schema::COMMIT_PUSH_DEFAULT),
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        Some(other) => Err(format!(
+            "commit.push: invalid bool {other:?}: expected true or false, unquoted"
+        )
+        .into()),
+    }
+}
+
+/// Push what was committed, as `vc-x1 push` would after it, when the
+/// commit asks: the bookmark advanced, or the line's when none was,
+/// and with `dry` the push's dry run, so a dry run shows it too.
+fn push_after(
+    ctx: &mut Context,
+    repo: &Path,
+    publish: Publish,
+    bookmark: Option<&str>,
+    params: &CommitParams,
+    dry: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !wants_push(repo, params)? {
+        info!("commit: kept local, `vc-x1 push` publishes it");
+        return Ok(());
+    }
+    let scope = match publish {
+        Publish::Pair => RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
+        Publish::Por => RepoScope::Por,
+    };
+    info!("commit: push what was committed");
+    crate::push::push(
+        ctx,
+        &crate::push::PushParams {
+            bookmark: bookmark.map(str::to_string),
+            repo: Some(repo.to_path_buf()),
+            scope,
+            step: false,
+            dry_run: dry,
+            yes: true,
+        },
+    )
+}
+
+/// Commit the agent repo alone, unpaired: its `@` with the title and
+/// body and no trailer, then its `main` set to it and pushed when the
+/// commit pushes. An `@` that is a work commit's pending partner keeps
+/// its change id, so the work commit's trailer still resolves, and a
+/// warning says the back-trailer is missing.
+fn commit_agent(
+    ctx: &mut Context,
+    pair: &Pair,
+    params: &CommitParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let agent = pair.agent.as_path();
+    preflight(agent, "agent", true)?;
+    let (text, _) = description(params, None)?;
+    let chid = jj::chid_of(agent, "@")?;
+    if let Some(work) = crate::pair::work_commit(pair)?
+        && let crate::pair::Partner::Pending(at) = crate::pair::partner(pair, &work)?
+    {
+        warn!(
+            "commit -s a: the agent @ {at} is the pending partner of the work commit {}, which \
+             names it, and this commit carries no trailer back to it",
+            work.chid
+        );
+    }
+    let push = wants_push(&pair.work, params)?;
+    if params.dry_run {
+        info!(
+            "commit: [dry-run] the agent commit {chid}, in {}:\n{text}",
+            agent.display()
+        );
+        if push {
+            info!("commit: [dry-run] then set the agent main to it and push it");
+        }
+        return Ok(());
+    }
+    let snapshot = crate::pair::Snapshot::take(agent)?;
+    info!("commit agent: {} -> @- {chid}, unpaired", agent.display());
+    if let Err(e) = ctx.session(agent)?.commit(&text) {
+        snapshot.restore("commit", e.as_ref());
+        return Err(e);
+    }
+    if !push {
+        info!("commit: kept local, `vc-x1 push -s a` publishes it");
+        return Ok(());
+    }
+    info!("commit agent: set main to @- and push it");
+    let session = ctx.session(agent)?;
+    session.bookmark_set("main", "@-")?;
+    session.git_push_bookmark("main")
 }
 
 /// What `--closing` does, decided before anything is made.
@@ -983,7 +1151,8 @@ fn commit_por(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let closing = plan_closing(repo, params)?;
     if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        return finalize(ctx, repo, None, title, body.as_deref(), params.dry_run);
+        finalize(ctx, repo, None, title, body.as_deref(), params.dry_run)?;
+        return push_after(ctx, repo, Publish::Por, None, params, params.dry_run);
     }
     preflight(repo, "plain", true)?;
     warn_unflagged_closing(params);
@@ -999,7 +1168,14 @@ fn commit_por(
             "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
             repo.display()
         );
-        return Ok(());
+        return push_after(
+            ctx,
+            repo,
+            Publish::Por,
+            plan.advance.as_deref(),
+            params,
+            true,
+        );
     }
     let snapshot = crate::pair::Snapshot::take(repo)?;
     if let Some((base, tip)) = &merge
@@ -1013,7 +1189,15 @@ fn commit_por(
         snapshot.restore("commit", e.as_ref());
         return Err(e);
     }
-    finish_bookmarks(ctx, repo, params, &plan)
+    finish_bookmarks(ctx, repo, params, &plan)?;
+    push_after(
+        ctx,
+        repo,
+        Publish::Por,
+        plan.advance.as_deref(),
+        params,
+        false,
+    )
 }
 
 #[cfg(test)]
@@ -1048,6 +1232,9 @@ mod tests {
         ])
         .expect("parses");
         a.repo = Some(repo.to_path_buf());
+        // Local unless a test asks, so a test's assertions see the
+        // commit and not a push it did not ask for.
+        a.no_push = true;
         a
     }
 
@@ -1066,16 +1253,98 @@ mod tests {
         assert!(err.contains("non-empty"), "{err}");
     }
 
-    /// The agent half alone is refused by name, and `-s p` on a
-    /// side is the resolver's refusal.
+    /// `-s a` commits the agent repo alone, unpaired, with no trailer,
+    /// and pushes its `main` when the commit pushes, the work repo
+    /// untouched. A bookend is the work repo's, so `-s a` refuses one,
+    /// and `-s p` on a side is still the resolver's refusal.
     #[test]
-    fn the_agent_half_and_por_on_a_side_are_refused() {
-        let fx = Fixture::new("commit-half");
-        let err = CommitParams::try_from(&args("a", &fx.work)).unwrap_err();
-        assert!(err.starts_with("commit -s a:"), "{err}");
-        assert!(err.contains("`-s w`") && err.contains("`-s b`"), "{err}");
+    fn the_agent_repo_is_committed_alone() {
+        let fx = Fixture::new("commit-agent");
         let err = CommitParams::try_from(&args("p", &fx.bot)).unwrap_err();
         assert!(err.contains("the agent side"), "{err}");
+        let mut a = args("a", &fx.work);
+        a.closing = Some(None);
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("a bookend is the work repo's"), "{err}");
+
+        fs::write(fx.bot.join("notes.md"), "a fix-up\n").expect("write");
+        let agent_at = chid(&fx.bot, "@");
+        let work_at = chid(&fx.work, "@");
+        let mut a = args("a", &fx.work);
+        a.no_push = false;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the agent commit is made");
+
+        assert_eq!(chid(&fx.bot, "@-"), agent_at);
+        let desc = description(&fx.bot, "@-");
+        assert!(
+            desc.starts_with("feat: a rung\n\n") && !desc.contains("ochid:"),
+            "{desc}"
+        );
+        assert_eq!(
+            chid(&fx.bot, "main@origin"),
+            agent_at,
+            "the agent main is pushed"
+        );
+        assert_eq!(chid(&fx.work, "@"), work_at, "the work repo is untouched");
+    }
+
+    /// A commit pushes what it committed by default: the pair, its
+    /// bookmark advanced and published and the agent `main` with it.
+    /// `--no-push` keeps it local, and `[commit] push = false` too,
+    /// which `--push` overrides.
+    #[test]
+    fn a_commit_pushes_unless_kept_local() {
+        let fx = Fixture::new("commit-push");
+        jj_ok(&fx.work, &["bookmark", "create", "topic", "-r", "@-"]);
+        jj_ok(&fx.work, &["bookmark", "delete", "main"]);
+        let remote = |name: &str| -> Option<String> {
+            jj::remote_bookmark_targets(&fx.work, "origin")
+                .expect("remote")
+                .get(name)
+                .cloned()
+        };
+        let mut a = args("b", &fx.work);
+        a.bookmark = Some("topic".to_string());
+
+        fs::write(fx.work.join("one.txt"), "one\n").expect("write");
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("kept local");
+        assert_eq!(remote("topic"), None, "--no-push publishes nothing");
+
+        fs::write(fx.work.join("two.txt"), "two\n").expect("write");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":2}\n").expect("write");
+        a.no_push = false;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("pushed");
+        assert_eq!(
+            remote("topic"),
+            Some(commit_id(&fx.work, "@-")),
+            "the default pushes"
+        );
+        assert_eq!(
+            chid(&fx.bot, "main@origin"),
+            chid(&fx.bot, "@-"),
+            "with the agent main"
+        );
+
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[commit]\npush = false\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+        let pushed = remote("topic");
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("kept local by the key");
+        assert_eq!(remote("topic"), pushed, "the key keeps it local");
+        fs::write(fx.work.join("three.txt"), "three\n").expect("write");
+        a.push = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("pushed by the flag");
+        assert_eq!(
+            remote("topic"),
+            Some(commit_id(&fx.work, "@-")),
+            "--push overrides"
+        );
     }
 
     /// `-s b` makes the pair: each commit keeps its working copy's

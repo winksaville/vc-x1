@@ -615,20 +615,19 @@ pub(crate) enum Commands {
     )]
     Push(push::PushArgs),
 
-    /// Commit the working copies as a rung's pair, with -s and a title and body
+    /// Commit the working copies as a rung's pair and push it, with -s and a title and body
     #[command(long_about = "\
         Commit the working copies as a rung's pair, one commit per repo of a\n\
-        dual workspace, each stamped with the other's change id, before\n\
-        anything is pushed.\n\n\
-        The pair is what the per-rung flow reviews, description and diff\n\
-        together, by `vc-x1 show -s both @-`. A fix after the review folds\n\
-        into the pair, never a remote rewrite, and `vc-x1 push` publishes what\n\
-        was reviewed.\n\n\
+        dual workspace, each stamped with the other's change id, and push it\n\
+        in the same invocation, as `vc-x1 push` would.\n\n\
+        The diff and the description are reviewed before the commit, so the\n\
+        push publishes what was reviewed. --no-push keeps the commit local,\n\
+        for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
+        `[commit] push = false` makes that the default, --push overriding it.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
-        the agent half left to push, `p` commits a plain repo with no\n\
-        trailer, and `a` is refused, an agent commit made first being\n\
-        unpaired. -R is optional and says where. --body is the text, or\n\
-        @PATH to read it from a file.")]
+        the agent half left to push, `a` the agent repo alone, unpaired, with\n\
+        no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
+        says where. --body is the text, or @PATH to read it from a file.")]
     Commit(commit::CommitArgs),
 
     /// Fold the working copies into the pair before it is pushed, with -s

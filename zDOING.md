@@ -322,7 +322,7 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit --opening makes the opening and its bookmark][1] (done)
 - [feat: commit --opening names the bookmark from the title][2] (done)
 - [feat: commit --closing closes every cycle shape][3] (done)
-- [feat: commit pushes what it commits][4]
+- [feat: commit pushes what it commits][4] (done)
 - [feat: commit --closing moves the record][5]
 - [feat: vc-x1 deletes a bookmark][6]
 - [feat: commit --closing --land lands the cycle][7]
@@ -436,6 +436,27 @@ A commit is published by a second command after it, though every rung and closin
 as soon as it was made, so `commit` pushes what it committed in the same invocation by default,
 `--no-push` or `[commit] push = false` keeping it local, `push <bookmark>` publishes a bookmark on
 a committed node, and `-s a` commits the agent repo alone.
+
+* A commit was published by a second command after it.
+  - `commit` runs `push` after the commit in the same invocation, `-s b` for a pair whatever the
+    commit's scope, so a `-s w` commit's agent half is completed as its partner, `-s p` for a plain
+    repo, and the bookmark advanced is the one pushed, or the line's when none was. A dry run shows
+    the push's dry run too.
+  - `--no-push` keeps one commit local, `--push` pushes over `[commit] push = false`, a new key,
+    true when absent, the flag, then the key, then true. A `--no-advance` commit pushes only with
+    `--push`, since a push would move the bookmark it left.
+  - A single-step finalize pushes too, the bookmark following the rewrite.
+* `commit -s a` was refused.
+  - It commits the agent `@` alone with the title and body and no trailer, and when it pushes, sets
+    the agent `main` to it and publishes it. A pending partner is committed with a warning, its
+    change id kept so the work commit's trailer still resolves. A bookend is refused there, being
+    the work repo's.
+* `push <bookmark>` refused a bookmark off the line.
+  - A named bookmark off the work `@-`'s line, on a commit already made, is published where it is,
+    a name and no pair. One on the working copy is refused, pointing at `commit`, and one on the
+    root has nothing to publish. A bookmark on the line goes the pair's way, as before.
+* The tests' `args` helper passes `--no-push`, so a test sees the commit and pushes only when it
+  asks, and the hand-built params carry `push: Some(false)`.
 
 ##### feat: commit --closing moves the record
 

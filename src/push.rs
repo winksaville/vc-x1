@@ -159,15 +159,62 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
             let [repo] = repos.as_slice() else {
                 return Err(format!("push -s p: expected one repo, got {}", repos.len()).into());
             };
+            if publish_name(ctx, repo, params)? {
+                return Ok(());
+            }
             push_por(ctx, repo, params)
         }
         RepoScope::Sides(sides) => {
             // Both paths whatever the side: a half still needs the
             // other repo to find or name its partner.
             let pair = resolve_pair(params.repo.as_deref())?;
+            if sides.has_work() && publish_name(ctx, &pair.work, params)? {
+                return Ok(());
+            }
             push_in(ctx, &pair, sides, params)
         }
     }
+}
+
+/// A named bookmark off the work `@-`'s line, on a commit already
+/// made: publish it where it is, a name and no pair, and say so. True
+/// when it was this case. The working copy, which holds changes not
+/// yet committed, and the root, which has nothing to publish, are
+/// refused, `vc-x1 commit` being what turns the working copy into a
+/// commit. A bookmark on the line goes the pair's way.
+fn publish_name(
+    ctx: &mut Context,
+    repo: &Path,
+    params: &PushParams,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let Some(name) = &params.bookmark else {
+        return Ok(false);
+    };
+    if !jj::local_bookmark_exists(repo, name)?
+        || jj::local_bookmarks_at(repo, "heads(::@- & bookmarks())")?.contains(name)
+    {
+        return Ok(false);
+    }
+    if jj::local_bookmarks_at(repo, "@")?.contains(name) {
+        return Err(format!(
+            "push: '{name}' is on the working copy, which is not committed: `vc-x1 commit` \
+             commits it and pushes it"
+        )
+        .into());
+    }
+    if jj::local_bookmarks_at(repo, "root()")?.contains(name) {
+        return Err(
+            format!("push: '{name}' is on the root commit, which has nothing to publish").into(),
+        );
+    }
+    let at = jj::cid_of(repo, name)?;
+    if params.dry_run {
+        info!("push: [dry-run] publish '{name}' where it is, {at}, a commit already made");
+        return Ok(true);
+    }
+    info!("push: publish '{name}' where it is, {at}, a commit already made");
+    ctx.session(repo)?.git_push_bookmark(name)?;
+    Ok(true)
 }
 
 /// `push` on a dual workspace, parameterized on the pair and the

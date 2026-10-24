@@ -125,8 +125,15 @@ dev-dir = "~/.cargo/bin"
 dev-suffix = "-dev"
 ```
 
+The `[commit]` table
+- push: Default for commit: push what it commits, `--no-push` / `--push` override [[26]]
+```toml
+[commit]
+push = true
+```
+
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[26]]
+- body: The closing commit's default body, `{title}` the cycle title [[27]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in zCLOSED.md."
@@ -134,7 +141,7 @@ body = "Closes the cycle {title}. See details in zCLOSED.md."
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[27]]
+  test` [[28]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -167,5 +174,6 @@ fixtures = ".fixtures"
 [23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-dir
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-suffix
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

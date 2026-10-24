@@ -1813,10 +1813,10 @@ details.
 
 ### commit
 
-Commit the working copies as a rung's pair: one commit per repo of a dual workspace, each stamped
-with the other's change id, before anything is pushed. The pair is what the per-rung flow reviews,
-description and diff together, by `vc-x1 show -s both @-`, so a fix after the review folds into
-the pair and never rewrites a remote, and `push` publishes what was reviewed. Both change ids are
+Commit the working copies as a rung's pair, one commit per repo of a dual workspace, each stamped
+with the other's change id, and push it in the same invocation. The diff and the description are
+reviewed before the commit, so what is pushed is what was reviewed, and `--no-push` keeps a commit
+local for a look at it by `vc-x1 show -s both @-` before `push`. Both change ids are
 known before either commit is made, since a jj commit keeps the working copy's change id, so each
 trailer is written once.
 
@@ -1880,7 +1880,16 @@ bookmark or several is refused before anything is made. The agent repo's `main` 
 `--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
 is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
 the agent `@` all the same, and leaves the agent half to `push`, which commits the journal as the
-partner, `p` commits a plain repo, and `a` is refused, an agent commit made first being unpaired.
+partner, `a` commits the agent repo alone, unpaired, with no trailer, a fix-up that belongs to no
+rung, and `p` commits a plain repo. An agent `@` that is a work commit's pending partner is
+committed with a warning, its change id kept, so the work commit's trailer still resolves.
+
+The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
+b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
+and the description are reviewed before the commit, so what is pushed is what was reviewed.
+`--no-push` keeps one commit local, for a look at it before `vc-x1 push`, `[commit] push = false`
+makes that the default, and `--push` overrides the key. A commit with `--no-advance` pushes only
+with `--push`, since its bookmark was left where it was.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
@@ -1959,13 +1968,17 @@ bookmark already at the target is left as it is.
 
 ### push
 
-Publish a rung's pair. Push carries no description and writes none, so what was reviewed is what
-goes out: `commit` makes the pair, the work commit and the agent commit each naming the other, or
-the work half alone with its trailer naming the agent `@`, and push completes and publishes it.
+Publish a rung's pair, or a bookmark on a commit already made. Push carries no description and
+writes none, so what was reviewed is what goes out: `commit` makes the pair and pushes it unless
+told not to, and push publishes one it kept local, completing the agent half as its partner. A
+named bookmark off the line `@-` is on, on a commit already made, is published where it is, a name
+and no pair: a bookmark on the working copy is refused, since `commit` is what turns it into a
+commit, and one on the root has nothing to publish.
 
 ```bash
 vc-x1 push -s b                  # the pair, on the bookmark the work @- sits on
 vc-x1 push -s b feature          # the same, the bookmark named as a check
+vc-x1 push -s b side             # a bookmark off the line, on a commit made, published where it is
 vc-x1 push -s w                  # the work half only
 vc-x1 push -s a                  # the agent half only, the remainder of a run that stopped
 vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer asked for
@@ -1976,7 +1989,7 @@ What push refuses, with both repos as they were:
 
 - a work `@` that is not empty: unsquashed work is a fix to fold or the next rung, the user's call
 - a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
-- a named bookmark that is not on the line `@-` is on, or two bookmarks on the line and none named
+- two bookmarks on the line and none named, or a named bookmark on the working copy or the root
 
 The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
 `push -s a` then `push -s w`, the order the pair is completed in:

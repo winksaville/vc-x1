@@ -404,6 +404,7 @@ mod tests {
             closing: None,
             opening: None,
             advance: crate::commit::Advance::Line,
+            push: Some(false),
             dry_run: false,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

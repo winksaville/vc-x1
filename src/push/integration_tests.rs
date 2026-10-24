@@ -78,6 +78,7 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         closing: None,
         opening: None,
         advance: crate::commit::Advance::Off,
+        push: Some(false),
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -250,6 +251,40 @@ fn push_feature_bookmark_pins_bot_to_main() {
         !bot_bookmarks.lines().any(|l| l.starts_with("feature:")),
         "the agent repo must not grow a 'feature' bookmark:\n{bot_bookmarks}"
     );
+}
+
+/// A named bookmark off the work `@-`'s line, on a commit already
+/// made, is published where it is, a name and no pair, and one on the
+/// working copy or the root is refused.
+#[test]
+fn push_publishes_a_named_bookmark_off_the_line_where_it_is() {
+    let fx = Fixture::new("push-name");
+    fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+    jj_ok(&fx.work, &["commit", "-m", "feat: a side commit"]);
+    jj_ok(&fx.work, &["bookmark", "create", "side", "-r", "@-"]);
+    let side = jj_ok(
+        &fx.work,
+        &["log", "-r", "side", "--no-graph", "-T", "commit_id"],
+    );
+    jj_ok(&fx.work, &["new", "main"]);
+    let mut params = test_params();
+    params.repo = Some(fx.work.clone());
+    params.bookmark = Some("side".to_string());
+    crate::push::push(&mut test_ctx(), &params).expect("the name is published");
+    assert_eq!(
+        crate::jj::remote_bookmark_targets(&fx.work, "origin")
+            .expect("remote")
+            .get("side"),
+        Some(&side)
+    );
+
+    fs::write(fx.work.join("wip.txt"), "wip\n").expect("write");
+    jj_ok(&fx.work, &["bookmark", "create", "wip", "-r", "@"]);
+    params.bookmark = Some("wip".to_string());
+    let err = crate::push::push(&mut test_ctx(), &params)
+        .expect_err("the working copy")
+        .to_string();
+    assert!(err.contains("`vc-x1 commit`"), "{err}");
 }
 
 /// Two bookmarks on the line and none named is refused, and a named
@@ -455,6 +490,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         closing: None,
         opening: None,
         advance: crate::commit::Advance::Line,
+        push: Some(false),
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
