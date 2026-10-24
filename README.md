@@ -2025,9 +2025,9 @@ vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer
 vc-x1 push -s b --dry-run        # plan and print, move nothing
 ```
 
-What push refuses, with both repos as they were:
+Push publishes the work `@-`, so new work in `@`, the next rung started, is left as it is, and
+push says so. What push refuses, with both repos as they were:
 
-- a work `@` that is not empty: unsquashed work is a fix to fold or the next rung, the user's call
 - a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
 - two bookmarks on the line and none named, or a named bookmark on the working copy or the root
 

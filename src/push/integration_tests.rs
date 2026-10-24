@@ -162,21 +162,30 @@ fn push_completes_a_pair_made_in_two_steps() {
     crate::validate_desc::validate_desc(&test_ctx(), &check).expect("both directions valid");
 }
 
-/// Unsquashed work in the work `@` is refused before anything moves.
+/// New work in the work `@` is the next rung's: push publishes the
+/// pair at `@-` and leaves `@` as it is, its change, its file, and its
+/// place above the commit, through a restamp that rewrites `@-`.
 #[test]
-fn push_refuses_unsquashed_work() {
-    let fx = Fixture::new("push-unsquashed");
-    make_pair(&fx, "feat: then more", false);
-    fs::write(fx.work.join("more.txt"), "a fix or the next rung").expect("write");
-    let work_main = cid(&fx.work, "main");
-    let bot_main = cid(&fx.bot, "main");
+fn push_leaves_new_work_in_at() {
+    let fx = Fixture::new("push-new-work");
+    let (work_at, _) = make_pair(&fx, "feat: then more", false);
+    jj_ok(&fx.bot, &["commit", "-m", "an unrelated agent commit"]);
+    fs::write(fx.work.join("more.txt"), "the next rung").expect("write");
+    let next = chid(&fx.work, "@");
 
-    let err = push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params())
-        .expect_err("refused")
-        .to_string();
-    assert!(err.contains("unsquashed work"), "{err}");
-    assert_eq!(cid(&fx.work, "main"), work_main);
-    assert_eq!(cid(&fx.bot, "main"), bot_main);
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
+
+    assert_eq!(chid(&fx.work, "main"), work_at);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert_eq!(chid(&fx.work, "@"), next, "@ keeps its change");
+    assert_eq!(chid(&fx.work, "@-"), work_at, "@ stays above the commit");
+    let files = jj_ok(&fx.work, &["diff", "--name-only", "-r", "@"]);
+    assert!(
+        files.lines().count() == 1 && files.ends_with("more.txt"),
+        "@ keeps its work:\n{files}"
+    );
+    let pushed = jj_ok(&fx.work, &["file", "list", "-r", "main"]);
+    assert!(!pushed.contains("more.txt"), "@ went out:\n{pushed}");
 }
 
 /// A work `@-` with no trailer is not a pair's commit, and the error
@@ -318,6 +327,7 @@ fn completion_run(work_chid: String, agent_chid: String) -> Run {
     Run {
         work: Some(("main".to_string(), work_chid)),
         partner: Some(agent_chid),
+        held: false,
     }
 }
 
@@ -479,7 +489,7 @@ fn push_dry_run_changes_nothing() {
 }
 
 /// `-s p` publishes a plain repo's `@-` on its bookmark, no trailer
-/// asked for.
+/// asked for, and new work in `@` stays there.
 #[test]
 fn push_por_publishes_the_commit_on_its_bookmark() {
     let fx = FixturePor::new("push-por");
@@ -498,6 +508,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
+    fs::write(fx.work.join("next.txt"), "the next rung").expect("write");
 
     let mut params = test_params();
     params.scope = RepoScope::Por;
@@ -505,4 +516,5 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
     push(&mut test_ctx(), &params).expect("push -s p");
     assert_eq!(chid(&fx.work, "main"), at);
     assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert!(!is_empty(&fx.work, "@"), "@ keeps its work");
 }

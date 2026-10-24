@@ -593,10 +593,9 @@ pub(crate) enum Commands {
         agent commit on `main`. Push carries no description and writes\n\
         none, so what was reviewed is what goes out.\n\n\
         `commit` makes the pair, both commits now (-s b) or the work\n\
-        half with its trailer naming the agent @ (-s w). Push refuses a\n\
-        work @ that is not empty, unsquashed work being a fix to fold\n\
-        or the next rung, and a work @- with no `ochid:` trailer, which\n\
-        is not a pair's commit.\n\n\
+        half with its trailer naming the agent @ (-s w). Push publishes\n\
+        the work @-, so new work in @ is left as it is, and it refuses\n\
+        a work @- with no `ochid:` trailer, which is not a pair's commit.\n\n\
         The halves are independent, each trailer being fixed before\n\
         push runs, so -s b is -s a then -s w, the order the pair is\n\
         completed in:\n\

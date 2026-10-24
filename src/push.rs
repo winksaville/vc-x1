@@ -110,10 +110,12 @@ pub struct PushParams {
 /// What a run published, for the completion check: the work
 /// bookmark with the work commit's change id, and the partner the
 /// agent `main` ends at, each `None` when the scope left its half
-/// out.
+/// out. `held` is a work `@` holding new work when the run began,
+/// which push leaves as it is.
 struct Run {
     work: Option<(String, String)>,
     partner: Option<String>,
+    held: bool,
 }
 
 impl From<&PushArgs> for PushParams {
@@ -234,13 +236,11 @@ pub(crate) fn push_in(
     }
     // The dual-mode preflight: both repos' recorded topology agrees.
     crate::common::require_bot_dir(&pair.work)?;
-    if sides.has_work() && !jj::is_empty(&pair.work, "@")? {
-        return Err(
-            "push: the work repo's @ holds unsquashed work. Fold it into the pair with \
-                    `vc-x1 squash -s b`, or leave it as the next rung and push after \
-                    `vc-x1 commit`"
-                .into(),
-        );
+    // New work in the work `@` is the next rung's, and push publishes
+    // `@-`, so it is left as it is.
+    let held = sides.has_work() && !jj::is_empty(&pair.work, "@")?;
+    if held {
+        info!("push: the work @ holds new work, left as it is, and @- is what goes out");
     }
     let Some(work) = crate::pair::work_commit(pair)? else {
         return Err(
@@ -278,6 +278,7 @@ pub(crate) fn push_in(
     let run = Run {
         work: bookmark.map(|b| (b, work.chid.clone())),
         partner,
+        held,
     };
     match verify_completion(pair, &run) {
         Ok(()) => info!("push: completed all stages (verified)"),
@@ -502,8 +503,8 @@ fn step_gate(
 }
 
 /// Verify the world matches what the halves claim: the work
-/// bookmark at the work commit and the work `@` empty, and the agent
-/// `main` at the partner. The agent `@` may hold new session writes
+/// bookmark at the work commit and the work `@` empty unless it held
+/// new work when the run began, and the agent `main` at the partner. The agent `@` may hold new session writes
 /// that landed after the squash, so it is not checked.
 fn verify_completion(pair: &Pair, run: &Run) -> Result<(), Box<dyn std::error::Error>> {
     if let Some((bookmark, work_chid)) = &run.work {
@@ -515,7 +516,7 @@ fn verify_completion(pair: &Pair, run: &Run) -> Result<(), Box<dyn std::error::E
             )
             .into());
         }
-        if !jj::is_empty(&pair.work, "@")? {
+        if !run.held && !jj::is_empty(&pair.work, "@")? {
             let wc_diff = jj::diff_stat(&pair.work)?;
             return Err(format!(
                 "completion sanity: work working copy has uncommitted changes. Diff stat:\n{wc_diff}"
@@ -544,9 +545,7 @@ fn push_por(
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !jj::is_empty(repo, "@")? {
-        return Err(
-            "push -s p: @ holds unsquashed work. Fold it into @- or commit it first".into(),
-        );
+        info!("push -s p: @ holds new work, left as it is, and @- is what goes out");
     }
     if jj::desc_of(repo, "@-")?.trim().is_empty() {
         return Err("push -s p: @- has no description, so it is not a commit to publish".into());

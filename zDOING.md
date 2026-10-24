@@ -260,8 +260,12 @@ Defaults invite mistakes, and the two undos differ:
 - A waiver, wink's (2026-10-23): "Permission granted to complete this cycle up to but not including
   the closing." It covers rungs `[3]` through `[7]`, their work reviews, description reviews, and
   per-push approvals, so each rung is validated, described, committed, and pushed without a stop.
-  It does not cover the closing, `[8]`, or Land, which take their reviews and goes as usual, and the
+  It does not cover the closing, `[9]`, or Land, which take their reviews and goes as usual, and the
   live testing comes before the closing.
+- A rung inserted from the live testing, wink's call (2026-10-24): push refused a work `@` holding
+  new work, so publishing a finished rung after starting the next needed `jj` typed. Pushing
+  earlier work after starting new work is ordinary, so the refusal goes with no warning, an info
+  line saying `@` is left as it is. The waiver predates the rung and does not cover it.
 - Bookmark deletion is a rung of this cycle, not its own cycle, since `--land` and `--skip` use it.
 - The closing's shape stays the trapezoid in this cycle, `--shape` and the linear closing moving to
   the Todo with the rest, though the v0.3.1 proposal already names them.
@@ -326,7 +330,8 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit --closing moves the record][5] (done)
 - [feat: vc-x1 deletes a bookmark][6] (done)
 - [feat: commit --closing --land lands the cycle][7] (done)
-- [feat: vc-x1 closing and land closing][8]
+- [feat: push publishes the commit below new work][8] (done)
+- [feat: vc-x1 closing and land closing][9]
 
 ##### feat: vc-x1 closing and land opening
 
@@ -520,6 +525,17 @@ bookmark, for both cycle shapes, told apart by the branch's node count.
   - The install is not joined, being no `jj` step, and stays `vc-x1 install` after, which the
     message says. `--skip` now takes `--opening` or `--land`, checked when the params are made.
 
+##### feat: push publishes the commit below new work
+
+Push refused a work `@` holding anything, so a finished rung could not be published once the next
+was started, `jj` typed around it. Push publishes `@-`, so new work in `@` is left as it is.
+
+* The refusal guarded the time push committed `@`, which `commit` now does.
+  - `push -s b|w` and `push -s p` say `@` holds new work, left as it is, and publish `@-`, no
+    warning, pushing earlier work after starting new work being ordinary.
+  - The completion check asks for an empty work `@` only when it was empty as the run began.
+  - A restamp of `@-` rebases `@` above it, which keeps its change and its work, tested.
+
 ##### feat: vc-x1 closing and land closing
 
 Closing out the cycle.
@@ -534,4 +550,5 @@ Closing out the cycle.
 [5]: #feat-commit---closing-moves-the-record
 [6]: #feat-vc-x1-deletes-a-bookmark
 [7]: #feat-commit---closing---land-lands-the-cycle
-[8]: #feat-vc-x1-closing-and-land-closing
+[8]: #feat-push-publishes-the-commit-below-new-work
+[9]: #feat-vc-x1-closing-and-land-closing
