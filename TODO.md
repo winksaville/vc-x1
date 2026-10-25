@@ -141,6 +141,14 @@ first. Filed from the live testing of **feat: vc-x1 closing and land**.
 
 - `squash -s w [PATHS]`, the paths folded and the rest left in `@`, as `jj squash <paths>` does.
 
+### sync says one repo when the work @ is dirty
+
+(agent, 2026-10-25) `vc-x1 sync -s b` with uncommitted changes in the work `@` prints the work
+repo's lines and then "1 repo is up to date, nothing to sync", the agent repo unmentioned, where
+`--dry-run` at the same state reports both. Seen at the Land of **feat: vc-x1 closing and land**
+and reproduced at the opening sync of **feat: vc-x1 commit takes a revision**. Whether the agent
+repo was checked and only its line dropped, or was skipped, is the first thing to find.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
