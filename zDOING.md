@@ -115,7 +115,7 @@ rule.
 - [feat: commit --closing takes a bookmark or a revision][3] (done)
 - [feat: commit --land deletes by the argument's type][4] (done)
 - [test: the fixture lands by three lines][5] (done)
-- [docs: the v0.3.1 proposal names commit's new surface][6]
+- [docs: the v0.3.1 proposal names commit's new surface][6] (done)
 - [feat: vc-x1 commit takes a revision closing][7]
 
 ##### feat: vc-x1 commit takes a revision opening
@@ -239,6 +239,21 @@ The proposal names `commit --closing <REV>` and a bare form this cycle retires, 
 cycle's continuation notes held material for it never written in: steps 8 and 9 merged, Opening
 step 2 as `commit --opening`, and "warn rather than refuse". The entry is brought to the surface
 that exists.
+
+* The proposal described the closing by its old argument, the trunk, and its bare form.
+  - Its closing sections now name the tip, `--closing <BM|REV>`, onto the trunk from `--land` or
+    `[cycle] trunk`, with no bare form, and Land as the closing's `--land` and its bookmark rule.
+  - Any commit on any line closes, by the detour, a bullet of the commit-count section.
+* The last cycle's continuation notes held three items never written in.
+  - Steps 8 and 9 merge, `commit` pushing on the description review's go, `--no-push` keeping the
+    look at the commit before a separate push.
+  - Opening step 2 is `commit --opening`'s, named in the commit-count section.
+  - "Warn rather than refuse" is a section of its own, marked open, asked and unanswered, with the
+    uses this cycle made of it, so the answer has its examples beside it.
+* `commit REV` for a draft made by hand joins the local-pair section, the sanctioned path where the
+  rules would otherwise send an agent to `jj describe`.
+* The two-paragraph body's pointer names the record where it is at that commit, zDOING.md on a
+  rung and zCLOSED.md on the closing, written mid-cycle and set aside as a patch until this rung.
 
 ##### feat: vc-x1 commit takes a revision closing
 
