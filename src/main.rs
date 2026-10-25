@@ -624,6 +624,11 @@ pub(crate) enum Commands {
         push publishes what was reviewed. --no-push keeps the commit local,\n\
         for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
         `[commit] push = false` makes that the default, --push overriding it.\n\n\
+        REV is the commit the description is for: `@` by default, committed\n\
+        as the working copy, else `@-` or any draft below it, described in\n\
+        place with no new commit and its trailer stamped, so a commit made by\n\
+        hand becomes a rung's. A draft below `@-` is kept local, since push\n\
+        publishes `@-`.\n\n\
         --closing [REV] closes the cycle, bare finalizing a single-step cycle's\n\
         opening, with REV making the closing commit onto it, and --land [TRUNK]\n\
         lands it: the trunk fast-forwarded and pushed and the cycle's bookmark\n\

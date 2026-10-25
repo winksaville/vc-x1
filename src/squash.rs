@@ -551,6 +551,7 @@ mod tests {
             land: None,
             skip: None,
             dry_run: false,
+            rev: None,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");
     }

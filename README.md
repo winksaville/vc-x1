@@ -1833,6 +1833,9 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 # A plain repo, the description with no trailer
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 
+# A draft made by hand, the undescribed @-, described in place as the rung, its trailer stamped
+vc-x1 commit @- -s b --title "feat: a rung" --body @tmp/body.md
+
 # The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
 vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
 
@@ -1842,6 +1845,14 @@ vc-x1 commit -s b --closing
 # A multi-step cycle's closing commit onto main, its title and body from the opening and the config
 vc-x1 commit -s b --closing main
 ```
+
+`REV`, the positional, is the commit the description is for: `@` by default, committed as the
+working copy, else `@-` or any draft below it, described in place with no new commit and its
+trailer stamped, so a commit made by hand becomes a rung's. The draft must be unpublished, no
+remote bookmark reaching it, carry no trailer yet, since a pair's commit is re-described by
+`squash --title --body`, and hold a change. `@` is left as it is, as `push` leaves new work, the
+line's bookmark advances to the draft, and a draft below `@-` is kept local, since push publishes
+`@-`. Not with `--opening` or `--closing`, whose commits are made from `@`.
 
 `--closing [REV]` closes the cycle, nothing assumed about the branch it is on:
 

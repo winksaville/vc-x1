@@ -106,7 +106,7 @@ rule.
 #### Ladder
 
 - [feat: vc-x1 commit takes a revision opening][0] (done)
-- [feat: commit describes the commit REV names][1]
+- [feat: commit describes the commit REV names][1] (done)
 - [feat: commit --bookmark takes any bookmark below REV][2]
 - [feat: commit --closing takes a bookmark or a revision][3]
 - [feat: commit --land deletes by the argument's type][4]
@@ -124,6 +124,25 @@ reset and file the continuation notes, and bump the version-of-record.
 `commit` commits `@` and nothing else, so a draft below it stays undescribed. A positional REV,
 `@` by default, names the commit that takes the description and the trailer, described in place
 with no new commit when it is not `@`, its guards the draft's: unpublished and trailer-less.
+
+* The draft's describe rewrites a commit that exists, where today's commit makes one.
+  - REV is resolved once, `@` and no REV being today's path, and refused before anything is made:
+    a revset naming other than one commit, a published commit, whose describe would be a remote
+    rewrite, one carrying a trailer already, which is a pair's commit and `squash --title --body`
+    re-describes, a conflicted one, and an empty one, since a rung changes the repo.
+  - The work side is a describe in place, jj rebasing the descendants so `@` follows with its
+    change id and its work, and the agent side is the partner commit as for `@`, its trailer naming
+    the draft's change id, which the describe keeps.
+  - `-s p` takes the same path with no trailer. `-s a` refuses REV, the agent repo alone having no
+    work commit, and so do `--opening` and `--closing`, whose commits are made from `@`.
+* The bookmark advance and the push assume the work commit is `@-`.
+  - The line's bookmark is resolved at or below the draft rather than below `@-`, a bookmark on
+    the draft being the line's, and the advance targets the draft's change id.
+  - A draft at `@-` pushes as today. One below `@-` is committed and kept local with a line saying
+    so, warned rather than refused, since push publishes `@-` and takes no revision until **push
+    takes a revision, and the remote's name for it**.
+* Deferred: a `--bookmark` that is not the nearest is still refused, the next rung's subject, so
+  the fixture's cycle bookmark cannot yet move past the user's.
 
 ##### feat: commit --bookmark takes any bookmark below REV
 

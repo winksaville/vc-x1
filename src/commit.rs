@@ -38,6 +38,16 @@
 //! - The work side's `@` must hold a change, since a rung changes
 //!   the work repo. The agent side's `@` is the session's journal
 //!   and is committed as it stands.
+//! - `REV`, the positional, is the commit the description is for:
+//!   `@` by default, committed as above, else `@-` or any draft below
+//!   it, described in place with no new commit, its trailer stamped,
+//!   so a commit made by hand becomes a rung's. The draft must be
+//!   unpublished, no remote bookmark reaching it, carry no trailer
+//!   yet, and hold a change, so the describe is a draft's rewrite and
+//!   never a re-describe. `@` is left as it is, as `push` leaves new
+//!   work, and a draft below `@-` is committed and not pushed, since
+//!   push publishes `@-`. Not with `--opening` or `--closing`, whose
+//!   commits are made from `@`.
 //! - `--closing [REV]` closes the cycle, nothing assumed about the
 //!   branch:
 //!   - Bare: a single-step cycle, which has no parent to name. `@-`,
@@ -96,6 +106,13 @@ use crate::subcommand::SubcommandRunner;
 /// commit, with the given title and body.
 #[derive(Args, Debug)]
 pub struct CommitArgs {
+    /// The commit the description is for: `@` by default, committed as
+    /// the working copy; `@-` or any draft below it is described in
+    /// place with no new commit, its trailer stamped, so a commit made
+    /// by hand becomes a rung's. Not with `--opening` or `--closing`
+    #[arg(value_name = "REV", conflicts_with_all = ["opening", "closing"])]
+    pub rev: Option<String>,
+
     /// Where: a path in the workspace for `-s b|w`, its root or
     /// either repo, or the repo itself for `-s p` [default: the
     /// current directory]
@@ -305,6 +322,9 @@ pub struct CommitParams {
     pub skip: Option<Skip>,
     /// Print the descriptions and commit nothing.
     pub dry_run: bool,
+    /// The commit the description is for, when it is not `@`: a draft
+    /// described in place.
+    pub rev: Option<String>,
 }
 
 /// What `-s` resolved to.
@@ -332,6 +352,18 @@ impl TryFrom<&CommitArgs> for CommitParams {
         if a.skip.is_some() && a.opening.is_none() && a.land.is_none() {
             return Err(
                 "commit --skip: it takes --opening or --land, the bookmark it keeps".into(),
+            );
+        }
+        if a.rev.is_some() && (a.opening.is_some() || a.closing.is_some()) {
+            return Err(
+                "commit REV: a bookend is made from `@`, so REV takes neither \
+                        --opening nor --closing"
+                    .into(),
+            );
+        }
+        if a.rev.is_some() && matches!(&a.scope, RepoScope::Sides(s) if s.is_bot_only()) {
+            return Err(
+                "commit -s a: REV is the work commit's, so the agent repo alone takes none".into(),
             );
         }
         let body = match &a.body {
@@ -414,6 +446,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 _ => None,
             },
             dry_run: a.dry_run.value,
+            rev: a.rev.clone(),
         })
     }
 }
@@ -440,6 +473,66 @@ pub fn commit(ctx: &mut Context, params: &CommitParams) -> Result<(), Box<dyn st
         Target::Por(repo) => commit_por(ctx, repo, params),
         Target::Agent(pair) => commit_agent(ctx, pair, params),
     }
+}
+
+/// The draft `REV` names, described in place: the revision as given.
+#[derive(Debug)]
+struct Draft {
+    rev: String,
+}
+
+/// Resolve `REV` to the draft it names, `None` for `@` or when no
+/// REV was given, refusing before anything is made: a revset that is
+/// not one commit, a published commit, whose describe would be a
+/// remote rewrite, one that carries a trailer already, so is a pair's
+/// commit and `squash --title --body` re-describes it, a conflicted
+/// one, and an empty one, since a rung changes the repo.
+fn plan_draft(
+    repo: &Path,
+    params: &CommitParams,
+) -> Result<Option<Draft>, Box<dyn std::error::Error>> {
+    let Some(rev) = &params.rev else {
+        return Ok(None);
+    };
+    let cids = jj::cids_of(repo, rev)
+        .map_err(|e| format!("commit REV: '{rev}' in {}: {e}", repo.display()))?;
+    if cids.len() != 1 {
+        return Err(format!(
+            "commit REV: '{rev}' names {} commits in {}, and the description is one commit's",
+            cids.len(),
+            repo.display()
+        )
+        .into());
+    }
+    if jj::matches(repo, &format!("({rev}) & @"))? {
+        return Ok(None);
+    }
+    if crate::pair::is_published(repo, rev)? {
+        return Err(format!(
+            "commit REV: '{rev}' is published, an ancestor of a remote bookmark in {}, so \
+             describing it is a remote rewrite",
+            repo.display()
+        )
+        .into());
+    }
+    if crate::desc_helpers::extract_ochid_from_desc(&jj::desc_of(repo, rev)?).is_some() {
+        return Err(format!(
+            "commit REV: '{rev}' carries an `ochid:` trailer already, so it is a pair's commit: \
+             `vc-x1 squash --title --body` re-describes it"
+        )
+        .into());
+    }
+    if jj::matches(repo, &format!("({rev}) & conflicts()"))? {
+        return Err(format!("commit REV: '{rev}' is conflicted, so it is not described").into());
+    }
+    if jj::is_empty(repo, rev)? {
+        return Err(format!(
+            "commit REV: nothing to describe, '{rev}' is empty in {}",
+            repo.display()
+        )
+        .into());
+    }
+    Ok(Some(Draft { rev: rev.clone() }))
 }
 
 /// Refuse a repo that cannot take the commit: a conflicted one, or
@@ -500,12 +593,17 @@ fn commit_pair(
             land.as_ref(),
         );
     }
-    preflight(work, "work", record.is_none())?;
+    let draft = plan_draft(work, params)?;
+    match &draft {
+        None => preflight(work, "work", record.is_none())?,
+        Some(_) => crate::pair::refuse_conflicts(work, "commit", "work")?,
+    }
     preflight(agent, "agent", false)?;
     warn_unflagged_closing(params);
     let (text, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(work, params)?;
-    let work_chid = jj::chid_of(work, "@")?;
+    let plan = plan_bookmarks(work, params, draft.as_ref())?;
+    let work_at = draft.as_ref().map_or("@", |d| d.rev.as_str());
+    let work_chid = jj::chid_of(work, work_at)?;
     let agent_chid = jj::chid_of(agent, "@")?;
     let agent_prefix = ochid_prefix_for(agent)?;
     let work_desc = with_trailer(&text, &format!("{agent_prefix}{agent_chid}"));
@@ -521,10 +619,18 @@ fn commit_pair(
         if let Some(r) = &record {
             r.write(true)?;
         }
-        info!(
-            "commit: [dry-run] the work commit {work_chid}, in {}:\n{work_desc}",
-            work.display()
-        );
+        if let Some(d) = &draft {
+            info!(
+                "commit: [dry-run] describe {} {work_chid} in place, in {}:\n{work_desc}",
+                d.rev,
+                work.display()
+            );
+        } else {
+            info!(
+                "commit: [dry-run] the work commit {work_chid}, in {}:\n{work_desc}",
+                work.display()
+            );
+        }
         if agent_now {
             info!(
                 "commit: [dry-run] the agent commit {agent_chid}, in {}:\n{agent_desc}",
@@ -555,8 +661,21 @@ fn commit_pair(
         snapshots.restore(pair, "commit", e.as_ref());
         return Err(e);
     }
-    info!("commit work: {} -> @- {work_chid}", work.display());
-    if let Err(e) = ctx.session(work)?.commit(&work_desc) {
+    let made = match &draft {
+        None => {
+            info!("commit work: {} -> @- {work_chid}", work.display());
+            ctx.session(work)?.commit(&work_desc)
+        }
+        Some(d) => {
+            info!(
+                "commit work: describe {} {work_chid} in place, in {}",
+                d.rev,
+                work.display()
+            );
+            ctx.session(work)?.describe(&d.rev, &work_desc)
+        }
+    };
+    if let Err(e) = made {
         snapshots.restore(pair, "commit", e.as_ref());
         return Err(e);
     }
@@ -584,7 +703,7 @@ fn commit_pair(
     }
     finish_bookmarks(ctx, work, params, &plan)?;
     info!(
-        "commit: the pair is made, review it with `vc-x1 show -s both @- -R {}`",
+        "commit: the pair is made, review it with `vc-x1 show -s both {work_at} -R {}`",
         work.display()
     );
     push_after(
@@ -899,7 +1018,8 @@ fn wants_push(repo: &Path, params: &CommitParams) -> Result<bool, Box<dyn std::e
 
 /// Push what was committed, as `vc-x1 push` would after it, when the
 /// commit asks: the bookmark advanced, or the line's when none was,
-/// and with `dry` the push's dry run, so a dry run shows it too.
+/// and with `dry` the push's dry run, so a dry run shows it too. A
+/// draft below `@-` is kept local, since push publishes `@-`.
 fn push_after(
     ctx: &mut Context,
     repo: &Path,
@@ -911,6 +1031,15 @@ fn push_after(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(land) = land {
         return land_after(ctx, repo, publish, land, dry);
+    }
+    if let Some(rev) = &params.rev
+        && !jj::matches(repo, &format!("({rev}) & (@ | @-)"))?
+    {
+        info!(
+            "commit: '{rev}' is below @-, which push publishes, so it is kept local: `vc-x1 push` \
+             publishes it once it takes a revision"
+        );
+        return Ok(());
     }
     if !wants_push(repo, params)? {
         info!("commit: kept local, `vc-x1 push` publishes it");
@@ -1304,6 +1433,9 @@ fn finalize(
 struct BookmarkPlan {
     start: Option<String>,
     advance: Option<String>,
+    /// Where the advance goes: the work `@-` once `@` is committed,
+    /// or a draft's change id, which its describe keeps.
+    target: String,
 }
 
 /// Resolve the bookmark plan, refusing before anything is made: the
@@ -1314,20 +1446,28 @@ struct BookmarkPlan {
 fn plan_bookmarks(
     repo: &Path,
     params: &CommitParams,
+    draft: Option<&Draft>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
     let start = match &params.opening {
         Some(o) => Some(check_opening(repo, o)?),
         None => None,
     };
+    // The line below the work commit: `@-` when `@` is committed, the
+    // draft itself otherwise, a bookmark on it being the line's.
+    let (below, target) = match draft {
+        None => ("@-".to_string(), "@-".to_string()),
+        Some(d) => (d.rev.clone(), jj::chid_of(repo, &d.rev)?),
+    };
     let advance = match (&params.advance, &params.opening) {
         (Advance::Off, _) => None,
         (_, Some(o)) => Some(o.bookmark.clone()),
         (Advance::Named(b), None) => {
-            let nearest = jj::local_bookmarks_at(repo, "heads(::@- & bookmarks())")?;
+            let nearest =
+                jj::local_bookmarks_at(repo, &format!("heads(::({below}) & bookmarks())"))?;
             if !nearest.contains(b) {
                 return Err(format!(
-                    "commit --bookmark: '{b}' is not the nearest bookmark below the work @- in {}, \
-                     the line's own ({})",
+                    "commit --bookmark: '{b}' is not the nearest bookmark below the work commit \
+                     in {}, the line's own ({})",
                     repo.display(),
                     nearest.join(", ")
                 )
@@ -1335,11 +1475,15 @@ fn plan_bookmarks(
             }
             Some(b.clone())
         }
-        (Advance::Line, None) => Some(crate::squash_push::current_bookmark(repo, "@-").map_err(
+        (Advance::Line, None) => Some(crate::squash_push::current_bookmark(repo, &below).map_err(
             |e| format!("commit: {e} with --bookmark <NAME>, or pass --no-advance to move none"),
         )?),
     };
-    Ok(BookmarkPlan { start, advance })
+    Ok(BookmarkPlan {
+        start,
+        advance,
+        target,
+    })
 }
 
 /// What the bookmark plan would do, for a dry run.
@@ -1355,7 +1499,7 @@ fn dry_run_bookmarks(params: &CommitParams, plan: &BookmarkPlan) {
 /// Carry out the bookmark plan once the commits are made, so a failed
 /// commit moves no bookmark: the opening's bookmark created at its
 /// start and pushed, then the advance to the work commit, the work
-/// `@-` now.
+/// `@-` now, or the draft described in place.
 fn finish_bookmarks(
     ctx: &mut Context,
     repo: &Path,
@@ -1367,7 +1511,7 @@ fn finish_bookmarks(
     }
     if let Some(name) = &plan.advance {
         info!("commit: advance '{name}' to the work commit, locally");
-        ctx.session(repo)?.bookmark_set(name, "@-")?;
+        ctx.session(repo)?.bookmark_set(name, &plan.target)?;
     }
     Ok(())
 }
@@ -1510,11 +1654,16 @@ fn commit_por(
             land.as_ref(),
         );
     }
-    preflight(repo, "plain", record.is_none())?;
+    let draft = plan_draft(repo, params)?;
+    match &draft {
+        None => preflight(repo, "plain", record.is_none())?,
+        Some(_) => crate::pair::refuse_conflicts(repo, "commit", "plain")?,
+    }
     warn_unflagged_closing(params);
     let (desc, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(repo, params)?;
-    let chid = jj::chid_of(repo, "@")?;
+    let plan = plan_bookmarks(repo, params, draft.as_ref())?;
+    let at = draft.as_ref().map_or("@", |d| d.rev.as_str());
+    let chid = jj::chid_of(repo, at)?;
     if params.dry_run {
         if let Some((base, tip)) = &merge {
             info!("commit: [dry-run] the merge of {base} and the last rung {tip}");
@@ -1523,10 +1672,17 @@ fn commit_por(
         if let Some(r) = &record {
             r.write(true)?;
         }
-        info!(
-            "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
-            repo.display()
-        );
+        match &draft {
+            Some(d) => info!(
+                "commit: [dry-run] describe {} {chid} in place, in {}:\n{desc}",
+                d.rev,
+                repo.display()
+            ),
+            None => info!(
+                "commit: [dry-run] the commit {chid}, in {}:\n{desc}",
+                repo.display()
+            ),
+        }
         return push_after(
             ctx,
             repo,
@@ -1547,8 +1703,21 @@ fn commit_por(
         snapshot.restore("commit", e.as_ref());
         return Err(e);
     }
-    info!("commit: {} -> @- {chid}", repo.display());
-    if let Err(e) = ctx.session(repo)?.commit(&desc) {
+    let made = match &draft {
+        None => {
+            info!("commit: {} -> @- {chid}", repo.display());
+            ctx.session(repo)?.commit(&desc)
+        }
+        Some(d) => {
+            info!(
+                "commit: describe {} {chid} in place, in {}",
+                d.rev,
+                repo.display()
+            );
+            ctx.session(repo)?.describe(&d.rev, &desc)
+        }
+    };
+    if let Err(e) = made {
         snapshot.restore("commit", e.as_ref());
         return Err(e);
     }
@@ -2846,6 +3015,141 @@ mod tests {
         commit(&mut test_ctx(), &params).expect("the plain commit is made");
         let desc = description(&fx.work, "@-");
         assert!(desc.starts_with("feat: a rung\n\nThe problem."), "{desc}");
+        assert!(!desc.contains("ochid:"), "{desc}");
+    }
+
+    /// A draft below `@`, a commit made by hand with no description,
+    /// is described in place by REV: the title, body, and trailer
+    /// written onto it, its change id kept, the agent commit made as
+    /// its partner, `@` left as it is, and the line's bookmark
+    /// advanced to it.
+    #[test]
+    fn a_draft_named_by_rev_is_described_in_place() {
+        let fx = Fixture::new("commit-rev");
+        fs::write(fx.work.join("draft.md"), "a draft\n").expect("write");
+        jj_ok(&fx.work, &["new"]);
+        fs::write(fx.work.join("next.md"), "next work\n").expect("write");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
+        let draft = chid(&fx.work, "@-");
+        let at = chid(&fx.work, "@");
+        let agent_at = chid(&fx.bot, "@");
+        let mut a = args("b", &fx.work);
+        a.rev = Some("@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("described in place");
+        assert_eq!(chid(&fx.work, "@-"), draft, "the draft keeps its change id");
+        let desc = description(&fx.work, "@-");
+        assert!(desc.starts_with("feat: a rung\n"), "{desc}");
+        assert!(
+            desc.contains(&format!("ochid: /.claude/{agent_at}")),
+            "{desc}"
+        );
+        assert_eq!(chid(&fx.work, "@"), at, "@ is left as it is");
+        assert!(
+            !jj::is_empty(&fx.work, "@").expect("empty?"),
+            "@ keeps its work"
+        );
+        assert_eq!(
+            chid(&fx.bot, "@-"),
+            agent_at,
+            "the agent @ became the partner"
+        );
+        let agent_desc = description(&fx.bot, "@-");
+        assert!(
+            agent_desc.contains(&format!("ochid: /{draft}")),
+            "{agent_desc}"
+        );
+        assert_eq!(
+            commit_id(&fx.work, "main"),
+            commit_id(&fx.work, "@-"),
+            "main, the line's bookmark, advanced to the draft"
+        );
+    }
+
+    /// REV is refused for what is not a draft, before anything is
+    /// made: a published commit, a pair's commit that carries a
+    /// trailer already, and an empty one; and at params time with a
+    /// bookend or with `-s a`.
+    #[test]
+    fn rev_refuses_what_is_not_a_draft() {
+        let fx = Fixture::new("commit-rev-refused");
+        let mut a = args("b", &fx.work);
+        a.rev = Some("@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
+        assert!(err.contains("is published"), "{err}");
+
+        fs::write(fx.work.join("a.md"), "a\n").expect("write");
+        let params = CommitParams::try_from(&args("b", &fx.work)).expect("params");
+        commit(&mut test_ctx(), &params).expect("the pair");
+        let before = description(&fx.work, "@-");
+        let mut a = args("b", &fx.work);
+        a.rev = Some("@-".to_string());
+        a.title = Some("feat: again".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
+        assert!(err.contains("carries an `ochid:` trailer already"), "{err}");
+        assert_eq!(
+            description(&fx.work, "@-"),
+            before,
+            "the pair's commit is untouched"
+        );
+
+        jj_ok(&fx.work, &["new", "-m", "an empty draft"]);
+        jj_ok(&fx.work, &["new"]);
+        let mut a = args("b", &fx.work);
+        a.rev = Some("@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
+        assert!(err.contains("nothing to describe"), "{err}");
+
+        let err = parse(&["vc-x1", "commit", "@-", "-s", "b", "--closing"]).unwrap_err();
+        assert!(err.contains("cannot be used with"), "{err}");
+        let mut a = args("a", &fx.work);
+        a.rev = Some("@-".to_string());
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("REV is the work commit's"), "{err}");
+    }
+
+    /// A draft below `@-` is described and paired but kept local,
+    /// since push publishes `@-`: the remote is as it was.
+    #[test]
+    fn a_draft_below_at_minus_is_kept_local() {
+        let fx = Fixture::new("commit-rev-deep");
+        fs::write(fx.work.join("a.md"), "a\n").expect("write");
+        jj_ok(&fx.work, &["new"]);
+        fs::write(fx.work.join("b.md"), "b\n").expect("write");
+        jj_ok(&fx.work, &["new"]);
+        let deep = chid(&fx.work, "@--");
+        let remote_before = jj::remote_bookmark_targets(&fx.work, "origin").expect("remote");
+        let mut a = args("b", &fx.work);
+        a.no_push = false;
+        a.rev = Some("@--".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("described in place");
+        assert_eq!(chid(&fx.work, "@--"), deep);
+        assert!(description(&fx.work, "@--").contains("ochid: "));
+        assert_eq!(
+            jj::remote_bookmark_targets(&fx.work, "origin").expect("remote"),
+            remote_before,
+            "nothing was pushed"
+        );
+    }
+
+    /// `-s p` describes a plain repo's draft in place, no trailer.
+    #[test]
+    fn a_plain_repos_draft_is_described_in_place() {
+        let fx = FixturePor::new("commit-rev-por");
+        fs::write(fx.work.join("a.md"), "a\n").expect("write");
+        jj_ok(&fx.work, &["new"]);
+        let draft = chid(&fx.work, "@-");
+        let mut a = args("p", &fx.work);
+        a.rev = Some("@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("described in place");
+        assert_eq!(chid(&fx.work, "@-"), draft);
+        let desc = description(&fx.work, "@-");
+        assert!(desc.starts_with("feat: a rung\n"), "{desc}");
         assert!(!desc.contains("ochid:"), "{desc}");
     }
 }
