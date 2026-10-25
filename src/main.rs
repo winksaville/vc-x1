@@ -624,10 +624,19 @@ pub(crate) enum Commands {
         push publishes what was reviewed. --no-push keeps the commit local,\n\
         for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
         `[commit] push = false` makes that the default, --push overriding it.\n\n\
-        --closing [REV] closes the cycle, bare finalizing a single-step cycle's\n\
-        opening, with REV making the closing commit onto it, and --land [TRUNK]\n\
-        lands it: the trunk fast-forwarded and pushed and the cycle's bookmark\n\
-        deleted, every check first.\n\n\
+        REV is the commit the description is for: `@` by default, committed\n\
+        as the working copy, else `@-` or any draft below it, described in\n\
+        place with no new commit and its trailer stamped, so a commit made by\n\
+        hand becomes a rung's. A draft below `@-` is kept local, since push\n\
+        publishes `@-`.\n\n\
+        --closing <BM|REV> closes the cycle whose tip it names, onto the trunk,\n\
+        --land's or `[cycle] trunk`, `main` when absent: one commit above the\n\
+        trunk is finalized in place, more get the closing commit, the merge of\n\
+        the trunk and the tip. A tip that is not @- is closed by a detour, @\n\
+        moving onto it and returning after. --land [TRUNK] lands it: the trunk\n\
+        fast-forwarded and pushed and the closing's bookmark deleted, every\n\
+        check first: the one named, or for a revision the current or nearest\n\
+        parent bookmark above the trunk, several refused with the list.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\

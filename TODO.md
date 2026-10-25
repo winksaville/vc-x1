@@ -141,6 +141,35 @@ first. Filed from the live testing of **feat: vc-x1 closing and land**.
 
 - `squash -s w [PATHS]`, the paths folded and the rest left in `@`, as `jj squash <paths>` does.
 
+### sync says one repo when the work @ is dirty
+
+(agent, 2026-10-25) `vc-x1 sync -s b` with uncommitted changes in the work `@` prints the work
+repo's lines and then "1 repo is up to date, nothing to sync", the agent repo unmentioned, where
+`--dry-run` at the same state reports both. Seen at the Land of **feat: vc-x1 closing and land**
+and reproduced at the opening sync of **feat: vc-x1 commit takes a revision**. Whether the agent
+repo was checked and only its line dropped, or was skipped, is the first thing to find.
+
+### commit's dry run reports the push as the advance leaves it
+
+(agent, 2026-10-25) `commit --dry-run` plans the bookmark advance, then runs push's dry run, which
+reads the bookmark where it is, since the dry run moved nothing, so a commit that advances a
+bookmark reports publishing it at its old commit. Found at the acceptance check of **feat: vc-x1
+commit takes a revision**, where the fixture's cycle bookmark was reported at the opening rather
+than the draft.
+
+- Push's dry run takes the target the advance would leave, or commit's dry run says the push
+  without asking push.
+
+### commit --land lands a closing already made
+
+(agent, 2026-10-25) `commit --land` lands only the closing it makes, so a closing pushed without
+`--land`, for a review or under a waiver that leaves Land out, is landed by four commands typed:
+`move-bookmark`, `push`, `delete-bookmark`, and `install`. Found at the closing of **feat: vc-x1
+commit takes a revision**.
+
+- `commit --land [TRUNK]` with nothing to commit and a closing at `@-` lands that closing, its
+  bookmark by the same rule as `--closing`'s, or a `land` command does it.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -165,10 +194,15 @@ commit, and Land step 4 names no command.
 
 #### A local commit pair before every push
 
-- Per-rung flow step 8 becomes `vc-x1 commit -s b`, and the description review is of the commit
-  it makes, description and diff together, by `jj show @-` or gitk. A fix is edited and folded by
-  `vc-x1 squash -s b`, a description fix by `squash -s b --title --body`.
-- Step 9's `vc-x1 push -s b` publishes the pair.
+- Per-rung flow steps 8 and 9 merge, since `commit` pushes what it commits: on the description
+  review's go, `vc-x1 commit -s b --title --body` makes the pair and publishes it. With `--no-push`,
+  or `[commit] push = false`, it keeps the pair local for a look at the commit itself, description
+  and diff together, by `vc-x1 show -s both @-` or gitk, and `vc-x1 push -s b` publishes it after.
+  A fix is edited and folded by `vc-x1 squash -s b`, a description fix by `squash -s b --title
+  --body`.
+- A commit made by hand, a draft below `@` with no description, is described in place by `vc-x1
+  commit <REV> -s b --title --body`, its trailer stamped and its partner made, never by `jj
+  describe`, and `--bookmark` moves the cycle's bookmark onto it past any nearer one.
 - Step 6's work review stays ahead of it.
 - Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
   a rung, and `vc-x1 push` publishing, and `jj.md`'s vc-x1 push section follows.
@@ -197,22 +231,27 @@ lands, so the rules' invocations must carry it or fail.
 
 - A multi-step cycle closes as a trapezoid by default or as linear on request, the closing commit
   carrying the shape, so nothing is reshaped at Land.
-  - `vc-x1 commit --closing <REV>`, `REV` the revision the cycle closes onto, `main` by name in the
-    common case, makes the closing in the shape `--shape <trapezoid|linear>` names, else the
-    `.vc-config.md` key `[cycle] closing-shape`, else trapezoid, and prints which decided.
-  - Trapezoid is the merge of `REV` and the ladder's tip. Linear is a plain commit on the ladder,
-    so the trunk carries one commit per rung, the shape the rules called keep separate, renamed.
+  - `vc-x1 commit --closing <BM|REV>`, naming the cycle's tip, onto the trunk, `--land`'s bookmark
+    or `[cycle] trunk`, `main` when absent, makes the closing in the shape `--shape
+    <trapezoid|linear>` names, else the `.vc-config.md` key `[cycle] closing-shape`, else
+    trapezoid, and prints which decided.
+  - Trapezoid is the merge of the trunk and the ladder's tip. Linear is a plain commit on the
+    ladder, so the trunk carries one commit per rung, the shape the rules called keep separate,
+    renamed.
   - The key is the project's preference, so each adopter sets its own, and one that sets nothing
     keeps the trapezoid.
   - Either converts to the other while the closing is a draft, before Land, by re-parenting the
     same closing: its change id, trailer, and, with the trunk unmoved, its tree are kept.
-- Land is sync, fast-forward, install, and the bookmark's deletion. The trapezoid recipe goes,
+- Land is sync, then `commit --closing <BM|REV> --land [TRUNK]`, the fast-forward and the push,
+  then `vc-x1 install`. The bookmark deleted is the one `--closing` names, or for a revision its
+  current or nearest parent bookmark above the trunk, several refused with the list, and the
+  branch's other bookmarks are left and named as merged. The trapezoid recipe goes,
   Close-out step 5 keeps the user's choice, the key its default, and carries it out by the flag,
   and `jj.md` Close-out shapes names the two shapes and why squash is not a shape.
 
 - The shape's name: with one rung the figure is a triangle, wink's observation (2026-10-20), so
   "trapezoid" names one case. The tool calls the operation `merge` and the result the merge
-  close-out, and the rules' text could follow. `commit --closing <REV>` merges into `REV` as it is
+  close-out, and the rules' text could follow. `commit --closing` merges into the trunk as it is
   now, a bookmark read where it points, so a `main` that moved during the cycle no longer stops Land
   for a rebase. A linear closing cannot join a moved trunk without rewriting the reviewed ladder, so
   its Land refuses one.
@@ -229,13 +268,17 @@ before Land.
 
 - [Cycle shape](AGENTS.md#cycle-shape)'s "A ladder that shrinks to one rung still closes as a
   ladder" goes: a branch with one commit above the trunk, the opening alone, is a single-step cycle,
-  and a bare `commit --closing` finalizes that commit in place, the bare cycle title replacing the
-  opening's, since a single-step closing has no parent to name. A multi-step closing names its
-  parent, `commit --closing <REV>`, and makes the closing commit, the opening alone above `REV`
-  being refused unless `--dead-end`.
+  and `commit --closing <BM|REV>` finalizes that commit in place, the bare cycle title replacing the
+  opening's, while more commits get the closing commit. Every closing names its tip, by the cycle's
+  bookmark or a revision, `@-` the common one, and the count reads the branch, so there is no bare
+  form, and `--dead-end` always makes the closing commit.
+- Any commit on any line closes: a tip that is not `@-` is closed by a detour, `@` moving onto it
+  and returning after, and the commits above it stay as they are.
 - A parent wrong after the fact is fixed with `vc-x1 reparent`, never by closing again.
 - Every cycle starts with `commit --opening`, a single-step cycle included: its bookmark is created
-  and pushed at the trunk, and its one commit begins as the opening, the work squashed into it.
+  and pushed at the trunk, and its one commit begins as the opening, the work squashed into it. So
+  Opening step 2, the bookmark's creation and publication by `jj git push`, is `commit --opening`'s,
+  and the step names it.
 - The closing's title and body may be left out: the cycle title is read from the opening, and the
   body comes from `.vc-config.md`'s `[closing] body`.
 
@@ -246,9 +289,12 @@ shape before its first commit: it is single-step until a second commit makes it 
 
 #### A commit body is two plain paragraphs
 
-- The problem, then the solution opening "Solution:", ending with the pointer to the record, "See
-  details in zCLOSED.md.", no bullets, and the rung subsection the full account: the entry **A commit body is an intro and a
-  pointer to the record** in `## Todo`, its rule, specimens, and subsection change.
+- The problem, then the solution opening "Solution:", ending with the pointer to the record where
+  it is at that commit, "See details in zDOING.md." on a rung and "See details in zCLOSED.md." on
+  the closing, which moves it, no bullets, and the rung subsection the full account: the entry **A
+  commit body is an intro and a pointer to the record** in `## Todo`, its rule, specimens, and
+  subsection change. The bookends stay pointers, "Opens the cycle ..." and "Closes the cycle ...",
+  with the same pointer after them.
 
 ##### Why: two paragraphs
 
@@ -285,6 +331,20 @@ Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of
 
 The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
 so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+
+#### Warn rather than refuse
+
+- Open, asked and unanswered (2026-10-24): wink's principle "warn rather than refuse", for a check
+  whose failure may be a legitimate shape rather than a mistake, possibly a rule in
+  `agent-data/code.md` beside the unwrap alert.
+- Its uses so far, in `commit`: a title ending " closing" without `--closing` is warned about, a
+  draft below `@-` and a closing with no bookmark are kept local with a line saying why, and a
+  closing is never refused for an empty `@`.
+
+##### Why: warn rather than refuse
+
+We think a refusal of a legitimate shape sends the user to raw `jj`, which the tool exists to
+retire, where a warning names what was done and leaves it reviewable before the push.
 
 #### Not in it
 

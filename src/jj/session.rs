@@ -841,6 +841,18 @@ impl RepoSession {
         self.finish_tx(tx, &format!("new empty commit on {}", target.id().hex()))
     }
 
+    /// Snapshot, then make `rev` the working-copy commit (`jj edit
+    /// <rev>`), the old `@` auto-abandoned when discardable, as
+    /// `new_on` does, via `MutableRepo::edit`.
+    pub fn edit(&mut self, rev: &str) -> Result<()> {
+        self.snapshot()?;
+        let target = self.one_commit(rev)?;
+        let name = self.workspace.workspace_name().to_owned();
+        let mut tx = self.start_tx();
+        tx.repo_mut().edit(name, &target).block_on()?;
+        self.finish_tx(tx, &format!("edit commit {}", target.id().hex()))
+    }
+
     /// Snapshot, then rebase the branch of `source` onto `dest`
     /// (`jj rebase -b <source> -d <dest>`): the roots of
     /// `dest..source` are rebased onto `dest`, and `finish_tx`'s

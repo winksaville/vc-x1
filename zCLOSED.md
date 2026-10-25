@@ -7,605 +7,288 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: vc-x1 closing and land
+### feat: vc-x1 commit takes a revision
 
-(wink + agent, 2026-10-21, opened 2026-10-23) Picked from `TODO.md` as **feat: vc-x1 land closes
-a cycle and lands it**, retitled at the opening, wink's call, since the closing stays `commit
---closing` and the new command is `land`.
-
-#### The Todo as picked
-
-The close-out and Land are five commands typed in order, and each is a place to skip the sync,
-move the wrong bookmark, or push before the review. One command runs the sequence, with the review
-between its commit and its pushes, filed at the first closing made by `commit --closing`.
-
-- `vc-x1 land -s b [--from BOOKMARK] [--to BOOKMARK] [--title STR --body STR|@PATH]`, `--from`
-  the cycle's bookmark, the line `@-` is on by default, and `--to` the trunk, `main` by default.
-- The sequence, each step today's command:
-  1. `sync -s b`: `--to` local equals its remote, or stop, since a moved trunk is the Land rule's
-     stop.
-  2. `commit -s w --closing --title --body`: the merge of `--to` and `--from`'s tip.
-  3. The review: `jj show @-`, and the command waits for the go, or `--yes` under a waiver.
-  4. `move-bookmark -s w --bookmark <to> --target @-`: the fast-forward, no `--allow-backwards`.
-  5. `push -s b <to>`: the agent half commits the journal as the partner, the work half publishes
-     `--to`. The closing never reaches `--from`'s remote, so the two pushes of the by-hand Land
-     are one.
-  6. `build`, a `run -- -V` smoke check, and `install`, since they stage and deploy what `--to`
-     now carries, the commands **feat: vc-x1 install stages, deploys, and runs builds** made.
-  7. Delete `--from` locally and remotely, once `vc-x1` owns bookmark deletion. Until then it
-     prints the two `jj` lines.
-- Interactive: with no `--title` and `--body` it opens `$EDITOR`, as `jj describe` and `git gui`
-  do, on a buffer pre-filled with the bookend's text, the title from the In Progress block's and
-  the body `Closes the cycle "<title>". Its record is the Closed block in zCLOSED.md.`, so the
-  common case is save and quit. This is the editor path `commit` left out until asked for.
-- `--dry-run` prints the seven steps with what each would do, and does nothing.
-- Not `commit -s b`: the journal of the command's own review is what the push commits as the
-  partner.
-- Wants bookmark deletion in `vc-x1` for step 7, which may land as its own cycle before this one.
-  Step 6's commands are there.
-- A single-step cycle skips steps 2 and 3: its one commit is on `main` already, titled with the
-  bare cycle title, so there is no ladder to merge and `commit --closing` refuses one, by design
-  and its test `closing_with_no_ladder_is_refused`. Its Land is the sync, the fast-forward of
-  `--to` to the commit, the push, the install, and the deletion, so the command tells the two
-  shapes apart, by the commits between `--to` and `--from`'s tip, one for a single-step cycle and
-  at least two for a ladder, its opening and a rung, and says which it ran. (wink + agent,
-  2026-10-22)
-
-##### Two commands, and their undos
-
-(wink + agent, 2026-10-21) The sequence above splits in two at the review, the names placeholders
-until the opening:
-
-- `vc-x1 close-out-commit --bookmark <x>`, `<x>` the current bookmark by default: the closing
-  merge, made locally, and reviewed like any rung's commit, by `jj show @-` or gitk.
-- `vc-x1 land-it --from <x> --to <y>`, `<x>` the current bookmark and `<y>` `main` by default:
-  what follows the go, sync, the fast-forward, the push, the install, and the bookmark's deletion.
-- So the review leaves the command. The agent's shell cannot answer a prompt, so a wait inside
-  `land` would need `--yes` on every agent run, and the editor path goes with it. The split also
-  matches v0.3.1's local commit pair before every push.
-- Bookmark deletion is a rung of this cycle, a subcommand or a flag on `move-bookmark`, rather
-  than a cycle of its own, since nothing else waits on it.
-
-Defaults invite mistakes, and the two undos differ:
-
-- **close-out-commit's undo is local and wanted now.** The closing never reaches the bookmark's
-  remote, so undoing it rewrites nothing anyone has seen. jj's own undo is one repo's operation
-  log and the command writes two, so the undo's worth is doing both sides together. The agent side
-  is uncommitted, its content moved back into `@`, never restored to an earlier operation, which
-  would roll back the session transcript and drop the lines written since. We think the operation
-  restore is safe on the work side alone.
-- **land-it is guarded rather than undone.** Its push moves `main@origin`, and undoing that is a
-  force-move of the trunk backward, so a revert commit is the undo and moving `main` back sits
-  behind an explicit flag. The deletion is undone by recreating the bookmark at the commit
-  land-it printed, and the install by reinstalling from the previous `main`, which it also prints.
-  A run stopped partway wants a resume, or an undo of the local steps not yet pushed, more than a
-  finished land wants an undo.
-- **Current** is the nearest bookmark on `@-`'s ancestry that is not the trunk. With `@` on `main`
-  and no topic bookmark it would resolve to `main`, so both commands refuse that, and land-it
-  refuses `--from` equal to `--to`.
-- **land-it lands only a close-out**: the commit it lands must be a merge whose parents are `--to`
-  and `--from`'s tip, the shape close-out-commit makes, so a cycle not closed out, or closed onto
-  the wrong trunk, is refused.
-- Both print what their defaults resolved to before acting, and `--dry-run` prints only that.
-  land-it stops before its push with the plan printed, the last point where its undo is local.
-- The lean: close-out-commit's undo in this cycle, as a flag or a sibling command. land-it's true
-  undo, after the push, waits until a real mistake asks for it.
-
-#### Deliberation
-
-- The goal, wink's (2026-10-23): no cycle step needs `jj` typed by hand for its multi-step
-  operations, each one easy to get wrong. So the cycle widened at the closing rung's review to every
-  such step the agent-files name, the cycle being where the protocol's commands are being defined.
-  - Added: reshaping a draft bookmark, the coordinated re-describe, local ladders, and setting a
-    rung's edits aside, after the closing and landing path, so that path finishes first.
-  - Cut at the closing rung's review, wink's call (2026-10-23), the ladder having grown to sixteen
-    rungs: this cycle keeps the path from opening to Land with no `jj` typed, its title's subject,
-    and the repairs and alternative paths, the closing's shape, its undo, the reshape, `reparent`,
-    the re-describe, local ladders, and the set-aside, moved with their deliberation to the Todo
-    **feat: vc-x1 repairs and reshapes without jj**.
-  - The title and the bookends keep the pushed name, the opening being published.
-- `commit` makes and checks, and its bookend flags carry the rest, wink's call (2026-10-23): the
-  closing stays `commit --closing`, not a new `close-out-commit`, since it exists, its tests exist,
-  and the flag matches the bookend's " closing", and Land is `--land` on it, not a command of its
-  own.
-- `commit --closing` handles every cycle shape, each tested, wink's call at the opening
-  (2026-10-23): no ladder, a single-step cycle; a ladder of one rung, the opening alone, which
-  [Cycle shape](AGENTS.md#cycle-shape) says still closes as a ladder; two rungs, the only size
-  tested before; and three or more.
-  - The Todo's single-step line is mistaken: a single-step cycle's one commit is on its bookmark,
-    not on `main`, since `main` advances only at Land. So the commit is made above `main`, and
-    the old `has_ladder` would have called that a ladder.
-  - Settled at the closing rung: `--closing` with the work `@-` in `::REV` makes the one commit
-    plain, under the bare cycle title, and says it is a single-step cycle's, rather than being
-    refused.
-- The shape is the branch's node count, wink's call (2026-10-23): every cycle, single-step or
-  multi-step, is on a branch, and a branch with one node above the trunk is a single-step cycle.
-  - A branch whose one node is the opening is single-step, so [Cycle shape](AGENTS.md#cycle-shape)'s
-    "a ladder that shrinks to one rung still closes as a ladder" changes: proposal material for
-    v0.3.1 beside the closing's shapes, edited at the closing rung.
-  - Refined at the closing rung's review, wink's call (2026-10-23): a single-step closing has no
-    parent, so it takes no `REV`, and a multi-step one needs a parent, so it takes one. A bare
-    `--closing` finalizes `@-` in place, which must be an opening unless `--title` is given, and
-    a rung there is refused, asking for `--closing <REV>`. `--closing <REV>` makes the closing
-    commit, `REV` any one node as its first parent, and with only the opening above `REV` it is
-    refused, pointing at the bare form, unless `--dead-end`, whose closing keeps the opening as it
-    was. The count validates what was typed rather than choosing the shape.
-  - `commit --closing` adds the cycle's last commit and is no repair tool. A parent wrong after the
-    fact is fixed on the committed node with `reparent`, its own rung.
-  - At `--land`, one node that is not a merge is a single-step cycle, fast-forwarded onto, and a tip
-    that merges `REV` and the branch is a ladder. Anything else is
-    refused, so no title is read to tell the shapes apart.
-- The opening anchors every cycle and `--closing` derives the rest from the branch, wink's call
-  (2026-10-23), superseding `--opening` with `--closing` on one commit:
-  - A single-step cycle starts as `commit --opening <BOOKMARK>`, the work squashed into it, and
-    ends as `commit --closing --land main`, with no `--title` or `--body`, since the opening
-    already carries them.
-  - The cycle title is the first node above `REV`, the opening, its " opening" stripped, so
-    `--title` and `--body` are optional at the closing.
-  - On a branch of one node `--closing` makes no new commit: it finalizes the one commit in place,
-    the bare cycle title replacing the opening's, the body kept with the record pointer added, and
-    the record moved. Its change id is kept, so the trailers hold, and a draft already pushed to the
-    bookmark is the coordinated re-describe the rules allow, done by the tool, the bookmark deleted
-    at Land anyway.
-  - On a branch of two nodes or more `--closing` makes the closing commit, titled "<cycle title>
-    closing" by default, its body the configured default, its content the record move and whatever
-    finalization `@` holds, the merge.
-- The record move is configured, since zDOING.md and zCLOSED.md are a trial and the agent-files
-  still name `TODO.md > ## In Progress`, wink's call (2026-10-23), refined from his `[closing]
-  zCLOSED-present`:
-  - `[record] doing` and `closed` name the two files. When both are set, `--closing` moves the In
-    Progress block and its references into the closed file's `## Closed`, replacing what it held,
-    and resets `## In Progress` to "_No cycle currently in progress._". When absent, nothing moves.
-  - `[closing] body` is the default closing body, its placeholders filled as the install lists'
-    are, this workspace's `Closes the cycle "{title}". See details in zCLOSED.md.`, so a project
-    without the trial sets its own text.
-  - The record's finalization, the acceptance result, the final solution, and the closing
-    subsection, stays the agent's writing, reviewed in `@` before `--closing` runs. The tool only
-    moves it.
-  - A work rung's body points at the record where it is at that commit, and the default closing
-    body says zCLOSED.md exactly when the move puts it there.
-- `--closing <REV>`, wink's call at the closing rung (2026-10-23): `commit` assumes nothing about
-  the current bookmark or branch, so the revision the closing closes onto is named, any one commit,
-  `REV` as jj calls it, a bookmark, change id, commit id, or `@` form.
-  - `commit` named `main` because the merge needs a first parent and the shape check needs
-    something to ask whether `@-` is in. Both are now `REV`, resolved once to a commit id.
-  - Weighed: a separate `--trunk`, a config key, and a default found by walking down `@-`'s single
-    parents to the nearest bookmark. The walk finds the cycle's own bookmark first, misses a target
-    that moved since the fork, cannot tell `main` from the topic bookmark on a single-step cycle's
-    one commit, and on a line with no fork runs to the root.
-  - Required, with no default. A title ending " closing" without the flag was refused when `@-`
-    sat above `main`, and with no revision to ask it is now a warning.
-- `commit --opening <BOOKMARK>`, a rung inserted at the closing rung's review and then set ahead
-  of it, wink's calls (2026-10-23):
-  - Ahead of the closing rung so a test workspace's cycle can be opened by the tool before its
-    closing is tried. The closing rung's edits, made and under review, were set aside as a jj node
-    above the opening, holding its code and README alone, while the record, the proposal, and the
-    version stayed in the working copy for this rung to carry. They return once this rung pushes.
-  - The closing's suffixes and `--opening` with `--closing` moved to the closing rung, since each
-    needs the `--closing <REV>` code.
-  - The bookmark is created at `@-` and pushed, local and remote, before the opening commit is
-    made, which stays local until its review and the next `push` publishes it. At `@-` the push
-    publishes a name for a commit already public, so nothing unreviewed goes out, which is what
-    Opening step 2 does by hand. This replaces the first call, the bookmark created on the opening
-    for the next push, since wink wants the bookmark pushed by `--opening`.
-  - The bookmark's name defaults to the bare title's slug, the rules' own name for it, wink's call
-    (2026-10-23), a rung inserted after a live test left it off.
-  - The line's bookmark advances to each work commit, locally, wink's call at the opening rung
-    (2026-10-23), the remote moving only at `push`, resolved as `push` resolves it, `--bookmark`
-    naming it and `--no-advance` leaving it.
-  - `--skip` names the step left out, settled at the opening rung: `local` skips the creation, so
-    the bookmark must be at `@-` already and is pushed, `remote` skips the push, and `both` skips
-    both and only checks it is at `@-`.
-  - The push inside `commit` is a push, so `commit --opening` takes the approval a push does.
-  - `--title` is the bare cycle title for both bookends: `--opening` appends " opening", and
-    `--closing` appends " closing" on a ladder and nothing for a single-step cycle, a title already
-    carrying the suffix refused so it is never doubled. `--dead-end` with `--closing` appends
-    " dead-end closing".
-- `commit --closing <REV> --land`, wink's call (2026-10-23): Land needs no review of its own, so
-  the closing and its Land are one invocation under the one go given at the closing's description
-  review.
-  - The per-rung flow already reviews everything the closing carries, its working-copy diff at
-    step 6 and its description at step 8, and the commit adds only the merge's parents. A conflict
-    is found by a check, not by eye.
-  - The landed tree differs from the reviewed one only when the trunk moved during the cycle, the
-    merge then bringing in commits no validation saw. Land's sync rule already stops that, and
-    `--land` enforces it before anything moves: no conflict, `REV` local equal to its remote and
-    the ladder forked from it, and `REV` a bookmark, since `--land` moves it.
-  - Then the closing, the fast-forward of `REV`, the push of the trunk with the agent journal as
-    its partner, and the topic bookmark's deletion, `--skip local|remote|both` keeping what it
-    names. Whether the install joins it is settled at the rung, the install not being a `jj` step.
-  - Set aside: a separate `land` command, and `push --land`, the agent's proposal, both of which
-    kept a review between the closing and its Land that adds nothing.
-- `commit` pushes what it commits, wink's model at the closing rung (2026-10-23): closing a cycle
-  means its local and remote topic bookmarks both end on the closing, and every commit pushed at
-  once is durable and is what the cycles have done all along, so pushing is the default, one rule.
-  - The push is today's `push -s b` run after the commit in the same invocation: the agent half
-    committed or folded as the partner, an empty one included, and the topic bookmark set and
-    pushed. With `--land` the topic push is skipped, `main` moving instead.
-  - `--no-push` keeps one commit local and `--push` forces the push, over `[commit] push`, `true`
-    or `false`, `true` when absent, so a project or a person choosing the local pause sets it
-    once. The flag, then the key, then `true`, printed as every default is.
-  - The pause v0.3.1 put between the commit and its push, a look at the commit itself, goes by
-    default, the argument `--land` accepted: the diff is reviewed at step 6 and the description at
-    step 8, and the commit adds only the trailer and a closing's parents. The per-push approval
-    moves onto the commit, the go at step 8 covering the commit and its push, steps 8 and 9 one.
-    A `--no-push` commit keeps the pause, so the rules name both, proposal material for v0.3.1's
-    per-rung flow.
-- `push <bookmark>` publishes a bookmark whose commit is committed, the working copy being the one
-  node it refuses, pointing at `commit`, wink's call (2026-10-23).
-  - A committed node is pushable whether or not jj calls it immutable, so a `--no-push` commit is
-    published later by `push`, and a pair's work half still has its agent partner completed as
-    today. The docs and errors say "committed", since jj's "immutable", a commit it refuses to
-    rewrite, is narrower.
-- `commit -s a`, wink's call (2026-10-23): the agent repo is committed alone when asked, an
-  unpaired commit with the given title and body and no trailer, `--push` publishing its `main`.
-  - The refusal it replaces guarded a paired agent commit made before its work half. An unpaired
-    one names no partner, so nothing mismatches. An agent `@` that is a pending partner keeps its
-    change id when committed, so the work commit's trailer still resolves, and a warning says the
-    back-trailer is missing.
-  - The principle, wink's (2026-10-23): do what the user asks unless it is dangerous, and warn
-    rather than refuse, so a fix-up such as a repaired change id stays inside `vc-x1`.
-- A waiver, wink's (2026-10-23): "Permission granted to complete this cycle up to but not including
-  the closing." It covers rungs `[3]` through `[7]`, their work reviews, description reviews, and
-  per-push approvals, so each rung is validated, described, committed, and pushed without a stop.
-  It does not cover the closing, `[11]`, or Land, which take their reviews and goes as usual, and the
-  live testing comes before the closing.
-- A rung inserted from the live testing, wink's call (2026-10-24): push refused a work `@` holding
-  new work, so publishing a finished rung after starting the next needed `jj` typed. Pushing
-  earlier work after starting new work is ordinary, so the refusal goes with no warning, an info
-  line saying `@` is left as it is. The waiver predates the rung and does not cover it.
-- A third rung inserted, wink's call at the closing (2026-10-24): the acceptance check names two
-  `--land` refusals no test reached, a conflicted closing and a trunk that is no local bookmark, so
-  they get their tests before the closing, which had only marked itself and bumped, both undone.
-- A second rung inserted, wink's call (2026-10-24): `prompt.txt`, a draft prompt written at the
-  workspace root during `[8]`'s review, went into `[8]`'s commit and its push. Removing it from
-  `[8]` with `vc-x1` needs `squash` to fold into a published commit, which it refused.
-  - A draft, a commit published on a topic bookmark and not in `::main@origin`, is folded into with
-    a warning, its rewrite only moving the bookmark at the next push. The trunk takes `--yes`, since
-    rewriting it changes history others have.
-  - `[9]`'s edits are set aside as a parked change, a bookmark on `@` and a fresh `@` on `[8]`, not
-    a patch, while the dev build folds the deletion into `[8]`. jj rebases the parked change onto
-    the rewritten `[8]`, and the bookmark is deleted on return, or `commit` would advance it.
-- Bookmark deletion is a rung of this cycle, not its own cycle, since `--land` and `--skip` use it.
-- The closing's shape stays the trapezoid in this cycle, `--shape` and the linear closing moving to
-  the Todo with the rest, though the v0.3.1 proposal already names them.
-- Multi-step, seven work rungs between the bookends after the cut, in the order each is used by
-  the next: the opening and its bookmark, the closing, the push, the record move, the deletion, and
-  `--land`.
+Picked from `## Todo` as **commit takes a revision, the commit its description is for** (wink +
+agent, 2026-10-25), retitled for the ladder.
 
 #### Problem
 
-A cycle's multi-step operations are typed as raw `jj` commands in order, and each is a place to
-make a mistake: the opening's `jj git push --named` creating and publishing the bookmark, the
-closing, and Land's sync, fast-forward, push, and two `jj` lines deleting the bookmark, any of them
-able to skip the sync, move the wrong bookmark, or push before the review. The goal, wink's
-(2026-10-23), is that no cycle step needs `jj` typed by hand for these operations. `commit
---closing` assumed `main`, was tested on a ladder of two rungs only, and refused a single-step
-cycle.
+`commit` describes only `@`, so a commit already made by hand, a draft below `@` with no
+description, has no path to a described, trailer-stamped rung without `jj describe` typed. And
+`--closing`'s argument is the merge's first parent while Land derives the cycle's bookmark from the
+branch's head, so a second bookmark on the branch, which a user may make freely, has Land delete
+the wrong one or refuse. Both met in the fixture `tmp/t-85-8.1-2ecac`, where line 2 of
+`single-step.txt` sits in an undescribed `@-` under a second bookmark with an empty `@` above it.
 
 #### Solution
 
-Each step from opening to Land is one `vc-x1` invocation that checks before it acts and prints what
-it resolved, so no cycle step needs `jj` typed for these operations:
+What was done, the rung subsections holding each part's design:
 
-- `commit --opening [BOOKMARK]` creates and pushes the bookmark at `@-`, named from the title by
-  default, and makes the opening, appending " opening" to the bare title. Every commit advances
-  the line's bookmark locally, `--bookmark` naming it and `--no-advance` leaving it.
-- `commit` pushes what it commits by default, `--no-push` or `[commit] push = false` keeping it
-  local, and `-s a` commits the agent repo alone. `push <bookmark>` publishes a bookmark on a
-  committed node off the line, and push publishes `@-` with new work left in `@`.
-- A bare `commit --closing` finalizes a single-step cycle's one commit in place, the bare title
-  replacing the opening's. `commit --closing <REV>` makes a multi-step cycle's closing commit, the
-  merge of `REV` and the last rung, titled " closing", or " dead-end closing" with `--dead-end`,
-  its body from `[closing] body`. With `[record]` set, the record moves from the doing file to the
-  closed file.
-- `commit --closing --land [TRUNK]` also lands it: the fast-forward of the trunk, its push with the
-  agent half as the partner, and the bookmark's deletion, every check made first, a trunk out of
-  sync or a branch not descending from it refused with nothing changed. The install stays
-  `vc-x1 install` after.
-- `vc-x1 delete-bookmark` deletes a bookmark locally and remotely, `--skip` keeping either side.
-- `squash` folds into a draft, a commit published on a topic bookmark only, naming the push that
-  moves it, and takes `--yes` for a commit on `main`'s remote.
+- `commit` takes a positional REV, the commit its description and trailer are for, `@` by default,
+  a draft below it described in place with its partner made, and one below `@-` kept local.
+- `--bookmark` takes any bookmark on the work commit's line, so the cycle's bookmark follows a rung
+  past a user's own sitting nearer.
+- `--closing <BM|REV>` is required and names the tip, onto the trunk from `--land` or the new key
+  `[cycle] trunk`, `main` when absent. One commit above the trunk is finalized in place and more
+  get the closing merge, so the bare form went. A tip that is not `@-` is closed by a detour, and
+  an empty `@` is never refused at a closing.
+- The closing's bookmark is decided once by the argument's type, a bookmark named or a revision's
+  current or nearest parent bookmark, several refused with the list. The closing's advance and the
+  Land's deletion both use it, the branch's other bookmarks are named as merged, and a closing with
+  none is kept local unless it lands.
+- The v0.3.1 proposal names the new surface and holds the material the last cycle left for it.
 
 #### Acceptance check
 
-`cargo test` passes with tests for:
+In the fixture `tmp/t-85-8.1-2ecac`, with the dev build, three lines land the work as it stands:
 
-- `commit --opening` creating and pushing the bookmark, each `--skip`, the title suffix, the
-  bookmark named from the title, and the line's bookmark advancing.
-- `commit --closing` finalizing a single-step cycle's commit in place, making the closing commit on
-  ladders of two and three, refusing a `REV` with only the opening above it and a bare form on a
-  rung, the title and body derived, and the record moved with `[record]` set and left without.
-- `commit` pushing by default, `--no-push` and `[commit] push` keeping it local, `-s a` committing
-  the agent repo alone, and `push <bookmark>` publishing a committed node and refusing the working
-  copy.
-- Bookmark deletion locally and remotely, and `--land` landing a single-step cycle and a ladder on
-  fixtures and refusing a moved trunk, a conflict, and a revision that is not a bookmark.
+```
+vc-x1-dev commit @- -s b --title "feat: add line-2" --body "Added line 2 to single-step.txt" --bookmark feat-vc-x1-single-step-commit
+vc-x1-dev commit -s b --closing @- --land main
+vc-x1-dev delete-bookmark -s w --bookmark single-step.txt-line-2 --skip remote
+```
 
-This cycle's own Land is run by the dev build's `commit --closing main --land`, its report showing
-`main` and `main@origin` at the closing and the bookmark gone locally and remotely, and the
-installed `vc-x1 -V` a bare 0.85.8.
+The second line lists both bookmarks at the tip and is rerun naming `feat-vc-x1-single-step-commit`,
+which Land then deletes, naming the other as merged. Afterwards `main` is at the closing in both
+repos and on origin, the rung carries its title and an `ochid:` trailer whose partner
+`vc-x1 show -s both` resolves, both bookmarks are gone, and `cargo test` passes with a test per
+rule.
+
+Result (2026-10-25): passed in its replica, not yet run live.
+
+- The test **the_fixture_lands_by_three_lines** runs the three lines on the fixture's shape with
+  local remotes and asserts the end state, the revision form of the second line refused naming both
+  bookmarks. `cargo test` passes, a test for each rule of the five feature rungs.
+- The live fixture's first line was dry-run, the describe, the trailers, and the advance planned as
+  in the test. The live run lands the fixture's `main` on GitHub, outside the waiver, and is
+  wink's, its commands in the continuation notes.
+
+#### Deliberation
+
+- Runs under the v0.3.1 proposal's rules, wink's call (2026-10-25), the bend recorded here, Land
+  inside it: `commit -s b --opening` makes the bookmark and the opening in one invocation and
+  pushes after the description review, no rename to `-dev`, the closing by `commit --closing`.
+  - The proposal's own text still names `commit --closing <REV>` and the bare form, which this
+    cycle replaces, so the docs rung brings it to the new surface.
+- The reviews and the per-push approvals are waived from **feat: commit --closing takes a bookmark
+  or a revision** through the closing commit, wink's call (2026-10-25): "Permission granted to
+  complete this cycle upto closing but not to land on main". Land is outside it and waits for
+  wink's go, as does the choice of the closing's shape.
+- REV is the commit the description is for, `@` by default, so today's behavior is the default
+  and `@-` the one revision anyone will type for a draft made by hand.
+  - It is unpublished, no remote bookmark reaches it, and carries no trailer yet, so the describe
+    is a draft's rewrite and never a re-describe. A non-empty `@` above it is left as `push`
+    leaves new work.
+  - One commit only. Several drafts collapsing into one rung is **feat: vc-x1 runs a local
+    ladder**.
+- `--closing` takes a bookmark or a revision, required with no default, both resolving to the
+  tip as jj resolves them, a name that is both being the bookmark, and one node above the trunk
+  finalized in place while more make the merge, so the bare form and the REV form become one.
+  - The type decides what Land deletes: a bookmark given goes; a revision given means the current
+    bookmark on it or else the nearest parent above the trunk, several at one height an error
+    listing them, none meaning nothing deleted and said so. The bookmark form is the revision
+    form's disambiguator, since it names the same commit.
+  - Any commit on any line closes, bushy or linear, wink's call (2026-10-25): the closing is a new
+    commit with the trunk and the tip as parents, made where the tip is, and `@` takes part only
+    when `@-` is the tip, folding in with the new `@` set on the closing. Commits above a tip
+    that is not `@-` stay as they are, their line unclosed. Two heads close one at a time, each
+    landed before the next, since the second's first parent is the trunk as it then stands.
+  - Without `--land` the first parent is the configured trunk, we think `[cycle] trunk`, `main`
+    when absent, and nothing lands.
+  - The closing's content is the record move when `[record]` is configured, plus `@`'s edits
+    when `@-` is the tip. Today an empty `@` is refused as "nothing to commit" without a record.
+- The cycle's bookmark is never derived from the branch: `--closing` names it or the nearest rule
+  finds it, `--bookmark` moves it past a nearer one of the user's, and Land names the branch's
+  other bookmarks as merged, theirs to keep or delete. **push takes a revision, and the remote's
+  name for it** wants the same `--bookmark` widening.
+- Four feature rungs in dependency order, REV first since the closing's tip resolution builds on
+  it, the fixture test last since it needs them all, then the docs rung, which also carries the
+  v0.3.1 material the last cycle's continuation notes held: the per-rung flow's steps 8 and 9
+  merged now that `commit` pushes, Opening step 2 replaced by `commit --opening`, and wink's
+  principle "warn rather than refuse", asked and unanswered, possibly for `agent-data/code.md`.
+- The fixture is the acceptance target, so the last cycle's note to remove it is superseded until
+  this cycle lands. After Land the fixture, its GitHub agent repo
+  `winksaville/t-85-8.1-2ecac.agent-session`, the failed `tmp/t-85-8.1+2ecac`, and
+  `tmp/prompt.txt` are wink's to remove.
+- Grown at the rungs, each within the subject: the key `[cycle] trunk`, since the trunk could no
+  longer be `--closing`'s argument; the detour, since a tip off `@-` had no working copy to close
+  from; and the closing's bookmark decided once, since the advance at a closing merge refused the
+  same two bookmarks the Land did.
+- The opening's sync reproduced the last cycle's finding, "1 repo is up to date" with the work `@`
+  dirty, filed as the Todo **sync says one repo when the work @ is dirty**. The Waiting entries'
+  conditions were checked and neither is met.
 
 #### Ladder
 
-- [feat: vc-x1 closing and land opening][0] (done)
-- [feat: commit --opening makes the opening and its bookmark][1] (done)
-- [feat: commit --opening names the bookmark from the title][2] (done)
-- [feat: commit --closing closes every cycle shape][3] (done)
-- [feat: commit pushes what it commits][4] (done)
-- [feat: commit --closing moves the record][5] (done)
-- [feat: vc-x1 deletes a bookmark][6] (done)
-- [feat: commit --closing --land lands the cycle][7] (done)
-- [feat: push publishes the commit below new work][8] (done)
-- [feat: squash folds into a draft commit][9] (done)
-- [test: commit --land tests its conflict and bookmark refusals][10] (done)
-- [feat: vc-x1 closing and land closing][11] (done)
+- [feat: vc-x1 commit takes a revision opening][0] (done)
+- [feat: commit describes the commit REV names][1] (done)
+- [feat: commit --bookmark takes any bookmark below REV][2] (done)
+- [feat: commit --closing takes a bookmark or a revision][3] (done)
+- [feat: commit --land deletes by the argument's type][4] (done)
+- [test: the fixture lands by three lines][5] (done)
+- [docs: the v0.3.1 proposal names commit's new surface][6] (done)
+- [feat: vc-x1 commit takes a revision closing][7] (done)
 
-##### feat: vc-x1 closing and land opening
+##### feat: vc-x1 commit takes a revision opening
 
 The cycle's setup commit: create and publish the bookmark, move the Todo entry into this block,
-and bump the version-of-record.
+reset and file the continuation notes, and bump the version-of-record.
 
-##### feat: commit --opening makes the opening and its bookmark
+##### feat: commit describes the commit REV names
 
-A cycle's opening is a commit titled by hand with " opening" and a bookmark created and published
-by a separate `jj git push --named`, so `commit --opening <BOOKMARK>` creates and pushes the
-bookmark at `@-`, `--skip` keeping it local or taking an existing one, and makes the opening,
-appending " opening" to the bare cycle title.
+`commit` commits `@` and nothing else, so a draft below it stays undescribed. A positional REV,
+`@` by default, names the commit that takes the description and the trailer, described in place
+with no new commit when it is not `@`, its guards the draft's: unpublished and trailer-less.
 
-* The bookmark and the opening are made in one invocation, in an order that never publishes what
-  was not reviewed.
-  - Every check runs before the commit: a bookmark to create must not exist, one taken by `--skip`
-    must be at the work `@-`, a push must not move a bookmark published elsewhere, and `@-` must
-    already be on a remote, so the push publishes a name and nothing new.
-  - The bookmark is created and pushed after the commit, both halves of a `-s b` pair, so a failed
-    commit leaves no bookmark. A failed push leaves the opening and the local bookmark, and the
-    error says the push after the review publishes both.
-* `--skip` names the step it leaves out, a closed set, `local`, `remote`, or `both`, and needs
-  `--opening`.
-  - `local` pushes a bookmark already at `@-`, `remote` creates one and pushes nothing, for a line
-    not ready to be seen, and `both` only checks it.
-* The title is the bare cycle title, and " opening" is appended, a title carrying it already
-  refused, so a bookend's suffix is never typed by hand.
-  - `--opening` and today's `--closing` exclude each other until the closing rung makes the two
-    together a single-step cycle's one commit.
-* After `--opening` the bookmark sat at the start, not on the opening, found when wink first ran
-  it (2026-10-23), so every commit now advances the line's bookmark to the work commit, locally.
-  - jj moves a bookmark with its commit through a squash or amend, so the advance holds through the
-    review's fixes. Local moves with each commit and the remote only at `push`, the approved step,
-    the split git has.
-  - The bookmark is resolved as `push` resolves it, the nearest below the work `@-`, so the two
-    never disagree, or named by `--bookmark`, or `--opening`'s. None or several is refused before
-    anything is made, since `commit` assumes nothing about the branch. `--no-advance` leaves it.
-  - The opening's bookmark is created and pushed at the start, then advanced, so the push still
-    publishes only a commit already public.
-* vc-x1's in-process revsets counted a colocated repo's `@git` refs as remote bookmarks, which the
-  jj CLI leaves out, so a bookmark moved only locally made its commit read as published, and
-  `squash` and `push`'s restamp refused it. Found by the advance, the first local-only move.
-  - The revset parse now ignores the `git` remote as the CLI's does, which also keeps the opening's
-    check that `@-` is public from passing a commit only exported to git.
-* `commit` and `squash` pointed the review at `jj show @-`, raw `jj` in the step the cycle means to
-  rid of it, found when wink first ran `--opening` (2026-10-23).
-  - They print `vc-x1 show -s both @- -R <work>` for a pair, and `-s work` for a work half, whose
-    agent half push commits later, so `-s both` would show the agent's previous commit.
+* The draft's describe rewrites a commit that exists, where today's commit makes one.
+  - REV is resolved once, `@` and no REV being today's path, and refused before anything is made:
+    a revset naming other than one commit, a published commit, whose describe would be a remote
+    rewrite, one carrying a trailer already, which is a pair's commit and `squash --title --body`
+    re-describes, a conflicted one, and an empty one, since a rung changes the repo.
+  - The work side is a describe in place, jj rebasing the descendants so `@` follows with its
+    change id and its work, and the agent side is the partner commit as for `@`, its trailer naming
+    the draft's change id, which the describe keeps.
+  - `-s p` takes the same path with no trailer. `-s a` refuses REV, the agent repo alone having no
+    work commit, and so do `--opening` and `--closing`, whose commits are made from `@`.
+* The bookmark advance and the push assume the work commit is `@-`.
+  - The line's bookmark is resolved at or below the draft rather than below `@-`, a bookmark on
+    the draft being the line's, and the advance targets the draft's change id.
+  - A draft at `@-` pushes as today. One below `@-` is committed and kept local with a line saying
+    so, warned rather than refused, since push publishes `@-` and takes no revision until **push
+    takes a revision, and the remote's name for it**.
+* Deferred: a `--bookmark` that is not the nearest is still refused, the next rung's subject, so
+  the fixture's cycle bookmark cannot yet move past the user's.
 
-##### feat: commit --opening names the bookmark from the title
+##### feat: commit --bookmark takes any bookmark below REV
 
-`--opening` takes the bookmark's name as a value, though the rules name it by the cycle title's
-slug, so the value becomes optional and a bookmark left unnamed is the slug of the bare `--title`.
+`--bookmark` must name the nearest bookmark below the work commit, so the cycle's bookmark cannot
+follow a rung past a user's own sitting nearer. Any bookmark below REV is accepted and advanced.
 
-* The bookmark's name was typed a second time, though the title determines it, found when wink
-  left it off in a live test (2026-10-23).
-  - `--opening [BOOKMARK]` takes the name or none, and none is the bare title's slug by
-    `validate_anchors::anchor_slug`, the algorithm [Cycle
-    bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land) names, printed since it is a
-    default. A `--title` right after `--opening` is the next flag, not its value.
-  - A title with nothing to slug is refused, asking for the name.
+* The check was "among the nearest", push's own rule for the bookmark it publishes.
+  - The named bookmark must be on the work commit's line, at or below `@-` for a commit of `@` and
+    at or below the draft for a REV, and a bookmark off the line is refused naming the line's own,
+    so a typo cannot move a branch elsewhere.
+  - Push's check still holds afterwards, since the advance puts the named bookmark on the work
+    commit, where it is the nearest by construction.
+  - The default, the line's bookmark, is still the nearest alone, several refused, since a default
+    that guessed among several would move the wrong one.
+* `main` and `root()` are on every line, so they are nameable, as `main` was when nearest.
 
-##### feat: commit --closing closes every cycle shape
+##### feat: commit --closing takes a bookmark or a revision
 
-`commit --closing` assumed `main`, was tested on a ladder of two rungs only, and refused a
-single-step cycle, so it takes the revision it closes onto, tells the shapes apart by the branch's
-commit count, and reads the title and body from the opening and the config.
+`--closing REV` names the merge's first parent and the bare form a single-step opening at `@-`,
+two forms for one act. `--closing <BM|REV>`, required, names the tip, one node above the trunk
+finalized in place and more merged, the closing made where the tip is, `@` folding in only when
+`@-` is the tip, and an empty `@` never refused.
 
-* `commit` named `main` as the closing's first parent and asked whether `@-` was in it, so it
-  assumed the branch a cycle closes onto.
-  - `--closing <REV>` names it, any one commit, resolved once to a commit id before anything moves
-    and refused when it names none or several. A bookmark is read where it is now, so a target that
-    moved during the cycle is still joined by the merge.
-* The shape is what was typed, a single-step closing naming no parent and a multi-step one naming
-  its `REV`, the count of commits in `REV..@-` checking it, wink's call at the rung's review.
-  - A bare `--closing` is a single-step cycle: `@-`, which must be an opening unless `--title` is
-    given, is finalized in place, no new commit. The work `@` is
-    folded into it and it is re-described under the bare cycle title, its body and `ochid:`
-    trailer kept, so its change id and partner stand. The agent `@` is left for push, since the
-    commit's partner is the opening's, and the line's bookmark follows the rewrite.
-  - `--closing <REV>` is a multi-step cycle's closing commit, the merge of `REV` and the last rung,
-    the line's bookmark advanced to it as with any commit.
-  - `--closing <REV>` with none above it is refused, a cycle starting with `--opening`, and with the
-    opening alone, pointing at the bare form. `--dead-end` makes a closing commit even then, since a
-    dead end keeps the opening as it was, and so needs a `REV`.
-* A bookend's title was typed by hand, its suffix included.
-  - `--title` and `--body` are optional with `--closing`. The cycle title is read from the
-    opening, the branch's one first commit, " opening" removed, refused with "pass --title" when
-    there is no such commit or it is not an opening. A given title is the bare cycle title, and one
-    carrying " opening" or " closing" already is refused, for `--opening` too.
-  - " closing" is appended for the closing commit, " dead-end closing" with `--dead-end`.
-  - The closing commit's body defaults to `[closing] body`, a new key, its `{title}` the cycle
-    title, this workspace's `Closes the cycle "{title}". See details in zCLOSED.md.`, and with
-    neither `--body` is required. A finalized commit keeps the opening's body unless one is given.
-  - Without `--closing` a title ending " closing" is warned about, never refused, a title like
-    "fix: the door stops closing" being just a title.
-* The v0.3.1 proposal gains **A cycle's shape is its branch's commit count**, retiring Cycle
-  shape's "a ladder that shrinks to one rung still closes as a ladder".
-* The record move, `[record] doing` and `closed`, split out at this rung into the next, so the
-  shapes could be tried on a live repo sooner, wink's leave (2026-10-23).
-* The set-aside node's code was restacked onto the slug rung, its `commit.rs` taken from the slug
-  rung and the closing re-applied on top, since most of it was superseded by the commit count.
+* The argument meant the trunk, and the tip was always `@-`.
+  - It names the tip now, resolved to one commit, and the trunk is `--land`'s bookmark, else the
+    new key `[cycle] trunk`, else `main`, read where it is now, so a moved trunk is still joined.
+  - The commits between decide the shape, one finalized in place and more merged, so the bare form
+    and the old "only the opening above REV" refusal go, and `--dead-end` with no REV goes with
+    them, since the argument is now always there.
+* The closing was made from `@`, so only `@-` could be a tip.
+  - A tip that is not `@-` is closed by a detour: `@` moves onto it, the closing is made as for
+    `@-`, and `@` returns, to the same commit when it held work and to a fresh empty one on its
+    parent when it did not, both by change id, since a finalize rewrites the tip and gives the
+    commits above it new commit ids. The move is undone with the rest on a failure.
+  - The closing reads the config and the record from the tip's tree, since its working copy is the
+    tip's, so a config edit sitting in the user's `@` is not seen. We think that is right, the
+    closing carrying what the cycle carried.
+  - Commits above a tip that is not `@-` stay as they are, their line unclosed.
+* An empty `@` was refused at a closing merge with no `[record]`, though the merge is its content.
+  - A closing is never refused for an empty `@`.
+* Land reads the branch up to the tip rather than `@-`: the descent check and the bookmark it
+  deletes, still the nearest below the tip, which the next rung replaces with the argument's type.
 
-##### feat: commit pushes what it commits
+##### feat: commit --land deletes by the argument's type
 
-A commit is published by a second command after it, though every rung and closing has been pushed
-as soon as it was made, so `commit` pushes what it committed in the same invocation by default,
-`--no-push` or `[commit] push = false` keeping it local, `push <bookmark>` publishes a bookmark on
-a committed node, and `-s a` commits the agent repo alone.
+Land deletes the bookmark at the branch's head and refuses two there, so a user's bookmark is
+deleted in the cycle's place or stops the Land. `--land <TRUNK>` is the destination, any bookmark,
+and the deletion follows `--closing`'s argument: a bookmark given, or the current or nearest
+parent bookmark of a revision given, several listed, none said, the branch's others named as
+merged.
 
-* A commit was published by a second command after it.
-  - `commit` runs `push` after the commit in the same invocation, `-s b` for a pair whatever the
-    commit's scope, so a `-s w` commit's agent half is completed as its partner, `-s p` for a plain
-    repo, and the bookmark advanced is the one pushed, or the line's when none was. A dry run shows
-    the push's dry run too.
-  - `--no-push` keeps one commit local, `--push` pushes over `[commit] push = false`, a new key,
-    true when absent, the flag, then the key, then true. A `--no-advance` commit pushes only with
-    `--push`, since a push would move the bookmark it left.
-  - A single-step finalize pushes too, the bookmark following the rewrite.
-* `commit -s a` was refused.
-  - It commits the agent `@` alone with the title and body and no trailer, and when it pushes, sets
-    the agent `main` to it and publishes it. A pending partner is committed with a warning, its
-    change id kept so the work commit's trailer still resolves. A bookend is refused there, being
-    the work repo's.
-* `push <bookmark>` refused a bookmark off the line.
-  - A named bookmark off the work `@-`'s line, on a commit already made, is published where it is,
-    a name and no pair. One on the working copy is refused, pointing at `commit`, and one on the
-    root has nothing to publish. A bookmark on the line goes the pair's way, as before.
-* The tests' `args` helper passes `--no-push`, so a test sees the commit and pushes only when it
-  asks, and the hand-built params carry `push: Some(false)`.
+* One pick serves two acts, the closing's advance and the Land's deletion.
+  - The advance at a closing merge took the line's nearest bookmark by the rule every rung uses,
+    which refuses two at the tip before Land is reached, so the closing's bookmark is decided once,
+    by the argument's type, and both use it: the bookmark advances to the closing and Land deletes
+    it.
+  - A bookmark named is the one, the trunk excepted. A revision means the bookmarks at the nearest
+    commits carrying any, in the range above the trunk, so a bookmark sitting on the trunk's commit
+    is never taken, several refused with the list, since naming one settles it.
+* A closing with no bookmark had its push publish it on the line's nearest, the trunk, a Land
+  nobody asked for.
+  - It is kept local with a line saying so, a warning and not a refusal, `--land` landing it.
+* The branch's other bookmarks are left where they are and named after the Land as merged, so a
+  user's own bookmark is never deleted unless named.
+* `--land <TRUNK>` as the destination, any bookmark, came with the previous rung, which made the
+  trunk the closing's first parent.
 
-##### feat: commit --closing moves the record
+##### test: the fixture lands by three lines
 
-A closing's record is moved from `zDOING.md` into `zCLOSED.md` by hand, so `--closing` moves the In
-Progress block and its references into the closed file's `## Closed` and resets `## In Progress`,
-when `[record] doing` and `closed` name the two files, and a finalized commit's body gains the
-pointer.
+The acceptance check run: the fixture's rung described, its cycle closed and landed, and the
+second bookmark deleted, by the three lines and nothing typed in `jj`.
 
-* A closing's record was moved from the doing file into the closed file by hand.
-  - `[record] doing` and `closed`, two new keys, name the files, and with both set `--closing`
-    moves the doing file's `## In Progress` block and its `# References` into the closed file,
-    replacing its `## Closed` block and references, and resets `## In Progress` to "_No cycle
-    currently in progress._", the references gone. This workspace sets `zDOING.md` and
-    `zCLOSED.md`.
-  - The move is planned, both files read and the new text made, before anything is made, so a
-    refusal, nothing in progress or a missing heading, leaves both files as they were. It is
-    written into the working copy just before the commit, so the commit carries it, the closing
-    commit and a finalized one alike, and a dry run says what would move.
-  - A finalized commit keeping the opening's body gains "See details in <closed>." when the body
-    does not say it already. A closing commit's body is `--body` or `[closing] body`.
-  - A closing whose only change is the record move is not refused as empty, the move being its
-    change.
-  - The move is text, `moved_record`, tested on its own, and the closing's file copies at `@-`
-    tested in both shapes.
+* The live fixture's remotes are on GitHub, and its second line lands its `main`, which the waiver
+  of the reviews and pushes leaves out, "not to land on main", so the live run waits for wink.
+  - The fixture's shape is replayed in a test with local remotes: an opening on the cycle's
+    bookmark, a draft made by hand above it under a second, never-pushed bookmark, and an empty
+    `@`. The three lines run as the acceptance check writes them, the revision form of the second
+    refused naming both bookmarks and rerun with the cycle's, and the end state is asserted: `main`
+    at the closing in both repos and on origin, the draft described with a trailer whose partner
+    names it back, and `main` the only bookmark left.
+  - The live fixture's first line was run with `--dry-run`, which writes nothing: the describe, the
+    pair's trailers, and the advance past the user's bookmark were planned as in the test.
+* The dry run's push line reports the bookmark where it is, at the opening, since a dry run moves
+  nothing, where the real run advances it first: a report that disagrees with the run, filed as the
+  Todo **commit's dry run reports the push as the advance leaves it**.
 
-##### feat: vc-x1 deletes a bookmark
+##### docs: the v0.3.1 proposal names commit's new surface
 
-Deleting a cycle's bookmark is two `jj` lines, so `vc-x1` deletes one locally and remotely,
-`--skip` keeping either side, a subcommand or a `move-bookmark` flag settled at the rung.
+The proposal names `commit --closing <REV>` and a bare form this cycle retires, and the last
+cycle's continuation notes held material for it never written in: steps 8 and 9 merged, Opening
+step 2 as `commit --opening`, and "warn rather than refuse". The entry is brought to the surface
+that exists.
 
-* Deleting a cycle's bookmark was `jj bookmark delete` and a `jj git push`.
-  - `vc-x1 delete-bookmark --bookmark NAME`, a subcommand of its own rather than a `move-bookmark`
-    flag, since a deletion has no target, with `-s w|a|b|p` as `move-bookmark` takes them.
-  - The remote goes first, a push of the bookmark's absence with a lease, then the local, so a
-    failed push leaves the local bookmark, and a side already gone is no error, so a rerun finishes
-    the job. `--skip local` keeps the local and `--skip remote` the remote.
-  - The commits stay, jj keeping a commit visible after its bookmark goes, and the commit it was at
-    is printed, so the undo is recreating it there.
-  - Two jj-lib session operations do it, `bookmark_delete` and `git_push_delete_bookmark`, which
-    `--land` calls.
+* The proposal described the closing by its old argument, the trunk, and its bare form.
+  - Its closing sections now name the tip, `--closing <BM|REV>`, onto the trunk from `--land` or
+    `[cycle] trunk`, with no bare form, and Land as the closing's `--land` and its bookmark rule.
+  - Any commit on any line closes, by the detour, a bullet of the commit-count section.
+* The last cycle's continuation notes held three items never written in.
+  - Steps 8 and 9 merge, `commit` pushing on the description review's go, `--no-push` keeping the
+    look at the commit before a separate push.
+  - Opening step 2 is `commit --opening`'s, named in the commit-count section.
+  - "Warn rather than refuse" is a section of its own, marked open, asked and unanswered, with the
+    uses this cycle made of it, so the answer has its examples beside it.
+* `commit REV` for a draft made by hand joins the local-pair section, the sanctioned path where the
+  rules would otherwise send an agent to `jj describe`.
+* The two-paragraph body's pointer names the record where it is at that commit, zDOING.md on a
+  rung and zCLOSED.md on the closing, written mid-cycle and set aside as a patch until this rung.
 
-##### feat: commit --closing --land lands the cycle
-
-Land is typed by hand after the closing, so `--land` makes the closing and lands it in one
-invocation: it refuses a moved trunk, a conflict, or a revision that is not a bookmark, then
-fast-forwards `REV`, pushes it with the agent journal as its partner, and deletes the topic
-bookmark, for both cycle shapes, told apart by the branch's node count.
-
-* Land was the sync, the fast-forward, the push, and the deletion typed after the closing.
-  - `--land [TRUNK]`, with `--closing`, lands in the same invocation: the closing made, the trunk
-    fast-forwarded to it and pushed by `push -s b <trunk>`, the agent half its partner, and the
-    cycle's bookmark deleted by `delete-bookmark`'s code, `--skip local|remote|both` keeping what it
-    names. The trunk is `--land`'s value, or the closing's `REV` when that is a bookmark.
-  - Every check runs before anything is made: the trunk a local bookmark at its `origin`
-    position, the sync's test, the closing merging onto it, and the branch descending from it, so
-    the tree landed is the reviewed one. The cycle's bookmark is the one nearest below `@-` other
-    than the trunk, several refused.
-  - A conflicted closing is made and not landed, the error naming the commands that land it after
-    a resolve. The closing's own push to the cycle's bookmark is skipped, that bookmark being
-    deleted.
-  - The install is not joined, being no `jj` step, and stays `vc-x1 install` after, which the
-    message says. `--skip` now takes `--opening` or `--land`, checked when the params are made.
-
-##### feat: push publishes the commit below new work
-
-Push refused a work `@` holding anything, so a finished rung could not be published once the next
-was started, `jj` typed around it. Push publishes `@-`, so new work in `@` is left as it is.
-
-* The refusal guarded the time push committed `@`, which `commit` now does.
-  - `push -s b|w` and `push -s p` say `@` holds new work, left as it is, and publish `@-`, no
-    warning, pushing earlier work after starting new work being ordinary.
-  - The completion check asks for an empty work `@` only when it was empty as the run began.
-  - A restamp of `@-` rebases `@` above it, which keeps its change and its work, tested.
-
-##### feat: squash folds into a draft commit
-
-`squash` refused any published side, so a fix to a rung already pushed on the cycle's bookmark
-needed `jj` typed, though the cycle is still a draft until Land. `squash` now tells a draft from the
-trunk: a draft is folded into with a warning, and a commit on the trunk's remote takes `--yes`.
-
-* A published commit is a draft or history others have, and the refusal treated both as the second.
-  - A draft, published on a topic bookmark and not in `::main@origin`, is rewritten with a warning,
-    the change id and trailer kept, so the next push only moves the bookmark.
-  - The warning comes after the rewrite and names what a push moves, wink's call at the review:
-    each remote bookmark at or above `@-`, from the commit published to the rewrite's, and the
-    push as pushing that bookmark, since the next push from elsewhere publishes another.
-  - A commit on `main`'s remote is refused, naming `--yes`, which rewrites it with a warning.
-  - The same check covers a re-describe and `-s p`.
-* The agent's partner is on agent `main` once pushed, so the trunk check would refuse every agent
-  fold after a push.
-  - A published partner with only the journal to fold is left for push, whose agent half folds it,
-    so `-s b` after a push folds the work side and leaves the agent side.
-* `push -s b @-`, tried in the live testing, said bookmark '@-' does not exist, true and no help.
-  - A name that is no bookmark but a revision is refused, saying push publishes `@-` on the
-    bookmark it sits on, found when none is named. A revision as push's positional is the Todo
-    **push takes a revision, and the remote's name for it**, and paths for `squash` the Todo
-    **squash takes paths**.
-
-##### test: commit --land tests its conflict and bookmark refusals
-
-The acceptance check names `--land` refusing a conflict and a revision that is not a bookmark, and
-no test reached either, so each gets one.
-
-* The trunk `--land` moves must be a local bookmark.
-  - A bare `--land` on a closing `REV` that is no bookmark is told to name the trunk, and a `--land`
-    naming no local bookmark is refused, each before anything is made.
-* The conflicted-closing refusal is defensive: `commit` refuses a conflicted repo up front, and a
-  closing onto a trunk the branch descends from takes the tip's tree, so it cannot conflict.
-  - Its test calls the Land step directly on a conflicted `@-` made by hand: the trunk stays, nothing
-    is pushed, and the error names the commands that land it after a resolve.
-
-##### feat: vc-x1 closing and land closing
+##### feat: vc-x1 commit takes a revision closing
 
 Closing out the cycle.
 
-* Acceptance check: pass. `vc-x1 validate` passes, `cargo test` with every case the check names
-  tested, the two `--land` refusals no test reached until `[10]` added them. The Land half, `main`
-  and `main@origin` at the closing, the bookmark gone, and `vc-x1 -V` a bare 0.85.8, is checked as
-  the Land runs.
-* The record is finalized in place: the Solution states what was done, and `commit --closing` moves
-  the block to `zCLOSED.md` as it makes the closing, `[record]` being set.
-* No agent-file changed, so `notes/agent-files-size.md` gets no row.
-* Close-out shape: the trapezoid, decided at the cut, the closing merging `main` and `[10]`, made
-  and landed by the dev build's `commit -s b --closing main --land`.
+* A closing made without `--land` has no one-command Land: `commit --land` lands only the closing
+  it makes, so the Land of this cycle, its closing pushed under the waiver, is four commands typed,
+  in the continuation notes.
+  - Filed as the Todo **commit --land lands a closing already made**.
+* The shape is the trapezoid, the only one `commit --closing` makes until **feat: commit --closing
+  takes a shape, from the flag or the config**, and the choice is wink's before Land, the waiver
+  leaving it out.
+* Nothing beyond the README's `commit` section must outlive the cycle: the rules of REV, the tip,
+  the trunk, and the closing's bookmark are written there.
+* No agent-file changed, so `notes/agent-files-size.md` gains no row.
 
 # References
 
-[0]: #feat-vc-x1-closing-and-land-opening
-[1]: #feat-commit---opening-makes-the-opening-and-its-bookmark
-[2]: #feat-commit---opening-names-the-bookmark-from-the-title
-[3]: #feat-commit---closing-closes-every-cycle-shape
-[4]: #feat-commit-pushes-what-it-commits
-[5]: #feat-commit---closing-moves-the-record
-[6]: #feat-vc-x1-deletes-a-bookmark
-[7]: #feat-commit---closing---land-lands-the-cycle
-[8]: #feat-push-publishes-the-commit-below-new-work
-[9]: #feat-squash-folds-into-a-draft-commit
-[10]: #test-commit---land-tests-its-conflict-and-bookmark-refusals
-[11]: #feat-vc-x1-closing-and-land-closing
+[0]: #feat-vc-x1-commit-takes-a-revision-opening
+[1]: #feat-commit-describes-the-commit-rev-names
+[2]: #feat-commit---bookmark-takes-any-bookmark-below-rev
+[3]: #feat-commit---closing-takes-a-bookmark-or-a-revision
+[4]: #feat-commit---land-deletes-by-the-arguments-type
+[5]: #test-the-fixture-lands-by-three-lines
+[6]: #docs-the-v031-proposal-names-commits-new-surface
+[7]: #feat-vc-x1-commit-takes-a-revision-closing
