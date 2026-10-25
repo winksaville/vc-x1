@@ -649,6 +649,21 @@ used-by = "vc-x1 commit --closing"
 example = "Closes the cycle {title}. See details in zCLOSED.md."
 ```
 
+## cycle.trunk
+
+The bookmark a cycle's closing merges onto and `--land` lands on when `--land` names none: the
+closing commit's first parent, read where the bookmark is now. `main` when absent, the trunk of
+every workspace so far. Owned by the work side because the cycle's commits are the work repo's.
+
+```toml
+[cycle.trunk]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The trunk a closing merges onto and a bare `--land` lands on"
+used-by = "vc-x1 commit --closing / --land"
+default = "main"
+```
+
 ## test.fixtures
 
 The directory holding the acceptance-test fixtures, pre-created workspaces with documented

@@ -148,9 +148,16 @@ The `[closing]` table
 body = "Closes the cycle {title}. See details in zCLOSED.md."
 ```
 
+The `[cycle]` table
+- trunk: The trunk a closing merges onto and a bare `--land` lands on [[30]]
+```toml
+[cycle]
+trunk = "main"
+```
+
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[30]]
+  test` [[31]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -187,4 +194,5 @@ fixtures = ".fixtures"
 [27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
 [28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
 [29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
+[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

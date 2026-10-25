@@ -63,6 +63,10 @@ rule.
   pushes after the description review, no rename to `-dev`, the closing by `commit --closing`.
   - The proposal's own text still names `commit --closing <REV>` and the bare form, which this
     cycle replaces, so the docs rung brings it to the new surface.
+- The reviews and the per-push approvals are waived from **feat: commit --closing takes a bookmark
+  or a revision** through the closing commit, wink's call (2026-10-25): "Permission granted to
+  complete this cycle upto closing but not to land on main". Land is outside it and waits for
+  wink's go, as does the choice of the closing's shape.
 - REV is the commit the description is for, `@` by default, so today's behavior is the default
   and `@-` the one revision anyone will type for a draft made by hand.
   - It is unpublished, no remote bookmark reaches it, and carries no trailer yet, so the describe
@@ -108,7 +112,7 @@ rule.
 - [feat: vc-x1 commit takes a revision opening][0] (done)
 - [feat: commit describes the commit REV names][1] (done)
 - [feat: commit --bookmark takes any bookmark below REV][2] (done)
-- [feat: commit --closing takes a bookmark or a revision][3]
+- [feat: commit --closing takes a bookmark or a revision][3] (done)
 - [feat: commit --land deletes by the argument's type][4]
 - [test: the fixture lands by three lines][5]
 - [docs: the v0.3.1 proposal names commit's new surface][6]
@@ -165,6 +169,26 @@ follow a rung past a user's own sitting nearer. Any bookmark below REV is accept
 two forms for one act. `--closing <BM|REV>`, required, names the tip, one node above the trunk
 finalized in place and more merged, the closing made where the tip is, `@` folding in only when
 `@-` is the tip, and an empty `@` never refused.
+
+* The argument meant the trunk, and the tip was always `@-`.
+  - It names the tip now, resolved to one commit, and the trunk is `--land`'s bookmark, else the
+    new key `[cycle] trunk`, else `main`, read where it is now, so a moved trunk is still joined.
+  - The commits between decide the shape, one finalized in place and more merged, so the bare form
+    and the old "only the opening above REV" refusal go, and `--dead-end` with no REV goes with
+    them, since the argument is now always there.
+* The closing was made from `@`, so only `@-` could be a tip.
+  - A tip that is not `@-` is closed by a detour: `@` moves onto it, the closing is made as for
+    `@-`, and `@` returns, to the same commit when it held work and to a fresh empty one on its
+    parent when it did not, both by change id, since a finalize rewrites the tip and gives the
+    commits above it new commit ids. The move is undone with the rest on a failure.
+  - The closing reads the config and the record from the tip's tree, since its working copy is the
+    tip's, so a config edit sitting in the user's `@` is not seen. We think that is right, the
+    closing carrying what the cycle carried.
+  - Commits above a tip that is not `@-` stay as they are, their line unclosed.
+* An empty `@` was refused at a closing merge with no `[record]`, though the merge is its content.
+  - A closing is never refused for an empty `@`.
+* Land reads the branch up to the tip rather than `@-`: the descent check and the bookmark it
+  deletes, still the nearest below the tip, which the next rung replaces with the argument's type.
 
 ##### feat: commit --land deletes by the argument's type
 

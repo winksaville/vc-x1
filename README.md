@@ -1839,11 +1839,12 @@ vc-x1 commit @- -s b --title "feat: a rung" --body @tmp/body.md
 # The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
 vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
 
-# A single-step cycle's closing, its opening finalized in place
-vc-x1 commit -s b --closing
+# The cycle's closing, its tip @-, onto main: one commit above main is finalized in place, more
+# get the closing commit, its title and body from the opening and the config
+vc-x1 commit -s b --closing @-
 
-# A multi-step cycle's closing commit onto main, its title and body from the opening and the config
-vc-x1 commit -s b --closing main
+# The same, the tip named by the cycle's bookmark, onto a configured or named trunk
+vc-x1 commit -s b --closing feat-a-cycle --land dev
 ```
 
 `REV`, the positional, is the commit the description is for: `@` by default, committed as the
@@ -1854,21 +1855,29 @@ remote bookmark reaching it, carry no trailer yet, since a pair's commit is re-d
 line's bookmark advances to the draft, and a draft below `@-` is kept local, since push publishes
 `@-`. Not with `--opening` or `--closing`, whose commits are made from `@`.
 
-`--closing [REV]` closes the cycle, nothing assumed about the branch it is on:
+`--closing <BM|REV>` closes the cycle whose tip the argument names, a bookmark or a revision as jj
+resolves them, a name that is both being the bookmark, onto the trunk, `--land`'s bookmark or
+`[cycle] trunk`, `main` when absent, read where it is now, so a trunk that moved during the cycle
+is joined by the merge rather than needing a rebase. The commits between decide the shape:
 
-- Bare: a single-step cycle, which has no parent to name. `@-`, its opening, is finalized in place
-  with no new commit: `@` is folded into it and it takes the bare cycle title, its body and trailer
-  kept, so its change id and its partner stand, and the agent `@` is left for `push`. The line's
-  bookmark follows the rewrite. A rung at `@-` is refused, unless `--title` is given.
-- With `REV`, any one commit, a bookmark, a change id, a commit id, or an `@` form: a multi-step
-  cycle's closing commit, `REV` and the last rung merged into `@`, as `merge --target @ --from REV
-  --from @-` does, then committed, which keeps those parents. A bookmark is read where it is now,
-  so one that moved during the cycle is joined by the merge rather than needing a rebase. The
-  opening alone above `REV` is refused, pointing at the bare form, unless `--dead-end`.
+- One, the opening: a single-step cycle, finalized in place with no new commit. `@` is folded into
+  it when it sits on it, and it takes the bare cycle title, its body and trailer kept, so its
+  change id and its partner stand, and the agent `@` is left for `push`. The line's bookmark
+  follows the rewrite. A commit that is not an opening is refused, unless `--title` is given.
+- More: the closing commit, the trunk and the tip merged into `@`, as `merge --target @ --from
+  <trunk> --from <tip>` does, then committed, which keeps those parents, carrying the record move
+  and what `@` holds. `--dead-end` always makes it, a one-commit branch included.
+- None: refused, the tip being in the trunk's ancestry.
+
+A tip that is not `@-`, any commit on any line, is closed by a detour: `@` moves onto it first, so
+the closing is made from the tip's working copy, and returns after, to the same commit when it
+held work and to a fresh empty one on its parent when it did not. The commits above such a tip
+stay as they are, their line unclosed, and two heads close one at a time, each landed before the
+next, since the second's first parent is the trunk as it then stands.
 
 `--title` and `--body` are optional with `--closing`. The cycle title is read from the opening, its
 " opening" removed, and " closing" is appended for a closing commit, " dead-end closing" with
-`--dead-end`, which needs a `REV`. A given `--title` is the bare cycle title. The closing commit's
+`--dead-end`. A given `--title` is the bare cycle title. The closing commit's
 body defaults to `[closing] body` in `.vc-config.md`, its `{title}` the cycle title, and a
 finalized commit keeps the opening's. Without `--closing` a title ending " closing" is warned
 about, since it may be a closing not asked for.
@@ -1883,17 +1892,17 @@ missing heading, is refused with both files as they were.
 `--land [TRUNK]` lands the cycle in the same invocation: the closing is made, the trunk is
 fast-forwarded to it and pushed with the agent half as its partner, and the cycle's bookmark is
 deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
-`--land`'s value, or the closing's `REV` when that is a bookmark, so a ladder lands with `commit
---closing main --land` and a single-step cycle with `commit --closing --land main`. The closing's own
-push to the cycle's bookmark is skipped, the bookmark being deleted. Every check runs first, so a
+`--land`'s value, else `[cycle] trunk`, else `main`, the closing's first parent either way, so a
+cycle lands with `commit --closing @- --land`. The closing's own push to the cycle's bookmark is
+skipped, the bookmark being deleted. Every check runs first, so a
 refusal leaves everything as it was: the trunk must be a local bookmark at its `origin` position,
 since a trunk that moved stops a Land, the closing must merge onto it, and the branch must descend
 from it, so the tree landed is the one reviewed. A conflicted closing is made but not landed. The
 install stays `vc-x1 install`, after.
 
 ```bash
-vc-x1 commit -s b --closing --land main      # a single-step cycle, finalized and landed on main
-vc-x1 commit -s b --closing main --land      # a ladder's closing commit, landed on main
+vc-x1 commit -s b --closing @- --land        # the cycle at @-, finalized or merged, landed on main
+vc-x1 commit -s b --closing @- --land dev    # the same, landed on dev, which is also the merge's base
 ```
 
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
