@@ -149,6 +149,17 @@ repo's lines and then "1 repo is up to date, nothing to sync", the agent repo un
 and reproduced at the opening sync of **feat: vc-x1 commit takes a revision**. Whether the agent
 repo was checked and only its line dropped, or was skipped, is the first thing to find.
 
+### commit's dry run reports the push as the advance leaves it
+
+(agent, 2026-10-25) `commit --dry-run` plans the bookmark advance, then runs push's dry run, which
+reads the bookmark where it is, since the dry run moved nothing, so a commit that advances a
+bookmark reports publishing it at its old commit. Found at the acceptance check of **feat: vc-x1
+commit takes a revision**, where the fixture's cycle bookmark was reported at the opening rather
+than the draft.
+
+- Push's dry run takes the target the advance would leave, or commit's dry run says the push
+  without asking push.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,

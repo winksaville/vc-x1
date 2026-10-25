@@ -114,7 +114,7 @@ rule.
 - [feat: commit --bookmark takes any bookmark below REV][2] (done)
 - [feat: commit --closing takes a bookmark or a revision][3] (done)
 - [feat: commit --land deletes by the argument's type][4] (done)
-- [test: the fixture lands by three lines][5]
+- [test: the fixture lands by three lines][5] (done)
 - [docs: the v0.3.1 proposal names commit's new surface][6]
 - [feat: vc-x1 commit takes a revision closing][7]
 
@@ -218,6 +218,20 @@ merged.
 
 The acceptance check run: the fixture's rung described, its cycle closed and landed, and the
 second bookmark deleted, by the three lines and nothing typed in `jj`.
+
+* The live fixture's remotes are on GitHub, and its second line lands its `main`, which the waiver
+  of the reviews and pushes leaves out, "not to land on main", so the live run waits for wink.
+  - The fixture's shape is replayed in a test with local remotes: an opening on the cycle's
+    bookmark, a draft made by hand above it under a second, never-pushed bookmark, and an empty
+    `@`. The three lines run as the acceptance check writes them, the revision form of the second
+    refused naming both bookmarks and rerun with the cycle's, and the end state is asserted: `main`
+    at the closing in both repos and on origin, the draft described with a trailer whose partner
+    names it back, and `main` the only bookmark left.
+  - The live fixture's first line was run with `--dry-run`, which writes nothing: the describe, the
+    pair's trailers, and the advance past the user's bookmark were planned as in the test.
+* The dry run's push line reports the bookmark where it is, at the opening, since a dry run moves
+  nothing, where the real run advances it first: a report that disagrees with the run, filed as the
+  Todo **commit's dry run reports the push as the advance leaves it**.
 
 ##### docs: the v0.3.1 proposal names commit's new surface
 

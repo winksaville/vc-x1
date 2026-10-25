@@ -3271,6 +3271,97 @@ mod tests {
         );
     }
 
+    /// The live fixture `tmp/t-85-8.1-2ecac` replayed with local
+    /// remotes, the acceptance check of **feat: vc-x1 commit takes a
+    /// revision**: a cycle's opening on its bookmark, a draft made by
+    /// hand above it under a second bookmark, never pushed, and an
+    /// empty `@`, landed by three lines with no `jj` typed:
+    ///
+    /// 1. `commit @- -s b --title --body --bookmark <cycle's>`, the
+    ///    draft described and paired, the cycle's bookmark moved past
+    ///    the user's onto it, and pushed.
+    /// 2. `commit -s b --closing @- --land`, refused naming both
+    ///    bookmarks, then `--closing <cycle's> --land`, the closing
+    ///    merged, landed, and the cycle's bookmark deleted.
+    /// 3. `delete-bookmark -s w --bookmark <user's> --skip remote`.
+    #[test]
+    fn the_fixture_lands_by_three_lines() {
+        let fx = Fixture::new("commit-acceptance");
+        let base = commit_id(&fx.work, "main");
+        open_cycle(&fx);
+        fs::write(fx.work.join("opening.txt"), "opening\nline 2\n").expect("write");
+        jj_ok(&fx.work, &["new"]);
+        jj_ok(&fx.work, &["bookmark", "create", "line-2", "-r", "@-"]);
+        let draft = chid(&fx.work, "@-");
+        assert!(jj::is_empty(&fx.work, "@").expect("empty"), "@ is empty");
+
+        // Line 1.
+        let mut a = args("b", &fx.work);
+        a.rev = Some("@-".to_string());
+        a.title = Some("feat: add line-2".to_string());
+        a.body = Some("Added line 2 to opening.txt".to_string());
+        a.bookmark = Some("feat-a-cycle".to_string());
+        a.no_push = false;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("line 1");
+        assert_eq!(chid(&fx.work, "@-"), draft, "described in place");
+        let desc = description(&fx.work, "@-");
+        assert!(desc.starts_with("feat: add line-2\n"), "{desc}");
+        let agent = chid(&fx.bot, "@-");
+        assert!(desc.contains(&format!("ochid: /.claude/{agent}")), "{desc}");
+        assert!(description(&fx.bot, "@-").contains(&format!("ochid: /{draft}")));
+        assert_eq!(
+            chid(&fx.work, "feat-a-cycle"),
+            draft,
+            "moved past the user's"
+        );
+        assert_eq!(chid(&fx.work, "feat-a-cycle@origin"), draft, "and pushed");
+        assert!(!on_origin(&fx.work, "line-2"), "the user's stays local");
+
+        // Line 2, first as a revision, which names two bookmarks.
+        let mut a = closing_args(&fx, "b", "@-");
+        a.body = Some("Closing.".to_string());
+        a.land = Some(Some("main".to_string()));
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params)
+            .expect_err("two bookmarks")
+            .to_string();
+        assert!(
+            err.contains("feat-a-cycle") && err.contains("line-2"),
+            "{err}"
+        );
+        a.closing = Some("feat-a-cycle".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("line 2");
+        assert_eq!(
+            parents(&fx.work, "main"),
+            [base, commit_id(&fx.work, &draft)]
+        );
+        assert_eq!(
+            commit_id(&fx.work, "main@origin"),
+            commit_id(&fx.work, "main")
+        );
+        assert_eq!(chid(&fx.bot, "main@origin"), chid(&fx.bot, "main"));
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
+
+        // Line 3.
+        crate::delete_bookmark::delete_bookmark(
+            &mut test_ctx(),
+            &fx.work,
+            "line-2",
+            Some(crate::delete_bookmark::Keep::Remote),
+            false,
+        )
+        .expect("line 3");
+        assert!(!jj::local_bookmark_exists(&fx.work, "line-2").expect("local"));
+        assert_eq!(
+            jj::local_bookmarks_at(&fx.work, "all()").expect("bookmarks"),
+            ["main"],
+            "main alone is left"
+        );
+    }
+
     /// Every refusal of `--land` comes before anything is made: a trunk
     /// whose local is not at origin's, and a branch that does not
     /// descend from it, the trunk the default `main` throughout.
